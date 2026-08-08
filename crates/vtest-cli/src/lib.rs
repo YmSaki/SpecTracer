@@ -123,6 +123,9 @@ pub enum AuditCommand {
     Static {
         #[arg(long)]
         test: Option<String>,
+        /// Audit every registered test. This is also the legacy default when no selector is given.
+        #[arg(long)]
+        all: bool,
     },
     Bundle {
         #[arg(long)]
@@ -603,7 +606,7 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
 
 fn run_audit(project: &Path, command: AuditCommand, format: OutputFormat, quiet: bool) -> ExitCode {
     match command {
-        AuditCommand::Static { test } => run_audit_static(project, test, format, quiet),
+        AuditCommand::Static { test, all } => run_audit_static(project, test, all, format, quiet),
         AuditCommand::Bundle {
             kind,
             test,
@@ -627,6 +630,7 @@ fn run_audit(project: &Path, command: AuditCommand, format: OutputFormat, quiet:
 fn run_audit_static(
     project: &Path,
     test: Option<String>,
+    all: bool,
     format: OutputFormat,
     quiet: bool,
 ) -> ExitCode {
@@ -635,6 +639,21 @@ fn run_audit_static(
         Err(code) => return code,
     };
     let layout = VerifyLayout::new(&root);
+    if test.is_some() && all {
+        emit(
+            format,
+            quiet,
+            JsonEnvelope::new(
+                false,
+                serde_json::Value::Null,
+                vec![Diagnostic::error(
+                    "E-OP-001",
+                    "audit static accepts either --test or --all, not both",
+                )],
+            ),
+        );
+        return ExitCode::Usage;
+    }
     let scan = match scan_project(&root) {
         Ok(scan) => scan,
         Err(error) => {
@@ -683,13 +702,20 @@ fn run_audit_static(
             .audits
             .iter()
             .any(|audit| audit.verdict != AuditVerdict::Pass);
+    let diagnostics = merge_diagnostics(
+        scan.diagnostics,
+        summary
+            .audits
+            .iter()
+            .flat_map(|audit| audit.diagnostics.iter().cloned()),
+    );
     emit(
         format,
         quiet,
         JsonEnvelope::new(
             !has_non_pass,
             serde_json::to_value(&summary).expect("audit summary"),
-            scan.diagnostics,
+            diagnostics,
         ),
     );
     if has_non_pass {
@@ -697,6 +723,51 @@ fn run_audit_static(
     } else {
         ExitCode::Ok
     }
+}
+
+fn merge_diagnostics(
+    scan_diagnostics: Vec<Diagnostic>,
+    audit_diagnostics: impl IntoIterator<Item = Diagnostic>,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = scan_diagnostics;
+    diagnostics.extend(audit_diagnostics);
+    diagnostics.sort_by(|left, right| {
+        let left_location = left.location.as_deref();
+        let right_location = right.location.as_deref();
+        let left_severity = match left.severity {
+            vtest_model::DiagnosticSeverity::Error => 0,
+            vtest_model::DiagnosticSeverity::Warning => 1,
+        };
+        let right_severity = match right.severity {
+            vtest_model::DiagnosticSeverity::Error => 0,
+            vtest_model::DiagnosticSeverity::Warning => 1,
+        };
+        (
+            left_severity,
+            &left.code,
+            &left.message,
+            &left.candidates,
+            left_location.map(|location| location.file.as_str()),
+            left_location.map(|location| location.function.as_str()),
+            left_location.map_or(0, |location| location.start_line),
+            left_location.map_or(0, |location| location.end_line),
+            left_location.map_or(0, |location| location.start_byte),
+            left_location.map_or(0, |location| location.end_byte),
+        )
+            .cmp(&(
+                right_severity,
+                &right.code,
+                &right.message,
+                &right.candidates,
+                right_location.map(|location| location.file.as_str()),
+                right_location.map(|location| location.function.as_str()),
+                right_location.map_or(0, |location| location.start_line),
+                right_location.map_or(0, |location| location.end_line),
+                right_location.map_or(0, |location| location.start_byte),
+                right_location.map_or(0, |location| location.end_byte),
+            ))
+    });
+    diagnostics
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3914,6 +3985,44 @@ mod tests {
         assert_eq!(
             enum_error.candidates,
             vec!["CalcError::Overflow", "CalcError::Underflow"]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn audit_diagnostics_are_merged_in_deterministic_order() {
+        let diagnostics = merge_diagnostics(
+            vec![Diagnostic::warning("W-SCAN-101", "scanner warning")],
+            vec![
+                Diagnostic::warning("W-DA-101", "audit warning"),
+                Diagnostic::error("E-DA-001", "audit error"),
+            ],
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.code.as_str())
+                .collect::<Vec<_>>(),
+            vec!["E-DA-001", "W-DA-101", "W-SCAN-101"]
+        );
+    }
+
+    #[test]
+    fn static_audit_rejects_combined_test_and_all_selectors() {
+        let root = root();
+        assert_eq!(
+            run(Cli {
+                project: root.clone(),
+                format: OutputFormat::Json,
+                quiet: true,
+                command: Command::Audit {
+                    command: AuditCommand::Static {
+                        test: Some("TEST-EXAMPLE-001".to_owned()),
+                        all: true,
+                    },
+                },
+            }) as u8,
+            ExitCode::Usage as u8
         );
         fs::remove_dir_all(root).unwrap();
     }

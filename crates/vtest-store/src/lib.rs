@@ -157,9 +157,7 @@ impl ProjectConfig {
         }
     }
 
-    /// Serialize the stable subset needed by `vtest init` without depending
-    /// on a YAML parser.  The full YAML parser is introduced with M2 record
-    /// management; this output is valid YAML and intentionally deterministic.
+    /// Serialize the project configuration in a deterministic YAML subset.
     pub fn to_yaml(&self) -> String {
         let mut out = format!(
             "version: {}\nproject:\n  name: {}\nscan:\n  include:\n",
@@ -169,7 +167,15 @@ impl ProjectConfig {
         for include in &self.scan.include {
             out.push_str(&format!("    - {}\n", yaml_scalar(include)));
         }
-        out.push_str("  assertion_macros: []\nverify:\n  full_scope:\n");
+        if self.scan.assertion_macros.is_empty() {
+            out.push_str("  assertion_macros: []\n");
+        } else {
+            out.push_str("  assertion_macros:\n");
+            for macro_name in &self.scan.assertion_macros {
+                out.push_str(&format!("    - {}\n", yaml_scalar(macro_name)));
+            }
+        }
+        out.push_str("verify:\n  full_scope:\n");
         for item in &self.verify.full_scope {
             out.push_str(&format!("    - {}\n", yaml_scalar(item)));
         }
@@ -180,12 +186,15 @@ impl ProjectConfig {
         out
     }
 
-    /// Read only the fields needed by M1. Unknown or absent fields fall back
-    /// to the documented defaults; malformed scalar values are rejected.
+    /// Read the documented configuration subset. Unknown fields fall back to
+    /// the documented defaults; malformed values in supported fields fail
+    /// closed rather than silently changing scan behaviour.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let mut config = Self::default_for(project_name);
         let mut section = "";
+        let mut list_field = None;
         let mut saw_include = false;
+        let mut saw_assertion_macros = false;
         let mut saw_full_scope = false;
         for raw in text.lines() {
             let line = raw.trim_end();
@@ -194,28 +203,36 @@ impl ProjectConfig {
             }
             if !line.starts_with(' ') && line.ends_with(':') {
                 section = line.trim_end_matches(':');
+                list_field = None;
                 continue;
             }
             let trimmed = line.trim();
             if trimmed.starts_with('-') {
                 let value = trimmed.trim_start_matches('-').trim();
                 let value = unquote_yaml_scalar(value)?;
-                match section {
-                    "scan" => {
+                match list_field {
+                    Some(ConfigList::ScanInclude) => {
                         if !saw_include {
                             config.scan.include.clear();
                             saw_include = true;
                         }
                         config.scan.include.push(value);
                     }
-                    "verify" => {
+                    Some(ConfigList::AssertionMacros) => {
+                        if !saw_assertion_macros {
+                            config.scan.assertion_macros.clear();
+                            saw_assertion_macros = true;
+                        }
+                        config.scan.assertion_macros.push(value);
+                    }
+                    Some(ConfigList::VerifyFullScope) => {
                         if !saw_full_scope {
                             config.verify.full_scope.clear();
                             saw_full_scope = true;
                         }
                         config.verify.full_scope.push(value);
                     }
-                    _ => {}
+                    None => {}
                 }
                 continue;
             }
@@ -223,11 +240,32 @@ impl ProjectConfig {
                 return Err(StoreError::InvalidConfig(line.to_owned()));
             };
             let value = value.trim();
+            list_field = None;
             match (section, key.trim()) {
                 ("project", "name") => config.project.name = unquote_yaml_scalar(value)?,
                 ("run", "coverage") => config.run.coverage = unquote_yaml_scalar(value)?,
-                ("scan", "include") | ("verify", "full_scope") => {}
-                ("scan", "assertion_macros") if value == "[]" => {}
+                ("scan", "include") => {
+                    parse_list_value(value, &mut config.scan.include, &mut saw_include)?;
+                    if value.is_empty() {
+                        list_field = Some(ConfigList::ScanInclude);
+                    }
+                }
+                ("scan", "assertion_macros") => {
+                    parse_list_value(
+                        value,
+                        &mut config.scan.assertion_macros,
+                        &mut saw_assertion_macros,
+                    )?;
+                    if value.is_empty() {
+                        list_field = Some(ConfigList::AssertionMacros);
+                    }
+                }
+                ("verify", "full_scope") => {
+                    parse_list_value(value, &mut config.verify.full_scope, &mut saw_full_scope)?;
+                    if value.is_empty() {
+                        list_field = Some(ConfigList::VerifyFullScope);
+                    }
+                }
                 ("", "version") => {
                     config.version = value
                         .parse()
@@ -239,7 +277,15 @@ impl ProjectConfig {
         // `default_for` already has defaults.  Avoid duplicating them when
         // parsing the generated file itself.
         config.scan.include.dedup();
+        config.scan.assertion_macros.dedup();
         config.verify.full_scope.dedup();
+        for macro_name in &config.scan.assertion_macros {
+            if !is_rust_macro_path(macro_name) {
+                return Err(StoreError::InvalidConfig(format!(
+                    "scan.assertion_macros contains invalid Rust macro path `{macro_name}`"
+                )));
+            }
+        }
         if !matches!(config.run.coverage.as_str(), "llvm-cov" | "off") {
             return Err(StoreError::InvalidConfig(format!(
                 "run.coverage must be `llvm-cov` or `off`, got `{}`",
@@ -248,6 +294,96 @@ impl ProjectConfig {
         }
         Ok(config)
     }
+}
+
+#[derive(Clone, Copy)]
+enum ConfigList {
+    ScanInclude,
+    AssertionMacros,
+    VerifyFullScope,
+}
+
+fn parse_list_value(
+    value: &str,
+    target: &mut Vec<String>,
+    saw_list: &mut bool,
+) -> Result<(), StoreError> {
+    if !*saw_list {
+        target.clear();
+        *saw_list = true;
+    }
+    if value.is_empty() || value == "[]" {
+        return Ok(());
+    }
+    if !value.starts_with('[') || !value.ends_with(']') {
+        return Err(StoreError::InvalidConfig(format!(
+            "list value must be a block list or bracketed list, got `{value}`"
+        )));
+    }
+    target.extend(parse_inline_list(value)?);
+    Ok(())
+}
+
+fn parse_inline_list(value: &str) -> Result<Vec<String>, StoreError> {
+    let Some(body) = value
+        .strip_prefix('[')
+        .and_then(|body| body.strip_suffix(']'))
+    else {
+        return Err(StoreError::InvalidConfig(format!(
+            "invalid bracketed YAML list `{value}`"
+        )));
+    };
+    if body.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut values = Vec::new();
+    let mut current = String::new();
+    let mut quote = None;
+    let mut chars = body.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match quote {
+            Some(delimiter) => {
+                current.push(ch);
+                if ch == delimiter {
+                    if delimiter == '\'' && chars.peek() == Some(&'\'') {
+                        current.push(chars.next().expect("peeked quote must exist"));
+                    } else {
+                        quote = None;
+                    }
+                }
+            }
+            None => match ch {
+                '\'' | '"' => {
+                    quote = Some(ch);
+                    current.push(ch);
+                }
+                ',' => {
+                    values.push(unquote_yaml_scalar(current.trim())?);
+                    current.clear();
+                }
+                _ => current.push(ch),
+            },
+        }
+    }
+    if quote.is_some() {
+        return Err(StoreError::InvalidConfig(format!(
+            "unterminated quoted YAML list value `{value}`"
+        )));
+    }
+    values.push(unquote_yaml_scalar(current.trim())?);
+    Ok(values)
+}
+
+fn is_rust_macro_path(value: &str) -> bool {
+    !value.is_empty() && value.split("::").all(is_rust_identifier)
+}
+
+fn is_rust_identifier(segment: &str) -> bool {
+    let identifier = segment.strip_prefix("r#").unwrap_or(segment);
+    let mut chars = identifier.chars();
+    matches!(chars.next(), Some(ch) if ch == '_' || ch.is_ascii_alphabetic())
+        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
 fn yaml_scalar(value: &str) -> String {
@@ -262,12 +398,24 @@ fn yaml_scalar(value: &str) -> String {
 }
 
 fn unquote_yaml_scalar(value: &str) -> Result<String, StoreError> {
-    if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
-        Ok(value[1..value.len() - 1].replace("''", "'"))
-    } else if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
-        Ok(value[1..value.len() - 1].to_owned())
-    } else if value.is_empty() {
+    if value.is_empty() {
         Err(StoreError::InvalidConfig("empty YAML scalar".to_owned()))
+    } else if value.starts_with('\'') || value.ends_with('\'') {
+        if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
+            Ok(value[1..value.len() - 1].replace("''", "'"))
+        } else {
+            Err(StoreError::InvalidConfig(format!(
+                "unterminated single-quoted YAML scalar `{value}`"
+            )))
+        }
+    } else if value.starts_with('"') || value.ends_with('"') {
+        if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
+            Ok(value[1..value.len() - 1].to_owned())
+        } else {
+            Err(StoreError::InvalidConfig(format!(
+                "unterminated double-quoted YAML scalar `{value}`"
+            )))
+        }
     } else {
         Ok(value.to_owned())
     }
@@ -410,6 +558,45 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parsed.scan.include, vec!["examples"]);
+    }
+
+    #[test]
+    fn assertion_macro_block_list_round_trips_without_becoming_scan_includes() {
+        let mut expected = ProjectConfig::default_for("calc");
+        expected.scan.include = vec!["tests".to_owned()];
+        expected.scan.assertion_macros = vec![
+            "assert_valid".to_owned(),
+            "crate::checks::assert_result".to_owned(),
+        ];
+
+        let yaml = expected.to_yaml();
+        assert!(yaml.contains("  assertion_macros:\n    - assert_valid\n"));
+        let parsed = ProjectConfig::from_yaml(&yaml, "fallback").unwrap();
+
+        assert_eq!(parsed, expected);
+        assert_eq!(parsed.scan.include, vec!["tests"]);
+    }
+
+    #[test]
+    fn scan_lists_accept_documented_bracketed_and_empty_forms() {
+        let parsed = ProjectConfig::from_yaml(
+            "scan:\n  include: [\"examples,with-comma\", tests]\n  assertion_macros: []\n",
+            "fallback",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.scan.include, vec!["examples,with-comma", "tests"]);
+        assert!(parsed.scan.assertion_macros.is_empty());
+    }
+
+    #[test]
+    fn invalid_assertion_macro_path_is_rejected() {
+        let error = ProjectConfig::from_yaml(
+            "scan:\n  assertion_macros:\n    - assert-valid\n",
+            "fallback",
+        )
+        .expect_err("macro names must be Rust identifiers or Rust paths");
+        assert!(error.to_string().contains("assertion_macros"));
     }
 
     #[test]

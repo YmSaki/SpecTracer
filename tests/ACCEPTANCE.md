@@ -17,9 +17,9 @@ alone is not promoted to acceptance evidence.
 | M2 | VO add → approve → edit invalidates approval and derives draft | `m2_vo_edit_invalidates_approval_and_returns_to_effective_draft` | PASS |
 | M2 | `vo expand --dry-run` returns the `full-product` Cartesian children | `m2_full_product_expand_dry_run_lists_cartesian_children_without_writes` | PASS |
 | M2 | Editing a registered SPEC document emits W-SCAN-104 | `m2_mutating_registered_spec_document_reports_w_scan_104` | PASS |
-| M3 | Each intentional NG test maps to DA-001..006 / W-DA-101 | add `m3_acceptance` over calc variants | NOT_CHECKED |
-| M3 | The normal test has no deterministic violation | add normal calc audit assertion | NOT_CHECKED |
-| M3 | A cross-file call is UNKNOWN, never a certain DA-002 FAIL | add conservative-analysis fixture | NOT_CHECKED |
+| M3 | Each intentional NG test maps to DA-001..006 / W-DA-101 | `m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests` | PASS |
+| M3 | The normal test has no deterministic violation | normal and configured-macro cases in `m3_acceptance` | PASS |
+| M3 | A cross-file call is UNKNOWN, never a certain DA-002 FAIL | cross-file, helper-boundary, homonym, import-alias, and local-shadow regressions | PASS |
 | M4 | Every registered Test execution writes one Evidence record | add `vtest run --fast` fixture flow | NOT_CHECKED |
 | M4 | A changed target makes `evidence_validity` STALE | add before/after content-hash flow | NOT_CHECKED |
 | M4 | Build failure emits E-EXEC-001 and writes no Evidence | add broken-build fixture | NOT_CHECKED |
@@ -62,3 +62,13 @@ explicit combinations, tree listing, and `vo show` coverage/approval output in
   change invalidates approval. M2 follows the higher-precedence VO-hash formula
   and reports SPEC drift with W-SCAN-104; dependency-bound approval needs a
   specification/schema decision before implementation.
+
+M3 persists one typed, append-only static AuditRecord per Test. A current record
+must contain exactly one Test ID, all DA-001..006 results, the raw config hash,
+the Test-code locator/hash, and the exact declared target locator/hash. Missing,
+malformed, ambiguous, or stale inputs cannot produce PASS. The real-process M3
+matrix also covers `--all`, deterministic diagnostics, configured macros,
+source IDs, one-hop helpers, and canonical record round-tripping. Repository
+dogfooding registered `TEST-DOGFOOD-M3-TARGET-RULES`; its six rules and scoped
+`static_audit` verification pass, while five earlier immutable trial records
+are reported as stale and ignored.

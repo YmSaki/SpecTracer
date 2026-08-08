@@ -8,6 +8,7 @@
 use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -92,6 +93,62 @@ pub struct ApprovalRecord {
     pub approver: Approver,
     pub basis: Vec<ApprovalBasis>,
     pub approved_at: String,
+}
+
+/// One content-addressed subject captured by an append-only audit fact.
+/// Exactly one of `id` and `locator` identifies the subject.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditSubjectRecord {
+    pub id: Option<String>,
+    pub locator: Option<String>,
+    pub hash: ContentHash,
+}
+
+/// A concrete source consulted to support an audit claim.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditBasisRecord {
+    pub kind: String,
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+/// An explained audit conclusion. Static audits may attach a rule and a
+/// per-rule verdict; semantic audits normally leave both fields absent.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditReasonRecord {
+    pub rule: Option<String>,
+    pub verdict: Option<String>,
+    pub claim: String,
+    pub basis: Vec<AuditBasisRecord>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditExclusionRecord {
+    pub item: String,
+    pub basis: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditorRecord {
+    pub kind: String,
+    pub id: String,
+    pub model: Option<String>,
+}
+
+/// Canonical, append-only audit result stored in `.verify/audits/<ULID>.yaml`.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditRecord {
+    pub id: String,
+    pub kind: String,
+    pub bundle_id: Option<String>,
+    pub subjects: Vec<AuditSubjectRecord>,
+    pub verdict: String,
+    pub reasons: Vec<AuditReasonRecord>,
+    pub exclusions: Vec<AuditExclusionRecord>,
+    pub auditor: AuditorRecord,
+    pub confidence: Option<String>,
+    pub audited_at: String,
+    pub revision: Revision,
 }
 
 /// The only non-derived relationship kinds persisted in `.verify/rel/`.
@@ -379,6 +436,319 @@ impl ApprovalRecord {
     }
 }
 
+impl AuditRecord {
+    pub fn to_yaml(&self) -> Result<String, StoreError> {
+        self.validate(None)?;
+        let mut out = format!(
+            "id: {}\nkind: {}\nbundle_id: {}\nsubjects:\n",
+            yaml_scalar(&self.id),
+            yaml_scalar(&self.kind),
+            self.bundle_id
+                .as_deref()
+                .map(yaml_scalar)
+                .unwrap_or_else(|| "null".to_owned()),
+        );
+        for subject in &self.subjects {
+            let identifier = match (&subject.id, &subject.locator) {
+                (Some(id), None) => format!("id: {}", yaml_scalar(id)),
+                (None, Some(locator)) => format!("locator: {}", yaml_scalar(locator)),
+                _ => unreachable!("AuditRecord::validate accepted an invalid subject"),
+            };
+            out.push_str(&format!(
+                "  - {identifier}\n    hash: {}\n",
+                yaml_scalar(subject.hash.as_str())
+            ));
+        }
+        out.push_str(&format!(
+            "verdict: {}\nreasons:\n",
+            yaml_scalar(&self.verdict)
+        ));
+        for reason in &self.reasons {
+            if let Some(rule) = &reason.rule {
+                out.push_str(&format!("  - rule: {}\n", yaml_scalar(rule)));
+                if let Some(verdict) = &reason.verdict {
+                    out.push_str(&format!("    verdict: {}\n", yaml_scalar(verdict)));
+                }
+            } else {
+                out.push_str("  - claim: ");
+                out.push_str(&yaml_scalar(&reason.claim));
+                out.push('\n');
+            }
+            if reason.rule.is_some() {
+                out.push_str(&format!("    claim: {}\n", yaml_scalar(&reason.claim)));
+            }
+            out.push_str("    basis:\n");
+            for basis in &reason.basis {
+                out.push_str(&format!(
+                    "      - kind: {}\n        ref: {}\n",
+                    yaml_scalar(&basis.kind),
+                    yaml_scalar(&basis.reference),
+                ));
+            }
+        }
+        if self.exclusions.is_empty() {
+            out.push_str("exclusions: []\n");
+        } else {
+            out.push_str("exclusions:\n");
+            for exclusion in &self.exclusions {
+                out.push_str(&format!(
+                    "  - item: {}\n    basis: {}\n",
+                    yaml_scalar(&exclusion.item),
+                    yaml_scalar(&exclusion.basis),
+                ));
+            }
+        }
+        out.push_str(&format!(
+            "auditor:\n  kind: {}\n  id: {}\n",
+            yaml_scalar(&self.auditor.kind),
+            yaml_scalar(&self.auditor.id),
+        ));
+        if let Some(model) = &self.auditor.model {
+            out.push_str(&format!("  model: {}\n", yaml_scalar(model)));
+        }
+        if let Some(confidence) = &self.confidence {
+            out.push_str(&format!("confidence: {}\n", yaml_scalar(confidence)));
+        }
+        out.push_str(&format!(
+            "audited_at: {}\nrevision: {{ commit: {}, dirty: {} }}\n",
+            yaml_scalar(&self.audited_at),
+            self.revision
+                .commit
+                .as_deref()
+                .map(yaml_scalar)
+                .unwrap_or_else(|| "null".to_owned()),
+            self.revision.dirty,
+        ));
+        Ok(out)
+    }
+
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
+        let fields = audit_top_level_fields(text)?;
+        let field = |key: &str| {
+            fields.get(key).ok_or_else(|| {
+                StoreError::InvalidConfig(format!("audit is missing required field {key}"))
+            })
+        };
+        let id = audit_required_scalar(field("id")?, "id")?;
+        let kind = audit_required_scalar(field("kind")?, "kind")?;
+        let bundle_id = audit_optional_scalar(field("bundle_id")?, "bundle_id")?;
+        let subjects = parse_audit_subjects(field("subjects")?)?;
+        let verdict = audit_required_scalar(field("verdict")?, "verdict")?;
+        let reasons = parse_audit_reasons(field("reasons")?)?;
+        let exclusions = parse_audit_exclusions(field("exclusions")?)?;
+        let auditor = parse_auditor(field("auditor")?)?;
+        let confidence = fields
+            .get("confidence")
+            .map(|value| audit_optional_scalar(value, "confidence"))
+            .transpose()?
+            .flatten();
+        let audited_at = audit_required_scalar(field("audited_at")?, "audited_at")?;
+        let revision = parse_audit_revision(field("revision")?)?;
+        let record = Self {
+            id,
+            kind,
+            bundle_id,
+            subjects,
+            verdict,
+            reasons,
+            exclusions,
+            auditor,
+            confidence,
+            audited_at,
+            revision,
+        };
+        record.validate(Some(filename_id))?;
+        Ok(record)
+    }
+
+    fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
+        if !is_valid_ulid(&self.id) {
+            return Err(StoreError::InvalidConfig(
+                "audit id must be a valid ULID".to_owned(),
+            ));
+        }
+        if let Some(filename_id) = filename_id {
+            if self.id != filename_id {
+                return Err(StoreError::InvalidConfig(format!(
+                    "audit id {} does not match file name {filename_id}",
+                    self.id
+                )));
+            }
+        }
+        if !matches!(
+            self.kind.as_str(),
+            "test-semantic" | "vo-coverage" | "impl-consistency" | "static"
+        ) {
+            return Err(StoreError::InvalidConfig(
+                "audit has an invalid kind".to_owned(),
+            ));
+        }
+        if self.kind == "static" && self.bundle_id.is_some() {
+            return Err(StoreError::InvalidConfig(
+                "static audit bundle_id must be null".to_owned(),
+            ));
+        }
+        if self.subjects.is_empty() {
+            return Err(StoreError::InvalidConfig(
+                "audit must contain at least one subject".to_owned(),
+            ));
+        }
+        let mut subject_keys = BTreeSet::new();
+        for subject in &self.subjects {
+            let id = subject
+                .id
+                .as_deref()
+                .filter(|value| !value.trim().is_empty());
+            let locator = subject
+                .locator
+                .as_deref()
+                .filter(|value| !value.trim().is_empty());
+            if matches!((id, locator), (Some(_), None) | (None, Some(_))) {
+                let key = id
+                    .map(|value| format!("id:{value}"))
+                    .unwrap_or_else(|| format!("locator:{}", locator.unwrap_or_default()));
+                if !subject_keys.insert(key) {
+                    return Err(StoreError::InvalidConfig(
+                        "audit subjects must not contain duplicate identities".to_owned(),
+                    ));
+                }
+                continue;
+            }
+            return Err(StoreError::InvalidConfig(
+                "each audit subject must contain exactly one non-empty id or locator".to_owned(),
+            ));
+        }
+        if self.kind == "static"
+            && self
+                .subjects
+                .iter()
+                .filter(|subject| {
+                    subject
+                        .id
+                        .as_deref()
+                        .is_some_and(|id| id.starts_with("TEST-"))
+                })
+                .count()
+                != 1
+        {
+            return Err(StoreError::InvalidConfig(
+                "static audit must bind exactly one TEST-* subject".to_owned(),
+            ));
+        }
+        if !matches!(self.verdict.as_str(), "PASS" | "FAIL" | "UNKNOWN") {
+            return Err(StoreError::InvalidConfig(
+                "audit verdict must be PASS, FAIL, or UNKNOWN".to_owned(),
+            ));
+        }
+        if self.reasons.is_empty() {
+            return Err(StoreError::InvalidConfig(
+                "audit must contain at least one reason".to_owned(),
+            ));
+        }
+        for reason in &self.reasons {
+            if reason.claim.trim().is_empty() || reason.basis.is_empty() {
+                return Err(StoreError::InvalidConfig(
+                    "each audit reason must contain a non-empty claim and basis".to_owned(),
+                ));
+            }
+            for basis in &reason.basis {
+                if !matches!(
+                    basis.kind.as_str(),
+                    "spec" | "vo" | "req" | "test-code" | "target-code"
+                ) || basis.reference.trim().is_empty()
+                {
+                    return Err(StoreError::InvalidConfig(
+                        "each audit basis must contain an allowed kind and non-empty ref"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        if !matches!(
+            self.auditor.kind.as_str(),
+            "deterministic" | "agent" | "human"
+        ) || self.auditor.id.trim().is_empty()
+        {
+            return Err(StoreError::InvalidConfig(
+                "audit auditor must contain a valid kind and non-empty id".to_owned(),
+            ));
+        }
+        if self.kind == "static" && self.auditor.kind != "deterministic" {
+            return Err(StoreError::InvalidConfig(
+                "static audit auditor kind must be deterministic".to_owned(),
+            ));
+        }
+        if self.auditor.kind == "deterministic"
+            && (self.confidence.is_some() || self.auditor.model.is_some())
+        {
+            return Err(StoreError::InvalidConfig(
+                "deterministic audit model and confidence must be absent".to_owned(),
+            ));
+        }
+        if self.kind == "static" {
+            let mut derived = "PASS";
+            let mut deterministic_rules = BTreeSet::new();
+            let mut warning_seen = false;
+            for reason in &self.reasons {
+                let Some(rule) = reason.rule.as_deref() else {
+                    return Err(StoreError::InvalidConfig(
+                        "static audit reasons require a known rule and rule verdict".to_owned(),
+                    ));
+                };
+                if !matches!(reason.verdict.as_deref(), Some("PASS" | "FAIL" | "UNKNOWN")) {
+                    return Err(StoreError::InvalidConfig(
+                        "static audit reasons require a known rule and rule verdict".to_owned(),
+                    ));
+                }
+                if matches!(
+                    rule,
+                    "DA-001" | "DA-002" | "DA-003" | "DA-004" | "DA-005" | "DA-006"
+                ) {
+                    if !deterministic_rules.insert(rule) {
+                        return Err(StoreError::InvalidConfig(
+                            "static audit must contain each DA-001 through DA-006 rule exactly once"
+                                .to_owned(),
+                        ));
+                    }
+                } else if rule == "W-DA-101" {
+                    if warning_seen {
+                        return Err(StoreError::InvalidConfig(
+                            "static audit must not duplicate W-DA-101".to_owned(),
+                        ));
+                    }
+                    warning_seen = true;
+                } else {
+                    return Err(StoreError::InvalidConfig(
+                        "static audit reasons require a known rule and rule verdict".to_owned(),
+                    ));
+                }
+                match reason.verdict.as_deref() {
+                    Some("FAIL") => derived = "FAIL",
+                    Some("UNKNOWN") if derived != "FAIL" => derived = "UNKNOWN",
+                    _ => {}
+                }
+            }
+            if deterministic_rules.len() != 6 {
+                return Err(StoreError::InvalidConfig(
+                    "static audit must contain each DA-001 through DA-006 rule exactly once"
+                        .to_owned(),
+                ));
+            }
+            if self.verdict != derived {
+                return Err(StoreError::InvalidConfig(
+                    "static audit verdict does not match its rule verdicts".to_owned(),
+                ));
+            }
+        }
+        if !is_rfc3339_timestamp(&self.audited_at) {
+            return Err(StoreError::InvalidConfig(
+                "audit audited_at must be an RFC 3339 timestamp".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl RelationRecord {
     pub fn to_yaml(&self) -> Result<String, StoreError> {
         self.validate(None)?;
@@ -538,6 +908,15 @@ pub fn read_approval(path: &Path) -> Result<ApprovalRecord, StoreError> {
         .and_then(|value| value.to_str())
         .unwrap_or_default();
     ApprovalRecord::from_yaml(&text, fallback)
+}
+
+pub fn read_audit(path: &Path) -> Result<AuditRecord, StoreError> {
+    let text = read_text(path)?;
+    let fallback = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    AuditRecord::from_yaml(&text, fallback)
 }
 
 pub fn read_text(path: &Path) -> Result<String, StoreError> {
@@ -720,6 +1099,95 @@ pub fn now_rfc3339() -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
 }
 
+fn is_rfc3339_timestamp(value: &str) -> bool {
+    let Some((date, time_and_zone)) = value.split_once('T') else {
+        return false;
+    };
+    let date_parts = date.split('-').collect::<Vec<_>>();
+    if date_parts.len() != 3
+        || date_parts[0].len() != 4
+        || date_parts[1].len() != 2
+        || date_parts[2].len() != 2
+        || !date_parts
+            .iter()
+            .all(|part| part.chars().all(|ch| ch.is_ascii_digit()))
+    {
+        return false;
+    }
+    let year = date_parts[0].parse::<u32>().ok();
+    let month = date_parts[1].parse::<u32>().ok();
+    let day = date_parts[2].parse::<u32>().ok();
+    let (Some(year), Some(month), Some(day)) = (year, month, day) else {
+        return false;
+    };
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    if day == 0 || day > max_day {
+        return false;
+    }
+
+    let (time, zone) = if let Some(time) = time_and_zone.strip_suffix('Z') {
+        (time, "Z")
+    } else {
+        let Some(index) = time_and_zone
+            .char_indices()
+            .skip(1)
+            .find_map(|(index, ch)| matches!(ch, '+' | '-').then_some(index))
+        else {
+            return false;
+        };
+        (&time_and_zone[..index], &time_and_zone[index..])
+    };
+    if zone != "Z" {
+        let bytes = zone.as_bytes();
+        if bytes.len() != 6
+            || !matches!(bytes[0], b'+' | b'-')
+            || bytes[3] != b':'
+            || !bytes[1..3].iter().all(u8::is_ascii_digit)
+            || !bytes[4..6].iter().all(u8::is_ascii_digit)
+        {
+            return false;
+        }
+        let offset_hour = zone[1..3].parse::<u32>().ok();
+        let offset_minute = zone[4..6].parse::<u32>().ok();
+        if offset_hour.is_none_or(|hour| hour > 23)
+            || offset_minute.is_none_or(|minute| minute > 59)
+        {
+            return false;
+        }
+    }
+
+    let time_parts = time.split(':').collect::<Vec<_>>();
+    if time_parts.len() != 3 || time_parts[0].len() != 2 || time_parts[1].len() != 2 {
+        return false;
+    }
+    let second = time_parts[2].split_once('.');
+    let (second, fraction) = second
+        .map(|(second, fraction)| (second, Some(fraction)))
+        .unwrap_or((time_parts[2], None));
+    if second.len() != 2
+        || !time_parts[0].chars().all(|ch| ch.is_ascii_digit())
+        || !time_parts[1].chars().all(|ch| ch.is_ascii_digit())
+        || !second.chars().all(|ch| ch.is_ascii_digit())
+        || fraction.is_some_and(|fraction| {
+            fraction.is_empty() || !fraction.chars().all(|ch| ch.is_ascii_digit())
+        })
+    {
+        return false;
+    }
+    time_parts[0].parse::<u32>().is_ok_and(|hour| hour <= 23)
+        && time_parts[1]
+            .parse::<u32>()
+            .is_ok_and(|minute| minute <= 59)
+        && second.parse::<u32>().is_ok_and(|second| second <= 60)
+}
+
 fn civil_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -856,6 +1324,423 @@ fn parse_approval_basis(text: &str) -> Result<Vec<ApprovalBasis>, StoreError> {
         index += 2;
     }
     Ok(basis)
+}
+
+#[derive(Clone, Debug)]
+struct AuditYamlField {
+    value: String,
+    children: Vec<String>,
+}
+
+/// Parse the deliberately small YAML subset emitted by `AuditRecord::to_yaml`.
+/// Unlike the older entity readers, audit facts are strict: malformed nesting,
+/// duplicate keys, and unrecognised top-level fields are rejected rather than
+/// being silently accepted as evidence.
+fn audit_top_level_fields(
+    text: &str,
+) -> Result<std::collections::BTreeMap<String, AuditYamlField>, StoreError> {
+    const KEYS: &[&str] = &[
+        "id",
+        "kind",
+        "bundle_id",
+        "subjects",
+        "verdict",
+        "reasons",
+        "exclusions",
+        "auditor",
+        "confidence",
+        "audited_at",
+        "revision",
+    ];
+    let mut fields: std::collections::BTreeMap<String, AuditYamlField> =
+        std::collections::BTreeMap::new();
+    let mut current: Option<String> = None;
+    for (line_number, raw) in text.lines().enumerate() {
+        if raw.trim().is_empty() {
+            continue;
+        }
+        if raw.starts_with([' ', '\t']) {
+            let key = current.as_ref().ok_or_else(|| {
+                StoreError::InvalidConfig(format!(
+                    "audit YAML has an orphan nested field at line {}",
+                    line_number + 1
+                ))
+            })?;
+            if raw.starts_with('\t') {
+                return Err(StoreError::InvalidConfig(format!(
+                    "audit YAML must not use tab indentation at line {}",
+                    line_number + 1
+                )));
+            }
+            fields
+                .get_mut(key)
+                .expect("current audit YAML field must exist")
+                .children
+                .push(raw.to_owned());
+            continue;
+        }
+        let (key, value) = raw.split_once(':').ok_or_else(|| {
+            StoreError::InvalidConfig(format!("invalid audit YAML at line {}", line_number + 1))
+        })?;
+        let key = key.trim();
+        if !KEYS.contains(&key) || fields.contains_key(key) {
+            return Err(StoreError::InvalidConfig(format!(
+                "invalid or duplicate audit YAML field {key}"
+            )));
+        }
+        fields.insert(
+            key.to_owned(),
+            AuditYamlField {
+                value: value.trim().to_owned(),
+                children: Vec::new(),
+            },
+        );
+        current = Some(key.to_owned());
+    }
+    Ok(fields)
+}
+
+fn audit_scalar(value: &str, label: &str) -> Result<Option<String>, StoreError> {
+    let value = value.trim();
+    if value == "null" {
+        return Ok(None);
+    }
+    if value.is_empty() {
+        return Ok(None);
+    }
+    if value.starts_with('\'') != value.ends_with('\'')
+        || value.starts_with('"') != value.ends_with('"')
+    {
+        return Err(StoreError::InvalidConfig(format!(
+            "audit {label} has an unterminated quoted scalar"
+        )));
+    }
+    Ok(Some(unquote(value)))
+}
+
+fn audit_required_scalar(field: &AuditYamlField, label: &str) -> Result<String, StoreError> {
+    if !field.children.is_empty() {
+        return Err(StoreError::InvalidConfig(format!(
+            "audit {label} must be a scalar"
+        )));
+    }
+    audit_scalar(&field.value, label)?
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            StoreError::InvalidConfig(format!("audit is missing required field {label}"))
+        })
+}
+
+fn audit_optional_scalar(
+    field: &AuditYamlField,
+    label: &str,
+) -> Result<Option<String>, StoreError> {
+    if !field.children.is_empty() {
+        return Err(StoreError::InvalidConfig(format!(
+            "audit {label} must be a scalar"
+        )));
+    }
+    audit_scalar(&field.value, label)
+}
+
+fn audit_list_entries(
+    children: &[String],
+    label: &str,
+) -> Result<Vec<std::collections::BTreeMap<String, String>>, StoreError> {
+    let mut entries = Vec::new();
+    let mut current: Option<std::collections::BTreeMap<String, String>> = None;
+    for raw in children {
+        let (content, first) = if let Some(content) = raw.strip_prefix("  - ") {
+            (content, true)
+        } else if let Some(content) = raw.strip_prefix("    ") {
+            (content, false)
+        } else {
+            return Err(StoreError::InvalidConfig(format!(
+                "audit {label} has invalid list indentation"
+            )));
+        };
+        if first {
+            if let Some(entry) = current.take() {
+                entries.push(entry);
+            }
+            current = Some(std::collections::BTreeMap::new());
+        }
+        let entry = current.as_mut().ok_or_else(|| {
+            StoreError::InvalidConfig(format!(
+                "audit {label} has a list continuation without an item"
+            ))
+        })?;
+        let (key, value) = content.split_once(':').ok_or_else(|| {
+            StoreError::InvalidConfig(format!("audit {label} entry is not a mapping"))
+        })?;
+        let value = audit_scalar(value, label)?.ok_or_else(|| {
+            StoreError::InvalidConfig(format!("audit {label} entry has an empty {key}"))
+        })?;
+        if entry.insert(key.trim().to_owned(), value).is_some() {
+            return Err(StoreError::InvalidConfig(format!(
+                "audit {label} entry has duplicate field {}",
+                key.trim()
+            )));
+        }
+    }
+    if let Some(entry) = current {
+        entries.push(entry);
+    }
+    Ok(entries)
+}
+
+fn parse_audit_subjects(field: &AuditYamlField) -> Result<Vec<AuditSubjectRecord>, StoreError> {
+    if field.value == "[]" && field.children.is_empty() {
+        return Ok(Vec::new());
+    }
+    if !field.value.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "audit subjects must be a YAML list".to_owned(),
+        ));
+    }
+    audit_list_entries(&field.children, "subjects")?
+        .into_iter()
+        .map(|mut entry| {
+            let hash = entry
+                .remove("hash")
+                .ok_or_else(|| {
+                    StoreError::InvalidConfig("audit subject is missing hash".to_owned())
+                })?
+                .parse()
+                .map_err(|error: String| StoreError::InvalidConfig(error))?;
+            let id = entry.remove("id");
+            let locator = entry.remove("locator");
+            if !entry.is_empty() {
+                return Err(StoreError::InvalidConfig(
+                    "audit subject has an unrecognised field".to_owned(),
+                ));
+            }
+            Ok(AuditSubjectRecord { id, locator, hash })
+        })
+        .collect()
+}
+
+fn parse_audit_reasons(field: &AuditYamlField) -> Result<Vec<AuditReasonRecord>, StoreError> {
+    if !field.value.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "audit reasons must be a YAML list".to_owned(),
+        ));
+    }
+    let mut reasons = Vec::new();
+    let mut index = 0;
+    while index < field.children.len() {
+        let first = field.children[index].strip_prefix("  - ").ok_or_else(|| {
+            StoreError::InvalidConfig("audit reasons has invalid list indentation".to_owned())
+        })?;
+        let mut values = std::collections::BTreeMap::new();
+        let (key, value) = first.split_once(':').ok_or_else(|| {
+            StoreError::InvalidConfig("audit reason entry is not a mapping".to_owned())
+        })?;
+        values.insert(
+            key.trim().to_owned(),
+            audit_scalar(value, "reason")?.ok_or_else(|| {
+                StoreError::InvalidConfig("audit reason has an empty field".to_owned())
+            })?,
+        );
+        index += 1;
+        let mut saw_basis = false;
+        while index < field.children.len() && !field.children[index].starts_with("  - ") {
+            let raw = &field.children[index];
+            if raw == "    basis:" {
+                saw_basis = true;
+                index += 1;
+                let mut basis = Vec::new();
+                while index < field.children.len() && field.children[index].starts_with("      - ")
+                {
+                    let kind = field.children[index]
+                        .strip_prefix("      - kind:")
+                        .map(|value| audit_scalar(value, "basis kind"))
+                        .transpose()?
+                        .flatten()
+                        .filter(|value| !value.trim().is_empty())
+                        .ok_or_else(|| {
+                            StoreError::InvalidConfig(
+                                "audit basis entries must contain kind and ref".to_owned(),
+                            )
+                        })?;
+                    let reference = field
+                        .children
+                        .get(index + 1)
+                        .and_then(|value| value.strip_prefix("        ref:"))
+                        .map(|value| audit_scalar(value, "basis ref"))
+                        .transpose()?
+                        .flatten()
+                        .filter(|value| !value.trim().is_empty())
+                        .ok_or_else(|| {
+                            StoreError::InvalidConfig(
+                                "audit basis entries must contain kind and ref".to_owned(),
+                            )
+                        })?;
+                    basis.push(AuditBasisRecord { kind, reference });
+                    index += 2;
+                }
+                let claim = values.remove("claim").unwrap_or_default();
+                let rule = values.remove("rule");
+                let verdict = values.remove("verdict");
+                if !values.is_empty() {
+                    return Err(StoreError::InvalidConfig(
+                        "audit reason has an unrecognised field".to_owned(),
+                    ));
+                }
+                reasons.push(AuditReasonRecord {
+                    rule,
+                    verdict,
+                    claim,
+                    basis,
+                });
+                break;
+            }
+            let value = raw.strip_prefix("    ").ok_or_else(|| {
+                StoreError::InvalidConfig("audit reason has invalid indentation".to_owned())
+            })?;
+            let (key, value) = value.split_once(':').ok_or_else(|| {
+                StoreError::InvalidConfig("audit reason entry is not a mapping".to_owned())
+            })?;
+            let value = audit_scalar(value, "reason")?.ok_or_else(|| {
+                StoreError::InvalidConfig("audit reason has an empty field".to_owned())
+            })?;
+            if values.insert(key.trim().to_owned(), value).is_some() {
+                return Err(StoreError::InvalidConfig(
+                    "audit reason has duplicate fields".to_owned(),
+                ));
+            }
+            index += 1;
+        }
+        if !saw_basis {
+            return Err(StoreError::InvalidConfig(
+                "each audit reason must contain a basis list".to_owned(),
+            ));
+        }
+    }
+    Ok(reasons)
+}
+
+fn parse_audit_exclusions(field: &AuditYamlField) -> Result<Vec<AuditExclusionRecord>, StoreError> {
+    if field.value == "[]" && field.children.is_empty() {
+        return Ok(Vec::new());
+    }
+    if !field.value.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "audit exclusions must be a YAML list".to_owned(),
+        ));
+    }
+    audit_list_entries(&field.children, "exclusions")?
+        .into_iter()
+        .map(|mut entry| {
+            let item = entry.remove("item").ok_or_else(|| {
+                StoreError::InvalidConfig("audit exclusion is missing item".to_owned())
+            })?;
+            let basis = entry.remove("basis").ok_or_else(|| {
+                StoreError::InvalidConfig("audit exclusion is missing basis".to_owned())
+            })?;
+            if !entry.is_empty() {
+                return Err(StoreError::InvalidConfig(
+                    "audit exclusion has an unrecognised field".to_owned(),
+                ));
+            }
+            Ok(AuditExclusionRecord { item, basis })
+        })
+        .collect()
+}
+
+fn parse_auditor(field: &AuditYamlField) -> Result<AuditorRecord, StoreError> {
+    if !field.value.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "audit auditor must be a YAML mapping".to_owned(),
+        ));
+    }
+    let mut kind = None;
+    let mut id = None;
+    let mut model = None;
+    let mut seen = std::collections::BTreeSet::new();
+    for raw in &field.children {
+        let value = raw.strip_prefix("  ").ok_or_else(|| {
+            StoreError::InvalidConfig("audit auditor has invalid indentation".to_owned())
+        })?;
+        if value.starts_with(' ') {
+            return Err(StoreError::InvalidConfig(
+                "audit auditor has invalid indentation".to_owned(),
+            ));
+        }
+        let (key, value) = value.split_once(':').ok_or_else(|| {
+            StoreError::InvalidConfig("audit auditor must be a mapping".to_owned())
+        })?;
+        let key = key.trim();
+        if !seen.insert(key.to_owned()) {
+            return Err(StoreError::InvalidConfig(
+                "audit auditor has duplicate fields".to_owned(),
+            ));
+        }
+        match key {
+            "kind" => {
+                kind = audit_scalar(value, "auditor.kind")?.filter(|value| !value.trim().is_empty())
+            }
+            "id" => {
+                id = audit_scalar(value, "auditor.id")?.filter(|value| !value.trim().is_empty())
+            }
+            "model" => model = audit_scalar(value, "auditor.model")?,
+            _ => {
+                return Err(StoreError::InvalidConfig(
+                    "audit auditor has an unrecognised field".to_owned(),
+                ))
+            }
+        }
+    }
+    Ok(AuditorRecord {
+        kind: kind.unwrap_or_default(),
+        id: id.unwrap_or_default(),
+        model,
+    })
+}
+
+fn parse_audit_revision(field: &AuditYamlField) -> Result<Revision, StoreError> {
+    if !field.children.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "audit revision must be an inline mapping".to_owned(),
+        ));
+    }
+    let value = field
+        .value
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+        .ok_or_else(|| StoreError::InvalidConfig("audit revision must be a mapping".to_owned()))?;
+    let mut commit = None;
+    let mut dirty = None;
+    for pair in value.split(',') {
+        let (key, value) = pair.split_once(':').ok_or_else(|| {
+            StoreError::InvalidConfig("audit revision must contain commit and dirty".to_owned())
+        })?;
+        match key.trim() {
+            "commit" if commit.is_none() => commit = audit_scalar(value, "revision.commit")?,
+            "dirty" if dirty.is_none() => {
+                dirty = Some(match value.trim() {
+                    "true" => true,
+                    "false" => false,
+                    _ => {
+                        return Err(StoreError::InvalidConfig(
+                            "audit revision.dirty must be true or false".to_owned(),
+                        ))
+                    }
+                })
+            }
+            _ => {
+                return Err(StoreError::InvalidConfig(
+                    "audit revision has an invalid or duplicate field".to_owned(),
+                ))
+            }
+        }
+    }
+    Ok(Revision {
+        commit,
+        dirty: dirty.ok_or_else(|| {
+            StoreError::InvalidConfig("audit revision is missing dirty".to_owned())
+        })?,
+    })
 }
 
 fn required_top_level_scalar(
@@ -1074,6 +1959,170 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    #[test]
+    fn audit_round_trip_binds_subjects_and_reads_from_a_ulid_file() {
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "static".to_owned(),
+            bundle_id: None,
+            subjects: vec![AuditSubjectRecord {
+                id: Some("TEST-PARSER-044".to_owned()),
+                locator: None,
+                hash: ContentHash::from_text("test body\n"),
+            }],
+            verdict: "FAIL".to_owned(),
+            reasons: ["DA-001", "DA-002", "DA-003", "DA-004", "DA-005", "DA-006"]
+                .into_iter()
+                .map(|rule| AuditReasonRecord {
+                    rule: Some(rule.to_owned()),
+                    verdict: Some(if rule == "DA-001" { "FAIL" } else { "PASS" }.to_owned()),
+                    claim: if rule == "DA-001" {
+                        "assertion is constant".to_owned()
+                    } else {
+                        format!("{rule} passed")
+                    },
+                    basis: vec![AuditBasisRecord {
+                        kind: "test-code".to_owned(),
+                        reference: "tests/parser_test.rs:12".to_owned(),
+                    }],
+                })
+                .collect(),
+            exclusions: vec![AuditExclusionRecord {
+                item: "integration-only path".to_owned(),
+                basis: "not selected by this test".to_owned(),
+            }],
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest-da".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: Some("abc123".to_owned()),
+                dirty: false,
+            },
+        };
+        let yaml = record.to_yaml().unwrap();
+        assert_eq!(AuditRecord::from_yaml(&yaml, &id).unwrap(), record);
+
+        let mut partial_rules = record.clone();
+        partial_rules.reasons.truncate(1);
+        assert!(partial_rules.to_yaml().is_err());
+
+        let mut duplicate_rule = record.clone();
+        duplicate_rule.reasons[1].rule = Some("DA-001".to_owned());
+        assert!(duplicate_rule.to_yaml().is_err());
+
+        let no_test_subject = AuditRecord {
+            subjects: vec![AuditSubjectRecord {
+                id: Some("VO-PARSER-044".to_owned()),
+                locator: None,
+                hash: ContentHash::from_text("vo body\n"),
+            }],
+            ..record.clone()
+        };
+        assert!(no_test_subject.to_yaml().is_err());
+        assert!(AuditRecord::from_yaml(
+            &yaml.replacen("id: 'TEST-PARSER-044'", "id: 'VO-PARSER-044'", 1),
+            &id,
+        )
+        .is_err());
+
+        let multiple_test_subjects = AuditRecord {
+            subjects: vec![
+                record.subjects[0].clone(),
+                AuditSubjectRecord {
+                    id: Some("TEST-PARSER-045".to_owned()),
+                    locator: None,
+                    hash: ContentHash::from_text("another test body\n"),
+                },
+            ],
+            ..record.clone()
+        };
+        assert!(multiple_test_subjects.to_yaml().is_err());
+        let two_subject_yaml = yaml.replacen(
+            "verdict:",
+            &format!(
+                "  - id: 'TEST-PARSER-045'\n    hash: {}\nverdict:",
+                yaml_scalar(multiple_test_subjects.subjects[1].hash.as_str())
+            ),
+            1,
+        );
+        assert!(AuditRecord::from_yaml(&two_subject_yaml, &id).is_err());
+
+        let root = temporary_directory("audit-read");
+        let path = root.join(format!("{id}.yaml"));
+        fs::write(&path, &yaml).unwrap();
+        assert_eq!(read_audit(&path).unwrap(), record);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn audit_rejects_malformed_or_untraceable_records() {
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "test-semantic".to_owned(),
+            bundle_id: Some(new_record_id()),
+            subjects: vec![AuditSubjectRecord {
+                id: None,
+                locator: Some("src/parser.rs::Parser::parse".to_owned()),
+                hash: ContentHash::from_text("target body\n"),
+            }],
+            verdict: "PASS".to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: None,
+                verdict: None,
+                claim: "the declared behavior is asserted".to_owned(),
+                basis: vec![AuditBasisRecord {
+                    kind: "test-code".to_owned(),
+                    reference: "tests/parser_test.rs::rejects_invalid_utf8".to_owned(),
+                }],
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "agent".to_owned(),
+                id: "auditor-agent-01".to_owned(),
+                model: Some("model-x".to_owned()),
+            },
+            confidence: Some("high".to_owned()),
+            audited_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+        };
+        let yaml = record.to_yaml().unwrap();
+        for malformed in [
+            yaml.replacen("kind: 'test-semantic'", "kind: 'unknown'", 1),
+            yaml.replacen("    hash:", "    id: 'TEST-X'\n    hash:", 1),
+            yaml.replacen("verdict: 'PASS'", "verdict: 'MISSING'", 1),
+            yaml.replacen(
+                "ref: 'tests/parser_test.rs::rejects_invalid_utf8'",
+                "ref: ''",
+                1,
+            ),
+            yaml.replacen("kind: 'test-code'", "kind: 'source-location'", 1),
+            yaml.replacen("audited_at: '2026-08-08T00:00:00Z'", "audited_at: ''", 1),
+            yaml.replacen(
+                "audited_at: '2026-08-08T00:00:00Z'",
+                "audited_at: 'not-a-time'",
+                1,
+            ),
+        ] {
+            assert!(AuditRecord::from_yaml(&malformed, &id).is_err());
+        }
+
+        let static_with_bundle = AuditRecord {
+            kind: "static".to_owned(),
+            bundle_id: Some(new_record_id()),
+            ..record
+        };
+        assert!(static_with_bundle.to_yaml().is_err());
     }
 
     #[test]

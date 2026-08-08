@@ -1,0 +1,54 @@
+id: '01KZGKS3K20C0QF60003BGR000'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-DOGFOOD-M3-TARGET-RULES'
+    hash: 'sha256:3b9da64a7a8e4cedf0de76934c55e5bccd88f0cc0e8e14793def8ed8b8ca14aa'
+  - id: 'CONFIG'
+    hash: 'sha256:9ec5ddfdc0670b2eadff388ad672b350bdebece9f63efcbbb4eb414e3af253f3'
+  - locator: 'crates/vtest-audit/src/lib.rs::classify_target_call'
+    hash: 'sha256:de8ddd8cf8bea5b1c7a8075f56f376cdbdd4636dc8f303d589b3719ba4de6b66'
+verdict: 'PASS'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'PASS'
+    claim: 'at least one assertion depends on runtime data, or the rule is not applicable'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1639'
+  - rule: 'DA-002'
+    verdict: 'PASS'
+    claim: 'declared target is called directly'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1633'
+  - rule: 'DA-003'
+    verdict: 'PASS'
+    claim: 'every target result reaches assert-like syntax'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1633'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1633'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1633'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::dogfood_exact_target_path_is_classified:1633'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-08T11:57:50Z'
+revision: { commit: null, dirty: false }

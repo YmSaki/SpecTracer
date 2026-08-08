@@ -1,0 +1,60 @@
+id: '01KZGKR8QQ43EKRJ0001RK0000'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-DOGFOOD-M3-TARGET-RULES'
+    hash: 'sha256:37682045e395f112c501111218998d542f4b9710c499841d5198f30410c719b0'
+  - id: 'CONFIG'
+    hash: 'sha256:9ec5ddfdc0670b2eadff388ad672b350bdebece9f63efcbbb4eb414e3af253f3'
+  - locator: 'crates/vtest-audit/src/lib.rs::rule_da002'
+    hash: 'sha256:e0cb94a0d75260ac5e960986c44c4f20467bf888d8a084d06ee587de73f7471d'
+  - locator: 'crates/vtest-audit/src/lib.rs::rule_da001'
+    hash: 'sha256:5c33c07ce819e1a547f7e2a296ac4a2ad7cebfaa5c432a516058e29f119481f7'
+  - locator: 'crates/vtest-audit/src/lib.rs::rule_da003'
+    hash: 'sha256:9827ed5f1f48a7d8fe42f991ab8f8aa0c514f6bca2a11f0411f29ad0fcbea8a5'
+  - locator: 'crates/vtest-audit/src/lib.rs::find_function'
+    hash: 'sha256:f078fecf0e68c487be8395df7c8151d821e059d6a4c7910a5dd3af510d66db0c'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1615'
+  - rule: 'DA-002'
+    verdict: 'PASS'
+    claim: 'declared target is called directly'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1607'
+  - rule: 'DA-003'
+    verdict: 'PASS'
+    claim: 'every target result reaches assert-like syntax'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1607'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1607'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1607'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-audit/src/lib.rs::tests::target_call_in_assertion_passes_call_and_result_rules:1607'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-08T11:57:22Z'
+revision: { commit: null, dirty: false }

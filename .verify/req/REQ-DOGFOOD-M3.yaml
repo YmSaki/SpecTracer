@@ -1,0 +1,9 @@
+id: 'REQ-DOGFOOD-M3'
+parent: null
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+summary: 'Deterministic audit must reject false PASS and preserve UNKNOWN'
+status: 'active'
+created: '2026-08-08T11:56:59Z'
+updated: '2026-08-08T11:56:59Z'

@@ -1,0 +1,14 @@
+id: 'VO-DOGFOOD-M3-STATIC-AUDIT'
+parent: null
+requirements: ['REQ-DOGFOOD-M3']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.2'
+claim: 'Static rules bind the declared target and result flow without promoting ambiguity to PASS'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+status: 'draft'
+created: '2026-08-08T11:57:00Z'
+updated: '2026-08-08T11:57:00Z'
