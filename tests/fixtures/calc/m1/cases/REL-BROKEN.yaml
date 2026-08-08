@@ -1,0 +1,5 @@
+id: REL-BROKEN
+type: depends-on
+from: ENTITY-ABSENT
+to: VO-KNOWN
+created: '2026-01-01'

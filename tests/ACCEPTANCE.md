@@ -1,30 +1,50 @@
 # Acceptance Test Ledger
 
-This ledger is the executable-work map for the implemented milestones.  A criterion remains
-`NOT_CHECKED` until a reproducible test and its command output exist; missing
-coverage is never treated as PASS.
+This ledger maps Annex B §18.3 to reproducible tests. A criterion remains
+`NOT_CHECKED` until its milestone-specific fixture flow passes; unit coverage
+alone is not promoted to acceptance evidence.
 
-| Milestone | Criterion | Planned test / fixture | Status |
+| Milestone | Criterion | Reproducible evidence | Status |
 |---|---|---|---|
-| S0 | Eight crates build with one-way dependencies | `cargo test --workspace` | IN_PROGRESS |
-| S0 | Canonical `.verify/` layout is created | `vtest-cli` init unit test | IN_PROGRESS |
-| S0 | Shared envelope, diagnostics, exit codes, and hash type | `vtest-model` unit tests | IN_PROGRESS |
-| S0 | Fixture forms are recorded | `tests/fixtures/calc` | IN_PROGRESS |
-| M1 | Annotated and unregistered tests are extracted | `vtest-scan` tests | IN_PROGRESS |
-| M1 | E-SCAN-002..010 and W-SCAN-101 fixture matrix | `tests/fixtures/calc` | NOT_CHECKED |
-| M1 | JSON output and exit code 0/1 | CLI integration coverage | NOT_CHECKED |
-| M1 | `filter`, `package`, and `test_target` values | scanner fixture assertions | NOT_CHECKED |
-| M5 | Three audit bundle kinds include subject hashes | `vtest audit bundle` on `tests/fixtures/calc` | IN_PROGRESS |
-| M5 | Empty reasons and missing basis are rejected with E-AUDIT-005 | `vtest audit submit` | IN_PROGRESS |
-| M5 | Changed subject rejects submission with E-AUDIT-002 | bundle/submit fixture flow | IN_PROGRESS |
-| M5 | Accepted audit is PASS while hashes match and STALE after change | scoped `vtest verify` | IN_PROGRESS |
-| M6 | Semantic audit aggregation is fail-closed and hash-aware | `vtest verify --items semantic_audit` | IN_PROGRESS |
-| M7 | Called target records PASS with count >= 1 | `TEST-CALC-ADD` plus `vtest-exec` coverage tests | IN_PROGRESS |
-| M7 | Passing test that skips its target records FAIL with count 0 | `TEST-CALC-NO-CALL` plus `vtest-exec` coverage tests | IN_PROGRESS |
-| M7 | Missing cargo-llvm-cov records W-EXEC-101 and NOT_CHECKED | isolated `CARGO_HOME` fixture run plus `vtest-exec` test | IN_PROGRESS |
-| M8 | Invalid symbols and enum variants return candidate-bearing E-OP-001 | `structured_create_generates_a_scannable_test` | IN_PROGRESS |
-| M8 | Create output is rescanned; integration targets are retained | `structured_create_generates_a_scannable_test` | IN_PROGRESS |
-| M8 | Edit changes only one Test and is idempotent | source hash assertions in `structured_create_generates_a_scannable_test` | IN_PROGRESS |
-| M8 | Multi-target Evidence cannot pass with one target hash | `multi_target_evidence_cannot_pass_with_a_single_target_hash` | IN_PROGRESS |
-| M8 | Form conditional-branch validation | detailed design does not define a condition schema | NOT_CHECKED |
-| M2–M4, M9 | Remaining milestone criteria | Annex B §18.3 | NOT_STARTED |
+| S0 | Eight-crate workspace and one-way dependency baseline | `cargo test --workspace`; architecture review | PASS |
+| S0 | Canonical `.verify/` layout and built-in forms | `init_creates_project_and_second_init_is_usage_error` | PASS |
+| S0 | Shared hashes, diagnostics, JSON envelope, and exit-code types | `vtest-model` unit tests; M1 CLI acceptance | PASS |
+| S0 | Annex B calc fixture and M1 case variants are tracked | `tests/fixtures/calc/` | PASS |
+| M1 | Extract every fixture Test with exact `filter`, `package`, and `test_target` | `m1_calc_fixture_extracts_tests_and_scan_matches_doctor` | PASS |
+| M1 | Detect E-SCAN-002..010 and W-SCAN-101 at their source files | `m1_error_diagnostic_matrix_is_reported_by_the_cli`; `m1_warning_only_scan_exits_zero` | PASS |
+| M1 | Emit the §12.1 JSON envelope and location-bearing scan diagnostics | all tests in `crates/vtest-cli/tests/m1_acceptance.rs` | PASS |
+| M1 | Distinguish success, verification, usage, and internal exits (0/1/2/3) | M1 clean/warning, error matrix, repeated-init, and invalid-config cases | PASS* |
+| M2 | VO add → approve → edit invalidates approval and derives draft | promote `approval_is_derived_and_edit_makes_it_draft` into an integration flow | NOT_CHECKED |
+| M2 | `vo expand --dry-run` returns the `full-product` Cartesian children | add tracked product-dimension fixture | NOT_CHECKED |
+| M2 | Editing a registered SPEC document emits W-SCAN-104 | add CLI acceptance around a tracked SPEC | NOT_CHECKED |
+| M3 | Each intentional NG test maps to DA-001..006 / W-DA-101 | add `m3_acceptance` over calc variants | NOT_CHECKED |
+| M3 | The normal test has no deterministic violation | add normal calc audit assertion | NOT_CHECKED |
+| M3 | A cross-file call is UNKNOWN, never a certain DA-002 FAIL | add conservative-analysis fixture | NOT_CHECKED |
+| M4 | Every registered Test execution writes one Evidence record | add `vtest run --fast` fixture flow | NOT_CHECKED |
+| M4 | A changed target makes `evidence_validity` STALE | add before/after content-hash flow | NOT_CHECKED |
+| M4 | Build failure emits E-EXEC-001 and writes no Evidence | add broken-build fixture | NOT_CHECKED |
+| M5 | Test-semantic bundle contains every §8.2 field | add bundle schema assertion | NOT_CHECKED |
+| M5 | Empty reasons are rejected with E-AUDIT-005 | add submit rejection fixture | NOT_CHECKED |
+| M5 | Post-bundle Test changes are rejected with E-AUDIT-002 | add stale-bundle submit flow | NOT_CHECKED |
+| M5 | Accepted audit becomes STALE after its subject changes | add audit/modify/verify flow | NOT_CHECKED |
+| M6 | Full-scope all-PASS fixture verifies OK with exit 0 | add complete canonical fixture | NOT_CHECKED |
+| M6 | Each of 11 non-PASS values independently forces NG/exit 1 | add table-driven aggregation matrix | NOT_CHECKED |
+| M6 | Limited scope leaves every other item NOT_CHECKED | add scoped verify/report assertion | NOT_CHECKED |
+| M6 | Verify output tree matches Annex A §12.2 | add JSON and text tree snapshots | NOT_CHECKED |
+| M7 | A called target records PASS with count ≥ 1 | promote llvm-cov parser tests into an execution fixture | NOT_CHECKED |
+| M7 | A passing test that misses its target records FAIL/count 0 | add measured no-call fixture | NOT_CHECKED |
+| M7 | Missing cargo-llvm-cov emits W-EXEC-101 and NOT_CHECKED | add isolated-toolchain CLI flow | NOT_CHECKED |
+| M8 | Invalid symbols are rejected with candidate-bearing E-OP-001 | add CLI process acceptance | NOT_CHECKED |
+| M8 | `test create` output is recognized on rescan | promote `structured_create_generates_a_scannable_test` | NOT_CHECKED |
+| M8 | `test edit` changes no other Test bytes or hash | promote the existing two-Test boundary assertion | NOT_CHECKED |
+| M8 | Reapplying desired state is byte-idempotent | promote the existing idempotence assertion | NOT_CHECKED |
+| M9 | Every MCP tool matches the CLI JSON shape | implement MCP parity matrix | NOT_CHECKED |
+| M9 | Annex A §13.3 completes over MCP stdio | implement reference-flow integration test | NOT_CHECKED |
+| M9 | Invalid input returns code/message/candidates | implement MCP error-contract test | NOT_CHECKED |
+
+`PASS*` follows the authoritative observable contract: basic specification §11
+maps exit 1 to NG, detailed design §5.4 says warnings do not change verification,
+and Annex A §12.2 requires exit 1 for **error** diagnostics. Annex B §18.3 uses
+the broader phrase “diagnostic present → 1”; that wording conflict remains a
+specification review item. The regression test deliberately fixes warning-only
+scan at exit 0 and error-bearing scan at exit 1.

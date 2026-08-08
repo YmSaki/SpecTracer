@@ -1,0 +1,53 @@
+kind: rust-unit-function
+title: Rust function unit test
+fields:
+  - name: target
+    question: Target source symbol?
+    type: symbol
+    required: true
+    validate: [symbol-exists]
+  - name: covers
+    question: Verification objectives?
+    type: vo-ref-list
+    required: true
+    validate: [vo-exists]
+  - name: behavior
+    question: Behavior under test?
+    type: string
+    required: true
+  - name: test_kind
+    question: Test kind?
+    type: enum
+    options: [normal, error, boundary, regression]
+    required: true
+  - name: input
+    question: Input conditions?
+    type: string
+    required: true
+  - name: expect
+    question: Expected result?
+    type: string
+    required: true
+    validate: [enum-variant-exists]
+  - name: fn_name
+    question: Test function name?
+    type: ident
+    required: true
+    validate: [unique-fn-name]
+  - name: file
+    question: Destination Rust file?
+    type: path
+    required: false
+    validate: [rust-file]
+template: |
+  /// @vtest.id {test_id}
+  /// @vtest.covers {covers}
+  /// @vtest.target {target}
+  /// @vtest.intent {behavior}
+  /// @vtest.input {input}
+  /// @vtest.expect {expect}
+  /// @vtest.kind unit-{test_kind}
+  #[test]
+  fn {fn_name}() {
+      todo!("implement test body")
+  }

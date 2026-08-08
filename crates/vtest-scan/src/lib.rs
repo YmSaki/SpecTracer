@@ -6,7 +6,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Serialize;
+use ignore::WalkBuilder;
+use serde::{Deserialize, Serialize};
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use thiserror::Error;
@@ -28,6 +29,8 @@ pub enum ScanError {
     Store(StoreError),
     #[error("I/O error at {path}: {source}")]
     Io { path: PathBuf, source: io::Error },
+    #[error("source discovery failed at {path}: {message}")]
+    Discovery { path: PathBuf, message: String },
 }
 
 impl From<StoreError> for ScanError {
@@ -64,9 +67,12 @@ pub fn scan_project_with_config(
     let package = package_name(root).unwrap_or_else(|| config.project.name.clone());
     let mut paths = Vec::new();
     for include in &config.scan.include {
-        collect_rs_files(&root.join(include), &mut paths).map_err(|source| ScanError::Io {
-            path: root.join(include),
-            source,
+        let include_path = root.join(include);
+        collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
+            ScanError::Discovery {
+                path: include_path,
+                message: error.to_string(),
+            }
         })?;
     }
     paths.sort();
@@ -87,23 +93,7 @@ pub fn scan_project_with_config(
 }
 
 fn package_name(root: &Path) -> Option<String> {
-    let manifest = fs::read_to_string(root.join("Cargo.toml")).ok()?;
-    let mut in_package = false;
-    for raw in manifest.lines() {
-        let line = raw.trim();
-        if line.starts_with('[') {
-            in_package = line == "[package]";
-            continue;
-        }
-        if in_package && line.starts_with("name") {
-            let (_, value) = line.split_once('=')?;
-            let name = value.trim().trim_matches(['\'', '"']);
-            if !name.is_empty() {
-                return Some(name.to_owned());
-            }
-        }
-    }
-    None
+    cargo_manifest(root).and_then(|manifest| manifest.package.map(|package| package.name))
 }
 
 fn record_diagnostics(
@@ -155,7 +145,13 @@ fn record_diagnostics(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    validate_parent_graph(&req_parents, "REQ", &mut diagnostics);
+    validate_parent_graph(
+        root,
+        &layout.req_dir(),
+        &req_parents,
+        "REQ",
+        &mut diagnostics,
+    );
     let vo_parents = vos
         .iter()
         .map(|(id, record)| {
@@ -168,10 +164,10 @@ fn record_diagnostics(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    validate_parent_graph(&vo_parents, "VO", &mut diagnostics);
+    validate_parent_graph(root, &layout.vo_dir(), &vo_parents, "VO", &mut diagnostics);
 
     validate_relations(&layout, &known_ids, &mut diagnostics);
-    validate_vo_warnings(&vos, tests, &mut diagnostics);
+    validate_vo_warnings(&layout, &vos, tests, &mut diagnostics);
     validate_approval_status(&layout, &vos, &mut diagnostics);
     diagnostics
 }
@@ -183,76 +179,95 @@ fn validate_spec_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let path = layout.spec_dir().join(format!("{id}.yaml"));
+    let location = record_location(root, &path, id);
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC {id} cannot be read: {error}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error("E-SCAN-010", format!("SPEC {id} cannot be read: {error}"))
+                    .with_location(location.clone()),
+            );
             return;
         }
     };
     if let Some(missing) = missing_fields(&text, &["id", "kind", "path", "sha256", "registered_at"])
     {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("SPEC {id} is missing required fields: {missing}"),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("SPEC {id} is missing required fields: {missing}"),
+            )
+            .with_location(location.clone()),
+        );
     }
     if !matches!(
         yaml_scalar_value(&text, "kind").as_deref(),
         Some("document" | "api-schema" | "type-spec" | "db-schema" | "other")
     ) {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("SPEC {id} has an invalid kind"),
-        ));
+        diagnostics.push(
+            Diagnostic::error("E-SCAN-010", format!("SPEC {id} has an invalid kind"))
+                .with_location(location.clone()),
+        );
     }
     let record = match read_spec(layout, id) {
         Ok(record) => record,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC {id} has an invalid schema: {error}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("SPEC {id} has an invalid schema: {error}"),
+                )
+                .with_location(location.clone()),
+            );
             return;
         }
     };
     if record.id.as_str() != id {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("SPEC file name {id} does not match record id {}", record.id),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("SPEC file name {id} does not match record id {}", record.id),
+            )
+            .with_location(location.clone()),
+        );
     }
     let relative_path = Path::new(&record.path);
     if !is_safe_relative_path(relative_path) {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("SPEC {id} path must be project-relative: {}", record.path),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("SPEC {id} path must be project-relative: {}", record.path),
+            )
+            .with_location(location.clone()),
+        );
         return;
     }
     let source_path = root.join(relative_path);
     let bytes = match fs::read(&source_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC {id} path {} cannot be read: {error}", record.path),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("SPEC {id} path {} cannot be read: {error}", record.path),
+                )
+                .with_location(location.clone()),
+            );
             return;
         }
     };
     let actual_hash = ContentHash::from_bytes(&bytes);
     if actual_hash != record.sha256 {
-        diagnostics.push(Diagnostic::warning(
-            "W-SCAN-104",
-            format!(
-                "SPEC {id} hash is stale: recorded {}, actual {}",
-                record.sha256, actual_hash
-            ),
-        ));
+        diagnostics.push(
+            Diagnostic::warning(
+                "W-SCAN-104",
+                format!(
+                    "SPEC {id} hash is stale: recorded {}, actual {}",
+                    record.sha256, actual_hash
+                ),
+            )
+            .with_location(location),
+        );
     }
 }
 
@@ -262,35 +277,45 @@ fn validate_req_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<ReqRecord> {
     let path = layout.req_dir().join(format!("{id}.yaml"));
+    let location = record_location(&layout.root, &path, id);
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("REQ {id} cannot be read: {error}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error("E-SCAN-010", format!("REQ {id} cannot be read: {error}"))
+                    .with_location(location.clone()),
+            );
             return None;
         }
     };
     if let Some(missing) = missing_fields(&text, &["id", "summary", "status", "created", "updated"])
     {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("REQ {id} is missing required fields: {missing}"),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("REQ {id} is missing required fields: {missing}"),
+            )
+            .with_location(location.clone()),
+        );
     }
     let record = read_req(layout, id).ok()?;
     if record.id.as_str() != id {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("REQ file name {id} does not match record id {}", record.id),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("REQ file name {id} does not match record id {}", record.id),
+            )
+            .with_location(location.clone()),
+        );
     }
     if !matches!(record.status.as_str(), "active" | "withdrawn") {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("REQ {id} has invalid status {}", record.status),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("REQ {id} has invalid status {}", record.status),
+            )
+            .with_location(location),
+        );
     }
     Some(record)
 }
@@ -301,44 +326,57 @@ fn validate_vo_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<VoRecord> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
+    let location = record_location(&layout.root, &path, id);
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO {id} cannot be read: {error}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error("E-SCAN-010", format!("VO {id} cannot be read: {error}"))
+                    .with_location(location.clone()),
+            );
             return None;
         }
     };
     if let Some(missing) = missing_fields(&text, &["id", "claim", "status", "created", "updated"]) {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("VO {id} is missing required fields: {missing}"),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("VO {id} is missing required fields: {missing}"),
+            )
+            .with_location(location.clone()),
+        );
     }
     let record = read_vo(layout, id).ok()?;
     if record.id.as_str() != id {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("VO file name {id} does not match record id {}", record.id),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("VO file name {id} does not match record id {}", record.id),
+            )
+            .with_location(location.clone()),
+        );
     }
     if !matches!(record.status.as_str(), "draft" | "approved") {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-010",
-            format!("VO {id} has invalid status {}", record.status),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("VO {id} has invalid status {}", record.status),
+            )
+            .with_location(location.clone()),
+        );
     }
     if let Some(policy) = &record.coverage_policy {
         if !matches!(
             policy.as_str(),
             "independent-axes" | "full-product" | "explicit"
         ) {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO {id} has invalid coverage_policy {policy}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("VO {id} has invalid coverage_policy {policy}"),
+                )
+                .with_location(location.clone()),
+            );
         }
     }
     Some(record)
@@ -357,7 +395,25 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
     (!missing.is_empty()).then(|| missing.join(", "))
 }
 
+fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    SourceLocation {
+        file: path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/"),
+        function: entity.to_owned(),
+        start_line: 1,
+        end_line: text.lines().count().max(1),
+        start_byte: 0,
+        end_byte: text.len(),
+    }
+}
+
 fn validate_parent_graph(
+    root: &Path,
+    directory: &Path,
     parents: &BTreeMap<String, Option<String>>,
     kind: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -365,10 +421,17 @@ fn validate_parent_graph(
     for (id, parent) in parents {
         if let Some(parent) = parent {
             if !parents.contains_key(parent) {
-                diagnostics.push(Diagnostic::error(
-                    "E-SCAN-008",
-                    format!("{kind} {id} references missing parent {parent}"),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-008",
+                        format!("{kind} {id} references missing parent {parent}"),
+                    )
+                    .with_location(record_location(
+                        root,
+                        &directory.join(format!("{id}.yaml")),
+                        id,
+                    )),
+                );
             }
         }
     }
@@ -385,10 +448,17 @@ fn validate_parent_graph(
                 key_parts.sort();
                 let key = key_parts.join("|");
                 if reported.insert(key) {
-                    diagnostics.push(Diagnostic::error(
-                        "E-SCAN-008",
-                        format!("{kind} parent cycle: {}", cycle.join(" -> ")),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-SCAN-008",
+                            format!("{kind} parent cycle: {}", cycle.join(" -> ")),
+                        )
+                        .with_location(record_location(
+                            root,
+                            &directory.join(format!("{current}.yaml")),
+                            &current,
+                        )),
+                    );
                 }
                 break;
             }
@@ -433,29 +503,39 @@ fn validate_relations(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
+        let location = record_location(&layout.root, &path, &file_id);
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("relation {file_id} cannot be read: {error}"),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-010",
+                        format!("relation {file_id} cannot be read: {error}"),
+                    )
+                    .with_location(location.clone()),
+                );
                 continue;
             }
         };
         let mut invalid = false;
         if yaml_scalar_value(&text, "id").as_deref() != Some(file_id.as_str()) {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("relation file name {file_id} does not match record id"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation file name {file_id} does not match record id"),
+                )
+                .with_location(location.clone()),
+            );
             invalid = true;
         }
         if let Some(missing) = missing_fields(&text, &["id", "type", "from", "to", "created"]) {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("relation {file_id} is missing required fields: {missing}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation {file_id} is missing required fields: {missing}"),
+                )
+                .with_location(location.clone()),
+            );
             invalid = true;
         }
         let relation_type = yaml_scalar_value(&text, "type");
@@ -463,13 +543,16 @@ fn validate_relations(
             .as_deref()
             .is_some_and(|value| !allowed_types.contains(&value))
         {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!(
-                    "relation {file_id} has invalid type {}",
-                    relation_type.unwrap_or_default()
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!(
+                        "relation {file_id} has invalid type {}",
+                        relation_type.unwrap_or_default()
+                    ),
+                )
+                .with_location(location.clone()),
+            );
             invalid = true;
         }
         if invalid {
@@ -478,10 +561,13 @@ fn validate_relations(
         for field in ["from", "to"] {
             if let Some(value) = yaml_scalar_value(&text, field) {
                 if !known_ids.contains(&value) {
-                    diagnostics.push(Diagnostic::error(
-                        "E-SCAN-009",
-                        format!("relation {file_id} {field} references missing entity {value}"),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-SCAN-009",
+                            format!("relation {file_id} {field} references missing entity {value}"),
+                        )
+                        .with_location(location.clone()),
+                    );
                 }
             }
         }
@@ -489,6 +575,7 @@ fn validate_relations(
 }
 
 fn validate_vo_warnings(
+    layout: &VerifyLayout,
     vos: &BTreeMap<String, VoRecord>,
     tests: &[TestEntity],
     diagnostics: &mut Vec<Diagnostic>,
@@ -503,19 +590,29 @@ fn validate_vo_warnings(
         .collect::<BTreeSet<_>>();
     for id in vos.keys() {
         if !child_ids.contains(id) && !covered_ids.contains(id) {
-            diagnostics.push(Diagnostic::warning(
-                "W-SCAN-102",
-                format!("VO {id} is isolated and has no covering test"),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-SCAN-102",
+                    format!("VO {id} is isolated and has no covering test"),
+                )
+                .with_location(record_location(
+                    &layout.root,
+                    &layout.vo_dir().join(format!("{id}.yaml")),
+                    id,
+                )),
+            );
         }
     }
     for test in tests {
         for vo_id in &test.covers {
             if child_ids.contains(vo_id.as_str()) {
-                diagnostics.push(Diagnostic::warning(
-                    "W-SCAN-103",
-                    format!("test {} covers non-leaf VO {}", test.id, vo_id),
-                ));
+                diagnostics.push(
+                    Diagnostic::warning(
+                        "W-SCAN-103",
+                        format!("test {} covers non-leaf VO {}", test.id, vo_id),
+                    )
+                    .with_location(test.location.clone()),
+                );
             }
         }
     }
@@ -548,13 +645,17 @@ fn validate_approval_status(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
+        let location = record_location(&layout.root, &path, &file_id);
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} cannot be read: {error}"),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-010",
+                        format!("approval {file_id} cannot be read: {error}"),
+                    )
+                    .with_location(location.clone()),
+                );
                 continue;
             }
         };
@@ -562,30 +663,39 @@ fn validate_approval_status(
         if let Some(missing) =
             missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
         {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("approval {file_id} is missing required fields: {missing}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} is missing required fields: {missing}"),
+                )
+                .with_location(location.clone()),
+            );
             invalid = true;
         }
         let approval = match read_approval(&path) {
             Ok(approval) => approval,
             Err(error) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} has an invalid schema: {error}"),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-010",
+                        format!("approval {file_id} has an invalid schema: {error}"),
+                    )
+                    .with_location(location.clone()),
+                );
                 continue;
             }
         };
         if approval.id != file_id {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!(
-                    "approval file name {file_id} does not match record id {}",
-                    approval.id
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!(
+                        "approval file name {file_id} does not match record id {}",
+                        approval.id
+                    ),
+                )
+                .with_location(location.clone()),
+            );
             invalid = true;
         }
         if invalid {
@@ -593,10 +703,13 @@ fn validate_approval_status(
         }
         let subject = approval.subject.as_str();
         let Some(current_hash) = current_hashes.get(subject) else {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("approval {file_id} references missing VO {subject}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} references missing VO {subject}"),
+                )
+                .with_location(location),
+            );
             continue;
         };
         if current_hash == &approval.subject_hash {
@@ -606,14 +719,21 @@ fn validate_approval_status(
     for (id, vo) in vos {
         let effective = approved.contains(id);
         if (vo.status == "approved") != effective {
-            diagnostics.push(Diagnostic::warning(
-                "W-STORE-001",
-                format!(
-                    "VO {id} status {} differs from approval-derived status {}",
-                    vo.status,
-                    if effective { "approved" } else { "draft" }
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-STORE-001",
+                    format!(
+                        "VO {id} status {} differs from approval-derived status {}",
+                        vo.status,
+                        if effective { "approved" } else { "draft" }
+                    ),
+                )
+                .with_location(record_location(
+                    &layout.root,
+                    &layout.vo_dir().join(format!("{id}.yaml")),
+                    id,
+                )),
+            );
         }
     }
 }
@@ -630,27 +750,45 @@ fn is_safe_relative_path(path: &Path) -> bool {
         })
 }
 
-fn collect_rs_files(path: &Path, output: &mut Vec<PathBuf>) -> io::Result<()> {
+fn collect_rs_files(
+    project_root: &Path,
+    path: &Path,
+    output: &mut Vec<PathBuf>,
+) -> Result<(), ignore::Error> {
     if !path.exists() {
         return Ok(());
     }
-    let metadata = fs::metadata(path)?;
-    if metadata.is_file() {
+    if path.is_file() {
         if path.extension().and_then(|v| v.to_str()) == Some("rs") {
             output.push(path.to_owned());
         }
         return Ok(());
     }
-    for entry in fs::read_dir(path)? {
+    let include_root = path.to_owned();
+    let project_root = project_root.to_owned();
+    let mut builder = WalkBuilder::new(&project_root);
+    builder
+        .standard_filters(false)
+        .hidden(false)
+        .parents(false)
+        .ignore(false)
+        .git_ignore(true)
+        .git_global(false)
+        .git_exclude(false)
+        .require_git(false)
+        .follow_links(false)
+        .filter_entry(move |entry| {
+            entry.file_name().to_str() != Some("target")
+                && (include_root.starts_with(entry.path())
+                    || entry.path().starts_with(&include_root))
+        });
+    for entry in builder.build() {
         let entry = entry?;
-        let child = entry.path();
-        if child.file_name().and_then(|v| v.to_str()) == Some("target") {
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
             continue;
         }
-        if child.is_dir() {
-            collect_rs_files(&child, output)?;
-        } else if child.extension().and_then(|v| v.to_str()) == Some("rs") {
-            output.push(child);
+        if entry.path().extension().and_then(|value| value.to_str()) == Some("rs") {
+            output.push(entry.into_path());
         }
     }
     Ok(())
@@ -658,7 +796,7 @@ fn collect_rs_files(path: &Path, output: &mut Vec<PathBuf>) -> io::Result<()> {
 
 struct Scanner<'a> {
     root: &'a Path,
-    package: &'a str,
+    fallback_package: &'a str,
     vo_ids: BTreeSet<String>,
     tests: Vec<TestEntity>,
     sources: Vec<SourceFunction>,
@@ -667,10 +805,10 @@ struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-    fn new(root: &'a Path, package: &'a str, vo_ids: BTreeSet<String>) -> Self {
+    fn new(root: &'a Path, fallback_package: &'a str, vo_ids: BTreeSet<String>) -> Self {
         Self {
             root,
-            package,
+            fallback_package,
             vo_ids,
             tests: Vec::new(),
             sources: Vec::new(),
@@ -680,23 +818,34 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_file(&mut self, path: &Path) {
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        let file_location = record_location(self.root, path, file_name);
         let source = match fs::read_to_string(path) {
             Ok(source) => source,
             Err(source) => {
-                self.diagnostics.push(Diagnostic::error(
-                    "E-SCAN-001",
-                    format!("failed to read {}: {source}", path.display()),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-001",
+                        format!("failed to read {}: {source}", path.display()),
+                    )
+                    .with_location(file_location.clone()),
+                );
                 return;
             }
         };
         let syntax = match syn::parse_file(&source) {
             Ok(syntax) => syntax,
             Err(error) => {
-                self.diagnostics.push(Diagnostic::error(
-                    "E-SCAN-001",
-                    format!("failed to parse {}: {error}", path.display()),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-001",
+                        format!("failed to parse {}: {error}", path.display()),
+                    )
+                    .with_location(file_location),
+                );
                 return;
             }
         };
@@ -705,12 +854,14 @@ impl<'a> Scanner<'a> {
             .unwrap_or(path)
             .to_string_lossy()
             .replace('\\', "/");
-        let target = test_target_for_path(&relative);
+        let context = source_context(self.root, path, self.fallback_package);
         let line_offsets = line_offsets(&source);
         self.collect_items(
             &syntax.items,
             &relative,
-            &target,
+            &context.test_target,
+            &context.package,
+            &context.filter_prefix,
             &source,
             &line_offsets,
             "",
@@ -724,6 +875,8 @@ impl<'a> Scanner<'a> {
         items: &[Item],
         relative: &str,
         test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
         source: &str,
         line_offsets: &[usize],
         module: &str,
@@ -735,6 +888,8 @@ impl<'a> Scanner<'a> {
                     item_fn,
                     relative,
                     test_target,
+                    package,
+                    filter_prefix,
                     source,
                     line_offsets,
                     module,
@@ -744,6 +899,8 @@ impl<'a> Scanner<'a> {
                     item_impl,
                     relative,
                     test_target,
+                    package,
+                    filter_prefix,
                     source,
                     line_offsets,
                     module,
@@ -760,6 +917,8 @@ impl<'a> Scanner<'a> {
                             nested,
                             relative,
                             test_target,
+                            package,
+                            filter_prefix,
                             source,
                             line_offsets,
                             &nested_module,
@@ -778,6 +937,8 @@ impl<'a> Scanner<'a> {
         item_impl: &ItemImpl,
         relative: &str,
         test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
         source: &str,
         line_offsets: &[usize],
         module: &str,
@@ -804,6 +965,8 @@ impl<'a> Scanner<'a> {
                 item_fn.span(),
                 relative,
                 test_target,
+                package,
+                filter_prefix,
                 source,
                 line_offsets,
                 path,
@@ -817,6 +980,8 @@ impl<'a> Scanner<'a> {
         item_fn: &ItemFn,
         relative: &str,
         test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
         source: &str,
         line_offsets: &[usize],
         module: &str,
@@ -834,6 +999,8 @@ impl<'a> Scanner<'a> {
             item_fn.span(),
             relative,
             test_target,
+            package,
+            filter_prefix,
             source,
             line_offsets,
             path,
@@ -849,6 +1016,8 @@ impl<'a> Scanner<'a> {
         span: proc_macro2::Span,
         relative: &str,
         test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
         source: &str,
         line_offsets: &[usize],
         _path: &Path,
@@ -967,6 +1136,15 @@ impl<'a> Scanner<'a> {
             );
             return;
         }
+        if matches!(test_target, TestTarget::Unknown) {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-004",
+                    format!("test `{id}` Cargo test target cannot be resolved"),
+                )
+                .with_location(location.clone()),
+            );
+        }
         let covers = covers
             .split(',')
             .map(str::trim)
@@ -1044,8 +1222,8 @@ impl<'a> Scanner<'a> {
                 .collect(),
             location,
             content_hash: source_hash,
-            filter: function_name.to_owned(),
-            package: self.package.to_owned(),
+            filter: join_module_path(filter_prefix, item_path),
+            package: package.to_owned(),
             test_target: test_target.clone(),
         };
         self.tests.push(entity);
@@ -1053,23 +1231,21 @@ impl<'a> Scanner<'a> {
 
     fn finish(self, files: usize) -> Result<ScanResult, ScanError> {
         let mut diagnostics = self.diagnostics;
-        let mut locators = BTreeMap::new();
-        let mut src_ids = BTreeMap::new();
+        let mut locators = BTreeMap::<String, usize>::new();
+        let mut src_ids = BTreeMap::<String, usize>::new();
         for source in &self.sources {
-            locators
-                .entry(source.locator.as_string())
-                .or_insert_with(|| source.locator.clone());
+            *locators.entry(source.locator.as_string()).or_default() += 1;
             if let Some(src_id) = &source.src_id {
-                src_ids
-                    .entry(src_id.as_str().to_owned())
-                    .or_insert_with(|| source.locator.clone());
+                *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
             }
         }
         for test in &self.tests {
             for target in std::iter::once(&test.target).chain(&test.additional_targets) {
                 let resolved = match target {
-                    TargetRef::Locator(locator) => locators.contains_key(&locator.as_string()),
-                    TargetRef::SrcId(src_id) => src_ids.contains_key(src_id.as_str()),
+                    TargetRef::Locator(locator) => {
+                        locators.get(&locator.as_string()).copied() == Some(1)
+                    }
+                    TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
                 };
                 if !resolved {
                     diagnostics.push(
@@ -1180,20 +1356,392 @@ fn parse_src_id(attrs: &[Attribute]) -> Option<SrcId> {
         .map(SrcId::new)
 }
 
-fn test_target_for_path(path: &str) -> TestTarget {
-    let components = path.split('/').collect::<Vec<_>>();
-    if let Some(index) = components
-        .iter()
-        .position(|component| *component == "tests")
-    {
-        if let Some(file) = components
-            .get(index + 1)
-            .and_then(|value| value.strip_suffix(".rs"))
-        {
-            return TestTarget::IntegrationTest((*file).to_owned());
+struct SourceContext {
+    package: String,
+    test_target: TestTarget,
+    filter_prefix: String,
+}
+
+#[derive(Clone, Debug)]
+struct CargoTargetRoot {
+    path: PathBuf,
+    target: TestTarget,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoManifest {
+    package: Option<CargoPackage>,
+    lib: Option<CargoTarget>,
+    #[serde(default)]
+    bin: Vec<CargoTarget>,
+    #[serde(default)]
+    test: Vec<CargoTarget>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoPackage {
+    name: String,
+    autobins: Option<bool>,
+    autotests: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoTarget {
+    name: Option<String>,
+    path: Option<String>,
+}
+
+fn cargo_manifest(root: &Path) -> Option<CargoManifest> {
+    let text = fs::read_to_string(root.join("Cargo.toml")).ok()?;
+    let manifest = toml::from_str::<CargoManifest>(&text).ok()?;
+    manifest.package.as_ref()?;
+    Some(manifest)
+}
+
+fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceContext {
+    let package_root = package_root_for_path(root, path).unwrap_or_else(|| root.to_owned());
+    let manifest = cargo_manifest(&package_root);
+    let package = manifest
+        .as_ref()
+        .and_then(|manifest| manifest.package.as_ref())
+        .map(|package| package.name.clone())
+        .unwrap_or_else(|| fallback_package.to_owned());
+
+    if let Some(manifest) = &manifest {
+        let mut contexts = Vec::new();
+        for target_root in cargo_target_roots(&package_root, manifest) {
+            for filter_prefix in module_prefixes_for_file(&target_root.path, path) {
+                let context = (target_root.target.clone(), filter_prefix);
+                if !contexts.contains(&context) {
+                    contexts.push(context);
+                }
+            }
+        }
+        if contexts.len() == 1 {
+            let (test_target, filter_prefix) = contexts.pop().expect("one context exists");
+            return SourceContext {
+                package,
+                test_target,
+                filter_prefix,
+            };
+        }
+        return SourceContext {
+            package,
+            test_target: TestTarget::Unknown,
+            filter_prefix: String::new(),
+        };
+    }
+    SourceContext {
+        package,
+        test_target: TestTarget::Unknown,
+        filter_prefix: String::new(),
+    }
+}
+
+fn cargo_target_name(target: &CargoTarget) -> Option<String> {
+    target
+        .name
+        .clone()
+        .or_else(|| target.path.as_deref().and_then(target_name_from_path))
+}
+
+fn target_name_from_path(path: &str) -> Option<String> {
+    let path = Path::new(path);
+    let stem = path.file_stem()?.to_str()?;
+    if matches!(stem, "main" | "mod") {
+        path.parent()?.file_name()?.to_str().map(str::to_owned)
+    } else {
+        Some(stem.to_owned())
+    }
+}
+
+fn normalized_manifest_path(path: &str) -> String {
+    path.trim_start_matches("./").replace('\\', "/")
+}
+
+fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<CargoTargetRoot> {
+    let mut roots = Vec::new();
+    let lib_path = manifest
+        .lib
+        .as_ref()
+        .map(|target| target.path.as_deref().unwrap_or("src/lib.rs"))
+        .or_else(|| {
+            package_root
+                .join("src/lib.rs")
+                .exists()
+                .then_some("src/lib.rs")
+        });
+    if let Some(path) = lib_path {
+        roots.push(CargoTargetRoot {
+            path: package_root.join(normalized_manifest_path(path)),
+            target: TestTarget::Lib,
+        });
+    }
+
+    let mut explicit_bins = Vec::new();
+    for binary in &manifest.bin {
+        let Some(name) = cargo_target_name(binary) else {
+            continue;
+        };
+        for path in explicit_target_paths(package_root, binary, "src/bin", &name, true) {
+            explicit_bins.push(path.clone());
+            roots.push(CargoTargetRoot {
+                path,
+                target: TestTarget::Bin(name.clone()),
+            });
         }
     }
-    TestTarget::Lib
+
+    let autobins = manifest
+        .package
+        .as_ref()
+        .and_then(|package| package.autobins)
+        .unwrap_or(true);
+    if autobins {
+        let main = package_root.join("src/main.rs");
+        if main.exists() && !contains_path(&explicit_bins, &main) {
+            let name = manifest
+                .package
+                .as_ref()
+                .map(|package| package.name.clone())
+                .unwrap_or_default();
+            roots.push(CargoTargetRoot {
+                path: main,
+                target: TestTarget::Bin(name),
+            });
+        }
+        for (path, name) in discovered_target_roots(&package_root.join("src/bin")) {
+            if !contains_path(&explicit_bins, &path) {
+                roots.push(CargoTargetRoot {
+                    path,
+                    target: TestTarget::Bin(name),
+                });
+            }
+        }
+    }
+
+    let mut explicit_tests = Vec::new();
+    for test in &manifest.test {
+        let Some(name) = cargo_target_name(test) else {
+            continue;
+        };
+        for path in explicit_target_paths(package_root, test, "tests", &name, true) {
+            explicit_tests.push(path.clone());
+            roots.push(CargoTargetRoot {
+                path,
+                target: TestTarget::IntegrationTest(name.clone()),
+            });
+        }
+    }
+
+    let autotests = manifest
+        .package
+        .as_ref()
+        .and_then(|package| package.autotests)
+        .unwrap_or(true);
+    if autotests {
+        for (path, name) in discovered_target_roots(&package_root.join("tests")) {
+            if !contains_path(&explicit_tests, &path) {
+                roots.push(CargoTargetRoot {
+                    path,
+                    target: TestTarget::IntegrationTest(name),
+                });
+            }
+        }
+    }
+    roots
+}
+
+fn explicit_target_paths(
+    package_root: &Path,
+    target: &CargoTarget,
+    default_directory: &str,
+    name: &str,
+    allow_directory_main: bool,
+) -> Vec<PathBuf> {
+    if let Some(path) = &target.path {
+        return vec![package_root.join(normalized_manifest_path(path))];
+    }
+    let mut candidates = vec![package_root.join(format!("{default_directory}/{name}.rs"))];
+    if allow_directory_main {
+        candidates.push(package_root.join(format!("{default_directory}/{name}/main.rs")));
+    }
+    let existing = candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    if existing.is_empty() {
+        candidates.truncate(1);
+        candidates
+    } else {
+        existing
+    }
+}
+
+fn discovered_target_roots(directory: &Path) -> Vec<(PathBuf, String)> {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return Vec::new();
+    };
+    let mut entries = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    entries.sort();
+    let mut roots = Vec::new();
+    for path in entries {
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("rs") {
+            if let Some(name) = path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(str::to_owned)
+            {
+                roots.push((path, name));
+            }
+        } else if path.is_dir() {
+            let main = path.join("main.rs");
+            if main.exists() {
+                if let Some(name) = path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .map(str::to_owned)
+                {
+                    roots.push((main, name));
+                }
+            }
+        }
+    }
+    roots
+}
+
+fn contains_path(paths: &[PathBuf], candidate: &Path) -> bool {
+    paths.iter().any(|path| same_path(path, candidate))
+}
+
+fn same_path(left: &Path, right: &Path) -> bool {
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+fn module_prefixes_for_file(target_root: &Path, sought: &Path) -> Vec<String> {
+    let Some(module_directory) = target_root.parent() else {
+        return Vec::new();
+    };
+    let mut prefixes = Vec::new();
+    let mut visiting = BTreeSet::new();
+    visit_module_file(
+        target_root,
+        module_directory,
+        "",
+        sought,
+        &mut visiting,
+        &mut prefixes,
+    );
+    prefixes.sort();
+    prefixes.dedup();
+    prefixes
+}
+
+fn visit_module_file(
+    file: &Path,
+    module_directory: &Path,
+    prefix: &str,
+    sought: &Path,
+    visiting: &mut BTreeSet<PathBuf>,
+    prefixes: &mut Vec<String>,
+) {
+    if same_path(file, sought) {
+        prefixes.push(prefix.to_owned());
+    }
+    let identity = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
+    if !visiting.insert(identity.clone()) {
+        return;
+    }
+    let syntax = fs::read_to_string(file)
+        .ok()
+        .and_then(|source| syn::parse_file(&source).ok());
+    if let Some(syntax) = syntax {
+        visit_module_items(
+            &syntax.items,
+            module_directory,
+            prefix,
+            sought,
+            visiting,
+            prefixes,
+        );
+    }
+    visiting.remove(&identity);
+}
+
+fn visit_module_items(
+    items: &[Item],
+    module_directory: &Path,
+    prefix: &str,
+    sought: &Path,
+    visiting: &mut BTreeSet<PathBuf>,
+    prefixes: &mut Vec<String>,
+) {
+    for item in items {
+        let Item::Mod(module) = item else {
+            continue;
+        };
+        let name = module.ident.to_string();
+        let child_prefix = join_module_path(prefix, &name);
+        let child_directory = module_directory.join(&name);
+        if let Some((_, items)) = &module.content {
+            visit_module_items(
+                items,
+                &child_directory,
+                &child_prefix,
+                sought,
+                visiting,
+                prefixes,
+            );
+            continue;
+        }
+        let candidates = [
+            module_directory.join(format!("{name}.rs")),
+            child_directory.join("mod.rs"),
+        ];
+        let existing = candidates
+            .iter()
+            .filter(|path| path.exists())
+            .collect::<Vec<_>>();
+        if existing.len() == 1 {
+            visit_module_file(
+                existing[0],
+                &child_directory,
+                &child_prefix,
+                sought,
+                visiting,
+                prefixes,
+            );
+        }
+    }
+}
+
+fn package_root_for_path(root: &Path, path: &Path) -> Option<PathBuf> {
+    let mut current = path.parent();
+    while let Some(directory) = current {
+        if directory.join("Cargo.toml").exists() {
+            return Some(directory.to_owned());
+        }
+        if directory == root {
+            break;
+        }
+        current = directory.parent();
+    }
+    None
+}
+
+fn join_module_path(prefix: &str, item_path: &str) -> String {
+    if prefix.is_empty() {
+        item_path.to_owned()
+    } else {
+        format!("{prefix}::{item_path}")
+    }
 }
 
 fn line_offsets(source: &str) -> Vec<usize> {
@@ -1255,6 +1803,11 @@ mod tests {
         let root = std::env::temp_dir().join(format!("vtest-scan-{suffix}"));
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
         init_project(&root, "fixture").unwrap();
         fs::write(
             root.join("src/lib.rs"),
@@ -1293,11 +1846,198 @@ fn adds() { assert_eq!(2, crate::missing()); }
             result.diagnostics
         );
         assert_eq!(result.tests[0].id.as_str(), "TEST-ADD");
+        assert_eq!(result.tests[0].filter, "adds");
         assert_eq!(result.tests[0].package, "fixture");
         assert_eq!(
             result.tests[0].test_target,
             TestTarget::IntegrationTest("calc".to_owned())
         );
+    }
+
+    #[test]
+    fn missing_or_invalid_cargo_metadata_is_fail_closed() {
+        let root = fixture();
+        fs::write(root.join("Cargo.toml"), "[package\ninvalid = true\n").unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-004"
+                && diagnostic.location.as_ref().is_some_and(|location| {
+                    location.file == "tests/calc.rs" && location.function == "adds"
+                })
+        }));
+        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+
+        let root = fixture();
+        fs::remove_file(root.join("Cargo.toml")).unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-004"
+                && diagnostic.location.as_ref().is_some_and(|location| {
+                    location.file == "tests/calc.rs" && location.function == "adds"
+                })
+        }));
+        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+    }
+
+    #[test]
+    fn resolves_workspace_packages_targets_and_external_module_filters() {
+        let root = fixture();
+        fs::create_dir_all(root.join("crates/parser/src/runtime")).unwrap();
+        fs::create_dir_all(root.join("crates/parser/src/bin")).unwrap();
+        fs::create_dir_all(root.join("crates/parser/tests/suite")).unwrap();
+        fs::write(
+            root.join("crates/parser/Cargo.toml"),
+            "[package]\nname = \"parser-crate\" # an inline TOML comment\nversion = \"0.1.0\"\nedition = \"2021\"\nautobins = false\nautotests = false\n\n[lib]\npath = \"src/runtime/mod.rs\"\n\n[[bin]]\nname = \"parser-check\"\npath = \"src/bin/check.rs\"\n\n[[test]]\nname = \"parser-suite\"\npath = \"tests/suite/main.rs\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/parser/src/runtime/mod.rs"),
+            "pub mod parser;\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/parser/src/runtime/parser.rs"),
+            r#"
+pub fn parse() {}
+
+#[cfg(test)]
+mod tests {
+    /// @vtest.id TEST-PARSER-MODULE
+    /// @vtest.covers VO-ADD
+    /// @vtest.target crates/parser/src/runtime/parser.rs::parse
+    /// @vtest.intent parses from an external module
+    #[test]
+    fn parses_external_module() { super::parse(); }
+}
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/parser/src/bin/check.rs"),
+            r#"
+fn main() {}
+
+/// @vtest.id TEST-PARSER-BIN
+/// @vtest.covers VO-ADD
+/// @vtest.target crates/parser/src/runtime/parser.rs::parse
+/// @vtest.intent checks the parser binary
+#[test]
+fn checks_binary() {}
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/parser/tests/suite/main.rs"),
+            "mod support;\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/parser/tests/suite/support.rs"),
+            r#"
+pub fn exercise() {}
+
+/// @vtest.id TEST-PARSER-INTEGRATION
+/// @vtest.covers VO-ADD
+/// @vtest.target crates/parser/src/runtime/parser.rs::parse
+/// @vtest.intent parses through an integration target
+#[test]
+fn parses_integration() { exercise(); }
+"#,
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+        let module_test = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-PARSER-MODULE")
+            .unwrap();
+        assert_eq!(module_test.package, "parser-crate");
+        assert_eq!(module_test.test_target, TestTarget::Lib);
+        assert_eq!(module_test.filter, "parser::tests::parses_external_module");
+
+        let integration = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-PARSER-INTEGRATION")
+            .unwrap();
+        assert_eq!(integration.package, "parser-crate");
+        assert_eq!(
+            integration.test_target,
+            TestTarget::IntegrationTest("parser-suite".to_owned())
+        );
+        assert_eq!(integration.filter, "support::parses_integration");
+
+        let binary = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-PARSER-BIN")
+            .unwrap();
+        assert_eq!(binary.package, "parser-crate");
+        assert_eq!(
+            binary.test_target,
+            TestTarget::Bin("parser-check".to_owned())
+        );
+        assert_eq!(binary.filter, "checks_binary");
+    }
+
+    #[test]
+    fn ignored_rust_files_are_not_scanned() {
+        let root = fixture();
+        fs::write(root.join(".gitignore"), "src/ignored.rs\n").unwrap();
+        fs::write(root.join(".ignore"), "src/kept.rs\n").unwrap();
+        fs::write(root.join("src/ignored.rs"), "this is not rust\n").unwrap();
+        fs::write(root.join("src/kept.rs"), "pub fn kept() {}\n").unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(!result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-001" && diagnostic.message.contains("ignored.rs")
+        }));
+        assert!(!result
+            .sources
+            .iter()
+            .any(|source| source.location.file == "src/ignored.rs"));
+        assert!(result
+            .sources
+            .iter()
+            .any(|source| source.location.file == "src/kept.rs"));
+    }
+
+    #[test]
+    fn ambiguous_target_locator_is_not_resolved() {
+        let root = fixture();
+        fs::write(
+            root.join("src/ambiguous.rs"),
+            r#"
+#[cfg(feature = "left")]
+pub fn duplicate() {}
+#[cfg(not(feature = "left"))]
+pub fn duplicate() {}
+"#,
+        )
+        .unwrap();
+        fs::write(
+            root.join("tests/ambiguous.rs"),
+            r#"
+/// @vtest.id TEST-AMBIGUOUS
+/// @vtest.covers VO-ADD
+/// @vtest.target src/ambiguous.rs::duplicate
+/// @vtest.intent rejects an ambiguous source locator
+#[test]
+fn ambiguous() {}
+"#,
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-004"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "ambiguous")
+        }));
     }
 
     #[test]
@@ -1516,6 +2256,14 @@ fn covers_parent() {}
         assert!(
             codes.contains("W-STORE-001"),
             "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.location.is_some()),
+            "every scanner diagnostic must identify its canonical source: {:?}",
             result.diagnostics
         );
     }

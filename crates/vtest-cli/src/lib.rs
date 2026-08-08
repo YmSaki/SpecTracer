@@ -3004,6 +3004,21 @@ mod tests {
         let root = root();
         assert!(root.join(".verify/forms/rust-unit-function.yaml").is_file());
         assert!(root.join(".verify/forms/rust-integration.yaml").is_file());
+        for directory in [
+            "spec",
+            "req",
+            "vo",
+            "rel",
+            "approvals",
+            "audits",
+            "evidence",
+        ] {
+            assert!(root
+                .join(".verify")
+                .join(directory)
+                .join(".gitkeep")
+                .is_file());
+        }
         assert_eq!(
             run(Cli {
                 project: root.clone(),

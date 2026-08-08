@@ -317,8 +317,8 @@ cargo run --quiet -p vtest-cli -- doctor
 
 | Milestone | Status | Sol used / budget | Luna used / budget | Acceptance evidence | Architecture review | Independent review | Blocker |
 |---|---|---:|---:|---|---|---|---|
-| S0 | NOT_STARTED | 0 / 60 kTok | 0 / 80 kTok | — | — | — | — |
-| M1 | NOT_STARTED | 0 / 180 kTok | 0 / 300 kTok | — | — | — | — |
+| S0 | DONE | N/R / 60 kTok | N/R / 80 kTok | workspace test、init/layout、`tests/ACCEPTANCE.md` | PASS | PASS（M1 review で再確認） | — |
+| M1 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m1_acceptance` 5/5、`release_check --milestone M1` READY | PASS | PASS（独立 read-only review 2系統） | — |
 | M2 | NOT_STARTED | 0 / 120 kTok | 0 / 220 kTok | — | — | — | — |
 | M3 | NOT_STARTED | 0 / 100 kTok | 0 / 180 kTok | — | — | — | — |
 | M4 | NOT_STARTED | 0 / 140 kTok | 0 / 240 kTok | — | — | — | — |
@@ -329,6 +329,8 @@ cargo run --quiet -p vtest-cli -- doctor
 | M9 | NOT_STARTED | 0 / 140 kTok | 0 / 240 kTok | — | — | — | — |
 
 Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかとする。`DONE` は受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
+
+`N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。M1 の独立レビューは Luna reviewer の登録モデルが利用不能だったため、同一コードを編集しない独立 agent 2系統で代替した。終了コードについては、別紙B §18.3 の「診断あり」と、基本仕様 §11・詳細設計 §5.4・別紙A §12.2 の「warning は結果を変えず、error 診断で終了コード1」が字義上衝突する。実装と受入テストは後者に従い、`tests/ACCEPTANCE.md` に review item として記録した。
 
 ## 16. Luna依頼テンプレート
 

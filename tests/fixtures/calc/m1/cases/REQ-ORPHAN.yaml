@@ -1,0 +1,6 @@
+id: REQ-ORPHAN
+parent: REQ-ABSENT
+summary: orphan
+status: active
+created: '2026-01-01'
+updated: '2026-01-01'

@@ -305,6 +305,17 @@ pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError>
         &layout.forms_dir().join("rust-integration.yaml"),
         RUST_INTEGRATION_FORM.as_bytes(),
     )?;
+    for directory in [
+        layout.spec_dir(),
+        layout.req_dir(),
+        layout.vo_dir(),
+        layout.relation_dir(),
+        layout.approvals_dir(),
+        layout.audits_dir(),
+        layout.evidence_dir(),
+    ] {
+        write_new_file(&directory.join(".gitkeep"), b"")?;
+    }
     write_new_file(&layout.verify_dir().join(".gitignore"), b"cache/\n")?;
     Ok(layout)
 }
