@@ -319,7 +319,7 @@ cargo run --quiet -p vtest-cli -- doctor
 |---|---|---:|---:|---|---|---|---|
 | S0 | DONE | N/R / 60 kTok | N/R / 80 kTok | workspace test、init/layout、`tests/ACCEPTANCE.md` | PASS | PASS（M1 review で再確認） | — |
 | M1 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m1_acceptance` 5/5、`release_check --milestone M1` READY | PASS | PASS（独立 read-only review 2系統） | — |
-| M2 | NOT_STARTED | 0 / 120 kTok | 0 / 220 kTok | — | — | — | — |
+| M2 | DONE | N/R / 120 kTok | N/R / 220 kTok | `m2_acceptance` 12/12、`release_check --milestone M2` READY | PASS | PASS（独立 read-only review、再監査済み） | — |
 | M3 | NOT_STARTED | 0 / 100 kTok | 0 / 180 kTok | — | — | — | — |
 | M4 | NOT_STARTED | 0 / 140 kTok | 0 / 240 kTok | — | — | — | — |
 | M5 | NOT_STARTED | 0 / 120 kTok | 0 / 200 kTok | — | — | — | — |
@@ -330,7 +330,11 @@ cargo run --quiet -p vtest-cli -- doctor
 
 Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかとする。`DONE` は受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
 
-`N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。M1 の独立レビューは Luna reviewer の登録モデルが利用不能だったため、同一コードを編集しない独立 agent 2系統で代替した。終了コードについては、別紙B §18.3 の「診断あり」と、基本仕様 §11・詳細設計 §5.4・別紙A §12.2 の「warning は結果を変えず、error 診断で終了コード1」が字義上衝突する。実装と受入テストは後者に従い、`tests/ACCEPTANCE.md` に review item として記録した。
+`N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。M1/M2 の独立レビューは Luna reviewer の登録モデルが利用不能だったため、同一コードを編集しない独立 agent で代替した。終了コードについては、別紙B §18.3 の「診断あり」と、基本仕様 §11・詳細設計 §5.4・別紙A §12.2 の「warning は結果を変えず、error 診断で終了コード1」が字義上衝突する。実装と受入テストは後者に従い、`tests/ACCEPTANCE.md` に review item として記録した。
+
+M2 では、基本仕様 §3.1 の `REL-`（ULID）と同 §3.2・詳細設計 §§2.1/3.4 の bare ULID の表記差を独断で固定せず、ULID payload を厳格検証したうえで両表記を読み取る。同じ payload の bare/prefixed 2レコードは E-SCAN-010 で拒否し、論理IDの一意性を維持する。承認失効は基本仕様 §9・詳細設計 §3.5 の VO 内容ハッシュ式に従う。詳細設計 §§3.1/11.4 の「依存 SPEC 更新でも承認失効」とは schema 上両立しないため、W-SCAN-104 による SPEC drift 検出までを M2 とし、依存ハッシュを承認式へ追加するかは仕様 review item として `tests/ACCEPTANCE.md` に残した。
+
+自己適用ではリポジトリ直下の `.verify/` で `vtest doctor` を実行し、exit 0 と canonical 再読込を確認した。現段階の self-scan は Test 未登録を W-SCAN-101 として列挙する inventory dogfood であり、自己検証の PASS とは扱わない。M3 以降で受入 Test を VO に登録し、監査・Evidence・集約を段階的に自己適用する。
 
 ## 16. Luna依頼テンプレート
 

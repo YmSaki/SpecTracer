@@ -302,7 +302,10 @@ fn m1_error_diagnostic_matrix_is_reported_by_the_cli() {
     project.copy_fixture("m1/base");
     project.copy_case("diagnostics.rs", "tests/diagnostics.rs");
     project.copy_case("REQ-ORPHAN.yaml", ".verify/req/REQ-ORPHAN.yaml");
-    project.copy_case("REL-BROKEN.yaml", ".verify/rel/REL-BROKEN.yaml");
+    project.copy_case(
+        "REL-BROKEN.yaml",
+        ".verify/rel/01J8XVZK3Q0000000000000000.yaml",
+    );
     project.copy_case("VO-FILE-NAME.yaml", ".verify/vo/VO-FILE-NAME.yaml");
 
     let output = invoke(&project.root, "scan", &[]);
@@ -321,7 +324,7 @@ fn m1_error_diagnostic_matrix_is_reported_by_the_cli() {
         ("E-SCAN-006", "tests/diagnostics.rs"),
         ("E-SCAN-007", "tests/diagnostics.rs"),
         ("E-SCAN-008", ".verify/req/REQ-ORPHAN.yaml"),
-        ("E-SCAN-009", ".verify/rel/REL-BROKEN.yaml"),
+        ("E-SCAN-009", ".verify/rel/01J8XVZK3Q0000000000000000.yaml"),
         ("E-SCAN-010", ".verify/vo/VO-FILE-NAME.yaml"),
     ] {
         let diagnostic = diagnostics

@@ -14,9 +14,9 @@ alone is not promoted to acceptance evidence.
 | M1 | Detect E-SCAN-002..010 and W-SCAN-101 at their source files | `m1_error_diagnostic_matrix_is_reported_by_the_cli`; `m1_warning_only_scan_exits_zero` | PASS |
 | M1 | Emit the §12.1 JSON envelope and location-bearing scan diagnostics | all tests in `crates/vtest-cli/tests/m1_acceptance.rs` | PASS |
 | M1 | Distinguish success, verification, usage, and internal exits (0/1/2/3) | M1 clean/warning, error matrix, repeated-init, and invalid-config cases | PASS* |
-| M2 | VO add → approve → edit invalidates approval and derives draft | promote `approval_is_derived_and_edit_makes_it_draft` into an integration flow | NOT_CHECKED |
-| M2 | `vo expand --dry-run` returns the `full-product` Cartesian children | add tracked product-dimension fixture | NOT_CHECKED |
-| M2 | Editing a registered SPEC document emits W-SCAN-104 | add CLI acceptance around a tracked SPEC | NOT_CHECKED |
+| M2 | VO add → approve → edit invalidates approval and derives draft | `m2_vo_edit_invalidates_approval_and_returns_to_effective_draft` | PASS |
+| M2 | `vo expand --dry-run` returns the `full-product` Cartesian children | `m2_full_product_expand_dry_run_lists_cartesian_children_without_writes` | PASS |
+| M2 | Editing a registered SPEC document emits W-SCAN-104 | `m2_mutating_registered_spec_document_reports_w_scan_104` | PASS |
 | M3 | Each intentional NG test maps to DA-001..006 / W-DA-101 | add `m3_acceptance` over calc variants | NOT_CHECKED |
 | M3 | The normal test has no deterministic violation | add normal calc audit assertion | NOT_CHECKED |
 | M3 | A cross-file call is UNKNOWN, never a certain DA-002 FAIL | add conservative-analysis fixture | NOT_CHECKED |
@@ -48,3 +48,17 @@ and Annex A §12.2 requires exit 1 for **error** diagnostics. Annex B §18.3 use
 the broader phrase “diagnostic present → 1”; that wording conflict remains a
 specification review item. The regression test deliberately fixes warning-only
 scan at exit 0 and error-bearing scan at exit 1.
+
+M2 also fixes append-only publication, strict Approval/Relation validation,
+explicit combinations, tree listing, and `vo show` coverage/approval output in
+`m2_acceptance` and `vtest-store` tests. Two specification review items remain:
+
+- Basic specification §3.1 writes Relation as `REL-` (ULID), while its §3.2 and
+  detailed design §§2.1/3.4 use a bare ULID filename. The reader validates and
+  accepts either spelling, while scan rejects a bare/prefixed pair sharing one
+  payload; this preserves one logical identity per ULID.
+- Basic specification §9 and detailed design §3.5 derive approval only from the
+  current VO hash, while detailed design §§3.1/11.4 also say a dependent SPEC
+  change invalidates approval. M2 follows the higher-precedence VO-hash formula
+  and reports SPEC drift with W-SCAN-104; dependency-bound approval needs a
+  specification/schema decision before implementation.

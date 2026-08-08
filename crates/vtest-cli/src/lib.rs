@@ -20,10 +20,10 @@ use vtest_scan::{
     show_test, ScanResult,
 };
 use vtest_store::{
-    find_project_root, init_project, load_config, new_record_id, now_rfc3339, read_approval,
-    read_form_answers, read_req, read_spec, read_text, read_vo, write_atomic, yaml_scalar_value,
-    ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout,
-    VoRecord,
+    find_project_root, init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339,
+    read_approval, read_form_answers, read_req, read_spec, read_text, read_vo, write_atomic,
+    write_new_record, yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension,
+    ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout, VoRecord,
 };
 use vtest_verify::verify_project;
 
@@ -215,6 +215,8 @@ pub enum VoCommand {
         dimensions: Vec<String>,
         #[arg(long)]
         policy: Option<String>,
+        #[arg(long = "combination")]
+        combinations: Vec<String>,
     },
     Edit {
         id: String,
@@ -542,7 +544,7 @@ fn run_req(project: &Path, command: ReqCommand, format: OutputFormat, quiet: boo
             parent,
             status,
         } => edit_req(&layout, &id, summary, parent, status),
-        ReqCommand::List { tree: _ } => list_reqs(&layout),
+        ReqCommand::List { tree } => list_reqs(&layout, tree),
         ReqCommand::Show { id } => show_req(&layout, &id),
     };
     finish_record_command(result, format, quiet)
@@ -564,6 +566,7 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
             sections,
             dimensions,
             policy,
+            combinations,
         } => add_vo(
             &layout,
             &id,
@@ -574,6 +577,7 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
             &sections,
             &dimensions,
             policy,
+            &combinations,
         ),
         VoCommand::Edit {
             id,
@@ -581,11 +585,9 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
             parent,
             status,
         } => edit_vo(&layout, &id, claim, parent, status),
-        VoCommand::List {
-            tree: _,
-            req,
-            status,
-        } => list_vos(&layout, req.as_deref(), status.as_deref()),
+        VoCommand::List { tree, req, status } => {
+            list_vos(&layout, tree, req.as_deref(), status.as_deref())
+        }
         VoCommand::Show { id } => show_vo(&layout, &id),
         VoCommand::Expand { id, dry_run } => expand_vo(&layout, &id, dry_run),
         VoCommand::Approve {
@@ -960,7 +962,7 @@ fn run_audit_submit(project: &Path, file: &Path, format: OutputFormat, quiet: bo
     let audit_path = layout.audits_dir().join(format!("{audit_id}.yaml"));
     let audit_yaml = audit_record_yaml(&audit_id, bundle_id, kind, &bundle, &result, &verdict);
     if let Err(error) = fs::create_dir_all(layout.audits_dir()).and_then(|_| {
-        write_atomic(&audit_path, &audit_yaml)
+        write_new_record(&audit_path, &audit_yaml)
             .map_err(|error| std::io::Error::other(error.to_string()))
     }) {
         return emit_command_failure(
@@ -2274,6 +2276,16 @@ fn add_spec(
     update: bool,
 ) -> CommandResult {
     validate_id(id, "SPEC-")?;
+    if !matches!(
+        kind,
+        "document" | "api-schema" | "type-spec" | "db-schema" | "other"
+    ) {
+        return Err(failure(
+            "E-OP-001",
+            "SPEC kind must be document, api-schema, type-spec, db-schema, or other",
+            ExitCode::Usage,
+        ));
+    }
     let source_path = safe_project_path(root, path)?;
     let source = fs::read_to_string(&source_path)
         .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
@@ -2290,6 +2302,7 @@ fn add_spec(
     } else {
         None
     };
+    let previous_hash = old.as_ref().map(|value| value.sha256.clone());
     let record = SpecRecord {
         id: SpecId::new(id),
         kind: kind.to_owned(),
@@ -2304,7 +2317,19 @@ fn add_spec(
             .unwrap_or_else(now_rfc3339),
     };
     write_atomic(&record_path, &record.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(record).expect("record is serializable"))
+    let content_changed = previous_hash.is_some_and(|hash| hash != record.sha256);
+    let mut value = serde_json::to_value(record).expect("record is serializable");
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "content_changed".to_owned(),
+            serde_json::json!(content_changed),
+        );
+        object.insert(
+            "dependent_facts_may_be_stale".to_owned(),
+            serde_json::json!(content_changed),
+        );
+    }
+    Ok(value)
 }
 
 fn list_specs(layout: &VerifyLayout) -> CommandResult {
@@ -2413,15 +2438,31 @@ fn edit_req(
     Ok(serde_json::to_value(record).expect("record"))
 }
 
-fn list_reqs(layout: &VerifyLayout) -> CommandResult {
+fn list_reqs(layout: &VerifyLayout, tree: bool) -> CommandResult {
     let ids = read_record_ids_for(&layout.req_dir())?;
-    let mut records = Vec::new();
+    let mut entries = BTreeMap::new();
     for id in ids {
-        records.push(
-            serde_json::to_value(read_req(layout, &id).map_err(store_failure)?).expect("record"),
+        let record = read_req(layout, &id).map_err(store_failure)?;
+        let parent = record
+            .parent
+            .as_ref()
+            .map(|value| value.as_str().to_owned());
+        entries.insert(
+            id,
+            (
+                parent,
+                serde_json::to_value(record).expect("record is serializable"),
+            ),
         );
     }
-    Ok(serde_json::json!({ "items": records }))
+    if tree {
+        Ok(serde_json::json!({ "tree": true, "items": record_tree(entries) }))
+    } else {
+        Ok(serde_json::json!({
+            "tree": false,
+            "items": entries.into_values().map(|(_, value)| value).collect::<Vec<_>>()
+        }))
+    }
 }
 
 fn show_req(layout: &VerifyLayout, id: &str) -> CommandResult {
@@ -2440,6 +2481,7 @@ fn add_vo(
     sections: &[String],
     dimensions: &[String],
     policy: Option<String>,
+    combinations: &[String],
 ) -> CommandResult {
     validate_id(id, "VO-")?;
     if claim.trim().is_empty() {
@@ -2478,7 +2520,15 @@ fn add_vo(
                 ExitCode::Usage,
             ));
         }
+        if dimensions.is_empty() {
+            return Err(failure(
+                "E-OP-001",
+                "VO coverage policy requires at least one dimension",
+                ExitCode::Usage,
+            ));
+        }
     }
+    let combinations = parse_explicit_combinations(&dimensions, policy.as_deref(), combinations)?;
     let now = now_rfc3339();
     let record = VoRecord {
         id: VoId::new(id),
@@ -2488,6 +2538,7 @@ fn add_vo(
         claim: claim.to_owned(),
         dimensions,
         coverage_policy: policy,
+        combinations,
         representative_cases: Vec::new(),
         status: "draft".to_owned(),
         created: now.clone(),
@@ -2514,6 +2565,7 @@ fn edit_vo(
     }
     let path = layout.vo_dir().join(format!("{id}.yaml"));
     let mut record = read_vo(layout, id).map_err(store_failure)?;
+    let approval_invalidated = effective_vo_status(layout, &record) == "approved";
     if let Some(claim) = claim {
         if claim.trim().is_empty() {
             return Err(failure(
@@ -2530,23 +2582,46 @@ fn edit_vo(
         record.parent = Some(VoId::new(parent));
     }
     if let Some(status) = status {
-        if !matches!(status.as_str(), "draft" | "approved") {
+        if status != "draft" {
             return Err(failure(
                 "E-OP-001",
-                "VO status must be draft or approved",
+                "VO status can only be set to draft; approved is derived from approval records",
                 ExitCode::Usage,
             ));
         }
-        record.status = status;
     }
+    record.status = "draft".to_owned();
     record.updated = now_rfc3339();
     write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(record).expect("record"))
+    let mut value = serde_json::to_value(record).expect("record");
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "approval_invalidated".to_owned(),
+            serde_json::json!(approval_invalidated),
+        );
+    }
+    Ok(value)
 }
 
-fn list_vos(layout: &VerifyLayout, req: Option<&str>, status: Option<&str>) -> CommandResult {
+fn list_vos(
+    layout: &VerifyLayout,
+    tree: bool,
+    req: Option<&str>,
+    status: Option<&str>,
+) -> CommandResult {
+    if let Some(req) = req {
+        validate_id(req, "REQ-")?;
+        read_req(layout, req).map_err(store_failure)?;
+    }
+    if status.is_some_and(|value| !matches!(value, "draft" | "approved")) {
+        return Err(failure(
+            "E-OP-001",
+            "VO status filter must be draft or approved",
+            ExitCode::Usage,
+        ));
+    }
     let ids = read_record_ids_for(&layout.vo_dir())?;
-    let mut records = Vec::new();
+    let mut entries = BTreeMap::new();
     for id in ids {
         let record = read_vo(layout, &id).map_err(store_failure)?;
         if let Some(req) = req {
@@ -2562,25 +2637,213 @@ fn list_vos(layout: &VerifyLayout, req: Option<&str>, status: Option<&str>) -> C
         if status.is_some_and(|wanted| wanted != effective) {
             continue;
         }
-        records.push(serde_json::json!({
-            "id": record.id,
-            "claim": record.claim,
-            "status": effective,
-            "stored_status": record.status,
-        }));
+        let parent = record
+            .parent
+            .as_ref()
+            .map(|value| value.as_str().to_owned());
+        entries.insert(
+            id,
+            (
+                parent.clone(),
+                serde_json::json!({
+                    "id": record.id,
+                    "claim": record.claim,
+                    "status": effective,
+                    "stored_status": record.status,
+                    "parent": parent,
+                    "requirements": record.requirements,
+                }),
+            ),
+        );
     }
-    Ok(serde_json::json!({ "items": records }))
+    if tree {
+        Ok(serde_json::json!({ "tree": true, "items": record_tree(entries) }))
+    } else {
+        Ok(serde_json::json!({
+            "tree": false,
+            "items": entries.into_values().map(|(_, value)| value).collect::<Vec<_>>()
+        }))
+    }
+}
+
+fn record_tree(
+    entries: BTreeMap<String, (Option<String>, serde_json::Value)>,
+) -> Vec<serde_json::Value> {
+    let mut children = BTreeMap::<String, Vec<String>>::new();
+    let mut roots = Vec::new();
+    for (id, (parent, _)) in &entries {
+        if let Some(parent) = parent
+            .as_ref()
+            .filter(|parent| entries.contains_key(parent.as_str()))
+        {
+            children.entry(parent.clone()).or_default().push(id.clone());
+        } else {
+            roots.push(id.clone());
+        }
+    }
+    for ids in children.values_mut() {
+        ids.sort();
+    }
+    roots.sort();
+
+    let mut expanded = BTreeSet::new();
+    let mut output = Vec::new();
+    for id in roots {
+        if let Some(value) = record_tree_node(&id, &entries, &children, &mut expanded) {
+            output.push(value);
+        }
+    }
+    // Malformed cyclic graphs have no natural root. Keep list output total and
+    // deterministic; scanner diagnostics remain the authority for the cycle.
+    for id in entries.keys() {
+        if let Some(value) = record_tree_node(id, &entries, &children, &mut expanded) {
+            output.push(value);
+        }
+    }
+    output
+}
+
+fn record_tree_node(
+    id: &str,
+    entries: &BTreeMap<String, (Option<String>, serde_json::Value)>,
+    children: &BTreeMap<String, Vec<String>>,
+    expanded: &mut BTreeSet<String>,
+) -> Option<serde_json::Value> {
+    if !expanded.insert(id.to_owned()) {
+        return None;
+    }
+    let mut value = entries.get(id)?.1.clone();
+    let nested = children
+        .get(id)
+        .into_iter()
+        .flatten()
+        .filter_map(|child| record_tree_node(child, entries, children, expanded))
+        .collect::<Vec<_>>();
+    if let Some(object) = value.as_object_mut() {
+        object.insert("children".to_owned(), serde_json::Value::Array(nested));
+    }
+    Some(value)
 }
 
 fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
     validate_id(id, "VO-")?;
     let record = read_vo(layout, id).map_err(store_failure)?;
     let effective = effective_vo_status(layout, &record);
+    let scan = scan_project(&layout.root).map_err(|error| {
+        failure(
+            "E-CORE-001",
+            format!("could not scan covering tests for VO {id}: {error}"),
+            ExitCode::Internal,
+        )
+    })?;
+    let covering_tests = scan
+        .tests
+        .iter()
+        .filter(|test| test.covers.iter().any(|vo| vo.as_str() == id))
+        .map(|test| {
+            serde_json::json!({
+                "id": test.id,
+                "file": test.location.file,
+                "function": test.location.function,
+            })
+        })
+        .collect::<Vec<_>>();
+    let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
+    let current_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
+    let approvals = approval_history(layout, id, &current_hash);
+    let audits = vo_audit_history(layout, id, &current_hash);
     let mut value = serde_json::to_value(record).expect("record");
     if let Some(object) = value.as_object_mut() {
         object.insert("effective_status".to_owned(), serde_json::json!(effective));
+        object.insert(
+            "covering_tests".to_owned(),
+            serde_json::Value::Array(covering_tests),
+        );
+        object.insert("approvals".to_owned(), serde_json::Value::Array(approvals));
+        object.insert("audits".to_owned(), serde_json::Value::Array(audits));
+        // Full audit validity depends on every recorded subject and is an M5
+        // concern. A show command must not promote a partial hash comparison.
+        object.insert("audit_state".to_owned(), serde_json::json!("NOT_CHECKED"));
     }
     Ok(value)
+}
+
+fn approval_history(
+    layout: &VerifyLayout,
+    vo_id: &str,
+    current_hash: &ContentHash,
+) -> Vec<serde_json::Value> {
+    let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
+        return Vec::new();
+    };
+    let mut paths = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths
+        .into_iter()
+        .filter_map(|path| read_approval(&path).ok())
+        .filter(|approval| approval.subject.as_str() == vo_id)
+        .map(|approval| {
+            serde_json::json!({
+                "id": approval.id,
+                "approved_at": approval.approved_at,
+                "approver": approval.approver,
+                "basis": approval.basis,
+                "valid": &approval.subject_hash == current_hash,
+            })
+        })
+        .collect()
+}
+
+fn vo_audit_history(
+    layout: &VerifyLayout,
+    vo_id: &str,
+    current_hash: &ContentHash,
+) -> Vec<serde_json::Value> {
+    let Ok(entries) = fs::read_dir(layout.audits_dir()) else {
+        return Vec::new();
+    };
+    let mut paths = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            let text = read_text(&path).ok()?;
+            let subject_hash = audit_subject_hash(&text, vo_id)?;
+            Some(serde_json::json!({
+                "id": yaml_scalar_value(&text, "id").or_else(|| path.file_stem().and_then(|value| value.to_str()).map(str::to_owned)),
+                "kind": yaml_scalar_value(&text, "kind"),
+                "verdict": yaml_scalar_value(&text, "verdict"),
+                "audited_at": yaml_scalar_value(&text, "audited_at"),
+                "subject_hash_matches": &subject_hash == current_hash,
+            }))
+        })
+        .collect()
+}
+
+fn audit_subject_hash(text: &str, subject_id: &str) -> Option<ContentHash> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let start = lines.iter().position(|line| {
+        line.trim_start().starts_with("id:")
+            && yaml_scalar_value(line, "id").as_deref() == Some(subject_id)
+    })?;
+    lines
+        .iter()
+        .skip(start + 1)
+        .take_while(|line| {
+            let trimmed = line.trim_start();
+            line.starts_with(' ') && !trimmed.starts_with("- kind:")
+        })
+        .find_map(|line| yaml_scalar_value(line, "hash"))?
+        .parse()
+        .ok()
 }
 
 fn expand_vo(layout: &VerifyLayout, id: &str, dry_run: bool) -> CommandResult {
@@ -2593,16 +2856,51 @@ fn expand_vo(layout: &VerifyLayout, id: &str, dry_run: bool) -> CommandResult {
             ExitCode::Usage,
         )
     })?;
-    let combinations = dimension_combinations(&parent.dimensions, policy)?;
-    let mut children = Vec::new();
+    let combinations = dimension_combinations(&parent.dimensions, policy, &parent.combinations)?;
+    let mut planned = Vec::new();
+    let mut child_ids = BTreeSet::new();
     for combination in combinations {
-        let suffix = combination
+        let suffix_parts = combination
             .iter()
             .map(|value| slug(value))
-            .collect::<Vec<_>>()
-            .join("-");
+            .collect::<Vec<_>>();
+        if suffix_parts.iter().any(String::is_empty) {
+            return Err(failure(
+                "E-OP-001",
+                "VO partitions must contain an alphanumeric character",
+                ExitCode::Usage,
+            ));
+        }
+        let suffix = suffix_parts.join("-");
         let child_id = format!("{}-{}", parent.id, suffix);
+        if !child_ids.insert(child_id.clone()) {
+            return Err(failure(
+                "E-OP-001",
+                format!("VO expansion generates duplicate child ID `{child_id}`"),
+                ExitCode::Usage,
+            ));
+        }
         let child_path = layout.vo_dir().join(format!("{child_id}.yaml"));
+        let claim = format!("{} [{}]", parent.claim, combination.join(", "));
+        if child_path.exists() {
+            let existing = read_vo(layout, &child_id).map_err(store_failure)?;
+            if existing.parent.as_ref() != Some(&parent.id)
+                || existing.requirements != parent.requirements
+                || existing.spec_refs != parent.spec_refs
+                || existing.claim != claim
+            {
+                return Err(failure(
+                    "E-OP-001",
+                    format!("VO expansion child ID `{child_id}` already has different content"),
+                    ExitCode::Usage,
+                ));
+            }
+        }
+        planned.push((combination, child_id, child_path, claim));
+    }
+
+    let mut children = Vec::new();
+    for (combination, child_id, child_path, claim) in planned {
         let mut created = false;
         if !dry_run && !child_path.exists() {
             let now = now_rfc3339();
@@ -2611,15 +2909,16 @@ fn expand_vo(layout: &VerifyLayout, id: &str, dry_run: bool) -> CommandResult {
                 parent: Some(parent.id.clone()),
                 requirements: parent.requirements.clone(),
                 spec_refs: parent.spec_refs.clone(),
-                claim: format!("{} [{}]", parent.claim, combination.join(", ")),
+                claim,
                 dimensions: Vec::new(),
                 coverage_policy: None,
+                combinations: Vec::new(),
                 representative_cases: Vec::new(),
                 status: "draft".to_owned(),
                 created: now.clone(),
                 updated: now,
             };
-            write_atomic(&child_path, &child.to_yaml()).map_err(store_failure)?;
+            write_new_record(&child_path, &child.to_yaml()).map_err(store_failure)?;
             created = true;
         }
         children.push(serde_json::json!({
@@ -2643,8 +2942,27 @@ fn approve_vo(
     if !matches!(approver_kind, "human" | "agent") || approver_id.trim().is_empty() {
         return Err(failure("E-OP-001", "invalid approver", ExitCode::Usage));
     }
+    for reference in basis {
+        if !is_valid_ulid(reference)
+            || !layout
+                .audits_dir()
+                .join(format!("{reference}.yaml"))
+                .is_file()
+        {
+            return Err(failure(
+                "E-OP-001",
+                format!("approval basis audit `{reference}` does not exist"),
+                ExitCode::Usage,
+            ));
+        }
+    }
     let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
-    let vo = read_vo(layout, id).map_err(store_failure)?;
+    let mut vo = read_vo(layout, id).map_err(store_failure)?;
+    if vo.status != "approved" {
+        vo.status = "approved".to_owned();
+        vo.updated = now_rfc3339();
+        write_atomic(&vo_path, &vo.to_yaml()).map_err(store_failure)?;
+    }
     let subject_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
     let approval = ApprovalRecord {
         id: new_record_id(),
@@ -2655,29 +2973,58 @@ fn approve_vo(
             id: approver_id.to_owned(),
             model,
         },
-        basis: basis.to_vec(),
+        basis: basis
+            .iter()
+            .map(|reference| ApprovalBasis {
+                kind: "audit".to_owned(),
+                reference: reference.clone(),
+            })
+            .collect(),
         approved_at: now_rfc3339(),
     };
     let path = layout.approvals_dir().join(format!("{}.yaml", approval.id));
-    write_atomic(&path, &approval.to_yaml()).map_err(store_failure)?;
+    write_new_record(&path, &approval.to_yaml()).map_err(store_failure)?;
     Ok(serde_json::to_value(approval).expect("record"))
 }
 
 fn dimension_combinations(
     dimensions: &[Dimension],
     policy: &str,
+    explicit_combinations: &[Vec<String>],
 ) -> Result<Vec<Vec<String>>, CommandFailure> {
-    if dimensions.is_empty() {
-        return Ok(Vec::new());
+    let mut names = BTreeSet::new();
+    if dimensions.is_empty()
+        || dimensions.iter().any(|dimension| {
+            dimension.name.trim().is_empty()
+                || !names.insert(dimension.name.as_str())
+                || dimension.partitions.is_empty()
+                || dimension
+                    .partitions
+                    .iter()
+                    .any(|partition| partition.trim().is_empty())
+                || dimension.partitions.iter().collect::<BTreeSet<_>>().len()
+                    != dimension.partitions.len()
+        })
+    {
+        return Err(failure(
+            "E-OP-001",
+            "VO has invalid dimensions; run vtest scan for record diagnostics",
+            ExitCode::Usage,
+        ));
     }
     match policy {
+        "independent-axes" | "full-product" if !explicit_combinations.is_empty() => Err(failure(
+            "E-OP-001",
+            "non-explicit coverage policy cannot store combinations",
+            ExitCode::Usage,
+        )),
         "independent-axes" => Ok(dimensions
             .iter()
             .flat_map(|dimension| {
                 dimension
                     .partitions
                     .iter()
-                    .map(|partition| vec![format!("{}-{}", dimension.name, partition)])
+                    .map(|partition| vec![partition.clone()])
             })
             .collect()),
         "full-product" => {
@@ -2687,7 +3034,7 @@ fn dimension_combinations(
                 for prefix in &combinations {
                     for partition in &dimension.partitions {
                         let mut combination = prefix.clone();
-                        combination.push(format!("{}-{}", dimension.name, partition));
+                        combination.push(partition.clone());
                         next.push(combination);
                     }
                 }
@@ -2695,9 +3042,27 @@ fn dimension_combinations(
             }
             Ok(combinations)
         }
+        "explicit" if !explicit_combinations.is_empty() => {
+            let mut unique = BTreeSet::new();
+            if explicit_combinations.iter().any(|combination| {
+                combination.len() != dimensions.len()
+                    || !combination
+                        .iter()
+                        .zip(dimensions)
+                        .all(|(partition, dimension)| dimension.partitions.contains(partition))
+                    || !unique.insert(combination)
+            }) {
+                return Err(failure(
+                    "E-OP-001",
+                    "VO has invalid explicit combinations; run vtest scan for record diagnostics",
+                    ExitCode::Usage,
+                ));
+            }
+            Ok(explicit_combinations.to_vec())
+        }
         "explicit" => Err(failure(
             "E-OP-001",
-            "explicit expansion requires combinations in a future record schema",
+            "explicit expansion requires at least one combination",
             ExitCode::Usage,
         )),
         _ => Err(failure(
@@ -2708,8 +3073,75 @@ fn dimension_combinations(
     }
 }
 
+fn parse_explicit_combinations(
+    dimensions: &[Dimension],
+    policy: Option<&str>,
+    values: &[String],
+) -> Result<Vec<Vec<String>>, CommandFailure> {
+    if policy != Some("explicit") {
+        if values.is_empty() {
+            return Ok(Vec::new());
+        }
+        return Err(failure(
+            "E-OP-001",
+            "--combination is only valid with --policy explicit",
+            ExitCode::Usage,
+        ));
+    }
+    if dimensions.is_empty() || values.is_empty() {
+        return Err(failure(
+            "E-OP-001",
+            "explicit coverage requires dimensions and at least one --combination",
+            ExitCode::Usage,
+        ));
+    }
+    let mut combinations = Vec::new();
+    let mut unique = BTreeSet::new();
+    for value in values {
+        let combination = value
+            .split(',')
+            .map(str::trim)
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        if combination.len() != dimensions.len()
+            || combination.iter().any(|partition| partition.is_empty())
+        {
+            return Err(failure(
+                "E-OP-001",
+                format!(
+                    "combination `{value}` must provide one partition for each of {} dimensions",
+                    dimensions.len()
+                ),
+                ExitCode::Usage,
+            ));
+        }
+        for (dimension, partition) in dimensions.iter().zip(&combination) {
+            if !dimension.partitions.contains(partition) {
+                return Err(failure(
+                    "E-OP-001",
+                    format!(
+                        "partition `{partition}` is not declared by dimension `{}`",
+                        dimension.name
+                    ),
+                    ExitCode::Usage,
+                ));
+            }
+        }
+        if !unique.insert(combination.clone()) {
+            return Err(failure(
+                "E-OP-001",
+                format!("duplicate explicit combination `{value}`"),
+                ExitCode::Usage,
+            ));
+        }
+        combinations.push(combination);
+    }
+    Ok(combinations)
+}
+
 fn parse_dimensions(values: &[String]) -> Result<Vec<Dimension>, CommandFailure> {
     let mut dimensions = Vec::new();
+    let mut names = BTreeSet::new();
     for value in values {
         let Some((name, partitions)) = value.split_once('=') else {
             return Err(failure(
@@ -2724,15 +3156,40 @@ fn parse_dimensions(values: &[String]) -> Result<Vec<Dimension>, CommandFailure>
             .filter(|value| !value.is_empty())
             .map(str::to_owned)
             .collect::<Vec<_>>();
-        if name.trim().is_empty() || partitions.is_empty() {
+        let name = name.trim();
+        if name.is_empty() || partitions.is_empty() {
             return Err(failure(
                 "E-OP-001",
                 "dimension name and partitions are required",
                 ExitCode::Usage,
             ));
         }
+        if !names.insert(name.to_owned()) {
+            return Err(failure(
+                "E-OP-001",
+                format!("duplicate VO dimension `{name}`"),
+                ExitCode::Usage,
+            ));
+        }
+        let mut unique_partitions = BTreeSet::new();
+        for partition in &partitions {
+            if slug(partition).is_empty() {
+                return Err(failure(
+                    "E-OP-001",
+                    format!("partition `{partition}` has no alphanumeric ID component"),
+                    ExitCode::Usage,
+                ));
+            }
+            if !unique_partitions.insert(partition.clone()) {
+                return Err(failure(
+                    "E-OP-001",
+                    format!("duplicate partition `{partition}` in dimension `{name}`"),
+                    ExitCode::Usage,
+                ));
+            }
+        }
         dimensions.push(Dimension {
-            name: name.trim().to_owned(),
+            name: name.to_owned(),
             partitions,
         });
     }
@@ -2777,6 +3234,13 @@ fn effective_vo_status(layout: &VerifyLayout, record: &VoRecord) -> String {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
+            continue;
+        }
+        let file_id = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if !is_valid_ulid(file_id) {
             continue;
         }
         if let Ok(approval) = read_approval(&path) {
@@ -2855,10 +3319,17 @@ fn relative_path(root: &Path, path: &Path) -> String {
 }
 
 fn validate_id(id: &str, prefix: &str) -> Result<(), CommandFailure> {
-    if !id.starts_with(prefix) || id.len() <= prefix.len() || id.chars().any(char::is_whitespace) {
+    if !id.starts_with(prefix)
+        || id.len() <= prefix.len()
+        || !id.chars().all(|character| {
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
+        })
+    {
         return Err(failure(
             "E-OP-001",
-            format!("id must start with `{prefix}` and contain no whitespace"),
+            format!(
+                "id must start with `{prefix}` and contain only uppercase ASCII letters, digits, and hyphens"
+            ),
             ExitCode::Usage,
         ));
     }
@@ -2866,16 +3337,21 @@ fn validate_id(id: &str, prefix: &str) -> Result<(), CommandFailure> {
 }
 
 fn slug(value: &str) -> String {
-    value
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() {
-                character
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>()
+    let mut slug = String::new();
+    let mut separator = true;
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character.to_ascii_uppercase());
+            separator = false;
+        } else if !separator {
+            slug.push('-');
+            separator = true;
+        }
+    }
+    if separator {
+        slug.pop();
+    }
+    slug
 }
 
 fn absolute_path(path: &Path) -> PathBuf {
@@ -3080,6 +3556,7 @@ mod tests {
                     sections: vec!["1".to_owned()],
                     dimensions: Vec::new(),
                     policy: None,
+                    combinations: Vec::new(),
                 },
             }) as u8,
             0

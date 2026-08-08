@@ -12,7 +12,7 @@ use vtest_model::{
     CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
     RunnerInfo, TargetExecution, TestEntity, TestResult, TestTarget,
 };
-use vtest_store::{new_record_id, now_rfc3339, write_atomic, VerifyLayout};
+use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -152,7 +152,7 @@ pub fn run_tests(
                     log_ref: format!("cache/logs/{record_id}.log"),
                 };
                 let path = layout.evidence_dir().join(format!("{record_id}.yaml"));
-                write_atomic(&path, &evidence_yaml(&record)).map_err(|error| {
+                write_new_record(&path, &evidence_yaml(&record)).map_err(|error| {
                     ExecutionError::Io {
                         path,
                         source: std::io::Error::other(error.to_string()),

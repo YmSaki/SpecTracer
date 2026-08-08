@@ -16,8 +16,9 @@ use vtest_model::{
     TargetRef, TestEntity, TestId, TestTarget, VoId,
 };
 use vtest_store::{
-    load_config, read_approval, read_entity_ids, read_req, read_spec, read_text, read_vo,
-    yaml_scalar_value, ProjectConfig, ReqRecord, StoreError, VerifyLayout, VoRecord,
+    is_valid_ulid, load_config, read_approval, read_entity_ids, read_req, read_spec, read_text,
+    read_vo, relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord,
+    StoreError, VerifyLayout, VoRecord,
 };
 
 pub mod operations;
@@ -180,6 +181,15 @@ fn validate_spec_record(
 ) {
     let path = layout.spec_dir().join(format!("{id}.yaml"));
     let location = record_location(root, &path, id);
+    if !is_valid_entity_id(id, "SPEC-") {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-010",
+                format!("SPEC id `{id}` has an invalid format"),
+            )
+            .with_location(location.clone()),
+        );
+    }
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
@@ -278,6 +288,12 @@ fn validate_req_record(
 ) -> Option<ReqRecord> {
     let path = layout.req_dir().join(format!("{id}.yaml"));
     let location = record_location(&layout.root, &path, id);
+    if !is_valid_entity_id(id, "REQ-") {
+        diagnostics.push(
+            Diagnostic::error("E-SCAN-010", format!("REQ id `{id}` has an invalid format"))
+                .with_location(location.clone()),
+        );
+    }
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
@@ -327,6 +343,12 @@ fn validate_vo_record(
 ) -> Option<VoRecord> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
     let location = record_location(&layout.root, &path, id);
+    if !is_valid_entity_id(id, "VO-") {
+        diagnostics.push(
+            Diagnostic::error("E-SCAN-010", format!("VO id `{id}` has an invalid format"))
+                .with_location(location.clone()),
+        );
+    }
     let text = match read_text(&path) {
         Ok(text) => text,
         Err(error) => {
@@ -379,7 +401,68 @@ fn validate_vo_record(
             );
         }
     }
+    if let Some(message) = invalid_vo_dimensions(&record) {
+        diagnostics.push(
+            Diagnostic::error("E-SCAN-010", format!("VO {id} {message}")).with_location(location),
+        );
+    }
     Some(record)
+}
+
+fn invalid_vo_dimensions(record: &VoRecord) -> Option<String> {
+    let mut names = BTreeSet::new();
+    for dimension in &record.dimensions {
+        if dimension.name.trim().is_empty() || !names.insert(dimension.name.as_str()) {
+            return Some("has an empty or duplicate dimension name".to_owned());
+        }
+        let mut partitions = BTreeSet::new();
+        if dimension.partitions.is_empty()
+            || dimension
+                .partitions
+                .iter()
+                .any(|partition| partition.trim().is_empty() || !partitions.insert(partition))
+        {
+            return Some(format!(
+                "dimension {} has empty or duplicate partitions",
+                dimension.name
+            ));
+        }
+    }
+
+    match record.coverage_policy.as_deref() {
+        None if !record.combinations.is_empty() => {
+            return Some("has combinations without a coverage_policy".to_owned());
+        }
+        Some("independent-axes" | "full-product" | "explicit") if record.dimensions.is_empty() => {
+            return Some("has a coverage_policy without dimensions".to_owned());
+        }
+        Some("explicit") => {
+            if record.combinations.is_empty() {
+                return Some("explicit coverage requires combinations".to_owned());
+            }
+            let mut unique = BTreeSet::new();
+            for combination in &record.combinations {
+                if combination.len() != record.dimensions.len()
+                    || !combination
+                        .iter()
+                        .zip(&record.dimensions)
+                        .all(|(partition, dimension)| dimension.partitions.contains(partition))
+                {
+                    return Some(
+                        "has an explicit combination outside the declared dimensions".to_owned(),
+                    );
+                }
+                if !unique.insert(combination) {
+                    return Some("has duplicate explicit combinations".to_owned());
+                }
+            }
+        }
+        Some("independent-axes" | "full-product") if !record.combinations.is_empty() => {
+            return Some("stores combinations for a non-explicit policy".to_owned());
+        }
+        _ => {}
+    }
+    None
 }
 
 fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
@@ -480,30 +563,38 @@ fn validate_relations(
     known_ids: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let allowed_types = [
-        "depends-on",
-        "supersedes",
-        "regression-for",
-        "derived-from",
-        "same-partition",
-        "complements",
-        "conflicts-with",
-    ];
     let entries = match fs::read_dir(layout.relation_dir()) {
         Ok(entries) => entries,
         Err(_) => return,
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
-            continue;
-        }
+    let mut paths = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    let mut relation_payloads = BTreeMap::<String, String>::new();
+    for path in paths {
         let file_id = path
             .file_stem()
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
         let location = record_location(&layout.root, &path, &file_id);
+        if let Some(payload) = relation_ulid_payload(&file_id) {
+            if let Some(first) = relation_payloads.insert(payload.to_owned(), file_id.clone()) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-010",
+                        format!(
+                            "relation IDs {first} and {file_id} use the same ULID payload {payload}"
+                        ),
+                    )
+                    .with_location(location.clone()),
+                );
+                continue;
+            }
+        }
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
@@ -517,58 +608,28 @@ fn validate_relations(
                 continue;
             }
         };
-        let mut invalid = false;
-        if yaml_scalar_value(&text, "id").as_deref() != Some(file_id.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("relation file name {file_id} does not match record id"),
-                )
-                .with_location(location.clone()),
-            );
-            invalid = true;
-        }
-        if let Some(missing) = missing_fields(&text, &["id", "type", "from", "to", "created"]) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("relation {file_id} is missing required fields: {missing}"),
-                )
-                .with_location(location.clone()),
-            );
-            invalid = true;
-        }
-        let relation_type = yaml_scalar_value(&text, "type");
-        if relation_type
-            .as_deref()
-            .is_some_and(|value| !allowed_types.contains(&value))
-        {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!(
-                        "relation {file_id} has invalid type {}",
-                        relation_type.unwrap_or_default()
-                    ),
-                )
-                .with_location(location.clone()),
-            );
-            invalid = true;
-        }
-        if invalid {
-            continue;
-        }
-        for field in ["from", "to"] {
-            if let Some(value) = yaml_scalar_value(&text, field) {
-                if !known_ids.contains(&value) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-009",
-                            format!("relation {file_id} {field} references missing entity {value}"),
-                        )
-                        .with_location(location.clone()),
-                    );
-                }
+        let relation = match RelationRecord::from_yaml(&text, &file_id) {
+            Ok(relation) => relation,
+            Err(error) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-010",
+                        format!("relation {file_id} has an invalid schema: {error}"),
+                    )
+                    .with_location(location.clone()),
+                );
+                continue;
+            }
+        };
+        for (field, value) in [("from", relation.from), ("to", relation.to)] {
+            if !known_ids.contains(&value) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-009",
+                        format!("relation {file_id} {field} references missing entity {value}"),
+                    )
+                    .with_location(location.clone()),
+                );
             }
         }
     }
@@ -660,6 +721,16 @@ fn validate_approval_status(
             }
         };
         let mut invalid = false;
+        if !is_valid_ulid(&file_id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval file name {file_id} is not a valid ULID"),
+                )
+                .with_location(location.clone()),
+            );
+            invalid = true;
+        }
         if let Some(missing) =
             missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
         {
@@ -747,6 +818,14 @@ fn is_safe_relative_path(path: &Path) -> bool {
                     | std::path::Component::RootDir
                     | std::path::Component::Prefix(_)
             )
+        })
+}
+
+fn is_valid_entity_id(id: &str, prefix: &str) -> bool {
+    id.starts_with(prefix)
+        && id.len() > prefix.len()
+        && id.chars().all(|character| {
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
         })
 }
 
@@ -1787,7 +1866,7 @@ fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> &'a str {
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_store::init_project;
+    use vtest_store::{init_project, new_record_id};
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
@@ -2143,6 +2222,32 @@ fn duplicate_target() {}
     }
 
     #[test]
+    fn relation_id_aliases_cannot_duplicate_one_ulid_payload() {
+        let root = fixture();
+        let payload = new_record_id();
+        for id in [payload.clone(), format!("REL-{payload}")] {
+            fs::write(
+                root.join(format!(".verify/rel/{id}.yaml")),
+                format!(
+                    "id: {id}\ntype: complements\nfrom: VO-ADD\nto: VO-ADD\ncreated: '2026-01-01'\n"
+                ),
+            )
+            .unwrap();
+        }
+
+        let result = scan_project(&root).unwrap();
+        let duplicates = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("same ULID payload")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(duplicates.len(), 1, "diagnostics: {:?}", result.diagnostics);
+        assert!(duplicates[0].location.is_some());
+    }
+
+    #[test]
     fn reports_record_integrity_and_staleness_diagnostics() {
         let root = fixture();
         fs::write(
@@ -2200,19 +2305,23 @@ fn covers_parent() {}
         .unwrap();
         fs::write(root.join("docs/spec.md"), "changed\n").unwrap();
 
-        let relation = root.join(".verify/rel/REL-ONE.yaml");
+        let relation_id = new_record_id();
+        let relation = root.join(format!(".verify/rel/{relation_id}.yaml"));
         fs::write(
             relation,
-            "id: REL-ONE\ntype: depends-on\nfrom: ENTITY-NOT-FOUND\nto: VO-ADD\ncreated: '2026-01-01'\n",
+            format!(
+                "id: {relation_id}\ntype: depends-on\nfrom: ENTITY-NOT-FOUND\nto: VO-ADD\ncreated: '2026-01-01'\n"
+            ),
         )
         .unwrap();
 
         let vo_text = fs::read_to_string(root.join(".verify/vo/VO-ADD.yaml")).unwrap();
         let vo_hash = ContentHash::from_text(&vo_text);
+        let approval_id = new_record_id();
         fs::write(
-            root.join(".verify/approvals/APPROVAL-ONE.yaml"),
+            root.join(format!(".verify/approvals/{approval_id}.yaml")),
             format!(
-                "id: APPROVAL-ONE\nsubject: VO-ADD\nsubject_hash: {vo_hash}\napprover:\n  kind: human\n  id: reviewer\napproved_at: '2026-01-01'\n"
+                "id: {approval_id}\nsubject: VO-ADD\nsubject_hash: {vo_hash}\napprover:\n  kind: human\n  id: reviewer\nbasis: []\napproved_at: '2026-01-01'\n"
             ),
         )
         .unwrap();

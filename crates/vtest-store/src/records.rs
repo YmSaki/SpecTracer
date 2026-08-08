@@ -9,7 +9,8 @@ use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    path::Path,
+    io::Write,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -61,6 +62,8 @@ pub struct VoRecord {
     pub claim: String,
     pub dimensions: Vec<Dimension>,
     pub coverage_policy: Option<String>,
+    #[serde(default)]
+    pub combinations: Vec<Vec<String>>,
     pub representative_cases: Vec<String>,
     pub status: String,
     pub created: String,
@@ -75,13 +78,71 @@ pub struct Approver {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalBasis {
+    pub kind: String,
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApprovalRecord {
     pub id: String,
     pub subject: VoId,
     pub subject_hash: ContentHash,
     pub approver: Approver,
-    pub basis: Vec<String>,
+    pub basis: Vec<ApprovalBasis>,
     pub approved_at: String,
+}
+
+/// The only non-derived relationship kinds persisted in `.verify/rel/`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RelationType {
+    DependsOn,
+    Supersedes,
+    RegressionFor,
+    DerivedFrom,
+    SamePartition,
+    Complements,
+    ConflictsWith,
+}
+
+impl RelationType {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::DependsOn => "depends-on",
+            Self::Supersedes => "supersedes",
+            Self::RegressionFor => "regression-for",
+            Self::DerivedFrom => "derived-from",
+            Self::SamePartition => "same-partition",
+            Self::Complements => "complements",
+            Self::ConflictsWith => "conflicts-with",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "depends-on" => Some(Self::DependsOn),
+            "supersedes" => Some(Self::Supersedes),
+            "regression-for" => Some(Self::RegressionFor),
+            "derived-from" => Some(Self::DerivedFrom),
+            "same-partition" => Some(Self::SamePartition),
+            "complements" => Some(Self::Complements),
+            "conflicts-with" => Some(Self::ConflictsWith),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct RelationRecord {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub relation_type: RelationType,
+    pub from: String,
+    pub to: String,
+    pub note: Option<String>,
+    pub created: String,
 }
 
 impl SpecRecord {
@@ -183,11 +244,25 @@ impl VoRecord {
             ));
         }
         out.push_str(&format!(
-            "coverage_policy: {}\nrepresentative_cases: {}\nstatus: {}\ncreated: {}\nupdated: {}\n",
+            "coverage_policy: {}\n",
             self.coverage_policy
                 .as_deref()
                 .map(yaml_scalar)
                 .unwrap_or_else(|| "null".to_owned()),
+        ));
+        if self.combinations.is_empty() {
+            out.push_str("combinations: []\n");
+        } else {
+            out.push_str("combinations:\n");
+            for combination in &self.combinations {
+                out.push_str(&format!(
+                    "  - {}\n",
+                    yaml_list(combination.iter().map(String::as_str))
+                ));
+            }
+        }
+        out.push_str(&format!(
+            "representative_cases: {}\nstatus: {}\ncreated: {}\nupdated: {}\n",
             yaml_list(self.representative_cases.iter().map(String::as_str)),
             yaml_scalar(&self.status),
             yaml_scalar(&self.created),
@@ -209,6 +284,7 @@ impl VoRecord {
             claim: scalar(text, "claim").unwrap_or_default(),
             dimensions: parse_dimensions(text),
             coverage_policy: scalar(text, "coverage_policy").filter(|value| value != "null"),
+            combinations: parse_combinations(text),
             representative_cases: list(text, "representative_cases"),
             status: scalar(text, "status").unwrap_or_else(|| "draft".to_owned()),
             created: scalar(text, "created").unwrap_or_default(),
@@ -230,9 +306,17 @@ impl ApprovalRecord {
         if let Some(model) = &self.approver.model {
             out.push_str(&format!("  model: {}\n", yaml_scalar(model)));
         }
-        out.push_str("basis:\n");
+        if self.basis.is_empty() {
+            out.push_str("basis: []\n");
+        } else {
+            out.push_str("basis:\n");
+        }
         for basis in &self.basis {
-            out.push_str(&format!("  - {}\n", yaml_scalar(basis)));
+            out.push_str(&format!(
+                "  - kind: {}\n    ref: {}\n",
+                yaml_scalar(&basis.kind),
+                yaml_scalar(&basis.reference),
+            ));
         }
         out.push_str(&format!(
             "approved_at: {}\n",
@@ -242,24 +326,120 @@ impl ApprovalRecord {
     }
 
     pub fn from_yaml(text: &str, fallback_id: &str) -> Result<Self, StoreError> {
-        let subject_hash = scalar(text, "subject_hash")
-            .ok_or_else(|| {
-                StoreError::InvalidConfig("approval is missing subject_hash".to_owned())
-            })?
+        let id = required_top_level_scalar(text, "id", "approval")?;
+        let subject = required_top_level_scalar(text, "subject", "approval")?;
+        let subject_hash = required_top_level_scalar(text, "subject_hash", "approval")?
             .parse()
             .map_err(|error: String| StoreError::InvalidConfig(error))?;
+        let approver_kind = nested_scalar(text, "approver", "kind")
+            .filter(|value| matches!(value.as_str(), "human" | "agent"))
+            .ok_or_else(|| {
+                StoreError::InvalidConfig(
+                    "approval is missing a valid approver.kind (human or agent)".to_owned(),
+                )
+            })?;
+        let approver_id = nested_scalar(text, "approver", "id")
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                StoreError::InvalidConfig("approval is missing approver.id".to_owned())
+            })?;
+        let approved_at = required_top_level_scalar(text, "approved_at", "approval")?;
+        if id != fallback_id {
+            return Err(StoreError::InvalidConfig(format!(
+                "approval id {id} does not match file name {fallback_id}"
+            )));
+        }
+        if !is_valid_ulid(&id) {
+            return Err(StoreError::InvalidConfig(
+                "approval id must be a valid ULID".to_owned(),
+            ));
+        }
+        if !subject.starts_with("VO-")
+            || subject.len() <= "VO-".len()
+            || !subject.chars().all(|character| {
+                character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
+            })
+        {
+            return Err(StoreError::InvalidConfig(
+                "approval subject must be a valid VO ID".to_owned(),
+            ));
+        }
         Ok(Self {
-            id: scalar(text, "id").unwrap_or_else(|| fallback_id.to_owned()),
-            subject: VoId::new(scalar(text, "subject").unwrap_or_default()),
+            id,
+            subject: VoId::new(subject),
             subject_hash,
             approver: Approver {
-                kind: nested_scalar(text, "approver", "kind").unwrap_or_else(|| "agent".to_owned()),
-                id: nested_scalar(text, "approver", "id").unwrap_or_default(),
+                kind: approver_kind,
+                id: approver_id,
                 model: nested_scalar(text, "approver", "model"),
             },
-            basis: list(text, "basis"),
-            approved_at: scalar(text, "approved_at").unwrap_or_default(),
+            basis: parse_approval_basis(text)?,
+            approved_at,
         })
+    }
+}
+
+impl RelationRecord {
+    pub fn to_yaml(&self) -> Result<String, StoreError> {
+        self.validate(None)?;
+        let mut out = format!(
+            "id: {}\ntype: {}\nfrom: {}\nto: {}\n",
+            yaml_scalar(&self.id),
+            yaml_scalar(self.relation_type.as_str()),
+            yaml_scalar(&self.from),
+            yaml_scalar(&self.to),
+        );
+        if let Some(note) = &self.note {
+            out.push_str(&format!("note: {}\n", yaml_scalar(note)));
+        }
+        out.push_str(&format!("created: {}\n", yaml_scalar(&self.created)));
+        Ok(out)
+    }
+
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
+        let record = Self {
+            id: required_top_level_scalar(text, "id", "relation")?,
+            relation_type: required_top_level_scalar(text, "type", "relation")
+                .ok()
+                .and_then(|value| RelationType::parse(&value))
+                .ok_or_else(|| {
+                    StoreError::InvalidConfig("relation has an invalid type".to_owned())
+                })?,
+            from: required_top_level_scalar(text, "from", "relation")?,
+            to: required_top_level_scalar(text, "to", "relation")?,
+            note: top_level_scalar(text, "note"),
+            created: required_top_level_scalar(text, "created", "relation")?,
+        };
+        record.validate(Some(filename_id))?;
+        Ok(record)
+    }
+
+    fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
+        if !is_valid_relation_id(&self.id) {
+            return Err(StoreError::InvalidConfig(
+                "relation id must be a ULID or REL-<ULID>".to_owned(),
+            ));
+        }
+        if let Some(filename_id) = filename_id {
+            if self.id != filename_id {
+                return Err(StoreError::InvalidConfig(format!(
+                    "relation id {} does not match file name {filename_id}",
+                    self.id
+                )));
+            }
+        }
+        for (field, value) in [
+            ("from", self.from.as_str()),
+            ("to", self.to.as_str()),
+            ("created", self.created.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                return Err(StoreError::InvalidConfig(format!(
+                    "relation is missing required field {field}"
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -368,31 +548,112 @@ pub fn read_text(path: &Path) -> Result<String, StoreError> {
 }
 
 pub fn write_atomic(path: &Path, text: &str) -> Result<(), StoreError> {
-    let temp = path.with_extension("yaml.tmp");
-    fs::write(&temp, text).map_err(|source| StoreError::Io {
-        path: temp.clone(),
-        source,
-    })?;
-    if let Err(source) = fs::rename(&temp, path) {
-        // Windows does not replace an existing file with rename.  Remove only
-        // the exact canonical target, then complete the same-directory swap.
-        if path.exists() {
-            fs::remove_file(path).map_err(|remove_error| StoreError::Io {
-                path: path.to_owned(),
-                source: remove_error,
-            })?;
-            fs::rename(&temp, path).map_err(|rename_error| StoreError::Io {
-                path: path.to_owned(),
-                source: rename_error,
-            })?;
-        } else {
-            return Err(StoreError::Io {
-                path: path.to_owned(),
-                source,
-            });
-        }
+    let temp = create_unique_temp_file(path, text)?;
+    if let Err(source) = replace_file(&temp, path) {
+        let _ = fs::remove_file(&temp);
+        return Err(StoreError::Io {
+            path: path.to_owned(),
+            source,
+        });
     }
     Ok(())
+}
+
+/// Create one append-only canonical fact without ever replacing an existing
+/// record. A collision is an error so a prior approval/audit/Evidence fact
+/// cannot be silently lost.
+pub fn write_new_record(path: &Path, text: &str) -> Result<(), StoreError> {
+    let temp = create_unique_temp_file(path, text)?;
+    let publish = fs::hard_link(&temp, path).map_err(|source| StoreError::Io {
+        path: path.to_owned(),
+        source,
+    });
+    match publish {
+        Ok(()) => {
+            // Publication already succeeded atomically. A transient cleanup
+            // failure must not report the committed operation as failed and
+            // tempt callers to append a duplicate fact.
+            let _ = fs::remove_file(&temp);
+            Ok(())
+        }
+        Err(error) => {
+            let _ = fs::remove_file(&temp);
+            Err(error)
+        }
+    }
+}
+
+fn create_unique_temp_file(path: &Path, text: &str) -> Result<PathBuf, StoreError> {
+    for _ in 0..16 {
+        let temp = path.with_extension(format!("{}.tmp", new_record_id()));
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+        {
+            Ok(mut file) => {
+                if let Err(source) = file
+                    .write_all(text.as_bytes())
+                    .and_then(|_| file.sync_all())
+                {
+                    drop(file);
+                    let _ = fs::remove_file(&temp);
+                    return Err(StoreError::Io { path: temp, source });
+                }
+                return Ok(temp);
+            }
+            Err(source) if source.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(source) => return Err(StoreError::Io { path: temp, source }),
+        }
+    }
+    Err(StoreError::Io {
+        path: path.to_owned(),
+        source: std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "could not allocate a unique atomic-write temporary file",
+        ),
+    })
+}
+
+#[cfg(not(windows))]
+fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
+    fs::rename(source, destination)
+}
+
+#[cfg(windows)]
+fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn MoveFileExW(existing: *const u16, replacement: *const u16, flags: u32) -> i32;
+    }
+
+    const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
+    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let destination = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    // SAFETY: both buffers are NUL-terminated and remain alive for the call.
+    let result = unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            destination.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
 }
 
 /// Generate a monotonic-enough ULID-shaped record name without making the
@@ -405,8 +666,9 @@ pub fn new_record_id() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     let millis = elapsed.as_millis() & ((1u128 << 48) - 1);
-    let entropy = ((elapsed.subsec_nanos() as u128) << 32)
-        | u128::from(COUNTER.fetch_add(1, Ordering::Relaxed));
+    let entropy = ((elapsed.subsec_nanos() as u128) << 48)
+        | (u128::from(std::process::id()) << 16)
+        | u128::from(COUNTER.fetch_add(1, Ordering::Relaxed) & 0xffff);
     let mut value = (millis << 80) | (entropy & ((1u128 << 80) - 1));
     let mut output = [b'0'; 26];
     for slot in output.iter_mut().rev() {
@@ -414,6 +676,33 @@ pub fn new_record_id() -> String {
         value >>= 5;
     }
     String::from_utf8(output.to_vec()).expect("ULID alphabet is ASCII")
+}
+
+pub fn is_valid_ulid(value: &str) -> bool {
+    const ALPHABET: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    value.len() == 26
+        && value
+            .bytes()
+            .next()
+            .is_some_and(|first| matches!(first, b'0'..=b'7'))
+        && value.chars().all(|character| ALPHABET.contains(character))
+}
+
+/// Accept both spellings currently present in the normative documents:
+/// detailed design uses a bare ULID, while basic specification §3.1 labels
+/// Relation IDs as `REL-` (ULID). The payload is always strictly validated.
+pub fn is_valid_relation_id(value: &str) -> bool {
+    relation_ulid_payload(value).is_some()
+}
+
+pub fn relation_ulid_payload(value: &str) -> Option<&str> {
+    if is_valid_ulid(value) {
+        Some(value)
+    } else {
+        value
+            .strip_prefix("REL-")
+            .filter(|value| is_valid_ulid(value))
+    }
 }
 
 /// RFC 3339 UTC timestamp used by append-only records.
@@ -500,6 +789,103 @@ fn parse_dimensions(text: &str) -> Vec<Dimension> {
         });
     }
     dimensions
+}
+
+fn parse_combinations(text: &str) -> Vec<Vec<String>> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let Some(start) = lines.iter().position(|line| {
+        !line.starts_with([' ', '\t'])
+            && line
+                .trim()
+                .strip_prefix("combinations:")
+                .is_some_and(|value| value.trim().is_empty())
+    }) else {
+        return Vec::new();
+    };
+    lines
+        .iter()
+        .skip(start + 1)
+        .take_while(|line| line.starts_with([' ', '\t']) || line.trim().is_empty())
+        .filter_map(|line| line.trim().strip_prefix("- "))
+        .map(|value| parse_inline_list(value.trim()))
+        .collect()
+}
+
+fn parse_approval_basis(text: &str) -> Result<Vec<ApprovalBasis>, StoreError> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let Some(start) = lines
+        .iter()
+        .position(|line| !line.starts_with([' ', '\t']) && line.trim() == "basis:")
+    else {
+        return Ok(Vec::new());
+    };
+    let mut basis = Vec::new();
+    let mut index = start + 1;
+    while index < lines.len() {
+        let raw = lines[index];
+        if !raw.starts_with([' ', '\t']) && !raw.trim().is_empty() {
+            break;
+        }
+        let Some(kind) = raw.trim().strip_prefix("- kind:") else {
+            if raw.trim().is_empty() {
+                index += 1;
+                continue;
+            }
+            return Err(StoreError::InvalidConfig(
+                "approval basis entries must contain kind and ref".to_owned(),
+            ));
+        };
+        let reference = lines
+            .get(index + 1)
+            .and_then(|line| line.trim().strip_prefix("ref:"))
+            .map(str::trim)
+            .map(unquote)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                StoreError::InvalidConfig(
+                    "approval basis entries must contain kind and ref".to_owned(),
+                )
+            })?;
+        let kind = unquote(kind.trim());
+        if kind.is_empty() {
+            return Err(StoreError::InvalidConfig(
+                "approval basis kind must not be empty".to_owned(),
+            ));
+        }
+        basis.push(ApprovalBasis { kind, reference });
+        index += 2;
+    }
+    Ok(basis)
+}
+
+fn required_top_level_scalar(
+    text: &str,
+    key: &str,
+    record_kind: &str,
+) -> Result<String, StoreError> {
+    top_level_scalar(text, key)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            StoreError::InvalidConfig(format!("{record_kind} is missing required field {key}"))
+        })
+}
+
+fn top_level_scalar(text: &str, key: &str) -> Option<String> {
+    text.lines().find_map(|raw| {
+        if raw.starts_with([' ', '\t']) {
+            return None;
+        }
+        let (candidate, value) = raw.split_once(':')?;
+        if candidate.trim() != key {
+            return None;
+        }
+        let value = value.trim();
+        if value.is_empty() || value == "null" {
+            None
+        } else {
+            Some(unquote(value))
+        }
+    })
 }
 
 fn scalar(text: &str, key: &str) -> Option<String> {
@@ -598,5 +984,142 @@ fn unquote(value: &str) -> String {
         value[1..value.len() - 1].to_owned()
     } else {
         value.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    fn temporary_directory(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("vtest-store-{name}-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn generated_record_ids_are_valid_and_unique() {
+        let ids = (0..4096).map(|_| new_record_id()).collect::<BTreeSet<_>>();
+        assert_eq!(ids.len(), 4096);
+        assert!(ids.iter().all(|id| is_valid_ulid(id)));
+    }
+
+    #[test]
+    fn append_only_write_never_replaces_an_existing_fact() {
+        let root = temporary_directory("append-only");
+        let path = root.join(format!("{}.yaml", new_record_id()));
+        write_new_record(&path, "first\n").unwrap();
+        assert!(write_new_record(&path, "second\n").is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "first\n");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn append_only_write_publishes_complete_content() {
+        let root = temporary_directory("append-only-complete");
+        let path = root.join(format!("{}.yaml", new_record_id()));
+        let content = format!(
+            "id: {}\npayload: {}\n",
+            new_record_id(),
+            "x".repeat(1 << 20)
+        );
+        write_new_record(&path, &content).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), content);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn atomic_write_replaces_the_complete_entity_file() {
+        let root = temporary_directory("atomic");
+        let path = root.join("VO-ONE.yaml");
+        fs::write(&path, "old\n").unwrap();
+        write_atomic(&path, "new\ncomplete\n").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new\ncomplete\n");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn approval_round_trip_requires_a_traceable_approver() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![ApprovalBasis {
+                kind: "audit".to_owned(),
+                reference: new_record_id(),
+            }],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml();
+        assert_eq!(ApprovalRecord::from_yaml(&yaml, &id).unwrap(), record);
+
+        let malformed = yaml
+            .lines()
+            .filter(|line| {
+                !matches!(
+                    line.trim(),
+                    "approver:" | "kind: 'human'" | "id: 'reviewer'"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    #[test]
+    fn relation_round_trip_requires_a_valid_immutable_record() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: Some("boundary cases overlap".to_owned()),
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml().unwrap();
+        assert_eq!(RelationRecord::from_yaml(&yaml, &id).unwrap(), record);
+
+        for malformed in [
+            yaml.replacen("type: 'complements'", "type: 'unknown'", 1),
+            yaml.replacen("from: 'TEST-PARSER-044'", "from: ''", 1),
+            yaml.replacen("to: 'TEST-PARSER-012'", "to: ''", 1),
+            yaml.replacen("created: '2026-08-08T00:00:00Z'", "created: ''", 1),
+        ] {
+            assert!(RelationRecord::from_yaml(&malformed, &id).is_err());
+        }
+        assert!(RelationRecord::from_yaml(&yaml, &new_record_id()).is_err());
+
+        let prefixed_id = format!("REL-{}", new_record_id());
+        let prefixed = RelationRecord {
+            id: prefixed_id.clone(),
+            ..record.clone()
+        };
+        let prefixed_yaml = prefixed.to_yaml().unwrap();
+        assert_eq!(
+            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id).unwrap(),
+            prefixed
+        );
+
+        let invalid = RelationRecord {
+            id: "not-a-ulid".to_owned(),
+            ..record
+        };
+        assert!(invalid.to_yaml().is_err());
+        let invalid = RelationRecord {
+            from: String::new(),
+            ..RelationRecord::from_yaml(&yaml, &id).unwrap()
+        };
+        assert!(invalid.to_yaml().is_err());
     }
 }

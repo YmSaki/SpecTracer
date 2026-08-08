@@ -12,7 +12,7 @@ use syn::{
 use thiserror::Error;
 use vtest_model::{ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity};
 use vtest_scan::ScanResult;
-use vtest_store::{new_record_id, now_rfc3339, write_atomic, VerifyLayout};
+use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
 #[derive(Debug, Error)]
 pub enum AuditError {
@@ -123,7 +123,7 @@ pub fn persist_static_audits(
         output.push_str("auditor:\n  kind: deterministic\n  id: vtest\naudited_at: ");
         output.push_str(&yaml_scalar(&now_rfc3339()));
         output.push('\n');
-        write_atomic(&path, &output).map_err(|error| AuditError::Io {
+        write_new_record(&path, &output).map_err(|error| AuditError::Io {
             path,
             source: std::io::Error::other(error.to_string()),
         })?;
