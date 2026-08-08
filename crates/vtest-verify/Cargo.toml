@@ -1,0 +1,11 @@
+[package]
+name = "vtest-verify"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+vtest-model = { path = "../vtest-model" }
+vtest-scan = { path = "../vtest-scan" }
+vtest-store = { path = "../vtest-store" }

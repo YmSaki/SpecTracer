@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vtest-model",
+    "crates/vtest-store",
+    "crates/vtest-scan",
+    "crates/vtest-audit",
+    "crates/vtest-exec",
+    "crates/vtest-verify",
+    "crates/vtest-cli",
+    "crates/vtest-mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.28", features = ["derive"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+rustc-demangle = "0.1.28"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+syn = { version = "2.0.117", features = ["full", "extra-traits", "visit"] }
+thiserror = "2.0.17"

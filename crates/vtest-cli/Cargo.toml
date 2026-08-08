@@ -1,0 +1,20 @@
+[package]
+name = "vtest-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+vtest-audit = { path = "../vtest-audit" }
+vtest-exec = { path = "../vtest-exec" }
+vtest-model = { path = "../vtest-model" }
+vtest-scan = { path = "../vtest-scan" }
+vtest-store = { path = "../vtest-store" }
+vtest-verify = { path = "../vtest-verify" }
+
+[[bin]]
+name = "vtest"
+path = "src/main.rs"

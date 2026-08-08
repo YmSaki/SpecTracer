@@ -1,0 +1,47 @@
+{
+  "description": "SpecTracer lifecycle guardrails and validation gates.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/project_context.py\"",
+            "commandWindows": "powershell -NoProfile -Command \"$r = git rev-parse --show-toplevel; py -3 (Join-Path $r '.codex/hooks/project_context.py')\"",
+            "timeout": 10,
+            "statusMessage": "Loading SpecTracer project rules",
+            "additionalContextLimit": 800
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$|^Edit$|^Write$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/protect_canonical_data.py\"",
+            "commandWindows": "powershell -NoProfile -Command \"$r = git rev-parse --show-toplevel; py -3 (Join-Path $r '.codex/hooks/protect_canonical_data.py')\"",
+            "timeout": 10,
+            "statusMessage": "Protecting canonical verification data"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/validate_on_stop.py\"",
+            "commandWindows": "powershell -NoProfile -Command \"$r = git rev-parse --show-toplevel; py -3 (Join-Path $r '.codex/hooks/validate_on_stop.py')\"",
+            "timeout": 600,
+            "statusMessage": "Running SpecTracer validation gates"
+          }
+        ]
+      }
+    ]
+  }
+}

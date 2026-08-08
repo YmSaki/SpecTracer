@@ -1,0 +1,33 @@
+# Run the repository workflow without interactive approval pauses. The
+# workspace sandbox and command rules remain available as guardrails.
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+allow_login_shell = false
+project_doc_max_bytes = 32768
+project_root_markers = [".git"]
+
+[sandbox_workspace_write]
+network_access = false
+writable_roots = []
+
+[features]
+hooks = true
+multi_agent = true
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+default_subagent_model = "gpt-5.6-luna"
+default_subagent_reasoning_effort = "high"
+interrupt_message = true
+
+# Enable after milestone M9 creates the vtest-cli MCP server.
+[mcp_servers.vtest]
+enabled = false
+required = false
+command = "cargo"
+args = ["run", "--quiet", "-p", "vtest-cli", "--", "mcp"]
+cwd = ".."
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+default_tools_approval_mode = "writes"

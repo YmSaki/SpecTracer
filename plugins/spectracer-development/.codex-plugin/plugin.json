@@ -1,0 +1,23 @@
+{
+  "name": "spectracer-development",
+  "version": "0.1.0",
+  "description": "Fail-closed development, review, and release workflows for SpecTracer.",
+  "author": {
+    "name": "SpecTracer contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "SpecTracer Development",
+    "shortDescription": "Fail-closed workflows for developing and reviewing SpecTracer.",
+    "longDescription": "Adds SpecTracer change verification, architecture review, milestone release gates, lifecycle guardrails, and the vtest MCP server definition.",
+    "developerName": "SpecTracer contributors",
+    "category": "Developer Tools",
+    "capabilities": [],
+    "defaultPrompt": [
+      "Verify my SpecTracer change without promoting missing evidence to PASS.",
+      "Review this change against the SpecTracer v0.1 architecture.",
+      "Check whether the current SpecTracer milestone is release-ready."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

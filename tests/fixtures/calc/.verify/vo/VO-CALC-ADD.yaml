@@ -1,0 +1,13 @@
+id: VO-CALC-ADD
+parent: null
+requirements: [REQ-CALC]
+spec_refs:
+  - spec: SPEC-CALC
+    section: '1'
+claim: Addition returns the sum of its operands
+dimensions: []
+coverage_policy: null
+representative_cases: []
+status: draft
+created: '2026-08-08'
+updated: '2026-08-08'

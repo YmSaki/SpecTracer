@@ -1,0 +1,17 @@
+id: VO-CALC-MATRIX
+parent: null
+requirements: [REQ-CALC]
+spec_refs:
+  - spec: SPEC-CALC
+    section: '1'
+claim: Every supported calculator operand and operator combination is handled
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+  - name: operator
+    partitions: [add, sub, mul, div]
+coverage_policy: full-product
+representative_cases: []
+status: draft
+created: '2026-08-08'
+updated: '2026-08-08'

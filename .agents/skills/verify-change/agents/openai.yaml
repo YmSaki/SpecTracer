@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Change"
+  short_description: "Validate changes with fail-closed SpecTracer checks"
+  default_prompt: "Use $verify-change to validate this change against the SpecTracer design."

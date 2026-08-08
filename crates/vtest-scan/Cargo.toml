@@ -1,0 +1,13 @@
+[package]
+name = "vtest-scan"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+proc-macro2.workspace = true
+serde.workspace = true
+syn.workspace = true
+thiserror.workspace = true
+vtest-model = { path = "../vtest-model" }
+vtest-store = { path = "../vtest-store" }

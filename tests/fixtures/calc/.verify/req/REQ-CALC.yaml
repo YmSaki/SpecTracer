@@ -1,0 +1,9 @@
+id: REQ-CALC
+parent: null
+spec_refs:
+  - spec: SPEC-CALC
+    section: '1'
+summary: Calculator operations produce the requested result
+status: active
+created: '2026-08-08'
+updated: '2026-08-08'

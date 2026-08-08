@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "vtest": {
+      "enabled": false,
+      "command": "vtest",
+      "args": ["mcp"],
+      "required": false,
+      "startup_timeout_sec": 30,
+      "tool_timeout_sec": 120
+    }
+  }
+}

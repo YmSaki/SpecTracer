@@ -1,0 +1,56 @@
+# Trusted local Rust development commands for this repository.
+prefix_rule(
+    pattern = ["cargo", "fmt"],
+    decision = "allow",
+    justification = "Format the Rust workspace",
+)
+prefix_rule(
+    pattern = ["cargo", "test"],
+    decision = "allow",
+    justification = "Run repository tests",
+)
+prefix_rule(
+    pattern = ["cargo", "clippy"],
+    decision = "allow",
+    justification = "Run Rust lint checks",
+)
+prefix_rule(
+    pattern = ["cargo", "check"],
+    decision = "allow",
+    justification = "Type-check the Rust workspace",
+)
+prefix_rule(
+    pattern = ["cargo", "run"],
+    decision = "allow",
+    justification = "Run repository-local CLI checks",
+)
+prefix_rule(
+    pattern = ["cargo", "metadata"],
+    decision = "allow",
+    justification = "Inspect workspace metadata",
+)
+prefix_rule(
+    pattern = ["cargo", "tree"],
+    decision = "allow",
+    justification = "Inspect workspace dependencies",
+)
+prefix_rule(
+    pattern = ["git", "status"],
+    decision = "allow",
+    justification = "Inspect repository state",
+)
+prefix_rule(
+    pattern = ["git", "diff"],
+    decision = "allow",
+    justification = "Inspect local changes",
+)
+prefix_rule(
+    pattern = ["git", "log"],
+    decision = "allow",
+    justification = "Inspect repository history",
+)
+prefix_rule(
+    pattern = ["git", "rm"],
+    decision = "allow",
+    justification = "Remove explicitly selected tracked files",
+)

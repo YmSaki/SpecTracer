@@ -1,0 +1,8 @@
+/target/
+**/target/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.verify/cache/
+.codex-log/
+*.log

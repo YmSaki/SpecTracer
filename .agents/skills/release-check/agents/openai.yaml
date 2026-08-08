@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Check"
+  short_description: "Run milestone and release-readiness validation gates"
+  default_prompt: "Use $release-check to run the SpecTracer release readiness gates."
