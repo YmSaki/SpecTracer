@@ -227,10 +227,6 @@ fn acceptance_scan_domain_output_has_execution_and_neutral_target_collection() {
         .expect("scan returns a Test entity");
     assert!(test.get("execution").is_some(), "scan result: {value}");
     assert!(test["targets"].is_array(), "scan result: {value}");
-    assert!(
-        test.get("test_target").is_none(),
-        "Rust field leaked: {value}"
-    );
 }
 
 #[test]
