@@ -2,7 +2,7 @@
 
 ## 0. 位置付け
 
-本書は、要件定義・基本仕様・詳細設計本冊・別紙A・別紙Cの正規契約と、非正規の別紙B実装計画を、実装オーケストレーターが実行可能な作業順序へ変換したプロジェクト計画である。製品仕様や受入基準を追加・変更しない。
+本書は、要件定義・基本仕様・詳細設計本冊・別紙A・別紙Cの正規契約と、非正規の別紙B実装計画に対するcurrent status、evidence、blockerを管理するプロジェクト台帳である。製品仕様や受入基準を追加・変更しない。
 
 仕様の優先順位は次のとおりとする。
 
@@ -13,7 +13,9 @@
 
 別紙Bは非正規の実装計画であり、この優先順位へ正規仕様として加えない。
 
-矛盾を発見した場合は実装で吸収せず、該当箇所、観測される影響、判定不能な点を記録して停止する。既知の `spec_coverage` および VO 状態の保存値と導出値に関する論点も、fail-closed を弱める根拠にしない。
+別紙BのM1〜M9は現在の製品能力の依存順、`SpecTracer 言語アダプタ分離リファクタリング計画 v0.2`のW0〜W8は既存実装を現在contractへ移行するactive work sequenceを管理する。本書は両者とは別に、現在contractに対する検証状態と旧baseline evidenceを区別して記録する。active migrationではW0〜W8を実行順として用い、M1〜M9を競合する第二の移行順序として扱わない。
+
+矛盾を発見した場合は実装で吸収せず、該当箇所、観測される影響、判定不能な点を記録して停止する。
 
 本書による進捗管理は v0.1 製品の機能ではない。要件定義 OOS-004 の「開発プロセス全体の管理」を `vtest` に実装しない。
 
@@ -24,12 +26,12 @@
 - Luna は通常速度で使う。起動時の `service_tier` は指定せず、環境の既定値を適用する。
 - Luna は原則 `fork_turns: "none"` で起動し、依頼文に作業ディレクトリ、対象文書、対象ファイル、完了条件、禁止事項、実行コマンドをすべて含める。
 - 最大3サブエージェントを想定するが、同一ファイル、同一レコードスキーマ、同一公開APIを複数エージェントへ同時に割り当てない。
-- 各マイルストーンは本書 §3 と別紙Bの順序を守り、先行マイルストーンに適用される別紙C §18の受入条件が再現できるまで次へ進まない。
+- 新規構築でM1〜M9を実行する場合は別紙Bのcapability依存順を守る。言語adapter分離のactive migrationはrefactor plan W0〜W8の順を守り、各waveが参照するM1〜M9 acceptance groupを現在contractで再検証する。
 - 進行量は暦日ではなく、SolとLunaが実際に消費した入出力トークンで管理する。見積りは1名の統合担当と最大3名の独立担当を使える場合の初期予算であり、品質ゲートを省略して予算内へ収めない。
 
 ## 2. 常時守る実装制約
 
-- 依存方向は `vtest-cli / vtest-mcp -> vtest-verify / vtest-exec / vtest-audit / vtest-scan -> vtest-store -> vtest-model` の一方向とする。
+- 依存方向は `vtest-cli / vtest-mcp -> vtest-verify / vtest-exec / vtest-audit / vtest-scan -> vtest-store -> vtest-model` とし、言語固有capabilityは `vtest-scan / vtest-audit / vtest-exec -> vtest-adapter-rust -> vtest-adapter-api -> vtest-model` の方向に限定する。
 - 宣言、実装、実行事実の三層を分離し、導出可能な情報を正典として重複保存しない。
 - SPEC / REQ / VO は1エンティティ1ファイルとする。Relation、Approval、Audit、Evidence は ULID による1レコード1ファイルとし、追記型または不変として扱う。
 - 承認、監査、Evidence は対象の SHA-256 内容ハッシュへ束縛する。対象変更後に以前の PASS を引き継がない。
@@ -86,7 +88,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 ### 作業
 
-1. Cargo workspace と8クレートの空の骨格を作る。
+1. Cargo workspace と10クレート（core 8 crate＋`vtest-adapter-api`＋`vtest-adapter-rust`）の空の骨格を作る。
 2. `tests/fixtures/calc/` の正常系・異常系一覧を別紙B §2と別紙C §18.2からテスト台帳へ転記する。
 3. M1〜M9の受入基準を統合テスト名へ対応付ける。未実装テストは無視せず、段階的に有効化できる構造にする。
 4. 共通の診断コード、終了コード、JSON envelope、内容ハッシュ型の所有クレートを決める。
@@ -103,11 +105,12 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 ### 実装順
 
-1. Solが `vtest-model` のID型、状態値、診断、エンティティ境界を確定する。
-2. `vtest-store` に `.verify/` の読み込み、設定読み込み、重複・参照整合性検査を実装する。
-3. `vtest-scan` にRust構文解析、アノテーション解析、Test抽出、シンボル解決、検証グラフ構築を実装する。
-4. `vtest-cli` に `init`、`scan`、`doctor` と text/json 出力、終了コードを実装する。
-5. `tests/fixtures/calc/` に別紙B §2と別紙C §18.2の全Test形態を用意し、M1受入テストを実装する。
+1. Solが `vtest-model` のID型、状態値、診断、hash未計算discovery DTOとdomain entity境界を確定する。
+2. `vtest-adapter-api` にneutral discovery / capability contractを実装し、`vtest-adapter-rust`にRust構文解析、annotation解析、Test抽出、symbol解決を実装する。
+3. `vtest-store` に `.verify/` の読み込み、設定読み込み、重複・参照整合性検査を実装する。
+4. `vtest-scan` にadapter委譲、DTO検証、core hash計算、domain materialization、決定論的統合、検証グラフ構築を実装する。Rust parserを直接所有しない。
+5. `vtest-cli` に `init`、`scan`、`doctor` と text/json 出力、終了コードを実装する。
+6. `tests/fixtures/calc/` とsynthetic fixtureに別紙B §2と別紙C §18.2の全Test形態を用意し、M1受入テストを実装する。
 
 ### Lunaへ並列化できる作業
 
@@ -118,7 +121,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 ### ゲート
 
 - 別紙B M1の全完了条件を満たす。
-- 正常ケース0、診断あり1、使用方法エラー2、内部エラー3の区別を確認する。
+- 正常ケース0、完了scanのE-SCAN-*は1、E-ADAPTER-*等の操作拒否2、内部エラー3の区別を確認する。
 - `rust-cargo` wire codecが出力する互換field `filter`、`package`、`test_target`が`execution`と一致し、Cargo起動座標へ損失なく変換できることを確認する。
 
 ## 6. M2 レコード管理とVO実体化
@@ -128,9 +131,10 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 1. `vtest-store` に原子的な書き込みと1エンティティ1ファイル規約を実装する。
 2. SPEC / REQ / VO / Relation / Approval のスキーマと検証を実装する。
 3. `spec`、`req`、`vo` 系CLIを実装する。
-4. VO内容ハッシュと承認レコードの照合による自動失効を実装する。
-5. `vo expand` の `full-product` と `dry-run` を実装する。
-6. SPEC内容変更の W-SCAN-104 を実装する。
+4. VO内容ハッシュと上流依存closureを承認レコードへ束縛し、対象VO、parent VO、REQ、SPEC変更による自動失効を実装する。
+5. dependency closureを完全・currentに解決できないapproveをE-APPROVAL-001で拒否する。
+6. `vo expand` の `full-product` と `dry-run` を実装する。
+7. SPEC内容変更の W-SCAN-104 を実装する。
 
 ### Lunaへ並列化できる作業
 
@@ -169,7 +173,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 1. Testから `cargo test` の起動単位を解決する。
 2. stable toolchain出力の結果パーサと矛盾検出を実装する。
-3. Git revision、dirty、Test内容hash、全宣言targetの参照と内容hashを実行直前に取得する。
+3. Git revision、dirty、Test subject hash、全宣言targetの参照と内容hashを実行直前に取得する。
 4. EvidenceをULIDファイルへ新規追加し、raw logをcacheへ保存する。
 5. `vtest run --fast` とEvidence鮮度判定を実装する。
 
@@ -181,7 +185,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 ### ゲート
 
 - 別紙B M4の全完了条件を満たす。
-- Testまたはtarget変更後は以前のEvidenceが必ずSTALEになる。
+- canonical Test metadata、execution、Test constructまたはtarget変更後は以前のEvidenceが必ずSTALEになる。
 - 複数target Evidenceのentry欠落、重複、余剰を有効なPASSとして扱わない。
 - E-EXEC-001〜003の分岐とEvidence生成有無を再現する。
 
@@ -189,8 +193,8 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 ### 実装順
 
-1. 3種別のbundle生成と共有envelopeを実装する。
-2. submitスキーマとE-AUDIT-001〜006を実装する。
+1. `spec-coverage`を含む4種別のbundle生成と共有envelopeを実装する。
+2. submitスキーマとE-AUDIT-001〜007を実装する。
 3. reasonsとbasis参照の必須性を検証する。
 4. bundle生成時ハッシュとsubmit時ハッシュを照合する。
 5. 受理結果を追記型監査レコードとして保存し、有効性を導出する。
@@ -210,7 +214,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 ### 実装順
 
 1. 12チェック項目の評価地点と状態遷移を表駆動で実装する。
-2. Test → VO → REQのfail-closed集約を実装する。
+2. SPEC → REQ → VO → Testの評価treeと、Test → VO → REQ → SPECのfail-closed集約を実装する。
 3. entity scopeとitem scopeを実装し、scope外を `NOT_CHECKED` とする。
 4. `vtest verify` の簡易・ツリー・JSON出力を実装する。
 5. `vtest report` に根拠レコードとEvidence参照を追加する。
@@ -220,12 +224,13 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 - `tester`: 12項目単独非PASS、未登録Test、階層集約、限定scope、出力snapshotを担当する。
 - `reviewer`: M6専用の独立fail-closedレビューを行い、誤ったPASS昇格を最優先で探す。
-- `explorer`: 基本仕様 §4.2と詳細設計 §11.1の対応、既知の論点を一覧化する。矛盾時は実装判断をせず報告する。
+- `explorer`: 基本仕様 §4.2と詳細設計 §11.1の対応を一覧化する。矛盾時は実装判断をせず報告する。
 
 ### ゲート
 
 - 別紙B M6の全完了条件を満たす。
 - 12項目のどれか1つでも非PASSなら完全検証はNGとなる。
+- active REQの存在だけで`spec_coverage`をPASSにせず、Test / adapter errorを`vo_decomposition`へ漏らさない。
 - 限定scopeのOKを完全検証OKとして表示しない。
 - 基本仕様と詳細設計に判定差が見つかった場合は仕様確認まで停止する。
 
@@ -317,29 +322,29 @@ cargo run --quiet -p vtest-cli -- doctor
 
 ## 15. オーケストレーター用進捗台帳
 
-次の表を実装中に更新する。初期状態はすべて未着手とする。
+次の表は現在の正規contractに対するstatusと、旧contractで得たbaseline evidenceを分離して記録する。
 
-| Milestone | Status | Sol used / budget | Luna used / budget | Acceptance evidence | Architecture review | Independent review | Blocker |
-|---|---|---:|---:|---|---|---|---|
-| S0 | DONE | N/R / 60 kTok | N/R / 80 kTok | workspace test、init/layout、`tests/ACCEPTANCE.md` | PASS | PASS（M1 review で再確認） | — |
-| M1 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m1_acceptance` 5/5、`release_check --milestone M1` READY | PASS | PASS（独立 read-only review 2系統） | — |
-| M2 | DONE | N/R / 120 kTok | N/R / 220 kTok | `m2_acceptance` 12/12、`release_check --milestone M2` READY | PASS | PASS（独立 read-only review、再監査済み） | — |
-| M3 | DONE | N/R / 100 kTok | N/R / 180 kTok | `m3_acceptance` PASS、`release_check --milestone M3` READY、dogfood static audit PASS | PASS | PASS（独立 fail-closed review、nested item 回帰修正後に再確認） | — |
-| M4 | DONE | N/R / 140 kTok | N/R / 240 kTok | `m4_acceptance` 6/6、Evidence v2 multi-target、`release_check --milestone M4` READY、dogfood execution/evidence PASS | PASS（Evidence hashes、legacy fail-closed、依存方向を確認） | PASS（real-process fixture、失敗/ignored/no-result回帰を確認） | — |
-| M5 | DONE | N/R / 120 kTok | N/R / 200 kTok | `m5_acceptance` 4/4、3 bundle種別、typed submit、`release_check --milestone M5` READY | PASS（canonical AuditRecord、subject hash、fail-closed stale） | PASS（bundle/submit実プロセス、E-AUDIT-002/005回帰を確認） | — |
-| M6 | BLOCKED | N/R / 180 kTok | N/R / 300 kTok | 旧11項目baselineは`m6_acceptance` 6/6。12番目の`test_traceability`は仕様PRのOwner承認・merge待ち | 旧11項目はPASS。12項目contractはNOT_CHECKED | 旧11項目はPASS。12項目contractはNOT_CHECKED | 仕様PR merge前のため下流実装・testを開始しない |
-| M7 | DONE | N/R / 120 kTok | N/R / 200 kTok | `m7_acceptance` 3/3、実測target PASS/FAIL、W-EXEC-101 fallback、`release_check --milestone M7` READY | PASS（Test単位llvm-cov、count判定、NOT_CHECKED境界、Evidence hashを確認） | PASS（called/missed/unavailable real-process回帰を確認） | — |
-| M8 | DONE | N/R / 200 kTok | N/R / 360 kTok | `m8_acceptance` 4/4、symbol候補、create/show/list/query、編集境界、冪等性 | PASS（Form Schema、desired-state、単一Test境界、再スキャンを確認） | PASS（real-process invalid/create/edit/idempotence回帰を確認） | — |
-| M9 | DONE | N/R / 140 kTok | N/R / 240 kTok | `m9_acceptance` 9/9（22 tool registry/schema、CLI parity、§13.3全経路、transport error matrix、mtime refresh） | PASS（MCPはCLI JSONへ委譲し、別判定エンジンを持たない） | PASS（独立Luna reviewerがupsert、notification、freshness、非PASS保持を再確認） | rmcp SDKの文字どおりの相互運用はNOT_CHECKED（最小通常利用では手動stdioの外部契約を確認済み） |
+| Milestone | Current status | Historical baseline evidence | Current-contract evidence | Blocker |
+|---|---|---|---|---|
+| S0 | REVALIDATION_REQUIRED | 8-crate workspace、init/layout、旧`tests/ACCEPTANCE.md` | NOT_CHECKED | W0のOwner承認・merge後、10-crate構成と新受入台帳を再検証する |
+| M1 | REVALIDATION_REQUIRED | 旧`m1_acceptance` 5/5、旧release-check READY | NOT_CHECKED | hash未計算DTO、core hash ownership、adapter分離、SRC ID一意性を未検証 |
+| M2 | REVALIDATION_REQUIRED | 旧`m2_acceptance` 12/12、旧release-check READY | NOT_CHECKED | Approval dependency closure、REL-ID、derived VO statusを未検証 |
+| M3 | REVALIDATION_REQUIRED | 旧`m3_acceptance` PASS、旧dogfood static audit PASS | NOT_CHECKED | Test subject hashとadapter-owned static auditで再検証が必要 |
+| M4 | REVALIDATION_REQUIRED | 旧`m4_acceptance` 6/6、旧Evidence multi-target baseline | NOT_CHECKED | `test_subject` Evidenceと非隣接metadata freshnessを未検証 |
+| M5 | REVALIDATION_REQUIRED | 旧`m5_acceptance` 4/4、3 bundle種別baseline | NOT_CHECKED | `spec-coverage`を含む4種別とE-AUDIT-007を未検証 |
+| M6 | REVALIDATION_REQUIRED | 旧11項目`m6_acceptance` 6/6 | NOT_CHECKED | 12項目、SPEC root集約、spec_coverage、独立vo_decompositionを未検証 |
+| M7 | REVALIDATION_REQUIRED | 旧`m7_acceptance` 3/3、target count baseline | NOT_CHECKED | adapter-owned coverageとTest subject Evidenceで再検証が必要 |
+| M8 | REVALIDATION_REQUIRED | 旧`m8_acceptance` 4/4、編集境界・冪等性baseline | NOT_CHECKED | adapter-owned Form validatorとneutral DTOで再検証が必要 |
+| M9 | REVALIDATION_REQUIRED | 旧`m9_acceptance` 9/9、22 tool / CLI parity baseline | NOT_CHECKED | current registry・schema・JSON envelopeで全MCP parityを再検証する |
 
-Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかとする。`DONE` は受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
+Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`REVALIDATION_REQUIRED`、`DONE` のいずれかとする。正規contractまたは受入条件が変化したmilestoneは、旧evidenceがPASSでも`REVALIDATION_REQUIRED`へ戻す。`DONE` は現在contractの受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
 
-`N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。M1/M2 の独立レビューは Luna reviewer の登録モデルが利用不能だったため、同一コードを編集しない独立 agent で代替した。旧正規構成の別紙B §18.3に存在した終了コードの曖昧さは、別紙Bを非正規計画、別紙Cを正規受入仕様へ分離した契約では引き継がない。
+`N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。以下の記録はすべてhistorical baselineであり、現在contractのPASSまたはDONEを表さない。
 
-M2 では、基本仕様 §3.1 の `REL-`（ULID）と同 §3.2・詳細設計 §§2.1/3.4 の bare ULID の表記差を独断で固定せず、ULID payload を厳格検証したうえで両表記を読み取る。同じ payload の bare/prefixed 2レコードは E-SCAN-010 で拒否し、論理IDの一意性を維持する。承認失効は基本仕様 §9・詳細設計 §3.5 の VO 内容ハッシュ式に従う。詳細設計 §§3.1/11.4 の「依存 SPEC 更新でも承認失効」とは schema 上両立しないため、W-SCAN-104 による SPEC drift 検出までを M2 とし、依存ハッシュを承認式へ追加するかは仕様 review item として `tests/ACCEPTANCE.md` に残した。
+旧M2 baselineはbare / prefixed Relation IDの両方とVO単体hashだけのApprovalを扱った。現在contractは`REL-<ULID>`、derived VO status、Approval dependency closureを要求するため、このevidenceはcurrent M2へ流用しない。
 
 自己適用ではリポジトリ直下の `.verify/` で `vtest doctor` を実行し、exit 0 と canonical 再読込を確認した。M3 では `TEST-DOGFOOD-M3-TARGET-RULES` を VO に登録し、実プロセス `audit static` と scoped `verify --items static_audit` を実行して six-rule PASS を確認した。M4 では同じTestを `run --all --fast` で実行し、Evidenceを再読込して `static_audit`、`test_execution`、`runtime_result`、`evidence_validity` のPASSを確認した（fastの `target_execution` はNOT_CHECKED）。M5では実プロセスbundle/submitを独立fixtureで実行し、typed AuditRecordを再読込して対象改変時のSTALEを確認した。再試行で生成された古い immutable AuditRecord は verifier が STALE として除外することも確認済みである。
-M6の旧baselineでは、REQ/VO/Testの各entity scopeとitem scope、全11項目の単独非PASS、leaf VOの未カバー、部分実行Evidence、根拠付きtree、11項目PASS・exit 0を確認した。このevidenceは`test_traceability`を含む12項目contractの証拠ではない。仕様PRがmergeされるまで12番目はNOT_CHECKEDとし、M6を完了扱いにしない。
+旧M6 baselineでは、REQ/VO/Testの各entity scopeとitem scope、全11項目の単独非PASS、leaf VOの未カバー、部分実行Evidence、根拠付きtree、11項目PASS・exit 0を確認した。このevidenceは12項目、SPEC root、`spec_coverage`意味監査、独立した`vo_decomposition`、`test_traceability`を含む現在contractの証拠ではない。
 M7では、設定を `llvm-cov` にした独立fixtureで、対象関数を通るTestの `target_execution: PASS`（count >= 1）、通らないがコンパイル時に保持された対象の `FAIL`（count = 0）、および `cargo llvm-cov --version` だけを不成立にしたfallbackの `W-EXEC-101` / `NOT_CHECKED` を実プロセスで確認した。
 M8では、Structured Test Operationの実プロセスfixtureで、候補付き `E-OP-001`、dry-runを含む `test create` と再スキャン、`show/list/query`、対象Testだけの `covers` 編集、他Testのcontent hash不変、同一desired stateのbyte-idempotenceを確認した。
 M9では、`vtest mcp` のstdio JSON-RPC transport、initialize/tools/list、22 toolすべてのschemaとCLI envelope parity、REQ/VO/Test/Form/Audit/Run/Verify/Reportの§13.3参照経路、候補付き入力エラー、notification無応答、mtime refreshを実プロセスで確認した。MCPの判定は既存CLIを再利用するため、第二の集約ロジックは存在しない。独立Luna reviewerも修正後のupsert、notification、freshness、非PASS保持を再確認した。`rmcp` SDKの文字どおりのwire interoperabilityだけは、最小通常利用の完了条件とは分離したNOT_CHECKEDの実装詳細として残す。

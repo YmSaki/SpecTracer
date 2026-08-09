@@ -7,7 +7,7 @@
 本システムは、以下を相互に照合する。
 
 1. 仕様上、何を検証しなければならないか
-2. その仕様が適切なVerification Obligationへ分解されているか
+2. その仕様上の要求がRequirementへ取り込まれ、適切なVerification Obligationへ分解されているか
 3. 各Verification Obligationに対して必要なテストが存在するか
 4. テストコードが宣言された検証内容を実際に検証しているか
 5. 対象実装が仕様・検証内容と一致しているか
@@ -68,7 +68,8 @@ UNKNOWN
 NOT_EXECUTED
 MISSING
 MISMATCH
-FAILED
+FAIL
+STALE
 ```
 
 利用者が特定の検証観点だけを確認したい場合は、検証scopeを限定できる。
@@ -117,6 +118,9 @@ OK
 Specification
       |
       v
+Requirement
+      |
+      v
 Verification Obligation
       |
       v
@@ -135,6 +139,16 @@ Execution Evidence
 これは単純な正典チェーンではない。
 
 各成果物間について、独立して一致・不一致を検証する。
+
+登録されたSpecificationの要求事項がRequirementへ取り込まれている完全性と、
+RequirementがVerification Obligationへ分解されている完全性は別の検証対象とする。
+Requirementは1件以上のSpecification箇所を参照しなければならない。
+
+`spec_coverage`は、検証scopeに登録Specificationが1件以上存在し、各Specificationに参照するactive Requirementが存在し、
+根拠付きの意味監査によって要求事項の取り込みが完全であると確認された場合だけ`PASS`とする。
+SpecificationまたはRequirementが存在しない場合は`MISSING`、監査未実施は`NOT_CHECKED`、現在の対象hash・集合と一致しない監査だけが存在する場合は
+`STALE`、取り込み漏れを確認した場合は`FAIL`、判定不能は`UNKNOWN`とし、既存Requirementの存在だけで
+`PASS`へ昇格してはならない。
 
 ---
 
@@ -318,9 +332,10 @@ negative operands covered
 
 ---
 
-# 6. VO網羅性のAI検証
+# 6. Specification・VO網羅性のAI検証
 
-VOの分解および網羅性についてLLMを利用可能とする。
+SpecificationからRequirementへの取り込み完全性、およびRequirementからVOへの分解・網羅性について
+LLMを利用可能とする。両者は別の監査結果として保存し、一方の判定を他方へ流用しない。
 
 AIは、
 
@@ -355,6 +370,11 @@ Reason:
 を追跡可能であること。
 
 理由を伴わないAI判定を、正式な網羅性検証済み状態として扱ってはならない。
+
+Specification coverageの判定理由には、対象Specification、取り込んだRequirement、
+取り込み対象外とした節または記述、およびその根拠を含める。監査対象には対象Specificationの
+現在hashと、それを参照するactive Requirementの完全な集合および各内容hashを束縛する。
+SpecificationまたはそのRequirement集合が変化した監査を現在の`PASS`として扱ってはならない。
 
 ---
 
@@ -413,6 +433,9 @@ discoveryが不完全または解析不能な状態は`UNKNOWN`とする。い�
 ソースコード自体への恒久ID埋め込みは必須としない。
 各adapterは、Source Targetを一意に解決でき、同一のsource stateから決定論的に正規化できるTarget Referenceを提供する。
 Target Referenceの具体的な構文、namespace、symbol種別は下位仕様へ委譲し、共通契約がpath、module、function等の特定言語構造を必須としてはならない。
+
+恒久SRC IDを使用する場合、そのIDはadapter境界を越えてrepository全体で一意でなければならない。
+同一SRC IDを複数adapterまたは複数Source Targetが宣言した状態を曖昧な参照として受理してはならない。
 
 TestからSourceを検索でき、Sourceから関連Testを逆引きできること。
 
@@ -548,9 +571,14 @@ UNKNOWN
 
 PASS結果がどのコード状態に対して得られたものか追跡可能であること。
 
-対象実装変更前に得られたPASSを、無条件に現在のPASSとして利用してはならない。
+現在の対象実装hashと一致しない状態に束縛されたPASSを、有効なPASSとして利用してはならない。
 
-現在のTest・宣言target集合・各対象実装とEvidenceの対応関係を確認できない場合、完全検証では有効なPASS Evidenceとはみなさない。
+現在のTest subject・宣言target集合・各対象実装とEvidenceの対応関係を確認できない場合、完全検証では有効なPASS Evidenceとはみなさない。
+
+Test subjectはTest constructだけでなく、Test Entityを具体化するcanonical metadataの論理値、
+実行座標およびidentityを含む。metadataの配置がTest constructと隣接しないadapterであっても、
+`covers`、`targets`、Test Intentその他のcanonical metadata変更がTest subject hashを必ず変化させなければならない。
+意味が同一な宣言表現の正規化はadapterが行えるが、同値性を確定できない変更は安全側でhashを変化させる。
 
 Evidenceは、Testが宣言する全targetについてtarget参照と対象内容hashを保持し、現在の宣言target集合および各対象内容hashと照合可能でなければならない。
 
@@ -623,6 +651,7 @@ MISSING
 NOT_CHECKED
 UNKNOWN
 NOT_EXECUTED
+STALE
 ```
 
 であれば完全検証はNG。
@@ -666,11 +695,14 @@ Feature        NG
      |
      v
 Requirement    NG
+     |
+     v
+Specification  NG
 ```
 
 集約はfail-closedを基本とする。
 
-PMなどは上位Requirement単位からNG箇所まで掘り下げられること。
+PMなどは上位SpecificationまたはRequirement単位からNG箇所まで掘り下げられること。
 
 ---
 
@@ -786,6 +818,10 @@ VOが確定していない範囲を含むプロジェクトも読み取れるこ
 # 25. 承認
 
 Verification Obligation等の検証成果物について、確定・承認状態を表現可能とする。
+
+承認は対象自身の内容だけでなく、承認判断が依存するSpecification、Requirement、上位VOの
+現在の依存closureへ束縛する。対象またはいずれかの依存成果物が変更された承認を、現在の
+承認済み状態として利用してはならない。依存closureまたはhashを欠く承認を推測で有効化してはならない。
 
 承認主体を人間に限定しない。
 

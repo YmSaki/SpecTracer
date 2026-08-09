@@ -51,7 +51,9 @@ vtest scan
 ```
 
 スキャンと整合性検査（本冊 §5）を実行し、診断一覧とエンティティ数のサマリを出力する。
-error 診断があれば終了コード 1。
+registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-*で拒否された場合は終了コード2とし、
+scan結果を生成しない。scanが完了し、repository整合性のE-SCAN-*診断がある場合は終了コード1、
+error診断がなければ0とする（本冊 §17.2）。
 
 #### `vtest doctor`
 
@@ -73,11 +75,15 @@ vtest spec show SPEC-BASIC-001
 
 ```text
 vtest req add --id REQ-PARSER-001 --summary <s>
-              [--parent REQ-X] [--spec SPEC-X --section <sec>]...
-vtest req edit REQ-PARSER-001 [--summary <s>] [--parent ...] ...
+              [--parent REQ-X] --spec SPEC-X --section <sec>
+              [--spec SPEC-Y --section <sec>]... [--status active|withdrawn]
+vtest req edit REQ-PARSER-001 [--summary <s>] [--parent ...]
+               [--spec SPEC-X --section <sec>]... [--status active|withdrawn]
 vtest req list [--tree]
 vtest req show REQ-PARSER-001
 ```
+
+active REQは1件以上の`--spec` / `--section`組を必須とする。withdrawn REQは既存参照を保持できる。
 
 #### `vtest vo add / edit / list / show / expand / approve`
 
@@ -94,7 +100,9 @@ vtest vo approve VO-X --approver-kind <human|agent> --approver-id <id>
 ```
 
 `expand` は本冊 §3.3.1 の実体化。`--dry-run` は生成予定の子 VO 一覧のみ表示する。
-`approve` は現在の VO 内容ハッシュに束縛された承認レコードを追加する。
+`approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closureに束縛された承認レコードを追加する。
+対象またはいずれかの依存entity / SPEC sourceを完全・currentに解決できない場合はE-APPROVAL-001、
+終了コード2としてrecordを追加しない。
 `edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
 
 #### `vtest test create`
@@ -154,6 +162,7 @@ vtest audit static [--test TEST-X | --all]
 
 ```text
 vtest audit bundle --kind test-semantic --test TEST-X [--include-failed]
+vtest audit bundle --kind spec-coverage --spec SPEC-X
 vtest audit bundle --kind vo-coverage  (--vo VO-X | --req REQ-X)
 vtest audit bundle --kind impl-consistency (--test TEST-X | --vo VO-X)
 vtest audit submit --file result.json
@@ -175,7 +184,7 @@ vtest run (--test TEST-X | --vo VO-X | --req REQ-X | --all) [--fast]
 
 ```text
 vtest verify [--items <item1,item2,...>]
-             [--req REQ-X | --vo VO-X | --test TEST-X]
+             [--spec SPEC-X | --req REQ-X | --vo VO-X | --test TEST-X]
              [--summary]
 ```
 
@@ -187,32 +196,32 @@ scope を限定した場合、出力冒頭に要求 scope と「scope 外は未�
 出力例（テキスト）：
 
 ```text
-Requested scope: full (12 items), REQ-PARSER-001
+Requested scope: full (12 items), SPEC-BASIC-001
 
 Project checks:
 └─ test_traceability                    PASS
 
-└─ REQ-PARSER-001                       NG
-   ├─ spec_coverage                     PASS
-   ├─ VO-PARSER-UTF8                    NG
-   │  ├─ vo_coverage                    PASS  (audit 01J8XV..., approved)
-   │  ├─ VO-PARSER-UTF8-003             NG
-   │  │  ├─ test_existence              PASS
-   │  │  ├─ TEST-PARSER-044             NG
-   │  │  │  ├─ static_audit             PASS
-   │  │  │  ├─ semantic_audit           FAIL  (audit 01J8XW...)
-   │  │  │  ├─ test_execution           PASS
-   │  │  │  ├─ runtime_result           PASS
-   │  │  │  ├─ target_execution         PASS  (2/2 targets PASS)
-   │  │  │  └─ evidence_validity        PASS
-   │  │  └─ ...
-   │  └─ VO-PARSER-UTF8-004             MISSING (no covering test)
-   └─ ...
+└─ SPEC-BASIC-001                       NG
+   ├─ spec_coverage                     PASS  (audit 01J8XU...)
+   └─ REQ-PARSER-001                    NG
+      ├─ vo_decomposition               PASS
+      └─ VO-PARSER-UTF8                 NG
+         ├─ vo_coverage                 PASS  (audit 01J8XV..., approved)
+         ├─ VO-PARSER-UTF8-003          NG
+         │  ├─ test_existence           PASS
+         │  └─ TEST-PARSER-044          NG
+         │     ├─ static_audit          PASS
+         │     ├─ semantic_audit        FAIL  (audit 01J8XW...)
+         │     ├─ test_execution        PASS
+         │     ├─ runtime_result        PASS
+         │     ├─ target_execution      PASS  (2/2 targets PASS)
+         │     └─ evidence_validity     PASS
+         └─ VO-PARSER-UTF8-004          MISSING (no covering test)
 
 Result: NG
 ```
 
-`test_traceability`はrepository-level項目であり、要求された場合はREQ / VO / TESTのentity scopeに
+`test_traceability`はrepository-level項目であり、要求された場合はSPEC / REQ / VO / TESTのentity scopeに
 かかわらず全Discovered Testを評価する。非PASS時は、未登録または不正対応の各Testについてadapter ID、
 source location、diagnostic code、判定値をProject checks配下に表示する。JSONでも同じ根拠一覧を返す。
 
@@ -226,7 +235,8 @@ result、countを子要素として表示する。JSONは本冊 §3.7のtarget�
 #### `vtest report`
 
 ```text
-vtest report [--req REQ-X | ...] [--format json]
+vtest report [--spec SPEC-X | --req REQ-X | --vo VO-X | --test TEST-X]
+             [--items <item1,item2,...>] [--format json]
 ```
 
 `verify` と同じ集約を実行し、根拠（監査レコード ID・Evidence ID・診断）を含む完全な詳細を出力する。
@@ -269,10 +279,10 @@ stdio で MCP サーバを起動する（§13）。
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
 | `audit_static` | `test` または `all` | ルール別結果、監査レコード ID |
-| `audit_bundle` | `kind`、対象 ID | bundle_id とバンドル本体（JSON） |
+| `audit_bundle` | `kind`、対象 ID（`spec` / `req` / `vo` / `test`のkind別必須field） | bundle_id とバンドル本体（JSON） |
 | `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、監査レコード ID |
 | `run_tests` | `test` / `vo` / `req` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
-| `verify` | `items[]`、`req` / `vo` / `test` | 総合 OK / NG、集約ツリー |
+| `verify` | `items[]`、`spec` / `req` / `vo` / `test` | 総合 OK / NG、集約ツリー |
 | `report` | 同上 | 根拠付き完全レポート |
 
 ### 13.3 エージェント向け利用フロー（参考）

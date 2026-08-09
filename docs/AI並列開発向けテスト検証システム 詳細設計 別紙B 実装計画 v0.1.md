@@ -3,6 +3,12 @@
 本別紙は非正規のprocess文書であり、実装順序、各マイルストーンの実装対象、完了条件を定める。
 要件定義、基本仕様、詳細設計本冊、別紙A、別紙Cの正規なシステム契約を追加・変更・上書きしない。
 
+本別紙のM1〜M9は、現在の正規契約を満たす製品能力を依存順に構築・再検証するための
+capability milestoneである。既存実装を現在のarchitectureへ移行する作業順は
+`SpecTracer 言語アダプタ分離リファクタリング計画 v0.2`のW0〜W8が管理し、
+現在contractに対するstatusとevidenceは`実装スケジュール v0.1`の進捗台帳が管理する。
+旧contractでの完了履歴は本別紙の完了条件を満たす現在の`DONE`を意味しない。
+
 ---
 
 ## 1. 方針
@@ -35,6 +41,8 @@ tests/fixtures/calc/
 - 存在しないVOを参照するテスト（E-SCAN-003、`test_traceability = MISMATCH`）
 - table-drivenテスト（`@vtest.case` 付き）
 - 複数targetを宣言し、一方だけを実行するintegration Test
+- Specification内の要求事項に対応active REQがない状態
+- Test constructと非隣接のmetadata宣言だけを変更できるsynthetic Test
 
 ## 3. マイルストーン一覧
 
@@ -49,13 +57,14 @@ tests/fixtures/calc/
   - E-SCAN-002〜010、W-SCAN-101がfixtureの該当箇所で検出される。
   - 未登録Testが存在する場合、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出できる。
   - `vtest scan --format json`の出力が別紙A §12.1の構造に従う。
-  - error診断があれば終了コード1、正常なら0になる。
+  - E-ADAPTER-*による操作拒否は終了コード2、完了したscanのE-SCAN-*は1、errorなしは0になる。
 
 ### M2 レコード管理とVO実体化
 
-- 実装：`vtest-store`（書き込み）、`spec` / `req` / `vo` 系コマンド、承認レコードとハッシュ束縛、`vo expand`
+- 実装：`vtest-store`（書き込み）、`spec` / `req` / `vo` 系コマンド、承認レコードと対象hash・上流依存closure束縛、`vo expand`
 - 完了条件：
-  - VOのadd → approve → editの順で操作すると、承認が自動失効しdraftへ戻る。
+  - VOのadd → approve → editの順、および依存SPEC / REQ / parent VOの変更で承認が自動失効しdraftへ戻る。
+  - dependency closureを完全・currentに解決できないapproveはE-APPROVAL-001となり、recordを生成しない。
   - `vo expand --dry-run`が`full-product`で直積の子VO一覧を出す。
   - SPEC登録後に文書を書き換えるとW-SCAN-104が出る。
 
@@ -72,15 +81,17 @@ tests/fixtures/calc/
 - 実装：`vtest-adapter-rust`のrunner起動・結果parse、`vtest-exec`の委譲・Evidence記録、`vtest run --fast`、鮮度判定（本冊 §11.2）
 - 完了条件：
   - fixtureの全登録Testが実行され、TestごとにEvidenceが1件記録される。
-  - Evidenceが`test_construct`と全宣言targetの`target_construct`内容hashを重複なく記録する。
+  - Evidenceが`test_subject`と全宣言targetの`target_construct`内容hashを重複なく記録する。
+  - Test constructと非隣接のcanonical metadataだけを変更してもEvidenceがSTALEになる。
   - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
   - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
 
 ### M5 意味監査プロトコル
 
-- 実装：`audit bundle` / `audit submit`、bundle生成（3種別）、提出検証（E-AUDIT-001〜006）
+- 実装：`audit bundle` / `audit submit`、bundle生成（4種別）、提出検証（E-AUDIT-001〜007）
 - 完了条件：
   - test-semantic bundleに本冊 §8.2の全fieldが含まれる。
+  - spec-coverage bundleが対象SPECと対応active REQ完全集合を束縛し、取り込み漏れをFAILにできる。
   - reasonsが空の提出がE-AUDIT-005で拒否される。
   - bundle生成時と異なる対象hashの提出がE-AUDIT-002で拒否される。
   - 受理された監査が、対象変更によってSTALEになる。
@@ -90,6 +101,8 @@ tests/fixtures/calc/
 - 実装：`vtest-verify`（12チェック項目評価、fail-closed集約、scope）、`vtest verify` / `vtest report`
 - 完了条件：
   - 全12項目PASSのfixture状態で`verify`がOK・終了コード0になる。
+  - Specificationの要求事項に対応active REQがない、監査がない、または監査がINCOMPLETEの各状態で`spec_coverage`が非PASSになる。
+  - Test metadata errorだけでは`vo_decomposition`が非PASSにならない。
   - 12項目のそれぞれを単独で非PASSにするとNG・終了コード1になる。
   - 未登録Testが1件でもあれば、他の11項目がPASSでも`test_traceability`によりNGになる。
   - `--items spec_coverage,vo_coverage`の限定scopeでOKが出ても、scope外項目はNOT_CHECKEDのまま表示される。

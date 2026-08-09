@@ -29,13 +29,15 @@ M9 完了前に本計画を着手する場合は、マイルストーン順序�
 
 ### 0.2 ベースライン
 
+以下は仕様変更前revisionで得たhistorical baselineであり、現在contractに対する`DONE`を表さない。
+
 - README 更新コミット：`85ff47e` (`docs: update status and language support`)
 - M9 完了コミット：`ee406eb` (`feat: complete M9 MCP usability`) + `575f36f` (`fix: close M9 MCP review gaps`)
 - M1〜M8：`DONE`
 - M9：`DONE`
 - M9 独立レビュー：`PASS`（修正コミット `46fbb4d` を再監査）
-- 現行 workspace：8 crates
-- 現行回帰：110 tests
+- baseline workspace：8 crates
+- baseline回帰：110 tests
 - M9 acceptance：9 tests（全PASS）
 - 共通ゲート：fmt / workspace test / clippy `-D warnings` / `vtest doctor`
 
@@ -255,21 +257,21 @@ core domainへ固有fieldを追加しない。`execution`を欠くversion 1入�
 
 ### 4.3 Source model
 
-`Locator.path`と`Locator.item_path`は文字列として既に他言語を表現できるため維持する。
-`SourceLocation.function`と`SourceFunction`の名称はRust寄りだが、v0.2ではwire互換を
-優先して変更しない。仕様では「function」値をadapterが返すopaque symbol display name
-として再定義する。名称変更はversioned schemaの別判断とする。
+`TargetRef::Locator`はadapter IDとadapter所有のopaque locatorを保持する。
+`SourceLocation`はadapter ID、project-relative path、opaque locator、source rangeを保持する。
+恒久SRC IDはadapter namespaceを持たないためrepository全体で一意とし、衝突時は推測で解決しない。
+core contractにmodule path、function名、`.rs`拡張子を要求しない。
 
 ### 4.4 Evidence互換性
 
 - 既存Evidenceは書き換えない。
 - `RunnerInfo.kind`、`command`、`exit_code`は既にrunner非依存なので維持する。
 - `TargetExecution.method`もstringのためcoverage provider名を保持できる。
-- Evidenceは全宣言targetについて正規化TargetRef、対象hash、target別count / resultを保持し、Test単位結果をfail-closedで集約する。
+- EvidenceはTest subject hashと、全宣言targetについて正規化TargetRef、対象hash、target別count / resultを保持し、Test単位結果をfail-closedで集約する。
 - 単数形のtarget hash / execution resultは、現在のTestがtargetをちょうど1件持つ場合だけ互換入力として扱う。
-- adapter IDをEvidenceへ追加する場合はoptional fieldとし、旧recordの欠落を
-  読取り互換のため許容する。alpha.2の新recordではadapter IDを必須で記録する。
-- 旧recordのadapter欠落は、現在のTestが `rust-cargo` でlegacy runner kindとhashから
+- Evidence writerはadapter IDを必須で記録する。readerはadapter ID欠落形を
+  読取り互換のため受理できる。
+- adapter ID欠落形は、現在のTestが `rust-cargo` でcompatibility runner kindとhashから
   Rust実行を一意に確認できる場合だけ互換扱いし、それ以外はUNKNOWNとする。
 - 新recordではadapter IDとTest execution adapter、runner kindの整合を保存前に検証する。
 - unknown adapterのEvidenceを推測で実行済み・coverage PASSへ昇格しない。
@@ -337,19 +339,23 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 各ウェーブ完了時に狭いテスト、workspace全体、architecture-checkを実行する。
 先行ウェーブがPASSするまで次ウェーブの公開APIを変更しない。
 
+本計画が既存実装を現在architectureへ移行するactive work sequenceである。別紙B M1〜M9は
+製品能力の依存順、実装スケジュールはstatus / evidence台帳であり、W0〜W8と競合する
+別のmigration sequenceとして使用しない。
+
+| Wave | Current status | 開始条件 |
+|---|---|---|
+| W0 | IN_REVIEW | Ownerによる仕様PRのreview中 |
+| W1〜W8 | NOT_STARTED | W0のOwner承認・mergeとacceptance成果物の独立確定 |
+
 ### W0 仕様と受入契約の確定
 
 所有：主担当のみ。Lunaはread-only explorer / reviewerとして使用する。
 
-変更対象：
-
-- 要件定義 §7、§17、§27
-- 基本仕様 §0〜§4、§7.1〜7.10、§8、§11、§16
-- 詳細設計 §0〜§2.2、§4〜§5、§7、§9〜§11、§17、§19
-- 別紙A §12〜15
-- 別紙B（非正規実装計画）
-- 別紙C §18
-- `AGENTS.md`
+変更対象は固定した節番号一覧で上限を設けない。発見箇所から成果物依存を上流へ辿り、
+最初に無効化されたaccepted artifactを特定し、そこから影響する全下流成果物を再導出する。
+初期traceには少なくとも要件定義 §§7、8、17、20、25、27、基本仕様、詳細設計本冊、
+別紙A / Cを含め、process整合性のため別紙B、実装スケジュール、本計画、`AGENTS.md`も確認する。
 
 完了条件：
 
@@ -357,7 +363,7 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 - Rust v0.1の観測可能挙動を維持する項目と、versioned変更項目が区別される。
 - W0 commit / PRにproduction実装コード、テストコード、fixture、`tests/ACCEPTANCE.md`を含めない。
 - Ownerが仕様PRを承認・mergeし、そのmerge済みrevisionを下流工程の基準として記録する。
-- M9がDONEである。
+- historical M9 evidenceと現在contractのstatusを分離し、影響milestoneを`REVALIDATION_REQUIRED`へ戻す。
 
 W0 merge後、production実装より先に、別紙Cの受入条件から`tests/ACCEPTANCE.md`、
 adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧実装でFAILすることを確認する。
@@ -375,12 +381,14 @@ adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧�
 - `TestEntity`が`filter`、`package`、`test_target`、`TestTarget`を含まない。
 - `TestEntity.targets`が1件以上のTargetRefを表現し、複数targetを代表1件へ縮約しない。
 - Test JSONの`targets` listと単数互換fieldの整合を検証し、複数targetでは単数fieldを出力しない。
-- `TestWireCodec`が`rust-cargo` wire fieldとのround-tripを保証する。
+- `TestWireCodec` contractがadapter固有propertyをcore domainへ漏らさずround-tripできることをsynthetic codecで保証する。
 - synthetic TestのJSONにRust互換fieldが存在しない。
+- discovery adapterがhash未計算DTOとcurrent source bytesを返し、coreがTest subject / Source Target hashを計算してdomain entityを具体化する。
+- non-adjacent metadataの意味変更がTest subject hashを変化させる。
 
 ### W2 config v2とRust adapter skeleton
 
-成果：v1互換loader、v2 writer、`vtest-adapter-rust` module skeleton、built-in registry。
+成果：v1互換loader、v2 writer、`vtest-adapter-rust` module skeleton、`rust-cargo` TestWireCodec、built-in registry。
 
 完了条件：
 
@@ -388,6 +396,7 @@ adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧�
 - v2 initとround-tripが決定論的である。
 - unknown / duplicate adapterがfail-closedになる。
 - Rust adapter descriptorとcapability宣言が取得できる。
+- `rust-cargo` codecがversion 1互換fieldを`execution`と損失なくround-tripし、矛盾を拒否する。
 
 ### W3 Rust discovery / operations移植
 
@@ -425,7 +434,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M4、M7 acceptanceが全PASS。
 - build failureでEvidenceを記録しない。
 - target変更でEvidenceがSTALEになる。
-- Evidenceが`test_construct`、全宣言targetの`target_construct` hash、target別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
+- Evidenceが`test_subject`、全宣言targetの`target_construct` hash、target別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
 - llvm-cov不在はNOT_CHECKEDのままである。
 - `vtest-exec`にCargo / llvm-cov / rustc-demangle固有処理が残らない。
 
@@ -437,6 +446,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 
 - M6、M9 acceptanceが全PASS。
 - `test_traceability`が全Discovered Testをrepository-levelで評価し、`ManagedTestLink::Missing`をMISSING、`ManagedTestLink::Multiple`・Test ID衝突・解決不能なVO参照をMISMATCHにする。
+- `spec_coverage`がSPECと対応active REQ完全集合に束縛された意味監査なしにPASSせず、`vo_decomposition`がTest / adapter / Evidence errorを取り込まない。
 - 全MCP toolがCLIと同じregistryとenvelopeを使う。
 - adapter選択失敗のcode / message / candidatesがCLI/MCPで一致する。
 - reportはadapter metadataを根拠として表示できるが、scope外をPASSにしない。
@@ -456,6 +466,7 @@ fixtureは`.rs`以外のsource、関数ではないTest construct、doc comment�
 - RustとsyntheticのTestを1回のscanでmergeできる。
 - duplicate Test IDをE-SCAN系またはE-ADAPTER系errorで拒否する。
 - synthetic runnerのEvidenceがhash変更後にSTALEになる。
+- manifest型の非隣接metadataだけを変更してもsynthetic Evidence / AuditがSTALEになる。
 - coverage capabilityなしでtarget_executionがNOT_CHECKEDになる。
 - 全12項目で非PASSがaggregate NGになる。
 
@@ -465,7 +476,7 @@ fixtureは`.rs`以外のsource、関数ではないTest construct、doc comment�
 
 完了条件：
 
-- 全既存M1〜M9とadapter acceptanceがPASS。
+- current-contractのM1〜M9とadapter acceptanceがPASS。
 - project / plugin Skillがbyte-identicalでvalid。
 - MCPはCLI parity完了後のみenabled。
 - Rust互換fieldはwire codecだけが読書きし、core domainに存在しない。
@@ -558,7 +569,12 @@ Wave E: P12完成 -> P13 -> 主担当release gate
 | adapter without coverage | W-ADAPTER-101、NOT_CHECKED |
 | Rust + synthetic | 決定論的merge |
 | duplicate Test ID across adapters | error |
+| duplicate SRC ID across adapters | E-SCAN-011、target解決PASSなし |
 | stale synthetic Evidence | STALE |
+| non-adjacent metadata changed | Test subject mismatch、Audit / Evidence STALE |
+| SPEC requirement without active REQ | spec_coverage non-PASS |
+| SPEC / REQ dependency changed after VO approval | Approval失効、VO draft |
+| scan rejected by adapter | E-ADAPTER-*、exit 2、scan resultなし |
 | limited scope | scope外NOT_CHECKED |
 | CLI / MCP same input | 同じJSON envelope |
 

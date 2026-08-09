@@ -74,17 +74,18 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 
 ### 1.3 内容ハッシュの定義
 
-**内容ハッシュ**は次の正規化を施したテキストの SHA-256 とし、`sha256:<hex>` 形式で記録する。
+**内容ハッシュ**はSHA-256を使用し、`sha256:<hex>`形式で記録する。テキストfragmentは改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しない。
 
-- 改行を LF へ統一する。
-- 各行の末尾空白を除去する。
-- 対象範囲は次のとおり。
-  - Test：discovery adapterが単一Test constructに対して返すsource range全体のtestデータ。metadata宣言がsource rangeに隣接する場合はその宣言もrangeに含める
-  - Source Target：discovery adapterがTarget Referenceに対して返すimplementation construct全体のsource range
-  - VO / REQ / SPEC レコード：YAML ファイル全体
-- 空白の正規化はこれ以上行わない。インデント変更はハッシュ不一致となる（安全側）。
+hash inputはdomain separatorと長さ付きfieldから構成する。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を行わない。mapはkey昇順、集合として扱う`covers`・`targets`・`related`は正規化値の昇順、順序に意味がある`cases`は宣言順とする。null、空文字、空listは異なる値としてencodeする。
 
-adapterはsource rangeとそのバイト列を返し、coreは上記の正規化とSHA-256計算だけを行う。coreがASTや言語固有の構文からrangeを再計算しない。`rust-cargo` adapterはTestにdoc comment・属性を含む関数item全体、Source Targetに属性とdoc commentを含む関数item全体を返す。
+- Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。
+- Source Target hash：domain `vtest:target-subject:v1`を用い、正規化TargetRefとadapterが返すimplementation construct bytesを束縛する。
+- VO / REQ hash：domain `vtest:record-subject:v1`を用い、readerが具体化したcanonical recordをfield規則に従ってencodeする。VOの読取り互換field `status`は正典ではないため含めない。
+- SPEC subject hash：domain `vtest:spec-subject:v1`を用い、canonical SPEC recordと参照先Specification sourceの正規化内容を束縛する。SPEC recordの`sha256`と実sourceが不一致ならsubject hashは現在有効な値として成立せず、STALEとする。
+
+adapterはsource location、source rangeと現在のbytes、解析済みlogical metadata、ExecutionDescriptorをhash未計算のdiscovery DTOとして返す。coreはadapter出力と現在のsource bytesの対応を検証し、上記の言語非依存encodingとSHA-256計算を行ってからdomain entityを具体化する。adapterが最終的な`TestEntity.content_hash`または`SourceTarget.content_hash`を返して自己確定してはならない。coreはASTや言語固有構文からrangeを再計算しない。
+
+`rust-cargo` adapterはTest constructとしてmetadata doc commentを除き、実行に影響する属性、signature、bodyを含む関数itemのbytesを返す。doc comment由来metadataはlogical metadataと`metadata_sources`として別に返す。Source Targetには属性とdoc commentを含む関数item全体を返す。format変更を構文上の意味だけから同値とみなさず、上記正規化後のsource bytesが変化した場合は安全側でSTALEにする。
 
 ---
 
@@ -98,7 +99,7 @@ adapterはsource rangeとそのバイト列を返し、coreは上記の正規化
   spec/       SPEC-<NAME>.yaml
   req/        REQ-<NAME>.yaml
   vo/         VO-<NAME>.yaml
-  rel/        <ULID>.yaml
+  rel/        REL-<ULID>.yaml
   forms/      <kind>.yaml
   approvals/  <ULID>.yaml
   audits/     <ULID>.yaml
@@ -223,6 +224,9 @@ created: 2026-08-08
 updated: 2026-08-08
 ```
 
+active REQは1件以上の`spec_refs`を必須とする。`withdrawn` REQは履歴表示のため参照を保持するが、
+`spec_coverage`の現在の対応REQ集合には含めない。
+
 ### 3.3 VO レコード（`.verify/vo/VO-*.yaml`）
 
 ```yaml
@@ -236,10 +240,13 @@ claim: 不正な continuation byte を含む入力を与えた場合、ParseErro
 dimensions: []            # 検証軸（任意。下記 3.3.1）
 coverage_policy: null     # independent-axes | full-product | explicit | null
 representative_cases: []  # 代表入力値（任意）
-status: draft             # draft | approved（approved は承認レコードの有効性で決まる。§3.5）
 created: 2026-08-08
 updated: 2026-08-08
 ```
+
+VOの`status`は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。
+readerは読取り互換fieldとして`status`を受理するが、実効判定とVO内容hashでは無視し、
+存在自体をW-STORE-001として通知する。互換field値と導出値が異なる場合も導出値だけを使用する。
 
 #### 3.3.1 dimensions と組合せの実体化
 
@@ -262,12 +269,12 @@ coverage_policy: full-product
 実体化後は通常の VO として扱われるため、`test_existence` などの決定論的検査は「leaf VO に検証があるか」だけを見ればよい。
 組合せ空間の定義が仕様に対して十分かは `vo-coverage` 意味監査の判定対象である（基本仕様 §7.6）。
 
-### 3.4 Relation レコード（`.verify/rel/<ULID>.yaml`）
+### 3.4 Relation レコード（`.verify/rel/REL-<ULID>.yaml`）
 
 導出できない関係のみを保存する（基本仕様 §2.3）。
 
 ```yaml
-id: 01J8XVZK3Q...
+id: REL-01J8XVZK3Q...
 type: depends-on          # depends-on | supersedes | regression-for |
                           # derived-from | same-partition | complements | conflicts-with
 from: TEST-PARSER-044     # 任意のエンティティID
@@ -276,6 +283,7 @@ note: ""
 created: 2026-08-08T00:00:00Z
 ```
 
+Relation IDは`REL-`と26文字のULID payloadからなる。bare ULIDはRelation IDとして受理しない。
 Relation は不変。変更はファイル削除＋新規作成で表す。
 `from` / `to` の存在はスキャン時に検査する。
 
@@ -285,6 +293,16 @@ Relation は不変。変更はファイル削除＋新規作成で表す。
 id: 01J8XW0A9M...
 subject: VO-PARSER-UTF8-003     # 承認対象のエンティティID
 subject_hash: "sha256:..."      # 承認時点の対象の内容ハッシュ
+dependencies:                   # 承認時点の上流依存closure（完全一致を要求）
+  - kind: vo
+    id: VO-PARSER-UTF8
+    hash: "sha256:..."
+  - kind: req
+    id: REQ-PARSER-001
+    hash: "sha256:..."
+  - kind: spec
+    id: SPEC-BASIC-001
+    hash: "sha256:..."          # §1.3のSPEC subject hash
 approver:
   kind: agent                   # human | agent
   id: reviewer-agent-01
@@ -300,17 +318,28 @@ VO の実効状態は次で決まる。
 ```text
 approved =
   「subject が一致し、subject_hash が現在の内容ハッシュと一致する
-   承認レコードが1件以上存在する」
+   かつ dependencies が現在の上流依存closureとentity・hashとも完全一致する
+   という条件を満たす承認レコードが1件以上存在する」
 それ以外は draft（承認失効を含む）
 ```
 
-VO レコードの `status` フィールドは表示用であり、実効判定は常に承認レコードから導出する（正典の重複を避けるため、`status` と導出結果が食い違う場合は導出結果を採り、警告 W-STORE-001 を出す）。
+上流依存closureは、対象VOの再帰的なparent VO、対象VOとparent VOが参照するREQ、
+それらREQの再帰的なparent REQ、および各VO / REQの`spec_refs`が参照するSPECからなる。
+対象VO自身は`subject_hash`で束縛するため`dependencies`へ重複して含めない。
+entryは`kind`、`id`の順でsortし、欠落・重複・余剰entryを許可しない。
+
+SPEC dependencyは§1.3のSPEC subject hashを使用するため、SPEC recordまたは参照先sourceの変更で
+承認が失効する。依存entryを持たない互換Approvalは読取りと履歴表示だけを許可し、
+現在の`approved`を導出しない。W-STORE-002を出し、VOは`draft`相当とする。
+
+VOの実効`status`は常にこの式から導出し、canonical VO recordへ保存しない。
 
 ### 3.6 監査レコード（`.verify/audits/<ULID>.yaml`）
 
 ```yaml
 id: 01J8XVZZ...
-kind: test-semantic             # test-semantic | vo-coverage | impl-consistency | static
+kind: test-semantic             # spec-coverage | test-semantic | vo-coverage |
+                                # impl-consistency | static
 bundle_id: 01J8XVYY...          # static の場合 null
 subjects:                       # 監査対象と当時の内容ハッシュ
   - id: TEST-PARSER-044
@@ -349,7 +378,7 @@ result: PASS                    # PASS | FAIL
 executed_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
 hashes:
-  test_construct: "sha256:..."
+  test_subject: "sha256:..."
   targets:
     - target: "rust-cargo::src/parser.rs::Parser::parse"
       target_construct: "sha256:..."
@@ -379,8 +408,10 @@ log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 `target_execution.checked: false`では`method`と`result`をnull、`targets`を空listとし、検証値を
 `NOT_CHECKED`とする。
 
-readerは`rust-cargo` Evidenceに限り、互換fieldの`hashes.test_fn`とtarget entry内の`target_fn`を`test_construct`と`target_construct`へ正規化できる。両fieldが併存する場合は同値を必須とし、非`rust-cargo` Evidenceでは互換fieldを解釈しない。
-readerは単数互換形の`hashes.target_fn`および`target_execution.result/count`を、現在の`rust-cargo` Testがtargetをちょうど1件宣言し、Test construct hashとtarget construct hashを照合できる場合だけ1要素listへ正規化して扱う。
+writerは`hashes.test_subject`を必須とし、Test construct単体のhashを現在のEvidence freshness keyとして出力しない。
+
+readerは`rust-cargo` Evidenceに限り、互換fieldの`hashes.test_fn`または`hashes.test_construct`とtarget entry内の`target_fn`を読み取れる。互換Test hashを現在の`test_subject`へ正規化できるのは、現在の`rust-cargo` adapterが当該互換hashのsource rangeに全canonical metadataとTest constructが含まれること、現在bytesとの完全一致、および現在のlogical metadataとの一致を証明できる場合だけとする。証明できなければrecordは保持するが`evidence_validity`をPASSにしない。中立fieldと互換fieldが併存する場合は導出される値の同値を必須とし、非`rust-cargo` Evidenceでは互換fieldを解釈しない。
+readerは単数互換形の`hashes.target_fn`および`target_execution.result/count`を、現在の`rust-cargo` Testがtargetをちょうど1件宣言し、§3.7の条件でTest subjectを証明でき、target construct hashも照合できる場合だけ1要素listへ正規化して扱う。
 複数target Testに単数互換形を適用せず、writerは常にlist形を出力する。
 
 Evidence内の`target`は実行時snapshotを識別するkeyであり、TEST → SRC edgeの正典ではない。
@@ -465,21 +496,25 @@ source declarationを構文上完全なTest Entityへ正規化できるが、`co
    各adapterはDiscoveryBatchを返す
 
 3. adapter出力の検証
-   adapter ID、Source Location、source range、content bytes、Test Entity、
-   Discovered TestとManagedTestLinkの対応、Target Reference、診断を検証する
+   adapter ID、Source Location、source range、current bytes、hash未計算のTest draft、
+   metadata source、Target draft、診断を検証する
    capability宣言と出力が矛盾するbatchは拒否する
 
-4. 決定論的な統合
-   adapter ID、project-relative path、opaque locator、Test IDの順に正規化する
-   adapter間を含むTest ID衝突と不正な複数対応を検査する
+4. core materialization
+   Test subjectとSource Targetのhashを§1.3で計算し、TestEntity、SourceTarget、
+   DiscoveredTest、ManagedTestLinkを具体化する
 
-5. .verify/ 読み込み
+5. 決定論的な統合
+   adapter ID、project-relative path、opaque locator、Test IDの順に正規化する
+   adapter間を含むTest ID・SRC ID衝突と不正な複数対応を検査する
+
+6. .verify/ 読み込み
    vtest-storeが全レコードを読み込み、スキーマ検証する
 
-6. 参照整合性検査
+7. 参照整合性検査
    coversのVO ID、targetsのTarget Reference / SRC ID、Relation、parentを解決する
 
-7. グラフ構築と整合性検査（§5.3、§5.4）
+8. グラフ構築と整合性検査（§5.3、§5.4）
 ```
 
 adapterが解析不能または不完全なbatchを返した場合、coreは対応する検証を`UNKNOWN`とし、Test 0件の完全なdiscoveryとして扱わない。
@@ -498,7 +533,7 @@ pub struct TestEntity {
     pub cases: Vec<String>,
     pub related: Vec<TestId>,
     pub location: SourceLocation,
-    pub content_hash: ContentHash,  // §1.3
+    pub content_hash: ContentHash,  // §1.3のTest subject hash（coreが計算）
     pub execution: ExecutionDescriptor,
 }
 
@@ -539,6 +574,9 @@ pub enum CheckItem {
 }
 ```
 
+`TargetRef::SrcId`はadapter IDを含まないため、`SrcId`は全adapterを統合したrepositoryで
+global uniqueでなければならない。collision時はE-SCAN-011とし、TargetRefを解決しない。
+
 `TestEntity.execution` はadapter、project、suite、opaque selectorからなる中立な実行座標である。
 coreは `project`、`suite.kind`、`suite.name`、`selector` の文字列を解釈しない。
 `filter`、`package`、`test_target`および`TestTarget`型を`vtest-model`へ置かない。
@@ -556,7 +594,67 @@ Test JSON writerは`TestEntity.targets`を1件以上のlistとして常に出力
 同値の単数互換field`target`を追加できる。readerは`target`だけの入力を1要素listへ正規化し、
 `targets`との併存時は完全一致を検証する。複数targetから代表値を選んで`target`を生成しない。
 
-scan時の導出結果には、Managed Test Entityとは別に次のin-memory observationを保持する。
+`SourceDiscoveryAdapter`は次のhash未計算DTOを返す。
+
+```rust
+pub struct SourceFragment {
+    pub location: SourceLocation,
+    pub bytes: Vec<u8>,
+}
+
+pub struct ManagedTestDraft {
+    pub id: TestId,
+    pub covers: Vec<VoId>,
+    pub targets: Vec<TargetRef>,
+    pub intent: String,
+    pub input: Option<String>,
+    pub expect: Option<String>,
+    pub kind: Option<String>,
+    pub cases: Vec<String>,
+    pub related: Vec<TestId>,
+    pub execution: ExecutionDescriptor,
+}
+
+pub struct DiscoveredTestDraft {
+    pub adapter: AdapterId,
+    pub location: SourceLocation,
+    pub construct: SourceFragment,
+    pub metadata_sources: Vec<SourceFragment>,
+    pub managed: ManagedTestDraftLink,
+}
+
+pub enum ManagedTestDraftLink {
+    Missing,
+    One(ManagedTestDraft),
+    Multiple(Vec<ManagedTestDraft>),
+}
+
+pub struct SourceTargetDraft {
+    pub target: TargetRef,
+    pub location: SourceLocation,
+    pub construct: SourceFragment,
+}
+
+pub struct DiscoveryBatch {
+    pub adapter: AdapterId,
+    pub completeness: DiscoveryCompleteness,
+    pub discovered_tests: Vec<DiscoveredTestDraft>,
+    pub source_targets: Vec<SourceTargetDraft>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+pub enum DiscoveryCompleteness {
+    Complete,
+    Incomplete,
+}
+```
+
+adapterは`SourceFragment.bytes`が`location.byte_range`の現在bytesと一致する状態だけを返す。
+manifest等にある非隣接metadataも`metadata_sources`へ列挙するが、hash inputはadapter構文のraw表現ではなく
+`ManagedTestDraft`のcanonical logical metadataである。coreはrange・bytes対応を検証し、§1.3でhashを計算してから
+`TestEntity`、`SourceTarget`および次のobservationを具体化する。
+`ManagedTestDraftLink::One` / `Multiple`の各draftは、全logical metadataを導出した1件以上の
+`metadata_sources`を持たなければならない。provenance欠落はmalformed adapter outputとしてE-ADAPTER-002で拒否する。
 
 ```rust
 pub struct DiscoveredTest {
@@ -571,25 +669,11 @@ pub enum ManagedTestLink {
     One(TestId),
     Multiple(Vec<TestId>),
 }
-
-pub struct DiscoveryBatch {
-    pub adapter: AdapterId,
-    pub completeness: DiscoveryCompleteness,
-    pub discovered_tests: Vec<DiscoveredTest>,
-    pub managed_tests: Vec<TestEntity>,
-    pub source_targets: Vec<SourceTarget>,
-    pub diagnostics: Vec<Diagnostic>,
-}
-
-pub enum DiscoveryCompleteness {
-    Complete,
-    Incomplete,
-}
 ```
 
-`SourceDiscoveryAdapter`はadapterがTestとして認識した全Discovered Testを返す。`ManagedTestLink::One`は、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataを持つTest Entityへ対応する場合に設定する。
-VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検査する。したがって、解決不能な`covers`を持つTest Entityも`managed_tests`に含まれ、対応するobservationは`ManagedTestLink::One(id)`を持つ。
-`ManagedTestLink::Missing`は管理宣言の欠落または必須metadataの欠落、`Multiple`は同一Test constructから複数entityが生じる状態を表す。
+`SourceDiscoveryAdapter`はadapterがTestとして認識した全Discovered Test draftを返す。`ManagedTestDraftLink::One`は、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataをdraftとして具体化できる場合に設定する。
+VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検査する。したがって、解決不能な`covers`を持つdraftもcore materialization後のmanaged entity集合に保持され、対応するobservationは`ManagedTestLink::One(id)`を持つ。
+`ManagedTestDraftLink::Missing`は管理宣言の欠落または必須metadataの欠落、`Multiple`は同一Test constructから複数draftが生じる状態を表す。core materialization後の対応する状態が`ManagedTestLink`となる。
 
 adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAuditAdapter`、
 `StructuredTestAdapter`、`TestRunnerAdapter`、`CoverageAdapter` に分割する。
@@ -608,13 +692,14 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 ノード：SPEC, REQ, VO, TEST, SRC（ロケータ単位）
 エッジ：
   REQ  → REQ    (parent)
+  REQ  → SPEC   (spec_refs)
   VO   → VO     (parent)
   VO   → REQ    (requirements)
   VO   → SPEC   (spec_refs)
   TEST → VO     (covers)      ※adapter所有のTest metadata宣言由来
   TEST → SRC    (targets)     ※adapter所有のTest metadata宣言由来、1:N
   外部 Relation (rel/ 由来)
-逆引きインデックス：VO → Tests、SRC → Tests、REQ → VOs
+逆引きインデックス：VO → Tests、SRC → Tests、REQ → VOs、SPEC → REQs
 ```
 
 ### 5.4 整合性診断
@@ -631,15 +716,18 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
 | E-SCAN-010 | error | レコードの id とファイル名の不一致、スキーマ違反 |
+| E-SCAN-011 | error | 恒久SRC IDが複数adapterまたは複数Source Targetで衝突 |
+| E-SCAN-012 | error | REQ / VO のrequirementsまたはspec_refsが存在しないentityを参照 |
 | W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
-| W-STORE-001 | warning | VO の `status` フィールドと承認導出結果の不一致 |
+| W-STORE-001 | warning | VO recordに非正典の読取り互換field `status`が存在（値は無視し承認から導出） |
+| W-STORE-002 | warning | Approvalが現在の上流依存closureを欠くか一致せず、承認として無効 |
 
 error は該当エンティティに関わるチェック項目を非PASSにする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
 W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断とは独立した`test_traceability`評価で`MISSING`になる。
-`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。
+`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれかのadapterを選ばない。
 
 ### 5.5 `rust-cargo` SourceDiscoveryAdapter
 
@@ -668,9 +756,10 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
    すべてのfn / impl fnをSRC候補として索引化し、
    §4.3のlocator解決・逆引き・@vtest.src-id認識に使用する
 
-7. 正規化
-   全Discovered Test、構造上完全なTest Entity、Source Target、Source Location、
-   source range、ExecutionDescriptor、診断をDiscoveryBatchに格納する
+7. draft生成
+   全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、
+   construct / metadata source rangeとbytes、logical metadata、ExecutionDescriptor、診断を
+   hash未計算のDiscoveryBatchに格納する
 ```
 
 ---
@@ -680,7 +769,7 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 ### 6.1 adapter-neutral解決contract
 
 coreは`TargetRef::Locator.adapter`をregistryで解決し、opaque locatorの解釈を該当する`SourceDiscoveryAdapter`へ委譲する。adapterは正規化されたTarget Reference、Source Location、source range、content bytes、解決status、候補を返す。
-coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、content hashを検証するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
+coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証し、§1.3のSource Target hashを計算するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
 
 SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。
 
@@ -766,6 +855,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 | kind | 対象指定 | 含める情報 |
 |---|---|---|
+| `spec-coverage` | `--spec SPEC-X` | 対象SPEC record、Specification source全文とSPEC subject hash、対象SPECを参照するactive REQの完全な集合・全record・内容hash、各REQのsection参照、withdrawn REQ一覧、有効な過去監査の要約 |
 | `test-semantic` | `--test TEST-X` | Test（metadata宣言・Test construct source全文）、covers先VOレコード、全targetのimplementation construct source全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約 |
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
 | `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、spec_refs、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
@@ -838,7 +928,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 }
 ```
 
-`vo-coverage` の提出では `verdict` に `COMPLETE` / `INCOMPLETE` / `UNKNOWN` を用い、内部で `PASS` / `FAIL` / `UNKNOWN` へ写像する。
+`spec-coverage`と`vo-coverage`の提出では `verdict` に `COMPLETE` / `INCOMPLETE` / `UNKNOWN` を用い、内部で `PASS` / `FAIL` / `UNKNOWN` へ写像する。
 さらに `reasons` に次の構造を必須とする（基本仕様 §7.4）。
 
 ```json
@@ -855,6 +945,10 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
   ]
 }
 ```
+
+`spec-coverage`では各reasonにSpecification上の要求事項と対応REQを示すbasisを含める。
+`exclusions`には取り込み対象外とした節または記述とSpecification上の根拠を列挙する。
+対応REQが0件の場合はbundleを生成できるが、提出の有無にかかわらず`spec_coverage = MISSING`を維持する。
 
 `basis.kind` は `spec` / `vo` / `req` / `test-code` / `target-code` のいずれかとする。
 
@@ -873,17 +967,20 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
    basis（1件以上）がある                        （E-AUDIT-005）
 6. vo-coverage の場合、decomposition-viewpoint
    を1件以上含み、spec 参照の basis を持つ       （E-AUDIT-006）
+7. spec-coverage の場合、各reasonがspecとreqの
+   basisを持ち、exclusionにspec根拠がある          （E-AUDIT-007）
 ```
 
 受理された提出は監査レコード（§3.6）として保存される。
-`subjects`にはバンドル生成時の全対象（Test・VO・全targetのimplementation construct、vo-coverageではSPECのsha256）を記録する。
+`subjects`にはバンドル生成時の全対象を記録する。`spec-coverage`ではSPEC subjectと対象SPECを参照するactive REQの完全な集合、`test-semantic`ではTest subject・VO・全target、`vo-coverage`ではREQ・VO部分木・SPEC subject、`impl-consistency`ではTest / VO・全targetを含める。
 
 ### 8.5 有効性と多重監査
 
 監査レコードの有効性は判定時に評価する。
 
 ```text
-有効 = subjects の全ハッシュが現在の内容ハッシュと一致する
+有効 = subjects のentity集合が現在の監査対象集合と完全一致し、
+       全ハッシュが現在の内容ハッシュと一致する
 （SPEC は登録された sha256 と実ファイルの一致も要求。
  不一致の場合は W-SCAN-104 を出し、当該レコードは STALE）
 ```
@@ -963,7 +1060,7 @@ stdout / stderr の全文は `cache/logs/<ULID>.log` へ保存し、Evidence の
 Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
-- `hashes`：実行直前のdiscovery結果から、Test construct hashと、全宣言targetの正規化Target Reference・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
+- `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetの正規化Target Reference・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
 ---
@@ -1028,9 +1125,9 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 
 | チェック項目 | 評価地点 | 評価方法 |
 |---|---|---|
-| `spec_coverage` | REQ | REQ に対応する VO が1件以上存在すれば PASS、なければ MISSING |
-| `vo_decomposition` | VO | 部分木に §5.4 の error 診断がなければ PASS |
-| `vo_coverage` | VO | 有効な vo-coverage 監査（§8.5）が PASS かつ VO が承認済（§3.5）なら PASS |
+| `spec_coverage` | SPEC | sourceがcurrentでactive REQが1件以上存在し、現在のSPEC subjectと対応REQ完全集合に束縛された有効なspec-coverage監査がPASSならPASS |
+| `vo_decomposition` | REQ / VO | REQ / VO部分木のparent・requirements・spec_refs・構造Relationだけを§11.1.1で評価 |
+| `vo_coverage` | REQ / VO | 有効なvo-coverage監査（§8.5）がPASSかつ対象VOが承認済（§3.5）ならPASS |
 | `test_existence` | leaf VO | covers する Test が1件以上あれば PASS、なければ MISSING |
 | `static_audit` | TEST | §7.1 の合成 |
 | `semantic_audit` | TEST | 有効な test-semantic 監査の合成（§8.5） |
@@ -1040,6 +1137,33 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 | `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値（checked: falseはNOT_CHECKED） |
 | `evidence_validity` | TEST | §11.2 の判定 |
 | `test_traceability` | repository scan result | 全Discovered Testが構造上完全なManaged Test Entityへ1対1で対応し、Test IDが一意かつ全`covers`参照を解決できればPASS |
+
+`spec_coverage`の判定は次のとおりとする。
+
+- 完全検証または指定scopeに登録SPECが0件なら`MISSING`とし、空集合をPASSにしない。
+- SPEC recordまたはsourceが存在しなければ`MISSING`、SPEC recordの登録hashとsourceが不一致なら`STALE`。
+- 対象SPECを参照するactive REQが0件なら`MISSING`。REQの`spec_refs`が解決不能またはschema不正なら`MISMATCH`。
+- currentな対象SPECと対応active REQ完全集合に対する有効な`spec-coverage`監査が`COMPLETE`なら`PASS`、`INCOMPLETE`なら`FAIL`、判定不能なら`UNKNOWN`。
+- 監査が一度もなければ`NOT_CHECKED`、現在の対象集合に無効な監査だけがあれば`STALE`。
+- REQ / VO / TEST scopeは対象SPECの対応active REQ集合を狭めない。特定範囲だけを評価する場合はSPEC scopeを指定し、Specification内部の一部節だけを完全検証済みとして扱わない。
+- 複数の非PASS条件が同時に成立する場合はすべてを根拠として保持し、表示代表値は基本仕様 §4.3の優先順位で選ぶ。
+
+`vo_coverage`はactive REQごとに対応VO集合を評価する。対応VOが0件なら`MISSING`、
+有効な`vo-coverage`監査がなければ`NOT_CHECKED`または`STALE`、監査が`INCOMPLETE`なら`FAIL`、
+判定不能なら`UNKNOWN`とする。監査が`COMPLETE`で、対象VO部分木の承認が§3.5によりすべて有効な場合だけ`PASS`とする。
+
+#### 11.1.1 `vo_decomposition`の診断写像
+
+`vo_decomposition`は独立した構造dimensionであり、§5.4の全errorを一括して取り込まない。
+選択したREQ / VO部分木について、次だけを評価する。
+
+- REQ / VOのparent不在は`MISSING`、cycleは`MISMATCH`。
+- VOの`requirements`またはREQ / VOの`spec_refs`が解決不能なら`MISSING`、参照型やschemaが矛盾する場合は`MISMATCH`。
+- 選択部分木のREQ / VOをendpointに持つ構造Relationのdangling endpointは`MISSING`、矛盾したschemaは`MISMATCH`。
+- 対象recordの読込みが解析不能または不完全なら`UNKNOWN`。
+- 上記がなく、parent、requirements、spec_refs、構造Relationがすべて解決できる場合だけ`PASS`。
+
+E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造RelationをsubjectとするE-SCAN-009 / E-SCAN-010だけがこの項目へ影響する。Test ID、Test metadata、target解決、adapter source parse、Evidenceの各errorは対応するTest・実行・Evidence dimensionへ写像し、`vo_decomposition`を変更しない。
 
 `test_traceability`の判定は次のとおりとする。
 
@@ -1054,7 +1178,7 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 ```text
 対象 Test の Evidence のうち最新のものについて：
 
-1. evidence.hashes.test_construct == 現在のTest construct hash
+1. evidence.hashes.test_subject == 現在のTest subject hash
 2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_constructが現在のimplementation construct hashと一致
 3. evidence.revision.commit が非 null
 
@@ -1073,14 +1197,16 @@ Evidence なし     → NOT_EXECUTED
 fn aggregate(scope) -> Report:
   1. scan によりグラフ構築（§5）
   2. test_traceabilityが項目scopeにあればrepository全体のDiscovered Test集合を評価
-  3. scope のエンティティ軸で REQ/VO/TEST 部分木を選択
-  4. 各 TEST について、scope のチェック項目軸に含まれる
+  3. scope のエンティティ軸で SPEC/REQ/VO/TEST 部分木を選択
+  4. spec_coverageが項目scopeにあれば対象SPECごとに対応active REQ完全集合を評価
+  5. 各 TEST について、scope のチェック項目軸に含まれる
      TEST 評価項目を評価（含まれない項目は NOT_CHECKED）
-  5. 各 leaf VO について VO 評価項目を評価し、
+  6. 各 leaf VO について VO 評価項目を評価し、
      covers する TEST 群の結果を fail-closed で合成
-  6. 中間 VO は子 VO の合成（fail-closed）
-  7. REQ は spec_coverage と VO 部分木の合成
-  8. 総合判定：repository-level項目とentity treeのscope内評価がすべてPASS → OK、それ以外 → NG
+  7. 中間 VO は子 VO の合成（fail-closed）
+  8. REQ は vo_decomposition / vo_coverage と VO 部分木の合成
+  9. SPEC は spec_coverage と REQ 部分木の合成
+ 10. 総合判定：repository-level項目とentity treeのscope内評価がすべてPASS → OK、それ以外 → NG
 
 fail-closed 合成：
   子に FAIL/MISMATCH/MISSING/STALE/NOT_EXECUTED/
@@ -1095,7 +1221,8 @@ fail-closed 合成：
 
 スキャン時に SPEC レコードの `sha256` と実ファイルを比較し、不一致なら W-SCAN-104 を出す。
 当該 SPEC を subjects に含む監査レコードは無効（STALE）となる。
-仕様文書の更新は `vtest spec add --update` による再登録で反映し、依存する監査・承認が失効することを利用者へ提示する。
+当該SPEC subjectをdependencyに含むApprovalも無効となる。
+仕様文書の更新は `vtest spec add --update` による再登録で反映し、依存する監査・承認が失効することを利用者へ提示する。再登録でSPEC subject hashが変化するため、以前のdependency entryを現在の承認へ流用しない。
 
 ---
 
@@ -1134,7 +1261,7 @@ version controlの構文的整合性だけでは判定できない論理的不�
 
 | コード | 種別 | 内容 |
 |---|---|---|
-| W-SCAN-104 | warning | SPEC レコードの sha256 と実ファイルの不一致（依存する監査・承認は STALE） |
+| W-SCAN-104 | warning | SPEC レコードの sha256 と実ファイルの不一致（依存監査はSTALE、依存Approvalは無効） |
 | E-EXEC-001 | error | テストビルド失敗 |
 | E-EXEC-002 | error | 要求したテストの結果行が得られない |
 | E-EXEC-003 | error | 終了コードと結果行集計の矛盾 |
@@ -1145,6 +1272,8 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | E-AUDIT-004 | error | verdict が許容値でない |
 | E-AUDIT-005 | error | reasons が空、または claim / basis を欠く |
 | E-AUDIT-006 | error | vo-coverage で decomposition-viewpoint / spec 参照を欠く |
+| E-AUDIT-007 | error | spec-coverage でspec / req basisまたはexclusion根拠を欠く |
+| E-APPROVAL-001 | error | Approval対象または上流依存closureを完全・currentに解決できず、recordを生成しない |
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.2） |
 | E-OP-002 | error | Edit 対象 Test の特定失敗 |
 | E-OP-003 | error | 編集結果が1 Test の範囲を超える（§15.4。操作は中止される） |
@@ -1161,8 +1290,13 @@ version controlの構文的整合性だけでは判定できない論理的不�
 |---|---|
 | 0 | 要求 scope の検証結果が OK（操作コマンドでは成功） |
 | 1 | 検証結果が NG |
-| 2 | 入力・使用方法エラー（診断コード E-OP-* / E-ADAPTER-*、引数不正、スキーマ違反の提出など） |
+| 2 | 操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない） |
 | 3 | 内部エラー（ツール自体の異常） |
+
+終了コードは診断severityだけでなく操作段階で決める。`vtest scan` / `vtest doctor`では、
+registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-*で拒否された場合は2、
+scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、errorがなければ0とする。
+同一実行に複数候補がある場合は内部エラー3、操作拒否2、検証NG1、成功0の順で優先する。
 
 ---
 

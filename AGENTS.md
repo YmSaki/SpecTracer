@@ -16,7 +16,7 @@ Read the relevant documents before changing behavior:
 2. `docs/*基本仕様*.md` defines externally observable behavior and wins over detailed design on conflict.
 3. `docs/*詳細設計 v0.1.md` and normative annexes A/C define implementation details, interfaces, and acceptance criteria. Annex B is a non-normative implementation plan.
 
-If documents disagree, report the exact sections. Do not silently choose a repair. The known `spec_coverage` and stored-versus-derived VO status tensions remain review items, not permission to weaken fail-closed behavior.
+If documents disagree, report the exact sections. Do not silently choose a repair. Do not reintroduce resolved contract splits: `spec_coverage` evaluates Specification → REQ completeness, VO status is derived from Approval, and `vo_decomposition` consumes only REQ / VO structural diagnostics.
 
 ## Canonical specification writing
 
@@ -42,6 +42,8 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Do not declare an implementation or release complete until every applicable acceptance criterion in detailed-design annex C §18 is reproducible under `cargo test`.
 - Prefer one record per file and append-only ULID records. Keep Relation records immutable; represent a change as removing the old record and adding a new one.
 - Use SHA-256 content binding exactly as detailed design §1.3 specifies. Changes must invalidate approvals, audits, and Evidence instead of carrying a prior pass forward.
+- Bind Evidence and Test audits to the complete Test subject, including canonical metadata and execution coordinates, not to the Test construct alone. Adapters return hash-free discovery DTOs; core validates and computes content hashes before materializing domain entities.
+- Bind VO approvals to both the VO hash and the exact current upstream dependency closure. Never treat an Approval that lacks current dependency hashes as effective.
 - Prefer Form Schema and desired-state Structured Test Operations. One test edit must not alter another test or ordinary implementation/helper/fixture code.
 - Keep CLI and MCP on the same core implementation and JSON result shape. CLI and MCP operations must be non-interactive.
 
@@ -50,7 +52,8 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Follow `docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md` W0-W8 in order; do not add production TypeScript, Go, C#, plugin ABI, LSP, or automatic repair policy in this release.
 - Keep `vtest-adapter-api` language and runner neutral. Rust parser, Cargo command construction, Rust AST audit, demangling, and llvm-cov handling belong only to `vtest-adapter-rust`.
 - Treat missing static-audit or coverage capabilities as `NOT_CHECKED`, a missing runner capability as `NOT_EXECUTED`, and analysis limits as `UNKNOWN`; never promote any of them to `PASS`. Reject unknown or duplicate adapter IDs and duplicate Test IDs across adapters.
-- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. `TestEntity` contains only `execution`; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
+- Keep `TargetRef::Locator` adapter-scoped, but enforce repository-global uniqueness for `TargetRef::SrcId`; an SRC ID collision across adapters must remain unresolved and non-passing.
+- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. `TestEntity` uses `execution` as its only execution-coordinate field; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
 - Full verification has 12 items. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one structurally complete Managed Test Entity, Test IDs are globally unique, and every declared VO resolves. Missing management declarations or required metadata produce `MISSING`; dangling VO references, multiple mappings, and Test ID collisions produce `MISMATCH`. W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
 - CLI and MCP must compose the same adapter registry and retain the same JSON envelope and fail-closed diagnostics.
 

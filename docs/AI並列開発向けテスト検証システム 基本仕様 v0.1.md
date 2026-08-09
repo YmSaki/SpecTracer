@@ -28,6 +28,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Verification Obligation（VO）**：独立して「この条件が成立するか」と検証可能な仕様上の命題（要件定義 §4.1）。階層構造を持てる。粒度は assert 文・テスト関数などのコード構文単位で決めない。
 - **Test**：登録adapterが実行可能な検証単位として識別し、Test IDで管理するtest construct。VOの検証実装単位であり、VOとN:Mの対応を持ちうる。
 - **Test Intent**：Testが「何を検証するか」を、実装コードを読まずに判断できる形で表した論理metadata。adapter所有の宣言表現から導出する（§6）。
+- **Test subject**：Test Entityのidentity、canonical metadata、Source Locationのadapter・path・opaque locator、execution descriptor、およびTest constructを正規化して束縛する検証対象。内容ハッシュはこのsubject全体に対して計算し、前方の無関係な編集で変動するbyte range自体は含めない。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能なimplementation construct。adapter IDとadapter所有のopaque locatorからなるTarget ReferenceまたはSRC IDで識別する。
 - **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetの参照・内容ハッシュ・実行計測結果を含む。
 - **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
@@ -78,6 +79,9 @@ source discovery、static audit、Structured Test Operation、test runner、cove
 Specification
       |
       v
+Requirement
+      |
+      v
 Verification Obligation
       |
       v
@@ -93,7 +97,8 @@ Target Implementation
 Execution Evidence
 ```
 
-各成果物間の一致・不一致を独立に検証する。
+Specification → Requirementの取り込み完全性、Requirement → VOの網羅性、および
+VO階層の構造妥当性を含め、各成果物間の一致・不一致を独立に検証する。
 単純な上流優先のチェーンではなく、不一致はどちらが正かを決めずに MISMATCH として提示する。
 
 ### 2.3 導出できる関係は保存しない
@@ -145,7 +150,8 @@ SPEC / REQ / VO / TEST の ID は人間可読な形式とし、利用者（人�
 - 文字集合は `[A-Z0-9-]`、接頭辞は種別ごとに固定（`TEST-` 等）。
 - 推奨形式は `TEST-<領域>-<連番>`（例：`TEST-PARSER-044`）だが、ツールは形式の推奨に従うことを強制せず、一意性のみを強制する。
 - ID の一意性はスキャン時に全数検査し、衝突は整合性エラーとする（§7.1）。
-- レコードファイル（REL、承認、監査、Evidence）の ID は ULID とし、ファイル名に用いる。ULID により並列生成時のファイル名衝突を実用上排除する。
+- 任意の恒久SRC IDは、`TargetRef::SrcId`がadapter namespaceを持たないため、全adapterを統合したrepository全体で一意とする。衝突は整合性エラーとし、どのSource Targetを指すか推測しない。
+- Relation IDは`REL-<ULID>`、承認・監査・Evidence IDはbare ULIDとし、それぞれファイル名に用いる。ULID payloadにより並列生成時のファイル名衝突を実用上排除する。
 
 ### 3.3 Source Target の識別
 
@@ -192,9 +198,9 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 
 | # | チェック項目キー | 内容 | 主な判定方式 |
 |---|---|---|---|
-| 1 | `spec_coverage` | 仕様（REQ）が VO へ対応付けられているか | 決定論（対応の存在）＋AI（網羅性は #3 へ） |
+| 1 | `spec_coverage` | 登録Specificationの要求事項がactive REQへ取り込まれているか | 決定論（参照・集合整合性）＋AI監査（理由必須） |
 | 2 | `vo_decomposition` | VO 分解が構造的に妥当か（階層・参照の整合） | 決定論 |
-| 3 | `vo_coverage` | VO 群が仕様を網羅しているか | AI監査（理由必須）＋承認 |
+| 3 | `vo_coverage` | VO 群が対応REQを網羅しているか | AI監査（理由必須）＋承認 |
 | 4 | `test_existence` | 各 leaf VO に対応する Test が存在するか | 決定論 |
 | 5 | `static_audit` | Test が決定論的監査を通過したか | 決定論 |
 | 6 | `semantic_audit` | VO・Test Intent・テストコードが同じ振る舞いを検証しているか | AI監査（理由必須） |
@@ -209,7 +215,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 
 - 利用者向け簡易出力は `OK` / `NG` の二値とする（要件定義 §17.1）。
 - **完全検証の OK** は、対象範囲内のすべてのチェック項目・すべてのエンティティが `PASS` である場合に限る。1項目でも非 PASS があれば NG（fail-closed。要件定義 P-002）。
-- 下位から上位への集約（Test → VO → REQ）も fail-closed とする。子に1つでも非 PASS があれば親は非 PASS（要件定義 §19）。
+- 下位から上位への集約（Test → VO → REQ → SPEC）も fail-closed とする。子に1つでも非 PASS があれば親は非 PASS（要件定義 §19）。
 - 集約時に複数の非 PASS 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > MISSING > STALE > NOT_EXECUTED > NOT_CHECKED > UNKNOWN` とする。詳細出力では子の個別値をすべて確認できる。
 
 ### 4.4 scope
@@ -217,7 +223,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 利用者は検証 scope を次の2軸で限定できる（要件定義 P-002）。
 
 - **チェック項目軸**：実施するチェック項目の部分集合を指定する（例：`spec_coverage` と `vo_coverage` のみ）。
-- **エンティティ軸**：対象とする REQ / VO / TEST の部分木を指定する。
+- **エンティティ軸**：対象とする SPEC / REQ / VO / TEST の部分木を指定する。
 
 scope を限定した検証の OK は「要求された scope 内が OK」という意味に限られる。
 scope 外の項目は `NOT_CHECKED` のまま保持し、PASS へ変換しない。
@@ -275,6 +281,16 @@ scope 外の項目は `NOT_CHECKED` のまま保持し、PASS へ変換しない
 Test metadataはTest constructと対応付けられたadapter所有のsource declarationに記述する。この宣言がTest EntityおよびTest由来の関係（covers / targets）の正典である。
 adapterは固有の記述場所と構文から、§6.2の論理fieldとTest constructのSource Locationを決定論的に導出する。coreはadapter固有のcomment形式、decorator、attribute、manifest構文を解釈しない。
 
+Testの内容ハッシュはTest constructだけに対して計算せず、Test subject全体へ束縛する。
+Test subjectには、少なくともadapter ID、Test ID、§6.2の全論理field、Source Locationの
+adapter・path・opaque locator、ExecutionDescriptor、およびTest constructを含める。
+metadata宣言がTest constructと非隣接のmanifest等に存在しても、論理metadataは同じsubjectへ含める。
+したがって`covers`、`targets`、`intent`、実行座標その他の意味変更は内容ハッシュを必ず変化させる。
+
+adapterはsource range、source bytes、解析した論理metadata、実行座標をhash未計算のdiscovery DTOとして返す。
+coreはDTOを検証し、言語非依存の正規化規則でTest subject hashを計算してからTest Entityを具体化する。
+adapterが最終的なTest Entityの内容ハッシュを自己確定してはならない。
+
 組込`rust-cargo` adapterは、`#[test]`等のTest関数直前のdoc comment内に`@vtest.*`アノテーションを記述する。
 
 ```rust
@@ -327,7 +343,9 @@ source declarationが正典であるため、直接編集と外部レコード�
 - `covers`が存在しないVOを参照（dangling reference）
 - Test IDを宣言するがどのVOも参照しないTest（orphan test）※警告
 - VO の parent が存在しない、または循環している
+- active REQの`spec_refs`、VOの`requirements` / `spec_refs`が存在しないentityを参照
 - Relation の from / to が存在しないエンティティを参照
+- 恒久SRC IDがadapter境界を越えて重複
 - 必須Test metadataの欠落
 - adapterがTestとして発見したが管理宣言を持たないconstruct（unregistered test）※警告。`rust-cargo`では`@vtest` annotationを持たない`#[test]`等が該当する
 
@@ -380,13 +398,27 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 理由を伴わない判定は受理しない（要件定義 §6）。
 決定論的監査結果とAI監査結果は区別して保存・提示する（要件定義 §12）。
 
-監査種別は `test-semantic`（VO ↔ Test Intent ↔ テストコード）、`vo-coverage`（§7.4）、`impl-consistency`（§7.5）の3種とする。
+監査種別は `spec-coverage`（Specification ↔ REQ）、`test-semantic`（VO ↔ Test Intent ↔ テストコード）、`vo-coverage`（REQ ↔ VO。§7.4）、`impl-consistency`（§7.5）の4種とする。
 
 `vtest` はLLM APIを直接呼び出さない。AI判定は上記のbundle生成・提出検証・保存の経路だけから受理する。
 
-### 7.4 VO網羅性監査
+### 7.4 Specification / VO網羅性監査
+
+Specificationの要求事項がactive Requirementへ取り込まれている完全性は、Specification単位の
+`spec-coverage`意味監査として実施する。対象Specificationを参照するactive Requirementが0件なら
+`MISSING`とする。1件以上存在しても、それだけでは`PASS`にしない。
+完全検証scopeに登録Specificationが0件の場合も`spec_coverage = MISSING`とし、空集合をPASSにしない。
+
+`spec-coverage`の監査対象は、対象SPEC sourceの現在内容hashと、対象SPECを参照するactive Requirementの
+完全な集合および各REQ内容hashである。監査理由には、取り込んだ要求事項、対応REQ、取り込み対象外とした
+箇所および根拠を必須とする。対象SPEC、REQ内容、または対応REQ集合が変化した監査は`STALE`になる。
+有効な監査が`COMPLETE`のときだけ`spec_coverage = PASS`、`INCOMPLETE`は`FAIL`、判定不能は`UNKNOWN`、
+監査未実施は`NOT_CHECKED`とする。
 
 VO 分解の網羅性は `vo-coverage` 種別の意味監査として実施する（要件定義 §6）。
+監査対象は対応REQとVO部分木であり、SpecificationからREQへの取り込み完全性をこの監査で代用しない。
+active REQに対応VOが1件もなければ`vo_coverage = MISSING`とする。対応VOが存在しても、
+有効な監査が`COMPLETE`で対象VOの承認が有効な場合だけ`PASS`とする。
 判定結果には次の構造化された理由を必須とする。
 
 - 根拠となった仕様箇所（SPEC ID＋節参照）
@@ -425,7 +457,7 @@ Evidence には少なくとも次を含める。
 - Test ID と実行結果（PASS / FAIL）
 - 実行したadapter ID
 - 実行時のリポジトリリビジョン（Git commit hash）と dirty フラグ
-- adapterが特定するTest construct全体の内容ハッシュ、および全宣言targetのTarget Referenceとadapterが特定するimplementation constructの内容ハッシュ
+- 現在のTest subject全体の内容ハッシュ、および全宣言targetのTarget Referenceとadapterが特定するimplementation constructの内容ハッシュ
 - 実行日時と実行方式
 - Target Execution Verification のtarget別結果とfail-closed集約結果（実施した場合）
 
@@ -433,7 +465,7 @@ Evidence には少なくとも次を含める。
 
 検証時、Evidence は次の条件をすべて満たす場合のみ有効とする（要件定義 §15）。
 
-- Evidence記録時のTest construct内容ハッシュが現在と一致する
+- Evidence記録時のTest subject内容ハッシュが現在と一致する
 - Evidenceのtarget参照集合が現在のTestの宣言target集合と重複なく一致する
 - Evidence記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する
 - Evidenceのadapter IDが現在のTestのexecution adapterと一致する
@@ -455,7 +487,7 @@ Evidence readerはadapter IDを欠くrecordも受理できる。現在のTestが
 
 ### 7.10 集約とレポート
 
-検証結果は Test → VO → REQ の階層へ fail-closed で集約する（要件定義 §19）。
+検証結果は Test → VO → REQ → SPEC の階層へ fail-closed で集約する（要件定義 §19）。
 出力は次の2形式を提供する。
 
 - **簡易出力**：総合 OK / NG
@@ -513,7 +545,9 @@ CLI・MCP のいずれからも同一のスキーマを消化できる。
 VO などの検証成果物の確定・承認状態を表現する（要件定義 §25）。
 
 - VO の状態は `draft` / `approved` の2値とする。
-- 承認は承認レコード（追記型）として記録し、**承認対象の内容ハッシュに束縛する**。承認後に VO が編集されると、承認レコードは現在の内容と一致しなくなり、VO は自動的に `draft` 相当（承認失効）として扱われる。fail-closed の一貫である。
+- 承認は承認レコード（追記型）として記録し、**承認対象の内容ハッシュと上流依存closureに束縛する**。VOの依存closureは、再帰的な上位VO、参照するREQとその上位REQ、およびそれらのVO / REQが参照するSPECからなる。
+- 承認レコードは依存closureのentity種別・ID・現在内容ハッシュを決定論的な順序で完全に保持する。SPEC dependency hashはSPECレコードと参照先sourceの現在内容を束縛する。対象、依存内容、または依存集合が変化すると承認は失効し、VOは`draft`相当として扱われる。
+- 依存closureまたはdependency hashを欠く承認レコードは読み取り互換のため保持できるが、現在の`approved`を導出してはならない。
 - 承認主体は人間に限定しない。`human` / `agent` の種別と識別子（エージェント名・モデル名等）を記録する。
 - 承認レコードには根拠（参照した監査レコードの ID 等）を記録でき、「誰が・何を・どの根拠で承認したか」を追跡できる。
 
@@ -527,7 +561,7 @@ VO などの検証成果物の確定・承認状態を表現する（要件定�
 - **Developer**：CLI。Structured Test Operation によるテスト作成・変更、検証結果の詳細表示。
 - **CI**：CLI（非対話）。`vtest verify` を同一 revision で再実行し、終了コードで判定する。Evidence を成果物として保存する。
 - **Reviewer AI**：MCP 経由。Coder の提出した Evidence・監査レコードと、自身の再検証結果を照合する。
-- **PM / PM Agent**：CLI または MCP。REQ 単位の集約結果から NG 箇所へ掘り下げる。scope を `spec_coverage` / `vo_coverage` に限定した分解確認を行う。
+- **PM / PM Agent**：CLI または MCP。SPECまたはREQ単位の集約結果からNG箇所へ掘り下げる。scopeを`spec_coverage` / `vo_coverage`に限定した取り込み・分解確認を行う。
 
 ---
 
@@ -547,13 +581,13 @@ VO などの検証成果物の確定・承認状態を表現する（要件定�
 | `vtest vo add / edit / list / show / expand / approve` | VO レコードの管理、組合せの実体化、承認 |
 | `vtest test create / edit / show / list / query` | Structured Test Operation |
 | `vtest audit static` | 決定論的監査の実行 |
-| `vtest audit bundle / submit` | 意味監査バンドルの生成と結果提出 |
+| `vtest audit bundle / submit` | `spec-coverage`を含む意味監査バンドルの生成と結果提出 |
 | `vtest run` | テスト実行と Evidence 記録 |
 | `vtest verify` | 検証の実行（scope 指定可）と OK / NG 判定 |
 | `vtest report` | 詳細レポート出力（ツリー／JSON） |
 | `vtest doctor` | 整合性検査のみの実行 |
 
-終了コードは `0`＝要求 scope が OK、`1`＝NG、`2`＝入力・使用方法エラー、`3`＝内部エラーとする。
+終了コードは `0`＝要求 scope が OK、`1`＝検証NG、`2`＝入力・adapter前提・capability等による操作拒否、`3`＝内部エラーとする。
 CI はこの終了コードのみで判定できる。
 
 ### 11.2 MCP ツール体系
@@ -600,7 +634,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 |---|---|
 | NFR-001 並列性 | 1レコード1ファイル、ULID ファイル名、不変 Relation、中央台帳の不在（§5.2） |
 | NFR-002 再現性 | Evidence のリビジョン束縛（§7.7）、決定論的監査の再実行可能性、scan による全再構築 |
-| NFR-003 追跡可能性 | REQ → VO → TEST → SRC → Evidence の双方向グラフ（§7.1、§7.10） |
+| NFR-003 追跡可能性 | SPEC → REQ → VO → TEST → SRC → Evidence の双方向グラフ（§7.1、§7.10） |
 | NFR-004 再構築可能性 | 派生情報は cache のみ、正典から `vtest scan` で再構築（§5.3） |
 | NFR-005 Fail Closed | 状態モデルと集約規則（§4）、承認・監査の内容ハッシュ束縛（§7.3、§9） |
 | NFR-006 説明可能性 | 理由必須の監査プロトコル（§7.3、§7.4）、詳細レポート（§7.10） |
@@ -623,7 +657,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | §3 検証モデル | §2.2 |
 | §4 Verification Obligation | §1、§3.1、§7.6 |
 | §5 検証空間と網羅性 | §7.6 |
-| §6 VO網羅性のAI検証 | §7.4 |
+| §6 Specification・VO網羅性のAI検証 | §7.4 |
 | §7 Test Registry | §3、§6、§7.1 |
 | §8 Source Target | §3.3 |
 | §9 Test Intent | §6.2 |
@@ -667,7 +701,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | 7 | AST/LSP 等の解析技術 | 詳細設計 §5：`rust-cargo` adapterはsynによるAST解析を行う。LSPは提供範囲外 |
 | 8 | LLM provider / model | 本書 §7.3：エージェント委譲によりツールはプロバイダ非依存 |
 | 9 | AI監査の prompt / skill / agent 構成 | ツールの責務外。バンドルと提出のプロトコルのみ規定（§7.3）。参考プロンプトを詳細設計 §8 に添付 |
-| 10 | coverage reason の schema | 本書 §7.4。スキーマは詳細設計 §8 |
+| 10 | coverage reason の schema | 本書 §7.4（spec-coverage / vo-coverage）。スキーマは詳細設計 §8 |
 | 11 | evidence の revision 識別方式 | 本書 §7.7、§7.8：Git commit hash＋dirty フラグ＋内容ハッシュ |
 | 12 | CLI command 体系 | 本書 §11.1。詳細は詳細設計 §12 |
 | 13 | MCP tool 体系 | 本書 §11.2。詳細は詳細設計 §13 |
@@ -675,7 +709,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | 15 | 並列編集時の物理的保存方式 | 本書 §5.2 |
 | 16 | 境界値・partition を必須入力にする Test 種別 | 組込Formでは必須とする種別を設けない。user-defined Form Schemaは `required` で指定できる（詳細設計 §14） |
 | 17 | AI監査の多重度 | 運用ポリシーとしツールは制限しない。監査レコードは複数保持でき、最新の有効レコードを判定に用いる（詳細設計 §8） |
-| 18 | VO承認 workflow の状態遷移 | 本書 §9：`draft` / `approved` ＋内容ハッシュ束縛による自動失効 |
+| 18 | VO承認 workflow の状態遷移 | 本書 §9：`draft` / `approved` ＋対象hash・上流依存closure束縛による自動失効 |
 
 ---
 
