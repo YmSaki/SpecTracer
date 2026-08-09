@@ -2,11 +2,12 @@
 
 use std::{
     env, fs,
-    io::Write,
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use serde_json::{json, Value};
@@ -101,6 +102,64 @@ fn mcp_lines(project: &Path, lines: &[String]) -> Vec<Value> {
         .collect()
 }
 
+fn mcp_form_get_with_mtime_change(project: &Path, form_path: &Path) -> Vec<Value> {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .args(["--project", project.to_str().unwrap(), "mcp"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn interactive MCP server");
+    let mut stdin = child.stdin.take().expect("MCP stdin");
+    let stdout = child.stdout.take().expect("MCP stdout");
+    let mut reader = BufReader::new(stdout);
+    let request = |id| {
+        serde_json::to_string(&json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "tools/call",
+            "params": {"name": "form_get", "arguments": {"kind": "rust-unit-function"}}
+        }))
+        .expect("serialize form_get request")
+    };
+    let first_request = request(1);
+    stdin
+        .write_all(first_request.as_bytes())
+        .expect("write first form_get request");
+    stdin.write_all(b"\n").expect("write first request newline");
+    stdin.flush().expect("flush first form_get request");
+    let mut first = String::new();
+    reader
+        .read_line(&mut first)
+        .expect("read first form_get response");
+
+    thread::sleep(Duration::from_millis(20));
+    fs::write(
+        form_path,
+        "kind: rust-unit-function\ntitle: second form title\nfields:\n  - name: target\n    question: target\n    type: string\n    required: true\ntemplate: |\n  body\n",
+    )
+    .expect("rewrite form schema");
+    let second_request = request(2);
+    stdin
+        .write_all(second_request.as_bytes())
+        .expect("write second form_get request");
+    stdin
+        .write_all(b"\n")
+        .expect("write second request newline");
+    stdin.flush().expect("flush second form_get request");
+    let mut second = String::new();
+    reader
+        .read_line(&mut second)
+        .expect("read second form_get response");
+    drop(stdin);
+    let status = child.wait().expect("wait for interactive MCP server");
+    assert!(status.success(), "interactive MCP server must exit cleanly");
+    [first, second]
+        .into_iter()
+        .map(|line| serde_json::from_str(&line).expect("interactive MCP response is JSON"))
+        .collect()
+}
+
 fn mcp_call(project: &Path, name: &str, arguments: Value) -> Value {
     let response = mcp_requests(
         project,
@@ -168,6 +227,7 @@ fn normalize_dynamic(value: &mut Value, key: Option<&str>) {
                     "created"
                         | "updated"
                         | "approved_at"
+                        | "executed_at"
                         | "audited_at"
                         | "generated_at"
                         | "recorded_at"
@@ -335,6 +395,49 @@ fn m9_stdio_lists_tools_and_preserves_cli_scan_envelope() {
     let mcp_scan = &responses[2]["result"]["structuredContent"];
     assert_eq!(mcp_scan, &direct_cli(&project.root, &["scan"]));
     assert_eq!(responses[2]["result"]["isError"], false);
+}
+
+#[test]
+fn m9_notifications_are_silent_and_do_not_consume_following_requests() {
+    let project = TempProject::from_m1_base("notifications");
+    let responses = mcp_requests(
+        &project.root,
+        &[
+            json!({"jsonrpc":"2.0","method":"tools/list","params":{}}),
+            json!({"jsonrpc":"2.0","id":7,"method":"ping","params":{}}),
+        ],
+    );
+    assert_eq!(
+        responses.len(),
+        1,
+        "notification must not produce a response"
+    );
+    assert_eq!(responses[0]["id"], 7);
+    assert_eq!(responses[0]["result"], json!({}));
+}
+
+#[test]
+fn m9_form_get_refreshes_after_form_mtime_changes_in_one_server_session() {
+    let project = TempProject::from_m1_base("form-mtime");
+    let forms = project.root.join(".verify/forms");
+    fs::create_dir_all(&forms).expect("create form directory");
+    let form_path = forms.join("rust-unit-function.yaml");
+    fs::write(
+        &form_path,
+        "kind: rust-unit-function\ntitle: first form title\nfields:\n  - name: target\n    question: target\n    type: string\n    required: true\ntemplate: |\n  body\n",
+    )
+    .expect("write initial form schema");
+
+    let responses = mcp_form_get_with_mtime_change(&project.root, &form_path);
+    assert_eq!(responses.len(), 2);
+    assert_eq!(
+        mcp_envelope(&responses[0])["data"]["title"],
+        "first form title"
+    );
+    assert_eq!(
+        mcp_envelope(&responses[1])["data"]["title"],
+        "second form title"
+    );
 }
 
 #[test]
@@ -657,6 +760,202 @@ fn m9_all_advertised_tools_match_cli_envelopes() {
 }
 
 #[test]
+fn m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates() {
+    let project = TempProject::from_m1_base("upsert-edit");
+    prepare_spec_fixture(&project);
+
+    assert_mcp_ok(
+        &mcp_call(
+            &project.root,
+            "req_upsert",
+            json!({
+                "id": "REQ-M9-EDIT",
+                "summary": "initial requirement",
+                "specs": ["SPEC-M9-FLOW"],
+                "sections": ["1"]
+            }),
+        ),
+        "create editable REQ",
+    );
+    assert_mcp_ok(
+        &mcp_call(
+            &project.root,
+            "req_upsert",
+            json!({
+                "id": "REQ-M9-OTHER",
+                "summary": "unrelated requirement"
+            }),
+        ),
+        "create unrelated REQ",
+    );
+    let req_other_before = mcp_envelope(&mcp_call(
+        &project.root,
+        "req_get",
+        json!({"id": "REQ-M9-OTHER"}),
+    ))["data"]
+        .clone();
+    let req_initial = mcp_envelope(&mcp_call(
+        &project.root,
+        "req_get",
+        json!({"id": "REQ-M9-EDIT"}),
+    ))["data"]
+        .clone();
+
+    assert_mcp_ok(
+        &mcp_call(
+            &project.root,
+            "req_upsert",
+            json!({
+                "id": "REQ-M9-EDIT",
+                "summary": "updated requirement",
+                "parent": "REQ-M9-OTHER"
+            }),
+        ),
+        "edit supported REQ fields",
+    );
+    let req_updated = mcp_envelope(&mcp_call(
+        &project.root,
+        "req_get",
+        json!({"id": "REQ-M9-EDIT"}),
+    ))["data"]
+        .clone();
+    assert_eq!(req_updated["summary"], "updated requirement");
+    assert_eq!(req_updated["parent"], "REQ-M9-OTHER");
+    assert_eq!(req_updated["spec_refs"], req_initial["spec_refs"]);
+
+    let req_unsupported = mcp_call(
+        &project.root,
+        "req_upsert",
+        json!({
+            "id": "REQ-M9-EDIT",
+            "summary": "must not silently discard",
+            "specs": ["SPEC-M9-FLOW"],
+            "sections": ["2"]
+        }),
+    );
+    assert_mcp_failure(
+        &req_unsupported,
+        "E-OP-001",
+        "reject unsupported existing REQ fields",
+    );
+    assert_eq!(
+        mcp_envelope(&mcp_call(
+            &project.root,
+            "req_get",
+            json!({"id": "REQ-M9-EDIT"}),
+        ))["data"],
+        req_updated,
+        "unsupported REQ update must not write any fields"
+    );
+    assert_eq!(
+        mcp_envelope(&mcp_call(
+            &project.root,
+            "req_get",
+            json!({"id": "REQ-M9-OTHER"}),
+        ))["data"],
+        req_other_before,
+        "REQ update must not alter unrelated records"
+    );
+
+    assert_mcp_ok(
+        &mcp_call(
+            &project.root,
+            "vo_upsert",
+            json!({
+                "id": "VO-M9-EDIT",
+                "claim": "initial verification claim",
+                "requirements": ["REQ-M9-EDIT"],
+                "specs": ["SPEC-M9-FLOW"],
+                "sections": ["1"],
+                "dimensions": ["region=us,eu"],
+                "policy": "full-product"
+            }),
+        ),
+        "create editable VO",
+    );
+    let vo_other_before = mcp_envelope(&mcp_call(
+        &project.root,
+        "vo_get",
+        json!({"id": "VO-KNOWN"}),
+    ))["data"]
+        .clone();
+    let vo_initial = mcp_envelope(&mcp_call(
+        &project.root,
+        "vo_get",
+        json!({"id": "VO-M9-EDIT"}),
+    ))["data"]
+        .clone();
+
+    assert_mcp_ok(
+        &mcp_call(
+            &project.root,
+            "vo_upsert",
+            json!({
+                "id": "VO-M9-EDIT",
+                "claim": "updated verification claim",
+                "parent": "VO-KNOWN"
+            }),
+        ),
+        "edit supported VO fields",
+    );
+    let vo_updated = mcp_envelope(&mcp_call(
+        &project.root,
+        "vo_get",
+        json!({"id": "VO-M9-EDIT"}),
+    ))["data"]
+        .clone();
+    assert_eq!(vo_updated["claim"], "updated verification claim");
+    assert_eq!(vo_updated["parent"], "VO-KNOWN");
+    for field in [
+        "requirements",
+        "spec_refs",
+        "dimensions",
+        "coverage_policy",
+        "combinations",
+    ] {
+        assert_eq!(vo_updated[field], vo_initial[field], "VO field {field}");
+    }
+
+    let vo_unsupported = mcp_call(
+        &project.root,
+        "vo_upsert",
+        json!({
+            "id": "VO-M9-EDIT",
+            "claim": "must not silently discard",
+            "requirements": ["REQ-M9-OTHER"],
+            "specs": ["SPEC-M9-FLOW"],
+            "sections": ["2"],
+            "dimensions": ["region=apac"],
+            "policy": "explicit",
+            "combinations": ["region=apac"]
+        }),
+    );
+    assert_mcp_failure(
+        &vo_unsupported,
+        "E-OP-001",
+        "reject unsupported existing VO fields",
+    );
+    assert_eq!(
+        mcp_envelope(&mcp_call(
+            &project.root,
+            "vo_get",
+            json!({"id": "VO-M9-EDIT"}),
+        ))["data"],
+        vo_updated,
+        "unsupported VO update must not write any fields"
+    );
+    assert_eq!(
+        mcp_envelope(&mcp_call(
+            &project.root,
+            "vo_get",
+            json!({"id": "VO-KNOWN"}),
+        ))["data"],
+        vo_other_before,
+        "VO update must not alter unrelated records"
+    );
+}
+
+#[test]
 fn m9_reference_flow_completes_over_mcp_stdio() {
     let project = TempProject::from_m1_base("complete-flow");
     prepare_spec_fixture(&project);
@@ -876,7 +1175,16 @@ fn m9_reference_flow_reaches_existing_cli_operations() {
         .unwrap()
         .iter()
         .any(|test| test["id"] == "TEST-M9-CREATED"));
+    assert_eq!(responses[4]["result"]["isError"], true);
+    assert_eq!(responses[4]["result"]["structuredContent"]["ok"], false);
     assert!(responses[4]["result"]["structuredContent"]["data"].is_object());
+    assert_eq!(responses[5]["result"]["isError"], false);
+    assert_eq!(responses[5]["result"]["structuredContent"]["ok"], true);
+    let evidence = responses[5]["result"]["structuredContent"]["data"]["evidence"]
+        .as_array()
+        .expect("run_tests returns evidence");
+    assert!(!evidence.is_empty());
+    assert!(evidence.iter().any(|record| record["result"] != "PASS"));
     assert!(responses[5]["result"]["structuredContent"]["data"].is_object());
 }
 

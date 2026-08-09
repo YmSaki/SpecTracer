@@ -2,8 +2,8 @@
 //!
 //! The adapter deliberately delegates tool execution to the CLI binary.  This
 //! keeps the MCP transport from growing a second decision engine while the
-//! application layer is being extracted.  Every request therefore performs a
-//! fresh CLI scan and returns the CLI JSON envelope unchanged.
+//! application layer is being extracted.  Every tool call therefore performs a
+//! deterministic mtime freshness check before delegating to the CLI envelope.
 
 use std::{
     fs,
@@ -43,10 +43,16 @@ const TOOL_NAMES: &[&str] = &[
 
 const SAFE_RECORD_ID_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 
+#[derive(Default)]
+struct MtimeRescan {
+    last_scan: Option<Vec<(String, u128)>>,
+}
+
 /// Run the MCP JSON-RPC server over stdin/stdout until EOF.
 pub fn serve(root: &Path) -> io::Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::BufWriter::new(io::stdout().lock());
+    let mut mtime_rescan = MtimeRescan::default();
     for line in stdin.lock().lines() {
         let line = line?;
         if line.trim().is_empty() {
@@ -105,6 +111,7 @@ pub fn serve(root: &Path) -> io::Result<()> {
         if method == "notifications/initialized" || method.starts_with("notifications/") {
             continue;
         }
+        let is_notification = !request_object.contains_key("id");
         let result = match method {
             "initialize" => method_result(request_object, initialize_result),
             "ping" => method_result(request_object, || json!({})),
@@ -114,7 +121,7 @@ pub fn serve(root: &Path) -> io::Result<()> {
                     .get("params")
                     .cloned()
                     .unwrap_or_else(|| json!({}));
-                tools_call_result(root, &params)
+                tools_call_result(root, &params, &mut mtime_rescan)
             }
             _ => json_rpc_error(
                 -32601,
@@ -122,7 +129,9 @@ pub fn serve(root: &Path) -> io::Result<()> {
                 "E-OP-001",
             ),
         };
-        write_response(&mut stdout, id.as_ref(), result)?;
+        if !is_notification {
+            write_response(&mut stdout, id.as_ref(), result)?;
+        }
     }
     Ok(())
 }
@@ -189,7 +198,7 @@ fn tools_list_result() -> Value {
     })
 }
 
-fn tools_call_result(root: &Path, params: &Value) -> Value {
+fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan) -> Value {
     let Some(params) = params.as_object() else {
         return tool_result(failure_envelope(
             "E-OP-001",
@@ -225,11 +234,86 @@ fn tools_call_result(root: &Path, params: &Value) -> Value {
             Vec::new(),
         ));
     };
+    if !TOOL_NAMES.contains(&name) {
+        return tool_result(failure_envelope(
+            "E-OP-001",
+            format!("unknown MCP tool `{name}`"),
+            Vec::new(),
+        ));
+    }
     if let Err(error) = validate_tool_arguments(root, name, arguments) {
         return tool_result(error);
     }
+    if name != "scan" {
+        if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
+            return tool_result(scan);
+        }
+    }
     let envelope = dispatch_tool(root, name, &Value::Object(arguments.clone()));
+    if name == "scan" && envelope.get("ok") == Some(&Value::Bool(true)) {
+        mtime_rescan.last_scan = project_mtime_snapshot(root).ok();
+    }
     tool_result(envelope)
+}
+
+fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
+    let current = match project_mtime_snapshot(root) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            return Some(failure_envelope(
+                "E-CORE-001",
+                format!("cannot inspect project mtimes: {error}"),
+                Vec::new(),
+            ))
+        }
+    };
+    if state
+        .last_scan
+        .as_ref()
+        .is_some_and(|previous| previous == &current)
+    {
+        return None;
+    }
+    let scan = run_cli(root, &["scan"]);
+    if scan.get("ok") == Some(&Value::Bool(true)) {
+        state.last_scan = Some(current);
+        None
+    } else {
+        Some(scan)
+    }
+}
+
+fn project_mtime_snapshot(root: &Path) -> io::Result<Vec<(String, u128)>> {
+    fn visit(root: &Path, directory: &Path, files: &mut Vec<(String, u128)>) -> io::Result<()> {
+        for entry in fs::read_dir(directory)? {
+            let entry = entry?;
+            let path = entry.path();
+            let relative = path.strip_prefix(root).unwrap_or(&path);
+            if relative.starts_with(Path::new(".git"))
+                || relative.starts_with(Path::new(".verify/cache"))
+                || relative.starts_with(Path::new("target"))
+            {
+                continue;
+            }
+            let metadata = entry.metadata()?;
+            if metadata.is_dir() {
+                visit(root, &path, files)?;
+            } else if metadata.is_file() {
+                let modified = metadata
+                    .modified()?
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos();
+                files.push((relative.to_string_lossy().replace('\\', "/"), modified));
+            }
+        }
+        Ok(())
+    }
+
+    let mut files = Vec::new();
+    visit(root, root, &mut files)?;
+    files.sort_unstable();
+    Ok(files)
 }
 
 fn tool_result(envelope: Value) -> Value {
@@ -947,7 +1031,15 @@ fn req_upsert(root: &Path, args: &Value) -> Value {
     if let Some(parent) = string_arg(args, "parent") {
         command.extend(["--parent".to_owned(), parent.to_owned()]);
     }
-    if !exists {
+    if exists {
+        if args.get("sections").is_some() || args.get("specs").is_some() {
+            return failure_envelope(
+                "E-OP-001",
+                "req_upsert cannot update specs or sections for an existing REQ; use req add for those fields",
+                vec!["parent".to_owned(), "summary".to_owned()],
+            );
+        }
+    } else {
         repeat_args(&mut command, "--spec", args.get("specs"));
         repeat_args(&mut command, "--sections", args.get("sections"));
     }
@@ -992,7 +1084,25 @@ fn vo_upsert(root: &Path, args: &Value) -> Value {
     if let Some(parent) = string_arg(args, "parent") {
         command.extend(["--parent".to_owned(), parent.to_owned()]);
     }
-    if !exists {
+    if exists {
+        let unsupported = [
+            "combinations",
+            "dimensions",
+            "policy",
+            "requirements",
+            "sections",
+            "specs",
+        ];
+        if let Some(field) = unsupported.iter().find(|field| args.get(**field).is_some()) {
+            return failure_envelope(
+                "E-OP-001",
+                format!(
+                    "vo_upsert cannot update {field} for an existing VO; use vo add for that field"
+                ),
+                vec!["claim".to_owned(), "parent".to_owned()],
+            );
+        }
+    } else {
         repeat_args(&mut command, "--req", args.get("requirements"));
         repeat_args(&mut command, "--spec", args.get("specs"));
         repeat_args(&mut command, "--sections", args.get("sections"));
