@@ -1,125 +1,156 @@
 # AI並列開発向けテスト検証システム 詳細設計 別紙B 実装計画 v0.1
 
-本冊 §0 の分冊構成に基づき、本別紙は §18 を収録する。
+本別紙は非正規のprocess文書であり、実装順序、各マイルストーンの実装対象、完了条件を定める。
+要件定義、基本仕様、詳細設計本冊、別紙A、別紙Cの正規なシステム契約を追加・変更・上書きしない。
+
+本別紙のM1〜M9は、現在の正規契約を満たす製品能力を依存順に構築・再検証するための
+capability milestoneである。既存実装を現在のarchitectureへ移行する作業順は
+`SpecTracer 言語アダプタ分離リファクタリング計画 v0.2`のW0〜W8が管理し、
+現在contractに対するstatusとevidenceは`実装スケジュール v0.1`の進捗台帳が管理する。
+旧contractでの完了履歴は本別紙の完了条件を満たす現在の`DONE`を意味しない。
 
 ---
 
-## 18. 実装マイルストーン
+## 1. 方針
 
-### 18.1 方針
+- マイルストーンは依存順に並ぶ。各マイルストーンの完了条件は、別紙C §18の適用可能な受入条件を含む全条件の達成とする。
+- 受入条件は `tests/fixtures/` のサンプルプロジェクトに対する統合テストとして実装し、`cargo test` で再現可能にする。
+- 本ツール自体のテストにも、可能な範囲で本ツールの思想（意図の明示、fail-closed）を適用する。
 
-- マイルストーンは依存順に並ぶ。各マイルストーンの完了条件は受入基準の全達成とする。
-- 受入基準は `tests/fixtures/` のサンプルプロジェクトに対する統合テストとして実装し、`cargo test` で再現可能にする。
-- 本ツール自体のテストにも、可能な範囲で本ツールの思想（意図の明示、fail-closed）を適用するが、自己適用（vtest で vtest を検証する）はマイルストーンに含めない。
-
-### 18.2 fixture プロジェクト
+## 2. fixtureプロジェクト
 
 `tests/fixtures/calc/` として、要件定義の例に沿った小規模プロジェクトを用意する。
 
 ```text
 tests/fixtures/calc/
   Cargo.toml
-  src/lib.rs        # 四則演算式の評価器（意図的な仕様乖離を1箇所含む版を
-                    # フィーチャフラグまたは別 fixture で用意）
+  src/lib.rs        # 四則演算式の評価器
   tests/calc_test.rs
   .verify/          # SPEC / REQ / VO 登録済みの状態
   docs/spec.md      # SPEC として登録する仕様文書
 ```
 
-テストコードには次を意図的に含める。
+テストコードには次を含める。
 
 - 正しくアノテーションされた正常なテスト
 - `assert!(true)` のみのテスト（DA-001）
 - 対象を呼ばないテスト（DA-002）
 - 結果を検証しないテスト（DA-003）
 - 自己比較テスト（DA-004）
-- アノテーションのない `#[test]`（W-SCAN-101）
-- 存在しない VO を参照するテスト（E-SCAN-003）
-- table-driven テスト（`@vtest.case` 付き）
+- アノテーションのない `#[test]`（W-SCAN-101、`test_traceability = MISSING`）
+- 存在しないVOを参照するテスト（E-SCAN-003、`test_traceability = MISMATCH`）
+- table-drivenテスト（`@vtest.case` 付き）
+- 複数targetを宣言し、一方だけを実行するintegration Test
+- Specification内の要求事項に対応active REQがない状態
+- Test constructと非隣接のmetadata宣言だけを変更できるsynthetic Test
 
-### 18.3 マイルストーン一覧
+## 3. マイルストーン一覧
 
-#### M1 コアモデルとスキャナ
+### M1 コアモデルとスキャナ
 
-- 実装：`vtest-model`、`vtest-store`（読み込みのみ）、`vtest-scan`、`vtest init` / `vtest scan` / `vtest doctor`、診断出力（text / json）
-- 受入基準：
-  - fixture のスキャンで全 Test エンティティが抽出され、`filter` / `package` / `test_target` が正しい
-  - E-SCAN-002〜010、W-SCAN-101 が fixture の該当箇所で検出される
-  - `vtest scan --format json` の出力が §12.1 の構造に従う
-  - 診断ありで終了コード 1、正常で 0
+- 実装：`vtest-model`、`vtest-store`（読み込みのみ）、`vtest-adapter-api`、`vtest-adapter-rust`のdiscovery、`vtest-scan`の委譲・統合、`vtest init` / `vtest scan` / `vtest doctor`、診断出力（text / JSON）
+- 完了条件：
+  - fixtureのDiscovered Test、構造上完全なManaged Test Entity、ManagedTestLinkを区別して抽出できる。
+  - 存在しないVOを参照するTest Entityを`ManagedTestLink::One`のまま保持し、E-SCAN-003と`MISMATCH`を導出できる。
+  - 複数target Testの全TargetRefを宣言順に抽出し、重複を拒否できる。
+  - `TestEntity`は中立な`execution`を持ち、Rust互換fieldは`rust-cargo` wire codecだけが入出力する。
+  - E-SCAN-002〜010、W-SCAN-101がfixtureの該当箇所で検出される。
+  - 未登録Testが存在する場合、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出できる。
+  - Relation writerは`REL-<ULID>`を生成し、readerは整合したbare ULID互換recordをin-memoryで正規化する。同一payloadの重複・混在・不一致はE-SCAN-010になる。
+  - `vtest scan --format json`の出力が別紙A §12.1の構造に従う。
+  - E-ADAPTER-*による操作拒否は終了コード2、完了したscanのE-SCAN-*は1、errorなしは0になる。
 
-#### M2 レコード管理と VO 実体化
+### M2 レコード管理とVO実体化
 
-- 実装：`vtest-store`（書き込み）、`spec` / `req` / `vo` 系コマンド、承認レコードとハッシュ束縛、`vo expand`
-- 受入基準：
-  - VO の add → approve → edit の順で操作すると、承認が自動失効し draft へ戻る
-  - `vo expand --dry-run` が `full-product` で直積の子 VO 一覧を出す
-  - SPEC 登録後に文書を書き換えると W-SCAN-104 が出る
+- 実装：`vtest-store`（書き込み）、`spec` / `req` / `vo` 系コマンド、承認レコードと対象hash・上流依存closure束縛、`vo expand`
+- 完了条件：
+  - VOのadd → approve → editの順、および依存SPEC / REQ / parent VOの変更で承認が自動失効しdraftへ戻る。
+  - dependency closureを完全・currentに解決できないapproveはE-APPROVAL-001となり、recordを生成しない。
+  - `vo expand --dry-run`が`full-product`で直積の子VO一覧を出す。
+  - SPEC登録後に文書を書き換えるとW-SCAN-104が出る。
 
-#### M3 決定論的監査
+### M3 決定論的監査
 
-- 実装：`vtest-audit` の静的ルール DA-001〜DA-006、W-DA-101、`vtest audit static`、監査レコード保存
-- 受入基準：
-  - fixture の各 NG テストが対応ルールで FAIL になる
-  - 正常テストは全ルール違反なし
-  - 他ファイルの関数を呼ぶテストが DA-002 で FAIL ではなく UNKNOWN になる（保守性の確認）
+- 実装：`vtest-adapter-rust`の静的rule DA-001〜DA-006・W-DA-101、`vtest-audit`の委譲・集約、`vtest audit static`、監査レコード保存
+- 完了条件：
+  - fixtureの各NG Testが対応ruleでFAILになる。
+  - 正常Testは全rule違反なしになる。
+  - 他ファイルの関数を呼ぶTestがDA-002でFAILではなくUNKNOWNになる。
+  - static Audit RecordがTest、全target、rule-set、rule影響config projection、および判定時に参照したhelper等のsource fragment完全集合へ束縛され、`assertion_macros`または参照helperだけの変更でSTALEになる。
+  - adapterが解析入力集合の完全性を保証できないruleはUNKNOWNとなり、PASSへ集約されない。
 
-#### M4 テスト実行と Evidence
+### M4 テスト実行とEvidence
 
-- 実装：`vtest-exec`（cargo test 起動、結果パース、Evidence 記録）、`vtest run --fast`、鮮度判定（本冊 §11.2）
-- 受入基準：
-  - fixture の全登録テストが実行され、Test ごとに Evidence が1件記録される
-  - 対象関数を書き換えた後の検証で `evidence_validity` が STALE になる
-  - ビルド失敗 fixture で E-EXEC-001 が出て Evidence が記録されない
+- 実装：`vtest-adapter-rust`のrunner起動・結果parse、`vtest-exec`の委譲・Evidence記録、`vtest run --fast`、鮮度判定（本冊 §11.2）
+- 完了条件：
+  - fixtureの全登録Testが実行され、TestごとにEvidenceが1件記録される。
+  - Evidenceが`test_subject`、全宣言targetの`target_construct`内容hash、および完全なExecution State subjectを重複なく記録する。
+  - Test constructと非隣接のcanonical metadataだけを変更してもEvidenceがSTALEになる。
+  - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
+  - Test / 宣言targetを変更せずtarget外helperまたはlocal dependencyだけを変更してもEvidenceがSTALEになる。
+  - HEAD revision不一致、Execution State subject欠落・不完全・不一致を現在のPASSへ利用しない。
+  - revisionを特定できないEvidenceがSTALEになり、現在のPASSへ利用されない。
+  - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
+  - 実行中にExecution State subjectが変化したfixtureでE-EXEC-004が出てEvidenceが記録されない。
 
-#### M5 意味監査プロトコル
+### M5 意味監査プロトコル
 
-- 実装：`audit bundle` / `audit submit`、バンドル生成（3種別）、提出検証（E-AUDIT-001〜006）
-- 受入基準：
-  - test-semantic バンドルに §8.2 の全フィールドが含まれる
-  - reasons が空の提出が E-AUDIT-005 で拒否される
-  - バンドル生成後に対象テストを書き換えた提出が E-AUDIT-002 で拒否される
-  - 受理された監査が、対象の再変更後の検証で STALE として扱われる
+- 実装：`audit bundle` / `audit submit`、bundle生成（4種別）、提出検証（E-AUDIT-001〜007）
+- 完了条件：
+  - test-semantic bundleに本冊 §8.2の全fieldが含まれる。
+  - spec-coverage bundleが対象SPECと対応active REQ完全集合を束縛し、取り込み漏れをFAILにできる。
+  - reasonsが空の提出がE-AUDIT-005で拒否される。
+  - bundle生成時と異なる対象hashの提出がE-AUDIT-002で拒否される。
+  - 受理された監査が、対象変更によってSTALEになる。
+  - impl-consistency監査が対象VOの上流SPEC subject完全集合へ束縛され、Specificationだけの変更でもSTALEになる。
+  - impl-consistencyの提出FAILが検証項目`impl_consistency = MISMATCH`へ一意に写像される。
 
-#### M6 集約と verify / report
+### M6 集約とverify / report
 
-- 実装：`vtest-verify`（チェック項目評価、fail-closed 集約、scope）、`vtest verify` / `vtest report`
-- 受入基準：
-  - 全項目 PASS の fixture 状態で `verify` が OK・終了コード 0
-  - 任意の1項目を非 PASS にすると NG・終了コード 1（fail-closed の全数確認：11項目それぞれについて1ケース）
-  - `--items spec_coverage,vo_coverage` の限定 scope で OK が出ても、`report` 上で scope 外項目が NOT_CHECKED のまま表示される
-  - 出力ツリーが §12.2（`vtest verify`）の形式に従う
+- 実装：`vtest-verify`（12チェック項目評価、fail-closed集約、scope）、`vtest verify` / `vtest report`
+- 完了条件：
+  - 全12項目PASSのfixture状態で`verify`がOK・終了コード0になる。
+  - 項目指定省略時はconfigに関係なく固定12項目を評価し、version 1の11項目`full_scope`から`test_traceability`を迂回できない。version 2の不完全な`full_scope`はE-CONFIG-001になる。
+  - Specificationの要求事項に対応active REQがない、監査がない、または監査がINCOMPLETEの各状態で`spec_coverage`が非PASSになる。
+  - Test metadata errorだけでは`vo_decomposition`が非PASSにならない。
+  - 12項目のそれぞれを単独で非PASSにするとNG・終了コード1になる。
+  - 未登録Testが1件でもあれば、他の11項目がPASSでも`test_traceability`によりNGになる。
+  - `--items spec_coverage,vo_coverage`の限定scopeでOKが出ても、scope外項目はNOT_CHECKEDのまま表示される。
+  - 出力treeが別紙A §12.2のbranch規則に従う。
 
-#### M7 Target Execution Verification
+### M7 Target Execution Verification
 
-- 実装：cargo-llvm-cov 連携、Test 単位計測、`vtest run`（既定モード）
-- 受入基準：
-  - 対象関数を実際に通るテストで `target_execution` が PASS（count ≥ 1）
-  - 対象を呼ばないが PASS するテスト（mock 相当）で FAIL になる
-  - cargo-llvm-cov 未導入環境で W-EXEC-101 が出て NOT_CHECKED になる
+- 実装：`rust-cargo` coverage連携、Test単位計測、`vtest run`（既定mode）
+- 完了条件：
+  - 対象関数を実際に通るTestで`target_execution`がPASS（count ≥ 1）になる。
+  - 対象を呼ばないがPASSするTestでFAILになる。
+  - 複数target Testで一方がPASS、他方がFAILならTest単位集約がFAILになる。
+  - 複数target TestでFAILがなく一方がUNKNOWNならTest単位集約がUNKNOWNになる。
+  - coverage toolを利用できない環境でW-EXEC-101が出てNOT_CHECKEDになる。
 
-#### M8 Structured Test Operation
+### M8 Structured Test Operation
 
-- 実装：Form Schema 読み込みと検証器、`test create` / `test edit` / `test show` / `test list` / `test query`、§15 の編集機構
-- 受入基準：
-  - 誤った symbol を含む回答が候補付き E-OP-001 で拒否される
-  - `test create` で生成されたテストがスキャンで正しく認識される
-  - `test edit` で covers を変更しても他の Test のソーステキストが変化しない（ハッシュ比較で確認）
-  - アノテーションの再生成が冪等（同じ desired state の再適用で diff が出ない）
+- 実装：coreのForm Schema読み込み・操作委譲、`vtest-adapter-rust`のStructuredTestAdapter・Form・検証器、`test create` / `test edit` / `test show` / `test list` / `test query`、別紙A §15のadapter contract
+- 完了条件：
+  - 誤ったsymbolを含む回答が候補付きE-OP-001で拒否される。
+  - `test create`で生成されたTestがscanで正しく認識される。
+  - `test edit`でcoversを変更しても他のTestのsource textが変化しない。
+  - annotation再生成が冪等になる。
+  - Form kindがrepository-globalに一意で、schema adapter・registry owner・Structured Test capabilityの一致からownerを解決する。重複・曖昧・未知ownerはfallbackせず拒否する。
 
-#### M9 MCP サーバ
+### M9 MCPサーバ
 
-- 実装：`vtest-mcp`（§13 の全ツール）、`vtest mcp`
-- 受入基準：
-  - 全ツールが CLI と同一の JSON 構造を返す
-  - §13.3 の利用フローが MCP 経由で最後まで通る
-  - 不正入力に対しエラーオブジェクト（code / message / candidates）が返る
+- 実装：`vtest-mcp`（別紙A §13の全tool）、`vtest mcp`
+- 完了条件：
+  - 全toolがCLIと同一のJSON構造を返す。
+  - 別紙A §13.3の利用flowがMCP経由で完了する。
+  - 不正入力に対しcode / message / candidatesを持つerror objectが返る。
 
-### 18.4 マイルストーン外（明示的に実装しないもの）
+## 4. マイルストーン外
 
 - GUI（要件定義 §28）
 - 仕様書同士の矛盾検出（OOS-001）
 - 修正方針の提案・自動修正（OOS-002）
-- helper / fixture / 通常ソースの編集管理（OOS-003）
-- 開発プロセス管理（OOS-004）
-- 本冊 §19 に列挙した将来課題
+- helper / fixture / 通常sourceの編集管理（OOS-003）
+- 開発process管理（OOS-004）
+- 本冊 §19の提供範囲外事項

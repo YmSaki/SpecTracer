@@ -15,6 +15,24 @@
 - 終了コードは本冊 §17.2 に従う。
 - グローバルオプション：`--project <dir>`（プロジェクトルート。既定はカレントから `.verify/` を上方探索）、`--format <text|json>`、`--quiet`。
 
+CLIの操作は登録済みadapter registryを通じて実装を選択する。
+JSON envelope、adapter選択エラー、capability不足の非PASS扱いはMCPと共通であり、
+CLIだけがRust固有の既定値へフォールバックしてはならない。
+
+Testを含むJSONは本冊 §5.2の `execution` を必ず返す。`rust-cargo` Testについてだけ、
+wire compatibility layerが`filter`、`package`、`test_target`を追加できる。これらは
+`TestEntity`のfieldではない。非Rust TestではRust互換fieldを省略し、空値またはdummy値を返さない。
+
+Test JSONは1件以上の`targets` listを必ず返す。targetが1件の場合だけ同値の単数互換field`target`を
+追加できる。複数target Testでは単数fieldを省略し、先頭targetを代表値として返さない。
+
+Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が
+与えられた場合だけである。`execution`と互換fieldが併存する場合は一致を必須とする。
+
+明示操作に必須のadapter capabilityが未提供なら、`ok: false`、E-ADAPTER-004、終了コード2を返す。
+create / editではファイルを変更せず、auditではAudit Recordを、runではEvidenceを生成しない。
+検証・reportで能力不足を観測した場合はW-ADAPTER-101と能力別の非PASS値を返す。
+
 ### 12.2 コマンド仕様
 
 #### `vtest init`
@@ -23,7 +41,8 @@
 vtest init [--name <project-name>]
 ```
 
-`.verify/` 一式（本冊 §2.1）を生成する。既存の `.verify/` があればエラー（終了コード 2）。
+`.verify/` 一式（本冊 §2.1）を生成する。`config.yaml` は本冊 §2.2のversion 2で、
+組込 `rust-cargo` adapter namespaceを含む。既存の `.verify/` があればエラー（終了コード 2）。
 
 #### `vtest scan`
 
@@ -32,11 +51,13 @@ vtest scan
 ```
 
 スキャンと整合性検査（本冊 §5）を実行し、診断一覧とエンティティ数のサマリを出力する。
-error 診断があれば終了コード 1。
+registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-*で拒否された場合は終了コード2とし、
+scan結果を生成しない。scanが完了し、repository整合性のE-SCAN-*診断がある場合は終了コード1、
+error診断がなければ0とする（本冊 §17.2）。
 
 #### `vtest doctor`
 
-`vtest scan` と同一処理の別名。CI・マージ後検査用に用意する（本冊 §16.2）。
+`vtest scan` と同一処理の別名。自動化環境の整合性検査に使用する（本冊 §16.2）。
 
 #### `vtest spec add / list / show`
 
@@ -54,11 +75,15 @@ vtest spec show SPEC-BASIC-001
 
 ```text
 vtest req add --id REQ-PARSER-001 --summary <s>
-              [--parent REQ-X] [--spec SPEC-X --section <sec>]...
-vtest req edit REQ-PARSER-001 [--summary <s>] [--parent ...] ...
+              [--parent REQ-X] --spec SPEC-X --section <sec>
+              [--spec SPEC-Y --section <sec>]... [--status active|withdrawn]
+vtest req edit REQ-PARSER-001 [--summary <s>] [--parent ...]
+               [--spec SPEC-X --section <sec>]... [--status active|withdrawn]
 vtest req list [--tree]
 vtest req show REQ-PARSER-001
 ```
+
+active REQは1件以上の`--spec` / `--section`組を必須とする。withdrawn REQは既存参照を保持できる。
 
 #### `vtest vo add / edit / list / show / expand / approve`
 
@@ -75,7 +100,9 @@ vtest vo approve VO-X --approver-kind <human|agent> --approver-id <id>
 ```
 
 `expand` は本冊 §3.3.1 の実体化。`--dry-run` は生成予定の子 VO 一覧のみ表示する。
-`approve` は現在の VO 内容ハッシュに束縛された承認レコードを追加する。
+`approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closureに束縛された承認レコードを追加する。
+対象またはいずれかの依存entity / SPEC sourceを完全・currentに解決できない場合はE-APPROVAL-001、
+終了コード2としてrecordを追加しない。
 `edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
 
 #### `vtest test create`
@@ -85,9 +112,9 @@ vtest test create --form rust-unit-function
                   --answers answers.yaml [--dry-run]
 ```
 
-Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえテスト雛形＋アノテーションを生成して挿入する。
+Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえ対応adapterがTest constructとmetadata宣言を生成して挿入する。
 `--dry-run` は挿入内容と挿入位置のみを表示する。
-回答の検証エラーは E-OP-001 として候補付きで報告する（本冊 §6.2）。
+回答の検証エラーは E-OP-001 として候補付きで報告する（本冊 §6.3）。
 
 回答ファイル例：
 
@@ -113,14 +140,14 @@ vtest test edit TEST-X --set covers=VO-A,VO-B [--set intent="..."]...
 
 desired state 方式（基本仕様 §8.2）。
 `--answers` は完全なあるべき状態、`--set` は指定フィールドのみのあるべき値を宣言する。
-編集の実装は §15。関数本体の書き換えは `--body-file <path>` で本体全文を与える。
+編集の実装は §15。Test implementationの書き換えは`--body-file <path>`でadapterへ全文を与える。
 
 #### `vtest test show / list / query`
 
 ```text
 vtest test show TEST-X        # intent、covers、target、位置、監査・Evidence 状態
 vtest test list [--vo VO-X] [--unregistered]
-vtest test query --source src/parser.rs::Parser::parse   # SRC からの逆引き
+vtest test query --source rust-cargo::src/parser.rs::Parser::parse   # SRC からの逆引き
 ```
 
 #### `vtest audit static`
@@ -135,6 +162,7 @@ vtest audit static [--test TEST-X | --all]
 
 ```text
 vtest audit bundle --kind test-semantic --test TEST-X [--include-failed]
+vtest audit bundle --kind spec-coverage --spec SPEC-X
 vtest audit bundle --kind vo-coverage  (--vo VO-X | --req REQ-X)
 vtest audit bundle --kind impl-consistency (--test TEST-X | --vo VO-X)
 vtest audit submit --file result.json
@@ -156,44 +184,60 @@ vtest run (--test TEST-X | --vo VO-X | --req REQ-X | --all) [--fast]
 
 ```text
 vtest verify [--items <item1,item2,...>]
-             [--req REQ-X | --vo VO-X | --test TEST-X]
+             [--spec SPEC-X | --req REQ-X | --vo VO-X | --test TEST-X]
              [--summary]
 ```
 
 集約（本冊 §11.3）を実行し、OK / NG を返す。
-`--items` 省略時は config の `full_scope`（完全検証）。
+`--items` 省略時は基本仕様 §4.2の固定12項目による完全検証を行う。configの`verify.full_scope`は本冊 §2.2のinvariantとして事前に検証・正規化し、項目選択knobとして使用しない。version 1の11項目形もin-memoryで`test_traceability`を補い、完全検証から除外しない。
+`--items`に12項目未満の明示的な集合を指定した場合だけ限定scopeとする。限定scopeの結果を完全検証OKと表示しない。
 `--summary` は総合 OK / NG と非 PASS 件数のみを出力する。
 scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検証」の旨を必ず表示する（基本仕様 §4.4）。
 
 出力例（テキスト）：
 
 ```text
-Requested scope: full (11 items), REQ-PARSER-001
+Requested scope: full (12 items), SPEC-BASIC-001
 
-REQ-PARSER-001                       NG
-├─ spec_coverage                     PASS
-├─ VO-PARSER-UTF8                    NG
-│  ├─ vo_coverage                    PASS  (audit 01J8XV..., approved)
-│  ├─ VO-PARSER-UTF8-003             NG
-│  │  ├─ test_existence              PASS
-│  │  ├─ TEST-PARSER-044             NG
-│  │  │  ├─ static_audit             PASS
-│  │  │  ├─ semantic_audit           FAIL  (audit 01J8XW...)
-│  │  │  ├─ test_execution           PASS
-│  │  │  ├─ runtime_result           PASS
-│  │  │  ├─ target_execution         PASS  (count=3)
-│  │  │  └─ evidence_validity        PASS
-│  │  └─ ...
-│  └─ VO-PARSER-UTF8-004             MISSING (no covering test)
-└─ ...
+Project checks:
+└─ test_traceability                    PASS
+
+└─ SPEC-BASIC-001                       NG
+   ├─ spec_coverage                     PASS  (audit 01J8XU...)
+   └─ REQ-PARSER-001                    NG
+      ├─ vo_decomposition               PASS
+      └─ VO-PARSER-UTF8                 NG
+         ├─ vo_coverage                 PASS  (audit 01J8XV..., approved)
+         ├─ VO-PARSER-UTF8-003          NG
+         │  ├─ test_existence           PASS
+         │  └─ TEST-PARSER-044          NG
+         │     ├─ static_audit          PASS
+         │     ├─ semantic_audit        FAIL  (audit 01J8XW...)
+         │     ├─ test_execution        PASS
+         │     ├─ runtime_result        PASS
+         │     ├─ target_execution      PASS  (2/2 targets PASS)
+         │     └─ evidence_validity     PASS
+         └─ VO-PARSER-UTF8-004          MISSING (no covering test)
 
 Result: NG
 ```
 
+`test_traceability`はrepository-level項目であり、要求された場合はSPEC / REQ / VO / TESTのentity scopeに
+かかわらず全Discovered Testを評価する。非PASS時は、未登録または不正対応の各Testについてadapter ID、
+source location、diagnostic code、判定値をProject checks配下に表示する。JSONでも同じ根拠一覧を返す。
+
+Evidenceが複数targetの計測結果を持つ場合、text reportはTest単位の集約値に加えて各targetの参照、
+result、countを子要素として表示する。JSONは本冊 §3.7のtarget別listを欠落なく返す。
+
+各行のprefixは、その行の祖先に後続兄弟があれば `│  `、なければ空白3文字を階層ごとに連結し、
+現在nodeが途中の兄弟なら `├─ `、最後の兄弟なら `└─ ` を付けて構成する。最上位nodeにも
+同じ途中・末尾branch規則を適用する。祖先node自身の `├─ ` / `└─ ` を子孫行へ引き継がない。
+
 #### `vtest report`
 
 ```text
-vtest report [--req REQ-X | ...] [--format json]
+vtest report [--spec SPEC-X | --req REQ-X | --vo VO-X | --test TEST-X]
+             [--items <item1,item2,...>] [--format json]
 ```
 
 `verify` と同じ集約を実行し、根拠（監査レコード ID・Evidence ID・診断）を含む完全な詳細を出力する。
@@ -215,7 +259,7 @@ stdio で MCP サーバを起動する（§13）。
 
 - transport は stdio。`rmcp` で実装する。
 - 各ツールの結果は CLI の `--format json` と同一の JSON 構造とする。
-- エラーは MCP のツールエラーとして返し、`{ "code": "E-OP-001", "message": "...", "candidates": [...] }` の構造を含める。入力検証エラーには可能な限り `candidates` を含める（本冊 §6.2）。
+- エラーは MCP のツールエラーとして返し、`{ "code": "E-OP-001", "message": "...", "candidates": [...] }` の構造を含める。入力検証エラーには可能な限り `candidates` を含める（本冊 §6.3）。
 - 各ツール呼び出しの冒頭で mtime ベースの再スキャン判定を行う（本冊 §2.3）。
 
 ### 13.2 ツール一覧
@@ -232,17 +276,21 @@ stdio で MCP サーバを起動する（§13）。
 | `vo_approve` | `id`、`approver`、`basis[]` | 承認レコード ID |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
 | `test_get` | `id` | Test 詳細（intent、位置、監査・Evidence 状態） |
-| `form_get` | `kind` | Form Schema（§14） |
+| `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
 | `audit_static` | `test` または `all` | ルール別結果、監査レコード ID |
-| `audit_bundle` | `kind`、対象 ID | bundle_id とバンドル本体（JSON） |
+| `audit_bundle` | `kind`、対象 ID（`spec` / `req` / `vo` / `test`のkind別必須field） | bundle_id とバンドル本体（JSON） |
 | `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、監査レコード ID |
 | `run_tests` | `test` / `vo` / `req` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
-| `verify` | `items[]`、`req` / `vo` / `test` | 総合 OK / NG、集約ツリー |
-| `report` | 同上 | 根拠付き完全レポート |
+| `verify` | optional `items[]`、`spec` / `req` / `vo` / `test`。items省略は固定12項目 | 総合 OK / NG、集約ツリー |
+| `report` | 同上。items省略は固定12項目 | 根拠付き完全レポート |
 
 ### 13.3 エージェント向け利用フロー（参考）
+
+各操作は、CLIとMCPで同じadapter registryを解決する。
+フォーム、監査、実行の入力に含まれるadapter namespaceはopaque値として扱い、
+未登録adapterや未提供capabilityをRust用の既定値へ暗黙変換しない。
 
 ```text
 Coder AI がテストを追加する典型フロー：
@@ -265,8 +313,11 @@ form_get(kind: rust-unit-function)
 
 ### 14.1 スキーマ形式（`.verify/forms/<kind>.yaml`）
 
+次は`rust-cargo` adapterが登録するForm Schemaである。coreは`fn_name`、`.rs`、Rust構文をForm Schemaの共通fieldとして要求しない。
+
 ```yaml
 kind: rust-unit-function
+adapter: rust-cargo
 title: Rust 関数単体テスト
 fields:
   - name: target
@@ -297,7 +348,7 @@ fields:
     question: 期待結果は？
     type: string
     required: true
-    validate: [enum-variant-exists]   # best effort（本冊 §6.2）
+    validate: [enum-variant-exists]   # best effort（本冊 §6.3）
   - name: fn_name
     question: テスト関数名は？
     type: ident
@@ -326,34 +377,47 @@ template: |
 
 | validate | 内容 | 失敗時 |
 |---|---|---|
-| `symbol-exists` | ロケータ解決（本冊 §6.1） | E-OP-001＋候補 |
+| `symbol-exists` | Target Reference解決を対応adapterへ委譲（本冊 §6.1） | E-OP-001＋候補 |
 | `vo-exists` / `test-exists` | エンティティ存在確認 | E-OP-001 |
-| `enum-variant-exists` | `Type::Variant` 形式の場合のみ AST 検索。解決不能な自由記述は受理 | E-OP-001＋候補 |
-| `unique-fn-name` | 挿入先モジュール内での関数名重複確認 | E-OP-001 |
-| `rust-file` | `.rs` ファイルがスキャン対象内に存在 | E-OP-001 |
+| `enum-variant-exists` | `rust-cargo` adapterが`Type::Variant`形式の場合のみAST検索。解決不能な自由記述は受理 | E-OP-001＋候補 |
+| `unique-fn-name` | `rust-cargo` adapterが挿入先モジュール内で関数名重複を確認 | E-OP-001 |
+| `rust-file` | `rust-cargo` adapterが`.rs`ファイルがscan対象内に存在することを確認 | E-OP-001 |
 
 `required` を欠く回答、未知のフィールド名は E-OP-001 とする。
 Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番>`（領域は covers 先 VO の ID から継承、連番は既存最大＋1）で自動採番し、結果に含めて返す。
 
+`kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、`.verify/forms/<kind>.yaml`のファイル名と一致するrepository-globalなForm ID、`adapter`はそのFormを処理するStructured Test adapter IDである。registryはbuilt-inとuser-defined Formを統合し、同じkindの重複、schemaのadapterとregistry ownerの不一致、未知adapter、Structured Test capability欠落を拒否する。`adapter`を欠く読取り互換Formは、登録済みadapterのbuilt-in kind宣言またはschemaを検査するcompatibility matcherのうちちょうど1件だけが受理する場合に限って解決し、0件または複数件なら拒否する。matcherはschema内容から決定論的に判定し、kind名だけでRust用と推測しない。readerは互換解決だけでFormファイルを書き換えない。
+
 ### 14.3 組込フォーム
 
-初期リリースには次の2種を同梱する。
+組込フォームは `rust-cargo` adapterが提供する。コアはフォームのkindを
+Rust固有と推測せず、schemaの`adapter`、registryが宣言する大局的に一意なkind ownership、登録済みcapabilityを照合する。未提供の
+Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し、ファイルを変更しない。
+
+次の2種を組込Formとして同梱する。
 
 - `rust-unit-function`（§14.1）
-- `rust-integration`：`target` を必須とせず（結合テストでは単一シンボルに限定できない場合がある）、代わりに `targets`（複数ロケータ）を受け取る。他は同一
+- `rust-integration`：単一の`target` fieldに代えて、1件以上のロケータを持つ`targets`を必須入力として受け取る。他は同一
 
-`@vtest.target` が必須アノテーションであるため、`rust-integration` では `targets` の先頭を `@vtest.target` に、残りを `@vtest.related` ではなく追加の `@vtest.target` 行として出力する（`target` キーは integration 種別に限り複数行を許容する。本冊 §4.1 の例外として実装する）。
+`rust-integration`は`targets`の全要素を入力順に個別の`@vtest.target`行として出力する。
+空listと重複targetをE-OP-001で拒否する。`target`キーはintegration種別に限り複数行を許容する
+（本冊 §4.2の例外）。先頭以外のtargetを`@vtest.related`へ変換しない。
 
 ### 14.4 テスト種別ごとのフォーム拡張
 
-Form Schema はユーザー定義可能とし、`fields` の追加・変更で API テスト・CLI テスト等の質問列を将来定義できる（要件定義の質問テンプレート構想に対応）。
+Form Schema はユーザー定義可能とし、大局的に一意な`kind`と登録済みStructured Test adapterの`adapter` IDを必須とする。`fields` の追加・変更でAPI Test・CLI Test等の質問列を定義できる（要件定義の質問テンプレート構想に対応）。
 partition・境界値を必須入力とする種別は、該当フィールドに `required: true` を設定することで表現する（基本仕様 §15 の項目16）。
 
 ---
 
-## 15. Structured Edit の実装
+## 15. Structured Test Operation adapter contract
 
-### 15.1 対象の特定
+Structured Editの構文解析・再生成・selector解釈は対応adapterが所有する。
+orchestrationはTest IDとadapter IDで対象を一意に選択し、adapterが返す拡張範囲を
+単一置換として適用する。production adapterとして提供するのは `rust-cargo` だけである。
+§15.1〜§15.4は`rust-cargo` StructuredTestAdapterの構文処理を定める。
+
+### 15.1 `rust-cargo` 対象の特定
 
 Test ID から編集対象を特定する。
 
@@ -366,7 +430,7 @@ TEST-X → スキャン結果 → SourceLocation
 スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の位置を再確認する。
 再確認で見つからない場合は E-OP-002。
 
-### 15.2 編集の適用
+### 15.2 `rust-cargo` 編集の適用
 
 1. desired state（answers / set / body）から、あるべきアノテーションブロックと関数シグネチャ・本体を生成する。
 2. 現状とあるべき状態の diff を計算する。
@@ -377,15 +441,15 @@ TEST-X → スキャン結果 → SourceLocation
    - 他の Test エンティティのソーステキストが変化していない
 5. 確認に失敗した場合はファイルを元へ戻し、E-OP-003 を返す。
 
-### 15.3 アノテーションブロックの再生成
+### 15.3 `rust-cargo` annotation blockの再生成
 
 アノテーションは常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。
 これにより、Structured Edit を繰り返しても差分が安定する。
 
-### 15.4 1 Test 境界の保証
+### 15.4 `rust-cargo` 1 Test境界の保証
 
 置換範囲が単一のテスト関数の拡張 range に限られることを、適用前（範囲計算）と適用後（他 Test のハッシュ不変確認）の二重で検査する。
-`edit TEST-001` が TEST-002 以降へ影響することは構造的に起こらない（要件定義 §21）。
+`edit TEST-001` は他のTestへ影響しない（要件定義 §21）。
 
 helper・fixture・通常ソースコードの編集手段は提供しない（要件定義 OOS-003）。
 関数本体が helper を必要とする場合、helper の作成は通常のソース編集として利用者（人間・AI）が行う。
