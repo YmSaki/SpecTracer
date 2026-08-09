@@ -15,6 +15,18 @@
 - 終了コードは本冊 §17.2 に従う。
 - グローバルオプション：`--project <dir>`（プロジェクトルート。既定はカレントから `.verify/` を上方探索）、`--format <text|json>`、`--quiet`。
 
+CLIの操作は登録済みadapter registryを通じて実装を選択する。
+JSON envelope、adapter選択エラー、capability不足の非PASS扱いはMCPと共通であり、
+CLIだけがRust固有の既定値へフォールバックしてはならない。
+
+Testを含むJSONは本冊 §5.2の `execution` と互換field `filter`、`package`、
+`test_target` を返す。Test入力から `execution` を復元できるのは、
+完全で相互整合するRust互換実行座標がある場合だけである。
+
+明示操作に必須のadapter capabilityが未提供なら、`ok: false`、E-ADAPTER-004、終了コード2を返す。
+create / editではファイルを変更せず、auditではAudit Recordを、runではEvidenceを生成しない。
+検証・reportで能力不足を観測した場合はW-ADAPTER-101と能力別の非PASS値を返す。
+
 ### 12.2 コマンド仕様
 
 #### `vtest init`
@@ -23,7 +35,8 @@
 vtest init [--name <project-name>]
 ```
 
-`.verify/` 一式（本冊 §2.1）を生成する。既存の `.verify/` があればエラー（終了コード 2）。
+`.verify/` 一式（本冊 §2.1）を生成する。`config.yaml` は本冊 §2.2のversion 2で、
+組込 `rust-cargo` adapter namespaceを含む。既存の `.verify/` があればエラー（終了コード 2）。
 
 #### `vtest scan`
 
@@ -36,7 +49,7 @@ error 診断があれば終了コード 1。
 
 #### `vtest doctor`
 
-`vtest scan` と同一処理の別名。CI・マージ後検査用に用意する（本冊 §16.2）。
+`vtest scan` と同一処理の別名。自動化環境の整合性検査に使用する（本冊 §16.2）。
 
 #### `vtest spec add / list / show`
 
@@ -170,25 +183,29 @@ scope を限定した場合、出力冒頭に要求 scope と「scope 外は未�
 ```text
 Requested scope: full (11 items), REQ-PARSER-001
 
-REQ-PARSER-001                       NG
-├─ spec_coverage                     PASS
-├─ VO-PARSER-UTF8                    NG
-│  ├─ vo_coverage                    PASS  (audit 01J8XV..., approved)
-│  ├─ VO-PARSER-UTF8-003             NG
-│  │  ├─ test_existence              PASS
-│  │  ├─ TEST-PARSER-044             NG
-│  │  │  ├─ static_audit             PASS
-│  │  │  ├─ semantic_audit           FAIL  (audit 01J8XW...)
-│  │  │  ├─ test_execution           PASS
-│  │  │  ├─ runtime_result           PASS
-│  │  │  ├─ target_execution         PASS  (count=3)
-│  │  │  └─ evidence_validity        PASS
-│  │  └─ ...
-│  └─ VO-PARSER-UTF8-004             MISSING (no covering test)
-└─ ...
+└─ REQ-PARSER-001                       NG
+   ├─ spec_coverage                     PASS
+   ├─ VO-PARSER-UTF8                    NG
+   │  ├─ vo_coverage                    PASS  (audit 01J8XV..., approved)
+   │  ├─ VO-PARSER-UTF8-003             NG
+   │  │  ├─ test_existence              PASS
+   │  │  ├─ TEST-PARSER-044             NG
+   │  │  │  ├─ static_audit             PASS
+   │  │  │  ├─ semantic_audit           FAIL  (audit 01J8XW...)
+   │  │  │  ├─ test_execution           PASS
+   │  │  │  ├─ runtime_result           PASS
+   │  │  │  ├─ target_execution         PASS  (count=3)
+   │  │  │  └─ evidence_validity        PASS
+   │  │  └─ ...
+   │  └─ VO-PARSER-UTF8-004             MISSING (no covering test)
+   └─ ...
 
 Result: NG
 ```
+
+各行のprefixは、その行の祖先に後続兄弟があれば `│  `、なければ空白3文字を階層ごとに連結し、
+現在nodeが途中の兄弟なら `├─ `、最後の兄弟なら `└─ ` を付けて構成する。最上位nodeにも
+同じ途中・末尾branch規則を適用する。祖先node自身の `├─ ` / `└─ ` を子孫行へ引き継がない。
 
 #### `vtest report`
 
@@ -243,6 +260,10 @@ stdio で MCP サーバを起動する（§13）。
 | `report` | 同上 | 根拠付き完全レポート |
 
 ### 13.3 エージェント向け利用フロー（参考）
+
+各操作は、CLIとMCPで同じadapter registryを解決する。
+フォーム、監査、実行の入力に含まれるadapter namespaceはopaque値として扱い、
+未登録adapterや未提供capabilityをRust用の既定値へ暗黙変換しない。
 
 ```text
 Coder AI がテストを追加する典型フロー：
@@ -337,7 +358,11 @@ Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番
 
 ### 14.3 組込フォーム
 
-初期リリースには次の2種を同梱する。
+組込フォームは `rust-cargo` adapterが提供する。コアはフォームのkindを
+Rust固有と推測せず、adapter namespaceと登録済みschemaを照合する。未提供の
+Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し、ファイルを変更しない。
+
+次の2種を組込Formとして同梱する。
 
 - `rust-unit-function`（§14.1）
 - `rust-integration`：`target` を必須とせず（結合テストでは単一シンボルに限定できない場合がある）、代わりに `targets`（複数ロケータ）を受け取る。他は同一
@@ -346,12 +371,16 @@ Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番
 
 ### 14.4 テスト種別ごとのフォーム拡張
 
-Form Schema はユーザー定義可能とし、`fields` の追加・変更で API テスト・CLI テスト等の質問列を将来定義できる（要件定義の質問テンプレート構想に対応）。
+Form Schema はユーザー定義可能とし、`fields` の追加・変更でAPI Test・CLI Test等の質問列を定義できる（要件定義の質問テンプレート構想に対応）。
 partition・境界値を必須入力とする種別は、該当フィールドに `required: true` を設定することで表現する（基本仕様 §15 の項目16）。
 
 ---
 
 ## 15. Structured Edit の実装
+
+Structured Editの構文解析・再生成・selector解釈は対応adapterが所有する。
+orchestrationはTest IDとadapter IDで対象を一意に選択し、adapterが返す拡張範囲を
+単一置換として適用する。production adapterとして提供するのは `rust-cargo` だけである。
 
 ### 15.1 対象の特定
 
@@ -385,7 +414,7 @@ TEST-X → スキャン結果 → SourceLocation
 ### 15.4 1 Test 境界の保証
 
 置換範囲が単一のテスト関数の拡張 range に限られることを、適用前（範囲計算）と適用後（他 Test のハッシュ不変確認）の二重で検査する。
-`edit TEST-001` が TEST-002 以降へ影響することは構造的に起こらない（要件定義 §21）。
+`edit TEST-001` は他のTestへ影響しない（要件定義 §21）。
 
 helper・fixture・通常ソースコードの編集手段は提供しない（要件定義 OOS-003）。
 関数本体が helper を必要とする場合、helper の作成は通常のソース編集として利用者（人間・AI）が行う。

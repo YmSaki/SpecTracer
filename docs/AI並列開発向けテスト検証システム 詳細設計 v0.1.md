@@ -6,9 +6,6 @@
 基本仕様が定めた外部挙動の保証を変更しない。
 本書と基本仕様の間に矛盾がある場合、基本仕様を正とし、本書の該当箇所を不整合として扱う。
 
-読者は実装エージェント（Codex）を想定する。
-各節は実装単位に対応し、別紙B §18 のマイルストーンに沿って実装する。
-
 ### 分冊構成
 
 詳細設計は3分冊とし、節番号は全冊を通した連番とする（基本仕様からの節参照を維持するため）。
@@ -17,7 +14,7 @@
 |---|---|
 | 本冊（コア設計） | §1〜§11、§16、§17、§19 |
 | 別紙A（CLI・MCPインターフェース仕様） | §12〜§15 |
-| 別紙B（実装計画） | §18 |
+| 別紙B（受入仕様） | §18 |
 
 ---
 
@@ -33,9 +30,11 @@ vtest/
   crates/
     vtest-model/        # エンティティ・状態モデル・ID型（依存最小）
     vtest-store/        # .verify/ レコードファイルの読み書きとスキーマ検証
-    vtest-scan/         # Rustソース走査、アノテーション抽出、シンボル解決
-    vtest-audit/        # 決定論的監査、監査バンドル生成、提出結果検証
-    vtest-exec/         # テスト実行、Evidence記録、カバレッジ計測
+    vtest-adapter-api/  # 言語・runner非依存のcapability契約とregistry
+    vtest-adapter-rust/ # rust-cargo discovery/audit/operations/runner/coverage
+    vtest-scan/         # discovery委譲、結果統合、record整合性
+    vtest-audit/        # audit委譲、監査bundle生成、提出結果検証
+    vtest-exec/         # runner委譲、revision取得、Evidence記録
     vtest-verify/       # 整合性検査、鮮度検証、集約、レポート生成
     vtest-cli/          # バイナリ vtest（clap によるCLI、mcp サブコマンド含む）
     vtest-mcp/          # MCPサーバ実装（vtest-cli から起動）
@@ -43,7 +42,15 @@ vtest/
     fixtures/           # 検証用サンプルプロジェクト（§18 受入基準で使用）
 ```
 
-依存方向は `cli / mcp → verify / exec / audit / scan → store → model` の一方向とする。
+`vtest-adapter-api` は `vtest-model` 以外の言語実装・Cargo実装へ依存しない。
+`vtest-scan`、`vtest-audit`、`vtest-exec` はadapterを選択・委譲するorchestrationであり、
+それぞれが `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。
+`vtest-store`はForm Schemaの中立parserとcanonical保存だけを提供し、組込Rust formの
+内容と配置は `vtest-adapter-rust` が所有する。
+
+依存方向は `cli / mcp → verify / exec / audit / scan → store → model` を維持し、
+言語固有能力は `scan / audit / exec → adapter-rust → adapter-api → model` とする。
+`adapter-rust → store` はForm Schemaとcanonical layoutの利用に限る。
 
 ### 1.2 主要依存クレート
 
@@ -53,7 +60,7 @@ vtest/
 | スパン位置 | `proc-macro2`（feature: `span-locations`） | 編集・ハッシュ対象範囲の特定 |
 | CLI | `clap` 4.x（derive） | |
 | シリアライズ | `serde`, `serde_json` | |
-| YAML | `serde_yaml`（メンテ状況により `serde_yml` 等の後継を選択してよい） | レコードファイル |
+| YAML | `serde_yaml` | レコードファイル |
 | ID | `ulid` | レコードID |
 | ハッシュ | `sha2` | 内容ハッシュ（SHA-256） |
 | ファイル走査 | `ignore` | `.gitignore` 準拠の走査 |
@@ -130,17 +137,56 @@ run:
   coverage: llvm-cov
 ```
 
+config writerはversion 2を正規形とする。readerはversion 1を
+in-memoryで単一 `rust-cargo` adapterへ変換し、読み取りだけでcanonical configを書き換えない。
+
+```yaml
+version: 2
+project:
+  name: example
+adapters:
+  - id: rust-cargo
+    roots: ["."]
+    scan:
+      include: [src, tests, crates]
+      assertion_macros: []
+    run:
+      coverage: llvm-cov
+verify:
+  full_scope:
+    - spec_coverage
+    - vo_decomposition
+    - vo_coverage
+    - test_existence
+    - static_audit
+    - semantic_audit
+    - impl_consistency
+    - test_execution
+    - runtime_result
+    - target_execution
+    - evidence_validity
+```
+
+adapter IDの重複、同一adapter内のroot重複、未知adapter、無効なadapter設定はusage errorとする。
+異なるadapterが同じrootを共有することはpolyglot repositoryのために許可し、統合したTest IDは
+全adapterでglobal uniquenessを検査する。adapter固有設定の検証は登録adapterへ委譲し、
+coreは未知のnamespaceや値をRust設定として解釈しない。
+`vtest init`はversion 2を生成する。
+`scan` と `run` はversion 1 schema互換のwire値とする。Rust固有のmacro pathや
+`llvm-cov`制約は `rust-cargo` adapterに限って適用する。非Rust namespaceの値を
+coreがRust設定として推測・書換えしてはならない。
+
 ### 2.3 派生情報
 
-初期リリースでは、検証グラフとインデックスは実行のたびにインメモリで再構築する。
-永続キャッシュは実装しない（将来の最適化点として `cache/` を確保する）。
+検証グラフとindexは実行のたびにインメモリで再構築する。
+永続cacheを正典または検証入力として使用しない。`cache/`は再生成可能な派生物だけを格納する。
 MCP サーバは長時間動作するため、ツール呼び出しごとに対象ファイルの mtime を確認し、変化があれば再スキャンする。
 
 ---
 
 ## 3. レコードファイルスキーマ
 
-すべてのレコードは YAML とし、未知フィールドはエラーではなく警告とする（前方互換のため）。
+すべてのレコードは YAML とし、未知フィールドはエラーではなく警告とする。
 `id` とファイル名（拡張子除く）は一致しなければならない。
 
 ### 3.1 SPEC レコード（`.verify/spec/SPEC-*.yaml`）
@@ -293,6 +339,7 @@ revision: { commit: "abc123...", dirty: false }
 ```yaml
 id: 01J8XW1B...
 test_id: TEST-PARSER-044
+adapter: rust-cargo
 result: PASS                    # PASS | FAIL
 executed_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
@@ -310,6 +357,12 @@ target_execution:
   count: 3                      # 対象関数の実行回数
 log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 ```
+
+Evidence writerは `adapter` を必須で記録し、保存前にTestの
+`ExecutionDescriptor.adapter`およびrunner kindとの整合を検証する。Evidence readerは
+`adapter` の欠落を許容するが、現在のTestが `rust-cargo` で、互換runner kindと内容ハッシュから
+Rust実行であることを一意に確認できる場合だけ互換Evidenceとして扱う。確認不能は
+`UNKNOWN`、明示adapterの不一致は `MISMATCH` とし、いずれもPASSへ昇格しない。
 
 ---
 
@@ -330,7 +383,7 @@ value           = 行末までのテキスト（前後空白は除去）
 - `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。
 - `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
-- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、恒久 SRC ID を宣言する（基本仕様 §3.3 の昇格。初期リリースではスキャンによる認識のみ実装し、必須機能としない）。
+- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。
 
 ### 4.2 ロケータ構文
 
@@ -404,9 +457,22 @@ pub struct TestEntity {
     pub related: Vec<TestId>,
     pub location: SourceLocation,   // ファイル、モジュールパス、関数名、byte range
     pub content_hash: ContentHash,  // §1.3
+    pub execution: ExecutionDescriptor,
     pub filter: String,             // cargo test 用フィルタ（§9.2）
     pub package: String,            // cargo package 名
     pub test_target: TestTarget,    // Lib | Bin(String) | IntegrationTest(String)
+}
+
+pub struct ExecutionDescriptor {
+    pub adapter: AdapterId,
+    pub project: Option<String>,
+    pub suite: Option<TestSuite>,
+    pub selector: String,
+}
+
+pub struct TestSuite {
+    pub kind: String,
+    pub name: Option<String>,
 }
 
 pub enum CheckValue {
@@ -420,6 +486,20 @@ pub enum CheckItem {
     TestExecution, RuntimeResult, TargetExecution, EvidenceValidity,
 }
 ```
+
+`TestEntity.execution` はadapter、project、suite、opaque selectorからなる中立な実行座標である。
+coreは `project`、`suite.kind`、`suite.name`、`selector` の文字列を解釈しない。
+`filter`、`package`、`test_target`はversion 1 JSON互換fieldとする。
+Test入力で `execution` が欠ける場合は、3互換fieldが完全かつ相互整合するRust値である場合だけ
+`rust-cargo` descriptorを導出する。不完全・矛盾時はdeserializeまたは操作を失敗させ、空selectorを
+実行可能なdefaultとして扱わない。core consumerは `execution` のみを参照する。
+
+adapter capabilityは `SourceDiscoveryAdapter`、`StaticAuditAdapter`、
+`StructuredTestAdapter`、`TestRunnerAdapter`、`CoverageAdapter` に分割する。
+各adapterは一意なID、languages、capabilities、config namespaceを宣言し、registryは
+宣言と実装の不一致および重複IDを拒否する。明示操作に必須のcapabilityがない場合は
+E-ADAPTER-004で操作を中止する。検証集約では、static audit / coverage欠落は
+`NOT_CHECKED`、runner欠落は `NOT_EXECUTED`、解析限界は `UNKNOWN` とする。
 
 VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキーマに対応する struct を定義する。
 
@@ -704,6 +784,11 @@ cargo test -p <package> --lib -- --exact <filter1> <filter2> ...
 （IntegrationTest の場合は --lib の代わりに --test <name>）
 ```
 
+実行対象の解釈とcommand生成は `TestRunnerAdapter` が所有する。orchestrationは
+`ExecutionDescriptor.adapter`をregistryで解決し、adapter不一致（E-ADAPTER-003）を
+拒否する。明示的なrunでrunner未提供ならE-ADAPTER-004としてEvidenceを生成せず、
+検証集約の実行関連項目は `NOT_EXECUTED` とする。
+
 `--exact` は後続の全フィルタへ適用されるフラグであり、各フィルタは完全一致で解釈される。
 
 ### 9.3 結果のパース
@@ -745,6 +830,9 @@ cargo llvm-cov test -p <package> --lib --json
   --output-path cache/cov/<ULID>.json
   -- --exact <filter>
 ```
+
+coverageは独立した `CoverageAdapter` capabilityとして扱う。提供されない場合は
+`target_execution = NOT_CHECKED`、解析限界は `UNKNOWN` とし、測定済みPASSを推測しない。
 
 ### 10.2 判定
 
@@ -858,17 +946,15 @@ fail-closed 合成：
 同時実行された `vtest` プロセス同士の調停は行わない。
 すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回の scan / verify が差分を反映する。
 
-### 16.2 マージ後の意味的衝突検出
+### 16.2 意味的衝突検出
 
-Git マージが成功しても、論理的な不整合（別ブランチで同じ Test ID を採番、covers 先 VO の削除、承認済 VO の変更）が残りうる。
-これらはすべて次で検出される。
+`vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、
+version controlの構文的整合性だけでは判定できない論理的不整合を次の規則で検出する。
 
 - ID 衝突 → E-SCAN-002
 - dangling reference → E-SCAN-003 / E-SCAN-009
 - 承認の失効 → §3.5 のハッシュ束縛により自動的に draft へ
 - 監査・Evidence の失効 → §8.5 / §11.2 のハッシュ束縛により自動的に STALE へ
-
-CI はマージ後に `vtest doctor` を実行し、終了コードで意味的衝突を検知することを推奨する。
 
 ---
 
@@ -894,6 +980,12 @@ CI はマージ後に `vtest doctor` を実行し、終了コードで意味的�
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.2） |
 | E-OP-002 | error | Edit 対象 Test の特定失敗 |
 | E-OP-003 | error | 編集結果が1 Test の範囲を超える（§15.4。操作は中止される） |
+| E-ADAPTER-001 | error | adapterが未登録、重複、またはregistryの宣言と実装が不一致 |
+| E-ADAPTER-002 | error | adapterのdiscoveryまたはrunnerが確定的に失敗（Evidenceなし） |
+| E-ADAPTER-003 | error | Testのexecution descriptorと選択adapterが不一致 |
+| E-ADAPTER-004 | error | 明示操作に必須のadapter capabilityが未提供（変更・Audit・Evidenceなし） |
+| W-ADAPTER-101 | warning | 検証対象のadapter capabilityが未提供（能力に応じNOT_CHECKEDまたはNOT_EXECUTED） |
+| W-ADAPTER-102 | warning | adapterが解析限界を報告（該当項目はUNKNOWN） |
 
 ### 17.2 終了コード
 
@@ -901,25 +993,26 @@ CI はマージ後に `vtest doctor` を実行し、終了コードで意味的�
 |---|---|
 | 0 | 要求 scope の検証結果が OK（操作コマンドでは成功） |
 | 1 | 検証結果が NG |
-| 2 | 入力・使用方法エラー（診断コード E-OP-*、引数不正、スキーマ違反の提出など） |
+| 2 | 入力・使用方法エラー（診断コード E-OP-* / E-ADAPTER-*、引数不正、スキーマ違反の提出など） |
 | 3 | 内部エラー（ツール自体の異常） |
 
 ---
 
-## 19. 本書で未決とし実装時判断へ委譲する事項
+## 19. 実装選択と提供範囲
 
-- `serde_yaml` 後継クレートの選定
+次の事項は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。
+
 - demangle 実装（`rustc-demangle`）の適用範囲
 - `#[tokio::test]` 等、属性末尾 `test` 以外のカスタムテスト属性への対応範囲
 - cargo workspace 外の単一クレートプロジェクトでのパス解決の細部
 - レポートのツリー描画の細部（文字種、折返し）
 
-次の事項は初期リリースの対象外とし、将来課題とする。
+次の事項は提供範囲外とする。
 
 - LSP / rust-analyzer 連携によるシンボル解決
 - 永続インデックス（`cache/` の活用）
 - Relation の tombstone 方式
-- Rust 以外の言語対応（概念モデルは言語非依存に保つ）
-- API 直接呼び出しによる監査の内部実行（基本仕様 §7.3 の拡張点）
+- `rust-cargo`以外のproduction language adapter（synthetic adapterは受入fixture専用）
+- LLM API直接呼び出しによる監査
 - rename 追跡と SRC 恒久 ID の自動昇格支援
 - cargo-nextest 対応
