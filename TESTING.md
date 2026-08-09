@@ -18,6 +18,15 @@ cargo run --quiet -p vtest-cli --locked -- doctor
 The same gate runs in `.github/workflows/ci.yml` for `main`, `develop`, and their
 pull requests.
 
+The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
+can distinguish measured target execution from the fail-closed unavailable
+coverage path. Local M7 acceptance requires the same tools:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+```
+
 ## Acceptance tests
 
 Milestone acceptance tests live in `crates/vtest-cli/tests/` and are recorded in

@@ -4,6 +4,8 @@
 
 - Git
 - Rust stable with `cargo`, `rustfmt`, and `clippy`
+- `cargo-llvm-cov` and the Rust `llvm-tools-preview` component for M7 coverage
+  acceptance
 - Python 3 for project verification scripts
 
 Clone the repository and work from its root:
@@ -32,6 +34,13 @@ cargo fmt --all
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
+```
+
+If coverage tooling is not already installed, run:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
 ```
 
 For the full project verification gate, use the commands in
