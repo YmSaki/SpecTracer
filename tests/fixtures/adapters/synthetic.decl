@@ -1,0 +1,5 @@
+# Fixture-only declaration format for adapter boundary tests.
+# The test adapter reads this as an opaque, non-Rust source description.
+adapter: synthetic
+test: TEST-SYNTHETIC-001
+target: synthetic/module::target
