@@ -8,8 +8,8 @@
 
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
-![Status M8 verified](https://img.shields.io/badge/acceptance-M8%20verified-brightgreen)
-![M9 in progress](https://img.shields.io/badge/M9-in%20progress-yellow)
+![Status M9 verified](https://img.shields.io/badge/acceptance-M9%20verified-brightgreen)
+![MCP CLI parity](https://img.shields.io/badge/MCP--CLI%20parity-verified-brightgreen)
 ![Fail Closed](https://img.shields.io/badge/design-fail--closed-purple)
 
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
@@ -80,7 +80,7 @@ SpecTracer is not another testing framework. It is a verification layer around y
 | Is this audit/evidence still current after edits? | — | — | ✓* |
 | Can incomplete verification silently become `OK`? | Possible | Possible | **No** (fail-closed) |
 
-`*` These capabilities are implemented and acceptance-tested through M8. MCP parity remains in progress; see [Project status](#project-status).
+`*` These capabilities are implemented and acceptance-tested through M9. The MCP server delegates to the same CLI/core JSON envelope and preserves fail-closed states; see [Project status](#project-status).
 
 ---
 
@@ -297,7 +297,7 @@ The verification layer therefore favors:
 - **machine-readable JSON** for agent and CI integration,
 - **conservative UNKNOWN** over unjustified certainty.
 
-The M9 MCP transport exposes the same core operations to AI agents instead of creating a second behavior model. Its transport smoke tests pass; full CLI/MCP parity remains in progress.
+The M9 MCP transport exposes the same core operations to AI agents instead of creating a second behavior model. All 22 advertised tools, CLI/MCP parity, the complete reference flow, notification handling, freshness refresh, and fail-closed error cases are acceptance-tested. The implementation intentionally keeps the existing manual stdio transport; literal SDK-level `rmcp` interoperability remains a documented NOT_CHECKED detail.
 
 ---
 
@@ -316,7 +316,7 @@ The M9 MCP transport exposes the same core operations to AI agents instead of cr
 | M6 | Full 11-item fail-closed verification/reporting | ✅ PASS |
 | M7 | Target execution verification via coverage | ✅ PASS |
 | M8 | Structured Test Operations | ✅ PASS |
-| M9 | MCP transport and full CLI parity | 🚧 IN PROGRESS |
+| M9 | MCP transport and full CLI parity | ✅ PASS |
 
 The acceptance ledger lives at [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md).
 
@@ -376,7 +376,7 @@ Exit codes are designed for automation:
 | `2` | usage/input error |
 | `3` | internal error |
 
-MCP stdio support is implemented as milestone M9 work in progress and delegates to the same CLI behavior. Full tool-by-tool JSON parity, the complete reference flow, and the transport error matrix are not yet accepted.
+MCP stdio support is complete for the v0.1 user-facing scope and delegates to the same CLI behavior. Full tool-by-tool JSON parity, the complete reference flow, notification/error handling, and the transport error matrix are accepted. Literal `rmcp` SDK interoperability is not claimed.
 
 ---
 
