@@ -8,12 +8,15 @@
 
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
-![Status M3 verified](https://img.shields.io/badge/acceptance-M3%20verified-brightgreen)
+![Status M8 verified](https://img.shields.io/badge/acceptance-M8%20verified-brightgreen)
+![M9 in progress](https://img.shields.io/badge/M9-in%20progress-yellow)
 ![Fail Closed](https://img.shields.io/badge/design-fail--closed-purple)
 
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
 
-SpecTracer is language- and test-runner-agnostic by design.
+SpecTracer's verification model is language- and test-runner-agnostic by design.
+The current v0.1 implementation supports Rust and Cargo; adapters for TypeScript,
+JavaScript, Go, C#, and other ecosystems are future work.
 
 **The current CLI binary is `vtest`.**
 
@@ -77,11 +80,38 @@ SpecTracer is not another testing framework. It is a verification layer around y
 | Is this audit/evidence still current after edits? | — | — | ✓* |
 | Can incomplete verification silently become `OK`? | Possible | Possible | **No** (fail-closed) |
 
-`*` Execution Evidence and full end-to-end verification are later acceptance milestones; see [Project status](#project-status).
+`*` These capabilities are implemented and acceptance-tested through M8. MCP parity remains in progress; see [Project status](#project-status).
 
 ---
 
-## 60-second tour
+## Language support
+
+SpecTracer separates its language-independent verification contract from the
+ecosystem-specific machinery used to discover and execute tests.
+
+- **Language-independent contract:** specifications, requirements, Verification
+  Obligations, Test identity and intent, approvals, audits, Evidence, content
+  hashes, fail-closed states, aggregation, and reporting.
+- **Current v0.1 adapter:** Rust `#[test]` discovery, Rust symbol resolution,
+  Cargo test execution, and `cargo-llvm-cov` target measurement.
+- **Intended expansion:** TypeScript/JavaScript, Go, C#, and other languages and
+  test runners through explicit scanner, runner, and coverage adapters that
+  preserve the same verification contract.
+
+The v0.1 implementation has not yet completed that adapter boundary:
+`TestEntity` still carries Cargo-oriented execution coordinates such as a test
+filter, package, and target kind. Supporting additional ecosystems therefore
+requires generalizing those coordinates while preserving the language-neutral
+verification states, canonical identities, and Evidence hash binding.
+
+Support is evidence-based: an ecosystem is supported only after its discovery,
+execution, freshness, and target-measurement behavior has reproducible acceptance
+coverage. Unsupported or unavailable analysis must remain `NOT_CHECKED` or
+`UNKNOWN`; it is never promoted to `PASS`.
+
+---
+
+## 60-second tour: current Rust adapter
 
 This is the current procedure.
 
@@ -128,7 +158,8 @@ vtest vo add \
 
 ### 5. Bind a test to the obligation and its target
 
-The example below uses Rust, which is the first supported validation target.
+The example below uses the current v0.1 Rust adapter. The annotation model and
+verification chain are not intended to be Rust-specific.
 
 ```rust
 /// @vtest.id TEST-CALC-001
@@ -266,7 +297,7 @@ The verification layer therefore favors:
 - **machine-readable JSON** for agent and CI integration,
 - **conservative UNKNOWN** over unjustified certainty.
 
-The planned MCP surface exposes the same core operations to AI agents instead of creating a second behavior model.
+The M9 MCP transport exposes the same core operations to AI agents instead of creating a second behavior model. Its transport smoke tests pass; full CLI/MCP parity remains in progress.
 
 ---
 
@@ -280,12 +311,12 @@ The planned MCP surface exposes the same core operations to AI agents instead of
 | M1 | Scan, registry, integrity diagnostics | ✅ PASS |
 | M2 | SPEC / REQ / VO / approval flows | ✅ PASS |
 | M3 | Deterministic static audit | ✅ PASS |
-| M4 | Test execution and Evidence freshness | ⏳ NOT_CHECKED |
-| M5 | Agent-delegated semantic audit | ⏳ NOT_CHECKED |
-| M6 | Full 11-item fail-closed verification/reporting | ⏳ NOT_CHECKED |
-| M7 | Target execution verification via coverage | ⏳ NOT_CHECKED |
-| M8 | Structured Test Operations | ⏳ NOT_CHECKED |
-| M9 | MCP parity | ⏳ NOT_CHECKED |
+| M4 | Test execution and Evidence freshness | ✅ PASS |
+| M5 | Agent-delegated semantic audit | ✅ PASS |
+| M6 | Full 11-item fail-closed verification/reporting | ✅ PASS |
+| M7 | Target execution verification via coverage | ✅ PASS |
+| M8 | Structured Test Operations | ✅ PASS |
+| M9 | MCP transport and full CLI parity | 🚧 IN PROGRESS |
 
 The acceptance ledger lives at [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md).
 
@@ -345,7 +376,7 @@ Exit codes are designed for automation:
 | `2` | usage/input error |
 | `3` | internal error |
 
-MCP support is planned as milestone M9 and will reuse the same core behavior rather than reimplementing verification logic.
+MCP stdio support is implemented as milestone M9 work in progress and delegates to the same CLI behavior. Full tool-by-tool JSON parity, the complete reference flow, and the transport error matrix are not yet accepted.
 
 ---
 
@@ -353,7 +384,8 @@ MCP support is planned as milestone M9 and will reuse the same core behavior rat
 
 SpecTracer is **not**:
 
-- a replacement for `cargo test`,
+- a replacement for language test runners such as `cargo test`, `go test`,
+  `dotnet test`, or JavaScript/TypeScript test runners,
 - a replacement for code coverage,
 - a magical “AI says the code is correct” button,
 - a system that automatically edits the specification until the build becomes green,
@@ -369,7 +401,7 @@ It is infrastructure for making claims about software **explicit, bounded, and a
 crates/
 ├── vtest-model    # shared entities, hashes, diagnostics, states
 ├── vtest-store    # canonical record persistence
-├── vtest-scan     # Rust scanning and structured test operations
+├── vtest-scan     # Source scanning and structured operations (Rust adapter in v0.1)
 ├── vtest-audit    # deterministic static audit
 ├── vtest-exec     # test execution and evidence
 ├── vtest-verify   # fail-closed aggregation
