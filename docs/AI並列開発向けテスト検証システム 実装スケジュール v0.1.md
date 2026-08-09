@@ -320,13 +320,13 @@ cargo run --quiet -p vtest-cli -- doctor
 | S0 | DONE | N/R / 60 kTok | N/R / 80 kTok | workspace test、init/layout、`tests/ACCEPTANCE.md` | PASS | PASS（M1 review で再確認） | — |
 | M1 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m1_acceptance` 5/5、`release_check --milestone M1` READY | PASS | PASS（独立 read-only review 2系統） | — |
 | M2 | DONE | N/R / 120 kTok | N/R / 220 kTok | `m2_acceptance` 12/12、`release_check --milestone M2` READY | PASS | PASS（独立 read-only review、再監査済み） | — |
-| M3 | NOT_STARTED | 0 / 100 kTok | 0 / 180 kTok | — | — | — | — |
-| M4 | NOT_STARTED | 0 / 140 kTok | 0 / 240 kTok | — | — | — | — |
-| M5 | NOT_STARTED | 0 / 120 kTok | 0 / 200 kTok | — | — | — | — |
-| M6 | NOT_STARTED | 0 / 180 kTok | 0 / 300 kTok | — | — | — | — |
-| M7 | NOT_STARTED | 0 / 120 kTok | 0 / 200 kTok | — | — | — | — |
-| M8 | NOT_STARTED | 0 / 200 kTok | 0 / 360 kTok | — | — | — | — |
-| M9 | NOT_STARTED | 0 / 140 kTok | 0 / 240 kTok | — | — | — | — |
+| M3 | DONE | N/R / 100 kTok | N/R / 180 kTok | `m3_acceptance` PASS、`release_check --milestone M3` READY、dogfood static audit PASS | PASS | PASS（独立 fail-closed review、nested item 回帰修正後に再確認） | — |
+| M4 | DONE | N/R / 140 kTok | N/R / 240 kTok | `m4_acceptance` 6/6、Evidence v2 multi-target、`release_check --milestone M4` READY、dogfood execution/evidence PASS | PASS（Evidence hashes、legacy fail-closed、依存方向を確認） | PASS（real-process fixture、失敗/ignored/no-result回帰を確認） | — |
+| M5 | DONE | N/R / 120 kTok | N/R / 200 kTok | `m5_acceptance` 4/4、3 bundle種別、typed submit、`release_check --milestone M5` READY | PASS（canonical AuditRecord、subject hash、fail-closed stale） | PASS（bundle/submit実プロセス、E-AUDIT-002/005回帰を確認） | — |
+| M6 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m6_acceptance` 6/6、11項目単独非PASS、entity/item scope、REQ→VO→Test tree、`release_check --milestone M6` READY | PASS（fail-closed aggregation、canonical hashes、依存方向を確認） | PASS（real-process complete fixture、scope/partial execution/tree回帰を確認） | — |
+| M7 | DONE | N/R / 120 kTok | N/R / 200 kTok | `m7_acceptance` 3/3、実測target PASS/FAIL、W-EXEC-101 fallback、`release_check --milestone M7` READY | PASS（Test単位llvm-cov、count判定、NOT_CHECKED境界、Evidence hashを確認） | PASS（called/missed/unavailable real-process回帰を確認） | — |
+| M8 | DONE | N/R / 200 kTok | N/R / 360 kTok | `m8_acceptance` 4/4、symbol候補、create/show/list/query、編集境界、冪等性 | PASS（Form Schema、desired-state、単一Test境界、再スキャンを確認） | PASS（real-process invalid/create/edit/idempotence回帰を確認） | — |
+| M9 | IN_PROGRESS | N/R / 140 kTok | N/R / 240 kTok | `m9_acceptance` 3/3 transport smoke、CLI scan parity、reference subset | PASS（MCPはCLI JSONへ委譲し、別判定エンジンを持たない） | NOT_CHECKED（全tool parity matrix待ち） | 全tool parity、rmcp準拠、§13.3全経路の専用受入が未完了 |
 
 Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかとする。`DONE` は受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
 
@@ -334,7 +334,11 @@ Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかと�
 
 M2 では、基本仕様 §3.1 の `REL-`（ULID）と同 §3.2・詳細設計 §§2.1/3.4 の bare ULID の表記差を独断で固定せず、ULID payload を厳格検証したうえで両表記を読み取る。同じ payload の bare/prefixed 2レコードは E-SCAN-010 で拒否し、論理IDの一意性を維持する。承認失効は基本仕様 §9・詳細設計 §3.5 の VO 内容ハッシュ式に従う。詳細設計 §§3.1/11.4 の「依存 SPEC 更新でも承認失効」とは schema 上両立しないため、W-SCAN-104 による SPEC drift 検出までを M2 とし、依存ハッシュを承認式へ追加するかは仕様 review item として `tests/ACCEPTANCE.md` に残した。
 
-自己適用ではリポジトリ直下の `.verify/` で `vtest doctor` を実行し、exit 0 と canonical 再読込を確認した。現段階の self-scan は Test 未登録を W-SCAN-101 として列挙する inventory dogfood であり、自己検証の PASS とは扱わない。M3 以降で受入 Test を VO に登録し、監査・Evidence・集約を段階的に自己適用する。
+自己適用ではリポジトリ直下の `.verify/` で `vtest doctor` を実行し、exit 0 と canonical 再読込を確認した。M3 では `TEST-DOGFOOD-M3-TARGET-RULES` を VO に登録し、実プロセス `audit static` と scoped `verify --items static_audit` を実行して six-rule PASS を確認した。M4 では同じTestを `run --all --fast` で実行し、Evidenceを再読込して `static_audit`、`test_execution`、`runtime_result`、`evidence_validity` のPASSを確認した（fastの `target_execution` はNOT_CHECKED）。M5では実プロセスbundle/submitを独立fixtureで実行し、typed AuditRecordを再読込して対象改変時のSTALEを確認した。再試行で生成された古い immutable AuditRecord は verifier が STALE として除外することも確認済みである。
+M6では、REQ/VO/Test の各entity scopeとitem scopeを実プロセスで検証し、全11項目を一つずつ非PASSにした場合のexit 1、leaf VOの未カバー、部分実行Evidence、監査・Evidence根拠付きのREQ→VO→Test treeを確認した。完全fixtureでは承認後に再生成したcurrent監査、valid Evidence、測定済みtarget_executionを揃え、11項目すべてPASS・exit 0を確認した。限定scopeの外側はJSON/textの双方でNOT_CHECKEDのまま保持される。
+M7では、設定を `llvm-cov` にした独立fixtureで、対象関数を通るTestの `target_execution: PASS`（count >= 1）、通らないがコンパイル時に保持された対象の `FAIL`（count = 0）、および `cargo llvm-cov --version` だけを不成立にしたfallbackの `W-EXEC-101` / `NOT_CHECKED` を実プロセスで確認した。
+M8では、Structured Test Operationの実プロセスfixtureで、候補付き `E-OP-001`、dry-runを含む `test create` と再スキャン、`show/list/query`、対象Testだけの `covers` 編集、他Testのcontent hash不変、同一desired stateのbyte-idempotenceを確認した。
+M9では、`vtest mcp` のstdio JSON-RPC transport、initialize/tools/list、CLI scan envelope parity、create/query/audit/runの参照経路、候補付き入力エラーを実プロセスで確認した。MCPの判定は既存CLIを再利用するため、現時点で第二の集約ロジックは存在しない。一方、rmcp wire compatibility、全tool parity matrix、§13.3の全手順はまだ受入未完了である。
 
 ## 16. Luna依頼テンプレート
 

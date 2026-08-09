@@ -20,24 +20,26 @@ alone is not promoted to acceptance evidence.
 | M3 | Each intentional NG test maps to DA-001..006 / W-DA-101 | `m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests` | PASS |
 | M3 | The normal test has no deterministic violation | normal and configured-macro cases in `m3_acceptance` | PASS |
 | M3 | A cross-file call is UNKNOWN, never a certain DA-002 FAIL | cross-file, helper-boundary, homonym, import-alias, and local-shadow regressions | PASS |
-| M4 | Every registered Test execution writes one Evidence record | add `vtest run --fast` fixture flow | NOT_CHECKED |
-| M4 | A changed target makes `evidence_validity` STALE | add before/after content-hash flow | NOT_CHECKED |
-| M4 | Build failure emits E-EXEC-001 and writes no Evidence | add broken-build fixture | NOT_CHECKED |
-| M5 | Test-semantic bundle contains every §8.2 field | add bundle schema assertion | NOT_CHECKED |
-| M5 | Empty reasons are rejected with E-AUDIT-005 | add submit rejection fixture | NOT_CHECKED |
-| M5 | Post-bundle Test changes are rejected with E-AUDIT-002 | add stale-bundle submit flow | NOT_CHECKED |
-| M5 | Accepted audit becomes STALE after its subject changes | add audit/modify/verify flow | NOT_CHECKED |
-| M6 | Full-scope all-PASS fixture verifies OK with exit 0 | add complete canonical fixture | NOT_CHECKED |
-| M6 | Each of 11 non-PASS values independently forces NG/exit 1 | add table-driven aggregation matrix | NOT_CHECKED |
-| M6 | Limited scope leaves every other item NOT_CHECKED | add scoped verify/report assertion | NOT_CHECKED |
-| M6 | Verify output tree matches Annex A §12.2 | add JSON and text tree snapshots | NOT_CHECKED |
-| M7 | A called target records PASS with count ≥ 1 | promote llvm-cov parser tests into an execution fixture | NOT_CHECKED |
-| M7 | A passing test that misses its target records FAIL/count 0 | add measured no-call fixture | NOT_CHECKED |
-| M7 | Missing cargo-llvm-cov emits W-EXEC-101 and NOT_CHECKED | add isolated-toolchain CLI flow | NOT_CHECKED |
-| M8 | Invalid symbols are rejected with candidate-bearing E-OP-001 | add CLI process acceptance | NOT_CHECKED |
-| M8 | `test create` output is recognized on rescan | promote `structured_create_generates_a_scannable_test` | NOT_CHECKED |
-| M8 | `test edit` changes no other Test bytes or hash | promote the existing two-Test boundary assertion | NOT_CHECKED |
-| M8 | Reapplying desired state is byte-idempotent | promote the existing idempotence assertion | NOT_CHECKED |
+| M4 | Every registered Test execution writes one Evidence record | `m4_run_fast_records_one_evidence_per_registered_test`; `m4_multi_target_evidence_records_every_declared_target_hash` | PASS |
+| M4 | A changed target makes `evidence_validity` STALE | `m4_target_mutation_makes_evidence_stale` | PASS |
+| M4 | Build failure emits E-EXEC-001 and writes no Evidence | `m4_build_failure_reports_e_exec_001_without_evidence` | PASS |
+| M4 | Ignored tests and missing result lines never publish Evidence | `m4_ignored_test_emits_no_evidence`; `m4_missing_result_line_emits_e_exec_002_without_evidence` | PASS |
+| M4 | Evidence recency uses the actual RFC3339 instant | `evidence_recency_uses_the_actual_rfc3339_instant` | PASS |
+| M5 | Test-semantic bundle contains every §8.2 field | `m5_bundles_include_schema_fields_for_all_audit_kinds` | PASS |
+| M5 | Empty reasons are rejected with E-AUDIT-005 | `m5_empty_reasons_are_rejected_without_an_audit_record` | PASS |
+| M5 | Post-bundle Test changes are rejected with E-AUDIT-002 | `m5_changed_test_rejects_submission_with_e_audit_002` | PASS |
+| M5 | Accepted audit becomes STALE after its subject changes | `m5_accepted_audit_is_typed_and_becomes_stale_after_target_change` | PASS |
+| M6 | Full-scope all-PASS fixture verifies OK with exit 0 | `m6_complete_fixture_is_ok_for_all_eleven_items` | PASS |
+| M6 | Each of 11 non-PASS values independently forces NG/exit 1 | `m6_each_check_item_can_be_non_pass_without_aggregate_promotion` | PASS |
+| M6 | Limited scope leaves every other item NOT_CHECKED | `m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like` | PASS |
+| M6 | Verify output tree matches Annex A §12.2 | `m6_entity_scope_selects_test_vo_and_report`; text tree assertion | PASS |
+| M7 | A called target records PASS with count ≥ 1 | `m7_called_target_records_measured_pass` | PASS |
+| M7 | A passing test that misses its target records FAIL/count 0 | `m7_passing_test_that_misses_target_records_measured_fail` | PASS |
+| M7 | Missing cargo-llvm-cov emits W-EXEC-101 and NOT_CHECKED | `m7_missing_llvm_cov_is_warning_and_not_checked` | PASS |
+| M8 | Invalid symbols are rejected with candidate-bearing E-OP-001 | `m8_invalid_symbol_is_rejected_with_candidates` | PASS |
+| M8 | `test create` output is recognized on rescan | `m8_test_create_is_scanned_and_exposed_by_queries` | PASS |
+| M8 | `test edit` changes no other Test bytes or hash | `m8_edit_changes_only_selected_test_and_preserves_other_hash` | PASS |
+| M8 | Reapplying desired state is byte-idempotent | `m8_reapplying_same_edit_is_byte_idempotent` | PASS |
 | M9 | Every MCP tool matches the CLI JSON shape | implement MCP parity matrix | NOT_CHECKED |
 | M9 | Annex A §13.3 completes over MCP stdio | implement reference-flow integration test | NOT_CHECKED |
 | M9 | Invalid input returns code/message/candidates | implement MCP error-contract test | NOT_CHECKED |
@@ -72,3 +74,50 @@ source IDs, one-hop helpers, and canonical record round-tripping. Repository
 dogfooding registered `TEST-DOGFOOD-M3-TARGET-RULES`; its six rules and scoped
 `static_audit` verification pass, while five earlier immutable trial records
 are reported as stale and ignored.
+
+M4 records one append-only Evidence per observed registered Test. `--fast` emits
+`target_execution: NOT_CHECKED`, captures the Test and every declared target
+hash (`target_fns`), and preserves legacy single-target records as non-passing
+for multi-target Tests. The acceptance flow covers PASS, ignored/no-result
+non-execution, build failure (`E-EXEC-001`), target mutation (`STALE`), and
+offset-aware RFC3339 recency. Repository dogfooding also generated a current
+Evidence record and verified `static_audit`, `test_execution`, `runtime_result`,
+and `evidence_validity` as PASS; `target_execution` remains NOT_CHECKED in fast
+mode by design.
+
+M5 exercises all three bundle kinds (`test-semantic`, `vo-coverage`, and
+`impl-consistency`). Submissions preserve the canonical typed AuditRecord
+schema (one id-or-locator subject per entry, exclusions, auditor, timestamp,
+and revision), reject empty reasons, reject changed bundle subjects with
+`E-AUDIT-002`, and become `STALE` when an accepted target changes.
+
+M6 evaluates all eleven checks fail-closed over both item and REQ/VO/Test
+scopes. The complete fixture proves an all-PASS result only after current
+static/semantic/implementation audits, an approved VO, valid Evidence, and a
+measured target execution are present. The matrix proves each individual
+non-PASS state yields exit 1; missing leaf coverage and partially executed
+Tests cannot be masked by another PASS. JSON reports now include a deterministic
+REQ → VO → Test tree with audit/Evidence basis references, while text reports
+render the same tree and explicitly label scope-outside values as
+`NOT_CHECKED`.
+
+M7 exercises the default measured execution path in a disposable real-process
+fixture. A target reached through the passing Test records `cargo-llvm-cov`,
+`checked: true`, and a positive count; a statically retained but uncalled target
+records `FAIL` with count 0. A toolchain wrapper that makes only
+`cargo llvm-cov --version` unavailable falls back to `cargo-test`, emits
+`W-EXEC-101`, and records `NOT_CHECKED` without promoting the result.
+
+M8 exercises the public Structured Test Operation commands against disposable
+projects. Invalid source symbols return `E-OP-001` with candidates; `test
+create` supports dry-run and produces a Test visible to scan/show/list/query;
+editing one Test preserves another Test's content hash; and repeating the same
+desired `covers` state produces no byte changes.
+
+M9 now has a transport smoke gate: `m9_acceptance` starts the MCP stdio server,
+checks initialization and the complete tool registry, compares a `scan` tool
+result byte-for-byte with the CLI envelope, runs the create/query/audit/run
+reference path, and verifies candidate-bearing invalid input. The three full
+M9 criteria (all-tool parity matrix, complete reference flow, and every
+transport error case) remain `NOT_CHECKED` until their dedicated matrix is
+implemented.
