@@ -326,7 +326,7 @@ cargo run --quiet -p vtest-cli -- doctor
 | M6 | DONE | N/R / 180 kTok | N/R / 300 kTok | `m6_acceptance` 6/6、11項目単独非PASS、entity/item scope、REQ→VO→Test tree、`release_check --milestone M6` READY | PASS（fail-closed aggregation、canonical hashes、依存方向を確認） | PASS（real-process complete fixture、scope/partial execution/tree回帰を確認） | — |
 | M7 | DONE | N/R / 120 kTok | N/R / 200 kTok | `m7_acceptance` 3/3、実測target PASS/FAIL、W-EXEC-101 fallback、`release_check --milestone M7` READY | PASS（Test単位llvm-cov、count判定、NOT_CHECKED境界、Evidence hashを確認） | PASS（called/missed/unavailable real-process回帰を確認） | — |
 | M8 | DONE | N/R / 200 kTok | N/R / 360 kTok | `m8_acceptance` 4/4、symbol候補、create/show/list/query、編集境界、冪等性 | PASS（Form Schema、desired-state、単一Test境界、再スキャンを確認） | PASS（real-process invalid/create/edit/idempotence回帰を確認） | — |
-| M9 | IN_PROGRESS | N/R / 140 kTok | N/R / 240 kTok | `m9_acceptance` 3/3 transport smoke、CLI scan parity、reference subset | PASS（MCPはCLI JSONへ委譲し、別判定エンジンを持たない） | NOT_CHECKED（全tool parity matrix待ち） | 全tool parity、rmcp準拠、§13.3全経路の専用受入が未完了 |
+| M9 | DONE | N/R / 140 kTok | N/R / 240 kTok | `m9_acceptance` 9/9（22 tool registry/schema、CLI parity、§13.3全経路、transport error matrix、mtime refresh） | PASS（MCPはCLI JSONへ委譲し、別判定エンジンを持たない） | PASS（独立Luna reviewerがupsert、notification、freshness、非PASS保持を再確認） | rmcp SDKの文字どおりの相互運用はNOT_CHECKED（最小通常利用では手動stdioの外部契約を確認済み） |
 
 Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`DONE` のいずれかとする。`DONE` は受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
 
@@ -338,7 +338,7 @@ M2 では、基本仕様 §3.1 の `REL-`（ULID）と同 §3.2・詳細設計 �
 M6では、REQ/VO/Test の各entity scopeとitem scopeを実プロセスで検証し、全11項目を一つずつ非PASSにした場合のexit 1、leaf VOの未カバー、部分実行Evidence、監査・Evidence根拠付きのREQ→VO→Test treeを確認した。完全fixtureでは承認後に再生成したcurrent監査、valid Evidence、測定済みtarget_executionを揃え、11項目すべてPASS・exit 0を確認した。限定scopeの外側はJSON/textの双方でNOT_CHECKEDのまま保持される。
 M7では、設定を `llvm-cov` にした独立fixtureで、対象関数を通るTestの `target_execution: PASS`（count >= 1）、通らないがコンパイル時に保持された対象の `FAIL`（count = 0）、および `cargo llvm-cov --version` だけを不成立にしたfallbackの `W-EXEC-101` / `NOT_CHECKED` を実プロセスで確認した。
 M8では、Structured Test Operationの実プロセスfixtureで、候補付き `E-OP-001`、dry-runを含む `test create` と再スキャン、`show/list/query`、対象Testだけの `covers` 編集、他Testのcontent hash不変、同一desired stateのbyte-idempotenceを確認した。
-M9では、`vtest mcp` のstdio JSON-RPC transport、initialize/tools/list、CLI scan envelope parity、create/query/audit/runの参照経路、候補付き入力エラーを実プロセスで確認した。MCPの判定は既存CLIを再利用するため、現時点で第二の集約ロジックは存在しない。一方、rmcp wire compatibility、全tool parity matrix、§13.3の全手順はまだ受入未完了である。
+M9では、`vtest mcp` のstdio JSON-RPC transport、initialize/tools/list、22 toolすべてのschemaとCLI envelope parity、REQ/VO/Test/Form/Audit/Run/Verify/Reportの§13.3参照経路、候補付き入力エラー、notification無応答、mtime refreshを実プロセスで確認した。MCPの判定は既存CLIを再利用するため、第二の集約ロジックは存在しない。独立Luna reviewerも修正後のupsert、notification、freshness、非PASS保持を再確認した。`rmcp` SDKの文字どおりのwire interoperabilityだけは、最小通常利用の完了条件とは分離したNOT_CHECKEDの実装詳細として残す。
 
 ## 16. Luna依頼テンプレート
 

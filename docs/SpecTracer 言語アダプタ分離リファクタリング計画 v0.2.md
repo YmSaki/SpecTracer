@@ -18,8 +18,9 @@
 
 このリファクタリングは v0.1 の M9 完了後に開始する。M9 の全 MCP ツールの
 CLI parity、別紙A §13.3 の完全な参照フロー、transport error matrix は完了し、
-受入台帳は `PASS` になった。アダプタ分離の開始前には、本計画に定める独立
-レビューを別途完了させる。
+受入台帳は `PASS` になった。独立Luna reviewerもupsert、notification、freshness、
+非PASS保持を再確認して `PASS` を報告した。アダプタ分離自体は、W0の仕様同期と
+本計画の依存順序を満たしてから開始する。
 
 M9 完了前に本計画を着手する場合は、マイルストーン順序を変更する仕様判断と
 受入台帳の再ベースラインが必要である。実装エージェントはこの判断を代行しない。
@@ -30,6 +31,7 @@ M9 完了前に本計画を着手する場合は、マイルストーン順序�
 - M9 完了コミット：`ee406eb` (`feat: complete M9 MCP usability`)
 - M1〜M8：`DONE`
 - M9：`DONE`
+- M9 独立レビュー：`PASS`（修正コミット `46fbb4d` を再監査）
 - 現行 workspace：8 crates
 - 現行回帰：110 tests
 - M9 acceptance：6 tests（全PASS）
