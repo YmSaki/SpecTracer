@@ -144,11 +144,8 @@ Execution Evidence
 RequirementがVerification Obligationへ分解されている完全性は別の検証対象とする。
 Requirementは1件以上のSpecification箇所を参照しなければならない。
 
-`spec_coverage`は、検証scopeに登録Specificationが1件以上存在し、各Specificationに参照するactive Requirementが存在し、
-根拠付きの意味監査によって要求事項の取り込みが完全であると確認された場合だけ`PASS`とする。
-SpecificationまたはRequirementが存在しない場合は`MISSING`、監査未実施は`NOT_CHECKED`、現在の対象hash・集合と一致しない監査だけが存在する場合は
-`STALE`、取り込み漏れを確認した場合は`FAIL`、判定不能は`UNKNOWN`とし、既存Requirementの存在だけで
-`PASS`へ昇格してはならない。
+登録されたSpecificationの要求事項がactive Requirementへ完全に取り込まれていることを、根拠とともに確認できなければならない。
+Requirementが存在するという事実だけ、または取り込みの未確認・判定不能・不完全な状態を、Specification coverageの合格として扱ってはならない。
 
 ---
 
@@ -372,9 +369,8 @@ Reason:
 理由を伴わないAI判定を、正式な網羅性検証済み状態として扱ってはならない。
 
 Specification coverageの判定理由には、対象Specification、取り込んだRequirement、
-取り込み対象外とした節または記述、およびその根拠を含める。監査対象には対象Specificationの
-現在hashと、それを参照するactive Requirementの完全な集合および各内容hashを束縛する。
-SpecificationまたはそのRequirement集合が変化した監査を現在の`PASS`として扱ってはならない。
+取り込み対象外とした節または記述、およびその根拠を含める。
+SpecificationまたはRequirementとの対応関係が変化した後も、以前の判定を無条件に現在の`PASS`として扱ってはならない。
 
 ---
 
@@ -571,16 +567,9 @@ UNKNOWN
 
 PASS結果がどのコード状態に対して得られたものか追跡可能であること。
 
-現在の対象実装hashと一致しない状態に束縛されたPASSを、有効なPASSとして利用してはならない。
+Evidenceの判定結果を変えうるTestの意味、実行条件、対象実装、および実行可能状態が現在状態と一致することを確認できなければ、そのEvidenceを現在のPASSとして利用してはならない。
 
-現在のTest subject・宣言target集合・各対象実装とEvidenceの対応関係を確認できない場合、完全検証では有効なPASS Evidenceとはみなさない。
-
-Test subjectはTest constructだけでなく、Test Entityを具体化するcanonical metadataの論理値、
-実行座標およびidentityを含む。metadataの配置がTest constructと隣接しないadapterであっても、
-`covers`、`targets`、Test Intentその他のcanonical metadata変更がTest subject hashを必ず変化させなければならない。
-意味が同一な宣言表現の正規化はadapterが行えるが、同値性を確定できない変更は安全側でhashを変化させる。
-
-Evidenceは、Testが宣言する全targetについてtarget参照と対象内容hashを保持し、現在の宣言target集合および各対象内容hashと照合可能でなければならない。
+これらの判定入力の変更または対応関係の不明な状態によって、過去のPASSが現在のPASSへ無条件に引き継がれてはならない。
 
 ---
 

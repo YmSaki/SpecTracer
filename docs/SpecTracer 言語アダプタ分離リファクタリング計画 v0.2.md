@@ -267,7 +267,7 @@ core contractにmodule path、function名、`.rs`拡張子を要求しない。
 - 既存Evidenceは書き換えない。
 - `RunnerInfo.kind`、`command`、`exit_code`は既にrunner非依存なので維持する。
 - `TargetExecution.method`もstringのためcoverage provider名を保持できる。
-- EvidenceはTest subject hashと、全宣言targetについて正規化TargetRef、対象hash、target別count / resultを保持し、Test単位結果をfail-closedで集約する。
+- EvidenceはTest subject hash、全宣言targetについて正規化TargetRef・対象hash・target別count / result、および現在の実行可能状態を束縛するExecution State subjectを保持し、Test単位結果をfail-closedで集約する。
 - 単数形のtarget hash / execution resultは、現在のTestがtargetをちょうど1件持つ場合だけ互換入力として扱う。
 - Evidence writerはadapter IDを必須で記録する。readerはadapter ID欠落形を
   読取り互換のため受理できる。
@@ -275,6 +275,7 @@ core contractにmodule path、function名、`.rs`拡張子を要求しない。
   Rust実行を一意に確認できる場合だけ互換扱いし、それ以外はUNKNOWNとする。
 - 新recordではadapter IDとTest execution adapter、runner kindの整合を保存前に検証する。
 - unknown adapterのEvidenceを推測で実行済み・coverage PASSへ昇格しない。
+- Execution State subjectを欠く既存Evidenceは履歴として読み取るがSTALEとし、現在のPASSへ昇格しない。
 
 ## 5. 設定と互換性
 
@@ -431,7 +432,8 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 
 - M3、M5 acceptanceが全PASS。
 - analysis limitがUNKNOWNのままである。
-- Audit RecordがTest、全target、rule-setとrule影響config projectionのsubject hashへ束縛され、`assertion_macros`変更でSTALEになる。
+- Audit RecordがTest、全target、rule-set、rule影響config projection、および判定時に参照したhelper等のStatic Analysis Source subject完全集合へ束縛され、`assertion_macros`または参照helperだけの変更でSTALEになる。
+- adapterが解析入力集合の完全性を保証できないruleはUNKNOWNとなり、PASSへ集約されない。
 - static ruleと無関係なrun / coverage設定をconfig subjectから除外する根拠と試験がある。
 - `vtest-audit`に`syn` / `quote`の直接依存が残らない。
 
@@ -445,7 +447,9 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - build failureでEvidenceを記録しない。
 - target変更でEvidenceがSTALEになる。
 - revision不明EvidenceがSTALEになり、FAILまたは有効なPASSへ写像されない。
-- Evidenceが`test_subject`、全宣言targetの`target_construct` hash、target別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
+- Evidenceが`test_subject`、全宣言targetの`target_construct` hash、target別計測結果、およびExecution State subjectを保持し、FAIL > UNKNOWN > PASSで集約する。
+- HEAD revision不一致、Execution State subject欠落・不完全・不一致は有効なPASSにならず、Test / target外helperまたはlocal dependencyだけの変更でも既存EvidenceがSTALEになる。
+- 実行中にExecution State subjectが変化した場合はE-EXEC-004となり、Evidenceを記録しない。
 - llvm-cov不在はNOT_CHECKEDのままである。
 - `vtest-exec`にCargo / llvm-cov / rustc-demangle固有処理が残らない。
 
@@ -458,6 +462,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M6、M9 acceptanceが全PASS。
 - `test_traceability`が全Discovered Testをrepository-levelで評価し、`ManagedTestLink::Missing`をMISSING、`ManagedTestLink::Multiple`・Test ID衝突・解決不能なVO参照をMISMATCHにする。
 - `spec_coverage`がSPECと対応active REQ完全集合に束縛された意味監査なしにPASSせず、`vo_decomposition`がTest / adapter / Evidence errorを取り込まない。
+- impl-consistency監査が対象VOの上流SPEC subject完全集合へ束縛され、Specificationだけの変更でもSTALEになる。
 - impl-consistency監査FAILが`MISMATCH`へ一意に写像される。
 - 項目指定省略時は固定12項目を評価し、configまたはcompatibility入力から`test_traceability`を迂回できない。
 - 全MCP toolがCLIと同じregistryとenvelopeを使う。
@@ -589,9 +594,16 @@ Wave E: P12完成 -> P13 -> 主担当release gate
 | stale synthetic Evidence | STALE |
 | non-adjacent metadata changed | Test subject mismatch、Audit / Evidence STALE |
 | assertion_macros changed | static Audit Recordのconfig subject mismatch、STALE |
+| static helper changed | Static Analysis Source subject mismatch、static Audit STALE |
 | static-rule-irrelevant config changed | static Audit Recordはconfig subject一致 |
 | revision commit missing | evidence_validity STALE |
+| current HEAD differs from Evidence | evidence_validity STALE |
+| target外helper / local dependency changed | Execution State subject mismatch、evidence_validity STALE |
+| incomplete current execution snapshot | evidence_validity UNKNOWN |
+| Evidence without Execution State subject | 読取り可、evidence_validity STALE |
+| execution state changed during run | E-EXEC-004、Evidenceなし |
 | impl-consistency FAIL | CheckValue MISMATCH |
+| Specification changed after impl-consistency Audit | impl-consistency Audit STALE |
 | bare Relation compatibility input | REL-<ULID>へin-memory正規化、file無書換え |
 | duplicate bare / prefixed Relation payload | E-SCAN-010、いずれも採用しない |
 | duplicate Form kind across adapters | operation拒否、Rust fallbackなし |

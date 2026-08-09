@@ -370,7 +370,9 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 判定は保守的に行う。
 決定論的に確定できる違反のみ `FAIL` とし、確定できないものは `UNKNOWN` として意味監査へ送る。
 決定論的監査で `FAIL` となった Test は、意味監査へ送る前に拒否できる。
-Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set identity、および静的rule判定へ影響する実効configへ束縛する。同じ入力に対する判定を変えうるrule実装変更はrule-set identityを変更する。rule-setまたはrule影響configの値・集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。静的ruleと無関係なconfigはこのsubjectへ含めない。
+Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set identity、静的rule判定へ影響する実効config、および判定時に実際に参照したhelper等の全source fragmentへ束縛する。同じ入力に対する判定を変えうるrule実装変更はrule-set identityを変更する。rule-set、rule影響config、参照source fragmentの値または対象集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。静的ruleと無関係なconfigおよび判定に参照していないsourceはsubjectへ含めない。
+
+adapterは各rule verdictを変えうる解析入力の完全な集合を返さなければならない。helper、展開済みsource、symbol tableその他の解析入力を参照しながら、その入力をfreshness subjectへ束縛できない場合、当該ruleを`PASS`にせず`UNKNOWN`とする。
 
 ### 7.3 意味監査（エージェント委譲プロトコル）
 
@@ -397,8 +399,8 @@ Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set
    - 理由の必須構造（空の理由は拒否）
 ```
 
-受理された結果は監査レコードとして保存され、対象の内容ハッシュに束縛される。
-対象（VO・Test・実装）が変更されると、監査レコードは自動的に `STALE` となる。
+受理された結果は監査レコードとして保存され、監査種別ごとの完全な対象集合と内容ハッシュに束縛される。
+対象集合またはいずれかの対象内容が変更されると、監査レコードは自動的に `STALE` となる。`impl-consistency`の対象集合には、VO・Test・全target実装に加え、判定根拠となる現在のSpecification subject完全集合を含める。
 
 理由を伴わない判定は受理しない（要件定義 §6）。
 決定論的監査結果とAI監査結果は区別して保存・提示する（要件定義 §12）。
@@ -438,6 +440,7 @@ active REQに対応VOが1件もなければ`vo_coverage = MISSING`とする。�
 仕様・VO・Test と対象実装の一致は `impl-consistency` 種別の意味監査として実施する（要件定義 §13）。
 決定論的に検証できる部分（Target Referenceの解決、adapterが提供する構造情報の取得）はバンドル生成時に検証し、targetを解決できなければ`MISSING`とする。
 複数target Testでは、全targetのimplementation construct sourceとadapterが提供する構造情報をバンドルに含め、判定対象から一部targetを省略しない。
+判定根拠となるSpecification subjectは、対象VOとその上流VO / REQの`spec_refs`から決定論的に導出した完全集合とする。Specification record、参照先source、または集合が変更された監査は`STALE`とし、限定scopeの`impl_consistency = PASS`にも利用しない。完全集合を解決できない場合は`MISSING`、現在性を確認できない場合は`STALE`として、Specificationを欠いたまま監査を受理しない。
 不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。
 `impl-consistency`監査が外部提出形式で`FAIL`を返す場合も、検証項目`impl_consistency`では`MISMATCH`へ写像する。監査の未実施・失効・判定不能は、それぞれ`NOT_CHECKED`・`STALE`・`UNKNOWN`として保持し、不一致と混同しない。
 
@@ -464,6 +467,7 @@ Evidence には少なくとも次を含める。
 - 実行したadapter ID
 - 実行時のリポジトリリビジョン（Git commit hash）と dirty フラグ
 - 現在のTest subject全体の内容ハッシュ、および全宣言targetのTarget Referenceとadapterが特定するimplementation constructの内容ハッシュ
+- 実行時のHEAD revision、実行adapter・runner・toolchain・実行影響config、および現在の実行可能状態を変えうるrepository / local dependency入力の完全なsnapshotを束縛したExecution State subject
 - 実行日時と実行方式
 - Target Execution Verification のtarget別結果とfail-closed集約結果（実施した場合）
 
@@ -475,9 +479,10 @@ Evidence には少なくとも次を含める。
 - Evidenceのtarget参照集合が現在のTestの宣言target集合と重複なく一致する
 - Evidence記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する
 - Evidenceのadapter IDが現在のTestのexecution adapterと一致する
-- リビジョンが特定できている（dirty 状態での実行は Evidence に明示され、完全検証では内容ハッシュ一致を必須とする）
+- Evidence記録時のHEAD revisionが特定され、現在のHEAD revisionと一致する
+- Execution State subjectが完全であり、現在再構築したExecution State subjectと一致する。dirty状態のsource、target外helper、build script、local dependency、runner / toolchain / 実行影響configの変更もこの照合に含める
 
-内容ハッシュまたはrevision条件を満たさない Evidence は `STALE` とし、有効な PASS として扱わない。adapter IDが存在して現在値と不一致の場合は `MISMATCH` とする。
+内容ハッシュ、Execution State subject、またはrevision条件を満たさない Evidence は `STALE` とし、有効な PASS として扱わない。adapter IDが存在して現在値と不一致の場合は `MISMATCH` とする。adapterが実行入力集合の完全性を証明できない場合は`UNKNOWN`とし、部分的なsnapshotから現在の実装に対するPASSを推測しない。Execution State subjectを欠く互換Evidenceは履歴として読み取れるが`STALE`とし、現在のPASSへ昇格しない。
 Evidence readerはadapter IDを欠くrecordも受理できる。現在のTestが `rust-cargo` で、互換runner情報と内容ハッシュからRust実行であることを一意に確認できる場合に限り互換Evidenceとして評価し、それ以外は `UNKNOWN` とする。
 Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidenceから`test_execution`、`runtime_result`、`target_execution`をPASSまたはFAILとして再利用せず、同じ鮮度・対応関係の非PASS値を保持する。Evidenceが存在しない場合は実行関連項目を`NOT_EXECUTED`とする。
 

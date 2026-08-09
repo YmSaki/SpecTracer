@@ -76,18 +76,22 @@ tests/fixtures/calc/
   - fixtureの各NG Testが対応ruleでFAILになる。
   - 正常Testは全rule違反なしになる。
   - 他ファイルの関数を呼ぶTestがDA-002でFAILではなくUNKNOWNになる。
-  - static Audit RecordがTest、全target、rule-setとrule影響config projectionへ束縛され、`assertion_macros`変更でSTALEになる。
+  - static Audit RecordがTest、全target、rule-set、rule影響config projection、および判定時に参照したhelper等のsource fragment完全集合へ束縛され、`assertion_macros`または参照helperだけの変更でSTALEになる。
+  - adapterが解析入力集合の完全性を保証できないruleはUNKNOWNとなり、PASSへ集約されない。
 
 ### M4 テスト実行とEvidence
 
 - 実装：`vtest-adapter-rust`のrunner起動・結果parse、`vtest-exec`の委譲・Evidence記録、`vtest run --fast`、鮮度判定（本冊 §11.2）
 - 完了条件：
   - fixtureの全登録Testが実行され、TestごとにEvidenceが1件記録される。
-  - Evidenceが`test_subject`と全宣言targetの`target_construct`内容hashを重複なく記録する。
+  - Evidenceが`test_subject`、全宣言targetの`target_construct`内容hash、および完全なExecution State subjectを重複なく記録する。
   - Test constructと非隣接のcanonical metadataだけを変更してもEvidenceがSTALEになる。
   - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
+  - Test / 宣言targetを変更せずtarget外helperまたはlocal dependencyだけを変更してもEvidenceがSTALEになる。
+  - HEAD revision不一致、Execution State subject欠落・不完全・不一致を現在のPASSへ利用しない。
   - revisionを特定できないEvidenceがSTALEになり、現在のPASSへ利用されない。
   - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
+  - 実行中にExecution State subjectが変化したfixtureでE-EXEC-004が出てEvidenceが記録されない。
 
 ### M5 意味監査プロトコル
 
@@ -98,6 +102,7 @@ tests/fixtures/calc/
   - reasonsが空の提出がE-AUDIT-005で拒否される。
   - bundle生成時と異なる対象hashの提出がE-AUDIT-002で拒否される。
   - 受理された監査が、対象変更によってSTALEになる。
+  - impl-consistency監査が対象VOの上流SPEC subject完全集合へ束縛され、Specificationだけの変更でもSTALEになる。
   - impl-consistencyの提出FAILが検証項目`impl_consistency = MISMATCH`へ一意に写像される。
 
 ### M6 集約とverify / report

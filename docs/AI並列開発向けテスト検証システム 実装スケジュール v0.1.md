@@ -155,7 +155,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 2. DA-001〜DA-006、W-DA-101を1ルールずつ追加する。
 3. 解析限界を `UNKNOWN` にする境界ケースを先にテストする。
 4. `vtest audit static` と監査レコード保存を実装する。
-5. adapterのrule影響config projectionをcoreでhash化し、Test・全targetと同じ監査subject集合へ加える。
+5. adapterのrule影響config projectionと、判定時に参照したhelper等のsource fragment完全集合をcoreでhash化し、Test・全targetと同じ監査subject集合へ加える。
 
 ### Lunaへ並列化できる作業
 
@@ -168,6 +168,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 - 正常テストに誤検知がない。
 - 証明不能なケースを推測でFAILまたはPASSにしない。
 - `assertion_macros`変更だけで既存static Audit RecordがSTALEになり、run / coverageだけの変更では不必要に失効しない。
+- DA-002 / DA-003が参照した同一file helperだけの変更で既存static Audit RecordがSTALEになり、解析入力集合を完全に列挙できないruleはUNKNOWNになる。
 
 ## 8. M4 テスト実行とEvidence
 
@@ -175,7 +176,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 1. Testから `cargo test` の起動単位を解決する。
 2. stable toolchain出力の結果パーサと矛盾検出を実装する。
-3. Git revision、dirty、Test subject hash、全宣言targetの参照と内容hashを実行直前に取得する。
+3. Git revision、dirty、Test subject hash、全宣言targetの参照と内容hash、およびrunner / toolchain / 実行影響config・repository / local dependency入力manifestからなるExecution State subjectを実行直前に取得する。
 4. EvidenceをULIDファイルへ新規追加し、raw logをcacheへ保存する。
 5. `vtest run --fast` とEvidence鮮度判定を実装する。
 
@@ -184,13 +185,15 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 - `tester`: PASS、FAIL、ignored、結果行欠落、終了コード矛盾、ビルド失敗の実行fixtureを担当する。
 - `reviewer`: ビルド失敗時にEvidenceが生成されないこと、未知revisionがvalidity PASSにならないことを確認する。
 - `reviewer`: revision不明Evidenceが`STALE`へ一意に写像され、`FAIL`またはPASSへ変換されないことを確認する。
+- `reviewer`: HEAD revision不一致、Execution State subject欠落・不完全・不一致、およびtarget外helperだけの変更が有効なPASSにならないことを確認する。
 
 ### ゲート
 
 - 別紙B M4の全完了条件を満たす。
 - canonical Test metadata、execution、Test constructまたはtarget変更後は以前のEvidenceが必ずSTALEになる。
+- Test / targetを変更せず、実行結果を変えうるhelper、build script、local dependencyだけを変更しても以前のEvidenceが必ずSTALEになる。
 - 複数target Evidenceのentry欠落、重複、余剰を有効なPASSとして扱わない。
-- E-EXEC-001〜003の分岐とEvidence生成有無を再現する。
+- E-EXEC-001〜004の分岐とEvidence生成有無を再現する。
 
 ## 9. M5 意味監査プロトコル
 
@@ -199,7 +202,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 1. `spec-coverage`を含む4種別のbundle生成と共有envelopeを実装する。
 2. submitスキーマとE-AUDIT-001〜007を実装する。
 3. reasonsとbasis参照の必須性を検証する。
-4. bundle生成時ハッシュとsubmit時ハッシュを照合する。
+4. bundle生成時の種別別subject完全集合とsubmit時の現在集合・hashを照合する。impl-consistencyには対象VOの上流SPEC subject完全集合を含める。
 5. 受理結果を追記型監査レコードとして保存し、有効性を導出する。
 
 ### Lunaへ並列化できる作業
@@ -211,6 +214,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 - 別紙B M5の全完了条件を満たす。
 - 空理由、未知subject、不一致hash、重複・矛盾結果をfail-closedで拒否または集約する。
+- VO / Test / targetが不変でもSpecificationだけを変更すると既存impl-consistency AuditがSTALEになる。
 
 ## 10. M6 集約とverify/report
 
@@ -334,9 +338,9 @@ cargo run --quiet -p vtest-cli -- doctor
 | S0 | REVALIDATION_REQUIRED | 8-crate workspace、init/layout、旧`tests/ACCEPTANCE.md` | NOT_CHECKED | W0のOwner承認・merge後、10-crate構成と新受入台帳を再検証する |
 | M1 | REVALIDATION_REQUIRED | 旧`m1_acceptance` 5/5、旧release-check READY | NOT_CHECKED | hash未計算DTO、core hash ownership、adapter分離、SRC ID一意性を未検証 |
 | M2 | REVALIDATION_REQUIRED | 旧`m2_acceptance` 12/12、旧release-check READY | NOT_CHECKED | Approval dependency closure、REL-ID writer / compatibility reader、derived VO statusを未検証 |
-| M3 | REVALIDATION_REQUIRED | 旧`m3_acceptance` PASS、旧dogfood static audit PASS | NOT_CHECKED | Test / target / rule-config subject hashとadapter-owned static auditで再検証が必要 |
-| M4 | REVALIDATION_REQUIRED | 旧`m4_acceptance` 6/6、旧Evidence multi-target baseline | NOT_CHECKED | `test_subject` Evidence、非隣接metadata freshness、revision不明のSTALE写像を未検証 |
-| M5 | REVALIDATION_REQUIRED | 旧`m5_acceptance` 4/4、3 bundle種別baseline | NOT_CHECKED | `spec-coverage`を含む4種別、E-AUDIT-007、impl-consistency MISMATCH写像を未検証 |
+| M3 | REVALIDATION_REQUIRED | 旧`m3_acceptance` PASS、旧dogfood static audit PASS | NOT_CHECKED | Test / target / rule-config / analysis-source subject hashとadapter-owned static auditで再検証が必要 |
+| M4 | REVALIDATION_REQUIRED | 旧`m4_acceptance` 6/6、旧Evidence multi-target baseline | NOT_CHECKED | `test_subject`、Execution State subject、非隣接metadata・target外helper freshness、revisionのSTALE写像を未検証 |
+| M5 | REVALIDATION_REQUIRED | 旧`m5_acceptance` 4/4、3 bundle種別baseline | NOT_CHECKED | `spec-coverage`を含む4種別、E-AUDIT-007、impl-consistency SPEC closure / MISMATCH写像を未検証 |
 | M6 | REVALIDATION_REQUIRED | 旧11項目`m6_acceptance` 6/6 | NOT_CHECKED | 固定12項目、v1 full_scope正規化、SPEC root集約、spec_coverage、独立vo_decompositionを未検証 |
 | M7 | REVALIDATION_REQUIRED | 旧`m7_acceptance` 3/3、target count baseline | NOT_CHECKED | adapter-owned coverageとTest subject Evidenceで再検証が必要 |
 | M8 | REVALIDATION_REQUIRED | 旧`m8_acceptance` 4/4、編集境界・冪等性baseline | NOT_CHECKED | global Form kind ownership、adapter-owned validator、neutral DTOで再検証が必要 |

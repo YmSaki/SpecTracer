@@ -36,6 +36,9 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - Specification sourceまたは上流REQの変更によって無効になるspec-coverage Audit / Approval
 - Specificationに要求事項が存在するが対応active REQが欠落する状態
 - Test constructと非隣接のmetadata宣言だけを変更した状態
+- Test / targetを変更せず、static auditが参照した同一file helperだけを変更した状態
+- Test / 宣言targetを変更せず、実行結果を変えうるtarget外helperまたはlocal dependencyだけを変更した状態
+- VO / Test / targetを変更せず、impl-consistencyが参照するSpecification sourceだけを変更した状態
 - 複数adapterが同じ恒久SRC IDを宣言する状態
 
 adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-process synthetic
@@ -70,8 +73,10 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - DA-001〜DA-006とW-DA-101は本冊 §7の判定条件に従う。
 - 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 - 正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。
-- Audit Recordは対象Test、全宣言target、およびadapter ID・static rule-set・rule影響config projectionからなるStatic Audit Config subjectの現在hashへ束縛される。
+- Audit Recordは対象Test、全宣言target、adapter ID・static rule-set・rule影響config projectionからなるStatic Audit Config subject、および判定時に実際に参照したhelper等のStatic Analysis Source subject完全集合の現在hashへ束縛される。
 - `rust-cargo`の`assertion_macros`だけを変更すると既存static Audit RecordはSTALEになり、再監査なしに`static_audit = PASS`へ利用されない。
+- DA-002 / DA-003が参照した同一file helperだけを変更すると既存static Audit RecordはSTALEになり、再監査なしに`static_audit = PASS`へ利用されない。
+- static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
 - 同じ入力に対するverdictまたは根拠を変えるstatic rule実装変更はrule-set versionを変更し、既存recordをSTALEにする。
 - static ruleへ影響しないrun / coverage設定だけの変更ではStatic Audit Config subject hashを変えない。
 - config subjectを欠く読取り互換static Audit Recordを現在のPASSへ昇格しない。
@@ -79,15 +84,18 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 #### 18.3.3 execution・Evidence
 
 - 選択した登録Testだけをrunnerのexact selectorで実行する。
-- Testごとの結果、revision、hash、adapter ID、runner情報をEvidenceへ記録する。
+- Testごとの結果、revision、hash、adapter ID、runner情報、およびExecution State subjectをEvidenceへ記録する。
 - build failure、runner failure、必須runner capabilityの欠落ではEvidenceを生成しない。
+- 実行前後でExecution State subjectが変化した場合はE-EXEC-004となり、Evidenceを生成しない。
 - Evidence writerはadapter IDを必ず記録する。
 - Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target_construct`を出力する。`test_fn` / `test_construct` / `target_fn`の互換入力は`rust-cargo` Evidenceで全canonical metadataを含むsource rangeと現在値の同一性を証明できる場合だけ受理する。
 - Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
 - Evidenceは全宣言targetの参照と内容hashを重複なく保持する。
-- canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、またはいずれかのtarget内容hashがEvidenceと異なる場合はSTALEになる。
-- `revision.commit`を特定できないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
+- canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALEになる。
+- `revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
+- Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。Testと宣言targetを変更せずtarget外helperだけを変更しても既存EvidenceはSTALEになる。
+- EvidenceがExecution State subjectを欠く互換recordならSTALE、recordのsnapshotまたは現在snapshotの完全性を証明できなければUNKNOWNとなり、いずれもPASSにならない。
 - EvidenceがSTALE / MISMATCH / UNKNOWNなら`test_execution`、`runtime_result`、`target_execution`へ同じ非PASSを伝播し、無効Evidenceのresultまたはcoverageを再利用しない。Evidenceなしでは3項目ともNOT_EXECUTEDになる。
 - 単数互換形のEvidenceは、現在のTestがtargetをちょうど1件持つ場合だけ有効性を評価できる。複数target Testでは有効なPASSにしない。
 - Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。
@@ -99,6 +107,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 空のreasons、schema違反、kind不一致、stale bundle hashを拒否する。
 - 受理するAudit Recordはsubjectsの内容hashへ束縛される。
 - deterministic結果とagent / human結果を区別して保存・表示する。
+- impl-consistency bundleとAudit Recordは、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合へ束縛される。Specification record、参照先source、または集合だけを変更しても既存recordはSTALEになり、限定scopeの`impl_consistency = PASS`へ利用されない。
 - impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。target解決不能はMISSING、監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
 
 #### 18.3.5 verify・report

@@ -74,17 +74,21 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 
 ### 1.3 内容ハッシュの定義
 
-**内容ハッシュ**はSHA-256を使用し、`sha256:<hex>`形式で記録する。テキストfragmentは改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しない。
+**内容ハッシュ**はSHA-256を使用し、`sha256:<hex>`形式で記録する。subject固有規則でbyte-exactを要求しないテキストfragmentは改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しない。
 
 hash inputはdomain separatorと長さ付きfieldから構成する。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を行わない。mapはkey昇順、集合として扱う`covers`・`targets`・`related`は正規化値の昇順、順序に意味がある`cases`は宣言順とする。null、空文字、空listは異なる値としてencodeする。
 
 - Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。
 - Source Target hash：domain `vtest:target-subject:v1`を用い、正規化TargetRefとadapterが返すimplementation construct bytesを束縛する。
 - Static Audit Config subject hash：domain `vtest:static-audit-config:v1`を用い、adapter ID、static audit capabilityのrule-set ID / version、および現在の静的rule判定へ影響する実効adapter configのcanonical projectionを束縛する。adapterは同じ入力に対するverdictまたは根拠を変えうるrule実装変更ごとにrule-set versionを変更しなければならない。adapterはrule影響fieldだけを型付き・順序正規化済みのhash未計算DTOとして返し、coreがencodingとSHA-256を行う。静的ruleと無関係なrun、coverage、root等の設定はprojectionへ含めない。
+- Static Analysis Source subject hash：domain `vtest:static-analysis-source:v1`を用い、adapter ID、project-relative path、opaque locator、およびadapterが静的rule判定時に実際に参照したbyte-exact source fragmentを束縛する。byte range自体はhash inputにしない。Test subjectまたはSource Target subjectが同じ解析入力を完全に束縛する場合は重複subjectを作らない。
+- Execution State subject hash：domain `vtest:execution-state:v1`を用い、adapter ID、snapshot schema ID / version、HEAD revision、runner kindとcanonical invocation projection、toolchain identity、実行結果へ影響するadapter configのcanonical projection、および実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。manifest entryはstable root identity、root-relative path、input kind、byte-exact file bytesからなり、entry集合は正規化identity順にencodeする。stable root identityはmachine上の絶対pathを用いず、workspace内の論理rootまたはdependency identityから決定論的に導出する。adapterはhash未計算のmanifestと完全性を返し、coreが各entryとsubject全体を検証・hash化する。
 - VO / REQ hash：domain `vtest:record-subject:v1`を用い、readerが具体化したcanonical recordをfield規則に従ってencodeする。VOの読取り互換field `status`は正典ではないため含めない。
 - SPEC subject hash：domain `vtest:spec-subject:v1`を用い、canonical SPEC recordと参照先Specification sourceの正規化内容を束縛する。SPEC recordの`sha256`と実sourceが不一致ならsubject hashは現在有効な値として成立せず、STALEとする。
 
 adapterはsource location、source rangeと現在のbytes、解析済みlogical metadata、ExecutionDescriptorをhash未計算のdiscovery DTOとして返す。coreはadapter出力と現在のsource bytesの対応を検証し、上記の言語非依存encodingとSHA-256計算を行ってからdomain entityを具体化する。adapterが最終的な`TestEntity.content_hash`または`SourceTarget.content_hash`を返して自己確定してはならない。coreはASTや言語固有構文からrangeを再計算しない。
+
+Static Audit adapterとTest Runner adapterも、判定または実行状態へ用いたsource / config / manifestをhash未計算DTOとして返す。coreは現在bytesとの対応、重複、集合完全性、schema versionを検証してsubject hashを計算する。adapterが完全性を保証できないDTOから`PASS`用subjectを具体化してはならない。
 
 `rust-cargo` adapterはTest constructとしてmetadata doc commentを除き、実行に影響する属性、signature、bodyを含む関数itemのbytesを返す。doc comment由来metadataはlogical metadataと`metadata_sources`として別に返す。Source Targetには属性とdoc commentを含む関数item全体を返す。format変更を構文上の意味だけから同値とみなさず、上記正規化後のsource bytesが変化した場合は安全側でSTALEにする。
 
@@ -352,6 +356,13 @@ subjects:                       # 監査対象と当時の内容ハッシュ
     hash: "sha256:..."
   - target: "rust-cargo::src/parser.rs::Parser::parse"
     hash: "sha256:..."
+  - analysis_source:
+      adapter: rust-cargo
+      path: tests/parser_test.rs
+      locator: helper_for_invalid_utf8
+    hash: "sha256:..."
+  - id: SPEC-BASIC-001
+    hash: "sha256:..."
 verdict: PASS                   # PASS | FAIL | UNKNOWN
 reasons:                        # §8.3 の構造。static では規則違反の一覧
   - claim: テストは不正UTF-8入力に対する InvalidUtf8 の返却を検証している
@@ -371,7 +382,7 @@ revision: { commit: "abc123...", dirty: false }
 同一対象への監査レコードは複数存在してよい（再監査・多重監査）。
 判定に用いるのは「subjects の全ハッシュが現在と一致する（＝有効な）レコードのうち最新のもの」とする。
 有効なレコードに FAIL と PASS が混在する場合は FAIL を採る（fail-closed）。
-`kind: static`のsubjectsはTest subject、重複のない全宣言target subject、および選択adapterのStatic Audit Config subjectをそれぞれちょうど1回含む。config subjectを欠く読取り互換recordは履歴表示できるが、現在の`static_audit`へ有効なPASSを供給せず`STALE`とする。
+`kind: static`のsubjectsはTest subject、重複のない全宣言target subject、選択adapterのStatic Audit Config subject、およびTest / target subjectだけでは束縛されない全Static Analysis Source subjectをそれぞれちょうど1回含む。analysis source集合はadapterが実際に判定へ使用したsource fragmentの完全集合と一致しなければならない。config subjectまたは必要なanalysis source subjectを欠く読取り互換recordは履歴表示できるが、現在の`static_audit`へ有効なPASSを供給せず`STALE`とする。
 
 ```yaml
 # kind: staticのconfig subject
@@ -390,6 +401,10 @@ adapter: rust-cargo
 result: PASS                    # PASS | FAIL
 executed_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
+execution_state:
+  schema: rust-cargo-execution-state-v1
+  complete: true
+  hash: "sha256:..."             # complete: falseの場合だけnull
 hashes:
   test_subject: "sha256:..."
   targets:
@@ -429,6 +444,12 @@ readerは単数互換形の`hashes.target_fn`および`target_execution.result/c
 
 Evidence内の`target`は実行時snapshotを識別するkeyであり、TEST → SRC edgeの正典ではない。
 graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのtarget listからedgeを生成しない。
+
+`execution_state`は§1.3のExecution State subjectである。writerは実行直前にadapterからsnapshot DTOを取得し、core検証後のschema ID、完全性、subject hashを記録する。`complete: true`は、選択Testのビルドと実行可能状態を変えうるrepository / local dependency入力、runner、toolchain、実行影響configをadapterが漏れなく列挙した場合だけ許可する。snapshot生成不能または不完全の場合も実行事実の履歴を記録できるが、`complete: false`、`hash: null`として現在の`evidence_validity = PASS`へ使用しない。
+
+`rust-cargo-execution-state-v1`のmanifestは、選択Testを含むCargo workspace / package root、全local path dependency root、各root内の通常file、Cargo manifest / lockfile、`.cargo` config、build script、Rust source / test / fixture / compile-time resource、toolchain指定を含む。`.git/`、`.verify/`のcanonical record / cache、Cargo target directory等の生成物は実行入力から除外する。除外領域をbuild script、macro、`include_*`、path dependencyその他の経路で読み込む可能性を排除できない場合、snapshotを完全と報告しない。repository内helperだけの変更もmanifest hashを変化させる。
+
+Evidence readerは`execution_state`を欠く互換recordを履歴表示できるが、現在のEvidence freshnessを証明できないため`STALE`とする。
 
 schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾は
 E-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。
@@ -695,6 +716,44 @@ adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAuditA
 E-ADAPTER-004で操作を中止する。検証集約では、static audit / coverage欠落は
 `NOT_CHECKED`、runner欠落は `NOT_EXECUTED`、解析限界は `UNKNOWN` とする。
 
+`StaticAuditAdapter`と`TestRunnerAdapter`は、coreがfreshness subjectを所有できるよう次のhash未計算DTOを返す。`CanonicalProjection`は型tag、null、list順序、map key順序を保持する言語非依存値とする。
+
+```rust
+pub struct StaticAnalysisClosureDraft {
+    pub complete: bool,
+    pub sources: Vec<SourceFragment>,
+}
+
+pub struct StaticAuditConfigDraft {
+    pub rule_set_id: String,
+    pub rule_set_version: String,
+    pub effective_config: CanonicalProjection,
+}
+
+pub struct ExecutionInputDraft {
+    pub root_identity: String,
+    pub root_relative_path: String,
+    pub kind: String,
+    pub bytes: Vec<u8>,
+}
+
+pub struct ExecutionStateDraft {
+    pub schema_id: String,
+    pub schema_version: String,
+    pub complete: bool,
+    pub head_revision: Option<String>,
+    pub runner_kind: String,
+    pub invocation: CanonicalProjection,
+    pub toolchain_identity: String,
+    pub effective_config: CanonicalProjection,
+    pub inputs: Vec<ExecutionInputDraft>,
+}
+```
+
+Static Auditの実行結果は`StaticAuditConfigDraft`と`StaticAnalysisClosureDraft`を必ず伴う。`complete: false`ではrule結果に違反がなくても`UNKNOWN`とする。有効性再評価時、coreは保存recordのsource listを正典として再利用せず、現在のTest・target・configからadapterへclosure再導出だけを要求し、返された現在集合とrecord集合の完全一致および各hash一致を検証する。
+
+Test Runnerはcommand起動前に`ExecutionStateDraft`を構築し、実際に使用するinvocation / toolchain / configと一致するDTOだけを実行結果へ添付する。`invocation`はselector、working root、runner option等をmachine非依存に正規化し、絶対pathを含む表示用commandとは分離する。coreは実行前後でExecution State subject全体が変化していないことを確認してからEvidenceを記録する。変化した場合はE-EXEC-004としてEvidenceを生成しない。有効性再評価では同じschemaを持つ現在DTOを再構築し、保存hashと比較する。
+
 Structured Test capabilityを宣言するadapterは、処理可能なbuilt-in Form `kind`集合と、adapter fieldを持たないForm Schemaを判定するcompatibility matcherを宣言する。Form `kind`はbuilt-inと`.verify/forms/`を統合したrepository全体で一意であり、Form Schemaの`adapter` field、registryのowner、Structured Test capabilityが同じadapter IDを示す場合だけ`kind → adapter`を確定する。重複kindまたは対応の不一致はE-ADAPTER-001、未知kindはE-OP-001とし、coreが名前からRust adapterを推測しない。`adapter` fieldを欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはcompatibility matcherのうちちょうど1件だけがschemaを受理する場合に限ってin-memoryでownerを補える。0件または複数件なら操作を拒否し、ファイルを書き換えない。matcherはsource bytes、schema field / validator集合等から決定論的に判定し、form kindの文字列だけを理由に汎用fallbackしてはならない。
 
 VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキーマに対応する struct を定義する。
@@ -827,9 +886,9 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
 
-`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projectionを返す。coreはadapter ID、projection schemaと決定論的encodingを検証し、§1.3のStatic Audit Config subject hashを計算して監査対象集合へ加える。rule判定へ影響するfieldをprojectionから欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
+`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
-Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全または解析限界を報告した場合は`UNKNOWN`とし、違反なしと推測しない。
+Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。adapterがsource fragmentを参照したにもかかわらず対応DTOを返さないことをcoreが検出した場合も、そのrule verdictをPASSへ使用しない。
 
 ### 7.2 `rust-cargo` ルール一覧
 
@@ -852,7 +911,7 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全ま�
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
-ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、および§1.3のStatic Audit Config subjectの現在hashを含める。`assertion_macros`またはrule-set ID / versionの変更はconfig subject hashを変化させ、既存recordを`STALE`にする。
+ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
 
@@ -873,9 +932,9 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 | `spec-coverage` | `--spec SPEC-X` | 対象SPEC record、Specification source全文とSPEC subject hash、対象SPECを参照するactive REQの完全な集合・全record・内容hash、各REQのsection参照、withdrawn REQ一覧、有効な過去監査の要約 |
 | `test-semantic` | `--test TEST-X` | Test（metadata宣言・Test construct source全文）、covers先VOレコード、全targetのimplementation construct source全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約 |
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
-| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、spec_refs、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
+| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合とSpecification source全文、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
 
-`impl-consistency` のバンドル生成時、宣言targetのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。
+`impl-consistency` のバンドル生成時、宣言targetのいずれか、または対象VOから§3.5と同じ上流依存規則で導出するSPEC subjectのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。SPEC recordと参照先sourceの現在性を確認できない場合は`STALE`とし、SPECを省略したbundleを生成しない。`--test`ではTestがcoversする全VO、`--vo`では選択VO部分木を起点とし、上流SPEC集合を狭めない。
 
 ### 8.2 バンドル JSON スキーマ（test-semantic の例）
 
@@ -989,7 +1048,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 ```
 
 受理された提出は監査レコード（§3.6）として保存される。
-`subjects`にはバンドル生成時の全対象を記録する。`spec-coverage`ではSPEC subjectと対象SPECを参照するactive REQの完全な集合、`test-semantic`ではTest subject・VO・全target、`vo-coverage`ではREQ・VO部分木・SPEC subject、`impl-consistency`ではTest / VO・全targetを含める。
+`subjects`にはバンドル生成時の全対象を記録する。`spec-coverage`ではSPEC subjectと対象SPECを参照するactive REQの完全な集合、`test-semantic`ではTest subject・VO・全target、`vo-coverage`ではREQ・VO部分木・SPEC subject、`impl-consistency`ではTest / VO・全target、および対象VOの上流依存から導出したSPEC subjectの完全な集合を含める。
 
 ### 8.5 有効性と多重監査
 
@@ -1002,7 +1061,9 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
  不一致の場合は W-SCAN-104 を出し、当該レコードは STALE）
 ```
 
-`kind: static`の現在対象集合はTest subject、全宣言target subject、Static Audit Config subjectからなる。静的rule判定へ影響するconfig projectionまたはrule-setが変化したrecord、あるいはconfig subjectを欠くrecordは`STALE`であり、有効なPASSに数えない。
+`kind: static`の現在対象集合はTest subject、全宣言target subject、Static Audit Config subject、および判定に参照したStatic Analysis Source subjectの完全な集合からなる。静的rule判定へ影響するconfig projection、rule-set、参照sourceの内容または集合が変化したrecord、あるいは必要subjectを欠くrecordは`STALE`であり、有効なPASSに数えない。解析入力の完全性を証明できなければ再監査結果も`UNKNOWN`とする。
+
+`kind: impl-consistency`の現在対象集合はTest / VO、全target、および§8.1で導出したSPEC subjectの完全な集合からなる。SPEC record、参照先Specification source、またはSPEC集合だけが変化した場合もrecordを`STALE`とし、限定scopeの`impl_consistency = PASS`へ利用しない。SPEC subjectを欠く読取り互換recordも`STALE`とする。
 
 同一対象に有効なレコードが複数ある場合、FAIL が1件でもあれば FAIL、なければ最新の verdict を採る。
 有効なレコードが1件もなければ `NOT_CHECKED`（一度も監査されていない）または `STALE`（無効化されたレコードのみ存在）とする。
@@ -1080,6 +1141,7 @@ Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
 - `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetの正規化Target Reference・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
+- `execution_state`：実行直前にrunner adapterが返すsnapshot schema、runner / toolchain / 実行影響config、およびrepository / local dependency入力manifestをcoreが検証し、§1.3のExecution State subject hashとして記録する。完全性を保証できない場合は`complete: false`とし、後続のvalidityをPASSにしない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
 ---
@@ -1199,15 +1261,18 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 
 1. evidence.hashes.test_subject == 現在のTest subject hash
 2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_constructが現在のimplementation construct hashと一致
-3. evidence.revision.commit が非 null
-4. evidence.adapter が現在のTest.execution.adapterと一致する。adapter欠落形は§3.7の互換条件で一意に確認できる
+3. evidence.revision.commit が非 null かつ現在のHEAD revisionと一致する
+4. evidence.execution_state.complete == true かつ、同じschemaで現在再構築したExecution State subjectがcompleteで、hashが一致する
+5. evidence.adapter が現在のTest.execution.adapterと一致する。adapter欠落形は§3.7の互換条件で一意に確認できる
 
-1〜4 すべて成立 → evidence_validity = PASS
-  （dirty: true でもハッシュ一致なら有効。ハッシュが実体を保証する）
+1〜5 すべて成立 → evidence_validity = PASS
+  （dirty: true でもExecution State subject一致なら有効。実行入力manifestが実体を保証する）
 1 または 2 不成立 → STALE
-3 不成立          → STALE（現在revisionへの有効性を確認できない実行）
-4が明示的不一致  → MISMATCH
-4を確認不能      → UNKNOWN
+3 不成立          → STALE（現在revisionに対する実行ではない）
+4のrecord欠落またはhash不一致             → STALE
+4のrecordがcompleteでない、または現在snapshotを完全に構築不能 → UNKNOWN
+5が明示的不一致  → MISMATCH
+5を確認不能      → UNKNOWN
 Evidence なし     → NOT_EXECUTED
 ```
 
@@ -1289,6 +1354,7 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | E-EXEC-001 | error | テストビルド失敗 |
 | E-EXEC-002 | error | 要求したテストの結果行が得られない |
 | E-EXEC-003 | error | 終了コードと結果行集計の矛盾 |
+| E-EXEC-004 | error | 実行中にExecution State subjectが変化 |
 | W-EXEC-101 | warning | カバレッジツール利用不能（target_execution は NOT_CHECKED） |
 | E-AUDIT-001 | error | 提出された bundle_id が存在しない |
 | E-AUDIT-002 | error | バンドル記録時のハッシュと現在のハッシュの不一致（対象が変更済） |
