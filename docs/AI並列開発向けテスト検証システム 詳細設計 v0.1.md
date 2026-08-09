@@ -8,13 +8,14 @@
 
 ### 分冊構成
 
-詳細設計は3分冊とし、節番号は全冊を通した連番とする（基本仕様からの節参照を維持するため）。
+正規の詳細設計は3分冊とし、節番号は正規文書間を通した連番とする。別紙Bは非正規のprocess文書として別に扱う。
 
-| 分冊 | 収録節 |
-|---|---|
-| 本冊（コア設計） | §1〜§11、§16、§17、§19 |
-| 別紙A（CLI・MCPインターフェース仕様） | §12〜§15 |
-| 別紙B（受入仕様） | §18 |
+| 文書 | 位置付け | 収録節 |
+|---|---|---|
+| 本冊（コア設計） | 正規 | §1〜§11、§16、§17、§19 |
+| 別紙A（CLI・MCPインターフェース仕様） | 正規 | §12〜§15 |
+| 別紙B（実装計画） | 非正規 / process | 正規節番号を持たない |
+| 別紙C（受入仕様） | 正規 | §18 |
 
 ---
 
@@ -119,7 +120,7 @@ scan:
   # 追加で assert 相当として扱うマクロ名
   assertion_macros: []
 verify:
-  # 完全検証のチェック項目（基本仕様 §4.2 の11項目。通常は変更しない）
+  # 完全検証のチェック項目（基本仕様 §4.2 の12項目。通常は変更しない）
   full_scope:
     - spec_coverage
     - vo_decomposition
@@ -132,6 +133,7 @@ verify:
     - runtime_result
     - target_execution
     - evidence_validity
+    - test_traceability
 run:
   # target_execution 計測方式: llvm-cov | off
   coverage: llvm-cov
@@ -165,6 +167,7 @@ verify:
     - runtime_result
     - target_execution
     - evidence_validity
+    - test_traceability
 ```
 
 adapter IDの重複、同一adapter内のroot重複、未知adapter、無効なadapter設定はusage errorとする。
@@ -402,8 +405,8 @@ item-path = Rust アイテムパス（"::" 区切り）
 
 ### 4.3 パースエラーの扱い
 
-アノテーションのパースエラーはスキャン診断（§5.4）として報告し、当該 Test はエンティティとして登録しない。
-未登録の `#[test]` 関数と同様に unregistered として扱われ、fail-closed により関連 VO の `test_existence` は PASS にならない。
+アノテーションのパースエラーはスキャン診断（§5.4）として報告し、当該Test constructをDiscovered Testとして保持するが、Managed Test Entityとして登録しない。
+未登録の `#[test]` 関数と同様にunregisteredとして扱い、`test_traceability = MISSING`とする。対応VOを特定できないため、`test_existence`へ推測で関連付けない。
 
 ---
 
@@ -458,9 +461,6 @@ pub struct TestEntity {
     pub location: SourceLocation,   // ファイル、モジュールパス、関数名、byte range
     pub content_hash: ContentHash,  // §1.3
     pub execution: ExecutionDescriptor,
-    pub filter: String,             // cargo test 用フィルタ（§9.2）
-    pub package: String,            // cargo package 名
-    pub test_target: TestTarget,    // Lib | Bin(String) | IntegrationTest(String)
 }
 
 pub struct ExecutionDescriptor {
@@ -484,17 +484,38 @@ pub enum CheckItem {
     SpecCoverage, VoDecomposition, VoCoverage, TestExistence,
     StaticAudit, SemanticAudit, ImplConsistency,
     TestExecution, RuntimeResult, TargetExecution, EvidenceValidity,
+    TestTraceability,
 }
 ```
 
 `TestEntity.execution` はadapter、project、suite、opaque selectorからなる中立な実行座標である。
 coreは `project`、`suite.kind`、`suite.name`、`selector` の文字列を解釈しない。
-`filter`、`package`、`test_target`はversion 1 JSON互換fieldとする。
-Test入力で `execution` が欠ける場合は、3互換fieldが完全かつ相互整合するRust値である場合だけ
-`rust-cargo` descriptorを導出する。不完全・矛盾時はdeserializeまたは操作を失敗させ、空selectorを
-実行可能なdefaultとして扱わない。core consumerは `execution` のみを参照する。
+`filter`、`package`、`test_target`および`TestTarget`型を`vtest-model`へ置かない。
 
-adapter capabilityは `SourceDiscoveryAdapter`、`StaticAuditAdapter`、
+`vtest-adapter-api`は言語非依存の`TestWireCodec` capabilityを定義する。codecはadapter固有の
+compatibility propertyをJSON objectとしてencode / decodeできるが、core domain typeへadapter固有fieldを
+追加しない。`rust-cargo` codecはversion 1互換の`filter`、`package`、`test_target`を所有する。
+
+JSON writerは`execution`を常に出力し、`rust-cargo` TestだけにRust互換fieldを追加する。
+非Rust TestではRust互換fieldを省略する。JSON readerは`execution`を優先し、互換field併存時は
+descriptorとの一致を検証する。`execution`が欠ける場合、完全で相互整合するRust互換fieldからだけ
+`rust-cargo` descriptorを導出する。不完全・矛盾時は入力を拒否し、空selectorまたはdummy値を生成しない。
+
+scan時の導出結果には、Managed Test Entityとは別に次のin-memory observationを保持する。
+
+```rust
+pub struct DiscoveredTest {
+    pub adapter: AdapterId,
+    pub location: SourceLocation,
+    pub content_hash: ContentHash,
+    pub managed_test_id: Option<TestId>,
+}
+```
+
+`SourceDiscoveryAdapter`は有効なManaged Test Entityだけでなく、adapterがTestとして認識した全
+Discovered Testを返す。`managed_test_id`は有効なentityへ一意に対応するときだけ設定する。
+
+adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAuditAdapter`、
 `StructuredTestAdapter`、`TestRunnerAdapter`、`CoverageAdapter` に分割する。
 各adapterは一意なID、languages、capabilities、config namespaceを宣言し、registryは
 宣言と実装の不一致および重複IDを拒否する。明示操作に必須のcapabilityがない場合は
@@ -539,8 +560,11 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
 | W-STORE-001 | warning | VO の `status` フィールドと承認導出結果の不一致 |
 
-error は該当エンティティに関わるチェック項目を非 PASS にする。
-warning は検証結果を直接変えないが、レポートに常に表示する。
+error は該当エンティティに関わるチェック項目を非PASSにする。
+warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
+W-SCAN-101またはE-SCAN-007が示すmanaged Test Entityの欠落は、診断とは独立した
+`test_traceability`評価で`MISSING`になる。E-SCAN-002またはE-SCAN-003により一意で
+解決可能なmanaged対応が成立しない場合は`test_traceability = MISMATCH`とする。
 
 ---
 
@@ -769,18 +793,20 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 `vtest run` は `--test` / `--vo` / `--req` / `--all` で対象を受け取り、検証グラフから Test 集合へ展開する（VO / REQ 指定は部分木の covers を辿る）。
 
-### 9.2 cargo test の起動
+### 9.2 `rust-cargo` TestRunnerAdapter
 
-スキャナは各 Test について次を記録している（§5.2）。
+`rust-cargo` adapterは`TestEntity.execution`を次のCargo実行座標として解釈する。
 
-- `package`：cargo package 名（ファイルパスから該当 `Cargo.toml` を特定）
-- `test_target`：`Lib` / `Bin(name)` / `IntegrationTest(name)`（`tests/foo.rs` → `IntegrationTest("foo")`）
-- `filter`：テストターゲットのルートからのモジュールパス＋関数名（例：`parser::tests::rejects_invalid_utf8`）
+- `project`：cargo package名
+- `suite.kind`：`lib` / `bin` / `integration`
+- `suite.name`：bin名またはintegration test target名。`lib`では省略する。
+- `selector`：test targetのrootからのmodule path＋function名（例：`parser::tests::rejects_invalid_utf8`）
 
-実行は（package, test_target）で分けたバッチとし、libtest の `--exact` フラグと複数フィルタを用いる。
+adapter内部ではこれらからCargo launch coordinateを構築する。`TestEntity`へCargo固有fieldを戻してはならない。
+実行は（project, suite）で分けたbatchとし、libtestの`--exact` flagと複数selectorを用いる。
 
 ```text
-cargo test -p <package> --lib -- --exact <filter1> <filter2> ...
+cargo test -p <project> --lib -- --exact <selector1> <selector2> ...
 （IntegrationTest の場合は --lib の代わりに --test <name>）
 ```
 
@@ -797,9 +823,9 @@ stdout を次の規則でパースする（stable toolchain の標準出力形�
 
 ```text
 running N tests            → 実行対象数の確認
-test <filter> ... ok       → PASS
-test <filter> ... FAILED   → FAIL
-test <filter> ... ignored  → NOT_EXECUTED（Evidence は記録しない）
+test <selector> ... ok       → PASS
+test <selector> ... FAILED   → FAIL
+test <selector> ... ignored  → NOT_EXECUTED（Evidence は記録しない）
 ```
 
 要求した各フィルタについて結果行が得られなかった場合、その Test の実行は失敗（E-EXEC-002）とし、Evidence を記録しない。
@@ -826,9 +852,9 @@ Test ごとに §3.7 のレコードを1件生成する。
 カバレッジを Test 単位で対象関数へ帰属させるため、計測時は Test を1件ずつ実行する。
 
 ```text
-cargo llvm-cov test -p <package> --lib --json
+cargo llvm-cov test -p <project> --lib --json
   --output-path cache/cov/<ULID>.json
-  -- --exact <filter>
+  -- --exact <selector>
 ```
 
 coverageは独立した `CoverageAdapter` capabilityとして扱う。提供されない場合は
@@ -866,7 +892,7 @@ coverageは独立した `CoverageAdapter` capabilityとして扱う。提供さ�
 
 ### 11.1 チェック項目の評価地点
 
-11のチェック項目（基本仕様 §4.2）は、次の地点で評価する。
+12のチェック項目（基本仕様 §4.2）は、次の地点で評価する。
 
 | チェック項目 | 評価地点 | 評価方法 |
 |---|---|---|
@@ -881,6 +907,14 @@ coverageは独立した `CoverageAdapter` capabilityとして扱う。提供さ�
 | `runtime_result` | TEST | 有効な Evidence の result（PASS / FAIL） |
 | `target_execution` | TEST | 有効な Evidence の target_execution（checked: false は NOT_CHECKED） |
 | `evidence_validity` | TEST | §11.2 の判定 |
+| `test_traceability` | repository scan result | 全Discovered Testが有効なManaged Test Entityへちょうど1件対応し、coversが1件以上かつ全VO参照を解決できればPASS |
+
+`test_traceability`の判定は次のとおりとする。
+
+- Discovered Testにmanaged対応がない、またはcoversが空なら`MISSING`。
+- 同じDiscovered Testに複数entityが対応する、Test IDが衝突する、またはcovers参照を解決できないなら`MISMATCH`。
+- discovery結果が不完全または解析不能なら`UNKNOWN`とし、PASSにしない。
+- repository-level項目であるため、REQ / VO / TESTのentity scopeを指定してもDiscovered Test集合を狭めない。必要な場合は`--items`でこの項目自体をscope外にできるが、その値は`NOT_CHECKED`のまま保持する。
 
 ### 11.2 Evidence 鮮度判定
 
@@ -905,14 +939,15 @@ Evidence なし     → NOT_EXECUTED
 ```text
 fn aggregate(scope) -> Report:
   1. scan によりグラフ構築（§5）
-  2. scope のエンティティ軸で REQ/VO/TEST 部分木を選択
-  3. 各 TEST について、scope のチェック項目軸に含まれる
+  2. test_traceabilityが項目scopeにあればrepository全体のDiscovered Test集合を評価
+  3. scope のエンティティ軸で REQ/VO/TEST 部分木を選択
+  4. 各 TEST について、scope のチェック項目軸に含まれる
      TEST 評価項目を評価（含まれない項目は NOT_CHECKED）
-  4. 各 leaf VO について VO 評価項目を評価し、
+  5. 各 leaf VO について VO 評価項目を評価し、
      covers する TEST 群の結果を fail-closed で合成
-  5. 中間 VO は子 VO の合成（fail-closed）
-  6. REQ は spec_coverage と VO 部分木の合成
-  7. 総合判定：scope 内の全評価が PASS → OK、それ以外 → NG
+  6. 中間 VO は子 VO の合成（fail-closed）
+  7. REQ は spec_coverage と VO 部分木の合成
+  8. 総合判定：repository-level項目とentity treeのscope内評価がすべてPASS → OK、それ以外 → NG
 
 fail-closed 合成：
   子に FAIL/MISMATCH/MISSING/STALE/NOT_EXECUTED/

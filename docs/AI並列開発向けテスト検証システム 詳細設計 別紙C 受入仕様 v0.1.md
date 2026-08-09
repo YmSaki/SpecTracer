@@ -1,4 +1,4 @@
-# AI並列開発向けテスト検証システム 詳細設計 別紙B 受入仕様 v0.1
+# AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1
 
 本冊 §0 の分冊構成に基づき、本別紙は §18 を収録する。
 
@@ -25,8 +25,10 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - 宣言targetを呼ばないTest
 - 結果を検証しないTest
 - 自己比較を行うTest
-- annotationを持たないtest function
-- 存在しないVOを参照するTest
+- annotationを持たないtest function（W-SCAN-101、`test_traceability = MISSING`）
+- 空のcoversを持つTest（`test_traceability = MISSING`）
+- 存在しないVOを参照するTest（E-SCAN-003、`test_traceability = MISMATCH`）
+- Test IDが衝突するTest（E-SCAN-002、`test_traceability = MISMATCH`）
 - `@vtest.case`を持つtable-driven Test
 - PASS、FAIL、MISMATCH、MISSING、NOT_CHECKED、NOT_EXECUTED、STALE、UNKNOWNを生じる入力
 - Testまたはtargetのhash変更によって無効になるAudit / Evidence
@@ -38,8 +40,11 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 
 #### 18.3.1 discovery・record・graph
 
-- source discoveryは登録Test、Source Target、位置、内容hash、Test execution descriptorを抽出する。
+- source discoveryは全Discovered Testと、有効なManaged Test Entity、Source Target、位置、内容hash、Test execution descriptorを区別して抽出する。
 - annotation、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
+- annotationを持たないTestが1件でもあれば、W-SCAN-101を表示し、同じ事実を`test_traceability = MISSING`としてfull verificationへ反映する。
+- 全Discovered Testがmanaged entityへちょうど1件対応し、coversが1件以上かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 - adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 - SPEC sourceの内容hash不一致をW-SCAN-104として検出する。
 - VOの承認はVO内容hashに束縛され、不一致の承認を有効として扱わない。
@@ -72,9 +77,10 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 
 #### 18.3.5 verify・report
 
-- 基本仕様 §4.2の11項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
-- 全11項目がPASSの場合だけ要求scopeをOKとする。
-- 11項目のそれぞれについて、その項目だけを非PASSにしたfixtureが総合NGになる。
+- 基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
+- 全12項目がPASSの場合だけ要求scopeをOKとする。
+- 12項目のそれぞれについて、その項目だけを非PASSにしたfixtureが総合NGになる。
+- 管理済みgraph側の11項目がすべてPASSでも、未登録Testが1件あれば`test_traceability`により総合NGになる。
 - `FAIL`、`MISMATCH`、`MISSING`、`NOT_CHECKED`、`NOT_EXECUTED`、`STALE`、`UNKNOWN`のいずれも総合PASSへ昇格しない。
 - 限定scopeは要求項目だけを集約し、scope外をNOT_CHECKEDのまま表示する。
 - reportはREQ → VO → Testの構造と、各非PASSの根拠をtext / JSONで返す。
@@ -105,14 +111,17 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 #### 18.3.9 adapter contract
 
 - `vtest-adapter-api`は言語・runner非依存であり、Cargo、Rust parser、llvm-cov固有型を公開しない。
+- `vtest-model::TestEntity`は`ExecutionDescriptor`だけを実行座標として持ち、`filter`、`package`、`test_target`、`TestTarget`を含まない。
 - `rust-cargo` adapterはRust discovery、static audit、Structured Test Operation、runner、coverageを所有する。
 - registryはadapter IDの重複、宣言capabilityと実装の不一致、未登録adapterを拒否する。
 - 異なるadapterが同じrootを共有でき、同一adapter内のroot重複は拒否される。
 - 全adapterのmerge結果でTest IDのglobal uniquenessを検査する。
 - config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。
 - config writerと`vtest init`はversion 2のadapter namespaceを出力する。
-- Test JSON writerは`execution`と互換field `filter` / `package` / `test_target`を出力する。
-- `execution`を欠くTest入力は、完全で相互整合するRust互換fieldからだけdescriptorを導出する。
+- Test JSON writerは`execution`を常に出力し、`rust-cargo` Testについてだけwire codecが互換field `filter` / `package` / `test_target`を追加する。
+- synthetic TestのJSONはRust互換fieldを省略し、空値またはdummy値を出力しない。
+- `execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。
+- `execution`とRust互換fieldが矛盾する入力を拒否する。
 - 明示操作に必須のcapabilityがなければE-ADAPTER-004となり、変更・Audit・Evidenceを生成しない。
 - 検証時のstatic audit / coverage capability欠落はNOT_CHECKED、runner欠落はNOT_EXECUTED、解析限界はUNKNOWNになる。
 - Rustとsyntheticの結果をadapter ID、path、Test IDで決定論的に統合する。

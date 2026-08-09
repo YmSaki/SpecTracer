@@ -5,7 +5,7 @@
 本書は「AI並列開発向けテスト検証システム 要件定義・要件分解 v0.1」（以下、要件定義）の下流文書である。
 要件定義が「何を保証しなければならないか」を定めたのに対し、本書はシステムが外部に対して保証する挙動、データモデル、状態モデル、インターフェースの範囲を確定する。
 実装内部の構造、ファイルスキーマの全フィールド、アルゴリズム、コマンドの引数仕様は「詳細設計 v0.1」で定める。
-詳細設計は本冊（コア設計 §1〜§11、§16〜§17、§19）、別紙A（CLI・MCPインターフェース仕様 §12〜§15）、別紙B（受入仕様 §18）の3分冊であり、節番号は全冊を通した連番である。本書からの「詳細設計 §n」の参照はこの連番を指す。
+正規の詳細設計は、本冊（コア設計 §1〜§11、§16〜§17、§19）、別紙A（CLI・MCPインターフェース仕様 §12〜§15）、別紙C（受入仕様 §18）の3分冊であり、節番号は正規文書間を通した連番である。別紙Bは非正規の実装計画であり、この連番とシステム契約に含めない。本書からの「詳細設計 §n」の参照は正規文書の連番を指す。
 
 要件定義 §34 の委譲事項に対する設計責任の所在を §15 に示す。
 
@@ -30,9 +30,11 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Test Intent**：Test が「何を検証するか」を、コードを読まずに判断できる形で表した宣言情報。テストコードのアノテーションとして記述する（§6）。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能な地点。プロジェクト相対パスとシンボルの組（ロケータ）で識別する。
 - **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、対象コードの内容ハッシュを含む。
-- **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の11項目）。
+- **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
+- **Managed Test Entity**：有効な一意Test ID、1件以上の解決可能なcovers、その他の必須metadataを持つTest Entity。
+- **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
 - **チェック結果値**：各チェック項目が取る値（PASS / FAIL / MISMATCH / MISSING / NOT_CHECKED / NOT_EXECUTED / STALE / UNKNOWN）。
-- **完全検証**：11のチェック項目すべてを対象とする検証。1項目でも PASS 以外があれば NG（fail-closed）。
+- **完全検証**：12のチェック項目すべてを対象とする検証。1項目でも PASS 以外があれば NG（fail-closed）。
 - **scope**：利用者が検証対象とするチェック項目・エンティティ範囲の選択。scope を狭めても、対象外項目の状態は書き換えない。
 - **正典（source of truth）**：ある事実を決定する唯一の記録。正典から導出できる情報は派生情報とし、独立して保存しない（要件定義 P-003）。
 - **監査バンドル**：AI意味監査のために `vtest` が整形して出力する、判定に必要な情報一式（§7.3）。
@@ -108,7 +110,11 @@ Test → VO（covers）、Test → SRC（target）の関係は、テストコー
 
 adapter IDは設定内で一意でなければならず、同一adapter内のroot重複も拒否する。一方、polyglot repositoryを扱えるよう、異なるadapterが同じrootを走査することは許可する。未知のadapterやadapter固有設定の検証失敗は操作エラーとし、利用可能な言語や能力を推測して補完しない。
 
-TestのJSON writerは、言語・runner非依存の `execution`（adapter、project、suite、opaque selector）と、互換field `filter`、`package`、`test_target` を出力する。Test入力に `execution` がない場合は、完全で相互整合するRust互換fieldからだけ `rust-cargo` の値を導出できる。導出に必要な値が欠落・矛盾する場合は、空値や推測値で実行可能として扱わない。
+core domainの`TestEntity`は、言語・runner非依存の `execution`（adapter、project、suite、opaque selector）だけを実行座標として持つ。`filter`、`package`、`test_target`は`TestEntity`のfieldではない。
+
+Test JSONのwire compatibility layerは`execution`を常に出力する。`rust-cargo` Testについてだけ、`rust-cargo` adapterのcodecがversion 1互換field `filter`、`package`、`test_target`を追加出力できる。非Rust Testではこれらを省略し、空値、dummy値、Rust既定値を生成しない。
+
+Test入力に `execution` がない場合は、`rust-cargo` codecだけが完全で相互整合するRust互換fieldからdescriptorを導出できる。`execution`と互換fieldが併存する場合は同じ実行座標を表さなければならない。欠落・矛盾時は入力を拒否し、推測で実行可能として扱わない。
 
 ---
 
@@ -176,7 +182,7 @@ Test → SRC の対応はアノテーションから、SRC → Test の逆引き
 
 ### 4.2 チェック項目
 
-完全検証は次の11項目で構成する（要件定義 §17.2 に対応）。
+完全検証は次の12項目で構成する（要件定義 §17.2 に対応）。
 
 | # | チェック項目キー | 内容 | 主な判定方式 |
 |---|---|---|---|
@@ -191,6 +197,7 @@ Test → SRC の対応はアノテーションから、SRC → Test の逆引き
 | 9 | `runtime_result` | 実行結果が PASS だったか | 決定論 |
 | 10 | `target_execution` | 宣言された対象コードが実行経路へ入ったか | 決定論（カバレッジ計測） |
 | 11 | `evidence_validity` | Evidence が現在の Test・対象実装・リビジョンに対して有効か | 決定論 |
+| 12 | `test_traceability` | 発見された全Testが、1件のmanaged Test Entityと1件以上の解決可能なVOへ対応するか | 決定論 |
 
 ### 4.3 総合判定
 
@@ -317,6 +324,7 @@ fn rejects_invalid_utf8() {
 - `@vtest` アノテーションを持たない `#[test]` 関数（unregistered test）※警告
 
 エラーは検証結果に反映され、該当エンティティのチェック項目を非 PASS にする。
+W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestがmanaged Test Entityへ対応しない事実、および空のcoversは`test_traceability = MISSING`として完全検証へ反映する。Test ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。診断severityとチェック結果を混同しない。
 
 ### 7.2 決定論的テスト監査
 

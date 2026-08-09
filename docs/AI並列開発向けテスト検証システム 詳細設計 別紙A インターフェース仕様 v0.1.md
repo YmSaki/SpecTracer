@@ -19,9 +19,12 @@ CLIの操作は登録済みadapter registryを通じて実装を選択する。
 JSON envelope、adapter選択エラー、capability不足の非PASS扱いはMCPと共通であり、
 CLIだけがRust固有の既定値へフォールバックしてはならない。
 
-Testを含むJSONは本冊 §5.2の `execution` と互換field `filter`、`package`、
-`test_target` を返す。Test入力から `execution` を復元できるのは、
-完全で相互整合するRust互換実行座標がある場合だけである。
+Testを含むJSONは本冊 §5.2の `execution` を必ず返す。`rust-cargo` Testについてだけ、
+wire compatibility layerが`filter`、`package`、`test_target`を追加できる。これらは
+`TestEntity`のfieldではない。非Rust TestではRust互換fieldを省略し、空値またはdummy値を返さない。
+
+Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が
+与えられた場合だけである。`execution`と互換fieldが併存する場合は一致を必須とする。
 
 明示操作に必須のadapter capabilityが未提供なら、`ok: false`、E-ADAPTER-004、終了コード2を返す。
 create / editではファイルを変更せず、auditではAudit Recordを、runではEvidenceを生成しない。
@@ -181,7 +184,10 @@ scope を限定した場合、出力冒頭に要求 scope と「scope 外は未�
 出力例（テキスト）：
 
 ```text
-Requested scope: full (11 items), REQ-PARSER-001
+Requested scope: full (12 items), REQ-PARSER-001
+
+Project checks:
+└─ test_traceability                    PASS
 
 └─ REQ-PARSER-001                       NG
    ├─ spec_coverage                     PASS
@@ -202,6 +208,10 @@ Requested scope: full (11 items), REQ-PARSER-001
 
 Result: NG
 ```
+
+`test_traceability`はrepository-level項目であり、要求された場合はREQ / VO / TESTのentity scopeに
+かかわらず全Discovered Testを評価する。非PASS時は、未登録または不正対応の各Testについてadapter ID、
+source location、diagnostic code、判定値をProject checks配下に表示する。JSONでも同じ根拠一覧を返す。
 
 各行のprefixは、その行の祖先に後続兄弟があれば `│  `、なければ空白3文字を階層ごとに連結し、
 現在nodeが途中の兄弟なら `├─ `、最後の兄弟なら `└─ ` を付けて構成する。最上位nodeにも

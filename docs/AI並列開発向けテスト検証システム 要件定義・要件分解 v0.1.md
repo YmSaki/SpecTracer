@@ -377,6 +377,25 @@ Test ID
 
 を検索可能とする。
 
+## 7.1 Test traceability
+
+登録adapterがTestとして発見した実行可能なtest constructは、すべて検証目的を持つ管理対象でなければならない。
+
+発見されたTest集合を `D`、有効なmanaged Test Entity集合を `M` とすると、完全検証では次を要求する。
+
+```text
+∀ d ∈ D:
+  dに対応するmanaged Test Entityがちょうど1件存在する
+  and managed Test Entity.coversは1件以上である
+  and coversの全VO参照を解決できる
+```
+
+アノテーションを持たないTest、必須metadataが欠落したTest、空のcovers、解決できないVO参照、
+同一Test constructから複数entityが生じる状態、またはTest ID衝突を完全検証のPASSとして扱ってはならない。
+
+`test_existence` はleaf VOからTestへの方向、`test_traceability` は発見されたTestからVOへの方向を検証する。
+両方がPASSの場合だけ、VOとTestの双方向完全性が成立する。
+
 ---
 
 # 8. Source Target
@@ -590,6 +609,7 @@ Specification coverage        PASS
 VO decomposition              PASS
 VO coverage                   PASS
 Test existence                PASS
+Test traceability             PASS
 Test static audit             PASS
 Test semantic audit           PASS
 Implementation consistency    PASS
