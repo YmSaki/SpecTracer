@@ -57,14 +57,14 @@ vtest/
 
 | 用途 | クレート | 備考 |
 |---|---|---|
-| Rust構文解析 | `syn` 2.x（features: `full`, `extra-traits`, `visit`） | AST解析の中核 |
-| スパン位置 | `proc-macro2`（feature: `span-locations`） | 編集・ハッシュ対象範囲の特定 |
+| Rust構文解析 | `syn` 2.x（features: `full`, `extra-traits`, `visit`） | `vtest-adapter-rust`が所有するAST解析 |
+| Rustスパン位置 | `proc-macro2`（feature: `span-locations`） | `vtest-adapter-rust`が所有する編集・ハッシュ対象範囲の特定 |
 | CLI | `clap` 4.x（derive） | |
 | シリアライズ | `serde`, `serde_json` | |
 | YAML | `serde_yaml` | レコードファイル |
 | ID | `ulid` | レコードID |
 | ハッシュ | `sha2` | 内容ハッシュ（SHA-256） |
-| ファイル走査 | `ignore` | `.gitignore` 準拠の走査 |
+| Rust source走査 | `ignore` | `vtest-adapter-rust`が所有する`.gitignore`準拠の走査 |
 | エラー | `thiserror`（ライブラリ）, `anyhow`（バイナリ） | |
 | MCP | `rmcp`（公式 Rust MCP SDK） | stdio transport |
 | 日時 | `time` | RFC 3339 |
@@ -79,10 +79,12 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 - 改行を LF へ統一する。
 - 各行の末尾空白を除去する。
 - 対象範囲は次のとおり。
-  - テスト関数：doc comment・属性を含む関数アイテム全体のソーステキスト
-  - 対象関数：属性を含む関数アイテム全体のソーステキスト（doc comment を含む）
+  - Test：discovery adapterが単一Test constructに対して返すsource range全体のtestデータ。metadata宣言がsource rangeに隣接する場合はその宣言もrangeに含める
+  - Source Target：discovery adapterがTarget Referenceに対して返すimplementation construct全体のsource range
   - VO / REQ / SPEC レコード：YAML ファイル全体
 - 空白の正規化はこれ以上行わない。インデント変更はハッシュ不一致となる（安全側）。
+
+adapterはsource rangeとそのバイト列を返し、coreは上記の正規化とSHA-256計算だけを行う。coreがASTや言語固有の構文からrangeを再計算しない。`rust-cargo` adapterはTestにdoc comment・属性を含む関数item全体、Source Targetに属性とdoc commentを含む関数item全体を返す。
 
 ---
 
@@ -315,14 +317,14 @@ subjects:                       # 監査対象と当時の内容ハッシュ
     hash: "sha256:..."
   - id: VO-PARSER-UTF8-003
     hash: "sha256:..."
-  - locator: "src/parser.rs::Parser::parse"
+  - target: "rust-cargo::src/parser.rs::Parser::parse"
     hash: "sha256:..."
 verdict: PASS                   # PASS | FAIL | UNKNOWN
 reasons:                        # §8.3 の構造。static では規則違反の一覧
   - claim: テストは不正UTF-8入力に対する InvalidUtf8 の返却を検証している
     basis:
       - kind: test-code
-        ref: "tests/parser_test.rs::rejects_invalid_utf8"
+        ref: "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8"
 exclusions: []
 auditor:
   kind: agent                   # deterministic | agent | human
@@ -347,12 +349,12 @@ result: PASS                    # PASS | FAIL
 executed_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
 hashes:
-  test_fn: "sha256:..."
+  test_construct: "sha256:..."
   targets:
-    - target: "src/parser.rs::Parser::parse"
-      target_fn: "sha256:..."
-    - target: "src/lexer.rs::Lexer::next"
-      target_fn: "sha256:..."
+    - target: "rust-cargo::src/parser.rs::Parser::parse"
+      target_construct: "sha256:..."
+    - target: "rust-cargo::src/lexer.rs::Lexer::next"
+      target_construct: "sha256:..."
 runner:
   kind: cargo-test
   command: "cargo test -p parser --lib -- --exact parser::tests::rejects_invalid_utf8"
@@ -362,10 +364,10 @@ target_execution:
   method: llvm-cov
   result: FAIL                  # target別結果の集約: PASS | FAIL | UNKNOWN
   targets:
-    - target: "src/parser.rs::Parser::parse"
+    - target: "rust-cargo::src/parser.rs::Parser::parse"
       result: PASS              # PASS | FAIL | UNKNOWN
       count: 3                  # UNKNOWNではnull
-    - target: "src/lexer.rs::Lexer::next"
+    - target: "rust-cargo::src/lexer.rs::Lexer::next"
       result: FAIL
       count: 0
 log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
@@ -377,12 +379,12 @@ log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 `target_execution.checked: false`では`method`と`result`をnull、`targets`を空listとし、検証値を
 `NOT_CHECKED`とする。
 
-readerは単数互換形の`hashes.target_fn`および`target_execution.result/count`を、現在のTestが
-targetをちょうど1件宣言し、Test hashとtarget hashを照合できる場合だけ1要素listへ正規化して扱う。
+readerは`rust-cargo` Evidenceに限り、互換fieldの`hashes.test_fn`とtarget entry内の`target_fn`を`test_construct`と`target_construct`へ正規化できる。両fieldが併存する場合は同値を必須とし、非`rust-cargo` Evidenceでは互換fieldを解釈しない。
+readerは単数互換形の`hashes.target_fn`および`target_execution.result/count`を、現在の`rust-cargo` Testがtargetをちょうど1件宣言し、Test construct hashとtarget construct hashを照合できる場合だけ1要素listへ正規化して扱う。
 複数target Testに単数互換形を適用せず、writerは常にlist形を出力する。
 
 Evidence内の`target`は実行時snapshotを識別するkeyであり、TEST → SRC edgeの正典ではない。
-graphはTest annotationからだけ構築し、Evidenceのtarget listからedgeを生成しない。
+graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのtarget listからedgeを生成しない。
 
 schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾は
 E-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。
@@ -395,9 +397,20 @@ Rust実行であることを一意に確認できる場合だけ互換Evidence�
 
 ---
 
-## 4. アノテーション構文
+## 4. Test metadata宣言contract
 
-### 4.1 文法
+### 4.1 adapter-neutralな正規化
+
+`SourceDiscoveryAdapter`は、adapter所有のsource declarationを次の論理fieldへ正規化する。
+
+```text
+id, covers[], targets[], intent, input?, expect?, kind?, cases[], related[]
+```
+
+coreはsource declarationの構文と配置を解釈せず、adapterが返したTest Entity、Discovered Test observation、Source Location、Target Reference、source range、診断を検証・統合する。
+locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所有のopaque文字列である。coreがpath、module、symbol種別を分解しない。
+
+### 4.2 `rust-cargo` annotation文法
 
 テスト関数直前の doc comment（`///` または `/** */`）内の行を対象とする。
 
@@ -414,7 +427,7 @@ value           = 行末までのテキスト（前後空白は除去）
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 - `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。
 
-### 4.2 ロケータ構文
+### 4.3 `rust-cargo` locator構文
 
 ```text
 locator   = path "::" item-path
@@ -427,49 +440,49 @@ item-path = Rust アイテムパス（"::" 区切り）
 ```
 
 `path` は `.rs` で終わる最初の `::` で item-path と分離する。
-`@vtest.target` の値が `SRC-` で始まる場合は SRC ID 参照として解決する。
+`rust-cargo` adapterはこの値を`TargetRef::Locator { adapter: "rust-cargo", value: locator }`へ正規化する。`@vtest.target`の値が`SRC-`で始まる場合はSRC ID参照として返す。
 
-### 4.3 パースエラーの扱い
+### 4.4 宣言エラーの扱い
 
-アノテーションのパースエラーはスキャン診断（§5.4）として報告し、当該Test constructをDiscovered Testとして保持するが、Managed Test Entityとして登録しない。
-未登録の `#[test]` 関数と同様にunregisteredとして扱い、`test_traceability = MISSING`とする。対応VOを特定できないため、`test_existence`へ推測で関連付けない。
+adapter固有のsource declarationを構文解析できない場合、adapterは該当Test constructをDiscovered Testとして返し、対応を`ManagedTestLink::Missing`として診断を付与する。coreは`test_traceability = MISSING`とし、対応VOを推測で`test_existence`へ関連付けない。
+
+source declarationを構文上完全なTest Entityへ正規化できるが、`covers`のVO IDをcore storeで解決できない場合、そのentityと`ManagedTestLink::One(id)`を保持する。E-SCAN-003と`test_traceability = MISMATCH`はcoreの参照整合性検査で生成する。
+
+`rust-cargo` annotationの構文違反は§5.4のE-SCAN-005、E-SCAN-006、E-SCAN-007で報告する。
 
 ---
 
-## 5. スキャナ設計
+## 5. Discovery orchestration設計
 
 ### 5.1 処理フロー
 
 ```text
-1. ファイル探索
-   config.scan.include 配下の *.rs を ignore クレートで列挙
-   （.gitignore 準拠、target/ は除外）
+1. registryとconfigの検証
+   adapter ID、capability宣言、config namespace、rootを検証する
 
-2. 構文解析
-   ファイルごとに syn::parse_file
-   解析エラーのファイルは診断 E-SCAN-001 を出し、当該ファイルをスキップ
+2. discovery委譲
+   登録順ではなくadapter ID順にSourceDiscoveryAdapterを呼び出す
+   各adapterはDiscoveryBatchを返す
 
-3. モジュールパス構築
-   crate ルート（src/lib.rs / src/main.rs / tests/*.rs）から
-   mod 宣言を辿り、各アイテムの完全モジュールパスを構築
-   （mod foo; → foo.rs または foo/mod.rs）
+3. adapter出力の検証
+   adapter ID、Source Location、source range、content bytes、Test Entity、
+   Discovered TestとManagedTestLinkの対応、Target Reference、診断を検証する
+   capability宣言と出力が矛盾するbatchは拒否する
 
-4. テスト関数抽出
-   属性パスの末尾セグメントが "test" である関数
-   （#[test], #[tokio::test] 等）を抽出
+4. 決定論的な統合
+   adapter ID、project-relative path、opaque locator、Test IDの順に正規化する
+   adapter間を含むTest ID衝突と不正な複数対応を検査する
 
-5. アノテーション抽出
-   doc 属性（#[doc = "..."]）を §4 の文法でパース
+5. .verify/ 読み込み
+   vtest-storeが全レコードを読み込み、スキーマ検証する
 
-6. 対象関数抽出
-   すべての fn / impl fn を SRC 候補として索引化
-   （ロケータ解決・逆引き・@vtest.src-id 認識に使用）
+6. 参照整合性検査
+   coversのVO ID、targetsのTarget Reference / SRC ID、Relation、parentを解決する
 
-7. .verify/ 読み込み
-   vtest-store が全レコードを読み込み、スキーマ検証
-
-8. グラフ構築と整合性検査（§5.3、§5.4）
+7. グラフ構築と整合性検査（§5.3、§5.4）
 ```
+
+adapterが解析不能または不完全なbatchを返した場合、coreは対応する検証を`UNKNOWN`とし、Test 0件の完全なdiscoveryとして扱わない。
 
 ### 5.2 エンティティモデル（vtest-model）
 
@@ -477,16 +490,28 @@ item-path = Rust アイテムパス（"::" 区切り）
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub targets: Vec<TargetRef>,    // 各要素は Locator(Locator) | SrcId(SrcId)、1件以上
+    pub targets: Vec<TargetRef>,    // 各要素はadapter付きopaque locatorまたはSrcId、1件以上
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,
     pub kind: Option<String>,
     pub cases: Vec<String>,
     pub related: Vec<TestId>,
-    pub location: SourceLocation,   // ファイル、モジュールパス、関数名、byte range
+    pub location: SourceLocation,
     pub content_hash: ContentHash,  // §1.3
     pub execution: ExecutionDescriptor,
+}
+
+pub enum TargetRef {
+    Locator { adapter: AdapterId, value: String },
+    SrcId(SrcId),
+}
+
+pub struct SourceLocation {
+    pub adapter: AdapterId,
+    pub path: ProjectPath,
+    pub locator: String,            // adapter所有のopaque construct locator
+    pub byte_range: SourceRange,
 }
 
 pub struct ExecutionDescriptor {
@@ -538,12 +563,33 @@ pub struct DiscoveredTest {
     pub adapter: AdapterId,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
-    pub managed_test_id: Option<TestId>,
+    pub managed: ManagedTestLink,
+}
+
+pub enum ManagedTestLink {
+    Missing,
+    One(TestId),
+    Multiple(Vec<TestId>),
+}
+
+pub struct DiscoveryBatch {
+    pub adapter: AdapterId,
+    pub completeness: DiscoveryCompleteness,
+    pub discovered_tests: Vec<DiscoveredTest>,
+    pub managed_tests: Vec<TestEntity>,
+    pub source_targets: Vec<SourceTarget>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+pub enum DiscoveryCompleteness {
+    Complete,
+    Incomplete,
 }
 ```
 
-`SourceDiscoveryAdapter`は有効なManaged Test Entityだけでなく、adapterがTestとして認識した全
-Discovered Testを返す。`managed_test_id`は有効なentityへ一意に対応するときだけ設定する。
+`SourceDiscoveryAdapter`はadapterがTestとして認識した全Discovered Testを返す。`ManagedTestLink::One`は、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataを持つTest Entityへ対応する場合に設定する。
+VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検査する。したがって、解決不能な`covers`を持つTest Entityも`managed_tests`に含まれ、対応するobservationは`ManagedTestLink::One(id)`を持つ。
+`ManagedTestLink::Missing`は管理宣言の欠落または必須metadataの欠落、`Multiple`は同一Test constructから複数entityが生じる状態を表す。
 
 adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAuditAdapter`、
 `StructuredTestAdapter`、`TestRunnerAdapter`、`CoverageAdapter` に分割する。
@@ -565,8 +611,8 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
   VO   → VO     (parent)
   VO   → REQ    (requirements)
   VO   → SPEC   (spec_refs)
-  TEST → VO     (covers)      ※アノテーション由来
-  TEST → SRC    (targets)     ※アノテーション由来、1:N
+  TEST → VO     (covers)      ※adapter所有のTest metadata宣言由来
+  TEST → SRC    (targets)     ※adapter所有のTest metadata宣言由来、1:N
   外部 Relation (rel/ 由来)
 逆引きインデックス：VO → Tests、SRC → Tests、REQ → VOs
 ```
@@ -575,34 +621,72 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 
 | コード | 種別 | 内容 |
 |---|---|---|
-| E-SCAN-001 | error | ファイルの構文解析失敗 |
+| E-SCAN-001 | error | adapterのsource構文解析失敗（DiscoveryBatchは`Incomplete`） |
 | E-SCAN-002 | error | Test ID 重複（identity collision） |
 | E-SCAN-003 | error | `covers` の参照先 VO が存在しない（dangling reference） |
 | E-SCAN-004 | error | `target` のロケータ／SRC ID を解決できない |
-| E-SCAN-005 | error | 重複不可キーの重複 |
-| E-SCAN-006 | error | 未知の `@vtest.` キー |
-| E-SCAN-007 | error | 必須キー（id / covers / target / intent）の欠落 |
+| E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複 |
+| E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在 |
+| E-SCAN-007 | error | 必須metadata（id / covers / targets / intent）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
 | E-SCAN-010 | error | レコードの id とファイル名の不一致、スキーマ違反 |
-| W-SCAN-101 | warning | `@vtest` アノテーションのない `#[test]` 関数（unregistered test） |
+| W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
 | W-STORE-001 | warning | VO の `status` フィールドと承認導出結果の不一致 |
 
 error は該当エンティティに関わるチェック項目を非PASSにする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
-W-SCAN-101またはE-SCAN-007が示すmanaged Test Entityの欠落は、診断とは独立した
-`test_traceability`評価で`MISSING`になる。E-SCAN-002またはE-SCAN-003により一意で
-解決可能なmanaged対応が成立しない場合は`test_traceability = MISMATCH`とする。
+W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断とは独立した`test_traceability`評価で`MISSING`になる。
+`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。
+
+### 5.5 `rust-cargo` SourceDiscoveryAdapter
+
+`rust-cargo` adapterは次の処理で§5.1の`DiscoveryBatch`を構築する。`vtest-scan`はこれらのRust固有処理を実行しない。
+
+```text
+1. ファイル探索
+   adapter configのinclude配下の*.rsをignoreクレートで列挙
+   （.gitignore準拠、target/は除外）
+
+2. 構文解析
+   ファイルごとにsyn::parse_file
+   解析エラーのファイルはE-SCAN-001を返し、batchをIncompleteとする
+
+3. モジュールパス構築
+   crateルート（src/lib.rs / src/main.rs / tests/*.rs）からmod宣言を辿り、
+   各itemの完全モジュールパスを構築する
+
+4. Test construct抽出
+   属性pathの末尾segmentが"test"である関数（#[test]、#[tokio::test]等）を抽出する
+
+5. metadata宣言抽出
+   doc属性（#[doc = "..."]）を§4.2の文法でparseする
+
+6. Source Target抽出
+   すべてのfn / impl fnをSRC候補として索引化し、
+   §4.3のlocator解決・逆引き・@vtest.src-id認識に使用する
+
+7. 正規化
+   全Discovered Test、構造上完全なTest Entity、Source Target、Source Location、
+   source range、ExecutionDescriptor、診断をDiscoveryBatchに格納する
+```
 
 ---
 
-## 6. シンボル解決
+## 6. Target Reference解決
 
-### 6.1 解決アルゴリズム
+### 6.1 adapter-neutral解決contract
 
-ロケータ `path::item-path` の解決は、スキャン済みの SRC 索引（§5.1 手順6）への完全一致検索とする。
+coreは`TargetRef::Locator.adapter`をregistryで解決し、opaque locatorの解釈を該当する`SourceDiscoveryAdapter`へ委譲する。adapterは正規化されたTarget Reference、Source Location、source range、content bytes、解決status、候補を返す。
+coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、content hashを検証するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
+
+SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。
+
+### 6.2 `rust-cargo` locator解決
+
+`rust-cargo`のlocator `path::item-path`の解決は、§5.5で構築したSRC索引への完全一致検索とする。
 
 ```text
 1. path が索引に存在するか
@@ -611,9 +695,9 @@ W-SCAN-101またはE-SCAN-007が示すmanaged Test Entityの欠落は、診断�
    すべて候補として返し、解決失敗（E-SCAN-004）とする
 ```
 
-### 6.2 候補提示
+### 6.3 候補提示
 
-Structured Operation の入力検証（§14、§15）で解決に失敗した場合、次の順で候補を返す。
+Structured Operationの入力検証（§14、§15）で解決に失敗した場合、coreはadapterが返した候補を共通envelopeで表示する。`rust-cargo` adapterは次の順で候補を構築する。
 
 ```text
 1. item-path の末尾セグメント一致（別パスの同名関数）
@@ -625,12 +709,12 @@ Structured Operation の入力検証（§14、§15）で解決に失敗した場
     src/parser.rs::Parser::parse_inner
 ```
 
-enum variant の検証（`expect` の値が `ParseError::InvalidUtf8` 形式の場合）は、スキャン済み AST から enum 定義を検索する。
+`rust-cargo` adapterのenum variant検証（`expect`の値が`ParseError::InvalidUtf8`形式の場合）は、スキャン済みASTからenum定義を検索する。
 解決できる場合のみ検証し、解決できない自由記述はそのまま受理する（best effort。拒否はしない）。
 
 ---
 
-## 7. 決定論的監査ルール
+## 7. Static Audit orchestrationと`rust-cargo`ルール
 
 ### 7.1 判定の原則
 
@@ -639,14 +723,18 @@ enum variant の検証（`expect` の値が `ParseError::InvalidUtf8` 形式の�
 解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
 
-**assert 相当の構文**は次のとおり定義し、全ルールで共通に用いる。
+`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hashを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界を返す。coreは入力hashと返却されたsubjectの一致を検証し、上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
-- `assert!` / `assert_eq!` / `assert_ne!` / `panic!` を含む標準マクロ、および config の `assertion_macros` に列挙されたマクロ
-- `#[should_panic]` 属性
-- `.unwrap()` / `.expect(..)` / `?` 演算子（Result / Option の成立検証として扱う）
-- テスト関数が `Result` を返し `Err` を返しうる構造
+Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全または解析限界を報告した場合は`UNKNOWN`とし、違反なしと推測しない。
 
-### 7.2 ルール一覧
+### 7.2 `rust-cargo` ルール一覧
+
+`rust-cargo`の**assert相当の構文**は次のとおり定義し、DA-001〜DA-006で共通に用いる。
+
+- `assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロ
+- `#[should_panic]`属性
+- `.unwrap()` / `.expect(..)` / `?`演算子（Result / Optionの成立検証として扱う）
+- Test関数が`Result`を返し`Err`を返しうる構造
 
 | ルール | 内容 | FAIL 条件 | UNKNOWN へ退避する例 |
 |---|---|---|---|
@@ -678,9 +766,9 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 | kind | 対象指定 | 含める情報 |
 |---|---|---|
-| `test-semantic` | `--test TEST-X` | Test（アノテーション・ソース全文）、covers先VOレコード、全targetの対象関数ソース全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約 |
+| `test-semantic` | `--test TEST-X` | Test（metadata宣言・Test construct source全文）、covers先VOレコード、全targetのimplementation construct source全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約 |
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
-| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、spec_refs、全targetの対象関数ソース全文とシグネチャ、関連Testのintent |
+| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、spec_refs、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
 
 `impl-consistency` のバンドル生成時、宣言targetのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。
 
@@ -695,8 +783,13 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
   "test": {
     "id": "TEST-PARSER-044",
     "intent": "不正な UTF-8 入力を与えた場合、ParseError::InvalidUtf8 を返すことを検証する",
-    "annotations": { "input": "...", "expect": "...", "kind": "unit-error", "cases": [] },
-    "location": { "file": "tests/parser_test.rs", "function": "rejects_invalid_utf8" },
+    "metadata": { "input": "...", "expect": "...", "kind": "unit-error", "cases": [] },
+    "location": {
+      "adapter": "rust-cargo",
+      "path": "tests/parser_test.rs",
+      "locator": "rejects_invalid_utf8",
+      "byte_range": { "start": 120, "end": 340 }
+    },
     "source": "/// @vtest.id ...\n#[test]\nfn rejects_invalid_utf8() { ... }",
     "content_hash": "sha256:..."
   },
@@ -707,8 +800,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
   ],
   "targets": [
     {
-      "target": "src/parser.rs::Parser::parse",
-      "locator": "src/parser.rs::Parser::parse",
+      "target": "rust-cargo::src/parser.rs::Parser::parse",
       "source": "pub fn parse(...) { ... }",
       "content_hash": "sha256:..."
     }
@@ -733,7 +825,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
     {
       "claim": "テストは不正 continuation byte 入力に対し InvalidUtf8 の返却を検証している",
       "basis": [
-        { "kind": "test-code", "ref": "tests/parser_test.rs::rejects_invalid_utf8" },
+        { "kind": "test-code", "ref": "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8" },
         { "kind": "vo", "ref": "VO-PARSER-UTF8-003" }
       ]
     }
@@ -784,7 +876,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 ```
 
 受理された提出は監査レコード（§3.6）として保存される。
-`subjects` にはバンドル生成時の全対象（Test・VO・全targetの対象関数、vo-coverage では SPEC の sha256）を記録する。
+`subjects`にはバンドル生成時の全対象（Test・VO・全targetのimplementation construct、vo-coverageではSPECのsha256）を記録する。
 
 ### 8.5 有効性と多重監査
 
@@ -851,7 +943,7 @@ cargo test -p <project> --lib -- --exact <selector1> <selector2> ...
 
 `--exact` は後続の全フィルタへ適用されるフラグであり、各フィルタは完全一致で解釈される。
 
-### 9.3 結果のパース
+### 9.3 `rust-cargo` 結果のパース
 
 stdout を次の規則でパースする（stable toolchain の標準出力形式のみに依存する）。
 
@@ -871,16 +963,16 @@ stdout / stderr の全文は `cache/logs/<ULID>.log` へ保存し、Evidence の
 Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
-- `hashes`：実行直前のスキャン結果から、テスト関数hashと、全宣言targetの正規化参照・対象関数hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
+- `hashes`：実行直前のdiscovery結果から、Test construct hashと、全宣言targetの正規化Target Reference・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
 ---
 
-## 10. Target Execution Verification
+## 10. `rust-cargo` Target Execution Verification
 
 ### 10.1 計測方式
 
-`cargo-llvm-cov` を使用する（`config.run.coverage: llvm-cov`）。
+`rust-cargo` CoverageAdapterは`cargo-llvm-cov`を使用する（adapter configの`run.coverage: llvm-cov`）。
 起動時に `cargo llvm-cov --version` で利用可否を確認し、利用不能なら計測せず、`target_execution` を `NOT_CHECKED` とし診断 W-EXEC-101 を出す（PASS へ変換しない。基本仕様 §7.9）。
 
 カバレッジを Test 単位で対象関数へ帰属させるため、計測時は Test を1件ずつ実行する。
@@ -947,12 +1039,13 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 | `runtime_result` | TEST | 有効な Evidence の result（PASS / FAIL） |
 | `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値（checked: falseはNOT_CHECKED） |
 | `evidence_validity` | TEST | §11.2 の判定 |
-| `test_traceability` | repository scan result | 全Discovered Testが有効なManaged Test Entityへちょうど1件対応し、coversが1件以上かつ全VO参照を解決できればPASS |
+| `test_traceability` | repository scan result | 全Discovered Testが構造上完全なManaged Test Entityへ1対1で対応し、Test IDが一意かつ全`covers`参照を解決できればPASS |
 
 `test_traceability`の判定は次のとおりとする。
 
-- Discovered Testにmanaged対応がない、またはcoversが空なら`MISSING`。
-- 同じDiscovered Testに複数entityが対応する、Test IDが衝突する、またはcovers参照を解決できないなら`MISMATCH`。
+- `ManagedTestLink::Missing`なら`MISSING`。これは管理宣言の欠落、必須metadataの欠落、または空の`covers`を含む。
+- `ManagedTestLink::Multiple`、Test ID衝突、または`ManagedTestLink::One`が指すentityの`covers`参照を解決できない場合は`MISMATCH`。
+- 全Discovered Testが`ManagedTestLink::One`を持ち、各linkがちょうど1件の構造上完全なentityを指し、Test IDが大局的に一意で、全`covers`参照を解決できる場合だけ`PASS`。
 - discovery結果が不完全または解析不能なら`UNKNOWN`とし、PASSにしない。
 - repository-level項目であるため、REQ / VO / TESTのentity scopeを指定してもDiscovered Test集合を狭めない。必要な場合は`--items`でこの項目自体をscope外にできるが、その値は`NOT_CHECKED`のまま保持する。
 
@@ -961,8 +1054,8 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 ```text
 対象 Test の Evidence のうち最新のものについて：
 
-1. evidence.hashes.test_fn == 現在のテスト関数ハッシュ
-2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_fnが現在の対象関数hashと一致
+1. evidence.hashes.test_construct == 現在のTest construct hash
+2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_constructが現在のimplementation construct hashと一致
 3. evidence.revision.commit が非 null
 
 1〜3 すべて成立 → evidence_validity = PASS

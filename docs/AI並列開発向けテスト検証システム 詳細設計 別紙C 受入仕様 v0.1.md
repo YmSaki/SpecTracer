@@ -36,15 +36,18 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 
 adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-process synthetic
 adapterを使用できる。synthetic adapterは配布対象のproduction language adapterではない。
+synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを使用する。
 
 ### 18.3 機能別受入条件
 
 #### 18.3.1 discovery・record・graph
 
-- source discoveryは全Discovered Testと、有効なManaged Test Entity、Source Target、位置、内容hash、Test execution descriptorを区別して抽出する。
-- annotation、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
-- annotationを持たないTestが1件でもあれば、W-SCAN-101を表示し、同じ事実を`test_traceability = MISSING`としてfull verificationへ反映する。
-- 全Discovered Testがmanaged entityへちょうど1件対応し、coversが1件以上かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- source discoveryは全Discovered Testと、構造上完全なManaged Test Entity、ManagedTestLink、Source Target、Source Location、source range、内容hash、Test execution descriptorを区別して抽出する。
+- adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
+- 管理宣言または必須metadataを持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出する。
+- 存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`test_traceability = MISMATCH`を導出する。`MISSING`として二重定義しない。
+- `ManagedTestLink::Multiple`またはTest ID衝突は`test_traceability = MISMATCH`になる。
+- 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、`covers`が1件以上、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
 - W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 - adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 - SPEC sourceの内容hash不一致をW-SCAN-104として検出する。
@@ -64,6 +67,7 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 - Testごとの結果、revision、hash、adapter ID、runner情報をEvidenceへ記録する。
 - build failure、runner failure、必須runner capabilityの欠落ではEvidenceを生成しない。
 - Evidence writerはadapter IDを必ず記録する。
+- Evidence writerは中立fieldの`hashes.test_construct`と`hashes.targets[].target_construct`を出力する。`test_fn` / `target_fn`の互換入力は`rust-cargo` Evidenceで同値を照合できる場合だけ受理する。
 - Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
 - Evidenceは全宣言targetの参照と内容hashを重複なく保持する。
@@ -117,8 +121,11 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 #### 18.3.9 adapter contract
 
 - `vtest-adapter-api`は言語・runner非依存であり、Cargo、Rust parser、llvm-cov固有型を公開しない。
+- `vtest-model::TestEntity`はTestを関数として表現せず、adapter所有のTest constructを論理metadata、Source Location、content hash、ExecutionDescriptorで表現する。
+- `SourceLocation`と`TargetRef` はadapter ID、project-relative path、opaque locator、source rangeを保持でき、Rust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。
 - `vtest-model::TestEntity`は`ExecutionDescriptor`だけを実行座標として持ち、`filter`、`package`、`test_target`、`TestTarget`を含まない。
 - `rust-cargo` adapterはRust discovery、static audit、Structured Test Operation、runner、coverageを所有する。
+- `vtest-scan`はadapter discoveryの委譲・出力検証・決定論的統合・core record整合性を所有し、`*.rs`列挙、`syn::parse_file`、`#[test]`抽出、doc comment parseを所有しない。
 - registryはadapter IDの重複、宣言capabilityと実装の不一致、未登録adapterを拒否する。
 - 異なるadapterが同じrootを共有でき、同一adapter内のroot重複は拒否される。
 - 全adapterのmerge結果でTest IDのglobal uniquenessを検査する。
@@ -132,6 +139,7 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 - 明示操作に必須のcapabilityがなければE-ADAPTER-004となり、変更・Audit・Evidenceを生成しない。
 - 検証時のstatic audit / coverage capability欠落はNOT_CHECKED、runner欠落はNOT_EXECUTED、解析限界はUNKNOWNになる。
 - Rustとsyntheticの結果をadapter ID、path、Test IDで決定論的に統合する。
+- synthetic adapterは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを、`vtest-model`、`vtest-scan`、`vtest-verify`の変更なしで登録・scan・verifyできる。
 
 ### 18.4 提供範囲外
 

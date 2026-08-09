@@ -104,9 +104,9 @@ vtest test create --form rust-unit-function
                   --answers answers.yaml [--dry-run]
 ```
 
-Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえテスト雛形＋アノテーションを生成して挿入する。
+Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえ対応adapterがTest constructとmetadata宣言を生成して挿入する。
 `--dry-run` は挿入内容と挿入位置のみを表示する。
-回答の検証エラーは E-OP-001 として候補付きで報告する（本冊 §6.2）。
+回答の検証エラーは E-OP-001 として候補付きで報告する（本冊 §6.3）。
 
 回答ファイル例：
 
@@ -132,14 +132,14 @@ vtest test edit TEST-X --set covers=VO-A,VO-B [--set intent="..."]...
 
 desired state 方式（基本仕様 §8.2）。
 `--answers` は完全なあるべき状態、`--set` は指定フィールドのみのあるべき値を宣言する。
-編集の実装は §15。関数本体の書き換えは `--body-file <path>` で本体全文を与える。
+編集の実装は §15。Test implementationの書き換えは`--body-file <path>`でadapterへ全文を与える。
 
 #### `vtest test show / list / query`
 
 ```text
 vtest test show TEST-X        # intent、covers、target、位置、監査・Evidence 状態
 vtest test list [--vo VO-X] [--unregistered]
-vtest test query --source src/parser.rs::Parser::parse   # SRC からの逆引き
+vtest test query --source rust-cargo::src/parser.rs::Parser::parse   # SRC からの逆引き
 ```
 
 #### `vtest audit static`
@@ -248,7 +248,7 @@ stdio で MCP サーバを起動する（§13）。
 
 - transport は stdio。`rmcp` で実装する。
 - 各ツールの結果は CLI の `--format json` と同一の JSON 構造とする。
-- エラーは MCP のツールエラーとして返し、`{ "code": "E-OP-001", "message": "...", "candidates": [...] }` の構造を含める。入力検証エラーには可能な限り `candidates` を含める（本冊 §6.2）。
+- エラーは MCP のツールエラーとして返し、`{ "code": "E-OP-001", "message": "...", "candidates": [...] }` の構造を含める。入力検証エラーには可能な限り `candidates` を含める（本冊 §6.3）。
 - 各ツール呼び出しの冒頭で mtime ベースの再スキャン判定を行う（本冊 §2.3）。
 
 ### 13.2 ツール一覧
@@ -302,6 +302,8 @@ form_get(kind: rust-unit-function)
 
 ### 14.1 スキーマ形式（`.verify/forms/<kind>.yaml`）
 
+次は`rust-cargo` adapterが登録するForm Schemaである。coreは`fn_name`、`.rs`、Rust構文をForm Schemaの共通fieldとして要求しない。
+
 ```yaml
 kind: rust-unit-function
 title: Rust 関数単体テスト
@@ -334,7 +336,7 @@ fields:
     question: 期待結果は？
     type: string
     required: true
-    validate: [enum-variant-exists]   # best effort（本冊 §6.2）
+    validate: [enum-variant-exists]   # best effort（本冊 §6.3）
   - name: fn_name
     question: テスト関数名は？
     type: ident
@@ -363,11 +365,11 @@ template: |
 
 | validate | 内容 | 失敗時 |
 |---|---|---|
-| `symbol-exists` | ロケータ解決（本冊 §6.1） | E-OP-001＋候補 |
+| `symbol-exists` | Target Reference解決を対応adapterへ委譲（本冊 §6.1） | E-OP-001＋候補 |
 | `vo-exists` / `test-exists` | エンティティ存在確認 | E-OP-001 |
-| `enum-variant-exists` | `Type::Variant` 形式の場合のみ AST 検索。解決不能な自由記述は受理 | E-OP-001＋候補 |
-| `unique-fn-name` | 挿入先モジュール内での関数名重複確認 | E-OP-001 |
-| `rust-file` | `.rs` ファイルがスキャン対象内に存在 | E-OP-001 |
+| `enum-variant-exists` | `rust-cargo` adapterが`Type::Variant`形式の場合のみAST検索。解決不能な自由記述は受理 | E-OP-001＋候補 |
+| `unique-fn-name` | `rust-cargo` adapterが挿入先モジュール内で関数名重複を確認 | E-OP-001 |
+| `rust-file` | `rust-cargo` adapterが`.rs`ファイルがscan対象内に存在することを確認 | E-OP-001 |
 
 `required` を欠く回答、未知のフィールド名は E-OP-001 とする。
 Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番>`（領域は covers 先 VO の ID から継承、連番は既存最大＋1）で自動採番し、結果に含めて返す。
@@ -385,7 +387,7 @@ Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し�
 
 `rust-integration`は`targets`の全要素を入力順に個別の`@vtest.target`行として出力する。
 空listと重複targetをE-OP-001で拒否する。`target`キーはintegration種別に限り複数行を許容する
-（本冊 §4.1の例外）。先頭以外のtargetを`@vtest.related`へ変換しない。
+（本冊 §4.2の例外）。先頭以外のtargetを`@vtest.related`へ変換しない。
 
 ### 14.4 テスト種別ごとのフォーム拡張
 
@@ -394,13 +396,14 @@ partition・境界値を必須入力とする種別は、該当フィールド�
 
 ---
 
-## 15. Structured Edit の実装
+## 15. Structured Test Operation adapter contract
 
 Structured Editの構文解析・再生成・selector解釈は対応adapterが所有する。
 orchestrationはTest IDとadapter IDで対象を一意に選択し、adapterが返す拡張範囲を
 単一置換として適用する。production adapterとして提供するのは `rust-cargo` だけである。
+§15.1〜§15.4は`rust-cargo` StructuredTestAdapterの構文処理を定める。
 
-### 15.1 対象の特定
+### 15.1 `rust-cargo` 対象の特定
 
 Test ID から編集対象を特定する。
 
@@ -413,7 +416,7 @@ TEST-X → スキャン結果 → SourceLocation
 スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の位置を再確認する。
 再確認で見つからない場合は E-OP-002。
 
-### 15.2 編集の適用
+### 15.2 `rust-cargo` 編集の適用
 
 1. desired state（answers / set / body）から、あるべきアノテーションブロックと関数シグネチャ・本体を生成する。
 2. 現状とあるべき状態の diff を計算する。
@@ -424,12 +427,12 @@ TEST-X → スキャン結果 → SourceLocation
    - 他の Test エンティティのソーステキストが変化していない
 5. 確認に失敗した場合はファイルを元へ戻し、E-OP-003 を返す。
 
-### 15.3 アノテーションブロックの再生成
+### 15.3 `rust-cargo` annotation blockの再生成
 
 アノテーションは常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。
 これにより、Structured Edit を繰り返しても差分が安定する。
 
-### 15.4 1 Test 境界の保証
+### 15.4 `rust-cargo` 1 Test境界の保証
 
 置換範囲が単一のテスト関数の拡張 range に限られることを、適用前（範囲計算）と適用後（他 Test のハッシュ不変確認）の二重で検査する。
 `edit TEST-001` は他のTestへ影響しない（要件定義 §21）。

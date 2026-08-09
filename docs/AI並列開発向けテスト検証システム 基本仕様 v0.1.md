@@ -26,12 +26,12 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Specification（仕様）**：実装より上流で定義された、期待される振る舞い・制約・インターフェースを表す成果物。要件定義書、基本仕様書、詳細設計書、API Schema、型・データ仕様などを含む。対象ソースコード自身の doc comment は含まない（要件定義 §24）。
 - **Requirement（REQ）**：仕様から抽出された、検証対象となる要求の単位。階層構造を持てる。Feature 相当の中間まとめは REQ 階層の中間ノードとして表現する。
 - **Verification Obligation（VO）**：独立して「この条件が成立するか」と検証可能な仕様上の命題（要件定義 §4.1）。階層構造を持てる。粒度は assert 文・テスト関数などのコード構文単位で決めない。
-- **Test**：Test ID で識別されるテスト関数。VO の実装単位であり、VO と N:M の対応を持ちうる。
-- **Test Intent**：Test が「何を検証するか」を、コードを読まずに判断できる形で表した宣言情報。テストコードのアノテーションとして記述する（§6）。
-- **Source Target（SRC）**：テスト対象となる実装コード上の識別可能な地点。プロジェクト相対パスとシンボルの組（ロケータ）で識別する。
+- **Test**：登録adapterが実行可能な検証単位として識別し、Test IDで管理するtest construct。VOの検証実装単位であり、VOとN:Mの対応を持ちうる。
+- **Test Intent**：Testが「何を検証するか」を、実装コードを読まずに判断できる形で表した論理metadata。adapter所有の宣言表現から導出する（§6）。
+- **Source Target（SRC）**：テスト対象となる実装コード上の識別可能なimplementation construct。adapter IDとadapter所有のopaque locatorからなるTarget ReferenceまたはSRC IDで識別する。
 - **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetの参照・内容ハッシュ・実行計測結果を含む。
 - **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
-- **Managed Test Entity**：有効な一意Test ID、1件以上の解決可能なcovers、その他の必須metadataを持つTest Entity。
+- **Managed Test Entity**：adapter所有のsource declarationから具体化され、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataを持つTest Entity。Discovered Testとentityの対応数、VO参照の解決、Test IDの大局的一意性はentityの構造完全性と分けて検証する。
 - **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
 - **チェック結果値**：各チェック項目が取る値（PASS / FAIL / MISMATCH / MISSING / NOT_CHECKED / NOT_EXECUTED / STALE / UNKNOWN）。
 - **完全検証**：12のチェック項目すべてを対象とする検証。1項目でも PASS 以外があれば NG（fail-closed）。
@@ -50,7 +50,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 
 ```text
 1. 宣言（declaration）
-   テストコード内アノテーション（@vtest.*）と .verify/ 配下のレコードファイル。
+   adapter所有のTest metadata宣言と .verify/ 配下のレコードファイル。
    Git で管理される正典。
 
 2. 実装（implementation）
@@ -98,10 +98,10 @@ Execution Evidence
 
 ### 2.3 導出できる関係は保存しない
 
-Test → VO（covers）、Test → SRC（target）の関係は、テストコードのアノテーションから決定論的に導出できる。
+Test → VO（covers）、Test → SRC（targets）の関係は、adapter所有のTest metadata宣言から決定論的に導出できる。
 これらを外部ファイルへ重複保存しない。
 
-Evidenceに含むtarget参照は、target別の実行事実と内容hashを束縛する実行時snapshot keyであり、Test → SRC関係の正典ではない。graphと現在のtarget集合は常にTest annotationから再構築し、Evidenceのtarget参照から関係を生成または修復しない。
+Evidenceに含むtarget参照は、target別の実行事実と内容hashを束縛する実行時snapshot keyであり、Test → SRC関係の正典ではない。graphと現在のtarget集合は常にadapter所有のTest metadata宣言から再構築し、Evidenceのtarget参照から関係を生成または修復しない。
 
 外部レコードとして保存するのは、どちらか一方のエンティティに自然に所属しない関係（VO 間の依存、Test 間の補完関係など）だけとする。
 この方針により、テスト編集時に同期しなければならない外部レコードを最小化する。
@@ -131,8 +131,8 @@ Test入力に `execution` がない場合は、`rust-cargo` codecだけが完全
 | Specification Source | `SPEC-` | `.verify/spec/` | 仕様文書への参照（パス＋内容ハッシュ） |
 | Requirement | `REQ-` | `.verify/req/` | 要求ノード。階層可 |
 | Verification Obligation | `VO-` | `.verify/vo/` | 検証命題。階層可 |
-| Test | `TEST-` | テストコード内アノテーション | テスト関数 |
-| Source Target | （IDなし／任意で `SRC-`） | ロケータで識別 | 対象実装。恒久IDは必須としない |
+| Test | `TEST-` | adapter所有のTest metadata宣言 | adapterが識別する実行可能なtest construct |
+| Source Target | （IDなし／任意で `SRC-`） | adapter IDとopaque locatorで識別 | 対象implementation construct。恒久IDは必須としない |
 | Relation | `REL-`（ULID） | `.verify/rel/` | 外部関係レコード。不変 |
 | Approval | ULID | `.verify/approvals/` | 承認レコード。追記型 |
 | Audit Record | ULID | `.verify/audits/` | 監査結果レコード。追記型 |
@@ -150,17 +150,17 @@ SPEC / REQ / VO / TEST の ID は人間可読な形式とし、利用者（人�
 ### 3.3 Source Target の識別
 
 ソースコードへ恒久IDを埋め込むことは必須としない（要件定義 §8）。
-対象は**ロケータ**で識別する。
+対象は**Target Reference**で識別する。Target Referenceはadapter IDとadapter所有のopaque locatorの組、または任意のSRC ID参照である。
 
 ```text
-<プロジェクト相対パス>::<ファイル内アイテムパス>
+<adapter-id>::<opaque-locator>
 
-例：src/parser.rs::Parser::parse
+例：rust-cargo::src/parser.rs::Parser::parse
 ```
 
-ソース側アノテーション（`@vtest.src-id SRC-...`）で恒久IDを付与できる。恒久IDは必須ではなく、指定された場合だけscannerが認識する。
+opaque locatorの構文と、source上で恒久SRC IDを宣言する方法はadapterが定める。恒久IDは必須ではなく、指定された場合だけadapterが認識する。
 
-Test → SRC の対応はアノテーションから、SRC → Test の逆引きはスキャン結果から提供する（要件定義 §8）。
+Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Test の逆引きはスキャン結果から提供する（要件定義 §8）。
 
 1つのTestは1件以上のSource Targetを持つ。Test → SRCは1:Nであり、各target参照を個別に保持する。
 
@@ -203,7 +203,7 @@ Test → SRC の対応はアノテーションから、SRC → Test の逆引き
 | 9 | `runtime_result` | 実行結果が PASS だったか | 決定論 |
 | 10 | `target_execution` | 宣言されたすべての対象コードが実行経路へ入ったか | 決定論（カバレッジ計測） |
 | 11 | `evidence_validity` | Evidence が現在の Test・対象実装・リビジョンに対して有効か | 決定論 |
-| 12 | `test_traceability` | 発見された全Testが、1件のmanaged Test Entityと1件以上の解決可能なVOへ対応するか | 決定論 |
+| 12 | `test_traceability` | 発見された全Testが構造上完全なManaged Test Entityへ1対1で対応し、Test IDが一意かつ全`covers`参照を解決できるか | 決定論 |
 
 ### 4.3 総合判定
 
@@ -268,12 +268,14 @@ scope 外の項目は `NOT_CHECKED` のまま保持し、PASS へ変換しない
 
 ---
 
-## 6. テストメタデータ（アノテーション）
+## 6. Test metadata宣言
 
-### 6.1 記述場所と正典性
+### 6.1 論理契約と正典性
 
-Test のメタデータは、テスト関数直前の doc comment 内に `@vtest.` 名前空間のアノテーションとして記述する。
-これが Test エンティティおよび Test 由来の関係（covers / target）の正典である。
+Test metadataはTest constructと対応付けられたadapter所有のsource declarationに記述する。この宣言がTest EntityおよびTest由来の関係（covers / targets）の正典である。
+adapterは固有の記述場所と構文から、§6.2の論理fieldとTest constructのSource Locationを決定論的に導出する。coreはadapter固有のcomment形式、decorator、attribute、manifest構文を解釈しない。
+
+組込`rust-cargo` adapterは、`#[test]`等のTest関数直前のdoc comment内に`@vtest.*`アノテーションを記述する。
 
 ```rust
 /// @vtest.id TEST-PARSER-044
@@ -289,28 +291,28 @@ fn rejects_invalid_utf8() {
 }
 ```
 
-### 6.2 キー一覧
+### 6.2 論理field一覧
 
-| キー | 必須 | 意味 |
+| field | 必須 | 意味 |
 |---|---|---|
-| `@vtest.id` | 必須 | Test ID。全体で一意 |
-| `@vtest.covers` | 必須 | 検証する VO ID。複数指定可（N:M 対応。要件定義 §4.4） |
-| `@vtest.target` | 1件以上必須 | 対象のロケータまたは SRC ID。adapterのTest種別が許可する場合は複数行で宣言できる |
-| `@vtest.intent` | 必須 | 何を検証するかの一文 |
-| `@vtest.input` | 任意 | 入力条件 |
-| `@vtest.expect` | 任意 | 期待結果 |
-| `@vtest.kind` | 任意 | テスト種別（Form Schema の種別と対応） |
-| `@vtest.case` | 任意・複数可 | table-driven test の代表ケース記述 |
-| `@vtest.related` | 任意・複数可 | 外部 Relation に昇格しない軽量な関連 Test の参照 |
+| `id` | 必須 | Test ID。構文上有効であることを必須とし、発見結果全体の一意性はscan時に検査する |
+| `covers` | 1件以上必須 | 検証するVO ID。複数指定可（N:M対応。要件定義 §4.4） |
+| `targets` | 1件以上必須 | adapter IDとopaque locatorの組またはSRC IDからなるTarget Referenceのリスト |
+| `intent` | 必須 | 何を検証するかの一文 |
+| `input` | 任意 | 入力条件 |
+| `expect` | 任意 | 期待結果 |
+| `kind` | 任意 | テスト種別（Form Schemaの種別と対応） |
+| `cases` | 任意・複数可 | table-driven testの代表ケース記述 |
+| `related` | 任意・複数可 | 外部Relationに昇格しない軽量な関連Testの参照 |
 
 具体的入力値の記載は許容するが必須としない（要件定義 §9）。
-構文の完全な文法は詳細設計 §4 で定める。
+`rust-cargo` adapterはこれらを`@vtest.id`、`@vtest.covers`、`@vtest.target`、`@vtest.intent`、`@vtest.input`、`@vtest.expect`、`@vtest.kind`、`@vtest.case`、`@vtest.related`へ対応付ける。構文の完全な文法は詳細設計 §4 の`rust-cargo` contractで定める。
 
 ### 6.3 直接編集の扱い
 
-アノテーションとテストコードの直接編集は禁止しない（要件定義 §22）。
-公式経路として Structured Test Operation（§8）を提供し、直接編集された場合もスキャンと整合性検査が不整合（ID重複、dangling VO 参照、アノテーション欠落）を検出する。
-アノテーションが正典であるため、直接編集と外部レコードの「同期漏れ」は covers / target については構造的に発生しない。
+Test metadata宣言とTest implementationの直接編集は禁止しない（要件定義 §22）。
+公式経路としてStructured Test Operation（§8）を提供し、直接編集された場合もadapter discoveryとcore整合性検査が不整合（ID重複、dangling VO参照、必須metadata欠落）を検出する。
+source declarationが正典であるため、直接編集と外部レコードの「同期漏れ」はcovers / targetsについては構造的に発生しない。
 
 ---
 
@@ -318,24 +320,24 @@ fn rejects_invalid_utf8() {
 
 ### 7.1 スキャンと整合性検査
 
-`vtest scan` は、テストコードと `.verify/` を読み、エンティティと関係の全体グラフを再構築する。
+`vtest scan`は、registryに登録された全source discovery adapterへ委譲し、統合したdiscovery結果と`.verify/`からエンティティと関係の全体グラフを再構築する。
 その過程で次の整合性検査を行う。
 
 - Test ID の重複（identity collision）
-- `@vtest.covers` が存在しない VO を参照（dangling reference）
-- `@vtest.id` を持つがどの VO も参照しない Test（orphan test）※警告
+- `covers`が存在しないVOを参照（dangling reference）
+- Test IDを宣言するがどのVOも参照しないTest（orphan test）※警告
 - VO の parent が存在しない、または循環している
 - Relation の from / to が存在しないエンティティを参照
-- 必須アノテーションキーの欠落
-- `@vtest` アノテーションを持たない `#[test]` 関数（unregistered test）※警告
+- 必須Test metadataの欠落
+- adapterがTestとして発見したが管理宣言を持たないconstruct（unregistered test）※警告。`rust-cargo`では`@vtest` annotationを持たない`#[test]`等が該当する
 
 エラーは検証結果に反映され、該当エンティティのチェック項目を非 PASS にする。
-W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestがmanaged Test Entityへ対応しない事実、および空のcoversは`test_traceability = MISSING`として完全検証へ反映する。Test ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。診断severityとチェック結果を混同しない。
+W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestが構造上完全なManaged Test Entityへ対応しない事実は`test_traceability = MISSING`として完全検証へ反映する。構造上完全なentityのTest ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。診断severityとチェック結果を混同しない。
 
 ### 7.2 決定論的テスト監査
 
-明らかに無意味なテストを、AST 解析による決定論的ルールで検出する（要件定義 §11）。
-少なくとも次を検出する。
+明らかに無意味なTestを、adapterのStatic Audit capabilityが提供する決定論的解析で検出する（要件定義 §11）。coreはadapter固有のAST、assertion構文、call graphを解釈せず、正規化されたルール結果を検証・集約する。
+`rust-cargo` adapterは少なくとも次を検出する。
 
 - 定数のみの assertion（`assert!(true)` 等）
 - 宣言されたtargetのうち、呼び出しを確認できない対象シンボルがある
@@ -397,8 +399,8 @@ VO 分解の網羅性は `vo-coverage` 種別の意味監査として実施す�
 ### 7.5 実装一致検証
 
 仕様・VO・Test と対象実装の一致は `impl-consistency` 種別の意味監査として実施する（要件定義 §13）。
-決定論的に検証できる部分（対象シンボルの存在、シグネチャの取得）はバンドル生成時に検証し、シンボルが存在しなければ `MISSING` とする。
-複数target Testでは、全targetの対象関数ソースとシグネチャをバンドルに含め、判定対象から一部targetを省略しない。
+決定論的に検証できる部分（Target Referenceの解決、adapterが提供する構造情報の取得）はバンドル生成時に検証し、targetを解決できなければ`MISSING`とする。
+複数target Testでは、全targetのimplementation construct sourceとadapterが提供する構造情報をバンドルに含め、判定対象から一部targetを省略しない。
 不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。
 
 ### 7.6 Partition と組合せ検証
@@ -423,7 +425,7 @@ Evidence には少なくとも次を含める。
 - Test ID と実行結果（PASS / FAIL）
 - 実行したadapter ID
 - 実行時のリポジトリリビジョン（Git commit hash）と dirty フラグ
-- テスト関数ソースの内容ハッシュ、および全宣言targetの参照と対象関数ソースの内容ハッシュ
+- adapterが特定するTest construct全体の内容ハッシュ、および全宣言targetのTarget Referenceとadapterが特定するimplementation constructの内容ハッシュ
 - 実行日時と実行方式
 - Target Execution Verification のtarget別結果とfail-closed集約結果（実施した場合）
 
@@ -431,9 +433,9 @@ Evidence には少なくとも次を含める。
 
 検証時、Evidence は次の条件をすべて満たす場合のみ有効とする（要件定義 §15）。
 
-- Evidence 記録時のテスト関数内容ハッシュが現在と一致する
+- Evidence記録時のTest construct内容ハッシュが現在と一致する
 - Evidenceのtarget参照集合が現在のTestの宣言target集合と重複なく一致する
-- Evidence記録時の各target内容ハッシュが、現在解決される各対象関数の内容ハッシュと一致する
+- Evidence記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する
 - Evidenceのadapter IDが現在のTestのexecution adapterと一致する
 - リビジョンが特定できている（dirty 状態での実行は Evidence に明示され、完全検証では内容ハッシュ一致を必須とする）
 
@@ -447,7 +449,7 @@ Evidence readerはadapter IDを欠くrecordも受理できる。現在のTestが
 - 完全検証ではデフォルト有効。
 - 高速な限定 scope 検証では省略可能。省略時は `NOT_CHECKED`。
 - 計測環境（カバレッジツール）が利用できない場合も `NOT_CHECKED` とし、PASS へ変換しない。
-- 各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、対象関数を確実に同定または計測できなければ`UNKNOWN`とする。
+- 各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、implementation constructを確実に同定または計測できなければ`UNKNOWN`とする。
 - Test単位の`target_execution`は、target別結果に1件でも`FAIL`があれば`FAIL`、`FAIL`がなく1件でも`UNKNOWN`があれば`UNKNOWN`、1件以上の全targetが`PASS`の場合だけ`PASS`とする。
 - target別結果の欠落、重複、または現在の宣言target集合との不一致を、全target計測済みの`PASS`として扱わない。
 
@@ -471,29 +473,29 @@ adapter能力の欠落または失敗を `PASS` へ補完しない。検証時�
 
 Test 操作の公式経路として、次の構造化操作を提供する（要件定義 §20）。
 
-- **Create Test**：Form Schema に基づく構造化入力からテスト雛形とアノテーションを生成し、正しい位置へ挿入する
-- **Edit Test**：Test ID を編集ハンドルとして、対象テストのアノテーションおよび関数本体を更新する
-- **Query Test**：Test ID・VO・SRC ロケータ等からの検索と逆引き
+- **Create Test**：Form Schemaに基づく構造化入力をadapterへ渡し、Test constructと対応するmetadata宣言を生成する
+- **Edit Test**：Test IDを編集ハンドルとして、adapterが識別する対象Testのmetadata宣言およびTest constructを更新する
+- **Query Test**：Test ID・VO・Target Reference等からの検索と逆引き
 - **Audit Test**：監査バンドルの生成と監査結果の提出（§7.3）
 
 ### 8.2 desired state 方式
 
 Create / Edit の入力は差分操作ではなく**あるべき状態（desired state）**とする。
-利用者は「TEST-X はこの状態である」を宣言し、`vtest` が現状との差分を計算してアノテーション更新・検証を行う。
+利用者は「TEST-Xはこの状態である」を宣言し、adapterが現状との差分を計算してTest constructとmetadata宣言を更新し、coreが結果を再スキャンして検証する。
 
 ### 8.3 入力検証
 
 構造化入力の各項目は、可能な限り受理時に検証する（要件定義 §20）。
 
-- 対象シンボルの存在（不存在なら候補を提示）
+- 対象Target Referenceの解決（解決不能ならadapterが候補を提示）
 - 参照 VO / Test ID の存在
 - Test ID の重複
-- 期待値として指定された enum variant 等の存在（解決可能な範囲で）
+- adapterが構造化解決を提供する期待値等の存在（解決可能な範囲で）
 
 ### 8.4 編集境界
 
 - 公式 Edit 操作の一回の対象は原則 1 Test とする（要件定義 §21）。`edit TEST-001` が他の Test を暗黙に変更することはない。
-- 編集はテスト関数の doc comment と関数本体の範囲に限定する。
+- 編集はadapterが対象Testに対して特定した単一のmetadata宣言範囲とTest construct範囲に限定する。
 - Test 外部の通常ソースコード、helper、fixture の編集は責務外とし、操作を提供しない（要件定義 OOS-003）。
 
 ### 8.5 Form Schema
@@ -586,7 +588,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 
 - `vtest init`は `.verify/` を作成し、既存コードを変更しない。
 - `vtest scan`は発見した未登録Testを未登録として報告する。
-- SPEC / REQ / VO、Test annotation、Audit、Evidenceの一部が欠ける状態も読み取り可能とする。
+- SPEC / REQ / VO、Test metadata宣言、Audit、Evidenceの一部が欠ける状態も読み取り可能とする。
 - `vtest verify`は正典または検証事実の欠落を対応する非PASS値として表示する。
 - 部分的な登録・監査・実行状態を総合 `OK` として扱わない。
 
@@ -625,7 +627,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | §7 Test Registry | §3、§6、§7.1 |
 | §8 Source Target | §3.3 |
 | §9 Test Intent | §6.2 |
-| §10 Parameterized Test | §6.2（`@vtest.case`）、§7.6 |
+| §10 Parameterized Test | §6.2（`cases`）、§7.6 |
 | §11 Test静的監査 | §7.2 |
 | §12 Test意味監査 | §7.3 |
 | §13 対象実装との一致検証 | §7.5 |
@@ -658,10 +660,10 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 |---|---|---|
 | 1 | Specification の入力フォーマット | 本書 §3.1：SPEC レコードによる参照方式。文書自体の形式は問わない |
 | 2 | VO 保存形式 | 本書 §5.1：1 VO 1 YAML ファイル。スキーマは詳細設計 §3 |
-| 3 | Test metadata の annotation syntax | 本書 §6：`@vtest.*`。文法は詳細設計 §4 |
+| 3 | Test metadata の annotation syntax | 本書 §6：論理field契約とadapter所有のsource declaration。`rust-cargo`の`@vtest.*`文法は詳細設計 §4 |
 | 4 | relation の保存形式 | 本書 §2.3、§5.2：導出可能関係は保存しない。外部関係は 1 ファイル 1 レコード |
 | 5 | Test ID 命名規則 | 本書 §3.2 |
-| 6 | Source symbol の識別方式 | 本書 §3.3：ロケータ方式 |
+| 6 | Source symbol の識別方式 | 本書 §3.3：adapter IDとopaque locatorからなるTarget Reference |
 | 7 | AST/LSP 等の解析技術 | 詳細設計 §5：`rust-cargo` adapterはsynによるAST解析を行う。LSPは提供範囲外 |
 | 8 | LLM provider / model | 本書 §7.3：エージェント委譲によりツールはプロバイダ非依存 |
 | 9 | AI監査の prompt / skill / agent 構成 | ツールの責務外。バンドルと提出のプロトコルのみ規定（§7.3）。参考プロンプトを詳細設計 §8 に添付 |
@@ -680,7 +682,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 ## 16. 詳細設計へ委譲する事項
 
 - ファイルスキーマの全フィールド定義
-- アノテーションの文法とパースエラーの扱い
+- adapterごとのTest metadata宣言構文とパースエラーの扱い
 - 決定論的監査ルールの個別仕様
 - 監査バンドル・提出結果の JSON スキーマ
 - テスト実行方式（cargo test の起動形態、結果パース）とカバレッジ計測方式

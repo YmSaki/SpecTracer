@@ -206,7 +206,7 @@ flatなVO群と階層化されたVO群の両方を扱い、flatなVOを再帰分
 
 ## 4.4 VOとTestの対応
 
-VOとTest Functionは1:1に限定しない。
+VOとTestは1:1に限定しない。
 
 以下を許容する。
 
@@ -217,7 +217,7 @@ N VOs -> 1 Test
 N VOs -> M Tests
 ```
 
-Test FunctionはVOの実装単位であり、VOそのものではない。
+TestはVOの検証実装単位であり、VOそのものではない。Testを構成する言語構文やtest runner上の実行単位はadapterが識別する。
 
 ---
 
@@ -369,7 +369,7 @@ Test ID
 ├─ Test Intent
 ├─ Verification Obligations
 ├─ Source Targets
-├─ Test Function
+├─ Test Construct
 ├─ Location
 ├─ Audit Results
 └─ Execution Evidence
@@ -381,17 +381,23 @@ Test ID
 
 登録adapterがTestとして発見した実行可能なtest constructは、すべて検証目的を持つ管理対象でなければならない。
 
-発見されたTest集合を `D`、有効なmanaged Test Entity集合を `M` とすると、完全検証では次を要求する。
+発見されたTest集合を `D`、構造上完全なmanaged Test Entity集合を `M` とする。
+構造上完全とは、source declarationから構文上有効なTest ID、1件以上の`covers`、その他の必須metadataをTest Entityとして具体化できることをいう。Discovered Testとentityの対応数は構造完全性に含めず、独立した整合性条件とする。
+`M`はVO参照の解決とTest IDの大局的一意性を検査する前の集合とし、解決不能な`covers`を持つentityや、他のentityとTest IDが衝突するentityも含む。
+
+完全検証では次を要求する。
 
 ```text
 ∀ d ∈ D:
   dに対応するmanaged Test Entityがちょうど1件存在する
   and managed Test Entity.coversは1件以上である
   and coversの全VO参照を解決できる
+  and Test IDが発見結果全体で一意である
 ```
 
-アノテーションを持たないTest、必須metadataが欠落したTest、空のcovers、解決できないVO参照、
-同一Test constructから複数entityが生じる状態、またはTest ID衝突を完全検証のPASSとして扱ってはならない。
+adapter所有の管理宣言を持たないTest、必須metadataが欠落したTest、または空の`covers`によって対応するmanaged Test Entityが存在しない状態は`MISSING`とする。
+構造上完全なentityが持つVO参照を解決できない状態、同一Test constructから複数entityが生じる状態、またはTest ID衝突は`MISMATCH`とする。
+discoveryが不完全または解析不能な状態は`UNKNOWN`とする。いずれも完全検証のPASSとして扱ってはならない。
 
 `test_existence` はleaf VOからTestへの方向、`test_traceability` は発見されたTestからVOへの方向を検証する。
 両方がPASSの場合だけ、VOとTestの双方向完全性が成立する。
@@ -400,30 +406,13 @@ Test ID
 
 # 8. Source Target
 
-テスト対象となる実装コードを識別可能でなければならない。
+テスト対象となる実装コード上のimplementation constructを識別可能でなければならない。
 
 1つのTestは1件以上のSource Targetを宣言できる。複数targetを宣言した場合も、各targetを独立に識別し、代表1件へ縮約してはならない。
 
 ソースコード自体への恒久ID埋め込みは必須としない。
-
-少なくとも、
-
-```text
-project-relative-path
-+
-namespace / module
-+
-symbol / function
-```
-
-等によって対象を識別可能とする。
-
-例：
-
-```text
-src/parser.rs
-crate::parser::Parser::parse
-```
+各adapterは、Source Targetを一意に解決でき、同一のsource stateから決定論的に正規化できるTarget Referenceを提供する。
+Target Referenceの具体的な構文、namespace、symbol種別は下位仕様へ委譲し、共通契約がpath、module、function等の特定言語構造を必須としてはならない。
 
 TestからSourceを検索でき、Sourceから関連Testを逆引きできること。
 
@@ -431,7 +420,7 @@ TestからSourceを検索でき、Sourceから関連Testを逆引きできるこ
 
 # 9. Test Intent
 
-Test Functionには、そのコードだけを読まなくても、
+Testには、その実装コードだけを読まなくても、
 
 - 何を検証するか
 - どのVOに対応するか
@@ -446,7 +435,7 @@ Test Functionには、そのコードだけを読まなくても、
 
 # 10. Parameterized / Table-Driven Test
 
-以下の形式を正式に許容する。
+以下のような論理形式を正式に許容する。code fragmentはRustによる例示であり、共通契約がRust構文を要求するものではない。
 
 ```rust
 for (input, expected) in cases {
@@ -454,7 +443,7 @@ for (input, expected) in cases {
 }
 ```
 
-この場合、Test Function全体を一つのTestとして登録できる。
+この場合、adapterが識別したtable-driven test construct全体を一つのTestとして登録できる。
 
 Test内部の各caseを独立Test IDへ分解することを必須とはしない。
 
@@ -470,13 +459,13 @@ Test内部の各caseを独立Test IDへ分解することを必須とはしな�
 
 明らかに意味のないテストを、可能な限り決定論的な解析によって検出する。
 
-以下はNGである。
+以下の論理的な違反はNGである。code fragmentはRustによる例示であり、各adapterは対応する言語・runnerの構造に対して決定論的に判定できる範囲を提供する。
 
 ```rust
 assert!(true);
 ```
 
-対象関数を呼び出していない。
+宣言されたSource Targetを実行していない。
 
 ```rust
 let x = 1 + 1;
@@ -687,7 +676,7 @@ PMなどは上位Requirement単位からNG箇所まで掘り下げられるこ�
 
 # 20. Structured Test Operation
 
-Test操作の公式経路として、Test IDまたは識別可能なTest Functionを対象とした構造化操作を提供する。
+Test操作の公式経路として、Test IDまたはadapterが識別可能なTest constructを対象とした構造化操作を提供する。
 
 少なくとも、
 
