@@ -37,6 +37,19 @@ M9 完了前に本計画を着手する場合は、マイルストーン順序�
 - M9 acceptance：9 tests（全PASS）
 - 共通ゲート：fmt / workspace test / clippy `-D warnings` / `vtest doctor`
 
+### 0.3 上流差戻しと工程分離
+
+W0の仕様変更中はproduction実装コードおよびテストコードを変更しない。仕様変更は
+独立したcommit / PRとして作成し、Ownerの承認とmergeを確認するまで、acceptance test、
+fixture、production実装の変更を開始しない。
+
+仕様確定後の実装・テスト・検証で仕様上の欠陥、矛盾、不足を発見した場合も、同じ
+下流commit / PR内で仕様を修正しない。作業を停止して根拠をOwnerへ報告し、承認された
+仕様変更を独立してmergeした後に、下流工程を新しい正典へrebaseして再開する。
+
+この工程は一方向ではない。下流は上流成果物の欠陥を発見できるが、上流成果物を
+自己承認して変更する権限を持たない。
+
 ## 1. 目的
 
 ### 1.1 達成すること
@@ -251,8 +264,10 @@ versioned JSON contractを定義した後の別マイルストーンとする。
 - `RunnerInfo.kind`、`command`、`exit_code`は既にrunner非依存なので維持する。
 - `TargetExecution.method`もstringのためcoverage provider名を保持できる。
 - adapter IDをEvidenceへ追加する場合はoptional fieldとし、旧recordの欠落を
-  PASS条件に追加しない。旧recordの有効性は既存hash / revision規則で判定する。
-- 新recordではadapter IDとrunner kindの整合を保存前に検証する。
+  読取り互換のため許容する。alpha.2の新recordではadapter IDを必須で記録する。
+- 旧recordのadapter欠落は、現在のTestが `rust-cargo` でlegacy runner kindとhashから
+  Rust実行を一意に確認できる場合だけ互換扱いし、それ以外はUNKNOWNとする。
+- 新recordではadapter IDとTest execution adapter、runner kindの整合を保存前に検証する。
 - unknown adapterのEvidenceを推測で実行済み・coverage PASSへ昇格しない。
 
 ## 5. 設定と互換性
@@ -287,7 +302,8 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 - `vtest init`はv2を生成する。
 - 明示的な`vtest config migrate --dry-run`なしにcanonical configを更新しない。
 - v1とv2から得られるRust scan / audit / run / verify結果が同値であるfixtureを置く。
-- 未知adapter、重複ID、重複root、無効capability設定はusage errorとして拒否する。
+- 未知adapter、重複ID、同一adapter内の重複root、無効adapter設定はusage errorとして拒否する。
+- 異なるadapterによる同一rootの共有はpolyglot repositoryのため許可する。
 
 ## 6. fail-closed契約
 
@@ -298,7 +314,8 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 | `E-ADAPTER-001` | 設定adapterが未登録・重複 | 操作失敗、PASSなし |
 | `E-ADAPTER-002` | discovery / runnerの確定的失敗 | 該当操作失敗、Evidenceなし |
 | `E-ADAPTER-003` | Testとexecution descriptorのadapter不一致 | 該当Test非PASS |
-| `W-ADAPTER-101` | requested capabilityをadapterが提供しない | 該当項目`NOT_CHECKED` |
+| `E-ADAPTER-004` | 明示操作に必須のcapabilityが未提供 | 操作失敗、変更・Audit・Evidenceなし |
+| `W-ADAPTER-101` | 検証対象のcapabilityをadapterが提供しない | capabilityに応じ`NOT_CHECKED`または`NOT_EXECUTED` |
 | `W-ADAPTER-102` | adapterが解析限界を報告 | 該当項目`UNKNOWN` |
 
 規則：
@@ -328,14 +345,18 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 - 別紙A §12〜15
 - 別紙B §18
 - `AGENTS.md`
-- `tests/ACCEPTANCE.md`
 
 完了条件：
 
 - adapter contract、v1/v2 config、JSON互換、Evidence互換が仕様化される。
 - Rust v0.1の観測可能挙動を維持する項目と、versioned変更項目が区別される。
-- 新しいadapter受入基準にテスト名の予約がある。
+- W0 commit / PRにproduction実装コード、テストコード、fixture、`tests/ACCEPTANCE.md`を含めない。
+- Ownerが仕様PRを承認・mergeし、そのmerge済みrevisionを下流工程の基準として記録する。
 - M9がDONEである。
+
+W0 merge後、production実装より先に、別紙Bの受入基準から`tests/ACCEPTANCE.md`、
+adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧実装でFAILすることを確認する。
+この段階ではproduction実装を変更しない。acceptance成果物が確定してからW1を開始する。
 
 ### W1 adapter APIとneutral model
 
