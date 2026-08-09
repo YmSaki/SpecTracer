@@ -397,7 +397,8 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 完了条件：
 
 - M1、M2、M8 acceptanceが既存fixtureで全PASS。
-- annotationを持たないTestもDiscovered Testとして返し、managed entity欠落を保持する。
+- annotationを持たないTestもDiscovered Testとして返し、`ManagedTestLink::Missing`を保持する。
+- 存在しないVOを参照する構造上完全なTest Entityは`ManagedTestLink::One`のまま返し、coreがE-SCAN-003と`MISMATCH`を導出する。
 - integration Testの複数targetを欠落なく返し、重複targetを拒否する。
 - `rust-cargo` scan JSONの互換fieldがwire layerで維持され、execution descriptorと一致する。
 - core scan resultとsynthetic TestがRust固有fieldを要求しない。
@@ -424,7 +425,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M4、M7 acceptanceが全PASS。
 - build failureでEvidenceを記録しない。
 - target変更でEvidenceがSTALEになる。
-- Evidenceが全宣言targetのhashとtarget別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
+- Evidenceが`test_construct`、全宣言targetの`target_construct` hash、target別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
 - llvm-cov不在はNOT_CHECKEDのままである。
 - `vtest-exec`にCargo / llvm-cov / rustc-demangle固有処理が残らない。
 
@@ -435,7 +436,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 完了条件：
 
 - M6、M9 acceptanceが全PASS。
-- `test_traceability`が全Discovered Testをrepository-levelで評価し、W-SCAN-101のTestをMISSINGにする。
+- `test_traceability`が全Discovered Testをrepository-levelで評価し、`ManagedTestLink::Missing`をMISSING、`ManagedTestLink::Multiple`・Test ID衝突・解決不能なVO参照をMISMATCHにする。
 - 全MCP toolがCLIと同じregistryとenvelopeを使う。
 - adapter選択失敗のcode / message / candidatesがCLI/MCPで一致する。
 - reportはadapter metadataを根拠として表示できるが、scope外をPASSにしない。
@@ -446,10 +447,12 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 
 synthetic adapterはRust parser、Cargo、llvm-covを使わず、fixture内の宣言ファイルから
 Test / Sourceを返し、固定のrunner observationを生成する。
+fixtureは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを使用する。
 
 完了条件：
 
 - Rust以外のadapter実装が`vtest-model`変更なしで登録できる。
+- synthetic adapterの登録・scan・verifyに`vtest-model`、`vtest-scan`、`vtest-verify`の変更を必要としない。
 - RustとsyntheticのTestを1回のscanでmergeできる。
 - duplicate Test IDをE-SCAN系またはE-ADAPTER系errorで拒否する。
 - synthetic runnerのEvidenceがhash変更後にSTALEになる。
@@ -588,6 +591,7 @@ cargo run --quiet -p vtest-cli -- doctor
 - Rust v0.1の受入基準がすべて再現できる。
 - M9がDONEでありCLI/MCP parityが維持される。
 - `vtest-model`のコア判断がCargo fieldに依存しない。
+- `vtest-model`のTest、Source Location、Target ReferenceがRustの関数、module path、`.rs`拡張子を不変条件としない。
 - scan / audit / exec orchestrationがRust parser / runnerを直接所有しない。
 - synthetic adapterがコアcrate変更なしに登録・scan・runできる。
 - missing capabilityがPASSへ昇格しない。

@@ -27,6 +27,8 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 
 ## Upstream correction and approval
 
+- Treat the phase where a contradiction is discovered as a finding location, not as the upper limit of the correction scope. Trace artifact dependencies through every affected upstream phase, identify the earliest invalidated accepted artifact, and derive downstream changes from that point.
+- Before editing an upstream artifact, distinguish a direct contradiction from an underspecified or overly narrow abstraction, cite the exact sections on both sides, and state which already-approved owner decision or higher-level requirement controls the correction.
 - A downstream phase may discover a defect in an upstream artifact, but it must not self-approve or silently rewrite that artifact. Stop the downstream work, return the evidence and proposed change to the owner, and resume only after the owner has approved and the upstream artifact has been finalized.
 - During a specification-change phase, do not modify implementation code or test code. Finalize the specification change as an independent commit and pull request, and do not begin downstream implementation or test changes until the owner has approved and merged it.
 - Even after a specification has been finalized, if implementation, testing, or verification exposes a new specification defect, contradiction, or omission, do not repair the specification in place. Stop the work, report the evidence to the owner, and restart from the appropriate upstream phase.
@@ -49,7 +51,7 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Keep `vtest-adapter-api` language and runner neutral. Rust parser, Cargo command construction, Rust AST audit, demangling, and llvm-cov handling belong only to `vtest-adapter-rust`.
 - Treat missing static-audit or coverage capabilities as `NOT_CHECKED`, a missing runner capability as `NOT_EXECUTED`, and analysis limits as `UNKNOWN`; never promote any of them to `PASS`. Reject unknown or duplicate adapter IDs and duplicate Test IDs across adapters.
 - Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. `TestEntity` contains only `execution`; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
-- Full verification has 12 items. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one Managed Test Entity with at least one resolvable VO; W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
+- Full verification has 12 items. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one structurally complete Managed Test Entity, Test IDs are globally unique, and every declared VO resolves. Missing management declarations or required metadata produce `MISSING`; dangling VO references, multiple mappings, and Test ID collisions produce `MISMATCH`. W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
 - CLI and MCP must compose the same adapter registry and retain the same JSON envelope and fail-closed diagnostics.
 
 ## Agent and skill use

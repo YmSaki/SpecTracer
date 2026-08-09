@@ -40,13 +40,14 @@ tests/fixtures/calc/
 
 ### M1 コアモデルとスキャナ
 
-- 実装：`vtest-model`、`vtest-store`（読み込みのみ）、`vtest-scan`、`vtest init` / `vtest scan` / `vtest doctor`、診断出力（text / JSON）
+- 実装：`vtest-model`、`vtest-store`（読み込みのみ）、`vtest-adapter-api`、`vtest-adapter-rust`のdiscovery、`vtest-scan`の委譲・統合、`vtest init` / `vtest scan` / `vtest doctor`、診断出力（text / JSON）
 - 完了条件：
-  - fixtureのdiscovered Testとmanaged Test Entityを区別して抽出できる。
+  - fixtureのDiscovered Test、構造上完全なManaged Test Entity、ManagedTestLinkを区別して抽出できる。
+  - 存在しないVOを参照するTest Entityを`ManagedTestLink::One`のまま保持し、E-SCAN-003と`MISMATCH`を導出できる。
   - 複数target Testの全TargetRefを宣言順に抽出し、重複を拒否できる。
   - `TestEntity`は中立な`execution`を持ち、Rust互換fieldは`rust-cargo` wire codecだけが入出力する。
   - E-SCAN-002〜010、W-SCAN-101がfixtureの該当箇所で検出される。
-  - 未登録Testが存在する場合、`test_traceability`が`MISSING`になる。
+  - 未登録Testが存在する場合、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出できる。
   - `vtest scan --format json`の出力が別紙A §12.1の構造に従う。
   - error診断があれば終了コード1、正常なら0になる。
 
@@ -60,7 +61,7 @@ tests/fixtures/calc/
 
 ### M3 決定論的監査
 
-- 実装：`vtest-audit`の静的rule DA-001〜DA-006、W-DA-101、`vtest audit static`、監査レコード保存
+- 実装：`vtest-adapter-rust`の静的rule DA-001〜DA-006・W-DA-101、`vtest-audit`の委譲・集約、`vtest audit static`、監査レコード保存
 - 完了条件：
   - fixtureの各NG Testが対応ruleでFAILになる。
   - 正常Testは全rule違反なしになる。
@@ -68,10 +69,10 @@ tests/fixtures/calc/
 
 ### M4 テスト実行とEvidence
 
-- 実装：`vtest-exec`（runner起動、結果parse、Evidence記録）、`vtest run --fast`、鮮度判定（本冊 §11.2）
+- 実装：`vtest-adapter-rust`のrunner起動・結果parse、`vtest-exec`の委譲・Evidence記録、`vtest run --fast`、鮮度判定（本冊 §11.2）
 - 完了条件：
   - fixtureの全登録Testが実行され、TestごとにEvidenceが1件記録される。
-  - Evidenceが全宣言targetの参照と内容hashを重複なく記録する。
+  - Evidenceが`test_construct`と全宣言targetの`target_construct`内容hashを重複なく記録する。
   - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
   - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
 
@@ -106,7 +107,7 @@ tests/fixtures/calc/
 
 ### M8 Structured Test Operation
 
-- 実装：Form Schema読み込みと検証器、`test create` / `test edit` / `test show` / `test list` / `test query`、別紙A §15の編集機構
+- 実装：coreのForm Schema読み込み・操作委譲、`vtest-adapter-rust`のStructuredTestAdapter・Form・検証器、`test create` / `test edit` / `test show` / `test list` / `test query`、別紙A §15のadapter contract
 - 完了条件：
   - 誤ったsymbolを含む回答が候補付きE-OP-001で拒否される。
   - `test create`で生成されたTestがscanで正しく認識される。
