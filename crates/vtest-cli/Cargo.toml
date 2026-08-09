@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+vtest-adapter-api = { path = "../vtest-adapter-api" }
+vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true

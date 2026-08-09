@@ -122,3 +122,52 @@ specification/requirement/VO/approval/form/test/audit/run/verify/report flow,
 and exercises malformed JSON-RPC, unsupported methods, invalid arguments,
 candidate-bearing symbols, and rejected audit submissions. Rejected inputs
 are checked for `isError` envelopes and absence of unintended audit writes.
+
+## v0.1.0-alpha.2 adapter separation acceptance
+
+The adapter refactor is limited to the procedure in
+`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`. The reserved
+acceptance names are:
+
+| Area | Acceptance test / check | Expected |
+|---|---|---|
+| Neutral API | `vtest-adapter-api` registry unit tests | duplicate IDs rejected; deterministic capability lookup |
+| Model compatibility | `execution_descriptor_is_additive_and_legacy_json_gets_a_safe_default` | legacy JSON reads safely and emits `execution` |
+| Config v2 | `version_two_config_round_trips_adapter_namespaces` | v2 is deterministic; v1 remains readable |
+| Fail-closed config | `version_two_duplicate_adapter_id_or_root_fails_closed` | duplicate adapter/root is rejected |
+| Mixed adapters | `adapter_acceptance_merges_synthetic_results_deterministically`, `adapter_acceptance_rejects_duplicate_test_ids_and_missing_capability` | synthetic discovery merges deterministically; duplicate Test IDs and missing capabilities fail closed |
+| Synthetic runner | `adapter_acceptance_runs_synthetic_runner_and_binds_evidence_to_adapter`, `synthetic_evidence_becomes_stale_after_test_hash_change` | runner Evidence records the adapter and subject hash changes become `STALE`; coverage remains `NOT_CHECKED` |
+| Dependency boundary | architecture check / `cargo metadata` | Rust-only crates are owned by `vtest-adapter-rust` |
+
+Production adapters for TypeScript, Go, and C# are intentionally not part of
+alpha.2.
+
+## Declared alpha.2 verification gate
+
+The following gate is declared before the final verification run. Alpha.2 is
+accepted only when every required row below has reproducible evidence and no
+row is inferred from another row. A command that cannot be run is `NOT_CHECKED`
+or `NOT_EXECUTED`, not a pass.
+
+| ID | Claim to verify | Required evidence | Pass condition |
+|---|---|---|---|
+| W0 | Normative documents and acceptance scope are synchronized | diff of requirements, basic/detailed design, annexes, `AGENTS.md`, and this ledger | adapter boundary, v1/v2 compatibility, Evidence compatibility, and alpha2 out-of-scope items are explicit |
+| W1 | Neutral model and capability registry are deterministic | `vtest-adapter-api` unit test; model additive-JSON test; `cargo metadata` | duplicate adapter IDs fail; IDs/capabilities are ordered; API has no Cargo/parser-specific dependency or type |
+| W2 | Config v1/v2 behavior is compatible and fail-closed | store config round-trip, duplicate ID/root, and opaque non-Rust settings tests | v1 reads without rewrite; `vtest init` writes v2; duplicate roots/IDs fail; non-Rust values are not Rust-validated |
+| W3 | Rust discovery and Structured Test Operation are adapter-owned | M1, M2, M8 acceptance suites; direct-dependency check | legacy fields and new execution descriptor agree; one-Test edit boundary holds; scan facade has no Rust parser dependency |
+| W4 | Rust static audit is adapter-owned and conservative | M3 and M5 acceptance suites; direct-dependency check | DA-001..006 behavior and UNKNOWN/staleness/hash binding remain unchanged; audit facade has no `syn`/`quote` dependency |
+| W5 | Rust runner and coverage are adapter-owned and fail-closed | M4 and M7 acceptance suites; direct-dependency check | build/missing-result produce no Evidence; stale target hashes remain stale; unavailable coverage is `NOT_CHECKED` |
+| W6 | CLI, MCP, and verify use the adapter-aware core | M6 and M9 acceptance suites; CLI/MCP envelope parity assertions | adapter selection and capability diagnostics are identical; no unsupported capability becomes PASS |
+| W7 | A non-Rust adapter can register, merge, run, and become stale safely | `adapter_acceptance.rs` three tests; `synthetic_evidence_becomes_stale_after_test_hash_change` | deterministic mixed merge; duplicate Test IDs and unknown adapters fail; synthetic Evidence binds adapter/hash; missing coverage is `NOT_CHECKED` |
+| W8 | Release gate and distribution remain reproducible | fmt, workspace test, clippy, `vtest doctor`, `verify_change.py`, `release_check.py`, metadata boundary check | all commands exit successfully; release check is `READY`; project/plugin distribution is synchronized |
+
+### Dogfood status rule
+
+`vtest doctor` must exit zero and must not emit an error diagnostic. Warnings are
+retained as evidence. In particular, the current `SPEC-DOGFOOD-M3` record is
+intentionally not rewritten after the specification edits, so its
+`W-SCAN-104` stale warning is expected and means that a claim of “all 11
+dogfood check items are PASS” is **not** made by this alpha2 gate. A future
+dogfood refresh must update the canonical SPEC through the CLI, rerun dependent
+audits/Evidence, and re-run the full 11-item verification before making that
+stronger claim.

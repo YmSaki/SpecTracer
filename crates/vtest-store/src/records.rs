@@ -16,8 +16,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    AdapterId, CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision,
+    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -876,6 +876,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     Ok(EvidenceRecord {
         id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
+        adapter: scalar(&text, "adapter").map(AdapterId::new),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
         revision: Revision {

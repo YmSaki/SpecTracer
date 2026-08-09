@@ -1,8 +1,8 @@
 # Architecture
 
 SpecTracer (`vtest`) is a fail-closed verification layer around language and
-test-runner ecosystems. The current v0.1 adapter is Rust/Cargo, while the
-verification contract is intentionally language-independent.
+test-runner ecosystems. In v0.1.0-alpha.2 the verification contract is exposed
+through a language-neutral adapter API and the built-in adapter is Rust/Cargo.
 
 ## Dependency direction
 
@@ -13,18 +13,23 @@ verification rules:
 vtest-cli / vtest-mcp
         |
 vtest-verify / vtest-exec / vtest-audit / vtest-scan
-        |
-vtest-store
-        |
-vtest-model
+        |                         |
+        v                         v
+vtest-store <------------- vtest-adapter-rust
+        |                         |
+        v                         v
+vtest-model <------------- vtest-adapter-api
 ```
 
 - `vtest-model` contains shared entities, identities, hashes, diagnostics, and
   verification states.
 - `vtest-store` owns canonical append-only record persistence and reload.
-- `vtest-scan` discovers source entities and applies structured test operations.
-- `vtest-audit` performs deterministic static and semantic audit checks.
-- `vtest-exec` runs tests and records execution Evidence.
+- `vtest-scan` selects registered discovery capabilities, merges deterministic
+  results, and applies the structured-operation facade.
+- `vtest-audit` selects static-audit capabilities and preserves append-only
+  audit storage.
+- `vtest-exec` selects runner and coverage capabilities and records execution
+  Evidence.
 - `vtest-verify` rebuilds the verification graph and performs fail-closed
   aggregation.
 - `vtest-cli` is the non-interactive command-line entrypoint.
@@ -51,11 +56,14 @@ Obligations, test identity and intent, approvals, audits, Evidence, hashes,
 aggregation, and reporting. Ecosystem-specific discovery, symbol resolution,
 test execution, and coverage measurement belong behind explicit adapters.
 
-The current v0.1 Rust adapter uses Cargo and Rust test metadata. The planned
-language-adapter separation is tracked in
-[`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md);
-future TypeScript/JavaScript, Go, C#, and other adapters must preserve the same
-contract and evidence rules.
+`vtest-adapter-api` contains the object-safe discovery, static-audit,
+structured-test, runner, and coverage capabilities. `vtest-adapter-rust` owns
+Rust parsing, Cargo target resolution, static rules, runner commands,
+`rustc-demangle`, `cargo-llvm-cov`, and built-in Rust forms. The separation is
+tracked in [`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md).
+Future TypeScript/JavaScript, Go, C#, and other adapters must preserve the same
+contract and evidence rules without adding language-specific types to the
+neutral API.
 
 ## Interface parity
 

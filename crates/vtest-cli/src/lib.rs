@@ -310,6 +310,8 @@ pub struct ScanData {
     pub summary: ScanSummary,
     pub tests: Vec<vtest_model::TestEntity>,
     pub sources: Vec<vtest_model::SourceFunction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub adapters: Vec<vtest_adapter_api::AdapterDescriptor>,
 }
 
 impl From<ScanResult> for ScanData {
@@ -318,6 +320,7 @@ impl From<ScanResult> for ScanData {
             summary: value.summary,
             tests: value.tests,
             sources: value.sources,
+            adapters: value.adapters,
         }
     }
 }
@@ -478,11 +481,22 @@ fn run_init(project: &Path, name: Option<&str>, format: OutputFormat, quiet: boo
         })
         .unwrap_or_else(|| "project".to_owned());
     match init_project(&root, &project_name) {
-        Ok(_) => {
-            let data = serde_json::json!({ "project": root, "initialized": true });
-            emit(format, quiet, JsonEnvelope::new(true, data, Vec::new()));
-            ExitCode::Ok
-        }
+        Ok(layout) => match vtest_adapter_rust::ensure_builtin_forms(&layout) {
+            Ok(()) => {
+                let data = serde_json::json!({ "project": root, "initialized": true });
+                emit(format, quiet, JsonEnvelope::new(true, data, Vec::new()));
+                ExitCode::Ok
+            }
+            Err(error) => {
+                let (diagnostic, code) = store_error_with_code(error, ExitCode::Internal);
+                emit(
+                    format,
+                    quiet,
+                    JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
+                );
+                code
+            }
+        },
         Err(error) => {
             let (diagnostic, code) = store_error_with_code(error, ExitCode::Usage);
             emit(
@@ -3720,8 +3734,8 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
                 println!("Scope outside requested range: NOT_CHECKED");
             }
             if let Some(tree) = report.get("tree").and_then(serde_json::Value::as_array) {
-                for node in tree {
-                    print_text_tree_node(node, "├─ ");
+                for line in render_text_tree(tree).lines() {
+                    println!("{line}");
                 }
             } else if let Some(items) = report.get("items").and_then(serde_json::Value::as_array) {
                 for item in items {
@@ -3772,7 +3786,21 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
     }
 }
 
-fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
+fn render_text_tree(tree: &[serde_json::Value]) -> String {
+    let mut output = String::new();
+    let last_index = tree.len().saturating_sub(1);
+    for (index, node) in tree.iter().enumerate() {
+        render_text_tree_node(node, &[], index == last_index, &mut output);
+    }
+    output
+}
+
+fn render_text_tree_node(
+    node: &serde_json::Value,
+    ancestors_have_next: &[bool],
+    is_last: bool,
+    output: &mut String,
+) {
     let kind = node
         .get("kind")
         .and_then(serde_json::Value::as_str)
@@ -3785,21 +3813,71 @@ fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
         .get("value")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("UNKNOWN");
-    println!("{prefix}{kind}:{id:<28} {value}");
-    if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
-        for item in items {
-            let key = item.get("item").and_then(serde_json::Value::as_str);
-            let value = item.get("value").and_then(serde_json::Value::as_str);
-            if let (Some(key), Some(value)) = (key, value) {
-                println!("{prefix}│  ├─ {key:<24} {value}");
-            }
-        }
+
+    output.push_str(&tree_prefix(ancestors_have_next, is_last));
+    output.push_str(&format!("{kind}:{id:<28} {value}\n"));
+
+    let items = node
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let key = item.get("item").and_then(serde_json::Value::as_str)?;
+            let value = item.get("value").and_then(serde_json::Value::as_str)?;
+            Some((key, value))
+        })
+        .collect::<Vec<_>>();
+    let children = node
+        .get("children")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let branch_count = items.len() + children.len();
+    let child_ancestors = ancestors_have_next
+        .iter()
+        .copied()
+        .chain(std::iter::once(!is_last))
+        .collect::<Vec<_>>();
+
+    for (index, (key, value)) in items.into_iter().enumerate() {
+        output.push_str(&tree_prefix(&child_ancestors, index + 1 == branch_count));
+        output.push_str(&format!("{key:<24} {value}\n"));
     }
-    if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
-        for child in children {
-            print_text_tree_node(child, &format!("{prefix}│  "));
-        }
+    for (index, child) in children.iter().enumerate() {
+        render_text_tree_node(
+            child,
+            &child_ancestors,
+            items_len(node) + index + 1 == branch_count,
+            output,
+        );
     }
+}
+
+fn items_len(node: &serde_json::Value) -> usize {
+    node.get("items")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|item| {
+            item.get("item")
+                .and_then(serde_json::Value::as_str)
+                .is_some()
+                && item
+                    .get("value")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some()
+        })
+        .count()
+}
+
+fn tree_prefix(ancestors_have_next: &[bool], is_last: bool) -> String {
+    let mut prefix = String::new();
+    for has_next in ancestors_have_next {
+        prefix.push_str(if *has_next { "│  " } else { "   " });
+    }
+    prefix.push_str(if is_last { "└─ " } else { "├─ " });
+    prefix
 }
 
 #[cfg(test)]

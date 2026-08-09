@@ -16,8 +16,9 @@
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
 
 SpecTracer's verification model is language- and test-runner-agnostic by design.
-The current v0.1 implementation supports Rust and Cargo; adapters for TypeScript,
-JavaScript, Go, C#, and other ecosystems are future work.
+The v0.1.0-alpha.2 implementation ships a neutral adapter contract and the
+built-in Rust/Cargo adapter; production adapters for TypeScript, JavaScript, Go,
+C#, and other ecosystems are future work.
 
 **The current CLI binary is `vtest`.**
 
@@ -93,17 +94,19 @@ ecosystem-specific machinery used to discover and execute tests.
 - **Language-independent contract:** specifications, requirements, Verification
   Obligations, Test identity and intent, approvals, audits, Evidence, content
   hashes, fail-closed states, aggregation, and reporting.
-- **Current v0.1 adapter:** Rust `#[test]` discovery, Rust symbol resolution,
-  Cargo test execution, and `cargo-llvm-cov` target measurement.
+- **Current built-in adapter:** Rust `#[test]` discovery, Rust symbol resolution,
+  Cargo test execution, and `cargo-llvm-cov` target measurement through the
+  `rust-cargo` adapter.
 - **Intended expansion:** TypeScript/JavaScript, Go, C#, and other languages and
   test runners through explicit scanner, runner, and coverage adapters that
   preserve the same verification contract.
 
-The v0.1 implementation has not yet completed that adapter boundary:
-`TestEntity` still carries Cargo-oriented execution coordinates such as a test
-filter, package, and target kind. Supporting additional ecosystems therefore
-requires generalizing those coordinates while preserving the language-neutral
-verification states, canonical identities, and Evidence hash binding.
+The alpha.2 adapter boundary is now explicit: `TestEntity.execution` carries a
+neutral adapter, project, suite, and opaque selector while the legacy Cargo
+fields remain readable for v0.1 JSON compatibility. `vtest-adapter-api` contains
+the capability registry; Rust parser, Cargo command, audit, and coverage details
+are isolated in `vtest-adapter-rust`. Production language adapters are still
+separate milestones and are not implied by the current release.
 
 Support is evidence-based: an ecosystem is supported only after its discovery,
 execution, freshness, and target-measurement behavior has reproducible acceptance
@@ -112,7 +115,7 @@ coverage. Unsupported or unavailable analysis must remain `NOT_CHECKED` or
 
 ---
 
-## 60-second tour: current Rust adapter
+## 60-second tour: current built-in Rust adapter
 
 This is the current procedure.
 
@@ -132,7 +135,7 @@ SHA-256 checksum file. Download the matching asset from the
 extract `vtest` (or `vtest.exe` on Windows), and put it on your `PATH`.
 
 Release tags must use the `vMAJOR.MINOR.PATCH` form, optionally followed by an
-ASCII SemVer pre-release identifier such as `-alpha.1`, and match the workspace
+ASCII SemVer pre-release identifier such as `-alpha.2`, and match the workspace
 version in `Cargo.toml`; tags that are not reachable from `main` are rejected.
 
 ### 2. Initialize verification metadata
@@ -426,8 +429,10 @@ It is infrastructure for making claims about software **explicit, bounded, and a
 ```text
 crates/
 ├── vtest-model    # shared entities, hashes, diagnostics, states
+├── vtest-adapter-api  # language- and runner-neutral capability contracts
+├── vtest-adapter-rust # built-in Rust/Cargo implementation
 ├── vtest-store    # canonical record persistence
-├── vtest-scan     # Source scanning and structured operations (Rust adapter in v0.1)
+├── vtest-scan     # adapter selection, merge, and structured-operation facade
 ├── vtest-audit    # deterministic static audit
 ├── vtest-exec     # test execution and evidence
 ├── vtest-verify   # fail-closed aggregation

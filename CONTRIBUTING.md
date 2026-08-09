@@ -49,16 +49,17 @@ Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`. Do
 not hand-edit `.verify/cache/`; rebuild derived data from canonical records. Keep
 CLI and MCP on the same core implementation and JSON result shape.
 
-The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,
-but the verification model is language-independent. New language support should
-follow the adapter separation plan in
+The v0.1.0-alpha.2 implementation exposes a language-neutral adapter boundary;
+the built-in production adapter is Rust/Cargo and the synthetic adapter exists
+only for boundary acceptance. New language support should follow the adapter
+separation plan in
 [`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md).
 
 ## Releases
 
 Only maintainers create release tags. Update the workspace version, add the
 user-visible entries to `CHANGELOG.md`, merge the release branch into `main`, and
-create a `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.1` tag. GitHub Actions
+create a `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.N` tag. GitHub Actions
 verifies that the tag is on `main`, runs the full gate, builds Linux x86_64, macOS
 x86_64, and Windows x86_64 archives, and publishes them with SHA-256 checksum
 files. Pre-release tags are marked as GitHub pre-releases. See the

@@ -7,7 +7,7 @@ project_doc_max_bytes = 32768
 project_root_markers = [".git"]
 
 [sandbox_workspace_write]
-network_access = false
+network_access = true
 writable_roots = []
 
 [features]

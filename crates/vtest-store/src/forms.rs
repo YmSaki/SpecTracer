@@ -4,116 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StoreError, VerifyLayout};
 
-pub const RUST_UNIT_FUNCTION_FORM: &str = r#"kind: rust-unit-function
-title: Rust function unit test
-fields:
-  - name: target
-    question: Target source symbol?
-    type: symbol
-    required: true
-    validate: [symbol-exists]
-  - name: covers
-    question: Verification objectives?
-    type: vo-ref-list
-    required: true
-    validate: [vo-exists]
-  - name: behavior
-    question: Behavior under test?
-    type: string
-    required: true
-  - name: test_kind
-    question: Test kind?
-    type: enum
-    options: [normal, error, boundary, regression]
-    required: true
-  - name: input
-    question: Input conditions?
-    type: string
-    required: true
-  - name: expect
-    question: Expected result?
-    type: string
-    required: true
-    validate: [enum-variant-exists]
-  - name: fn_name
-    question: Test function name?
-    type: ident
-    required: true
-    validate: [unique-fn-name]
-  - name: file
-    question: Destination Rust file?
-    type: path
-    required: false
-    validate: [rust-file]
-template: |
-  /// @vtest.id {test_id}
-  /// @vtest.covers {covers}
-  /// @vtest.target {target}
-  /// @vtest.intent {behavior}
-  /// @vtest.input {input}
-  /// @vtest.expect {expect}
-  /// @vtest.kind unit-{test_kind}
-  #[test]
-  fn {fn_name}() {
-      todo!("implement test body")
-  }
-"#;
-
-pub const RUST_INTEGRATION_FORM: &str = r#"kind: rust-integration
-title: Rust integration test
-fields:
-  - name: targets
-    question: Target source symbols?
-    type: symbol-list
-    required: true
-    validate: [symbols-exist]
-  - name: covers
-    question: Verification objectives?
-    type: vo-ref-list
-    required: true
-    validate: [vo-exists]
-  - name: behavior
-    question: Behavior under test?
-    type: string
-    required: true
-  - name: test_kind
-    question: Test kind?
-    type: enum
-    options: [normal, error, boundary, regression]
-    required: true
-  - name: input
-    question: Input conditions?
-    type: string
-    required: true
-  - name: expect
-    question: Expected result?
-    type: string
-    required: true
-    validate: [enum-variant-exists]
-  - name: fn_name
-    question: Test function name?
-    type: ident
-    required: true
-    validate: [unique-fn-name]
-  - name: file
-    question: Destination Rust file?
-    type: path
-    required: true
-    validate: [rust-file]
-template: |
-  /// @vtest.id {test_id}
-  /// @vtest.covers {covers}
-  /// @vtest.target {targets}
-  /// @vtest.intent {behavior}
-  /// @vtest.input {input}
-  /// @vtest.expect {expect}
-  /// @vtest.kind integration-{test_kind}
-  #[test]
-  fn {fn_name}() {
-      todo!("implement test body")
-  }
-"#;
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FormSchema {
     pub kind: String,
@@ -180,16 +70,12 @@ pub fn load_form_schema(layout: &VerifyLayout, kind: &str) -> Result<FormSchema,
     let path = layout.forms_dir().join(format!("{kind}.yaml"));
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => match kind {
-            "rust-unit-function" => RUST_UNIT_FUNCTION_FORM.to_owned(),
-            "rust-integration" => RUST_INTEGRATION_FORM.to_owned(),
-            _ => {
-                return Err(StoreError::Io {
-                    path,
-                    source: error,
-                })
-            }
-        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Err(StoreError::Io {
+                path,
+                source: error,
+            })
+        }
         Err(source) => return Err(StoreError::Io { path, source }),
     };
     parse_form_schema(&text)
@@ -544,10 +430,53 @@ fn safe_form_kind(kind: &str) -> bool {
 mod tests {
     use super::*;
 
+    const TEST_FORM: &str = r#"kind: neutral-test
+title: Neutral test form
+fields:
+  - name: target
+    question: Target?
+    type: symbol
+    required: true
+    validate: [symbol-exists]
+  - name: covers
+    question: Covers?
+    type: vo-ref-list
+    required: true
+    validate: [vo-exists]
+  - name: behavior
+    question: Behavior?
+    type: string
+    required: true
+  - name: test_kind
+    question: Kind?
+    type: enum
+    options: [normal]
+    required: true
+  - name: input
+    question: Input?
+    type: string
+    required: true
+  - name: expect
+    question: Expected?
+    type: string
+    required: true
+  - name: fn_name
+    question: Function?
+    type: ident
+    required: true
+  - name: file
+    question: File?
+    type: path
+    required: false
+template: |
+  /// @vtest.target {target}
+  fn {fn_name}() {}
+"#;
+
     #[test]
     fn built_in_unit_form_parses() {
-        let form = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
-        assert_eq!(form.kind, "rust-unit-function");
+        let form = parse_form_schema(TEST_FORM).unwrap();
+        assert_eq!(form.kind, "neutral-test");
         assert_eq!(form.fields.len(), 8);
         assert!(form.template.contains("@vtest.target {target}"));
     }
@@ -567,7 +496,7 @@ mod tests {
 
     #[test]
     fn unknown_form_field_property_is_rejected() {
-        let invalid = RUST_UNIT_FUNCTION_FORM.replace(
+        let invalid = TEST_FORM.replace(
             "    required: true\n    validate: [symbol-exists]",
             "    required: true\n    surprise: yes\n    validate: [symbol-exists]",
         );

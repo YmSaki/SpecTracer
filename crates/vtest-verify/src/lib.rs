@@ -261,6 +261,7 @@ impl ScopeSelection {
             tests,
             sources: scan.sources.clone(),
             diagnostics: scan.diagnostics.clone(),
+            adapters: scan.adapters.clone(),
         }
     }
 
@@ -1597,6 +1598,7 @@ mod tests {
         let make = |id: &str, executed_at: &str| EvidenceRecord {
             id: id.to_owned(),
             test_id: TestId::new("TEST-ONE"),
+            adapter: Some(vtest_model::AdapterId::from("rust-cargo")),
             result: TestResult::Pass,
             executed_at: executed_at.to_owned(),
             revision: Revision {
@@ -1624,6 +1626,57 @@ mod tests {
         let earlier = make("01", "2026-08-08T09:00:00+09:00");
         let later = make("02", "2026-08-08T00:30:00Z");
         assert!(compare_evidence_recency(&earlier, &later).is_lt());
+    }
+
+    #[test]
+    fn synthetic_evidence_becomes_stale_after_test_hash_change() {
+        let (_layout, mut scan) = static_fixture(&["TEST-SYNTHETIC"]);
+        scan.tests[0].execution.adapter = vtest_model::AdapterId::from("synthetic");
+        let test = &scan.tests[0];
+        let target_hash = scan
+            .sources
+            .iter()
+            .find(|source| source.locator.as_string() == "src/lib.rs::target")
+            .expect("fixture target")
+            .content_hash
+            .clone();
+        let evidence = EvidenceRecord {
+            id: "synthetic-evidence".to_owned(),
+            test_id: test.id.clone(),
+            adapter: Some(vtest_model::AdapterId::from("synthetic")),
+            result: TestResult::Pass,
+            executed_at: "2026-08-09T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: Some("synthetic".to_owned()),
+                dirty: false,
+            },
+            hashes: EvidenceHashes {
+                test_fn: test.content_hash.clone(),
+                target_fn: target_hash.clone(),
+                target_fns: vec![target_hash],
+            },
+            runner: RunnerInfo {
+                kind: "synthetic".to_owned(),
+                command: "synthetic run".to_owned(),
+                exit_code: 0,
+            },
+            target_execution: TargetExecution {
+                checked: false,
+                method: None,
+                result: CheckValue::NotChecked,
+                count: None,
+            },
+            log_ref: "cache/logs/synthetic-evidence.log".to_owned(),
+        };
+        assert_eq!(
+            evidence_record_validity(&evidence, test, &scan),
+            CheckValue::Pass
+        );
+        scan.tests[0].content_hash = ContentHash::from_text("mutated synthetic test");
+        assert_eq!(
+            evidence_record_validity(&evidence, &scan.tests[0], &scan),
+            CheckValue::Stale
+        );
     }
 
     fn static_fixture(test_ids: &[&str]) -> (VerifyLayout, ScanResult) {
@@ -1656,6 +1709,15 @@ mod tests {
                 related: Vec::new(),
                 location: location("tests/static.rs", id),
                 content_hash: ContentHash::from_text(&format!("#[test] fn {id}() {{}}")),
+                execution: vtest_model::ExecutionDescriptor {
+                    adapter: vtest_model::AdapterId::from("rust-cargo"),
+                    project: Some("fixture".to_owned()),
+                    suite: Some(vtest_model::TestSuite {
+                        kind: "integration".to_owned(),
+                        name: Some("static".to_owned()),
+                    }),
+                    selector: (*id).to_owned(),
+                },
                 filter: (*id).to_owned(),
                 package: "fixture".to_owned(),
                 test_target: TestTarget::IntegrationTest("static".to_owned()),
@@ -1682,6 +1744,7 @@ mod tests {
             tests,
             sources,
             diagnostics: Vec::new(),
+            adapters: Vec::new(),
         };
         (layout, scan)
     }

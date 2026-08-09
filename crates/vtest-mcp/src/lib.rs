@@ -14,7 +14,8 @@ use std::{
 };
 
 use serde_json::{json, Map, Value};
-use vtest_store::{load_form_schema, VerifyLayout};
+use vtest_adapter_rust::load_form_schema;
+use vtest_store::VerifyLayout;
 
 const TOOL_NAMES: &[&str] = &[
     "scan",

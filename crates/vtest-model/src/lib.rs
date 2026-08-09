@@ -49,6 +49,7 @@ id_type!(ReqId);
 id_type!(VoId);
 id_type!(TestId);
 id_type!(SrcId);
+id_type!(AdapterId);
 
 /// A SHA-256 hash bound to a canonical source or record representation.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -164,6 +165,39 @@ pub enum TestTarget {
     Unknown,
 }
 
+/// A language-neutral test suite or execution unit.  The adapter owns the
+/// interpretation of `kind` and `name`; the verifier treats both as opaque
+/// values so the domain model is not tied to Cargo or any other ecosystem.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
+pub struct TestSuite {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+/// Adapter-owned coordinates for executing one Test.  `selector` is opaque to
+/// the core and must uniquely identify the Test within the selected adapter.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionDescriptor {
+    pub adapter: AdapterId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suite: Option<TestSuite>,
+    pub selector: String,
+}
+
+impl Default for ExecutionDescriptor {
+    fn default() -> Self {
+        Self {
+            adapter: AdapterId::from("rust-cargo"),
+            project: None,
+            suite: None,
+            selector: String::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {
     pub id: TestId,
@@ -179,6 +213,14 @@ pub struct TestEntity {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
+    /// Neutral execution coordinates introduced additively in the adapter
+    /// migration.  Missing values in older JSON are mapped to the legacy
+    /// Rust-compatible default and never make an old record PASS by
+    /// themselves.
+    #[serde(default)]
+    pub execution: ExecutionDescriptor,
+    /// Legacy Rust/Cargo fields retained for v0.1 wire compatibility.  New
+    /// core consumers should use `execution` instead.
     pub filter: String,
     pub package: String,
     pub test_target: TestTarget,
@@ -364,6 +406,8 @@ pub enum TestResult {
 pub struct EvidenceRecord {
     pub id: String,
     pub test_id: TestId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<AdapterId>,
     pub result: TestResult,
     pub executed_at: String,
     pub revision: Revision,
@@ -412,5 +456,31 @@ mod tests {
         assert_eq!(value["ok"], true);
         assert!(value.get("data").is_some());
         assert!(value.get("diagnostics").is_some());
+    }
+
+    #[test]
+    fn execution_descriptor_is_additive_and_legacy_json_gets_a_safe_default() {
+        let value = serde_json::json!({
+            "id": "TEST-1",
+            "covers": [],
+            "target": {"kind": "locator", "value": {"path": "src/lib.rs", "item_path": "target"}},
+            "intent": "intent",
+            "input": null,
+            "expect": null,
+            "kind": null,
+            "cases": [],
+            "related": [],
+            "location": {"file": "tests/test.rs", "function": "test", "start_line": 1, "end_line": 1, "start_byte": 0, "end_byte": 1},
+            "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "filter": "test",
+            "package": "fixture",
+            "test_target": {"kind": "lib"}
+        });
+        let entity: TestEntity = serde_json::from_value(value).unwrap();
+        assert_eq!(entity.execution.adapter.as_str(), "rust-cargo");
+        assert!(entity.execution.selector.is_empty());
+
+        let encoded = serde_json::to_value(&entity).unwrap();
+        assert_eq!(encoded["execution"]["adapter"], "rust-cargo");
     }
 }

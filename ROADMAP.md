@@ -13,18 +13,20 @@ item and an implementation detail differ.
   releases. The first live release still requires a maintainer-created version
   tag.
 - The verification contract remains language- and test-runner-agnostic by design;
-  the v0.1 discovery and execution adapter is Rust/Cargo.
+  v0.1.0-alpha.2 ships the `vtest-adapter-api` contract and the built-in
+  `rust-cargo` discovery, audit, Structured Test Operation, runner, and coverage
+  adapter. Synthetic mixed-adapter acceptance proves the boundary without
+  claiming production support for another language.
 
-## Next: v0.2 adapter separation
+## Next: production language adapters
 
-The next implementation program is
+The completed alpha.2 separation program is documented in
 [`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md):
 
-1. synchronize the normative specifications and adapter contracts;
-2. extract language-neutral domain, store, verification, and evidence ports;
-3. isolate the current Rust scanner, runner, and coverage behavior as an adapter;
-4. preserve CLI/MCP parity and fail-closed aggregation through the migration; and
-5. add reproducible acceptance coverage before enabling another ecosystem.
+1. choose one ecosystem and one runner;
+2. specify its selectors, source/target identity, freshness, and coverage binding;
+3. implement only the capabilities the adapter can prove; and
+4. add reproducible acceptance coverage before enabling it in a release.
 
 TypeScript/JavaScript, Go, C#, and other language adapters should be added only
 after their discovery, execution, freshness, and target-measurement behavior has

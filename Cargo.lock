@@ -516,14 +516,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vtest-adapter-api"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "vtest-model",
+]
+
+[[package]]
+name = "vtest-adapter-rust"
+version = "0.1.0"
+dependencies = [
+ "ignore",
+ "proc-macro2",
+ "quote",
+ "rustc-demangle",
+ "serde",
+ "serde_json",
+ "syn 2.0.119",
+ "thiserror",
+ "toml",
+ "vtest-adapter-api",
+ "vtest-model",
+ "vtest-store",
+]
+
+[[package]]
 name = "vtest-audit"
 version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.119",
- "thiserror",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
@@ -536,6 +558,8 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-audit",
  "vtest-exec",
  "vtest-mcp",
@@ -549,10 +573,8 @@ dependencies = [
 name = "vtest-exec"
 version = "0.1.0"
 dependencies = [
- "rustc-demangle",
- "serde",
- "serde_json",
- "thiserror",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]
@@ -563,6 +585,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "vtest-adapter-rust",
  "vtest-audit",
  "vtest-exec",
  "vtest-model",
@@ -584,12 +607,9 @@ dependencies = [
 name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
- "ignore",
- "proc-macro2",
  "serde",
- "syn 2.0.119",
- "thiserror",
- "toml",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]
