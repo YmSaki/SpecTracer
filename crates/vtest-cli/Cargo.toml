@@ -9,6 +9,7 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 vtest-audit = { path = "../vtest-audit" }
+vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 vtest-exec = { path = "../vtest-exec" }
 vtest-model = { path = "../vtest-model" }
 vtest-mcp = { path = "../vtest-mcp" }

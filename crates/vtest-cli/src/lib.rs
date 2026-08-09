@@ -9,16 +9,17 @@ use std::{
 
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
+use vtest_adapter_rust::{
+    create_test, edit_test, list_tests_from_scan, parse_test_set_values, query_tests_from_scan,
+    show_test_from_scan,
+};
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
 use vtest_exec::{run_tests, RunnableTest};
 use vtest_model::{
-    ContentHash, Diagnostic, ExitCode, JsonEnvelope, Locator, ReqId, Revision, ScanSummary,
-    SourceFunction, SpecId, TargetRef, TestEntity, VoId,
+    ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId, Revision, ScanSummary, SourceFunction,
+    SpecId, TestEntity, VoId,
 };
-use vtest_scan::{
-    create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
-    show_test, ScanResult,
-};
+use vtest_scan::{scan_project, ScanResult};
 use vtest_store::{
     find_project_root, init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339,
     read_approval, read_form_answers, read_req, read_spec, read_text, read_vo, write_atomic,
@@ -308,7 +309,7 @@ pub enum OutputFormat {
 #[derive(Clone, Debug, Serialize)]
 pub struct ScanData {
     pub summary: ScanSummary,
-    pub tests: Vec<vtest_model::TestEntity>,
+    pub tests: Vec<serde_json::Value>,
     pub sources: Vec<vtest_model::SourceFunction>,
 }
 
@@ -316,7 +317,14 @@ impl From<ScanResult> for ScanData {
     fn from(value: ScanResult) -> Self {
         Self {
             summary: value.summary,
-            tests: value.tests,
+            tests: value
+                .tests
+                .iter()
+                .map(|test| {
+                    vtest_adapter_rust::encode_test_wire(test)
+                        .unwrap_or_else(|_| serde_json::to_value(test).unwrap_or_default())
+                })
+                .collect(),
             sources: value.sources,
         }
     }
@@ -447,22 +455,29 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
                     .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))
             })
         })(),
-        TestCommand::Show { id } => show_test(&root, &scan, &id)
-            .and_then(|test| {
-                serde_json::to_value(test)
-                    .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
-            })
-            .map_err(operation_failure),
-        TestCommand::List { vo, unregistered } => {
-            serde_json::to_value(list_tests(&scan, vo.as_deref(), unregistered))
-                .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))
+        TestCommand::Show { id } => {
+            show_test_from_scan(&root, &scan.tests, &scan.sources, &scan.diagnostics, &id)
+                .and_then(|test| {
+                    serde_json::to_value(test)
+                        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
+                })
+                .map_err(operation_failure)
         }
-        TestCommand::Query { source } => query_tests(&scan, &source)
-            .and_then(|tests| {
-                serde_json::to_value(tests)
-                    .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
-            })
-            .map_err(operation_failure),
+        TestCommand::List { vo, unregistered } => serde_json::to_value(list_tests_from_scan(
+            &scan.tests,
+            &scan.diagnostics,
+            vo.as_deref(),
+            unregistered,
+        ))
+        .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal)),
+        TestCommand::Query { source } => {
+            query_tests_from_scan(&scan.tests, &scan.sources, &scan.diagnostics, &source)
+                .and_then(|tests| {
+                    serde_json::to_value(tests)
+                        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
+                })
+                .map_err(operation_failure)
+        }
     };
     finish_record_command(result, format, quiet)
 }
@@ -516,13 +531,21 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
             }
         }
         Err(error) => {
-            let diagnostic = Diagnostic::error("E-CORE-001", error.to_string());
+            let (diagnostic, code) = match error {
+                vtest_scan::ScanError::Adapter { code, message } => {
+                    (Diagnostic::error(code, message), ExitCode::Usage)
+                }
+                other => (
+                    Diagnostic::error("E-CORE-001", other.to_string()),
+                    ExitCode::Internal,
+                ),
+            };
             emit(
                 format,
                 quiet,
                 JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            ExitCode::Internal
+            code
         }
     }
 }
@@ -837,7 +860,10 @@ fn run_audit_bundle(
         );
         ExitCode::Usage
     };
-    let supported = matches!(kind, "test-semantic" | "vo-coverage" | "impl-consistency");
+    let supported = matches!(
+        kind,
+        "test-semantic" | "vo-coverage" | "impl-consistency" | "spec-coverage"
+    );
     if !supported {
         return selector_error(format!("unsupported audit bundle kind {kind}"));
     }
@@ -845,6 +871,7 @@ fn run_audit_bundle(
         "test-semantic" => selector_count == 1 && test_id.is_some(),
         "vo-coverage" => selector_count == 1 && (vo_id.is_some() || req_id.is_some()),
         "impl-consistency" => selector_count == 1 && (test_id.is_some() || vo_id.is_some()),
+        "spec-coverage" => selector_count == 1 && req_id.is_some(),
         _ => false,
     };
     if !selector_valid {
@@ -1124,13 +1151,17 @@ fn build_bundle(
                     "test_id": test.id,
                 }));
             }
-            let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                failure(
-                    "E-SCAN-004",
-                    format!("test {} target cannot be resolved", test.id),
-                    ExitCode::Usage,
-                )
-            })?;
+            let target = test
+                .targets
+                .first()
+                .and_then(|target| find_target_source(scan, target))
+                .ok_or_else(|| {
+                    failure(
+                        "E-SCAN-004",
+                        format!("test {} target cannot be resolved", test.id),
+                        ExitCode::Usage,
+                    )
+                })?;
             let vos = test
                 .covers
                 .iter()
@@ -1142,10 +1173,25 @@ fn build_bundle(
                 None,
                 &test.content_hash,
             )];
+            let analysis_source = source_slice(root, &test.location)?;
+            let analysis_hash = ContentHash::from_domain_fields(
+                "vtest:static-analysis-source:v1",
+                &[
+                    ("test", test.content_hash.as_str().as_bytes()),
+                    ("source", analysis_source.as_bytes()),
+                ],
+            );
+            let analysis_locator = format!("{}::{}", test.location.file, test.location.function);
+            subjects.push(subject_value(
+                "static_analysis_source",
+                None,
+                Some(&analysis_locator),
+                &analysis_hash,
+            ));
             subjects.push(subject_value(
                 "target",
                 None,
-                Some(&target.locator.as_string()),
+                Some(&target.target.value),
                 &target.content_hash,
             ));
             for (vo, subject) in test.covers.iter().zip(vos.iter()) {
@@ -1202,6 +1248,29 @@ fn build_bundle(
                 "static_audit": static_value,
                 "prior_audits": prior_audits(layout, test.id.as_str(), &test.content_hash),
                 "subjects": subjects,
+            }))
+        }
+        "spec-coverage" => {
+            let req_id = req_id.expect("validated selector");
+            let Ok(record) = read_req(layout, req_id) else {
+                return Ok(serde_json::json!({
+                    "skipped": true,
+                    "reason": format!("REQ {req_id} was not found"),
+                    "kind": kind,
+                    "req": req_id,
+                }));
+            };
+            let path = layout.req_dir().join(format!("{req_id}.yaml"));
+            let hash = fs::read_to_string(path)
+                .map(|text| ContentHash::from_text(&text))
+                .unwrap_or_else(|_| ContentHash::from_text(""));
+            Ok(serde_json::json!({
+                "bundle_id": new_record_id(),
+                "kind": kind,
+                "generated_at": now_rfc3339(),
+                "revision": git_revision_json(root),
+                "requirements": [serde_json::to_value(record).expect("REQ record")],
+                "subjects": [subject_value("req", Some(req_id), None, &hash)],
             }))
         }
         "vo-coverage" => {
@@ -1301,6 +1370,7 @@ fn build_bundle(
                     serde_json::json!({ "vo": vo.id, "tests": tests })
                 })
                 .collect::<Vec<_>>();
+            deduplicate_subjects(&mut subjects);
             Ok(serde_json::json!({
                 "bundle_id": new_record_id(),
                 "kind": kind,
@@ -1316,13 +1386,17 @@ fn build_bundle(
         "impl-consistency" => {
             if let Some(test_id) = test_id {
                 let test = find_test(scan, Some(test_id))?;
-                let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                    failure(
-                        "E-SCAN-004",
-                        format!("test {} target cannot be resolved", test.id),
-                        ExitCode::Usage,
-                    )
-                })?;
+                let target = test
+                    .targets
+                    .first()
+                    .and_then(|target| find_target_source(scan, target))
+                    .ok_or_else(|| {
+                        failure(
+                            "E-SCAN-004",
+                            format!("test {} target cannot be resolved", test.id),
+                            ExitCode::Usage,
+                        )
+                    })?;
                 let vos = test
                     .covers
                     .iter()
@@ -1337,7 +1411,7 @@ fn build_bundle(
                 subjects.push(subject_value(
                     "target",
                     None,
-                    Some(&target.locator.as_string()),
+                    Some(&target.target.value),
                     &target.content_hash,
                 ));
                 for (vo, subject) in test.covers.iter().zip(vos.iter()) {
@@ -1346,7 +1420,20 @@ fn build_bundle(
                         .and_then(|hash| hash.parse().ok())
                         .unwrap_or_else(|| ContentHash::from_text(""));
                     subjects.push(subject_value("vo", Some(vo.as_str()), None, &hash));
+                    if let Ok(vo_record) = read_vo(layout, vo.as_str()) {
+                        for spec_ref in vo_record.spec_refs {
+                            if let Ok(spec) = read_spec(layout, spec_ref.spec.as_str()) {
+                                subjects.push(subject_value(
+                                    "spec",
+                                    Some(spec.id.as_str()),
+                                    None,
+                                    &spec.sha256,
+                                ));
+                            }
+                        }
+                    }
                 }
+                deduplicate_subjects(&mut subjects);
                 Ok(serde_json::json!({
                     "bundle_id": new_record_id(),
                     "kind": kind,
@@ -1377,7 +1464,11 @@ fn build_bundle(
                     .collect::<Vec<_>>();
                 let mut targets = Vec::new();
                 for test in &tests {
-                    if let Some(target) = find_target_source(scan, &test.target) {
+                    if let Some(target) = test
+                        .targets
+                        .first()
+                        .and_then(|target| find_target_source(scan, target))
+                    {
                         subjects.push(subject_value(
                             "test",
                             Some(test.id.as_str()),
@@ -1387,9 +1478,23 @@ fn build_bundle(
                         subjects.push(subject_value(
                             "target",
                             None,
-                            Some(&target.locator.as_string()),
+                            Some(&target.target.value),
                             &target.content_hash,
                         ));
+                        for vo_id in &test.covers {
+                            if let Ok(vo_record) = read_vo(layout, vo_id.as_str()) {
+                                for spec_ref in vo_record.spec_refs {
+                                    if let Ok(spec) = read_spec(layout, spec_ref.spec.as_str()) {
+                                        subjects.push(subject_value(
+                                            "spec",
+                                            Some(spec.id.as_str()),
+                                            None,
+                                            &spec.sha256,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
                         targets.push(target_value(root, target)?);
                     }
                 }
@@ -1400,6 +1505,7 @@ fn build_bundle(
                         ExitCode::Usage,
                     ));
                 }
+                deduplicate_subjects(&mut subjects);
                 Ok(serde_json::json!({
                     "bundle_id": new_record_id(),
                     "kind": kind,
@@ -1434,19 +1540,18 @@ fn find_test<'a>(scan: &'a ScanResult, id: Option<&str>) -> CommandResult<&'a Te
         })
 }
 
-fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'a SourceFunction> {
-    match target {
-        TargetRef::Locator(locator) => scan
-            .sources
-            .iter()
-            .find(|source| source.locator == *locator),
-        TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
-            source
-                .src_id
-                .as_ref()
-                .is_some_and(|candidate| candidate == src_id)
-        }),
-    }
+fn find_target_source<'a>(
+    scan: &'a ScanResult,
+    target: &vtest_model::NeutralTargetRef,
+) -> Option<&'a SourceFunction> {
+    scan.sources.iter().find(|source| {
+        source.target.adapter == target.adapter
+            && (source.target.value == target.value
+                || source
+                    .src_id
+                    .as_ref()
+                    .is_some_and(|candidate| candidate.as_str() == target.value))
+    })
 }
 
 fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandResult<String> {
@@ -1497,7 +1602,7 @@ fn test_value(root: &Path, test: &TestEntity) -> CommandResult<serde_json::Value
 
 fn target_value(root: &Path, target: &SourceFunction) -> CommandResult<serde_json::Value> {
     Ok(serde_json::json!({
-        "locator": target.locator.as_string(),
+        "locator": target.target.value,
         "source": source_slice(root, &target.location)?,
         "content_hash": target.content_hash,
     }))
@@ -1622,6 +1727,22 @@ fn subject_value(
         serde_json::Value::String(hash.to_string()),
     );
     serde_json::Value::Object(value)
+}
+
+fn deduplicate_subjects(subjects: &mut Vec<serde_json::Value>) {
+    let mut unique = Vec::with_capacity(subjects.len());
+    for subject in subjects.drain(..) {
+        let duplicate = unique.iter().any(|existing: &serde_json::Value| {
+            existing.get("kind") == subject.get("kind")
+                && existing.get("id") == subject.get("id")
+                && existing.get("locator") == subject.get("locator")
+                && existing.get("hash") == subject.get("hash")
+        });
+        if !duplicate {
+            unique.push(subject);
+        }
+    }
+    *subjects = unique;
 }
 
 fn git_revision_json(root: &Path) -> serde_json::Value {
@@ -1762,14 +1883,11 @@ fn validate_bundle_subjects(
                     .map(|test| test.content_hash.clone())
             }
             "target" => {
-                let locator = subject
-                    .get("locator")
-                    .and_then(serde_json::Value::as_str)
-                    .and_then(Locator::parse);
+                let locator = subject.get("locator").and_then(serde_json::Value::as_str);
                 locator.and_then(|locator| {
                     scan.sources
                         .iter()
-                        .find(|source| source.locator == locator)
+                        .find(|source| source.target.value == locator)
                         .map(|source| source.content_hash.clone())
                 })
             }
@@ -1786,6 +1904,39 @@ fn validate_bundle_subjects(
                         .ok()
                         .map(|text| ContentHash::from_text(&text))
                 })
+            }
+            "static_analysis_source" => {
+                let locator = subject
+                    .get("locator")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                scan.tests
+                    .iter()
+                    .find(|test| {
+                        format!("{}::{}", test.location.file, test.location.function) == locator
+                    })
+                    .and_then(|test| source_slice(root, &test.location).ok())
+                    .map(|source| {
+                        ContentHash::from_domain_fields(
+                            "vtest:static-analysis-source:v1",
+                            &[
+                                (
+                                    "test",
+                                    scan.tests
+                                        .iter()
+                                        .find(|test| {
+                                            format!(
+                                                "{}::{}",
+                                                test.location.file, test.location.function
+                                            ) == locator
+                                        })
+                                        .map(|test| test.content_hash.as_str().as_bytes())
+                                        .unwrap_or_default(),
+                                ),
+                                ("source", source.as_bytes()),
+                            ],
+                        )
+                    })
             }
             _ => None,
         };
@@ -1940,11 +2091,23 @@ fn audit_record_yaml(
             let subject_locator = subject
                 .get("locator")
                 .and_then(serde_json::Value::as_str)
-                .map(|locator| format!("locator: {}", yaml_quote(locator)));
+                .map(|locator| {
+                    let kind = subject
+                        .get("kind")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    let locator = if kind == "static_analysis_source" {
+                        format!("static-analysis-source::{locator}")
+                    } else {
+                        locator.to_owned()
+                    };
+                    format!("locator: {}", yaml_quote(&locator))
+                });
             let identity = subject_id
                 .or(subject_locator)
                 .unwrap_or_else(|| "id: ''".to_owned());
-            out.push_str(&format!("  - {identity}\n    hash: {}\n", yaml_quote(hash),));
+            out.push_str(&format!("  - {identity}\n"));
+            out.push_str(&format!("    hash: {}\n", yaml_quote(hash)));
         }
     }
     out.push_str(&format!("verdict: {}\nreasons:\n", yaml_quote(verdict)));
@@ -2071,16 +2234,13 @@ fn run_run(
     let config = match load_config(&root) {
         Ok(config) => config,
         Err(error) => {
+            let (diagnostic, code) = store_error_with_code(error, ExitCode::Internal);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
     let fast = fast || config.run.coverage == "off";
@@ -2106,16 +2266,13 @@ fn run_run(
     let scan = match scan_project(&root) {
         Ok(scan) => scan,
         Err(error) => {
+            let (diagnostic, code) = scan_error_with_code(error);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
     let layout = VerifyLayout::new(&root);
@@ -2140,16 +2297,10 @@ fn run_run(
     let runnable = requested
         .into_iter()
         .map(|entity| {
-            let targets = std::iter::once(&entity.target)
-                .chain(&entity.additional_targets)
-                .map(|target_ref| {
-                    scan.sources.iter().find(|source| match target_ref {
-                        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                        vtest_model::TargetRef::SrcId(src_id) => {
-                            source.src_id.as_ref() == Some(src_id)
-                        }
-                    })
-                })
+            let targets = entity
+                .targets
+                .iter()
+                .map(|target_ref| find_target_source(&scan, target_ref))
                 .collect::<Vec<_>>();
             let target_hashes = targets
                 .iter()
@@ -2162,9 +2313,6 @@ fn run_run(
             RunnableTest {
                 entity,
                 target_hashes,
-                target_locator: targets
-                    .first()
-                    .and_then(|source| source.map(|source| source.locator.clone())),
             }
         })
         .collect::<Vec<_>>();
@@ -2293,31 +2441,25 @@ fn run_verify(
     let config = match load_config(&root) {
         Ok(config) => config,
         Err(error) => {
+            let (diagnostic, code) = store_error_with_code(error, ExitCode::Internal);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
     let scan = match scan_project(&root) {
         Ok(scan) => scan,
         Err(error) => {
+            let (diagnostic, code) = scan_error_with_code(error);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
     let layout = VerifyLayout::new(&root);
@@ -2493,7 +2635,7 @@ fn resolve_entity_scope(
     Ok(None)
 }
 
-const ALL_VERIFY_ITEMS: [&str; 11] = [
+const ALL_VERIFY_ITEMS: [&str; 12] = [
     "spec_coverage",
     "vo_decomposition",
     "vo_coverage",
@@ -2505,6 +2647,7 @@ const ALL_VERIFY_ITEMS: [&str; 11] = [
     "runtime_result",
     "target_execution",
     "evidence_validity",
+    "test_traceability",
 ];
 
 type CommandResult<T = serde_json::Value> = Result<T, CommandFailure>;
@@ -3655,7 +3798,25 @@ fn store_error_with_code(error: StoreError, default: ExitCode) -> (Diagnostic, E
             ),
             ExitCode::Usage,
         ),
+        StoreError::InvalidConfig(message) => {
+            (Diagnostic::error("E-CONFIG-001", message), ExitCode::Usage)
+        }
         other => (Diagnostic::error("E-CORE-001", other.to_string()), default),
+    }
+}
+
+fn scan_error_with_code(error: vtest_scan::ScanError) -> (Diagnostic, ExitCode) {
+    match error {
+        vtest_scan::ScanError::Adapter { code, message } => {
+            (Diagnostic::error(code, message), ExitCode::Usage)
+        }
+        vtest_scan::ScanError::Store(store_error) => {
+            store_error_with_code(store_error, ExitCode::Internal)
+        }
+        other => (
+            Diagnostic::error("E-CORE-001", other.to_string()),
+            ExitCode::Internal,
+        ),
     }
 }
 
@@ -3720,8 +3881,38 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
                 println!("Scope outside requested range: NOT_CHECKED");
             }
             if let Some(tree) = report.get("tree").and_then(serde_json::Value::as_array) {
+                for (index, node) in tree.iter().enumerate() {
+                    print_text_tree_node(node, &[], index + 1 == tree.len());
+                }
+                let mut rendered_items = BTreeSet::new();
                 for node in tree {
-                    print_text_tree_node(node, "├─ ");
+                    collect_text_tree_items(node, &mut rendered_items);
+                }
+                let repository_items = report
+                    .get("items")
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter(|item| {
+                        item.get("item")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|name| !rendered_items.contains(name))
+                    })
+                    .collect::<Vec<_>>();
+                if !repository_items.is_empty() {
+                    println!("Repository checks:");
+                    for (index, item) in repository_items.iter().enumerate() {
+                        let key = item.get("item").and_then(serde_json::Value::as_str);
+                        let value = item.get("value").and_then(serde_json::Value::as_str);
+                        if let (Some(key), Some(value)) = (key, value) {
+                            let branch = if index + 1 == repository_items.len() {
+                                "└─"
+                            } else {
+                                "├─"
+                            };
+                            println!("{branch} {key:<24} {value}");
+                        }
+                    }
                 }
             } else if let Some(items) = report.get("items").and_then(serde_json::Value::as_array) {
                 for item in items {
@@ -3772,7 +3963,16 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
     }
 }
 
-fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
+fn render_tree_prefix(ancestors_have_next: &[bool], is_last: bool) -> String {
+    let mut prefix = String::new();
+    for has_next in ancestors_have_next {
+        prefix.push_str(if *has_next { "│  " } else { "   " });
+    }
+    prefix.push_str(if is_last { "└─ " } else { "├─ " });
+    prefix
+}
+
+fn print_text_tree_node(node: &serde_json::Value, ancestors_have_next: &[bool], is_last: bool) {
     let kind = node
         .get("kind")
         .and_then(serde_json::Value::as_str)
@@ -3785,19 +3985,53 @@ fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
         .get("value")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("UNKNOWN");
-    println!("{prefix}{kind}:{id:<28} {value}");
+    println!(
+        "{}{}:{id:<28} {value}",
+        render_tree_prefix(ancestors_have_next, is_last),
+        kind
+    );
+    let items = node
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let children = node
+        .get("children")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let child_ancestors = ancestors_have_next
+        .iter()
+        .copied()
+        .chain(std::iter::once(!is_last))
+        .collect::<Vec<_>>();
+    let total = items.len() + children.len();
+    for (index, item) in items.iter().enumerate() {
+        let key = item.get("item").and_then(serde_json::Value::as_str);
+        let value = item.get("value").and_then(serde_json::Value::as_str);
+        if let (Some(key), Some(value)) = (key, value) {
+            println!(
+                "{}{key:<24} {value}",
+                render_tree_prefix(&child_ancestors, index + 1 == total)
+            );
+        }
+    }
+    for (index, child) in children.iter().enumerate() {
+        print_text_tree_node(child, &child_ancestors, items.len() + index + 1 == total);
+    }
+}
+
+fn collect_text_tree_items(node: &serde_json::Value, names: &mut BTreeSet<String>) {
     if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
         for item in items {
-            let key = item.get("item").and_then(serde_json::Value::as_str);
-            let value = item.get("value").and_then(serde_json::Value::as_str);
-            if let (Some(key), Some(value)) = (key, value) {
-                println!("{prefix}│  ├─ {key:<24} {value}");
+            if let Some(name) = item.get("item").and_then(serde_json::Value::as_str) {
+                names.insert(name.to_owned());
             }
         }
     }
     if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
         for child in children {
-            print_text_tree_node(child, &format!("{prefix}│  "));
+            collect_text_tree_items(child, names);
         }
     }
 }
@@ -4224,12 +4458,17 @@ mod tests {
             .iter()
             .find(|test| test.id.as_str() == "TEST-CALC-004")
             .unwrap();
-        assert_eq!(integration.additional_targets.len(), 1);
+        assert_eq!(integration.targets.len(), 2);
         assert_eq!(integration.kind.as_deref(), Some("integration-normal"));
-        assert!(query_tests(&integration_scan, "src/lib.rs::subtract")
-            .unwrap()
-            .iter()
-            .any(|test| test.id.as_str() == "TEST-CALC-004"));
+        assert!(query_tests_from_scan(
+            &integration_scan.tests,
+            &integration_scan.sources,
+            &integration_scan.diagnostics,
+            "src/lib.rs::subtract",
+        )
+        .unwrap()
+        .iter()
+        .any(|test| test.id.as_str() == "TEST-CALC-004"));
 
         fs::write(
             root.join("bad-answers.yaml"),

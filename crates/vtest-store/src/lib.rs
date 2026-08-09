@@ -98,6 +98,8 @@ impl VerifyLayout {
 pub struct ProjectConfig {
     pub version: u32,
     pub project: ProjectSection,
+    #[serde(default)]
+    pub adapters: Vec<AdapterConfigEntry>,
     pub scan: ScanSection,
     pub verify: VerifySection,
     pub run: RunSection,
@@ -124,65 +126,114 @@ pub struct RunSection {
     pub coverage: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AdapterConfigEntry {
+    pub id: String,
+    pub roots: Vec<String>,
+    pub scan: ScanSection,
+    pub run: RunSection,
+}
+
+pub const FIXED_FULL_SCOPE: [&str; 12] = [
+    "spec_coverage",
+    "vo_decomposition",
+    "vo_coverage",
+    "test_existence",
+    "static_audit",
+    "semantic_audit",
+    "impl_consistency",
+    "test_execution",
+    "runtime_result",
+    "target_execution",
+    "evidence_validity",
+    "test_traceability",
+];
+
 impl ProjectConfig {
     pub fn default_for(name: impl Into<String>) -> Self {
+        let scan = ScanSection {
+            include: vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()],
+            assertion_macros: Vec::new(),
+        };
+        let run = RunSection {
+            coverage: "llvm-cov".to_owned(),
+        };
         Self {
-            version: 1,
+            version: 2,
             project: ProjectSection { name: name.into() },
-            scan: ScanSection {
-                include: vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()],
-                assertion_macros: Vec::new(),
-            },
+            adapters: vec![AdapterConfigEntry {
+                id: "rust-cargo".to_owned(),
+                roots: vec![".".to_owned()],
+                scan: scan.clone(),
+                run: run.clone(),
+            }],
+            scan,
             verify: VerifySection {
-                full_scope: vec![
-                    "spec_coverage",
-                    "vo_decomposition",
-                    "vo_coverage",
-                    "test_existence",
-                    "static_audit",
-                    "semantic_audit",
-                    "impl_consistency",
-                    "test_execution",
-                    "runtime_result",
-                    "target_execution",
-                    "evidence_validity",
-                ]
-                .into_iter()
-                .map(str::to_owned)
-                .collect(),
+                full_scope: FIXED_FULL_SCOPE
+                    .iter()
+                    .map(|item| (*item).to_owned())
+                    .collect(),
             },
-            run: RunSection {
-                coverage: "llvm-cov".to_owned(),
-            },
+            run,
         }
     }
 
     /// Serialize the project configuration in a deterministic YAML subset.
     pub fn to_yaml(&self) -> String {
         let mut out = format!(
-            "version: {}\nproject:\n  name: {}\nscan:\n  include:\n",
+            "version: {}\nproject:\n  name: {}\nadapters:\n",
             self.version,
             yaml_scalar(&self.project.name)
         );
-        for include in &self.scan.include {
-            out.push_str(&format!("    - {}\n", yaml_scalar(include)));
-        }
-        if self.scan.assertion_macros.is_empty() {
-            out.push_str("  assertion_macros: []\n");
-        } else {
-            out.push_str("  assertion_macros:\n");
-            for macro_name in &self.scan.assertion_macros {
-                out.push_str(&format!("    - {}\n", yaml_scalar(macro_name)));
+        if self.version >= 2 {
+            let mut adapters = self.adapters.clone();
+            if let Some(first) = adapters.first_mut() {
+                // `scan`/`run` remain a v1 compatibility view for callers
+                // that have not yet moved to adapter-scoped settings.
+                first.scan = self.scan.clone();
+                first.run = self.run.clone();
             }
+            for adapter in &adapters {
+                out.push_str(&format!("  - id: {}\n", yaml_scalar(&adapter.id)));
+                out.push_str("    roots:\n");
+                for root in &adapter.roots {
+                    out.push_str(&format!("      - {}\n", yaml_scalar(root)));
+                }
+                out.push_str("    scan:\n      include:\n");
+                for include in &adapter.scan.include {
+                    out.push_str(&format!("        - {}\n", yaml_scalar(include)));
+                }
+                if adapter.scan.assertion_macros.is_empty() {
+                    out.push_str("      assertion_macros: []\n");
+                } else {
+                    out.push_str("      assertion_macros:\n");
+                    for macro_name in &adapter.scan.assertion_macros {
+                        out.push_str(&format!("        - {}\n", yaml_scalar(macro_name)));
+                    }
+                }
+                out.push_str(&format!(
+                    "    run:\n      coverage: {}\n",
+                    yaml_scalar(&adapter.run.coverage)
+                ));
+            }
+        } else {
+            out.push_str("  - id: rust-cargo\n    roots: [.]\n");
+            out.push_str("scan:\n  include:\n");
+            for include in &self.scan.include {
+                out.push_str(&format!("    - {}\n", yaml_scalar(include)));
+            }
+            out.push_str("  assertion_macros: []\n");
         }
         out.push_str("verify:\n  full_scope:\n");
         for item in &self.verify.full_scope {
             out.push_str(&format!("    - {}\n", yaml_scalar(item)));
         }
-        out.push_str(&format!(
-            "run:\n  coverage: {}\n",
-            yaml_scalar(&self.run.coverage)
-        ));
+        if self.version < 2 {
+            out.push_str(&format!(
+                "run:\n  coverage: {}\n",
+                yaml_scalar(&self.run.coverage)
+            ));
+        }
         out
     }
 
@@ -191,6 +242,23 @@ impl ProjectConfig {
     /// closed rather than silently changing scan behaviour.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let mut config = Self::default_for(project_name);
+        config.version = top_level_scalar(text, "version")
+            .map(|value| value.parse::<u32>())
+            .transpose()
+            .map_err(|_| StoreError::InvalidConfig("version must be an integer".to_owned()))?
+            .unwrap_or(1);
+        if config.version == 1 {
+            config.adapters.clear();
+        } else if config.version == 2 {
+            config.adapters = parse_v2_adapters(text)?;
+            let Some(first) = config.adapters.first() else {
+                return Err(StoreError::InvalidConfig(
+                    "version 2 requires at least one adapter".to_owned(),
+                ));
+            };
+            config.scan = first.scan.clone();
+            config.run = first.run.clone();
+        }
         let mut section = "";
         let mut list_field = None;
         let mut saw_include = false;
@@ -278,7 +346,7 @@ impl ProjectConfig {
         // parsing the generated file itself.
         config.scan.include.dedup();
         config.scan.assertion_macros.dedup();
-        config.verify.full_scope.dedup();
+        normalize_full_scope(config.version, &mut config.verify.full_scope)?;
         for macro_name in &config.scan.assertion_macros {
             if !is_rust_macro_path(macro_name) {
                 return Err(StoreError::InvalidConfig(format!(
@@ -294,6 +362,168 @@ impl ProjectConfig {
         }
         Ok(config)
     }
+}
+
+fn top_level_scalar(text: &str, key: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        if line.starts_with(' ') {
+            return None;
+        }
+        let (name, value) = line.split_once(':')?;
+        (name.trim() == key).then(|| unquote_yaml_scalar(value.trim()).ok())?
+    })
+}
+
+fn parse_v2_adapters(text: &str) -> Result<Vec<AdapterConfigEntry>, StoreError> {
+    let mut adapters = Vec::new();
+    let mut current: Option<AdapterConfigEntry> = None;
+    let mut list_field: Option<&str> = None;
+    let mut inline_list;
+    let mut section = "";
+    for raw in text.lines() {
+        let line = raw.trim_end();
+        if line.starts_with("  - id:") {
+            if let Some(adapter) = current.take() {
+                adapters.push(adapter);
+            }
+            let id = unquote_yaml_scalar(line.trim_start_matches("  - id:").trim())?;
+            current = Some(AdapterConfigEntry {
+                id,
+                roots: Vec::new(),
+                scan: ScanSection {
+                    include: Vec::new(),
+                    assertion_macros: Vec::new(),
+                },
+                run: RunSection {
+                    coverage: "llvm-cov".to_owned(),
+                },
+            });
+            section = "adapter";
+            list_field = None;
+            continue;
+        }
+        let Some(adapter) = current.as_mut() else {
+            continue;
+        };
+        let trimmed = line.trim();
+        if trimmed == "scan:" {
+            section = "scan";
+            list_field = None;
+            continue;
+        }
+        if trimmed == "run:" {
+            section = "run";
+            list_field = None;
+            continue;
+        }
+        if trimmed.starts_with('-') {
+            let value = unquote_yaml_scalar(trimmed.trim_start_matches('-').trim())?;
+            match (section, list_field) {
+                ("adapter", Some("roots")) => adapter.roots.push(value),
+                ("scan", Some("include")) => adapter.scan.include.push(value),
+                ("scan", Some("assertion_macros")) => adapter.scan.assertion_macros.push(value),
+                _ => {}
+            }
+            continue;
+        }
+        let Some((key, raw_value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        let value = raw_value.trim();
+        match (section, key.trim()) {
+            ("adapter", "roots") => {
+                list_field = Some("roots");
+                inline_list = false;
+                parse_list_value(value, &mut adapter.roots, &mut inline_list)?;
+            }
+            ("scan", "include") => {
+                list_field = Some("include");
+                inline_list = false;
+                parse_list_value(value, &mut adapter.scan.include, &mut inline_list)?;
+            }
+            ("scan", "assertion_macros") => {
+                list_field = Some("assertion_macros");
+                inline_list = false;
+                parse_list_value(value, &mut adapter.scan.assertion_macros, &mut inline_list)?;
+            }
+            ("run", "coverage") => {
+                adapter.run.coverage = unquote_yaml_scalar(value)?;
+                list_field = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(adapter) = current {
+        adapters.push(adapter);
+    }
+    for adapter in &mut adapters {
+        if adapter.roots.is_empty() {
+            adapter.roots.push(".".to_owned());
+        }
+        if adapter.scan.include.is_empty() {
+            adapter.scan.include = vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()];
+        }
+        adapter.roots.sort();
+        adapter.scan.include.sort();
+        adapter.scan.assertion_macros.sort();
+        if adapter.roots.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(StoreError::InvalidConfig(format!(
+                "adapter `{}` has duplicate roots",
+                adapter.id
+            )));
+        }
+    }
+    let mut ids = adapters
+        .iter()
+        .map(|adapter| adapter.id.as_str())
+        .collect::<Vec<_>>();
+    ids.sort_unstable();
+    if ids.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(StoreError::InvalidConfig(
+            "adapter IDs must be unique".to_owned(),
+        ));
+    }
+    Ok(adapters)
+}
+
+fn normalize_full_scope(version: u32, scope: &mut Vec<String>) -> Result<(), StoreError> {
+    let known = FIXED_FULL_SCOPE
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut seen = std::collections::BTreeSet::new();
+    for item in scope.iter() {
+        if !known.contains(item.as_str()) {
+            return Err(StoreError::InvalidConfig(format!(
+                "verify.full_scope contains unknown item `{item}`"
+            )));
+        }
+        if !seen.insert(item.as_str()) {
+            return Err(StoreError::InvalidConfig(format!(
+                "verify.full_scope contains duplicate item `{item}`"
+            )));
+        }
+    }
+    if version >= 2 {
+        if scope.len() != FIXED_FULL_SCOPE.len()
+            || FIXED_FULL_SCOPE.iter().any(|item| !seen.contains(item))
+        {
+            return Err(StoreError::InvalidConfig(
+                "version 2 verify.full_scope must contain exactly the fixed 12 items".to_owned(),
+            ));
+        }
+    } else {
+        let existing = scope
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        for item in FIXED_FULL_SCOPE {
+            if !existing.contains(item) {
+                scope.push(item.to_owned());
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -568,9 +798,10 @@ mod tests {
             "assert_valid".to_owned(),
             "crate::checks::assert_result".to_owned(),
         ];
+        expected.adapters[0].scan = expected.scan.clone();
 
         let yaml = expected.to_yaml();
-        assert!(yaml.contains("  assertion_macros:\n    - assert_valid\n"));
+        assert!(yaml.contains("      assertion_macros:\n        - assert_valid\n"));
         let parsed = ProjectConfig::from_yaml(&yaml, "fallback").unwrap();
 
         assert_eq!(parsed, expected);

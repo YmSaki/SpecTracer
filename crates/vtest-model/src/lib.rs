@@ -10,7 +10,9 @@ use std::{fmt, str::FromStr};
 
 macro_rules! id_type {
     ($name:ident) => {
-        #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+        #[derive(
+            Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize,
+        )]
         #[serde(transparent)]
         pub struct $name(pub String);
 
@@ -49,6 +51,7 @@ id_type!(ReqId);
 id_type!(VoId);
 id_type!(TestId);
 id_type!(SrcId);
+id_type!(AdapterId);
 
 /// A SHA-256 hash bound to a canonical source or record representation.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -67,9 +70,73 @@ impl ContentHash {
         Self::from_text(&text)
     }
 
+    /// Hash a typed, domain-separated collection of fields.  Field names and
+    /// byte lengths are included so concatenation cannot create an ambiguous
+    /// representation.  This is the only shared hash primitive used by the
+    /// core subject builders; adapters return bytes and never final hashes.
+    pub fn from_domain_fields(domain: &str, fields: &[(&str, &[u8])]) -> Self {
+        let mut hasher = Sha256::new();
+        write_len_prefixed(&mut hasher, domain.as_bytes());
+        for (name, value) in fields {
+            write_len_prefixed(&mut hasher, name.as_bytes());
+            write_len_prefixed(&mut hasher, value);
+        }
+        Self(format!("sha256:{:x}", hasher.finalize()))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+fn write_len_prefixed(hasher: &mut Sha256, value: &[u8]) {
+    hasher.update((value.len() as u64).to_be_bytes());
+    hasher.update(value);
+}
+
+pub fn test_subject_hash(
+    adapter: &AdapterId,
+    test_id: &TestId,
+    metadata: &str,
+    location: &SourceLocation,
+    execution: &ExecutionDescriptor,
+    construct: &[u8],
+) -> ContentHash {
+    // Bind stable construct identity, not absolute byte offsets.  A change to
+    // an earlier sibling may move a later item in the file without changing
+    // that Test's construct or canonical locator.
+    let location_identity = serde_json::json!({
+        "adapter": location.adapter.as_ref(),
+        "path": location
+            .project_relative_path
+            .as_deref()
+            .unwrap_or(&location.file),
+        "locator": location
+            .opaque_locator
+            .as_deref()
+            .unwrap_or(&location.function),
+    });
+    let location = serde_json::to_vec(&location_identity).unwrap_or_default();
+    let execution = serde_json::to_vec(execution).unwrap_or_default();
+    ContentHash::from_domain_fields(
+        "vtest:test-subject:v1",
+        &[
+            ("adapter", adapter.as_str().as_bytes()),
+            ("test_id", test_id.as_str().as_bytes()),
+            ("metadata", metadata.as_bytes()),
+            ("location", &location),
+            ("execution", &execution),
+            ("construct", construct),
+        ],
+    )
+}
+
+pub fn target_subject_hash(target: &NeutralTargetRef, construct: &[u8]) -> ContentHash {
+    let target = serde_json::to_vec(target).unwrap_or_default();
+    ContentHash::from_domain_fields(
+        "vtest:target-subject:v1",
+        &[("target", &target), ("construct", construct)],
+    )
 }
 
 impl fmt::Display for ContentHash {
@@ -145,7 +212,24 @@ pub enum TargetRef {
     SrcId(SrcId),
 }
 
+/// A language-neutral opaque target reference.  The adapter owns the meaning
+/// of `value`; the core never parses it as a path, module, symbol, or function.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NeutralTargetRef {
+    pub adapter: AdapterId,
+    pub value: String,
+}
+
+impl NeutralTargetRef {
+    pub fn new(adapter: impl Into<AdapterId>, value: impl Into<String>) -> Self {
+        Self {
+            adapter: adapter.into(),
+            value: value.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceLocation {
     pub file: String,
     pub function: String,
@@ -153,24 +237,103 @@ pub struct SourceLocation {
     pub end_line: usize,
     pub start_byte: usize,
     pub end_byte: usize,
+    /// Neutral provenance fields.  The legacy fields above remain readable by
+    /// the v1 wire codec; new core consumers use these fields when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<AdapterId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_relative_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opaque_locator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub byte_range: Option<ByteRange>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "name", rename_all = "snake_case")]
-pub enum TestTarget {
-    Lib,
-    Bin(String),
-    IntegrationTest(String),
-    Unknown,
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ByteRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl SourceLocation {
+    pub fn legacy(
+        file: impl Into<String>,
+        function: impl Into<String>,
+        start_line: usize,
+        end_line: usize,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> Self {
+        let file = file.into();
+        let function = function.into();
+        Self {
+            project_relative_path: Some(file.clone()),
+            opaque_locator: Some(function.clone()),
+            adapter: Some(AdapterId::from("rust-cargo")),
+            byte_range: Some(ByteRange {
+                start: start_byte,
+                end: end_byte,
+            }),
+            file,
+            function,
+            start_line,
+            end_line,
+            start_byte,
+            end_byte,
+        }
+    }
+
+    pub fn neutral(
+        adapter: impl Into<AdapterId>,
+        path: impl Into<String>,
+        locator: impl Into<String>,
+        range: ByteRange,
+    ) -> Self {
+        let adapter = adapter.into();
+        let path = path.into();
+        let locator = locator.into();
+        Self {
+            adapter: Some(adapter),
+            project_relative_path: Some(path.clone()),
+            opaque_locator: Some(locator.clone()),
+            byte_range: Some(range),
+            file: path,
+            function: locator,
+            start_line: 0,
+            end_line: 0,
+            start_byte: range.start,
+            end_byte: range.end,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TestSuite {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionDescriptor {
+    pub adapter: AdapterId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suite: Option<TestSuite>,
+    #[serde(default)]
+    pub selector: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_root: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub target: TargetRef,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub additional_targets: Vec<TargetRef>,
+    pub targets: Vec<NeutralTargetRef>,
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,
@@ -179,14 +342,17 @@ pub struct TestEntity {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
-    pub filter: String,
-    pub package: String,
-    pub test_target: TestTarget,
+    /// Neutral execution coordinates. Adapter-specific wire compatibility is
+    /// owned by the adapter codec and is not part of this domain entity.
+    #[serde(default)]
+    pub execution: ExecutionDescriptor,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceFunction {
-    pub locator: Locator,
+    /// The adapter-owned identity of the implementation construct.  Core
+    /// consumers compare this value opaquely and never parse its syntax.
+    pub target: NeutralTargetRef,
     pub src_id: Option<SrcId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
@@ -229,6 +395,42 @@ pub enum CheckItem {
     TargetExecution,
     #[serde(rename = "evidence_validity")]
     EvidenceValidity,
+    #[serde(rename = "test_traceability")]
+    TestTraceability,
+}
+
+impl CheckItem {
+    pub const FULL_SCOPE: [Self; 12] = [
+        Self::SpecCoverage,
+        Self::VoDecomposition,
+        Self::VoCoverage,
+        Self::TestExistence,
+        Self::StaticAudit,
+        Self::SemanticAudit,
+        Self::ImplConsistency,
+        Self::TestExecution,
+        Self::RuntimeResult,
+        Self::TargetExecution,
+        Self::EvidenceValidity,
+        Self::TestTraceability,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SpecCoverage => "spec_coverage",
+            Self::VoDecomposition => "vo_decomposition",
+            Self::VoCoverage => "vo_coverage",
+            Self::TestExistence => "test_existence",
+            Self::StaticAudit => "static_audit",
+            Self::SemanticAudit => "semantic_audit",
+            Self::ImplConsistency => "impl_consistency",
+            Self::TestExecution => "test_execution",
+            Self::RuntimeResult => "runtime_result",
+            Self::TargetExecution => "target_execution",
+            Self::EvidenceValidity => "evidence_validity",
+            Self::TestTraceability => "test_traceability",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -335,6 +537,24 @@ pub struct EvidenceHashes {
     /// the complete set.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_fns: Vec<ContentHash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_subject: Option<ContentHash>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<EvidenceTargetHash>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EvidenceTargetHash {
+    pub target: NeutralTargetRef,
+    pub target_construct: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionStateRecord {
+    pub schema: String,
+    pub complete: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash: Option<ContentHash>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -348,6 +568,19 @@ pub struct RunnerInfo {
 pub struct TargetExecution {
     pub checked: bool,
     pub method: Option<String>,
+    pub result: CheckValue,
+    pub count: Option<u64>,
+    /// Per-declared-target measurements.  The aggregate fields above retain
+    /// the v0.1 wire shape, while this list is the canonical representation
+    /// for multi-target execution.  A checked record must contain exactly one
+    /// entry for every declared target.
+    #[serde(default)]
+    pub targets: Vec<TargetExecutionEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TargetExecutionEntry {
+    pub target: NeutralTargetRef,
     pub result: CheckValue,
     pub count: Option<u64>,
 }
@@ -371,6 +604,10 @@ pub struct EvidenceRecord {
     pub runner: RunnerInfo,
     pub target_execution: TargetExecution,
     pub log_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<AdapterId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_state: Option<ExecutionStateRecord>,
 }
 
 #[cfg(test)]
@@ -412,5 +649,50 @@ mod tests {
         assert_eq!(value["ok"], true);
         assert!(value.get("data").is_some());
         assert!(value.get("diagnostics").is_some());
+    }
+
+    #[test]
+    fn domain_hash_is_length_delimited_and_non_rust_safe() {
+        let first =
+            ContentHash::from_domain_fields("vtest:test-subject:v1", &[("a", b"ab"), ("b", b"c")]);
+        let second =
+            ContentHash::from_domain_fields("vtest:test-subject:v1", &[("a", b"a"), ("b", b"bc")]);
+        assert_ne!(first, second);
+        assert_ne!(
+            ContentHash::from_domain_fields("domain-a", &[("field", b"x")]),
+            ContentHash::from_domain_fields("domain-b", &[("field", b"x")])
+        );
+    }
+
+    #[test]
+    fn test_subject_hash_binds_non_adjacent_metadata() {
+        let location = SourceLocation::neutral(
+            "synthetic",
+            "fixture.spec",
+            "case",
+            ByteRange { start: 0, end: 12 },
+        );
+        let execution = ExecutionDescriptor {
+            adapter: AdapterId::from("synthetic"),
+            selector: "case".to_owned(),
+            ..ExecutionDescriptor::default()
+        };
+        let first = test_subject_hash(
+            &AdapterId::from("synthetic"),
+            &TestId::new("TEST-SYNTHETIC"),
+            "intent: first",
+            &location,
+            &execution,
+            b"case construct",
+        );
+        let second = test_subject_hash(
+            &AdapterId::from("synthetic"),
+            &TestId::new("TEST-SYNTHETIC"),
+            "intent: second",
+            &location,
+            &execution,
+            b"case construct",
+        );
+        assert_ne!(first, second);
     }
 }

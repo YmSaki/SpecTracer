@@ -16,8 +16,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    AdapterId, CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
+    ExecutionStateRecord, NeutralTargetRef, ReqId, Revision, RunnerInfo, SpecId, TargetExecution,
+    TargetExecutionEntry, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -853,6 +854,14 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     } else {
         Vec::new()
     };
+    let test_subject = nested_scalar(&text, "hashes", "test_subject")
+        .filter(|value| value != "null")
+        .map(|value| {
+            value
+                .parse()
+                .map_err(|error: String| StoreError::InvalidConfig(error))
+        })
+        .transpose()?;
     let result = match scalar(&text, "result").as_deref() {
         Some("PASS") => TestResult::Pass,
         Some("FAIL") => TestResult::Fail,
@@ -873,6 +882,30 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         Some("MISSING") => CheckValue::Missing,
         _ => CheckValue::Unknown,
     };
+    let target_subjects = parse_target_items(&text, "hashes")?
+        .into_iter()
+        .map(|entry| {
+            let target_construct = entry.target_construct.ok_or_else(|| {
+                StoreError::InvalidConfig(
+                    "Evidence hashes.targets entry is missing target_construct".to_owned(),
+                )
+            })?;
+            Ok(EvidenceTargetHash {
+                target: entry.target,
+                target_construct,
+            })
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    let target_execution_targets = parse_target_items(&text, "target_execution")?
+        .into_iter()
+        .map(|entry| {
+            Ok(TargetExecutionEntry {
+                target: entry.target,
+                result: entry.result.unwrap_or(CheckValue::Unknown),
+                count: entry.count,
+            })
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(EvidenceRecord {
         id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
@@ -886,6 +919,8 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             test_fn: test_hash,
             target_fn: target_hash,
             target_fns: target_hashes,
+            test_subject,
+            targets: target_subjects,
         },
         runner: RunnerInfo {
             kind: nested_scalar(&text, "runner", "kind").unwrap_or_default(),
@@ -903,8 +938,22 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             count: nested_scalar(&text, "target_execution", "count")
                 .filter(|value| value != "null")
                 .and_then(|value| value.parse().ok()),
+            targets: target_execution_targets,
         },
         log_ref: scalar(&text, "log_ref").unwrap_or_default(),
+        adapter: top_level_scalar(&text, "adapter")
+            .filter(|value| value != "null")
+            .map(AdapterId::from),
+        execution_state: nested_scalar(&text, "execution_state", "schema")
+            .filter(|value| value != "null")
+            .map(|schema| ExecutionStateRecord {
+                schema,
+                complete: nested_scalar(&text, "execution_state", "complete")
+                    .is_some_and(|value| value == "true"),
+                hash: nested_scalar(&text, "execution_state", "hash")
+                    .filter(|value| value != "null")
+                    .and_then(|value| value.parse().ok()),
+            }),
     })
 }
 
@@ -1837,6 +1886,127 @@ fn nested_scalar(text: &str, parent: &str, key: &str) -> Option<String> {
         }
     }
     None
+}
+
+struct ParsedTargetItem {
+    target: NeutralTargetRef,
+    target_construct: Option<ContentHash>,
+    result: Option<CheckValue>,
+    count: Option<u64>,
+}
+
+impl Default for ParsedTargetItem {
+    fn default() -> Self {
+        Self {
+            target: NeutralTargetRef::new("", ""),
+            target_construct: None,
+            result: None,
+            count: None,
+        }
+    }
+}
+
+/// Parse the deliberately small nested target-list shape emitted by the
+/// execution writer.  Legacy v0.1 records simply omit these lists and are
+/// represented by an empty vector, preserving reader compatibility.
+fn parse_target_items(text: &str, parent: &str) -> Result<Vec<ParsedTargetItem>, StoreError> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let Some(parent_index) = lines
+        .iter()
+        .position(|raw| !raw.starts_with([' ', '\t']) && raw.trim() == format!("{parent}:"))
+    else {
+        return Ok(Vec::new());
+    };
+    let Some(targets_index) = lines
+        .iter()
+        .enumerate()
+        .skip(parent_index + 1)
+        .take_while(|(_, raw)| raw.starts_with([' ', '\t']) || raw.trim().is_empty())
+        .find_map(|(index, raw)| (raw.trim() == "targets:").then_some(index))
+    else {
+        return Ok(Vec::new());
+    };
+    let mut parsed = Vec::new();
+    let mut current: Option<ParsedTargetItem> = None;
+    for raw in lines.iter().skip(targets_index + 1) {
+        if !raw.starts_with([' ', '\t']) {
+            break;
+        }
+        let trimmed = raw.trim();
+        if trimmed == "[]" {
+            break;
+        }
+        if trimmed == "- target:" {
+            if let Some(item) = current.take() {
+                parsed.push(item);
+            }
+            current = Some(ParsedTargetItem::default());
+            continue;
+        }
+        let Some(item) = current.as_mut() else {
+            continue;
+        };
+        let Some((key, value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        let value = value.trim();
+        match key.trim() {
+            "adapter" => item.target.adapter = AdapterId::from(unquote(value)),
+            "value" => item.target.value = unquote(value),
+            "target_construct" => {
+                item.target_construct = Some(unquote(value).parse().map_err(|error: String| {
+                    StoreError::InvalidConfig(format!(
+                        "Evidence target_construct has invalid hash: {error}"
+                    ))
+                })?);
+            }
+            "result" => {
+                item.result = Some(parse_check_value(value).ok_or_else(|| {
+                    StoreError::InvalidConfig(format!(
+                        "Evidence target execution has invalid result {value}"
+                    ))
+                })?);
+            }
+            "count" => {
+                item.count = if value == "null" {
+                    None
+                } else {
+                    Some(value.parse().map_err(|_| {
+                        StoreError::InvalidConfig(
+                            "Evidence target execution count is invalid".to_owned(),
+                        )
+                    })?)
+                };
+            }
+            _ => {}
+        }
+    }
+    if let Some(item) = current {
+        parsed.push(item);
+    }
+    for (index, item) in parsed.iter().enumerate() {
+        if item.target.adapter.as_str().is_empty() || item.target.value.is_empty() {
+            return Err(StoreError::InvalidConfig(format!(
+                "Evidence {parent}.targets entry {index} is missing target adapter/value"
+            )));
+        }
+    }
+    Ok(parsed)
+}
+
+fn parse_check_value(value: &str) -> Option<CheckValue> {
+    let value = unquote(value);
+    match value.as_str() {
+        "PASS" => Some(CheckValue::Pass),
+        "FAIL" => Some(CheckValue::Fail),
+        "MISMATCH" => Some(CheckValue::Mismatch),
+        "MISSING" => Some(CheckValue::Missing),
+        "NOT_CHECKED" => Some(CheckValue::NotChecked),
+        "NOT_EXECUTED" => Some(CheckValue::NotExecuted),
+        "STALE" => Some(CheckValue::Stale),
+        "UNKNOWN" => Some(CheckValue::Unknown),
+        _ => None,
+    }
 }
 
 fn list(text: &str, key: &str) -> Vec<String> {

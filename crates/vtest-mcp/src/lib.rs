@@ -416,7 +416,7 @@ fn tool_input_schema(name: &str) -> Value {
         ),
         "audit_bundle" => (
             json!({
-                "kind": {"type": "string", "enum": ["test-semantic", "vo-coverage", "impl-consistency"]},
+                "kind": {"type": "string", "enum": ["spec-coverage", "test-semantic", "vo-coverage", "impl-consistency"]},
                 "test": {"type": "string"},
                 "vo": {"type": "string"},
                 "req": {"type": "string"},

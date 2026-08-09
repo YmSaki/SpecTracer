@@ -280,6 +280,42 @@ fn m4_target_mutation_makes_evidence_stale() {
 }
 
 #[test]
+fn m4_target_external_helper_mutation_makes_evidence_stale() {
+    let project = TempProject::from_m1_base("stale-helper");
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "mod helper;\npub fn known() { let _ = helper::value(); }\n",
+    )
+    .expect("make the target depend on an external helper");
+    fs::write(
+        project.root.join("src/helper.rs"),
+        "pub fn value() -> i32 { 1 }\n",
+    )
+    .expect("write the external helper");
+    project.commit_baseline();
+
+    assert_ok(
+        &invoke(&project.root, "run", &["--all", "--fast"]),
+        "record baseline Evidence before helper mutation",
+    );
+
+    fs::write(
+        project.root.join("src/helper.rs"),
+        "pub fn value() -> i32 { 0 }\n",
+    )
+    .expect("mutate target-external helper source");
+    let verify = invoke(&project.root, "verify", &["--items", "evidence_validity"]);
+    assert_exit(
+        &verify,
+        1,
+        "target-external helper mutation invalidates Evidence",
+    );
+    let verify = envelope(&verify);
+    assert_eq!(verify["ok"], false);
+    assert_eq!(report_item(&verify, "evidence_validity")["value"], "STALE");
+}
+
+#[test]
 fn m4_build_failure_reports_e_exec_001_without_evidence() {
     let project = TempProject::from_m1_base("build-failure");
     project.commit_baseline();

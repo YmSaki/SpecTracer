@@ -20,7 +20,10 @@ Evaluate each applicable invariant:
 - Covers and target relations are derived from Test annotations, not duplicated in external records.
 - Indexes, graphs, aggregate reports, bundles, and raw logs are derived and rebuildable.
 - SPEC/REQ/VO use one entity per file; append-only facts use ULID files; Relation is immutable.
-- Every approval, audit, and Evidence result is bound to current subject hashes.
+- Every approval, audit, and Evidence result is bound to the complete current subject set capable of changing its judgment, not merely the most obvious entity hashes.
+- Static Audit freshness includes every helper or source fragment actually consulted; incomplete analysis-input closure cannot produce PASS.
+- Evidence freshness includes exact HEAD revision and a complete Execution State subject for runner, toolchain, execution-affecting config, repository inputs, and local dependencies; Test/target hash equality alone is insufficient.
+- `impl-consistency` freshness includes the complete current Specification subject closure used by the judgment, including in limited scope.
 - Every aggregate is fail-closed; narrowing scope does not rewrite out-of-scope values to PASS.
 - Deterministic rules use UNKNOWN at analysis limits.
 - Structured edits are desired-state operations and preserve the one-Test boundary.
@@ -32,7 +35,7 @@ Evaluate each applicable invariant:
 - Verify error codes and exit codes remain consistent with detailed design §17.
 - Verify MCP write tools expose only structured, validated operations.
 - Verify `cargo-llvm-cov` absence produces `NOT_CHECKED`, not PASS.
-- Verify dirty revisions require matching content hashes and unknown revisions cannot pass Evidence validity.
+- Verify dirty revisions require a matching complete Execution State subject, changed HEAD revisions are stale, and unknown revisions or incomplete snapshots cannot pass Evidence validity.
 
 ## Output
 

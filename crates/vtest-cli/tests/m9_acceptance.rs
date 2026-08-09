@@ -1136,7 +1136,11 @@ fn m9_reference_flow_completes_over_mcp_stdio() {
             "reference {name}: {response}"
         );
         assert_eq!(mcp_envelope(&response)["ok"], false);
-        assert_eq!(mcp_envelope(&response)["data"]["report"]["result"], "FAIL");
+        assert_eq!(
+            mcp_envelope(&response)["data"]["report"]["result"],
+            "STALE",
+            "invalid current Evidence must not be reused as a runtime FAIL"
+        );
     }
 }
 

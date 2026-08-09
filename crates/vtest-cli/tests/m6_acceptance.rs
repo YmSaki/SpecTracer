@@ -481,6 +481,68 @@ fn m6_missing_evidence_for_one_test_is_not_project_pass() {
 }
 
 #[test]
+fn m6_unregistered_test_is_missing_for_test_traceability() {
+    let project = TempProject::from_m1_base("unregistered-traceability");
+    fs::write(
+        project.root.join("tests/unregistered.rs"),
+        "#[test]\nfn unregistered() {}\n",
+    )
+    .expect("add an unregistered discovered Test");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "test_traceability"]);
+    assert_exit(&verify, 1, "unregistered discovered Test is not traceable");
+    let json = envelope(&verify);
+    assert_eq!(json["ok"], false);
+    assert_eq!(report_item(&json, "test_traceability")["value"], "MISSING");
+}
+
+#[test]
+fn m6_unreferenced_specification_is_missing_from_spec_coverage() {
+    let project = TempProject::from_m1_base("unreferenced-spec");
+    fs::create_dir_all(project.root.join("docs")).expect("create specification directory");
+    fs::write(
+        project.root.join("docs/unreferenced.md"),
+        "# Unreferenced requirement\n",
+    )
+    .expect("write unreferenced specification");
+    let spec = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add",
+            "--id",
+            "SPEC-M6-ORPHAN",
+            "--path",
+            "docs/unreferenced.md",
+        ],
+    );
+    assert_exit(&spec, 0, "register unreferenced specification");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "spec_coverage"]);
+    assert_exit(&verify, 1, "unreferenced specification is fail-closed");
+    let json = envelope(&verify);
+    assert_eq!(
+        report_item(&json, "spec_coverage")["value"],
+        "MISSING",
+        "unreferenced specification must be visible: {json}"
+    );
+    assert!(
+        report_item(&json, "spec_coverage")["basis"]
+            .as_array()
+            .is_some_and(|basis| {
+                basis.iter().any(|entry| {
+                    entry
+                        .as_str()
+                        .is_some_and(|text| text.contains("SPEC-M6-ORPHAN"))
+                })
+            }),
+        "basis must name the orphan specification: {json}"
+    );
+}
+
+#[test]
 fn m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like() {
     let project = TempProject::from_m1_base("limited-scope");
     project.commit_baseline();

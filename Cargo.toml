@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/vtest-adapter-api",
+    "crates/vtest-adapter-rust",
     "crates/vtest-model",
     "crates/vtest-store",
     "crates/vtest-scan",

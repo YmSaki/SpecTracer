@@ -192,6 +192,15 @@ fn acceptance_v1_eleven_item_scope_is_completed_in_memory() {
 }
 
 #[test]
+fn acceptance_text_report_shows_repository_level_traceability() {
+    let project = TempProject::from_m1_base("text-traceability");
+    let output = invoke_text(&project.root, "report", &[]);
+    let text = String::from_utf8(output.stdout).expect("text report is UTF-8");
+    assert!(text.contains("Repository checks:"), "report: {text}");
+    assert!(text.contains("test_traceability"), "report: {text}");
+}
+
+#[test]
 fn acceptance_v2_scope_cannot_be_used_to_remove_a_check() {
     let project = TempProject::from_m1_base("v2-scope-reject");
     let scope = &FIXED_SCOPE[..FIXED_SCOPE.len() - 1];

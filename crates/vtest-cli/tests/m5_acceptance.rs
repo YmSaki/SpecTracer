@@ -373,3 +373,90 @@ fn m5_accepted_audit_is_typed_and_becomes_stale_after_target_change() {
         .unwrap();
     assert_eq!(item["value"], "STALE");
 }
+
+#[test]
+fn m5_impl_consistency_becomes_stale_after_specification_change() {
+    let project = TempProject::from_m1_base("impl-spec-stale");
+    fs::create_dir_all(project.root.join("docs")).expect("create specification directory");
+    fs::write(
+        project.root.join("docs/impl-spec.md"),
+        "# Implementation contract\n\nThe target returns the expected value.\n",
+    )
+    .expect("write implementation specification");
+    assert_ok(
+        &invoke(
+            &project.root,
+            "spec",
+            &["add", "--id", "SPEC-M5-IMPL", "--path", "docs/impl-spec.md"],
+        ),
+        "register implementation specification",
+    );
+    fs::write(
+        project.root.join(".verify/req/REQ-M5-IMPL.yaml"),
+        "id: REQ-M5-IMPL\nparent: null\nspec_refs:\n  - spec: SPEC-M5-IMPL\n    section: 1\nsummary: implementation consistency\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\nversion: 1\n",
+    )
+    .expect("write implementation REQ");
+    let vo_path = project.root.join(".verify/vo/VO-KNOWN.yaml");
+    let vo = fs::read_to_string(&vo_path).expect("read implementation VO");
+    fs::write(
+        vo_path,
+        vo.replace("requirements: []", "requirements:\n  - REQ-M5-IMPL")
+            .replace(
+                "spec_refs: []",
+                "spec_refs:\n  - spec: SPEC-M5-IMPL\n    section: 1",
+            ),
+    )
+    .expect("link implementation VO");
+    project.commit_baseline();
+
+    let (bundle_id, _) = bundle(&project, "impl-consistency", &["--test", "TEST-M1-CLEAN"]);
+    let file = project.root.join("impl-consistency.json");
+    fs::write(
+        &file,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "bundle_id": bundle_id,
+            "kind": "impl-consistency",
+            "verdict": "PASS",
+            "reasons": [{
+                "claim": "the implementation matches the specification",
+                "basis": [{"kind": "spec", "ref": "SPEC-M5-IMPL#1"}]
+            }],
+            "exclusions": [],
+            "auditor": {"kind": "agent", "id": "m5-acceptance", "model": "acceptance"},
+            "confidence": "high"
+        }))
+        .expect("serialize implementation submission"),
+    )
+    .expect("write implementation submission");
+    assert_ok(
+        &invoke(
+            &project.root,
+            "audit",
+            &["submit", "--file", &file.to_string_lossy()],
+        ),
+        "accept implementation consistency audit",
+    );
+
+    fs::write(
+        project.root.join("docs/impl-spec.md"),
+        "# Implementation contract\n\nThe target returns a different value.\n",
+    )
+    .expect("mutate specification after acceptance");
+    let verify = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_exit(
+        &verify,
+        1,
+        "specification mutation stales limited impl-consistency verification",
+    );
+    let verify = envelope(&verify);
+    let item = verify["data"]["report"]["items"]
+        .as_array()
+        .expect("verification items")
+        .iter()
+        .find(|item| item["item"] == "impl_consistency")
+        .expect("impl-consistency item");
+    assert_eq!(
+        item["value"], "STALE",
+        "specification must be a freshness subject"
+    );
+}

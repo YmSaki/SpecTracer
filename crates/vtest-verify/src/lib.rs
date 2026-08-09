@@ -4,12 +4,11 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
+    process::Command,
 };
 
 use serde::Serialize;
-use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceRecord, Locator, ScanSummary, TestEntity,
-};
+use vtest_model::{CheckValue, ContentHash, Diagnostic, EvidenceRecord, ScanSummary, TestEntity};
 use vtest_scan::ScanResult;
 use vtest_store::{
     read_approval, read_audit, read_evidence, read_record_ids, read_req, read_text, read_vo,
@@ -17,7 +16,7 @@ use vtest_store::{
     VoRecord,
 };
 
-pub const ALL_ITEMS: [&str; 11] = [
+pub const ALL_ITEMS: [&str; 12] = [
     "spec_coverage",
     "vo_decomposition",
     "vo_coverage",
@@ -29,6 +28,7 @@ pub const ALL_ITEMS: [&str; 11] = [
     "runtime_result",
     "target_execution",
     "evidence_validity",
+    "test_traceability",
 ];
 
 /// Entity-axis scope for verification.  The item-axis scope remains the
@@ -260,6 +260,7 @@ impl ScopeSelection {
             },
             tests,
             sources: scan.sources.clone(),
+            discovered_tests: scan.discovered_tests.clone(),
             diagnostics: scan.diagnostics.clone(),
         }
     }
@@ -549,23 +550,53 @@ fn evaluate_item(
                 .iter()
                 .filter_map(|id| read_vo(layout, id).ok())
                 .collect::<Vec<_>>();
+            let specs = read_record_ids(&layout.spec_dir())
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|id| vtest_store::read_spec(layout, &id).ok())
+                .collect::<Vec<_>>();
+            let referenced_specs = reqs
+                .iter()
+                .flat_map(|req| req.spec_refs.iter().map(|spec_ref| spec_ref.spec.clone()))
+                .collect::<BTreeSet<_>>();
+            let unreferenced_specs = specs
+                .iter()
+                .filter(|spec| !referenced_specs.contains(&spec.id))
+                .map(|spec| spec.id.as_str().to_owned())
+                .collect::<Vec<_>>();
             let missing = reqs
                 .iter()
                 .filter(|req| {
                     !vos.iter()
                         .any(|vo| vo.requirements.iter().any(|candidate| candidate == &req.id))
+                        || req.spec_refs.is_empty()
+                        || req.spec_refs.iter().any(|spec_ref| {
+                            let Ok(spec) = vtest_store::read_spec(layout, spec_ref.spec.as_str())
+                            else {
+                                return true;
+                            };
+                            let Ok(source) = fs::read_to_string(root.join(&spec.path)) else {
+                                return true;
+                            };
+                            ContentHash::from_text(&source) != spec.sha256
+                        })
                 })
                 .map(|req| req.id.as_str().to_owned())
                 .collect::<Vec<_>>();
-            if !reqs.is_empty() && missing.is_empty() {
+            if !reqs.is_empty() && missing.is_empty() && unreferenced_specs.is_empty() {
                 (
                     CheckValue::Pass,
-                    vec!["every selected REQ has at least one linked VO".to_owned()],
+                    vec!["every selected REQ and discovered SPEC is represented".to_owned()],
                 )
             } else {
                 (
                     CheckValue::Missing,
-                    if reqs.is_empty() {
+                    if !unreferenced_specs.is_empty() {
+                        vec![format!(
+                            "SPEC record(s) are not referenced by an active REQ: {}",
+                            unreferenced_specs.join(", ")
+                        )]
+                    } else if reqs.is_empty() {
                         vec!["no REQ records exist in the selected scope".to_owned()]
                     } else {
                         vec![format!(
@@ -577,10 +608,27 @@ fn evaluate_item(
             }
         }
         "vo_decomposition" => {
-            if scan.diagnostics.iter().any(Diagnostic::is_error) {
+            let source_structure_error = scan.diagnostics.iter().any(|diagnostic| {
+                diagnostic.is_error()
+                    && matches!(diagnostic.code.as_str(), "E-SCAN-001" | "E-SCAN-002")
+            });
+            let vos = selection
+                .vo_ids
+                .iter()
+                .filter_map(|id| read_vo(layout, id).ok())
+                .collect::<Vec<_>>();
+            let missing_parent = vos.iter().any(|vo| {
+                vo.parent
+                    .as_ref()
+                    .is_some_and(|parent| !vos.iter().any(|candidate| candidate.id == *parent))
+            });
+            if source_structure_error || missing_parent {
                 (
                     CheckValue::Fail,
-                    vec!["scan emitted an error diagnostic".to_owned()],
+                    vec![
+                        "VO decomposition contains an unreadable source or parent reference"
+                            .to_owned(),
+                    ],
                 )
             } else if selection.vo_ids.is_empty() {
                 (CheckValue::Missing, vec!["no VO records exist".to_owned()])
@@ -642,12 +690,75 @@ fn evaluate_item(
         "static_audit" => evaluate_static_audit(layout, scan),
         "semantic_audit" => evaluate_test_audit(root, layout, scan, "test-semantic"),
         "impl_consistency" => evaluate_test_audit(root, layout, scan, "impl-consistency"),
-        "test_execution" => evaluate_test_execution(evidence, scan),
-        "runtime_result" => evaluate_runtime(evidence, scan),
-        "target_execution" => evaluate_target_execution(evidence, scan),
-        "evidence_validity" => evaluate_evidence_validity(evidence, scan),
+        "test_execution" => evaluate_test_execution(root, evidence, scan),
+        "runtime_result" => evaluate_runtime(root, evidence, scan),
+        "target_execution" => evaluate_target_execution(root, evidence, scan),
+        "evidence_validity" => evaluate_evidence_validity(root, evidence, scan),
+        "test_traceability" => evaluate_test_traceability(scan),
         _ => (CheckValue::Unknown, vec!["unknown check item".to_owned()]),
     }
+}
+
+fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
+    let missing = scan
+        .discovered_tests
+        .iter()
+        .filter(|draft| {
+            matches!(
+                draft.managed,
+                vtest_adapter_api::ManagedTestDraftLink::Missing
+            )
+        })
+        .count();
+    let multiple = scan
+        .discovered_tests
+        .iter()
+        .filter(|draft| {
+            matches!(
+                draft.managed,
+                vtest_adapter_api::ManagedTestDraftLink::Multiple(_)
+            )
+        })
+        .count();
+    let unresolved = scan
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "E-SCAN-003")
+        .count();
+    let unregistered = scan
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "W-SCAN-101")
+        .count();
+    if missing > 0 || unregistered > 0 {
+        return (
+            CheckValue::Missing,
+            vec![format!(
+                "{} discovered Test(s) have no managed entity",
+                missing.max(unregistered)
+            )],
+        );
+    }
+    let empty_covers = scan
+        .tests
+        .iter()
+        .filter(|test| test.covers.is_empty())
+        .count();
+    if multiple > 0 || unresolved > 0 || empty_covers > 0 {
+        return (
+            CheckValue::Mismatch,
+            vec![format!(
+                "managed Test traceability mismatch: multiple={multiple}, unresolved_vo={unresolved}, empty_covers={empty_covers}"
+            )],
+        );
+    }
+    (
+        CheckValue::Pass,
+        vec![format!(
+            "all {} discovered Test(s) are managed",
+            scan.tests.len()
+        )],
+    )
 }
 
 /// Evaluate static audits per currently scanned Test, rather than treating a
@@ -795,16 +906,23 @@ fn audit_mentions_test(record: &AuditRecord, test_id: &str) -> bool {
 }
 
 fn audit_mentions_config(record: &AuditRecord) -> bool {
-    record
-        .subjects
-        .iter()
-        .any(|subject| subject.id.as_deref() == Some("CONFIG"))
+    record.subjects.iter().any(|subject| {
+        subject
+            .id
+            .as_deref()
+            .is_some_and(|id| id == "CONFIG" || id.starts_with("CONFIG::"))
+    })
 }
 
-/// Static audits are per-Test records.  A current record must bind the Test,
+/// Static audits are per-Test records. A current record must bind the Test,
 /// the raw configuration, and the exact source function resolved from that
-/// Test's declared target.  It may additionally bind direct helpers, but it
-/// cannot substitute a helper for the declared target or combine tests.
+/// Test's declared target. The disambiguated `test-source::` locator preserves
+/// the managed construct identity in the v0.1 opaque-locator schema, without
+/// confusing it with a target/helper locator. It may additionally bind direct
+/// helpers, but it cannot substitute a helper for the declared target or
+/// combine tests. Configuration subjects are adapter-qualified when produced
+/// by the current writer; the unqualified `CONFIG` form remains a v0.1 reader
+/// compatibility path.
 fn static_audit_binds_test_subjects(
     record: &AuditRecord,
     test: &vtest_model::TestEntity,
@@ -824,15 +942,22 @@ fn static_audit_binds_test_subjects(
         return false;
     }
 
-    let Some(target) = source_for_target(scan, &test.target) else {
+    let Some(target) = test
+        .targets
+        .first()
+        .and_then(|target| source_for_target(scan, target))
+    else {
         return false;
     };
-    let test_locator = format!("{}::{}", test.location.file, test.location.function);
+    let test_locator = format!(
+        "test-source::{}::{}",
+        test.location.file, test.location.function
+    );
     let binds_test_code = record.subjects.iter().any(|subject| {
         subject.locator.as_deref() == Some(&test_locator) && subject.hash == test.content_hash
     });
     let binds_target = record.subjects.iter().any(|subject| {
-        subject.locator.as_deref() == Some(&target.locator.as_string())
+        subject.locator.as_deref() == Some(&target.target.value)
             && subject.hash == target.content_hash
     });
     binds_test_code && binds_target && audit_mentions_config(record)
@@ -840,11 +965,15 @@ fn static_audit_binds_test_subjects(
 
 fn source_for_target<'a>(
     scan: &'a ScanResult,
-    target: &vtest_model::TargetRef,
+    target: &vtest_model::NeutralTargetRef,
 ) -> Option<&'a vtest_model::SourceFunction> {
-    scan.sources.iter().find(|source| match target {
-        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-        vtest_model::TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
+    scan.sources.iter().find(|source| {
+        source.target.adapter == target.adapter
+            && (source.target.value == target.value
+                || source
+                    .src_id
+                    .as_ref()
+                    .is_some_and(|src_id| src_id.as_str() == target.value))
     })
 }
 
@@ -948,21 +1077,36 @@ fn audit_subject_is_current(
     scan: &ScanResult,
     subject: &AuditSubjectRecord,
 ) -> bool {
+    if let Some(locator) = subject.locator.as_deref() {
+        if let Some(test_locator) = locator.strip_prefix("test-source::") {
+            let actual = scan.tests.iter().find(|test| {
+                format!("{}::{}", test.location.file, test.location.function) == test_locator
+            });
+            return actual.is_some_and(|test| test.content_hash == subject.hash);
+        }
+    }
     let actual = match (&subject.id, &subject.locator) {
-        (Some(id), None) if id == "CONFIG" => read_text(&layout.config())
-            .ok()
-            .map(|text| ContentHash::from_text(&text)),
-        (Some(id), None) => scan
-            .tests
+        (Some(id), None) if id == "CONFIG" => static_audit_config_hash(layout, None),
+        (Some(id), None) if id.starts_with("CONFIG::") => {
+            static_audit_config_hash(layout, id.strip_prefix("CONFIG::"))
+        }
+        (Some(id), None) => {
+            if let Ok(spec) = vtest_store::read_spec(layout, id) {
+                fs::read_to_string(layout.root.join(&spec.path))
+                    .ok()
+                    .map(|text| ContentHash::from_text(&text))
+            } else {
+                scan.tests
+                    .iter()
+                    .find(|test| test.id.as_str() == id)
+                    .map(|test| test.content_hash.clone())
+            }
+        }
+        (None, Some(locator)) => scan
+            .sources
             .iter()
-            .find(|test| test.id.as_str() == id)
-            .map(|test| test.content_hash.clone()),
-        (None, Some(locator)) => Locator::parse(locator).and_then(|locator| {
-            scan.sources
-                .iter()
-                .find(|source| source.locator == locator)
-                .map(|source| source.content_hash.clone())
-        }),
+            .find(|source| source.target.value == *locator)
+            .map(|source| source.content_hash.clone()),
         _ => None,
     };
     actual.as_ref() == Some(&subject.hash)
@@ -1066,6 +1210,16 @@ fn evaluate_vo_coverage(
     (overall, basis)
 }
 
+fn normalize_audit_verdict(kind: &str, value: Option<&str>) -> CheckValue {
+    match (kind, value) {
+        (_, Some("PASS")) => CheckValue::Pass,
+        ("impl-consistency", Some("FAIL")) => CheckValue::Mismatch,
+        (_, Some("FAIL")) => CheckValue::Fail,
+        (_, Some("UNKNOWN")) => CheckValue::Unknown,
+        _ => CheckValue::Unknown,
+    }
+}
+
 fn evaluate_test_audit(
     root: &Path,
     layout: &VerifyLayout,
@@ -1100,12 +1254,7 @@ fn evaluate_test_audit(
             && subjects
                 .iter()
                 .all(|subject| subject_is_current(root, layout, scan, subject));
-        let verdict = match yaml_scalar_value(&text, "verdict").as_deref() {
-            Some("PASS") => CheckValue::Pass,
-            Some("FAIL") => CheckValue::Fail,
-            Some("UNKNOWN") => CheckValue::Unknown,
-            _ => CheckValue::Unknown,
-        };
+        let verdict = normalize_audit_verdict(kind, yaml_scalar_value(&text, "verdict").as_deref());
         for test_id in test_ids {
             per_test
                 .entry(test_id)
@@ -1227,6 +1376,13 @@ fn parse_audit_subjects(text: &str) -> Vec<AuditSubject> {
 }
 
 fn normalize_audit_subject(mut subject: AuditSubject) -> AuditSubject {
+    if let Some(locator) = subject.locator.as_deref() {
+        if let Some(locator) = locator.strip_prefix("static-analysis-source::") {
+            subject.kind = "static_analysis_source".to_owned();
+            subject.locator = Some(locator.to_owned());
+            return subject;
+        }
+    }
     if subject.kind.is_empty() {
         subject.kind = if subject.locator.is_some() {
             "target".to_owned()
@@ -1254,7 +1410,11 @@ fn normalize_audit_subject(mut subject: AuditSubject) -> AuditSubject {
             .is_some_and(|id| id.starts_with("SPEC-"))
         {
             "spec".to_owned()
-        } else if subject.id.as_deref() == Some("CONFIG") {
+        } else if subject
+            .id
+            .as_deref()
+            .is_some_and(|id| id == "CONFIG" || id.starts_with("CONFIG::"))
+        {
             "config".to_owned()
         } else {
             String::new()
@@ -1290,16 +1450,12 @@ fn subject_is_current(
                 .find(|test| test.id.as_str() == id)
                 .map(|test| test.content_hash.clone())
         }),
-        "target" => subject
-            .locator
-            .as_deref()
-            .and_then(Locator::parse)
-            .and_then(|locator| {
-                scan.sources
-                    .iter()
-                    .find(|source| source.locator == locator)
-                    .map(|source| source.content_hash.clone())
-            }),
+        "target" => subject.locator.as_deref().and_then(|locator| {
+            scan.sources
+                .iter()
+                .find(|source| source.target.value == locator)
+                .map(|source| source.content_hash.clone())
+        }),
         "vo" => record_hash(&layout.vo_dir(), subject.id.as_deref()),
         "req" => record_hash(&layout.req_dir(), subject.id.as_deref()),
         "spec" => subject.id.as_deref().and_then(|id| {
@@ -1309,12 +1465,66 @@ fn subject_is_current(
                 .ok()
                 .map(|source| ContentHash::from_text(&source))
         }),
-        "config" => read_text(&layout.config())
-            .ok()
-            .map(|text| ContentHash::from_text(&text)),
+        "config" => static_audit_config_hash(
+            layout,
+            subject
+                .id
+                .as_deref()
+                .and_then(|id| id.strip_prefix("CONFIG::")),
+        ),
+        "static_analysis_source" => subject
+            .locator
+            .as_deref()
+            .and_then(|locator| {
+                scan.tests.iter().find(|test| {
+                    format!("{}::{}", test.location.file, test.location.function) == locator
+                })
+            })
+            .and_then(|test| {
+                let source = fs::read_to_string(root.join(&test.location.file)).ok()?;
+                let source = source.get(test.location.start_byte..test.location.end_byte)?;
+                Some(ContentHash::from_domain_fields(
+                    "vtest:static-analysis-source:v1",
+                    &[
+                        ("test", test.content_hash.as_str().as_bytes()),
+                        ("source", source.as_bytes()),
+                    ],
+                ))
+            }),
         _ => None,
     };
     actual.as_ref() == Some(expected)
+}
+
+/// Hash only the adapter rule-configuration projection that can affect a
+/// static-audit verdict. Run/coverage settings are deliberately excluded so
+/// changing an unrelated execution option does not invalidate a static audit,
+/// while assertion-macro changes cannot leave an old PASS fresh.
+fn static_audit_config_hash(
+    layout: &VerifyLayout,
+    adapter_id: Option<&str>,
+) -> Option<ContentHash> {
+    let config = vtest_store::load_config(&layout.root).ok()?;
+    let adapter_id = adapter_id.unwrap_or("rust-cargo");
+    let assertion_macros = config
+        .adapters
+        .iter()
+        .find(|adapter| adapter.id == adapter_id)
+        .map(|adapter| adapter.scan.assertion_macros.join(","))
+        .unwrap_or_else(|| config.scan.assertion_macros.join(","));
+    let effective_config = serde_json::json!({
+        "assertion_macros": assertion_macros,
+    });
+    let effective_config = serde_json::to_vec(&effective_config).ok()?;
+    Some(ContentHash::from_domain_fields(
+        "vtest:static-audit-config:v1",
+        &[
+            ("adapter", adapter_id.as_bytes()),
+            ("rule_set_id", b"rust-da"),
+            ("rule_set_version", b"m3-v1"),
+            ("effective_config", &effective_config),
+        ],
+    ))
 }
 
 fn record_hash(directory: &Path, id: Option<&str>) -> Option<ContentHash> {
@@ -1332,6 +1542,7 @@ fn record_hash(directory: &Path, id: Option<&str>) -> Option<ContentHash> {
 }
 
 fn evaluate_runtime(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1348,7 +1559,7 @@ fn evaluate_runtime(
             .get(test.id.as_str())
             .map_or(
                 CheckValue::NotExecuted,
-                |record| match evidence_record_validity(record, test, scan) {
+                |record| match evidence_record_validity(root, record, test, scan) {
                     CheckValue::Pass => match record.result {
                         vtest_model::TestResult::Pass => CheckValue::Pass,
                         vtest_model::TestResult::Fail => CheckValue::Fail,
@@ -1367,6 +1578,7 @@ fn evaluate_runtime(
 }
 
 fn evaluate_target_execution(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1382,12 +1594,10 @@ fn evaluate_target_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                if evidence_record_validity(record, test, scan) != CheckValue::Pass {
+                if evidence_record_validity(root, record, test, scan) != CheckValue::Pass {
                     CheckValue::Stale
-                } else if record.target_execution.checked {
-                    record.target_execution.result
                 } else {
-                    CheckValue::NotChecked
+                    evaluate_record_target_execution(record, test)
                 }
             });
         value = combine_values(value, current);
@@ -1401,6 +1611,7 @@ fn evaluate_target_execution(
 }
 
 fn evaluate_evidence_validity(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1417,7 +1628,7 @@ fn evaluate_evidence_validity(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(record, test, scan)
+                evidence_record_validity(root, record, test, scan)
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1426,7 +1637,7 @@ fn evaluate_evidence_validity(
             current,
         ));
         if let Some(record) = evidence.get(test.id.as_str()) {
-            if !test.additional_targets.is_empty() && record.hashes.target_fns.is_empty() {
+            if test.targets.len() > 1 && record.hashes.target_fns.is_empty() {
                 basis.push(format!(
                     "Test {} has multiple targets but Evidence has no target_fns list",
                     record.test_id
@@ -1438,6 +1649,7 @@ fn evaluate_evidence_validity(
 }
 
 fn evaluate_test_execution(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1453,7 +1665,7 @@ fn evaluate_test_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(record, test, scan)
+                evidence_record_validity(root, record, test, scan)
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1478,6 +1690,7 @@ fn evidence_basis(test: &TestEntity, record: Option<&EvidenceRecord>, value: Che
 }
 
 fn evidence_record_validity(
+    root: &Path,
     record: &EvidenceRecord,
     test: &TestEntity,
     scan: &ScanResult,
@@ -1485,17 +1698,13 @@ fn evidence_record_validity(
     // A legacy v0.1 record has no target_fns list.  It remains sufficient for
     // a single-target Test, but cannot prove that every target of a
     // multi-target Test was captured.
-    if !test.additional_targets.is_empty() && record.hashes.target_fns.is_empty() {
+    if test.targets.len() > 1 && record.hashes.target_fns.is_empty() {
         return CheckValue::Unknown;
     }
-    let Some(targets) = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(|target_ref| {
-            scan.sources.iter().find(|source| match target_ref {
-                vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                vtest_model::TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
-            })
-        })
+    let Some(targets) = test
+        .targets
+        .iter()
+        .map(|target_ref| source_for_target(scan, target_ref))
         .collect::<Option<Vec<_>>>()
     else {
         return CheckValue::Stale;
@@ -1505,19 +1714,246 @@ fn evidence_record_validity(
     } else {
         record.hashes.target_fns.iter().collect::<Vec<_>>()
     };
+    let target_subjects_valid = if record.hashes.targets.is_empty() {
+        // The v0.1 reader has no neutral target-subject list.  It remains
+        // compatible for a single-target Test, but a multi-target record must
+        // carry one subject per declared target.
+        test.targets.len() <= 1
+    } else {
+        record.hashes.targets.len() == test.targets.len()
+            && record
+                .hashes
+                .targets
+                .iter()
+                .zip(targets.iter())
+                .all(|(actual, current)| {
+                    actual.target == current.target
+                        && actual.target_construct == current.content_hash
+                })
+    };
     if record.hashes.test_fn != test.content_hash
         || target_hashes.len() != targets.len()
         || target_hashes
             .iter()
             .zip(targets.iter())
             .any(|(actual, target)| **actual != target.content_hash)
+        || !target_subjects_valid
+        || !revision_matches_current(root, record)
     {
         CheckValue::Stale
-    } else if record.revision.commit.is_none() {
-        CheckValue::Fail
     } else {
-        CheckValue::Pass
+        match record.execution_state.as_ref() {
+            None => CheckValue::Stale,
+            Some(state) if !state.complete || state.hash.is_none() => CheckValue::Unknown,
+            Some(state) => {
+                let target_hashes = targets
+                    .iter()
+                    .map(|target| target.content_hash.clone())
+                    .collect::<Vec<_>>();
+                let expected = current_execution_state_hash(
+                    root,
+                    test,
+                    &record.runner.kind,
+                    &record.runner.command,
+                    &target_hashes,
+                );
+                if expected.as_ref() == state.hash.as_ref() {
+                    CheckValue::Pass
+                } else {
+                    CheckValue::Stale
+                }
+            }
+        }
     }
+}
+
+fn evaluate_record_target_execution(record: &EvidenceRecord, test: &TestEntity) -> CheckValue {
+    if !record.target_execution.checked {
+        return CheckValue::NotChecked;
+    }
+    let entries = &record.target_execution.targets;
+    if entries.is_empty() {
+        // Single-target v0.1 records only have the aggregate fields.  A
+        // checked multi-target record without per-target entries is not
+        // sufficient evidence for any target.
+        return if test.targets.len() == 1 {
+            record.target_execution.result
+        } else {
+            CheckValue::Unknown
+        };
+    }
+    if entries.len() != test.targets.len()
+        || entries
+            .iter()
+            .zip(test.targets.iter())
+            .any(|(entry, target)| entry.target != *target)
+        || has_duplicate_targets(entries)
+    {
+        return CheckValue::Unknown;
+    }
+    let aggregate = entries.iter().fold(CheckValue::Pass, |current, entry| {
+        combine_values(current, entry.result)
+    });
+    let count = entries.iter().filter_map(|entry| entry.count).sum::<u64>();
+    let aggregate_count = entries
+        .iter()
+        .all(|entry| entry.count.is_some())
+        .then_some(count);
+    if aggregate != record.target_execution.result
+        || aggregate_count != record.target_execution.count
+    {
+        return CheckValue::Unknown;
+    }
+    aggregate
+}
+
+fn has_duplicate_targets(entries: &[vtest_model::TargetExecutionEntry]) -> bool {
+    entries.iter().enumerate().any(|(index, entry)| {
+        entries
+            .iter()
+            .skip(index + 1)
+            .any(|other| other.target == entry.target)
+    })
+}
+
+fn revision_matches_current(root: &Path, record: &EvidenceRecord) -> bool {
+    let Some(expected) = record.revision.commit.as_deref() else {
+        return false;
+    };
+    Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        .is_some_and(|actual| actual == expected)
+}
+
+fn current_execution_state_hash(
+    root: &Path,
+    test: &TestEntity,
+    runner: &str,
+    command: &str,
+    target_hashes: &[ContentHash],
+) -> Option<ContentHash> {
+    let manifest = execution_manifest(root)?;
+    let target_material = target_hashes
+        .iter()
+        .map(ContentHash::as_str)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let execution = serde_json::to_vec(&test.execution).ok()?;
+    let invocation = serde_json::to_vec(&serde_json::json!({
+        "command": command,
+    }))
+    .ok()?;
+    let effective_config =
+        serde_json::to_vec(&execution_effective_config(root, &test.execution.adapter)).ok()?;
+    let config_hash = execution_config_material(root);
+    Some(ContentHash::from_domain_fields(
+        "vtest:execution-state:v1",
+        &[
+            ("adapter", test.execution.adapter.as_str().as_bytes()),
+            ("schema_id", b"vtest-execution-state"),
+            ("schema_version", b"v1"),
+            ("runner", runner.as_bytes()),
+            ("command", command.as_bytes()),
+            ("invocation", &invocation),
+            ("toolchain", runner.as_bytes()),
+            ("effective_config", &effective_config),
+            ("test_subject", test.content_hash.as_str().as_bytes()),
+            ("target_subjects", target_material.as_bytes()),
+            ("execution", &execution),
+            ("config", config_hash.as_bytes()),
+            ("manifest", manifest.as_bytes()),
+        ],
+    ))
+}
+
+fn execution_config_material(root: &Path) -> String {
+    fs::read_to_string(root.join(".verify/config.yaml")).unwrap_or_default()
+}
+
+fn execution_effective_config(
+    root: &Path,
+    adapter_id: &vtest_model::AdapterId,
+) -> serde_json::Value {
+    let Ok(project) = vtest_store::load_config(root) else {
+        return serde_json::json!({});
+    };
+    let adapter = project
+        .adapters
+        .iter()
+        .find(|entry| entry.id == adapter_id.as_str());
+    let (roots, include, assertion_macros, coverage) = adapter
+        .map(|entry| {
+            (
+                entry.roots.clone(),
+                entry.scan.include.clone(),
+                entry.scan.assertion_macros.clone(),
+                entry.run.coverage.clone(),
+            )
+        })
+        .unwrap_or_else(|| {
+            (
+                vec![".".to_owned()],
+                project.scan.include.clone(),
+                project.scan.assertion_macros.clone(),
+                project.run.coverage.clone(),
+            )
+        });
+    serde_json::json!({
+        "assertion_macros": assertion_macros.join(","),
+        "coverage": coverage,
+        "include": include.join(","),
+        "roots": roots.join(","),
+    })
+}
+
+fn execution_manifest(root: &Path) -> Option<String> {
+    let mut files = BTreeMap::new();
+    collect_execution_files(root, root, &mut files).ok()?;
+    Some(
+        files
+            .into_iter()
+            .map(|(path, bytes)| {
+                format!(
+                    "workspace\t{path}\tworkspace-file\t{}\n",
+                    ContentHash::from_bytes(&bytes).as_str()
+                )
+            })
+            .collect(),
+    )
+}
+
+fn collect_execution_files(
+    root: &Path,
+    directory: &Path,
+    files: &mut BTreeMap<String, Vec<u8>>,
+) -> std::io::Result<()> {
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        let path = entry.path();
+        let relative = path.strip_prefix(root).unwrap_or(&path);
+        if relative.components().any(|component| {
+            component
+                .as_os_str()
+                .to_str()
+                .is_some_and(|name| matches!(name, ".verify" | ".git" | "target"))
+        }) {
+            continue;
+        }
+        if path.is_dir() {
+            collect_execution_files(root, &path, files)?;
+        } else if path.is_file() {
+            files.insert(
+                relative.to_string_lossy().replace('\\', "/"),
+                fs::read(path)?,
+            );
+        }
+    }
+    Ok(())
 }
 
 fn read_evidence_records(layout: &VerifyLayout) -> BTreeMap<String, EvidenceRecord> {
@@ -1584,9 +2020,8 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
     use vtest_model::{
-        EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo, ScanSummary, SourceFunction,
-        SourceLocation, TargetExecution, TargetRef, TestEntity, TestId, TestResult, TestTarget,
-        VoId,
+        EvidenceHashes, EvidenceRecord, Revision, RunnerInfo, ScanSummary, SourceFunction,
+        SourceLocation, TargetExecution, TestEntity, TestId, TestResult, TestSuite, VoId,
     };
     use vtest_store::{
         init_project, new_record_id, AuditBasisRecord, AuditReasonRecord, AuditorRecord,
@@ -1607,6 +2042,8 @@ mod tests {
                 test_fn: ContentHash::from_text("test"),
                 target_fn: ContentHash::from_text("target"),
                 target_fns: vec![ContentHash::from_text("target")],
+                test_subject: None,
+                targets: Vec::new(),
             },
             runner: RunnerInfo {
                 kind: "cargo-test".to_owned(),
@@ -1618,12 +2055,27 @@ mod tests {
                 method: None,
                 result: CheckValue::NotChecked,
                 count: None,
+                targets: Vec::new(),
             },
             log_ref: "cache/logs/test.log".to_owned(),
+            adapter: None,
+            execution_state: None,
         };
         let earlier = make("01", "2026-08-08T09:00:00+09:00");
         let later = make("02", "2026-08-08T00:30:00Z");
         assert!(compare_evidence_recency(&earlier, &later).is_lt());
+    }
+
+    #[test]
+    fn impl_consistency_failure_maps_to_mismatch() {
+        assert_eq!(
+            normalize_audit_verdict("impl-consistency", Some("FAIL")),
+            CheckValue::Mismatch
+        );
+        assert_eq!(
+            normalize_audit_verdict("test-semantic", Some("FAIL")),
+            CheckValue::Fail
+        );
     }
 
     fn static_fixture(test_ids: &[&str]) -> (VerifyLayout, ScanResult) {
@@ -1634,7 +2086,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("vtest-verify-static-{suffix}"));
         let layout = init_project(&root, "fixture").expect("initialise fixture");
         let mut sources = vec![SourceFunction {
-            locator: Locator::parse("src/lib.rs::target").expect("valid locator"),
+            target: vtest_model::NeutralTargetRef::new("rust-cargo", "src/lib.rs::target"),
             src_id: None,
             location: location("src/lib.rs", "target"),
             content_hash: ContentHash::from_text("pub fn target() {}"),
@@ -1644,10 +2096,10 @@ mod tests {
             .map(|id| TestEntity {
                 id: TestId::new(*id),
                 covers: vec![VoId::new("VO-ONE")],
-                target: TargetRef::Locator(
-                    Locator::parse("src/lib.rs::target").expect("valid locator"),
-                ),
-                additional_targets: Vec::new(),
+                targets: vec![vtest_model::NeutralTargetRef::new(
+                    "rust-cargo",
+                    "src/lib.rs::target",
+                )],
                 intent: "fixture".to_owned(),
                 input: None,
                 expect: None,
@@ -1656,22 +2108,27 @@ mod tests {
                 related: Vec::new(),
                 location: location("tests/static.rs", id),
                 content_hash: ContentHash::from_text(&format!("#[test] fn {id}() {{}}")),
-                filter: (*id).to_owned(),
-                package: "fixture".to_owned(),
-                test_target: TestTarget::IntegrationTest("static".to_owned()),
+                execution: vtest_model::ExecutionDescriptor {
+                    adapter: vtest_model::AdapterId::from("rust-cargo"),
+                    project: Some("fixture".to_owned()),
+                    suite: Some(TestSuite {
+                        kind: "integration".to_owned(),
+                        name: Some("static".to_owned()),
+                    }),
+                    selector: (*id).to_owned(),
+                    runner: Some("cargo-test".to_owned()),
+                    working_root: Some(".".to_owned()),
+                },
             })
             .collect::<Vec<_>>();
-        sources.extend(tests.iter().map(|test| {
-            SourceFunction {
-                locator: Locator::parse(&format!(
-                    "{}::{}",
-                    test.location.file, test.location.function
-                ))
-                .expect("valid test locator"),
-                src_id: None,
-                location: test.location.clone(),
-                content_hash: test.content_hash.clone(),
-            }
+        sources.extend(tests.iter().map(|test| SourceFunction {
+            target: vtest_model::NeutralTargetRef::new(
+                "rust-cargo",
+                format!("{}::{}", test.location.file, test.location.function),
+            ),
+            src_id: None,
+            location: test.location.clone(),
+            content_hash: test.content_hash.clone(),
         }));
         let scan = ScanResult {
             summary: ScanSummary {
@@ -1681,6 +2138,7 @@ mod tests {
             },
             tests,
             sources,
+            discovered_tests: Vec::new(),
             diagnostics: Vec::new(),
         };
         (layout, scan)
@@ -1694,6 +2152,7 @@ mod tests {
             end_line: 1,
             start_byte: 0,
             end_byte: 1,
+            ..SourceLocation::default()
         }
     }
 
@@ -1707,10 +2166,7 @@ mod tests {
     }
 
     fn static_audit_subjects(test: &TestEntity, hash: ContentHash) -> Vec<AuditSubjectRecord> {
-        let target = match &test.target {
-            TargetRef::Locator(locator) => locator,
-            TargetRef::SrcId(_) => panic!("fixture uses a locator target"),
-        };
+        let target = test.targets.first().expect("fixture uses a target");
         vec![
             AuditSubjectRecord {
                 id: Some(test.id.as_str().to_owned()),
@@ -1720,14 +2176,14 @@ mod tests {
             AuditSubjectRecord {
                 id: None,
                 locator: Some(format!(
-                    "{}::{}",
+                    "test-source::{}::{}",
                     test.location.file, test.location.function
                 )),
                 hash: test.content_hash.clone(),
             },
             AuditSubjectRecord {
                 id: None,
-                locator: Some(target.as_string()),
+                locator: Some(target.value.clone()),
                 hash: ContentHash::from_text("pub fn target() {}"),
             },
         ]
@@ -1747,11 +2203,10 @@ mod tests {
         mut subjects: Vec<AuditSubjectRecord>,
         audited_at: &str,
     ) -> String {
-        let config = read_text(&layout.config()).expect("read fixture config");
         subjects.push(AuditSubjectRecord {
             id: Some("CONFIG".to_owned()),
             locator: None,
-            hash: ContentHash::from_text(&config),
+            hash: static_audit_config_hash(layout, None).expect("hash fixture static-audit config"),
         });
         let id = new_record_id();
         let record = AuditRecord {
@@ -1882,7 +2337,7 @@ mod tests {
         assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
 
         let helper = SourceFunction {
-            locator: Locator::parse("src/lib.rs::helper").expect("valid helper locator"),
+            target: vtest_model::NeutralTargetRef::new("rust-cargo", "src/lib.rs::helper"),
             src_id: None,
             location: location("src/lib.rs", "helper"),
             content_hash: ContentHash::from_text("pub fn helper() {}"),
@@ -1899,7 +2354,7 @@ mod tests {
                 },
                 AuditSubjectRecord {
                     id: None,
-                    locator: Some(helper.locator.as_string()),
+                    locator: Some(helper.target.value.clone()),
                     hash: helper.content_hash,
                 },
             ],

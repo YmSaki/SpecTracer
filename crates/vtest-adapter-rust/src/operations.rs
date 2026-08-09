@@ -7,14 +7,15 @@ use std::{
 use serde::Serialize;
 use syn::spanned::Spanned;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, Locator, SourceLocation, TargetRef, TestEntity, TestResult,
+    CheckValue, ContentHash, Diagnostic, Locator, ScanSummary, SourceFunction, SourceLocation,
+    TestEntity, TestResult,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::ScanResult;
+use crate::discovery::ScanResult;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -63,7 +64,7 @@ pub fn create_test(
     explicit_id: Option<&str>,
     dry_run: bool,
 ) -> Result<TestMutationResult, Diagnostic> {
-    let scan = crate::scan_project(root)
+    let scan = crate::discovery::scan_project(root)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let layout = VerifyLayout::new(root);
     let schema = load_form_schema(&layout, form_kind)
@@ -180,7 +181,7 @@ pub fn edit_test(
             "test edit requires --answers, --set, or --body-file",
         ));
     }
-    let scan = crate::scan_project(root)
+    let scan = crate::discovery::scan_project(root)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let current = scan
         .tests
@@ -283,9 +284,10 @@ struct DesiredTest {
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
-        let targets = std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
+        let targets = test
+            .targets
+            .iter()
+            .map(|target| target.value.clone())
             .collect();
         Self {
             id: test.id.as_str().to_owned(),
@@ -305,7 +307,7 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.filter.clone(),
+            fn_name: test.execution.selector.clone(),
             file: test.location.file.clone(),
         }
     }
@@ -449,7 +451,11 @@ fn validate_desired_test(
             )
             .with_candidates(symbol_candidates(scan, target)));
         };
-        if !scan.sources.iter().any(|source| source.locator == locator) {
+        if !scan
+            .sources
+            .iter()
+            .any(|source| source_locator(source).as_ref() == Some(&locator))
+        {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("source symbol `{target}` does not exist"),
@@ -468,7 +474,7 @@ fn validate_desired_test(
     }
     if scan.sources.iter().any(|source| {
         source.location.file == desired.file
-            && source.locator.item_path == desired.fn_name
+            && source_locator(source).is_some_and(|locator| locator.item_path == desired.fn_name)
             && source.location != current.location
     }) {
         return Err(Diagnostic::error(
@@ -530,8 +536,8 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.filter {
-        let from = format!("fn {}", current.filter);
+    if desired.fn_name != current.execution.selector {
+        let from = format!("fn {}", current.execution.selector);
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -615,7 +621,7 @@ fn verify_edit(
     desired: &DesiredTest,
     before_hashes: &BTreeMap<String, ContentHash>,
 ) -> Result<(), Diagnostic> {
-    let after = crate::scan_project(root).map_err(|error| {
+    let after = crate::discovery::scan_project(root).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("edited test could not be rescanned: {error}"),
@@ -648,9 +654,10 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
+        && test
+            .targets
+            .iter()
+            .map(|target| target.value.clone())
             .collect::<Vec<_>>()
             == desired.targets
         && test.intent == desired.intent
@@ -668,7 +675,7 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.filter == desired.fn_name
+        && test.execution.selector == desired.fn_name
         && test.location.file == desired.file
 }
 
@@ -708,13 +715,6 @@ fn indent_multiline(source: &str, indent: &str) -> String {
     source.replace('\n', &format!("\n{indent}"))
 }
 
-fn target_string(target: &TargetRef) -> String {
-    match target {
-        TargetRef::Locator(locator) => locator.as_string(),
-        TargetRef::SrcId(id) => id.as_str().to_owned(),
-    }
-}
-
 fn value_strings(value: &FormValue) -> Vec<String> {
     match value {
         FormValue::List(values) => values.clone(),
@@ -745,7 +745,7 @@ fn scalar_answer(answers: &BTreeMap<String, FormValue>, name: &str) -> Result<St
     }
 }
 
-pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, Diagnostic> {
+pub(crate) fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, Diagnostic> {
     let test = scan
         .tests
         .iter()
@@ -821,7 +821,7 @@ fn audit_mentions_test(text: &str, test_id: &str) -> bool {
     false
 }
 
-pub fn list_tests(
+pub(crate) fn list_tests(
     scan: &ScanResult,
     vo: Option<&str>,
     include_unregistered: bool,
@@ -850,14 +850,18 @@ pub fn list_tests(
     }
 }
 
-pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, Diagnostic> {
+pub(crate) fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, Diagnostic> {
     let Some(locator) = Locator::parse(source) else {
         return Err(
             Diagnostic::error("E-OP-001", format!("invalid source locator `{source}`"))
                 .with_candidates(symbol_candidates(scan, source)),
         );
     };
-    if !scan.sources.iter().any(|item| item.locator == locator) {
+    if !scan
+        .sources
+        .iter()
+        .any(|item| source_locator(item).as_ref() == Some(&locator))
+    {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!("source symbol `{source}` does not exist"),
@@ -868,9 +872,9 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
         .tests
         .iter()
         .filter(|test| {
-            std::iter::once(&test.target)
-                .chain(&test.additional_targets)
-                .any(|target| matches!(target, TargetRef::Locator(target) if target == &locator))
+            test.targets.iter().any(|target| {
+                target.adapter.as_str() == "rust-cargo" && target.value == locator.as_string()
+            })
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -878,13 +882,65 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
     Ok(tests)
 }
 
-pub fn validate_form_answers(
+pub(crate) fn validate_form_answers(
     root: &Path,
     schema: &FormSchema,
     supplied: &FormAnswers,
     scan: &ScanResult,
 ) -> Result<BTreeMap<String, FormValue>, Diagnostic> {
     validate_form_answers_for(root, schema, supplied, scan, None)
+}
+
+/// Adapter-owned read operations over the language-neutral scan envelope.
+/// The Rust adapter receives only the neutral entities selected by core; it
+/// does not require the orchestration crate to expose its internal scan type.
+pub fn show_test_from_scan(
+    root: &Path,
+    tests: &[TestEntity],
+    sources: &[SourceFunction],
+    diagnostics: &[Diagnostic],
+    id: &str,
+) -> Result<TestView, Diagnostic> {
+    let scan = scan_view(tests, sources, diagnostics);
+    show_test(root, &scan, id)
+}
+
+pub fn list_tests_from_scan(
+    tests: &[TestEntity],
+    diagnostics: &[Diagnostic],
+    vo: Option<&str>,
+    include_unregistered: bool,
+) -> TestSelection {
+    let scan = scan_view(tests, &[], diagnostics);
+    list_tests(&scan, vo, include_unregistered)
+}
+
+pub fn query_tests_from_scan(
+    tests: &[TestEntity],
+    sources: &[SourceFunction],
+    diagnostics: &[Diagnostic],
+    source: &str,
+) -> Result<Vec<TestEntity>, Diagnostic> {
+    let scan = scan_view(tests, sources, diagnostics);
+    query_tests(&scan, source)
+}
+
+fn scan_view(
+    tests: &[TestEntity],
+    sources: &[SourceFunction],
+    diagnostics: &[Diagnostic],
+) -> ScanResult {
+    ScanResult {
+        summary: ScanSummary {
+            files: 0,
+            tests: tests.len(),
+            sources: sources.len(),
+        },
+        tests: tests.to_vec(),
+        sources: sources.to_vec(),
+        unregistered: Vec::new(),
+        diagnostics: diagnostics.to_vec(),
+    }
 }
 
 fn validate_form_answers_for(
@@ -978,7 +1034,8 @@ fn validate_form_answers_for(
                     };
                     if scan.sources.iter().any(|source| {
                         source.location.file == destination
-                            && source.locator.item_path == name
+                            && source_locator(source)
+                                .is_some_and(|locator| locator.item_path == name)
                             && edited_location != Some(&source.location)
                     }) {
                         return Err(Diagnostic::error(
@@ -1130,7 +1187,7 @@ fn verify_create(
     answers: &BTreeMap<String, FormValue>,
     before_hashes: &BTreeMap<String, ContentHash>,
 ) -> Result<(), Diagnostic> {
-    let after = crate::scan_project(root).map_err(|error| {
+    let after = crate::discovery::scan_project(root).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("created test could not be rescanned: {error}"),
@@ -1162,9 +1219,10 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     let behavior_match = answers
         .get("behavior")
         .is_none_or(|value| value.render() == test.intent);
-    let target_values = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(target_string)
+    let target_values = test
+        .targets
+        .iter()
+        .map(|target| target.value.clone())
         .collect::<Vec<_>>();
     let targets_match = if let Some(value) = answers.get("target") {
         value
@@ -1340,7 +1398,11 @@ fn validate_symbols(
             )
             .with_candidates(symbol_candidates(scan, symbol)));
         };
-        if !scan.sources.iter().any(|source| source.locator == locator) {
+        if !scan
+            .sources
+            .iter()
+            .any(|source| source_locator(source).as_ref() == Some(&locator))
+        {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("source symbol `{symbol}` does not exist"),
@@ -1505,6 +1567,10 @@ fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Ve
     }
 }
 
+fn source_locator(source: &SourceFunction) -> Option<Locator> {
+    Locator::parse(&source.target.value)
+}
+
 fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
@@ -1513,27 +1579,27 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
         .sources
         .iter()
         .filter(|source| {
-            source
-                .locator
-                .item_path
+            source_locator(source)
+                .map(|locator| locator.item_path)
+                .unwrap_or_default()
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| candidate == item)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.target.value.clone())
         .collect::<Vec<_>>();
     let mut near = scan
         .sources
         .iter()
         .filter(|source| {
-            source
-                .locator
-                .item_path
+            source_locator(source)
+                .map(|locator| locator.item_path)
+                .unwrap_or_default()
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| edit_distance(candidate, item) <= 2)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.target.value.clone())
         .collect::<Vec<_>>();
     exact_suffix.sort();
     exact_suffix.dedup();
