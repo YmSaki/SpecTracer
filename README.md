@@ -7,6 +7,7 @@
 **Fail-closed verification and traceability for AI-parallel software development.**
 
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
+[![CI](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Status M9 verified](https://img.shields.io/badge/acceptance-M9%20verified-brightgreen)
 ![MCP CLI parity](https://img.shields.io/badge/MCP--CLI%20parity-verified-brightgreen)
