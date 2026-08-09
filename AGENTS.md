@@ -43,6 +43,7 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Prefer one record per file and append-only ULID records. Keep Relation records immutable; represent a change as removing the old record and adding a new one.
 - Use SHA-256 content binding exactly as detailed design §1.3 specifies. Changes must invalidate approvals, audits, and Evidence instead of carrying a prior pass forward.
 - Bind Evidence and Test audits to the complete Test subject, including canonical metadata and execution coordinates, not to the Test construct alone. Adapters return hash-free discovery DTOs; core validates and computes content hashes before materializing domain entities.
+- Bind static Audit Records to the Test subject, every declared target, and the exact adapter rule/config projection capable of changing the verdict. A changed rule-set or rule-affecting config makes the record `STALE`; unrelated config must be proven irrelevant rather than silently included or omitted.
 - Bind VO approvals to both the VO hash and the exact current upstream dependency closure. Never treat an Approval that lacks current dependency hashes as effective.
 - Prefer Form Schema and desired-state Structured Test Operations. One test edit must not alter another test or ordinary implementation/helper/fixture code.
 - Keep CLI and MCP on the same core implementation and JSON result shape. CLI and MCP operations must be non-interactive.
@@ -53,8 +54,8 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Keep `vtest-adapter-api` language and runner neutral. Rust parser, Cargo command construction, Rust AST audit, demangling, and llvm-cov handling belong only to `vtest-adapter-rust`.
 - Treat missing static-audit or coverage capabilities as `NOT_CHECKED`, a missing runner capability as `NOT_EXECUTED`, and analysis limits as `UNKNOWN`; never promote any of them to `PASS`. Reject unknown or duplicate adapter IDs and duplicate Test IDs across adapters.
 - Keep `TargetRef::Locator` adapter-scoped, but enforce repository-global uniqueness for `TargetRef::SrcId`; an SRC ID collision across adapters must remain unresolved and non-passing.
-- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. `TestEntity` uses `execution` as its only execution-coordinate field; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
-- Full verification has 12 items. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one structurally complete Managed Test Entity, Test IDs are globally unique, and every declared VO resolves. Missing management declarations or required metadata produce `MISSING`; dangling VO references, multiple mappings, and Test ID collisions produce `MISMATCH`. W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
+- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. Compatibility readers must normalize into and validate the current model without providing a path around current invariants. `TestEntity` uses `execution` as its only execution-coordinate field; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
+- Full verification is the exact fixed set of 12 items and cannot be weakened by config, compatibility input, defaults, fallback, adapter capability, or omitted arguments. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one structurally complete Managed Test Entity, Test IDs are globally unique, and every declared VO resolves. Missing management declarations or required metadata produce `MISSING`; dangling VO references, multiple mappings, and Test ID collisions produce `MISMATCH`. W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
 - CLI and MCP must compose the same adapter registry and retain the same JSON envelope and fail-closed diagnostics.
 
 ## Agent and skill use
@@ -86,6 +87,11 @@ For test changes, additionally run the applicable `vtest audit static`, audit-bu
 ## Code review rules
 
 - Prioritize incorrect PASS promotion, stale hash acceptance, source-of-truth duplication, cross-test edits, nondeterministic output, CLI/MCP schema drift, and missing fixture coverage.
+- For every PASS-producing judgment, enumerate every source, target, metadata, config, rule-set, adapter capability, external state, and compatibility-derived value that can change it. Bind each input into freshness/provenance or document and test why it is irrelevant.
+- Trace every compatibility form through `wire input -> reader -> in-memory canonical model -> validation -> CheckValue -> aggregation -> public output`. A compatibility reader may preserve access, but it must not bypass a current invariant.
+- Trace states through `raw fact -> local verdict/diagnostic -> normalized CheckValue -> aggregate -> CLI/MCP value and exit code`; do not assume identical labels or implicit mappings.
+- For every `MUST`, `ONLY`, `ALL`, or `EXACTLY` invariant, search config, scope, defaults, fallback, optional fields, feature flags, adapter capability gaps, and compatibility paths for an escape hatch.
+- Trace each entity lifecycle through create, read, normalize, validate, use, dependency change, invalidate, report, and compatibility read. Trace each acceptance claim backward to the observable, required state/data, producer, storage or derivation, and evaluator that can prove it.
 - Deterministic analysis may return `FAIL` only when the violation is certain; use `UNKNOWN` when analysis cannot prove it.
 - Require reasons and concrete basis references for semantic audit results. Reject empty reasons and stale bundle hashes.
 - Do not request GUI work, automatic repair policy, specification-to-specification auditing, general source-edit management, or other items explicitly outside v0.1 scope.

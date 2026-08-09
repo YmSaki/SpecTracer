@@ -151,7 +151,7 @@ SPEC / REQ / VO / TEST の ID は人間可読な形式とし、利用者（人�
 - 推奨形式は `TEST-<領域>-<連番>`（例：`TEST-PARSER-044`）だが、ツールは形式の推奨に従うことを強制せず、一意性のみを強制する。
 - ID の一意性はスキャン時に全数検査し、衝突は整合性エラーとする（§7.1）。
 - 任意の恒久SRC IDは、`TargetRef::SrcId`がadapter namespaceを持たないため、全adapterを統合したrepository全体で一意とする。衝突は整合性エラーとし、どのSource Targetを指すか推測しない。
-- Relation IDは`REL-<ULID>`、承認・監査・Evidence IDはbare ULIDとし、それぞれファイル名に用いる。ULID payloadにより並列生成時のファイル名衝突を実用上排除する。
+- Relation writerは`REL-<ULID>`を正規IDとしてファイル名に用いる。readerはversion 1互換入力としてbare ULIDのRelationを読み取り、同じULID payloadを持つ`REL-<ULID>`へin-memoryで正規化するが、読み取りだけでファイルを書き換えない。承認・監査・Evidence IDはbare ULIDとする。ULID payloadにより並列生成時のファイル名衝突を実用上排除する。
 
 ### 3.3 Source Target の識別
 
@@ -195,6 +195,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 ### 4.2 チェック項目
 
 完全検証は次の12項目で構成する（要件定義 §17.2 に対応）。
+完全検証の項目集合はこの12項目と完全一致し、設定によって追加・削除できない。項目の部分集合を指定した実行は限定scopeであり、完全検証として表示または集約しない。
 
 | # | チェック項目キー | 内容 | 主な判定方式 |
 |---|---|---|---|
@@ -228,6 +229,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 scope を限定した検証の OK は「要求された scope 内が OK」という意味に限られる。
 scope 外の項目は `NOT_CHECKED` のまま保持し、PASS へ変換しない。
 出力には要求 scope と、scope 外項目が未検証である旨を必ず併記する。
+項目scopeを省略した実行は常に§4.2の固定12項目を評価する。configの互換fieldを含むいかなる設定値も、この既定を12項目未満へ縮退させない。
 
 `target_execution` は完全検証ではデフォルト有効とする（要件定義 §16）。
 高速な限定 scope 検証では省略でき、その場合は `NOT_CHECKED` として扱う。
@@ -352,6 +354,8 @@ source declarationが正典であるため、直接編集と外部レコード�
 エラーは検証結果に反映され、該当エンティティのチェック項目を非 PASS にする。
 W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestが構造上完全なManaged Test Entityへ対応しない事実は`test_traceability = MISSING`として完全検証へ反映する。構造上完全なentityのTest ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。診断severityとチェック結果を混同しない。
 
+`spec_refs.section`は、Specification内の根拠位置を示す非空のopaque citationである。coreはSPEC ID、SPEC record、参照先sourceと現在hashを決定論的に解決するが、任意形式のSpecification本文からsection文字列の存在を構文的に推測しない。section citationの意味的妥当性と要求事項の取り込み完全性は`spec-coverage`または`vo-coverage`の監査理由で確認する。
+
 ### 7.2 決定論的テスト監査
 
 明らかに無意味なTestを、adapterのStatic Audit capabilityが提供する決定論的解析で検出する（要件定義 §11）。coreはadapter固有のAST、assertion構文、call graphを解釈せず、正規化されたルール結果を検証・集約する。
@@ -366,6 +370,7 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 判定は保守的に行う。
 決定論的に確定できる違反のみ `FAIL` とし、確定できないものは `UNKNOWN` として意味監査へ送る。
 決定論的監査で `FAIL` となった Test は、意味監査へ送る前に拒否できる。
+Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set identity、および静的rule判定へ影響する実効configへ束縛する。同じ入力に対する判定を変えうるrule実装変更はrule-set identityを変更する。rule-setまたはrule影響configの値・集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。静的ruleと無関係なconfigはこのsubjectへ含めない。
 
 ### 7.3 意味監査（エージェント委譲プロトコル）
 
@@ -434,6 +439,7 @@ active REQに対応VOが1件もなければ`vo_coverage = MISSING`とする。�
 決定論的に検証できる部分（Target Referenceの解決、adapterが提供する構造情報の取得）はバンドル生成時に検証し、targetを解決できなければ`MISSING`とする。
 複数target Testでは、全targetのimplementation construct sourceとadapterが提供する構造情報をバンドルに含め、判定対象から一部targetを省略しない。
 不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。
+`impl-consistency`監査が外部提出形式で`FAIL`を返す場合も、検証項目`impl_consistency`では`MISMATCH`へ写像する。監査の未実施・失効・判定不能は、それぞれ`NOT_CHECKED`・`STALE`・`UNKNOWN`として保持し、不一致と混同しない。
 
 ### 7.6 Partition と組合せ検証
 
@@ -473,6 +479,7 @@ Evidence には少なくとも次を含める。
 
 内容ハッシュまたはrevision条件を満たさない Evidence は `STALE` とし、有効な PASS として扱わない。adapter IDが存在して現在値と不一致の場合は `MISMATCH` とする。
 Evidence readerはadapter IDを欠くrecordも受理できる。現在のTestが `rust-cargo` で、互換runner情報と内容ハッシュからRust実行であることを一意に確認できる場合に限り互換Evidenceとして評価し、それ以外は `UNKNOWN` とする。
+Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidenceから`test_execution`、`runtime_result`、`target_execution`をPASSまたはFAILとして再利用せず、同じ鮮度・対応関係の非PASS値を保持する。Evidenceが存在しない場合は実行関連項目を`NOT_EXECUTED`とする。
 
 ### 7.9 Target Execution Verification
 
@@ -536,7 +543,7 @@ Create / Edit の入力は差分操作ではなく**あるべき状態（desired
 Rust関数単体Test用と小規模結合Test用の組込schemaを同梱する。
 CLI・MCP のいずれからも同一のスキーマを消化できる。
 
-組込formは `rust-cargo` adapterが登録する。Form Schemaのkindとadapter namespaceは分離し、未知のformをcoreがRust用として推測してはならない。
+組込formは `rust-cargo` adapterが登録する。Form Schemaの`kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、repository内の全adapterとuser-defined schemaを通して大局的に一意なForm IDとし、schemaはそのFormを処理するadapter IDを別fieldとして宣言する。registryは`kind`からちょうど1件のStructured Test adapterへ解決できる場合だけ操作を許可し、重複、未知adapter、未対応capability、曖昧な対応を拒否する。Form Schemaのkindとadapter namespaceは分離し、未知のformをcoreがRust用として推測してはならない。
 
 ---
 

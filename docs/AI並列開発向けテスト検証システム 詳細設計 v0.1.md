@@ -80,6 +80,7 @@ hash inputはdomain separatorと長さ付きfieldから構成する。各field�
 
 - Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。
 - Source Target hash：domain `vtest:target-subject:v1`を用い、正規化TargetRefとadapterが返すimplementation construct bytesを束縛する。
+- Static Audit Config subject hash：domain `vtest:static-audit-config:v1`を用い、adapter ID、static audit capabilityのrule-set ID / version、および現在の静的rule判定へ影響する実効adapter configのcanonical projectionを束縛する。adapterは同じ入力に対するverdictまたは根拠を変えうるrule実装変更ごとにrule-set versionを変更しなければならない。adapterはrule影響fieldだけを型付き・順序正規化済みのhash未計算DTOとして返し、coreがencodingとSHA-256を行う。静的ruleと無関係なrun、coverage、root等の設定はprojectionへ含めない。
 - VO / REQ hash：domain `vtest:record-subject:v1`を用い、readerが具体化したcanonical recordをfield規則に従ってencodeする。VOの読取り互換field `status`は正典ではないため含めない。
 - SPEC subject hash：domain `vtest:spec-subject:v1`を用い、canonical SPEC recordと参照先Specification sourceの正規化内容を束縛する。SPEC recordの`sha256`と実sourceが不一致ならsubject hashは現在有効な値として成立せず、STALEとする。
 
@@ -123,7 +124,7 @@ scan:
   # 追加で assert 相当として扱うマクロ名
   assertion_macros: []
 verify:
-  # 完全検証のチェック項目（基本仕様 §4.2 の12項目。通常は変更しない）
+  # 完全検証の固定チェック項目（基本仕様 §4.2 の12項目。追加・削除不可）
   full_scope:
     - spec_coverage
     - vo_decomposition
@@ -178,6 +179,8 @@ adapter IDの重複、同一adapter内のroot重複、未知adapter、無効なa
 全adapterでglobal uniquenessを検査する。adapter固有設定の検証は登録adapterへ委譲し、
 coreは未知のnamespaceや値をRust設定として解釈しない。
 `vtest init`はversion 2を生成する。
+
+`verify.full_scope`は利用者が完全検証を縮小する設定ではなく、基本仕様 §4.2の固定12項目を列挙するconfig invariantである。version 2では重複・未知項目・欠落・余剰をE-CONFIG-001で拒否する。version 1ではfield欠落を固定12項目として具体化し、重複または未知項目はE-CONFIG-001で拒否する。認識可能な列挙は欠けている現在の項目をin-memoryで補って固定12項目へ正規化し、特に11項目形は`test_traceability`を補う。どちらも読み取りだけでconfigを書き換えない。`--items`による明示的な部分集合だけを限定scopeとして扱い、項目指定を省略したCLI / MCP検証は常に固定12項目を評価する。
 `scan` と `run` はversion 1 schema互換のwire値とする。Rust固有のmacro pathや
 `llvm-cov`制約は `rust-cargo` adapterに限って適用する。非Rust namespaceの値を
 coreがRust設定として推測・書換えしてはならない。
@@ -226,6 +229,7 @@ updated: 2026-08-08
 
 active REQは1件以上の`spec_refs`を必須とする。`withdrawn` REQは履歴表示のため参照を保持するが、
 `spec_coverage`の現在の対応REQ集合には含めない。
+`spec_refs.spec`は存在するSPEC recordとcurrent sourceへ決定論的に解決する。`section`は非空のopaque citationであり、coreは任意形式のSpecification本文からsectionの存在を構文的に判定しない。citationの意味的妥当性は§8の監査理由で検証する。
 
 ### 3.3 VO レコード（`.verify/vo/VO-*.yaml`）
 
@@ -283,7 +287,7 @@ note: ""
 created: 2026-08-08T00:00:00Z
 ```
 
-Relation IDは`REL-`と26文字のULID payloadからなる。bare ULIDはRelation IDとして受理しない。
+canonical Relation IDは`REL-`と26文字のULID payloadからなり、writerは`.verify/rel/REL-<ULID>.yaml`と同値の`id`だけを生成する。readerはversion 1互換入力として`.verify/rel/<ULID>.yaml`かつ同値のbare `id`を受理し、`REL-<ULID>`へin-memoryで正規化するが、読み取りだけでファイルを書き換えない。prefixed / bareの混在、ファイル名と`id`のpayload不一致、または同じpayloadの複数recordはE-SCAN-010とし、いずれかを選ばない。
 Relation は不変。変更はファイル削除＋新規作成で表す。
 `from` / `to` の存在はスキャン時に検査する。
 
@@ -367,6 +371,15 @@ revision: { commit: "abc123...", dirty: false }
 同一対象への監査レコードは複数存在してよい（再監査・多重監査）。
 判定に用いるのは「subjects の全ハッシュが現在と一致する（＝有効な）レコードのうち最新のもの」とする。
 有効なレコードに FAIL と PASS が混在する場合は FAIL を採る（fail-closed）。
+`kind: static`のsubjectsはTest subject、重複のない全宣言target subject、および選択adapterのStatic Audit Config subjectをそれぞれちょうど1回含む。config subjectを欠く読取り互換recordは履歴表示できるが、現在の`static_audit`へ有効なPASSを供給せず`STALE`とする。
+
+```yaml
+# kind: staticのconfig subject
+- config:
+    adapter: rust-cargo
+    capability: static-audit
+  hash: "sha256:..."            # §1.3のStatic Audit Config subject hash
+```
 
 ### 3.7 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
 
@@ -682,6 +695,8 @@ adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAuditA
 E-ADAPTER-004で操作を中止する。検証集約では、static audit / coverage欠落は
 `NOT_CHECKED`、runner欠落は `NOT_EXECUTED`、解析限界は `UNKNOWN` とする。
 
+Structured Test capabilityを宣言するadapterは、処理可能なbuilt-in Form `kind`集合と、adapter fieldを持たないForm Schemaを判定するcompatibility matcherを宣言する。Form `kind`はbuilt-inと`.verify/forms/`を統合したrepository全体で一意であり、Form Schemaの`adapter` field、registryのowner、Structured Test capabilityが同じadapter IDを示す場合だけ`kind → adapter`を確定する。重複kindまたは対応の不一致はE-ADAPTER-001、未知kindはE-OP-001とし、coreが名前からRust adapterを推測しない。`adapter` fieldを欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはcompatibility matcherのうちちょうど1件だけがschemaを受理する場合に限ってin-memoryでownerを補える。0件または複数件なら操作を拒否し、ファイルを書き換えない。matcherはsource bytes、schema field / validator集合等から決定論的に判定し、form kindの文字列だけを理由に汎用fallbackしてはならない。
+
 VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキーマに対応する struct を定義する。
 
 ### 5.3 検証グラフ
@@ -715,9 +730,9 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-007 | error | 必須metadata（id / covers / targets / intent）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
-| E-SCAN-010 | error | レコードの id とファイル名の不一致、スキーマ違反 |
+| E-SCAN-010 | error | レコードのid / ファイル名 / schema不一致、または互換正規化後のlogical record ID重複 |
 | E-SCAN-011 | error | 恒久SRC IDが複数adapterまたは複数Source Targetで衝突 |
-| E-SCAN-012 | error | REQ / VO のrequirementsまたはspec_refsが存在しないentityを参照 |
+| E-SCAN-012 | error | REQ / VO のrequirementsまたはspec_refs.specが存在しないentityを参照、またはspec_refs.sectionが空 |
 | W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
@@ -812,7 +827,7 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
 
-`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hashを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界を返す。coreは入力hashと返却されたsubjectの一致を検証し、上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
+`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projectionを返す。coreはadapter ID、projection schemaと決定論的encodingを検証し、§1.3のStatic Audit Config subject hashを計算して監査対象集合へ加える。rule判定へ影響するfieldをprojectionから欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
 Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全または解析限界を報告した場合は`UNKNOWN`とし、違反なしと推測しない。
 
@@ -837,7 +852,7 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全ま�
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
-ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTestと全宣言targetの現在hashを含める。
+ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、および§1.3のStatic Audit Config subjectの現在hashを含める。`assertion_macros`またはrule-set ID / versionの変更はconfig subject hashを変化させ、既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
 
@@ -952,6 +967,8 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 `basis.kind` は `spec` / `vo` / `req` / `test-code` / `target-code` のいずれかとする。
 
+`impl-consistency`の提出は`PASS` / `FAIL` / `UNKNOWN`を用いる。Audit Recordには提出verdictを保持し、検証項目へは`PASS → PASS`、`FAIL → MISMATCH`、`UNKNOWN → UNKNOWN`と写像する。target解決不能の`MISSING`、監査未実施の`NOT_CHECKED`、無効recordだけが存在する`STALE`をこの写像で上書きしない。
+
 ### 8.4 提出の検証
 
 `audit submit` は次を順に検証し、失敗した場合は §17 のエラーコードで拒否する。
@@ -979,11 +996,13 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 監査レコードの有効性は判定時に評価する。
 
 ```text
-有効 = subjects のentity集合が現在の監査対象集合と完全一致し、
-       全ハッシュが現在の内容ハッシュと一致する
+有効 = subjects の対象集合が現在の監査対象集合と完全一致し、
+       全ハッシュが現在のsubject hashと一致する
 （SPEC は登録された sha256 と実ファイルの一致も要求。
  不一致の場合は W-SCAN-104 を出し、当該レコードは STALE）
 ```
+
+`kind: static`の現在対象集合はTest subject、全宣言target subject、Static Audit Config subjectからなる。静的rule判定へ影響するconfig projectionまたはrule-setが変化したrecord、あるいはconfig subjectを欠くrecordは`STALE`であり、有効なPASSに数えない。
 
 同一対象に有効なレコードが複数ある場合、FAIL が1件でもあれば FAIL、なければ最新の verdict を採る。
 有効なレコードが1件もなければ `NOT_CHECKED`（一度も監査されていない）または `STALE`（無効化されたレコードのみ存在）とする。
@@ -1131,10 +1150,10 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 | `test_existence` | leaf VO | covers する Test が1件以上あれば PASS、なければ MISSING |
 | `static_audit` | TEST | §7.1 の合成 |
 | `semantic_audit` | TEST | 有効な test-semantic 監査の合成（§8.5） |
-| `impl_consistency` | TEST / VO | 有効な impl-consistency 監査の合成。対象シンボル不在は MISSING |
-| `test_execution` | TEST | 有効な Evidence が存在すれば PASS、なければ NOT_EXECUTED |
-| `runtime_result` | TEST | 有効な Evidence の result（PASS / FAIL） |
-| `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値（checked: falseはNOT_CHECKED） |
+| `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING |
+| `test_execution` | TEST | 有効なEvidenceが存在すればPASS、Evidenceあり・無効なら§11.2の非PASS、EvidenceなしはNOT_EXECUTED |
+| `runtime_result` | TEST | 有効なEvidenceのresult（PASS / FAIL）。無効または不在は§11.2 |
+| `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値。無効または不在は§11.2、checked: falseはNOT_CHECKED |
 | `evidence_validity` | TEST | §11.2 の判定 |
 | `test_traceability` | repository scan result | 全Discovered Testが構造上完全なManaged Test Entityへ1対1で対応し、Test IDが一意かつ全`covers`参照を解決できればPASS |
 
@@ -1142,7 +1161,7 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 
 - 完全検証または指定scopeに登録SPECが0件なら`MISSING`とし、空集合をPASSにしない。
 - SPEC recordまたはsourceが存在しなければ`MISSING`、SPEC recordの登録hashとsourceが不一致なら`STALE`。
-- 対象SPECを参照するactive REQが0件なら`MISSING`。REQの`spec_refs`が解決不能またはschema不正なら`MISMATCH`。
+- 対象SPECを参照するactive REQが0件なら`MISSING`。REQの`spec_refs.spec`が解決不能、`section`が空、またはschema不正なら`MISMATCH`。opaqueなsection citationの本文内存在をcoreが構文的に判定した結果だけでPASSにしない。
 - currentな対象SPECと対応active REQ完全集合に対する有効な`spec-coverage`監査が`COMPLETE`なら`PASS`、`INCOMPLETE`なら`FAIL`、判定不能なら`UNKNOWN`。
 - 監査が一度もなければ`NOT_CHECKED`、現在の対象集合に無効な監査だけがあれば`STALE`。
 - REQ / VO / TEST scopeは対象SPECの対応active REQ集合を狭めない。特定範囲だけを評価する場合はSPEC scopeを指定し、Specification内部の一部節だけを完全検証済みとして扱わない。
@@ -1158,10 +1177,10 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 選択したREQ / VO部分木について、次だけを評価する。
 
 - REQ / VOのparent不在は`MISSING`、cycleは`MISMATCH`。
-- VOの`requirements`またはREQ / VOの`spec_refs`が解決不能なら`MISSING`、参照型やschemaが矛盾する場合は`MISMATCH`。
+- VOの`requirements`またはREQ / VOの`spec_refs.spec`が解決不能なら`MISSING`、`section`が空、参照型またはschemaが矛盾する場合は`MISMATCH`。opaqueなsection citationの意味的妥当性はこの構造dimensionで判定しない。
 - 選択部分木のREQ / VOをendpointに持つ構造Relationのdangling endpointは`MISSING`、矛盾したschemaは`MISMATCH`。
 - 対象recordの読込みが解析不能または不完全なら`UNKNOWN`。
-- 上記がなく、parent、requirements、spec_refs、構造Relationがすべて解決できる場合だけ`PASS`。
+- 上記がなく、parent、requirements、spec_refsのSPEC entity参照、構造Relationがすべて解決できる場合だけ`PASS`。
 
 E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造RelationをsubjectとするE-SCAN-009 / E-SCAN-010だけがこの項目へ影響する。Test ID、Test metadata、target解決、adapter source parse、Evidenceの各errorは対応するTest・実行・Evidence dimensionへ写像し、`vo_decomposition`を変更しない。
 
@@ -1181,17 +1200,22 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 1. evidence.hashes.test_subject == 現在のTest subject hash
 2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_constructが現在のimplementation construct hashと一致
 3. evidence.revision.commit が非 null
+4. evidence.adapter が現在のTest.execution.adapterと一致する。adapter欠落形は§3.7の互換条件で一意に確認できる
 
-1〜3 すべて成立 → evidence_validity = PASS
+1〜4 すべて成立 → evidence_validity = PASS
   （dirty: true でもハッシュ一致なら有効。ハッシュが実体を保証する）
 1 または 2 不成立 → STALE
-3 不成立          → FAIL（リビジョン不明の実行）
+3 不成立          → STALE（現在revisionへの有効性を確認できない実行）
+4が明示的不一致  → MISMATCH
+4を確認不能      → UNKNOWN
 Evidence なし     → NOT_EXECUTED
 ```
 
-`evidence_validity` が PASS でない場合、`runtime_result` と `target_execution` は当該 Evidence から値を採らず、それぞれ `STALE`（Evidence があるが無効）または `NOT_EXECUTED`（Evidence なし）とする。
+複数条件が非PASSなら根拠をすべて保持し、表示代表値は基本仕様 §4.3の優先順位で選ぶ。`evidence_validity`がPASSの場合だけ`test_execution = PASS`とし、`runtime_result`と`target_execution`を当該Evidenceから評価する。Evidenceが存在するが有効でない場合、この3項目はEvidenceを再利用せず、`evidence_validity`と同じ`MISMATCH` / `STALE` / `UNKNOWN`を保持する。Evidenceがなければ3項目とも`NOT_EXECUTED`とする。有効なEvidenceで`target_execution.checked: false`の場合だけ`target_execution = NOT_CHECKED`とする。
 
 ### 11.3 集約アルゴリズム
+
+項目scopeが省略された場合、aggregatorはconfig値から部分集合を組み立てず、基本仕様 §4.2の固定12項目を選択する。`verify.full_scope`はconfig読込み時に§2.2のinvariantとして検証・正規化済みでなければならない。明示的な部分集合だけを限定scopeとし、その結果を完全検証として表示しない。
 
 ```text
 fn aggregate(scope) -> Report:
@@ -1274,6 +1298,7 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | E-AUDIT-006 | error | vo-coverage で decomposition-viewpoint / spec 参照を欠く |
 | E-AUDIT-007 | error | spec-coverage でspec / req basisまたはexclusion根拠を欠く |
 | E-APPROVAL-001 | error | Approval対象または上流依存closureを完全・currentに解決できず、recordを生成しない |
+| E-CONFIG-001 | error | config version、`verify.full_scope`、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反（未知・重複adapter IDはE-ADAPTER-001） |
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.2） |
 | E-OP-002 | error | Edit 対象 Test の特定失敗 |
 | E-OP-003 | error | 編集結果が1 Test の範囲を超える（§15.4。操作は中止される） |
@@ -1290,11 +1315,11 @@ version controlの構文的整合性だけでは判定できない論理的不�
 |---|---|
 | 0 | 要求 scope の検証結果が OK（操作コマンドでは成功） |
 | 1 | 検証結果が NG |
-| 2 | 操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない） |
+| 2 | 操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-* / E-CONFIG-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない） |
 | 3 | 内部エラー（ツール自体の異常） |
 
 終了コードは診断severityだけでなく操作段階で決める。`vtest scan` / `vtest doctor`では、
-registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-*で拒否された場合は2、
+registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2、
 scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、errorがなければ0とする。
 同一実行に複数候補がある場合は内部エラー3、操作拒否2、検証NG1、成功0の順で優先する。
 

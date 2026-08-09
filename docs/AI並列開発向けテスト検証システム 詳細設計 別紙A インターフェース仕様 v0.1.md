@@ -189,7 +189,8 @@ vtest verify [--items <item1,item2,...>]
 ```
 
 集約（本冊 §11.3）を実行し、OK / NG を返す。
-`--items` 省略時は config の `full_scope`（完全検証）。
+`--items` 省略時は基本仕様 §4.2の固定12項目による完全検証を行う。configの`verify.full_scope`は本冊 §2.2のinvariantとして事前に検証・正規化し、項目選択knobとして使用しない。version 1の11項目形もin-memoryで`test_traceability`を補い、完全検証から除外しない。
+`--items`に12項目未満の明示的な集合を指定した場合だけ限定scopeとする。限定scopeの結果を完全検証OKと表示しない。
 `--summary` は総合 OK / NG と非 PASS 件数のみを出力する。
 scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検証」の旨を必ず表示する（基本仕様 §4.4）。
 
@@ -275,15 +276,15 @@ stdio で MCP サーバを起動する（§13）。
 | `vo_approve` | `id`、`approver`、`basis[]` | 承認レコード ID |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
 | `test_get` | `id` | Test 詳細（intent、位置、監査・Evidence 状態） |
-| `form_get` | `kind` | Form Schema（§14） |
+| `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
 | `audit_static` | `test` または `all` | ルール別結果、監査レコード ID |
 | `audit_bundle` | `kind`、対象 ID（`spec` / `req` / `vo` / `test`のkind別必須field） | bundle_id とバンドル本体（JSON） |
 | `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、監査レコード ID |
 | `run_tests` | `test` / `vo` / `req` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
-| `verify` | `items[]`、`spec` / `req` / `vo` / `test` | 総合 OK / NG、集約ツリー |
-| `report` | 同上 | 根拠付き完全レポート |
+| `verify` | optional `items[]`、`spec` / `req` / `vo` / `test`。items省略は固定12項目 | 総合 OK / NG、集約ツリー |
+| `report` | 同上。items省略は固定12項目 | 根拠付き完全レポート |
 
 ### 13.3 エージェント向け利用フロー（参考）
 
@@ -316,6 +317,7 @@ form_get(kind: rust-unit-function)
 
 ```yaml
 kind: rust-unit-function
+adapter: rust-cargo
 title: Rust 関数単体テスト
 fields:
   - name: target
@@ -384,10 +386,12 @@ template: |
 `required` を欠く回答、未知のフィールド名は E-OP-001 とする。
 Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番>`（領域は covers 先 VO の ID から継承、連番は既存最大＋1）で自動採番し、結果に含めて返す。
 
+`kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、`.verify/forms/<kind>.yaml`のファイル名と一致するrepository-globalなForm ID、`adapter`はそのFormを処理するStructured Test adapter IDである。registryはbuilt-inとuser-defined Formを統合し、同じkindの重複、schemaのadapterとregistry ownerの不一致、未知adapter、Structured Test capability欠落を拒否する。`adapter`を欠く読取り互換Formは、登録済みadapterのbuilt-in kind宣言またはschemaを検査するcompatibility matcherのうちちょうど1件だけが受理する場合に限って解決し、0件または複数件なら拒否する。matcherはschema内容から決定論的に判定し、kind名だけでRust用と推測しない。readerは互換解決だけでFormファイルを書き換えない。
+
 ### 14.3 組込フォーム
 
 組込フォームは `rust-cargo` adapterが提供する。コアはフォームのkindを
-Rust固有と推測せず、adapter namespaceと登録済みschemaを照合する。未提供の
+Rust固有と推測せず、schemaの`adapter`、registryが宣言する大局的に一意なkind ownership、登録済みcapabilityを照合する。未提供の
 Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し、ファイルを変更しない。
 
 次の2種を組込Formとして同梱する。
@@ -401,7 +405,7 @@ Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し�
 
 ### 14.4 テスト種別ごとのフォーム拡張
 
-Form Schema はユーザー定義可能とし、`fields` の追加・変更でAPI Test・CLI Test等の質問列を定義できる（要件定義の質問テンプレート構想に対応）。
+Form Schema はユーザー定義可能とし、大局的に一意な`kind`と登録済みStructured Test adapterの`adapter` IDを必須とする。`fields` の追加・変更でAPI Test・CLI Test等の質問列を定義できる（要件定義の質問テンプレート構想に対応）。
 partition・境界値を必須入力とする種別は、該当フィールドに `required: true` を設定することで表現する（基本仕様 §15 の項目16）。
 
 ---

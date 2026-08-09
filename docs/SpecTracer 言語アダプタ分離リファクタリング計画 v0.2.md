@@ -295,7 +295,9 @@ adapters:
     run:
       coverage: llvm-cov
 verify:
-  full_scope: [...]
+  full_scope: [spec_coverage, vo_decomposition, vo_coverage, test_existence,
+               static_audit, semantic_audit, impl_consistency, test_execution,
+               runtime_result, target_execution, evidence_validity, test_traceability]
 ```
 
 adapter固有設定は該当adapter namespace内で検証する。core config parserは未知の
@@ -304,10 +306,12 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 ### 5.2 v1互換
 
 - v1 configを読み込むと、in-memoryで単一`rust-cargo` adapter設定へ変換する。
+- v1 `verify.full_scope`は認識可能な項目を受理して現在の固定12項目へin-memoryで補完する。項目指定省略時の完全検証を縮小しない。
 - 読取りだけでconfig.yamlを書き換えない。
 - `vtest init`はv2を生成する。
 - 明示的な`vtest config migrate --dry-run`なしにcanonical configを更新しない。
 - v1とv2から得られるRust scan / audit / run / verify結果が同値であるfixtureを置く。
+- v2 `verify.full_scope`は固定12項目との完全一致を要求し、不完全・重複・未知・余剰項目をE-CONFIG-001で拒否する。明示的な`--items`部分集合だけを限定scopeとする。
 - 未知adapter、重複ID、同一adapter内の重複root、無効adapter設定はusage errorとして拒否する。
 - 異なるadapterによる同一rootの共有はpolyglot repositoryのため許可する。
 
@@ -360,6 +364,7 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 完了条件：
 
 - adapter contract、v1/v2 config、JSON互換、Evidence互換が仕様化される。
+- PASS判定を変えうるsource / target / metadata / config / rule-set / compatibility入力がfreshness、state mapping、集約、公開出力まで閉じている。
 - Rust v0.1の観測可能挙動を維持する項目と、versioned変更項目が区別される。
 - W0 commit / PRにproduction実装コード、テストコード、fixture、`tests/ACCEPTANCE.md`を含めない。
 - Ownerが仕様PRを承認・mergeし、そのmerge済みrevisionを下流工程の基準として記録する。
@@ -385,6 +390,7 @@ adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧�
 - synthetic TestのJSONにRust互換fieldが存在しない。
 - discovery adapterがhash未計算DTOとcurrent source bytesを返し、coreがTest subject / Source Target hashを計算してdomain entityを具体化する。
 - non-adjacent metadataの意味変更がTest subject hashを変化させる。
+- Static Audit Config subjectのhash未計算projectionをadapterが返し、coreがhash ownershipを持てる。
 
 ### W2 config v2とRust adapter skeleton
 
@@ -394,6 +400,8 @@ adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧�
 
 - v1 configを無変更で読める。
 - v2 initとround-tripが決定論的である。
+- v1の11項目`full_scope`が固定12項目へ補完され、v2の不完全な`full_scope`がE-CONFIG-001になる。
+- canonical Relation writerが`REL-<ULID>`を生成し、整合したbare ULID互換recordだけをreaderがin-memory正規化する。同一payloadの重複・混在はfail-closedになる。
 - unknown / duplicate adapterがfail-closedになる。
 - Rust adapter descriptorとcapability宣言が取得できる。
 - `rust-cargo` codecがversion 1互換fieldを`execution`と損失なくround-tripし、矛盾を拒否する。
@@ -412,6 +420,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - `rust-cargo` scan JSONの互換fieldがwire layerで維持され、execution descriptorと一致する。
 - core scan resultとsynthetic TestがRust固有fieldを要求しない。
 - editが1 Test境界を維持する。
+- Form kindがrepository-globalに一意で、schema adapter・registry owner・capabilityの一致からownerを一意に解決する。互換Formのownerが曖昧なら拒否する。
 - `vtest-scan`に`syn`の直接利用が残らない。
 
 ### W4 Rust static audit移植
@@ -422,7 +431,8 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 
 - M3、M5 acceptanceが全PASS。
 - analysis limitがUNKNOWNのままである。
-- audit subject hash、config hash、append-only保存が変わらない。
+- Audit RecordがTest、全target、rule-setとrule影響config projectionのsubject hashへ束縛され、`assertion_macros`変更でSTALEになる。
+- static ruleと無関係なrun / coverage設定をconfig subjectから除外する根拠と試験がある。
 - `vtest-audit`に`syn` / `quote`の直接依存が残らない。
 
 ### W5 Rust runner / coverage移植
@@ -434,6 +444,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M4、M7 acceptanceが全PASS。
 - build failureでEvidenceを記録しない。
 - target変更でEvidenceがSTALEになる。
+- revision不明EvidenceがSTALEになり、FAILまたは有効なPASSへ写像されない。
 - Evidenceが`test_subject`、全宣言targetの`target_construct` hash、target別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
 - llvm-cov不在はNOT_CHECKEDのままである。
 - `vtest-exec`にCargo / llvm-cov / rustc-demangle固有処理が残らない。
@@ -447,6 +458,8 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M6、M9 acceptanceが全PASS。
 - `test_traceability`が全Discovered Testをrepository-levelで評価し、`ManagedTestLink::Missing`をMISSING、`ManagedTestLink::Multiple`・Test ID衝突・解決不能なVO参照をMISMATCHにする。
 - `spec_coverage`がSPECと対応active REQ完全集合に束縛された意味監査なしにPASSせず、`vo_decomposition`がTest / adapter / Evidence errorを取り込まない。
+- impl-consistency監査FAILが`MISMATCH`へ一意に写像される。
+- 項目指定省略時は固定12項目を評価し、configまたはcompatibility入力から`test_traceability`を迂回できない。
 - 全MCP toolがCLIと同じregistryとenvelopeを使う。
 - adapter選択失敗のcode / message / candidatesがCLI/MCPで一致する。
 - reportはadapter metadataを根拠として表示できるが、scope外をPASSにしない。
@@ -559,8 +572,11 @@ Wave E: P12完成 -> P13 -> 主担当release gate
 
 | Case | Expected |
 |---|---|
-| v1 config + Rust fixture | v0.1と同じscan/audit/run/verify |
-| v2 config + rust-cargo | v1と意味的に同値 |
+| v1 config + Rust fixture | config無書換え、Rust scan/audit/run互換、verifyは現在の固定12項目 |
+| v1 config without full_scope | in-memoryで固定12項目、file無書換え |
+| v1 11-item full_scope | in-memoryでtest_traceabilityを補い、完全検証は12項目 |
+| v2 config + rust-cargo | Rust挙動はv1と意味的に同値、full_scopeは固定12項目 |
+| v2 incomplete / duplicate full_scope | E-CONFIG-001、検証結果なし |
 | unknown adapter | E-ADAPTER-001、record writeなし |
 | duplicate adapter ID | usage error、scanなし |
 | adapter discovery failure | error、空scanを正常扱いしない |
@@ -572,6 +588,13 @@ Wave E: P12完成 -> P13 -> 主担当release gate
 | duplicate SRC ID across adapters | E-SCAN-011、target解決PASSなし |
 | stale synthetic Evidence | STALE |
 | non-adjacent metadata changed | Test subject mismatch、Audit / Evidence STALE |
+| assertion_macros changed | static Audit Recordのconfig subject mismatch、STALE |
+| static-rule-irrelevant config changed | static Audit Recordはconfig subject一致 |
+| revision commit missing | evidence_validity STALE |
+| impl-consistency FAIL | CheckValue MISMATCH |
+| bare Relation compatibility input | REL-<ULID>へin-memory正規化、file無書換え |
+| duplicate bare / prefixed Relation payload | E-SCAN-010、いずれも採用しない |
+| duplicate Form kind across adapters | operation拒否、Rust fallbackなし |
 | SPEC requirement without active REQ | spec_coverage non-PASS |
 | SPEC / REQ dependency changed after VO approval | Approval失効、VO draft |
 | scan rejected by adapter | E-ADAPTER-*、exit 2、scan resultなし |

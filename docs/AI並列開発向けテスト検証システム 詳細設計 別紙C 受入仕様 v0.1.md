@@ -55,14 +55,14 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 - adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 - SPEC sourceの内容hash不一致をW-SCAN-104として検出する。
-- active REQは1件以上の解決可能なSPEC sectionを参照し、Specification → REQ edgeを構築する。
-- Relation IDは`REL-<ULID>`であり、bare ULIDをRelation IDとして受理しない。
+- active REQは1件以上の`spec_refs`を持ち、各`spec`はcurrentなSPEC record / sourceへ解決し、各`section`は非空のopaque citationとして保持され、Specification → REQ edgeを構築する。coreは任意形式の本文からsection存在を推測せず、citationの意味的妥当性を監査理由で確認する。
+- Relation writerは`REL-<ULID>`だけを生成する。readerはファイル名とrecord IDが同じbare ULIDのversion 1互換Relationを読み取り、in-memoryで`REL-<ULID>`へ正規化するが、ファイルを書き換えない。同じpayloadのbare / prefixed重複、混在形、ファイル名とIDの不一致はE-SCAN-010になる。
 - VO writerは`status`を保存せず、実効値をApprovalから導出する。読取り互換field `status`は警告して無視する。
 - VOの承認はVO内容hashと現在の上流依存closureへ束縛され、SPEC / REQ / parent VOの内容または集合が不一致の承認を有効として扱わない。
 - Approval作成時に対象または上流依存closureを完全・currentに解決できなければE-APPROVAL-001で拒否し、recordを生成しない。
 - dependenciesを欠く互換Approvalを現在のapprovedへ昇格しない。
 - 恒久SRC IDは全adapter統合後にrepository全体で一意であり、衝突をE-SCAN-011として拒否する。
-- `vtest scan` / `doctor`はE-ADAPTER-*による操作拒否をexit 2、完了したscanのE-SCAN-*をexit 1、errorなしをexit 0にする。
+- `vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による操作拒否をexit 2、完了したscanのE-SCAN-*をexit 1、errorなしをexit 0にする。
 - `full-product` VOは宣言partitionの直積を決定論的に実体化する。
 
 #### 18.3.2 deterministic static audit
@@ -70,7 +70,11 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - DA-001〜DA-006とW-DA-101は本冊 §7の判定条件に従う。
 - 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 - 正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。
-- Audit Recordは対象Test、全宣言target、configの現在hashへ束縛される。
+- Audit Recordは対象Test、全宣言target、およびadapter ID・static rule-set・rule影響config projectionからなるStatic Audit Config subjectの現在hashへ束縛される。
+- `rust-cargo`の`assertion_macros`だけを変更すると既存static Audit RecordはSTALEになり、再監査なしに`static_audit = PASS`へ利用されない。
+- 同じ入力に対するverdictまたは根拠を変えるstatic rule実装変更はrule-set versionを変更し、既存recordをSTALEにする。
+- static ruleへ影響しないrun / coverage設定だけの変更ではStatic Audit Config subject hashを変えない。
+- config subjectを欠く読取り互換static Audit Recordを現在のPASSへ昇格しない。
 
 #### 18.3.3 execution・Evidence
 
@@ -83,6 +87,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
 - Evidenceは全宣言targetの参照と内容hashを重複なく保持する。
 - canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、またはいずれかのtarget内容hashがEvidenceと異なる場合はSTALEになる。
+- `revision.commit`を特定できないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
+- EvidenceがSTALE / MISMATCH / UNKNOWNなら`test_execution`、`runtime_result`、`target_execution`へ同じ非PASSを伝播し、無効Evidenceのresultまたはcoverageを再利用しない。Evidenceなしでは3項目ともNOT_EXECUTEDになる。
 - 単数互換形のEvidenceは、現在のTestがtargetをちょうど1件持つ場合だけ有効性を評価できる。複数target Testでは有効なPASSにしない。
 - Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。
 
@@ -93,11 +99,14 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 空のreasons、schema違反、kind不一致、stale bundle hashを拒否する。
 - 受理するAudit Recordはsubjectsの内容hashへ束縛される。
 - deterministic結果とagent / human結果を区別して保存・表示する。
+- impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。target解決不能はMISSING、監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
 
 #### 18.3.5 verify・report
 
 - 完全検証は基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
 - 完全検証は全12項目がPASSの場合だけOKとする。
+- `--items`を省略したCLI / MCP検証は常に固定12項目を評価する。version 1 configの`full_scope`欠落は固定12項目、11項目形は`test_traceability`を補った固定12項目へin-memoryで正規化し、configを書き換えない。version 1の重複・未知項目、およびversion 2の欠落・重複・未知・余剰項目はE-CONFIG-001とし、検証結果を生成しない。
+- 12項目未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。
 - `spec_coverage`は登録Specificationの要求事項がactive REQへ完全に取り込まれたことを有効なspec-coverage監査で確認した場合だけPASSとする。active REQの存在だけ、またはREQ → VO対応の存在だけでPASSにしない。
 - 登録Specificationが0件の完全検証を`spec_coverage = MISSING`とし、空集合をPASSにしない。
 - `vo_decomposition`はREQ / VOのparent、requirements、spec_refs、構造Relationだけを評価し、Test metadata、target、adapter parse、Evidenceのerrorによって値を変更しない。
@@ -120,6 +129,9 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 
 #### 18.3.7 Structured Test Operation
 
+- Form `kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、built-inとuser-defined schemaを通してrepository全体で一意であり、schemaはowner `adapter` IDを別fieldで宣言する。registryのkind owner、schemaのadapter、Structured Test capabilityが一意に一致する場合だけcreate / form_getを許可する。
+- 同じkindを複数adapterが宣言する、schemaとregistry ownerが不一致、adapterが未知、またはcapabilityがない場合は操作を拒否し、ファイルを変更しない。
+- `adapter`を欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはschema compatibility matcherのうちちょうど1件だけがschemaを受理する場合に限って解決し、曖昧またはowner不在なら拒否する。matcherはschema内容から決定論的に判定し、coreは未知kindを`rust-cargo`へfallbackしない。
 - Form Schemaの必須値と未知fieldを常に検証する。symbol、VO / Test参照、identifier、pathは選択したFormが該当fieldとvalidatorを宣言した場合だけ検証し、すべてのadapterへ一律に要求しない。
 - create結果はscanで同じTest ID・intent・covers・targetsとして認識される。
 - editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。

@@ -155,6 +155,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 2. DA-001〜DA-006、W-DA-101を1ルールずつ追加する。
 3. 解析限界を `UNKNOWN` にする境界ケースを先にテストする。
 4. `vtest audit static` と監査レコード保存を実装する。
+5. adapterのrule影響config projectionをcoreでhash化し、Test・全targetと同じ監査subject集合へ加える。
 
 ### Lunaへ並列化できる作業
 
@@ -166,6 +167,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 - fixtureの各NGテストが対応ルールでFAILとなる。
 - 正常テストに誤検知がない。
 - 証明不能なケースを推測でFAILまたはPASSにしない。
+- `assertion_macros`変更だけで既存static Audit RecordがSTALEになり、run / coverageだけの変更では不必要に失効しない。
 
 ## 8. M4 テスト実行とEvidence
 
@@ -181,6 +183,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 - `tester`: PASS、FAIL、ignored、結果行欠落、終了コード矛盾、ビルド失敗の実行fixtureを担当する。
 - `reviewer`: ビルド失敗時にEvidenceが生成されないこと、未知revisionがvalidity PASSにならないことを確認する。
+- `reviewer`: revision不明Evidenceが`STALE`へ一意に写像され、`FAIL`またはPASSへ変換されないことを確認する。
 
 ### ゲート
 
@@ -213,9 +216,9 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 ### 実装順
 
-1. 12チェック項目の評価地点と状態遷移を表駆動で実装する。
+1. raw fact / Audit verdict / Evidence conditionから12 CheckValueへの写像を表駆動で実装し、`impl-consistency FAIL → MISMATCH`とrevision不明`→ STALE`を固定する。
 2. SPEC → REQ → VO → Testの評価treeと、Test → VO → REQ → SPECのfail-closed集約を実装する。
-3. entity scopeとitem scopeを実装し、scope外を `NOT_CHECKED` とする。
+3. entity scopeとitem scopeを実装し、scope外を `NOT_CHECKED` とする。項目指定省略時は固定12項目、明示部分集合だけを限定scopeとし、version 1 `full_scope`から現在項目を迂回させない。
 4. `vtest verify` の簡易・ツリー・JSON出力を実装する。
 5. `vtest report` に根拠レコードとEvidence参照を追加する。
 6. 各12項目を1つずつ非PASSにした全数テストを実装する。
@@ -265,6 +268,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 4. `test create` を実装する。
 5. `test edit` に拡張range、適用前境界検査、適用後の他Testハッシュ不変検査を実装する。
 6. 候補付きE-OP-001、冪等性、1 Test境界の受入テストを実装する。
+7. Form kindの大局的一意性、schema adapterとregistry ownerの一致、互換Formの一意解決を実装する。
 
 ### Lunaへ並列化できる作業
 
@@ -277,6 +281,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 - 別紙B M8の全完了条件を満たす。
 - 同じdesired stateの再適用でdiffが出ない。
 - 対象外Testまたは通常実装のハッシュが変化した操作は失敗し、部分更新を残さない。
+- 重複kind、曖昧owner、未知adapter、capability欠落でForm操作を拒否し、Rust adapterへfallbackしない。
 
 ## 13. M9 MCPサーバ
 
@@ -328,20 +333,20 @@ cargo run --quiet -p vtest-cli -- doctor
 |---|---|---|---|---|
 | S0 | REVALIDATION_REQUIRED | 8-crate workspace、init/layout、旧`tests/ACCEPTANCE.md` | NOT_CHECKED | W0のOwner承認・merge後、10-crate構成と新受入台帳を再検証する |
 | M1 | REVALIDATION_REQUIRED | 旧`m1_acceptance` 5/5、旧release-check READY | NOT_CHECKED | hash未計算DTO、core hash ownership、adapter分離、SRC ID一意性を未検証 |
-| M2 | REVALIDATION_REQUIRED | 旧`m2_acceptance` 12/12、旧release-check READY | NOT_CHECKED | Approval dependency closure、REL-ID、derived VO statusを未検証 |
-| M3 | REVALIDATION_REQUIRED | 旧`m3_acceptance` PASS、旧dogfood static audit PASS | NOT_CHECKED | Test subject hashとadapter-owned static auditで再検証が必要 |
-| M4 | REVALIDATION_REQUIRED | 旧`m4_acceptance` 6/6、旧Evidence multi-target baseline | NOT_CHECKED | `test_subject` Evidenceと非隣接metadata freshnessを未検証 |
-| M5 | REVALIDATION_REQUIRED | 旧`m5_acceptance` 4/4、3 bundle種別baseline | NOT_CHECKED | `spec-coverage`を含む4種別とE-AUDIT-007を未検証 |
-| M6 | REVALIDATION_REQUIRED | 旧11項目`m6_acceptance` 6/6 | NOT_CHECKED | 12項目、SPEC root集約、spec_coverage、独立vo_decompositionを未検証 |
+| M2 | REVALIDATION_REQUIRED | 旧`m2_acceptance` 12/12、旧release-check READY | NOT_CHECKED | Approval dependency closure、REL-ID writer / compatibility reader、derived VO statusを未検証 |
+| M3 | REVALIDATION_REQUIRED | 旧`m3_acceptance` PASS、旧dogfood static audit PASS | NOT_CHECKED | Test / target / rule-config subject hashとadapter-owned static auditで再検証が必要 |
+| M4 | REVALIDATION_REQUIRED | 旧`m4_acceptance` 6/6、旧Evidence multi-target baseline | NOT_CHECKED | `test_subject` Evidence、非隣接metadata freshness、revision不明のSTALE写像を未検証 |
+| M5 | REVALIDATION_REQUIRED | 旧`m5_acceptance` 4/4、3 bundle種別baseline | NOT_CHECKED | `spec-coverage`を含む4種別、E-AUDIT-007、impl-consistency MISMATCH写像を未検証 |
+| M6 | REVALIDATION_REQUIRED | 旧11項目`m6_acceptance` 6/6 | NOT_CHECKED | 固定12項目、v1 full_scope正規化、SPEC root集約、spec_coverage、独立vo_decompositionを未検証 |
 | M7 | REVALIDATION_REQUIRED | 旧`m7_acceptance` 3/3、target count baseline | NOT_CHECKED | adapter-owned coverageとTest subject Evidenceで再検証が必要 |
-| M8 | REVALIDATION_REQUIRED | 旧`m8_acceptance` 4/4、編集境界・冪等性baseline | NOT_CHECKED | adapter-owned Form validatorとneutral DTOで再検証が必要 |
+| M8 | REVALIDATION_REQUIRED | 旧`m8_acceptance` 4/4、編集境界・冪等性baseline | NOT_CHECKED | global Form kind ownership、adapter-owned validator、neutral DTOで再検証が必要 |
 | M9 | REVALIDATION_REQUIRED | 旧`m9_acceptance` 9/9、22 tool / CLI parity baseline | NOT_CHECKED | current registry・schema・JSON envelopeで全MCP parityを再検証する |
 
 Statusは `NOT_STARTED`、`IN_PROGRESS`、`BLOCKED`、`REVALIDATION_REQUIRED`、`DONE` のいずれかとする。正規contractまたは受入条件が変化したmilestoneは、旧evidenceがPASSでも`REVALIDATION_REQUIRED`へ戻す。`DONE` は現在contractの受入基準、共通検証、architecture-check、独立レビュー、release-checkがすべて完了した場合にだけ設定する。
 
 `N/R` は、実行環境がマイルストーン別 token 使用量を公開しておらず、推測値を記録しないことを示す。以下の記録はすべてhistorical baselineであり、現在contractのPASSまたはDONEを表さない。
 
-旧M2 baselineはbare / prefixed Relation IDの両方とVO単体hashだけのApprovalを扱った。現在contractは`REL-<ULID>`、derived VO status、Approval dependency closureを要求するため、このevidenceはcurrent M2へ流用しない。
+旧M2 baselineはbare / prefixed Relation IDの区別、payload重複時のfail-closed正規化、VO単体hashだけのApprovalを現在contractどおりには検証していない。現在contractはcanonical `REL-<ULID>` writer、整合したbare入力だけのcompatibility reader、derived VO status、Approval dependency closureを要求するため、このevidenceはcurrent M2へ流用しない。
 
 自己適用ではリポジトリ直下の `.verify/` で `vtest doctor` を実行し、exit 0 と canonical 再読込を確認した。M3 では `TEST-DOGFOOD-M3-TARGET-RULES` を VO に登録し、実プロセス `audit static` と scoped `verify --items static_audit` を実行して six-rule PASS を確認した。M4 では同じTestを `run --all --fast` で実行し、Evidenceを再読込して `static_audit`、`test_execution`、`runtime_result`、`evidence_validity` のPASSを確認した（fastの `target_execution` はNOT_CHECKED）。M5では実プロセスbundle/submitを独立fixtureで実行し、typed AuditRecordを再読込して対象改変時のSTALEを確認した。再試行で生成された古い immutable AuditRecord は verifier が STALE として除外することも確認済みである。
 旧M6 baselineでは、REQ/VO/Testの各entity scopeとitem scope、全11項目の単独非PASS、leaf VOの未カバー、部分実行Evidence、根拠付きtree、11項目PASS・exit 0を確認した。このevidenceは12項目、SPEC root、`spec_coverage`意味監査、独立した`vo_decomposition`、`test_traceability`を含む現在contractの証拠ではない。

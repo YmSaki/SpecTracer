@@ -56,6 +56,7 @@ tests/fixtures/calc/
   - `TestEntity`は中立な`execution`を持ち、Rust互換fieldは`rust-cargo` wire codecだけが入出力する。
   - E-SCAN-002〜010、W-SCAN-101がfixtureの該当箇所で検出される。
   - 未登録Testが存在する場合、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出できる。
+  - Relation writerは`REL-<ULID>`を生成し、readerは整合したbare ULID互換recordをin-memoryで正規化する。同一payloadの重複・混在・不一致はE-SCAN-010になる。
   - `vtest scan --format json`の出力が別紙A §12.1の構造に従う。
   - E-ADAPTER-*による操作拒否は終了コード2、完了したscanのE-SCAN-*は1、errorなしは0になる。
 
@@ -75,6 +76,7 @@ tests/fixtures/calc/
   - fixtureの各NG Testが対応ruleでFAILになる。
   - 正常Testは全rule違反なしになる。
   - 他ファイルの関数を呼ぶTestがDA-002でFAILではなくUNKNOWNになる。
+  - static Audit RecordがTest、全target、rule-setとrule影響config projectionへ束縛され、`assertion_macros`変更でSTALEになる。
 
 ### M4 テスト実行とEvidence
 
@@ -84,6 +86,7 @@ tests/fixtures/calc/
   - Evidenceが`test_subject`と全宣言targetの`target_construct`内容hashを重複なく記録する。
   - Test constructと非隣接のcanonical metadataだけを変更してもEvidenceがSTALEになる。
   - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
+  - revisionを特定できないEvidenceがSTALEになり、現在のPASSへ利用されない。
   - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
 
 ### M5 意味監査プロトコル
@@ -95,12 +98,14 @@ tests/fixtures/calc/
   - reasonsが空の提出がE-AUDIT-005で拒否される。
   - bundle生成時と異なる対象hashの提出がE-AUDIT-002で拒否される。
   - 受理された監査が、対象変更によってSTALEになる。
+  - impl-consistencyの提出FAILが検証項目`impl_consistency = MISMATCH`へ一意に写像される。
 
 ### M6 集約とverify / report
 
 - 実装：`vtest-verify`（12チェック項目評価、fail-closed集約、scope）、`vtest verify` / `vtest report`
 - 完了条件：
   - 全12項目PASSのfixture状態で`verify`がOK・終了コード0になる。
+  - 項目指定省略時はconfigに関係なく固定12項目を評価し、version 1の11項目`full_scope`から`test_traceability`を迂回できない。version 2の不完全な`full_scope`はE-CONFIG-001になる。
   - Specificationの要求事項に対応active REQがない、監査がない、または監査がINCOMPLETEの各状態で`spec_coverage`が非PASSになる。
   - Test metadata errorだけでは`vo_decomposition`が非PASSにならない。
   - 12項目のそれぞれを単独で非PASSにするとNG・終了コード1になる。
@@ -126,6 +131,7 @@ tests/fixtures/calc/
   - `test create`で生成されたTestがscanで正しく認識される。
   - `test edit`でcoversを変更しても他のTestのsource textが変化しない。
   - annotation再生成が冪等になる。
+  - Form kindがrepository-globalに一意で、schema adapter・registry owner・Structured Test capabilityの一致からownerを解決する。重複・曖昧・未知ownerはfallbackせず拒否する。
 
 ### M9 MCPサーバ
 
