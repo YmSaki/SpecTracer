@@ -131,7 +131,8 @@ SHA-256 checksum file. Download the matching asset from the
 [GitHub Releases page](https://github.com/YmSaki/SpecTracer/releases/latest),
 extract `vtest` (or `vtest.exe` on Windows), and put it on your `PATH`.
 
-Release tags must use the `vMAJOR.MINOR.PATCH` form and match the workspace
+Release tags must use the `vMAJOR.MINOR.PATCH` form, optionally followed by an
+ASCII SemVer pre-release identifier such as `-alpha.1`, and match the workspace
 version in `Cargo.toml`; tags that are not reachable from `main` are rejected.
 
 ### 2. Initialize verification metadata

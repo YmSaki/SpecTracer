@@ -51,9 +51,10 @@ cargo build --locked --release --package vtest-cli
 ```
 
 The authoritative packaging path is `.github/workflows/release.yml`. A
-`vMAJOR.MINOR.PATCH` tag is accepted only when its commit is reachable from
-`main` and matches the `vtest-cli` workspace version. The workflow then publishes
-Linux x86_64, macOS x86_64, and Windows x86_64 archives with checksums.
+`vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.1` tag is accepted only when
+its commit is reachable from `main` and matches the `vtest-cli` workspace version.
+The workflow marks pre-release tags accordingly and publishes Linux x86_64, macOS
+x86_64, and Windows x86_64 archives with checksums.
 
 ## Documentation and specification changes
 

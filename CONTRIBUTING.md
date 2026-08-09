@@ -58,7 +58,8 @@ follow the adapter separation plan in
 
 Only maintainers create release tags. Update the workspace version, add the
 user-visible entries to `CHANGELOG.md`, merge the release branch into `main`, and
-create a `vMAJOR.MINOR.PATCH` tag. GitHub Actions verifies that the tag is on
-`main`, runs the full gate, builds Linux x86_64, macOS x86_64, and Windows x86_64
-archives, and publishes them with SHA-256 checksum files. See the
+create a `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.1` tag. GitHub Actions
+verifies that the tag is on `main`, runs the full gate, builds Linux x86_64, macOS
+x86_64, and Windows x86_64 archives, and publishes them with SHA-256 checksum
+files. Pre-release tags are marked as GitHub pre-releases. See the
 [prebuilt release instructions](README.md#install-a-prebuilt-release).
