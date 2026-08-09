@@ -28,13 +28,13 @@ M9 完了前に本計画を着手する場合は、マイルストーン順序�
 ### 0.2 ベースライン
 
 - README 更新コミット：`85ff47e` (`docs: update status and language support`)
-- M9 完了コミット：`ee406eb` (`feat: complete M9 MCP usability`)
+- M9 完了コミット：`ee406eb` (`feat: complete M9 MCP usability`) + `575f36f` (`fix: close M9 MCP review gaps`)
 - M1〜M8：`DONE`
 - M9：`DONE`
 - M9 独立レビュー：`PASS`（修正コミット `46fbb4d` を再監査）
 - 現行 workspace：8 crates
 - 現行回帰：110 tests
-- M9 acceptance：6 tests（全PASS）
+- M9 acceptance：9 tests（全PASS）
 - 共通ゲート：fmt / workspace test / clippy `-D warnings` / `vtest doctor`
 
 ## 1. 目的
