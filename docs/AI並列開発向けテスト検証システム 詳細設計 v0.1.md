@@ -348,7 +348,11 @@ executed_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
 hashes:
   test_fn: "sha256:..."
-  target_fn: "sha256:..."
+  targets:
+    - target: "src/parser.rs::Parser::parse"
+      target_fn: "sha256:..."
+    - target: "src/lexer.rs::Lexer::next"
+      target_fn: "sha256:..."
 runner:
   kind: cargo-test
   command: "cargo test -p parser --lib -- --exact parser::tests::rejects_invalid_utf8"
@@ -356,10 +360,32 @@ runner:
 target_execution:
   checked: true                 # 計測を実施したか
   method: llvm-cov
-  result: PASS                  # PASS | FAIL | UNKNOWN
-  count: 3                      # 対象関数の実行回数
+  result: FAIL                  # target別結果の集約: PASS | FAIL | UNKNOWN
+  targets:
+    - target: "src/parser.rs::Parser::parse"
+      result: PASS              # PASS | FAIL | UNKNOWN
+      count: 3                  # UNKNOWNではnull
+    - target: "src/lexer.rs::Lexer::next"
+      result: FAIL
+      count: 0
 log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 ```
+
+`hashes.targets`はTestの宣言順で常に記録し、各`target`は正規化したTargetRef文字列表現とする。
+このlistはTestが宣言するtarget集合と重複なく1対1に対応する。`target_execution.checked: true`では
+`target_execution.targets`も同じ順序・target集合で1対1に対応する。
+`target_execution.checked: false`では`method`と`result`をnull、`targets`を空listとし、検証値を
+`NOT_CHECKED`とする。
+
+readerは単数互換形の`hashes.target_fn`および`target_execution.result/count`を、現在のTestが
+targetをちょうど1件宣言し、Test hashとtarget hashを照合できる場合だけ1要素listへ正規化して扱う。
+複数target Testに単数互換形を適用せず、writerは常にlist形を出力する。
+
+Evidence内の`target`は実行時snapshotを識別するkeyであり、TEST → SRC edgeの正典ではない。
+graphはTest annotationからだけ構築し、Evidenceのtarget listからedgeを生成しない。
+
+schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾は
+E-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。
 
 Evidence writerは `adapter` を必須で記録し、保存前にTestの
 `ExecutionDescriptor.adapter`およびrunner kindとの整合を検証する。Evidence readerは
@@ -383,7 +409,7 @@ value           = 行末までのテキスト（前後空白は除去）
 ```
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
-- `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。
+- `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。
 - `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 - `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。
@@ -451,7 +477,7 @@ item-path = Rust アイテムパス（"::" 区切り）
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub target: TargetRef,          // Locator(Locator) | SrcId(SrcId)
+    pub targets: Vec<TargetRef>,    // 各要素は Locator(Locator) | SrcId(SrcId)、1件以上
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,
@@ -501,6 +527,10 @@ JSON writerは`execution`を常に出力し、`rust-cargo` TestだけにRust互�
 descriptorとの一致を検証する。`execution`が欠ける場合、完全で相互整合するRust互換fieldからだけ
 `rust-cargo` descriptorを導出する。不完全・矛盾時は入力を拒否し、空selectorまたはdummy値を生成しない。
 
+Test JSON writerは`TestEntity.targets`を1件以上のlistとして常に出力する。targetが1件の場合だけ
+同値の単数互換field`target`を追加できる。readerは`target`だけの入力を1要素listへ正規化し、
+`targets`との併存時は完全一致を検証する。複数targetから代表値を選んで`target`を生成しない。
+
 scan時の導出結果には、Managed Test Entityとは別に次のin-memory observationを保持する。
 
 ```rust
@@ -536,7 +566,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
   VO   → REQ    (requirements)
   VO   → SPEC   (spec_refs)
   TEST → VO     (covers)      ※アノテーション由来
-  TEST → SRC    (target)      ※アノテーション由来
+  TEST → SRC    (targets)     ※アノテーション由来、1:N
   外部 Relation (rel/ 由来)
 逆引きインデックス：VO → Tests、SRC → Tests、REQ → VOs
 ```
@@ -629,7 +659,8 @@ Test の `static_audit` チェック項目は、全ルールが違反なしな�
 | W-DA-101 ignored | `#[ignore]` 属性 | （FAILにしない。警告のみ。実行されなければ `test_execution` が NOT_EXECUTED になる） | |
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
-ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。
+複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
+ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTestと全宣言targetの現在hashを含める。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
 
@@ -647,11 +678,11 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 | kind | 対象指定 | 含める情報 |
 |---|---|---|
-| `test-semantic` | `--test TEST-X` | Test（アノテーション・ソース全文）、covers 先 VO レコード、target の対象関数ソース全文、関連 Test の id と intent、同一 VO を covers する他 Test の一覧、決定論的監査の結果、有効な過去監査の要約 |
+| `test-semantic` | `--test TEST-X` | Test（アノテーション・ソース全文）、covers先VOレコード、全targetの対象関数ソース全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約 |
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
-| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象 VO レコード、spec_refs、対象関数ソース全文とシグネチャ、関連 Test の intent |
+| `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、spec_refs、全targetの対象関数ソース全文とシグネチャ、関連Testのintent |
 
-`impl-consistency` のバンドル生成時、対象シンボルが解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。
+`impl-consistency` のバンドル生成時、宣言targetのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。
 
 ### 8.2 バンドル JSON スキーマ（test-semantic の例）
 
@@ -674,11 +705,14 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
       "spec_refs": [{ "spec": "SPEC-BASIC-001", "section": "4.2" }],
       "content_hash": "sha256:..." }
   ],
-  "target": {
-    "locator": "src/parser.rs::Parser::parse",
-    "source": "pub fn parse(...) { ... }",
-    "content_hash": "sha256:..."
-  },
+  "targets": [
+    {
+      "target": "src/parser.rs::Parser::parse",
+      "locator": "src/parser.rs::Parser::parse",
+      "source": "pub fn parse(...) { ... }",
+      "content_hash": "sha256:..."
+    }
+  ],
   "related_tests": [ { "id": "TEST-PARSER-003", "intent": "..." } ],
   "sibling_tests": [ { "id": "TEST-PARSER-045", "intent": "..." } ],
   "static_audit": { "verdict": "PASS", "rules": [] },
@@ -750,7 +784,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 ```
 
 受理された提出は監査レコード（§3.6）として保存される。
-`subjects` にはバンドル生成時の全対象（Test・VO・対象関数、vo-coverage では SPEC の sha256）を記録する。
+`subjects` にはバンドル生成時の全対象（Test・VO・全targetの対象関数、vo-coverage では SPEC の sha256）を記録する。
 
 ### 8.5 有効性と多重監査
 
@@ -837,7 +871,7 @@ stdout / stderr の全文は `cache/logs/<ULID>.log` へ保存し、Evidence の
 Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
-- `hashes`：実行直前のスキャン結果から、テスト関数と対象関数の内容ハッシュ（§1.3）を記録。
+- `hashes`：実行直前のスキャン結果から、テスト関数hashと、全宣言targetの正規化参照・対象関数hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
 ---
@@ -862,22 +896,28 @@ coverageは独立した `CoverageAdapter` capabilityとして扱う。提供さ�
 
 ### 10.2 判定
 
-出力 JSON（llvm-cov export 形式）の `data[].functions[]` から対象関数を検索する。
+出力 JSON（llvm-cov export 形式）の `data[].functions[]` から、Testが宣言する各対象関数を検索する。
 
 ```text
 一致条件：
   demangle 済み関数名の末尾が locator の item-path と一致し、
   かつ filenames のいずれかの末尾が locator の path と一致する
 
-ジェネリック関数は複数インスタンスが現れるため、count を合算する。
+ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。
 
-判定：
-  count > 0        → PASS
-  count == 0       → FAIL
+target別判定：
+  count > 0          → PASS
+  count == 0         → FAIL
   関数が見つからない → UNKNOWN（インライン化・cfg 除外等の可能性）
+
+Test単位集約：
+  FAILが1件以上                    → FAIL
+  FAILなし、UNKNOWNが1件以上        → UNKNOWN
+  1件以上の全宣言targetがPASS       → PASS
 ```
 
-結果は Evidence の `target_execution` フィールドへ記録する。
+各targetの参照・result・countとTest単位集約結果をEvidenceの`target_execution`へ記録する。
+target別entryの欠落、重複、余分なentry、または宣言targetとの不一致をPASSとして保存しない。
 
 ### 10.3 実行モードの整理
 
@@ -905,7 +945,7 @@ coverageは独立した `CoverageAdapter` capabilityとして扱う。提供さ�
 | `impl_consistency` | TEST / VO | 有効な impl-consistency 監査の合成。対象シンボル不在は MISSING |
 | `test_execution` | TEST | 有効な Evidence が存在すれば PASS、なければ NOT_EXECUTED |
 | `runtime_result` | TEST | 有効な Evidence の result（PASS / FAIL） |
-| `target_execution` | TEST | 有効な Evidence の target_execution（checked: false は NOT_CHECKED） |
+| `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値（checked: falseはNOT_CHECKED） |
 | `evidence_validity` | TEST | §11.2 の判定 |
 | `test_traceability` | repository scan result | 全Discovered Testが有効なManaged Test Entityへちょうど1件対応し、coversが1件以上かつ全VO参照を解決できればPASS |
 
@@ -922,7 +962,7 @@ coverageは独立した `CoverageAdapter` capabilityとして扱う。提供さ�
 対象 Test の Evidence のうち最新のものについて：
 
 1. evidence.hashes.test_fn == 現在のテスト関数ハッシュ
-2. evidence.hashes.target_fn == 現在の対象関数ハッシュ
+2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_fnが現在の対象関数hashと一致
 3. evidence.revision.commit が非 null
 
 1〜3 すべて成立 → evidence_validity = PASS

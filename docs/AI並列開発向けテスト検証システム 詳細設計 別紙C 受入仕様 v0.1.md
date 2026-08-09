@@ -30,6 +30,7 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - 存在しないVOを参照するTest（E-SCAN-003、`test_traceability = MISMATCH`）
 - Test IDが衝突するTest（E-SCAN-002、`test_traceability = MISMATCH`）
 - `@vtest.case`を持つtable-driven Test
+- 複数targetを宣言し、targetごとにPASS / FAIL / UNKNOWNが異なるintegration Test
 - PASS、FAIL、MISMATCH、MISSING、NOT_CHECKED、NOT_EXECUTED、STALE、UNKNOWNを生じる入力
 - Testまたはtargetのhash変更によって無効になるAudit / Evidence
 
@@ -55,7 +56,7 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 - DA-001〜DA-006とW-DA-101は本冊 §7の判定条件に従う。
 - 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 - 正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。
-- Audit Recordは対象Test、target、configの現在hashへ束縛される。
+- Audit Recordは対象Test、全宣言target、configの現在hashへ束縛される。
 
 #### 18.3.3 execution・Evidence
 
@@ -65,7 +66,9 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 - Evidence writerはadapter IDを必ず記録する。
 - Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
-- Testまたはtargetの内容hashがEvidenceと異なる場合はSTALEになる。
+- Evidenceは全宣言targetの参照と内容hashを重複なく保持する。
+- Test、宣言target集合、またはいずれかのtarget内容hashがEvidenceと異なる場合はSTALEになる。
+- 単数互換形のEvidenceは、現在のTestがtargetをちょうど1件持つ場合だけ有効性を評価できる。複数target Testでは有効なPASSにしない。
 - Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。
 
 #### 18.3.4 semantic audit protocol
@@ -77,26 +80,29 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 
 #### 18.3.5 verify・report
 
-- 基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
-- 全12項目がPASSの場合だけ要求scopeをOKとする。
-- 12項目のそれぞれについて、その項目だけを非PASSにしたfixtureが総合NGになる。
+- 完全検証は基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
+- 完全検証は全12項目がPASSの場合だけOKとする。
+- 完全検証fixtureで12項目のそれぞれを単独で非PASSにすると総合NGになる。
 - 管理済みgraph側の11項目がすべてPASSでも、未登録Testが1件あれば`test_traceability`により総合NGになる。
-- `FAIL`、`MISMATCH`、`MISSING`、`NOT_CHECKED`、`NOT_EXECUTED`、`STALE`、`UNKNOWN`のいずれも総合PASSへ昇格しない。
+- 要求scope内の`FAIL`、`MISMATCH`、`MISSING`、`NOT_CHECKED`、`NOT_EXECUTED`、`STALE`、`UNKNOWN`のいずれも総合PASSへ昇格しない。
 - 限定scopeは要求項目だけを集約し、scope外をNOT_CHECKEDのまま表示する。
+- 限定scopeは要求された項目・entityがすべてPASSなら「要求scope内のOK」とし、完全検証OKとは表示しない。
 - reportはREQ → VO → Testの構造と、各非PASSの根拠をtext / JSONで返す。
 - text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。
 
 #### 18.3.6 Target Execution Verification
 
-- 宣言targetを実行したTestは計測countが1以上でPASSになる。
-- PASSしたTestでも宣言targetの計測countが0ならFAILになる。
+- 各宣言targetについて、計測countが1以上ならtarget別PASS、0ならtarget別FAIL、確実に同定または計測できなければtarget別UNKNOWNになる。
+- 複数target Testの集約値は、1件でもtarget別FAILがあればFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、1件以上の全宣言targetがPASSの場合だけPASSになる。
+- target AがPASSでもtarget BがFAILまたはUNKNOWNなら、Test単位の`target_execution`をPASSにしない。
+- `target_execution.checked: true`のEvidenceでtarget別entryが欠落、重複、または宣言target集合と不一致ならPASSにしない。
 - coverage capabilityまたは計測toolが利用できない場合はNOT_CHECKEDとなり、PASSにならない。
 - coverage解析限界はUNKNOWNとなり、PASSにならない。
 
 #### 18.3.7 Structured Test Operation
 
 - Form Schemaの必須値、未知field、symbol、VO / Test参照、identifier、pathを検証する。
-- create結果はscanで同じTest ID・intent・covers・targetとして認識される。
+- create結果はscanで同じTest ID・intent・covers・targetsとして認識される。
 - editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。
 - 同じdesired stateの再適用は冪等になる。
 - Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004となり、ファイルを変更しない。
@@ -119,6 +125,7 @@ adapterを使用できる。synthetic adapterは配布対象のproduction langua
 - config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。
 - config writerと`vtest init`はversion 2のadapter namespaceを出力する。
 - Test JSON writerは`execution`を常に出力し、`rust-cargo` Testについてだけwire codecが互換field `filter` / `package` / `test_target`を追加する。
+- Test JSON writerは1件以上の`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。複数targetを単数fieldへ縮約しない。
 - synthetic TestのJSONはRust互換fieldを省略し、空値またはdummy値を出力しない。
 - `execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。
 - `execution`とRust互換fieldが矛盾する入力を拒否する。

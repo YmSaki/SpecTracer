@@ -368,7 +368,7 @@ Test IDをハンドルとして、
 Test ID
 ├─ Test Intent
 ├─ Verification Obligations
-├─ Source Target
+├─ Source Targets
 ├─ Test Function
 ├─ Location
 ├─ Audit Results
@@ -401,6 +401,8 @@ Test ID
 # 8. Source Target
 
 テスト対象となる実装コードを識別可能でなければならない。
+
+1つのTestは1件以上のSource Targetを宣言できる。複数targetを宣言した場合も、各targetを独立に識別し、代表1件へ縮約してはならない。
 
 ソースコード自体への恒久ID埋め込みは必須としない。
 
@@ -559,7 +561,9 @@ PASS結果がどのコード状態に対して得られたものか追跡可能�
 
 対象実装変更前に得られたPASSを、無条件に現在のPASSとして利用してはならない。
 
-現在のTest・対象実装とEvidenceの対応関係を確認できない場合、完全検証では有効なPASS Evidenceとはみなさない。
+現在のTest・宣言target集合・各対象実装とEvidenceの対応関係を確認できない場合、完全検証では有効なPASS Evidenceとはみなさない。
+
+Evidenceは、Testが宣言する全targetについてtarget参照と対象内容hashを保持し、現在の宣言target集合および各対象内容hashと照合可能でなければならない。
 
 ---
 
@@ -572,6 +576,8 @@ PASS結果がどのコード状態に対して得られたものか追跡可能�
 を確認可能であること。
 
 TestがPASSしても、対象実装を実際には通っていない場合、そのTestを完全検証済みOKとしない。
+
+複数targetを宣言したTestでは、各targetの実行を個別に計測する。1件でも実行回数が0なら`FAIL`、1件でも解析不能でかつ`FAIL`がなければ`UNKNOWN`とし、全targetの実行を確認できた場合だけ`PASS`とする。
 
 この検証は、完全検証モードではデフォルトで有効とする。
 

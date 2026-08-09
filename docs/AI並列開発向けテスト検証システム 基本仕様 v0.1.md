@@ -29,7 +29,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Test**：Test ID で識別されるテスト関数。VO の実装単位であり、VO と N:M の対応を持ちうる。
 - **Test Intent**：Test が「何を検証するか」を、コードを読まずに判断できる形で表した宣言情報。テストコードのアノテーションとして記述する（§6）。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能な地点。プロジェクト相対パスとシンボルの組（ロケータ）で識別する。
-- **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、対象コードの内容ハッシュを含む。
+- **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetの参照・内容ハッシュ・実行計測結果を含む。
 - **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
 - **Managed Test Entity**：有効な一意Test ID、1件以上の解決可能なcovers、その他の必須metadataを持つTest Entity。
 - **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
@@ -101,6 +101,8 @@ Execution Evidence
 Test → VO（covers）、Test → SRC（target）の関係は、テストコードのアノテーションから決定論的に導出できる。
 これらを外部ファイルへ重複保存しない。
 
+Evidenceに含むtarget参照は、target別の実行事実と内容hashを束縛する実行時snapshot keyであり、Test → SRC関係の正典ではない。graphと現在のtarget集合は常にTest annotationから再構築し、Evidenceのtarget参照から関係を生成または修復しない。
+
 外部レコードとして保存するのは、どちらか一方のエンティティに自然に所属しない関係（VO 間の依存、Test 間の補完関係など）だけとする。
 この方針により、テスト編集時に同期しなければならない外部レコードを最小化する。
 
@@ -113,6 +115,8 @@ adapter IDは設定内で一意でなければならず、同一adapter内のroo
 core domainの`TestEntity`は、言語・runner非依存の `execution`（adapter、project、suite、opaque selector）だけを実行座標として持つ。`filter`、`package`、`test_target`は`TestEntity`のfieldではない。
 
 Test JSONのwire compatibility layerは`execution`を常に出力する。`rust-cargo` Testについてだけ、`rust-cargo` adapterのcodecがversion 1互換field `filter`、`package`、`test_target`を追加出力できる。非Rust Testではこれらを省略し、空値、dummy値、Rust既定値を生成しない。
+
+Test JSONは1件以上の`targets` listを常に出力する。targetが1件の場合だけ、同じ値の単数互換field `target`を追加出力できる。複数targetを単数fieldへ縮約しない。readerは`target`だけの入力を1要素listとして扱い、`targets`と`target`が併存する場合は完全一致を必須とする。
 
 Test入力に `execution` がない場合は、`rust-cargo` codecだけが完全で相互整合するRust互換fieldからdescriptorを導出できる。`execution`と互換fieldが併存する場合は同じ実行座標を表さなければならない。欠落・矛盾時は入力を拒否し、推測で実行可能として扱わない。
 
@@ -158,6 +162,8 @@ SPEC / REQ / VO / TEST の ID は人間可読な形式とし、利用者（人�
 
 Test → SRC の対応はアノテーションから、SRC → Test の逆引きはスキャン結果から提供する（要件定義 §8）。
 
+1つのTestは1件以上のSource Targetを持つ。Test → SRCは1:Nであり、各target参照を個別に保持する。
+
 ---
 
 ## 4. 状態モデル
@@ -195,7 +201,7 @@ Test → SRC の対応はアノテーションから、SRC → Test の逆引き
 | 7 | `impl_consistency` | 仕様・VO・Test と対象実装が一致しているか | AI監査（理由必須）＋決定論（対象シンボル存在） |
 | 8 | `test_execution` | Test が実際に実行されたか | 決定論 |
 | 9 | `runtime_result` | 実行結果が PASS だったか | 決定論 |
-| 10 | `target_execution` | 宣言された対象コードが実行経路へ入ったか | 決定論（カバレッジ計測） |
+| 10 | `target_execution` | 宣言されたすべての対象コードが実行経路へ入ったか | 決定論（カバレッジ計測） |
 | 11 | `evidence_validity` | Evidence が現在の Test・対象実装・リビジョンに対して有効か | 決定論 |
 | 12 | `test_traceability` | 発見された全Testが、1件のmanaged Test Entityと1件以上の解決可能なVOへ対応するか | 決定論 |
 
@@ -289,7 +295,7 @@ fn rejects_invalid_utf8() {
 |---|---|---|
 | `@vtest.id` | 必須 | Test ID。全体で一意 |
 | `@vtest.covers` | 必須 | 検証する VO ID。複数指定可（N:M 対応。要件定義 §4.4） |
-| `@vtest.target` | 必須 | 対象のロケータまたは SRC ID |
+| `@vtest.target` | 1件以上必須 | 対象のロケータまたは SRC ID。adapterのTest種別が許可する場合は複数行で宣言できる |
 | `@vtest.intent` | 必須 | 何を検証するかの一文 |
 | `@vtest.input` | 任意 | 入力条件 |
 | `@vtest.expect` | 任意 | 期待結果 |
@@ -332,7 +338,7 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 少なくとも次を検出する。
 
 - 定数のみの assertion（`assert!(true)` 等）
-- 宣言された対象シンボルを呼び出していない
+- 宣言されたtargetのうち、呼び出しを確認できない対象シンボルがある
 - 対象を呼び出しているが、その結果を一切検証していない
 - 自己比較（`assert_eq!(x, x)` 等）
 - 空のテスト本体
@@ -392,6 +398,7 @@ VO 分解の網羅性は `vo-coverage` 種別の意味監査として実施す�
 
 仕様・VO・Test と対象実装の一致は `impl-consistency` 種別の意味監査として実施する（要件定義 §13）。
 決定論的に検証できる部分（対象シンボルの存在、シグネチャの取得）はバンドル生成時に検証し、シンボルが存在しなければ `MISSING` とする。
+複数target Testでは、全targetの対象関数ソースとシグネチャをバンドルに含め、判定対象から一部targetを省略しない。
 不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。
 
 ### 7.6 Partition と組合せ検証
@@ -416,16 +423,17 @@ Evidence には少なくとも次を含める。
 - Test ID と実行結果（PASS / FAIL）
 - 実行したadapter ID
 - 実行時のリポジトリリビジョン（Git commit hash）と dirty フラグ
-- テスト関数ソースと対象関数ソースの内容ハッシュ
+- テスト関数ソースの内容ハッシュ、および全宣言targetの参照と対象関数ソースの内容ハッシュ
 - 実行日時と実行方式
-- Target Execution Verification の結果（実施した場合）
+- Target Execution Verification のtarget別結果とfail-closed集約結果（実施した場合）
 
 ### 7.8 Evidence の鮮度検証
 
 検証時、Evidence は次の条件をすべて満たす場合のみ有効とする（要件定義 §15）。
 
 - Evidence 記録時のテスト関数内容ハッシュが現在と一致する
-- Evidence 記録時の対象関数内容ハッシュが現在と一致する
+- Evidenceのtarget参照集合が現在のTestの宣言target集合と重複なく一致する
+- Evidence記録時の各target内容ハッシュが、現在解決される各対象関数の内容ハッシュと一致する
 - Evidenceのadapter IDが現在のTestのexecution adapterと一致する
 - リビジョンが特定できている（dirty 状態での実行は Evidence に明示され、完全検証では内容ハッシュ一致を必須とする）
 
@@ -434,12 +442,14 @@ Evidence readerはadapter IDを欠くrecordも受理できる。現在のTestが
 
 ### 7.9 Target Execution Verification
 
-宣言された対象コードが実際にテスト実行経路へ入ったことを、カバレッジ計測により確認する(要件定義 §16)。
+宣言されたすべての対象コードが実際にテスト実行経路へ入ったことを、targetごとのカバレッジ計測により確認する(要件定義 §16)。
 
 - 完全検証ではデフォルト有効。
 - 高速な限定 scope 検証では省略可能。省略時は `NOT_CHECKED`。
 - 計測環境（カバレッジツール）が利用できない場合も `NOT_CHECKED` とし、PASS へ変換しない。
-- 対象シンボルの実行回数が 0 の場合、`target_execution` は `FAIL` とする。
+- 各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、対象関数を確実に同定または計測できなければ`UNKNOWN`とする。
+- Test単位の`target_execution`は、target別結果に1件でも`FAIL`があれば`FAIL`、`FAIL`がなく1件でも`UNKNOWN`があれば`UNKNOWN`、1件以上の全targetが`PASS`の場合だけ`PASS`とする。
+- target別結果の欠落、重複、または現在の宣言target集合との不一致を、全target計測済みの`PASS`として扱わない。
 
 ### 7.10 集約とレポート
 

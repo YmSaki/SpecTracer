@@ -23,6 +23,9 @@ Testを含むJSONは本冊 §5.2の `execution` を必ず返す。`rust-cargo` T
 wire compatibility layerが`filter`、`package`、`test_target`を追加できる。これらは
 `TestEntity`のfieldではない。非Rust TestではRust互換fieldを省略し、空値またはdummy値を返さない。
 
+Test JSONは1件以上の`targets` listを必ず返す。targetが1件の場合だけ同値の単数互換field`target`を
+追加できる。複数target Testでは単数fieldを省略し、先頭targetを代表値として返さない。
+
 Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が
 与えられた場合だけである。`execution`と互換fieldが併存する場合は一致を必須とする。
 
@@ -200,7 +203,7 @@ Project checks:
    │  │  │  ├─ semantic_audit           FAIL  (audit 01J8XW...)
    │  │  │  ├─ test_execution           PASS
    │  │  │  ├─ runtime_result           PASS
-   │  │  │  ├─ target_execution         PASS  (count=3)
+   │  │  │  ├─ target_execution         PASS  (2/2 targets PASS)
    │  │  │  └─ evidence_validity        PASS
    │  │  └─ ...
    │  └─ VO-PARSER-UTF8-004             MISSING (no covering test)
@@ -212,6 +215,9 @@ Result: NG
 `test_traceability`はrepository-level項目であり、要求された場合はREQ / VO / TESTのentity scopeに
 かかわらず全Discovered Testを評価する。非PASS時は、未登録または不正対応の各Testについてadapter ID、
 source location、diagnostic code、判定値をProject checks配下に表示する。JSONでも同じ根拠一覧を返す。
+
+Evidenceが複数targetの計測結果を持つ場合、text reportはTest単位の集約値に加えて各targetの参照、
+result、countを子要素として表示する。JSONは本冊 §3.7のtarget別listを欠落なく返す。
 
 各行のprefixは、その行の祖先に後続兄弟があれば `│  `、なければ空白3文字を階層ごとに連結し、
 現在nodeが途中の兄弟なら `├─ `、最後の兄弟なら `└─ ` を付けて構成する。最上位nodeにも
@@ -375,9 +381,11 @@ Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し�
 次の2種を組込Formとして同梱する。
 
 - `rust-unit-function`（§14.1）
-- `rust-integration`：`target` を必須とせず（結合テストでは単一シンボルに限定できない場合がある）、代わりに `targets`（複数ロケータ）を受け取る。他は同一
+- `rust-integration`：単一の`target` fieldに代えて、1件以上のロケータを持つ`targets`を必須入力として受け取る。他は同一
 
-`@vtest.target` が必須アノテーションであるため、`rust-integration` では `targets` の先頭を `@vtest.target` に、残りを `@vtest.related` ではなく追加の `@vtest.target` 行として出力する（`target` キーは integration 種別に限り複数行を許容する。本冊 §4.1 の例外として実装する）。
+`rust-integration`は`targets`の全要素を入力順に個別の`@vtest.target`行として出力する。
+空listと重複targetをE-OP-001で拒否する。`target`キーはintegration種別に限り複数行を許容する
+（本冊 §4.1の例外）。先頭以外のtargetを`@vtest.related`へ変換しない。
 
 ### 14.4 テスト種別ごとのフォーム拡張
 
