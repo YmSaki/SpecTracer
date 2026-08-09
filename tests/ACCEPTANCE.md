@@ -40,9 +40,9 @@ alone is not promoted to acceptance evidence.
 | M8 | `test create` output is recognized on rescan | `m8_test_create_is_scanned_and_exposed_by_queries` | PASS |
 | M8 | `test edit` changes no other Test bytes or hash | `m8_edit_changes_only_selected_test_and_preserves_other_hash` | PASS |
 | M8 | Reapplying desired state is byte-idempotent | `m8_reapplying_same_edit_is_byte_idempotent` | PASS |
-| M9 | Every MCP tool matches the CLI JSON shape | implement MCP parity matrix | NOT_CHECKED |
-| M9 | Annex A §13.3 completes over MCP stdio | implement reference-flow integration test | NOT_CHECKED |
-| M9 | Invalid input returns code/message/candidates | implement MCP error-contract test | NOT_CHECKED |
+| M9 | Every MCP tool matches the CLI JSON shape | `m9_all_advertised_tools_match_cli_envelopes` | PASS |
+| M9 | Annex A §13.3 completes over MCP stdio | `m9_reference_flow_completes_over_mcp_stdio` | PASS |
+| M9 | Invalid input returns code/message/candidates | `m9_protocol_and_error_matrix_is_fail_closed_without_writes` | PASS |
 
 `PASS*` follows the authoritative observable contract: basic specification §11
 maps exit 1 to NG, detailed design §5.4 says warnings do not change verification,
@@ -114,10 +114,11 @@ create` supports dry-run and produces a Test visible to scan/show/list/query;
 editing one Test preserves another Test's content hash; and repeating the same
 desired `covers` state produces no byte changes.
 
-M9 now has a transport smoke gate: `m9_acceptance` starts the MCP stdio server,
-checks initialization and the complete tool registry, compares a `scan` tool
-result byte-for-byte with the CLI envelope, runs the create/query/audit/run
-reference path, and verifies candidate-bearing invalid input. The three full
-M9 criteria (all-tool parity matrix, complete reference flow, and every
-transport error case) remain `NOT_CHECKED` until their dedicated matrix is
-implemented.
+M9 is covered by a transport and parity gate: `m9_acceptance` starts the MCP
+stdio server, checks initialization and the complete 22-tool registry with
+focused schemas, compares applicable tool envelopes and values with the CLI
+(normalizing only generated record IDs/timestamps), runs the complete
+specification/requirement/VO/approval/form/test/audit/run/verify/report flow,
+and exercises malformed JSON-RPC, unsupported methods, invalid arguments,
+candidate-bearing symbols, and rejected audit submissions. Rejected inputs
+are checked for `isError` envelopes and absence of unintended audit writes.
