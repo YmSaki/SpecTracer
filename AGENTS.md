@@ -20,7 +20,7 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 
 ## Canonical specification writing
 
-- Requirements, the basic specification, the detailed design, and its annexes describe only the currently normative system contract: required states, observable behavior, interfaces, constraints, and acceptance criteria.
+- Requirements, the basic specification, the detailed design, and its normative annexes describe only the currently normative system contract: required states, observable behavior, interfaces, constraints, and acceptance criteria.
 - Do not put implementation chronology, migration history, before-and-after comparisons, release-introduction history, refactoring procedure, or development phases in canonical specifications.
 - Record implementation history in `CHANGELOG.md`, migration and refactoring procedure in the applicable plan, and prospective work in `ROADMAP.md`.
 - Write an established architectural responsibility directly. For example, specify what an adapter owns, not when or how that responsibility was moved into the adapter.

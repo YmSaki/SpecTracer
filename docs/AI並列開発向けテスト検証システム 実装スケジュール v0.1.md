@@ -111,7 +111,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 ### Lunaへ並列化できる作業
 
-- `explorer`: Rust workspace、Testターゲット、filter/package/test_target抽出規則を設計箇所と対応付ける。読み取りのみ。
+- `explorer`: Rust workspace、Test target集合、`rust-cargo` wire互換fieldのencode規則を設計箇所と対応付ける。読み取りのみ。
 - `tester`: fixtureとE-SCAN-002〜010、W-SCAN-101、JSON構造、終了コードの統合テストを担当する。
 - `reviewer`: スキャナがcovers/targetを外部レコードへ重複保存していないか、解析限界をPASSにしていないかを独立確認する。
 
@@ -119,7 +119,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 - 別紙B M1の全完了条件を満たす。
 - 正常ケース0、診断あり1、使用方法エラー2、内部エラー3の区別を確認する。
-- `filter`、`package`、`test_target` が実際の `cargo test` 起動に利用できる精度であることを確認する。
+- `rust-cargo` wire codecが出力する互換field `filter`、`package`、`test_target`が`execution`と一致し、Cargo起動座標へ損失なく変換できることを確認する。
 
 ## 6. M2 レコード管理とVO実体化
 
@@ -169,7 +169,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 1. Testから `cargo test` の起動単位を解決する。
 2. stable toolchain出力の結果パーサと矛盾検出を実装する。
-3. Git revision、dirty、Test/target内容ハッシュを実行直前に取得する。
+3. Git revision、dirty、Test内容hash、全宣言targetの参照と内容hashを実行直前に取得する。
 4. EvidenceをULIDファイルへ新規追加し、raw logをcacheへ保存する。
 5. `vtest run --fast` とEvidence鮮度判定を実装する。
 
@@ -182,6 +182,7 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 
 - 別紙B M4の全完了条件を満たす。
 - Testまたはtarget変更後は以前のEvidenceが必ずSTALEになる。
+- 複数target Evidenceのentry欠落、重複、余剰を有効なPASSとして扱わない。
 - E-EXEC-001〜003の分岐とEvidence生成有無を再現する。
 
 ## 9. M5 意味監査プロトコル
@@ -233,19 +234,20 @@ M1、M6、M8は後続への影響が大きい。これらの予算不足は仕�
 ### 実装順
 
 1. cargo-llvm-covの利用可否検出を実装する。
-2. Test単位でcoverageを採取し、ロケータと実行countを対応付ける。
-3. Evidenceの `target_execution` へ計測結果を記録する。
+2. Test単位でcoverageを採取し、全宣言targetのロケータと実行countを個別に対応付ける。
+3. Evidenceの `target_execution.targets` へtarget別結果を記録し、fail-closed集約値を計算する。
 4. `vtest run` を既定の計測モード、`--fast` を非計測モードとして整理する。
 
 ### Lunaへ並列化できる作業
 
-- `tester`: 対象通過、対象未通過、複数行関数、ツール未導入のケースを担当する。
+- `tester`: 対象通過、対象未通過、複数targetの一部未通過・解析不能、複数行関数、ツール未導入のケースを担当する。
 - `reviewer`: ツール未導入をPASSにせずW-EXEC-101とNOT_CHECKEDにすることを確認する。
 
 ### ゲート
 
 - 別紙B M7の全完了条件を満たす。
 - Test単位計測が他Testの実行を混入させない。
+- 複数targetは各targetを独立に判定し、全targetがPASSの場合だけTest単位PASSになる。
 - 計測不能時は完全検証がOKにならない。
 
 ## 12. M8 Structured Test Operation

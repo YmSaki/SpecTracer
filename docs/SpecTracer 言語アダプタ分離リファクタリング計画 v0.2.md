@@ -241,6 +241,7 @@ core は各文字列を解釈しない。解釈とcommand生成は該当 adapter
 
 ```text
 TestEntityはexecutionだけを実行座標として保持
+TestEntity.targetsは1件以上の言語非依存TargetRefを保持
 filter/package/test_target/TestTargetはvtest-modelから除去
 rust-cargo TestWireCodecがversion 1互換fieldをwireへ追加
 非Rust TestではRust互換fieldを省略
@@ -264,6 +265,8 @@ core domainへ固有fieldを追加しない。`execution`を欠くversion 1入�
 - 既存Evidenceは書き換えない。
 - `RunnerInfo.kind`、`command`、`exit_code`は既にrunner非依存なので維持する。
 - `TargetExecution.method`もstringのためcoverage provider名を保持できる。
+- Evidenceは全宣言targetについて正規化TargetRef、対象hash、target別count / resultを保持し、Test単位結果をfail-closedで集約する。
+- 単数形のtarget hash / execution resultは、現在のTestがtargetをちょうど1件持つ場合だけ互換入力として扱う。
 - adapter IDをEvidenceへ追加する場合はoptional fieldとし、旧recordの欠落を
   読取り互換のため許容する。alpha.2の新recordではadapter IDを必須で記録する。
 - 旧recordのadapter欠落は、現在のTestが `rust-cargo` でlegacy runner kindとhashから
@@ -370,6 +373,8 @@ adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧�
 - capability lookupが決定論的である。
 - API crateに`cargo`、`syn`、`rustc-demangle`固有型が露出しない。
 - `TestEntity`が`filter`、`package`、`test_target`、`TestTarget`を含まない。
+- `TestEntity.targets`が1件以上のTargetRefを表現し、複数targetを代表1件へ縮約しない。
+- Test JSONの`targets` listと単数互換fieldの整合を検証し、複数targetでは単数fieldを出力しない。
 - `TestWireCodec`が`rust-cargo` wire fieldとのround-tripを保証する。
 - synthetic TestのJSONにRust互換fieldが存在しない。
 
@@ -393,6 +398,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 
 - M1、M2、M8 acceptanceが既存fixtureで全PASS。
 - annotationを持たないTestもDiscovered Testとして返し、managed entity欠落を保持する。
+- integration Testの複数targetを欠落なく返し、重複targetを拒否する。
 - `rust-cargo` scan JSONの互換fieldがwire layerで維持され、execution descriptorと一致する。
 - core scan resultとsynthetic TestがRust固有fieldを要求しない。
 - editが1 Test境界を維持する。
@@ -418,6 +424,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 - M4、M7 acceptanceが全PASS。
 - build failureでEvidenceを記録しない。
 - target変更でEvidenceがSTALEになる。
+- Evidenceが全宣言targetのhashとtarget別計測結果を保持し、FAIL > UNKNOWN > PASSで集約する。
 - llvm-cov不在はNOT_CHECKEDのままである。
 - `vtest-exec`にCargo / llvm-cov / rustc-demangle固有処理が残らない。
 

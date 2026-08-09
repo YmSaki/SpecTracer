@@ -34,6 +34,7 @@ tests/fixtures/calc/
 - アノテーションのない `#[test]`（W-SCAN-101、`test_traceability = MISSING`）
 - 存在しないVOを参照するテスト（E-SCAN-003、`test_traceability = MISMATCH`）
 - table-drivenテスト（`@vtest.case` 付き）
+- 複数targetを宣言し、一方だけを実行するintegration Test
 
 ## 3. マイルストーン一覧
 
@@ -42,6 +43,7 @@ tests/fixtures/calc/
 - 実装：`vtest-model`、`vtest-store`（読み込みのみ）、`vtest-scan`、`vtest init` / `vtest scan` / `vtest doctor`、診断出力（text / JSON）
 - 完了条件：
   - fixtureのdiscovered Testとmanaged Test Entityを区別して抽出できる。
+  - 複数target Testの全TargetRefを宣言順に抽出し、重複を拒否できる。
   - `TestEntity`は中立な`execution`を持ち、Rust互換fieldは`rust-cargo` wire codecだけが入出力する。
   - E-SCAN-002〜010、W-SCAN-101がfixtureの該当箇所で検出される。
   - 未登録Testが存在する場合、`test_traceability`が`MISSING`になる。
@@ -69,6 +71,7 @@ tests/fixtures/calc/
 - 実装：`vtest-exec`（runner起動、結果parse、Evidence記録）、`vtest run --fast`、鮮度判定（本冊 §11.2）
 - 完了条件：
   - fixtureの全登録Testが実行され、TestごとにEvidenceが1件記録される。
+  - Evidenceが全宣言targetの参照と内容hashを重複なく記録する。
   - 対象関数を書き換えた状態の検証で`evidence_validity`がSTALEになる。
   - build failure fixtureでE-EXEC-001が出てEvidenceが記録されない。
 
@@ -97,6 +100,8 @@ tests/fixtures/calc/
 - 完了条件：
   - 対象関数を実際に通るTestで`target_execution`がPASS（count ≥ 1）になる。
   - 対象を呼ばないがPASSするTestでFAILになる。
+  - 複数target Testで一方がPASS、他方がFAILならTest単位集約がFAILになる。
+  - 複数target TestでFAILがなく一方がUNKNOWNならTest単位集約がUNKNOWNになる。
   - coverage toolを利用できない環境でW-EXEC-101が出てNOT_CHECKEDになる。
 
 ### M8 Structured Test Operation
