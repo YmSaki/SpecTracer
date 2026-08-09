@@ -122,6 +122,17 @@ cargo install --path crates/vtest-cli
 vtest --help
 ```
 
+### Install a prebuilt release
+
+Version tags on `main` are built for Linux x86_64, macOS x86_64, and Windows
+x86_64 by GitHub Actions. Each release contains a compressed archive and a
+SHA-256 checksum file. Download the matching asset from the
+[GitHub Releases page](https://github.com/YmSaki/SpecTracer/releases/latest),
+extract `vtest` (or `vtest.exe` on Windows), and put it on your `PATH`.
+
+Release tags must use the `vMAJOR.MINOR.PATCH` form and match the workspace
+version in `Cargo.toml`; tags that are not reachable from `main` are rejected.
+
 ### 2. Initialize verification metadata
 
 ```bash
@@ -377,6 +388,19 @@ Exit codes are designed for automation:
 | `3` | internal error |
 
 MCP stdio support is complete for the v0.1 user-facing scope and delegates to the same CLI behavior. Full tool-by-tool JSON parity, the complete reference flow, notification/error handling, and the transport error matrix are accepted. Literal `rmcp` SDK interoperability is not claimed.
+
+---
+
+## Project documents
+
+- [Architecture](ARCHITECTURE.md) — crate boundaries, canonical data, and adapter seams.
+- [Development guide](DEVELOPMENT.md) — local setup, Git Flow, and release preparation.
+- [Testing guide](TESTING.md) — required checks and acceptance evidence.
+- [Roadmap](ROADMAP.md) — completed milestones and planned language adapters.
+- [Contributing guide](CONTRIBUTING.md) — branch, pull request, and review expectations.
+- [Changelog](CHANGELOG.md) — user-visible changes.
+- [Security policy](SECURITY.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+- [License](LICENSE) — MIT terms for using and redistributing SpecTracer.
 
 ---
 
