@@ -14,7 +14,7 @@ Read the relevant documents before changing behavior:
 
 1. `docs/*要件定義・要件分解*.md` defines required guarantees and scope.
 2. `docs/*基本仕様*.md` defines externally observable behavior and wins over detailed design on conflict.
-3. `docs/*詳細設計 v0.1.md` and annexes A/B define implementation details, interfaces, and acceptance criteria.
+3. `docs/*詳細設計 v0.1.md` and normative annexes A/C define implementation details, interfaces, and acceptance criteria. Annex B is a non-normative implementation plan.
 
 If documents disagree, report the exact sections. Do not silently choose a repair. The known `spec_coverage` and stored-versus-derived VO status tensions remain review items, not permission to weaken fail-closed behavior.
 
@@ -37,7 +37,7 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 ## Architecture and implementation order
 
 - Preserve the dependency direction `vtest-cli / vtest-mcp -> vtest-verify / vtest-exec / vtest-audit / vtest-scan -> vtest-store -> vtest-model`, with `vtest-scan / vtest-audit / vtest-exec -> vtest-adapter-rust -> vtest-adapter-api -> vtest-model` for language-specific capabilities. `vtest-adapter-rust -> vtest-store` is limited to neutral Form Schema and canonical-layout types.
-- Do not declare an implementation or release complete until every applicable acceptance criterion in detailed-design annex B §18 is reproducible under `cargo test`.
+- Do not declare an implementation or release complete until every applicable acceptance criterion in detailed-design annex C §18 is reproducible under `cargo test`.
 - Prefer one record per file and append-only ULID records. Keep Relation records immutable; represent a change as removing the old record and adding a new one.
 - Use SHA-256 content binding exactly as detailed design §1.3 specifies. Changes must invalidate approvals, audits, and Evidence instead of carrying a prior pass forward.
 - Prefer Form Schema and desired-state Structured Test Operations. One test edit must not alter another test or ordinary implementation/helper/fixture code.
@@ -48,7 +48,8 @@ If documents disagree, report the exact sections. Do not silently choose a repai
 - Follow `docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md` W0-W8 in order; do not add production TypeScript, Go, C#, plugin ABI, LSP, or automatic repair policy in this release.
 - Keep `vtest-adapter-api` language and runner neutral. Rust parser, Cargo command construction, Rust AST audit, demangling, and llvm-cov handling belong only to `vtest-adapter-rust`.
 - Treat missing static-audit or coverage capabilities as `NOT_CHECKED`, a missing runner capability as `NOT_EXECUTED`, and analysis limits as `UNKNOWN`; never promote any of them to `PASS`. Reject unknown or duplicate adapter IDs and duplicate Test IDs across adapters.
-- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. Test JSON exposes `TestEntity.execution` and the version 1 compatibility fields, while core consumers use `execution`.
+- Read config versions 1 and 2 without rewriting them; `vtest init` writes version 2 adapter namespaces. `TestEntity` contains only `execution`; the `rust-cargo` wire codec owns version 1 compatibility fields and omits them for non-Rust Tests.
+- Full verification has 12 items. `test_traceability` is repository-level and is `PASS` only when every Discovered Test maps to exactly one Managed Test Entity with at least one resolvable VO; W-SCAN-101 remains a warning diagnostic but its underlying unregistered Test makes `test_traceability` non-passing.
 - CLI and MCP must compose the same adapter registry and retain the same JSON envelope and fail-closed diagnostics.
 
 ## Agent and skill use

@@ -12,7 +12,9 @@
 1. 要件定義・要件分解
 2. 基本仕様
 3. 詳細設計本冊
-4. 詳細設計別紙A・別紙B
+4. 詳細設計別紙A・別紙C
+
+詳細設計別紙Bは非正規の実装計画であり、正規仕様の優先順位には含めない。
 
 ### 0.1 開始条件
 
@@ -54,7 +56,7 @@ fixture、production実装の変更を開始しない。
 
 ### 1.1 達成すること
 
-- 11項目の検証状態、REQ / VO / Test の検証グラフ、Approval、Audit、
+- 12項目の検証状態、REQ / VO / Test の検証グラフ、Approval、Audit、
   Evidence、内容ハッシュ、fail-closed 集約を言語非依存の契約として維持する。
 - source discovery、symbol resolution、static audit、Structured Test Operation、
   test execution、coverage attribution をアダプタ能力として分離する。
@@ -186,7 +188,7 @@ registry は adapter ID の重複を拒否し、ID順の決定論的な列挙を
 | `vtest-scan` | adapter選択、結果merge、record integrity、graph、diagnostic集約 |
 | `vtest-audit` | adapter audit呼出し、config hash、AuditRecord追記、結果合成 |
 | `vtest-exec` | adapter runner呼出し、Git revision、raw log、Evidence追記 |
-| `vtest-verify` | 現行11項目、鮮度、scope、fail-closed集約 |
+| `vtest-verify` | 12項目、鮮度、scope、fail-closed集約 |
 | `vtest-cli` | 非対話CLI、registry composition、JSON envelope |
 | `vtest-mcp` | CLIと同一core呼出し、MCP transport、tool schema |
 
@@ -235,21 +237,20 @@ pub struct TestSuite {
 
 core は各文字列を解釈しない。解釈とcommand生成は該当 adapterだけが行う。
 
-### 4.2 `TestEntity` の段階移行
-
-第1段階は additive migration とする。
+### 4.2 `TestEntity` とwire compatibilityの分離
 
 ```text
-TestEntity.execution: ExecutionDescriptor を追加
-filter/package/test_target は legacy compatibility field として残す
-Rust scanner は execution と legacy fields の両方を同じ情報から生成
-core consumer は execution のみ参照
+TestEntityはexecutionだけを実行座標として保持
+filter/package/test_target/TestTargetはvtest-modelから除去
+rust-cargo TestWireCodecがversion 1互換fieldをwireへ追加
+非Rust TestではRust互換fieldを省略
 ```
 
-全consumer移行後、legacy fieldsをdeprecatedにする。削除はv0.2内で行わず、
-versioned JSON contractを定義した後の別マイルストーンとする。
+`vtest-adapter-api`のcodec contractはadapter固有propertyをopaque JSONとして扱い、
+core domainへ固有fieldを追加しない。`execution`を欠くversion 1入力は`rust-cargo` codecだけが
+完全で相互整合する互換fieldから復元する。非Rust Testへ空値またはdummy Rust値を入れない。
 
-これによりM1のscan JSONとMCP parityを不必要に破壊しない。
+これによりversion 1 scan JSONの読取り互換とMCP parityを維持しながら、domain modelを中立化する。
 
 ### 4.3 Source model
 
@@ -339,11 +340,12 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 
 変更対象：
 
-- 要件定義 §27
-- 基本仕様 §0、§2、§7.2〜7.10、§8、§11、§16
-- 詳細設計 §1、§2.2、§5、§7、§9、§10、§17、§19
+- 要件定義 §7、§17、§27
+- 基本仕様 §0〜§4、§7.1〜7.10、§8、§11、§16
+- 詳細設計 §0〜§2.2、§4〜§5、§7、§9〜§11、§17、§19
 - 別紙A §12〜15
-- 別紙B §18
+- 別紙B（非正規実装計画）
+- 別紙C §18
 - `AGENTS.md`
 
 完了条件：
@@ -354,21 +356,22 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 - Ownerが仕様PRを承認・mergeし、そのmerge済みrevisionを下流工程の基準として記録する。
 - M9がDONEである。
 
-W0 merge後、production実装より先に、別紙Bの受入基準から`tests/ACCEPTANCE.md`、
+W0 merge後、production実装より先に、別紙Cの受入条件から`tests/ACCEPTANCE.md`、
 adapter acceptance、fixtureを別commitで作る。必要な新規挙動は旧実装でFAILすることを確認する。
 この段階ではproduction実装を変更しない。acceptance成果物が確定してからW1を開始する。
 
 ### W1 adapter APIとneutral model
 
-成果：`vtest-adapter-api`、neutral execution descriptor、registry unit tests。
+成果：`vtest-adapter-api`、neutral execution descriptor、Discovered Test DTO、wire codec contract、registry unit tests。
 
 完了条件：
 
 - duplicate adapter IDを拒否する。
 - capability lookupが決定論的である。
 - API crateに`cargo`、`syn`、`rustc-demangle`固有型が露出しない。
-- `TestEntity.execution`がadditiveにserializeされる。
-- legacy fieldsとのRust変換round-tripが一致する。
+- `TestEntity`が`filter`、`package`、`test_target`、`TestTarget`を含まない。
+- `TestWireCodec`が`rust-cargo` wire fieldとのround-tripを保証する。
+- synthetic TestのJSONにRust互換fieldが存在しない。
 
 ### W2 config v2とRust adapter skeleton
 
@@ -389,7 +392,9 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 完了条件：
 
 - M1、M2、M8 acceptanceが既存fixtureで全PASS。
-- scan JSONのlegacy fieldsが維持され、新しいexecution descriptorも正しい。
+- annotationを持たないTestもDiscovered Testとして返し、managed entity欠落を保持する。
+- `rust-cargo` scan JSONの互換fieldがwire layerで維持され、execution descriptorと一致する。
+- core scan resultとsynthetic TestがRust固有fieldを要求しない。
 - editが1 Test境界を維持する。
 - `vtest-scan`に`syn`の直接利用が残らない。
 
@@ -423,6 +428,7 @@ Structured Test Operationを`vtest-adapter-rust`へ移す。
 完了条件：
 
 - M6、M9 acceptanceが全PASS。
+- `test_traceability`が全Discovered Testをrepository-levelで評価し、W-SCAN-101のTestをMISSINGにする。
 - 全MCP toolがCLIと同じregistryとenvelopeを使う。
 - adapter選択失敗のcode / message / candidatesがCLI/MCPで一致する。
 - reportはadapter metadataを根拠として表示できるが、scope外をPASSにしない。
@@ -441,7 +447,7 @@ Test / Sourceを返し、固定のrunner observationを生成する。
 - duplicate Test IDをE-SCAN系またはE-ADAPTER系errorで拒否する。
 - synthetic runnerのEvidenceがhash変更後にSTALEになる。
 - coverage capabilityなしでtarget_executionがNOT_CHECKEDになる。
-- 全11項目で非PASSがaggregate NGになる。
+- 全12項目で非PASSがaggregate NGになる。
 
 ### W8 cleanupとリリースゲート
 
@@ -452,7 +458,7 @@ Test / Sourceを返し、固定のrunner observationを生成する。
 - 全既存M1〜M9とadapter acceptanceがPASS。
 - project / plugin Skillがbyte-identicalでvalid。
 - MCPはCLI parity完了後のみenabled。
-- legacy fieldsはdeprecatedだが読取り・JSON互換を維持する。
+- Rust互換fieldはwire codecだけが読書きし、core domainに存在しない。
 - architecture-check、verify-change、release-check、独立reviewerがPASS。
 
 ## 8. Luna max 作業パッケージ
