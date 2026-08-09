@@ -855,6 +855,25 @@ impl<'ast> Visit<'ast> for CallVisitor<'_> {
         );
     }
 
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        // A local function declaration occupies the value namespace.  Do not
+        // walk its body: calls inside a nested item are not direct calls from
+        // the Test being audited.
+        self.facts.shadowed_names.insert(node.sig.ident.to_string());
+    }
+
+    fn visit_item_const(&mut self, node: &'ast syn::ItemConst) {
+        self.facts.shadowed_names.insert(node.ident.to_string());
+    }
+
+    fn visit_item_static(&mut self, node: &'ast syn::ItemStatic) {
+        self.facts.shadowed_names.insert(node.ident.to_string());
+    }
+
+    fn visit_item_struct(&mut self, node: &'ast syn::ItemStruct) {
+        self.facts.shadowed_names.insert(node.ident.to_string());
+    }
+
     fn visit_macro(&mut self, node: &'ast Macro) {
         if is_assertion_macro(node, self.assertion_macros) {
             match try_parse_macro_exprs(node) {
@@ -2021,6 +2040,28 @@ mod tests {
         );
         assert_eq!(
             rule_da003(test, &shadowed, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+
+        let nested_item =
+            syn::parse_file("#[test] fn x() { fn known() {} assert_eq!(known(), ()); }").unwrap();
+        let test = find_function(&nested_item, "x").unwrap();
+        assert_eq!(
+            rule_da002(test, &nested_item, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+        assert_eq!(
+            rule_da003(test, &nested_item, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+
+        let callable_const = syn::parse_file(
+            "#[test] fn x() { const known: fn() = other; assert_eq!(known(), ()); }",
+        )
+        .unwrap();
+        let test = find_function(&callable_const, "x").unwrap();
+        assert_eq!(
+            rule_da002(test, &callable_const, Some(&root_target), &[]).verdict,
             AuditVerdict::Unknown
         );
     }
