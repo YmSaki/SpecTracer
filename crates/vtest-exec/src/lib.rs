@@ -26,7 +26,7 @@ pub enum ExecutionError {
 #[derive(Clone, Debug)]
 pub struct RunnableTest {
     pub entity: TestEntity,
-    pub target_hash: ContentHash,
+    pub target_hashes: Vec<ContentHash>,
     pub target_locator: Option<Locator>,
 }
 
@@ -141,7 +141,12 @@ pub fn run_tests(
                     revision: revision.clone(),
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
-                        target_fn: test.target_hash.clone(),
+                        target_fn: test
+                            .target_hashes
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| ContentHash::from_text("")),
+                        target_fns: test.target_hashes.clone(),
                     },
                     runner: RunnerInfo {
                         kind: runner_kind.to_owned(),
@@ -451,7 +456,7 @@ fn unknown_target_execution() -> TargetExecution {
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
     format!(
-        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\nrunner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
         result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
@@ -460,6 +465,16 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
         dirty = record.revision.dirty,
         test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
         target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
+        target_fns = if record.hashes.target_fns.is_empty() {
+            format!("    - {}\n", yaml_scalar(record.hashes.target_fn.as_str()))
+        } else {
+            record
+                .hashes
+                .target_fns
+                .iter()
+                .map(|hash| format!("    - {}\n", yaml_scalar(hash.as_str())))
+                .collect::<String>()
+        },
         kind = yaml_scalar(&record.runner.kind),
         command = yaml_scalar(&record.runner.command),
         exit_code = record.runner.exit_code,

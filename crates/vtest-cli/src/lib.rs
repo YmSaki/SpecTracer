@@ -25,7 +25,7 @@ use vtest_store::{
     write_new_record, yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension,
     ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout, VoRecord,
 };
-use vtest_verify::verify_project;
+use vtest_verify::{verify_project_scoped, EntityScope};
 
 #[derive(Clone, Debug, Parser)]
 #[command(name = "vtest", version, about = "Fail-closed test verification")]
@@ -116,6 +116,8 @@ pub enum Command {
         #[arg(long)]
         test: Option<String>,
     },
+    /// Start the MCP stdio server.
+    Mcp,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -352,6 +354,25 @@ pub fn run(cli: Cli) -> ExitCode {
             vo,
             test,
         } => run_verify(&project, items, req, vo, test, false, format, quiet),
+        Command::Mcp => run_mcp(&project, format, quiet),
+    }
+}
+
+fn run_mcp(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
+    match vtest_mcp::serve(project) {
+        Ok(()) => ExitCode::Ok,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
+                ),
+            );
+            ExitCode::Internal
+        }
     }
 }
 
@@ -1908,31 +1929,22 @@ fn audit_record_yaml(
     );
     if let Some(subjects) = bundle.get("subjects").and_then(serde_json::Value::as_array) {
         for subject in subjects {
-            let subject_kind = subject
-                .get("kind")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("unknown");
             let hash = subject
                 .get("hash")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
-            out.push_str(&format!(
-                "  - kind: {}\n    id: {}\n    locator: {}\n    hash: {}\n",
-                yaml_quote(subject_kind),
-                yaml_quote(
-                    subject
-                        .get("id")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("")
-                ),
-                yaml_quote(
-                    subject
-                        .get("locator")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("")
-                ),
-                yaml_quote(hash),
-            ));
+            let subject_id = subject
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .map(|id| format!("id: {}", yaml_quote(id)));
+            let subject_locator = subject
+                .get("locator")
+                .and_then(serde_json::Value::as_str)
+                .map(|locator| format!("locator: {}", yaml_quote(locator)));
+            let identity = subject_id
+                .or(subject_locator)
+                .unwrap_or_else(|| "id: ''".to_owned());
+            out.push_str(&format!("  - {identity}\n    hash: {}\n", yaml_quote(hash),));
         }
     }
     out.push_str(&format!("verdict: {}\nreasons:\n", yaml_quote(verdict)));
@@ -1966,9 +1978,72 @@ fn audit_record_yaml(
             }
         }
     }
+    if let Some(exclusions) = result
+        .get("exclusions")
+        .and_then(serde_json::Value::as_array)
+    {
+        if exclusions.is_empty() {
+            out.push_str("exclusions: []\n");
+        } else {
+            out.push_str("exclusions:\n");
+            for exclusion in exclusions {
+                out.push_str(&format!(
+                    "  - item: {}\n    basis: {}\n",
+                    yaml_quote(
+                        exclusion
+                            .get("item")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                    ),
+                    yaml_quote(
+                        exclusion
+                            .get("basis")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                    ),
+                ));
+            }
+        }
+    } else {
+        out.push_str("exclusions: []\n");
+    }
+    let auditor = result.get("auditor");
+    let auditor_kind = auditor
+        .and_then(|value| value.get("kind"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("agent");
+    let auditor_id = auditor
+        .and_then(|value| value.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("vtest");
     out.push_str(&format!(
-        "auditor:\n  kind: {}\n  id: vtest\naudited_at: {}\n",
-        yaml_quote("agent"),
+        "auditor:\n  kind: {}\n  id: {}\n",
+        yaml_quote(auditor_kind),
+        yaml_quote(auditor_id),
+    ));
+    if let Some(model) = auditor
+        .and_then(|value| value.get("model"))
+        .and_then(serde_json::Value::as_str)
+    {
+        out.push_str(&format!("  model: {}\n", yaml_quote(model)));
+    }
+    if let Some(confidence) = result.get("confidence").and_then(serde_json::Value::as_str) {
+        out.push_str(&format!("confidence: {}\n", yaml_quote(confidence)));
+    }
+    let revision = bundle.get("revision");
+    let commit = revision
+        .and_then(|value| value.get("commit"))
+        .and_then(serde_json::Value::as_str)
+        .map(yaml_quote)
+        .unwrap_or_else(|| "null".to_owned());
+    let dirty = revision
+        .and_then(|value| value.get("dirty"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    out.push_str(&format!(
+        "audited_at: {}\nrevision: {{ commit: {commit}, dirty: {dirty} }}\n",
         yaml_quote(&now_rfc3339())
     ));
     out
@@ -2065,17 +2140,31 @@ fn run_run(
     let runnable = requested
         .into_iter()
         .map(|entity| {
-            let target = scan.sources.iter().find(|source| match &entity.target {
-                vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                vtest_model::TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
-            });
-            let target_hash = target
-                .map(|source| source.content_hash.clone())
-                .unwrap_or_else(|| ContentHash::from_text(""));
+            let targets = std::iter::once(&entity.target)
+                .chain(&entity.additional_targets)
+                .map(|target_ref| {
+                    scan.sources.iter().find(|source| match target_ref {
+                        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
+                        vtest_model::TargetRef::SrcId(src_id) => {
+                            source.src_id.as_ref() == Some(src_id)
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            let target_hashes = targets
+                .iter()
+                .map(|source| {
+                    source
+                        .map(|source| source.content_hash.clone())
+                        .unwrap_or_else(|| ContentHash::from_text(""))
+                })
+                .collect::<Vec<_>>();
             RunnableTest {
                 entity,
-                target_hash,
-                target_locator: target.map(|source| source.locator.clone()),
+                target_hashes,
+                target_locator: targets
+                    .first()
+                    .and_then(|source| source.map(|source| source.locator.clone())),
             }
         })
         .collect::<Vec<_>>();
@@ -2193,7 +2282,7 @@ fn run_verify(
     req: Option<String>,
     vo: Option<String>,
     test: Option<String>,
-    _summary: bool,
+    summary: bool,
     format: OutputFormat,
     quiet: bool,
 ) -> ExitCode {
@@ -2201,24 +2290,6 @@ fn run_verify(
         Ok(root) => root,
         Err(code) => return code,
     };
-    if req.is_some() || vo.is_some() || test.is_some() {
-        // Entity-scoped filtering is part of the same aggregate engine; until
-        // the graph scope selector is added, retain the explicit request in a
-        // diagnostic rather than silently broadening it.
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error(
-                    "E-OP-001",
-                    "entity-scoped verify/report is not implemented yet",
-                )],
-            ),
-        );
-        return ExitCode::Usage;
-    }
     let config = match load_config(&root) {
         Ok(config) => config,
         Err(error) => {
@@ -2249,6 +2320,24 @@ fn run_verify(
             return ExitCode::Internal;
         }
     };
+    let layout = VerifyLayout::new(&root);
+    let entity_scope = match resolve_entity_scope(
+        &layout,
+        &scan,
+        req.as_deref(),
+        vo.as_deref(),
+        test.as_deref(),
+    ) {
+        Ok(scope) => scope,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
+            );
+            return error.code;
+        }
+    };
     let requested = items.map(|items| {
         items
             .split(',')
@@ -2257,6 +2346,21 @@ fn run_verify(
             .map(str::to_owned)
             .collect::<Vec<_>>()
     });
+    if requested.as_ref().is_some_and(Vec::is_empty) {
+        emit(
+            format,
+            quiet,
+            JsonEnvelope::new(
+                false,
+                serde_json::Value::Null,
+                vec![Diagnostic::error(
+                    "E-OP-001",
+                    "--items must name at least one verification item",
+                )],
+            ),
+        );
+        return ExitCode::Usage;
+    }
     if let Some(scope) = &requested {
         if let Some(unknown) = scope
             .iter()
@@ -2276,24 +2380,117 @@ fn run_verify(
             );
             return ExitCode::Usage;
         }
+        let unique = scope.iter().collect::<std::collections::BTreeSet<_>>();
+        if unique.len() != scope.len() {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error(
+                        "E-OP-001",
+                        "--items must not contain duplicate verification items",
+                    )],
+                ),
+            );
+            return ExitCode::Usage;
+        }
     }
-    let result = verify_project(&root, &scan, &config, requested);
+    let result = verify_project_scoped(&root, &scan, &config, requested, entity_scope);
     let ok = result.is_ok();
     let diagnostics = result.diagnostics.clone();
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(
-            ok,
-            serde_json::to_value(&result).expect("verification result"),
-            diagnostics,
-        ),
-    );
+    if summary {
+        let requested = &result.report.requested_scope;
+        let non_pass_items = result
+            .report
+            .items
+            .iter()
+            .filter(|item| {
+                requested.iter().any(|requested| requested == &item.item)
+                    && item.value != vtest_model::CheckValue::Pass
+            })
+            .count();
+        let summary_data = serde_json::json!({
+            "result": result.report.result,
+            "requested_scope": result.report.requested_scope,
+            "entity_scope": result.report.entity_scope,
+            "scope_outside_not_checked": result.report.scope_outside_not_checked,
+            "non_pass_items": non_pass_items,
+        });
+        emit(
+            format,
+            quiet,
+            JsonEnvelope::new(ok, summary_data, diagnostics),
+        );
+    } else {
+        emit(
+            format,
+            quiet,
+            JsonEnvelope::new(
+                ok,
+                serde_json::to_value(&result).expect("verification result"),
+                diagnostics,
+            ),
+        );
+    }
     if ok {
         ExitCode::Ok
     } else {
         ExitCode::VerificationFailed
     }
+}
+
+fn resolve_entity_scope(
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    req: Option<&str>,
+    vo: Option<&str>,
+    test: Option<&str>,
+) -> Result<Option<EntityScope>, CommandFailure> {
+    let selected =
+        usize::from(req.is_some()) + usize::from(vo.is_some()) + usize::from(test.is_some());
+    if selected > 1 {
+        return Err(failure(
+            "E-OP-001",
+            "verify/report accepts at most one of --req, --vo, or --test",
+            ExitCode::Usage,
+        ));
+    }
+    if let Some(id) = req {
+        validate_id(id, "REQ-")?;
+        if read_req(layout, id).is_err() {
+            return Err(failure(
+                "E-OP-001",
+                format!("REQ `{id}` was not found"),
+                ExitCode::Usage,
+            ));
+        }
+        return Ok(Some(EntityScope::Req(id.to_owned())));
+    }
+    if let Some(id) = vo {
+        validate_id(id, "VO-")?;
+        if read_vo(layout, id).is_err() {
+            return Err(failure(
+                "E-OP-001",
+                format!("VO `{id}` was not found"),
+                ExitCode::Usage,
+            ));
+        }
+        return Ok(Some(EntityScope::Vo(id.to_owned())));
+    }
+    if let Some(id) = test {
+        validate_id(id, "TEST-")?;
+        if !scan.tests.iter().any(|entity| entity.id.as_str() == id) {
+            return Err(failure(
+                "E-OP-001",
+                format!("Test `{id}` was not found"),
+                ExitCode::Usage,
+            ));
+        }
+        return Ok(Some(EntityScope::Test(id.to_owned())));
+    }
+    Ok(None)
 }
 
 const ALL_VERIFY_ITEMS: [&str; 11] = [
@@ -3499,7 +3696,61 @@ fn emit<T: Serialize>(format: OutputFormat, quiet: bool, envelope: JsonEnvelope<
 fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
     println!("{}", if envelope.ok { "OK" } else { "NG" });
     if let Ok(value) = serde_json::to_value(envelope.data) {
-        if let Some(summary) = value.get("summary") {
+        if let Some(report) = value.get("report").and_then(serde_json::Value::as_object) {
+            let requested_scope = report
+                .get("requested_scope")
+                .and_then(serde_json::Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(",")
+                })
+                .unwrap_or_else(|| "full".to_owned());
+            println!("Requested scope: {requested_scope}");
+            if let Some(entity) = report.get("entity_scope") {
+                println!("Entity scope: {entity}");
+            }
+            if report
+                .get("scope_outside_not_checked")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
+            {
+                println!("Scope outside requested range: NOT_CHECKED");
+            }
+            if let Some(tree) = report.get("tree").and_then(serde_json::Value::as_array) {
+                for node in tree {
+                    print_text_tree_node(node, "├─ ");
+                }
+            } else if let Some(items) = report.get("items").and_then(serde_json::Value::as_array) {
+                for item in items {
+                    let key = item.get("item").and_then(serde_json::Value::as_str);
+                    let value = item.get("value").and_then(serde_json::Value::as_str);
+                    if let (Some(key), Some(value)) = (key, value) {
+                        println!("├─ {key:<24} {value}");
+                    }
+                }
+            }
+            if let Some(result) = report.get("result").and_then(serde_json::Value::as_str) {
+                println!("Result: {result}");
+            }
+        } else if value.get("result").is_some() && value.get("non_pass_items").is_some() {
+            println!(
+                "Result: {}",
+                value
+                    .get("result")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("UNKNOWN")
+            );
+            println!(
+                "Non-PASS items: {}",
+                value
+                    .get("non_pass_items")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or_default()
+            );
+        } else if let Some(summary) = value.get("summary") {
             println!("summary: {summary}");
         } else if !value.is_null() {
             println!("data: {value}");
@@ -3517,6 +3768,36 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
         );
         for candidate in diagnostic.candidates {
             println!("  candidate: {candidate}");
+        }
+    }
+}
+
+fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
+    let kind = node
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("entity");
+    let id = node
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("?");
+    let value = node
+        .get("value")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("UNKNOWN");
+    println!("{prefix}{kind}:{id:<28} {value}");
+    if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
+        for item in items {
+            let key = item.get("item").and_then(serde_json::Value::as_str);
+            let value = item.get("value").and_then(serde_json::Value::as_str);
+            if let (Some(key), Some(value)) = (key, value) {
+                println!("{prefix}│  ├─ {key:<24} {value}");
+            }
+        }
+    }
+    if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
+        for child in children {
+            print_text_tree_node(child, &format!("{prefix}│  "));
         }
     }
 }

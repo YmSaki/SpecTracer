@@ -538,6 +538,7 @@ dependencies = [
  "serde_json",
  "vtest-audit",
  "vtest-exec",
+ "vtest-mcp",
  "vtest-model",
  "vtest-scan",
  "vtest-store",

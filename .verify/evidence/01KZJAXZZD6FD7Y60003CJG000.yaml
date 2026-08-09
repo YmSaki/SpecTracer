@@ -1,0 +1,22 @@
+id: '01KZJAXZZD6FD7Y60003CJG000'
+test_id: 'TEST-DOGFOOD-M3-TARGET-RULES'
+result: 'PASS'
+executed_at: '2026-08-09T04:01:41Z'
+revision:
+  commit: '1bc4d586fb9182c10932705a74d1f18674efa322'
+  dirty: true
+hashes:
+  test_fn: 'sha256:def80a7e3d62a832028be9817b52926cfdc762674f53d12e83d1ebad6f772f37'
+  target_fn: 'sha256:8f802ea4bceaddaec322d86b6723229f07b61eb939fded4c55c610f4a31b3a09'
+  target_fns:
+    - 'sha256:8f802ea4bceaddaec322d86b6723229f07b61eb939fded4c55c610f4a31b3a09'
+runner:
+  kind: 'cargo-test'
+  command: 'cargo test -p vtest-audit --lib -- --exact tests::dogfood_exact_target_path_is_classified'
+  exit_code: 0
+target_execution:
+  checked: false
+  method: null
+  result: 'NOT_CHECKED'
+  count: null
+log_ref: 'cache/logs/01KZJAXZZD6FD7Y60003CJG000.log'

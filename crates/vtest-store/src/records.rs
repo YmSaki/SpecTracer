@@ -829,6 +829,30 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         })?
         .parse()
         .map_err(|error: String| StoreError::InvalidConfig(error))?;
+    let target_hashes = if text.lines().any(|line| line.trim() == "target_fns:") {
+        let values = list(&text, "target_fns");
+        if values.is_empty() {
+            return Err(StoreError::InvalidConfig(
+                "Evidence has an empty hashes.target_fns list".to_owned(),
+            ));
+        }
+        let parsed = values
+            .into_iter()
+            .map(|value| {
+                value
+                    .parse()
+                    .map_err(|error: String| StoreError::InvalidConfig(error))
+            })
+            .collect::<Result<Vec<ContentHash>, StoreError>>()?;
+        if parsed.first() != Some(&target_hash) {
+            return Err(StoreError::InvalidConfig(
+                "Evidence hashes.target_fn must equal the first hashes.target_fns entry".to_owned(),
+            ));
+        }
+        parsed
+    } else {
+        Vec::new()
+    };
     let result = match scalar(&text, "result").as_deref() {
         Some("PASS") => TestResult::Pass,
         Some("FAIL") => TestResult::Fail,
@@ -861,6 +885,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         hashes: EvidenceHashes {
             test_fn: test_hash,
             target_fn: target_hash,
+            target_fns: target_hashes,
         },
         runner: RunnerInfo {
             kind: nested_scalar(&text, "runner", "kind").unwrap_or_default(),

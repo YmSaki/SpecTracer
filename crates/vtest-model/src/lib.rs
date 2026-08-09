@@ -328,7 +328,13 @@ pub struct Revision {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceHashes {
     pub test_fn: ContentHash,
+    /// The first target hash retained for the v0.1 wire shape.
     pub target_fn: ContentHash,
+    /// All declared target hashes in annotation order.  An empty value means
+    /// that the record uses the v0.1 single-target shape and `target_fn` is
+    /// the complete set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_fns: Vec<ContentHash>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
