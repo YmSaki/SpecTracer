@@ -18,10 +18,10 @@ Production code is unchanged by this freeze.
 
 | ID | Specification clause | Acceptance criterion / observable | Test / fixture | Baseline actual | Freeze status |
 |---|---|---|---|---|---|
-| AF-001 | Annex C §18.3.9 | All neutral hash-free draft types exist in a Rust-neutral API crate | `adapter_api_crate_exposes_every_neutral_draft_type` | missing package | FROZEN_RED |
+| AF-001 | Annex C §18.3.9 | All neutral hash-free draft types exist with the normative field sets in a Rust-neutral API crate | `adapter_api_crate_exposes_every_neutral_draft_type`; `adapter_api_compile_contract_type_checks`; `api-contract/` | missing package | FROZEN_RED |
 | AF-002 | Annex C §§18.2, 18.3.9 | Non-`.rs`, non-function construct and exact current byte range | `adapter_boundary_fixture_is_non_rust_and_non_adjacent`; `adapters/synthetic` | valid `65..176` range | REGRESSION_LOCKED |
-| AF-003 | Annex C §18.3.9 | Core model has opaque locations, execution descriptor, fixed 12; no Rust coordinates | `core_model_is_neutral_and_has_the_fixed_check_set` | neutral types absent | FROZEN_RED |
-| AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata changes Test subject and freshness | synthetic metadata mutation | adapter binding absent | API_BINDING_REQUIRED |
+| AF-003 | Annex C §18.3.9 | Core model has opaque locations, execution descriptor, fixed 12; no Rust coordinates | `core_model_is_neutral_and_has_the_fixed_check_set`; compile-contract field destructuring | neutral types absent | FROZEN_RED |
+| AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata changes Test subject and freshness | `tests.json` → `tests.changed.json` mutation | adapter binding absent | API_BINDING_REQUIRED |
 | AF-005 | Annex C §18.3.1 | Unregistered Test → traceability `MISSING` | `unregistered_test_is_traceability_missing` | unknown item / exit 2 | FROZEN_RED |
 | AF-006 | Annex C §18.3.1 | Empty covers → traceability `MISSING` | `empty_covers_is_traceability_missing` | unknown item / exit 2 | FROZEN_RED |
 | AF-007 | Annex C §18.3.1 | Dangling VO remains managed-one → `MISMATCH` | `dangling_vo_is_traceability_mismatch` | unknown item / exit 2 | FROZEN_RED |
@@ -46,15 +46,18 @@ Production code is unchanged by this freeze.
 | AF-026 | Annex C §18.3.4 | impl-consistency FAIL maps to `MISMATCH` | `impl_consistency_fail_maps_to_mismatch` | not `MISMATCH` | FROZEN_RED |
 | AF-027 | Annex C §18.3.1 | Specification dependency change invalidates Approval | `specification_dependency_change_invalidates_vo_approval` | remains approved | FROZEN_RED |
 | AF-028 | Annex C §§18.3.3, 18.3.6 | multi-target Evidence has every neutral target/result | `multi_target_evidence_keeps_target_specific_results` | neutral entries absent | FROZEN_RED |
-| AF-029 | Annex C §18.3.6 | target aggregation is `FAIL > UNKNOWN > PASS` | mixed target observations | target observation API absent | API_BINDING_REQUIRED |
+| AF-029 | Annex C §18.3.6 | target aggregation is `FAIL > UNKNOWN > PASS` | `synthetic/target-observations.json` | target observation API absent | API_BINDING_REQUIRED |
 | AF-030 | Annex C §18.3.5 | limited scope leaves outside items `NOT_CHECKED` | existing M6 test | PASS | REGRESSION_LOCKED |
 | AF-031 | Annex C §18.3.5 | deterministic text/JSON tree | existing M6/M9 tests | PASS | REGRESSION_LOCKED |
-| AF-032 | Annex C §18.3.7 | explicit Form owner; duplicate/ambiguous owner rejected without Rust fallback | init owner test plus mixed Form case | owner absent; mixed registry unavailable | FROZEN_RED / API_BINDING_REQUIRED |
+| AF-032 | Annex C §18.3.7 | explicit Form owner; duplicate/ambiguous owner rejected without Rust fallback | init owner test; `forms/duplicate-kind.json`; `forms/ambiguous-compatibility.json` | owner absent; mixed registry unavailable | FROZEN_RED / API_BINDING_REQUIRED |
 | AF-033 | Annex C §§18.1, 18.3.8 | CLI/MCP share fixed-12 envelope | `cli_and_mcp_default_verify_share_the_fixed_contract` | parity only at 11 | FROZEN_RED |
-| AF-034 | Annex C §§18.3.2, 18.3.3, 18.3.9 | missing audit/coverage/runner → `NOT_CHECKED`/`NOT_EXECUTED`; limits → `UNKNOWN` | synthetic capability manifest | registry binding absent | API_BINDING_REQUIRED |
+| AF-034 | Annex C §§18.3.2, 18.3.3, 18.3.9 | missing audit/coverage/runner → `NOT_CHECKED`/`NOT_EXECUTED`; limits → `UNKNOWN` | `manifest-no-runner.json`; `manifest-incomplete-analysis.json`; base no-coverage manifest | registry binding absent | API_BINDING_REQUIRED |
 | AF-035 | Annex C §18.3.9; plan §9.2 | forbidden direct Rust dependencies are absent by `cargo metadata` | `orchestration_crates_have_no_direct_rust_analysis_dependencies` | direct deps remain | FROZEN_RED |
 | AF-036 | Annex C §18.3.5 | Specification requirement without active REQ is non-PASS | `specification_requirement_without_active_req_is_non_pass` | `MISSING` | REGRESSION_LOCKED |
-| AF-037 | Annex C §18.3.9 | Rust + synthetic merge and adapter/filesystem ordering are deterministic | mixed fixture | registry binding absent | API_BINDING_REQUIRED |
+| AF-037 | Annex C §18.3.9 | Rust + synthetic merge and adapter/filesystem ordering are deterministic | `mixed/order-a.json`; `mixed/order-b.json` | registry binding absent | API_BINDING_REQUIRED |
+| AF-038 | Annex C §18.3.1; plan §9.1 | bare Relation normalizes in memory without rewrite; bare/prefixed duplicate is rejected | `relations/`; `duplicate_bare_and_prefixed_relation_payload_is_rejected` | duplicate rejected; normalization binding absent | REGRESSION_LOCKED / API_BINDING_REQUIRED |
+| AF-039 | Annex C §§18.3.1, 18.3.9 | incomplete adapter discovery is an error, never a complete empty scan | `manifest-discovery-failure.json` | discovery binding absent | API_BINDING_REQUIRED |
+| AF-040 | Annex C §18.3.9; plan §9.1 | v1 and v2 Rust scan/audit/run/verify observations are semantically equal | v1 M1 and v2 rust-cargo config fixtures | v2 orchestration absent | API_BINDING_REQUIRED |
 
 Baseline command:
 

@@ -1,0 +1,9 @@
+{
+  "test_id": "TEST-SYNTH-MULTI",
+  "targets": [
+    {"locator": "component(alpha)", "result": "PASS", "count": 1},
+    {"locator": "component(beta)", "result": "FAIL", "count": 0},
+    {"locator": "component(gamma)", "result": "UNKNOWN", "count": null}
+  ],
+  "expected_aggregate": "FAIL"
+}

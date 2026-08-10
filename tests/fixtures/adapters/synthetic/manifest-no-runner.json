@@ -1,0 +1,13 @@
+{
+  "adapter": "synthetic-no-runner",
+  "complete": true,
+  "source": "source/cases.synth",
+  "metadata": "metadata/tests.json",
+  "capabilities": {
+    "source_discovery": true,
+    "runner": false,
+    "static_audit": false,
+    "coverage": false,
+    "structured_test": false
+  }
+}

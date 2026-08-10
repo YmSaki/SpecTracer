@@ -1,0 +1,11 @@
+[package]
+name = "adapter-api-acceptance-contract"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+vtest-adapter-api = { path = "../../../../crates/vtest-adapter-api" }
+vtest-model = { path = "../../../../crates/vtest-model" }

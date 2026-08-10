@@ -1,0 +1,17 @@
+{
+  "adapter": "synthetic-incomplete-analysis",
+  "complete": true,
+  "source": "source/cases.synth",
+  "metadata": "metadata/tests.json",
+  "static_analysis": {
+    "complete": false,
+    "sources": ["source/cases.synth"]
+  },
+  "capabilities": {
+    "source_discovery": true,
+    "runner": true,
+    "static_audit": true,
+    "coverage": false,
+    "structured_test": false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "shared-test-form",
+  "registrations": [
+    {"adapter": "rust-cargo", "structured_test": true},
+    {"adapter": "synthetic", "structured_test": true}
+  ],
+  "expected_code": "E-ADAPTER-001",
+  "expected_write": false
+}

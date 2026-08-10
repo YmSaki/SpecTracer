@@ -377,6 +377,92 @@ fn adapter_boundary_fixture_is_non_rust_and_non_adjacent() {
     assert_eq!(collisions["src_id_collision"][1]["id"], "SRC-COLLISION");
 }
 
+#[test]
+fn adapter_api_compile_contract_type_checks() {
+    let manifest = fixture_path("adapters/api-contract/Cargo.toml");
+    let output = Command::new("cargo")
+        .args(["check", "--quiet", "--manifest-path"])
+        .arg(&manifest)
+        .output()
+        .expect("type-check adapter API acceptance contract");
+    assert!(
+        output.status.success(),
+        "adapter API compile contract failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn synthetic_variants_cover_capability_failure_mutation_and_ordering_inputs() {
+    let root = fixture_path("adapters");
+    let json_file = |relative: &str| -> Value {
+        serde_json::from_slice(&fs::read(root.join(relative)).expect("read adapter fixture"))
+            .expect("parse adapter fixture JSON")
+    };
+    let base = json_file("synthetic/metadata/tests.json");
+    let changed = json_file("synthetic/metadata/tests.changed.json");
+    assert_eq!(base["tests"][0]["id"], changed["tests"][0]["id"]);
+    assert_ne!(
+        base["tests"][0]["intent"], changed["tests"][0]["intent"],
+        "metadata-only mutation must change a canonical logical value"
+    );
+    let no_runner = json_file("synthetic/manifest-no-runner.json");
+    assert_eq!(no_runner["capabilities"]["runner"], false);
+    assert_eq!(no_runner["capabilities"]["coverage"], false);
+    let incomplete = json_file("synthetic/manifest-incomplete-analysis.json");
+    assert_eq!(incomplete["static_analysis"]["complete"], false);
+    let failed = json_file("synthetic/manifest-discovery-failure.json");
+    assert_eq!(failed["complete"], false);
+    assert_eq!(failed["diagnostics"][0]["code"], "E-SCAN-001");
+    let targets = json_file("synthetic/target-observations.json");
+    assert_eq!(targets["targets"][0]["result"], "PASS");
+    assert_eq!(targets["targets"][1]["result"], "FAIL");
+    assert_eq!(targets["targets"][2]["result"], "UNKNOWN");
+    assert_eq!(targets["expected_aggregate"], "FAIL");
+    let order_a = json_file("mixed/order-a.json");
+    let order_b = json_file("mixed/order-b.json");
+    assert_ne!(order_a["adapters"], order_b["adapters"]);
+    assert_ne!(order_a["filesystem_entries"], order_b["filesystem_entries"]);
+    assert_eq!(
+        order_a["expected_test_order"],
+        order_b["expected_test_order"]
+    );
+    let duplicate_form = json_file("forms/duplicate-kind.json");
+    assert_eq!(duplicate_form["registrations"].as_array().unwrap().len(), 2);
+    assert_eq!(duplicate_form["expected_write"], false);
+    let ambiguous_form = json_file("forms/ambiguous-compatibility.json");
+    assert_eq!(
+        ambiguous_form["matching_adapters"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(ambiguous_form["rust_fallback_allowed"], false);
+}
+
+#[test]
+fn duplicate_bare_and_prefixed_relation_payload_is_rejected() {
+    let project = TempProject::from_m1_base("duplicate-relation-alias");
+    let relation_dir = project.root.join(".verify/rel");
+    fs::create_dir_all(&relation_dir).expect("create Relation directory");
+    for name in [
+        "01ARZ3NDEKTSV4RRFFQ69G5FAV.yaml",
+        "REL-01ARZ3NDEKTSV4RRFFQ69G5FAV.yaml",
+    ] {
+        fs::copy(
+            fixture_path(&format!("adapters/relations/{name}")),
+            relation_dir.join(name),
+        )
+        .expect("copy Relation compatibility fixture");
+    }
+    let scan = invoke(&project.root, "scan", &[]);
+    assert_exit(&scan, 1, "duplicate Relation aliases are scan errors");
+    let response = envelope(&scan);
+    assert!(diagnostic_codes(&response).contains(&"E-SCAN-010"));
+}
+
 fn cargo_metadata() -> Value {
     let output = Command::new("cargo")
         .args(["metadata", "--format-version", "1", "--no-deps"])

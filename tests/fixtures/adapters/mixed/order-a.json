@@ -1,0 +1,5 @@
+{
+  "adapters": ["rust-cargo", "synthetic"],
+  "filesystem_entries": ["z-last.synth", "a-first.rs"],
+  "expected_test_order": ["TEST-RUST-FIRST", "TEST-SYNTH-SECOND"]
+}

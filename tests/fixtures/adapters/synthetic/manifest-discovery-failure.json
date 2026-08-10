@@ -1,0 +1,12 @@
+{
+  "adapter": "synthetic-failing-discovery",
+  "complete": false,
+  "diagnostics": [
+    {
+      "code": "E-SCAN-001",
+      "severity": "error",
+      "message": "synthetic declaration is incomplete"
+    }
+  ],
+  "discovered_tests": []
+}

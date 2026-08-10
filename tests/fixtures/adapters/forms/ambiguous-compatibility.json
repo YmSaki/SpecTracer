@@ -1,0 +1,8 @@
+{
+  "kind": "legacy-ownerless-form",
+  "schema_adapter": null,
+  "matching_adapters": ["rust-cargo", "synthetic"],
+  "expected_code": "E-ADAPTER-001",
+  "expected_write": false,
+  "rust_fallback_allowed": false
+}
