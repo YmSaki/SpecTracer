@@ -12,9 +12,9 @@ use vtest_model::{
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
-    read_approval, read_audit, read_evidence, read_record_ids, read_req, read_text, read_vo,
-    yaml_scalar_value, AuditRecord, AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout,
-    VoRecord,
+    current_approval_subject, derive_vo_status, read_audit, read_evidence, read_record_ids,
+    read_req, read_text, read_vo, yaml_scalar_value, AuditRecord, AuditSubjectRecord,
+    ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
 };
 
 pub const ALL_ITEMS: [&str; 12] = [
@@ -1188,21 +1188,14 @@ fn evaluate_test_audit(
     (overall, basis)
 }
 
+/// Approval validity has exactly one derivation. Comparing an Approval to the
+/// VO file alone would ignore the upstream closure its subject aggregates.
 fn vo_is_approved(layout: &VerifyLayout, id: &str) -> bool {
-    let Ok(text) = read_text(&layout.vo_dir().join(format!("{id}.yaml"))) else {
+    let Ok(vo) = read_vo(layout, id) else {
         return false;
     };
-    let current_hash = ContentHash::from_text(&text);
-    let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
-        return false;
-    };
-    entries.flatten().any(|entry| {
-        let path = entry.path();
-        path.extension().and_then(|value| value.to_str()) == Some("yaml")
-            && read_approval(&path).is_ok_and(|approval| {
-                approval.subject.as_str() == id && approval.subject_hash == current_hash
-            })
-    })
+    let subject = current_approval_subject(layout, &vo);
+    derive_vo_status(layout, &vo, subject.as_ref()).approved
 }
 
 fn parse_audit_subjects(text: &str) -> Vec<AuditSubject> {
