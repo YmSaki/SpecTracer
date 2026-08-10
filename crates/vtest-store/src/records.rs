@@ -17,7 +17,8 @@ use std::{
 };
 use vtest_model::{
     AdapterId, CheckValue, CompatibilityEvidenceHashes, ContentHash, EvidenceHashes,
-    EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
+    EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId, SpecSourceHash, TargetExecution, TestId,
+    TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -37,7 +38,9 @@ pub struct SpecRecord {
     pub id: SpecId,
     pub kind: String,
     pub path: String,
-    pub sha256: ContentHash,
+    /// The Specification source hash captured when the record was
+    /// registered. It is a snapshot, never the current source subject.
+    pub sha256: SpecSourceHash,
     pub title: Option<String>,
     pub note: Option<String>,
     pub registered_at: String,

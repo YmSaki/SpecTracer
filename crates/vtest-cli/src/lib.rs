@@ -14,19 +14,20 @@ use vtest_adapter_rust::rust_cargo_registration;
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
 use vtest_exec::{run_tests, RunnableTest, RustLocator};
 use vtest_model::{
-    ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId, Revision, ScanSummary, SourceFunction,
-    SpecId, TargetRef, TestEntity, VoId,
+    hash_specification_source, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId, Revision,
+    ScanSummary, SourceFunction, SpecId, TargetRef, TestEntity, VoId,
 };
 use vtest_scan::{
     create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
     show_test, Locator as ScanLocator, ScanError, ScanResult,
 };
 use vtest_store::{
-    derive_vo_status, find_project_root, init_project, is_valid_ulid, load_config, new_record_id,
-    now_rfc3339, read_approval, read_form_answers, read_req, read_spec, read_text, read_vo,
-    resolve_upstream_closure, vo_content_hash, write_atomic, write_new_record, yaml_scalar_value,
-    ApprovalBasis, ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord, SpecRef, StoreError,
-    VerifyLayout, VoRecord,
+    approval_subject_hash, current_approval_subject, derive_vo_status, find_project_root,
+    init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339, read_approval,
+    read_form_answers, read_req, read_spec, read_text, read_vo, resolve_upstream_closure,
+    vo_record_subject, write_atomic, write_new_record, yaml_scalar_value, ApprovalBasis,
+    ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout,
+    VoRecord,
 };
 use vtest_verify::{verify_project_scoped, EntityScope};
 
@@ -1280,11 +1281,14 @@ fn build_bundle(
                 for spec_ref in &vo.spec_refs {
                     if let Ok(record) = read_spec(layout, spec_ref.spec.as_str()) {
                         let key = record.id.to_string();
+                        // W4 owes this the current source subject: a bundle
+                        // built from the registration snapshot cannot detect a
+                        // Specification body that moved after registration.
                         subjects.push(subject_value(
                             "spec",
                             Some(record.id.as_str()),
                             None,
-                            &record.sha256,
+                            record.sha256.registered_snapshot(),
                         ));
                         specs.insert(
                             key,
@@ -1312,11 +1316,14 @@ fn build_bundle(
                     };
                     if let Ok(record) = read_spec(layout, spec_id) {
                         let key = record.id.to_string();
+                        // W4 owes this the current source subject: a bundle
+                        // built from the registration snapshot cannot detect a
+                        // Specification body that moved after registration.
                         subjects.push(subject_value(
                             "spec",
                             Some(record.id.as_str()),
                             None,
-                            &record.sha256,
+                            record.sha256.registered_snapshot(),
                         ));
                         specs.entry(key).or_insert_with(|| {
                             serde_json::json!({
@@ -2628,7 +2635,7 @@ fn add_spec(
         id: SpecId::new(id),
         kind: kind.to_owned(),
         path: relative_path(root, &source_path),
-        sha256: ContentHash::from_text(&source),
+        sha256: hash_specification_source(&source),
         title: title.or_else(|| old.as_ref().and_then(|value| value.title.clone())),
         note: note.or_else(|| old.as_ref().and_then(|value| value.note.clone())),
         registered_at: old
@@ -3071,7 +3078,7 @@ fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
         .collect::<Vec<_>>();
     let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
     let current_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
-    let approvals = approval_history(layout, id, &current_hash);
+    let approvals = approval_history(layout, id, current_approval_subject(layout, &record).ok());
     let audits = vo_audit_history(layout, id, &current_hash);
     let mut value = serde_json::to_value(record).expect("record");
     if let Some(object) = value.as_object_mut() {
@@ -3092,7 +3099,7 @@ fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
 fn approval_history(
     layout: &VerifyLayout,
     vo_id: &str,
-    current_hash: &ContentHash,
+    current_subject: Option<ContentHash>,
 ) -> Vec<serde_json::Value> {
     let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
         return Vec::new();
@@ -3113,7 +3120,7 @@ fn approval_history(
                 "approved_at": approval.approved_at,
                 "approver": approval.approver,
                 "basis": approval.basis,
-                "valid": &approval.subject_hash == current_hash,
+                "valid": current_subject.as_ref() == Some(&approval.subject_hash),
             })
         })
         .collect()
@@ -3277,7 +3284,6 @@ fn approve_vo(
             ));
         }
     }
-    let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
     let vo = read_vo(layout, id).map_err(store_failure)?;
     // The closure is resolved before any write so a rejected approve leaves the
     // VO and the append-only approvals untouched.
@@ -3288,9 +3294,9 @@ fn approve_vo(
             ExitCode::Usage,
         )
     })?;
-    // The canonical VO record never stores an approval-derived status, so an
-    // approval writes nothing but the append-only Approval itself.
-    let subject_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
+    // The subject is the aggregate of the VO's own record subject and its whole
+    // upstream closure, so anything that can change the judgment changes it.
+    let subject_hash = approval_subject_hash(&vo_record_subject(&vo), &dependencies);
     let approval = ApprovalRecord {
         id: new_record_id(),
         subject: vo.id,
@@ -3551,10 +3557,10 @@ fn spec_refs_from_args(
 }
 
 fn effective_vo_status(layout: &VerifyLayout, record: &VoRecord) -> String {
-    let Ok(hash) = vo_content_hash(layout, record.id.as_str()) else {
-        return "draft".to_owned();
-    };
-    derive_vo_status(layout, record, &hash).status().to_owned()
+    let subject = current_approval_subject(layout, record);
+    derive_vo_status(layout, record, subject.as_ref())
+        .status()
+        .to_owned()
 }
 
 fn read_record_ids_for(directory: &Path) -> CommandResult<Vec<String>> {

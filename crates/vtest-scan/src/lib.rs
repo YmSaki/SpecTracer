@@ -16,15 +16,16 @@ use vtest_adapter_api::{
     ManagedTestDraftLink, SourceFragment, SourceTargetDraft,
 };
 use vtest_model::{
-    hash_target_subject, hash_test_subject, AdapterId, ContentHash, Diagnostic, DiscoveredTest,
-    ExecutionDescriptor, ManagedTestLink, ProjectPath, ScanSummary, SourceFunction, SourceLocation,
-    SourceRange, SourceTarget, SrcId, TargetRef, TestEntity, TestId, TestSubjectInput, TestSuite,
-    VoId,
+    hash_specification_source, hash_target_subject, hash_test_subject, AdapterId, ContentHash,
+    Diagnostic, DiscoveredTest, ExecutionDescriptor, ManagedTestLink, ProjectPath, ScanSummary,
+    SourceFunction, SourceLocation, SourceRange, SourceTarget, SrcId, TargetRef, TestEntity,
+    TestId, TestSubjectInput, TestSuite, VoId,
 };
 use vtest_store::{
-    derive_vo_status, is_valid_ulid, load_config, read_approval, read_entity_ids, read_req,
-    read_spec, read_text, read_vo, relation_ulid_payload, yaml_scalar_value, ProjectConfig,
-    RelationRecord, ReqRecord, StoreError, VerifyLayout, VoRecord,
+    current_approval_subject, derive_vo_status, is_valid_ulid, load_config, read_approval,
+    read_entity_ids, read_req, read_spec, read_text, read_vo, relation_ulid_payload,
+    yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord, StoreError, VerifyLayout,
+    VoRecord,
 };
 
 pub mod operations;
@@ -617,7 +618,8 @@ fn validate_spec_record(
             return;
         }
     };
-    let actual_hash = ContentHash::from_bytes(&bytes);
+    let source = String::from_utf8_lossy(&bytes);
+    let actual_hash = hash_specification_source(&source);
     if actual_hash != record.sha256 {
         diagnostics.push(
             Diagnostic::warning(
@@ -1152,10 +1154,8 @@ fn validate_approval_status(
         }
     }
     for (id, vo) in vos {
-        let Some(current_hash) = current_hashes.get(id) else {
-            continue;
-        };
-        let derived = derive_vo_status(layout, vo, current_hash);
+        let subject = current_approval_subject(layout, vo);
+        let derived = derive_vo_status(layout, vo, subject.as_ref());
         for (approval_id, invalidity) in &derived.invalid {
             diagnostics.push(
                 Diagnostic::warning(

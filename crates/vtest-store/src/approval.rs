@@ -10,7 +10,10 @@ use std::{
     fmt, fs,
 };
 
-use vtest_model::{hash_record_subject, hash_spec_subject, CanonicalProjection, ContentHash};
+use vtest_model::{
+    hash_approval_subject, hash_record_subject, hash_spec_subject, hash_specification_source,
+    CanonicalProjection, ContentHash,
+};
 
 use crate::{
     is_valid_ulid, read_approval, read_req, read_spec, read_text, read_vo, ApprovalDependency,
@@ -141,7 +144,7 @@ pub fn resolve_upstream_closure(
             read_spec(layout, &id).map_err(|error| failure("spec", &id, unresolved(&error)))?;
         let source = read_text(&layout.root.join(&record.path))
             .map_err(|error| failure("spec", &id, unresolved(&error)))?;
-        if ContentHash::from_text(&source) != record.sha256 {
+        if hash_specification_source(&source) != record.sha256 {
             return Err(failure(
                 "spec",
                 &id,
@@ -160,35 +163,75 @@ pub fn resolve_upstream_closure(
         .collect())
 }
 
+/// Aggregate an Approval subject: the VO's own record subject plus every
+/// upstream dependency subject, in canonical closure order.
+pub fn approval_subject_hash(
+    subject: &ContentHash,
+    dependencies: &[ApprovalDependency],
+) -> ContentHash {
+    hash_approval_subject(
+        subject,
+        dependencies.iter().map(|dependency| {
+            (
+                dependency.kind.as_str(),
+                dependency.id.as_str(),
+                &dependency.hash,
+            )
+        }),
+    )
+}
+
+/// The Approval subject of `vo` as it stands now, or the reason its upstream
+/// closure cannot be resolved.
+pub fn current_approval_subject(
+    layout: &VerifyLayout,
+    vo: &VoRecord,
+) -> Result<ContentHash, ClosureFailure> {
+    let dependencies = resolve_upstream_closure(layout, vo)?;
+    Ok(approval_subject_hash(&vo_record_subject(vo), &dependencies))
+}
+
 /// Derive the effective status of `vo` from the append-only Approvals.
+///
+/// `subject` is the current aggregate Approval subject. Approvals whose
+/// recorded closure still equals the current one but whose aggregate differs
+/// were superseded by an edit to the VO itself; that is the documented way an
+/// approval lapses, so it is not reported as an invalid Approval.
 pub fn derive_vo_status(
     layout: &VerifyLayout,
     vo: &VoRecord,
-    current_hash: &ContentHash,
+    subject: Result<&ContentHash, &ClosureFailure>,
 ) -> DerivedVoStatus {
     let mut closure = None;
     let mut invalid = Vec::new();
     for approval in read_approvals(layout) {
-        if approval.subject != vo.id || &approval.subject_hash != current_hash {
+        if approval.subject != vo.id {
             continue;
         }
         let Some(recorded) = approval.dependencies.as_ref() else {
             invalid.push((approval.id, ApprovalInvalidity::ClosureAbsent));
             continue;
         };
-        let closure = closure.get_or_insert_with(|| resolve_upstream_closure(layout, vo));
-        match closure {
-            Err(error) => invalid.push((
-                approval.id,
-                ApprovalInvalidity::ClosureUnresolvable(error.clone()),
-            )),
-            Ok(current) if recorded == current => {
-                return DerivedVoStatus {
-                    approved: true,
-                    invalid: Vec::new(),
-                }
+        let subject = match subject {
+            Err(error) => {
+                invalid.push((
+                    approval.id,
+                    ApprovalInvalidity::ClosureUnresolvable(error.clone()),
+                ));
+                continue;
             }
-            Ok(_) => invalid.push((approval.id, ApprovalInvalidity::ClosureChanged)),
+            Ok(subject) => subject,
+        };
+        if &approval.subject_hash == subject {
+            return DerivedVoStatus {
+                approved: true,
+                invalid: Vec::new(),
+            };
+        }
+        let current = closure.get_or_insert_with(|| resolve_upstream_closure(layout, vo).ok());
+        match current {
+            Some(current) if recorded == current => {}
+            _ => invalid.push((approval.id, ApprovalInvalidity::ClosureChanged)),
         }
     }
     DerivedVoStatus {
@@ -220,10 +263,10 @@ pub fn read_approvals(layout: &VerifyLayout) -> Vec<ApprovalRecord> {
         .collect()
 }
 
-/// The content hash the Approval `subject_hash` is compared against.
-pub fn vo_content_hash(layout: &VerifyLayout, id: &str) -> Result<ContentHash, StoreError> {
-    let path = layout.vo_dir().join(format!("{id}.yaml"));
-    Ok(ContentHash::from_text(&read_text(&path)?))
+/// The canonical VO record subject: the leaf content hash of the VO itself,
+/// with the compatibility field `status` excluded.
+pub fn vo_record_subject(vo: &VoRecord) -> ContentHash {
+    hash_record_subject(&vo_projection(vo))
 }
 
 fn unresolved(error: &StoreError) -> String {
@@ -413,7 +456,10 @@ mod tests {
         let record = ApprovalRecord {
             id: id.clone(),
             subject: VoId::new(vo.id.as_str()),
-            subject_hash: vo_content_hash(layout, vo.id.as_str()).unwrap(),
+            subject_hash: approval_subject_hash(
+                &vo_record_subject(vo),
+                dependencies.as_deref().unwrap_or_default(),
+            ),
             dependencies,
             approver: Approver {
                 kind: "human".to_owned(),
@@ -456,21 +502,51 @@ mod tests {
         let (layout, vo) = bound_project("spec-change");
         let closure = resolve_upstream_closure(&layout, &vo).unwrap();
         approve(&layout, &vo, Some(closure));
-        let hash = vo_content_hash(&layout, "VO-ONE").unwrap();
-        assert!(derive_vo_status(&layout, &vo, &hash).approved);
+        let subject = current_approval_subject(&layout, &vo).unwrap();
+        assert!(derive_vo_status(&layout, &vo, Ok(&subject)).approved);
 
         fs::write(
             layout.root.join("docs/contract.md"),
             "# Contract\n\nChanged.\n",
         )
         .unwrap();
-        let derived = derive_vo_status(&layout, &vo, &hash);
+        let stale = current_approval_subject(&layout, &vo)
+            .expect_err("a moved Specification source is not resolvable");
+        let derived = derive_vo_status(&layout, &vo, Err(&stale));
         assert!(!derived.approved);
         assert!(matches!(
             derived.invalid.first(),
             Some((_, ApprovalInvalidity::ClosureUnresolvable(_))),
         ));
-        assert!(resolve_upstream_closure(&layout, &vo).is_err());
+        cleanup(&layout);
+    }
+
+    #[test]
+    fn editing_the_subject_vo_supersedes_the_approval_without_reporting_it() {
+        let (layout, vo) = bound_project("subject-edit");
+        let closure = resolve_upstream_closure(&layout, &vo).unwrap();
+        approve(&layout, &vo, Some(closure.clone()));
+
+        let mut edited = vo.clone();
+        edited.claim = "the claim moved".to_owned();
+        fs::write(layout.vo_dir().join("VO-ONE.yaml"), edited.to_yaml()).unwrap();
+        let edited = read_vo(&layout, "VO-ONE").unwrap();
+        assert_eq!(
+            resolve_upstream_closure(&layout, &edited).unwrap(),
+            closure,
+            "editing the subject changes no upstream dependency"
+        );
+        let subject = current_approval_subject(&layout, &edited).unwrap();
+        let derived = derive_vo_status(&layout, &edited, Ok(&subject));
+        assert!(
+            !derived.approved,
+            "the aggregate subject binds the VO's own record subject"
+        );
+        assert!(
+            derived.invalid.is_empty(),
+            "a superseded approval is the documented lapse, not an invalid record: {:?}",
+            derived.invalid
+        );
         cleanup(&layout);
     }
 
@@ -478,8 +554,8 @@ mod tests {
     fn compatibility_approval_without_a_closure_is_never_approved() {
         let (layout, vo) = bound_project("compatibility");
         approve(&layout, &vo, None);
-        let hash = vo_content_hash(&layout, "VO-ONE").unwrap();
-        let derived = derive_vo_status(&layout, &vo, &hash);
+        let subject = current_approval_subject(&layout, &vo).unwrap();
+        let derived = derive_vo_status(&layout, &vo, Ok(&subject));
         assert!(!derived.approved);
         assert!(matches!(
             derived.invalid.first(),
@@ -500,8 +576,8 @@ mod tests {
                 hash: ContentHash::from_text("outdated\n"),
             }]),
         );
-        let hash = vo_content_hash(&layout, "VO-ONE").unwrap();
-        let derived = derive_vo_status(&layout, &vo, &hash);
+        let subject = current_approval_subject(&layout, &vo).unwrap();
+        let derived = derive_vo_status(&layout, &vo, Ok(&subject));
         assert!(!derived.approved);
         assert!(matches!(
             derived.invalid.first(),

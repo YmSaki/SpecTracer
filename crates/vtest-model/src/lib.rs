@@ -511,6 +511,77 @@ pub fn hash_record_subject(record: &CanonicalProjection) -> ContentHash {
     ContentHash::from_subject("vtest:record-subject:v1", [("record", record.encode())])
 }
 
+/// The hash of a referenced Specification source. This is the only definition
+/// of a Specification source hash: `SpecRecord.sha256` is the value this
+/// returned at registration time, never a substitute for the current one.
+pub fn hash_specification_source(source: &str) -> SpecSourceHash {
+    SpecSourceHash(ContentHash::from_text(source))
+}
+
+/// A Specification source hash. Distinct from the hash of the SPEC record that
+/// references it, so the two cannot be compared or substituted by accident.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SpecSourceHash(ContentHash);
+
+impl SpecSourceHash {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    /// The snapshot value as a plain content hash. A caller that binds a
+    /// judgment to this is binding to registration time, not to the current
+    /// Specification source, so it must recompute the source itself.
+    pub fn registered_snapshot(&self) -> &ContentHash {
+        &self.0
+    }
+}
+
+impl fmt::Display for SpecSourceHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for SpecSourceHash {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        value.parse().map(Self)
+    }
+}
+
+/// Bind an Approval to everything that can change its validity: the subject
+/// VO's own record subject plus every upstream dependency subject, in the
+/// canonical order the closure was resolved in.
+pub fn hash_approval_subject<'a>(
+    subject: &ContentHash,
+    dependencies: impl IntoIterator<Item = (&'a str, &'a str, &'a ContentHash)>,
+) -> ContentHash {
+    let closure = CanonicalProjection::List(
+        dependencies
+            .into_iter()
+            .map(|(kind, id, hash)| {
+                CanonicalProjection::Map(BTreeMap::from([
+                    ("kind".to_owned(), CanonicalProjection::String(kind.into())),
+                    ("id".to_owned(), CanonicalProjection::String(id.into())),
+                    (
+                        "hash".to_owned(),
+                        CanonicalProjection::String(hash.as_str().to_owned()),
+                    ),
+                ]))
+            })
+            .collect(),
+    );
+    ContentHash::from_subject(
+        "vtest:approval-subject:v1",
+        [
+            ("subject", subject.as_str().as_bytes().to_vec()),
+            ("dependencies", closure.encode()),
+        ],
+    )
+}
+
 pub fn hash_spec_subject(record: &CanonicalProjection, source: &str) -> ContentHash {
     ContentHash::from_subject(
         "vtest:spec-subject:v1",
