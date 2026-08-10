@@ -7,8 +7,8 @@
     "path": "source/cases.synth",
     "opaque_locator": "scenario[adding two values]",
     "range": {
-      "start": 79,
-      "end": 186
+      "start": 65,
+      "end": 176
     }
   },
   "runner_observation": {

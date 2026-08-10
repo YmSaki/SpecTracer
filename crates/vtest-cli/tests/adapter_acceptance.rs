@@ -188,12 +188,21 @@ fn bundle(project: &TempProject, kind: &str, selector: &[&str]) -> String {
 }
 
 fn submit_audit(project: &TempProject, bundle_id: &str, kind: &str) -> Value {
-    let submission_path = project.root.join(format!("{kind}-submission.json"));
     let verdict = if kind == "vo-coverage" {
         "COMPLETE"
     } else {
         "PASS"
     };
+    submit_audit_verdict(project, bundle_id, kind, verdict)
+}
+
+fn submit_audit_verdict(
+    project: &TempProject,
+    bundle_id: &str,
+    kind: &str,
+    verdict: &str,
+) -> Value {
+    let submission_path = project.root.join(format!("{kind}-submission.json"));
     let reasons = if kind == "vo-coverage" {
         json!([{
             "kind": "decomposition-viewpoint",
@@ -316,8 +325,9 @@ fn adapter_boundary_fixture_is_non_rust_and_non_adjacent() {
         &fs::read(root.join("metadata/tests.json")).expect("read synthetic metadata"),
     )
     .expect("parse synthetic metadata");
-    let source = fs::read_to_string(root.join("source/cases.synth"))
-        .expect("read non-Rust synthetic source");
+    let source_bytes =
+        fs::read(root.join("source/cases.synth")).expect("read non-Rust synthetic source bytes");
+    let source = String::from_utf8(source_bytes.clone()).expect("synthetic source is UTF-8");
     let collisions: Value = serde_json::from_slice(
         &fs::read(fixture_path("adapters/mixed/collisions.json"))
             .expect("read mixed-adapter collisions"),
@@ -327,6 +337,21 @@ fn adapter_boundary_fixture_is_non_rust_and_non_adjacent() {
     assert_eq!(manifest["adapter"], "synthetic");
     assert_eq!(manifest["capabilities"]["coverage"], false);
     assert_eq!(manifest["source_location"]["path"], "source/cases.synth");
+    let start = manifest["source_location"]["range"]["start"]
+        .as_u64()
+        .expect("source range start") as usize;
+    let end = manifest["source_location"]["range"]["end"]
+        .as_u64()
+        .expect("source range end") as usize;
+    assert!(start < end, "synthetic source range must be non-empty");
+    assert!(
+        end <= source_bytes.len(),
+        "synthetic source range must be current"
+    );
+    assert!(
+        source_bytes[start..end].starts_with(b"scenario \"adding two values\""),
+        "source range must identify the complete Test construct"
+    );
     assert!(source.contains("scenario \"adding two values\""));
     assert!(!source.contains("#[test]"));
     assert!(!source.contains("/// @vtest"));
@@ -352,21 +377,51 @@ fn adapter_boundary_fixture_is_non_rust_and_non_adjacent() {
     assert_eq!(collisions["src_id_collision"][1]["id"], "SRC-COLLISION");
 }
 
+fn cargo_metadata() -> Value {
+    let output = Command::new("cargo")
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .current_dir(repository_root())
+        .output()
+        .expect("run cargo metadata");
+    assert!(
+        output.status.success(),
+        "cargo metadata failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).expect("cargo metadata is JSON")
+}
+
+fn metadata_package<'a>(metadata: &'a Value, name: &str) -> &'a Value {
+    metadata["packages"]
+        .as_array()
+        .expect("metadata packages")
+        .iter()
+        .find(|package| package["name"] == name)
+        .unwrap_or_else(|| panic!("cargo metadata is missing package {name}"))
+}
+
 #[test]
-fn adapter_api_and_core_model_are_language_neutral() {
+fn adapter_api_crate_exposes_every_neutral_draft_type() {
     let root = repository_root();
+    let metadata = cargo_metadata();
+    let package = metadata_package(&metadata, "vtest-adapter-api");
+    let dependencies = package["dependencies"]
+        .as_array()
+        .expect("adapter API dependencies")
+        .iter()
+        .filter_map(|dependency| dependency["name"].as_str())
+        .collect::<Vec<_>>();
+    for forbidden in ["syn", "quote", "rustc-demangle", "cargo_metadata"] {
+        assert!(
+            !dependencies.contains(&forbidden),
+            "adapter API exposes forbidden dependency {forbidden}"
+        );
+    }
     let adapter_manifest = root.join("crates/vtest-adapter-api/Cargo.toml");
     assert!(
         adapter_manifest.is_file(),
         "vtest-adapter-api crate is required"
     );
-    let manifest = fs::read_to_string(adapter_manifest).expect("read adapter API manifest");
-    for forbidden in ["syn", "quote", "rustc-demangle", "cargo_metadata"] {
-        assert!(
-            !manifest.contains(forbidden),
-            "adapter API exposes forbidden dependency {forbidden}"
-        );
-    }
     let adapter_api = fs::read_to_string(root.join("crates/vtest-adapter-api/src/lib.rs"))
         .expect("read adapter API source");
     for required in [
@@ -386,7 +441,11 @@ fn adapter_api_and_core_model_are_language_neutral() {
             "adapter API is missing {required}"
         );
     }
+}
 
+#[test]
+fn core_model_is_neutral_and_has_the_fixed_check_set() {
+    let root = repository_root();
     let model = fs::read_to_string(root.join("crates/vtest-model/src/lib.rs"))
         .expect("read neutral model source");
     for required in ["ExecutionDescriptor", "test_traceability", "SourceLocation"] {
@@ -400,13 +459,22 @@ fn adapter_api_and_core_model_are_language_neutral() {
     ] {
         assert!(!model.contains(legacy), "model retains Rust field {legacy}");
     }
+}
 
+#[test]
+fn orchestration_crates_have_no_direct_rust_analysis_dependencies() {
+    let metadata = cargo_metadata();
     for crate_name in ["vtest-scan", "vtest-audit", "vtest-exec"] {
-        let cargo = fs::read_to_string(root.join(format!("crates/{crate_name}/Cargo.toml")))
-            .expect("read orchestration crate manifest");
+        let package = metadata_package(&metadata, crate_name);
+        let dependencies = package["dependencies"]
+            .as_array()
+            .expect("package dependencies")
+            .iter()
+            .filter_map(|dependency| dependency["name"].as_str())
+            .collect::<Vec<_>>();
         for forbidden in ["syn", "quote", "rustc-demangle"] {
             assert!(
-                !cargo.contains(forbidden),
+                !dependencies.contains(&forbidden),
                 "{crate_name} directly depends on {forbidden}"
             );
         }
@@ -432,6 +500,37 @@ fn default_verify_evaluates_the_fixed_twelve_items() {
         before,
         "v1 compatibility reads must not rewrite config"
     );
+}
+
+#[test]
+fn version_one_without_full_scope_uses_fixed_twelve_without_rewrite() {
+    let project = TempProject::from_m1_base("v1-no-full-scope");
+    let config_path = project.root.join(".verify/config.yaml");
+    fs::write(
+        &config_path,
+        "version: 1\nproject:\n  name: v1-no-scope\nscan:\n  include: [src, tests]\n  assertion_macros: []\nrun:\n  coverage: off\n",
+    )
+    .expect("write v1 config without full_scope");
+    let before = fs::read(&config_path).expect("read compatibility config");
+    let output = invoke(&project.root, "verify", &[]);
+    assert_exit(
+        &output,
+        1,
+        "v1 default full verification is NG for fixture gaps",
+    );
+    let response = envelope(&output);
+    assert_eq!(
+        response["data"]["report"]["items"]
+            .as_array()
+            .expect("report items")
+            .len(),
+        12
+    );
+    assert_eq!(
+        report_item(&response, "test_traceability")["item"],
+        "test_traceability"
+    );
+    assert_eq!(fs::read(&config_path).expect("reread v1 config"), before);
 }
 
 #[test]
@@ -498,6 +597,86 @@ fn version_two_config_is_accepted_and_incomplete_scope_is_rejected() {
         diagnostic_codes(&envelope(&invalid)).contains(&"E-CONFIG-001"),
         "incomplete scope must report E-CONFIG-001"
     );
+}
+
+#[test]
+fn version_two_duplicate_full_scope_is_e_config_001() {
+    let project = TempProject::from_m1_base("v2-duplicate-scope");
+    let config_path = project.root.join(".verify/config.yaml");
+    let mut config = fs::read_to_string(fixture_path("adapters/config/v2-rust-cargo.yaml"))
+        .expect("read normative v2 fixture");
+    config = config.replace(
+        "evidence_validity, test_traceability]",
+        "evidence_validity, test_traceability, test_traceability]",
+    );
+    fs::write(&config_path, config).expect("write duplicate v2 scope");
+    let output = invoke(&project.root, "verify", &[]);
+    assert_exit(
+        &output,
+        2,
+        "duplicate v2 scope is rejected before verification",
+    );
+    let response = envelope(&output);
+    assert!(diagnostic_codes(&response).contains(&"E-CONFIG-001"));
+    assert!(
+        response["data"].is_null(),
+        "no verification result on invalid config"
+    );
+}
+
+fn adapter_config(project: &TempProject, adapters: &str) {
+    fs::write(
+        project.root.join(".verify/config.yaml"),
+        format!(
+            "version: 2\nproject:\n  name: adapter-registry\nadapters:\n{adapters}verify:\n  full_scope: [spec_coverage, vo_decomposition, vo_coverage, test_existence, static_audit, semantic_audit, impl_consistency, test_execution, runtime_result, target_execution, evidence_validity, test_traceability]\n"
+        ),
+    )
+    .expect("write adapter registry config");
+}
+
+fn assert_adapter_usage_error(project: &TempProject, command: &str, expected_code: &str) {
+    let output = invoke(&project.root, command, &[]);
+    assert_exit(&output, 2, "invalid adapter registry is a usage error");
+    let response = envelope(&output);
+    assert!(
+        diagnostic_codes(&response).contains(&expected_code),
+        "{response}"
+    );
+    assert!(
+        response["data"].is_null(),
+        "rejected adapter operation has no result"
+    );
+}
+
+#[test]
+fn unknown_adapter_rejects_scan_without_result() {
+    let project = TempProject::from_m1_base("unknown-adapter");
+    adapter_config(
+        &project,
+        "  - id: not-registered\n    roots: [\".\"]\n    scan:\n      include: [src, tests]\n    run:\n      coverage: off\n",
+    );
+    assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
+}
+
+#[test]
+fn duplicate_adapter_id_rejects_scan_without_result() {
+    let project = TempProject::from_m1_base("duplicate-adapter");
+    adapter_config(
+        &project,
+        "  - id: rust-cargo\n    roots: [\".\"]\n    scan:\n      include: [src, tests]\n      assertion_macros: []\n    run:\n      coverage: off\n  - id: rust-cargo\n    roots: [tests]\n    scan:\n      include: [tests]\n      assertion_macros: []\n    run:\n      coverage: off\n",
+    );
+    assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
+}
+
+#[test]
+fn zero_adapter_registry_is_fail_closed() {
+    let project = TempProject::from_m1_base("zero-adapter");
+    fs::write(
+        project.root.join(".verify/config.yaml"),
+        "version: 2\nproject:\n  name: zero-adapter\nadapters: []\nverify:\n  full_scope: [spec_coverage, vo_decomposition, vo_coverage, test_existence, static_audit, semantic_audit, impl_consistency, test_execution, runtime_result, target_execution, evidence_validity, test_traceability]\n",
+    )
+    .expect("write empty adapter registry");
+    assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
 }
 
 #[test]
@@ -763,6 +942,34 @@ fn evidence_without_execution_state_is_compatibility_stale() {
 }
 
 #[test]
+fn incomplete_current_execution_snapshot_is_unknown() {
+    let project = TempProject::from_m1_base("incomplete-execution-snapshot");
+    project.commit_baseline();
+    let run = invoke(&project.root, "run", &["--all", "--fast"]);
+    assert_exit(
+        &run,
+        0,
+        "record Evidence before snapshot becomes incomplete",
+    );
+    let evidence_path = only_yaml(&project.root.join(".verify/evidence"));
+    let evidence = fs::read_to_string(&evidence_path).expect("read Evidence YAML");
+    let incomplete = if evidence.contains("execution_state:") {
+        evidence.replacen("complete: true", "complete: false", 1)
+    } else {
+        format!(
+            "{evidence}execution_state:\n  subject: sha256:0000000000000000000000000000000000000000000000000000000000000000\n  complete: false\n"
+        )
+    };
+    fs::write(&evidence_path, incomplete).expect("make current snapshot incomplete");
+    let verify = invoke(&project.root, "verify", &["--items", "evidence_validity"]);
+    assert_exit(&verify, 1, "incomplete execution snapshot is non-PASS");
+    assert_eq!(
+        report_item(&envelope(&verify), "evidence_validity")["value"],
+        "UNKNOWN"
+    );
+}
+
+#[test]
 fn evidence_without_revision_commit_is_stale() {
     let project = TempProject::from_m1_base("missing-revision");
     project.commit_baseline();
@@ -878,6 +1085,51 @@ fn specification_only_change_stales_impl_consistency() {
         report_item(&envelope(&verify), "impl_consistency")["value"],
         "STALE"
     );
+}
+
+#[test]
+fn impl_consistency_fail_maps_to_mismatch() {
+    let project = TempProject::from_m1_base("impl-fail-mismatch");
+    prepare_spec_dependency(&project);
+    project.commit_baseline();
+    let bundle_id = bundle(&project, "impl-consistency", &["--test", "TEST-M1-CLEAN"]);
+    submit_audit_verdict(&project, &bundle_id, "impl-consistency", "FAIL");
+    let verify = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_exit(&verify, 1, "impl-consistency FAIL is verification NG");
+    assert_eq!(
+        report_item(&envelope(&verify), "impl_consistency")["value"],
+        "MISMATCH"
+    );
+}
+
+#[test]
+fn specification_requirement_without_active_req_is_non_pass() {
+    let project = TempProject::from_m1_base("spec-without-req");
+    fs::create_dir_all(project.root.join("docs")).expect("create docs directory");
+    fs::write(
+        project.root.join("docs/unmapped-spec.md"),
+        "# Required behavior\n\nA requirement exists without an active REQ.\n",
+    )
+    .expect("write Specification requirement");
+    let add = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add",
+            "--id",
+            "SPEC-UNMAPPED",
+            "--path",
+            "docs/unmapped-spec.md",
+        ],
+    );
+    assert_exit(&add, 0, "register Specification without REQ");
+    let verify = invoke(&project.root, "verify", &["--items", "spec_coverage"]);
+    assert_exit(&verify, 1, "unmapped Specification requirement is non-PASS");
+    let response = envelope(&verify);
+    let value = report_item(&response, "spec_coverage")["value"]
+        .as_str()
+        .expect("spec_coverage value");
+    assert_ne!(value, "PASS");
 }
 
 #[test]
