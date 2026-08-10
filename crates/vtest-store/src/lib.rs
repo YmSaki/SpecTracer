@@ -664,4 +664,56 @@ mod tests {
             .expect_err("unknown coverage mode must fail closed");
         assert!(error.to_string().contains("run.coverage"));
     }
+
+    const CANONICAL_TWELVE: &str = "spec_coverage, vo_decomposition, vo_coverage, test_existence, \
+static_audit, semantic_audit, impl_consistency, test_execution, runtime_result, target_execution, \
+evidence_validity, test_traceability";
+
+    fn one_adapter(roots: &str) -> String {
+        format!(
+            "  - id: rust-cargo\n    roots: {roots}\n    scan:\n      include: [src]\n      \
+             assertion_macros: []\n    run:\n      coverage: llvm-cov\n"
+        )
+    }
+
+    fn version_two(adapters: &str, full_scope: &str) -> Result<ProjectConfig, StoreError> {
+        ProjectConfig::from_yaml(
+            &format!(
+                "version: 2\nproject:\n  name: scope\nadapters:\n{adapters}verify:\n  \
+                 full_scope: [{full_scope}]\n"
+            ),
+            "fallback",
+        )
+    }
+
+    #[test]
+    fn version_two_full_scope_rejects_unknown_and_extra_items() {
+        let adapters = one_adapter("[\".\"]");
+        assert!(version_two(&adapters, CANONICAL_TWELVE).is_ok());
+
+        let unknown = CANONICAL_TWELVE.replace("runtime_result", "guessed_item");
+        let error = version_two(&adapters, &unknown)
+            .expect_err("an unknown scope item is not one of the fixed twelve");
+        assert!(error.to_string().contains("full_scope"), "{error}");
+
+        let extra = format!("{CANONICAL_TWELVE}, spec_coverage");
+        let error =
+            version_two(&adapters, &extra).expect_err("a thirteenth entry is not the fixed twelve");
+        assert!(error.to_string().contains("full_scope"), "{error}");
+    }
+
+    #[test]
+    fn adapter_roots_must_be_present_unique_and_project_relative() {
+        let error = version_two(&one_adapter("[\"crates\", \"crates/\"]"), CANONICAL_TWELVE)
+            .expect_err("one root cannot be declared twice under different spellings");
+        assert!(error.to_string().contains("duplicate root"), "{error}");
+
+        let error = version_two(&one_adapter("[\"../outside\"]"), CANONICAL_TWELVE)
+            .expect_err("a root must stay inside the project");
+        assert!(error.to_string().contains("project-relative"), "{error}");
+
+        let error = version_two(&one_adapter("[]"), CANONICAL_TWELVE)
+            .expect_err("an adapter with no root cannot be scanned");
+        assert!(error.to_string().contains("no roots"), "{error}");
+    }
 }
