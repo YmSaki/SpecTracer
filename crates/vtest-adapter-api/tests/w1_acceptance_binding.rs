@@ -4,11 +4,13 @@ use vtest_adapter_api::{
     encode_wire_targets, missing_capability_semantics, normalize_wire_targets, AdapterCapability,
     AdapterDescriptor, AdapterError, AdapterRegistration, AdapterRegistry, DiscoveredTestDraft,
     DiscoveryCompleteness, ManagedTestDraft, ManagedTestDraftLink, MissingCapabilitySemantics,
-    SourceFragment, TestWireCodec,
+    SourceFragment, StaticAnalysisClosureDraft, StaticAuditAdapter, StaticAuditConfigDraft,
+    StaticAuditObservation, TestWireCodec,
 };
 use vtest_model::{
-    hash_test_subject, AdapterId, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation,
-    SourceRange, TargetRef, TestEntity, TestId, TestSubjectInput,
+    hash_static_audit_config_subject, hash_test_subject, AdapterId, CanonicalProjection,
+    CheckValue, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
+    TargetRef, TestEntity, TestId, TestSubjectInput,
 };
 
 fn fixtures() -> PathBuf {
@@ -24,6 +26,36 @@ fn json(relative: &str) -> Value {
 
 #[derive(Default)]
 struct SyntheticCodec;
+
+#[derive(Default)]
+struct SyntheticStaticAudit;
+
+impl StaticAuditAdapter for SyntheticStaticAudit {
+    fn audit(&self, test: &TestEntity) -> Result<StaticAuditObservation, AdapterError> {
+        if test.execution.adapter.as_str() != "synthetic" {
+            return Err(AdapterError::Mismatch("static adapter mismatch".to_owned()));
+        }
+        Ok(StaticAuditObservation {
+            verdict: CheckValue::Pass,
+            reasons: vec!["synthetic assertion is present".to_owned()],
+            config: StaticAuditConfigDraft {
+                rule_set_id: "synthetic-static".to_owned(),
+                rule_set_version: "1".to_owned(),
+                effective_config: CanonicalProjection::Map(std::collections::BTreeMap::from([(
+                    "assertion_required".to_owned(),
+                    CanonicalProjection::Bool(true),
+                )])),
+            },
+            analysis: StaticAnalysisClosureDraft {
+                complete: true,
+                sources: vec![SourceFragment {
+                    location: test.location.clone(),
+                    bytes: b"scenario[adding two values]".to_vec(),
+                }],
+            },
+        })
+    }
+}
 
 impl TestWireCodec for SyntheticCodec {
     fn decode_execution(
@@ -151,6 +183,39 @@ fn registry_binds_codec_and_preserves_deterministic_id_order() {
     assert!(registry
         .test_wire_codec(&AdapterId::new("synthetic"))
         .is_ok());
+}
+
+#[test]
+fn registry_static_observation_is_hash_free_and_core_owns_config_hashing() {
+    let adapter = AdapterId::new("synthetic");
+    let mut registration = AdapterRegistration::new(AdapterDescriptor {
+        id: adapter.clone(),
+        languages: vec!["fixture".to_owned()],
+        capabilities: vec![AdapterCapability::StaticAudit],
+        config_namespace: "synthetic".to_owned(),
+    });
+    registration.static_audit = Some(Arc::new(SyntheticStaticAudit));
+    let registry = AdapterRegistry::from_registrations([registration]).expect("registry");
+    let observation = registry
+        .static_audit(&adapter)
+        .expect("registered static adapter")
+        .audit(&synthetic_test())
+        .expect("hash-free observation");
+    let wire = serde_json::to_value(&observation).expect("serialize observation");
+    assert!(wire.get("content_hash").is_none());
+    assert!(wire["config"].get("content_hash").is_none());
+
+    let subject = hash_static_audit_config_subject(
+        &adapter,
+        &observation.config.rule_set_id,
+        &observation.config.rule_set_version,
+        &observation.config.effective_config,
+    );
+    assert!(subject.as_str().starts_with("sha256:"));
+    assert_ne!(
+        subject,
+        ContentHash::from_text("synthetic-static:1:assertion_required")
+    );
 }
 
 #[test]

@@ -2270,8 +2270,29 @@ fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> &'a str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use vtest_adapter_api::{
+        AdapterCapability, AdapterDescriptor, AdapterRegistration, AdapterRegistry,
+        SourceDiscoveryAdapter,
+    };
+    use vtest_model::CanonicalProjection;
     use vtest_store::{init_project, new_record_id};
+
+    #[derive(Clone)]
+    struct SyntheticDiscoveryAdapter {
+        batch: DiscoveryBatch,
+    }
+
+    impl SourceDiscoveryAdapter for SyntheticDiscoveryAdapter {
+        fn discover(
+            &self,
+            _root: &Path,
+            _config: &CanonicalProjection,
+        ) -> Result<DiscoveryBatch, AdapterError> {
+            Ok(self.batch.clone())
+        }
+    }
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
@@ -2435,8 +2456,22 @@ fn adds() { assert_eq!(2, crate::missing()); }
             &batch.source_targets[0].target,
             &batch.source_targets[0].construct.bytes,
         );
+        let adapter = AdapterId::new("synthetic");
+        let mut registration = AdapterRegistration::new(AdapterDescriptor {
+            id: adapter.clone(),
+            languages: vec!["synthetic".to_owned()],
+            capabilities: vec![AdapterCapability::SourceDiscovery],
+            config_namespace: "synthetic".to_owned(),
+        });
+        registration.source_discovery = Some(Arc::new(SyntheticDiscoveryAdapter { batch }));
+        let registry = AdapterRegistry::from_registrations([registration]).unwrap();
+        let observed = registry
+            .source_discovery(&adapter)
+            .unwrap()
+            .discover(&root, &CanonicalProjection::Null)
+            .unwrap();
 
-        let materialized = materialize_discovery_batch(&root, batch).unwrap();
+        let materialized = materialize_discovery_batch(&root, observed).unwrap();
         assert_eq!(materialized.adapter, AdapterId::new("synthetic"));
         assert_eq!(materialized.discovered_tests.len(), 1);
         assert_eq!(materialized.managed_tests.len(), 1);
