@@ -665,6 +665,7 @@ pub enum ManagedTestDraftLink {
 
 pub struct SourceTargetDraft {
     pub target: TargetRef,
+    pub src_id: Option<SrcId>,
     pub location: SourceLocation,
     pub construct: SourceFragment,
 }
@@ -682,6 +683,22 @@ pub enum DiscoveryCompleteness {
     Incomplete,
 }
 ```
+
+Source Targetはcanonical Target Referenceと任意の恒久SRC IDを併有する**単一のdomain entity**である。
+`TargetRef::Locator`と`TargetRef::SrcId`はいずれも同一Source Targetへのaddressing modeであり、別個のentityを指さない。
+恒久SRC IDはlocatorの代替ではなく、同じSource Targetへ与えられるoptional permanent identityである。
+
+- adapterは`@vtest.src-id`等で宣言された恒久SRC IDを`SourceTargetDraft.src_id`として返す。
+  同一constructをlocator版とSrcId版の2件のdraftへ複製してはならない。
+- `SourceTargetDraft.target`はそのSource Targetのcanonical Target Referenceである。
+  `target`が`TargetRef::SrcId(x)`の場合、`src_id`は未設定または`x`と一致しなければならず、
+  不一致はadapter出力違反として拒否する。
+- coreは`src_id`を統合済みSRC索引へ登録し、locator参照とSRC ID参照のどちらから解決しても
+  同一のcanonical Source Targetへ到達させる。
+- §1.3のSource Target hashはcanonical Target Referenceとconstruct bytesだけを束縛し、
+  恒久SRC IDをhash inputに含めない。したがって参照方法の違いによって
+  Source Targetの件数、content / subject hash、EvidenceおよびAudit上のtarget identityが分裂しない。
+- 恒久SRC IDを持つSource Targetも引き続きcanonical locatorでaddressableでなければならない。
 
 adapterは`SourceFragment.bytes`が`location.byte_range`の現在bytesと一致する状態だけを返す。
 manifest等にある非隣接metadataも`metadata_sources`へ列挙するが、hash inputはadapter構文のraw表現ではなく
@@ -832,8 +849,8 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 
 7. draft生成
    全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、
-   construct / metadata source rangeとbytes、logical metadata、ExecutionDescriptor、診断を
-   hash未計算のDiscoveryBatchに格納する
+   construct / metadata source rangeとbytes、logical metadata、宣言された恒久SRC ID、
+   ExecutionDescriptor、診断をhash未計算のDiscoveryBatchに格納する
 ```
 
 ---
@@ -845,7 +862,7 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 coreは`TargetRef::Locator.adapter`をregistryで解決し、opaque locatorの解釈を該当する`SourceDiscoveryAdapter`へ委譲する。adapterは正規化されたTarget Reference、Source Location、source range、content bytes、解決status、候補を返す。
 coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証し、§1.3のSource Target hashを計算するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
 
-SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。
+SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。SRC ID参照は当該恒久SRC IDを宣言したSource Targetへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。解決結果をlocator版とSrcId版の別entityへ分岐させない。恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。
 
 ### 6.2 `rust-cargo` locator解決
 
