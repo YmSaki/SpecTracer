@@ -1,11 +1,10 @@
 [package]
-name = "vtest-store"
+name = "vtest-adapter-rust"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-serde.workspace = true
-serde_yaml.workspace = true
-thiserror.workspace = true
+serde_json.workspace = true
+vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-model = { path = "../vtest-model" }

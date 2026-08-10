@@ -1422,6 +1422,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     if !config
+        .rust_cargo()
         .scan
         .include
         .iter()
@@ -1429,7 +1430,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file is outside config.scan.include: `{relative}`"),
+            format!("Rust file is outside rust-cargo scan.include: `{relative}`"),
         ));
     }
     let canonical_root = fs::canonicalize(root)
@@ -1458,7 +1459,7 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let mut files = Vec::new();
-    for include in config.scan.include {
+    for include in config.rust_cargo().scan.include.clone() {
         collect_rust_files(&root.join(include), &mut files);
     }
     files.sort();

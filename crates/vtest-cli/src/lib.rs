@@ -9,6 +9,8 @@ use std::{
 
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
+use vtest_adapter_api::{encode_test_wire, AdapterError, AdapterRegistry};
+use vtest_adapter_rust::rust_cargo_registration;
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
 use vtest_exec::{run_tests, RunnableTest, RustLocator};
 use vtest_model::{
@@ -17,13 +19,14 @@ use vtest_model::{
 };
 use vtest_scan::{
     create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
-    show_test, Locator as ScanLocator, ScanResult,
+    show_test, Locator as ScanLocator, ScanError, ScanResult,
 };
 use vtest_store::{
-    find_project_root, init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339,
-    read_approval, read_form_answers, read_req, read_spec, read_text, read_vo, write_atomic,
-    write_new_record, yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension,
-    ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout, VoRecord,
+    derive_vo_status, find_project_root, init_project, is_valid_ulid, load_config, new_record_id,
+    now_rfc3339, read_approval, read_form_answers, read_req, read_spec, read_text, read_vo,
+    resolve_upstream_closure, vo_content_hash, write_atomic, write_new_record, yaml_scalar_value,
+    ApprovalBasis, ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord, SpecRef, StoreError,
+    VerifyLayout, VoRecord,
 };
 use vtest_verify::{verify_project_scoped, EntityScope};
 
@@ -308,18 +311,31 @@ pub enum OutputFormat {
 #[derive(Clone, Debug, Serialize)]
 pub struct ScanData {
     pub summary: ScanSummary,
-    pub tests: Vec<vtest_model::TestEntity>,
+    pub tests: Vec<serde_json::Value>,
     pub sources: Vec<vtest_model::SourceFunction>,
 }
 
-impl From<ScanResult> for ScanData {
-    fn from(value: ScanResult) -> Self {
-        Self {
+impl ScanData {
+    fn from_result(value: ScanResult) -> Result<Self, AdapterError> {
+        let registry = built_in_registry()?;
+        let tests = value
+            .tests
+            .iter()
+            .map(|test| {
+                let codec = registry.test_wire_codec(&test.execution.adapter)?;
+                encode_test_wire(test, codec)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
             summary: value.summary,
-            tests: value.tests,
+            tests,
             sources: value.sources,
-        }
+        })
     }
+}
+
+fn built_in_registry() -> Result<AdapterRegistry, AdapterError> {
+    AdapterRegistry::from_registrations([rust_cargo_registration()])
 }
 
 pub fn run(cli: Cli) -> ExitCode {
@@ -504,10 +520,25 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(result) => {
             let has_errors = result.has_errors();
             let diagnostics = result.diagnostics.clone();
+            let data = match ScanData::from_result(result) {
+                Ok(data) => data,
+                Err(error) => {
+                    emit(
+                        format,
+                        quiet,
+                        JsonEnvelope::new(
+                            false,
+                            serde_json::Value::Null,
+                            vec![Diagnostic::error("E-ADAPTER-003", error.to_string())],
+                        ),
+                    );
+                    return ExitCode::Usage;
+                }
+            };
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(!has_errors, ScanData::from(result), diagnostics),
+                JsonEnvelope::new(!has_errors, data, diagnostics),
             );
             if has_errors {
                 ExitCode::VerificationFailed
@@ -516,13 +547,23 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
             }
         }
         Err(error) => {
-            let diagnostic = Diagnostic::error("E-CORE-001", error.to_string());
+            let (diagnostic, code) = match error {
+                ScanError::Store(error) => store_error_with_code(error, ExitCode::Usage),
+                ScanError::Adapter(error) => (
+                    Diagnostic::error("E-ADAPTER-001", error.to_string()),
+                    ExitCode::Usage,
+                ),
+                other => (
+                    Diagnostic::error("E-CORE-001", other.to_string()),
+                    ExitCode::Internal,
+                ),
+            };
             emit(
                 format,
                 quiet,
                 JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            ExitCode::Internal
+            code
         }
     }
 }
@@ -1536,7 +1577,7 @@ fn vo_value(layout: &VerifyLayout, id: &str) -> CommandResult<serde_json::Value>
         "dimensions": record.dimensions,
         "spec_refs": record.spec_refs,
         "requirements": record.requirements,
-        "status": record.status,
+        "status": effective_vo_status(layout, &record),
         "content_hash": ContentHash::from_text(&text),
     }))
 }
@@ -2094,19 +2135,16 @@ fn run_run(
     let config = match load_config(&root) {
         Ok(config) => config,
         Err(error) => {
+            let (diagnostic, code) = store_error_with_code(error, ExitCode::Usage);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
-    let fast = fast || config.run.coverage == "off";
+    let fast = fast || config.rust_cargo().run.coverage == "off";
     let selected_count = usize::from(test.is_some())
         + usize::from(vo.is_some())
         + usize::from(req.is_some())
@@ -2310,16 +2348,13 @@ fn run_verify(
     let config = match load_config(&root) {
         Ok(config) => config,
         Err(error) => {
+            let (diagnostic, code) = store_error_with_code(error, ExitCode::Usage);
             emit(
                 format,
                 quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
+                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
             );
-            return ExitCode::Internal;
+            return code;
         }
     };
     let scan = match scan_project(&root) {
@@ -2826,7 +2861,7 @@ fn add_vo(
         coverage_policy: policy,
         combinations,
         representative_cases: Vec::new(),
-        status: "draft".to_owned(),
+        status: None,
         created: now.clone(),
         updated: now,
     };
@@ -2876,7 +2911,7 @@ fn edit_vo(
             ));
         }
     }
-    record.status = "draft".to_owned();
+    record.status = None;
     record.updated = now_rfc3339();
     write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
     let mut value = serde_json::to_value(record).expect("record");
@@ -3200,7 +3235,7 @@ fn expand_vo(layout: &VerifyLayout, id: &str, dry_run: bool) -> CommandResult {
                 coverage_policy: None,
                 combinations: Vec::new(),
                 representative_cases: Vec::new(),
-                status: "draft".to_owned(),
+                status: None,
                 created: now.clone(),
                 updated: now,
             };
@@ -3243,17 +3278,24 @@ fn approve_vo(
         }
     }
     let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
-    let mut vo = read_vo(layout, id).map_err(store_failure)?;
-    if vo.status != "approved" {
-        vo.status = "approved".to_owned();
-        vo.updated = now_rfc3339();
-        write_atomic(&vo_path, &vo.to_yaml()).map_err(store_failure)?;
-    }
+    let vo = read_vo(layout, id).map_err(store_failure)?;
+    // The closure is resolved before any write so a rejected approve leaves the
+    // VO and the append-only approvals untouched.
+    let dependencies = resolve_upstream_closure(layout, &vo).map_err(|failure_reason| {
+        failure(
+            "E-APPROVAL-001",
+            format!("cannot approve {id}: {failure_reason}"),
+            ExitCode::Usage,
+        )
+    })?;
+    // The canonical VO record never stores an approval-derived status, so an
+    // approval writes nothing but the append-only Approval itself.
     let subject_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
     let approval = ApprovalRecord {
         id: new_record_id(),
         subject: vo.id,
         subject_hash,
+        dependencies: Some(dependencies),
         approver: Approver {
             kind: approver_kind.to_owned(),
             id: approver_id.to_owned(),
@@ -3509,33 +3551,10 @@ fn spec_refs_from_args(
 }
 
 fn effective_vo_status(layout: &VerifyLayout, record: &VoRecord) -> String {
-    let path = layout.vo_dir().join(format!("{}.yaml", record.id));
-    let Ok(text) = read_text(&path) else {
+    let Ok(hash) = vo_content_hash(layout, record.id.as_str()) else {
         return "draft".to_owned();
     };
-    let hash = ContentHash::from_text(&text);
-    let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
-        return "draft".to_owned();
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
-            continue;
-        }
-        let file_id = path
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
-        if !is_valid_ulid(file_id) {
-            continue;
-        }
-        if let Ok(approval) = read_approval(&path) {
-            if approval.subject == record.id && approval.subject_hash == hash {
-                return "approved".to_owned();
-            }
-        }
-    }
-    "draft".to_owned()
+    derive_vo_status(layout, record, &hash).status().to_owned()
 }
 
 fn read_record_ids_for(directory: &Path) -> CommandResult<Vec<String>> {
@@ -3673,6 +3692,12 @@ fn store_error_with_code(error: StoreError, default: ExitCode) -> (Diagnostic, E
             ),
             ExitCode::Usage,
         ),
+        StoreError::InvalidConfig(message) => {
+            (Diagnostic::error("E-CONFIG-001", message), ExitCode::Usage)
+        }
+        StoreError::InvalidAdapter(message) => {
+            (Diagnostic::error("E-ADAPTER-001", message), ExitCode::Usage)
+        }
         other => (Diagnostic::error("E-CORE-001", other.to_string()), default),
     }
 }
@@ -3874,6 +3899,92 @@ mod tests {
             }) as u8,
             2
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record() {
+        let root = root();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join("docs/spec.md"), "calculator\n").unwrap();
+        let invoke = |command| {
+            run(Cli {
+                project: root.clone(),
+                format: OutputFormat::Json,
+                quiet: true,
+                command,
+            })
+        };
+        assert_eq!(
+            invoke(Command::Spec {
+                command: SpecCommand::Add {
+                    id: "SPEC-CALC".to_owned(),
+                    path: PathBuf::from("docs/spec.md"),
+                    kind: "document".to_owned(),
+                    title: None,
+                    note: None,
+                    update: false,
+                },
+            }) as u8,
+            0
+        );
+        assert_eq!(
+            invoke(Command::Req {
+                command: ReqCommand::Add {
+                    id: "REQ-CALC".to_owned(),
+                    summary: "calculator works".to_owned(),
+                    parent: None,
+                    specs: vec!["SPEC-CALC".to_owned()],
+                    sections: vec!["1".to_owned()],
+                },
+            }) as u8,
+            0
+        );
+        assert_eq!(
+            invoke(Command::Vo {
+                command: VoCommand::Add {
+                    id: "VO-CALC".to_owned(),
+                    claim: "addition works".to_owned(),
+                    requirements: vec!["REQ-CALC".to_owned()],
+                    parent: None,
+                    specs: vec!["SPEC-CALC".to_owned()],
+                    sections: vec!["1".to_owned()],
+                    dimensions: Vec::new(),
+                    policy: None,
+                    combinations: Vec::new(),
+                },
+            }) as u8,
+            0
+        );
+        // The registered Specification source moves out from under the VO.
+        fs::write(root.join("docs/spec.md"), "calculator, rewritten\n").unwrap();
+        assert_eq!(
+            invoke(Command::Vo {
+                command: VoCommand::Approve {
+                    id: "VO-CALC".to_owned(),
+                    approver_kind: "human".to_owned(),
+                    approver_id: "reviewer".to_owned(),
+                    model: None,
+                    basis: Vec::new(),
+                },
+            }) as u8,
+            2
+        );
+        assert_eq!(
+            fs::read_dir(root.join(".verify/approvals"))
+                .unwrap()
+                .flatten()
+                .filter(
+                    |entry| entry.path().extension().and_then(|value| value.to_str())
+                        == Some("yaml")
+                )
+                .count(),
+            0,
+            "E-APPROVAL-001 must not append an approval fact"
+        );
+        let layout = VerifyLayout::new(&root);
+        let vo = read_vo(&layout, "VO-CALC").unwrap();
+        assert_eq!(effective_vo_status(&layout, &vo), "draft");
         fs::remove_dir_all(root).unwrap();
     }
 

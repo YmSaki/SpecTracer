@@ -66,7 +66,10 @@ pub struct VoRecord {
     #[serde(default)]
     pub combinations: Vec<Vec<String>>,
     pub representative_cases: Vec<String>,
-    pub status: String,
+    /// Version 1 compatibility field. The effective status is always derived
+    /// from Approvals, so the writer never emits it and readers ignore its
+    /// value; its mere presence is reported as W-STORE-001.
+    pub status: Option<String>,
     pub created: String,
     pub updated: String,
 }
@@ -85,11 +88,23 @@ pub struct ApprovalBasis {
     pub reference: String,
 }
 
+/// One upstream entity an Approval was bound to when it was recorded.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct ApprovalDependency {
+    pub kind: String,
+    pub id: String,
+    pub hash: ContentHash,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApprovalRecord {
     pub id: String,
     pub subject: VoId,
     pub subject_hash: ContentHash,
+    /// Upstream dependency closure captured at approval time. Version 1
+    /// compatibility Approvals have no closure at all, which is a different
+    /// fact from a subject whose closure is legitimately empty.
+    pub dependencies: Option<Vec<ApprovalDependency>>,
     pub approver: Approver,
     pub basis: Vec<ApprovalBasis>,
     pub approved_at: String,
@@ -319,9 +334,8 @@ impl VoRecord {
             }
         }
         out.push_str(&format!(
-            "representative_cases: {}\nstatus: {}\ncreated: {}\nupdated: {}\n",
+            "representative_cases: {}\ncreated: {}\nupdated: {}\n",
             yaml_list(self.representative_cases.iter().map(String::as_str)),
-            yaml_scalar(&self.status),
             yaml_scalar(&self.created),
             yaml_scalar(&self.updated),
         ));
@@ -343,7 +357,7 @@ impl VoRecord {
             coverage_policy: scalar(text, "coverage_policy").filter(|value| value != "null"),
             combinations: parse_combinations(text),
             representative_cases: list(text, "representative_cases"),
-            status: scalar(text, "status").unwrap_or_else(|| "draft".to_owned()),
+            status: scalar(text, "status"),
             created: scalar(text, "created").unwrap_or_default(),
             updated: scalar(text, "updated").unwrap_or_default(),
         }
@@ -353,13 +367,31 @@ impl VoRecord {
 impl ApprovalRecord {
     pub fn to_yaml(&self) -> String {
         let mut out = format!(
-            "id: {}\nsubject: {}\nsubject_hash: {}\napprover:\n  kind: {}\n  id: {}\n",
+            "id: {}\nsubject: {}\nsubject_hash: {}\n",
             yaml_scalar(&self.id),
             yaml_scalar(self.subject.as_str()),
             yaml_scalar(self.subject_hash.as_str()),
+        );
+        if let Some(dependencies) = &self.dependencies {
+            if dependencies.is_empty() {
+                out.push_str("dependencies: []\n");
+            } else {
+                out.push_str("dependencies:\n");
+                for dependency in dependencies {
+                    out.push_str(&format!(
+                        "  - kind: {}\n    id: {}\n    hash: {}\n",
+                        yaml_scalar(&dependency.kind),
+                        yaml_scalar(&dependency.id),
+                        yaml_scalar(dependency.hash.as_str()),
+                    ));
+                }
+            }
+        }
+        out.push_str(&format!(
+            "approver:\n  kind: {}\n  id: {}\n",
             yaml_scalar(&self.approver.kind),
             yaml_scalar(&self.approver.id),
-        );
+        ));
         if let Some(model) = &self.approver.model {
             out.push_str(&format!("  model: {}\n", yaml_scalar(model)));
         }
@@ -425,6 +457,7 @@ impl ApprovalRecord {
             id,
             subject: VoId::new(subject),
             subject_hash,
+            dependencies: parse_approval_dependencies(text)?,
             approver: Approver {
                 kind: approver_kind,
                 id: approver_id,
@@ -767,8 +800,20 @@ impl RelationRecord {
     }
 
     pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
+        let wire_id = required_top_level_scalar(text, "id", "relation")?;
+        let wire_payload = relation_ulid_payload(&wire_id).ok_or_else(|| {
+            StoreError::InvalidConfig("relation id must be a ULID or REL-<ULID>".to_owned())
+        })?;
+        let filename_payload = relation_ulid_payload(filename_id).ok_or_else(|| {
+            StoreError::InvalidConfig("relation file name must be a ULID or REL-<ULID>".to_owned())
+        })?;
+        if wire_payload != filename_payload {
+            return Err(StoreError::InvalidConfig(format!(
+                "relation id {wire_id} does not match file name {filename_id}"
+            )));
+        }
         let record = Self {
-            id: required_top_level_scalar(text, "id", "relation")?,
+            id: format!("REL-{wire_payload}"),
             relation_type: required_top_level_scalar(text, "type", "relation")
                 .ok()
                 .and_then(|value| RelationType::parse(&value))
@@ -780,14 +825,14 @@ impl RelationRecord {
             note: top_level_scalar(text, "note"),
             created: required_top_level_scalar(text, "created", "relation")?,
         };
-        record.validate(Some(filename_id))?;
+        record.validate(None)?;
         Ok(record)
     }
 
     fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
-        if !is_valid_relation_id(&self.id) {
+        if !self.id.strip_prefix("REL-").is_some_and(is_valid_ulid) {
             return Err(StoreError::InvalidConfig(
-                "relation id must be a ULID or REL-<ULID>".to_owned(),
+                "canonical relation id must be REL-<ULID>".to_owned(),
             ));
         }
         if let Some(filename_id) = filename_id {
@@ -1121,6 +1166,10 @@ pub fn relation_ulid_payload(value: &str) -> Option<&str> {
     }
 }
 
+pub fn new_relation_id() -> String {
+    format!("REL-{}", new_record_id())
+}
+
 /// RFC 3339 UTC timestamp used by append-only records.
 pub fn now_rfc3339() -> String {
     let seconds = SystemTime::now()
@@ -1314,6 +1363,70 @@ fn parse_combinations(text: &str) -> Vec<Vec<String>> {
         .filter_map(|line| line.trim().strip_prefix("- "))
         .map(|value| parse_inline_list(value.trim()))
         .collect()
+}
+
+/// Read the recorded upstream closure. An absent `dependencies` key is a
+/// version 1 compatibility Approval and stays distinct from an empty closure.
+fn parse_approval_dependencies(text: &str) -> Result<Option<Vec<ApprovalDependency>>, StoreError> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let Some(start) = lines.iter().position(|line| {
+        !line.starts_with([' ', '\t'])
+            && (line.trim() == "dependencies:" || line.trim() == "dependencies: []")
+    }) else {
+        return Ok(None);
+    };
+    if lines[start].trim() == "dependencies: []" {
+        return Ok(Some(Vec::new()));
+    }
+    let mut dependencies = Vec::new();
+    let mut index = start + 1;
+    while index < lines.len() {
+        let raw = lines[index];
+        if !raw.starts_with([' ', '\t']) && !raw.trim().is_empty() {
+            break;
+        }
+        if raw.trim().is_empty() {
+            index += 1;
+            continue;
+        }
+        let malformed = || {
+            StoreError::InvalidConfig(
+                "approval dependency entries must contain kind, id, and hash".to_owned(),
+            )
+        };
+        let kind = raw.trim().strip_prefix("- kind:").ok_or_else(malformed)?;
+        let id = lines
+            .get(index + 1)
+            .and_then(|line| line.trim().strip_prefix("id:"))
+            .ok_or_else(malformed)?;
+        let hash = lines
+            .get(index + 2)
+            .and_then(|line| line.trim().strip_prefix("hash:"))
+            .ok_or_else(malformed)?;
+        let kind = unquote(kind.trim());
+        let id = unquote(id.trim());
+        if !matches!(kind.as_str(), "vo" | "req" | "spec") || id.is_empty() {
+            return Err(StoreError::InvalidConfig(format!(
+                "approval dependency kind `{kind}` and id `{id}` are not a canonical entity"
+            )));
+        }
+        let hash = unquote(hash.trim())
+            .parse()
+            .map_err(StoreError::InvalidConfig)?;
+        dependencies.push(ApprovalDependency { kind, id, hash });
+        index += 3;
+    }
+    let mut identities = BTreeSet::new();
+    for dependency in &dependencies {
+        if !identities.insert((dependency.kind.clone(), dependency.id.clone())) {
+            return Err(StoreError::InvalidConfig(format!(
+                "approval dependency {} {} is recorded more than once",
+                dependency.kind, dependency.id
+            )));
+        }
+    }
+    dependencies.sort();
+    Ok(Some(dependencies))
 }
 
 fn parse_approval_basis(text: &str) -> Result<Vec<ApprovalBasis>, StoreError> {
@@ -1971,6 +2084,18 @@ mod tests {
             id: id.clone(),
             subject: VoId::new("VO-ONE"),
             subject_hash: ContentHash::from_text("vo\n"),
+            dependencies: Some(vec![
+                ApprovalDependency {
+                    kind: "req".to_owned(),
+                    id: "REQ-ONE".to_owned(),
+                    hash: ContentHash::from_text("req\n"),
+                },
+                ApprovalDependency {
+                    kind: "spec".to_owned(),
+                    id: "SPEC-ONE".to_owned(),
+                    hash: ContentHash::from_text("spec\n"),
+                },
+            ]),
             approver: Approver {
                 kind: "human".to_owned(),
                 id: "reviewer".to_owned(),
@@ -1996,6 +2121,48 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    #[test]
+    fn approval_closure_distinguishes_absent_empty_and_duplicate_entries() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            dependencies: Some(Vec::new()),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: Vec::new(),
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let empty = record.to_yaml();
+        assert!(empty.contains("dependencies: []\n"));
+        assert_eq!(
+            ApprovalRecord::from_yaml(&empty, &id).unwrap().dependencies,
+            Some(Vec::new()),
+            "an empty closure is a recorded fact, not a missing one"
+        );
+
+        let compatibility = empty.replace("dependencies: []\n", "");
+        assert_eq!(
+            ApprovalRecord::from_yaml(&compatibility, &id)
+                .unwrap()
+                .dependencies,
+            None,
+            "version 1 Approvals carry no closure at all"
+        );
+
+        let hash = ContentHash::from_text("spec\n");
+        let entry = format!("  - kind: 'spec'\n    id: 'SPEC-ONE'\n    hash: '{hash}'\n");
+        let duplicated = empty.replace(
+            "dependencies: []\n",
+            &format!("dependencies:\n{entry}{entry}"),
+        );
+        assert!(ApprovalRecord::from_yaml(&duplicated, &id).is_err());
     }
 
     #[test]
@@ -2164,7 +2331,7 @@ mod tests {
 
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
-        let id = new_record_id();
+        let id = new_relation_id();
         let record = RelationRecord {
             id: id.clone(),
             relation_type: RelationType::Complements,
@@ -2184,17 +2351,14 @@ mod tests {
         ] {
             assert!(RelationRecord::from_yaml(&malformed, &id).is_err());
         }
-        assert!(RelationRecord::from_yaml(&yaml, &new_record_id()).is_err());
+        assert!(RelationRecord::from_yaml(&yaml, &new_relation_id()).is_err());
 
-        let prefixed_id = format!("REL-{}", new_record_id());
-        let prefixed = RelationRecord {
-            id: prefixed_id.clone(),
-            ..record.clone()
-        };
-        let prefixed_yaml = prefixed.to_yaml().unwrap();
+        let payload = relation_ulid_payload(&id).unwrap();
+        let bare_yaml = yaml.replacen(&id, payload, 1);
         assert_eq!(
-            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id).unwrap(),
-            prefixed
+            RelationRecord::from_yaml(&bare_yaml, payload).unwrap(),
+            record,
+            "bare compatibility input normalizes to one canonical in-memory identity"
         );
 
         let invalid = RelationRecord {

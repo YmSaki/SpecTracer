@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{StoreError, VerifyLayout};
 
 pub const RUST_UNIT_FUNCTION_FORM: &str = r#"kind: rust-unit-function
+adapter: rust-cargo
 title: Rust function unit test
 fields:
   - name: target
@@ -60,6 +61,7 @@ template: |
 "#;
 
 pub const RUST_INTEGRATION_FORM: &str = r#"kind: rust-integration
+adapter: rust-cargo
 title: Rust integration test
 fields:
   - name: targets
@@ -117,6 +119,7 @@ template: |
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FormSchema {
     pub kind: String,
+    pub adapter: Option<String>,
     pub title: String,
     pub fields: Vec<FormField>,
     pub template: String,
@@ -205,6 +208,7 @@ pub fn read_form_answers(path: &Path) -> Result<FormAnswers, StoreError> {
 
 pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
     let mut kind = None;
+    let mut adapter = None;
     let mut title = None;
     let mut fields = Vec::new();
     let mut field = None::<FormField>;
@@ -244,6 +248,7 @@ pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
             let (key, value) = property(trimmed, "form schema")?;
             match key {
                 "kind" => kind = Some(parse_scalar(value, "form kind")?),
+                "adapter" => adapter = Some(parse_scalar(value, "form adapter")?),
                 "title" => title = Some(parse_scalar(value, "form title")?),
                 _ => {
                     return Err(StoreError::InvalidForm(format!(
@@ -298,6 +303,7 @@ pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
     }
     Ok(FormSchema {
         kind,
+        adapter,
         title,
         fields,
         template,

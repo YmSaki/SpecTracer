@@ -22,9 +22,9 @@ use vtest_model::{
     VoId,
 };
 use vtest_store::{
-    is_valid_ulid, load_config, read_approval, read_entity_ids, read_req, read_spec, read_text,
-    read_vo, relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord,
-    StoreError, VerifyLayout, VoRecord,
+    derive_vo_status, is_valid_ulid, load_config, read_approval, read_entity_ids, read_req,
+    read_spec, read_text, read_vo, relation_ulid_payload, yaml_scalar_value, ProjectConfig,
+    RelationRecord, ReqRecord, StoreError, VerifyLayout, VoRecord,
 };
 
 pub mod operations;
@@ -418,7 +418,7 @@ pub fn scan_project_with_config(
     let vo_ids = entity_ids[2].iter().cloned().collect::<BTreeSet<_>>();
     let package = package_name(root).unwrap_or_else(|| config.project.name.clone());
     let mut paths = Vec::new();
-    for include in &config.scan.include {
+    for include in &config.rust_cargo().scan.include {
         let include_path = root.join(include);
         collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
             ScanError::Discovery {
@@ -729,11 +729,14 @@ fn validate_vo_record(
             .with_location(location.clone()),
         );
     }
-    if !matches!(record.status.as_str(), "draft" | "approved") {
+    if let Some(status) = &record.status {
         diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO {id} has invalid status {}", record.status),
+            Diagnostic::warning(
+                "W-STORE-001",
+                format!(
+                    "VO {id} carries the non-canonical compatibility field status {status}; \
+                     the effective status is derived from Approvals"
+                ),
             )
             .with_location(location.clone()),
         );
@@ -928,7 +931,16 @@ fn validate_relations(
         .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
         .collect::<Vec<_>>();
     paths.sort();
-    let mut relation_payloads = BTreeMap::<String, String>::new();
+    let mut payload_counts = BTreeMap::<String, usize>::new();
+    for path in &paths {
+        if let Some(payload) = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .and_then(relation_ulid_payload)
+        {
+            *payload_counts.entry(payload.to_owned()).or_default() += 1;
+        }
+    }
     for path in paths {
         let file_id = path
             .file_stem()
@@ -937,12 +949,12 @@ fn validate_relations(
             .to_owned();
         let location = record_location(&layout.root, &path, &file_id);
         if let Some(payload) = relation_ulid_payload(&file_id) {
-            if let Some(first) = relation_payloads.insert(payload.to_owned(), file_id.clone()) {
+            if payload_counts.get(payload).copied().unwrap_or_default() > 1 {
                 diagnostics.push(
                     Diagnostic::error(
                         "E-SCAN-010",
                         format!(
-                            "relation IDs {first} and {file_id} use the same ULID payload {payload}"
+                            "relation {file_id} is not adopted because multiple files use ULID payload {payload}"
                         ),
                     )
                     .with_location(location.clone()),
@@ -1046,7 +1058,6 @@ fn validate_approval_status(
             current_hashes.insert(id.clone(), ContentHash::from_text(&text));
         }
     }
-    let mut approved = BTreeSet::new();
     let entries = match fs::read_dir(layout.approvals_dir()) {
         Ok(entries) => entries,
         Err(_) => return,
@@ -1128,7 +1139,7 @@ fn validate_approval_status(
             continue;
         }
         let subject = approval.subject.as_str();
-        let Some(current_hash) = current_hashes.get(subject) else {
+        if !current_hashes.contains_key(subject) {
             diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-010",
@@ -1136,28 +1147,23 @@ fn validate_approval_status(
                 )
                 .with_location(location),
             );
-            continue;
-        };
-        if current_hash == &approval.subject_hash {
-            approved.insert(subject.to_owned());
         }
     }
     for (id, vo) in vos {
-        let effective = approved.contains(id);
-        if (vo.status == "approved") != effective {
+        let Some(current_hash) = current_hashes.get(id) else {
+            continue;
+        };
+        let derived = derive_vo_status(layout, vo, current_hash);
+        for (approval_id, invalidity) in &derived.invalid {
             diagnostics.push(
                 Diagnostic::warning(
-                    "W-STORE-001",
-                    format!(
-                        "VO {id} status {} differs from approval-derived status {}",
-                        vo.status,
-                        if effective { "approved" } else { "draft" }
-                    ),
+                    "W-STORE-002",
+                    format!("approval {approval_id} does not approve VO {id}: {invalidity}"),
                 )
                 .with_location(record_location(
                     &layout.root,
-                    &layout.vo_dir().join(format!("{id}.yaml")),
-                    id,
+                    &layout.approvals_dir().join(format!("{approval_id}.yaml")),
+                    approval_id,
                 )),
             );
         }
@@ -2934,11 +2940,15 @@ fn duplicate_target() {}
             .diagnostics
             .iter()
             .filter(|diagnostic| {
-                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("same ULID payload")
+                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("ULID payload")
             })
             .collect::<Vec<_>>();
-        assert_eq!(duplicates.len(), 1, "diagnostics: {:?}", result.diagnostics);
-        assert!(duplicates[0].location.is_some());
+        // Neither spelling is adopted, so both files are diagnosed: a shared
+        // payload has no canonical winner.
+        assert_eq!(duplicates.len(), 2, "diagnostics: {:?}", result.diagnostics);
+        assert!(duplicates
+            .iter()
+            .all(|diagnostic| diagnostic.location.is_some()));
     }
 
     #[test]

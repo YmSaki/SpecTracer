@@ -233,6 +233,104 @@ pub fn encode_wire_targets(targets: &[TargetRef]) -> Result<Map<String, Value>, 
     Ok(output)
 }
 
+/// Serialize a neutral Test with adapter-owned compatibility properties.
+pub fn encode_test_wire(
+    test: &TestEntity,
+    codec: &dyn TestWireCodec,
+) -> Result<Value, AdapterError> {
+    test.validate().map_err(AdapterError::MalformedOutput)?;
+    let mut object = serde_json::to_value(test)
+        .map_err(|error| AdapterError::Operation(error.to_string()))?
+        .as_object()
+        .cloned()
+        .ok_or_else(|| AdapterError::Operation("Test serialization is not an object".to_owned()))?;
+    for (key, value) in encode_wire_targets(&test.targets)? {
+        object.insert(key, value);
+    }
+    for (key, value) in codec.encode_properties(test)? {
+        if is_core_test_field(&key) {
+            return Err(AdapterError::Mismatch(format!(
+                "adapter codec attempted to overwrite core Test field `{key}`"
+            )));
+        }
+        object.insert(key, value);
+    }
+    Ok(Value::Object(object))
+}
+
+/// Normalize a current or compatibility Test JSON object into the neutral model.
+pub fn decode_test_wire(
+    value: Value,
+    codec: &dyn TestWireCodec,
+) -> Result<TestEntity, AdapterError> {
+    let mut object = value.as_object().cloned().ok_or_else(|| {
+        AdapterError::MalformedOutput("Test wire input must be an object".to_owned())
+    })?;
+    let targets = object
+        .remove("targets")
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| AdapterError::MalformedOutput(error.to_string()))?;
+    let target = object
+        .remove("target")
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| AdapterError::MalformedOutput(error.to_string()))?;
+    let targets = normalize_wire_targets(targets, target)?;
+    let execution = object
+        .remove("execution")
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| AdapterError::MalformedOutput(error.to_string()))?;
+    let property_keys = object
+        .keys()
+        .filter(|key| !is_core_test_field(key))
+        .cloned()
+        .collect::<Vec<_>>();
+    let properties = property_keys
+        .into_iter()
+        .map(|key| {
+            let value = object
+                .remove(&key)
+                .expect("property key was collected from this object");
+            (key, value)
+        })
+        .collect::<Map<_, _>>();
+    let execution = codec.decode_execution(execution.as_ref(), &properties)?;
+    object.insert(
+        "targets".to_owned(),
+        serde_json::to_value(targets)
+            .map_err(|error| AdapterError::Operation(error.to_string()))?,
+    );
+    object.insert(
+        "execution".to_owned(),
+        serde_json::to_value(execution)
+            .map_err(|error| AdapterError::Operation(error.to_string()))?,
+    );
+    let test: TestEntity = serde_json::from_value(Value::Object(object))
+        .map_err(|error| AdapterError::MalformedOutput(error.to_string()))?;
+    test.validate().map_err(AdapterError::MalformedOutput)?;
+    Ok(test)
+}
+
+fn is_core_test_field(key: &str) -> bool {
+    matches!(
+        key,
+        "id" | "covers"
+            | "targets"
+            | "target"
+            | "intent"
+            | "input"
+            | "expect"
+            | "kind"
+            | "cases"
+            | "related"
+            | "location"
+            | "content_hash"
+            | "execution"
+    )
+}
+
 pub trait StaticAuditAdapter: Send + Sync {
     fn audit(&self, test: &TestEntity) -> Result<StaticAuditObservation, AdapterError>;
 }

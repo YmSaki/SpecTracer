@@ -112,7 +112,7 @@ pub fn audit_static(
             root,
             scan,
             test,
-            &config.scan.assertion_macros,
+            &config.rust_cargo().scan.assertion_macros,
             &config_hash,
         )?);
     }
