@@ -710,7 +710,9 @@ fn validate_vo_record(
             return None;
         }
     };
-    if let Some(missing) = missing_fields(&text, &["id", "claim", "status", "created", "updated"]) {
+    // `status` is a version 1 compatibility field, never a required one: the
+    // effective value is derived from Approvals.
+    if let Some(missing) = missing_fields(&text, &["id", "claim", "created", "updated"]) {
         diagnostics.push(
             Diagnostic::error(
                 "E-SCAN-010",
