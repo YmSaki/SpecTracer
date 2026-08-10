@@ -14,6 +14,7 @@ use std::{
 };
 
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 static NEXT_PROJECT: AtomicU64 = AtomicU64::new(0);
 const FIXED_ITEMS: [&str; 12] = [
@@ -1272,4 +1273,80 @@ fn cli_and_mcp_default_verify_share_the_fixed_contract() {
         report_item(&cli, "test_traceability")["item"],
         "test_traceability"
     );
+}
+
+/// AF-041: the canonical VO record carries no approval-derived `status`.
+#[test]
+fn canonical_vo_record_never_stores_the_derived_status() {
+    let project = TempProject::from_m1_base("vo-status-writer");
+    let edited = invoke(
+        &project.root,
+        "vo",
+        &[
+            "edit",
+            "VO-KNOWN",
+            "--claim",
+            "the writer stores no derived status",
+        ],
+    );
+    assert_exit(&edited, 0, "rewrite the canonical VO record");
+    let written = fs::read_to_string(project.root.join(".verify/vo/VO-KNOWN.yaml"))
+        .expect("read the canonical VO record");
+    assert!(
+        !written.lines().any(|line| line.starts_with("status:")),
+        "canonical VO record must not store the derived status: {written}"
+    );
+    let shown = invoke(&project.root, "vo", &["show", "VO-KNOWN"]);
+    assert_exit(&shown, 0, "show a VO with no stored status");
+    assert_eq!(envelope(&shown)["data"]["effective_status"], "draft");
+}
+
+/// AF-042: an Approval without an upstream dependency closure is inert.
+#[test]
+fn approval_without_a_dependency_closure_is_reported_and_never_approves() {
+    let project = TempProject::from_m1_base("approval-no-closure");
+    let vo = fs::read_to_string(project.root.join(".verify/vo/VO-KNOWN.yaml"))
+        .expect("read the covered VO");
+    let approval_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    fs::write(
+        project
+            .root
+            .join(format!(".verify/approvals/{approval_id}.yaml")),
+        format!(
+            "id: {approval_id}\nsubject: VO-KNOWN\nsubject_hash: {}\napprover:\n  kind: human\n  \
+             id: reviewer\nbasis: []\napproved_at: '2026-01-01T00:00:00Z'\n",
+            content_hash_of(&vo)
+        ),
+    )
+    .expect("write a version 1 compatibility Approval");
+
+    let shown = invoke(&project.root, "vo", &["show", "VO-KNOWN"]);
+    assert_exit(&shown, 0, "show a VO with a closure-less Approval");
+    assert_eq!(
+        envelope(&shown)["data"]["effective_status"],
+        "draft",
+        "an Approval without a closure cannot derive approved"
+    );
+    let scanned = invoke(&project.root, "scan", &[]);
+    assert!(
+        diagnostic_codes(&envelope(&scanned)).contains(&"W-STORE-002"),
+        "a closure-less Approval must be reported: {}",
+        envelope(&scanned)
+    );
+}
+
+/// The documented content hash: SHA-256 over LF-normalized text with trailing
+/// spaces and tabs removed from every line.
+fn content_hash_of(text: &str) -> String {
+    let normalized = text
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .split_inclusive('\n')
+        .map(|line| match line.strip_suffix('\n') {
+            Some(body) => format!("{}\n", body.trim_end_matches([' ', '\t'])),
+            None => line.trim_end_matches([' ', '\t']).to_owned(),
+        })
+        .collect::<String>();
+    let digest = Sha256::digest(normalized.as_bytes());
+    format!("sha256:{digest:x}")
 }

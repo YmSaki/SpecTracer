@@ -581,6 +581,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "sha2",
  "vtest-adapter-api",
  "vtest-adapter-rust",
  "vtest-audit",

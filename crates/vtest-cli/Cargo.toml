@@ -18,6 +18,9 @@ vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
 vtest-verify = { path = "../vtest-verify" }
 
+[dev-dependencies]
+sha2.workspace = true
+
 [[bin]]
 name = "vtest"
 path = "src/main.rs"

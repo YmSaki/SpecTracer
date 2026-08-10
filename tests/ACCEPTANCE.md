@@ -59,11 +59,32 @@ Production code is unchanged by this freeze.
 | AF-039 | Annex C §§18.3.1, 18.3.9 | incomplete adapter discovery is an error, never a complete empty scan | `incomplete_discovery_is_representable_and_never_complete_empty_success`; product discovery test | W1 completeness state is executable; W3 orchestration remains RED | W1_BOUND_RED |
 | AF-040 | Annex C §18.3.9; plan §9.1 | v1 and v2 Rust scan/audit/run/verify observations are semantically equal | `v2_rust_fixture_binds_to_the_same_neutral_adapter_id_as_v1_compatibility`; v1/v2 product flow | W1 adapter identity is bound; W2 codec/orchestration equivalence remains RED | W1_BOUND_RED |
 
+| AF-041 | 詳細設計 §3.5; Annex C §18.3.1 | The canonical VO record stores no approval-derived `status`; the effective value comes from Approvals | `canonical_vo_record_never_stores_the_derived_status`; `calc/m1/base` | writer emits `status: 'draft'` | FROZEN_RED |
+| AF-042 | 詳細設計 §3.5, §7 (W-STORE-002); Annex C §18.3.1 | An Approval lacking the upstream dependency closure never derives `approved` and is reported | `approval_without_a_dependency_closure_is_reported_and_never_approves`; `calc/m1/base` | derives `approved`; no `W-STORE-002` exists | FROZEN_RED |
+
 Baseline command:
 
 ```text
 cargo test -p vtest-cli --test adapter_acceptance
 ```
+
+### AF-041 / AF-042 freeze record
+
+These two criteria were added after the initial freeze: the contract stated them
+but the ledger did not carry them. The classification below was measured by
+running each test at `075313a`, whose production tree is byte-identical to
+baseline `575ea72` (the freeze commits touch tests and fixtures only).
+
+| Field | AF-041 | AF-042 |
+|---|---|---|
+| Specification clause | 詳細設計 §3.5「VOの実効`status`は…canonical VO recordへ保存しない」; Annex C §18.3.1 | 詳細設計 §3.5「依存entryを持たない互換Approvalは…現在の`approved`を導出しない。W-STORE-002を出し、VOは`draft`相当とする」 |
+| Criterion | `vo edit` rewrites the record without a `status` key | A compatibility Approval with a current `subject_hash` and no `dependencies` is inert |
+| Observable | `.verify/vo/VO-KNOWN.yaml` has no `status:` line; `vo show` reports `effective_status = draft` | `vo show` reports `effective_status = draft`; `scan` diagnostics contain `W-STORE-002` |
+| Minimal counterexample / fixture | `calc/m1/base`, then `vo edit VO-KNOWN --claim …` | `calc/m1/base` plus a hand-written Approval whose `subject_hash` is the current VO content hash and whose `dependencies` key is absent |
+| Expected result | no `status:` key; `draft` | `draft`; `W-STORE-002` present |
+| Baseline actual (`075313a`) | record contains `status: 'draft'` | `effective_status = approved`; `W-STORE-002` absent from the codebase |
+| Baseline classification | FROZEN_RED | FROZEN_RED |
+| Owning wave | W2 | W2 |
 
 All formerly `API_BINDING_REQUIRED` rows now have executable W1 binding
 assertions. `W1_BOUND_RED` is not product PASS evidence: the owning wave must
