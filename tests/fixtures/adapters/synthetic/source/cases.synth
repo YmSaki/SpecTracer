@@ -1,0 +1,9 @@
+target component(add)/scenario[happy] {
+  return left + right
+}
+
+scenario "adding two values" {
+  given left = 2
+  and right = 3
+  expect component(add)/scenario[happy] == 5
+}

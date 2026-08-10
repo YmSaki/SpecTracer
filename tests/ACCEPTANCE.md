@@ -1,8 +1,64 @@
 # Acceptance Test Ledger
 
-This ledger maps Annex B §18.3 to reproducible tests. A criterion remains
+This ledger maps normative Annex C §18.3 to reproducible tests. A criterion remains
 `NOT_CHECKED` until its milestone-specific fixture flow passes; unit coverage
 alone is not promoted to acceptance evidence.
+
+## Adapter separation acceptance freeze
+
+The adapter-separation contract is frozen against baseline
+`575ea724ad2ec6977d3a26bcb6a18e7192a4eb6d`. `RED_REQUIRED` means the named
+test must fail on that baseline for the contract-relevant reason. A successful
+expected RED is freeze evidence, not implementation PASS. Production code is
+unchanged by this freeze.
+
+| ID | Specification clause | Acceptance criterion / observable | Test | Fixture | Old expected | Baseline actual | Freeze result |
+|---|---|---|---|---|---|---|---|
+| AF-001 | Annex C §18.3.9; plan W1 | Adapter returns hash-free drafts; core owns validation and subject hashing | `adapter_api_and_core_model_are_language_neutral` | `adapters/synthetic` | RED_REQUIRED | FAIL: adapter API crate absent | PASS |
+| AF-002 | Annex C §§18.2, 18.3.9 | Non-`.rs`, non-function Test construct is representable without Rust compatibility fields | `adapter_boundary_fixture_is_non_rust_and_non_adjacent` | `adapters/synthetic` | ALREADY_SATISFIED | PASS | PASS |
+| AF-003 | Annex C §18.3.9 | Opaque target and source locators do not require Rust item paths | `adapter_boundary_fixture_is_non_rust_and_non_adjacent`; `adapter_api_and_core_model_are_language_neutral` | `adapters/synthetic` | RED_REQUIRED | fixture PASS; neutral model FAIL | PASS |
+| AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata participates in the Test subject and freshness | `adapter_api_and_core_model_are_language_neutral` | `adapters/synthetic/metadata/tests.json` | RED_REQUIRED | FAIL: neutral subject API absent | PASS |
+| AF-005 | Annex C §§18.2, 18.3.1 | Unregistered Test produces `test_traceability = MISSING` | `unregistered_test_is_traceability_missing` | disposable M1 + unmanaged Test | RED_REQUIRED | FAIL: item is unknown / exit 2 | PASS |
+| AF-006 | Annex C §§18.2, 18.3.1 | Empty `covers` produces `test_traceability = MISSING` | `empty_covers_is_traceability_missing` | disposable M1 without covers | RED_REQUIRED | FAIL: item is unknown / exit 2 | PASS |
+| AF-007 | Annex C §§18.2, 18.3.1 | Dangling VO remains managed-one and produces `MISMATCH` | `dangling_vo_is_traceability_mismatch` | disposable M1 with dangling VO | RED_REQUIRED | FAIL: item is unknown / exit 2 | PASS |
+| AF-008 | Annex C §§18.2, 18.3.1 | Repository-global duplicate Test ID produces `MISMATCH` | `duplicate_test_id_is_traceability_mismatch` | disposable duplicate Rust Tests | RED_REQUIRED | FAIL: item is unknown / exit 2 | PASS |
+| AF-009 | Annex C §§18.2, 18.3.1 | Cross-adapter SRC ID collision is unresolved and non-passing | `adapter_api_and_core_model_are_language_neutral`; fixture validation | `adapters/mixed/collisions.json` | RED_REQUIRED | collision fixture PASS; registry/core FAIL | PASS |
+| AF-010 | Annex C §§18.3.5, 18.3.9 | v1 11-item config normalizes in-memory to fixed 12 without file rewrite | `default_verify_evaluates_the_fixed_twelve_items` | M1 v1 config | RED_REQUIRED | FAIL: only 11 items | PASS |
+| AF-011 | Annex C §§18.3.5, 18.3.9 | v2 adapter namespace is accepted; incomplete scope is `E-CONFIG-001` | `version_two_config_is_accepted_and_incomplete_scope_is_rejected` | `adapters/config/*.yaml` | RED_REQUIRED | FAIL: incomplete v2 silently evaluates 11 | PASS |
+| AF-012 | Annex C §18.3.5 | Default full verification is exactly 12 items | `default_verify_evaluates_the_fixed_twelve_items` | M1 v1 config | RED_REQUIRED | FAIL: 11 items | PASS |
+| AF-013 | Annex C §§18.3.3, 18.3.9 | Evidence without Execution State remains readable but is `STALE` | `evidence_without_execution_state_is_compatibility_stale` | generated compatibility Evidence | RED_REQUIRED | FAIL: legacy Evidence remains usable | PASS |
+| AF-014 | Annex C §18.3.2 | Consulted helper-only change stales static Audit | `static_helper_only_change_stales_the_audit_record` | disposable same-file helper | ALREADY_SATISFIED | PASS (`STALE`) | PASS |
+| AF-015 | Annex C §18.3.2 | `assertion_macros` changes stale static Audit | `assertion_macro_change_stales_the_static_audit_record` | disposable projected config | ALREADY_SATISFIED | PASS (`STALE`) | PASS |
+| AF-016 | Annex C §18.3.2 | Run-only config does not alter Static Audit Config subject | `static_audit_ignores_run_only_config_changes` | disposable run config mutation | RED_REQUIRED | FAIL: static Audit becomes `STALE` | PASS |
+| AF-017 | Annex C §18.3.3 | Evidence contains adapter, neutral Test/target subjects, and complete Execution State | `evidence_contains_neutral_subjects_and_complete_execution_state` | committed M1 project | RED_REQUIRED | FAIL: neutral fields absent | PASS |
+| AF-018 | Annex C §18.3.3 | Target-external helper-only change stales Evidence | `target_external_helper_change_stales_evidence` | disposable helper module | RED_REQUIRED | FAIL: remains `PASS` | PASS |
+| AF-019 | Annex C §18.3.3 | Local dependency-only change stales Evidence | `local_dependency_change_stales_evidence` | disposable path dependency | RED_REQUIRED | FAIL: remains `PASS` | PASS |
+| AF-020 | Annex C §18.3.3 | Pre/post Execution State mutation produces `E-EXEC-004` and no Evidence | `execution_state_mutation_reports_e_exec_004_without_evidence` | self-mutating runtime input | RED_REQUIRED | FAIL: Evidence written as `PASS` | PASS |
+| AF-021 | Annex C §18.3.3 | Missing revision commit is `STALE`, never FAIL/PASS | `evidence_without_revision_commit_is_stale` | generated compatibility Evidence | RED_REQUIRED | FAIL: maps to `FAIL` | PASS |
+| AF-022 | Annex C §18.3.3 | HEAD mismatch stales Evidence even when Test/targets are unchanged | `head_change_without_test_or_target_change_stales_evidence` | unrelated committed revision | RED_REQUIRED | FAIL: remains `PASS` | PASS |
+| AF-023 | Annex C §18.3.4 | Specification-only change stales impl-consistency, including limited scope | `specification_only_change_stales_impl_consistency` | SPEC → REQ → VO → Test closure | RED_REQUIRED | FAIL: remains `PASS` | PASS |
+| AF-024 | Annex C §18.3.1 | SPEC/REQ dependency change invalidates VO Approval | `specification_dependency_change_invalidates_vo_approval` | dependency-bound Approval | RED_REQUIRED | FAIL: remains approved | PASS |
+| AF-025 | Annex C §§18.3.3, 18.3.6 | Multi-target Evidence keeps every neutral target hash and target-specific result | `multi_target_evidence_keeps_target_specific_results` | disposable two-target integration Test | RED_REQUIRED | FAIL: neutral target entries absent | PASS |
+| AF-026 | Annex C §18.3.6 | Target aggregation is `FAIL > UNKNOWN > PASS`, without representative-target collapse | `multi_target_evidence_keeps_target_specific_results`; future synthetic cases in manifest | two-target / synthetic fixtures | RED_REQUIRED | FAIL: one aggregate legacy result | PASS |
+| AF-027 | Annex C §18.3.5 | Limited scope leaves every outside item `NOT_CHECKED` | `m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like` | M1 fixture | REGRESSION_PASS | existing test PASS | PASS |
+| AF-028 | Annex C §18.3.5 | Text and JSON report render the same deterministic tree structure | M6 tree assertions; `m9_all_advertised_tools_match_cli_envelopes` | M6/M9 fixtures | REGRESSION_PASS | existing tests PASS | PASS |
+| AF-029 | Annex C §18.3.7 | Form kind has an explicit adapter owner; no implicit Rust fallback | `init_writes_v2_adapter_namespace_and_form_owner` | initialized repository | RED_REQUIRED | FAIL: v1 config and ownerless Forms | PASS |
+| AF-030 | Annex C §§18.1, 18.3.8 | CLI and MCP default verification share the fixed-12 envelope | `cli_and_mcp_default_verify_share_the_fixed_contract` | M1 fixture | RED_REQUIRED | parity at legacy 11; fixed-12 assertion FAIL | PASS |
+| AF-031 | Annex C §§18.3.2, 18.3.3, 18.3.9 | Missing audit/coverage/runner capabilities map to `NOT_CHECKED`/`NOT_EXECUTED`; analysis limits remain `UNKNOWN` | synthetic manifest plus `adapter_api_and_core_model_are_language_neutral` | `adapters/synthetic/manifest.json` | RED_REQUIRED | capability fixture PASS; registry API absent | PASS |
+| AF-032 | Annex C §18.3.9; plan §9.2 | Adapter API and orchestration dependency boundaries exclude Rust-specific crates/types | `adapter_api_and_core_model_are_language_neutral` | workspace manifests | RED_REQUIRED | FAIL: API absent and Rust types/dependencies remain | PASS |
+
+Baseline command:
+
+```text
+cargo test -p vtest-cli --test adapter_acceptance
+```
+
+Expected freeze outcome: the fixture-only and already-fail-closed cases pass;
+all `RED_REQUIRED` cases fail for the recorded contract gap. The suite must not
+be described as implementation PASS until every case is green in its owning
+wave.
+
+## Pre-adapter regression ledger
 
 | Milestone | Criterion | Reproducible evidence | Status |
 |---|---|---|---|

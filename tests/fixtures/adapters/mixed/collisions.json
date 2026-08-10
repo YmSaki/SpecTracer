@@ -1,0 +1,10 @@
+{
+  "test_id_collision": [
+    {"adapter": "rust-cargo", "id": "TEST-COLLISION"},
+    {"adapter": "synthetic", "id": "TEST-COLLISION"}
+  ],
+  "src_id_collision": [
+    {"adapter": "rust-cargo", "id": "SRC-COLLISION"},
+    {"adapter": "synthetic", "id": "SRC-COLLISION"}
+  ]
+}

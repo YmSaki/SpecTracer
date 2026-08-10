@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "construct": "scenario[adding two values]",
+      "id": "TEST-SYNTH-ADD",
+      "intent": "adding two values returns their sum",
+      "covers": ["VO-SYNTH-ADD"],
+      "targets": [
+        {
+          "kind": "locator",
+          "value": "component(add)/scenario[happy]"
+        }
+      ],
+      "execution": {
+        "adapter": "synthetic",
+        "runner": "fixed-observation",
+        "selector": "scenario[adding two values]"
+      }
+    }
+  ]
+}

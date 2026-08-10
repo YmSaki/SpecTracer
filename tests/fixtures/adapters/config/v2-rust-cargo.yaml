@@ -1,0 +1,13 @@
+version: 2
+project:
+  name: adapter-acceptance
+adapters:
+  - id: rust-cargo
+    roots: ["."]
+    scan:
+      include: [src, tests, crates]
+      assertion_macros: []
+    run:
+      coverage: llvm-cov
+verify:
+  full_scope: [spec_coverage, vo_decomposition, vo_coverage, test_existence, static_audit, semantic_audit, impl_consistency, test_execution, runtime_result, target_execution, evidence_validity, test_traceability]

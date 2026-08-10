@@ -1,0 +1,25 @@
+{
+  "adapter": "synthetic",
+  "complete": true,
+  "source": "source/cases.synth",
+  "metadata": "metadata/tests.json",
+  "source_location": {
+    "path": "source/cases.synth",
+    "opaque_locator": "scenario[adding two values]",
+    "range": {
+      "start": 79,
+      "end": 186
+    }
+  },
+  "runner_observation": {
+    "selector": "scenario[adding two values]",
+    "result": "PASS"
+  },
+  "capabilities": {
+    "source_discovery": true,
+    "runner": true,
+    "static_audit": false,
+    "coverage": false,
+    "structured_test": false
+  }
+}
