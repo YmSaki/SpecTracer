@@ -11,10 +11,15 @@ use serde::{Deserialize, Serialize};
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use thiserror::Error;
+use vtest_adapter_api::{
+    AdapterError, DiscoveredTestDraft, DiscoveryBatch, DiscoveryCompleteness, ManagedTestDraft,
+    ManagedTestDraftLink, SourceFragment, SourceTargetDraft,
+};
 use vtest_model::{
-    hash_target_subject, hash_test_subject, AdapterId, ContentHash, Diagnostic,
-    ExecutionDescriptor, ProjectPath, ScanSummary, SourceFunction, SourceLocation, SourceRange,
-    SrcId, TargetRef, TestEntity, TestId, TestSubjectInput, TestSuite, VoId,
+    hash_target_subject, hash_test_subject, AdapterId, ContentHash, Diagnostic, DiscoveredTest,
+    ExecutionDescriptor, ManagedTestLink, ProjectPath, ScanSummary, SourceFunction, SourceLocation,
+    SourceRange, SourceTarget, SrcId, TargetRef, TestEntity, TestId, TestSubjectInput, TestSuite,
+    VoId,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_entity_ids, read_req, read_spec, read_text,
@@ -75,6 +80,8 @@ pub enum ScanError {
     Io { path: PathBuf, source: io::Error },
     #[error("source discovery failed at {path}: {message}")]
     Discovery { path: PathBuf, message: String },
+    #[error("{0}")]
+    Adapter(#[from] AdapterError),
 }
 
 impl From<StoreError> for ScanError {
@@ -89,6 +96,307 @@ pub struct ScanResult {
     pub tests: Vec<TestEntity>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Core-owned result of validating and materializing one adapter discovery batch.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MaterializedDiscovery {
+    pub adapter: AdapterId,
+    pub discovered_tests: Vec<DiscoveredTest>,
+    pub managed_tests: Vec<TestEntity>,
+    pub source_targets: Vec<SourceTarget>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Validate an adapter's hash-free observations against current filesystem bytes,
+/// then compute canonical subjects and materialize neutral domain entities.
+pub fn materialize_discovery_batch(
+    root: &Path,
+    batch: DiscoveryBatch,
+) -> Result<MaterializedDiscovery, ScanError> {
+    if batch.completeness != DiscoveryCompleteness::Complete {
+        return Err(malformed_adapter_output(
+            "incomplete discovery cannot be materialized as a successful scan",
+        ));
+    }
+
+    let adapter = batch.adapter.clone();
+    if adapter.as_str().is_empty() {
+        return Err(malformed_adapter_output("batch adapter ID is empty"));
+    }
+
+    let mut managed_tests = Vec::new();
+    let mut discovered_tests = Vec::with_capacity(batch.discovered_tests.len());
+    for draft in batch.discovered_tests {
+        let (discovered, mut tests) = materialize_discovered_test(root, &adapter, draft)?;
+        discovered_tests.push(discovered);
+        managed_tests.append(&mut tests);
+    }
+
+    let mut source_targets = batch
+        .source_targets
+        .into_iter()
+        .map(|draft| materialize_source_target(root, &adapter, draft))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    discovered_tests.sort_by(|left, right| {
+        (
+            left.location.path.as_str(),
+            left.location.locator.as_str(),
+            &left.managed,
+        )
+            .cmp(&(
+                right.location.path.as_str(),
+                right.location.locator.as_str(),
+                &right.managed,
+            ))
+    });
+    managed_tests.sort_by(|left, right| left.id.cmp(&right.id));
+    source_targets.sort_by(|left, right| left.target.normalized().cmp(&right.target.normalized()));
+
+    Ok(MaterializedDiscovery {
+        adapter,
+        discovered_tests,
+        managed_tests,
+        source_targets,
+        diagnostics: batch.diagnostics,
+    })
+}
+
+fn materialize_discovered_test(
+    root: &Path,
+    adapter: &AdapterId,
+    draft: DiscoveredTestDraft,
+) -> Result<(DiscoveredTest, Vec<TestEntity>), ScanError> {
+    if draft.adapter != *adapter {
+        return Err(malformed_adapter_output(
+            "Discovered Test adapter does not match its batch",
+        ));
+    }
+    if draft.location != draft.construct.location {
+        return Err(malformed_adapter_output(
+            "Discovered Test location does not match its construct fragment",
+        ));
+    }
+    validate_current_fragment(root, adapter, &draft.construct)?;
+    for source in &draft.metadata_sources {
+        validate_current_fragment(root, adapter, source)?;
+    }
+
+    let construct_hash = ContentHash::from_bytes(&draft.construct.bytes);
+    let (managed, tests) = match draft.managed {
+        ManagedTestDraftLink::Missing => (ManagedTestLink::Missing, Vec::new()),
+        ManagedTestDraftLink::One(managed) => {
+            require_metadata_provenance(&draft.metadata_sources)?;
+            let test = materialize_managed_test(
+                adapter,
+                &draft.location,
+                &draft.construct.bytes,
+                managed,
+            )?;
+            let id = test.id.clone();
+            (ManagedTestLink::One(id), vec![test])
+        }
+        ManagedTestDraftLink::Multiple(managed) => {
+            require_metadata_provenance(&draft.metadata_sources)?;
+            if managed.len() < 2 {
+                return Err(malformed_adapter_output(
+                    "ManagedTestDraftLink::Multiple requires at least two drafts",
+                ));
+            }
+            let tests = managed
+                .into_iter()
+                .map(|managed| {
+                    materialize_managed_test(
+                        adapter,
+                        &draft.location,
+                        &draft.construct.bytes,
+                        managed,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut ids = tests.iter().map(|test| test.id.clone()).collect::<Vec<_>>();
+            ids.sort();
+            (ManagedTestLink::Multiple(ids), tests)
+        }
+    };
+
+    Ok((
+        DiscoveredTest {
+            adapter: adapter.clone(),
+            location: draft.location,
+            content_hash: construct_hash,
+            managed,
+        },
+        tests,
+    ))
+}
+
+fn materialize_managed_test(
+    adapter: &AdapterId,
+    location: &SourceLocation,
+    construct: &[u8],
+    managed: ManagedTestDraft,
+) -> Result<TestEntity, ScanError> {
+    if managed.id.as_str().is_empty()
+        || managed.covers.is_empty()
+        || managed.intent.trim().is_empty()
+    {
+        return Err(malformed_adapter_output(
+            "managed Test draft is missing required logical metadata",
+        ));
+    }
+    if managed.execution.adapter != *adapter {
+        return Err(malformed_adapter_output(
+            "managed Test execution adapter does not match discovery adapter",
+        ));
+    }
+    let content_hash = hash_test_subject(&TestSubjectInput {
+        adapter,
+        id: &managed.id,
+        covers: &managed.covers,
+        targets: &managed.targets,
+        intent: &managed.intent,
+        input: managed.input.as_deref(),
+        expect: managed.expect.as_deref(),
+        kind: managed.kind.as_deref(),
+        cases: &managed.cases,
+        related: &managed.related,
+        location,
+        execution: &managed.execution,
+        construct,
+    });
+    let test = TestEntity {
+        id: managed.id,
+        covers: managed.covers,
+        targets: managed.targets,
+        intent: managed.intent,
+        input: managed.input,
+        expect: managed.expect,
+        kind: managed.kind,
+        cases: managed.cases,
+        related: managed.related,
+        location: location.clone(),
+        content_hash,
+        execution: managed.execution,
+    };
+    test.validate().map_err(malformed_adapter_output)?;
+    Ok(test)
+}
+
+fn materialize_source_target(
+    root: &Path,
+    adapter: &AdapterId,
+    draft: SourceTargetDraft,
+) -> Result<SourceTarget, ScanError> {
+    if draft.location != draft.construct.location {
+        return Err(malformed_adapter_output(
+            "Source Target location does not match its construct fragment",
+        ));
+    }
+    if let TargetRef::Locator {
+        adapter: target_adapter,
+        ..
+    } = &draft.target
+    {
+        if target_adapter != adapter {
+            return Err(malformed_adapter_output(
+                "Source Target locator adapter does not match its batch",
+            ));
+        }
+    }
+    validate_current_fragment(root, adapter, &draft.construct)?;
+    let src_id = match &draft.target {
+        TargetRef::SrcId(id) => Some(id.clone()),
+        TargetRef::Locator { .. } => None,
+    };
+    Ok(SourceTarget {
+        content_hash: hash_target_subject(&draft.target, &draft.construct.bytes),
+        target: draft.target,
+        src_id,
+        location: draft.location,
+    })
+}
+
+fn require_metadata_provenance(sources: &[SourceFragment]) -> Result<(), ScanError> {
+    if sources.is_empty() {
+        Err(malformed_adapter_output(
+            "managed Test draft has no metadata source provenance",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_current_fragment(
+    root: &Path,
+    adapter: &AdapterId,
+    fragment: &SourceFragment,
+) -> Result<(), ScanError> {
+    let location = &fragment.location;
+    if location.adapter != *adapter || location.locator.is_empty() {
+        return Err(malformed_adapter_output(
+            "source fragment has an invalid adapter or locator",
+        ));
+    }
+    let relative = Path::new(location.path.as_str());
+    if location.path.as_str().is_empty()
+        || relative
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err(malformed_adapter_output(
+            "source fragment path must be project-relative without traversal",
+        ));
+    }
+    if location.byte_range.start_line == 0
+        || location.byte_range.end_line < location.byte_range.start_line
+    {
+        return Err(malformed_adapter_output(
+            "source fragment has an invalid line range",
+        ));
+    }
+    let path = root.join(relative);
+    let canonical_root = fs::canonicalize(root).map_err(|error| {
+        malformed_adapter_output(format!("cannot resolve project root: {error}"))
+    })?;
+    let canonical_path = fs::canonicalize(&path).map_err(|error| {
+        malformed_adapter_output(format!(
+            "cannot resolve current source `{}`: {error}",
+            location.path
+        ))
+    })?;
+    if !canonical_path.starts_with(&canonical_root) {
+        return Err(malformed_adapter_output(format!(
+            "source fragment path `{}` escapes the project root",
+            location.path
+        )));
+    }
+    let current = fs::read(&canonical_path).map_err(|error| {
+        malformed_adapter_output(format!(
+            "cannot read current source `{}`: {error}",
+            location.path
+        ))
+    })?;
+    let observed = current
+        .get(location.byte_range.start..location.byte_range.end)
+        .ok_or_else(|| {
+            malformed_adapter_output(format!(
+                "source range for `{}` is outside current bytes",
+                location.path
+            ))
+        })?;
+    if observed != fragment.bytes {
+        return Err(malformed_adapter_output(format!(
+            "source fragment bytes for `{}` do not match the current range",
+            location.path
+        )));
+    }
+    Ok(())
+}
+
+fn malformed_adapter_output(message: impl Into<String>) -> ScanError {
+    ScanError::Adapter(AdapterError::MalformedOutput(message.into()))
 }
 
 impl ScanResult {
@@ -2008,6 +2316,215 @@ fn adds() { assert_eq!(2, crate::missing()); }
         )
         .unwrap();
         root
+    }
+
+    fn discovery_materialization_fixture() -> (PathBuf, DiscoveryBatch) {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-materialize-{suffix}"));
+        fs::create_dir_all(root.join("source")).unwrap();
+        fs::create_dir_all(root.join("metadata")).unwrap();
+
+        let source = b"header\nscenario adding two values\nimplementation add\n";
+        let test_start = source
+            .windows(b"scenario adding two values".len())
+            .position(|window| window == b"scenario adding two values")
+            .unwrap();
+        let test_end = test_start + b"scenario adding two values".len();
+        let target_start = source
+            .windows(b"implementation add".len())
+            .position(|window| window == b"implementation add")
+            .unwrap();
+        let target_end = target_start + b"implementation add".len();
+        fs::write(root.join("source/cases.synth"), source).unwrap();
+
+        let metadata = b"TEST-SYNTH-ADD: VO-SYNTH-ADD";
+        fs::write(root.join("metadata/tests.txt"), metadata).unwrap();
+        let adapter = AdapterId::new("synthetic");
+        let test_location = SourceLocation {
+            adapter: adapter.clone(),
+            path: ProjectPath::new("source/cases.synth"),
+            locator: "scenario[adding two values]".to_owned(),
+            byte_range: SourceRange {
+                start: test_start,
+                end: test_end,
+                start_line: 2,
+                end_line: 2,
+            },
+        };
+        let target_location = SourceLocation {
+            adapter: adapter.clone(),
+            path: ProjectPath::new("source/cases.synth"),
+            locator: "component[add]".to_owned(),
+            byte_range: SourceRange {
+                start: target_start,
+                end: target_end,
+                start_line: 3,
+                end_line: 3,
+            },
+        };
+        let metadata_location = SourceLocation {
+            adapter: adapter.clone(),
+            path: ProjectPath::new("metadata/tests.txt"),
+            locator: "tests[TEST-SYNTH-ADD]".to_owned(),
+            byte_range: SourceRange {
+                start: 0,
+                end: metadata.len(),
+                start_line: 1,
+                end_line: 1,
+            },
+        };
+        let target = TargetRef::Locator {
+            adapter: adapter.clone(),
+            value: "component[add]".to_owned(),
+        };
+        let managed = ManagedTestDraft {
+            id: TestId::new("TEST-SYNTH-ADD"),
+            covers: vec![VoId::new("VO-SYNTH-ADD")],
+            targets: vec![target.clone()],
+            intent: "adding two values returns their sum".to_owned(),
+            input: None,
+            expect: None,
+            kind: Some("scenario".to_owned()),
+            cases: Vec::new(),
+            related: Vec::new(),
+            execution: ExecutionDescriptor {
+                adapter: adapter.clone(),
+                project: None,
+                suite: None,
+                selector: "scenario[adding two values]".to_owned(),
+            },
+        };
+        let batch = DiscoveryBatch {
+            adapter: adapter.clone(),
+            completeness: DiscoveryCompleteness::Complete,
+            discovered_tests: vec![DiscoveredTestDraft {
+                adapter: adapter.clone(),
+                location: test_location.clone(),
+                construct: SourceFragment {
+                    location: test_location,
+                    bytes: source[test_start..test_end].to_vec(),
+                },
+                metadata_sources: vec![SourceFragment {
+                    location: metadata_location,
+                    bytes: metadata.to_vec(),
+                }],
+                managed: ManagedTestDraftLink::One(managed),
+            }],
+            source_targets: vec![SourceTargetDraft {
+                target,
+                location: target_location.clone(),
+                construct: SourceFragment {
+                    location: target_location,
+                    bytes: source[target_start..target_end].to_vec(),
+                },
+            }],
+            diagnostics: Vec::new(),
+        };
+        (root, batch)
+    }
+
+    #[test]
+    fn core_validates_current_bytes_before_materializing_adapter_drafts() {
+        let (root, batch) = discovery_materialization_fixture();
+        let expected_construct_hash =
+            ContentHash::from_bytes(&batch.discovered_tests[0].construct.bytes);
+        let expected_target_hash = hash_target_subject(
+            &batch.source_targets[0].target,
+            &batch.source_targets[0].construct.bytes,
+        );
+
+        let materialized = materialize_discovery_batch(&root, batch).unwrap();
+        assert_eq!(materialized.adapter, AdapterId::new("synthetic"));
+        assert_eq!(materialized.discovered_tests.len(), 1);
+        assert_eq!(materialized.managed_tests.len(), 1);
+        assert_eq!(materialized.source_targets.len(), 1);
+        assert_eq!(
+            materialized.discovered_tests[0].content_hash,
+            expected_construct_hash
+        );
+        assert_eq!(
+            materialized.discovered_tests[0].managed,
+            ManagedTestLink::One(TestId::new("TEST-SYNTH-ADD"))
+        );
+        assert_eq!(
+            materialized.source_targets[0].content_hash,
+            expected_target_hash
+        );
+        assert!(materialized.managed_tests[0].validate().is_ok());
+        assert_ne!(
+            materialized.managed_tests[0].content_hash,
+            expected_construct_hash
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn core_rejects_stale_fragment_bytes_without_materializing_entities() {
+        let (root, batch) = discovery_materialization_fixture();
+        fs::write(
+            root.join("source/cases.synth"),
+            b"header\nscenario changed values!!!\nimplementation add\n",
+        )
+        .unwrap();
+        let error = materialize_discovery_batch(&root, batch).unwrap_err();
+        assert!(error.to_string().contains("E-ADAPTER-002"));
+        assert!(error.to_string().contains("do not match the current range"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn core_rejects_missing_metadata_provenance_and_incomplete_discovery() {
+        let (root, mut batch) = discovery_materialization_fixture();
+        batch.discovered_tests[0].metadata_sources.clear();
+        let error = materialize_discovery_batch(&root, batch).unwrap_err();
+        assert!(error.to_string().contains("E-ADAPTER-002"));
+        assert!(error.to_string().contains("provenance"));
+
+        let (incomplete_root, mut incomplete) = discovery_materialization_fixture();
+        incomplete.completeness = DiscoveryCompleteness::Incomplete;
+        let error = materialize_discovery_batch(&incomplete_root, incomplete).unwrap_err();
+        assert!(error.to_string().contains("E-ADAPTER-002"));
+        assert!(error.to_string().contains("incomplete discovery"));
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(incomplete_root).unwrap();
+    }
+
+    #[test]
+    fn core_materializes_missing_and_multiple_links_without_guessing() {
+        let (missing_root, mut missing_batch) = discovery_materialization_fixture();
+        missing_batch.discovered_tests[0].managed = ManagedTestDraftLink::Missing;
+        missing_batch.discovered_tests[0].metadata_sources.clear();
+        let missing = materialize_discovery_batch(&missing_root, missing_batch).unwrap();
+        assert_eq!(
+            missing.discovered_tests[0].managed,
+            ManagedTestLink::Missing
+        );
+        assert!(missing.managed_tests.is_empty());
+
+        let (multiple_root, mut multiple_batch) = discovery_materialization_fixture();
+        let ManagedTestDraftLink::One(first) = multiple_batch.discovered_tests[0].managed.clone()
+        else {
+            unreachable!("fixture has one managed Test draft")
+        };
+        let mut second = first.clone();
+        second.id = TestId::new("TEST-SYNTH-ADD-SECOND");
+        multiple_batch.discovered_tests[0].managed =
+            ManagedTestDraftLink::Multiple(vec![second, first]);
+        let multiple = materialize_discovery_batch(&multiple_root, multiple_batch).unwrap();
+        assert_eq!(multiple.managed_tests.len(), 2);
+        assert_eq!(
+            multiple.discovered_tests[0].managed,
+            ManagedTestLink::Multiple(vec![
+                TestId::new("TEST-SYNTH-ADD"),
+                TestId::new("TEST-SYNTH-ADD-SECOND"),
+            ])
+        );
+
+        fs::remove_dir_all(missing_root).unwrap();
+        fs::remove_dir_all(multiple_root).unwrap();
     }
 
     #[test]

@@ -531,6 +531,22 @@ pub struct SourceTarget {
 
 pub type SourceFunction = SourceTarget;
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DiscoveredTest {
+    pub adapter: AdapterId,
+    pub location: SourceLocation,
+    pub content_hash: ContentHash,
+    pub managed: ManagedTestLink,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedTestLink {
+    Missing,
+    One(TestId),
+    Multiple(Vec<TestId>),
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum CheckValue {

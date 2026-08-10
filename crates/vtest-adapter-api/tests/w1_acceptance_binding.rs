@@ -154,7 +154,7 @@ fn registry_binds_codec_and_preserves_deterministic_id_order() {
 }
 
 #[test]
-fn discovery_dto_is_hash_free_and_core_materializes_the_test_subject() {
+fn discovery_dto_is_hash_free_and_core_hash_function_binds_the_subject() {
     let test = synthetic_test();
     let managed = ManagedTestDraft {
         id: test.id.clone(),
