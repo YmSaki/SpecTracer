@@ -248,8 +248,11 @@ fn m4_multi_target_evidence_records_every_declared_target_hash() {
     let files = evidence_files(&project);
     assert_eq!(files.len(), 1);
     let record = read_evidence(&files[0]).expect("read multi-target Evidence");
-    assert_eq!(record.hashes.target_fns.len(), 2);
-    assert_eq!(record.hashes.target_fn, record.hashes.target_fns[0]);
+    assert_eq!(record.hashes.targets.len(), 2);
+    assert_ne!(
+        record.hashes.targets[0].target_construct,
+        record.hashes.targets[1].target_construct
+    );
 
     let verify = assert_ok(
         &invoke(&project.root, "verify", &["--items", "evidence_validity"]),

@@ -12,8 +12,9 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use thiserror::Error;
 use vtest_model::{
-    ContentHash, Diagnostic, Locator, ScanSummary, SourceFunction, SourceLocation, SrcId,
-    TargetRef, TestEntity, TestId, TestTarget, VoId,
+    hash_target_subject, hash_test_subject, AdapterId, ContentHash, Diagnostic,
+    ExecutionDescriptor, ProjectPath, ScanSummary, SourceFunction, SourceLocation, SourceRange,
+    SrcId, TargetRef, TestEntity, TestId, TestSubjectInput, TestSuite, VoId,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_entity_ids, read_req, read_spec, read_text,
@@ -23,6 +24,48 @@ use vtest_store::{
 
 pub mod operations;
 pub use operations::*;
+
+const RUST_ADAPTER_ID: &str = "rust-cargo";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Locator {
+    pub path: String,
+    pub item_path: String,
+}
+
+impl Locator {
+    pub fn parse(value: &str) -> Option<Self> {
+        let separator = value.find("::")?;
+        let (path, item_path) = value.split_at(separator);
+        let item_path = item_path.strip_prefix("::")?;
+        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
+            return None;
+        }
+        Some(Self {
+            path: path.replace('\\', "/"),
+            item_path: item_path.to_owned(),
+        })
+    }
+
+    pub fn as_string(&self) -> String {
+        format!("{}::{}", self.path, self.item_path)
+    }
+
+    pub fn as_target(&self) -> TargetRef {
+        TargetRef::Locator {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            value: self.as_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TestTarget {
+    Lib,
+    Bin(String),
+    IntegrationTest(String),
+    Unknown,
+}
 
 #[derive(Debug, Error)]
 pub enum ScanError {
@@ -111,7 +154,7 @@ fn record_diagnostics(
     }
     known_ids.extend(tests.iter().map(|test| test.id.as_str().to_owned()));
     for source in sources {
-        known_ids.insert(source.locator.as_string());
+        known_ids.insert(source.target.normalized());
         if let Some(src_id) = &source.src_id {
             known_ids.insert(src_id.as_str().to_owned());
         }
@@ -481,16 +524,20 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
 fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
-        file: path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/"),
-        function: entity.to_owned(),
-        start_line: 1,
-        end_line: text.lines().count().max(1),
-        start_byte: 0,
-        end_byte: text.len(),
+        adapter: AdapterId::new("core-record"),
+        path: ProjectPath::new(
+            path.strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        ),
+        locator: entity.to_owned(),
+        byte_range: SourceRange {
+            start: 0,
+            end: text.len(),
+            start_line: 1,
+            end_line: text.lines().count().max(1),
+        },
     }
 }
 
@@ -1104,13 +1151,21 @@ impl<'a> Scanner<'a> {
         let location = make_location(relative, item_path, span, source, line_offsets);
         let content = source_slice(source, &location);
         let source_function = SourceFunction {
-            locator: Locator {
+            target: Locator {
                 path: relative.to_owned(),
                 item_path: item_path.to_owned(),
-            },
+            }
+            .as_target(),
             src_id: parse_src_id(attrs),
             location: location.clone(),
-            content_hash: ContentHash::from_text(content),
+            content_hash: hash_target_subject(
+                &Locator {
+                    path: relative.to_owned(),
+                    item_path: item_path.to_owned(),
+                }
+                .as_target(),
+                content.as_bytes(),
+            ),
         };
         self.sources.push(source_function);
 
@@ -1250,13 +1305,13 @@ impl<'a> Scanner<'a> {
                 );
             }
         }
-        let mut targets = target_values
+        let targets = target_values
             .iter()
             .map(|target_value| {
                 if let Some(src_id) = target_value.strip_prefix("SRC-") {
                     TargetRef::SrcId(SrcId::new(format!("SRC-{src_id}")))
                 } else if let Some(locator) = Locator::parse(target_value) {
-                    TargetRef::Locator(locator)
+                    locator.as_target()
                 } else {
                     self.diagnostics.push(
                         Diagnostic::error(
@@ -1265,45 +1320,84 @@ impl<'a> Scanner<'a> {
                         )
                         .with_location(location.clone()),
                     );
-                    TargetRef::Locator(Locator {
+                    Locator {
                         path: relative.to_owned(),
                         item_path: item_path.to_owned(),
-                    })
+                    }
+                    .as_target()
                 }
             })
             .collect::<Vec<_>>();
-        let target = targets.remove(0);
-        let source_hash = ContentHash::from_text(content);
+        let execution = ExecutionDescriptor {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            project: Some(package.to_owned()),
+            suite: Some(match test_target {
+                TestTarget::Lib => TestSuite {
+                    kind: "lib".to_owned(),
+                    name: None,
+                },
+                TestTarget::Bin(name) => TestSuite {
+                    kind: "bin".to_owned(),
+                    name: Some(name.clone()),
+                },
+                TestTarget::IntegrationTest(name) => TestSuite {
+                    kind: "integration".to_owned(),
+                    name: Some(name.clone()),
+                },
+                TestTarget::Unknown => TestSuite {
+                    kind: "unknown".to_owned(),
+                    name: None,
+                },
+            }),
+            selector: join_module_path(filter_prefix, item_path),
+        };
+        let input = annotation.values.get("input").cloned();
+        let expect = annotation.values.get("expect").cloned();
+        let kind = annotation.values.get("kind").cloned();
+        let cases = annotation.repeated.get("case").cloned().unwrap_or_default();
+        let related = annotation
+            .repeated
+            .get("related")
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(TestId::new)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let source_hash = hash_test_subject(&TestSubjectInput {
+            adapter: &execution.adapter,
+            id: &test_id,
+            covers: &covers,
+            targets: &targets,
+            intent,
+            input: input.as_deref(),
+            expect: expect.as_deref(),
+            kind: kind.as_deref(),
+            cases: &cases,
+            related: &related,
+            location: &location,
+            execution: &execution,
+            construct: content.as_bytes(),
+        });
         let entity = TestEntity {
             id: test_id,
             covers,
-            target,
-            additional_targets: targets,
+            targets,
             intent: intent.clone(),
-            input: annotation.values.get("input").cloned(),
-            expect: annotation.values.get("expect").cloned(),
-            kind: annotation.values.get("kind").cloned(),
-            cases: annotation.repeated.get("case").cloned().unwrap_or_default(),
-            related: annotation
-                .repeated
-                .get("related")
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .flat_map(|value| {
-                    value
-                        .split(',')
-                        .map(str::trim)
-                        .filter(|item| !item.is_empty())
-                        .map(TestId::new)
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
+            input,
+            expect,
+            kind,
+            cases,
+            related,
             location,
             content_hash: source_hash,
-            filter: join_module_path(filter_prefix, item_path),
-            package: package.to_owned(),
-            test_target: test_target.clone(),
+            execution,
         };
         self.tests.push(entity);
     }
@@ -1313,16 +1407,16 @@ impl<'a> Scanner<'a> {
         let mut locators = BTreeMap::<String, usize>::new();
         let mut src_ids = BTreeMap::<String, usize>::new();
         for source in &self.sources {
-            *locators.entry(source.locator.as_string()).or_default() += 1;
+            *locators.entry(source.target.normalized()).or_default() += 1;
             if let Some(src_id) = &source.src_id {
                 *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
             }
         }
         for test in &self.tests {
-            for target in std::iter::once(&test.target).chain(&test.additional_targets) {
+            for target in &test.targets {
                 let resolved = match target {
-                    TargetRef::Locator(locator) => {
-                        locators.get(&locator.as_string()).copied() == Some(1)
+                    TargetRef::Locator { .. } => {
+                        locators.get(&target.normalized()).copied() == Some(1)
                     }
                     TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
                 };
@@ -1847,18 +1941,21 @@ fn make_location(
     let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
     let end_byte = offsets.get(end_line - 1).copied().unwrap_or(source.len()) + end.column;
     SourceLocation {
-        file: relative.to_owned(),
-        function: function.to_owned(),
-        start_line,
-        end_line,
-        start_byte,
-        end_byte: end_byte.min(source.len()),
+        adapter: AdapterId::new(RUST_ADAPTER_ID),
+        path: ProjectPath::new(relative),
+        locator: function.to_owned(),
+        byte_range: SourceRange {
+            start: start_byte,
+            end: end_byte.min(source.len()),
+            start_line,
+            end_line,
+        },
     }
 }
 
 fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> &'a str {
     source
-        .get(location.start_byte..location.end_byte)
+        .get(location.byte_range.start..location.byte_range.end)
         .unwrap_or("")
 }
 
@@ -1925,11 +2022,17 @@ fn adds() { assert_eq!(2, crate::missing()); }
             result.diagnostics
         );
         assert_eq!(result.tests[0].id.as_str(), "TEST-ADD");
-        assert_eq!(result.tests[0].filter, "adds");
-        assert_eq!(result.tests[0].package, "fixture");
+        assert_eq!(result.tests[0].execution.selector, "adds");
         assert_eq!(
-            result.tests[0].test_target,
-            TestTarget::IntegrationTest("calc".to_owned())
+            result.tests[0].execution.project.as_deref(),
+            Some("fixture")
+        );
+        assert_eq!(
+            result.tests[0].execution.suite.as_ref(),
+            Some(&TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("calc".to_owned())
+            })
         );
     }
 
@@ -1942,10 +2045,17 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(
+            result.tests[0]
+                .execution
+                .suite
+                .as_ref()
+                .map(|suite| suite.kind.as_str()),
+            Some("unknown")
+        );
 
         let root = fixture();
         fs::remove_file(root.join("Cargo.toml")).unwrap();
@@ -1953,10 +2063,17 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(
+            result.tests[0]
+                .execution
+                .suite
+                .as_ref()
+                .map(|suite| suite.kind.as_str()),
+            Some("unknown")
+        );
     }
 
     #[test]
@@ -2032,33 +2149,58 @@ fn parses_integration() { exercise(); }
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-MODULE")
             .unwrap();
-        assert_eq!(module_test.package, "parser-crate");
-        assert_eq!(module_test.test_target, TestTarget::Lib);
-        assert_eq!(module_test.filter, "parser::tests::parses_external_module");
+        assert_eq!(
+            module_test.execution.project.as_deref(),
+            Some("parser-crate")
+        );
+        assert_eq!(
+            module_test
+                .execution
+                .suite
+                .as_ref()
+                .map(|suite| suite.kind.as_str()),
+            Some("lib")
+        );
+        assert_eq!(
+            module_test.execution.selector,
+            "parser::tests::parses_external_module"
+        );
 
         let integration = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-INTEGRATION")
             .unwrap();
-        assert_eq!(integration.package, "parser-crate");
         assert_eq!(
-            integration.test_target,
-            TestTarget::IntegrationTest("parser-suite".to_owned())
+            integration.execution.project.as_deref(),
+            Some("parser-crate")
         );
-        assert_eq!(integration.filter, "support::parses_integration");
+        assert_eq!(
+            integration.execution.suite.as_ref(),
+            Some(&TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("parser-suite".to_owned())
+            })
+        );
+        assert_eq!(
+            integration.execution.selector,
+            "support::parses_integration"
+        );
 
         let binary = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-BIN")
             .unwrap();
-        assert_eq!(binary.package, "parser-crate");
+        assert_eq!(binary.execution.project.as_deref(), Some("parser-crate"));
         assert_eq!(
-            binary.test_target,
-            TestTarget::Bin("parser-check".to_owned())
+            binary.execution.suite.as_ref(),
+            Some(&TestSuite {
+                kind: "bin".to_owned(),
+                name: Some("parser-check".to_owned())
+            })
         );
-        assert_eq!(binary.filter, "checks_binary");
+        assert_eq!(binary.execution.selector, "checks_binary");
     }
 
     #[test]
@@ -2076,11 +2218,11 @@ fn parses_integration() { exercise(); }
         assert!(!result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/ignored.rs"));
+            .any(|source| source.location.path.as_str() == "src/ignored.rs"));
         assert!(result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/kept.rs"));
+            .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
     #[test]
@@ -2115,7 +2257,7 @@ fn ambiguous() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "ambiguous")
+                    .is_some_and(|location| location.locator == "ambiguous")
         }));
     }
 
@@ -2211,13 +2353,13 @@ fn duplicate_target() {}
             .iter()
             .find(|test| test.id.as_str() == "TEST-INTEGRATION")
             .unwrap();
-        assert_eq!(integration.additional_targets.len(), 1);
+        assert_eq!(integration.targets.len(), 2);
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-005"
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "duplicate_target")
+                    .is_some_and(|location| location.locator == "duplicate_target")
         }));
     }
 

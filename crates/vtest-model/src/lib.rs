@@ -5,8 +5,9 @@
 //! higher-level crates instead.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{fmt, str::FromStr};
+use std::{collections::BTreeMap, fmt, str::FromStr};
 
 macro_rules! id_type {
     ($name:ident) => {
@@ -49,6 +50,8 @@ id_type!(ReqId);
 id_type!(VoId);
 id_type!(TestId);
 id_type!(SrcId);
+id_type!(AdapterId);
+id_type!(ProjectPath);
 
 /// A SHA-256 hash bound to a canonical source or record representation.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -63,8 +66,20 @@ impl ContentHash {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let text = String::from_utf8_lossy(bytes);
-        Self::from_text(&text)
+        let digest = Sha256::digest(bytes);
+        Self(format!("sha256:{digest:x}"))
+    }
+
+    /// Hash a domain-separated sequence of named, length-prefixed fields.
+    pub fn from_subject<'a>(
+        domain: &str,
+        fields: impl IntoIterator<Item = (&'a str, Vec<u8>)>,
+    ) -> Self {
+        let mut encoder = SubjectEncoder::new(domain);
+        for (name, value) in fields {
+            encoder.field(name, &value);
+        }
+        encoder.finish()
     }
 
     pub fn as_str(&self) -> &str {
@@ -113,64 +128,212 @@ pub fn normalize_hashed_text(text: &str) -> String {
     normalized
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Locator {
-    pub path: String,
-    pub item_path: String,
+struct SubjectEncoder {
+    hasher: Sha256,
 }
 
-impl Locator {
-    pub fn parse(value: &str) -> Option<Self> {
-        let separator = value.find("::")?;
-        let (path, item_path) = value.split_at(separator);
-        let item_path = item_path.strip_prefix("::")?;
-        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
-            return None;
-        }
-        Some(Self {
-            path: path.replace('\\', "/"),
-            item_path: item_path.to_owned(),
-        })
+impl SubjectEncoder {
+    fn new(domain: &str) -> Self {
+        let mut value = Self {
+            hasher: Sha256::new(),
+        };
+        value.field("domain", domain.as_bytes());
+        value
     }
 
-    pub fn as_string(&self) -> String {
-        format!("{}::{}", self.path, self.item_path)
+    fn field(&mut self, name: &str, value: &[u8]) {
+        self.hasher.update((name.len() as u64).to_be_bytes());
+        self.hasher.update(name.as_bytes());
+        self.hasher.update((value.len() as u64).to_be_bytes());
+        self.hasher.update(value);
+    }
+
+    fn finish(self) -> ContentHash {
+        let digest = self.hasher.finalize();
+        ContentHash(format!("sha256:{digest:x}"))
+    }
+}
+
+/// A language-neutral, type-preserving value used in freshness projections.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
+pub enum CanonicalProjection {
+    Null,
+    Bool(bool),
+    Integer(i64),
+    Unsigned(u64),
+    Decimal(String),
+    String(String),
+    List(Vec<CanonicalProjection>),
+    Map(BTreeMap<String, CanonicalProjection>),
+}
+
+impl CanonicalProjection {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        self.encode_into(&mut output);
+        output
+    }
+
+    fn encode_into(&self, output: &mut Vec<u8>) {
+        match self {
+            Self::Null => output.extend_from_slice(b"null"),
+            Self::Bool(value) => {
+                output.extend_from_slice(b"bool");
+                output.push(u8::from(*value));
+            }
+            Self::Integer(value) => {
+                output.extend_from_slice(b"integer");
+                output.extend_from_slice(&value.to_be_bytes());
+            }
+            Self::Unsigned(value) => {
+                output.extend_from_slice(b"unsigned");
+                output.extend_from_slice(&value.to_be_bytes());
+            }
+            Self::Decimal(value) => encode_projection_value(output, b"decimal", value.as_bytes()),
+            Self::String(value) => encode_projection_value(output, b"string", value.as_bytes()),
+            Self::List(values) => {
+                output.extend_from_slice(b"list");
+                output.extend_from_slice(&(values.len() as u64).to_be_bytes());
+                for value in values {
+                    let encoded = value.encode();
+                    output.extend_from_slice(&(encoded.len() as u64).to_be_bytes());
+                    output.extend_from_slice(&encoded);
+                }
+            }
+            Self::Map(values) => {
+                output.extend_from_slice(b"map");
+                output.extend_from_slice(&(values.len() as u64).to_be_bytes());
+                for (key, value) in values {
+                    encode_projection_value(output, b"key", key.as_bytes());
+                    let encoded = value.encode();
+                    output.extend_from_slice(&(encoded.len() as u64).to_be_bytes());
+                    output.extend_from_slice(&encoded);
+                }
+            }
+        }
+    }
+}
+
+fn encode_projection_value(output: &mut Vec<u8>, tag: &[u8], value: &[u8]) {
+    output.extend_from_slice(&(tag.len() as u64).to_be_bytes());
+    output.extend_from_slice(tag);
+    output.extend_from_slice(&(value.len() as u64).to_be_bytes());
+    output.extend_from_slice(value);
+}
+
+fn canonical_json(value: &Value) -> Vec<u8> {
+    match value {
+        Value::Null => CanonicalProjection::Null,
+        Value::Bool(value) => CanonicalProjection::Bool(*value),
+        Value::Number(value) if value.is_i64() => {
+            CanonicalProjection::Integer(value.as_i64().expect("checked i64"))
+        }
+        Value::Number(value) if value.is_u64() => {
+            CanonicalProjection::Unsigned(value.as_u64().expect("checked u64"))
+        }
+        Value::Number(value) => CanonicalProjection::Decimal(value.to_string()),
+        Value::String(value) => CanonicalProjection::String(value.clone()),
+        Value::Array(values) => {
+            let values = values
+                .iter()
+                .map(|value| projection_from_json(value.clone()))
+                .collect();
+            CanonicalProjection::List(values)
+        }
+        Value::Object(values) => CanonicalProjection::Map(
+            values
+                .iter()
+                .map(|(key, value)| (key.clone(), projection_from_json(value.clone())))
+                .collect(),
+        ),
+    }
+    .encode()
+}
+
+fn projection_from_json(value: Value) -> CanonicalProjection {
+    match value {
+        Value::Null => CanonicalProjection::Null,
+        Value::Bool(value) => CanonicalProjection::Bool(value),
+        Value::Number(value) if value.is_i64() => {
+            CanonicalProjection::Integer(value.as_i64().expect("checked i64"))
+        }
+        Value::Number(value) if value.is_u64() => {
+            CanonicalProjection::Unsigned(value.as_u64().expect("checked u64"))
+        }
+        Value::Number(value) => CanonicalProjection::Decimal(value.to_string()),
+        Value::String(value) => CanonicalProjection::String(value),
+        Value::Array(values) => {
+            CanonicalProjection::List(values.into_iter().map(projection_from_json).collect())
+        }
+        Value::Object(values) => CanonicalProjection::Map(
+            values
+                .into_iter()
+                .map(|(key, value)| (key, projection_from_json(value)))
+                .collect(),
+        ),
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum TargetRef {
-    Locator(Locator),
+    Locator { adapter: AdapterId, value: String },
     SrcId(SrcId),
+}
+
+impl TargetRef {
+    pub fn normalized(&self) -> String {
+        match self {
+            Self::Locator { adapter, value } => format!("{adapter}::{value}"),
+            Self::SrcId(id) => id.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SourceRange {
+    pub start: usize,
+    pub end: usize,
+    #[serde(default)]
+    pub start_line: usize,
+    #[serde(default)]
+    pub end_line: usize,
+}
+
+impl SourceRange {
+    pub fn is_valid_for(self, bytes: &[u8]) -> bool {
+        self.start <= self.end && self.end <= bytes.len()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceLocation {
-    pub file: String,
-    pub function: String,
-    pub start_line: usize,
-    pub end_line: usize,
-    pub start_byte: usize,
-    pub end_byte: usize,
+    pub adapter: AdapterId,
+    pub path: ProjectPath,
+    pub locator: String,
+    pub byte_range: SourceRange,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "name", rename_all = "snake_case")]
-pub enum TestTarget {
-    Lib,
-    Bin(String),
-    IntegrationTest(String),
-    Unknown,
+pub struct TestSuite {
+    pub kind: String,
+    pub name: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionDescriptor {
+    pub adapter: AdapterId,
+    pub project: Option<String>,
+    pub suite: Option<TestSuite>,
+    pub selector: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub target: TargetRef,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub additional_targets: Vec<TargetRef>,
+    pub targets: Vec<TargetRef>,
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,
@@ -179,18 +342,194 @@ pub struct TestEntity {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
-    pub filter: String,
-    pub package: String,
-    pub test_target: TestTarget,
+    pub execution: ExecutionDescriptor,
+}
+
+impl TestEntity {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.targets.is_empty() {
+            return Err("TestEntity.targets must contain at least one TargetRef".to_owned());
+        }
+        if self.execution.adapter != self.location.adapter {
+            return Err("Test execution and SourceLocation adapter IDs must match".to_owned());
+        }
+        if self.execution.selector.is_empty() {
+            return Err("ExecutionDescriptor.selector must not be empty".to_owned());
+        }
+        let unique = self
+            .targets
+            .iter()
+            .map(TargetRef::normalized)
+            .collect::<std::collections::BTreeSet<_>>();
+        if unique.len() != self.targets.len() {
+            return Err("TestEntity.targets must not contain duplicates".to_owned());
+        }
+        for target in &self.targets {
+            if let TargetRef::Locator { adapter, value } = target {
+                if adapter.as_str().is_empty() || value.is_empty() {
+                    return Err("locator TargetRef requires adapter and opaque value".to_owned());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct TestSubjectInput<'a> {
+    pub adapter: &'a AdapterId,
+    pub id: &'a TestId,
+    pub covers: &'a [VoId],
+    pub targets: &'a [TargetRef],
+    pub intent: &'a str,
+    pub input: Option<&'a str>,
+    pub expect: Option<&'a str>,
+    pub kind: Option<&'a str>,
+    pub cases: &'a [String],
+    pub related: &'a [TestId],
+    pub location: &'a SourceLocation,
+    pub execution: &'a ExecutionDescriptor,
+    pub construct: &'a [u8],
+}
+
+pub fn hash_test_subject(input: &TestSubjectInput<'_>) -> ContentHash {
+    let mut covers = input
+        .covers
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    covers.sort();
+    let mut targets = input
+        .targets
+        .iter()
+        .map(TargetRef::normalized)
+        .collect::<Vec<_>>();
+    targets.sort();
+    let mut related = input
+        .related
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    related.sort();
+    let normalized_construct = String::from_utf8(input.construct.to_vec())
+        .map(|value| normalize_hashed_text(&value).into_bytes())
+        .unwrap_or_else(|_| input.construct.to_vec());
+    let suite = input
+        .execution
+        .suite
+        .as_ref()
+        .map(|suite| serde_json::json!({"kind": suite.kind, "name": suite.name}));
+    ContentHash::from_subject(
+        "vtest:test-subject:v1",
+        [
+            ("adapter", input.adapter.as_str().as_bytes().to_vec()),
+            ("id", input.id.as_str().as_bytes().to_vec()),
+            ("covers", canonical_json(&serde_json::json!(covers))),
+            ("targets", canonical_json(&serde_json::json!(targets))),
+            ("intent", input.intent.as_bytes().to_vec()),
+            ("input", canonical_json(&serde_json::json!(input.input))),
+            ("expect", canonical_json(&serde_json::json!(input.expect))),
+            ("kind", canonical_json(&serde_json::json!(input.kind))),
+            ("cases", canonical_json(&serde_json::json!(input.cases))),
+            ("related", canonical_json(&serde_json::json!(related))),
+            (
+                "location.adapter",
+                input.location.adapter.as_str().as_bytes().to_vec(),
+            ),
+            (
+                "location.path",
+                input.location.path.as_str().as_bytes().to_vec(),
+            ),
+            (
+                "location.locator",
+                input.location.locator.as_bytes().to_vec(),
+            ),
+            (
+                "execution.adapter",
+                input.execution.adapter.as_str().as_bytes().to_vec(),
+            ),
+            (
+                "execution.project",
+                canonical_json(&serde_json::json!(input.execution.project)),
+            ),
+            ("execution.suite", canonical_json(&serde_json::json!(suite))),
+            (
+                "execution.selector",
+                input.execution.selector.as_bytes().to_vec(),
+            ),
+            ("construct", normalized_construct),
+        ],
+    )
+}
+
+pub fn hash_target_subject(target: &TargetRef, construct: &[u8]) -> ContentHash {
+    let normalized_construct = String::from_utf8(construct.to_vec())
+        .map(|value| normalize_hashed_text(&value).into_bytes())
+        .unwrap_or_else(|_| construct.to_vec());
+    ContentHash::from_subject(
+        "vtest:target-subject:v1",
+        [
+            ("target", target.normalized().into_bytes()),
+            ("construct", normalized_construct),
+        ],
+    )
+}
+
+pub fn hash_static_audit_config_subject(
+    adapter: &AdapterId,
+    rule_set_id: &str,
+    rule_set_version: &str,
+    effective_config: &CanonicalProjection,
+) -> ContentHash {
+    ContentHash::from_subject(
+        "vtest:static-audit-config:v1",
+        [
+            ("adapter", adapter.as_str().as_bytes().to_vec()),
+            ("rule_set_id", rule_set_id.as_bytes().to_vec()),
+            ("rule_set_version", rule_set_version.as_bytes().to_vec()),
+            ("effective_config", effective_config.encode()),
+        ],
+    )
+}
+
+pub fn hash_static_analysis_source_subject(
+    adapter: &AdapterId,
+    location: &SourceLocation,
+    bytes: &[u8],
+) -> ContentHash {
+    ContentHash::from_subject(
+        "vtest:static-analysis-source:v1",
+        [
+            ("adapter", adapter.as_str().as_bytes().to_vec()),
+            ("path", location.path.as_str().as_bytes().to_vec()),
+            ("locator", location.locator.as_bytes().to_vec()),
+            ("bytes", bytes.to_vec()),
+        ],
+    )
+}
+
+pub fn hash_record_subject(record: &CanonicalProjection) -> ContentHash {
+    ContentHash::from_subject("vtest:record-subject:v1", [("record", record.encode())])
+}
+
+pub fn hash_spec_subject(record: &CanonicalProjection, source: &str) -> ContentHash {
+    ContentHash::from_subject(
+        "vtest:spec-subject:v1",
+        [
+            ("record", record.encode()),
+            ("source", normalize_hashed_text(source).as_bytes().to_vec()),
+        ],
+    )
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct SourceFunction {
-    pub locator: Locator,
+pub struct SourceTarget {
+    pub target: TargetRef,
     pub src_id: Option<SrcId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
 }
+
+pub type SourceFunction = SourceTarget;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -229,6 +568,8 @@ pub enum CheckItem {
     TargetExecution,
     #[serde(rename = "evidence_validity")]
     EvidenceValidity,
+    #[serde(rename = "test_traceability")]
+    TestTraceability,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -326,15 +667,30 @@ pub struct Revision {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EvidenceTargetHash {
+    pub target: String,
+    pub target_construct: ContentHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceHashes {
-    pub test_fn: ContentHash,
-    /// The first target hash retained for the v0.1 wire shape.
-    pub target_fn: ContentHash,
-    /// All declared target hashes in annotation order.  An empty value means
-    /// that the record uses the v0.1 single-target shape and `target_fn` is
-    /// the complete set.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub target_fns: Vec<ContentHash>,
+    pub test_subject: Option<ContentHash>,
+    pub targets: Vec<EvidenceTargetHash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compatibility: Option<CompatibilityEvidenceHashes>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CompatibilityEvidenceHashes {
+    pub test_construct: ContentHash,
+    pub target_constructs: Vec<ContentHash>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionStateSubject {
+    pub schema: String,
+    pub complete: bool,
+    pub hash: Option<ContentHash>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -345,11 +701,20 @@ pub struct RunnerInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TargetExecutionObservation {
+    pub target: String,
+    pub result: CheckValue,
+    pub count: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TargetExecution {
     pub checked: bool,
     pub method: Option<String>,
-    pub result: CheckValue,
-    pub count: Option<u64>,
+    pub result: Option<CheckValue>,
+    pub targets: Vec<TargetExecutionObservation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compatibility_count: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -364,13 +729,125 @@ pub enum TestResult {
 pub struct EvidenceRecord {
     pub id: String,
     pub test_id: TestId,
+    pub adapter: Option<AdapterId>,
     pub result: TestResult,
     pub executed_at: String,
     pub revision: Revision,
+    pub execution_state: Option<ExecutionStateSubject>,
     pub hashes: EvidenceHashes,
     pub runner: RunnerInfo,
     pub target_execution: TargetExecution,
     pub log_ref: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditSubject {
+    Record {
+        id: String,
+        hash: ContentHash,
+    },
+    Target {
+        target: String,
+        hash: ContentHash,
+    },
+    StaticConfig {
+        adapter: AdapterId,
+        capability: String,
+        hash: ContentHash,
+    },
+    AnalysisSource {
+        adapter: AdapterId,
+        path: ProjectPath,
+        locator: String,
+        hash: ContentHash,
+    },
+}
+
+pub struct ExecutionInputSubject<'a> {
+    pub root_identity: &'a str,
+    pub root_relative_path: &'a str,
+    pub kind: &'a str,
+    pub bytes: &'a [u8],
+}
+
+pub struct ExecutionStateSubjectInput<'a> {
+    pub adapter: &'a AdapterId,
+    pub schema_id: &'a str,
+    pub schema_version: &'a str,
+    pub head_revision: Option<&'a str>,
+    pub runner_kind: &'a str,
+    pub invocation: &'a CanonicalProjection,
+    pub toolchain_identity: &'a str,
+    pub effective_config: &'a CanonicalProjection,
+    pub inputs: &'a [ExecutionInputSubject<'a>],
+}
+
+pub fn hash_execution_state_subject(input: &ExecutionStateSubjectInput<'_>) -> ContentHash {
+    let mut entries = input.inputs.iter().collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        (left.root_identity, left.root_relative_path, left.kind).cmp(&(
+            right.root_identity,
+            right.root_relative_path,
+            right.kind,
+        ))
+    });
+    let encoded_entries = CanonicalProjection::List(
+        entries
+            .into_iter()
+            .map(|entry| {
+                CanonicalProjection::Map(BTreeMap::from([
+                    (
+                        "root_identity".to_owned(),
+                        CanonicalProjection::String(entry.root_identity.to_owned()),
+                    ),
+                    (
+                        "root_relative_path".to_owned(),
+                        CanonicalProjection::String(entry.root_relative_path.to_owned()),
+                    ),
+                    (
+                        "kind".to_owned(),
+                        CanonicalProjection::String(entry.kind.to_owned()),
+                    ),
+                    (
+                        "bytes".to_owned(),
+                        CanonicalProjection::String(hex_bytes(entry.bytes)),
+                    ),
+                ]))
+            })
+            .collect(),
+    )
+    .encode();
+    ContentHash::from_subject(
+        "vtest:execution-state:v1",
+        [
+            ("adapter", input.adapter.as_str().as_bytes().to_vec()),
+            ("schema_id", input.schema_id.as_bytes().to_vec()),
+            ("schema_version", input.schema_version.as_bytes().to_vec()),
+            (
+                "head_revision",
+                canonical_json(&serde_json::json!(input.head_revision)),
+            ),
+            ("runner_kind", input.runner_kind.as_bytes().to_vec()),
+            ("invocation", input.invocation.encode()),
+            (
+                "toolchain_identity",
+                input.toolchain_identity.as_bytes().to_vec(),
+            ),
+            ("effective_config", input.effective_config.encode()),
+            ("inputs", encoded_entries),
+        ],
+    )
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
 
 #[cfg(test)]
@@ -391,10 +868,15 @@ mod tests {
     }
 
     #[test]
-    fn locator_splits_at_first_separator() {
-        let locator = Locator::parse("src/lib.rs::module::function").expect("valid locator");
-        assert_eq!(locator.path, "src/lib.rs");
-        assert_eq!(locator.item_path, "module::function");
+    fn locator_is_adapter_scoped_and_opaque() {
+        let locator = TargetRef::Locator {
+            adapter: AdapterId::new("synthetic"),
+            value: "component(add)/scenario[happy]".to_owned(),
+        };
+        assert_eq!(
+            locator.normalized(),
+            "synthetic::component(add)/scenario[happy]"
+        );
     }
 
     #[test]
@@ -412,5 +894,143 @@ mod tests {
         assert_eq!(value["ok"], true);
         assert!(value.get("data").is_some());
         assert!(value.get("diagnostics").is_some());
+    }
+
+    fn fixture_location() -> SourceLocation {
+        SourceLocation {
+            adapter: AdapterId::new("synthetic"),
+            path: ProjectPath::new("source/cases.synth"),
+            locator: "scenario[adding two values]".to_owned(),
+            byte_range: SourceRange {
+                start: 65,
+                end: 176,
+                start_line: 1,
+                end_line: 1,
+            },
+        }
+    }
+
+    fn fixture_execution() -> ExecutionDescriptor {
+        ExecutionDescriptor {
+            adapter: AdapterId::new("synthetic"),
+            project: None,
+            suite: Some(TestSuite {
+                kind: "fixed-observation".to_owned(),
+                name: None,
+            }),
+            selector: "scenario[adding two values]".to_owned(),
+        }
+    }
+
+    fn synthetic_test_hash(intent: &str) -> ContentHash {
+        let id = TestId::new("TEST-SYNTH-ADD");
+        let covers = vec![VoId::new("VO-SYNTH-ADD")];
+        let targets = vec![TargetRef::Locator {
+            adapter: AdapterId::new("synthetic"),
+            value: "component(add)/scenario[happy]".to_owned(),
+        }];
+        let location = fixture_location();
+        let execution = fixture_execution();
+        hash_test_subject(&TestSubjectInput {
+            adapter: &execution.adapter,
+            id: &id,
+            covers: &covers,
+            targets: &targets,
+            intent,
+            input: None,
+            expect: None,
+            kind: Some("scenario"),
+            cases: &[],
+            related: &[],
+            location: &location,
+            execution: &execution,
+            construct: b"scenario[adding two values]",
+        })
+    }
+
+    #[test]
+    fn non_adjacent_logical_metadata_changes_the_test_subject() {
+        assert_ne!(
+            synthetic_test_hash("adding two values returns their sum"),
+            synthetic_test_hash("adding two values returns a changed sum")
+        );
+    }
+
+    #[test]
+    fn byte_range_movement_does_not_change_the_test_subject() {
+        let original = synthetic_test_hash("adding two values returns their sum");
+        let mut moved = fixture_location();
+        moved.byte_range.start += 100;
+        moved.byte_range.end += 100;
+        let id = TestId::new("TEST-SYNTH-ADD");
+        let covers = vec![VoId::new("VO-SYNTH-ADD")];
+        let targets = vec![TargetRef::Locator {
+            adapter: AdapterId::new("synthetic"),
+            value: "component(add)/scenario[happy]".to_owned(),
+        }];
+        let execution = fixture_execution();
+        let actual = hash_test_subject(&TestSubjectInput {
+            adapter: &execution.adapter,
+            id: &id,
+            covers: &covers,
+            targets: &targets,
+            intent: "adding two values returns their sum",
+            input: None,
+            expect: None,
+            kind: Some("scenario"),
+            cases: &[],
+            related: &[],
+            location: &moved,
+            execution: &execution,
+            construct: b"scenario[adding two values]",
+        });
+        assert_eq!(original, actual);
+    }
+
+    #[test]
+    fn static_config_subject_binds_only_the_typed_projection() {
+        let adapter = AdapterId::new("synthetic");
+        let projection = CanonicalProjection::Map(BTreeMap::from([(
+            "assertion_macros".to_owned(),
+            CanonicalProjection::List(vec![CanonicalProjection::String("check".to_owned())]),
+        )]));
+        let same = hash_static_audit_config_subject(&adapter, "rules", "1", &projection);
+        let changed = hash_static_audit_config_subject(
+            &adapter,
+            "rules",
+            "1",
+            &CanonicalProjection::Map(BTreeMap::from([(
+                "assertion_macros".to_owned(),
+                CanonicalProjection::List(vec![CanonicalProjection::String("verify".to_owned())]),
+            )])),
+        );
+        assert_ne!(same, changed);
+        assert_eq!(
+            same,
+            hash_static_audit_config_subject(&adapter, "rules", "1", &projection)
+        );
+    }
+
+    #[test]
+    fn subject_encoding_distinguishes_null_empty_and_empty_list() {
+        let null = CanonicalProjection::Null.encode();
+        let empty = CanonicalProjection::String(String::new()).encode();
+        let list = CanonicalProjection::List(Vec::new()).encode();
+        assert_ne!(null, empty);
+        assert_ne!(empty, list);
+        assert_ne!(null, list);
+    }
+
+    #[test]
+    fn subject_domains_prevent_cross_type_hash_reuse() {
+        let value = CanonicalProjection::String("same bytes".to_owned());
+        assert_ne!(
+            hash_record_subject(&value),
+            hash_spec_subject(&value, "same bytes")
+        );
+        assert_ne!(
+            hash_record_subject(&value),
+            ContentHash::from_subject("vtest:target-subject:v1", [("record", value.encode())])
+        );
     }
 }

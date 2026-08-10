@@ -146,7 +146,9 @@ pub fn persist_static_audits(
                         kind: "test-code".to_owned(),
                         reference: format!(
                             "{}::{}:{}",
-                            rule.location.file, rule.location.function, rule.location.start_line
+                            rule.location.path,
+                            rule.location.locator,
+                            rule.location.byte_range.start_line
                         ),
                     }],
                 })
@@ -173,7 +175,7 @@ fn audit_one(
     assertion_macros: &[String],
     config_hash: &ContentHash,
 ) -> Result<StaticAudit, AuditError> {
-    let path = root.join(&test.location.file);
+    let path = root.join(test.location.path.as_str());
     let source = fs::read_to_string(&path).map_err(|source| AuditError::Io {
         path: path.clone(),
         source,
@@ -182,16 +184,20 @@ fn audit_one(
         path: path.clone(),
         source,
     })?;
-    let item = find_function(&syntax, &test.location.function)
+    let item = find_function(&syntax, &test.location.locator)
         .ok_or_else(|| AuditError::TestNotFound(test.id.to_string()))?;
-    let target = target_source(scan, &test.target);
-    let target_item_path = target.map(|source| source.locator.item_path.as_str());
-    let target_file = target.map(|source| source.location.file.as_str());
+    let target = test
+        .targets
+        .first()
+        .and_then(|target| target_source(scan, target));
+    let target_locator = target.and_then(source_locator_value);
+    let target_item_path = target_locator.and_then(rust_item_path);
+    let target_file = target.map(|source| source.location.path.as_str());
     let target_resolution = target_item_path.map(|target_item_path| {
         TargetResolution::new(
             target_item_path,
-            &test.location.function,
-            target_file == Some(test.location.file.as_str()),
+            &test.location.locator,
+            target_file == Some(test.location.path.as_str()),
         )
     });
     let mut rules = Vec::new();
@@ -259,15 +265,15 @@ fn audit_one(
         );
     }
     for rule in &mut rules {
-        if rule.location.file.is_empty() {
-            rule.location.file = test.location.file.clone();
+        if rule.location.path.as_str().is_empty() {
+            rule.location.path = test.location.path.clone();
         }
-        if rule.location.function.is_empty() || item.sig.ident == rule.location.function {
-            rule.location.function = test.location.function.clone();
+        if rule.location.locator.is_empty() || item.sig.ident == rule.location.locator {
+            rule.location.locator = test.location.locator.clone();
         }
-        if rule.location.end_byte == 0 {
-            rule.location.start_byte = test.location.start_byte;
-            rule.location.end_byte = test.location.end_byte;
+        if rule.location.byte_range.end == 0 {
+            rule.location.byte_range.start = test.location.byte_range.start;
+            rule.location.byte_range.end = test.location.byte_range.end;
         }
     }
     let verdict = if rules.iter().any(|rule| rule.verdict == AuditVerdict::Fail) {
@@ -293,19 +299,19 @@ fn audit_one(
         },
     ];
     if let Some(test_source) = scan.sources.iter().find(|source| {
-        source.location.file == test.location.file
-            && source.location.function == test.location.function
+        source.location.path == test.location.path
+            && source.location.locator == test.location.locator
     }) {
         subjects.push(AuditSubjectRecord {
             id: None,
-            locator: Some(test_source.locator.as_string()),
+            locator: Some(test_source.target.normalized()),
             hash: test_source.content_hash.clone(),
         });
     }
     if let Some(target) = target {
         subjects.push(AuditSubjectRecord {
             id: None,
-            locator: Some(target.locator.as_string()),
+            locator: Some(target.target.normalized()),
             hash: target.content_hash.clone(),
         });
     }
@@ -314,16 +320,14 @@ fn audit_one(
     // conclusion without making unrelated tests stale together.
     let helper_names = call_facts(item, assertion_macros).names;
     for source in scan.sources.iter().filter(|source| {
-        source.location.file == test.location.file
-            && source
-                .locator
-                .item_path
-                .split("::")
-                .last()
+        source.location.path == test.location.path
+            && source_locator_value(source)
+                .and_then(rust_item_path)
+                .and_then(|item_path| item_path.rsplit("::").next())
                 .is_some_and(|name| helper_names.contains(name))
-            && source.location.function != test.location.function
+            && source.location.locator != test.location.locator
     }) {
-        let locator = source.locator.as_string();
+        let locator = source.target.normalized();
         if subjects
             .iter()
             .any(|subject| subject.locator.as_deref() == Some(&locator))
@@ -1714,7 +1718,7 @@ fn target_source<'a>(
     target: &TargetRef,
 ) -> Option<&'a vtest_model::SourceFunction> {
     scan.sources.iter().find(|source| match target {
-        TargetRef::Locator(locator) => source.locator == *locator,
+        TargetRef::Locator { .. } => source.target == *target,
         TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
     })
 }
@@ -1731,8 +1735,8 @@ fn has_attribute(attrs: &[Attribute], name: &str) -> bool {
 
 fn source_location(location: &SourceLocation, span: proc_macro2::Span) -> SourceLocation {
     let mut location = location.clone();
-    location.start_line = span.start().line;
-    location.end_line = span.end().line;
+    location.byte_range.start_line = span.start().line;
+    location.byte_range.end_line = span.end().line;
     location
 }
 
@@ -1742,13 +1746,28 @@ fn source_location_from_item(item: &ItemFn) -> SourceLocation {
 
 fn source_location_from_span(item: &ItemFn, span: proc_macro2::Span) -> SourceLocation {
     SourceLocation {
-        file: String::new(),
-        function: item.sig.ident.to_string(),
-        start_line: span.start().line,
-        end_line: span.end().line,
-        start_byte: 0,
-        end_byte: 0,
+        adapter: vtest_model::AdapterId::new("rust-cargo"),
+        path: vtest_model::ProjectPath::new(""),
+        locator: item.sig.ident.to_string(),
+        byte_range: vtest_model::SourceRange {
+            start: 0,
+            end: 0,
+            start_line: span.start().line,
+            end_line: span.end().line,
+        },
     }
+}
+
+fn source_locator_value(source: &vtest_model::SourceFunction) -> Option<&str> {
+    match &source.target {
+        TargetRef::Locator { adapter, value } if adapter.as_str() == "rust-cargo" => Some(value),
+        TargetRef::Locator { .. } | TargetRef::SrcId(_) => None,
+    }
+}
+
+fn rust_item_path(locator: &str) -> Option<&str> {
+    let separator = locator.find("::")?;
+    locator.get(separator + 2..)
 }
 
 fn git_revision(root: &Path) -> Revision {

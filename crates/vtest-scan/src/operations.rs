@@ -7,14 +7,15 @@ use std::{
 use serde::Serialize;
 use syn::spanned::Spanned;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, Locator, SourceLocation, TargetRef, TestEntity, TestResult,
+    CheckValue, ContentHash, Diagnostic, SourceFunction, SourceLocation, TargetRef, TestEntity,
+    TestResult,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::ScanResult;
+use crate::{Locator, ScanResult, RUST_ADAPTER_ID};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -203,31 +204,38 @@ pub fn edit_test(
     }
     validate_desired_test(root, &scan, &current, &desired)?;
 
-    let path = root.join(Path::new(&current.location.file));
+    let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let range = current.location.start_byte..current.location.end_byte;
+    let range = current.location.byte_range.start..current.location.byte_range.end;
     let current_slice = original.get(range.clone()).ok_or_else(|| {
         Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` source range is stale"),
         )
     })?;
-    if ContentHash::from_text(current_slice) != current.content_hash {
+    let refreshed = crate::scan_project(root)
+        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let unchanged = refreshed.tests.iter().any(|test| {
+        test.id == current.id
+            && test.location == current.location
+            && test.content_hash == current.content_hash
+    });
+    if !unchanged {
         return Err(Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` changed before edit could be applied"),
         ));
     }
-    let indent = line_indent(&original, current.location.start_byte);
+    let indent = line_indent(&original, current.location.byte_range.start);
     let normalized_current = deindent(current_slice, &indent);
     let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
     let rendered = indent_multiline(&normalized_replacement, &indent);
     let prospective = format!(
         "{}{}{}",
-        &original[..current.location.start_byte],
+        &original[..current.location.byte_range.start],
         rendered,
-        &original[current.location.end_byte..]
+        &original[current.location.byte_range.end..]
     );
     syn::parse_file(&prospective).map_err(|error| {
         Diagnostic::error(
@@ -238,11 +246,11 @@ pub fn edit_test(
     let changed = prospective != original;
     let result = TestMutationResult {
         test_id: test_id.to_owned(),
-        file: current.location.file.clone(),
+        file: current.location.path.as_str().to_owned(),
         dry_run,
         changed,
-        start_byte: current.location.start_byte,
-        end_byte: current.location.start_byte + rendered.len(),
+        start_byte: current.location.byte_range.start,
+        end_byte: current.location.byte_range.start + rendered.len(),
         rendered,
     };
     if dry_run || !changed {
@@ -283,10 +291,7 @@ struct DesiredTest {
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
-        let targets = std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
-            .collect();
+        let targets = test.targets.iter().map(target_string).collect();
         Self {
             id: test.id.as_str().to_owned(),
             covers: test
@@ -305,8 +310,8 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.filter.clone(),
-            file: test.location.file.clone(),
+            fn_name: test.execution.selector.clone(),
+            file: test.location.path.as_str().to_owned(),
         }
     }
 
@@ -401,7 +406,7 @@ fn validate_desired_test(
             "Structured Edit cannot change a Test ID",
         ));
     }
-    if desired.file != current.location.file {
+    if desired.file != current.location.path.as_str() {
         return Err(Diagnostic::error(
             "E-OP-003",
             "Structured Edit cannot move a Test to another file",
@@ -449,7 +454,11 @@ fn validate_desired_test(
             )
             .with_candidates(symbol_candidates(scan, target)));
         };
-        if !scan.sources.iter().any(|source| source.locator == locator) {
+        if !scan
+            .sources
+            .iter()
+            .any(|source| source_rust_locator(source).as_ref() == Some(&locator))
+        {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("source symbol `{target}` does not exist"),
@@ -467,8 +476,9 @@ fn validate_desired_test(
         ));
     }
     if scan.sources.iter().any(|source| {
-        source.location.file == desired.file
-            && source.locator.item_path == desired.fn_name
+        source.location.path.as_str() == desired.file
+            && source_rust_locator(source)
+                .is_some_and(|locator| locator.item_path == desired.fn_name)
             && source.location != current.location
     }) {
         return Err(Diagnostic::error(
@@ -530,8 +540,8 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.filter {
-        let from = format!("fn {}", current.filter);
+    if desired.fn_name != current.execution.selector {
+        let from = format!("fn {}", current.execution.selector);
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -648,11 +658,7 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
-            .collect::<Vec<_>>()
-            == desired.targets
+        && test.targets.iter().map(target_string).collect::<Vec<_>>() == desired.targets
         && test.intent == desired.intent
         && test.input == desired.input
         && test.expect == desired.expect
@@ -668,8 +674,8 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.filter == desired.fn_name
-        && test.location.file == desired.file
+        && test.execution.selector == desired.fn_name
+        && test.location.path.as_str() == desired.file
 }
 
 fn line_indent(source: &str, byte: usize) -> String {
@@ -710,7 +716,10 @@ fn indent_multiline(source: &str, indent: &str) -> String {
 
 fn target_string(target: &TargetRef) -> String {
     match target {
-        TargetRef::Locator(locator) => locator.as_string(),
+        TargetRef::Locator { adapter, value } if adapter.as_str() == RUST_ADAPTER_ID => {
+            value.clone()
+        }
+        TargetRef::Locator { adapter, value } => format!("{adapter}::{value}"),
         TargetRef::SrcId(id) => id.as_str().to_owned(),
     }
 }
@@ -785,7 +794,10 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
                 id: record.id,
                 result: record.result,
                 target_execution: if record.target_execution.checked {
-                    record.target_execution.result
+                    record
+                        .target_execution
+                        .result
+                        .unwrap_or(CheckValue::Unknown)
                 } else {
                     CheckValue::NotChecked
                 },
@@ -842,8 +854,10 @@ pub fn list_tests(
     } else {
         Vec::new()
     };
-    unregistered
-        .sort_by(|left, right| (&left.file, left.start_byte).cmp(&(&right.file, right.start_byte)));
+    unregistered.sort_by(|left, right| {
+        (left.path.as_str(), left.byte_range.start)
+            .cmp(&(right.path.as_str(), right.byte_range.start))
+    });
     TestSelection {
         tests,
         unregistered,
@@ -857,7 +871,11 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
                 .with_candidates(symbol_candidates(scan, source)),
         );
     };
-    if !scan.sources.iter().any(|item| item.locator == locator) {
+    if !scan
+        .sources
+        .iter()
+        .any(|item| source_rust_locator(item).as_ref() == Some(&locator))
+    {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!("source symbol `{source}` does not exist"),
@@ -868,9 +886,9 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
         .tests
         .iter()
         .filter(|test| {
-            std::iter::once(&test.target)
-                .chain(&test.additional_targets)
-                .any(|target| matches!(target, TargetRef::Locator(target) if target == &locator))
+            test.targets
+                .iter()
+                .any(|target| rust_locator(target).as_ref() == Some(&locator))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -972,13 +990,14 @@ fn validate_form_answers_for(
                     let destination = if supplied.answers.contains_key("file") {
                         destination_file(supplied)?
                     } else if let Some(location) = edited_location {
-                        location.file.clone()
+                        location.path.as_str().to_owned()
                     } else {
                         destination_file(supplied)?
                     };
                     if scan.sources.iter().any(|source| {
-                        source.location.file == destination
-                            && source.locator.item_path == name
+                        source.location.path.as_str() == destination
+                            && source_rust_locator(source)
+                                .is_some_and(|locator| locator.item_path == name)
                             && edited_location != Some(&source.location)
                     }) {
                         return Err(Diagnostic::error(
@@ -1162,10 +1181,7 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     let behavior_match = answers
         .get("behavior")
         .is_none_or(|value| value.render() == test.intent);
-    let target_values = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(target_string)
-        .collect::<Vec<_>>();
+    let target_values = test.targets.iter().map(target_string).collect::<Vec<_>>();
     let targets_match = if let Some(value) = answers.get("target") {
         value
             .values()
@@ -1340,7 +1356,11 @@ fn validate_symbols(
             )
             .with_candidates(symbol_candidates(scan, symbol)));
         };
-        if !scan.sources.iter().any(|source| source.locator == locator) {
+        if !scan
+            .sources
+            .iter()
+            .any(|source| source_rust_locator(source).as_ref() == Some(&locator))
+        {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("source symbol `{symbol}` does not exist"),
@@ -1512,28 +1532,28 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let mut exact_suffix = scan
         .sources
         .iter()
-        .filter(|source| {
-            source
-                .locator
+        .filter_map(source_rust_locator)
+        .filter(|locator| {
+            locator
                 .item_path
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| candidate == item)
         })
-        .map(|source| source.locator.as_string())
+        .map(|locator| locator.as_string())
         .collect::<Vec<_>>();
     let mut near = scan
         .sources
         .iter()
-        .filter(|source| {
-            source
-                .locator
+        .filter_map(source_rust_locator)
+        .filter(|locator| {
+            locator
                 .item_path
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| edit_distance(candidate, item) <= 2)
         })
-        .map(|source| source.locator.as_string())
+        .map(|locator| locator.as_string())
         .collect::<Vec<_>>();
     exact_suffix.sort();
     exact_suffix.dedup();
@@ -1542,6 +1562,19 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     near.retain(|candidate| !exact_suffix.contains(candidate));
     exact_suffix.append(&mut near);
     exact_suffix
+}
+
+fn rust_locator(target: &TargetRef) -> Option<Locator> {
+    match target {
+        TargetRef::Locator { adapter, value } if adapter.as_str() == RUST_ADAPTER_ID => {
+            Locator::parse(value)
+        }
+        TargetRef::Locator { .. } | TargetRef::SrcId(_) => None,
+    }
+}
+
+fn source_rust_locator(source: &SourceFunction) -> Option<Locator> {
+    rust_locator(&source.target)
 }
 
 fn test_id_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {

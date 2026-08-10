@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/vtest-model",
+    "crates/vtest-adapter-api",
     "crates/vtest-store",
     "crates/vtest-scan",
     "crates/vtest-audit",

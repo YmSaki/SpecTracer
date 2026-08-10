@@ -10,14 +10,14 @@ use std::{
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
-use vtest_exec::{run_tests, RunnableTest};
+use vtest_exec::{run_tests, RunnableTest, RustLocator};
 use vtest_model::{
-    ContentHash, Diagnostic, ExitCode, JsonEnvelope, Locator, ReqId, Revision, ScanSummary,
-    SourceFunction, SpecId, TargetRef, TestEntity, VoId,
+    ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId, Revision, ScanSummary, SourceFunction,
+    SpecId, TargetRef, TestEntity, VoId,
 };
 use vtest_scan::{
     create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
-    show_test, ScanResult,
+    show_test, Locator as ScanLocator, ScanResult,
 };
 use vtest_store::{
     find_project_root, init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339,
@@ -768,24 +768,24 @@ fn merge_diagnostics(
             &left.code,
             &left.message,
             &left.candidates,
-            left_location.map(|location| location.file.as_str()),
-            left_location.map(|location| location.function.as_str()),
-            left_location.map_or(0, |location| location.start_line),
-            left_location.map_or(0, |location| location.end_line),
-            left_location.map_or(0, |location| location.start_byte),
-            left_location.map_or(0, |location| location.end_byte),
+            left_location.map(|location| location.path.as_str()),
+            left_location.map(|location| location.locator.as_str()),
+            left_location.map_or(0, |location| location.byte_range.start_line),
+            left_location.map_or(0, |location| location.byte_range.end_line),
+            left_location.map_or(0, |location| location.byte_range.start),
+            left_location.map_or(0, |location| location.byte_range.end),
         )
             .cmp(&(
                 right_severity,
                 &right.code,
                 &right.message,
                 &right.candidates,
-                right_location.map(|location| location.file.as_str()),
-                right_location.map(|location| location.function.as_str()),
-                right_location.map_or(0, |location| location.start_line),
-                right_location.map_or(0, |location| location.end_line),
-                right_location.map_or(0, |location| location.start_byte),
-                right_location.map_or(0, |location| location.end_byte),
+                right_location.map(|location| location.path.as_str()),
+                right_location.map(|location| location.locator.as_str()),
+                right_location.map_or(0, |location| location.byte_range.start_line),
+                right_location.map_or(0, |location| location.byte_range.end_line),
+                right_location.map_or(0, |location| location.byte_range.start),
+                right_location.map_or(0, |location| location.byte_range.end),
             ))
     });
     diagnostics
@@ -1124,13 +1124,17 @@ fn build_bundle(
                     "test_id": test.id,
                 }));
             }
-            let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                failure(
-                    "E-SCAN-004",
-                    format!("test {} target cannot be resolved", test.id),
-                    ExitCode::Usage,
-                )
-            })?;
+            let target = test
+                .targets
+                .first()
+                .and_then(|target| find_target_source(scan, target))
+                .ok_or_else(|| {
+                    failure(
+                        "E-SCAN-004",
+                        format!("test {} target cannot be resolved", test.id),
+                        ExitCode::Usage,
+                    )
+                })?;
             let vos = test
                 .covers
                 .iter()
@@ -1145,7 +1149,7 @@ fn build_bundle(
             subjects.push(subject_value(
                 "target",
                 None,
-                Some(&target.locator.as_string()),
+                Some(&target.target.normalized()),
                 &target.content_hash,
             ));
             for (vo, subject) in test.covers.iter().zip(vos.iter()) {
@@ -1316,13 +1320,17 @@ fn build_bundle(
         "impl-consistency" => {
             if let Some(test_id) = test_id {
                 let test = find_test(scan, Some(test_id))?;
-                let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                    failure(
-                        "E-SCAN-004",
-                        format!("test {} target cannot be resolved", test.id),
-                        ExitCode::Usage,
-                    )
-                })?;
+                let target = test
+                    .targets
+                    .first()
+                    .and_then(|target| find_target_source(scan, target))
+                    .ok_or_else(|| {
+                        failure(
+                            "E-SCAN-004",
+                            format!("test {} target cannot be resolved", test.id),
+                            ExitCode::Usage,
+                        )
+                    })?;
                 let vos = test
                     .covers
                     .iter()
@@ -1337,7 +1345,7 @@ fn build_bundle(
                 subjects.push(subject_value(
                     "target",
                     None,
-                    Some(&target.locator.as_string()),
+                    Some(&target.target.normalized()),
                     &target.content_hash,
                 ));
                 for (vo, subject) in test.covers.iter().zip(vos.iter()) {
@@ -1377,7 +1385,11 @@ fn build_bundle(
                     .collect::<Vec<_>>();
                 let mut targets = Vec::new();
                 for test in &tests {
-                    if let Some(target) = find_target_source(scan, &test.target) {
+                    if let Some(target) = test
+                        .targets
+                        .first()
+                        .and_then(|target| find_target_source(scan, target))
+                    {
                         subjects.push(subject_value(
                             "test",
                             Some(test.id.as_str()),
@@ -1387,7 +1399,7 @@ fn build_bundle(
                         subjects.push(subject_value(
                             "target",
                             None,
-                            Some(&target.locator.as_string()),
+                            Some(&target.target.normalized()),
                             &target.content_hash,
                         ));
                         targets.push(target_value(root, target)?);
@@ -1436,10 +1448,7 @@ fn find_test<'a>(scan: &'a ScanResult, id: Option<&str>) -> CommandResult<&'a Te
 
 fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'a SourceFunction> {
     match target {
-        TargetRef::Locator(locator) => scan
-            .sources
-            .iter()
-            .find(|source| source.locator == *locator),
+        TargetRef::Locator { .. } => scan.sources.iter().find(|source| source.target == *target),
         TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
             source
                 .src_id
@@ -1449,8 +1458,22 @@ fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'
     }
 }
 
+fn rust_exec_locator(source: &SourceFunction) -> Option<RustLocator> {
+    let TargetRef::Locator { adapter, value } = &source.target else {
+        return None;
+    };
+    if adapter.as_str() != "rust-cargo" {
+        return None;
+    }
+    let locator = ScanLocator::parse(value)?;
+    Some(RustLocator {
+        path: locator.path,
+        item_path: locator.item_path,
+    })
+}
+
 fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandResult<String> {
-    let path = root.join(&location.file);
+    let path = root.join(location.path.as_str());
     let source = fs::read_to_string(&path).map_err(|error| {
         failure(
             "E-CORE-001",
@@ -1459,13 +1482,13 @@ fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandR
         )
     })?;
     let value = source
-        .get(location.start_byte..location.end_byte)
+        .get(location.byte_range.start..location.byte_range.end)
         .ok_or_else(|| {
             failure(
                 "E-SCAN-004",
                 format!(
                     "invalid source span {}:{}-{}",
-                    location.file, location.start_byte, location.end_byte
+                    location.path, location.byte_range.start, location.byte_range.end
                 ),
                 ExitCode::Usage,
             )
@@ -1485,10 +1508,10 @@ fn test_value(root: &Path, test: &TestEntity) -> CommandResult<serde_json::Value
             "cases": test.cases,
         },
         "location": {
-            "file": test.location.file,
-            "function": test.location.function,
-            "start_line": test.location.start_line,
-            "end_line": test.location.end_line,
+            "file": test.location.path,
+            "function": test.location.locator,
+            "start_line": test.location.byte_range.start_line,
+            "end_line": test.location.byte_range.end_line,
         },
         "source": source,
         "content_hash": test.content_hash,
@@ -1497,7 +1520,7 @@ fn test_value(root: &Path, test: &TestEntity) -> CommandResult<serde_json::Value
 
 fn target_value(root: &Path, target: &SourceFunction) -> CommandResult<serde_json::Value> {
     Ok(serde_json::json!({
-        "locator": target.locator.as_string(),
+        "locator": target.target.normalized(),
         "source": source_slice(root, &target.location)?,
         "content_hash": target.content_hash,
     }))
@@ -1765,11 +1788,11 @@ fn validate_bundle_subjects(
                 let locator = subject
                     .get("locator")
                     .and_then(serde_json::Value::as_str)
-                    .and_then(Locator::parse);
+                    .map(str::to_owned);
                 locator.and_then(|locator| {
                     scan.sources
                         .iter()
-                        .find(|source| source.locator == locator)
+                        .find(|source| source.target.normalized() == locator)
                         .map(|source| source.content_hash.clone())
                 })
             }
@@ -2140,16 +2163,10 @@ fn run_run(
     let runnable = requested
         .into_iter()
         .map(|entity| {
-            let targets = std::iter::once(&entity.target)
-                .chain(&entity.additional_targets)
-                .map(|target_ref| {
-                    scan.sources.iter().find(|source| match target_ref {
-                        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                        vtest_model::TargetRef::SrcId(src_id) => {
-                            source.src_id.as_ref() == Some(src_id)
-                        }
-                    })
-                })
+            let targets = entity
+                .targets
+                .iter()
+                .map(|target_ref| find_target_source(&scan, target_ref))
                 .collect::<Vec<_>>();
             let target_hashes = targets
                 .iter()
@@ -2164,7 +2181,7 @@ fn run_run(
                 target_hashes,
                 target_locator: targets
                     .first()
-                    .and_then(|source| source.map(|source| source.locator.clone())),
+                    .and_then(|source| source.and_then(rust_exec_locator)),
             }
         })
         .collect::<Vec<_>>();
@@ -2493,7 +2510,7 @@ fn resolve_entity_scope(
     Ok(None)
 }
 
-const ALL_VERIFY_ITEMS: [&str; 11] = [
+const ALL_VERIFY_ITEMS: [&str; 12] = [
     "spec_coverage",
     "vo_decomposition",
     "vo_coverage",
@@ -2505,6 +2522,7 @@ const ALL_VERIFY_ITEMS: [&str; 11] = [
     "runtime_result",
     "target_execution",
     "evidence_validity",
+    "test_traceability",
 ];
 
 type CommandResult<T = serde_json::Value> = Result<T, CommandFailure>;
@@ -3011,8 +3029,8 @@ fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
         .map(|test| {
             serde_json::json!({
                 "id": test.id,
-                "file": test.location.file,
-                "function": test.location.function,
+                "file": test.location.path,
+                "function": test.location.locator,
             })
         })
         .collect::<Vec<_>>();
@@ -4021,7 +4039,7 @@ mod tests {
             .find(|test| test.id.as_str() == "TEST-CALC-001")
             .expect("generated test is scanned");
         assert_eq!(created.intent, "adds two integers");
-        assert_eq!(created.location.file, "src/lib.rs");
+        assert_eq!(created.location.path.as_str(), "src/lib.rs");
         assert!(fs::read_to_string(root.join("src/lib.rs"))
             .unwrap()
             .contains("todo!(\"implement test body\")"));
@@ -4224,7 +4242,7 @@ mod tests {
             .iter()
             .find(|test| test.id.as_str() == "TEST-CALC-004")
             .unwrap();
-        assert_eq!(integration.additional_targets.len(), 1);
+        assert_eq!(integration.targets.len(), 2);
         assert_eq!(integration.kind.as_deref(), Some("integration-normal"));
         assert!(query_tests(&integration_scan, "src/lib.rs::subtract")
             .unwrap()

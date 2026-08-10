@@ -11,8 +11,8 @@ The adapter-separation scenarios are frozen against baseline
 
 - `FROZEN_RED`: a criterion-specific executable assertion fails on the baseline.
 - `REGRESSION_LOCKED`: an existing assertion already produces the required value.
-- `API_BINDING_REQUIRED`: the observable and fixture are fixed, but the in-process
-  adapter binding cannot execute until the W1 API exists. It is not PASS evidence.
+- `W1_BOUND_RED`: a W1 API-level assertion now executes and passes for the frozen
+  input/observable shape, while the owning later-wave product assertion remains RED.
 
 Production code is unchanged by this freeze.
 
@@ -21,12 +21,12 @@ Production code is unchanged by this freeze.
 | AF-001 | Annex C §18.3.9 | All neutral hash-free draft types exist with the normative field sets in a Rust-neutral API crate | `adapter_api_crate_exposes_every_neutral_draft_type`; `adapter_api_compile_contract_type_checks`; `api-contract/` | missing package | FROZEN_RED |
 | AF-002 | Annex C §§18.2, 18.3.9 | Non-`.rs`, non-function construct and exact current byte range | `adapter_boundary_fixture_is_non_rust_and_non_adjacent`; `adapters/synthetic` | valid `65..176` range | REGRESSION_LOCKED |
 | AF-003 | Annex C §18.3.9 | Core model has opaque locations, execution descriptor, fixed 12; no Rust coordinates | `core_model_is_neutral_and_has_the_fixed_check_set`; compile-contract field destructuring | neutral types absent | FROZEN_RED |
-| AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata changes Test subject and freshness | `tests.json` → `tests.changed.json` mutation | adapter binding absent | API_BINDING_REQUIRED |
+| AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata changes Test subject and freshness | model subject-hash tests; `tests.json` → `tests.changed.json` mutation | W1 core hash detects logical metadata mutation; freshness integration remains RED | W1_BOUND_RED |
 | AF-005 | Annex C §18.3.1 | Unregistered Test → traceability `MISSING` | `unregistered_test_is_traceability_missing` | unknown item / exit 2 | FROZEN_RED |
 | AF-006 | Annex C §18.3.1 | Empty covers → traceability `MISSING` | `empty_covers_is_traceability_missing` | unknown item / exit 2 | FROZEN_RED |
 | AF-007 | Annex C §18.3.1 | Dangling VO remains managed-one → `MISMATCH` | `dangling_vo_is_traceability_mismatch` | unknown item / exit 2 | FROZEN_RED |
 | AF-008 | Annex C §18.3.1 | Duplicate Test ID → `MISMATCH` | `duplicate_test_id_is_traceability_mismatch` | unknown item / exit 2 | FROZEN_RED |
-| AF-009 | Annex C §18.3.1 | Cross-adapter Test/SRC collision is diagnosed and unresolved | `adapters/mixed/collisions.json` | registry binding absent | API_BINDING_REQUIRED |
+| AF-009 | Annex C §18.3.1 | Cross-adapter Test/SRC collision is diagnosed and unresolved | `collision_fixture_proves_repository_global_ids_are_not_namespaced`; product collision test | W1 binding proves global duplicate input; W3 product diagnostic remains RED | W1_BOUND_RED |
 | AF-010 | Annex C §§18.3.5, 18.3.9 | v1 11-item scope becomes fixed 12 without rewrite | `default_verify_evaluates_the_fixed_twelve_items` | 11 items | FROZEN_RED |
 | AF-011 | Annex C §18.3.5 | v1 missing full_scope becomes fixed 12 without rewrite | `version_one_without_full_scope_uses_fixed_twelve_without_rewrite` | 11 items | FROZEN_RED |
 | AF-012 | Annex C §§18.3.5, 18.3.9 | v2 complete accepted; incomplete/duplicate scope → `E-CONFIG-001` | `version_two_config_is_accepted_and_incomplete_scope_is_rejected`; `version_two_duplicate_full_scope_is_e_config_001` | invalid scopes accepted | FROZEN_RED |
@@ -46,18 +46,18 @@ Production code is unchanged by this freeze.
 | AF-026 | Annex C §18.3.4 | impl-consistency FAIL maps to `MISMATCH` | `impl_consistency_fail_maps_to_mismatch` | not `MISMATCH` | FROZEN_RED |
 | AF-027 | Annex C §18.3.1 | Specification dependency change invalidates Approval | `specification_dependency_change_invalidates_vo_approval` | remains approved | FROZEN_RED |
 | AF-028 | Annex C §§18.3.3, 18.3.6 | multi-target Evidence has every neutral target/result | `multi_target_evidence_keeps_target_specific_results` | neutral entries absent | FROZEN_RED |
-| AF-029 | Annex C §18.3.6 | target aggregation is `FAIL > UNKNOWN > PASS` | `synthetic/target-observations.json` | target observation API absent | API_BINDING_REQUIRED |
+| AF-029 | Annex C §18.3.6 | target aggregation is `FAIL > UNKNOWN > PASS` | `target_observation_fixture_has_no_representative_target_escape_hatch`; product aggregation test | W1 observation shape binds all three targets; W6 aggregation remains RED | W1_BOUND_RED |
 | AF-030 | Annex C §18.3.5 | limited scope leaves outside items `NOT_CHECKED` | existing M6 test | PASS | REGRESSION_LOCKED |
 | AF-031 | Annex C §18.3.5 | deterministic text/JSON tree | existing M6/M9 tests | PASS | REGRESSION_LOCKED |
-| AF-032 | Annex C §18.3.7 | explicit Form owner; duplicate/ambiguous owner rejected without Rust fallback | init owner test; `forms/duplicate-kind.json`; `forms/ambiguous-compatibility.json` | owner absent; mixed registry unavailable | FROZEN_RED / API_BINDING_REQUIRED |
+| AF-032 | Annex C §18.3.7 | explicit Form owner; duplicate/ambiguous owner rejected without Rust fallback | init owner test; `form_owner_fixtures_forbid_ambiguous_or_rust_fallback_resolution` | W1 matcher/owner observable bound; W2/W3 product paths remain RED | W1_BOUND_RED |
 | AF-033 | Annex C §§18.1, 18.3.8 | CLI/MCP share fixed-12 envelope | `cli_and_mcp_default_verify_share_the_fixed_contract` | parity only at 11 | FROZEN_RED |
-| AF-034 | Annex C §§18.3.2, 18.3.3, 18.3.9 | missing audit/coverage/runner → `NOT_CHECKED`/`NOT_EXECUTED`; limits → `UNKNOWN` | `manifest-no-runner.json`; `manifest-incomplete-analysis.json`; base no-coverage manifest | registry binding absent | API_BINDING_REQUIRED |
+| AF-034 | Annex C §§18.3.2, 18.3.3, 18.3.9 | missing audit/coverage/runner → `NOT_CHECKED`/`NOT_EXECUTED`; limits → `UNKNOWN` | `capability_absence_and_analysis_limits_bind_to_non_pass_states`; synthetic manifests | W1 missing-capability mapping is executable; W4–W6 aggregation remains RED | W1_BOUND_RED |
 | AF-035 | Annex C §18.3.9; plan §9.2 | forbidden direct Rust dependencies are absent by `cargo metadata` | `orchestration_crates_have_no_direct_rust_analysis_dependencies` | direct deps remain | FROZEN_RED |
 | AF-036 | Annex C §18.3.5 | Specification requirement without active REQ is non-PASS | `specification_requirement_without_active_req_is_non_pass` | `MISSING` | REGRESSION_LOCKED |
-| AF-037 | Annex C §18.3.9 | Rust + synthetic merge and adapter/filesystem ordering are deterministic | `mixed/order-a.json`; `mixed/order-b.json` | registry binding absent | API_BINDING_REQUIRED |
-| AF-038 | Annex C §18.3.1; plan §9.1 | bare Relation normalizes in memory without rewrite; bare/prefixed duplicate is rejected | `relations/`; `duplicate_bare_and_prefixed_relation_payload_is_rejected` | duplicate rejected; normalization binding absent | REGRESSION_LOCKED / API_BINDING_REQUIRED |
-| AF-039 | Annex C §§18.3.1, 18.3.9 | incomplete adapter discovery is an error, never a complete empty scan | `manifest-discovery-failure.json` | discovery binding absent | API_BINDING_REQUIRED |
-| AF-040 | Annex C §18.3.9; plan §9.1 | v1 and v2 Rust scan/audit/run/verify observations are semantically equal | v1 M1 and v2 rust-cargo config fixtures | v2 orchestration absent | API_BINDING_REQUIRED |
+| AF-037 | Annex C §18.3.9 | Rust + synthetic merge and adapter/filesystem ordering are deterministic | registry unit tests; `frozen_ordering_variants_have_one_canonical_observable` | W1 registry/order binding is deterministic; W7 mixed merge remains RED | W1_BOUND_RED |
+| AF-038 | Annex C §18.3.1; plan §9.1 | bare Relation normalizes in memory without rewrite; bare/prefixed duplicate is rejected | `relation_aliases_bind_to_one_in_memory_identity_without_rewrite`; duplicate product test | W1 binding and duplicate rejection execute; W2 canonical reader integration remains RED | W1_BOUND_RED |
+| AF-039 | Annex C §§18.3.1, 18.3.9 | incomplete adapter discovery is an error, never a complete empty scan | `incomplete_discovery_is_representable_and_never_complete_empty_success`; product discovery test | W1 completeness state is executable; W3 orchestration remains RED | W1_BOUND_RED |
+| AF-040 | Annex C §18.3.9; plan §9.1 | v1 and v2 Rust scan/audit/run/verify observations are semantically equal | `v2_rust_fixture_binds_to_the_same_neutral_adapter_id_as_v1_compatibility`; v1/v2 product flow | W1 adapter identity is bound; W2 codec/orchestration equivalence remains RED | W1_BOUND_RED |
 
 Baseline command:
 
@@ -65,9 +65,9 @@ Baseline command:
 cargo test -p vtest-cli --test adapter_acceptance
 ```
 
-`API_BINDING_REQUIRED` rows must receive executable in-process assertions as
-soon as W1 freezes the API and before W1 independent review. They cannot be
-used as PASS evidence before that binding exists. The suite must not be
+All formerly `API_BINDING_REQUIRED` rows now have executable W1 binding
+assertions. `W1_BOUND_RED` is not product PASS evidence: the owning wave must
+still make its criterion-specific product assertion green. The suite must not be
 described as implementation PASS until every row is executable and green in
 its owning wave.
 

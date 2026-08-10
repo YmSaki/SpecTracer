@@ -8,7 +8,7 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceRecord, Locator, ScanSummary, TestEntity,
+    CheckValue, ContentHash, Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -17,7 +17,7 @@ use vtest_store::{
     VoRecord,
 };
 
-pub const ALL_ITEMS: [&str; 11] = [
+pub const ALL_ITEMS: [&str; 12] = [
     "spec_coverage",
     "vo_decomposition",
     "vo_coverage",
@@ -29,6 +29,7 @@ pub const ALL_ITEMS: [&str; 11] = [
     "runtime_result",
     "target_execution",
     "evidence_validity",
+    "test_traceability",
 ];
 
 /// Entity-axis scope for verification.  The item-axis scope remains the
@@ -646,8 +647,37 @@ fn evaluate_item(
         "runtime_result" => evaluate_runtime(evidence, scan),
         "target_execution" => evaluate_target_execution(evidence, scan),
         "evidence_validity" => evaluate_evidence_validity(evidence, scan),
+        "test_traceability" => evaluate_test_traceability(scan),
         _ => (CheckValue::Unknown, vec!["unknown check item".to_owned()]),
     }
+}
+
+fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
+    let mismatch = scan
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| matches!(diagnostic.code.as_str(), "E-SCAN-002" | "E-SCAN-003"))
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect::<Vec<_>>();
+    if !mismatch.is_empty() {
+        return (CheckValue::Mismatch, mismatch);
+    }
+    let missing = scan
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| matches!(diagnostic.code.as_str(), "W-SCAN-101" | "E-SCAN-007"))
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return (CheckValue::Missing, missing);
+    }
+    (
+        CheckValue::Pass,
+        vec![format!(
+            "all {} discovered managed Test(s) are structurally traceable",
+            scan.tests.len()
+        )],
+    )
 }
 
 /// Evaluate static audits per currently scanned Test, rather than treating a
@@ -824,15 +854,22 @@ fn static_audit_binds_test_subjects(
         return false;
     }
 
-    let Some(target) = source_for_target(scan, &test.target) else {
+    let Some(target_ref) = test.targets.first() else {
         return false;
     };
-    let test_locator = format!("{}::{}", test.location.file, test.location.function);
+    let Some(target) = source_for_target(scan, target_ref) else {
+        return false;
+    };
+    let test_locator = TargetRef::Locator {
+        adapter: test.location.adapter.clone(),
+        value: format!("{}::{}", test.location.path, test.location.locator),
+    }
+    .normalized();
     let binds_test_code = record.subjects.iter().any(|subject| {
         subject.locator.as_deref() == Some(&test_locator) && subject.hash == test.content_hash
     });
     let binds_target = record.subjects.iter().any(|subject| {
-        subject.locator.as_deref() == Some(&target.locator.as_string())
+        subject.locator.as_deref() == Some(&target.target.normalized())
             && subject.hash == target.content_hash
     });
     binds_test_code && binds_target && audit_mentions_config(record)
@@ -843,7 +880,7 @@ fn source_for_target<'a>(
     target: &vtest_model::TargetRef,
 ) -> Option<&'a vtest_model::SourceFunction> {
     scan.sources.iter().find(|source| match target {
-        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
+        vtest_model::TargetRef::Locator { .. } => source.target == *target,
         vtest_model::TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
     })
 }
@@ -957,12 +994,11 @@ fn audit_subject_is_current(
             .iter()
             .find(|test| test.id.as_str() == id)
             .map(|test| test.content_hash.clone()),
-        (None, Some(locator)) => Locator::parse(locator).and_then(|locator| {
-            scan.sources
-                .iter()
-                .find(|source| source.locator == locator)
-                .map(|source| source.content_hash.clone())
-        }),
+        (None, Some(locator)) => scan
+            .sources
+            .iter()
+            .find(|source| source.target.normalized() == *locator)
+            .map(|source| source.content_hash.clone()),
         _ => None,
     };
     actual.as_ref() == Some(&subject.hash)
@@ -1290,16 +1326,12 @@ fn subject_is_current(
                 .find(|test| test.id.as_str() == id)
                 .map(|test| test.content_hash.clone())
         }),
-        "target" => subject
-            .locator
-            .as_deref()
-            .and_then(Locator::parse)
-            .and_then(|locator| {
-                scan.sources
-                    .iter()
-                    .find(|source| source.locator == locator)
-                    .map(|source| source.content_hash.clone())
-            }),
+        "target" => subject.locator.as_deref().and_then(|locator| {
+            scan.sources
+                .iter()
+                .find(|source| source.target.normalized() == locator)
+                .map(|source| source.content_hash.clone())
+        }),
         "vo" => record_hash(&layout.vo_dir(), subject.id.as_deref()),
         "req" => record_hash(&layout.req_dir(), subject.id.as_deref()),
         "spec" => subject.id.as_deref().and_then(|id| {
@@ -1385,7 +1417,10 @@ fn evaluate_target_execution(
                 if evidence_record_validity(record, test, scan) != CheckValue::Pass {
                     CheckValue::Stale
                 } else if record.target_execution.checked {
-                    record.target_execution.result
+                    record
+                        .target_execution
+                        .result
+                        .unwrap_or(CheckValue::Unknown)
                 } else {
                     CheckValue::NotChecked
                 }
@@ -1426,9 +1461,9 @@ fn evaluate_evidence_validity(
             current,
         ));
         if let Some(record) = evidence.get(test.id.as_str()) {
-            if !test.additional_targets.is_empty() && record.hashes.target_fns.is_empty() {
+            if test.targets.len() > 1 && record.hashes.targets.is_empty() {
                 basis.push(format!(
-                    "Test {} has multiple targets but Evidence has no target_fns list",
+                    "Test {} has multiple targets but Evidence has no neutral targets list",
                     record.test_id
                 ));
             }
@@ -1482,39 +1517,43 @@ fn evidence_record_validity(
     test: &TestEntity,
     scan: &ScanResult,
 ) -> CheckValue {
-    // A legacy v0.1 record has no target_fns list.  It remains sufficient for
-    // a single-target Test, but cannot prove that every target of a
-    // multi-target Test was captured.
-    if !test.additional_targets.is_empty() && record.hashes.target_fns.is_empty() {
+    let Some(adapter) = record.adapter.as_ref() else {
+        return CheckValue::Stale;
+    };
+    if adapter != &test.execution.adapter {
+        return CheckValue::Mismatch;
+    }
+    let Some(execution_state) = record.execution_state.as_ref() else {
+        return CheckValue::Stale;
+    };
+    if !execution_state.complete || execution_state.hash.is_none() {
         return CheckValue::Unknown;
     }
-    let Some(targets) = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(|target_ref| {
-            scan.sources.iter().find(|source| match target_ref {
-                vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                vtest_model::TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
-            })
-        })
+    let Some(test_subject) = record.hashes.test_subject.as_ref() else {
+        return CheckValue::Stale;
+    };
+    let Some(targets) = test
+        .targets
+        .iter()
+        .map(|target_ref| source_for_target(scan, target_ref))
         .collect::<Option<Vec<_>>>()
     else {
         return CheckValue::Stale;
     };
-    let target_hashes = if record.hashes.target_fns.is_empty() {
-        vec![&record.hashes.target_fn]
-    } else {
-        record.hashes.target_fns.iter().collect::<Vec<_>>()
-    };
-    if record.hashes.test_fn != test.content_hash
-        || target_hashes.len() != targets.len()
-        || target_hashes
+    if test_subject != &test.content_hash
+        || record.hashes.targets.len() != targets.len()
+        || record.revision.commit.is_none()
+        || record
+            .hashes
+            .targets
             .iter()
-            .zip(targets.iter())
-            .any(|(actual, target)| **actual != target.content_hash)
+            .zip(test.targets.iter().zip(targets.iter()))
+            .any(|(actual, (target_ref, target))| {
+                actual.target != target_ref.normalized()
+                    || actual.target_construct != target.content_hash
+            })
     {
         CheckValue::Stale
-    } else if record.revision.commit.is_none() {
-        CheckValue::Fail
     } else {
         CheckValue::Pass
     }
@@ -1584,9 +1623,10 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
     use vtest_model::{
-        EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo, ScanSummary, SourceFunction,
-        SourceLocation, TargetExecution, TargetRef, TestEntity, TestId, TestResult, TestTarget,
-        VoId,
+        AdapterId, EvidenceHashes, EvidenceRecord, EvidenceTargetHash, ExecutionDescriptor,
+        ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary, SourceFunction,
+        SourceLocation, SourceRange, TargetExecution, TargetRef, TestEntity, TestId, TestResult,
+        TestSuite, VoId,
     };
     use vtest_store::{
         init_project, new_record_id, AuditBasisRecord, AuditReasonRecord, AuditorRecord,
@@ -1597,16 +1637,25 @@ mod tests {
         let make = |id: &str, executed_at: &str| EvidenceRecord {
             id: id.to_owned(),
             test_id: TestId::new("TEST-ONE"),
+            adapter: Some(AdapterId::new("rust-cargo")),
             result: TestResult::Pass,
             executed_at: executed_at.to_owned(),
             revision: Revision {
                 commit: Some("abc".to_owned()),
                 dirty: false,
             },
+            execution_state: Some(ExecutionStateSubject {
+                schema: "fixture-v1".to_owned(),
+                complete: true,
+                hash: Some(ContentHash::from_text("state")),
+            }),
             hashes: EvidenceHashes {
-                test_fn: ContentHash::from_text("test"),
-                target_fn: ContentHash::from_text("target"),
-                target_fns: vec![ContentHash::from_text("target")],
+                test_subject: Some(ContentHash::from_text("test")),
+                targets: vec![EvidenceTargetHash {
+                    target: "rust-cargo::src/lib.rs::target".to_owned(),
+                    target_construct: ContentHash::from_text("target"),
+                }],
+                compatibility: None,
             },
             runner: RunnerInfo {
                 kind: "cargo-test".to_owned(),
@@ -1616,8 +1665,9 @@ mod tests {
             target_execution: TargetExecution {
                 checked: false,
                 method: None,
-                result: CheckValue::NotChecked,
-                count: None,
+                result: None,
+                targets: Vec::new(),
+                compatibility_count: None,
             },
             log_ref: "cache/logs/test.log".to_owned(),
         };
@@ -1634,7 +1684,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("vtest-verify-static-{suffix}"));
         let layout = init_project(&root, "fixture").expect("initialise fixture");
         let mut sources = vec![SourceFunction {
-            locator: Locator::parse("src/lib.rs::target").expect("valid locator"),
+            target: rust_target("src/lib.rs::target"),
             src_id: None,
             location: location("src/lib.rs", "target"),
             content_hash: ContentHash::from_text("pub fn target() {}"),
@@ -1644,10 +1694,7 @@ mod tests {
             .map(|id| TestEntity {
                 id: TestId::new(*id),
                 covers: vec![VoId::new("VO-ONE")],
-                target: TargetRef::Locator(
-                    Locator::parse("src/lib.rs::target").expect("valid locator"),
-                ),
-                additional_targets: Vec::new(),
+                targets: vec![rust_target("src/lib.rs::target")],
                 intent: "fixture".to_owned(),
                 input: None,
                 expect: None,
@@ -1656,22 +1703,25 @@ mod tests {
                 related: Vec::new(),
                 location: location("tests/static.rs", id),
                 content_hash: ContentHash::from_text(&format!("#[test] fn {id}() {{}}")),
-                filter: (*id).to_owned(),
-                package: "fixture".to_owned(),
-                test_target: TestTarget::IntegrationTest("static".to_owned()),
+                execution: ExecutionDescriptor {
+                    adapter: AdapterId::new("rust-cargo"),
+                    project: Some("fixture".to_owned()),
+                    suite: Some(TestSuite {
+                        kind: "integration".to_owned(),
+                        name: Some("static".to_owned()),
+                    }),
+                    selector: (*id).to_owned(),
+                },
             })
             .collect::<Vec<_>>();
-        sources.extend(tests.iter().map(|test| {
-            SourceFunction {
-                locator: Locator::parse(&format!(
-                    "{}::{}",
-                    test.location.file, test.location.function
-                ))
-                .expect("valid test locator"),
-                src_id: None,
-                location: test.location.clone(),
-                content_hash: test.content_hash.clone(),
-            }
+        sources.extend(tests.iter().map(|test| SourceFunction {
+            target: rust_target(&format!(
+                "{}::{}",
+                test.location.path, test.location.locator
+            )),
+            src_id: None,
+            location: test.location.clone(),
+            content_hash: test.content_hash.clone(),
         }));
         let scan = ScanResult {
             summary: ScanSummary {
@@ -1688,12 +1738,22 @@ mod tests {
 
     fn location(file: &str, function: &str) -> SourceLocation {
         SourceLocation {
-            file: file.to_owned(),
-            function: function.to_owned(),
-            start_line: 1,
-            end_line: 1,
-            start_byte: 0,
-            end_byte: 1,
+            adapter: AdapterId::new("rust-cargo"),
+            path: ProjectPath::new(file),
+            locator: function.to_owned(),
+            byte_range: SourceRange {
+                start: 0,
+                end: 1,
+                start_line: 1,
+                end_line: 1,
+            },
+        }
+    }
+
+    fn rust_target(value: &str) -> TargetRef {
+        TargetRef::Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: value.to_owned(),
         }
     }
 
@@ -1707,8 +1767,8 @@ mod tests {
     }
 
     fn static_audit_subjects(test: &TestEntity, hash: ContentHash) -> Vec<AuditSubjectRecord> {
-        let target = match &test.target {
-            TargetRef::Locator(locator) => locator,
+        let target = match &test.targets[0] {
+            TargetRef::Locator { .. } => &test.targets[0],
             TargetRef::SrcId(_) => panic!("fixture uses a locator target"),
         };
         vec![
@@ -1719,15 +1779,18 @@ mod tests {
             },
             AuditSubjectRecord {
                 id: None,
-                locator: Some(format!(
-                    "{}::{}",
-                    test.location.file, test.location.function
-                )),
+                locator: Some(
+                    TargetRef::Locator {
+                        adapter: test.location.adapter.clone(),
+                        value: format!("{}::{}", test.location.path, test.location.locator),
+                    }
+                    .normalized(),
+                ),
                 hash: test.content_hash.clone(),
             },
             AuditSubjectRecord {
                 id: None,
-                locator: Some(target.as_string()),
+                locator: Some(target.normalized()),
                 hash: ContentHash::from_text("pub fn target() {}"),
             },
         ]
@@ -1828,7 +1891,7 @@ mod tests {
             "PASS",
             scan.tests[0].content_hash.clone(),
         );
-        scan.tests[0].location.function = "moved::TEST-ONE".to_owned();
+        scan.tests[0].location.locator = "moved::TEST-ONE".to_owned();
         assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
     }
 
@@ -1882,7 +1945,7 @@ mod tests {
         assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
 
         let helper = SourceFunction {
-            locator: Locator::parse("src/lib.rs::helper").expect("valid helper locator"),
+            target: rust_target("src/lib.rs::helper"),
             src_id: None,
             location: location("src/lib.rs", "helper"),
             content_hash: ContentHash::from_text("pub fn helper() {}"),
@@ -1899,7 +1962,7 @@ mod tests {
                 },
                 AuditSubjectRecord {
                     id: None,
-                    locator: Some(helper.locator.as_string()),
+                    locator: Some(helper.target.normalized()),
                     hash: helper.content_hash,
                 },
             ],

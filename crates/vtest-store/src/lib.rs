@@ -146,6 +146,7 @@ impl ProjectConfig {
                     "runtime_result",
                     "target_execution",
                     "evidence_validity",
+                    "test_traceability",
                 ]
                 .into_iter()
                 .map(str::to_owned)

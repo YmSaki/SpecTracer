@@ -16,8 +16,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    AdapterId, CheckValue, CompatibilityEvidenceHashes, ContentHash, EvidenceHashes,
+    EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -876,16 +876,27 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     Ok(EvidenceRecord {
         id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
+        adapter: scalar(&text, "adapter")
+            .filter(|value| value != "null")
+            .map(AdapterId::new),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
         revision: Revision {
             commit: nested_scalar(&text, "revision", "commit").filter(|value| value != "null"),
             dirty: nested_scalar(&text, "revision", "dirty").is_some_and(|value| value == "true"),
         },
+        execution_state: None,
         hashes: EvidenceHashes {
-            test_fn: test_hash,
-            target_fn: target_hash,
-            target_fns: target_hashes,
+            test_subject: None,
+            targets: Vec::new(),
+            compatibility: Some(CompatibilityEvidenceHashes {
+                test_construct: test_hash,
+                target_constructs: if target_hashes.is_empty() {
+                    vec![target_hash]
+                } else {
+                    target_hashes
+                },
+            }),
         },
         runner: RunnerInfo {
             kind: nested_scalar(&text, "runner", "kind").unwrap_or_default(),
@@ -899,8 +910,9 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
                 .is_some_and(|value| value == "true"),
             method: nested_scalar(&text, "target_execution", "method")
                 .filter(|value| value != "null"),
-            result: target_result,
-            count: nested_scalar(&text, "target_execution", "count")
+            result: Some(target_result),
+            targets: Vec::new(),
+            compatibility_count: nested_scalar(&text, "target_execution", "count")
                 .filter(|value| value != "null")
                 .and_then(|value| value.parse().ok()),
         },

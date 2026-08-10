@@ -9,8 +9,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
-    RunnerInfo, TargetExecution, TestEntity, TestResult, TestTarget,
+    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
+    ExecutionStateSubject, Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
@@ -27,7 +27,13 @@ pub enum ExecutionError {
 pub struct RunnableTest {
     pub entity: TestEntity,
     pub target_hashes: Vec<ContentHash>,
-    pub target_locator: Option<Locator>,
+    pub target_locator: Option<RustLocator>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RustLocator {
+    pub path: String,
+    pub item_path: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -96,7 +102,7 @@ pub fn run_tests(
             path: log_path.clone(),
             source,
         })?;
-        let observation = parse_result(&stdout, &test.entity.filter);
+        let observation = parse_result(&stdout, &test.entity.execution.selector);
         match observation {
             Some(ObservedResult::Ignored) => {}
             Some(ObservedResult::Pass) | Some(ObservedResult::Fail) => {
@@ -119,8 +125,9 @@ pub fn run_tests(
                     TargetExecution {
                         checked: false,
                         method: None,
-                        result: CheckValue::NotChecked,
-                        count: None,
+                        result: None,
+                        targets: Vec::new(),
+                        compatibility_count: None,
                     }
                 } else if let Some(coverage_path) = &coverage_path {
                     target_execution_from_coverage(coverage_path, test.target_locator.as_ref())
@@ -132,6 +139,7 @@ pub fn run_tests(
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
+                    adapter: Some(test.entity.execution.adapter.clone()),
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -139,14 +147,24 @@ pub fn run_tests(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
+                    execution_state: Some(ExecutionStateSubject {
+                        schema: "rust-cargo-execution-state-v1".to_owned(),
+                        complete: false,
+                        hash: None,
+                    }),
                     hashes: EvidenceHashes {
-                        test_fn: test.entity.content_hash.clone(),
-                        target_fn: test
-                            .target_hashes
-                            .first()
-                            .cloned()
-                            .unwrap_or_else(|| ContentHash::from_text("")),
-                        target_fns: test.target_hashes.clone(),
+                        test_subject: Some(test.entity.content_hash.clone()),
+                        targets: test
+                            .entity
+                            .targets
+                            .iter()
+                            .zip(&test.target_hashes)
+                            .map(|(target, hash)| EvidenceTargetHash {
+                                target: target.normalized(),
+                                target_construct: hash.clone(),
+                            })
+                            .collect(),
+                        compatibility: None,
                     },
                     runner: RunnerInfo {
                         kind: runner_kind.to_owned(),
@@ -217,20 +235,39 @@ fn cargo_command(root: &Path, test: &TestEntity) -> Command {
         .current_dir(root)
         .arg("test")
         .arg("-p")
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    match test
+        .execution
+        .suite
+        .as_ref()
+        .map(|suite| suite.kind.as_str())
+    {
+        Some("lib") => {
             command.arg("--lib");
         }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
+        Some("bin") => {
+            if let Some(name) = test
+                .execution
+                .suite
+                .as_ref()
+                .and_then(|suite| suite.name.as_ref())
+            {
+                command.arg("--bin").arg(name);
+            }
         }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
+        Some("integration") => {
+            if let Some(name) = test
+                .execution
+                .suite
+                .as_ref()
+                .and_then(|suite| suite.name.as_ref())
+            {
+                command.arg("--test").arg(name);
+            }
         }
-        TestTarget::Unknown => {}
+        _ => {}
     }
-    command.args(["--", "--exact", &test.filter]);
+    command.args(["--", "--exact", &test.execution.selector]);
     command
 }
 
@@ -239,47 +276,58 @@ fn cargo_llvm_cov_command(root: &Path, test: &TestEntity, output_path: &Path) ->
     command
         .current_dir(root)
         .args(["llvm-cov", "test", "-p"])
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    match test
+        .execution
+        .suite
+        .as_ref()
+        .map(|suite| suite.kind.as_str())
+    {
+        Some("lib") => {
             command.arg("--lib");
         }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
+        Some("bin") => {
+            if let Some(name) = test
+                .execution
+                .suite
+                .as_ref()
+                .and_then(|suite| suite.name.as_ref())
+            {
+                command.arg("--bin").arg(name);
+            }
         }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
+        Some("integration") => {
+            if let Some(name) = test
+                .execution
+                .suite
+                .as_ref()
+                .and_then(|suite| suite.name.as_ref())
+            {
+                command.arg("--test").arg(name);
+            }
         }
-        TestTarget::Unknown => {}
+        _ => {}
     }
     command
         .arg("--json")
         .arg("--output-path")
         .arg(output_path)
-        .args(["--", "--exact", &test.filter]);
+        .args(["--", "--exact", &test.execution.selector]);
     command
 }
 
 fn command_string(test: &TestEntity) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
+    let target = rust_suite_argument(test);
     format!(
         "cargo test -p {} {} -- --exact {}",
-        test.package, target, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        target,
+        test.execution.selector
     )
 }
 
 fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
+    let target = rust_suite_argument(test);
     let output_path = output_path
         .strip_prefix(root)
         .unwrap_or(output_path)
@@ -287,8 +335,28 @@ fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -
         .replace('\\', "/");
     format!(
         "cargo llvm-cov test -p {} {} --json --output-path {} -- --exact {}",
-        test.package, target, output_path, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        target,
+        output_path,
+        test.execution.selector
     )
+}
+
+fn rust_suite_argument(test: &TestEntity) -> String {
+    match test.execution.suite.as_ref() {
+        Some(suite) if suite.kind == "lib" => "--lib".to_owned(),
+        Some(suite) if suite.kind == "bin" => suite
+            .name
+            .as_ref()
+            .map(|name| format!("--bin {name}"))
+            .unwrap_or_default(),
+        Some(suite) if suite.kind == "integration" => suite
+            .name
+            .as_ref()
+            .map(|name| format!("--test {name}"))
+            .unwrap_or_default(),
+        _ => String::new(),
+    }
 }
 
 fn git_revision(root: &Path) -> Revision {
@@ -320,7 +388,7 @@ fn cargo_llvm_cov_available(root: &Path) -> bool {
 
 fn target_execution_from_coverage(
     coverage_path: &Path,
-    target: Option<&Locator>,
+    target: Option<&RustLocator>,
 ) -> TargetExecution {
     let Some(target) = target else {
         return unknown_target_execution();
@@ -335,7 +403,7 @@ fn target_execution_from_coverage(
     measured_target_execution(count)
 }
 
-fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
+fn llvm_cov_function_count(output: &str, target: &RustLocator) -> Option<u64> {
     let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
     let data = value.get("data")?.as_array()?;
     let mut total = 0_u64;
@@ -415,9 +483,10 @@ fn path_suffix_matches(candidate: &str, expected: &str) -> bool {
 fn not_checked_target_execution() -> TargetExecution {
     TargetExecution {
         checked: false,
-        method: Some("llvm-cov".to_owned()),
-        result: CheckValue::NotChecked,
-        count: None,
+        method: None,
+        result: None,
+        targets: Vec::new(),
+        compatibility_count: None,
     }
 }
 
@@ -425,12 +494,13 @@ fn measured_target_execution(count: u64) -> TargetExecution {
     TargetExecution {
         checked: true,
         method: Some("llvm-cov".to_owned()),
-        result: if count > 0 {
+        result: Some(if count > 0 {
             CheckValue::Pass
         } else {
             CheckValue::Fail
-        },
-        count: Some(count),
+        }),
+        targets: Vec::new(),
+        compatibility_count: Some(count),
     }
 }
 
@@ -448,51 +518,83 @@ fn unknown_target_execution() -> TargetExecution {
     TargetExecution {
         checked: true,
         method: Some("llvm-cov".to_owned()),
-        result: CheckValue::Unknown,
-        count: None,
+        result: Some(CheckValue::Unknown),
+        targets: Vec::new(),
+        compatibility_count: None,
     }
 }
 
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
+    let test_subject = record
+        .hashes
+        .test_subject
+        .as_ref()
+        .expect("new Evidence always has a Test subject");
+    let target_hashes = record
+        .hashes
+        .targets
+        .iter()
+        .map(|entry| {
+            format!(
+                "    - target: {}\n      target_construct: {}\n",
+                yaml_scalar(&entry.target),
+                yaml_scalar(entry.target_construct.as_str())
+            )
+        })
+        .collect::<String>();
+    let target_observations = target
+        .targets
+        .iter()
+        .map(|entry| {
+            format!(
+                "    - target: {}\n      result: {}\n      count: {}\n",
+                yaml_scalar(&entry.target),
+                yaml_scalar(check_value_name(Some(entry.result))),
+                entry
+                    .count
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "null".to_owned())
+            )
+        })
+        .collect::<String>();
     format!(
-        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {execution_schema}\n  complete: {execution_complete}\n  hash: {execution_hash}\nhashes:\n  test_subject: {test_subject}\n  targets:\n{target_hashes}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  targets:\n{target_observations}log_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
+        adapter = record.adapter.as_ref().map(|value| yaml_scalar(value.as_str())).unwrap_or_else(|| "null".to_owned()),
         result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
         executed_at = yaml_scalar(&record.executed_at),
         commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
         dirty = record.revision.dirty,
-        test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
-        target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
-        target_fns = if record.hashes.target_fns.is_empty() {
-            format!("    - {}\n", yaml_scalar(record.hashes.target_fn.as_str()))
-        } else {
-            record
-                .hashes
-                .target_fns
-                .iter()
-                .map(|hash| format!("    - {}\n", yaml_scalar(hash.as_str())))
-                .collect::<String>()
-        },
+        execution_schema = record.execution_state.as_ref().map(|value| yaml_scalar(&value.schema)).unwrap_or_else(|| "null".to_owned()),
+        execution_complete = record.execution_state.as_ref().is_some_and(|value| value.complete),
+        execution_hash = record.execution_state.as_ref().and_then(|value| value.hash.as_ref()).map(|value| yaml_scalar(value.as_str())).unwrap_or_else(|| "null".to_owned()),
+        test_subject = yaml_scalar(test_subject.as_str()),
+        target_hashes = target_hashes,
         kind = yaml_scalar(&record.runner.kind),
         command = yaml_scalar(&record.runner.command),
         exit_code = record.runner.exit_code,
         checked = target.checked,
         method = target.method.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
-        target_result = yaml_scalar(match target.result {
-            CheckValue::Pass => "PASS",
-            CheckValue::Fail => "FAIL",
-            CheckValue::Mismatch => "MISMATCH",
-            CheckValue::Missing => "MISSING",
-            CheckValue::NotChecked => "NOT_CHECKED",
-            CheckValue::NotExecuted => "NOT_EXECUTED",
-            CheckValue::Stale => "STALE",
-            CheckValue::Unknown => "UNKNOWN",
-        }),
-        count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
+        target_result = if target.checked { yaml_scalar(check_value_name(target.result)) } else { "null".to_owned() },
+        target_observations = target_observations,
         log_ref = yaml_scalar(&record.log_ref),
     )
+}
+
+fn check_value_name(value: Option<CheckValue>) -> &'static str {
+    match value {
+        Some(CheckValue::Pass) => "PASS",
+        Some(CheckValue::Fail) => "FAIL",
+        Some(CheckValue::Mismatch) => "MISMATCH",
+        Some(CheckValue::Missing) => "MISSING",
+        Some(CheckValue::NotChecked) => "NOT_CHECKED",
+        Some(CheckValue::NotExecuted) => "NOT_EXECUTED",
+        Some(CheckValue::Stale) => "STALE",
+        Some(CheckValue::Unknown) => "UNKNOWN",
+        None => "null",
+    }
 }
 
 fn yaml_scalar(value: &str) -> String {
@@ -522,7 +624,7 @@ mod tests {
 
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
-        let target = Locator {
+        let target = RustLocator {
             path: "src/lib.rs".to_owned(),
             item_path: "add".to_owned(),
         };
@@ -549,7 +651,7 @@ mod tests {
         }"#;
         assert_eq!(llvm_cov_function_count(output, &target), Some(5));
 
-        let absent = Locator {
+        let absent = RustLocator {
             path: "src/lib.rs".to_owned(),
             item_path: "subtract".to_owned(),
         };
@@ -558,7 +660,7 @@ mod tests {
 
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
-        let target = Locator {
+        let target = RustLocator {
             path: "src/lib.rs".to_owned(),
             item_path: "add".to_owned(),
         };
@@ -590,8 +692,8 @@ mod tests {
     fn unavailable_coverage_is_not_checked_and_never_passes() {
         let (target_execution, diagnostic) = unavailable_target_execution();
         assert!(!target_execution.checked);
-        assert_eq!(target_execution.result, CheckValue::NotChecked);
-        assert_eq!(target_execution.count, None);
+        assert_eq!(target_execution.result, None);
+        assert_eq!(target_execution.compatibility_count, None);
         assert_eq!(diagnostic.code, "W-EXEC-101");
     }
 
@@ -599,12 +701,12 @@ mod tests {
     fn measured_target_execution_requires_a_positive_count() {
         let called = measured_target_execution(1);
         assert!(called.checked);
-        assert_eq!(called.result, CheckValue::Pass);
-        assert_eq!(called.count, Some(1));
+        assert_eq!(called.result, Some(CheckValue::Pass));
+        assert_eq!(called.compatibility_count, Some(1));
 
         let not_called = measured_target_execution(0);
         assert!(not_called.checked);
-        assert_eq!(not_called.result, CheckValue::Fail);
-        assert_eq!(not_called.count, Some(0));
+        assert_eq!(not_called.result, Some(CheckValue::Fail));
+        assert_eq!(not_called.compatibility_count, Some(0));
     }
 }
