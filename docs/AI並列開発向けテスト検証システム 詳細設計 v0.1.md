@@ -79,7 +79,7 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 hash inputはdomain separatorと長さ付きfieldから構成する。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を行わない。mapはkey昇順、集合として扱う`covers`・`targets`・`related`は正規化値の昇順、順序に意味がある`cases`は宣言順とする。null、空文字、空listは異なる値としてencodeする。
 
 - Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。
-- Source Target hash：domain `vtest:target-subject:v1`を用い、正規化TargetRefとadapterが返すimplementation construct bytesを束縛する。
+- Source Target hash：domain `vtest:target-subject:v1`を用い、**canonical Target Reference**とadapterが返すimplementation construct bytesを束縛する。canonical Target Referenceは**常に`TargetRef::Locator`**（adapter IDとadapter所有のopaque locator）であり、`TargetRef::SrcId`をcanonical Target Referenceにしない。`TargetRef::SrcId`はSource Targetを参照する側の表現であって、Source Target自身の識別ではない。したがって恒久SRC IDは、canonical Target Reference経由でもhash inputへ入らない。恒久SRC IDの宣言・変更・削除はcanonical Target Referenceを変えず、Source Target hashも変えない。hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の`TargetRef`綴りからは計算しない。Evidence、Audit、検証は解決後のSource Targetのhashへ束縛し、addressing modeごとに別subjectを作らない。
 - Static Audit Config subject hash：domain `vtest:static-audit-config:v1`を用い、adapter ID、static audit capabilityのrule-set ID / version、および現在の静的rule判定へ影響する実効adapter configのcanonical projectionを束縛する。adapterは同じ入力に対するverdictまたは根拠を変えうるrule実装変更ごとにrule-set versionを変更しなければならない。adapterはrule影響fieldだけを型付き・順序正規化済みのhash未計算DTOとして返し、coreがencodingとSHA-256を行う。静的ruleと無関係なrun、coverage、root等の設定はprojectionへ含めない。
 - Static Analysis Source subject hash：domain `vtest:static-analysis-source:v1`を用い、adapter ID、project-relative path、opaque locator、およびadapterが静的rule判定時に実際に参照したbyte-exact source fragmentを束縛する。byte range自体はhash inputにしない。Test subjectまたはSource Target subjectが同じ解析入力を完全に束縛する場合は重複subjectを作らない。
 - Execution State subject hash：domain `vtest:execution-state:v1`を用い、adapter ID、snapshot schema ID / version、HEAD revision、runner kindとcanonical invocation projection、toolchain identity、実行結果へ影響するadapter configのcanonical projection、および実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。manifest entryはstable root identity、root-relative path、input kind、byte-exact file bytesからなり、entry集合は正規化identity順にencodeする。stable root identityはmachine上の絶対pathを用いず、workspace内の論理rootまたはdependency identityから決定論的に導出する。adapterはhash未計算のmanifestと完全性を返し、coreが各entryとsubject全体を検証・hash化する。
@@ -684,20 +684,22 @@ pub enum DiscoveryCompleteness {
 }
 ```
 
-Source Targetはcanonical Target Referenceと任意の恒久SRC IDを併有する**単一のdomain entity**である。
+Source Targetはcanonical locator（`TargetRef::Locator`）と任意の恒久SRC IDを併有する**単一のdomain entity**である。
 `TargetRef::Locator`と`TargetRef::SrcId`はいずれも同一Source Targetへのaddressing modeであり、別個のentityを指さない。
 恒久SRC IDはlocatorの代替ではなく、同じSource Targetへ与えられるoptional permanent identityである。
 
 - adapterは`@vtest.src-id`等で宣言された恒久SRC IDを`SourceTargetDraft.src_id`として返す。
   同一constructをlocator版とSrcId版の2件のdraftへ複製してはならない。
-- `SourceTargetDraft.target`はそのSource Targetのcanonical Target Referenceである。
-  `target`が`TargetRef::SrcId(x)`の場合、`src_id`は未設定または`x`と一致しなければならず、
-  不一致はadapter出力違反として拒否する。
+- `SourceTargetDraft.target`は**必ず`TargetRef::Locator`**でなければならない（§1.3 canonical Target Reference）。
+  `TargetRef::SrcId`はSource Targetへの参照表現であり、`SourceTargetDraft`のcanonical targetとして返してはならない。
+  adapterが`target`に`TargetRef::SrcId`を返した場合は malformed adapter output として拒否する。
+  恒久SRC IDは`src_id`だけで搬送し、`target`の綴りを変えない。
 - coreは`src_id`を統合済みSRC索引へ登録し、locator参照とSRC ID参照のどちらから解決しても
   同一のcanonical Source Targetへ到達させる。
-- §1.3のSource Target hashはcanonical Target Referenceとconstruct bytesだけを束縛し、
-  恒久SRC IDをhash inputに含めない。したがって参照方法の違いによって
-  Source Targetの件数、content / subject hash、EvidenceおよびAudit上のtarget identityが分裂しない。
+- Source Target hashは常に canonical Locator と construct bytes から計算し、恒久SRC IDをhash inputに含めない。
+  canonical Locatorは恒久SRC IDの増減で変化しないため、参照方法の違いによってSource Targetの件数、
+  content / subject hash、EvidenceおよびAudit上のtarget identityが分裂しない。
+- coreは統合済みSRC索引から、その恒久SRC IDを宣言した`SourceTargetDraft.target`（= canonical Locator）へ解決する。
 - 恒久SRC IDを持つSource Targetも引き続きcanonical locatorでaddressableでなければならない。
 
 adapterは`SourceFragment.bytes`が`location.byte_range`の現在bytesと一致する状態だけを返す。
@@ -862,7 +864,7 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 coreは`TargetRef::Locator.adapter`をregistryで解決し、opaque locatorの解釈を該当する`SourceDiscoveryAdapter`へ委譲する。adapterは正規化されたTarget Reference、Source Location、source range、content bytes、解決status、候補を返す。
 coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証し、§1.3のSource Target hashを計算するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
 
-SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。SRC ID参照は当該恒久SRC IDを宣言したSource Targetへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。解決結果をlocator版とSrcId版の別entityへ分岐させない。恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。
+SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。解決結果をlocator版とSrcId版の別entityへ分岐させない。恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。
 
 ### 6.2 `rust-cargo` locator解決
 
