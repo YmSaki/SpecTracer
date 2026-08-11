@@ -15,6 +15,7 @@ use std::{
 
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use vtest_model::{hash_target_subject, AdapterId, SrcId, TargetRef};
 
 static NEXT_PROJECT: AtomicU64 = AtomicU64::new(0);
 const FIXED_ITEMS: [&str; 12] = [
@@ -1349,4 +1350,114 @@ fn content_hash_of(text: &str) -> String {
         .collect::<String>();
     let digest = Sha256::digest(normalized.as_bytes());
     format!("sha256:{digest:x}")
+}
+
+/// Shared fixture: one implementation construct that carries a permanent SRC ID
+/// and is referenced both by locator and by that SRC ID.
+fn prepare_dual_addressed_target(project: &TempProject) {
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {{}}\n",
+    )
+    .expect("declare a permanent SRC ID on the target");
+    fs::write(
+        project.root.join("tests/registered.rs"),
+        "/// @vtest.id TEST-M1-CLEAN\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent provides a clean M1 scan baseline\n#[test]\nfn clean_scan_baseline() {{}}\n\n/// @vtest.id TEST-DUAL-SRC\n/// @vtest.covers VO-KNOWN\n/// @vtest.target SRC-DUAL\n/// @vtest.intent the permanent SRC ID reaches the same Source Target\n#[test]\nfn src_id_addressed() {{}}\n",
+    )
+    .expect("reference the target by locator and by SRC ID");
+}
+
+/// AF-043: both addressing modes reach one Source Target, never two.
+#[test]
+fn locator_and_src_id_resolve_to_one_source_target() {
+    let project = TempProject::from_m1_base("dual-addressing");
+    prepare_dual_addressed_target(&project);
+    let scanned = invoke(&project.root, "scan", &[]);
+    let response = envelope(&scanned);
+    assert!(
+        !diagnostic_codes(&response).contains(&"E-SCAN-004"),
+        "both addressing modes must resolve: {response}"
+    );
+    let targets = response["data"]["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .filter(|source| source["location"]["path"] == "src/lib.rs")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        targets.len(),
+        1,
+        "one construct is one Source Target, never a locator copy and a SrcId copy: {response}"
+    );
+    assert_eq!(
+        targets[0]["target"]["value"]["adapter"], "rust-cargo",
+        "the canonical Target Reference is the locator: {response}"
+    );
+    assert_eq!(targets[0]["src_id"], "SRC-DUAL");
+}
+
+/// AF-044: the subject is the canonical locator and the construct, never the
+/// SRC ID spelling a referring Test happened to use.
+#[test]
+fn the_target_subject_binds_the_canonical_locator_not_the_src_id() {
+    let project = TempProject::from_m1_base("dual-subject-hash");
+    prepare_dual_addressed_target(&project);
+    let response = envelope(&invoke(&project.root, "scan", &[]));
+    let target = response["data"]["sources"]
+        .as_array()
+        .expect("sources array")
+        .iter()
+        .find(|source| source["location"]["path"] == "src/lib.rs")
+        .expect("the dual-addressed Source Target");
+
+    let source = fs::read(project.root.join("src/lib.rs")).expect("read the target source");
+    let start = target["location"]["byte_range"]["start"]
+        .as_u64()
+        .expect("range start") as usize;
+    let end = target["location"]["byte_range"]["end"]
+        .as_u64()
+        .expect("range end") as usize;
+    let construct = &source[start..end];
+
+    let canonical = hash_target_subject(
+        &TargetRef::Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/lib.rs::known".to_owned(),
+        },
+        construct,
+    );
+    let by_src_id = hash_target_subject(&TargetRef::SrcId(SrcId::new("SRC-DUAL")), construct);
+    assert_eq!(
+        target["content_hash"].as_str(),
+        Some(canonical.as_str()),
+        "the subject is computed from the canonical locator: {response}"
+    );
+    assert_ne!(
+        canonical, by_src_id,
+        "the fixture only proves canonicality if the two spellings differ"
+    );
+    assert_ne!(
+        target["content_hash"].as_str(),
+        Some(by_src_id.as_str()),
+        "addressing a Source Target by SRC ID must not mint a second subject"
+    );
+}
+
+/// AF-045: a permanent SRC ID claimed twice resolves to nothing.
+#[test]
+fn duplicate_permanent_src_id_is_fail_closed() {
+    let project = TempProject::from_m1_base("duplicate-src-id");
+    prepare_dual_addressed_target(&project);
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {{}}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {{}}\n",
+    )
+    .expect("claim one permanent SRC ID from two constructs");
+    let scanned = invoke(&project.root, "scan", &[]);
+    let response = envelope(&scanned);
+    assert!(
+        diagnostic_codes(&response).contains(&"E-SCAN-011"),
+        "a duplicate permanent SRC ID is an integrity error: {response}"
+    );
+    assert_exit(&scanned, 1, "a completed scan with errors");
 }

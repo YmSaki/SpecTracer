@@ -4,13 +4,14 @@ use vtest_adapter_api::{
     encode_wire_targets, missing_capability_semantics, normalize_wire_targets, AdapterCapability,
     AdapterDescriptor, AdapterError, AdapterRegistration, AdapterRegistry, DiscoveredTestDraft,
     DiscoveryCompleteness, ManagedTestDraft, ManagedTestDraftLink, MissingCapabilitySemantics,
-    SourceFragment, StaticAnalysisClosureDraft, StaticAuditAdapter, StaticAuditConfigDraft,
+    SourceFragment, SourceTargetDraft, StaticAnalysisClosureDraft, StaticAuditAdapter,
+    StaticAuditConfigDraft,
     StaticAuditObservation, TestWireCodec,
 };
 use vtest_model::{
     hash_static_audit_config_subject, hash_test_subject, AdapterId, CanonicalProjection,
     CheckValue, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
-    TargetRef, TestEntity, TestId, TestSubjectInput,
+    SrcId, TargetRef, TestEntity, TestId, TestSubjectInput,
 };
 
 fn fixtures() -> PathBuf {
@@ -400,4 +401,33 @@ fn relation_aliases_bind_to_one_in_memory_identity_without_rewrite() {
     let (prefixed_id, prefixed_payload) = parse(&prefixed_text);
     assert_ne!(bare_id, prefixed_id);
     assert_eq!(bare_payload, prefixed_payload);
+}
+
+/// AF-046: an adapter with no Rust concepts still expresses a Source Target as
+/// a canonical opaque locator plus an optional permanent SRC ID.
+#[test]
+fn a_non_rust_adapter_expresses_an_optional_permanent_src_id() {
+    let manifest = json("synthetic/manifest.json");
+    let declared = manifest["source_target_src_id"]
+        .as_str()
+        .expect("the synthetic fixture declares a permanent SRC ID")
+        .to_owned();
+    let location = synthetic_test().location;
+    let draft = SourceTargetDraft {
+        target: TargetRef::Locator {
+            adapter: AdapterId::new("synthetic"),
+            value: location.locator.clone(),
+        },
+        src_id: Some(SrcId::new(declared.clone())),
+        location: location.clone(),
+        construct: SourceFragment {
+            location,
+            bytes: b"scenario[adding two values]".to_vec(),
+        },
+    };
+    assert!(
+        matches!(draft.target, TargetRef::Locator { .. }),
+        "the canonical Target Reference stays an opaque locator"
+    );
+    assert_eq!(draft.src_id.as_ref().map(SrcId::as_str), Some(declared.as_str()));
 }

@@ -11,6 +11,7 @@
       "end": 176
     }
   },
+  "source_target_src_id": "SRC-SYNTHETIC-CASE",
   "runner_observation": {
     "selector": "scenario[adding two values]",
     "result": "PASS"

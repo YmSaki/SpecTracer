@@ -20,6 +20,7 @@ vtest-verify = { path = "../vtest-verify" }
 
 [dev-dependencies]
 sha2.workspace = true
+vtest-model = { path = "../vtest-model" }
 
 [[bin]]
 name = "vtest"

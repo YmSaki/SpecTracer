@@ -18,7 +18,7 @@ Production code is unchanged by this freeze.
 
 | ID | Specification clause | Acceptance criterion / observable | Test / fixture | Baseline actual | Freeze status |
 |---|---|---|---|---|---|
-| AF-001 | Annex C §18.3.9 | All neutral hash-free draft types exist with the normative field sets in a Rust-neutral API crate | `adapter_api_crate_exposes_every_neutral_draft_type`; `adapter_api_compile_contract_type_checks`; `api-contract/` | missing package | FROZEN_RED |
+| AF-001 | Annex C §18.3.9 | All neutral hash-free draft types exist with the normative field sets in a Rust-neutral API crate | `adapter_api_crate_exposes_every_neutral_draft_type`; `adapter_api_compile_contract_type_checks`; `api-contract/` | missing package; re-derived after the §5 spec correction — `SourceTargetDraft` must destructure `src_id: Option<SrcId>` | FROZEN_RED |
 | AF-002 | Annex C §§18.2, 18.3.9 | Non-`.rs`, non-function construct and exact current byte range | `adapter_boundary_fixture_is_non_rust_and_non_adjacent`; `adapters/synthetic` | valid `65..176` range | REGRESSION_LOCKED |
 | AF-003 | Annex C §18.3.9 | Core model has opaque locations, execution descriptor, fixed 12; no Rust coordinates | `core_model_is_neutral_and_has_the_fixed_check_set`; compile-contract field destructuring | neutral types absent | FROZEN_RED |
 | AF-004 | Annex C §§18.2, 18.3.9 | Non-adjacent metadata changes Test subject and freshness | model subject-hash tests; `tests.json` → `tests.changed.json` mutation | W1 core hash detects logical metadata mutation; freshness integration remains RED | W1_BOUND_RED |
@@ -61,12 +61,32 @@ Production code is unchanged by this freeze.
 
 | AF-041 | 詳細設計 §3.5; Annex C §18.3.1 | The canonical VO record stores no approval-derived `status`; the effective value comes from Approvals | `canonical_vo_record_never_stores_the_derived_status`; `calc/m1/base` | writer emits `status: 'draft'` | FROZEN_RED |
 | AF-042 | 詳細設計 §3.5, §7 (W-STORE-002); Annex C §18.3.1 | An Approval lacking the upstream dependency closure never derives `approved` and is reported | `approval_without_a_dependency_closure_is_reported_and_never_approves`; `calc/m1/base` | derives `approved`; no `W-STORE-002` exists | FROZEN_RED |
+| AF-043 | 詳細設計 §1.3, §5 | One construct is one Source Target: locator and permanent SRC ID references both resolve to it, and the canonical Target Reference stays the locator | `locator_and_src_id_resolve_to_one_source_target`; `calc/m1/base` + `@vtest.src-id SRC-DUAL` | one Source Target, canonical locator, `src_id` carried | REGRESSION_LOCKED |
+| AF-044 | 詳細設計 §1.3 | The Source Target subject binds the canonical locator and the construct bytes, never a referring Test's SRC ID spelling | `the_target_subject_binds_the_canonical_locator_not_the_src_id` | subject equals `hash_target_subject(locator, construct)` and differs from the SrcId spelling | REGRESSION_LOCKED |
+| AF-045 | 詳細設計 §6.1; 基本仕様 §3.3 | One permanent SRC ID claimed by two constructs resolves to neither (E-SCAN-011) | `duplicate_permanent_src_id_is_fail_closed` | no `E-SCAN-011` exists | FROZEN_RED |
+| AF-046 | 詳細設計 §5; Annex C §18.3.9 | A non-Rust adapter expresses a Source Target as a canonical opaque locator plus an optional permanent SRC ID | `a_non_rust_adapter_expresses_an_optional_permanent_src_id`; `synthetic/manifest.json` | `SourceTargetDraft` has no `src_id` field; the binding does not compile | FROZEN_RED |
 
 Baseline command:
 
 ```text
 cargo test -p vtest-cli --test adapter_acceptance
 ```
+
+### AF-043 – AF-046 freeze record
+
+These rows follow the 詳細設計 §1.3 / §5 correction that gave `SourceTargetDraft`
+a `src_id` field and fixed the canonical Target Reference to `TargetRef::Locator`
+(spec PR #3). AF-001 and AF-003 are re-derived against the corrected field set:
+the compile contract now destructures `src_id`, so it fails to build until the
+API carries it.
+
+| Field | AF-043 | AF-044 | AF-045 | AF-046 |
+|---|---|---|---|---|
+| Criterion | one construct is one Source Target under both addressing modes | the subject binds the canonical locator | duplicate permanent SRC ID is fail-closed | a non-Rust adapter carries an optional permanent SRC ID |
+| Observable | `scan` reports exactly one source for the construct, `target.kind = locator`, `src_id` present, no `E-SCAN-004` | `content_hash == hash_target_subject(locator, construct)` and `!= hash_target_subject(SrcId, construct)` | `scan` diagnostics contain `E-SCAN-011`, exit 1 | `SourceTargetDraft { target: Locator, src_id: Some(..) }` type-checks and round-trips |
+| Baseline actual | already satisfied | already satisfied | no `E-SCAN-011` in the codebase | field absent; does not compile |
+| Baseline classification | REGRESSION_LOCKED | REGRESSION_LOCKED | FROZEN_RED | FROZEN_RED |
+| Owning wave | W1 (API) / W3 (product) | W1 (API) / W3 (product) | W3 | W1 |
 
 ### AF-041 / AF-042 freeze record
 

@@ -5,7 +5,7 @@ use vtest_adapter_api::{
     ManagedTestDraft, ManagedTestDraftLink, SourceFragment, SourceTargetDraft,
     StaticAnalysisClosureDraft, StaticAuditConfigDraft,
 };
-use vtest_model::{ExecutionDescriptor, SourceLocation, TargetRef, TestEntity};
+use vtest_model::{ExecutionDescriptor, SourceLocation, SrcId, TargetRef, TestEntity};
 
 fn source_fragment_fields(value: SourceFragment) {
     let SourceFragment { location, bytes } = value;
@@ -47,10 +47,14 @@ fn discovered_test_draft_fields(value: DiscoveredTestDraft) {
 fn source_target_draft_fields(value: SourceTargetDraft) {
     let SourceTargetDraft {
         target,
+        src_id,
         location,
         construct,
     } = value;
     let _: TargetRef = target;
+    // A Source Target holds a canonical locator and an optional permanent
+    // identity; the SRC ID is never the canonical target itself.
+    let _: Option<SrcId> = src_id;
     let _: SourceLocation = location;
     let _: SourceFragment = construct;
 }
