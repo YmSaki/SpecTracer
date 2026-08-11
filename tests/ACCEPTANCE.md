@@ -65,6 +65,8 @@ Production code is unchanged by this freeze.
 | AF-044 | 詳細設計 §1.3 | The Source Target subject binds the canonical locator and the construct bytes, never a referring Test's SRC ID spelling | `the_target_subject_binds_the_canonical_locator_not_the_src_id` | subject equals `hash_target_subject(locator, construct)` and differs from the SrcId spelling | REGRESSION_LOCKED |
 | AF-045 | 詳細設計 §6.1; 基本仕様 §3.3 | One permanent SRC ID claimed by two constructs resolves to neither (E-SCAN-011) | `duplicate_permanent_src_id_is_fail_closed` | no `E-SCAN-011` exists | FROZEN_RED |
 | AF-046 | 詳細設計 §5; Annex C §18.3.9 | A non-Rust adapter expresses a Source Target as a canonical opaque locator plus an optional permanent SRC ID | `a_non_rust_adapter_expresses_an_optional_permanent_src_id`; `synthetic/manifest.json` | `SourceTargetDraft` has no `src_id` field; the binding does not compile | FROZEN_RED |
+| AF-047 | 詳細設計 §5; 別紙C §18.3.9 | An adapter that returns a permanent SRC ID as a Source Target's canonical target is malformed output, and a declared SRC ID reaches the Source Target without moving its subject | `core_rejects_a_permanent_src_id_as_a_canonical_source_target`; `a_permanent_src_id_travels_beside_the_target_without_entering_its_subject` | no rejection existed; `src_id` was derived from `TargetRef::SrcId` | FROZEN_RED |
+| AF-048 | 別紙C §18.3.9 | Evidence and Audit record one target identity for one Source Target, independent of whether the referring Test addressed it by locator or by permanent SRC ID | owed: no executable binding yet — `vtest-exec` writes the referring Test's declared `TargetRef`, `vtest-audit` writes the resolved canonical locator | identities split by addressing mode | FROZEN_RED |
 
 Baseline command:
 
@@ -87,6 +89,24 @@ API carries it.
 | Baseline actual | already satisfied | already satisfied | no `E-SCAN-011` in the codebase | field absent; does not compile |
 | Baseline classification | REGRESSION_LOCKED | REGRESSION_LOCKED | FROZEN_RED | FROZEN_RED |
 | Owning wave | W1 (API) / W3 (product) | W1 (API) / W3 (product) | W3 | W1 |
+
+### AF-047 / AF-048 freeze record
+
+Added after an independent review of the §5 correction found two normative
+clauses with no row.
+
+- **AF-047** binds 別紙C の「`TargetRef::SrcId`をcanonical targetとして返したadapter出力は
+  malformed adapter outputとして拒否する」. Before this row the rejection and the `src_id`
+  passthrough had no test at all: removing either left every test in the workspace green.
+  Owning wave: W1. Now green.
+- **AF-048** binds 別紙C の「EvidenceおよびAudit上のtarget identityが参照方法によって分裂しない」.
+  Today the two writers disagree — `crates/vtest-exec/src/lib.rs:163` records the referring
+  Test's declared `TargetRef` (so a SRC ID reference records `SRC-…`), while
+  `crates/vtest-audit/src/lib.rs:314` records the resolved canonical locator, and
+  `crates/vtest-verify/src/lib.rs:1545` compares against the declared spelling.
+  Owning wave: **W5** (Evidence writer) with a matched change in **W6** (verify comparator).
+  This row has no executable binding yet; W5 owes one. It must not be promoted to PASS from
+  the fact that the Evidence `target_construct` hash already matches.
 
 ### AF-041 / AF-042 freeze record
 

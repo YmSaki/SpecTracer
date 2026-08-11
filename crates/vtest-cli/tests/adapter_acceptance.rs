@@ -1357,12 +1357,12 @@ fn content_hash_of(text: &str) -> String {
 fn prepare_dual_addressed_target(project: &TempProject) {
     fs::write(
         project.root.join("src/lib.rs"),
-        "/// @vtest.src-id SRC-DUAL\npub fn known() {{}}\n",
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {}\n",
     )
     .expect("declare a permanent SRC ID on the target");
     fs::write(
         project.root.join("tests/registered.rs"),
-        "/// @vtest.id TEST-M1-CLEAN\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent provides a clean M1 scan baseline\n#[test]\nfn clean_scan_baseline() {{}}\n\n/// @vtest.id TEST-DUAL-SRC\n/// @vtest.covers VO-KNOWN\n/// @vtest.target SRC-DUAL\n/// @vtest.intent the permanent SRC ID reaches the same Source Target\n#[test]\nfn src_id_addressed() {{}}\n",
+        "/// @vtest.id TEST-M1-CLEAN\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent provides a clean M1 scan baseline\n#[test]\nfn clean_scan_baseline() {}\n\n/// @vtest.id TEST-DUAL-SRC\n/// @vtest.covers VO-KNOWN\n/// @vtest.target SRC-DUAL\n/// @vtest.intent the permanent SRC ID reaches the same Source Target\n#[test]\nfn src_id_addressed() {}\n",
     )
     .expect("reference the target by locator and by SRC ID");
 }
@@ -1450,7 +1450,7 @@ fn duplicate_permanent_src_id_is_fail_closed() {
     prepare_dual_addressed_target(&project);
     fs::write(
         project.root.join("src/lib.rs"),
-        "/// @vtest.src-id SRC-DUAL\npub fn known() {{}}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {{}}\n",
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {}\n",
     )
     .expect("claim one permanent SRC ID from two constructs");
     let scanned = invoke(&project.root, "scan", &[]);
@@ -1458,6 +1458,10 @@ fn duplicate_permanent_src_id_is_fail_closed() {
     assert!(
         diagnostic_codes(&response).contains(&"E-SCAN-011"),
         "a duplicate permanent SRC ID is an integrity error: {response}"
+    );
+    assert!(
+        diagnostic_codes(&response).contains(&"E-SCAN-004"),
+        "an ambiguous permanent SRC ID resolves to neither Source Target: {response}"
     );
     assert_exit(&scanned, 1, "a completed scan with errors");
 }

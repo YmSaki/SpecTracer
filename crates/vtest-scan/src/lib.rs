@@ -2538,6 +2538,45 @@ fn adds() { assert_eq!(2, crate::missing()); }
     }
 
     #[test]
+    fn core_rejects_a_permanent_src_id_as_a_canonical_source_target() {
+        let (root, mut batch) = discovery_materialization_fixture();
+        batch.source_targets[0].target = TargetRef::SrcId(SrcId::new("SRC-SYNTH-ADD"));
+        let error = materialize_discovery_batch(&root, batch).unwrap_err();
+        assert!(error.to_string().contains("E-ADAPTER-002"));
+        assert!(
+            error.to_string().contains("must be a locator"),
+            "a permanent SRC ID refers to a Source Target and is never its canonical target: {error}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_permanent_src_id_travels_beside_the_target_without_entering_its_subject() {
+        let (anonymous_root, anonymous) = discovery_materialization_fixture();
+        let without = materialize_discovery_batch(&anonymous_root, anonymous).unwrap();
+        assert_eq!(without.source_targets[0].src_id, None);
+        let subject = without.source_targets[0].content_hash.clone();
+        fs::remove_dir_all(anonymous_root).unwrap();
+
+        let (root, mut batch) = discovery_materialization_fixture();
+        batch.source_targets[0].src_id = Some(SrcId::new("SRC-SYNTH-ADD"));
+        let identified = materialize_discovery_batch(&root, batch).unwrap();
+        assert_eq!(
+            identified.source_targets[0]
+                .src_id
+                .as_ref()
+                .map(SrcId::as_str),
+            Some("SRC-SYNTH-ADD"),
+            "the permanent identity the adapter declared must reach the Source Target"
+        );
+        assert_eq!(
+            identified.source_targets[0].content_hash, subject,
+            "granting a permanent identity does not move the Source Target subject"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn core_rejects_missing_metadata_provenance_and_incomplete_discovery() {
         let (root, mut batch) = discovery_materialization_fixture();
         batch.discovered_tests[0].metadata_sources.clear();
