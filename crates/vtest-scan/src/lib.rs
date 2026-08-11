@@ -295,22 +295,24 @@ fn materialize_source_target(
             "Source Target location does not match its construct fragment",
         ));
     }
-    if let TargetRef::Locator {
+    let TargetRef::Locator {
         adapter: target_adapter,
         ..
     } = &draft.target
-    {
-        if target_adapter != adapter {
-            return Err(malformed_adapter_output(
-                "Source Target locator adapter does not match its batch",
-            ));
-        }
+    else {
+        // A permanent SRC ID is how something refers to a Source Target, never
+        // the Source Target's own canonical reference.
+        return Err(malformed_adapter_output(
+            "Source Target canonical target must be a locator, not a permanent SRC ID",
+        ));
+    };
+    if target_adapter != adapter {
+        return Err(malformed_adapter_output(
+            "Source Target locator adapter does not match its batch",
+        ));
     }
     validate_current_fragment(root, adapter, &draft.construct)?;
-    let src_id = match &draft.target {
-        TargetRef::SrcId(id) => Some(id.clone()),
-        TargetRef::Locator { .. } => None,
-    };
+    let src_id = draft.src_id;
     Ok(SourceTarget {
         content_hash: hash_target_subject(&draft.target, &draft.construct.bytes),
         target: draft.target,
@@ -1728,6 +1730,22 @@ impl<'a> Scanner<'a> {
                 *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
             }
         }
+        for source in &self.sources {
+            let Some(src_id) = &source.src_id else {
+                continue;
+            };
+            if src_ids.get(src_id.as_str()).copied().unwrap_or_default() > 1 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-011",
+                        format!(
+                            "permanent SRC ID `{src_id}` is claimed by more than one Source Target"
+                        ),
+                    )
+                    .with_location(source.location.clone()),
+                );
+            }
+        }
         for test in &self.tests {
             for target in &test.targets {
                 let resolved = match target {
@@ -2444,6 +2462,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
             }],
             source_targets: vec![SourceTargetDraft {
                 target,
+                src_id: None,
                 location: target_location.clone(),
                 construct: SourceFragment {
                     location: target_location,

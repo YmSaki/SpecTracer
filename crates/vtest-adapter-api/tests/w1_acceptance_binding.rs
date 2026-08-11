@@ -5,13 +5,12 @@ use vtest_adapter_api::{
     AdapterDescriptor, AdapterError, AdapterRegistration, AdapterRegistry, DiscoveredTestDraft,
     DiscoveryCompleteness, ManagedTestDraft, ManagedTestDraftLink, MissingCapabilitySemantics,
     SourceFragment, SourceTargetDraft, StaticAnalysisClosureDraft, StaticAuditAdapter,
-    StaticAuditConfigDraft,
-    StaticAuditObservation, TestWireCodec,
+    StaticAuditConfigDraft, StaticAuditObservation, TestWireCodec,
 };
 use vtest_model::{
     hash_static_audit_config_subject, hash_test_subject, AdapterId, CanonicalProjection,
-    CheckValue, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
-    SrcId, TargetRef, TestEntity, TestId, TestSubjectInput,
+    CheckValue, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange, SrcId,
+    TargetRef, TestEntity, TestId, TestSubjectInput,
 };
 
 fn fixtures() -> PathBuf {
@@ -429,5 +428,8 @@ fn a_non_rust_adapter_expresses_an_optional_permanent_src_id() {
         matches!(draft.target, TargetRef::Locator { .. }),
         "the canonical Target Reference stays an opaque locator"
     );
-    assert_eq!(draft.src_id.as_ref().map(SrcId::as_str), Some(declared.as_str()));
+    assert_eq!(
+        draft.src_id.as_ref().map(SrcId::as_str),
+        Some(declared.as_str())
+    );
 }

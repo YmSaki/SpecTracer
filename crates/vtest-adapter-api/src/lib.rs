@@ -10,7 +10,7 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 use thiserror::Error;
 use vtest_model::{
     AdapterId, CanonicalProjection, CheckValue, Diagnostic, ExecutionDescriptor, RunnerInfo,
-    SourceLocation, TargetExecution, TargetRef, TestEntity, TestId, TestResult, VoId,
+    SourceLocation, SrcId, TargetExecution, TargetRef, TestEntity, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -53,7 +53,13 @@ pub enum ManagedTestDraftLink {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceTargetDraft {
+    /// The canonical Target Reference, always a locator. `TargetRef::SrcId` is
+    /// how something refers to a Source Target, never the Source Target's own
+    /// identity.
     pub target: TargetRef,
+    /// An optional permanent identity for the same Source Target. It is not a
+    /// second entity and never enters the Source Target subject.
+    pub src_id: Option<SrcId>,
     pub location: SourceLocation,
     pub construct: SourceFragment,
 }
