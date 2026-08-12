@@ -84,10 +84,14 @@ pub fn rust_cargo_registration() -> AdapterRegistration {
     let mut registration = AdapterRegistration::new(AdapterDescriptor {
         id: AdapterId::new(RUST_CARGO_ADAPTER_ID),
         languages: vec!["rust".to_owned()],
-        capabilities: vec![AdapterCapability::TestWireCodec],
+        capabilities: vec![
+            AdapterCapability::TestWireCodec,
+            AdapterCapability::SourceDiscovery,
+        ],
         config_namespace: RUST_CARGO_ADAPTER_ID.to_owned(),
     });
     registration.test_wire_codec = Some(Arc::new(RustCargoCodec));
+    registration.source_discovery = Some(Arc::new(RustCargoDiscovery));
     registration
 }
 
