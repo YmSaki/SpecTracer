@@ -12,9 +12,9 @@ use vtest_model::{
     TestEntity,
 };
 
-use crate::{Locator, RUST_ADAPTER_ID};
+use crate::{Locator, RUST_CARGO_ADAPTER_ID as RUST_ADAPTER_ID};
 
-pub(crate) fn validate_value_shape(field: &FormField, value: &FormValue) -> Result<(), Diagnostic> {
+pub fn validate_value_shape(field: &FormField, value: &FormValue) -> Result<(), Diagnostic> {
     let list_type = matches!(field.field_type.as_str(), "symbol-list" | "vo-ref-list");
     if list_type != matches!(value, FormValue::List(_)) {
         return Err(Diagnostic::error(
@@ -100,7 +100,7 @@ pub(crate) fn validate_value_shape(field: &FormField, value: &FormValue) -> Resu
     Ok(())
 }
 
-pub(crate) fn validate_symbols(
+pub fn validate_symbols(
     sources: &[SourceFunction],
     field: &str,
     value: &FormValue,
@@ -134,7 +134,7 @@ pub(crate) fn validate_symbols(
     Ok(())
 }
 
-pub(crate) fn scalar<'a>(value: &'a FormValue, field: &str) -> Result<&'a str, Diagnostic> {
+pub fn scalar<'a>(value: &'a FormValue, field: &str) -> Result<&'a str, Diagnostic> {
     match value {
         FormValue::Scalar(value) if !value.trim().is_empty() => Ok(value),
         _ => Err(Diagnostic::error(
@@ -144,7 +144,7 @@ pub(crate) fn scalar<'a>(value: &'a FormValue, field: &str) -> Result<&'a str, D
     }
 }
 
-pub(crate) fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
+pub fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
     if let Some(value) = answers.answers.get("file") {
         return scalar(value, "file").map(|value| value.replace('\\', "/"));
     }
@@ -159,7 +159,7 @@ pub(crate) fn destination_file(answers: &FormAnswers) -> Result<String, Diagnost
     ))
 }
 
-pub(crate) fn validate_rust_file(
+pub fn validate_rust_file(
     includes: &[String],
     root: &Path,
     relative: &str,
@@ -208,7 +208,7 @@ pub(crate) fn validate_rust_file(
     Ok(())
 }
 
-pub(crate) fn validate_enum_variant(
+pub fn validate_enum_variant(
     includes: &[String],
     root: &Path,
     value: &str,
@@ -253,7 +253,7 @@ pub(crate) fn validate_enum_variant(
     )
 }
 
-pub(crate) fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
+pub fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = fs::read_dir(directory) else {
         return;
     };
@@ -269,11 +269,7 @@ pub(crate) fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::Pa
     }
 }
 
-pub(crate) fn collect_enum_variants(
-    items: &[syn::Item],
-    type_name: &str,
-    variants: &mut Vec<String>,
-) {
+pub fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Vec<String>) {
     for item in items {
         match item {
             syn::Item::Enum(item_enum) if item_enum.ident == type_name => {
@@ -294,7 +290,7 @@ pub(crate) fn collect_enum_variants(
     }
 }
 
-pub(crate) fn symbol_candidates(sources: &[SourceFunction], requested: &str) -> Vec<String> {
+pub fn symbol_candidates(sources: &[SourceFunction], requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
         .map_or(requested, |(_, item)| item);
@@ -331,7 +327,7 @@ pub(crate) fn symbol_candidates(sources: &[SourceFunction], requested: &str) -> 
     exact_suffix
 }
 
-pub(crate) fn rust_locator(target: &TargetRef) -> Option<Locator> {
+pub fn rust_locator(target: &TargetRef) -> Option<Locator> {
     match target {
         TargetRef::Locator { adapter, value } if adapter.as_str() == RUST_ADAPTER_ID => {
             Locator::parse(value)
@@ -340,11 +336,11 @@ pub(crate) fn rust_locator(target: &TargetRef) -> Option<Locator> {
     }
 }
 
-pub(crate) fn source_rust_locator(source: &SourceFunction) -> Option<Locator> {
+pub fn source_rust_locator(source: &SourceFunction) -> Option<Locator> {
     rust_locator(&source.target)
 }
 
-pub(crate) fn test_id_candidates(tests: &[TestEntity], requested: &str) -> Vec<String> {
+pub fn test_id_candidates(tests: &[TestEntity], requested: &str) -> Vec<String> {
     let ids = tests
         .iter()
         .map(|test| test.id.as_str().to_owned())
@@ -352,7 +348,7 @@ pub(crate) fn test_id_candidates(tests: &[TestEntity], requested: &str) -> Vec<S
     id_candidates(&ids, requested)
 }
 
-pub(crate) fn id_candidates(ids: &[String], requested: &str) -> Vec<String> {
+pub fn id_candidates(ids: &[String], requested: &str) -> Vec<String> {
     let mut candidates = ids
         .iter()
         .filter(|candidate| edit_distance(candidate, requested) <= 2)
@@ -362,7 +358,7 @@ pub(crate) fn id_candidates(ids: &[String], requested: &str) -> Vec<String> {
     candidates
 }
 
-pub(crate) fn edit_distance(left: &str, right: &str) -> usize {
+pub fn edit_distance(left: &str, right: &str) -> usize {
     let right = right.chars().collect::<Vec<_>>();
     let mut previous = (0..=right.len()).collect::<Vec<_>>();
     for (left_index, left_char) in left.chars().enumerate() {
@@ -378,7 +374,7 @@ pub(crate) fn edit_distance(left: &str, right: &str) -> usize {
     previous[right.len()]
 }
 
-pub(crate) fn render_form_template(
+pub fn render_form_template(
     schema: &FormSchema,
     answers: &BTreeMap<String, FormValue>,
     test_id: &str,
@@ -420,7 +416,7 @@ pub(crate) fn render_form_template(
     Ok(rendered)
 }
 
-pub(crate) fn unresolved_placeholder(line: &str) -> Option<String> {
+pub fn unresolved_placeholder(line: &str) -> Option<String> {
     let mut remainder = line;
     while let Some(start) = remainder.find('{') {
         let after = &remainder[start + 1..];

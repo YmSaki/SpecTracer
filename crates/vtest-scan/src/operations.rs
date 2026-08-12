@@ -10,7 +10,8 @@ use vtest_store::{
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::operations_support::*;
+use vtest_adapter_rust::operations_support::*;
+
 use crate::{Locator, ScanResult, RUST_ADAPTER_ID};
 
 #[derive(Clone, Debug, Serialize)]

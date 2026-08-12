@@ -27,7 +27,6 @@ use vtest_store::{
 
 pub mod operations;
 pub use operations::*;
-mod operations_support;
 
 pub use vtest_adapter_rust::{Locator, RustCargoDiscovery};
 
