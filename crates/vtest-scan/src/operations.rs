@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
 use serde::Serialize;
-use syn::spanned::Spanned;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
 };
@@ -77,7 +76,7 @@ pub fn create_test(
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let rendered = render_form_template(&schema, &answers, &test_id)?;
-    syn::parse_str::<syn::ItemFn>(&rendered).map_err(|error| {
+    check_test_item_fn(&rendered).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("form rendered an invalid Rust test function: {error}"),
@@ -92,7 +91,7 @@ pub fn create_test(
     };
     let start_byte = original.len() + separator.len();
     let prospective = format!("{original}{separator}{rendered}");
-    syn::parse_file(&prospective).map_err(|error| {
+    check_rust_file_parses(&prospective).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("test insertion would make `{file}` invalid Rust: {error}"),
@@ -241,7 +240,7 @@ pub fn edit_test(
         rendered,
         &original[current.location.byte_range.end..]
     );
-    syn::parse_file(&prospective).map_err(|error| {
+    check_rust_file_parses(&prospective).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("edited Test `{test_id}` would make the file invalid: {error}"),
@@ -473,7 +472,7 @@ fn validate_desired_test(
     if desired.intent.trim().is_empty() {
         return Err(Diagnostic::error("E-OP-001", "intent must not be empty"));
     }
-    if syn::parse_str::<syn::Ident>(&desired.fn_name).is_err() {
+    if !is_rust_ident(&desired.fn_name) {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!("`{}` is not a Rust identifier", desired.fn_name),
@@ -560,23 +559,8 @@ fn render_edited_test(
     }
     if let Some(body) = body {
         let body = normalize_body(body)?;
-        let parsed = syn::parse_str::<syn::ItemFn>(&function).map_err(|error| {
-            Diagnostic::error(
-                "E-OP-002",
-                format!("Test function could not be reparsed before body edit: {error}"),
-            )
-        })?;
-        let span = parsed.block.span();
-        let start = source_offset(&function, span.start().line, span.start().column)
-            .ok_or_else(|| Diagnostic::error("E-OP-002", "Test body start is out of range"))?;
-        let end = source_offset(&function, span.end().line, span.end().column)
-            .ok_or_else(|| Diagnostic::error("E-OP-002", "Test body end is out of range"))?;
-        if start >= end || function.get(start..end).is_none() {
-            return Err(Diagnostic::error(
-                "E-OP-002",
-                "Test function body range is invalid",
-            ));
-        }
+        let (start, end) = test_body_byte_range(&function)
+            .map_err(|error| Diagnostic::error("E-OP-002", error))?;
         function.replace_range(start..end, &body);
     }
 
@@ -614,7 +598,7 @@ fn normalize_body(body: &str) -> Result<String, Diagnostic> {
     } else {
         format!("{{\n{body}\n}}")
     };
-    syn::parse_str::<syn::Block>(&body).map_err(|error| {
+    check_rust_block(&body).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("body file does not contain a valid Rust block: {error}"),
@@ -685,18 +669,6 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
 fn line_indent(source: &str, byte: usize) -> String {
     let line_start = source[..byte].rfind('\n').map_or(0, |index| index + 1);
     source[line_start..byte].to_owned()
-}
-
-fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
-    let mut offset = 0;
-    for (index, current) in source.split_inclusive('\n').enumerate() {
-        if index + 1 == line {
-            let body = current.strip_suffix('\n').unwrap_or(current);
-            return (column <= body.len()).then_some(offset + column);
-        }
-        offset += current.len();
-    }
-    None
 }
 
 fn deindent(source: &str, indent: &str) -> String {

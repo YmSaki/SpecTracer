@@ -637,12 +637,8 @@ dependencies = [
 name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
- "ignore",
- "proc-macro2",
  "serde",
- "syn 2.0.119",
  "thiserror",
- "toml",
  "vtest-adapter-api",
  "vtest-adapter-rust",
  "vtest-model",

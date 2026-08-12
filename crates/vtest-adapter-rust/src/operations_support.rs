@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path};
 
+use syn::spanned::Spanned;
 use vtest_model::{
     Diagnostic, FormAnswers, FormField, FormSchema, FormValue, SourceFunction, TargetRef,
     TestEntity,
@@ -432,4 +433,58 @@ pub fn unresolved_placeholder(line: &str) -> Option<String> {
         remainder = &after[end + 1..];
     }
     None
+}
+
+/// Rust-syntax checks used by the Structured Test Operations. They return the
+/// parser error text so the core caller can attach its own operation diagnostic.
+pub fn check_test_item_fn(source: &str) -> Result<(), String> {
+    syn::parse_str::<syn::ItemFn>(source)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+pub fn check_rust_file_parses(source: &str) -> Result<(), String> {
+    syn::parse_file(source)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+pub fn is_rust_ident(source: &str) -> bool {
+    syn::parse_str::<syn::Ident>(source).is_ok()
+}
+
+pub fn check_rust_block(source: &str) -> Result<(), String> {
+    syn::parse_str::<syn::Block>(source)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
+    let mut offset = 0;
+    for (index, current) in source.split_inclusive('\n').enumerate() {
+        if index + 1 == line {
+            let body = current.strip_suffix('\n').unwrap_or(current);
+            return (column <= body.len()).then_some(offset + column);
+        }
+        offset += current.len();
+    }
+    None
+}
+
+/// Locates the byte range of a rust-cargo test function's body block so the
+/// core edit path can splice in a new body without parsing Rust itself. The
+/// error string is the operation diagnostic message the caller reports as-is.
+pub fn test_body_byte_range(function: &str) -> Result<(usize, usize), String> {
+    let parsed = syn::parse_str::<syn::ItemFn>(function).map_err(|error| {
+        format!("Test function could not be reparsed before body edit: {error}")
+    })?;
+    let span = parsed.block.span();
+    let start = source_offset(function, span.start().line, span.start().column)
+        .ok_or_else(|| "Test body start is out of range".to_string())?;
+    let end = source_offset(function, span.end().line, span.end().column)
+        .ok_or_else(|| "Test body end is out of range".to_string())?;
+    if start >= end || function.get(start..end).is_none() {
+        return Err("Test function body range is invalid".to_string());
+    }
+    Ok((start, end))
 }
