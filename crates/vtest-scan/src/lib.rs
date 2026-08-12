@@ -7,7 +7,7 @@ use std::{
 };
 
 use ignore::WalkBuilder;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use syn::spanned::Spanned;
 use syn::{Attribute, ImplItem, Item, ItemFn, ItemImpl};
 use thiserror::Error;
@@ -16,10 +16,10 @@ use vtest_adapter_api::{
     ManagedTestDraftLink, SourceDiscoveryAdapter, SourceFragment, SourceTargetDraft,
 };
 use vtest_model::{
-    hash_specification_source, hash_target_subject, hash_test_subject, AdapterId, CanonicalProjection,
-    ContentHash, Diagnostic, DiscoveredTest, ExecutionDescriptor, ManagedTestLink, ProjectPath,
-    ScanSummary, SourceFunction, SourceLocation, SourceRange, SourceTarget, SrcId, TargetRef,
-    TestEntity, TestId, TestSubjectInput, TestSuite, VoId,
+    hash_specification_source, hash_target_subject, hash_test_subject, AdapterId,
+    CanonicalProjection, ContentHash, Diagnostic, DiscoveredTest, ExecutionDescriptor,
+    ManagedTestLink, ProjectPath, ScanSummary, SourceFunction, SourceLocation, SourceRange,
+    SourceTarget, SrcId, TargetRef, TestEntity, TestId, TestSubjectInput, TestSuite, VoId,
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, is_valid_ulid, load_config, read_approval,
@@ -34,12 +34,11 @@ pub use operations::*;
 
 pub use discovery::Locator;
 pub(crate) use discovery::{
-    is_test_function, join_module_path, line_offsets, make_location, parse_annotations,
-    parse_src_id, source_slice, TestTarget,
+    is_test_function, join_module_path, line_offsets, make_location, package_name,
+    parse_annotations, parse_src_id, source_context, source_slice, TestTarget,
 };
 
 const RUST_ADAPTER_ID: &str = "rust-cargo";
-
 
 #[derive(Debug, Error)]
 pub enum ScanError {
@@ -412,9 +411,11 @@ pub fn scan_project_with_config(
         sources: materialized.source_targets,
         diagnostics: materialized.diagnostics,
     };
-    result
-        .diagnostics
-        .extend(cross_entity_diagnostics(&result.tests, &result.sources, &vo_ids));
+    result.diagnostics.extend(cross_entity_diagnostics(
+        &result.tests,
+        &result.sources,
+        &vo_ids,
+    ));
     result.diagnostics.extend(record_diagnostics(
         root,
         &entity_ids,
@@ -503,10 +504,6 @@ impl SourceDiscoveryAdapter for RustCargoDiscovery {
         }
         Ok(scanner.finish())
     }
-}
-
-fn package_name(root: &Path) -> Option<String> {
-    cargo_manifest(root).and_then(|manifest| manifest.package.map(|package| package.name))
 }
 
 fn record_diagnostics(
@@ -1833,387 +1830,6 @@ fn cross_entity_diagnostics(
     }
     diagnostics
 }
-
-struct SourceContext {
-    package: String,
-    test_target: TestTarget,
-    filter_prefix: String,
-}
-
-#[derive(Clone, Debug)]
-struct CargoTargetRoot {
-    path: PathBuf,
-    target: TestTarget,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoManifest {
-    package: Option<CargoPackage>,
-    lib: Option<CargoTarget>,
-    #[serde(default)]
-    bin: Vec<CargoTarget>,
-    #[serde(default)]
-    test: Vec<CargoTarget>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoPackage {
-    name: String,
-    autobins: Option<bool>,
-    autotests: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoTarget {
-    name: Option<String>,
-    path: Option<String>,
-}
-
-fn cargo_manifest(root: &Path) -> Option<CargoManifest> {
-    let text = fs::read_to_string(root.join("Cargo.toml")).ok()?;
-    let manifest = toml::from_str::<CargoManifest>(&text).ok()?;
-    manifest.package.as_ref()?;
-    Some(manifest)
-}
-
-fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceContext {
-    let package_root = package_root_for_path(root, path).unwrap_or_else(|| root.to_owned());
-    let manifest = cargo_manifest(&package_root);
-    let package = manifest
-        .as_ref()
-        .and_then(|manifest| manifest.package.as_ref())
-        .map(|package| package.name.clone())
-        .unwrap_or_else(|| fallback_package.to_owned());
-
-    if let Some(manifest) = &manifest {
-        let mut contexts = Vec::new();
-        for target_root in cargo_target_roots(&package_root, manifest) {
-            for filter_prefix in module_prefixes_for_file(&target_root.path, path) {
-                let context = (target_root.target.clone(), filter_prefix);
-                if !contexts.contains(&context) {
-                    contexts.push(context);
-                }
-            }
-        }
-        if contexts.len() == 1 {
-            let (test_target, filter_prefix) = contexts.pop().expect("one context exists");
-            return SourceContext {
-                package,
-                test_target,
-                filter_prefix,
-            };
-        }
-        return SourceContext {
-            package,
-            test_target: TestTarget::Unknown,
-            filter_prefix: String::new(),
-        };
-    }
-    SourceContext {
-        package,
-        test_target: TestTarget::Unknown,
-        filter_prefix: String::new(),
-    }
-}
-
-fn cargo_target_name(target: &CargoTarget) -> Option<String> {
-    target
-        .name
-        .clone()
-        .or_else(|| target.path.as_deref().and_then(target_name_from_path))
-}
-
-fn target_name_from_path(path: &str) -> Option<String> {
-    let path = Path::new(path);
-    let stem = path.file_stem()?.to_str()?;
-    if matches!(stem, "main" | "mod") {
-        path.parent()?.file_name()?.to_str().map(str::to_owned)
-    } else {
-        Some(stem.to_owned())
-    }
-}
-
-fn normalized_manifest_path(path: &str) -> String {
-    path.trim_start_matches("./").replace('\\', "/")
-}
-
-fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<CargoTargetRoot> {
-    let mut roots = Vec::new();
-    let lib_path = manifest
-        .lib
-        .as_ref()
-        .map(|target| target.path.as_deref().unwrap_or("src/lib.rs"))
-        .or_else(|| {
-            package_root
-                .join("src/lib.rs")
-                .exists()
-                .then_some("src/lib.rs")
-        });
-    if let Some(path) = lib_path {
-        roots.push(CargoTargetRoot {
-            path: package_root.join(normalized_manifest_path(path)),
-            target: TestTarget::Lib,
-        });
-    }
-
-    let mut explicit_bins = Vec::new();
-    for binary in &manifest.bin {
-        let Some(name) = cargo_target_name(binary) else {
-            continue;
-        };
-        for path in explicit_target_paths(package_root, binary, "src/bin", &name, true) {
-            explicit_bins.push(path.clone());
-            roots.push(CargoTargetRoot {
-                path,
-                target: TestTarget::Bin(name.clone()),
-            });
-        }
-    }
-
-    let autobins = manifest
-        .package
-        .as_ref()
-        .and_then(|package| package.autobins)
-        .unwrap_or(true);
-    if autobins {
-        let main = package_root.join("src/main.rs");
-        if main.exists() && !contains_path(&explicit_bins, &main) {
-            let name = manifest
-                .package
-                .as_ref()
-                .map(|package| package.name.clone())
-                .unwrap_or_default();
-            roots.push(CargoTargetRoot {
-                path: main,
-                target: TestTarget::Bin(name),
-            });
-        }
-        for (path, name) in discovered_target_roots(&package_root.join("src/bin")) {
-            if !contains_path(&explicit_bins, &path) {
-                roots.push(CargoTargetRoot {
-                    path,
-                    target: TestTarget::Bin(name),
-                });
-            }
-        }
-    }
-
-    let mut explicit_tests = Vec::new();
-    for test in &manifest.test {
-        let Some(name) = cargo_target_name(test) else {
-            continue;
-        };
-        for path in explicit_target_paths(package_root, test, "tests", &name, true) {
-            explicit_tests.push(path.clone());
-            roots.push(CargoTargetRoot {
-                path,
-                target: TestTarget::IntegrationTest(name.clone()),
-            });
-        }
-    }
-
-    let autotests = manifest
-        .package
-        .as_ref()
-        .and_then(|package| package.autotests)
-        .unwrap_or(true);
-    if autotests {
-        for (path, name) in discovered_target_roots(&package_root.join("tests")) {
-            if !contains_path(&explicit_tests, &path) {
-                roots.push(CargoTargetRoot {
-                    path,
-                    target: TestTarget::IntegrationTest(name),
-                });
-            }
-        }
-    }
-    roots
-}
-
-fn explicit_target_paths(
-    package_root: &Path,
-    target: &CargoTarget,
-    default_directory: &str,
-    name: &str,
-    allow_directory_main: bool,
-) -> Vec<PathBuf> {
-    if let Some(path) = &target.path {
-        return vec![package_root.join(normalized_manifest_path(path))];
-    }
-    let mut candidates = vec![package_root.join(format!("{default_directory}/{name}.rs"))];
-    if allow_directory_main {
-        candidates.push(package_root.join(format!("{default_directory}/{name}/main.rs")));
-    }
-    let existing = candidates
-        .iter()
-        .filter(|path| path.exists())
-        .cloned()
-        .collect::<Vec<_>>();
-    if existing.is_empty() {
-        candidates.truncate(1);
-        candidates
-    } else {
-        existing
-    }
-}
-
-fn discovered_target_roots(directory: &Path) -> Vec<(PathBuf, String)> {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return Vec::new();
-    };
-    let mut entries = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    entries.sort();
-    let mut roots = Vec::new();
-    for path in entries {
-        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("rs") {
-            if let Some(name) = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .map(str::to_owned)
-            {
-                roots.push((path, name));
-            }
-        } else if path.is_dir() {
-            let main = path.join("main.rs");
-            if main.exists() {
-                if let Some(name) = path
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .map(str::to_owned)
-                {
-                    roots.push((main, name));
-                }
-            }
-        }
-    }
-    roots
-}
-
-fn contains_path(paths: &[PathBuf], candidate: &Path) -> bool {
-    paths.iter().any(|path| same_path(path, candidate))
-}
-
-fn same_path(left: &Path, right: &Path) -> bool {
-    match (fs::canonicalize(left), fs::canonicalize(right)) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
-    }
-}
-
-fn module_prefixes_for_file(target_root: &Path, sought: &Path) -> Vec<String> {
-    let Some(module_directory) = target_root.parent() else {
-        return Vec::new();
-    };
-    let mut prefixes = Vec::new();
-    let mut visiting = BTreeSet::new();
-    visit_module_file(
-        target_root,
-        module_directory,
-        "",
-        sought,
-        &mut visiting,
-        &mut prefixes,
-    );
-    prefixes.sort();
-    prefixes.dedup();
-    prefixes
-}
-
-fn visit_module_file(
-    file: &Path,
-    module_directory: &Path,
-    prefix: &str,
-    sought: &Path,
-    visiting: &mut BTreeSet<PathBuf>,
-    prefixes: &mut Vec<String>,
-) {
-    if same_path(file, sought) {
-        prefixes.push(prefix.to_owned());
-    }
-    let identity = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
-    if !visiting.insert(identity.clone()) {
-        return;
-    }
-    let syntax = fs::read_to_string(file)
-        .ok()
-        .and_then(|source| syn::parse_file(&source).ok());
-    if let Some(syntax) = syntax {
-        visit_module_items(
-            &syntax.items,
-            module_directory,
-            prefix,
-            sought,
-            visiting,
-            prefixes,
-        );
-    }
-    visiting.remove(&identity);
-}
-
-fn visit_module_items(
-    items: &[Item],
-    module_directory: &Path,
-    prefix: &str,
-    sought: &Path,
-    visiting: &mut BTreeSet<PathBuf>,
-    prefixes: &mut Vec<String>,
-) {
-    for item in items {
-        let Item::Mod(module) = item else {
-            continue;
-        };
-        let name = module.ident.to_string();
-        let child_prefix = join_module_path(prefix, &name);
-        let child_directory = module_directory.join(&name);
-        if let Some((_, items)) = &module.content {
-            visit_module_items(
-                items,
-                &child_directory,
-                &child_prefix,
-                sought,
-                visiting,
-                prefixes,
-            );
-            continue;
-        }
-        let candidates = [
-            module_directory.join(format!("{name}.rs")),
-            child_directory.join("mod.rs"),
-        ];
-        let existing = candidates
-            .iter()
-            .filter(|path| path.exists())
-            .collect::<Vec<_>>();
-        if existing.len() == 1 {
-            visit_module_file(
-                existing[0],
-                &child_directory,
-                &child_prefix,
-                sought,
-                visiting,
-                prefixes,
-            );
-        }
-    }
-}
-
-fn package_root_for_path(root: &Path, path: &Path) -> Option<PathBuf> {
-    let mut current = path.parent();
-    while let Some(directory) = current {
-        if directory.join("Cargo.toml").exists() {
-            return Some(directory.to_owned());
-        }
-        if directory == root {
-            break;
-        }
-        current = directory.parent();
-    }
-    None
-}
-
 
 #[cfg(test)]
 mod tests {
