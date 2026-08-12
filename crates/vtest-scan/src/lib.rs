@@ -32,52 +32,14 @@ mod discovery;
 pub mod operations;
 pub use operations::*;
 
+pub use discovery::Locator;
 pub(crate) use discovery::{
     is_test_function, join_module_path, line_offsets, make_location, parse_annotations,
-    parse_src_id, source_slice,
+    parse_src_id, source_slice, TestTarget,
 };
 
 const RUST_ADAPTER_ID: &str = "rust-cargo";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Locator {
-    pub path: String,
-    pub item_path: String,
-}
-
-impl Locator {
-    pub fn parse(value: &str) -> Option<Self> {
-        let separator = value.find("::")?;
-        let (path, item_path) = value.split_at(separator);
-        let item_path = item_path.strip_prefix("::")?;
-        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
-            return None;
-        }
-        Some(Self {
-            path: path.replace('\\', "/"),
-            item_path: item_path.to_owned(),
-        })
-    }
-
-    pub fn as_string(&self) -> String {
-        format!("{}::{}", self.path, self.item_path)
-    }
-
-    pub fn as_target(&self) -> TargetRef {
-        TargetRef::Locator {
-            adapter: AdapterId::new(RUST_ADAPTER_ID),
-            value: self.as_string(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum TestTarget {
-    Lib,
-    Bin(String),
-    IntegrationTest(String),
-    Unknown,
-}
 
 #[derive(Debug, Error)]
 pub enum ScanError {

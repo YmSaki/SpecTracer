@@ -7,9 +7,49 @@
 use std::collections::BTreeMap;
 
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};
-use vtest_model::{AdapterId, ProjectPath, SourceLocation, SourceRange, SrcId};
+use vtest_model::{AdapterId, ProjectPath, SourceLocation, SourceRange, SrcId, TargetRef};
 
 use crate::RUST_ADAPTER_ID;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Locator {
+    pub path: String,
+    pub item_path: String,
+}
+
+impl Locator {
+    pub fn parse(value: &str) -> Option<Self> {
+        let separator = value.find("::")?;
+        let (path, item_path) = value.split_at(separator);
+        let item_path = item_path.strip_prefix("::")?;
+        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
+            return None;
+        }
+        Some(Self {
+            path: path.replace('\\', "/"),
+            item_path: item_path.to_owned(),
+        })
+    }
+
+    pub fn as_string(&self) -> String {
+        format!("{}::{}", self.path, self.item_path)
+    }
+
+    pub fn as_target(&self) -> TargetRef {
+        TargetRef::Locator {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            value: self.as_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum TestTarget {
+    Lib,
+    Bin(String),
+    IntegrationTest(String),
+    Unknown,
+}
 
 pub(crate) struct ParsedAnnotations {
     pub(crate) values: BTreeMap<String, String>,
