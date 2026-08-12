@@ -9,7 +9,7 @@ use std::{
 use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
 use syn::spanned::Spanned;
-use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
+use syn::{Attribute, ImplItem, Item, ItemFn, ItemImpl};
 use thiserror::Error;
 use vtest_adapter_api::{
     AdapterError, DiscoveredTestDraft, DiscoveryBatch, DiscoveryCompleteness, ManagedTestDraft,
@@ -32,7 +32,10 @@ mod discovery;
 pub mod operations;
 pub use operations::*;
 
-pub(crate) use discovery::{join_module_path, line_offsets, make_location, source_slice};
+pub(crate) use discovery::{
+    is_test_function, join_module_path, line_offsets, make_location, parse_annotations,
+    parse_src_id, source_slice,
+};
 
 const RUST_ADAPTER_ID: &str = "rust-cargo";
 
@@ -1867,91 +1870,6 @@ fn cross_entity_diagnostics(
         }
     }
     diagnostics
-}
-
-struct ParsedAnnotations {
-    values: BTreeMap<String, String>,
-    repeated: BTreeMap<String, Vec<String>>,
-}
-
-fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations> {
-    let mut lines = Vec::new();
-    for attr in attrs {
-        if !attr.path().is_ident("doc") {
-            continue;
-        }
-        let Meta::NameValue(value) = &attr.meta else {
-            continue;
-        };
-        let Expr::Lit(ExprLit {
-            lit: Lit::Str(text),
-            ..
-        }) = &value.value
-        else {
-            continue;
-        };
-        lines.extend(text.value().lines().map(|line| line.trim().to_owned()));
-    }
-    if !lines.iter().any(|line| line.contains("@vtest.")) {
-        return None;
-    }
-    let mut values = BTreeMap::new();
-    let mut repeated = BTreeMap::<String, Vec<String>>::new();
-    const KNOWN: &[&str] = &[
-        "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related", "src-id",
-    ];
-    let mut had_error = false;
-    for line in lines {
-        let Some(annotation) = line.strip_prefix("@vtest.") else {
-            continue;
-        };
-        let (key, value) = if let Some(separator) = annotation.find(char::is_whitespace) {
-            annotation.split_at(separator)
-        } else {
-            (annotation, "")
-        };
-        let key = key.trim().to_owned();
-        let value = value.trim().to_owned();
-        if !KNOWN.contains(&key.as_str()) {
-            // The caller cannot attach a parser diagnostic without losing the
-            // source location, so retain a sentinel that is handled below.
-            values.insert("__unknown_key__".to_owned(), key);
-            had_error = true;
-            continue;
-        }
-        if matches!(key.as_str(), "case" | "related" | "target") {
-            repeated.entry(key).or_default().push(value);
-        } else if values.insert(key.clone(), value).is_some() {
-            values.insert("__duplicate_key__".to_owned(), key);
-            had_error = true;
-        }
-    }
-    if had_error {
-        // Preserve parse information in a deterministic diagnostic channel.
-        // `parse_annotations` itself stays total and its caller emits the
-        // proper location-aware diagnostic.
-        if let Some(key) = values.remove("__unknown_key__") {
-            values.insert("__parse_error__".to_owned(), format!("unknown:{key}"));
-        } else if let Some(key) = values.remove("__duplicate_key__") {
-            values.insert("__parse_error__".to_owned(), format!("duplicate:{key}"));
-        }
-    }
-    Some(ParsedAnnotations { values, repeated })
-}
-
-fn is_test_function(attrs: &[Attribute]) -> bool {
-    attrs.iter().any(|attr| {
-        attr.path()
-            .segments
-            .last()
-            .is_some_and(|segment| segment.ident == "test")
-    })
-}
-
-fn parse_src_id(attrs: &[Attribute]) -> Option<SrcId> {
-    parse_annotations(attrs)
-        .and_then(|annotations| annotations.values.get("src-id").cloned())
-        .map(SrcId::new)
 }
 
 struct SourceContext {

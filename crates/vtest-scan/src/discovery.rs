@@ -4,9 +4,97 @@
 //! grouping the language-specific surface into one module isolates it first so
 //! the cross-crate move is mechanical.
 
-use vtest_model::{AdapterId, ProjectPath, SourceLocation, SourceRange};
+use std::collections::BTreeMap;
+
+use syn::{Attribute, Expr, ExprLit, Lit, Meta};
+use vtest_model::{AdapterId, ProjectPath, SourceLocation, SourceRange, SrcId};
 
 use crate::RUST_ADAPTER_ID;
+
+pub(crate) struct ParsedAnnotations {
+    pub(crate) values: BTreeMap<String, String>,
+    pub(crate) repeated: BTreeMap<String, Vec<String>>,
+}
+
+pub(crate) fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations> {
+    let mut lines = Vec::new();
+    for attr in attrs {
+        if !attr.path().is_ident("doc") {
+            continue;
+        }
+        let Meta::NameValue(value) = &attr.meta else {
+            continue;
+        };
+        let Expr::Lit(ExprLit {
+            lit: Lit::Str(text),
+            ..
+        }) = &value.value
+        else {
+            continue;
+        };
+        lines.extend(text.value().lines().map(|line| line.trim().to_owned()));
+    }
+    if !lines.iter().any(|line| line.contains("@vtest.")) {
+        return None;
+    }
+    let mut values = BTreeMap::new();
+    let mut repeated = BTreeMap::<String, Vec<String>>::new();
+    const KNOWN: &[&str] = &[
+        "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related", "src-id",
+    ];
+    let mut had_error = false;
+    for line in lines {
+        let Some(annotation) = line.strip_prefix("@vtest.") else {
+            continue;
+        };
+        let (key, value) = if let Some(separator) = annotation.find(char::is_whitespace) {
+            annotation.split_at(separator)
+        } else {
+            (annotation, "")
+        };
+        let key = key.trim().to_owned();
+        let value = value.trim().to_owned();
+        if !KNOWN.contains(&key.as_str()) {
+            // The caller cannot attach a parser diagnostic without losing the
+            // source location, so retain a sentinel that is handled below.
+            values.insert("__unknown_key__".to_owned(), key);
+            had_error = true;
+            continue;
+        }
+        if matches!(key.as_str(), "case" | "related" | "target") {
+            repeated.entry(key).or_default().push(value);
+        } else if values.insert(key.clone(), value).is_some() {
+            values.insert("__duplicate_key__".to_owned(), key);
+            had_error = true;
+        }
+    }
+    if had_error {
+        // Preserve parse information in a deterministic diagnostic channel.
+        // `parse_annotations` itself stays total and its caller emits the
+        // proper location-aware diagnostic.
+        if let Some(key) = values.remove("__unknown_key__") {
+            values.insert("__parse_error__".to_owned(), format!("unknown:{key}"));
+        } else if let Some(key) = values.remove("__duplicate_key__") {
+            values.insert("__parse_error__".to_owned(), format!("duplicate:{key}"));
+        }
+    }
+    Some(ParsedAnnotations { values, repeated })
+}
+
+pub(crate) fn is_test_function(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.path()
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "test")
+    })
+}
+
+pub(crate) fn parse_src_id(attrs: &[Attribute]) -> Option<SrcId> {
+    parse_annotations(attrs)
+        .and_then(|annotations| annotations.values.get("src-id").cloned())
+        .map(SrcId::new)
+}
 
 pub(crate) fn join_module_path(prefix: &str, item_path: &str) -> String {
     if prefix.is_empty() {
