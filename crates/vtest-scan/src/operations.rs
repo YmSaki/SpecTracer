@@ -67,12 +67,15 @@ pub fn create_test(
     let scan = crate::scan_project(root)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let layout = VerifyLayout::new(root);
+    let config =
+        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let includes = &config.rust_cargo().scan.include;
     let schema = load_form_schema(&layout, form_kind)
         .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
-    let answers = validate_form_answers(root, &schema, supplied, &scan)?;
+    let answers = validate_form_answers(includes, root, &schema, supplied, &scan)?;
     let test_id = select_test_id(&scan, &answers, explicit_id)?;
     let file = destination_file(supplied)?;
-    validate_rust_file(root, &file)?;
+    validate_rust_file(includes, root, &file)?;
     let path = root.join(Path::new(&file));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
@@ -195,9 +198,13 @@ pub fn edit_test(
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
         let layout = VerifyLayout::new(root);
+        let config =
+            load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        let includes = &config.rust_cargo().scan.include;
         let schema = load_form_schema(&layout, &supplied.form)
             .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
-        let answers = validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id))?;
+        let answers =
+            validate_form_answers_for(includes, root, &schema, supplied, &scan, Some(test_id))?;
         desired.apply_complete_answers(&schema, &answers)?;
     } else {
         desired.apply_sets(set)?;
@@ -897,15 +904,17 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
 }
 
 pub fn validate_form_answers(
+    includes: &[String],
     root: &Path,
     schema: &FormSchema,
     supplied: &FormAnswers,
     scan: &ScanResult,
 ) -> Result<BTreeMap<String, FormValue>, Diagnostic> {
-    validate_form_answers_for(root, schema, supplied, scan, None)
+    validate_form_answers_for(includes, root, schema, supplied, scan, None)
 }
 
 fn validate_form_answers_for(
+    includes: &[String],
     root: &Path,
     schema: &FormSchema,
     supplied: &FormAnswers,
@@ -1008,10 +1017,10 @@ fn validate_form_answers_for(
                 }
                 "rust-file" => {
                     let relative = scalar(value, &field.name)?;
-                    validate_rust_file(root, relative)?;
+                    validate_rust_file(includes, root, relative)?;
                 }
                 "enum-variant-exists" => {
-                    validate_enum_variant(root, scalar(value, &field.name)?)?;
+                    validate_enum_variant(includes, root, scalar(value, &field.name)?)?;
                 }
                 unknown => {
                     return Err(Diagnostic::error(
@@ -1396,7 +1405,7 @@ fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
     ))
 }
 
-fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
+fn validate_rust_file(includes: &[String], root: &Path, relative: &str) -> Result<(), Diagnostic> {
     let relative_path = Path::new(relative);
     if relative_path.is_absolute()
         || relative_path.components().any(|component| {
@@ -1419,12 +1428,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
             format!("Rust file does not exist: `{relative}`"),
         ));
     }
-    let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    if !config
-        .rust_cargo()
-        .scan
-        .include
+    if !includes
         .iter()
         .any(|include| relative_path.starts_with(Path::new(include)))
     {
@@ -1446,7 +1450,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
+fn validate_enum_variant(includes: &[String], root: &Path, value: &str) -> Result<(), Diagnostic> {
     let Some((type_path, variant)) = value.rsplit_once("::") else {
         return Ok(());
     };
@@ -1456,10 +1460,8 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     {
         return Ok(());
     }
-    let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let mut files = Vec::new();
-    for include in config.rust_cargo().scan.include.clone() {
+    for include in includes {
         collect_rust_files(&root.join(include), &mut files);
     }
     files.sort();
