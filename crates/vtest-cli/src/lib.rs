@@ -10,16 +10,16 @@ use std::{
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use vtest_adapter_api::{encode_test_wire, AdapterError, AdapterRegistry};
-use vtest_adapter_rust::rust_cargo_registration;
+use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
 use vtest_exec::{run_tests, RunnableTest, RustLocator};
 use vtest_model::{
-    hash_specification_source, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId, Revision,
-    ScanSummary, SourceFunction, SpecId, TargetRef, TestEntity, VoId,
+    hash_specification_source, AdapterId, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId,
+    Revision, ScanSummary, SourceFunction, SpecId, TargetRef, TestEntity, VoId,
 };
 use vtest_scan::{
-    create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
-    show_test, Locator as ScanLocator, ScanError, ScanResult,
+    create_test, edit_test, list_tests, parse_test_set_values, query_tests,
+    scan_project_with_discovery, show_test, Locator as ScanLocator, ScanError, ScanResult,
 };
 use vtest_store::{
     approval_subject_hash, current_approval_subject, derive_vo_status, find_project_root,
@@ -339,6 +339,16 @@ fn built_in_registry() -> Result<AdapterRegistry, AdapterError> {
     AdapterRegistry::from_registrations([rust_cargo_registration()])
 }
 
+/// Scans a project by resolving the source discovery adapter from the built-in
+/// registry rather than hard-coding it, so the core scan never names a language
+/// adapter. Drop-in for `scan_project`: same signature and error type.
+fn scan_with_registry(root: &Path) -> Result<ScanResult, ScanError> {
+    let config = load_config(root)?;
+    let registry = built_in_registry()?;
+    let discovery = registry.source_discovery(&AdapterId::new(RUST_CARGO_ADAPTER_ID))?;
+    scan_project_with_discovery(root, &config, discovery)
+}
+
 pub fn run(cli: Cli) -> ExitCode {
     let project = cli.project;
     let format = cli.format;
@@ -398,7 +408,7 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
         Ok(root) => root,
         Err(code) => return code,
     };
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             return finish_record_command(
@@ -517,7 +527,7 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    match scan_project(&root) {
+    match scan_with_registry(&root) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let diagnostics = result.diagnostics.clone();
@@ -717,7 +727,7 @@ fn run_audit_static(
         );
         return ExitCode::Usage;
     }
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             emit(
@@ -849,7 +859,7 @@ fn run_audit_bundle(
         Err(code) => return code,
     };
     let layout = VerifyLayout::new(&root);
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             emit(
@@ -1072,7 +1082,7 @@ fn run_audit_submit(project: &Path, file: &Path, format: OutputFormat, quiet: bo
             quiet,
         );
     }
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             return emit_command_failure(
@@ -2171,7 +2181,7 @@ fn run_run(
         );
         return ExitCode::Usage;
     }
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             emit(
@@ -2364,7 +2374,7 @@ fn run_verify(
             return code;
         }
     };
-    let scan = match scan_project(&root) {
+    let scan = match scan_with_registry(&root) {
         Ok(scan) => scan,
         Err(error) => {
             emit(
@@ -3057,7 +3067,7 @@ fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
     validate_id(id, "VO-")?;
     let record = read_vo(layout, id).map_err(store_failure)?;
     let effective = effective_vo_status(layout, &record);
-    let scan = scan_project(&layout.root).map_err(|error| {
+    let scan = scan_with_registry(&layout.root).map_err(|error| {
         failure(
             "E-CORE-001",
             format!("could not scan covering tests for VO {id}: {error}"),
@@ -4149,7 +4159,7 @@ mod tests {
             }) as u8,
             0
         );
-        let scan = scan_project(&root).unwrap();
+        let scan = scan_with_registry(&root).unwrap();
         let created = scan
             .tests
             .iter()
@@ -4194,7 +4204,7 @@ mod tests {
                 "/// @vtest.intent adds two integers\n/// retained free-form explanation\n",
             );
         fs::write(root.join("src/lib.rs"), with_free_doc).unwrap();
-        let before_edit = scan_project(&root).unwrap();
+        let before_edit = scan_with_registry(&root).unwrap();
         let other_hash = before_edit
             .tests
             .iter()
@@ -4243,7 +4253,7 @@ mod tests {
             }) as u8,
             0
         );
-        let after_edit = scan_project(&root).unwrap();
+        let after_edit = scan_with_registry(&root).unwrap();
         assert_eq!(
             after_edit
                 .tests
@@ -4318,7 +4328,7 @@ mod tests {
             }) as u8,
             0
         );
-        let body_scan = scan_project(&root).unwrap();
+        let body_scan = scan_with_registry(&root).unwrap();
         assert_eq!(
             body_scan
                 .tests
@@ -4353,7 +4363,7 @@ mod tests {
             }) as u8,
             0
         );
-        let integration_scan = scan_project(&root).unwrap();
+        let integration_scan = scan_with_registry(&root).unwrap();
         let integration = integration_scan
             .tests
             .iter()
