@@ -8,11 +8,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use ignore::WalkBuilder;
 use serde::Deserialize;
-use syn::{Attribute, Expr, ExprLit, Item, Lit, Meta};
-use vtest_model::{AdapterId, ProjectPath, SourceLocation, SourceRange, SrcId, TargetRef};
+use syn::spanned::Spanned;
+use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
+use vtest_adapter_api::{
+    AdapterError, DiscoveredTestDraft, DiscoveryBatch, DiscoveryCompleteness, ManagedTestDraft,
+    ManagedTestDraftLink, SourceDiscoveryAdapter, SourceFragment, SourceTargetDraft,
+};
+use vtest_model::{
+    AdapterId, CanonicalProjection, Diagnostic, ExecutionDescriptor, ProjectPath, SourceLocation,
+    SourceRange, SrcId, TargetRef, TestId, TestSuite, VoId,
+};
 
-use crate::RUST_ADAPTER_ID;
+use crate::{record_location, RUST_ADAPTER_ID};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Locator {
@@ -574,4 +583,580 @@ pub(crate) fn package_root_for_path(root: &Path, path: &Path) -> Option<PathBuf>
 
 pub(crate) fn package_name(root: &Path) -> Option<String> {
     cargo_manifest(root).and_then(|manifest| manifest.package.map(|package| package.name))
+}
+
+pub(crate) fn projection_string(projection: &CanonicalProjection, key: &str) -> Option<String> {
+    match projection {
+        CanonicalProjection::Map(map) => match map.get(key) {
+            Some(CanonicalProjection::String(value)) => Some(value.clone()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+pub(crate) fn projection_strings(projection: &CanonicalProjection, key: &str) -> Vec<String> {
+    match projection {
+        CanonicalProjection::Map(map) => match map.get(key) {
+            Some(CanonicalProjection::List(values)) => values
+                .iter()
+                .filter_map(|value| match value {
+                    CanonicalProjection::String(value) => Some(value.clone()),
+                    _ => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    }
+}
+
+/// Built-in `rust-cargo` source discovery. Reads the neutral projection and the
+/// current filesystem and returns a hash-free `DiscoveryBatch`; core validates,
+/// hashes, and materializes it. This is the boundary that moves wholesale to
+/// `vtest-adapter-rust` in the next step.
+#[derive(Debug, Default)]
+pub struct RustCargoDiscovery;
+
+impl SourceDiscoveryAdapter for RustCargoDiscovery {
+    fn discover(
+        &self,
+        root: &Path,
+        config: &CanonicalProjection,
+    ) -> Result<DiscoveryBatch, AdapterError> {
+        let fallback = projection_string(config, "package").unwrap_or_default();
+        let package = package_name(root).unwrap_or(fallback);
+        let mut paths = Vec::new();
+        for include in projection_strings(config, "include") {
+            let include_path = root.join(&include);
+            collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
+                AdapterError::MalformedOutput(format!(
+                    "cannot scan `{}`: {error}",
+                    include_path.display()
+                ))
+            })?;
+        }
+        paths.sort();
+        paths.dedup();
+        let mut scanner = Scanner::new(root, &package);
+        for path in &paths {
+            scanner.scan_file(path);
+        }
+        Ok(scanner.finish())
+    }
+}
+
+pub(crate) fn collect_rs_files(
+    project_root: &Path,
+    path: &Path,
+    output: &mut Vec<PathBuf>,
+) -> Result<(), ignore::Error> {
+    if !path.exists() {
+        return Ok(());
+    }
+    if path.is_file() {
+        if path.extension().and_then(|v| v.to_str()) == Some("rs") {
+            output.push(path.to_owned());
+        }
+        return Ok(());
+    }
+    let include_root = path.to_owned();
+    let project_root = project_root.to_owned();
+    let mut builder = WalkBuilder::new(&project_root);
+    builder
+        .standard_filters(false)
+        .hidden(false)
+        .parents(false)
+        .ignore(false)
+        .git_ignore(true)
+        .git_global(false)
+        .git_exclude(false)
+        .require_git(false)
+        .follow_links(false)
+        .filter_entry(move |entry| {
+            entry.file_name().to_str() != Some("target")
+                && (include_root.starts_with(entry.path())
+                    || entry.path().starts_with(&include_root))
+        });
+    for entry in builder.build() {
+        let entry = entry?;
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
+            continue;
+        }
+        if entry.path().extension().and_then(|value| value.to_str()) == Some("rs") {
+            output.push(entry.into_path());
+        }
+    }
+    Ok(())
+}
+
+pub(crate) struct Scanner<'a> {
+    root: &'a Path,
+    fallback_package: &'a str,
+    discovered_tests: Vec<DiscoveredTestDraft>,
+    source_targets: Vec<SourceTargetDraft>,
+    diagnostics: Vec<Diagnostic>,
+    test_ids: BTreeSet<String>,
+}
+
+impl<'a> Scanner<'a> {
+    fn new(root: &'a Path, fallback_package: &'a str) -> Self {
+        Self {
+            root,
+            fallback_package,
+            discovered_tests: Vec::new(),
+            source_targets: Vec::new(),
+            diagnostics: Vec::new(),
+            test_ids: BTreeSet::new(),
+        }
+    }
+
+    fn scan_file(&mut self, path: &Path) {
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        let file_location = record_location(self.root, path, file_name);
+        let source = match fs::read_to_string(path) {
+            Ok(source) => source,
+            Err(source) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-001",
+                        format!("failed to read {}: {source}", path.display()),
+                    )
+                    .with_location(file_location.clone()),
+                );
+                return;
+            }
+        };
+        let syntax = match syn::parse_file(&source) {
+            Ok(syntax) => syntax,
+            Err(error) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-001",
+                        format!("failed to parse {}: {error}", path.display()),
+                    )
+                    .with_location(file_location),
+                );
+                return;
+            }
+        };
+        let relative = path
+            .strip_prefix(self.root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let context = source_context(self.root, path, self.fallback_package);
+        let line_offsets = line_offsets(&source);
+        self.collect_items(
+            &syntax.items,
+            &relative,
+            &context.test_target,
+            &context.package,
+            &context.filter_prefix,
+            &source,
+            &line_offsets,
+            "",
+            path,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_items(
+        &mut self,
+        items: &[Item],
+        relative: &str,
+        test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) {
+        for item in items {
+            match item {
+                Item::Fn(item_fn) => self.collect_fn(
+                    item_fn,
+                    relative,
+                    test_target,
+                    package,
+                    filter_prefix,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                ),
+                Item::Impl(item_impl) => self.collect_impl(
+                    item_impl,
+                    relative,
+                    test_target,
+                    package,
+                    filter_prefix,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                ),
+                Item::Mod(item_mod) => {
+                    if let Some((_, nested)) = &item_mod.content {
+                        let nested_module = if module.is_empty() {
+                            item_mod.ident.to_string()
+                        } else {
+                            format!("{module}::{}", item_mod.ident)
+                        };
+                        self.collect_items(
+                            nested,
+                            relative,
+                            test_target,
+                            package,
+                            filter_prefix,
+                            source,
+                            line_offsets,
+                            &nested_module,
+                            path,
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_impl(
+        &mut self,
+        item_impl: &ItemImpl,
+        relative: &str,
+        test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) {
+        let type_name = match item_impl.self_ty.as_ref() {
+            syn::Type::Path(value) => value.path.segments.last().map(|v| v.ident.to_string()),
+            _ => None,
+        };
+        let Some(type_name) = type_name else { return };
+        for item in &item_impl.items {
+            let ImplItem::Fn(item_fn) = item else {
+                continue;
+            };
+            let item_path = if module.is_empty() {
+                format!("{type_name}::{}", item_fn.sig.ident)
+            } else {
+                format!("{module}::{type_name}::{}", item_fn.sig.ident)
+            };
+            self.collect_function_parts(
+                &item_fn.attrs,
+                &item_fn.sig.ident.to_string(),
+                &item_path,
+                item_fn.span(),
+                relative,
+                test_target,
+                package,
+                filter_prefix,
+                source,
+                line_offsets,
+                path,
+            );
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_fn(
+        &mut self,
+        item_fn: &ItemFn,
+        relative: &str,
+        test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) {
+        let item_path = if module.is_empty() {
+            item_fn.sig.ident.to_string()
+        } else {
+            format!("{module}::{}", item_fn.sig.ident)
+        };
+        self.collect_function_parts(
+            &item_fn.attrs,
+            &item_fn.sig.ident.to_string(),
+            &item_path,
+            item_fn.span(),
+            relative,
+            test_target,
+            package,
+            filter_prefix,
+            source,
+            line_offsets,
+            path,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_function_parts(
+        &mut self,
+        attrs: &[Attribute],
+        function_name: &str,
+        item_path: &str,
+        span: proc_macro2::Span,
+        relative: &str,
+        test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
+        source: &str,
+        line_offsets: &[usize],
+        _path: &Path,
+    ) {
+        let location = make_location(relative, item_path, span, source, line_offsets);
+        let content = source_slice(source, &location);
+        let construct = SourceFragment {
+            location: location.clone(),
+            bytes: content.as_bytes().to_vec(),
+        };
+        self.source_targets.push(SourceTargetDraft {
+            target: Locator {
+                path: relative.to_owned(),
+                item_path: item_path.to_owned(),
+            }
+            .as_target(),
+            src_id: parse_src_id(attrs),
+            location: location.clone(),
+            construct: construct.clone(),
+        });
+
+        if !is_test_function(attrs) {
+            return;
+        }
+        let Some(annotation) = parse_annotations(attrs) else {
+            self.diagnostics.push(
+                Diagnostic::warning(
+                    "W-SCAN-101",
+                    format!("test function `{function_name}` has no @vtest annotation"),
+                )
+                .with_location(location),
+            );
+            return;
+        };
+        if let Some(parse_error) = annotation.values.get("__parse_error__") {
+            let (kind, key) = parse_error
+                .split_once(':')
+                .unwrap_or(("unknown", parse_error));
+            let (code, message) = if kind == "duplicate" {
+                ("E-SCAN-005", format!("duplicate annotation key `{key}`"))
+            } else {
+                ("E-SCAN-006", format!("unknown @vtest key `{key}`"))
+            };
+            self.diagnostics
+                .push(Diagnostic::error(code, message).with_location(location));
+            return;
+        }
+        let Some(id) = annotation
+            .values
+            .get("id")
+            .filter(|value| !value.is_empty())
+        else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-007",
+                    format!("test `{function_name}` is missing required @vtest.id"),
+                )
+                .with_location(location),
+            );
+            return;
+        };
+        let Some(covers) = annotation
+            .values
+            .get("covers")
+            .filter(|value| !value.is_empty())
+        else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-007",
+                    format!("test `{function_name}` is missing required @vtest.covers"),
+                )
+                .with_location(location),
+            );
+            return;
+        };
+        let Some(target_values) = annotation
+            .repeated
+            .get("target")
+            .filter(|values| !values.is_empty() && values.iter().all(|value| !value.is_empty()))
+        else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-007",
+                    format!("test `{function_name}` is missing required @vtest.target"),
+                )
+                .with_location(location),
+            );
+            return;
+        };
+        let integration = annotation
+            .values
+            .get("kind")
+            .is_some_and(|kind| kind.starts_with("integration"));
+        if target_values.len() > 1 && !integration {
+            self.diagnostics.push(
+                Diagnostic::error("E-SCAN-005", "duplicate annotation key `target`")
+                    .with_location(location),
+            );
+            return;
+        }
+        let Some(intent) = annotation
+            .values
+            .get("intent")
+            .filter(|value| !value.is_empty())
+        else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-007",
+                    format!("test `{function_name}` is missing required @vtest.intent"),
+                )
+                .with_location(location),
+            );
+            return;
+        };
+        let test_id = TestId::new(id);
+        if !self.test_ids.insert(id.clone()) {
+            self.diagnostics.push(
+                Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{id}`"))
+                    .with_location(location.clone()),
+            );
+            return;
+        }
+        if matches!(test_target, TestTarget::Unknown) {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-004",
+                    format!("test `{id}` Cargo test target cannot be resolved"),
+                )
+                .with_location(location.clone()),
+            );
+        }
+        let covers = covers
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(VoId::new)
+            .collect::<Vec<_>>();
+        if covers.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-007",
+                    format!("test `{id}` has no VO in @vtest.covers"),
+                )
+                .with_location(location.clone()),
+            );
+        }
+        let targets = target_values
+            .iter()
+            .map(|target_value| {
+                if let Some(src_id) = target_value.strip_prefix("SRC-") {
+                    TargetRef::SrcId(SrcId::new(format!("SRC-{src_id}")))
+                } else if let Some(locator) = Locator::parse(target_value) {
+                    locator.as_target()
+                } else {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "E-SCAN-004",
+                            format!("test `{id}` has an invalid target locator `{target_value}`"),
+                        )
+                        .with_location(location.clone()),
+                    );
+                    Locator {
+                        path: relative.to_owned(),
+                        item_path: item_path.to_owned(),
+                    }
+                    .as_target()
+                }
+            })
+            .collect::<Vec<_>>();
+        let execution = ExecutionDescriptor {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            project: Some(package.to_owned()),
+            suite: Some(match test_target {
+                TestTarget::Lib => TestSuite {
+                    kind: "lib".to_owned(),
+                    name: None,
+                },
+                TestTarget::Bin(name) => TestSuite {
+                    kind: "bin".to_owned(),
+                    name: Some(name.clone()),
+                },
+                TestTarget::IntegrationTest(name) => TestSuite {
+                    kind: "integration".to_owned(),
+                    name: Some(name.clone()),
+                },
+                TestTarget::Unknown => TestSuite {
+                    kind: "unknown".to_owned(),
+                    name: None,
+                },
+            }),
+            selector: join_module_path(filter_prefix, item_path),
+        };
+        let input = annotation.values.get("input").cloned();
+        let expect = annotation.values.get("expect").cloned();
+        let kind = annotation.values.get("kind").cloned();
+        let cases = annotation.repeated.get("case").cloned().unwrap_or_default();
+        let related = annotation
+            .repeated
+            .get("related")
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(TestId::new)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let managed = ManagedTestDraft {
+            id: test_id,
+            covers,
+            targets,
+            intent: intent.clone(),
+            input,
+            expect,
+            kind,
+            cases,
+            related,
+            execution,
+        };
+        self.discovered_tests.push(DiscoveredTestDraft {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            location: location.clone(),
+            construct: construct.clone(),
+            metadata_sources: vec![construct],
+            managed: ManagedTestDraftLink::One(managed),
+        });
+    }
+
+    /// Emit the hash-free discovery batch. The adapter only carries the
+    /// per-item diagnostics it can decide locally (read/parse failures,
+    /// structural annotation violations). Cross-entity resolution
+    /// (E-SCAN-003 covers, E-SCAN-004 target resolution, E-SCAN-011 SRC ID
+    /// collision) is owned by core, and canonical subjects are computed by
+    /// `materialize_discovery_batch`.
+    fn finish(self) -> DiscoveryBatch {
+        DiscoveryBatch {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            completeness: DiscoveryCompleteness::Complete,
+            discovered_tests: self.discovered_tests,
+            source_targets: self.source_targets,
+            diagnostics: self.diagnostics,
+        }
+    }
 }
