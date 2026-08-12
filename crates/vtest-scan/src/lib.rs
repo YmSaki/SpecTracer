@@ -376,10 +376,23 @@ pub fn scan_project_with_config(
     root: &Path,
     config: &ProjectConfig,
 ) -> Result<ScanResult, ScanError> {
+    scan_project_with_discovery(root, config, &RustCargoDiscovery)
+}
+
+/// Scan with an explicitly provided source discovery adapter. This is the
+/// injection point the CLI/MCP registry threads through; `scan_project_with_config`
+/// supplies the built-in `rust-cargo` discovery. Core still owns the
+/// config → projection mapping, validation, hashing/materialization,
+/// cross-entity resolution, and record validation.
+pub fn scan_project_with_discovery(
+    root: &Path,
+    config: &ProjectConfig,
+    discovery: &dyn SourceDiscoveryAdapter,
+) -> Result<ScanResult, ScanError> {
     let entity_ids = read_entity_ids(root)?;
     let vo_ids = entity_ids[2].iter().cloned().collect::<BTreeSet<_>>();
     let projection = rust_cargo_discovery_projection(config);
-    let batch = RustCargoDiscovery.discover(root, &projection)?;
+    let batch = discovery.discover(root, &projection)?;
     let files = batch
         .discovered_tests
         .iter()
