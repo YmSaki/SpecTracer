@@ -555,7 +555,12 @@ dependencies = [
 name = "vtest-adapter-rust"
 version = "0.1.0"
 dependencies = [
+ "ignore",
+ "proc-macro2",
+ "serde",
  "serde_json",
+ "syn 2.0.119",
+ "toml",
  "vtest-adapter-api",
  "vtest-model",
 ]
@@ -639,6 +644,7 @@ dependencies = [
  "thiserror",
  "toml",
  "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]
