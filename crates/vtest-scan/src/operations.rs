@@ -189,7 +189,7 @@ pub fn edit_test(
         .cloned()
         .ok_or_else(|| {
             Diagnostic::error("E-OP-002", format!("Test `{test_id}` could not be located"))
-                .with_candidates(test_id_candidates(&scan, test_id))
+                .with_candidates(test_id_candidates(&scan.tests, test_id))
         })?;
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
@@ -455,7 +455,7 @@ fn validate_desired_test(
                 "E-OP-001",
                 format!("invalid source locator `{target}`"),
             )
-            .with_candidates(symbol_candidates(scan, target)));
+            .with_candidates(symbol_candidates(&scan.sources, target)));
         };
         if !scan
             .sources
@@ -466,7 +466,7 @@ fn validate_desired_test(
                 "E-OP-001",
                 format!("source symbol `{target}` does not exist"),
             )
-            .with_candidates(symbol_candidates(scan, target)));
+            .with_candidates(symbol_candidates(&scan.sources, target)));
         }
     }
     if desired.intent.trim().is_empty() {
@@ -501,7 +501,7 @@ fn validate_desired_test(
                 "E-OP-001",
                 format!("related Test `{related}` does not exist"),
             )
-            .with_candidates(test_id_candidates(scan, related)));
+            .with_candidates(test_id_candidates(&scan.tests, related)));
         }
     }
     Ok(())
@@ -765,7 +765,7 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
         .cloned()
         .ok_or_else(|| {
             Diagnostic::error("E-OP-001", format!("Test `{id}` does not exist"))
-                .with_candidates(test_id_candidates(scan, id))
+                .with_candidates(test_id_candidates(&scan.tests, id))
         })?;
     let layout = VerifyLayout::new(root);
     let mut audits = Vec::new();
@@ -871,7 +871,7 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
     let Some(locator) = Locator::parse(source) else {
         return Err(
             Diagnostic::error("E-OP-001", format!("invalid source locator `{source}`"))
-                .with_candidates(symbol_candidates(scan, source)),
+                .with_candidates(symbol_candidates(&scan.sources, source)),
         );
     };
     if !scan
@@ -883,7 +883,7 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
             "E-OP-001",
             format!("source symbol `{source}` does not exist"),
         )
-        .with_candidates(symbol_candidates(scan, source)));
+        .with_candidates(symbol_candidates(&scan.sources, source)));
     }
     let mut tests = scan
         .tests
@@ -957,10 +957,10 @@ fn validate_form_answers_for(
         for validator in &field.validate {
             match validator.as_str() {
                 "symbol-exists" => {
-                    validate_symbols(scan, &field.name, value, false)?;
+                    validate_symbols(&scan.sources, &field.name, value, false)?;
                 }
                 "symbols-exist" => {
-                    validate_symbols(scan, &field.name, value, true)?;
+                    validate_symbols(&scan.sources, &field.name, value, true)?;
                 }
                 "vo-exists" => {
                     for id in value.values() {
@@ -980,7 +980,7 @@ fn validate_form_answers_for(
                                 "E-OP-001",
                                 format!("Test `{id}` does not exist"),
                             )
-                            .with_candidates(test_id_candidates(scan, id)));
+                            .with_candidates(test_id_candidates(&scan.tests, id)));
                         }
                     }
                 }

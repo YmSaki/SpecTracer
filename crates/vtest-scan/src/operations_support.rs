@@ -9,9 +9,10 @@ use std::path::{Component, Path};
 
 use vtest_model::{
     Diagnostic, FormAnswers, FormField, FormSchema, FormValue, SourceFunction, TargetRef,
+    TestEntity,
 };
 
-use crate::{Locator, ScanResult, RUST_ADAPTER_ID};
+use crate::{Locator, RUST_ADAPTER_ID};
 
 pub(crate) fn validate_value_shape(field: &FormField, value: &FormValue) -> Result<(), Diagnostic> {
     let list_type = matches!(field.field_type.as_str(), "symbol-list" | "vo-ref-list");
@@ -100,7 +101,7 @@ pub(crate) fn validate_value_shape(field: &FormField, value: &FormValue) -> Resu
 }
 
 pub(crate) fn validate_symbols(
-    scan: &ScanResult,
+    sources: &[SourceFunction],
     field: &str,
     value: &FormValue,
     expect_list: bool,
@@ -117,10 +118,9 @@ pub(crate) fn validate_symbols(
                 "E-OP-001",
                 format!("invalid source locator `{symbol}`"),
             )
-            .with_candidates(symbol_candidates(scan, symbol)));
+            .with_candidates(symbol_candidates(sources, symbol)));
         };
-        if !scan
-            .sources
+        if !sources
             .iter()
             .any(|source| source_rust_locator(source).as_ref() == Some(&locator))
         {
@@ -128,7 +128,7 @@ pub(crate) fn validate_symbols(
                 "E-OP-001",
                 format!("source symbol `{symbol}` does not exist"),
             )
-            .with_candidates(symbol_candidates(scan, symbol)));
+            .with_candidates(symbol_candidates(sources, symbol)));
         }
     }
     Ok(())
@@ -294,12 +294,11 @@ pub(crate) fn collect_enum_variants(
     }
 }
 
-pub(crate) fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
+pub(crate) fn symbol_candidates(sources: &[SourceFunction], requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
         .map_or(requested, |(_, item)| item);
-    let mut exact_suffix = scan
-        .sources
+    let mut exact_suffix = sources
         .iter()
         .filter_map(source_rust_locator)
         .filter(|locator| {
@@ -311,8 +310,7 @@ pub(crate) fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<Strin
         })
         .map(|locator| locator.as_string())
         .collect::<Vec<_>>();
-    let mut near = scan
-        .sources
+    let mut near = sources
         .iter()
         .filter_map(source_rust_locator)
         .filter(|locator| {
@@ -346,9 +344,8 @@ pub(crate) fn source_rust_locator(source: &SourceFunction) -> Option<Locator> {
     rust_locator(&source.target)
 }
 
-pub(crate) fn test_id_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
-    let ids = scan
-        .tests
+pub(crate) fn test_id_candidates(tests: &[TestEntity], requested: &str) -> Vec<String> {
+    let ids = tests
         .iter()
         .map(|test| test.id.as_str().to_owned())
         .collect::<Vec<_>>();
