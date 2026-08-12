@@ -138,7 +138,7 @@ fn assert_scan_diagnostics_have_locations(json: &str) {
         .expect("scan diagnostics is an array")
     {
         assert!(
-            diagnostic["location"]["file"].is_string(),
+            diagnostic["location"]["path"].is_string(),
             "scanner diagnostic has no file location: {diagnostic}"
         );
     }
@@ -254,7 +254,7 @@ fn m1_warning_only_scan_exits_zero() {
         .iter()
         .find(|diagnostic| diagnostic["code"] == "W-SCAN-101")
         .unwrap();
-    assert_eq!(warning["location"]["file"], "tests/unregistered.rs");
+    assert_eq!(warning["location"]["path"], "tests/unregistered.rs");
 }
 
 #[test]
@@ -332,7 +332,7 @@ fn m1_error_diagnostic_matrix_is_reported_by_the_cli() {
             .find(|diagnostic| diagnostic["code"] == code)
             .unwrap_or_else(|| panic!("missing {code}: {json}"));
         assert_eq!(
-            diagnostic["location"]["file"], file,
+            diagnostic["location"]["path"], file,
             "wrong {code} location"
         );
     }
