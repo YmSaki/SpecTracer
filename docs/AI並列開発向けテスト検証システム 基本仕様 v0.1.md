@@ -30,7 +30,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Test Intent**：Testが「何を検証するか」を、実装コードを読まずに判断できる形で表した論理metadata。adapter所有の宣言表現から導出する（§6）。
 - **Test subject**：Test Entityのidentity、canonical metadata、Source Locationのadapter・path・opaque locator、execution descriptor、およびTest constructを正規化して束縛する検証対象。内容ハッシュはこのsubject全体に対して計算し、前方の無関係な編集で変動するbyte range自体は含めない。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能なimplementation construct。adapter IDとadapter所有のopaque locatorからなるTarget ReferenceまたはSRC IDで識別する。
-- **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetの参照・内容ハッシュ・実行計測結果を含む。
+- **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetを解決したcanonical Source Targetの参照・内容ハッシュ・実行計測結果を含む。target参照はTestが宣言した綴りではなく、解決後のcanonical Target Referenceとする。
 - **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
 - **Managed Test Entity**：adapter所有のsource declarationから具体化され、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataを持つTest Entity。Discovered Testとentityの対応数、VO参照の解決、Test IDの大局的一意性はentityの構造完全性と分けて検証する。
 - **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
@@ -466,7 +466,7 @@ Evidence には少なくとも次を含める。
 - Test ID と実行結果（PASS / FAIL）
 - 実行したadapter ID
 - 実行時のリポジトリリビジョン（Git commit hash）と dirty フラグ
-- 現在のTest subject全体の内容ハッシュ、および全宣言targetのTarget Referenceとadapterが特定するimplementation constructの内容ハッシュ
+- 現在のTest subject全体の内容ハッシュ、および全宣言targetを解決したcanonical Target Referenceとadapterが特定するimplementation constructの内容ハッシュ
 - 実行時のHEAD revision、実行adapter・runner・toolchain・実行影響config、および現在の実行可能状態を変えうるrepository / local dependency入力の完全なsnapshotを束縛したExecution State subject
 - 実行日時と実行方式
 - Target Execution Verification のtarget別結果とfail-closed集約結果（実施した場合）
@@ -476,7 +476,7 @@ Evidence には少なくとも次を含める。
 検証時、Evidence は次の条件をすべて満たす場合のみ有効とする（要件定義 §15）。
 
 - Evidence記録時のTest subject内容ハッシュが現在と一致する
-- Evidenceのtarget参照集合が現在のTestの宣言target集合と重複なく一致する
+- Evidenceのtarget参照集合が、現在のTestの宣言targetを解決したcanonical Source Target集合と重複なく一致する
 - Evidence記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する
 - Evidenceのadapter IDが現在のTestのexecution adapterと一致する
 - Evidence記録時のHEAD revisionが特定され、現在のHEAD revisionと一致する
@@ -495,7 +495,7 @@ Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidence�
 - 計測環境（カバレッジツール）が利用できない場合も `NOT_CHECKED` とし、PASS へ変換しない。
 - 各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、implementation constructを確実に同定または計測できなければ`UNKNOWN`とする。
 - Test単位の`target_execution`は、target別結果に1件でも`FAIL`があれば`FAIL`、`FAIL`がなく1件でも`UNKNOWN`があれば`UNKNOWN`、1件以上の全targetが`PASS`の場合だけ`PASS`とする。
-- target別結果の欠落、重複、または現在の宣言target集合との不一致を、全target計測済みの`PASS`として扱わない。
+- target別結果の欠落、重複、または現在の宣言targetを解決したcanonical Source Target集合との不一致を、全target計測済みの`PASS`として扱わない。
 
 ### 7.10 集約とレポート
 
