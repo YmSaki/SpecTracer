@@ -436,6 +436,7 @@ log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 **canonical Locator**の正規化文字列表現とする。参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）を
 Evidence上のtarget identityとして記録しない（§6.1.1）。
 このlistはTestの宣言target集合を解決したcanonical Source Target集合と重複なく1対1に対応する。
+Evidence生成のprecondition（§9.4）により全宣言targetは一意に解決済みであるため、この集合は宣言target集合と同数になる。
 `target_execution.checked: true`では`target_execution.targets`も同じ順序・同じcanonical Locator集合で
 1対1に対応する。
 `target_execution.checked: false`では`method`と`result`をnull、`targets`を空listとし、検証値を
@@ -828,7 +829,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 error は該当エンティティに関わるチェック項目を非PASSにする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
 W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断とは独立した`test_traceability`評価で`MISSING`になる。
-`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれのSource Targetも選択しない。いずれのadapterも選ばず、候補の1件をSource Target、Evidence、監査subject、`target_execution`へ永続化しない（§6.1）。
+`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれのSource Targetも選択しない。いずれのadapterも選ばず、候補の1件を解決結果としてEvidence、監査subject、`target_execution`へ永続化しない（§6.1）。衝突する恒久SRC IDを宣言した各Source Target自体は、canonical locatorで独立に具体化されたまま保持する。
 
 ### 5.5 `rust-cargo` SourceDiscoveryAdapter
 
@@ -874,8 +875,9 @@ coreは返却されたadapter IDとTarget Referenceの一致、source rangeの�
 
 SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。解決結果をlocator版とSrcId版の別entityへ分岐させない。恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。
 
-解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別し、曖昧はfail-closedな終端状態とする。曖昧な解決から代表候補を選ばず、解決済みのcanonical Source Targetを要求する後段（Source Target具体化、静的監査subject、Evidence、`target_execution`、鮮度判定）へ候補を1件も引き渡さない。候補は§6.3の診断表示にだけ用い、表示できることを選択の根拠にしない。
-この解決はcoreの単一経路が所有し、discovery、静的監査、実行、Evidence writer、検証集約はいずれもその結果を消費する。各subsystemが独自にcandidate列を走査して1件を選ぶ経路を持ってはならない。E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任意の候補で埋めて記録・永続化することを禁ずる。
+解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別し、曖昧はfail-closedな終端状態とする。曖昧な解決から代表候補を選ばず、解決済みのcanonical Source Targetを要求する後段（静的監査subject、Evidence、`target_execution`、鮮度判定）へ候補を1件も引き渡さない。候補は§6.3の診断表示にだけ用い、表示できることを選択の根拠にしない。
+この禁止はTarget Referenceの**解決**に関するものであり、Source Targetの**具体化**を止めるものではない。各Source Targetは自身のcanonical locatorで独立に具体化され、恒久SRC IDが衝突していても`SourceTargetDraft`ごとに1件のSource Targetとして成立する。衝突が壊すのは当該恒久SRC IDによる**参照**の一意性だけである。
+この解決はcoreの単一経路が所有し、静的監査、実行、Evidence writer、検証集約はいずれもその結果を消費する。各subsystemが独自にcandidate列を走査して1件を選ぶ経路を持ってはならない。E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任意の候補で埋めて記録・永続化することを禁ずる。
 
 #### 6.1.1 target identityの一方向確定
 
@@ -1186,7 +1188,8 @@ stdout / stderr の全文は `cache/logs/<ULID>.log` へ保存し、Evidence の
 Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
-- `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetを§6.1で解決したcanonical Locator・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。宣言された`TargetRef`の綴りではなく解決後のcanonical Locatorを記録する（§6.1.1）。解決できないtargetを持つTestではEvidenceのtarget entryを任意の候補で埋めず、当該targetは非PASSのまま扱う。
+- `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetを§6.1で解決したcanonical Locator・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。宣言された`TargetRef`の綴りではなく解決後のcanonical Locatorを記録する（§6.1.1）。
+- **Evidence生成のprecondition**：全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）なら**Evidenceを生成しない**。部分的な`hashes.targets`を持つEvidenceを生成して後段で弾く方式は採らない。この場合`test_execution`は`NOT_EXECUTED`のままとし、target解決の診断で非PASSを示す。
 - `execution_state`：実行直前にrunner adapterが返すsnapshot schema、runner / toolchain / 実行影響config、およびrepository / local dependency入力manifestをcoreが検証し、§1.3のExecution State subject hashとして記録する。完全性を保証できない場合は`complete: false`とし、後続のvalidityをPASSにしない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
@@ -1323,7 +1326,7 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 Evidence なし     → NOT_EXECUTED
 ```
 
-現在の宣言targetのうち1件でもcanonical Source Targetへ解決できない場合（E-SCAN-004 / E-SCAN-011）、条件2は成立しない。未解決targetはcanonical集合へ現れないため、集合の一致だけを根拠に`evidence_validity`をPASSへ昇格させてはならない。当該targetは`MISSING`として保持し、`target_execution`もPASSにしない。
+Evidenceは全宣言targetが一意に解決できる場合だけ生成される（§9.4）。現在の宣言targetのうち1件でもcanonical Source Targetへ解決できなくなった場合、記録済み参照集合は現在のcanonical集合と一致しないため条件2は成立せず、`evidence_validity`をPASSにしない。当該targetは`MISSING`として保持し、`target_execution`もPASSにしない。
 
 複数条件が非PASSなら根拠をすべて保持し、表示代表値は基本仕様 §4.3の優先順位で選ぶ。`evidence_validity`がPASSの場合だけ`test_execution = PASS`とし、`runtime_result`と`target_execution`を当該Evidenceから評価する。Evidenceが存在するが有効でない場合、この3項目はEvidenceを再利用せず、`evidence_validity`と同じ`MISMATCH` / `STALE` / `UNKNOWN`を保持する。Evidenceがなければ3項目とも`NOT_EXECUTED`とする。有効なEvidenceで`target_execution.checked: false`の場合だけ`target_execution = NOT_CHECKED`とする。
 
