@@ -3,10 +3,13 @@
 //! with the rest of the operation logic; isolating them first keeps the
 //! cross-crate move mechanical.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path};
 
-use vtest_model::{Diagnostic, FormAnswers, FormField, FormValue, SourceFunction, TargetRef};
+use vtest_model::{
+    Diagnostic, FormAnswers, FormField, FormSchema, FormValue, SourceFunction, TargetRef,
+};
 
 use crate::{Locator, ScanResult, RUST_ADAPTER_ID};
 
@@ -376,4 +379,64 @@ pub(crate) fn edit_distance(left: &str, right: &str) -> usize {
         previous = current;
     }
     previous[right.len()]
+}
+
+pub(crate) fn render_form_template(
+    schema: &FormSchema,
+    answers: &BTreeMap<String, FormValue>,
+    test_id: &str,
+) -> Result<String, Diagnostic> {
+    let mut rendered = String::new();
+    for line in schema.template.lines() {
+        if line.contains("{targets}") {
+            let targets = answers
+                .get("targets")
+                .ok_or_else(|| Diagnostic::error("E-OP-001", "form template requires `targets`"))?;
+            let FormValue::List(targets) = targets else {
+                return Err(Diagnostic::error(
+                    "E-OP-001",
+                    "form template requires `targets` to be a list",
+                ));
+            };
+            for target in targets {
+                rendered.push_str(&line.replace("{targets}", target));
+                rendered.push('\n');
+            }
+            continue;
+        }
+        let mut line = line.replace("{test_id}", test_id);
+        for (name, value) in answers {
+            line = line.replace(&format!("{{{name}}}"), &value.render());
+        }
+        if let Some(placeholder) = unresolved_placeholder(&line) {
+            return Err(Diagnostic::error(
+                "E-OP-001",
+                format!(
+                    "form `{}` template requires unanswered field `{placeholder}`",
+                    schema.kind
+                ),
+            ));
+        }
+        rendered.push_str(&line);
+        rendered.push('\n');
+    }
+    Ok(rendered)
+}
+
+pub(crate) fn unresolved_placeholder(line: &str) -> Option<String> {
+    let mut remainder = line;
+    while let Some(start) = remainder.find('{') {
+        let after = &remainder[start + 1..];
+        let end = after.find('}')?;
+        let candidate = &after[..end];
+        if !candidate.is_empty()
+            && candidate
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            return Some(candidate.to_owned());
+        }
+        remainder = &after[end + 1..];
+    }
+    None
 }
