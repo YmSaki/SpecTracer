@@ -13,6 +13,10 @@ The adapter-separation scenarios are frozen against baseline
 - `REGRESSION_LOCKED`: an existing assertion already produces the required value.
 - `W1_BOUND_RED`: a W1 API-level assertion now executes and passes for the frozen
   input/observable shape, while the owning later-wave product assertion remains RED.
+- `OWED_RED`: the criterion is bound to the Acceptance Contract — a concrete spec
+  anchor, criterion, and observable with a named owning wave — but its executable
+  product assertion is owed to that wave and not yet written. Distinct from
+  `FROZEN_RED`, where a criterion-specific assertion already exists and fails.
 
 Production code is unchanged by this freeze.
 
@@ -66,7 +70,11 @@ Production code is unchanged by this freeze.
 | AF-045 | 詳細設計 §6.1; 基本仕様 §3.3 | One permanent SRC ID claimed by two constructs resolves to neither (E-SCAN-011) | `duplicate_permanent_src_id_is_fail_closed` | no `E-SCAN-011` exists | FROZEN_RED |
 | AF-046 | 詳細設計 §5; Annex C §18.3.9 | A non-Rust adapter expresses a Source Target as a canonical opaque locator plus an optional permanent SRC ID | `a_non_rust_adapter_expresses_an_optional_permanent_src_id`; `synthetic/manifest.json` | `SourceTargetDraft` has no `src_id` field; the binding does not compile | FROZEN_RED |
 | AF-047 | 詳細設計 §5; 別紙C §18.3.9 | An adapter that returns a permanent SRC ID as a Source Target's canonical target is malformed output, and a declared SRC ID reaches the Source Target without moving its subject | `core_rejects_a_permanent_src_id_as_a_canonical_source_target`; `a_permanent_src_id_travels_beside_the_target_without_entering_its_subject` | no rejection existed; `src_id` was derived from `TargetRef::SrcId` | FROZEN_RED |
-| AF-048 | 別紙C §18.3.9 | Evidence and Audit record one target identity for one Source Target, independent of whether the referring Test addressed it by locator or by permanent SRC ID | owed: no executable binding yet — `vtest-exec` writes the referring Test's declared `TargetRef`, `vtest-audit` writes the resolved canonical locator | identities split by addressing mode | FROZEN_RED |
+| AF-048 | 詳細設計 §6.1.1, §3.6, §3.7, §9.4, §11.2; 別紙C §18.3.1, §18.3.3 | Evidence and Audit key on the resolved canonical locator as the one target identity for one Source Target, independent of whether the referring Test addressed it by locator or by permanent SRC ID; a Test's declaration change is carried by the Test subject hash, not by a second downstream identity | owed → W5 Evidence writer records the resolved canonical locator (not the declared `TargetRef`) in `hashes.targets`/`target_execution`; W6 freshness compares against the resolved canonical set. Baseline: `vtest-exec/src/lib.rs:163` writes the declared spelling, `vtest-audit/src/lib.rs:314` writes the resolved locator | identities split by addressing mode | OWED_RED |
+| AF-049 | 詳細設計 §6.1; 別紙C §18.3.1 | Target Reference resolution distinguishes Resolved / Missing / Ambiguous; Ambiguous is a fail-closed terminal from which no candidate is extractable; each Source Target still materializes independently by its canonical locator, so a permanent SRC ID collision changes neither the entity count nor any content/subject hash | owed → W3 makes the shared resolver fail-closed (no candidate reaches a consumer that requires a resolved Source Target); candidates feed diagnostics only | shared resolver has no Resolved/Missing/Ambiguous shape; consumers scan candidates | OWED_RED |
+| AF-050 | 詳細設計 §6.1, §3.6 | Static Audit consumes the single core resolution result and never selects one candidate for a colliding/ambiguous target; the audit `subjects[].target` is the resolved canonical locator | owed → W4 migrates `vtest-audit`'s `.iter().find()` bypass onto the shared resolver. Baseline: `vtest-cli/src/lib.rs:735-767` computes `scan_has_errors` without gating, `vtest-audit` picks an arbitrary first candidate | audit persists an arbitrary winner's locator/hash | OWED_RED |
+| AF-051 | 詳細設計 §9.4, §11.2; 別紙C §18.3.3 | Unique resolution of every declared target is a precondition of Evidence generation; if any declared target is Missing or Ambiguous no Evidence is written (no partial `hashes.targets`), and `test_execution` stays `NOT_EXECUTED` | owed → W5 Evidence writer gates generation on full target resolution. Baseline: `vtest-exec` writes Evidence regardless of target resolution | partial Evidence generated, filtered downstream | OWED_RED |
+| AF-052 | 詳細設計 §5.4, §8.1, §11.2; 別紙C §18.3.4 | An absent target (E-SCAN-004) and an ambiguous target (E-SCAN-011) are kept distinct — `MISSING` vs `MISMATCH` — in freshness and impl-consistency, never collapsed to one value; the representative value of mixed failures follows 基本仕様 §4.3 | owed → W6 verify/aggregation maps each diagnostic to its own CheckValue | the two are collapsed to `MISSING` | OWED_RED |
 
 Baseline command:
 
@@ -90,23 +98,45 @@ API carries it.
 | Baseline classification | REGRESSION_LOCKED | REGRESSION_LOCKED | FROZEN_RED | FROZEN_RED |
 | Owning wave | W1 (API) / W3 (product) | W1 (API) / W3 (product) | W3 | W1 |
 
-### AF-047 / AF-048 freeze record
+AF-044 anchor refreshed to the merged §1.3 correction (PR #4). The subject binds the
+canonical locator and the construct bytes, and a permanent SRC ID is not an independent
+hash field. The `!= hash_target_subject(SrcId, construct)` half proves the referring
+Test's SRC ID *spelling* never enters the subject. Distinct from that: where an adapter
+writes the `@vtest.src-id` declaration *inside* the construct bytes (the `rust-cargo`
+doc comment), adding/changing/removing it moves the construct bytes and therefore the
+Source Target hash — this is source actually changing, not a hash field. AF-044's
+assertion is unaffected because it varies the canonical Target Reference, not the
+construct-internal declaration.
 
-Added after an independent review of the §5 correction found two normative
-clauses with no row.
+### AF-047 freeze record
+
+Added after an independent review of the §5 correction found a normative clause with no row.
 
 - **AF-047** binds 別紙C の「`TargetRef::SrcId`をcanonical targetとして返したadapter出力は
   malformed adapter outputとして拒否する」. Before this row the rejection and the `src_id`
   passthrough had no test at all: removing either left every test in the workspace green.
   Owning wave: W1. Now green.
-- **AF-048** binds 別紙C の「EvidenceおよびAudit上のtarget identityが参照方法によって分裂しない」.
-  Today the two writers disagree — `crates/vtest-exec/src/lib.rs:163` records the referring
-  Test's declared `TargetRef` (so a SRC ID reference records `SRC-…`), while
-  `crates/vtest-audit/src/lib.rs:314` records the resolved canonical locator, and
-  `crates/vtest-verify/src/lib.rs:1545` compares against the declared spelling.
-  Owning wave: **W5** (Evidence writer) with a matched change in **W6** (verify comparator).
-  This row has no executable binding yet; W5 owes one. It must not be promoted to PASS from
-  the fact that the Evidence `target_construct` hash already matches.
+
+### AF-048 – AF-052 re-derivation (canonical identity spec, PR #4)
+
+Re-derived after 詳細設計 §6.1.1 / §3.6 / §3.7 / §9.4 / §11.2 and 別紙C §18.3.1 / §18.3.3 /
+§18.3.4 fixed Source Target identity one-way: a declared `TargetRef` resolves to a canonical
+Source Target, and Evidence / Audit / `target_execution` / freshness all key on that canonical
+locator. These five rows are `OWED_RED`: bound to the contract now, with the executable product
+assertion owed to the named wave. None may be promoted to PASS from an already-matching
+`target_construct` hash or a green unrelated test.
+
+| Field | AF-048 | AF-049 | AF-050 | AF-051 | AF-052 |
+|---|---|---|---|---|---|
+| Contract | one downstream identity = resolved canonical locator, across both addressing modes | ambiguous resolution is a fail-closed terminal; each Source Target still materializes | audit consumes the single resolution result; no arbitrary candidate | full target resolution is a precondition of Evidence generation | E-SCAN-004 → `MISSING`, E-SCAN-011 → `MISMATCH`, never collapsed |
+| Baseline violation | `vtest-exec/src/lib.rs:163` writes the declared spelling; `vtest-audit/src/lib.rs:314` writes the resolved locator; `vtest-verify/src/lib.rs:1545` compares the declared spelling | shared resolver has no Resolved/Missing/Ambiguous shape | `vtest-audit` `.iter().find()` bypass picks an arbitrary first candidate; `vtest-cli/src/lib.rs:735-767` gates nothing | `vtest-exec` writes Evidence regardless of target resolution | freshness/impl-consistency collapse both to `MISSING` |
+| Owning wave | **W5** Evidence writer + **W6** verify comparator | **W3** shared resolver | **W4** audit migration | **W5** Evidence writer | **W6** verify/aggregation |
+
+AF-049 and AF-050 encode the pre-existing implementation violation the reviewer surfaced:
+below the scan diagnostic layer, `vtest-audit` selects an arbitrary winner for a collided
+SRC ID and persists its locator/hash. Owner ruling: not a spec ambiguity but an implementation
+violation of the settled contract — root ownership W3 (fail-closed shared resolver), bypass
+migration W4. The coarse "reject the whole Audit if scan has any error" fix is not adopted.
 
 ### AF-041 / AF-042 freeze record
 
