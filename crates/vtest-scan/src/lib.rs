@@ -13,13 +13,13 @@ use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta}
 use thiserror::Error;
 use vtest_adapter_api::{
     AdapterError, DiscoveredTestDraft, DiscoveryBatch, DiscoveryCompleteness, ManagedTestDraft,
-    ManagedTestDraftLink, SourceFragment, SourceTargetDraft,
+    ManagedTestDraftLink, SourceDiscoveryAdapter, SourceFragment, SourceTargetDraft,
 };
 use vtest_model::{
-    hash_specification_source, hash_target_subject, hash_test_subject, AdapterId, ContentHash,
-    Diagnostic, DiscoveredTest, ExecutionDescriptor, ManagedTestLink, ProjectPath, ScanSummary,
-    SourceFunction, SourceLocation, SourceRange, SourceTarget, SrcId, TargetRef, TestEntity,
-    TestId, TestSubjectInput, TestSuite, VoId,
+    hash_specification_source, hash_target_subject, hash_test_subject, AdapterId, CanonicalProjection,
+    ContentHash, Diagnostic, DiscoveredTest, ExecutionDescriptor, ManagedTestLink, ProjectPath,
+    ScanSummary, SourceFunction, SourceLocation, SourceRange, SourceTarget, SrcId, TargetRef,
+    TestEntity, TestId, TestSubjectInput, TestSuite, VoId,
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, is_valid_ulid, load_config, read_approval,
@@ -419,26 +419,20 @@ pub fn scan_project_with_config(
 ) -> Result<ScanResult, ScanError> {
     let entity_ids = read_entity_ids(root)?;
     let vo_ids = entity_ids[2].iter().cloned().collect::<BTreeSet<_>>();
-    let package = package_name(root).unwrap_or_else(|| config.project.name.clone());
-    let mut paths = Vec::new();
-    for include in &config.rust_cargo().scan.include {
-        let include_path = root.join(include);
-        collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
-            ScanError::Discovery {
-                path: include_path,
-                message: error.to_string(),
-            }
-        })?;
-    }
-    paths.sort();
-    paths.dedup();
-
-    let mut scanner = Scanner::new(root, &package);
-    for path in &paths {
-        scanner.scan_file(path);
-    }
-    let files = paths.len();
-    let batch = scanner.finish();
+    let projection = rust_cargo_discovery_projection(config);
+    let batch = RustCargoDiscovery.discover(root, &projection)?;
+    let files = batch
+        .discovered_tests
+        .iter()
+        .map(|draft| draft.location.path.as_str().to_owned())
+        .chain(
+            batch
+                .source_targets
+                .iter()
+                .map(|draft| draft.location.path.as_str().to_owned()),
+        )
+        .collect::<BTreeSet<_>>()
+        .len();
     let materialized = materialize_discovery_batch(root, batch)?;
     let mut result = ScanResult {
         summary: ScanSummary {
@@ -460,6 +454,87 @@ pub fn scan_project_with_config(
         &result.sources,
     ));
     Ok(result)
+}
+
+/// Projects the `rust-cargo` config section into the neutral canonical
+/// projection the discovery adapter consumes. The adapter never reads
+/// `ProjectConfig`; core owns the config → projection mapping.
+fn rust_cargo_discovery_projection(config: &ProjectConfig) -> CanonicalProjection {
+    let include = config
+        .rust_cargo()
+        .scan
+        .include
+        .iter()
+        .map(|value| CanonicalProjection::String(value.clone()))
+        .collect();
+    let mut map = BTreeMap::new();
+    map.insert(
+        "package".to_owned(),
+        CanonicalProjection::String(config.project.name.clone()),
+    );
+    map.insert("include".to_owned(), CanonicalProjection::List(include));
+    CanonicalProjection::Map(map)
+}
+
+fn projection_string(projection: &CanonicalProjection, key: &str) -> Option<String> {
+    match projection {
+        CanonicalProjection::Map(map) => match map.get(key) {
+            Some(CanonicalProjection::String(value)) => Some(value.clone()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn projection_strings(projection: &CanonicalProjection, key: &str) -> Vec<String> {
+    match projection {
+        CanonicalProjection::Map(map) => match map.get(key) {
+            Some(CanonicalProjection::List(values)) => values
+                .iter()
+                .filter_map(|value| match value {
+                    CanonicalProjection::String(value) => Some(value.clone()),
+                    _ => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    }
+}
+
+/// Built-in `rust-cargo` source discovery. Reads the neutral projection and the
+/// current filesystem and returns a hash-free `DiscoveryBatch`; core validates,
+/// hashes, and materializes it. This is the boundary that moves wholesale to
+/// `vtest-adapter-rust` in the next step.
+#[derive(Debug, Default)]
+pub struct RustCargoDiscovery;
+
+impl SourceDiscoveryAdapter for RustCargoDiscovery {
+    fn discover(
+        &self,
+        root: &Path,
+        config: &CanonicalProjection,
+    ) -> Result<DiscoveryBatch, AdapterError> {
+        let fallback = projection_string(config, "package").unwrap_or_default();
+        let package = package_name(root).unwrap_or(fallback);
+        let mut paths = Vec::new();
+        for include in projection_strings(config, "include") {
+            let include_path = root.join(&include);
+            collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
+                AdapterError::MalformedOutput(format!(
+                    "cannot scan `{}`: {error}",
+                    include_path.display()
+                ))
+            })?;
+        }
+        paths.sort();
+        paths.dedup();
+        let mut scanner = Scanner::new(root, &package);
+        for path in &paths {
+            scanner.scan_file(path);
+        }
+        Ok(scanner.finish())
+    }
 }
 
 fn package_name(root: &Path) -> Option<String> {
