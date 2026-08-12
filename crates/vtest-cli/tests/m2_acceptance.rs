@@ -460,7 +460,7 @@ fn m2_malformed_approval_is_not_effective_and_is_a_scan_error() {
         .unwrap_or_else(|| panic!("missing malformed approval diagnostic: {scan}"));
     assert_eq!(diagnostic["severity"], "error");
     assert_eq!(
-        diagnostic["location"]["file"].as_str(),
+        diagnostic["location"]["path"].as_str(),
         Some(format!(".verify/approvals/{approval_id}.yaml").as_str())
     );
 }
@@ -767,7 +767,7 @@ fn m2_mutating_registered_spec_document_reports_w_scan_104() {
         .unwrap_or_else(|| panic!("missing W-SCAN-104: {scan}"));
     assert_eq!(warning["severity"], "warning");
     assert_eq!(
-        warning["location"]["file"],
+        warning["location"]["path"],
         ".verify/spec/SPEC-M2-DOCUMENT.yaml"
     );
 }
