@@ -982,7 +982,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
 | `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合とSpecification source全文、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
 
-`impl-consistency` のバンドル生成時、宣言targetのいずれか、または対象VOから§3.5と同じ上流依存規則で導出するSPEC subjectのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。SPEC recordと参照先sourceの現在性を確認できない場合は`STALE`とし、SPECを省略したbundleを生成しない。`--test`ではTestがcoversする全VO、`--vo`では選択VO部分木を起点とし、上流SPEC集合を狭めない。
+`impl-consistency` のバンドル生成時、宣言targetのいずれか、または対象VOから§3.5と同じ上流依存規則で導出するSPEC subjectのいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。記録する`impl_consistency`は解決失敗の種別で分ける。対象が存在しない場合（E-SCAN-004、SPEC subject不在）は`MISSING`、恒久SRC IDの衝突により複数候補で曖昧な場合（E-SCAN-011）は`MISMATCH`とする（基本仕様 §7.5、§5.4）。複数の解決失敗が異なる種別で併存する場合の代表値は基本仕様 §4.3の優先順位に従い、個別の理由をすべて保持する。SPEC recordと参照先sourceの現在性を確認できない場合は`STALE`とし、SPECを省略したbundleを生成しない。`--test`ではTestがcoversする全VO、`--vo`では選択VO部分木を起点とし、上流SPEC集合を狭めない。
 
 ### 8.2 バンドル JSON スキーマ（test-semantic の例）
 
@@ -1074,7 +1074,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 `basis.kind` は `spec` / `vo` / `req` / `test-code` / `target-code` のいずれかとする。
 
-`impl-consistency`の提出は`PASS` / `FAIL` / `UNKNOWN`を用いる。Audit Recordには提出verdictを保持し、検証項目へは`PASS → PASS`、`FAIL → MISMATCH`、`UNKNOWN → UNKNOWN`と写像する。target解決不能の`MISSING`、監査未実施の`NOT_CHECKED`、無効recordだけが存在する`STALE`をこの写像で上書きしない。
+`impl-consistency`の提出は`PASS` / `FAIL` / `UNKNOWN`を用いる。Audit Recordには提出verdictを保持し、検証項目へは`PASS → PASS`、`FAIL → MISMATCH`、`UNKNOWN → UNKNOWN`と写像する。target解決不能（対象なしの`MISSING`、曖昧の`MISMATCH`。§8.1）、監査未実施の`NOT_CHECKED`、無効recordだけが存在する`STALE`をこの写像で上書きしない。
 
 ### 8.4 提出の検証
 
@@ -1261,7 +1261,7 @@ target別entryの欠落、重複、余分なentry、または解決後のcanonic
 | `test_existence` | leaf VO | covers する Test が1件以上あれば PASS、なければ MISSING |
 | `static_audit` | TEST | §7.1 の合成 |
 | `semantic_audit` | TEST | 有効な test-semantic 監査の合成（§8.5） |
-| `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING |
+| `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING、曖昧な解決（E-SCAN-011）はMISMATCH |
 | `test_execution` | TEST | 有効なEvidenceが存在すればPASS、Evidenceあり・無効なら§11.2の非PASS、EvidenceなしはNOT_EXECUTED |
 | `runtime_result` | TEST | 有効なEvidenceのresult（PASS / FAIL）。無効または不在は§11.2 |
 | `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値。無効または不在は§11.2、checked: falseはNOT_CHECKED |

@@ -438,7 +438,7 @@ active REQに対応VOが1件もなければ`vo_coverage = MISSING`とする。�
 ### 7.5 実装一致検証
 
 仕様・VO・Test と対象実装の一致は `impl-consistency` 種別の意味監査として実施する（要件定義 §13）。
-決定論的に検証できる部分（Target Referenceの解決、adapterが提供する構造情報の取得）はバンドル生成時に検証し、targetを解決できなければ`MISSING`とする。
+決定論的に検証できる部分（Target Referenceの解決、adapterが提供する構造情報の取得）はバンドル生成時に検証する。targetを一意に解決できない場合はバンドルを生成せず、候補のいずれも選択しない。対象が存在しない場合は`MISSING`、複数候補により曖昧な場合は`MISMATCH`とする。複数のtargetが異なる理由で解決できない場合の代表値は §4.3 の優先順位に従う。
 複数target Testでは、全targetのimplementation construct sourceとadapterが提供する構造情報をバンドルに含め、判定対象から一部targetを省略しない。
 判定根拠となるSpecification subjectは、対象VOとその上流VO / REQの`spec_refs`から決定論的に導出した完全集合とする。Specification record、参照先source、または集合が変更された監査は`STALE`とし、限定scopeの`impl_consistency = PASS`にも利用しない。完全集合を解決できない場合は`MISSING`、現在性を確認できない場合は`STALE`として、Specificationを欠いたまま監査を受理しない。
 不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。

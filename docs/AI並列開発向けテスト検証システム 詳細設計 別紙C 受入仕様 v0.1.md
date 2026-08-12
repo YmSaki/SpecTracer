@@ -127,7 +127,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 受理するAudit Recordはsubjectsの内容hashへ束縛される。
 - deterministic結果とagent / human結果を区別して保存・表示する。
 - impl-consistency bundleとAudit Recordは、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合へ束縛される。Specification record、参照先source、または集合だけを変更しても既存recordはSTALEになり、限定scopeの`impl_consistency = PASS`へ利用されない。
-- impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。target解決不能はMISSING、監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
+- impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
+- targetを一意に解決できない場合はimpl-consistency bundleを生成せず、候補のいずれも選択しない。対象が存在しない場合（E-SCAN-004）は`impl_consistency = MISSING`、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`とし、両者を一括して同一の状態値にしない。複数の解決失敗が異なる種別で併存する場合の代表値は基本仕様 §4.3の優先順位に従う。
 
 #### 18.3.5 verify・report
 
