@@ -433,7 +433,7 @@ pub fn scan_project_with_config(
     paths.sort();
     paths.dedup();
 
-    let mut scanner = Scanner::new(root, &package, vo_ids);
+    let mut scanner = Scanner::new(root, &package);
     for path in &paths {
         scanner.scan_file(path);
     }
@@ -450,6 +450,9 @@ pub fn scan_project_with_config(
         sources: materialized.source_targets,
         diagnostics: materialized.diagnostics,
     };
+    result
+        .diagnostics
+        .extend(cross_entity_diagnostics(&result.tests, &result.sources, &vo_ids));
     result.diagnostics.extend(record_diagnostics(
         root,
         &entity_ids,
@@ -1253,7 +1256,6 @@ fn collect_rs_files(
 struct Scanner<'a> {
     root: &'a Path,
     fallback_package: &'a str,
-    vo_ids: BTreeSet<String>,
     discovered_tests: Vec<DiscoveredTestDraft>,
     source_targets: Vec<SourceTargetDraft>,
     diagnostics: Vec<Diagnostic>,
@@ -1261,11 +1263,10 @@ struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-    fn new(root: &'a Path, fallback_package: &'a str, vo_ids: BTreeSet<String>) -> Self {
+    fn new(root: &'a Path, fallback_package: &'a str) -> Self {
         Self {
             root,
             fallback_package,
-            vo_ids,
             discovered_tests: Vec::new(),
             source_targets: Vec::new(),
             diagnostics: Vec::new(),
@@ -1620,17 +1621,6 @@ impl<'a> Scanner<'a> {
                 .with_location(location.clone()),
             );
         }
-        for vo_id in &covers {
-            if !self.vo_ids.contains(vo_id.as_str()) {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-003",
-                        format!("test `{id}` references missing VO `{vo_id}`"),
-                    )
-                    .with_location(location.clone()),
-                );
-            }
-        }
         let targets = target_values
             .iter()
             .map(|target_value| {
@@ -1717,72 +1707,88 @@ impl<'a> Scanner<'a> {
         });
     }
 
-    /// Emit the hash-free discovery batch. Cross-entity resolution diagnostics
-    /// (E-SCAN-004 target resolution, E-SCAN-011 SRC ID collision) are computed
-    /// from the drafts in the same order the materialized scanner produced them;
-    /// canonical subjects are computed later by `materialize_discovery_batch`.
+    /// Emit the hash-free discovery batch. The adapter only carries the
+    /// per-item diagnostics it can decide locally (read/parse failures,
+    /// structural annotation violations). Cross-entity resolution
+    /// (E-SCAN-003 covers, E-SCAN-004 target resolution, E-SCAN-011 SRC ID
+    /// collision) is owned by core, and canonical subjects are computed by
+    /// `materialize_discovery_batch`.
     fn finish(self) -> DiscoveryBatch {
-        let mut diagnostics = self.diagnostics;
-        let mut locators = BTreeMap::<String, usize>::new();
-        let mut src_ids = BTreeMap::<String, usize>::new();
-        for source in &self.source_targets {
-            *locators.entry(source.target.normalized()).or_default() += 1;
-            if let Some(src_id) = &source.src_id {
-                *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
-            }
-        }
-        for source in &self.source_targets {
-            let Some(src_id) = &source.src_id else {
-                continue;
-            };
-            if src_ids.get(src_id.as_str()).copied().unwrap_or_default() > 1 {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-011",
-                        format!(
-                            "permanent SRC ID `{src_id}` is claimed by more than one Source Target"
-                        ),
-                    )
-                    .with_location(source.location.clone()),
-                );
-            }
-        }
-        for discovered in &self.discovered_tests {
-            let managed = match &discovered.managed {
-                ManagedTestDraftLink::One(managed) => std::slice::from_ref(managed),
-                ManagedTestDraftLink::Multiple(managed) => managed.as_slice(),
-                ManagedTestDraftLink::Missing => continue,
-            };
-            for test in managed {
-                for target in &test.targets {
-                    let resolved = match target {
-                        TargetRef::Locator { .. } => {
-                            locators.get(&target.normalized()).copied() == Some(1)
-                        }
-                        TargetRef::SrcId(src_id) => {
-                            src_ids.get(src_id.as_str()).copied() == Some(1)
-                        }
-                    };
-                    if !resolved {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "E-SCAN-004",
-                                format!("test `{}` target cannot be resolved", test.id),
-                            )
-                            .with_location(discovered.location.clone()),
-                        );
-                    }
-                }
-            }
-        }
         DiscoveryBatch {
             adapter: AdapterId::new(RUST_ADAPTER_ID),
             completeness: DiscoveryCompleteness::Complete,
             discovered_tests: self.discovered_tests,
             source_targets: self.source_targets,
-            diagnostics,
+            diagnostics: self.diagnostics,
         }
     }
+}
+
+/// Core-owned cross-entity resolution over the materialized discovery result:
+/// dangling `covers` (E-SCAN-003), unresolved targets (E-SCAN-004), and
+/// permanent SRC ID collisions (E-SCAN-011). The adapter cannot see `.verify/`
+/// records or the repository-global source index, so these stay in core.
+fn cross_entity_diagnostics(
+    tests: &[TestEntity],
+    sources: &[SourceTarget],
+    vo_ids: &BTreeSet<String>,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut locators = BTreeMap::<String, usize>::new();
+    let mut src_ids = BTreeMap::<String, usize>::new();
+    for source in sources {
+        *locators.entry(source.target.normalized()).or_default() += 1;
+        if let Some(src_id) = &source.src_id {
+            *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
+        }
+    }
+    for test in tests {
+        for vo_id in &test.covers {
+            if !vo_ids.contains(vo_id.as_str()) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-003",
+                        format!("test `{}` references missing VO `{vo_id}`", test.id),
+                    )
+                    .with_location(test.location.clone()),
+                );
+            }
+        }
+    }
+    for source in sources {
+        let Some(src_id) = &source.src_id else {
+            continue;
+        };
+        if src_ids.get(src_id.as_str()).copied().unwrap_or_default() > 1 {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-011",
+                    format!(
+                        "permanent SRC ID `{src_id}` is claimed by more than one Source Target"
+                    ),
+                )
+                .with_location(source.location.clone()),
+            );
+        }
+    }
+    for test in tests {
+        for target in &test.targets {
+            let resolved = match target {
+                TargetRef::Locator { .. } => locators.get(&target.normalized()).copied() == Some(1),
+                TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
+            };
+            if !resolved {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-004",
+                        format!("test `{}` target cannot be resolved", test.id),
+                    )
+                    .with_location(test.location.clone()),
+                );
+            }
+        }
+    }
+    diagnostics
 }
 
 struct ParsedAnnotations {
