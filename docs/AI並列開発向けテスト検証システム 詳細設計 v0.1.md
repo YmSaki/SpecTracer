@@ -1323,6 +1323,8 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 Evidence なし     → NOT_EXECUTED
 ```
 
+現在の宣言targetのうち1件でもcanonical Source Targetへ解決できない場合（E-SCAN-004 / E-SCAN-011）、条件2は成立しない。未解決targetはcanonical集合へ現れないため、集合の一致だけを根拠に`evidence_validity`をPASSへ昇格させてはならない。当該targetは`MISSING`として保持し、`target_execution`もPASSにしない。
+
 複数条件が非PASSなら根拠をすべて保持し、表示代表値は基本仕様 §4.3の優先順位で選ぶ。`evidence_validity`がPASSの場合だけ`test_execution = PASS`とし、`runtime_result`と`target_execution`を当該Evidenceから評価する。Evidenceが存在するが有効でない場合、この3項目はEvidenceを再利用せず、`evidence_validity`と同じ`MISMATCH` / `STALE` / `UNKNOWN`を保持する。Evidenceがなければ3項目とも`NOT_EXECUTED`とする。有効なEvidenceで`target_execution.checked: false`の場合だけ`target_execution = NOT_CHECKED`とする。
 
 ### 11.3 集約アルゴリズム

@@ -107,6 +107,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
 - Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複なく保持し、参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をtarget identityとして保存しない。同一Source Targetをlocator参照するTestとSRC ID参照するTestのEvidenceは、同じtarget identityと同じtarget内容hashを持つ。
 - 監査レコードの`subjects`の`target` entryも解決後のcanonical Locatorとし、Evidence側のtarget identityと一致する。
+- 宣言targetのうち1件でも解決できないTestは、canonical Source Target集合が一致することだけを根拠に`evidence_validity`をPASSにしない。未解決targetは`MISSING`として保持し、`target_execution`もPASSにしない。
 - canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALEになる。
 - `revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
 - Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。Testと宣言targetを変更せずtarget外helperだけを変更しても既存EvidenceはSTALEになる。
