@@ -1,7 +1,5 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use serde::{Deserialize, Serialize};
-
 use crate::{StoreError, VerifyLayout};
 
 pub const RUST_UNIT_FUNCTION_FORM: &str = r#"kind: rust-unit-function
@@ -116,63 +114,7 @@ template: |
   }
 "#;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FormSchema {
-    pub kind: String,
-    pub adapter: Option<String>,
-    pub title: String,
-    pub fields: Vec<FormField>,
-    pub template: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FormField {
-    pub name: String,
-    pub question: String,
-    #[serde(rename = "type")]
-    pub field_type: String,
-    pub required: bool,
-    pub options: Vec<String>,
-    pub validate: Vec<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum FormValue {
-    Scalar(String),
-    List(Vec<String>),
-}
-
-impl FormValue {
-    pub fn values(&self) -> Vec<&str> {
-        match self {
-            Self::Scalar(value) => vec![value.as_str()],
-            Self::List(values) => values.iter().map(String::as_str).collect(),
-        }
-    }
-
-    pub fn render(&self) -> String {
-        match self {
-            Self::Scalar(value) => value.clone(),
-            Self::List(values) => values.join(","),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::Scalar(value) => value.trim().is_empty(),
-            Self::List(values) => {
-                values.is_empty() || values.iter().any(|value| value.trim().is_empty())
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FormAnswers {
-    pub form: String,
-    pub answers: BTreeMap<String, FormValue>,
-}
+pub use vtest_model::{FormAnswers, FormField, FormSchema, FormValue};
 
 pub fn load_form_schema(layout: &VerifyLayout, kind: &str) -> Result<FormSchema, StoreError> {
     if !safe_form_kind(kind) {

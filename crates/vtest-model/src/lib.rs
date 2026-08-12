@@ -937,6 +937,67 @@ fn hex_bytes(bytes: &[u8]) -> String {
     output
 }
 
+/// Agent Form Engineering schema: the questions, options, and Rust template a
+/// Structured Test Operation is driven by. Domain data shared across the store
+/// (which loads it) and the adapters (which render from it).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct FormSchema {
+    pub kind: String,
+    pub adapter: Option<String>,
+    pub title: String,
+    pub fields: Vec<FormField>,
+    pub template: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct FormField {
+    pub name: String,
+    pub question: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    pub required: bool,
+    pub options: Vec<String>,
+    pub validate: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FormValue {
+    Scalar(String),
+    List(Vec<String>),
+}
+
+impl FormValue {
+    pub fn values(&self) -> Vec<&str> {
+        match self {
+            Self::Scalar(value) => vec![value.as_str()],
+            Self::List(values) => values.iter().map(String::as_str).collect(),
+        }
+    }
+
+    pub fn render(&self) -> String {
+        match self {
+            Self::Scalar(value) => value.clone(),
+            Self::List(values) => values.join(","),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Scalar(value) => value.trim().is_empty(),
+            Self::List(values) => {
+                values.is_empty() || values.iter().any(|value| value.trim().is_empty())
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct FormAnswers {
+    pub form: String,
+    pub answers: BTreeMap<String, FormValue>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
