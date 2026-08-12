@@ -437,7 +437,19 @@ pub fn scan_project_with_config(
     for path in &paths {
         scanner.scan_file(path);
     }
-    let mut result = scanner.finish(paths.len())?;
+    let files = paths.len();
+    let batch = scanner.finish();
+    let materialized = materialize_discovery_batch(root, batch)?;
+    let mut result = ScanResult {
+        summary: ScanSummary {
+            files,
+            tests: materialized.managed_tests.len(),
+            sources: materialized.source_targets.len(),
+        },
+        tests: materialized.managed_tests,
+        sources: materialized.source_targets,
+        diagnostics: materialized.diagnostics,
+    };
     result.diagnostics.extend(record_diagnostics(
         root,
         &entity_ids,
@@ -1242,8 +1254,8 @@ struct Scanner<'a> {
     root: &'a Path,
     fallback_package: &'a str,
     vo_ids: BTreeSet<String>,
-    tests: Vec<TestEntity>,
-    sources: Vec<SourceFunction>,
+    discovered_tests: Vec<DiscoveredTestDraft>,
+    source_targets: Vec<SourceTargetDraft>,
     diagnostics: Vec<Diagnostic>,
     test_ids: BTreeSet<String>,
 }
@@ -1254,8 +1266,8 @@ impl<'a> Scanner<'a> {
             root,
             fallback_package,
             vo_ids,
-            tests: Vec::new(),
-            sources: Vec::new(),
+            discovered_tests: Vec::new(),
+            source_targets: Vec::new(),
             diagnostics: Vec::new(),
             test_ids: BTreeSet::new(),
         }
@@ -1468,7 +1480,11 @@ impl<'a> Scanner<'a> {
     ) {
         let location = make_location(relative, item_path, span, source, line_offsets);
         let content = source_slice(source, &location);
-        let source_function = SourceFunction {
+        let construct = SourceFragment {
+            location: location.clone(),
+            bytes: content.as_bytes().to_vec(),
+        };
+        self.source_targets.push(SourceTargetDraft {
             target: Locator {
                 path: relative.to_owned(),
                 item_path: item_path.to_owned(),
@@ -1476,16 +1492,8 @@ impl<'a> Scanner<'a> {
             .as_target(),
             src_id: parse_src_id(attrs),
             location: location.clone(),
-            content_hash: hash_target_subject(
-                &Locator {
-                    path: relative.to_owned(),
-                    item_path: item_path.to_owned(),
-                }
-                .as_target(),
-                content.as_bytes(),
-            ),
-        };
-        self.sources.push(source_function);
+            construct: construct.clone(),
+        });
 
         if !is_test_function(attrs) {
             return;
@@ -1688,22 +1696,7 @@ impl<'a> Scanner<'a> {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let source_hash = hash_test_subject(&TestSubjectInput {
-            adapter: &execution.adapter,
-            id: &test_id,
-            covers: &covers,
-            targets: &targets,
-            intent,
-            input: input.as_deref(),
-            expect: expect.as_deref(),
-            kind: kind.as_deref(),
-            cases: &cases,
-            related: &related,
-            location: &location,
-            execution: &execution,
-            construct: content.as_bytes(),
-        });
-        let entity = TestEntity {
+        let managed = ManagedTestDraft {
             id: test_id,
             covers,
             targets,
@@ -1713,24 +1706,32 @@ impl<'a> Scanner<'a> {
             kind,
             cases,
             related,
-            location,
-            content_hash: source_hash,
             execution,
         };
-        self.tests.push(entity);
+        self.discovered_tests.push(DiscoveredTestDraft {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            location: location.clone(),
+            construct: construct.clone(),
+            metadata_sources: vec![construct],
+            managed: ManagedTestDraftLink::One(managed),
+        });
     }
 
-    fn finish(self, files: usize) -> Result<ScanResult, ScanError> {
+    /// Emit the hash-free discovery batch. Cross-entity resolution diagnostics
+    /// (E-SCAN-004 target resolution, E-SCAN-011 SRC ID collision) are computed
+    /// from the drafts in the same order the materialized scanner produced them;
+    /// canonical subjects are computed later by `materialize_discovery_batch`.
+    fn finish(self) -> DiscoveryBatch {
         let mut diagnostics = self.diagnostics;
         let mut locators = BTreeMap::<String, usize>::new();
         let mut src_ids = BTreeMap::<String, usize>::new();
-        for source in &self.sources {
+        for source in &self.source_targets {
             *locators.entry(source.target.normalized()).or_default() += 1;
             if let Some(src_id) = &source.src_id {
                 *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
             }
         }
-        for source in &self.sources {
+        for source in &self.source_targets {
             let Some(src_id) = &source.src_id else {
                 continue;
             };
@@ -1746,35 +1747,41 @@ impl<'a> Scanner<'a> {
                 );
             }
         }
-        for test in &self.tests {
-            for target in &test.targets {
-                let resolved = match target {
-                    TargetRef::Locator { .. } => {
-                        locators.get(&target.normalized()).copied() == Some(1)
+        for discovered in &self.discovered_tests {
+            let managed = match &discovered.managed {
+                ManagedTestDraftLink::One(managed) => std::slice::from_ref(managed),
+                ManagedTestDraftLink::Multiple(managed) => managed.as_slice(),
+                ManagedTestDraftLink::Missing => continue,
+            };
+            for test in managed {
+                for target in &test.targets {
+                    let resolved = match target {
+                        TargetRef::Locator { .. } => {
+                            locators.get(&target.normalized()).copied() == Some(1)
+                        }
+                        TargetRef::SrcId(src_id) => {
+                            src_ids.get(src_id.as_str()).copied() == Some(1)
+                        }
+                    };
+                    if !resolved {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-SCAN-004",
+                                format!("test `{}` target cannot be resolved", test.id),
+                            )
+                            .with_location(discovered.location.clone()),
+                        );
                     }
-                    TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
-                };
-                if !resolved {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-004",
-                            format!("test `{}` target cannot be resolved", test.id),
-                        )
-                        .with_location(test.location.clone()),
-                    );
                 }
             }
         }
-        Ok(ScanResult {
-            summary: ScanSummary {
-                files,
-                tests: self.tests.len(),
-                sources: self.sources.len(),
-            },
-            tests: self.tests,
-            sources: self.sources,
+        DiscoveryBatch {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            completeness: DiscoveryCompleteness::Complete,
+            discovered_tests: self.discovered_tests,
+            source_targets: self.source_targets,
             diagnostics,
-        })
+        }
     }
 }
 
