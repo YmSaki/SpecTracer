@@ -21,7 +21,29 @@ use vtest_model::{
     SourceRange, SrcId, TargetRef, TestId, TestSuite, VoId,
 };
 
-use crate::{record_location, RUST_ADAPTER_ID};
+const RUST_ADAPTER_ID: &str = "rust-cargo";
+
+/// Builds a file-level `SourceLocation` for adapter diagnostics that point at a
+/// whole file (read/parse failures) rather than a specific construct.
+fn file_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    SourceLocation {
+        adapter: AdapterId::new("core-record"),
+        path: ProjectPath::new(
+            path.strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        ),
+        locator: entity.to_owned(),
+        byte_range: SourceRange {
+            start: 0,
+            end: text.len(),
+            start_line: 1,
+            end_line: text.lines().count().max(1),
+        },
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Locator {
@@ -716,7 +738,7 @@ impl<'a> Scanner<'a> {
             .file_name()
             .and_then(|value| value.to_str())
             .unwrap_or_default();
-        let file_location = record_location(self.root, path, file_name);
+        let file_location = file_location(self.root, path, file_name);
         let source = match fs::read_to_string(path) {
             Ok(source) => source,
             Err(source) => {
