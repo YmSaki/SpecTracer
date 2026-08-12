@@ -109,7 +109,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複なく保持し、参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をtarget identityとして保存しない。同一Source Targetをlocator参照するTestとSRC ID参照するTestのEvidenceは、同じtarget identityと同じtarget内容hashを持つ。
 - 監査レコードの`subjects`の`target` entryも解決後のcanonical Locatorとし、Evidence側のtarget identityと一致する。
 - 全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成のpreconditionとする。1件でも対象なしまたは曖昧なら**Evidenceを生成しない**。部分的な`hashes.targets`を持つEvidenceを生成しない。この場合`test_execution`はNOT_EXECUTEDのままとなる。
-- Evidence記録後に宣言targetのいずれかが解決できなくなった場合、記録済み参照集合が現在のcanonical集合と一致しないためSTALEになり、`target_execution`もPASSにしない。
+- Evidence記録後に宣言targetのいずれかが一意に解決できなくなった場合、記録済み参照集合が現在のcanonical集合と一致しないためSTALEになり、`target_execution`もPASSにしない。
+- 解決できなくなったtargetは、対象が存在しない場合（E-SCAN-004）は`MISSING`、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`として保持する。両者を一括して同一の状態値にしない。
 - canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALEになる。
 - `revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
 - Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。Testと宣言targetを変更せずtarget外helperだけを変更しても既存EvidenceはSTALEになる。
