@@ -25,11 +25,10 @@ use vtest_store::{
     VoRecord,
 };
 
-mod discovery;
 pub mod operations;
 pub use operations::*;
 
-pub use discovery::{Locator, RustCargoDiscovery};
+pub use vtest_adapter_rust::{Locator, RustCargoDiscovery};
 
 const RUST_ADAPTER_ID: &str = "rust-cargo";
 

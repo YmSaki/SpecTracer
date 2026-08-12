@@ -11,6 +11,9 @@ use vtest_adapter_api::{
 };
 use vtest_model::{AdapterId, ExecutionDescriptor, TestEntity, TestSuite};
 
+mod discovery;
+pub use discovery::{Locator, RustCargoDiscovery};
+
 pub const RUST_CARGO_ADAPTER_ID: &str = "rust-cargo";
 
 #[derive(Default)]

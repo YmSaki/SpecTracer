@@ -12,5 +12,6 @@ syn.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
+vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 vtest-model = { path = "../vtest-model" }
 vtest-store = { path = "../vtest-store" }
