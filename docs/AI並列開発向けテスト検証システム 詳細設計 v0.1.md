@@ -78,8 +78,8 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 
 hash inputはdomain separatorと長さ付きfieldから構成する。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を行わない。mapはkey昇順、集合として扱う`covers`・`targets`・`related`は正規化値の昇順、順序に意味がある`cases`は宣言順とする。null、空文字、空listは異なる値としてencodeする。
 
-- Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。
-- Source Target hash：domain `vtest:target-subject:v1`を用い、**canonical Target Reference**とadapterが返すimplementation construct bytesを束縛する。canonical Target Referenceは**常に`TargetRef::Locator`**（adapter IDとadapter所有のopaque locator）であり、`TargetRef::SrcId`をcanonical Target Referenceにしない。`TargetRef::SrcId`はSource Targetを参照する側の表現であって、Source Target自身の識別ではない。したがって恒久SRC IDは、canonical Target Reference経由でもhash inputへ入らない。恒久SRC IDの宣言・変更・削除はcanonical Target Referenceを変えず、Source Target hashも変えない。hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の`TargetRef`綴りからは計算しない。Evidence、Audit、検証は解決後のSource Targetのhashへ束縛し、addressing modeごとに別subjectを作らない。
+- Test subject hash：domain `vtest:test-subject:v1`を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。byte range自体は前方の無関係な編集で変化するためhash inputにしない。metadata宣言がmanifest等の非隣接箇所に存在しても、adapterが返す論理metadataを同じsubjectへ含める。canonical metadataの`targets`は**宣言された**`TargetRef`の正規化値を束縛し、解決後のcanonical Locatorへ置換しない。これによりTestの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。
+- Source Target hash：domain `vtest:target-subject:v1`を用い、**canonical Target Reference**とadapterが返すimplementation construct bytesを束縛する。canonical Target Referenceは**常に`TargetRef::Locator`**（adapter IDとadapter所有のopaque locator）であり、`TargetRef::SrcId`をcanonical Target Referenceにしない。`TargetRef::SrcId`はSource Targetを参照する側の表現であって、Source Target自身の識別ではない。恒久SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference経由でもhash inputへ入らない。恒久SRC IDの宣言・変更・削除はcanonical Target Referenceを変えない。ただし恒久SRC IDの宣言をSource Targetのconstruct bytesの内側へ置くadapter（`rust-cargo`の`@vtest.src-id` doc comment等。§5.5）では、その宣言の追加・変更・削除がconstruct bytesを変化させ、construct bytes経由でSource Target hashが変化しうる。これは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の`TargetRef`綴りからは計算しない。Evidence、Audit、検証は解決後のcanonical Source Targetのcanonical Locatorとhashへ束縛し、addressing modeごとに別subjectを作らない（§6.1）。
 - Static Audit Config subject hash：domain `vtest:static-audit-config:v1`を用い、adapter ID、static audit capabilityのrule-set ID / version、および現在の静的rule判定へ影響する実効adapter configのcanonical projectionを束縛する。adapterは同じ入力に対するverdictまたは根拠を変えうるrule実装変更ごとにrule-set versionを変更しなければならない。adapterはrule影響fieldだけを型付き・順序正規化済みのhash未計算DTOとして返し、coreがencodingとSHA-256を行う。静的ruleと無関係なrun、coverage、root等の設定はprojectionへ含めない。
 - Static Analysis Source subject hash：domain `vtest:static-analysis-source:v1`を用い、adapter ID、project-relative path、opaque locator、およびadapterが静的rule判定時に実際に参照したbyte-exact source fragmentを束縛する。byte range自体はhash inputにしない。Test subjectまたはSource Target subjectが同じ解析入力を完全に束縛する場合は重複subjectを作らない。
 - Execution State subject hash：domain `vtest:execution-state:v1`を用い、adapter ID、snapshot schema ID / version、HEAD revision、runner kindとcanonical invocation projection、toolchain identity、実行結果へ影響するadapter configのcanonical projection、および実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。manifest entryはstable root identity、root-relative path、input kind、byte-exact file bytesからなり、entry集合は正規化identity順にencodeする。stable root identityはmachine上の絶対pathを用いず、workspace内の論理rootまたはdependency identityから決定論的に導出する。adapterはhash未計算のmanifestと完全性を返し、coreが各entryとsubject全体を検証・hash化する。
@@ -379,6 +379,8 @@ audited_at: 2026-08-08T00:00:00Z
 revision: { commit: "abc123...", dirty: false }
 ```
 
+`subjects`の`target` entryは§6.1で解決したcanonical Source Targetの**canonical Locator**とする。参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）を監査対象のidentityとして記録しない（§6.1.1）。解決できないtargetを持つTestでは、任意の候補を選んで`target` subjectを生成しない。
+
 同一対象への監査レコードは複数存在してよい（再監査・多重監査）。
 判定に用いるのは「subjects の全ハッシュが現在と一致する（＝有効な）レコードのうち最新のもの」とする。
 有効なレコードに FAIL と PASS が混在する場合は FAIL を採る（fail-closed）。
@@ -430,9 +432,13 @@ target_execution:
 log_ref: "cache/logs/01J8XW1B.log"   # Git管理外の生ログ
 ```
 
-`hashes.targets`はTestの宣言順で常に記録し、各`target`は正規化したTargetRef文字列表現とする。
-このlistはTestが宣言するtarget集合と重複なく1対1に対応する。`target_execution.checked: true`では
-`target_execution.targets`も同じ順序・target集合で1対1に対応する。
+`hashes.targets`はTestの宣言順で常に記録し、各`target`は§6.1で解決したcanonical Source Targetの
+**canonical Locator**の正規化文字列表現とする。参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）を
+Evidence上のtarget identityとして記録しない（§6.1.1）。
+このlistはTestの宣言target集合を解決したcanonical Source Target集合と重複なく1対1に対応する。
+Evidence生成のprecondition（§9.4）により全宣言targetは一意に解決済みであるため、この集合は宣言target集合と同数になる。
+`target_execution.checked: true`では`target_execution.targets`も同じ順序・同じcanonical Locator集合で
+1対1に対応する。
 `target_execution.checked: false`では`method`と`result`をnull、`targets`を空listとし、検証値を
 `NOT_CHECKED`とする。
 
@@ -487,10 +493,10 @@ value           = 行末までのテキスト（前後空白は除去）
 ```
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
-- `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。
+- `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
 - `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
-- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。
+- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。
 
 ### 4.3 `rust-cargo` locator構文
 
@@ -696,9 +702,12 @@ Source Targetはcanonical locator（`TargetRef::Locator`）と任意の恒久SRC
   恒久SRC IDは`src_id`だけで搬送し、`target`の綴りを変えない。
 - coreは`src_id`を統合済みSRC索引へ登録し、locator参照とSRC ID参照のどちらから解決しても
   同一のcanonical Source Targetへ到達させる。
-- Source Target hashは常に canonical Locator と construct bytes から計算し、恒久SRC IDをhash inputに含めない。
-  canonical Locatorは恒久SRC IDの増減で変化しないため、参照方法の違いによってSource Targetの件数、
+- Source Target hashは常に canonical Locator と construct bytes から計算し、恒久SRC IDを独立したhash fieldとして
+  含めない。canonical Locatorは恒久SRC IDの増減で変化しないため、**参照方法**の違いによってSource Targetの件数、
   content / subject hash、EvidenceおよびAudit上のtarget identityが分裂しない。
+  一方、恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでは、その宣言の追加・変更・削除が
+  construct bytesを変え、Source Target hashを変化させうる（§1.3）。これはsourceが実際に変化したことの帰結であり、
+  参照方法による分裂ではない。
 - coreは統合済みSRC索引から、その恒久SRC IDを宣言した`SourceTargetDraft.target`（= canonical Locator）へ解決する。
 - 恒久SRC IDを持つSource Targetも引き続きcanonical locatorでaddressableでなければならない。
 
@@ -803,7 +812,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-002 | error | Test ID 重複（identity collision） |
 | E-SCAN-003 | error | `covers` の参照先 VO が存在しない（dangling reference） |
 | E-SCAN-004 | error | `target` のロケータ／SRC ID を解決できない |
-| E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複 |
+| E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数の`target`宣言が同一canonical Source Targetへ解決 |
 | E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在 |
 | E-SCAN-007 | error | 必須metadata（id / covers / targets / intent）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
@@ -820,7 +829,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 error は該当エンティティに関わるチェック項目を非PASSにする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
 W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断とは独立した`test_traceability`評価で`MISSING`になる。
-`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれかのadapterを選ばない。
+`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれのSource Targetも選択しない。いずれのadapterも選ばず、候補の1件を解決結果としてEvidence、監査subject、`target_execution`へ永続化しない（§6.1）。衝突する恒久SRC IDを宣言した各Source Target自体は、canonical locatorで独立に具体化されたまま保持する。
 
 ### 5.5 `rust-cargo` SourceDiscoveryAdapter
 
@@ -865,6 +874,26 @@ coreは`TargetRef::Locator.adapter`をregistryで解決し、opaque locatorの�
 coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証し、§1.3のSource Target hashを計算するが、opaque locatorの内部構文は解釈しない。解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、推測で候補を選択しない。
 
 SRC ID参照はcoreが統合済みSRC索引で一意性を検査し、対応するadapterのSource Locationとsource rangeを使用する。SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。解決結果をlocator版とSrcId版の別entityへ分岐させない。恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。
+
+解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別し、曖昧はfail-closedな終端状態とする。曖昧な解決から代表候補を選ばず、解決済みのcanonical Source Targetを要求する後段（静的監査subject、Evidence、`target_execution`、鮮度判定）へ候補を1件も引き渡さない。候補は§6.3の診断表示にだけ用い、表示できることを選択の根拠にしない。
+この禁止はTarget Referenceの**解決**に関するものであり、Source Targetの**具体化**を止めるものではない。各Source Targetは自身のcanonical locatorで独立に具体化され、恒久SRC IDが衝突していても`SourceTargetDraft`ごとに1件のSource Targetとして成立する。衝突が壊すのは当該恒久SRC IDによる**参照**の一意性だけである。
+この解決はcoreの単一経路が所有し、静的監査、実行、Evidence writer、検証集約はいずれもその結果を消費する。各subsystemが独自にcandidate列を走査して1件を選ぶ経路を持ってはならない。E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任意の候補で埋めて記録・永続化することを禁ずる。
+
+#### 6.1.1 target identityの一方向確定
+
+Source Target identityは次の一方向でだけ確定する。
+
+```text
+TestEntity.targets  = 宣言されたTargetRef（Locator / SrcId）
+        ↓ resolve（§6.1）
+Canonical Source Target = canonical Locator
+        ↓
+Evidence / Audit / target_execution / 検証 = canonical Locatorをidentityとして使用
+```
+
+Evidence（§3.7、§9.4）、監査レコード（§3.6）、`target_execution`（§10.2）、および鮮度判定（§11.2）は、解決後のcanonical Locatorをtarget identityとして記録・比較する。参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をこれらのidentityとして保存してはならない。
+Testがどう宣言したか（同じSource Targetに対するLocator参照からSRC ID参照への書き換え等）の変更は、`targets`をcanonical metadataとして束縛する§1.3のTest subject hashが捕捉する。したがってEvidence / Audit側で宣言表現を保持する必要はなく、保持すれば同一Source Targetが参照方法ごとに別identityへ分裂する。
+Testの宣言target集合は解決後のcanonical Source Target単位で一意でなければならない。綴りの異なる複数の宣言が同一のcanonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005とする。
 
 ### 6.2 `rust-cargo` locator解決
 
@@ -953,7 +982,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 | `vo-coverage` | `--vo VO-X` または `--req REQ-X` | 対象 VO 部分木の全レコード、対応 REQ レコード、spec_refs（SPEC の path・sha256・節参照。文書本文は含めず、監査エージェントがリポジトリ内で読む）、各 leaf VO の covers 状況 |
 | `impl-consistency` | `--test TEST-X` または `--vo VO-X` | 対象VOレコード、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合とSpecification source全文、全targetのimplementation construct source全文とadapterが提供する構造情報、関連Testのintent |
 
-`impl-consistency` のバンドル生成時、宣言targetのいずれか、または対象VOから§3.5と同じ上流依存規則で導出するSPEC subjectのいずれかを解決できない場合はバンドルを生成せず、`impl_consistency` を `MISSING` として記録する（基本仕様 §7.5）。SPEC recordと参照先sourceの現在性を確認できない場合は`STALE`とし、SPECを省略したbundleを生成しない。`--test`ではTestがcoversする全VO、`--vo`では選択VO部分木を起点とし、上流SPEC集合を狭めない。
+`impl-consistency` のバンドル生成時、宣言targetのいずれか、または対象VOから§3.5と同じ上流依存規則で導出するSPEC subjectのいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。記録する`impl_consistency`は解決失敗の種別で分ける。対象が存在しない場合（E-SCAN-004、SPEC subject不在）は`MISSING`、恒久SRC IDの衝突により複数候補で曖昧な場合（E-SCAN-011）は`MISMATCH`とする（基本仕様 §7.5、§5.4）。複数の解決失敗が異なる種別で併存する場合の代表値は基本仕様 §4.3の優先順位に従い、個別の理由をすべて保持する。SPEC recordと参照先sourceの現在性を確認できない場合は`STALE`とし、SPECを省略したbundleを生成しない。`--test`ではTestがcoversする全VO、`--vo`では選択VO部分木を起点とし、上流SPEC集合を狭めない。
 
 ### 8.2 バンドル JSON スキーマ（test-semantic の例）
 
@@ -1045,7 +1074,7 @@ DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対�
 
 `basis.kind` は `spec` / `vo` / `req` / `test-code` / `target-code` のいずれかとする。
 
-`impl-consistency`の提出は`PASS` / `FAIL` / `UNKNOWN`を用いる。Audit Recordには提出verdictを保持し、検証項目へは`PASS → PASS`、`FAIL → MISMATCH`、`UNKNOWN → UNKNOWN`と写像する。target解決不能の`MISSING`、監査未実施の`NOT_CHECKED`、無効recordだけが存在する`STALE`をこの写像で上書きしない。
+`impl-consistency`の提出は`PASS` / `FAIL` / `UNKNOWN`を用いる。Audit Recordには提出verdictを保持し、検証項目へは`PASS → PASS`、`FAIL → MISMATCH`、`UNKNOWN → UNKNOWN`と写像する。target解決不能（対象なしの`MISSING`、曖昧の`MISMATCH`。§8.1）、監査未実施の`NOT_CHECKED`、無効recordだけが存在する`STALE`をこの写像で上書きしない。
 
 ### 8.4 提出の検証
 
@@ -1159,7 +1188,8 @@ stdout / stderr の全文は `cache/logs/<ULID>.log` へ保存し、Evidence の
 Test ごとに §3.7 のレコードを1件生成する。
 
 - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この Evidence は `evidence_validity` で PASS にならない。
-- `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetの正規化Target Reference・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。
+- `hashes`：実行直前のdiscovery結果から、Test subject hashと、全宣言targetを§6.1で解決したcanonical Locator・implementation construct hash（§1.3）を宣言順で記録する。欠落・重複を許可しない。宣言された`TargetRef`の綴りではなく解決後のcanonical Locatorを記録する（§6.1.1）。
+- **Evidence生成のprecondition**：全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）なら**Evidenceを生成しない**。部分的な`hashes.targets`を持つEvidenceを生成して後段で弾く方式は採らない。この場合`test_execution`は`NOT_EXECUTED`のままとし、target解決の診断で非PASSを示す。
 - `execution_state`：実行直前にrunner adapterが返すsnapshot schema、runner / toolchain / 実行影響config、およびrepository / local dependency入力manifestをcoreが検証し、§1.3のExecution State subject hashとして記録する。完全性を保証できない場合は`complete: false`とし、後続のvalidityをPASSにしない。
 - ビルド失敗（コンパイルエラー）の場合、対象 Test 群の Evidence は記録せず E-EXEC-001 を報告する。`test_execution` は `NOT_EXECUTED` のままとなる。
 
@@ -1205,8 +1235,8 @@ Test単位集約：
   1件以上の全宣言targetがPASS       → PASS
 ```
 
-各targetの参照・result・countとTest単位集約結果をEvidenceの`target_execution`へ記録する。
-target別entryの欠落、重複、余分なentry、または宣言targetとの不一致をPASSとして保存しない。
+各targetのcanonical Locator（§6.1.1）・result・countとTest単位集約結果をEvidenceの`target_execution`へ記録する。
+target別entryの欠落、重複、余分なentry、または解決後のcanonical Source Target集合との不一致をPASSとして保存しない。
 
 ### 10.3 実行モードの整理
 
@@ -1231,7 +1261,7 @@ target別entryの欠落、重複、余分なentry、または宣言targetとの�
 | `test_existence` | leaf VO | covers する Test が1件以上あれば PASS、なければ MISSING |
 | `static_audit` | TEST | §7.1 の合成 |
 | `semantic_audit` | TEST | 有効な test-semantic 監査の合成（§8.5） |
-| `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING |
+| `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING、曖昧な解決（E-SCAN-011）はMISMATCH |
 | `test_execution` | TEST | 有効なEvidenceが存在すればPASS、Evidenceあり・無効なら§11.2の非PASS、EvidenceなしはNOT_EXECUTED |
 | `runtime_result` | TEST | 有効なEvidenceのresult（PASS / FAIL）。無効または不在は§11.2 |
 | `target_execution` | TEST | 有効なEvidenceのtarget別結果を§10.2で集約した値。無効または不在は§11.2、checked: falseはNOT_CHECKED |
@@ -1279,7 +1309,8 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 対象 Test の Evidence のうち最新のものについて：
 
 1. evidence.hashes.test_subject == 現在のTest subject hash
-2. evidence.hashes.targetsの参照集合が現在のTest.targetsと重複なく一致し、各target_constructが現在のimplementation construct hashと一致
+2. evidence.hashes.targetsの参照集合が、現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し、
+   各target_constructが現在のimplementation construct hashと一致
 3. evidence.revision.commit が非 null かつ現在のHEAD revisionと一致する
 4. evidence.execution_state.complete == true かつ、同じschemaで現在再構築したExecution State subjectがcompleteで、hashが一致する
 5. evidence.adapter が現在のTest.execution.adapterと一致する。adapter欠落形は§3.7の互換条件で一意に確認できる
@@ -1294,6 +1325,9 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 5を確認不能      → UNKNOWN
 Evidence なし     → NOT_EXECUTED
 ```
+
+Evidenceは全宣言targetが一意に解決できる場合だけ生成される（§9.4）。現在の宣言targetのうち1件でもcanonical Source Targetへ一意に解決できなくなった場合、記録済み参照集合は現在のcanonical集合と一致しないため条件2は成立せず、`evidence_validity`をPASSにしない。
+対象が存在せずE-SCAN-004となるtargetは`MISSING`、複数候補により曖昧でE-SCAN-011となるtargetは`MISMATCH`として保持する（§5.4）。いずれの場合も`target_execution`をPASSにしない。
 
 複数条件が非PASSなら根拠をすべて保持し、表示代表値は基本仕様 §4.3の優先順位で選ぶ。`evidence_validity`がPASSの場合だけ`test_execution = PASS`とし、`runtime_result`と`target_execution`を当該Evidenceから評価する。Evidenceが存在するが有効でない場合、この3項目はEvidenceを再利用せず、`evidence_validity`と同じ`MISMATCH` / `STALE` / `UNKNOWN`を保持する。Evidenceがなければ3項目とも`NOT_EXECUTED`とする。有効なEvidenceで`target_execution.checked: false`の場合だけ`target_execution = NOT_CHECKED`とする。
 

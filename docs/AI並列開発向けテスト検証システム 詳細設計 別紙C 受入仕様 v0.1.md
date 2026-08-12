@@ -40,6 +40,9 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - Test / 宣言targetを変更せず、実行結果を変えうるtarget外helperまたはlocal dependencyだけを変更した状態
 - VO / Test / targetを変更せず、impl-consistencyが参照するSpecification sourceだけを変更した状態
 - 複数adapterが同じ恒久SRC IDを宣言する状態
+- 同一のSource Targetを、一方のTestがlocatorで、他方のTestが恒久SRC IDで宣言する状態
+- 同一のTestが同一Source Targetをlocatorと恒久SRC IDの両方で宣言する状態（E-SCAN-005）
+- Source Target constructの内側にある`@vtest.src-id`宣言だけを付与・変更・削除した状態
 
 adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-process synthetic
 adapterを使用できる。synthetic adapterは配布対象のproduction language adapterではない。
@@ -52,9 +55,16 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - source discovery adapterは全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、source range、current bytes、logical metadata、宣言された恒久SRC ID、Test execution descriptorをhash未計算で返す。coreは出力を検証してTest subject / Source Target hashを計算してからManaged Test Entity、ManagedTestLink、Source Targetを具体化する。
 - Source Targetはcanonical locatorと任意の恒久SRC IDを併有する単一のentityである。adapterは同一constructをlocator版とSrcId版の2 draftへ複製せず、恒久SRC IDを`SourceTargetDraft.src_id`として返す。
 - 恒久SRC IDを持つSource Targetはcanonical locatorでもaddressableであり、locator参照とSRC ID参照は同一のcanonical Source Targetへ解決する。両addressing modeで同一のSource Target hashに到達し、Source Targetの件数、content / subject hash、EvidenceおよびAudit上のtarget identityが参照方法によって分裂しない。
+- Source Target identityは「宣言された`TargetRef` → 解決 → canonical Locator」の一方向で確定する。Evidence、監査レコード、`target_execution`、鮮度判定は解決後のcanonical Locatorをidentityとして記録・比較し、参照側Testが宣言した綴り（SRC ID参照を含む）を保存しない。同一のSource Targetをlocator参照するTestとSRC ID参照するTestは、Evidence / Audit上で同一のtarget identityを持つ。
+- Testがどう宣言したかの変更（同一Source Targetに対するlocator参照からSRC ID参照への書き換え等）はTest subject hashの変化として捕捉され、Evidence / Audit側のtarget identityを変化させない。
+- 綴りの異なる複数の`target`宣言が同一のcanonical Source Targetへ解決する場合はE-SCAN-005とする。
 - `SourceTargetDraft.target`は必ず`TargetRef::Locator`である。`TargetRef::SrcId`をcanonical targetとして返したadapter出力はmalformed adapter outputとして拒否する。恒久SRC IDの宣言・変更・削除でcanonical locatorは変化しない。
-- Source Target hashは常にcanonical locatorとconstruct bytesから計算し、参照側Testの`TargetRef`綴りからは計算しない。恒久SRC IDはSource Target hashのinputに含めない。
+- Source Target hashは常にcanonical locatorとconstruct bytesから計算し、参照側Testの`TargetRef`綴りからは計算しない。恒久SRC IDを独立したhash fieldとしてSource Target hashのinputに含めない。
+- 恒久SRC IDの宣言をSource Target constructの内側へ置くadapter（`rust-cargo`の`@vtest.src-id` doc comment等）では、その宣言の付与・変更・削除がconstruct bytesを変えるため、Source Target hashも変化する。これはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
 - SRC ID参照はcoreの統合済みSRC索引から、その恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決する。
+- Target Reference解決は解決済み / 対象なし / 曖昧を区別し、曖昧はfail-closedな終端状態とする。E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて、監査subject、Evidence、`target_execution`のいずれも候補の1件を解決結果として記録しない。候補は診断表示にだけ用いる。
+- この禁止は解決に関するものであり、Source Targetの具体化を止めない。恒久SRC IDが衝突していても、各Source Targetは自身のcanonical locatorで独立したentityとして具体化され、Source Targetの件数と各content / subject hashは衝突の有無で変化しない。衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。
+- この解決はcoreの単一経路が所有する。discovery、静的監査、実行、Evidence writer、検証集約が独自にcandidate列を走査して1件を選ぶ経路を持たない。
 - adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
 - 管理宣言または必須metadataを持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出する。
 - 存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`test_traceability = MISMATCH`を導出する。`MISSING`として二重定義しない。
@@ -90,13 +100,17 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 
 - 選択した登録Testだけをrunnerのexact selectorで実行する。
 - Testごとの結果、revision、hash、adapter ID、runner情報、およびExecution State subjectをEvidenceへ記録する。
-- build failure、runner failure、必須runner capabilityの欠落ではEvidenceを生成しない。
+- build failure、runner failure、必須runner capabilityの欠落、および宣言targetの解決失敗ではEvidenceを生成しない。
 - 実行前後でExecution State subjectが変化した場合はE-EXEC-004となり、Evidenceを生成しない。
 - Evidence writerはadapter IDを必ず記録する。
 - Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target_construct`を出力する。`test_fn` / `test_construct` / `target_fn`の互換入力は`rust-cargo` Evidenceで全canonical metadataを含むsource rangeと現在値の同一性を証明できる場合だけ受理する。
 - Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、
   runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
-- Evidenceは全宣言targetの参照と内容hashを重複なく保持する。
+- Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複なく保持し、参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をtarget identityとして保存しない。同一Source Targetをlocator参照するTestとSRC ID参照するTestのEvidenceは、同じtarget identityと同じtarget内容hashを持つ。
+- 監査レコードの`subjects`の`target` entryも解決後のcanonical Locatorとし、Evidence側のtarget identityと一致する。
+- 全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成のpreconditionとする。1件でも対象なしまたは曖昧なら**Evidenceを生成しない**。部分的な`hashes.targets`を持つEvidenceを生成しない。この場合`test_execution`はNOT_EXECUTEDのままとなる。
+- Evidence記録後に宣言targetのいずれかが一意に解決できなくなった場合、記録済み参照集合が現在のcanonical集合と一致しないためSTALEになり、`target_execution`もPASSにしない。
+- 解決できなくなったtargetは、対象が存在しない場合（E-SCAN-004）は`MISSING`、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`として保持する。両者を一括して同一の状態値にしない。
 - canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALEになる。
 - `revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceはSTALEになり、FAILまたは有効なPASSとして扱わない。
 - Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。Testと宣言targetを変更せずtarget外helperだけを変更しても既存EvidenceはSTALEになる。
@@ -113,7 +127,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 受理するAudit Recordはsubjectsの内容hashへ束縛される。
 - deterministic結果とagent / human結果を区別して保存・表示する。
 - impl-consistency bundleとAudit Recordは、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合へ束縛される。Specification record、参照先source、または集合だけを変更しても既存recordはSTALEになり、限定scopeの`impl_consistency = PASS`へ利用されない。
-- impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。target解決不能はMISSING、監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
+- impl-consistency提出verdictのFAILはAudit Recordに保持され、検証項目`impl_consistency`ではMISMATCHへ写像される。監査未実施はNOT_CHECKED、無効recordだけがある場合はSTALE、判定不能はUNKNOWNのままとする。
+- targetを一意に解決できない場合はimpl-consistency bundleを生成せず、候補のいずれも選択しない。対象が存在しない場合（E-SCAN-004）は`impl_consistency = MISSING`、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`とし、両者を一括して同一の状態値にしない。複数の解決失敗が異なる種別で併存する場合の代表値は基本仕様 §4.3の優先順位に従う。
 
 #### 18.3.5 verify・report
 
@@ -137,7 +152,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 各宣言targetについて、計測countが1以上ならtarget別PASS、0ならtarget別FAIL、確実に同定または計測できなければtarget別UNKNOWNになる。
 - 複数target Testの集約値は、1件でもtarget別FAILがあればFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、1件以上の全宣言targetがPASSの場合だけPASSになる。
 - target AがPASSでもtarget BがFAILまたはUNKNOWNなら、Test単位の`target_execution`をPASSにしない。
-- `target_execution.checked: true`のEvidenceでtarget別entryが欠落、重複、または宣言target集合と不一致ならPASSにしない。
+- `target_execution.checked: true`のEvidenceでtarget別entryが欠落、重複、または解決後のcanonical Source Target集合と不一致ならPASSにしない。
+- target別entryは解決後のcanonical Locatorをidentityとし、宣言側の綴りを用いない。
 - coverage capabilityまたは計測toolが利用できない場合はNOT_CHECKEDとなり、PASSにならない。
 - coverage解析限界はUNKNOWNとなり、PASSにならない。
 
