@@ -285,15 +285,18 @@ fn m1_invalid_project_config_is_a_json_internal_error() {
     .expect("replace config with invalid canonical data");
 
     let output = invoke(&project.root, "scan", &[]);
+    // W1/W2 config validation rejects a malformed canonical config with
+    // E-CONFIG-001 (an operation/usage error, exit 2) rather than the
+    // pre-validation internal error this case originally expected.
     assert_success(
         &output,
-        3,
-        "an unreadable canonical project configuration is an internal error",
+        2,
+        "a malformed canonical project configuration is a config error",
     );
     let json = stdout(&output);
     assert_json_envelope(&json);
     assert!(json.contains("\"ok\": false"));
-    assert!(json.contains("\"E-CORE-001\""));
+    assert!(json.contains("\"E-CONFIG-001\""));
 }
 
 #[test]
