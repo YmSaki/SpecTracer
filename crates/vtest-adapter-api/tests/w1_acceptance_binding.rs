@@ -4,8 +4,8 @@ use vtest_adapter_api::{
     encode_wire_targets, missing_capability_semantics, normalize_wire_targets, AdapterCapability,
     AdapterDescriptor, AdapterError, AdapterRegistration, AdapterRegistry, DiscoveredTestDraft,
     DiscoveryCompleteness, ManagedTestDraft, ManagedTestDraftLink, MissingCapabilitySemantics,
-    SourceFragment, SourceTargetDraft, StaticAnalysisClosureDraft, StaticAuditAdapter,
-    StaticAuditConfigDraft, StaticAuditObservation, TestWireCodec,
+    RuleObservationDraft, SourceFragment, SourceTargetDraft, StaticAnalysisClosureDraft,
+    StaticAuditAdapter, StaticAuditConfigDraft, StaticAuditObservation, TestWireCodec,
 };
 use vtest_model::{
     hash_static_audit_config_subject, hash_test_subject, AdapterId, CanonicalProjection,
@@ -38,6 +38,12 @@ impl StaticAuditAdapter for SyntheticStaticAudit {
         Ok(StaticAuditObservation {
             verdict: CheckValue::Pass,
             reasons: vec!["synthetic assertion is present".to_owned()],
+            rules: vec![RuleObservationDraft {
+                rule: "SYN-001".to_owned(),
+                verdict: CheckValue::Pass,
+                reason: "synthetic assertion is present".to_owned(),
+                location: test.location.clone(),
+            }],
             config: StaticAuditConfigDraft {
                 rule_set_id: "synthetic-static".to_owned(),
                 rule_set_version: "1".to_owned(),

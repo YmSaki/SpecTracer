@@ -114,10 +114,25 @@ pub struct ExecutionStateDraft {
     pub inputs: Vec<ExecutionInputDraft>,
 }
 
+/// One deterministic rule outcome inside a static audit observation.
+///
+/// The adapter owns the language-specific analysis, so per-rule verdicts,
+/// human-readable reasons, and source locations can only originate here.  The
+/// core reshapes these into the persisted `AuditRecord` reasons (rule / verdict
+/// / claim / basis) and the CLI `data.audits[].rules[]` projection.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct RuleObservationDraft {
+    pub rule: String,
+    pub verdict: CheckValue,
+    pub reason: String,
+    pub location: SourceLocation,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct StaticAuditObservation {
     pub verdict: CheckValue,
     pub reasons: Vec<String>,
+    pub rules: Vec<RuleObservationDraft>,
     pub config: StaticAuditConfigDraft,
     pub analysis: StaticAnalysisClosureDraft,
 }
