@@ -1327,14 +1327,17 @@ fn build_bundle(
                 for spec_ref in &vo.spec_refs {
                     if let Ok(record) = read_spec(layout, spec_ref.spec.as_str()) {
                         let key = record.id.to_string();
-                        // W4 owes this the current source subject: a bundle
-                        // built from the registration snapshot cannot detect a
-                        // Specification body that moved after registration.
+                        // Bind the current Specification source so a body that
+                        // moved after registration is detected, not the frozen
+                        // registration snapshot.
+                        let source_hash = fs::read_to_string(root.join(&record.path))
+                            .map(|text| ContentHash::from_text(&text))
+                            .unwrap_or_else(|_| ContentHash::from_text(""));
                         subjects.push(subject_value(
                             "spec",
                             Some(record.id.as_str()),
                             None,
-                            record.sha256.registered_snapshot(),
+                            &source_hash,
                         ));
                         specs.insert(
                             key,
@@ -1362,14 +1365,17 @@ fn build_bundle(
                     };
                     if let Ok(record) = read_spec(layout, spec_id) {
                         let key = record.id.to_string();
-                        // W4 owes this the current source subject: a bundle
-                        // built from the registration snapshot cannot detect a
-                        // Specification body that moved after registration.
+                        // Bind the current Specification source so a body that
+                        // moved after registration is detected, not the frozen
+                        // registration snapshot.
+                        let source_hash = fs::read_to_string(root.join(&record.path))
+                            .map(|text| ContentHash::from_text(&text))
+                            .unwrap_or_else(|_| ContentHash::from_text(""));
                         subjects.push(subject_value(
                             "spec",
                             Some(record.id.as_str()),
                             None,
-                            record.sha256.registered_snapshot(),
+                            &source_hash,
                         ));
                         specs.entry(key).or_insert_with(|| {
                             serde_json::json!({

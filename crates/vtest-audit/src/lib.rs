@@ -203,7 +203,12 @@ fn record_from_observation(
             location: rule.location,
         })
         .collect();
-    let verdict = check_to_verdict(observation.verdict);
+    // Spec §5.2 (詳細設計 line 781): an incomplete analysis input closure
+    // forbids PASS even when no rule reported a violation.
+    let verdict = match check_to_verdict(observation.verdict) {
+        AuditVerdict::Pass if !observation.analysis.complete => AuditVerdict::Unknown,
+        other => other,
+    };
     let mut diagnostics = Vec::new();
     for rule in &rules {
         if rule.rule == "W-DA-101" {

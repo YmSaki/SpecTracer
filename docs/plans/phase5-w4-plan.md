@@ -116,8 +116,19 @@ W4 完了条件 vs 実績:
 - Specification-only change → impl_consistency STALE ✓（AF-025 green化、bundle が upstream SPEC 束縛）
 - impl-consistency FAIL → MISMATCH ✓（AF-026 green化）
 - `vtest-audit` に syn/quote 直接依存なし ✓（`cargo tree` 直接 deps クリーン、audit_rules 削除）
-- incomplete closure → UNKNOWN: rule レベル（DA-002/003 cross-file UNKNOWN）で観測達成。`analysis.complete`
-  フラグは常時 true（現行テストは未行使）。closure-complete→UNKNOWN の明示配線は未行使のため保留（債務メモ）。
+- incomplete closure → UNKNOWN ✓（**達成**）: adapter は target 宣言ありだが解決不能なら `analysis.complete=false`、
+  core（record_from_observation）が `!complete && Pass → Unknown` を強制（詳細設計 §5.2 line 781）。現行 green テストに
+  未解決 target は無いので 19-name invariant 維持。
+
+**B: spec-coverage bundle / service 移設ディレクティブの判断（advisor B）**:
+Semantic Audit 本文「CLI内のbundle/submitロジックを共通serviceへ移す」「4種類を成立させる（spec-coverage/
+test-semantic/vo-coverage/impl-consistency）」を評価。実測: CLI bundle は3種（test-semantic|vo-coverage|
+impl-consistency、lib.rs:922）で **spec-coverage bundle 未実装**。詳細設計 §980/§1099 は spec-coverage bundle
+（`--spec` selector、SPEC subject + active REQ 集合）を定義。
+**判断 = W6 へ deferred（W4 blocker ではない）**: (1) spec-coverage bundle も service 移設も W4 完了条件（§489-499）に
+無く、acceptance test も未行使（残19失敗に spec-coverage bundle 無し）。(2) verify item `spec_coverage` は成立・green。
+(3) bundle/submit の共通 service 化は W6（CLI/MCP phase、MCP が CLI shell-out を止める工程）に整合。checkpoint で
+Owner へ明示報告する（未実装 body ディレクティブとして）。
 
 残り19失敗は全て W5（evidence_*/m4_*/m7_*/multi_target/head_change/local_dependency/incomplete_execution/
 execution_state_mutation/target_external_helper/orchestration_crates=vtest-exec dep）または

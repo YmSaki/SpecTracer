@@ -1780,7 +1780,10 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
                 effective_config: config.clone(),
             },
             analysis: StaticAnalysisClosureDraft {
-                complete: true,
+                // The analysis input closure is incomplete when a target is
+                // declared but cannot be resolved on disk; the core forbids a
+                // PASS over an incomplete closure.
+                complete: test.targets.is_empty() || resolved_target.is_some(),
                 sources,
             },
         })
