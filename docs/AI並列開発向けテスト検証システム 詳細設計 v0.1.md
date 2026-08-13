@@ -933,6 +933,7 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 **決定論的に確定できる違反のみ FAIL とする。**
 解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
+DA-002（target 到達）は静的な到達証明であり、その UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 はこの集約へ UNKNOWN を寄与しない。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い DA-002 UNKNOWN、および DA-002 FAIL は従来どおり集約へ寄与する。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は集約時点で UNKNOWN を生じない）。
 
 `vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
@@ -962,6 +963,30 @@ DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の�
 ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
+
+### 7.3 target 到達の静的証明と runtime 証明の関係
+
+DA-002 は §7.2 の解析境界（関数本体および同一ファイル内 helper 1段。クロージャ内・マクロ展開内・他ファイル・他クレートへの呼出は §7.1 / §7.2 に従い UNKNOWN）で行う**静的な target 到達証明**である。Test が target を静的解析の追えない**実行境界**を越えて到達させる形態はいずれも DA-002 の UNKNOWN として現れる。これには次が含まれ、Test の kind（unit / integration）とは独立に、**execution topology** によって決まる。
+
+- 他ファイル・他クレートへの呼出を介した間接到達
+- クロージャ・マクロ展開内での到達
+- 生成した別スレッド（in-process, thread boundary）での到達
+- 別プロセス（subprocess を起動し、そのプロセス内で target を実行する process boundary）での到達
+
+**到達要件は、target ごとに、次のいずれかで充足される。**
+
+1. **静的証明**: 当該 target について DA-002 = PASS。
+2. **runtime 証明**: 当該 target について §10.2 の target 別 target_execution result = PASS（`checked: true` かつ実行 count > 0）。
+
+DA-002 が UNKNOWN（静的に証明できない）である target は、runtime 証明が成立するときに限り到達要件を満たす。複数 target Test では §7.2 / §10.2 と同じく target ごとに適用し、Test の static_audit 到達は**全宣言 target の到達要件が充足された場合にのみ**成立する。
+
+この関係は fail-closed を保つ。
+
+- runtime 証明は当該 target の target_execution = PASS のときだけ成立する。target_execution が FAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage 利用不能、未計測、`--fast`）のときは到達要件を満たさず、DA-002 UNKNOWN は UNKNOWN のまま集約へ寄与する。
+- DA-002 = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆さない。
+- 実行 target を持たない Test（構造・契約のみを assert し、宣言 target をどの topology でも実行しない Test）は静的にも runtime にも到達を確立できず、到達要件は未充足のままとなる。
+
+**DA-003 はこの関係に含めない。** runtime coverage は target の「実行」を証明するが「結果検証」を証明しない。したがって coverage は DA-003 を代替せず、DA-003 は §7.2 の意味論のまま（結果が assert 相当へ到達することの静的判定）を維持する。境界越し Test で target 結果が別プロセス・別スレッドの出力としてのみ観測される場合の結果検証は、Test 自身がその observable を assert する runtime_result が担い、DA-003 の静的判定を緩めない。
 
 ---
 
@@ -1238,6 +1263,8 @@ Test単位集約：
 各targetのcanonical Locator（§6.1.1）・result・countとTest単位集約結果をEvidenceの`target_execution`へ記録する。
 target別entryの欠落、重複、余分なentry、または解決後のcanonical Source Target集合との不一致をPASSとして保存しない。
 
+Test が別プロセス（起動した subprocess 内）・別スレッド等の実行境界越しに target を到達させる場合も、判定は上記の実行 count に基づく。coverage provider は当該境界越しの実行を宣言 target へ帰属させなければならない（例：起動される実行体も計測対象としてinstrumentし、子プロセスの profile を merge する）。provider が境界越しの実行を帰属できない場合はその target を `UNKNOWN`（関数不見当扱い）とし、計測自体が不能なら Test の `target_execution = NOT_CHECKED` とする。いずれも §7.3 の runtime 到達証明を成立させず、静的到達の UNKNOWN を PASS へ変換しない。この帰属可否は adapter の coverage capability に属し、能力の有無で計測結果を捏造しない。
+
 ### 10.3 実行モードの整理
 
 `vtest run` は2モードを持つ。
@@ -1259,7 +1286,7 @@ target別entryの欠落、重複、余分なentry、または解決後のcanonic
 | `vo_decomposition` | REQ / VO | REQ / VO部分木のparent・requirements・spec_refs・構造Relationだけを§11.1.1で評価 |
 | `vo_coverage` | REQ / VO | 有効なvo-coverage監査（§8.5）がPASSかつ対象VOが承認済（§3.5）ならPASS |
 | `test_existence` | leaf VO | covers する Test が1件以上あれば PASS、なければ MISSING |
-| `static_audit` | TEST | §7.1 の合成 |
+| `static_audit` | TEST | §7.1 の合成（DA-002 到達は §7.3 に従い静的または当該 target の runtime target_execution で充足。DA-003 は静的判定のまま） |
 | `semantic_audit` | TEST | 有効な test-semantic 監査の合成（§8.5） |
 | `impl_consistency` | TEST / VO | 有効なimpl-consistency監査を§8.3でCheckValueへ写像して合成。監査FAILはMISMATCH、対象シンボル不在はMISSING、曖昧な解決（E-SCAN-011）はMISMATCH |
 | `test_execution` | TEST | 有効なEvidenceが存在すればPASS、Evidenceあり・無効なら§11.2の非PASS、EvidenceなしはNOT_EXECUTED |

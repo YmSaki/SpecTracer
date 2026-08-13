@@ -370,6 +370,8 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 判定は保守的に行う。
 決定論的に確定できる違反のみ `FAIL` とし、確定できないものは `UNKNOWN` として意味監査へ送る。
 決定論的監査で `FAIL` となった Test は、意味監査へ送る前に拒否できる。
+
+target 到達（宣言 target の呼び出し確認）は execution topology に依存する。別プロセス（起動した subprocess 内）・別スレッド・クロージャ・他ファイル等、静的解析の到達判定境界を越えて target を実行する Test では静的に到達を証明できず `UNKNOWN` となる。この到達 `UNKNOWN` は、意味監査ではなく、当該 target の runtime target_execution（§7.9）が実行を証明した場合に限り到達要件を満たす。subprocess を用いる end-to-end Test も同様に扱い、subprocess であること自体を欠陥としない。結果未検証（対象を呼び出しているが結果を検証しない観点）は runtime coverage で代替せず静的判定を維持する。いずれも fail-closed を保ち、coverage が利用不能・未計測・非PASS のとき到達要件を満たさず PASS へ昇格しない（詳細は詳細設計 §7.3）。
 Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set identity、静的rule判定へ影響する実効config、および判定時に実際に参照したhelper等の全source fragmentへ束縛する。同じ入力に対する判定を変えうるrule実装変更はrule-set identityを変更する。rule-set、rule影響config、参照source fragmentの値または対象集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。静的ruleと無関係なconfigおよび判定に参照していないsourceはsubjectへ含めない。
 
 adapterは各rule verdictを変えうる解析入力の完全な集合を返さなければならない。helper、展開済みsource、symbol tableその他の解析入力を参照しながら、その入力をfreshness subjectへ束縛できない場合、当該ruleを`PASS`にせず`UNKNOWN`とする。
@@ -494,6 +496,7 @@ Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidence�
 - 高速な限定 scope 検証では省略可能。省略時は `NOT_CHECKED`。
 - 計測環境（カバレッジツール）が利用できない場合も `NOT_CHECKED` とし、PASS へ変換しない。
 - 各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、implementation constructを確実に同定または計測できなければ`UNKNOWN`とする。
+- Test が別プロセス（起動した subprocess）・別スレッド等の実行境界越しに target を実行する場合、coverage 計測は当該境界越しの実行を宣言 target へ帰属させる。帰属できなければその target を`UNKNOWN`、計測不能なら`NOT_CHECKED`とする。target別結果`PASS`は静的に到達を証明できない target の runtime 到達証明（§7.2 / 詳細設計 §7.3）としても機能する。
 - Test単位の`target_execution`は、target別結果に1件でも`FAIL`があれば`FAIL`、`FAIL`がなく1件でも`UNKNOWN`があれば`UNKNOWN`、1件以上の全targetが`PASS`の場合だけ`PASS`とする。
 - target別結果の欠落、重複、または現在の宣言targetを解決したcanonical Source Target集合との不一致を、全target計測済みの`PASS`として扱わない。
 

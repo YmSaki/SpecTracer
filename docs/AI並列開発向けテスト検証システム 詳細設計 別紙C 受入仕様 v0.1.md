@@ -92,6 +92,10 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - `rust-cargo`の`assertion_macros`だけを変更すると既存static Audit RecordはSTALEになり、再監査なしに`static_audit = PASS`へ利用されない。
 - DA-002 / DA-003が参照した同一file helperだけを変更すると既存static Audit RecordはSTALEになり、再監査なしに`static_audit = PASS`へ利用されない。
 - static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
+- 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestはDA-002がUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）なら到達要件は充足され、DA-002はstatic_audit集約へUNKNOWNを寄与しない。他ルールが違反なしならstatic_auditはPASSになる。
+- 同じ到達UNKNOWNのTestでも、当該targetのtarget_executionがFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、DA-002 UNKNOWNはstatic_auditのUNKNOWNとして残る。DA-002 FAIL（境界内で到達を静的否定）はruntime証明で覆らない。
+- runtime coverageはDA-003を代替しない。結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのままstatic_auditへ寄与する。
+- 宣言targetをどのtopologyでも実行しない構造・契約のみのTestは、静的にもruntimeにも到達を確立できず到達要件は未充足のままになる。
 - 同じ入力に対するverdictまたは根拠を変えるstatic rule実装変更はrule-set versionを変更し、既存recordをSTALEにする。
 - static ruleへ影響しないrun / coverage設定だけの変更ではStatic Audit Config subject hashを変えない。
 - config subjectを欠く読取り互換static Audit Recordを現在のPASSへ昇格しない。
@@ -156,6 +160,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - target別entryは解決後のcanonical Locatorをidentityとし、宣言側の綴りを用いない。
 - coverage capabilityまたは計測toolが利用できない場合はNOT_CHECKEDとなり、PASSにならない。
 - coverage解析限界はUNKNOWNとなり、PASSにならない。
+- Testが別プロセス（起動したsubprocess）・別スレッドでtargetを実行する場合、coverage計測が当該境界越しの実行を宣言targetへ帰属できればtarget別PASS（count > 0）になり、その結果は本冊 §7.3のruntime到達証明としても機能する。provider が境界越しの実行を帰属できなければtarget別UNKNOWN、計測不能ならTestの`target_execution = NOT_CHECKED`となり、いずれもPASSにならない。
 
 #### 18.3.7 Structured Test Operation
 
