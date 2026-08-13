@@ -12,14 +12,14 @@ use serde::Serialize;
 use vtest_adapter_api::{encode_test_wire, AdapterError, AdapterRegistry};
 use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
-use vtest_exec::{run_tests, RunnableTest, RustLocator};
+use vtest_exec::{run_tests, RunnableTest};
 use vtest_model::{
     hash_specification_source, AdapterId, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId,
     Revision, ScanSummary, SourceFunction, SpecId, TargetRef, TestEntity, VoId,
 };
 use vtest_scan::{
     create_test, edit_test, list_tests, parse_test_set_values, query_tests,
-    scan_project_with_discovery, show_test, Locator as ScanLocator, ScanError, ScanResult,
+    scan_project_with_discovery, show_test, ScanError, ScanResult,
 };
 use vtest_store::{
     approval_subject_hash, current_approval_subject, derive_vo_status, find_project_root,
@@ -1593,20 +1593,6 @@ fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'
     }
 }
 
-fn rust_exec_locator(source: &SourceFunction) -> Option<RustLocator> {
-    let TargetRef::Locator { adapter, value } = &source.target else {
-        return None;
-    };
-    if adapter.as_str() != "rust-cargo" {
-        return None;
-    }
-    let locator = ScanLocator::parse(value)?;
-    Some(RustLocator {
-        path: locator.path,
-        item_path: locator.item_path,
-    })
-}
-
 fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandResult<String> {
     let path = root.join(location.path.as_str());
     let source = fs::read_to_string(&path).map_err(|error| {
@@ -2311,13 +2297,40 @@ fn run_run(
             RunnableTest {
                 entity,
                 target_hashes,
-                target_locator: targets
-                    .first()
-                    .and_then(|source| source.and_then(rust_exec_locator)),
             }
         })
         .collect::<Vec<_>>();
-    let result = match run_tests(&root, &layout, &runnable, fast) {
+    let registry = match built_in_registry() {
+        Ok(registry) => registry,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
+                ),
+            );
+            return ExitCode::Internal;
+        }
+    };
+    let runner = match registry.test_runner(&AdapterId::new(RUST_CARGO_ADAPTER_ID)) {
+        Ok(runner) => runner,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
+                ),
+            );
+            return ExitCode::Internal;
+        }
+    };
+    let result = match run_tests(&root, &layout, &runnable, fast, runner) {
         Ok(result) => result,
         Err(error) => {
             emit(

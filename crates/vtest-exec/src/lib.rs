@@ -1,6 +1,7 @@
 //! Cargo test execution, target coverage attribution, and append-only Evidence recording.
 
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -8,14 +9,12 @@ use std::{
 
 use serde::Serialize;
 use thiserror::Error;
+use vtest_adapter_api::{RunnerOutcome, TestRunnerAdapter};
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
-    ExecutionStateSubject, Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
+    CanonicalProjection, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord,
+    EvidenceTargetHash, ExecutionStateSubject, Revision, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
-
-mod rust_runner;
-use rust_runner::*;
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -30,13 +29,6 @@ pub enum ExecutionError {
 pub struct RunnableTest {
     pub entity: TestEntity,
     pub target_hashes: Vec<ContentHash>,
-    pub target_locator: Option<RustLocator>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RustLocator {
-    pub path: String,
-    pub item_path: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -56,6 +48,7 @@ pub fn run_tests(
     layout: &VerifyLayout,
     tests: &[RunnableTest],
     fast: bool,
+    adapter: &dyn TestRunnerAdapter,
 ) -> Result<ExecutionResult, ExecutionError> {
     let log_dir = layout.cache_dir().join("logs");
     fs::create_dir_all(&log_dir).map_err(|source| ExecutionError::Io {
@@ -67,50 +60,56 @@ pub fn run_tests(
         source,
     })?;
     let revision = git_revision(root);
-    let llvm_cov_available = !fast && cargo_llvm_cov_available(root);
-    let cov_dir = layout.cache_dir().join("cov");
-    if llvm_cov_available {
-        fs::create_dir_all(&cov_dir).map_err(|source| ExecutionError::Io {
-            path: cov_dir.clone(),
-            source,
-        })?;
-    }
+    // Core owns the config -> projection mapping; `fast` collapses to
+    // coverage off, and the adapter only obeys the projection.
+    let exec_config = CanonicalProjection::Map(BTreeMap::from([(
+        "coverage".to_owned(),
+        CanonicalProjection::String(if fast { "off" } else { "llvm-cov" }.to_owned()),
+    )]));
     let mut evidence = Vec::new();
     let mut diagnostics = Vec::new();
     for test in tests {
         let record_id = new_record_id();
-        let coverage_path = llvm_cov_available.then(|| cov_dir.join(format!("{record_id}.json")));
-        let (mut command, command_line, runner_kind) = if let Some(coverage_path) = &coverage_path {
-            (
-                cargo_llvm_cov_command(root, &test.entity, coverage_path),
-                llvm_cov_command_string(root, &test.entity, coverage_path),
-                "cargo-llvm-cov",
-            )
-        } else {
-            (
-                cargo_command(root, &test.entity),
-                command_string(&test.entity),
-                "cargo-test",
-            )
+        let outcome = adapter
+            .run(root, &exec_config, &test.entity)
+            .map_err(|error| ExecutionError::Io {
+                path: root.to_owned(),
+                source: std::io::Error::other(error.to_string()),
+            })?;
+        // Persist the log for every outcome; only Evidence references it.
+        let log = match &outcome {
+            RunnerOutcome::Completed(observation) => observation.log.clone(),
+            RunnerOutcome::Ignored { log, .. } | RunnerOutcome::MissingResult { log, .. } => {
+                log.clone()
+            }
         };
-        let output = command.output().map_err(|source| ExecutionError::Io {
-            path: root.to_owned(),
-            source,
-        })?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let raw_log = format!("$ {command_line}\n{}{}", stdout, stderr);
         let log_path = log_dir.join(format!("{record_id}.log"));
-        fs::write(&log_path, raw_log).map_err(|source| ExecutionError::Io {
+        fs::write(&log_path, &log).map_err(|source| ExecutionError::Io {
             path: log_path.clone(),
             source,
         })?;
-        let observation = parse_result(&stdout, &test.entity.execution.selector);
-        match observation {
-            Some(ObservedResult::Ignored) => {}
-            Some(ObservedResult::Pass) | Some(ObservedResult::Fail) => {
-                let observed_pass = matches!(observation, Some(ObservedResult::Pass));
-                let process_pass = output.status.success();
+        match outcome {
+            RunnerOutcome::Ignored { .. } => {}
+            RunnerOutcome::MissingResult { runner, .. } => {
+                // Build failure vs a requested filter that produced no result
+                // line is discriminated by the process exit code (§1182/§1194).
+                let code = if runner.exit_code != 0 {
+                    "E-EXEC-001"
+                } else {
+                    "E-EXEC-002"
+                };
+                diagnostics.push(
+                    Diagnostic::error(
+                        code,
+                        format!("requested Test {} has no result line", test.entity.id),
+                    )
+                    .with_location(test.entity.location.clone()),
+                );
+            }
+            RunnerOutcome::Completed(observation) => {
+                let observation = *observation;
+                let observed_pass = matches!(observation.result, TestResult::Pass);
+                let process_pass = observation.runner.exit_code == 0;
                 if observed_pass != process_pass {
                     diagnostics.push(
                         Diagnostic::error(
@@ -124,35 +123,16 @@ pub fn run_tests(
                     );
                     continue;
                 }
-                let target_execution = if fast {
-                    TargetExecution {
-                        checked: false,
-                        method: None,
-                        result: None,
-                        targets: Vec::new(),
-                        compatibility_count: None,
-                    }
-                } else if let Some(coverage_path) = &coverage_path {
-                    target_execution_from_coverage(coverage_path, test.target_locator.as_ref())
-                } else {
-                    let (target_execution, diagnostic) = unavailable_target_execution();
-                    diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
-                    target_execution
-                };
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
                     adapter: Some(test.entity.execution.adapter.clone()),
-                    result: if observed_pass {
-                        TestResult::Pass
-                    } else {
-                        TestResult::Fail
-                    },
+                    result: observation.result,
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
                     execution_state: Some(ExecutionStateSubject {
-                        schema: "rust-cargo-execution-state-v1".to_owned(),
-                        complete: false,
+                        schema: observation.execution_state.schema_id.clone(),
+                        complete: observation.execution_state.complete,
                         hash: None,
                     }),
                     hashes: EvidenceHashes {
@@ -169,12 +149,8 @@ pub fn run_tests(
                             .collect(),
                         compatibility: None,
                     },
-                    runner: RunnerInfo {
-                        kind: runner_kind.to_owned(),
-                        command: command_line.clone(),
-                        exit_code: output.status.code().unwrap_or(-1),
-                    },
-                    target_execution,
+                    runner: observation.runner,
+                    target_execution: observation.target_execution,
                     log_ref: format!("cache/logs/{record_id}.log"),
                 };
                 let path = layout.evidence_dir().join(format!("{record_id}.yaml"));
@@ -185,20 +161,6 @@ pub fn run_tests(
                     }
                 })?;
                 evidence.push(record);
-            }
-            None => {
-                let code = if !output.status.success() {
-                    "E-EXEC-001"
-                } else {
-                    "E-EXEC-002"
-                };
-                diagnostics.push(
-                    Diagnostic::error(
-                        code,
-                        format!("requested Test {} has no result line", test.entity.id),
-                    )
-                    .with_location(test.entity.location.clone()),
-                );
             }
         }
     }
