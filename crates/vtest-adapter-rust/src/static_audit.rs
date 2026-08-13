@@ -1870,7 +1870,7 @@ mod tests {
     fn dogfood_exact_target_path_is_classified() {
         let resolution = TargetResolution::new("module::target", "tests::dogfood", true);
         assert_eq!(
-            classify_target_call("crate::module::target", &resolution, false),
+            super::classify_target_call("crate::module::target", &resolution, false),
             TargetCallMatch::Proven
         );
     }
