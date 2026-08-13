@@ -1174,6 +1174,9 @@ fn evaluate_test_audit(
                 .all(|subject| subject_is_current(root, layout, scan, subject));
         let verdict = match yaml_scalar_value(&text, "verdict").as_deref() {
             Some("PASS") => CheckValue::Pass,
+            // impl-consistency contrasts implementation against specification, so
+            // a FAIL is a MISMATCH; test-semantic keeps FAIL as a plain failure.
+            Some("FAIL") if kind == "impl-consistency" => CheckValue::Mismatch,
             Some("FAIL") => CheckValue::Fail,
             Some("UNKNOWN") => CheckValue::Unknown,
             _ => CheckValue::Unknown,

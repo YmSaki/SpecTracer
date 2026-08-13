@@ -1449,6 +1449,41 @@ fn build_bundle(
                         .unwrap_or_else(|| ContentHash::from_text(""));
                     subjects.push(subject_value("vo", Some(vo.as_str()), None, &hash));
                 }
+                // Bind the upstream Specification sources of every covered VO
+                // (directly and through its Requirements) by current source
+                // hash, so a Specification-only change stales impl-consistency.
+                let mut seen_specs = BTreeSet::new();
+                for vo_id in &test.covers {
+                    let Ok(vo_record) = read_vo(layout, vo_id.as_str()) else {
+                        continue;
+                    };
+                    let mut spec_ids = vo_record
+                        .spec_refs
+                        .iter()
+                        .map(|spec_ref| spec_ref.spec.to_string())
+                        .collect::<Vec<_>>();
+                    for req_id in &vo_record.requirements {
+                        if let Ok(req) = read_req(layout, req_id.as_str()) {
+                            spec_ids.extend(req.spec_refs.iter().map(|r| r.spec.to_string()));
+                        }
+                    }
+                    for spec_id in spec_ids {
+                        if !seen_specs.insert(spec_id.clone()) {
+                            continue;
+                        }
+                        if let Ok(record) = read_spec(layout, &spec_id) {
+                            let source_hash = fs::read_to_string(root.join(&record.path))
+                                .map(|text| ContentHash::from_text(&text))
+                                .unwrap_or_else(|_| ContentHash::from_text(""));
+                            subjects.push(subject_value(
+                                "spec",
+                                Some(record.id.as_str()),
+                                None,
+                                &source_hash,
+                            ));
+                        }
+                    }
+                }
                 Ok(serde_json::json!({
                     "bundle_id": new_record_id(),
                     "kind": kind,
