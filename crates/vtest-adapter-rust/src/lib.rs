@@ -13,8 +13,10 @@ use vtest_model::{AdapterId, ExecutionDescriptor, TestEntity, TestSuite};
 
 mod discovery;
 pub mod operations_support;
+mod runner;
 mod static_audit;
 pub use discovery::{Locator, RustCargoDiscovery};
+pub use runner::RustCargoRunner;
 pub use static_audit::RustCargoStaticAudit;
 
 pub const RUST_CARGO_ADAPTER_ID: &str = "rust-cargo";
@@ -91,12 +93,14 @@ pub fn rust_cargo_registration() -> AdapterRegistration {
             AdapterCapability::TestWireCodec,
             AdapterCapability::SourceDiscovery,
             AdapterCapability::StaticAudit,
+            AdapterCapability::TestRunner,
         ],
         config_namespace: RUST_CARGO_ADAPTER_ID.to_owned(),
     });
     registration.test_wire_codec = Some(Arc::new(RustCargoCodec));
     registration.source_discovery = Some(Arc::new(RustCargoDiscovery));
     registration.static_audit = Some(Arc::new(RustCargoStaticAudit));
+    registration.test_runner = Some(Arc::new(RustCargoRunner));
     registration
 }
 
