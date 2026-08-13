@@ -103,6 +103,30 @@ m3 は S6 まで red 維持。2 つの stale test（`static_helper_only_change_s
 regression canary — どちらか red 化したら subject mapping を停止診断。m6 fixture は pre-baked CONFIG hash が新計算で
 stale 化しうるが既に RED・W6-owed で name-invariant は保たれる（W6 用にメモ）。
 
+## W4 完了記録（2026-08-13）
+コミット列: S1 `09f26d8` / S2 `0e4555c` / S3a `4aa3c00` / S3b `ec245dc` / S4 `9bddbea` /
+S6(m3) `d462c3a` / semantic(AF-025/026) — 全ゲート green（fmt/clippy 0）。失敗 23→19。
+
+W4 完了条件 vs 実績:
+- M3 acceptance 全PASS ✓（`d462c3a` で location 中立形状 revalidation）
+- M5 acceptance 全PASS ✓（m5_acceptance 4/4、変更不要）
+- helper-only change → STALE ✓（`static_helper_only_change_stales…` green 維持）
+- assertion_macros change → STALE ✓（`assertion_macro_change_stales…` green 維持）
+- run/coverage config は static config subject へ混入しない ✓（`static_audit_ignores_run_only_config_changes` green化）
+- Specification-only change → impl_consistency STALE ✓（AF-025 green化、bundle が upstream SPEC 束縛）
+- impl-consistency FAIL → MISMATCH ✓（AF-026 green化）
+- `vtest-audit` に syn/quote 直接依存なし ✓（`cargo tree` 直接 deps クリーン、audit_rules 削除）
+- incomplete closure → UNKNOWN: rule レベル（DA-002/003 cross-file UNKNOWN）で観測達成。`analysis.complete`
+  フラグは常時 true（現行テストは未行使）。closure-complete→UNKNOWN の明示配線は未行使のため保留（債務メモ）。
+
+残り19失敗は全て W5（evidence_*/m4_*/m7_*/multi_target/head_change/local_dependency/incomplete_execution/
+execution_state_mutation/target_external_helper/orchestration_crates=vtest-exec dep）または
+W6（m6_*/m9/AF-052）owed。W4-owed はゼロ。
+
+**未完債務（W6/後続）**: (1) line-781 verify closure 再導出の adapter 化、(2) vo-coverage spec subject の
+registered_snapshot→current source hash（"W4 owes" コメント、テスト未要求のため保留）、(3) `analysis.complete`
+の UNKNOWN 配線、(4) W3 由来の temp dep `vtest-scan→vtest-adapter-rust`（operations.rs）。
+
 ## ゲート
 各段 name-invariant（現 baseline 23件、`<scratchpad>/w3-s1-baseline.txt`）+ fmt/clippy 0。
-最終: `cargo tree -p vtest-audit` に syn/quote なし + M3/M5 green。
+最終: `cargo tree -p vtest-audit` に syn/quote なし + M3/M5 green。**達成**。
