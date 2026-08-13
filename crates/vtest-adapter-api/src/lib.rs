@@ -147,6 +147,20 @@ pub struct RunnerObservation {
     pub log: Vec<u8>,
 }
 
+/// The outcome of running one Test. `TestResult` only expresses PASS/FAIL, so
+/// the non-result cases the runner must still report (a skipped test, or a
+/// requested filter that produced no result line) are separate variants. Every
+/// variant carries the raw log because the core owns Evidence/log persistence.
+/// The core turns `Ignored` into no Evidence and `MissingResult` into
+/// E-EXEC-001/002 (discriminated by the exit code); a PASS/FAIL that disagrees
+/// with the process exit code is E-EXEC-003, also decided core-side.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum RunnerOutcome {
+    Completed(Box<RunnerObservation>),
+    Ignored { runner: RunnerInfo, log: Vec<u8> },
+    MissingResult { runner: RunnerInfo, log: Vec<u8> },
+}
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdapterCapability {
@@ -386,7 +400,7 @@ pub trait TestRunnerAdapter: Send + Sync {
         root: &Path,
         config: &CanonicalProjection,
         test: &TestEntity,
-    ) -> Result<RunnerObservation, AdapterError>;
+    ) -> Result<RunnerOutcome, AdapterError>;
 }
 
 pub trait CoverageAdapter: Send + Sync {
