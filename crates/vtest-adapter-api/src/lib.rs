@@ -374,7 +374,19 @@ pub trait StructuredTestAdapter: Send + Sync {
 }
 
 pub trait TestRunnerAdapter: Send + Sync {
-    fn run(&self, root: &Path, test: &TestEntity) -> Result<RunnerObservation, AdapterError>;
+    /// Run one Test and report a hash-free runner observation.
+    ///
+    /// `root` locates the project on disk; `config` is the core-loaded
+    /// canonical projection of the execution-affecting configuration, so the
+    /// adapter never re-parses `.verify/config.yaml` itself (adapters are
+    /// store-free). This mirrors `SourceDiscoveryAdapter::discover` and
+    /// `StaticAuditAdapter::audit`.
+    fn run(
+        &self,
+        root: &Path,
+        config: &CanonicalProjection,
+        test: &TestEntity,
+    ) -> Result<RunnerObservation, AdapterError>;
 }
 
 pub trait CoverageAdapter: Send + Sync {
