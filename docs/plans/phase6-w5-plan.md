@@ -166,6 +166,43 @@ CLI JSON が execution_state.{subject,complete,revision,repository_inputs} 露�
 pre/post snapshot 差分で E-EXEC-004。局所依存の抽出範囲（target が use する同一 crate 内モジュール等）が要設計。
 これは adapter/core(vtest-exec)/CLI/verify 跨ぎの大型機能で W5 の主要残作業。
 
+## step 3 設計（advisor 確定 + 詳細設計 §3 実測、**重要な訂正含む**）
+**persisted Evidence の execution_state は §3(406-409) で pin**: `{schema, complete, hash}` のみ（＝現行 model
+`ExecutionStateSubject` と一致、**manifest は永続化しない、hash のみ**）。read_evidence の round-trip 変更は**不要**。
+一方 acceptance test の `execution_state.{subject, revision, repository_inputs}` は **CLI run レスポンスの view**
+（subject=hash、revision=record.revision、repository_inputs=実行時 manifest のパス列）。→ run_tests の `ExecutionResult` が
+manifest を response 用に露出する必要（persist はしない）。
+
+**manifest 定義（§456、file-tree ベース・call-graph でない）**: 選択 Test を含む Cargo workspace/package root +
+全 local path dependency root 配下の通常 file（Cargo manifest/lockfile、`.cargo` config、build script、
+Rust source/test/fixture/compile-time resource、toolchain 指定）。**除外必須: `.git/`、`.verify/`、Cargo target dir**
+（除外しないと毎 run が E-EXEC-004 を自己誘発）。collect_rs_files 不可（全 file 種別が要る）。repository 内 helper 変更でも
+manifest hash 変化。
+
+**E-EXEC-004（新 API 不要、§783）**: command 起動**前**の draft が pre-snapshot（full bytes 保持）。core が run() 後に
+各 ExecutionInputDraft の `root.join(root_relative_path)` を再読込し bytes 比較 + HEAD 再確認 → 差分あれば E-EXEC-004・
+Evidence なし。**adapter は cargo 起動前に bytes capture 必須**（現 S3b は run 後構築なので要修正）。
+
+**verify 再導出（step3c）**: adapter を verify に入れない（W4 同様）。verify が manifest（tree+除外）を再走査し
+subject hash 再構築 → record.execution_state.hash と比較。HEAD は record.revision vs 現 git。読取不能/欠落 input→UNKNOWN。
+**neutrality 債務**: 完全な adapter ベース DTO 再導出（toolchain identity 等、テストは rustc version 不変）は
+line-781 deferral に合流（W6）。W5 の verify は manifest+HEAD 再導出に留める。invocation/toolchain/config は run 時と
+verify 時で不変前提（テストが変えない）なので hash 比較で helper/HEAD 変化のみ効く。
+
+## step 3/4 increment（advisor 確定、18 baseline）
+- **step3a**: adapter 完全 draft（tree manifest を **cargo 起動前**に、invocation projection は絶対path除外、
+  toolchain=`rustc --version`、head_revision）+ core が `hash_execution_state_subject` で subject 計算 +
+  record（schema/complete:true/hash）+ evidence_yaml + CLI JSON view（subject/revision/repository_inputs、
+  manifest は ExecutionResult 経由）→ `evidence_contains_neutral_subjects_and_complete_execution_state` green（18→17）。
+- **step3b**: core post-check（bytes 再読込 + HEAD）→ E-EXEC-004 → `execution_state_mutation…` green。
+- **step3c**: verify manifest/HEAD 再導出 → helper/local-dep/head-change/revision-missing/without-execution-state/
+  incomplete-snapshot green（≈17→11）。
+- **step4**: NOT_CHECKED 値化 + landmine（`unavailable_coverage_is_not_checked_and_never_passes` を同コミット更新）+
+  multi-target attribution（`TargetExecution.targets` は現状常に空、per-target `TargetExecutionObservation` が要る）→ m4/m7/multi_target。
+
+**canary（step3）**: 3つの fail-closed m4 + **m1 fixture のクリーン run が E-EXEC-004 を出さないこと**（除外リスト検証、
+w4dbg 式 repro で手動確認してからスイート実行）。
+
 ## ゲート
 各段 name-invariant（現 baseline 19件）+ fmt/clippy 0。
 最終: `cargo tree -p vtest-exec` に rustc-demangle なし + M4/M7 green + `orchestration_crates…` green。
