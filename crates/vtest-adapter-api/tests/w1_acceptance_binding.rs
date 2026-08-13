@@ -31,7 +31,12 @@ struct SyntheticCodec;
 struct SyntheticStaticAudit;
 
 impl StaticAuditAdapter for SyntheticStaticAudit {
-    fn audit(&self, test: &TestEntity) -> Result<StaticAuditObservation, AdapterError> {
+    fn audit(
+        &self,
+        _root: &std::path::Path,
+        _config: &CanonicalProjection,
+        test: &TestEntity,
+    ) -> Result<StaticAuditObservation, AdapterError> {
         if test.execution.adapter.as_str() != "synthetic" {
             return Err(AdapterError::Mismatch("static adapter mismatch".to_owned()));
         }
@@ -205,7 +210,11 @@ fn registry_static_observation_is_hash_free_and_core_owns_config_hashing() {
     let observation = registry
         .static_audit(&adapter)
         .expect("registered static adapter")
-        .audit(&synthetic_test())
+        .audit(
+            std::path::Path::new("."),
+            &CanonicalProjection::Map(std::collections::BTreeMap::new()),
+            &synthetic_test(),
+        )
         .expect("hash-free observation");
     let wire = serde_json::to_value(&observation).expect("serialize observation");
     assert!(wire.get("content_hash").is_none());

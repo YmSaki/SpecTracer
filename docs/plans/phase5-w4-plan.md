@@ -21,14 +21,29 @@ Entry: W1–W3 Checkpoint（W3 完了）。上位計画 W4。前 Phase: `phase4-
   scan を使うのは `audit_one`(171) の target 解決部（`target_source(scan, target)`）のみ。
 - `audit_static`(82) が orchestrator（config load、test 反復、audit_one 呼出し）。audit_one が per-test（parse・target解決・rules・subject構築）。
 
-## 移送戦略（§15 escalation 不要）
-frozen trait `audit(test)` は scan を取らないが、adapter は test.targets（TargetRef locator）から **filesystem で target を再解決**できる
-（locator = path::item、target ファイルを parse）。よって trait は十分。W3 と同じ多層パターン:
+## 移送戦略
+~~frozen trait `audit(test)` は…よって trait は十分~~ ← **この以前の結論は誤り（撤回）**。
+`StaticAuditAdapter::audit(&self, test)` は **root も config も受け取らない**。Rust 静的監査は
+test/target ソース読取り（root 必須）と assertion_macros（config 必須）が要るため、trait signature が不足。
+synthetic adapter は synthetic データを返すだけなので露見しなかった。実装済み前例は discovery の
+`discover(root, config: &CanonicalProjection)`（core が vtest-store で config load → adapter は projection を受領）。
+adapter は store-free 制約なので self-read は `.verify/config.yaml` parse の重複になり不適。よって trait を
+`audit(&self, root: &Path, config: &CanonicalProjection, test: &TestEntity)` へ変更する（discovery 前例に整合）。
+W5 の runner も同じ gap を持つ（`run(root, test)` に config なし・実装ゼロ）— W5 で対処する旨を明記。
+
+**§15 判定 = ブロック対象外（code-only）**: trait method signature はどの spec 文書にも pin されない
+（v0.2 §3.2 は capability 名の列挙のみ、別紙A は無記載、詳細設計 §5.2 は DTO/挙動を抽象記述）。よって
+signature 変更は code-only refinement（DTO field 追加と同格）。spec 文書は変更しない。W4–W5 checkpoint で
+両 W1-API touch（additive `rules` field / `audit` signature 変更）を code-only refinement として Owner へ報告。
+
+W3 と同じ多層パターン:
 1. **rule + AST helper を module へ隔離**（intra-crate、scan-free なので decouple 済み）。
-2. **audit_one の target 解決を filesystem ベースへ**（scan 非依存化）→ adapter が自己完結で target 解決。
-3. rule module + 解決 + parse を `vtest-adapter-rust` へ移送、`StaticAuditAdapter for RustCargoStaticAudit` を実装、
-   `rust_cargo_registration()` に `static_audit` 追加。
+2. trait signature 変更（root/config 引数追加）— implementor は synthetic binding test 1件のみ、core 未接続。
+3. rule module + 解決 + parse を `vtest-adapter-rust` へ移送、`StaticAuditAdapter for RustCargoStaticAudit` を実装
+   （filesystem target 解決 = path::item + src-id 逆引き）、`rust_cargo_registration()` に `static_audit` 追加。
 4. `vtest-audit::audit_static` は registry 経由で adapter を呼び、observation から subject を計算・persist（core 側）。
+   config subject = `hash_static_audit_config_subject(adapter, rule_set, ver, observation.config.effective_config)`
+   → run-only 変更は adapter が返す rule 影響 subset に入らないので非stale。verify 側 re-eval も同一 projection へ揃える。
 5. `vtest-audit` から syn/quote/proc-macro2 dep 除去。
 6. M3/M5 revalidation（neutral 契約追随、W3 の location.path/effective_status パターン）。
 

@@ -353,7 +353,19 @@ fn is_core_test_field(key: &str) -> bool {
 }
 
 pub trait StaticAuditAdapter: Send + Sync {
-    fn audit(&self, test: &TestEntity) -> Result<StaticAuditObservation, AdapterError>;
+    /// Audit one Test's deterministic rules.
+    ///
+    /// `root` locates the project on disk so the adapter can read the Test and
+    /// its resolved target sources; `config` is the core-loaded canonical
+    /// projection so the adapter never re-parses `.verify/config.yaml` itself
+    /// (adapters are store-free). This mirrors `SourceDiscoveryAdapter::discover`,
+    /// the only capability with a real implementor today.
+    fn audit(
+        &self,
+        root: &Path,
+        config: &CanonicalProjection,
+        test: &TestEntity,
+    ) -> Result<StaticAuditObservation, AdapterError>;
 }
 
 pub trait StructuredTestAdapter: Send + Sync {
