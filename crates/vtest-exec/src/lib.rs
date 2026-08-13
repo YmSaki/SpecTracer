@@ -135,6 +135,22 @@ pub fn run_tests(
                     );
                     continue;
                 }
+                // §783: any input file that changed during the run, or a HEAD
+                // that moved, means the pre-run snapshot no longer describes the
+                // execution — reject Evidence with E-EXEC-004.
+                if execution_state_mutated(root, &observation.execution_state) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-EXEC-004",
+                            format!(
+                                "Execution State changed during the run for Test {}",
+                                test.entity.id
+                            ),
+                        )
+                        .with_location(test.entity.location.clone()),
+                    );
+                    continue;
+                }
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
@@ -226,6 +242,21 @@ fn execution_state_subject(
         complete: draft.complete,
         hash,
     }
+}
+
+/// Post-run consistency check for E-EXEC-004: compare the current state of
+/// every declared input against the pre-run snapshot the adapter captured, and
+/// re-check HEAD. Any changed or unreadable input, or a moved HEAD, means the
+/// run's inputs were not stable and no Evidence may be recorded.
+fn execution_state_mutated(root: &Path, draft: &ExecutionStateDraft) -> bool {
+    if git_revision(root).commit.as_deref() != draft.head_revision.as_deref() {
+        return true;
+    }
+    draft.inputs.iter().any(|input| {
+        fs::read(root.join(&input.root_relative_path))
+            .map(|bytes| bytes != input.bytes)
+            .unwrap_or(true)
+    })
 }
 
 fn git_revision(root: &Path) -> Revision {
