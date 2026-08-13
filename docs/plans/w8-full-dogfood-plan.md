@@ -108,7 +108,17 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 - [x] Pilot 1 実証（9/12 PASS, per-test 全経路, finding A-E）＋ M3 `super::` 修飾修正（未コミット）
 - [x] Pilot 2 分類確定（IN_PROC 5 / MIXED 7 / SUBPROC 78 / STRUCT 14）→ Owner 報告済
 - [x] Owner 決定: 仕様修正フェーズ（上記 PIVOT）
-- [~] subprocess coverage spike（背景実行中）
-- [ ] 仕様変更 PR（develop→spec/*）
-- [ ] （merge 後）別紙B 追加 → 必要 W へ戻り実装修正
+- [x] subprocess coverage spike: cargo-llvm-cov は subprocess の実行を vtest シンボルへ**帰属しない（0.00%）** → §10.2/§7.9 に coverage capability 要件として明記
+- [x] 仕様変更 **PR #5**（spec/target-reachability-proof → develop）作成。https://github.com/YmSaki/SpecTracer/pull/5
+      - 詳細設計 §7.1/§7.3(新)/§10.2/§11.1、基本仕様 §7.2/§7.9、別紙C §18.3.2/§18.3.6
+      - モデル: DA-002 到達 = 静的 OR runtime target_execution。DA-003 据置。fail-closed literal 保持。
+      - open item: subprocess coverage 帰属は実装課題（spike 実証）／STRUCTURAL は本モデル未解決
+- [ ] **← Owner が PR #5 をマージ（現在ここで停止）**
+- [ ] （merge 後）別紙B 実装計画へ追加 → 必要 W へ戻り実装修正（runner/coverage の subprocess 帰属含む）
+- [ ] SPEC-DOGFOOD-M3.yaml sha256 再登録（詳細設計変更で stale）
 - [ ] dogfood 再実行 → 残 W8 gate
+
+### 注記（Owner 判断待ち事項）
+- origin/develop(036a166) は local develop(4357562, #3 マージ済) より3コミット遅延。PR #5 は origin/develop 基準の単一コミットに rebase 済み。develop の同期は Owner 管理。
+- 旧中間 remote ブランチ `spec/runtime-target-reachability`（rebase 前・#3 混在）が origin に残存（force-push 権限拒否のため）。不要なら削除可。
+- **重要な帰結**: DA-003 据置ゆえ、本 spec でも subprocess test は DA-003 UNKNOWN のまま → static_audit UNKNOWN → all-12-PASS 不到達。dogfood の最終 scope（unit のみ / subprocess を含めるか）は merge 後の別判断。
