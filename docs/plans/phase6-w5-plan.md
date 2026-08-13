@@ -113,10 +113,34 @@ execution_state: ExecutionStateDraft, log }` を返す。core が hash を計算
 3. `TestRunnerAdapter::run` に root+config 引数（`52749cf`）＋戻り型 RunnerObservation→RunnerOutcome（`61102c6`）。
 
 ## 現在地（handoff）
-完了: `52749cf`(runner trait config) → `fe299ce`(rust_runner module 隔離) → `61102c6`(RunnerOutcome)。失敗19件不変。
-次: **S3b**（rust_runner を adapter-rust/runner.rs へ copy + `TestRunnerAdapter for RustCargoRunner::run` 実装
-= run_tests のper-test ロジックを RunnerOutcome 返却へ再構成、target locator 自己解決、rustc-demangle 追加、register）。
-vtest-exec 現状 304行、rust_runner.rs 421行。
+**runner adapter 分離 完了**（S3a/b/c）:
+- `52749cf`(runner trait config) → `fe299ce`(rust_runner 隔離) → `61102c6`(RunnerOutcome) → `947e805`(S3b: adapter 実装) →
+  `79bd695`(S3c: vtest-exec rewire、rustc-demangle 除去、CLI DI seam)。**失敗 19→18**（`orchestration_crates…` green化）。
+- vtest-exec は中立 Evidence orchestrator（run_tests が adapter 呼出し→RunnerOutcome 分岐→Evidence/diagnostic）。
+  fail-closed（E-EXEC-001/002/003）は全て core 側。vtest-exec deps: rustc-demangle なし、adapter-rust 依存なし（adapter-api のみ）。
+
+**残: step 3（W5 主要機能、evidence_*/m4/m7 の約15件を green 化）**
+- 実 Execution State 構築: 現状 adapter は minimal ExecutionStateDraft（complete:false）、vtest-exec は stub subject
+  （schema/complete:false/hash:null）を byte 一致描画。→ canonical invocation/toolchain identity/HEAD revision/
+  repo input manifest/local dependency inputs/pre-post snapshot consistency を ExecutionStateDraft で構築し、
+  core が Execution State subject hash 計算。
+- Evidence subject 束縛（test_subject/全 target_construct hash/Execution State subject/adapter identity）を完全化。
+- fail-closed 追加: HEAD mismatch→STALE、revision unknown→STALE、missing Execution State→STALE、
+  incomplete snapshot→UNKNOWN、run 中の State 変化→E-EXEC-004・Evidence なし。
+- 対象テスト: evidence_contains_neutral_subjects_and_complete_execution_state /
+  evidence_without_execution_state_is_compatibility_stale / evidence_without_revision_commit_is_stale /
+  execution_state_mutation_reports_e_exec_004_without_evidence / head_change_without_test_or_target_change_stales_evidence /
+  incomplete_current_execution_snapshot_is_unknown / local_dependency_change_stales_evidence /
+  target_external_helper_change_stales_evidence / multi_target_evidence_keeps_target_specific_results /
+  m4_multi_target/run_fast/target_mutation。
+
+**残: step 4（M4/M7 revalidation）**
+- fast/unavailable の target_execution を `result: Some(NotChecked)` 値化（m4 が result:"NOT_CHECKED", checked:false を要求）。
+  **landmine**: unit test `unavailable_coverage_is_not_checked_and_never_passes`（`result==None` assert、runner.rs の tests に
+  移動済）を同コミットで更新。両 renderer（CLI JSON serde / evidence_yaml）確認。m7_* 3件。
+
+現在 18失敗 = W5 step3/4 対象約15 + W6 対象3（m6×2/m9、AF-052）。baseline `<scratchpad>/w4-complete-baseline.txt`(19) は
+S3c 前。以後は 18 を基準に diff。
 
 ## ゲート
 各段 name-invariant（現 baseline 19件）+ fmt/clippy 0。
