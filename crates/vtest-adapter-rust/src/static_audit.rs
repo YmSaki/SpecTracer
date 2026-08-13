@@ -1786,3 +1786,345 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::Item;
+
+    fn item(source: &str) -> ItemFn {
+        match syn::parse_file(source)
+            .unwrap()
+            .items
+            .into_iter()
+            .next()
+            .unwrap()
+        {
+            Item::Fn(item) => item,
+            _ => panic!("expected function"),
+        }
+    }
+
+    #[test]
+    fn constant_assertion_is_a_deterministic_failure() {
+        let file =
+            syn::parse_file("const YES: bool = true; #[test] fn x() { assert!(YES); }").unwrap();
+        let item = find_function(&file, "x").unwrap();
+        assert_eq!(
+            rule_da001(
+                item,
+                &file,
+                &[],
+                Some(&TargetResolution::new("target", "x", true)),
+            )
+            .verdict,
+            AuditVerdict::Fail
+        );
+        assert!(has_assert_like(item, &[]));
+    }
+
+    #[test]
+    fn target_call_in_assertion_passes_call_and_result_rules() {
+        let file = syn::parse_file("#[test] fn x() { assert_eq!(add(1, 2), 3); }").unwrap();
+        let item = find_function(&file, "x").unwrap();
+        assert_eq!(
+            rule_da002(
+                item,
+                &file,
+                Some(&TargetResolution::new("add", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+        assert_eq!(
+            rule_da001(
+                item,
+                &file,
+                &[],
+                Some(&TargetResolution::new("add", "x", true)),
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+        assert_eq!(
+            rule_da003(
+                item,
+                &file,
+                Some(&TargetResolution::new("add", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+    }
+
+    /// @vtest.id TEST-DOGFOOD-M3-TARGET-RULES
+    /// @vtest.covers VO-DOGFOOD-M3-STATIC-AUDIT
+    /// @vtest.target crates/vtest-audit/src/lib.rs::classify_target_call
+    /// @vtest.intent exact target paths are distinguished from ambiguous same-name calls
+    #[test]
+    fn dogfood_exact_target_path_is_classified() {
+        let resolution = TargetResolution::new("module::target", "tests::dogfood", true);
+        assert_eq!(
+            classify_target_call("crate::module::target", &resolution, false),
+            TargetCallMatch::Proven
+        );
+    }
+
+    #[test]
+    fn empty_and_self_comparing_tests_fail_their_rules() {
+        let empty = item("#[test] fn x() {}");
+        assert!(empty.block.stmts.is_empty());
+        let self_compare = item("#[test] fn x() { let a = 1; assert_eq!(a, a); }");
+        assert_eq!(rule_da004(&self_compare).verdict, AuditVerdict::Fail);
+    }
+
+    #[test]
+    fn result_flow_never_uses_identifier_substrings_as_proof() {
+        let file = syn::parse_file(
+            "#[test] fn x() { let _ = target(); let target_called = true; assert!(target_called); }",
+        )
+        .unwrap();
+        let item = find_function(&file, "x").unwrap();
+        assert_eq!(
+            rule_da003(
+                item,
+                &file,
+                Some(&TargetResolution::new("target", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Fail
+        );
+    }
+
+    #[test]
+    fn same_file_helper_is_followed_once_and_external_call_is_unknown() {
+        let helper_file = syn::parse_file(
+            "fn helper() { target(); } #[test] fn x() { helper(); assert!(true); }",
+        )
+        .unwrap();
+        let test = find_function(&helper_file, "x").unwrap();
+        assert_eq!(
+            rule_da002(
+                test,
+                &helper_file,
+                Some(&TargetResolution::new("target", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+
+        let external_file = syn::parse_file("#[test] fn x() { other(); assert!(true); }").unwrap();
+        let test = find_function(&external_file, "x").unwrap();
+        assert_eq!(
+            rule_da002(
+                test,
+                &external_file,
+                Some(&TargetResolution::new("target", "x", false)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Unknown
+        );
+
+        assert_eq!(
+            rule_da003(
+                test,
+                &external_file,
+                Some(&TargetResolution::new("target", "x", false)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass,
+            "DA-002 owns target reachability for an unrelated external call"
+        );
+    }
+
+    #[test]
+    fn qualified_homonym_never_proves_the_declared_target_call() {
+        let file = syn::parse_file("#[test] fn x() { assert_eq!(Other::known(), 1); }").unwrap();
+        let test = find_function(&file, "x").unwrap();
+        assert_eq!(
+            rule_da002(
+                test,
+                &file,
+                Some(&TargetResolution::new("known", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Unknown
+        );
+        assert_eq!(
+            rule_da003(
+                test,
+                &file,
+                Some(&TargetResolution::new("known", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Unknown
+        );
+    }
+
+    #[test]
+    fn bare_import_alias_and_local_shadow_never_prove_the_target() {
+        let imported =
+            syn::parse_file("#[test] fn x() { use crate::other::known; assert_eq!(known(), 1); }")
+                .unwrap();
+        let test = find_function(&imported, "x").unwrap();
+        let nested_target = TargetResolution::new("real::known", "x", true);
+        assert_eq!(
+            rule_da002(test, &imported, Some(&nested_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+        assert_eq!(
+            rule_da003(test, &imported, Some(&nested_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+
+        let shadowed =
+            syn::parse_file("#[test] fn x() { let known = || 1; assert_eq!(known(), 1); }")
+                .unwrap();
+        let test = find_function(&shadowed, "x").unwrap();
+        let root_target = TargetResolution::new("known", "x", true);
+        assert_eq!(
+            rule_da002(test, &shadowed, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+        assert_eq!(
+            rule_da003(test, &shadowed, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+
+        let nested_item =
+            syn::parse_file("#[test] fn x() { fn known() {} assert_eq!(known(), ()); }").unwrap();
+        let test = find_function(&nested_item, "x").unwrap();
+        assert_eq!(
+            rule_da002(test, &nested_item, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+        assert_eq!(
+            rule_da003(test, &nested_item, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+
+        let callable_const = syn::parse_file(
+            "#[test] fn x() { const known: fn() = other; assert_eq!(known(), ()); }",
+        )
+        .unwrap();
+        let test = find_function(&callable_const, "x").unwrap();
+        assert_eq!(
+            rule_da002(test, &callable_const, Some(&root_target), &[]).verdict,
+            AuditVerdict::Unknown
+        );
+    }
+
+    #[test]
+    fn helper_target_result_flow_is_unknown_not_pass() {
+        let file = syn::parse_file(
+            "fn helper() -> i32 { let _ = known(); 7 } #[test] fn x() { assert_eq!(helper(), 7); }",
+        )
+        .unwrap();
+        let test = find_function(&file, "x").unwrap();
+        assert_eq!(
+            rule_da002(
+                test,
+                &file,
+                Some(&TargetResolution::new("known", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+        assert_eq!(
+            rule_da003(
+                test,
+                &file,
+                Some(&TargetResolution::new("known", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Unknown
+        );
+    }
+
+    #[test]
+    fn nested_comma_self_comparison_and_configured_macro_are_recognized() {
+        let file = syn::parse_file(
+            "#[test] fn x() { check_it!(target()); assert_eq!(f(1, 2), f(1, 2), \"context\"); }",
+        )
+        .unwrap();
+        let item = find_function(&file, "x").unwrap();
+        assert_eq!(rule_da004(item).verdict, AuditVerdict::Fail);
+        assert!(has_assert_like(item, &["check_it".to_owned()]));
+        assert_eq!(
+            rule_da003(
+                item,
+                &file,
+                Some(&TargetResolution::new("target", "x", true)),
+                &["check_it".to_owned()],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+    }
+
+    #[test]
+    fn exact_module_path_prevents_same_name_test_mixup() {
+        let file = syn::parse_file(
+            "mod a { #[test] fn checks() { assert!(true); } } mod b { #[test] fn checks() { assert!(false); } }",
+        )
+        .unwrap();
+        let a = find_function(&file, "a::checks").unwrap();
+        let b = find_function(&file, "b::checks").unwrap();
+        assert!(!std::ptr::eq(a, b));
+        assert!(find_function(&file, "checks").is_none());
+    }
+
+    #[test]
+    fn unwrap_try_and_result_err_are_assert_like() {
+        assert!(has_assert_like(
+            &item("#[test] fn x() { target().unwrap(); }"),
+            &[]
+        ));
+        assert!(has_assert_like(
+            &item("#[test] fn x() -> Result<(), E> { target()?; Ok(()) }"),
+            &[]
+        ));
+        assert!(has_assert_like(
+            &item("#[test] fn x() -> Result<(), E> { if bad() { return Err(E); } Ok(()) }"),
+            &[]
+        ));
+
+        let returned = syn::parse_file("#[test] fn x() -> Result<(), E> { target() }").unwrap();
+        let test = find_function(&returned, "x").unwrap();
+        assert!(has_assert_like(test, &[]));
+        assert_eq!(
+            rule_da003(
+                test,
+                &returned,
+                Some(&TargetResolution::new("target", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Pass
+        );
+
+        let discarded =
+            syn::parse_file("#[test] fn x() -> Result<(), E> { target(); Ok(()) }").unwrap();
+        let test = find_function(&discarded, "x").unwrap();
+        assert_eq!(
+            rule_da003(
+                test,
+                &discarded,
+                Some(&TargetResolution::new("target", "x", true)),
+                &[],
+            )
+            .verdict,
+            AuditVerdict::Fail
+        );
+    }
+}

@@ -557,6 +557,7 @@ version = "0.1.0"
 dependencies = [
  "ignore",
  "proc-macro2",
+ "quote",
  "serde",
  "serde_json",
  "syn 2.0.119",
@@ -569,11 +570,9 @@ dependencies = [
 name = "vtest-audit"
 version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "quote",
  "serde",
- "syn 2.0.119",
  "thiserror",
+ "vtest-adapter-api",
  "vtest-model",
  "vtest-scan",
  "vtest-store",

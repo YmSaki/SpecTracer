@@ -450,6 +450,33 @@ fn rust_cargo_discovery_projection(config: &ProjectConfig) -> CanonicalProjectio
     CanonicalProjection::Map(map)
 }
 
+/// Identity of the deterministic Rust static rule set. Shared by the core so
+/// the config subject and its re-evaluation agree without reaching into the
+/// adapter; `RustCargoStaticAudit` echoes the same literal in its observation.
+pub const STATIC_AUDIT_RULE_SET_ID: &str = "rust-cargo-static-da";
+pub const STATIC_AUDIT_RULE_SET_VERSION: &str = "1";
+
+/// Projects the rule-affecting subset of config (assertion macros) that the
+/// deterministic static auditor consumes. Run- and coverage-only settings are
+/// deliberately excluded so a runner-only config change never stales a static
+/// Audit. Core owns this config → projection mapping; the adapter receives the
+/// projection and never reads `ProjectConfig`.
+pub fn rust_cargo_static_audit_projection(config: &ProjectConfig) -> CanonicalProjection {
+    let assertion_macros = config
+        .rust_cargo()
+        .scan
+        .assertion_macros
+        .iter()
+        .map(|value| CanonicalProjection::String(value.clone()))
+        .collect();
+    let mut map = BTreeMap::new();
+    map.insert(
+        "assertion_macros".to_owned(),
+        CanonicalProjection::List(assertion_macros),
+    );
+    CanonicalProjection::Map(map)
+}
+
 fn record_diagnostics(
     root: &Path,
     entity_ids: &[Vec<String>; 3],

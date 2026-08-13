@@ -78,6 +78,31 @@ discovery.rs の `parse_src_id`（167）/ SourceTargetDraft src_id（947）ロ�
 - **W4-S5**: `vtest-audit` から syn/quote/proc-macro2 dep 除去。
 - **W4-S6**: M3/M5 revalidation（location.file→path 等の中立契約追随）。migrated path で green 化。
 
+## S4 実行メモ（advisor 検証済み）
+**line-781 deferral（W4–W5 checkpoint で Owner 報告必須）**: 詳細設計 §5.2 line 781 は有効性再評価時に
+adapter へ closure 再導出を要求する設計だが、これは verify crate の機構であり W6 phase の担当。W4 では現行の
+scan ベース再評価を維持したまま subject の *内容* のみ修正する（観測挙動 = assertion_macros/helper 変更→STALE、
+run-only→非stale は満たす）。§15 非該当（矛盾でなく未到達）。**W6 で persist と re-eval を同時に adapter 化する**
+（record は再生成可、audit は再実行可能）。無言吸収のみがこの判断を誤りにする。
+
+**wiring**: `audit_static` は adapter を**引数**で受ける（DI seam、`scan_project_with_discovery` と同型）。
+CLI が registry 解決の adapter を渡す。`vtest-audit → vtest-adapter-rust` の dep を作らない（W3 で指摘した temp-dep 債務の再来を回避）。
+呼出2箇所（lib.rs:746, :1161）更新。vtest-mcp が audit_static へ vtest-cli 以外から到達しないか確認。
+
+**S4 gotcha checklist**:
+1. vtest-verify 自身の unit test（write_static_audit ~1753、CONFIG subject 1808、stale test 1856-1894）は旧 whole-config
+   hash を計算 → 同一コミットで helper 更新しないと green の verify unit test が RED 化。
+2. vtest-audit lib.rs の rule unit test 約15件を adapter-rust へ移送（audit_rules.rs 削除時）。rule 意味論の唯一の網羅。
+3. `AuditError` に `AdapterError` を包む variant 追加（read/parse 失敗を E-OP-001 exit 2 に維持）。
+4. CheckValue→AuditVerdict: adapter は Pass/Fail/Unknown のみ emit するが、残り5 variant は防御的に Unknown へ（unreachable! 不可）。
+5. adapter `RULE_SET_ID` = vtest-scan 定数（core は vtest-scan 値で subject 計算、observation.config は informational — 各所コメント）。
+6. `static_audit_binds_test_subjects`（verify:838）を S4 中に一度目視（subject 形状は現行維持のはずだが freshness path 唯一の未読関数）。
+
+**S4 期待ゲート**: 23→22（`static_audit_ignores_run_only_config_changes` green = 認可された revalidation 縮小）。
+m3 は S6 まで red 維持。2 つの stale test（`static_helper_only_change_stales…` / `assertion_macro_change_stales…`）は
+regression canary — どちらか red 化したら subject mapping を停止診断。m6 fixture は pre-baked CONFIG hash が新計算で
+stale 化しうるが既に RED・W6-owed で name-invariant は保たれる（W6 用にメモ）。
+
 ## ゲート
 各段 name-invariant（現 baseline 23件、`<scratchpad>/w3-s1-baseline.txt`）+ fmt/clippy 0。
 最終: `cargo tree -p vtest-audit` に syn/quote なし + M3/M5 green。

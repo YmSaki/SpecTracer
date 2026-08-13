@@ -8,13 +8,17 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
+    hash_static_audit_config_subject, AdapterId, CheckValue, ContentHash, Diagnostic,
+    EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
-use vtest_scan::ScanResult;
+use vtest_scan::{
+    rust_cargo_static_audit_projection, ScanResult, STATIC_AUDIT_RULE_SET_ID,
+    STATIC_AUDIT_RULE_SET_VERSION,
+};
 use vtest_store::{
-    current_approval_subject, derive_vo_status, read_audit, read_evidence, read_record_ids,
-    read_req, read_text, read_vo, yaml_scalar_value, AuditRecord, AuditSubjectRecord,
-    ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
+    current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
+    read_record_ids, read_req, read_text, read_vo, yaml_scalar_value, AuditRecord,
+    AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
 };
 
 pub const ALL_ITEMS: [&str; 12] = [
@@ -860,11 +864,7 @@ fn static_audit_binds_test_subjects(
     let Some(target) = source_for_target(scan, target_ref) else {
         return false;
     };
-    let test_locator = TargetRef::Locator {
-        adapter: test.location.adapter.clone(),
-        value: format!("{}::{}", test.location.path, test.location.locator),
-    }
-    .normalized();
+    let test_locator = test_source_locator(test);
     let binds_test_code = record.subjects.iter().any(|subject| {
         subject.locator.as_deref() == Some(&test_locator) && subject.hash == test.content_hash
     });
@@ -980,28 +980,64 @@ fn audit_verdict_value(record: &AuditRecord) -> CheckValue {
     }
 }
 
+/// The static-audit CONFIG subject hash. Binds the rule set identity and the
+/// rule-affecting config projection only, so a run- or coverage-only config
+/// change never stales a static Audit. This must match the persist-side
+/// computation in `vtest-audit::audit_static`.
+///
+/// W6 note (詳細設計 §5.2 line 781): re-evaluation should re-derive the closure
+/// via the adapter; W4 keeps the scan-based mechanism and only corrects the
+/// subject content. When W6 moves persist to the adapter, move this too.
+fn static_audit_config_subject_hash(config: &ProjectConfig) -> ContentHash {
+    hash_static_audit_config_subject(
+        &AdapterId::new("rust-cargo"),
+        STATIC_AUDIT_RULE_SET_ID,
+        STATIC_AUDIT_RULE_SET_VERSION,
+        &rust_cargo_static_audit_projection(config),
+    )
+}
+
 fn audit_subject_is_current(
     layout: &VerifyLayout,
     scan: &ScanResult,
     subject: &AuditSubjectRecord,
 ) -> bool {
     let actual = match (&subject.id, &subject.locator) {
-        (Some(id), None) if id == "CONFIG" => read_text(&layout.config())
+        (Some(id), None) if id == "CONFIG" => load_config(&layout.root)
             .ok()
-            .map(|text| ContentHash::from_text(&text)),
+            .map(|config| static_audit_config_subject_hash(&config)),
         (Some(id), None) => scan
             .tests
             .iter()
             .find(|test| test.id.as_str() == id)
             .map(|test| test.content_hash.clone()),
+        // A Test-code subject binds the Test entity at its own source locator,
+        // so its currency is the Test entity hash — check Tests before sources.
+        // Target and helper subjects fall through to the scan source hash.
         (None, Some(locator)) => scan
-            .sources
+            .tests
             .iter()
-            .find(|source| source.target.normalized() == *locator)
-            .map(|source| source.content_hash.clone()),
+            .find(|test| test_source_locator(test) == *locator)
+            .map(|test| test.content_hash.clone())
+            .or_else(|| {
+                scan.sources
+                    .iter()
+                    .find(|source| source.target.normalized() == *locator)
+                    .map(|source| source.content_hash.clone())
+            }),
         _ => None,
     };
     actual.as_ref() == Some(&subject.hash)
+}
+
+/// The normalized locator a static audit uses to bind a Test's own construct.
+/// Must match the persist side and `static_audit_binds_test_subjects`.
+fn test_source_locator(test: &TestEntity) -> String {
+    TargetRef::Locator {
+        adapter: test.location.adapter.clone(),
+        value: format!("{}::{}", test.location.path, test.location.locator),
+    }
+    .normalized()
 }
 
 #[derive(Clone, Debug)]
@@ -1803,11 +1839,11 @@ mod tests {
         mut subjects: Vec<AuditSubjectRecord>,
         audited_at: &str,
     ) -> String {
-        let config = read_text(&layout.config()).expect("read fixture config");
+        let config = load_config(&layout.root).expect("load fixture config");
         subjects.push(AuditSubjectRecord {
             id: Some("CONFIG".to_owned()),
             locator: None,
-            hash: ContentHash::from_text(&config),
+            hash: static_audit_config_subject_hash(&config),
         });
         let id = new_record_id();
         let record = AuditRecord {

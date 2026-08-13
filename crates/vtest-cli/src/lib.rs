@@ -743,7 +743,37 @@ fn run_audit_static(
         }
     };
     let scan_has_errors = scan.has_errors();
-    let summary = match audit_static(&root, &scan, &AuditOptions { test_id: test }) {
+    let registry = match built_in_registry() {
+        Ok(registry) => registry,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
+                ),
+            );
+            return ExitCode::Internal;
+        }
+    };
+    let adapter = match registry.static_audit(&AdapterId::new(RUST_CARGO_ADAPTER_ID)) {
+        Ok(adapter) => adapter,
+        Err(error) => {
+            emit(
+                format,
+                quiet,
+                JsonEnvelope::new(
+                    false,
+                    serde_json::Value::Null,
+                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
+                ),
+            );
+            return ExitCode::Internal;
+        }
+    };
+    let summary = match audit_static(&root, &scan, &AuditOptions { test_id: test }, adapter) {
         Ok(summary) => summary,
         Err(error) => {
             emit(
@@ -1158,12 +1188,18 @@ fn build_bundle(
     match kind {
         "test-semantic" => {
             let test = find_test(scan, Some(test_id.expect("validated selector")))?;
+            let registry = built_in_registry()
+                .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))?;
+            let adapter = registry
+                .static_audit(&AdapterId::new(RUST_CARGO_ADAPTER_ID))
+                .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))?;
             let static_summary = audit_static(
                 root,
                 scan,
                 &AuditOptions {
                     test_id: Some(test.id.to_string()),
                 },
+                adapter,
             )
             .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
             let static_audit = static_summary.audits.first();
