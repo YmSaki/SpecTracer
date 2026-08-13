@@ -161,12 +161,12 @@ fn assert_failed_rule(response: &Value, test_id: &str, rule_name: &str) {
             .is_some_and(|reason| !reason.is_empty()),
         "{test_id} {rule_name} has no concrete reason: {rule}"
     );
-    assert_eq!(rule["location"]["file"], "tests/m3_rules.rs");
+    assert_eq!(rule["location"]["path"], "tests/m3_rules.rs");
     assert!(
-        rule["location"]["function"]
+        rule["location"]["locator"]
             .as_str()
             .is_some_and(|name| !name.is_empty())
-            && rule["location"]["start_line"]
+            && rule["location"]["byte_range"]["start_line"]
                 .as_u64()
                 .is_some_and(|line| line > 0),
         "{test_id} {rule_name} has no concrete source location: {rule}"
@@ -238,7 +238,7 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
             .is_some_and(|reason| reason.contains("ignore")),
         "ignored warning has no warning basis: {warning}"
     );
-    assert_eq!(warning["location"]["file"], "tests/m3_rules.rs");
+    assert_eq!(warning["location"]["path"], "tests/m3_rules.rs");
 
     assert_eq!(
         ignored["ok"], true,
@@ -251,8 +251,8 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
         .find(|diagnostic| diagnostic["code"] == "W-DA-101")
         .unwrap_or_else(|| panic!("ignored warning is absent from diagnostics: {ignored}"));
     assert_eq!(diagnostic["severity"], "warning", "{diagnostic}");
-    assert_eq!(diagnostic["location"]["file"], "tests/m3_rules.rs");
-    assert_eq!(diagnostic["location"]["function"], "ignored_test_warns");
+    assert_eq!(diagnostic["location"]["path"], "tests/m3_rules.rs");
+    assert_eq!(diagnostic["location"]["locator"], "ignored_test_warns");
 
     for test_id in ["TEST-M3-CONFIGURED-MACRO", "TEST-M3-SRC-ID"] {
         let response = audit_response(
@@ -305,7 +305,7 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
     let inline_a = only_audit(&inline_a, "TEST-M3-INLINE-A");
     assert_eq!(inline_a["verdict"], "PASS", "{inline_a}");
     assert_eq!(
-        rule(inline_a, "DA-004")["location"]["function"],
+        rule(inline_a, "DA-004")["location"]["locator"],
         "inline_a::same_name"
     );
 
@@ -316,7 +316,7 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
     );
     assert_failed_rule(&inline_b, "TEST-M3-INLINE-B", "DA-004");
     assert_eq!(
-        rule(only_audit(&inline_b, "TEST-M3-INLINE-B"), "DA-004")["location"]["function"],
+        rule(only_audit(&inline_b, "TEST-M3-INLINE-B"), "DA-004")["location"]["locator"],
         "inline_b::same_name"
     );
 
