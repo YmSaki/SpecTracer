@@ -139,8 +139,32 @@ execution_state: ExecutionStateDraft, log }` を返す。core が hash を計算
   **landmine**: unit test `unavailable_coverage_is_not_checked_and_never_passes`（`result==None` assert、runner.rs の tests に
   移動済）を同コミットで更新。両 renderer（CLI JSON serde / evidence_yaml）確認。m7_* 3件。
 
-現在 18失敗 = W5 step3/4 対象約15 + W6 対象3（m6×2/m9、AF-052）。baseline `<scratchpad>/w4-complete-baseline.txt`(19) は
-S3c 前。以後は 18 を基準に diff。
+現在 18失敗 = W5 step3/4 対象約15 + W6 対象3（m6×2/m9、AF-052）。baseline `<scratchpad>/w5-s3c-baseline.txt`(18)。以後は 18 基準で diff。
+
+## step 3 の実測契約（`evidence_contains_neutral_subjects_and_complete_execution_state` 他）
+Evidence JSON の `execution_state` が要求する形状（現状 stub と乖離）:
+```
+evidence["execution_state"]["subject"]         : string（Execution State subject hash）
+evidence["execution_state"]["complete"]        : true（stub は false）
+evidence["execution_state"]["revision"]["commit"] : string
+evidence["execution_state"]["repository_inputs"]  : array（repo input manifest = target + 局所依存ソース群）
+```
+- `target_external_helper_change_stales_evidence`: target が呼ぶ helper ファイル（src/helper.rs 等、target 構文外）の
+  変更で Evidence STALE。→ repository_inputs に **target-external な局所依存ファイル**を含める必要。verify の
+  evidence_validity 再評価が現在の inputs hash と保存 subject を比較。
+- `execution_state_mutation_reports_e_exec_004_without_evidence`: run 中に input ファイルが変化 → E-EXEC-004、Evidence なし
+  （pre/post snapshot consistency）。
+- `head_change_without_test_or_target_change_stales_evidence` / `evidence_without_revision_commit_is_stale`:
+  HEAD revision を Execution State subject に束縛。
+- `incomplete_current_execution_snapshot_is_unknown`: 現在スナップショット不完全 → UNKNOWN。
+
+**設計方針（step 3、要 advisor 確認）**: adapter が完全 ExecutionStateDraft を構築
+（invocation=canonical cargo 起動座標 projection、toolchain_identity=rustc/cargo version、head_revision、
+inputs=ExecutionInputDraft[]{root_identity, root_relative_path, kind, bytes} で target 構文 + target-external 局所依存 +
+実行時 input ファイル、complete=true）、core が `hash_*` で Execution State subject 計算 + Evidence subject 束縛、
+CLI JSON が execution_state.{subject,complete,revision,repository_inputs} 露出、verify が inputs 再導出で freshness、
+pre/post snapshot 差分で E-EXEC-004。局所依存の抽出範囲（target が use する同一 crate 内モジュール等）が要設計。
+これは adapter/core(vtest-exec)/CLI/verify 跨ぎの大型機能で W5 の主要残作業。
 
 ## ゲート
 各段 name-invariant（現 baseline 19件）+ fmt/clippy 0。
