@@ -403,11 +403,12 @@ fn m6_complete_fixture_is_ok_for_all_eleven_items() {
     let evidence = fs::read_to_string(&evidence_path).expect("read Evidence YAML");
     fs::write(
         &evidence_path,
+        // Fabricate a measured target execution from the §442 not-checked form
+        // (checked false, method/result null, empty targets).
         evidence
             .replace("checked: false", "checked: true")
             .replace("method: null", "method: llvm-cov")
-            .replace("result: 'NOT_CHECKED'", "result: 'PASS'")
-            .replace("count: null", "count: 1"),
+            .replace("result: null", "result: 'PASS'"),
     )
     .expect("mark fixture target execution measured");
     let verify = invoke(&project.root, "verify", &[]);
