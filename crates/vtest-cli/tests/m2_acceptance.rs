@@ -146,12 +146,15 @@ fn vo_files(project: &TempProject) -> Vec<String> {
 }
 
 fn canonical_vo_status(project: &TempProject, id: &str) -> String {
-    fs::read_to_string(project.root.join(format!(".verify/vo/{id}.yaml")))
-        .expect("read canonical VO record")
-        .lines()
-        .find_map(|line| line.strip_prefix("status: "))
-        .expect("canonical VO record has status")
-        .trim_matches('\'')
+    // W2 stopped storing a `status` field on the VO record; the effective value
+    // is derived from Approvals and surfaced by `vo show`.
+    let shown = assert_ok(
+        &invoke(&project.root, "vo", &["show", id]),
+        "show VO for effective status",
+    );
+    shown["data"]["effective_status"]
+        .as_str()
+        .expect("vo show reports effective_status")
         .to_owned()
 }
 
@@ -216,7 +219,11 @@ fn m2_vo_edit_invalidates_approval_and_returns_to_effective_draft() {
         "add a draft VO",
     );
     assert_eq!(added["data"]["id"], "VO-M2-APPROVAL");
-    assert_eq!(added["data"]["status"], "draft");
+    assert_eq!(
+        canonical_vo_status(&project, "VO-M2-APPROVAL"),
+        "draft",
+        "a newly added VO is effectively draft"
+    );
 
     let approved = assert_ok(
         &invoke(
