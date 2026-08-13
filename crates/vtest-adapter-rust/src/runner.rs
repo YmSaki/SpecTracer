@@ -9,8 +9,7 @@ use vtest_adapter_api::{
     TestRunnerAdapter,
 };
 use vtest_model::{
-    CanonicalProjection, CheckValue, Diagnostic, RunnerInfo, TargetExecution, TestEntity,
-    TestResult,
+    CanonicalProjection, CheckValue, RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
 
 use crate::discovery::Locator;
@@ -290,7 +289,7 @@ pub(crate) fn not_checked_target_execution() -> TargetExecution {
     TargetExecution {
         checked: false,
         method: None,
-        result: None,
+        result: Some(CheckValue::NotChecked),
         targets: Vec::new(),
         compatibility_count: None,
     }
@@ -308,16 +307,6 @@ pub(crate) fn measured_target_execution(count: u64) -> TargetExecution {
         targets: Vec::new(),
         compatibility_count: Some(count),
     }
-}
-
-pub(crate) fn unavailable_target_execution() -> (TargetExecution, Diagnostic) {
-    (
-        not_checked_target_execution(),
-        Diagnostic::warning(
-            "W-EXEC-101",
-            "cargo-llvm-cov is unavailable; target_execution is NOT_CHECKED",
-        ),
-    )
 }
 
 pub(crate) fn unknown_target_execution() -> TargetExecution {
@@ -418,12 +407,11 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_coverage_is_not_checked_and_never_passes() {
-        let (target_execution, diagnostic) = unavailable_target_execution();
+    fn not_checked_target_execution_is_never_a_pass() {
+        let target_execution = not_checked_target_execution();
         assert!(!target_execution.checked);
-        assert_eq!(target_execution.result, None);
+        assert_eq!(target_execution.result, Some(CheckValue::NotChecked));
         assert_eq!(target_execution.compatibility_count, None);
-        assert_eq!(diagnostic.code, "W-EXEC-101");
     }
 
     #[test]
@@ -694,7 +682,9 @@ impl TestRunnerAdapter for RustCargoRunner {
                         resolve_runner_target(test).as_ref(),
                     )
                 } else {
-                    unavailable_target_execution().0
+                    // Coverage was requested but cargo-llvm-cov is unavailable;
+                    // the core derives W-EXEC-101 from a not-checked non-fast run.
+                    not_checked_target_execution()
                 };
                 Ok(RunnerOutcome::Completed(Box::new(RunnerObservation {
                     result,

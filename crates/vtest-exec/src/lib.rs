@@ -152,6 +152,9 @@ pub fn run_tests(
                     );
                     continue;
                 }
+                // Coverage was requested but not measured — a warning rides
+                // alongside the recorded Evidence (W-EXEC-101).
+                let coverage_unchecked = !fast && !observation.target_execution.checked;
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
@@ -198,6 +201,18 @@ pub fn run_tests(
                         .collect(),
                 });
                 evidence.push(record);
+                if coverage_unchecked {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            "W-EXEC-101",
+                            format!(
+                                "cargo-llvm-cov is unavailable; target_execution for Test {} is NOT_CHECKED",
+                                test.entity.id
+                            ),
+                        )
+                        .with_location(test.entity.location.clone()),
+                    );
+                }
             }
         }
     }
