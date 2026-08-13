@@ -1,6 +1,6 @@
 id: 'SPEC-DOGFOOD-M3'
 kind: 'document'
 path: 'docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md'
-sha256: 'sha256:366a75374caeeb08fd6a759282b5da6371da0b3d95fa2e3ba2130ccbd764947f'
+sha256: 'sha256:915981eff789fd23202026783947126c0cdffc27f63d76a6906467d5ac7d8442'
 title: 'SpecTracer detailed design'
 registered_at: '2026-08-08T11:56:59Z'

@@ -1864,7 +1864,7 @@ mod tests {
 
     /// @vtest.id TEST-DOGFOOD-M3-TARGET-RULES
     /// @vtest.covers VO-DOGFOOD-M3-STATIC-AUDIT
-    /// @vtest.target crates/vtest-audit/src/lib.rs::classify_target_call
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call
     /// @vtest.intent exact target paths are distinguished from ambiguous same-name calls
     #[test]
     fn dogfood_exact_target_path_is_classified() {
