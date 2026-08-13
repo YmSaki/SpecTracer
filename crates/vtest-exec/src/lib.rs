@@ -9,11 +9,12 @@ use std::{
 
 use serde::Serialize;
 use thiserror::Error;
-use vtest_adapter_api::{ExecutionStateDraft, RunnerOutcome, TestRunnerAdapter};
+use vtest_adapter_api::{
+    hash_execution_state_draft, ExecutionStateDraft, RunnerOutcome, TestRunnerAdapter,
+};
 use vtest_model::{
-    hash_execution_state_subject, AdapterId, CanonicalProjection, CheckValue, ContentHash,
-    Diagnostic, EvidenceHashes, EvidenceRecord, EvidenceTargetHash, ExecutionInputSubject,
-    ExecutionStateSubject, ExecutionStateSubjectInput, Revision, TestEntity, TestResult,
+    AdapterId, CanonicalProjection, CheckValue, ContentHash, Diagnostic, EvidenceHashes,
+    EvidenceRecord, EvidenceTargetHash, ExecutionStateSubject, Revision, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
@@ -214,33 +215,10 @@ fn execution_state_subject(
     adapter: &AdapterId,
     draft: &ExecutionStateDraft,
 ) -> ExecutionStateSubject {
-    let hash = draft.complete.then(|| {
-        let inputs = draft
-            .inputs
-            .iter()
-            .map(|input| ExecutionInputSubject {
-                root_identity: &input.root_identity,
-                root_relative_path: &input.root_relative_path,
-                kind: &input.kind,
-                bytes: &input.bytes,
-            })
-            .collect::<Vec<_>>();
-        hash_execution_state_subject(&ExecutionStateSubjectInput {
-            adapter,
-            schema_id: &draft.schema_id,
-            schema_version: &draft.schema_version,
-            head_revision: draft.head_revision.as_deref(),
-            runner_kind: &draft.runner_kind,
-            invocation: &draft.invocation,
-            toolchain_identity: &draft.toolchain_identity,
-            effective_config: &draft.effective_config,
-            inputs: &inputs,
-        })
-    });
     ExecutionStateSubject {
         schema: draft.schema_id.clone(),
         complete: draft.complete,
-        hash,
+        hash: hash_execution_state_draft(adapter, draft),
     }
 }
 

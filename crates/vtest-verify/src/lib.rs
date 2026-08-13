@@ -12,8 +12,8 @@ use vtest_model::{
     EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
-    rust_cargo_static_audit_projection, ScanResult, STATIC_AUDIT_RULE_SET_ID,
-    STATIC_AUDIT_RULE_SET_VERSION,
+    rust_cargo_execution_state_hash, rust_cargo_static_audit_projection, ScanResult,
+    STATIC_AUDIT_RULE_SET_ID, STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
@@ -647,10 +647,10 @@ fn evaluate_item(
         "static_audit" => evaluate_static_audit(layout, scan),
         "semantic_audit" => evaluate_test_audit(root, layout, scan, "test-semantic"),
         "impl_consistency" => evaluate_test_audit(root, layout, scan, "impl-consistency"),
-        "test_execution" => evaluate_test_execution(evidence, scan),
-        "runtime_result" => evaluate_runtime(evidence, scan),
-        "target_execution" => evaluate_target_execution(evidence, scan),
-        "evidence_validity" => evaluate_evidence_validity(evidence, scan),
+        "test_execution" => evaluate_test_execution(root, evidence, scan),
+        "runtime_result" => evaluate_runtime(root, evidence, scan),
+        "target_execution" => evaluate_target_execution(root, evidence, scan),
+        "evidence_validity" => evaluate_evidence_validity(root, evidence, scan),
         "test_traceability" => evaluate_test_traceability(scan),
         _ => (CheckValue::Unknown, vec!["unknown check item".to_owned()]),
     }
@@ -1396,6 +1396,7 @@ fn record_hash(directory: &Path, id: Option<&str>) -> Option<ContentHash> {
 }
 
 fn evaluate_runtime(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1412,7 +1413,7 @@ fn evaluate_runtime(
             .get(test.id.as_str())
             .map_or(
                 CheckValue::NotExecuted,
-                |record| match evidence_record_validity(record, test, scan) {
+                |record| match evidence_record_validity(root, record, test, scan) {
                     CheckValue::Pass => match record.result {
                         vtest_model::TestResult::Pass => CheckValue::Pass,
                         vtest_model::TestResult::Fail => CheckValue::Fail,
@@ -1431,6 +1432,7 @@ fn evaluate_runtime(
 }
 
 fn evaluate_target_execution(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1446,7 +1448,7 @@ fn evaluate_target_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                if evidence_record_validity(record, test, scan) != CheckValue::Pass {
+                if evidence_record_validity(root, record, test, scan) != CheckValue::Pass {
                     CheckValue::Stale
                 } else if record.target_execution.checked {
                     record
@@ -1468,6 +1470,7 @@ fn evaluate_target_execution(
 }
 
 fn evaluate_evidence_validity(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1484,7 +1487,7 @@ fn evaluate_evidence_validity(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(record, test, scan)
+                evidence_record_validity(root, record, test, scan)
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1505,6 +1508,7 @@ fn evaluate_evidence_validity(
 }
 
 fn evaluate_test_execution(
+    root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     scan: &ScanResult,
 ) -> (CheckValue, Vec<String>) {
@@ -1520,7 +1524,7 @@ fn evaluate_test_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(record, test, scan)
+                evidence_record_validity(root, record, test, scan)
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1545,6 +1549,7 @@ fn evidence_basis(test: &TestEntity, record: Option<&EvidenceRecord>, value: Che
 }
 
 fn evidence_record_validity(
+    root: &Path,
     record: &EvidenceRecord,
     test: &TestEntity,
     scan: &ScanResult,
@@ -1585,9 +1590,18 @@ fn evidence_record_validity(
                     || actual.target_construct != target.content_hash
             })
     {
-        CheckValue::Stale
-    } else {
-        CheckValue::Pass
+        return CheckValue::Stale;
+    }
+    // §1315: reconstruct the current Execution State subject and compare it to
+    // the recorded hash. An incomplete current snapshot cannot prove freshness
+    // (UNKNOWN); a subject that moved — input manifest, HEAD, toolchain — is
+    // STALE even when the Test and target hashes are unchanged. `coverage_off`
+    // is recovered from the recorded runner kind.
+    let coverage_off = record.runner.kind != "cargo-llvm-cov";
+    match rust_cargo_execution_state_hash(root, adapter, test, &record.runner.kind, coverage_off) {
+        None => CheckValue::Unknown,
+        Some(current) if Some(&current) == execution_state.hash.as_ref() => CheckValue::Pass,
+        Some(_) => CheckValue::Stale,
     }
 }
 

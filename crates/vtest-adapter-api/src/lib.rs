@@ -9,9 +9,45 @@ use serde_json::{Map, Value};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 use thiserror::Error;
 use vtest_model::{
-    AdapterId, CanonicalProjection, CheckValue, Diagnostic, ExecutionDescriptor, RunnerInfo,
+    hash_execution_state_subject, AdapterId, CanonicalProjection, CheckValue, ContentHash,
+    Diagnostic, ExecutionDescriptor, ExecutionInputSubject, ExecutionStateSubjectInput, RunnerInfo,
     SourceLocation, SrcId, TargetExecution, TargetRef, TestEntity, TestId, TestResult, VoId,
 };
+
+/// Compute the Execution State subject hash of a draft, or `None` when the draft
+/// is incomplete (an incomplete closure never yields a fresh subject). This is
+/// the single draft -> hash mapping shared by the runner path (which hashes the
+/// pre-run snapshot) and the freshness re-derivation path (which hashes the
+/// current reconstruction), so the two can never disagree on field encoding.
+pub fn hash_execution_state_draft(
+    adapter: &AdapterId,
+    draft: &ExecutionStateDraft,
+) -> Option<ContentHash> {
+    if !draft.complete {
+        return None;
+    }
+    let inputs = draft
+        .inputs
+        .iter()
+        .map(|input| ExecutionInputSubject {
+            root_identity: &input.root_identity,
+            root_relative_path: &input.root_relative_path,
+            kind: &input.kind,
+            bytes: &input.bytes,
+        })
+        .collect::<Vec<_>>();
+    Some(hash_execution_state_subject(&ExecutionStateSubjectInput {
+        adapter,
+        schema_id: &draft.schema_id,
+        schema_version: &draft.schema_version,
+        head_revision: draft.head_revision.as_deref(),
+        runner_kind: &draft.runner_kind,
+        invocation: &draft.invocation,
+        toolchain_identity: &draft.toolchain_identity,
+        effective_config: &draft.effective_config,
+        inputs: &inputs,
+    }))
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SourceFragment {

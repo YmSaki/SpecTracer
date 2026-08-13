@@ -17,8 +17,8 @@ use std::{
 };
 use vtest_model::{
     AdapterId, CheckValue, CompatibilityEvidenceHashes, ContentHash, EvidenceHashes,
-    EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId, SpecSourceHash, TargetExecution, TestId,
-    TestResult, VoId,
+    EvidenceRecord, EvidenceTargetHash, ExecutionStateSubject, ReqId, Revision, RunnerInfo, SpecId,
+    SpecSourceHash, TargetExecution, TargetExecutionObservation, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -861,46 +861,94 @@ impl RelationRecord {
     }
 }
 
+/// Parse the `targets:` object-list nested under a top-level `parent:` block,
+/// returning each entry as an ordered list of (field, unquoted value) pairs.
+/// Used for the neutral `hashes.targets` and `target_execution.targets` lists,
+/// which the evidence writer emits with a fixed two-space-step indentation.
+fn parse_object_list(text: &str, parent: &str) -> Vec<Vec<(String, String)>> {
+    let mut entries = Vec::new();
+    let mut current: Option<Vec<(String, String)>> = None;
+    let mut in_parent = false;
+    let mut in_targets = false;
+    for raw in text.lines() {
+        let line = raw.trim_end();
+        if line == format!("{parent}:") {
+            in_parent = true;
+            in_targets = false;
+            continue;
+        }
+        if in_parent && !line.starts_with(' ') && !line.is_empty() {
+            in_parent = false;
+        }
+        if !in_parent {
+            if let Some(entry) = current.take() {
+                entries.push(entry);
+            }
+            in_targets = false;
+            continue;
+        }
+        if line.trim() == "targets:" {
+            in_targets = true;
+            continue;
+        }
+        if !in_targets {
+            continue;
+        }
+        if let Some(rest) = line.trim_start().strip_prefix("- ") {
+            if let Some(entry) = current.take() {
+                entries.push(entry);
+            }
+            let mut entry = Vec::new();
+            if let Some((key, value)) = rest.split_once(':') {
+                entry.push((key.trim().to_owned(), unquote(value.trim())));
+            }
+            current = Some(entry);
+        } else if line.starts_with("      ") {
+            if let (Some(entry), Some((key, value))) =
+                (current.as_mut(), line.trim().split_once(':'))
+            {
+                entry.push((key.trim().to_owned(), unquote(value.trim())));
+            }
+        } else if !line.starts_with("    ") && !line.trim().is_empty() {
+            in_targets = false;
+            if let Some(entry) = current.take() {
+                entries.push(entry);
+            }
+        }
+    }
+    if let Some(entry) = current.take() {
+        entries.push(entry);
+    }
+    entries
+}
+
+fn entry_field<'a>(entry: &'a [(String, String)], key: &str) -> Option<&'a str> {
+    entry
+        .iter()
+        .find(|(field, _)| field == key)
+        .map(|(_, value)| value.as_str())
+        .filter(|value| *value != "null")
+}
+
+fn parse_check_value(value: &str) -> CheckValue {
+    match value {
+        "PASS" => CheckValue::Pass,
+        "FAIL" => CheckValue::Fail,
+        "NOT_CHECKED" => CheckValue::NotChecked,
+        "NOT_EXECUTED" => CheckValue::NotExecuted,
+        "STALE" => CheckValue::Stale,
+        "MISMATCH" => CheckValue::Mismatch,
+        "MISSING" => CheckValue::Missing,
+        _ => CheckValue::Unknown,
+    }
+}
+
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     let text = read_text(path)?;
     let fallback = path
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
-    let test_hash = nested_scalar(&text, "hashes", "test_fn")
-        .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing hashes.test_fn".to_owned()))?
-        .parse()
-        .map_err(|error: String| StoreError::InvalidConfig(error))?;
-    let target_hash = nested_scalar(&text, "hashes", "target_fn")
-        .ok_or_else(|| {
-            StoreError::InvalidConfig("Evidence is missing hashes.target_fn".to_owned())
-        })?
-        .parse()
-        .map_err(|error: String| StoreError::InvalidConfig(error))?;
-    let target_hashes = if text.lines().any(|line| line.trim() == "target_fns:") {
-        let values = list(&text, "target_fns");
-        if values.is_empty() {
-            return Err(StoreError::InvalidConfig(
-                "Evidence has an empty hashes.target_fns list".to_owned(),
-            ));
-        }
-        let parsed = values
-            .into_iter()
-            .map(|value| {
-                value
-                    .parse()
-                    .map_err(|error: String| StoreError::InvalidConfig(error))
-            })
-            .collect::<Result<Vec<ContentHash>, StoreError>>()?;
-        if parsed.first() != Some(&target_hash) {
-            return Err(StoreError::InvalidConfig(
-                "Evidence hashes.target_fn must equal the first hashes.target_fns entry".to_owned(),
-            ));
-        }
-        parsed
-    } else {
-        Vec::new()
-    };
     let result = match scalar(&text, "result").as_deref() {
         Some("PASS") => TestResult::Pass,
         Some("FAIL") => TestResult::Fail,
@@ -910,17 +958,102 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             ))
         }
     };
-    let target_result = match nested_scalar(&text, "target_execution", "result").as_deref() {
-        Some("PASS") => CheckValue::Pass,
-        Some("FAIL") => CheckValue::Fail,
-        Some("NOT_CHECKED") => CheckValue::NotChecked,
-        Some("NOT_EXECUTED") => CheckValue::NotExecuted,
-        Some("UNKNOWN") => CheckValue::Unknown,
-        Some("STALE") => CheckValue::Stale,
-        Some("MISMATCH") => CheckValue::Mismatch,
-        Some("MISSING") => CheckValue::Missing,
-        _ => CheckValue::Unknown,
+
+    // Neutral hashes first (test_subject + targets); a record with neither the
+    // neutral test_subject nor the compatibility test_fn is malformed.
+    let hashes = if let Some(test_subject) = nested_scalar(&text, "hashes", "test_subject") {
+        let test_subject = test_subject
+            .parse()
+            .map_err(|error: String| StoreError::InvalidConfig(error))?;
+        let mut targets = Vec::new();
+        for entry in parse_object_list(&text, "hashes") {
+            let (Some(target), Some(construct)) = (
+                entry_field(&entry, "target"),
+                entry_field(&entry, "target_construct"),
+            ) else {
+                continue;
+            };
+            targets.push(EvidenceTargetHash {
+                target: target.to_owned(),
+                target_construct: construct
+                    .parse()
+                    .map_err(|error: String| StoreError::InvalidConfig(error))?,
+            });
+        }
+        EvidenceHashes {
+            test_subject: Some(test_subject),
+            targets,
+            compatibility: None,
+        }
+    } else {
+        let test_hash = nested_scalar(&text, "hashes", "test_fn")
+            .ok_or_else(|| {
+                StoreError::InvalidConfig("Evidence is missing hashes.test_subject".to_owned())
+            })?
+            .parse()
+            .map_err(|error: String| StoreError::InvalidConfig(error))?;
+        let target_hash = nested_scalar(&text, "hashes", "target_fn")
+            .ok_or_else(|| {
+                StoreError::InvalidConfig("Evidence is missing hashes.target_fn".to_owned())
+            })?
+            .parse()
+            .map_err(|error: String| StoreError::InvalidConfig(error))?;
+        let target_constructs = if text.lines().any(|line| line.trim() == "target_fns:") {
+            let values = list(&text, "target_fns");
+            if values.is_empty() {
+                return Err(StoreError::InvalidConfig(
+                    "Evidence has an empty hashes.target_fns list".to_owned(),
+                ));
+            }
+            values
+                .into_iter()
+                .map(|value| {
+                    value
+                        .parse()
+                        .map_err(|error: String| StoreError::InvalidConfig(error))
+                })
+                .collect::<Result<Vec<ContentHash>, StoreError>>()?
+        } else {
+            vec![target_hash]
+        };
+        EvidenceHashes {
+            test_subject: None,
+            targets: Vec::new(),
+            compatibility: Some(CompatibilityEvidenceHashes {
+                test_construct: test_hash,
+                target_constructs,
+            }),
+        }
     };
+
+    let execution_state = if text
+        .lines()
+        .any(|line| line.trim_end() == "execution_state:")
+    {
+        Some(ExecutionStateSubject {
+            schema: nested_scalar(&text, "execution_state", "schema").unwrap_or_default(),
+            complete: nested_scalar(&text, "execution_state", "complete").as_deref()
+                == Some("true"),
+            hash: nested_scalar(&text, "execution_state", "hash")
+                .map(|value| value.parse())
+                .transpose()
+                .map_err(|error: String| StoreError::InvalidConfig(error))?,
+        })
+    } else {
+        None
+    };
+
+    let target_targets = parse_object_list(&text, "target_execution")
+        .into_iter()
+        .filter_map(|entry| {
+            Some(TargetExecutionObservation {
+                target: entry_field(&entry, "target")?.to_owned(),
+                result: parse_check_value(entry_field(&entry, "result").unwrap_or("UNKNOWN")),
+                count: entry_field(&entry, "count").and_then(|value| value.parse().ok()),
+            })
+        })
+        .collect();
+
     Ok(EvidenceRecord {
         id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
@@ -933,19 +1066,8 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             commit: nested_scalar(&text, "revision", "commit").filter(|value| value != "null"),
             dirty: nested_scalar(&text, "revision", "dirty").is_some_and(|value| value == "true"),
         },
-        execution_state: None,
-        hashes: EvidenceHashes {
-            test_subject: None,
-            targets: Vec::new(),
-            compatibility: Some(CompatibilityEvidenceHashes {
-                test_construct: test_hash,
-                target_constructs: if target_hashes.is_empty() {
-                    vec![target_hash]
-                } else {
-                    target_hashes
-                },
-            }),
-        },
+        execution_state,
+        hashes,
         runner: RunnerInfo {
             kind: nested_scalar(&text, "runner", "kind").unwrap_or_default(),
             command: nested_scalar(&text, "runner", "command").unwrap_or_default(),
@@ -958,8 +1080,10 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
                 .is_some_and(|value| value == "true"),
             method: nested_scalar(&text, "target_execution", "method")
                 .filter(|value| value != "null"),
-            result: Some(target_result),
-            targets: Vec::new(),
+            result: nested_scalar(&text, "target_execution", "result")
+                .as_deref()
+                .map(parse_check_value),
+            targets: target_targets,
             compatibility_count: nested_scalar(&text, "target_execution", "count")
                 .filter(|value| value != "null")
                 .and_then(|value| value.parse().ok()),

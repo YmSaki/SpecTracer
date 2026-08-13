@@ -477,6 +477,31 @@ pub fn rust_cargo_static_audit_projection(config: &ProjectConfig) -> CanonicalPr
     CanonicalProjection::Map(map)
 }
 
+/// Reconstruct the current Execution State subject hash for one Test, for
+/// freshness re-derivation (§1315). This calls the single Rust reconstruction
+/// (`vtest_adapter_rust::build_execution_state`) and the single draft -> hash
+/// mapping, so a re-derived hash is byte-identical to what the runner recorded
+/// when nothing changed. `None` means the current snapshot is incomplete.
+///
+/// `coverage_off` is recovered core-side from the recorded runner kind
+/// (`cargo-test` ⟺ coverage off). Core owns this config -> projection mapping;
+/// it must match the projection the runner path builds.
+pub fn rust_cargo_execution_state_hash(
+    root: &Path,
+    adapter: &AdapterId,
+    test: &TestEntity,
+    runner_kind: &str,
+    coverage_off: bool,
+) -> Option<ContentHash> {
+    let effective_config = CanonicalProjection::Map(BTreeMap::from([(
+        "coverage".to_owned(),
+        CanonicalProjection::String(if coverage_off { "off" } else { "llvm-cov" }.to_owned()),
+    )]));
+    let draft =
+        vtest_adapter_rust::build_execution_state(root, &effective_config, test, runner_kind);
+    vtest_adapter_api::hash_execution_state_draft(adapter, &draft)
+}
+
 fn record_diagnostics(
     root: &Path,
     entity_ids: &[Vec<String>; 3],

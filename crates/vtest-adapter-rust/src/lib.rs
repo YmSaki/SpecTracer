@@ -16,7 +16,7 @@ pub mod operations_support;
 mod runner;
 mod static_audit;
 pub use discovery::{Locator, RustCargoDiscovery};
-pub use runner::RustCargoRunner;
+pub use runner::{build_execution_state, RustCargoRunner};
 pub use static_audit::RustCargoStaticAudit;
 
 pub const RUST_CARGO_ADAPTER_ID: &str = "rust-cargo";

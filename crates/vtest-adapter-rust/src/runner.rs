@@ -489,7 +489,7 @@ const EXECUTION_STATE_VERSION: &str = "1";
 ///
 /// Called BEFORE cargo launches so the manifest bytes are the pre-run snapshot
 /// the core compares against the post-run state for E-EXEC-004.
-fn build_execution_state(
+pub fn build_execution_state(
     root: &Path,
     config: &CanonicalProjection,
     test: &TestEntity,
