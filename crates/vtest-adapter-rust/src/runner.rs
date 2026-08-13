@@ -9,7 +9,8 @@ use vtest_adapter_api::{
     TestRunnerAdapter,
 };
 use vtest_model::{
-    CanonicalProjection, CheckValue, RunnerInfo, TargetExecution, TestEntity, TestResult,
+    CanonicalProjection, CheckValue, RunnerInfo, TargetExecution, TargetExecutionObservation,
+    TestEntity, TestResult,
 };
 
 use crate::discovery::Locator;
@@ -191,21 +192,75 @@ pub(crate) fn cargo_llvm_cov_available(root: &Path) -> bool {
         .is_ok_and(|output| output.status.success())
 }
 
-pub(crate) fn target_execution_from_coverage(
+/// Attribute llvm-cov coverage to every declared target, one
+/// `TargetExecutionObservation` per target in declaration order. A target whose
+/// coverage cannot be attributed is UNKNOWN; the aggregate is FAIL if any target
+/// was never called, UNKNOWN if any is unattributable, else PASS. The first
+/// target's count is echoed as the single-target compatibility count.
+pub(crate) fn coverage_target_execution(
     coverage_path: &Path,
-    target: Option<&RustLocator>,
+    test: &TestEntity,
 ) -> TargetExecution {
-    let Some(target) = target else {
-        return unknown_target_execution();
+    let output = fs::read_to_string(coverage_path).ok();
+    let observations = test
+        .targets
+        .iter()
+        .map(|target_ref| {
+            let count = output
+                .as_deref()
+                .zip(rust_locator_of(target_ref))
+                .and_then(|(text, locator)| llvm_cov_function_count(text, &locator));
+            let (result, count) = match count {
+                Some(count) if count > 0 => (CheckValue::Pass, Some(count)),
+                Some(count) => (CheckValue::Fail, Some(count)),
+                None => (CheckValue::Unknown, None),
+            };
+            TargetExecutionObservation {
+                target: target_ref.normalized(),
+                result,
+                count,
+            }
+        })
+        .collect::<Vec<_>>();
+    let aggregate = if observations.is_empty()
+        || observations
+            .iter()
+            .any(|observation| observation.result == CheckValue::Unknown)
+    {
+        CheckValue::Unknown
+    } else if observations
+        .iter()
+        .any(|observation| observation.result == CheckValue::Fail)
+    {
+        CheckValue::Fail
+    } else {
+        CheckValue::Pass
     };
-    let output = match fs::read_to_string(coverage_path) {
-        Ok(output) => output,
-        Err(_) => return unknown_target_execution(),
-    };
-    let Some(count) = llvm_cov_function_count(&output, target) else {
-        return unknown_target_execution();
-    };
-    measured_target_execution(count)
+    let compatibility_count = observations
+        .first()
+        .and_then(|observation| observation.count);
+    TargetExecution {
+        checked: true,
+        method: Some("llvm-cov".to_owned()),
+        result: Some(aggregate),
+        targets: observations,
+        compatibility_count,
+    }
+}
+
+fn rust_locator_of(target_ref: &vtest_model::TargetRef) -> Option<RustLocator> {
+    match target_ref {
+        vtest_model::TargetRef::Locator { adapter, value }
+            if adapter.as_str() == crate::RUST_CARGO_ADAPTER_ID =>
+        {
+            let locator = Locator::parse(value)?;
+            Some(RustLocator {
+                path: locator.path,
+                item_path: locator.item_path,
+            })
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn llvm_cov_function_count(output: &str, target: &RustLocator) -> Option<u64> {
@@ -294,31 +349,6 @@ pub(crate) fn not_checked_target_execution() -> TargetExecution {
         compatibility_count: None,
     }
 }
-
-pub(crate) fn measured_target_execution(count: u64) -> TargetExecution {
-    TargetExecution {
-        checked: true,
-        method: Some("llvm-cov".to_owned()),
-        result: Some(if count > 0 {
-            CheckValue::Pass
-        } else {
-            CheckValue::Fail
-        }),
-        targets: Vec::new(),
-        compatibility_count: Some(count),
-    }
-}
-
-pub(crate) fn unknown_target_execution() -> TargetExecution {
-    TargetExecution {
-        checked: true,
-        method: Some("llvm-cov".to_owned()),
-        result: Some(CheckValue::Unknown),
-        targets: Vec::new(),
-        compatibility_count: None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -413,19 +443,6 @@ mod tests {
         assert_eq!(target_execution.result, Some(CheckValue::NotChecked));
         assert_eq!(target_execution.compatibility_count, None);
     }
-
-    #[test]
-    fn measured_target_execution_requires_a_positive_count() {
-        let called = measured_target_execution(1);
-        assert!(called.checked);
-        assert_eq!(called.result, Some(CheckValue::Pass));
-        assert_eq!(called.compatibility_count, Some(1));
-
-        let not_called = measured_target_execution(0);
-        assert!(not_called.checked);
-        assert_eq!(not_called.result, Some(CheckValue::Fail));
-        assert_eq!(not_called.compatibility_count, Some(0));
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -446,25 +463,6 @@ fn coverage_is_off(config: &CanonicalProjection) -> bool {
         _ => true,
     }
 }
-
-/// Resolve the declared target to a Rust source coordinate for llvm-cov
-/// attribution. Locator targets are parsed directly; SRC-ID targets are not
-/// resolved here (coverage falls back to UNKNOWN), matching the safe default.
-fn resolve_runner_target(test: &TestEntity) -> Option<RustLocator> {
-    match test.targets.first()? {
-        vtest_model::TargetRef::Locator { adapter, value }
-            if adapter.as_str() == crate::RUST_CARGO_ADAPTER_ID =>
-        {
-            let locator = Locator::parse(value)?;
-            Some(RustLocator {
-                path: locator.path,
-                item_path: locator.item_path,
-            })
-        }
-        _ => None,
-    }
-}
-
 /// The `rust-cargo-execution-state-v1` schema identity.
 const EXECUTION_STATE_SCHEMA: &str = "rust-cargo-execution-state-v1";
 const EXECUTION_STATE_VERSION: &str = "1";
@@ -677,10 +675,7 @@ impl TestRunnerAdapter for RustCargoRunner {
                 let target_execution = if fast {
                     not_checked_target_execution()
                 } else if let Some(coverage_path) = &coverage_path {
-                    target_execution_from_coverage(
-                        coverage_path,
-                        resolve_runner_target(test).as_ref(),
-                    )
+                    coverage_target_execution(coverage_path, test)
                 } else {
                     // Coverage was requested but cargo-llvm-cov is unavailable;
                     // the core derives W-EXEC-101 from a not-checked non-fast run.

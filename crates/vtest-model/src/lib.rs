@@ -800,7 +800,7 @@ pub struct TargetExecution {
     pub method: Option<String>,
     pub result: Option<CheckValue>,
     pub targets: Vec<TargetExecutionObservation>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "count", skip_serializing_if = "Option::is_none")]
     pub compatibility_count: Option<u64>,
 }
 
