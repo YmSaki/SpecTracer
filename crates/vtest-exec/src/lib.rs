@@ -9,10 +9,11 @@ use std::{
 
 use serde::Serialize;
 use thiserror::Error;
-use vtest_adapter_api::{RunnerOutcome, TestRunnerAdapter};
+use vtest_adapter_api::{ExecutionStateDraft, RunnerOutcome, TestRunnerAdapter};
 use vtest_model::{
-    CanonicalProjection, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord,
-    EvidenceTargetHash, ExecutionStateSubject, Revision, TestEntity, TestResult,
+    hash_execution_state_subject, AdapterId, CanonicalProjection, CheckValue, ContentHash,
+    Diagnostic, EvidenceHashes, EvidenceRecord, EvidenceTargetHash, ExecutionInputSubject,
+    ExecutionStateSubject, ExecutionStateSubjectInput, Revision, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
@@ -35,6 +36,16 @@ pub struct RunnableTest {
 pub struct ExecutionResult {
     pub evidence: Vec<EvidenceRecord>,
     pub diagnostics: Vec<Diagnostic>,
+    /// Per-Evidence repository input manifest paths, surfaced for the run
+    /// response view only (the persisted record binds just the subject hash).
+    #[serde(skip)]
+    pub repository_inputs: Vec<EvidenceManifest>,
+}
+
+#[derive(Clone, Debug)]
+pub struct EvidenceManifest {
+    pub evidence_id: String,
+    pub paths: Vec<String>,
 }
 
 impl ExecutionResult {
@@ -68,6 +79,7 @@ pub fn run_tests(
     )]));
     let mut evidence = Vec::new();
     let mut diagnostics = Vec::new();
+    let mut repository_inputs = Vec::new();
     for test in tests {
         let record_id = new_record_id();
         let outcome = adapter
@@ -130,11 +142,10 @@ pub fn run_tests(
                     result: observation.result,
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
-                    execution_state: Some(ExecutionStateSubject {
-                        schema: observation.execution_state.schema_id.clone(),
-                        complete: observation.execution_state.complete,
-                        hash: None,
-                    }),
+                    execution_state: Some(execution_state_subject(
+                        &test.entity.execution.adapter,
+                        &observation.execution_state,
+                    )),
                     hashes: EvidenceHashes {
                         test_subject: Some(test.entity.content_hash.clone()),
                         targets: test
@@ -160,6 +171,15 @@ pub fn run_tests(
                         source: std::io::Error::other(error.to_string()),
                     }
                 })?;
+                repository_inputs.push(EvidenceManifest {
+                    evidence_id: record_id.clone(),
+                    paths: observation
+                        .execution_state
+                        .inputs
+                        .iter()
+                        .map(|input| input.root_relative_path.clone())
+                        .collect(),
+                });
                 evidence.push(record);
             }
         }
@@ -167,7 +187,45 @@ pub fn run_tests(
     Ok(ExecutionResult {
         evidence,
         diagnostics,
+        repository_inputs,
     })
+}
+
+/// Compute the persisted Execution State subject from the adapter's draft. The
+/// core owns the hash: an incomplete draft records the run as history only
+/// (`hash: null`) and never passes a fresh `evidence_validity`.
+fn execution_state_subject(
+    adapter: &AdapterId,
+    draft: &ExecutionStateDraft,
+) -> ExecutionStateSubject {
+    let hash = draft.complete.then(|| {
+        let inputs = draft
+            .inputs
+            .iter()
+            .map(|input| ExecutionInputSubject {
+                root_identity: &input.root_identity,
+                root_relative_path: &input.root_relative_path,
+                kind: &input.kind,
+                bytes: &input.bytes,
+            })
+            .collect::<Vec<_>>();
+        hash_execution_state_subject(&ExecutionStateSubjectInput {
+            adapter,
+            schema_id: &draft.schema_id,
+            schema_version: &draft.schema_version,
+            head_revision: draft.head_revision.as_deref(),
+            runner_kind: &draft.runner_kind,
+            invocation: &draft.invocation,
+            toolchain_identity: &draft.toolchain_identity,
+            effective_config: &draft.effective_config,
+            inputs: &inputs,
+        })
+    });
+    ExecutionStateSubject {
+        schema: draft.schema_id.clone(),
+        complete: draft.complete,
+        hash,
+    }
 }
 
 fn git_revision(root: &Path) -> Revision {

@@ -5,7 +5,8 @@
 use std::{fs, path::Path, process::Command};
 
 use vtest_adapter_api::{
-    AdapterError, ExecutionStateDraft, RunnerObservation, RunnerOutcome, TestRunnerAdapter,
+    AdapterError, ExecutionInputDraft, ExecutionStateDraft, RunnerObservation, RunnerOutcome,
+    TestRunnerAdapter,
 };
 use vtest_model::{
     CanonicalProjection, CheckValue, Diagnostic, RunnerInfo, TargetExecution, TestEntity,
@@ -476,21 +477,160 @@ fn resolve_runner_target(test: &TestEntity) -> Option<RustLocator> {
     }
 }
 
-/// A minimal, incomplete Execution State draft. The full closure (canonical
-/// invocation, toolchain, HEAD, input manifest, local dependencies) is a later
-/// increment; `complete: false` forbids the core from treating it as fresh.
-fn minimal_execution_state(runner_kind: &str, config: &CanonicalProjection) -> ExecutionStateDraft {
+/// The `rust-cargo-execution-state-v1` schema identity.
+const EXECUTION_STATE_SCHEMA: &str = "rust-cargo-execution-state-v1";
+const EXECUTION_STATE_VERSION: &str = "1";
+
+/// Build the Execution State draft: the repository input manifest (the file
+/// tree of the executed package, excluding generated products), the canonical
+/// cargo invocation, the toolchain identity, and the HEAD revision. `complete`
+/// is only true when the manifest was enumerated in full; the core forbids a
+/// fresh `evidence_validity` over an incomplete state.
+///
+/// Called BEFORE cargo launches so the manifest bytes are the pre-run snapshot
+/// the core compares against the post-run state for E-EXEC-004.
+fn build_execution_state(
+    root: &Path,
+    config: &CanonicalProjection,
+    test: &TestEntity,
+    runner_kind: &str,
+) -> ExecutionStateDraft {
+    let inputs = collect_manifest_inputs(root);
+    let complete = inputs.is_some();
     ExecutionStateDraft {
-        schema_id: "rust-cargo-execution-state-v1".to_owned(),
-        schema_version: "1".to_owned(),
-        complete: false,
-        head_revision: None,
+        schema_id: EXECUTION_STATE_SCHEMA.to_owned(),
+        schema_version: EXECUTION_STATE_VERSION.to_owned(),
+        complete,
+        head_revision: git_head(root),
         runner_kind: runner_kind.to_owned(),
-        invocation: CanonicalProjection::Null,
-        toolchain_identity: String::new(),
+        invocation: invocation_projection(test),
+        toolchain_identity: rustc_identity(root),
         effective_config: config.clone(),
-        inputs: Vec::new(),
+        inputs: inputs.unwrap_or_default(),
     }
+}
+
+/// Enumerate every input file of the executed package as an `ExecutionInputDraft`.
+/// Generated products (`.git/`, `.verify/`, and the Cargo `target/` directory)
+/// are excluded, or every run would mutate its own inputs and self-trigger
+/// E-EXEC-004. Returns `None` if any directory or file could not be read, which
+/// marks the snapshot incomplete.
+fn collect_manifest_inputs(root: &Path) -> Option<Vec<ExecutionInputDraft>> {
+    let root_identity = root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("root")
+        .to_owned();
+    let mut inputs = Vec::new();
+    walk_manifest(root, root, &root_identity, &mut inputs)?;
+    inputs.sort_by(|left, right| left.root_relative_path.cmp(&right.root_relative_path));
+    Some(inputs)
+}
+
+fn walk_manifest(
+    root: &Path,
+    dir: &Path,
+    root_identity: &str,
+    inputs: &mut Vec<ExecutionInputDraft>,
+) -> Option<()> {
+    for entry in fs::read_dir(dir).ok()? {
+        let entry = entry.ok()?;
+        let name = entry.file_name();
+        let name = name.to_str()?;
+        let path = entry.path();
+        let file_type = entry.file_type().ok()?;
+        if file_type.is_dir() {
+            if matches!(name, ".git" | ".verify" | "target") {
+                continue;
+            }
+            walk_manifest(root, &path, root_identity, inputs)?;
+        } else if file_type.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .ok()?
+                .to_string_lossy()
+                .replace('\\', "/");
+            let bytes = fs::read(&path).ok()?;
+            inputs.push(ExecutionInputDraft {
+                root_identity: root_identity.to_owned(),
+                root_relative_path: relative.clone(),
+                kind: classify_input_kind(&relative),
+                bytes,
+            });
+        }
+    }
+    Some(())
+}
+
+fn classify_input_kind(relative: &str) -> String {
+    match relative.rsplit('.').next() {
+        Some("rs") => "rust-source",
+        Some("toml") => "cargo-manifest",
+        Some("lock") => "cargo-lockfile",
+        _ => "resource",
+    }
+    .to_owned()
+}
+
+/// The canonical cargo invocation coordinate, machine-independent: package,
+/// suite, and selector only. Absolute paths and the display command stay out.
+fn invocation_projection(test: &TestEntity) -> CanonicalProjection {
+    let mut map = std::collections::BTreeMap::new();
+    map.insert(
+        "package".to_owned(),
+        match test.execution.project.as_deref() {
+            Some(project) => CanonicalProjection::String(project.to_owned()),
+            None => CanonicalProjection::Null,
+        },
+    );
+    map.insert(
+        "suite".to_owned(),
+        match test.execution.suite.as_ref() {
+            Some(suite) => CanonicalProjection::Map(std::collections::BTreeMap::from([
+                (
+                    "kind".to_owned(),
+                    CanonicalProjection::String(suite.kind.clone()),
+                ),
+                (
+                    "name".to_owned(),
+                    match suite.name.as_deref() {
+                        Some(name) => CanonicalProjection::String(name.to_owned()),
+                        None => CanonicalProjection::Null,
+                    },
+                ),
+            ])),
+            None => CanonicalProjection::Null,
+        },
+    );
+    map.insert(
+        "selector".to_owned(),
+        CanonicalProjection::String(test.execution.selector.clone()),
+    );
+    CanonicalProjection::Map(map)
+}
+
+fn git_head(root: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let commit = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (!commit.is_empty()).then_some(commit)
+}
+
+fn rustc_identity(root: &Path) -> String {
+    Command::new("rustc")
+        .current_dir(root)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        .unwrap_or_default()
 }
 
 impl TestRunnerAdapter for RustCargoRunner {
@@ -522,6 +662,9 @@ impl TestRunnerAdapter for RustCargoRunner {
                 "cargo-test",
             )
         };
+        // Snapshot the Execution State (input manifest included) BEFORE cargo
+        // runs, so the core can compare it against the post-run state.
+        let execution_state = build_execution_state(root, config, test, runner_kind);
         let output = command.output().map_err(|error| {
             AdapterError::Operation(format!("cargo invocation failed: {error}"))
         })?;
@@ -553,7 +696,6 @@ impl TestRunnerAdapter for RustCargoRunner {
                 } else {
                     unavailable_target_execution().0
                 };
-                let execution_state = minimal_execution_state(runner_kind, config);
                 Ok(RunnerOutcome::Completed(Box::new(RunnerObservation {
                     result,
                     runner,

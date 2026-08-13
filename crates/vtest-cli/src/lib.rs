@@ -2351,14 +2351,39 @@ fn run_run(
         .into_iter()
         .chain(result.diagnostics.clone())
         .collect::<Vec<_>>();
+    // Present each Evidence's execution_state as a view: the subject hash, the
+    // recorded revision, and the repository input manifest paths (which the
+    // persisted record binds only through the subject hash).
+    let inputs_by_id = result
+        .repository_inputs
+        .iter()
+        .map(|manifest| (manifest.evidence_id.as_str(), &manifest.paths))
+        .collect::<BTreeMap<_, _>>();
+    let evidence_view = result
+        .evidence
+        .iter()
+        .map(|record| {
+            let mut value = serde_json::to_value(record).expect("evidence record");
+            if let Some(state) = record.execution_state.as_ref() {
+                value["execution_state"] = serde_json::json!({
+                    "subject": state.hash,
+                    "complete": state.complete,
+                    "revision": record.revision,
+                    "repository_inputs": inputs_by_id
+                        .get(record.id.as_str())
+                        .map(|paths| paths.as_slice())
+                        .unwrap_or(&[]),
+                });
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+    let mut data = serde_json::to_value(&result).expect("execution result");
+    data["evidence"] = serde_json::Value::Array(evidence_view);
     emit(
         format,
         quiet,
-        JsonEnvelope::new(
-            !has_errors,
-            serde_json::to_value(&result).expect("execution result"),
-            diagnostics,
-        ),
+        JsonEnvelope::new(!has_errors, data, diagnostics),
     );
     if has_errors {
         ExitCode::VerificationFailed
