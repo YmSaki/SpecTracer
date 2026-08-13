@@ -192,8 +192,13 @@ fn m4_run_fast_records_one_evidence_per_registered_test() {
     assert_eq!(evidence.len(), 1, "one registered Test has one Evidence");
     assert_eq!(evidence[0]["test_id"], "TEST-M1-CLEAN");
     assert_eq!(evidence[0]["result"], "PASS");
+    // §442/§3.7: a not-checked execution stores result null with an empty
+    // targets list; the NOT_CHECKED verification value is derived by verify.
     assert_eq!(evidence[0]["target_execution"]["checked"], false);
-    assert_eq!(evidence[0]["target_execution"]["result"], "NOT_CHECKED");
+    assert!(evidence[0]["target_execution"]["result"].is_null());
+    assert!(evidence[0]["target_execution"]["targets"]
+        .as_array()
+        .is_some_and(Vec::is_empty));
     assert_eq!(evidence[0]["runner"]["kind"], "cargo-test");
     assert!(evidence[0]["revision"]["commit"].as_str().is_some());
     assert_eq!(evidence_files(&project).len(), 1);
@@ -238,10 +243,7 @@ fn m4_multi_target_evidence_records_every_declared_target_hash() {
         .expect("run data contains evidence array");
     assert_eq!(evidence.len(), 1);
     assert_eq!(
-        evidence[0]["hashes"]["target_fns"]
-            .as_array()
-            .unwrap()
-            .len(),
+        evidence[0]["hashes"]["targets"].as_array().unwrap().len(),
         2
     );
 

@@ -979,8 +979,17 @@ fn multi_target_evidence_keeps_target_specific_results() {
         ),
     )
     .expect("declare two targets");
+    // Per-target results require a measured run (checked: true); a not-checked
+    // run stores an empty targets list per §442, so enable coverage.
+    let config_path = project.root.join(".verify/config.yaml");
+    let config = fs::read_to_string(&config_path).expect("read config");
+    fs::write(
+        &config_path,
+        config.replace("coverage: off", "coverage: llvm-cov"),
+    )
+    .expect("enable coverage measurement");
     project.commit_baseline();
-    let run = invoke(&project.root, "run", &["--all", "--fast"]);
+    let run = invoke(&project.root, "run", &["--all"]);
     assert_exit(&run, 0, "record multi-target Evidence");
     let response = envelope(&run);
     let evidence = &response["data"]["evidence"][0];

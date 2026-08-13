@@ -244,8 +244,9 @@ fn m7_missing_llvm_cov_is_warning_and_not_checked() {
     let value = envelope(&output);
     let evidence = &value["data"]["evidence"][0];
     assert_eq!(evidence["runner"]["kind"], "cargo-test");
+    // §442/§3.7: not-checked stores result null; NOT_CHECKED is verify-derived.
     assert_eq!(evidence["target_execution"]["checked"], false);
-    assert_eq!(evidence["target_execution"]["result"], "NOT_CHECKED");
+    assert!(evidence["target_execution"]["result"].is_null());
     assert!(value["diagnostics"]
         .as_array()
         .unwrap()

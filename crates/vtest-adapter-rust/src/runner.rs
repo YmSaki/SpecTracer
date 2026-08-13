@@ -341,10 +341,13 @@ pub(crate) fn path_suffix_matches(candidate: &str, expected: &str) -> bool {
 }
 
 pub(crate) fn not_checked_target_execution() -> TargetExecution {
+    // §442/§3.7/§10.3: a not-checked target execution stores method/result null
+    // and an empty targets list; the verifier derives NOT_CHECKED from
+    // checked: false. The declared target set is preserved in hashes.targets.
     TargetExecution {
         checked: false,
         method: None,
-        result: Some(CheckValue::NotChecked),
+        result: None,
         targets: Vec::new(),
         compatibility_count: None,
     }
@@ -437,10 +440,11 @@ mod tests {
     }
 
     #[test]
-    fn not_checked_target_execution_is_never_a_pass() {
+    fn not_checked_target_execution_is_null_and_empty() {
         let target_execution = not_checked_target_execution();
         assert!(!target_execution.checked);
-        assert_eq!(target_execution.result, Some(CheckValue::NotChecked));
+        assert_eq!(target_execution.result, None);
+        assert!(target_execution.targets.is_empty());
         assert_eq!(target_execution.compatibility_count, None);
     }
 }
