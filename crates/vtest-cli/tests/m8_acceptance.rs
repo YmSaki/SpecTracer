@@ -204,8 +204,8 @@ fn m8_test_create_is_scanned_and_exposed_by_queries() {
     let scan = assert_ok(&invoke(&project.root, "scan", &[]), "rescan generated Test");
     let test = scanned_test(&scan, "TEST-M8-CREATED");
     assert_eq!(test["intent"], "generated behavior");
-    assert_eq!(test["location"]["file"], "src/lib.rs");
-    assert_eq!(test["target"]["value"]["path"], "src/lib.rs");
+    assert_eq!(test["location"]["path"], "src/lib.rs");
+    assert_eq!(test["target"]["value"]["value"], "src/lib.rs::known");
 
     let show = assert_ok(
         &invoke(&project.root, "test", &["show", "TEST-M8-CREATED"]),
