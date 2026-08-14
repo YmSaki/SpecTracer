@@ -1003,12 +1003,17 @@ DA-002 は §7.2 の解析境界（関数本体および同一ファイル内 he
 
 **到達要件は、target ごとに、次のいずれかで充足される。**
 
-1. **静的証明**: 当該 target について、最新の有効な static Audit Record（§3.6・§11.2）が記録した **target 別 DA-002 verdict = PASS**。
-2. **runtime 証明**: 当該 target について、最新の有効な Evidence（§11.2）の §10.2 target 別 target_execution result = PASS（`checked: true` かつ実行 count > 0）。
+1. **静的証明**: 当該 target の**実効 target 別 DA-002 verdict = PASS**。実効 verdict は §3.6・§8.5 の有効性・多重監査規則を target ごとに適用して定める。すなわち有効な static Audit Record のうち、当該 target の DA-002 verdict に FAIL が1件でもあれば FAIL、なければ最新の有効 record の当該 target verdict を採る。
+2. **runtime 証明**: §11.2 が選択した最新 Evidence の `evidence_validity` が PASS のとき、その Evidence の §10.2 target 別 target_execution result = PASS（`checked: true` かつ実行 count > 0）。
 
-target 別 DA-002 verdict が UNKNOWN（静的に証明できない）である target は、runtime 証明が成立するときに限り到達要件を満たす。複数 target Test では target ごとに適用し、Test の static_audit 到達は**全宣言 target の到達要件が充足された場合にのみ**成立する。
+実効 target 別 DA-002 verdict が UNKNOWN（静的に証明できない）である target は、runtime 証明が成立するときに限り到達要件を満たす。複数 target Test では target ごとに適用し、Test の static_audit 到達は**全宣言 target の到達要件が充足された場合にのみ**成立する。
 
-target 別の判定はいずれも**単一のレコードから読む**。static verdict は最新の有効な static Audit Record 1件、runtime result は最新の有効な Evidence 1件から取り、target ごとに最良の verdict を複数レコードから選び取らない。DA-002 の target 別 verdict を持たない読取り互換 record（rule-set version 相違で STALE となる旧 record 等）は静的証明を供給せず、当該 target の到達は runtime 証明のみに依存する。
+いずれの判定も既存の選択規則を再利用し、独自の探索をしない。
+
+- static 側は §3.6・§8.5 の実効監査選択を target ごとに用いる。したがって有効 record のいずれかで当該 target が FAIL なら record selection の段階から FAIL が支配し、runtime で覆らない（「最新の有効 record 1件」を独自に選んで FAIL を回避しない）。
+- runtime 側は §11.2 が選択した最新 Evidence だけを用いる。最新 Evidence が無効（`evidence_validity ≠ PASS`）なら runtime 証明は成立せず、§11.2 と独立に古い有効 Evidence へフォールバックしない。これにより同一検証内で `target_execution` が §11.2 で STALE の一方 static_audit が別 Evidence で PASS になる履歴不一致を防ぐ。
+
+DA-002 の target 別 verdict を持たない読取り互換 record（rule-set version 相違で STALE となる旧 record 等）は静的証明を供給せず、当該 target の到達は runtime 証明のみに依存する。
 
 この関係は fail-closed を保つ。
 
@@ -1016,7 +1021,7 @@ target 別の判定はいずれも**単一のレコードから読む**。static
 - target 別 DA-002 verdict = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆さない。
 - 実行 target を持たない Test（構造・契約のみを assert し、宣言 target をどの topology でも実行しない Test）は静的にも runtime にも到達を確立できず、到達要件は未充足のままとなる。
 
-**DA-003 はこの関係に含めない。** runtime coverage は target の「実行」を証明するが「結果検証」を証明しない。DA-003 も target-scoped であり target 別 verdict を §3.6 に記録するが、この to-runtime join には DA-002 の target 別 verdict だけが入る。したがって coverage は DA-003 を代替せず、DA-003 は §7.2 の意味論のまま（結果が assert 相当へ到達することの静的判定）を維持する。境界越し Test で target 結果が別プロセス・別スレッドの出力としてのみ観測される場合の結果検証は、Test 自身がその observable を assert する runtime_result が担い、DA-003 の静的判定を緩めない。
+**DA-003 はこの関係に含めず、本節の非目標である。** runtime coverage は target の「実行」を証明するが「結果検証」を証明しない。DA-003 も target-scoped であり target 別 verdict を §3.6 に記録するが、この to-runtime join には DA-002 の target 別 verdict だけが入る。したがって coverage は DA-003 を代替せず、DA-003 は §7.2 の意味論のまま（target 呼出結果が assert 相当へ到達することの静的 data-flow 判定）を維持する。典型的な subprocess E2E（target の戻り値 → 子プロセスの stdout / exit code → 親プロセスの assert）では、この data-flow は static analyzer から追えないため DA-003 は UNKNOWN のまま残りやすい。**本節は process boundary によって DA-002 到達が恒久 UNKNOWN になる問題だけを解消するものであり、boundary test を完全に static_audit PASS 可能にするものではない。** boundary-observable output への assert は検証項目 `runtime_result` に反映されるが、これは DA-003 を formal に充足する意味ではない。
 
 ---
 
@@ -1412,6 +1417,8 @@ fail-closed 合成：
   NOT_CHECKED/UNKNOWN が1つでもあれば親は非 PASS。
   代表値は基本仕様 §4.3 の優先順位で選ぶ。
 ```
+
+チェック項目の**表示scope**と、項目導出に必要な**内部依存の評価**は分離する。§7.3 により `static_audit` は当該 Test の Evidence 鮮度（§11.2）と target 別 target_execution へ横依存する。`static_audit` が項目scopeに含まれる場合、aggregator は §7.3 の runtime 到達証明の判定に必要な範囲でこれらを**内部依存として評価する**（`target_execution` / `evidence_validity` が項目scopeに無くても評価する）。ただしこれは導出のための内部評価であり、scope 外の `target_execution` / `evidence_validity` 自体の report value は step 5 のとおり `NOT_CHECKED` のまま保持する。内部依存評価は scope 外項目の表示値を変えない。
 
 複数 VO を covers する Test の結果は、covers 先それぞれの VO の合成に独立に参加する。
 「1つの Test が複数 VO を検証していること」自体は許容し、各 leaf VO の `test_existence` と組合せの充足は §3.3.1 の実体化された leaf VO 単位で判定する（基本仕様 §7.6）。

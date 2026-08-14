@@ -96,7 +96,10 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - target別verdictを持たない読取り互換static Audit Recordはrule-set version相違によりSTALEとなり、現在のPASSへ昇格しない。
 - 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）なら到達要件は充足され、その target別 verdictはstatic_audit集約へUNKNOWNを寄与しない。他ルールが違反なしならstatic_auditはPASSになる。
 - 複数targetを宣言するTestで、target Aはstatic（target別DA-002 verdict = PASS）、target Bはruntime（Bのtarget別target_execution = PASS）で充足する場合、両到達要件が満たされstatic_auditはPASSになる。到達判定はtarget別に行い、record中のAのstatic verdictとBのstatic verdictを取り違えない。
-- target別のstatic verdictは最新の有効なstatic Audit Record1件から、runtime resultは最新の有効なEvidence1件から読み、targetごとに最良のverdictを複数recordから選ばない。target別DA-002 verdictを持たないrecordは静的証明を供給せず、当該targetの到達はruntime証明のみに依存する。
+- target別のstatic verdictは§3.6・§8.5の実効監査選択をtargetごとに適用して定め（有効record間で当該targetにFAILがあればFAIL支配、なければ最新の有効recordの当該target verdict）、runtime resultは§11.2が選択した最新Evidenceが`evidence_validity = PASS`のときだけ用いる。§11.2と独立に古い有効Evidenceへフォールバックしない。target別DA-002 verdictを持たないrecordは静的証明を供給せず、当該targetの到達はruntime証明のみに依存する。
+- 有効record R1で当該targetのDA-002 = FAIL、有効record R2で同targetのDA-002 = UNKNOWNが併存する矛盾状態では、target別にFAILが支配し、runtime target_executionがPASSでも当該targetの到達要件は充足しない（record selectionでFAILを回避しない）。
+- newest Evidenceが§11.2でSTALE（例: 過去commitへHEADを戻した）のとき`target_execution`はSTALEとなり、static_auditは古い有効Evidenceを拾わない。同一検証内で`target_execution`がSTALEかつ`static_audit`がPASSになる履歴不一致を生じない。
+- 表示scopeと内部依存評価を分離する。`vtest verify --items static_audit`のような限定scopeでも、aggregatorは§7.3のruntime到達判定に必要なEvidence鮮度・target別target_executionを内部依存として評価するが、scope外の`target_execution` / `evidence_validity`自体のreport valueは`NOT_CHECKED`のまま保持する。
 - 同じ到達UNKNOWNのTestでも、当該targetのtarget_executionがFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、当該targetのDA-002 UNKNOWNはstatic_auditのUNKNOWNとして残る。target別DA-002 verdict = FAIL（境界内で到達を静的否定）はruntime証明で覆らない。
 - runtime coverageはDA-003を代替しない。結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのままstatic_auditへ寄与する。
 - 宣言targetをどのtopologyでも実行しない構造・契約のみのTestは、静的にもruntimeにも到達を確立できず到達要件は未充足のままになる。
