@@ -960,7 +960,7 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 **決定論的に確定できる違反のみ FAIL とする。**
 解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
-DA-002（target 到達）は静的な到達証明であり、その UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 はこの集約へ UNKNOWN を寄与しない。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い DA-002 UNKNOWN、および DA-002 FAIL は従来どおり集約へ寄与する。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は集約時点で UNKNOWN を生じない）。
+DA-002（target 到達）は静的な到達証明であり、その target 別 verdict（§3.6）の UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 の当該 target 別 verdict は集約（§7.2 の fold および static_audit 項目）へ UNKNOWN を寄与しない。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い target 別 DA-002 UNKNOWN、および target 別 DA-002 FAIL は従来どおり寄与する。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は集約時点で UNKNOWN を生じない）。
 
 `vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。target-scopedなDA-002 / DA-003については、宣言targetごとのverdictと根拠spanを（規則単位のverdictへ畳み込む前の形で）返し、その集合を全宣言targetと過不足なく1対1に対応させる。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
@@ -1003,18 +1003,20 @@ DA-002 は §7.2 の解析境界（関数本体および同一ファイル内 he
 
 **到達要件は、target ごとに、次のいずれかで充足される。**
 
-1. **静的証明**: 当該 target について DA-002 = PASS。
-2. **runtime 証明**: 当該 target について §10.2 の target 別 target_execution result = PASS（`checked: true` かつ実行 count > 0）。
+1. **静的証明**: 当該 target について、最新の有効な static Audit Record（§3.6・§11.2）が記録した **target 別 DA-002 verdict = PASS**。
+2. **runtime 証明**: 当該 target について、最新の有効な Evidence（§11.2）の §10.2 target 別 target_execution result = PASS（`checked: true` かつ実行 count > 0）。
 
-DA-002 が UNKNOWN（静的に証明できない）である target は、runtime 証明が成立するときに限り到達要件を満たす。複数 target Test では §7.2 / §10.2 と同じく target ごとに適用し、Test の static_audit 到達は**全宣言 target の到達要件が充足された場合にのみ**成立する。
+target 別 DA-002 verdict が UNKNOWN（静的に証明できない）である target は、runtime 証明が成立するときに限り到達要件を満たす。複数 target Test では target ごとに適用し、Test の static_audit 到達は**全宣言 target の到達要件が充足された場合にのみ**成立する。
+
+target 別の判定はいずれも**単一のレコードから読む**。static verdict は最新の有効な static Audit Record 1件、runtime result は最新の有効な Evidence 1件から取り、target ごとに最良の verdict を複数レコードから選び取らない。DA-002 の target 別 verdict を持たない読取り互換 record（rule-set version 相違で STALE となる旧 record 等）は静的証明を供給せず、当該 target の到達は runtime 証明のみに依存する。
 
 この関係は fail-closed を保つ。
 
-- runtime 証明は当該 target の target_execution = PASS のときだけ成立する。target_execution が FAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage 利用不能、未計測、`--fast`）のときは到達要件を満たさず、DA-002 UNKNOWN は UNKNOWN のまま集約へ寄与する。
-- DA-002 = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆さない。
+- runtime 証明は当該 target の target_execution = PASS のときだけ成立する。target_execution が FAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage 利用不能、未計測、`--fast`）のときは到達要件を満たさず、当該 target の DA-002 UNKNOWN は UNKNOWN のまま規則単位 verdict の fold（§7.2）と static_audit 集約へ寄与する。
+- target 別 DA-002 verdict = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆さない。
 - 実行 target を持たない Test（構造・契約のみを assert し、宣言 target をどの topology でも実行しない Test）は静的にも runtime にも到達を確立できず、到達要件は未充足のままとなる。
 
-**DA-003 はこの関係に含めない。** runtime coverage は target の「実行」を証明するが「結果検証」を証明しない。したがって coverage は DA-003 を代替せず、DA-003 は §7.2 の意味論のまま（結果が assert 相当へ到達することの静的判定）を維持する。境界越し Test で target 結果が別プロセス・別スレッドの出力としてのみ観測される場合の結果検証は、Test 自身がその observable を assert する runtime_result が担い、DA-003 の静的判定を緩めない。
+**DA-003 はこの関係に含めない。** runtime coverage は target の「実行」を証明するが「結果検証」を証明しない。DA-003 も target-scoped であり target 別 verdict を §3.6 に記録するが、この to-runtime join には DA-002 の target 別 verdict だけが入る。したがって coverage は DA-003 を代替せず、DA-003 は §7.2 の意味論のまま（結果が assert 相当へ到達することの静的判定）を維持する。境界越し Test で target 結果が別プロセス・別スレッドの出力としてのみ観測される場合の結果検証は、Test 自身がその observable を assert する runtime_result が担い、DA-003 の静的判定を緩めない。
 
 ---
 

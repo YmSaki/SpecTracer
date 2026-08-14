@@ -371,7 +371,7 @@ W-SCAN-101は診断severityとしてwarningのままとするが、発見され�
 決定論的に確定できる違反のみ `FAIL` とし、確定できないものは `UNKNOWN` として意味監査へ送る。
 決定論的監査で `FAIL` となった Test は、意味監査へ送る前に拒否できる。
 
-target 到達（宣言 target の呼び出し確認）は execution topology に依存する。別プロセス（起動した subprocess 内）・別スレッド・クロージャ・他ファイル等、静的解析の到達判定境界を越えて target を実行する Test では静的に到達を証明できず `UNKNOWN` となる。この到達 `UNKNOWN` は、意味監査ではなく、当該 target の runtime target_execution（§7.9）が実行を証明した場合に限り到達要件を満たす。subprocess を用いる end-to-end Test も同様に扱い、subprocess であること自体を欠陥としない。結果未検証（対象を呼び出しているが結果を検証しない観点）は runtime coverage で代替せず静的判定を維持する。いずれも fail-closed を保ち、coverage が利用不能・未計測・非PASS のとき到達要件を満たさず PASS へ昇格しない（詳細は詳細設計 §7.3）。
+target 到達（宣言 target の呼び出し確認）は execution topology に依存する。別プロセス（起動した subprocess 内）・別スレッド・クロージャ・他ファイル等、静的解析の到達判定境界を越えて target を実行する Test では静的に到達を証明できず `UNKNOWN` となる。この到達 `UNKNOWN` は、意味監査ではなく、当該 target の runtime target_execution（§7.9）が実行を証明した場合に限り到達要件を満たす。到達要件は宣言 target ごとに、監査レコードの target 別 static verdict と Evidence の target 別 target_execution result から評価する。subprocess を用いる end-to-end Test も同様に扱い、subprocess であること自体を欠陥としない。結果未検証（対象を呼び出しているが結果を検証しない観点）は runtime coverage で代替せず静的判定を維持する。いずれも fail-closed を保ち、coverage が利用不能・未計測・非PASS のとき到達要件を満たさず PASS へ昇格しない（詳細は詳細設計 §7.3）。
 Static Audit Recordは、対象Test、全宣言target、選択adapterのrule-set identity、静的rule判定へ影響する実効config、および判定時に実際に参照したhelper等の全source fragmentへ束縛する。同じ入力に対する判定を変えうるrule実装変更はrule-set identityを変更する。rule-set、rule影響config、参照source fragmentの値または対象集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。静的ruleと無関係なconfigおよび判定に参照していないsourceはsubjectへ含めない。
 
 adapterは各rule verdictを変えうる解析入力の完全な集合を返さなければならない。helper、展開済みsource、symbol tableその他の解析入力を参照しながら、その入力をfreshness subjectへ束縛できない場合、当該ruleを`PASS`にせず`UNKNOWN`とする。

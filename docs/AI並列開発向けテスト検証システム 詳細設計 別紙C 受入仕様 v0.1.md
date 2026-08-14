@@ -94,8 +94,10 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
 - target-scopedなDA-002 / DA-003は宣言targetごとのverdictを監査レコードへ正典として保存し（本冊 §3.6）、その集合は全宣言targetと過不足なく1対1に対応する。規則単位verdictはこのtarget別verdictのfoldで導出する。target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictのfold不整合はmalformed recordとし、現在の`static_audit`へ有効なPASSを供給しない。
 - target別verdictを持たない読取り互換static Audit Recordはrule-set version相違によりSTALEとなり、現在のPASSへ昇格しない。
-- 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestはDA-002がUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）なら到達要件は充足され、DA-002はstatic_audit集約へUNKNOWNを寄与しない。他ルールが違反なしならstatic_auditはPASSになる。
-- 同じ到達UNKNOWNのTestでも、当該targetのtarget_executionがFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、DA-002 UNKNOWNはstatic_auditのUNKNOWNとして残る。DA-002 FAIL（境界内で到達を静的否定）はruntime証明で覆らない。
+- 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）なら到達要件は充足され、その target別 verdictはstatic_audit集約へUNKNOWNを寄与しない。他ルールが違反なしならstatic_auditはPASSになる。
+- 複数targetを宣言するTestで、target Aはstatic（target別DA-002 verdict = PASS）、target Bはruntime（Bのtarget別target_execution = PASS）で充足する場合、両到達要件が満たされstatic_auditはPASSになる。到達判定はtarget別に行い、record中のAのstatic verdictとBのstatic verdictを取り違えない。
+- target別のstatic verdictは最新の有効なstatic Audit Record1件から、runtime resultは最新の有効なEvidence1件から読み、targetごとに最良のverdictを複数recordから選ばない。target別DA-002 verdictを持たないrecordは静的証明を供給せず、当該targetの到達はruntime証明のみに依存する。
+- 同じ到達UNKNOWNのTestでも、当該targetのtarget_executionがFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、当該targetのDA-002 UNKNOWNはstatic_auditのUNKNOWNとして残る。target別DA-002 verdict = FAIL（境界内で到達を静的否定）はruntime証明で覆らない。
 - runtime coverageはDA-003を代替しない。結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのままstatic_auditへ寄与する。
 - 宣言targetをどのtopologyでも実行しない構造・契約のみのTestは、静的にもruntimeにも到達を確立できず到達要件は未充足のままになる。
 - 同じ入力に対するverdictまたは根拠を変えるstatic rule実装変更はrule-set versionを変更し、既存recordをSTALEにする。
