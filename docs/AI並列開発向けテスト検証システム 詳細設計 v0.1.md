@@ -394,6 +394,33 @@ revision: { commit: "abc123...", dirty: false }
   hash: "sha256:..."            # §1.3のStatic Audit Config subject hash
 ```
 
+`kind: static`の`reasons`は規則ごとの判定を保持する。target-scopedな**DA-002 / DA-003**は`targets`に**target別verdict**を持つ。これは`target_execution.targets`（§10.2）と対称な正典であり、規則単位の`verdict`はこのtarget別verdictを§7.2のfoldで導出した派生値である。
+
+```yaml
+# kind: staticのreasons（規則別。DA-002 / DA-003はtarget別verdictを持つ）
+reasons:
+  - rule: DA-002                # 対象未呼出（target-scoped）
+    verdict: UNKNOWN            # §7.2のfoldで導出する派生値
+    targets:                    # 全宣言targetと過不足なく1対1。canonical Locatorで識別
+      - target: "rust-cargo::src/parser.rs::Parser::parse"
+        verdict: PASS           # target別: PASS | UNKNOWN | FAIL
+        basis:
+          - kind: test-code
+            ref: "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8:12"
+      - target: "rust-cargo::src/parser.rs::Parser::finish"
+        verdict: UNKNOWN        # 静的に到達を証明できない（境界越し等。§7.3）
+        basis:
+          - kind: test-code
+            ref: "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8:20"
+  - rule: DA-001                # target-scopedでない規則はtargetsを持たず規則単位verdictのみ
+    verdict: PASS
+    basis:
+      - kind: test-code
+        ref: "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8:18"
+```
+
+target別verdictの`target`は§6.1で解決したcanonical Locatorとし、その集合はTestが宣言する全targetと過不足なく1対1に対応する。target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictのfold結果の矛盾はmalformed recordとし、現在の`static_audit`へ有効なPASSを供給しない。target-scopedでない規則（DA-001 / DA-004 / DA-005 / DA-006）は`targets`を持たない。
+
 ### 3.7 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
 
 ```yaml
@@ -935,7 +962,7 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
 DA-002（target 到達）は静的な到達証明であり、その UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 はこの集約へ UNKNOWN を寄与しない。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い DA-002 UNKNOWN、および DA-002 FAIL は従来どおり集約へ寄与する。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は集約時点で UNKNOWN を生じない）。
 
-`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
+`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。target-scopedなDA-002 / DA-003については、宣言targetごとのverdictと根拠spanを（規則単位のverdictへ畳み込む前の形で）返し、その集合を全宣言targetと過不足なく1対1に対応させる。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
 Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。adapterがsource fragmentを参照したにもかかわらず対応DTOを返さないことをcoreが検出した場合も、そのrule verdictをPASSへ使用しない。
 
@@ -960,6 +987,7 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
+このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
 ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。

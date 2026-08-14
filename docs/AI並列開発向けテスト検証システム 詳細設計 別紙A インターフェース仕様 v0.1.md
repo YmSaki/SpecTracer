@@ -156,7 +156,7 @@ vtest test query --source rust-cargo::src/parser.rs::Parser::parse   # SRC か�
 vtest audit static [--test TEST-X | --all]
 ```
 
-決定論的監査（本冊 §7）を実行し、監査レコード（kind: static）を保存する。
+決定論的監査（本冊 §7）を実行し、監査レコード（kind: static）を保存する。target-scopedなDA-002 / DA-003は宣言targetごとのverdictを規則単位verdictと併せて保存する（本冊 §3.6）。
 
 #### `vtest audit bundle / submit`
 
@@ -279,7 +279,7 @@ stdio で MCP サーバを起動する（§13）。
 | `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
-| `audit_static` | `test` または `all` | ルール別結果、監査レコード ID |
+| `audit_static` | `test` または `all` | ルール別結果（target-scoped な DA-002 / DA-003 は target 別 verdict を含む。本冊 §3.6）、監査レコード ID |
 | `audit_bundle` | `kind`、対象 ID（`spec` / `req` / `vo` / `test`のkind別必須field） | bundle_id とバンドル本体（JSON） |
 | `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、監査レコード ID |
 | `run_tests` | `test` / `vo` / `req` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
