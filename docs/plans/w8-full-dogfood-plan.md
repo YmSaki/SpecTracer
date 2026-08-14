@@ -113,7 +113,9 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
       - 詳細設計 §7.1/§7.3(新)/§10.2/§11.1、基本仕様 §7.2/§7.9、別紙C §18.3.2/§18.3.6
       - モデル: DA-002 到達 = 静的 OR runtime target_execution。DA-003 据置。fail-closed literal 保持。
       - open item: subprocess coverage 帰属は実装課題（spike 実証）／STRUCTURAL は本モデル未解決
-- [ ] **← Owner が PR #5 をマージ（現在ここで停止）**
+- [x] Owner REQUEST CHANGES（1 blocker）: モデルは正しいが複数 target の join 評価に必要な **target 別 static verdict が canonical record に無い**（DA-002/003 は fold 済み test 単位のみ）。「情報モデルを先に仕様化」。
+      → 追加2コミット: (1fbe73d) 情報モデル — static record の DA-002/003 に per-target verdict list（§3.6/§7.1 adapter契約/§7.2 fold・version bump/別紙A wire/別紙C）。(9078c87) join 再配線 — §7.3 は single-record から per-target DA-002 verdict を読む。DA-002 のみ join、DA-003 は記録のみ。PR #5 に push・再レビュー依頼済。
+- [ ] **← Owner が PR #5 を再レビュー・マージ（現在ここで停止）**
 - [ ] （merge 後）別紙B 実装計画へ追加 → 必要 W へ戻り実装修正（runner/coverage の subprocess 帰属含む）
 - [ ] SPEC-DOGFOOD-M3.yaml sha256 再登録（詳細設計変更で stale）
 - [ ] dogfood 再実行 → 残 W8 gate
