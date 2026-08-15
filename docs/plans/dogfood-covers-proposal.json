@@ -1,13 +1,13 @@
 {
- "note": "covers remap PROPOSAL (non-destructive; application blocked on the Owner auxiliary decision). Rule: covers = correspondence declaration = shadow-mapping verdict PROVES or PARTIAL against ontology v3 (sufficiency stays the job of the vo-coverage semantic audit per spec covers semantics; NO-verdict relevance is not correspondence). Auxiliary tests receive NO covers - fake covers are forbidden; their handling (covers-exempt kind vs unmanaged vs accepted MISSING) is the pending Owner spec judgment. UPDATED after freeze v4 (B19+C2 re-derivation): 15 tests gained covers, auxiliary shrank 23 -> 8. NOTE: v4-derived mappings carry no shadow-mapping verdict yet (sensor-derived; v4 adequacy pass pending) - the PROVES|PARTIAL rule applies to them once the v4 adequacy evaluation lands.",
+ "note": "covers remap PROPOSAL (non-destructive; application blocked on the Owner auxiliary decision). Rule: covers = correspondence declaration = shadow-mapping verdict PROVES or PARTIAL against ontology v3 (sufficiency stays the job of the vo-coverage semantic audit per spec covers semantics; NO-verdict relevance is not correspondence). Auxiliary tests receive NO covers - fake covers are forbidden; their handling (covers-exempt kind vs unmanaged vs accepted MISSING) is the pending Owner spec judgment. UPDATED after freeze v4 (B19+C2 re-derivation): 15 tests gained covers, auxiliary shrank 23 -> 8. NOTE: v4-derived mappings carry no shadow-mapping verdict yet (sensor-derived; v4 adequacy pass pending) - the PROVES|PARTIAL rule applies to them once the v4 adequacy evaluation lands. V4-ADEQUACY: TEST-AAPI-002's mapping to VO-ADAPTER-17 removed (verdict NO - the test pins registry enumeration, not the §5.1 delegation order; the VO stays in the ontology as UNSUPPORTED).",
  "stats": {
   "managed_tests": 192,
-  "tests_with_covers": 184,
-  "auxiliary_zero_covers": 8,
-  "total_mappings": 400,
+  "tests_with_covers": 183,
+  "auxiliary_zero_covers": 9,
+  "total_mappings": 399,
   "covers_count_distribution": {
-   "0": 8,
-   "1": 76,
+   "0": 9,
+   "1": 75,
    "2": 45,
    "3": 32,
    "4": 19,
@@ -72,9 +72,6 @@
    ]
   },
   "v4_amendment_mappings": {
-   "TEST-AAPI-002": [
-    "VO-ADAPTER-17"
-   ],
    "TEST-ARUST-004": [
     "VO-EXEC-15"
    ],
@@ -121,6 +118,10 @@
  },
  "auxiliary": [
   {
+   "test_id": "TEST-AAPI-002",
+   "role": "supporting"
+  },
+  {
    "test_id": "TEST-CLI-005",
    "role": "supporting"
   },
@@ -164,9 +165,8 @@
   {
    "test_id": "TEST-AAPI-002",
    "file": "crates/vtest-adapter-api/src/lib.rs",
-   "covers": [
-    "VO-ADAPTER-17"
-   ]
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-AAPI-003",

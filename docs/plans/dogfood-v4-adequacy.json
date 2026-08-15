@@ -1,0 +1,409 @@
+{
+ "run_id": "wf_cdd2a414-e24",
+ "method": "per-new-VO adequacy for the 11 freeze-v4 VOs: sensors + corpus sweep, facets, composability, contradiction duty",
+ "by_final": {
+  "PROVEN": [],
+  "PARTIAL": [
+   "VO-ADAPTER-16",
+   "VO-EXEC-15",
+   "VO-REGISTRY-16",
+   "VO-REGISTRY-17",
+   "VO-REGISTRY-18",
+   "VO-REGISTRY-19",
+   "VO-REGISTRY-20",
+   "VO-STRUCTOP-16"
+  ],
+  "UNSUPPORTED": [
+   "VO-ADAPTER-17"
+  ],
+  "CONTRADICTED_CANDIDATE": [
+   "VO-REGISTRY-21",
+   "VO-STRUCTOP-15"
+  ]
+ },
+ "details": [
+  {
+   "vo_id": "VO-EXEC-15",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-ARUST-004",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE (strong): two generic instantiations calc::add::<i32> (count 2) + calc::add::<u64> (regions max 3) aggregate to Some(5) — proves per-target summation and generic aggregation. NEGATIVE-REJECTION (strong): other::add in src/other.rs, count 99, matches the name but fails the filename condition and contributes none while co-present functions do contribute. Also: absent item-path 'subtract' -> None. UNPROVEN: name-condition rejection while others still contribute (only wholesale absence is shown); mangled symbols never flow through this function (names are pre-demangled literals), so demangling is not composed here; no probe of suffix boundaries."
+    },
+    {
+     "test_id": "TEST-ARUST-006",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE: _RNvCs..12calc_fixture3add demangles and matches item-path 'add' — proves the demangle step of one match condition. NEGATIVE-REJECTION: ..8evaluate vs 'add' is false. But this is a plain non-match, not a suffix-boundary probe: no case where the demangled name ends with the item-path as a raw substring but not at a '::' segment boundary (e.g. calc::readd), which is where the claim's literal 'ends with' and runner.rs:309 diverge. UNPROVEN: summation, filename condition, aggregation, generic-instantiation naming — the test exercises llvm_name_matches in isolation, never llvm_cov_function_count."
+    },
+    {
+     "test_id": "TEST-ARUST-005",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE (weak): a single function matching both conditions with count 0 yields Some(0), showing a matched-but-zero function is summed (0) rather than treated as unmatched — supports 'sum over every matching function' at the degenerate cardinality. Currently covers VO-ARUST-003 and is remapped to VO-EXEC-07, not VO-EXEC-15. NEGATIVE-REJECTION: none. BOUNDARY: none; one function, no aggregation, no rejection arm."
+    },
+    {
+     "test_id": "TEST-CLI-082",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE (weak, but the only end-to-end): real cargo-llvm-cov run; evidence.target_execution.count >= 1 for the declared target src/lib.rs::known — proves a declared target's measured count reaches Evidence through the attribution path with real llvm-cov JSON (not a hand-written fixture). Asserts only >=1, so no aggregation, no match-condition discrimination, single target. NEGATIVE-REJECTION: none. BOUNDARY: none."
+    },
+    {
+     "test_id": "TEST-CLI-083",
+     "verdict": "NO",
+     "facets": "Exercises the uncalled-target path (count 0 -> target_execution FAIL). That is the count->verdict mapping of §10.2, not this claim's attribution/summation rule. No matching-set discrimination and no aggregation; relevant surface, no facet of the claim."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. runner.rs:266-305 sums every function passing both gates and skips the rest (`if !llvm_name_matches(..) || !llvm_filenames_match(..) { continue; }`, :279-283; `total = total.saturating_add(function_count)`, :301; `matched.then_some(total)`, :304) — matching 詳細設計 §10.2 (\"demangle 済み関数名の末尾が locator の item-path と一致し、かつ filenames のいずれかの末尾が locator の path と一致 … 同じtargetに対応するcountを合算する\"). Three residuals stay inside spec ambiguity, not against it: llvm_name_matches (:307-322) requires a `::` boundary or `item_path::<…>`, stricter than a literal \"ends with\"; path_suffix_matches (:337-341) is a raw suffix, looser; and a matched function with neither `count` nor `regions` aborts the whole sum via `?` (:299).",
+   "notes": "Sensors compose over one surface: 006 tests llvm_name_matches, which 004's llvm_cov_function_count calls (:279) — same module, same call chain. Together they prove positive aggregation of generic instantiations, filename-condition rejection amid contributors, and demangling in isolation. Not PROVEN because: (1) no test drives a mangled symbol through llvm_cov_function_count, so \"demangled name\" is never composed with \"sum\"; (2) name-condition rejection is only shown as wholesale absence (None), never as one function contributing none while siblings contribute; (3) both suffix boundaries (`::` segment, path separator) and the missing-count/regions abort are unprobed. Recommend at remap: keep both sensors on VO-EXEC-15 and add a mangled-symbol-in-report case plus a suffix-boundary negative."
+  },
+  {
+   "vo_id": "VO-REGISTRY-17",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-MODEL-005",
+     "verdict": "PARTIAL",
+     "facets": "Positive facet at the named surface: same fixture, byte_range.start/end +100, assert_eq! on hash_test_subject (vtest-model/src/lib.rs:1123-1153). All fields the claim enumerates are held identical (fixture_location/fixture_execution clones), so the field-identity precondition is exactly instantiated. Gaps: SourceRange also carries start_line/end_line (lib.rs:295-301) and both stay 1/1 — the realistic relocation delta (line numbers move) is never varied; a single +100 instance, no zero-length/adjacent/overlapping ranges; equality alone is vacuity-exposed (a constant hash would pass) with no in-test discrimination assertion. No negative-rejection facet exists for an invariance claim."
+    },
+    {
+     "test_id": "TEST-MODEL-004",
+     "verdict": "PARTIAL",
+     "facets": "Non-degeneracy guard, same module and same synthetic_test_hash fixture (lib.rs:1111-1119): changing intent yields assert_ne!, so the subject hash is not constant and TEST-MODEL-005's equality is not vacuous. Composes over the identical contract surface. Does not vary byte range at all, and shows sensitivity for only 1 of the ~14 hashed slots, so it bounds vacuity only weakly."
+    },
+    {
+     "test_id": "TEST-AAPI-007",
+     "verdict": "NO",
+     "facets": "Calls hash_test_subject (vtest-adapter-api/tests/w1_acceptance_binding.rs:296) but asserts only that the DTO is hash-free and hash != ContentHash::from_text(construct). No byte-range-only pair; byte_range appears solely as fixture data. Relevance without proof."
+    },
+    {
+     "test_id": "TEST-SCAN-001",
+     "verdict": "NO",
+     "facets": "Exercises the production hashing call site materialize_discovery_batch → hash_test_subject (vtest-scan/src/lib.rs:235-248) with a real SourceRange, but pins only construct and target hashes and asserts managed hash != construct hash (lib.rs:1523-1571). No two subjects differing only in byte range, so the pipeline surface carries no evidence for the exclusion."
+    },
+    {
+     "test_id": "TEST-SCAN-004",
+     "verdict": "NO",
+     "facets": "Also an exclusion-from-subject claim (SRC ID does not move the hash, vtest-scan/src/lib.rs:1611-1633), but on the Source Target subject and a different excluded input. Different subject domain; does not compose onto the Test subject byte-range claim."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. hash_test_subject (crates/vtest-model/src/lib.rs:394-455) enumerates the subject fields explicitly and includes only \"location.adapter\" (:424), \"location.path\" (:428), \"location.locator\" (:432) — no byte_range/SourceRange entry anywhere in the field list; SourceRange (:304-308) is reachable only via SourceLocation.byte_range (:315), which is never read there. The production path passes the same location struct through unchanged (crates/vtest-scan/src/lib.rs:235-248), so the omission holds end-to-end. Implementation matches SPEC-BASIC §1 line 31 and SPEC-ACCEPT §18.3.9 line 203 (\"byte range自体は含めず\").",
+   "notes": "Corpus sweep: grep of byte_range/hash_test_subject over all crates and tests finds no other test holding every other field fixed while varying the range; remaining hits are fixtures, CLI display (cli/src/lib.rs:1594-1623), or range-driven byte extraction. Evidence composes (MODEL-004 + MODEL-005 share one fixture and one surface) but does not close the positive facet: the line-number component of SourceRange is never moved, and no scan-level or downstream-consumer (approval staleness after relocation) instance exists. Suggested closing test: shift start_line/end_line only, plus a materialize_discovery_batch pair relocated in-file."
+  },
+  {
+   "vo_id": "VO-ADAPTER-16",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-CLI-025",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE: init's on-disk .verify/config.yaml contains `version: 2`, `adapters:`, `id: rust-cargo` (adapter_acceptance.rs:823-839) - proves v2-ness and the built-in entry's presence. NOT covered: the assertions are unanchored substring checks, so roots / scan / scan.assertion_macros / run being nested UNDER the adapter entry is unevidenced here; no absence check for a top-level flat scan:/run: block. NEGATIVE-REJECTION: none. BOUNDARY: only the default init path (one project name, one built-in adapter); no other command's writes are enumerated."
+    },
+    {
+     "test_id": "TEST-STORE-012",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE (strongest): to_yaml of a v2 config emits `assertion_macros:` with 8-space item indent (store/lib.rs:641), i.e. under adapters[].scan; `parsed == expected` full-struct equality after from_yaml forces version==2, roots, scan.include, assertion_macros, run.coverage to survive - and from_yaml rejects top-level scan/run at v2 (lib.rs:265-269) and empty roots, so equality is only reachable if the emission is adapter-namespaced. NOT covered: the negative universal (writer never emits flat v1), and init's file itself. BOUNDARY: single rust-cargo adapter only."
+    },
+    {
+     "test_id": "TEST-STORE-010",
+     "verdict": "PARTIAL",
+     "facets": "POSITIVE (weak): default_for -> to_yaml -> from_yaml preserves project.name, rust_cargo().scan.include, run.coverage (lib.rs:605-611). Alone it cannot distinguish v1 from v2 output: the v1 reader synthesises a rust-cargo AdapterSection (lib.rs:258-263), so rust_cargo() would succeed even on flat v1 emission. It asserts no version field and no YAML shape. NEGATIVE/BOUNDARY: none."
+    },
+    {
+     "test_id": "TEST-CLI-014",
+     "verdict": "PARTIAL",
+     "facets": "ADJACENT NEGATIVE: byte-compares .verify/config.yaml before/after `vtest verify` on a v1 project (adapter_acceptance.rs:583-597) - proves verify emits no config at all, hence no flat v1 emission on that path. Does not touch the writer's output shape, init, or any other command."
+    },
+    {
+     "test_id": "TEST-CLI-015",
+     "verdict": "PARTIAL",
+     "facets": "ADJACENT NEGATIVE: hand-written flat v1 config (no full_scope) survives `verify` byte-identical (adapter_acceptance.rs:604-620+). Same narrow support for 'v1 never emitted' restricted to the verify surface; no writer-surface or init evidence."
+    },
+    {
+     "test_id": "TEST-CLI-024",
+     "verdict": "NO",
+     "facets": "Writes a v2 `adapters: []` config by hand and asserts scan fails closed (E-ADAPTER-001). Exercises the reader/registry, not anything the system writes. No facet of this claim."
+    },
+    {
+     "test_id": "vtest-adapter-api/tests/w1_acceptance_binding.rs::v2_rust_fixture_binds_to_the_same_neutral_adapter_id_as_v1_compatibility",
+     "verdict": "NO",
+     "facets": "Unmapped (no @vtest.id). Asserts a checked-in FIXTURE file config/v2-rust-cargo.yaml contains `version: 2` / `id: rust-cargo` (line 393-396). Fixture bytes are authored, never system-written, so it evidences nothing about the writer or init."
+    }
+   ],
+   "contradiction_evidence": "Not fired. ProjectConfig::to_yaml still carries a live flat version-1 branch (store/lib.rs:195-212): `if self.version == 1 { ... out.push_str(\"scan:\\n  include:\\n\"); ... out.push_str(\"run:\\n  coverage: ...\") ; return out; }`. A version-1 ProjectConfig can exist (from_yaml compat read, lib.rs:252-263), so the writer is capable of emitting the flat layout. But the only production write of config.yaml is init_project (lib.rs:502-503) using default_for -> version 2, and the only other ProjectConfig constructor is from_yaml (lib.rs:554, read-only). No reachable caller writes a v1 config back, so this is a local latent branch, not a system-level contradiction (same calibration as VO-EXEC-14).",
+   "notes": "Claim is faithful to the spec: 基本仕様 §2.4 L116 and 別紙C §18.3.9 L211 state the writer and `vtest init` emit the version-2 adapter namespace. Composition is genuine - init_project calls default_for().to_yaml(), the exact function TEST-STORE-010/012 exercise - so the positive facets (v2 document, adapters namespace, rust-cargo entry, roots/scan/assertion_macros/run nested under the entry) hold over one contract surface. PROVEN blocked by two gaps: (1) the universal negative \"flat v1 is never emitted\" has no test - to_yaml's v1 branch is never pinned unreachable, only grep-confirmed; (2) \"every config.yaml the system writes\" is evidenced only for init and (via TEST-CLI-014/015) verify's non-writing; other commands are unenumerated."
+  },
+  {
+   "vo_id": "VO-REGISTRY-18",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-MODEL-007",
+     "verdict": "PARTIAL",
+     "facets": "Positive: direct byte compare of the three leaf encodings (crates/vtest-model/src/lib.rs:1191-1198) proves Null/String(\"\")/List([]) are pairwise distinct. Not covered: no ContentHash is ever computed, so the subject-level claim (\"never share a content hash\") is only inferred from framing; no field-position or nested case (null vs \"\" vs [] inside a Map/List field); no other subject builder exercised (hash_test_subject Option fields, hash_execution_state_subject.head_revision, hash_record_subject); no empty-Map vs Null case. Negative-rejection facet is a universal negative spot-checked at three values. No boundary case (e.g. List([String(\"\")]) vs List([]))."
+    },
+    {
+     "test_id": "TEST-MODEL-006",
+     "verdict": "PARTIAL",
+     "facets": "Compositional bridge only: shows a CanonicalProjection reaches a real subject hash via encode() and that a changed projection changes the subject (lib.rs:1163-1184). It varies a string value, never null/empty/empty-list, so it supplies the leaf-to-subject link the claim needs but proves no facet of the null/empty distinction itself."
+    },
+    {
+     "test_id": "TEST-MODEL-008",
+     "verdict": "NO",
+     "facets": "Domain separation and cross-type reuse (lib.rs:1205-1215). Same encoder surface, different property; contributes nothing to null/empty/empty-list distinctness."
+    },
+    {
+     "test_id": "TEST-STORE-023",
+     "verdict": "NO",
+     "facets": "Preserves absent (None) vs empty ([]) dependency closure across YAML round-trip (records.rs:2468-2507). No content hash is computed, and None never reaches hash_approval_subject — it is rejected earlier as ClosureAbsent (approval.rs:211-213). Adjacent surface, not the hash contract."
+    }
+   ],
+   "contradiction_evidence": "None — implementation is faithful. crates/vtest-model/src/lib.rs:180 `Self::Null => output.extend_from_slice(b\"null\")`; :194 String goes through `encode_projection_value(output, b\"string\", ...)` (8-byte tag len + tag + 8-byte value len); :195-197 `List` emits b\"list\" + 8-byte count. So Null=4B, String(\"\")=22B, List([])=12B — pairwise distinct preimages. SubjectEncoder::field (:144-149) length-prefixes name and value, keeping per-field substitution injective; hash_test_subject/hash_execution_state_subject route Option fields through canonical_json (:429-431, :916) yielding Null, and vtest-store/src/approval.rs:409-410 `optional_text` = `value.map_or(CanonicalProjection::Null, text)`. Spec 詳細設計 §1.3 L79 states the same rule.",
+   "notes": "Corpus sweep (grep for CanonicalProjection::Null/empty constructors, assert_ne over hashes, hash-related @vtest.intent) found no test beyond the four above; all `ContentHash::from_subject` call sites live in vtest-model, so the contract surface is closed and auditable. Gap to PROVEN: no test composes leaf distinctness into an actual subject hash pair, and none covers nested or per-builder positions. Precision note for remap: the guarantee is encoding-level. Upstream carriers can collapse the distinction before a subject exists (VoRecord.combinations is `Vec` with serde default, so YAML `null` and `[]` both yield []); that is not a collision under the claim, but the claim should not be read as protecting the YAML surface."
+  },
+  {
+   "vo_id": "VO-STRUCTOP-16",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-SCAN-018",
+     "verdict": "NO",
+     "facets": "Sensor. Pure unit test of edit_distance (crates/vtest-scan/src/operations.rs:1172-1181): asserts distances 2/0/7 only. Positive: none for the claim — no resolution failure, no envelope, no candidate list, no tail-segment extraction, no bucket ordering. Negative-rejection: none. Boundary-ambiguity: pins the numeric value 2 but never applies it as the <=2 filter. Consistent with the prior calibration (dogfood-shadow-mapping.json:680 gave it NO for the same reason)."
+    },
+    {
+     "test_id": "TEST-CLI-004",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-cli/src/lib.rs:4498-4513. Requests src/lib.rs::ad against a fixture with add/subtract. Positive: full-list equality candidates == [\"src/lib.rs::add\"] proves near-bucket inclusion. Negative-rejection: subtract (distance 7) excluded. Boundary: far from the <=2 edge; distance 2 vs 3 untested. Gaps: exact-tail bucket empty, so cross-bucket ordering unobserved; tail-segment vs whole-string matching indistinguishable (both distance 1); asserts the Diagnostic, not the rendered envelope."
+    },
+    {
+     "test_id": "TEST-CLI-085",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-cli/tests/m8_acceptance.rs:132-159. CLI JSON failure envelope: E-OP-001 with diagnostics[0].candidates[0] == src/lib.rs::known for requested ...::knwon (distance 2). Positive: proves the envelope carries candidates and includes a distance-2 near hit. Negative-rejection: none — the m1 base fixture holds exactly one symbol (tests/fixtures/calc/m1/base/src/lib.rs). Boundary: only index [0] asserted, so list length, ordering, and exact-bucket precedence are unconstrained; tail-segment semantics indistinguishable from whole-locator distance."
+    },
+    {
+     "test_id": "TEST-CLI-096",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-cli/tests/m9_acceptance.rs:1222-1263. MCP tools/call failure envelope: isError, ok=false, E-OP-001, structuredContent diagnostics[0].candidates[0] == src/lib.rs::known. Positive: extends envelope surfacing to the MCP transport. Negative-rejection and boundary: same limits as TEST-CLI-085 — single-symbol fixture, only candidates[0] asserted, no exclusion case, no ordering, no distance-boundary discrimination."
+    },
+    {
+     "test_id": "TEST-CLI-097",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-cli/tests/m9_acceptance.rs:1265-1401. Fail-closed error matrix; the invalid-symbol row asserts diagnostics[0].candidates[0] == src/lib.rs::known. Positive: candidate emission survives a mixed protocol/usage-error sequence without audit writes. Negative-rejection: covers other rejection codes, not candidate-set membership. Boundary: identical single-assertion limitation; contributes envelope durability, not the ordering or tail-segment rule."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. Current implementation matches the claim: crates/vtest-adapter-rust/src/operations_support.rs:294-329 — symbol_candidates takes the requested tail via rsplit_once(\"::\"), builds exact_suffix from indexed sources whose locator.item_path tail `candidate == item`, then near from tails with `edit_distance(candidate, item) <= 2`, dedupes exacts out of near (line 326) and appends near after exact (line 327). Reached from the E-OP-001 failure paths at operations_support.rs:122/132 and crates/vtest-scan/src/operations.rs:458/469/847/859, all via Diagnostic::with_candidates (crates/vtest-model/src/lib.rs:708) rendered into the common envelope.",
+   "notes": "Two gaps block PROVEN. (1) The distinctive composite — exact-tail matches FOLLOWED BY near matches — is exercised nowhere: no fixture holds both a same-tail item and a near-miss item, so cross-bucket ordering is unobservable in the corpus. Every candidate test has either an empty exact bucket (TEST-CLI-004) or a single-symbol index (TEST-CLI-085/096/097). (2) No test discriminates tail-segment matching from whole-locator matching: \"knwon\"→\"known\" is distance 2 either way, \"ad\"→\"add\" distance 1 either way. Also untested: the <=2 edge (distance 2 accepted vs 3 rejected) at the filter level. Evidence composes for near-bucket inclusion, coarse exclusion, and envelope surfacing across CLI and MCP — hence PARTIAL, not UNSUPPORTED."
+  },
+  {
+   "vo_id": "VO-REGISTRY-16",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-MODEL-001",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-model/src/lib.rs:1009-1020. POSITIVE: one assert_eq! folds CRLF and strips trailing spaces simultaneously — proves the composite, isolates neither; bare CR (impl line 114 replace('\\r',\"\\n\")), trailing TAB (line 123 trims [' ','\\t']), and trailing whitespace on a newline-less final line are untested. NEGATIVE/CLOSURE: both named consequences are proven by assert_ne! — leading space significant (\"a\\n b\\n\" vs \"a\\nb\\n\"), final newline significant (\"a\" vs \"a\\n\"). This is the test's strongest leg. BOUNDARY: the claim's scope conditional (\"a fragment its subject rule does not require byte-exact ... only after normalization\") is wholly untested — the test calls ContentHash::from_text directly, never a subject-hash surface, and never a byte-exact-exempt subject."
+    },
+    {
+     "test_id": "TEST-SCAN-001",
+     "verdict": "NO",
+     "facets": "crates/vtest-scan/src/lib.rs:1520-1571. Relevance only. Expectations are computed with the same production functions (hash_target_subject at :1529, ContentHash::from_bytes at :1528), so identical inputs agree tautologically; no input varies in line endings or trailing whitespace. Witnesses neither folding nor the no-other-whitespace closure. Its from_bytes arm is the unnormalized path noted below."
+    },
+    {
+     "test_id": "TEST-CLI-044",
+     "verdict": "NO",
+     "facets": "crates/vtest-cli/tests/adapter_acceptance.rs:1438-1474 via helper content_hash_of at :1478-1490. The helper independently reimplements the normalizer and its output matches the production Approval subject_hash, weakly confirming that the store path uses the documented rule on the subject surface. But the input never varies whitespace, so it proves no facet of the claim."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. Implementation read: crates/vtest-model/src/lib.rs:113-129 — \"let normalized_endings = text.replace(\\\"\\\\r\\\\n\\\", \\\"\\\\n\\\").replace('\\\\r', \\\"\\\\n\\\");\" then per split_inclusive('\\n') line \"normalized.push_str(body.trim_end_matches([' ', '\\\\t']));\" re-appending '\\n' only when present. Leading whitespace and final-newline presence are untouched; no other whitespace is altered. The scope conditional is honored too: hash_spec_subject (:590) and both construct paths (:414, :466) normalize, while the byte-exact Static Analysis Source subject (:497-507) passes raw bytes. Two sub-threshold divergences below.",
+   "notes": "PARTIAL: the closure leg composes on one surface; the positive leg is a single conflated assertion and the \"only after normalization\" quantifier is never exercised on a subject hash. Two divergences, both below the contradiction bar. (1) Claim precision: lib.rs:123 trims only space and tab, so a line ending in VT/FF/U+3000 keeps it and the hash changes — under a literal \"trailing whitespace\" the impl under-normalizes. Freeze-v4 chose spec wording (末尾空白) over the impl set knowingly; recommend narrowing to \"trailing spaces and tabs\" at remap. (2) crates/vtest-scan/src/lib.rs:167 hashes construct bytes via ContentHash::from_bytes, unnormalized, into DiscoveredTest.content_hash — but that field has no consumer outside vtest-scan, so it is unobservable, not a defect."
+  },
+  {
+   "vo_id": "VO-REGISTRY-19",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-MODEL-008",
+     "verdict": "PARTIAL",
+     "facets": "Positive/separation: same CanonicalProjection bytes hashed as record-subject vs spec-subject differ, and record-subject vs an inline vtest:target-subject:v1 with the identical field name/bytes differ (lib.rs:1204-1215). Covers 2 of 28 domain pairs; the second arm builds the target domain inline, so no real cross-constructor field layout is exercised. No boundary facet (length-prefix framing ambiguity), no negative-rejection facet, no evidence of pairwise distinctness over all 8 domains."
+    },
+    {
+     "test_id": "TEST-AAPI-006",
+     "verdict": "PARTIAL",
+     "facets": "Negative/never-plain-concatenation: asserts hash_static_audit_config_subject != ContentHash::from_text(\"synthetic-static:1:assertion_required\"), i.e. the naive concat of the same values (w1_acceptance_binding.rs:236-247). One kind only; does not exercise separator distinctness or field framing."
+    },
+    {
+     "test_id": "TEST-AAPI-007",
+     "verdict": "PARTIAL",
+     "facets": "Same negative facet for vtest:test-subject:v1: hash_test_subject != from_text(construct bytes) (w1_acceptance_binding.rs:296-311). Establishes the subject is not plain bytes; silent on domain distinctness and on the other 6 kinds."
+    },
+    {
+     "test_id": "TEST-MODEL-007",
+     "verdict": "NO",
+     "facets": "Proves CanonicalProjection::encode distinguishes Null/empty-string/empty-list (lib.rs:1190-1198). Value-level encoding injectivity, one layer below the subject field framing and the domain separator; contributes nothing to cross-kind separation."
+    },
+    {
+     "test_id": "TEST-MODEL-006",
+     "verdict": "NO",
+     "facets": "Determinism plus field binding for hash_static_audit_config_subject (lib.rs:1163-1184). No cross-kind or concat facet."
+    },
+    {
+     "test_id": "TEST-CLI-046",
+     "verdict": "NO",
+     "facets": "Target subject identity (canonical locator, not SRC ID) at adapter_acceptance.rs:1567-1576. Same constructor, single domain; orthogonal to domain separation."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. ContentHash::from_subject (crates/vtest-model/src/lib.rs:74-83) delegates to SubjectEncoder, whose new() emits the domain as the first named field and whose field() writes u64-BE len(name) + name + u64-BE len(value) + value (lib.rs:131-155) — domain separator plus named length-prefixed fields, never plain concatenation. All from_subject callsites are in vtest-model with 8 pairwise-distinct domain literals (lib.rs:422, 469, 484, 500, 511, 577, 587, 909). Length-prefix framing makes the encoding injective, so distinct domains structurally cannot collide. Implementation is faithful to the claim.",
+   "notes": "Universal quantifiers (\"each\", \"never\", \"pairwise\") rest on code inspection; tests reach 2/28 domain pairs and concat-rejection for 2/8 kinds. Unproven: framing boundary ((\"ab\",\"c\") vs (\"a\",\"bc\")), domain-field length prefix, 6 kinds' concat rejection. Two scope notes for remap: (1) VO and REQ share vtest:record-subject:v1 (approval.rs:116,133; design §1.3 L86 sanctions it) — read as distinct kinds, \"pairwise distinct\" fails there; key-set differences make collision impractical, not separated. Recommend precising \"subject kind\" = the 8 §1.3 domains, as done for VO-ADAPTER-15. (2) Source hashes (hash_specification_source, construct from_bytes) carry no domain — outside the claim's subject scope."
+  },
+  {
+   "vo_id": "VO-REGISTRY-21",
+   "final": "CONTRADICTED_CANDIDATE",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-ARUST-017",
+     "verdict": "PARTIAL",
+     "facets": "positive (a::checks / b::checks resolve distinctly) + boundary-ambiguity (bare `checks` -> None). But the surface is the adapter-local syn re-parse index (static_audit.rs:1361 find_function), not the discovery-built Source Target index, and it returns an ItemFn, not a Source Target. Zero-match facet untested; the suffix-fallback branch (static_audit.rs:1394-1403), which resolves on a NON-exact unique suffix, is never exercised in its resolving direction."
+    },
+    {
+     "test_id": "TEST-SCAN-011",
+     "verdict": "PARTIAL",
+     "facets": "negative-rejection at the claimed core surface: two cfg-duplicated `duplicate` fns make a 2-entry index; asserts E-SCAN-004 is emitted (vtest-scan/src/lib.rs:1932-1965). Only the diagnostic is asserted — never that the reference is left unresolved, so it does not constrain find_target_source. Exactly the assertion shape that masks the defect."
+    },
+    {
+     "test_id": "TEST-CLI-045",
+     "verdict": "PARTIAL",
+     "facets": "positive facet end-to-end: one construct, unique locator, no E-SCAN-004, exactly one Source Target (adapter_acceptance.rs:1506-1540). Proves the 'exactly one resolves' half only; no 2+ or 0 case."
+    },
+    {
+     "test_id": "TEST-CLI-052",
+     "verdict": "PARTIAL",
+     "facets": "zero-match facet: fixture declares `src/lib.rs::absent`, matrix asserts E-SCAN-004 with the right location (m1_acceptance.rs:318-360). Diagnostic-only; no assertion that the reference stays unresolved downstream."
+    },
+    {
+     "test_id": "TEST-CLI-047",
+     "verdict": "NO",
+     "facets": "exercises SRC-ID arity (duplicate SRC-DUAL -> E-SCAN-011 + E-SCAN-004), not a locator item-path against the module-qualified path index. Off-facet for this claim."
+    },
+    {
+     "test_id": "TEST-SCAN-008",
+     "verdict": "NO",
+     "facets": "E-SCAN-004 there denotes an unresolvable Cargo TEST target (discovery.rs:1062, TestTarget::Unknown), a different semantic from item-path -> Source Target resolution. Not evidence for this claim."
+    }
+   ],
+   "contradiction_evidence": "Violating surface = core find_target_source, the self-declared \"one resolution path (§6.1, §907)\", crates/vtest-scan/src/lib.rs:67-80: `TargetRef::Locator { .. } => scan.sources.iter().find(|source| source.target == *target)`. `.find()` returns the FIRST of N duplicates, so a 2+ match resolves instead of staying unresolved. cross_entity_diagnostics (same file, ~1320-1332) does count correctly — `locators.get(...).copied() == Some(1)` — but only EMITS E-SCAN-004; resolution proceeds. Consumers apply no arity guard: vtest-verify/src/lib.rs:869-880 `declared_canonical_targets` treats Some(source) as resolved; vtest-audit/src/lib.rs:241 persists `source.target.normalized()` as the audit subject. TEST-SCAN-011's cfg-duplicate fixture proves the 2-entry index state is constructible. This is cluster 4 (target-resolution-ambiguity-collapsed, CONFIRMED) reaching this VO.",
+   "notes": "Linkage verified concretely, not assumed: the diagnostic surface honors the claim, the resolution surface does not — that split is the defect. Secondary contradiction (adapter side, static_audit.rs:1361-1405): resolve_target/find_function honors 0/2+ arity but resolves on a unique SUFFIX match, i.e. not \"matches it exactly\", and is an independent per-subsystem candidate scan over a re-parse, which 詳細設計 §907 forbids (\"各subsystemが独自にcandidate列を走査して1件を選ぶ経路を持ってはならない\"). Remap note: E-SCAN-004 is overloaded across three semantics — invalid locator syntax (discovery.rs:1093), unknown Cargo test target (discovery.rs:1062), cross-entity arity failure (scan lib ~1326) — so any covers remap should disambiguate before counting evidence. Unverified candidate; 8-point pass owns runtime reachability."
+  },
+  {
+   "vo_id": "VO-ADAPTER-17",
+   "final": "UNSUPPORTED",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-AAPI-002",
+     "verdict": "NO",
+     "facets": "Positive: proves only AdapterRegistry::ids() enumerates BTreeMap keys ascending (zeta,alpha -> alpha,zeta) plus keyed lookup — the surface of its own VO-AAPI-002. Its two adapters carry capabilities: Vec::new() (lib.rs:654-661), so neither is a source-discovery adapter and nothing is visited or delegated to. Negative-rejection: none (no registration-order or non-visited-adapter counterexample). Boundary: none (2 adapters, no ties, no capability filter). The delta of ADAPTER-17 over VO-AAPI-002 — visiting/delegation sequence — is untouched."
+    },
+    {
+     "test_id": "TEST-AAPI-005",
+     "verdict": "NO",
+     "facets": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs:179-206. Same surface as AAPI-002 (ids() sorted: rust-cargo, synthetic) plus codec binding; covers VO-AAPI-002. No source-discovery capability, no delegation. Positive facet of enumeration only; no negative, no boundary."
+    },
+    {
+     "test_id": "TEST-SCAN-001",
+     "verdict": "NO",
+     "facets": "crates/vtest-scan/src/lib.rs:1520-1546. Registers one synthetic SourceDiscovery adapter and resolves it by explicit ID, then materializes. Exercises the single-adapter injection point, not a visiting order; one adapter cannot distinguish ID order from registration order."
+    },
+    {
+     "test_id": "TEST-CLI-022 / TEST-CLI-023 / TEST-CLI-024",
+     "verdict": "NO",
+     "facets": "crates/vtest-cli/tests/adapter_acceptance.rs:777-815. Unknown / duplicate / empty adapter sets fail closed with E-ADAPTER-001. Negative facets of registry set validation (VO-CLI-008), not of visiting order or delegation sequence."
+    }
+   ],
+   "contradiction_evidence": "Step 3 does not fire. The delegation locus is single and hardcoded: vtest-cli/src/lib.rs:348 `let discovery = registry.source_discovery(&AdapterId::new(RUST_CARGO_ADAPTER_ID))?;` and vtest-scan/src/lib.rs:400 `scan_project_with_discovery(root, config, &RustCargoDiscovery)`; `scan_project_with_discovery` (:408-416) takes one `&dyn SourceDiscoveryAdapter`. No production caller of `ids()` exists. But vtest-store/src/lib.rs:375 rejects every id but `rust-cargo` (\"unknown adapter\"), and built_in_registry (cli:339) registers exactly one. So every reachable run has registered set {rust-cargo} and sequence [rust-cargo], vacuously satisfying both clauses — no product-surface counterexample can be built. The mismatch is intensional (mechanism shape), not observable divergence.",
+   "notes": "The v4 amendment over-generalized its sensor. TEST-AAPI-002 evidences the registry-enumeration contract (adapter plan v0.2 line 182, \"ID順の決定論的な列挙\"), already owned by VO-AAPI-002; ADAPTER-17 adds a visiting/delegation clause with zero evidence and zero implementation locus. SPEC-ACCEPT §18.3.9 does assign vtest-scan \"adapter discoveryの委譲\" and all-adapter merge, but states no ordering rule — so the ordering claim is ontology over-reach, and multi-adapter delegation itself is spec-ahead-of-impl (plan line 658 defers other languages to later milestones). Remap recommendation: either narrow the claim to registry enumeration (then it duplicates VO-AAPI-002) or defer it to the multi-language milestone."
+  },
+  {
+   "vo_id": "VO-STRUCTOP-15",
+   "final": "CONTRADICTED_CANDIDATE",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-STORE-007",
+     "verdict": "PARTIAL",
+     "facets": "Positive only, and only the unit constant: parse_form_schema(RUST_UNIT_FUNCTION_FORM) -> kind==rust-unit-function, fields.len()==8, template contains \"@vtest.target {target}\" (forms.rs:499-505). No per-field type/required/validator assertion, no adapter/ownership, no rust-integration, no registry resolution under a missing Form file, no multi-target ordering. Negative-rejection and boundary facets absent."
+    },
+    {
+     "test_id": "TEST-CLI-004",
+     "verdict": "PARTIAL",
+     "facets": "Positive, both kinds end-to-end (vtest-cli/src/lib.rs:4207-4497): unit create from answers omitting `file` succeeds; rust-integration create yields targets.len()==2 and kind integration-normal, second target queryable - implying two @vtest.target lines emitted. But root() runs init, which writes both Form files (store/lib.rs:504-511), so the no-user-file premise is untested; declaration order and schema fields unasserted."
+    },
+    {
+     "test_id": "TEST-CLI-092",
+     "verdict": "PARTIAL",
+     "facets": "Positive, true no-Form-file premise: from_m1_base fixture has no .verify/forms (tests/fixtures/calc/m1/base/.verify), so form_get resolves the built-in constant; asserts data.kind==rust-unit-function and fields is an array (m9_acceptance.rs:570-577). Unit kind only; no field types/required/validators, no integration Form, no exactly-two cardinality."
+    },
+    {
+     "test_id": "TEST-CLI-097",
+     "verdict": "PARTIAL",
+     "facets": "Negative-rejection facet: form_get kind \"unknown-form\" on a forms-less project fails E-OP-001 \"invalid form\" (m9_acceptance.rs:1330-1333, 1394) - no implicit Rust fallback for a third kind. Does not assert that both built-ins resolve, so it bounds the set from above only."
+    },
+    {
+     "test_id": "TEST-CLI-025",
+     "verdict": "PARTIAL",
+     "facets": "Ownership facet: init writes .verify/forms/{rust-unit-function,rust-integration}.yaml and each contains \"adapter: rust-cargo\" (adapter_acceptance.rs:823-840). Files-present path, not registry resolution; asserts no schema content, no field/validator/template detail."
+    },
+    {
+     "test_id": "TEST-STORE-009",
+     "verdict": "NO",
+     "facets": "Parser strictness (unknown field property rejected on a mutated unit constant, forms.rs:527-534). Exercises parse_form_schema rejection, not the built-in kind set, integration schema, or emission."
+    },
+    {
+     "test_id": "TEST-STORE-008",
+     "verdict": "NO",
+     "facets": "Answers-file parsing (inline/block lists). Different contract surface from Form registry resolution and built-in schema declaration."
+    },
+    {
+     "test_id": "TEST-CLI-091",
+     "verdict": "NO",
+     "facets": "Asserts the opposite premise: a user-written rust-unit-function.yaml wins and reloads on mtime change (m9_acceptance.rs:427-452). Evidence about user-file precedence, not built-in resolution."
+    }
+   ],
+   "contradiction_evidence": "The two built-in schemas differ beyond the targets field. crates/vtest-store/src/forms.rs:42-46 (unit) `- name: file` ... `required: false`; forms.rs:98-102 (integration) `- name: file` ... `required: true`. The flag is enforced: vtest-scan/src/operations.rs:920-927 `if field.required && value.is_none_or(FormValue::is_empty)` -> E-OP-001 \"required answer `file` is missing\". Behavioral asymmetry: unit create omitting `file` succeeds (destination derived from `target`, adapter-rust/operations_support.rs:148-160), integration create omitting `file` is rejected. SPEC-IFACE §14.3 likewise says \"他は同一\", so spec and impl are desynced on the same point.",
+   "notes": "Secondary \"only\" breaches (likely intended, cite at remap): template line `@vtest.kind unit-{test_kind}` vs `integration-{test_kind}` (forms.rs:52, 108; operations.rs:340-347), plus title/kind. Gaps regardless of the contradiction: RUST_INTEGRATION_FORM is parsed by no test directly and its missing-file fallback (forms.rs:127-131) is never exercised; one-@vtest.target-line-per-element in declaration order (adapter-rust/operations_support.rs:383-397) is never asserted; §14.3's empty-list/duplicate-target rejection untested. \"rust-cargo-owned\" is declaration-only: StructuredTestAdapter::built_in_form_kinds (adapter-api/src/lib.rs:438-441) has no implementor and load_form_schema hardcodes the two kinds in core - a nuance, not the contradiction."
+  },
+  {
+   "vo_id": "VO-REGISTRY-20",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-MODEL-002",
+     "verdict": "PARTIAL",
+     "facets": "Positive only: one Locator (synthetic) asserts normalized() == \"synthetic::component(add)/scenario[happy]\" (model/lib.rs:1022-1036). No negative-rejection facet (no foreign/empty adapter, no reformatting attempt). Boundary untouched: the value contains no \"::\", so verbatim pass-through of a separator-bearing opaque value is unproven; single adapter, so \"owning adapter\" is not exercised."
+    },
+    {
+     "test_id": "TEST-CLI-065",
+     "verdict": "PARTIAL",
+     "facets": "E2E positive on the identity-bearing surface: persisted DA-002/DA-003 per-target verdicts must start_with \"rust-cargo::\" (m3_acceptance.rs:414-418), including the SRC-ID-addressed fixture, so prefix omission and declared-spelling substitution are both excluded on records. Prefix-only assertion, not full-string equality; no negative-rejection or reformatting facet."
+    },
+    {
+     "test_id": "TEST-STORE-025",
+     "verdict": "PARTIAL",
+     "facets": "Boundary/no-decomposition: 'rust-cargo::src/parser.rs::Parser::parse' (value itself containing \"::\") survives audit YAML write and re-read verbatim (records.rs:2614-2698). But the string is hand-authored, not produced by normalized(), so it binds persistence fidelity, not the identity construction. No positive-construction or rejection facet."
+    },
+    {
+     "test_id": "TEST-SCAN-003",
+     "verdict": "NO",
+     "facets": "Guards a kind-precondition (a permanent SRC ID may not be a Source Target's canonical target, scan/lib.rs:1591-1606). Relevant to registry identity but silent on the Locator string form."
+    },
+    {
+     "test_id": "TEST-VERIFY-007",
+     "verdict": "NO",
+     "facets": "Uses a prefixed locator literal only as fixture input for per-target set-mismatch handling (verify/lib.rs:2411-2432). Asserts nothing about canonical string composition."
+    },
+    {
+     "test_id": "TEST-AAPI-004",
+     "verdict": "NO",
+     "facets": "Synthetic targets round-trip as a structured `targets` JSON list (w1_acceptance_binding.rs:487-510); the normalized string form is never produced or asserted."
+    }
+   ],
+   "contradiction_evidence": "None. The implementation is faithful: `TargetRef::normalized` is `format!(\"{adapter}::{value}\")` (crates/vtest-model/src/lib.rs:286-291), and every record-bearing path uses it verbatim (exec/lib.rs:177, audit/lib.rs:244,325, cli/lib.rs:1632, verify/lib.rs:2257); live `.verify/audits/*.yaml` carry `rust-cargo::…`. Core also enforces the owning adapter (scan/lib.rs:276-292). The one prefix-dropping site, `target_string` in core (scan/operations.rs:693-699, `adapter.as_str() == RUST_ADAPTER_ID => value.clone()`), feeds only the `@vtest.target` annotation render (operations.rs:571) and its idempotency compare, and round-trips through the adapter's own `Locator::parse`/`as_target` (adapter-rust/discovery.rs:55-76) — the declaration syntax the spec assigns to the adapter (基本仕様 §3.3), not the canonical identity.",
+   "notes": "Three facets unproven: (1) rejection of a Locator whose adapter is not the owning one — the check at scan/lib.rs:289-292 has no test; (2) no normalized() test with \"::\" inside the opaque value (decomposition risk untested at the construction site); (3) no end-to-end full-string equality, only prefix. Evidence composes over one surface (normalized() → records) but covers positive+boundary partially and rejection not at all → PARTIAL. Adjacent, not in scope: target_string is a core-holds-adapter-knowledge leak (REQ-ADAPTER-BOUNDARY) belonging to another VO; AF-048 (exec records a SrcId-addressed declared spelling) concerns a different reference kind and is already red, owed to W5."
+  }
+ ]
+}
