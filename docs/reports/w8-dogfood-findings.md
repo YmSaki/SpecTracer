@@ -50,31 +50,40 @@ Owner 判定: **完全未定**。仕様事項か運用ルールかも含めて�
 
 Owner 指示「問題1だったものを全部埋めてみて」を ultracode で実行。inventory(24ファイル fan-out) → ontology 生成(SPEC 流用/REQ 7/VO 63, target クラスタ) → annotation(24ファイル fan-out で `@vtest` 適用) → build/scan/verify。
 
-### 注釈の結果
-- **190/204 テストを管理化**（frozen commit f825713）。build + 全206テスト green（注釈は doc-comment で挙動不変）。
-- **14件は管理不能**（structural/architectural テスト）: 依存グラフ検査・API surface 検査・凍結 fixture 不変条件など、**production 関数を target に持たない**。target 必須モデルでは表現できず未注釈のまま。→ 問題2と並ぶ第二の分化欠如（black-box 契約テストとは別カテゴリ）。
+### 母集団の照合（全数・決定論的に確定）
+scan 可視テスト総数 **206** = 管理済み **192**（新規注釈 191 + 既存 M3 1）+ 未管理 **14**（annotation skip 12 + 誤 target 除去 1 + inventory 見逃し 1 `relation_aliases...`）。当初「205 未管理」と inventory「204」の差は見逃し1件。build + `cargo test` 全 206 PASS（注釈は doc-comment のみで挙動不変）。
 
-### 管理化した190件の static_audit 分布 — **188 UNKNOWN / 3 FAIL / 1 PASS**
+### 管理化した192件の static_audit 分布（audit --all 実測）
 | topology | 件数 | static_audit |
 |---|---|---|
-| in-process（白箱） | 107 | **全て UNKNOWN** |
-| subprocess（黒箱） | 81+3 | UNKNOWN 81 / **FAIL 3** |
-| （既存 M3, 修飾済） | 1 | **PASS** |
+| in-process | 108 | UNKNOWN 107 / PASS 1（既存 M3, 修飾済） |
+| subprocess | 84 | UNKNOWN 81 / FAIL 3 |
 
-**注釈だけでは PASS にならない。管理化 = UNKNOWN 到達であって PASS ではない。** 唯一 PASS したのは既存 M3 テスト（`super::` 修飾済）1件のみ。
+**注釈だけでは PASS にならない（管理化 = UNKNOWN 到達）。** 通ったのは修飾済み M3 の1件のみ。
 
-### 決定的 finding A（白箱107件, 実測確定）: bare call は runtime でも救済されない
-in-process 白箱テストは target を**本体で呼び結果を assert している**（例 TEST-SCAN-001: `let m = materialize_discovery_batch(&root, observed).unwrap(); assert_eq!(m.adapter, ...)`）のに UNKNOWN。理由:
-- **bare call**（`super::`/`crate::` 修飾なし）→ DA-002「ambiguous/external call」→ UNKNOWN。
-- 同じく DA-003「declared target call is not present in the body」→ UNKNOWN。
-- **measured run で実測**: TEST-SCAN-001 を llvm-cov 実行後も static_audit = **UNKNOWN のまま**。DA-002 は runtime 救済され得るが **DA-003 は runtime 救済経路が無い**ため not-present UNKNOWN が残る。
-- ∴ **白箱テストを PASS にするには、各テスト本体の target 呼出を `super::`/`crate::` で修飾する編集が必要**（推定107件）。annotation だけでは不可、runtime でも不可。idiomatic Rust の `use super::*` + bare call が DA-002/003 と衝突する構造的摩擦。
+### in-process UNKNOWN 107件の原因分布（全数・機械突合）
+tool 自身の解析結果（`test list` の byte_range）で各テスト本体を切り出し、宣言 target・実呼出トークン・診断を 107件全数で突合した（トークン regex による判定＝完全な AST 突合ではない点に注意）:
 
-### finding: 黒箱テストの DA-006 false-FAIL（3件）
-TEST-CLI-022/023/060（subprocess）は DA-006「検証構文なし」で**FAIL**。実際は assert を**helper 関数経由**で行っており本体に inline assert が無いだけ。UNKNOWN より悪い（監査が「検証していない」と断定）。白箱 assert 規則が helper 委譲・黒箱スタイルを誤審する例。
+| 件数 | バケツ | 内容 |
+|---|---|---|
+| **79** | DA-002 ambiguous / 本体に **bare call** あり / target は実在する自由関数 | 修飾なし呼出を静的に target と同定できない |
+| **23** | **resolver failure / 全て impl-method target** | 下記「resolver 非対称」参照 |
+| **5** | DA-002 ambiguous / 本体に target の直接呼出トークンなし | helper 経由等・個別未分類 |
 
-### 総括: all-12-PASS への距離（実測に基づく）
-suite 全体を all-12-PASS にするには — (a) 白箱**107件の本体を修飾編集**（invasive, 監査を通すためにテストコードを書き換える是非も論点）、(b) 黒箱**81件の問題2**を解決（未決）、(c) structural**14件**の target-less 表現（未決）。現状 static_audit を通るのは修飾済み M3 の1件のみ。**「テストを増やすほど管理対象が増える」以前に、管理化しても大半が UNKNOWN で止まる**のが実像。
+さらに **DA-001（定数性）= UNKNOWN が 107/107 で普遍**（subprocess でも 76/84）。DA-002/003 と独立に PASS を阻む第3のブロッカー。原因仮説: rule_da001 の runtime 性証明が target 照合に依存するため（static_audit.rs:78-137, `classify(expr, target_resolution, ...)`）、target 同定失敗が定数性未解決に連鎖する — **仮説であり未確認**。
+
+### 確定 finding: 2つの resolver の非対称（コードで確認済みの tool 欠陥候補）
+23件の resolver failure は全て `Type::method` 形式の impl-method target。
+- discovery は `Item::Impl` を走査し method を Source Target として index する（discovery.rs:814, 869）→ scan は受理（**E-SCAN-004 = 0件**）。
+- static audit の `resolve_target → find_function` は `Item::Fn`/`Item::Mod` のみ走査（static_audit.rs:1361-1390）→ 同じ target が「could not be resolved」。
+∴ **scan が受理する target を audit が解決できない**。§907（target 解決は core 単一経路、subsystem 毎の独自解決の禁止）が防ごうとした非対称そのもの。
+
+### 確定 finding: DA-006 FAIL 3件は全件 helper 委譲 assert（3/3 個別確認）
+TEST-CLI-022/023/060 の本体には inline assert 相当（assert!/unwrap/expect/?）が無く、`assert_adapter_usage_error` / `assert_ok` / `assert_tree_child` という **assert helper 関数**に検証を委譲している。DA-006 は関数呼出を assert 相当と認識しないため「検証構文なし=FAIL」。
+
+### 総括（証拠に見合う強さで）
+現行 static-audit を suite 全体へ適用すると大多数（188/192）が UNKNOWN となり、少なくとも次の不整合が実在する: **(1) bare-call の symbol 同定（79件, 修正先が test 側修飾か scanner 側 name resolution かは未決）**、**(2) impl-method target の resolver 非対称（23件, コード確認済み）**、**(3) DA-001 定数性の普遍 UNKNOWN（107件, 原因は仮説段階）**、**(4) helper 委譲 assert の DA-006 誤 FAIL（3件, 全数確認）**、**(5) symbol target を持たない structural 検証の未表現（14件, 現行 symbol-target-only モデルでは表現不能）**、**(6) black-box 契約テストの監査モデル未分化（84件, 問題2・未決）**。
+各バケツの修正先（テスト側か scanner/model 側か）は**いずれも未決**であり、「テストを直すべき」とはこのデータからは言えない。
 
 ## 再現コマンド
 
