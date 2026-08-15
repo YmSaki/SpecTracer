@@ -31,7 +31,7 @@ CONFIRMED 39 の ID 集合とクラスタ+singleton の和集合を機械照合:
 
 ## 含意
 
-- **39 CONFIRMED = 実質 19 独立 root cause**（10+9）。修正計画の単位はこの19。**ただし 39 自体が sampling 再懐疑パス未実施**（dd7dd44 の caveat: 汚染 incident により dossier の repro 文脈も要確認）— 再懐疑完了までは「confirmed 候補の root cause 単位」として扱う。clustering は再懐疑を安くした: **クラスタ層化サンプリング**（各クラスタ1件 + singleton 9件優先）で足り、本裁定の spot-check 4点が cluster 1/2/5/8 の裏取りを既に部分的に果たしている。
+- **39 CONFIRMED = 実質 19 独立 root cause**（10+9）。修正計画の単位はこの19。~~ただし 39 自体が sampling 再懐疑パス未実施~~ → **再懐疑パス完了（19/19 UPHELD・TAINTED 0・汚染 caveat 退役）**: `w8-sampling-reskeptic.md` 参照。同報告の amendment により VO-EXIST-09 は cluster 9 へ再配属、cluster 10 は singleton に降格（**新構成 9 clusters + 10 singletons、総数19不変**）。
 - 正典の優先関係: `dogfood-rootcause-clusters.json` は worker 原文であり、cluster 8 の「never consulted」過剰主張が原文のまま残る。**cluster 8 については本報告の補正（裁定2）が JSON に優先する** — JSON を機械的に読む後段の fix 計画は本節を継承すること。
 - 二大テーマ: (a) **SPEC→REQ→VO intake 軸が end-to-end 未実装**（cluster 1+2 = 9件、corpus の約1/4）。(b) **diagnostic→check-item routing table の不在**（cluster 2/4 と VO-EXIST-08 の共通背景 — 単一欠陥ではないが設計欠落として記録に値する）。
 - cluster 6 は adapter 分離の未完了作業そのもの（discovery.rs:638 の mid-flight コメントと整合）— 「新規バグ」でなく「既知の分離作業の残り」に分類可能。
