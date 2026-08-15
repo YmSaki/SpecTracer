@@ -1,0 +1,9 @@
+id: 'REQ-P-001'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§2 P-001'
+summary: 'The system detects mismatches between spec, VO, test, and implementation; it never decides which artifact is correct or what to fix'
+status: 'active'
+created: '2026-08-15T09:53:05Z'
+updated: '2026-08-15T09:53:05Z'

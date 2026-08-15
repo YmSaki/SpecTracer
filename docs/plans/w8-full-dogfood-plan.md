@@ -124,6 +124,18 @@ gate: 全コミットで fmt + clippy -D warnings + workspace test green（206 t
 - 達成可能 subset の実行: 対象選定 → 一括注釈（target 修飾込み, finding A）→ 真正 semantic/impl/vo-coverage bundle+submit（機械的 PASS 量産禁止）→ VO approve → measured run → full verify。大規模・多時間。
 - SPEC-DOGFOOD-M3.yaml sha256 再登録（W-SCAN-104 既出＝詳細設計 doc 変更由来）。
 
+## ★★top-down ontology 再構築（Owner 指示 + GPT-5.6-sol 批評反映, 2026-08-15）
+**前提の転換**: 旧63 VO は test 実装から逆生成（層の逆転）→ scaffolding として保持するが正統性なし。正しい導出鎖を一本で作る:
+```
+Normative Specification → Requirement → Design decision/mechanism → VO → 既存 Test/Evidence 突合
+```
+- **正典性（doc 自身の明文, 基本仕様§0/詳細設計§0）**: 要件定義=最上流（何を保証するか）。基本仕様=外部保証（**詳細設計と矛盾時は基本仕様が正**）。詳細設計=本冊§1-11,16,17,19 + 別紙A§12-15 + 別紙C§18 が正規（通し節番号）。別紙B=非正規 process 文書。
+- **REQ 層（登録済 26件, main thread 直読で導出）**: P-001..004 / NFR-001..008（doc 内 ID 流用）+ 章32 の10機能分解 + 章32 外の要求章4件（23/25/27/29）。ID 形式が ontology を決めないよう、無 ID 章も意味で REQ 化済み。粒度は doc 章単位＝粗い。個別 normative statement は VO 層で拾う。
+- **VO 層（wf_ac560087-476 実行中）**: 15 fan-out（REQ 毎）が spec docs だけを読み（test コード参照禁止）、反証可能な設計レベル claim + verbatim 引用 + 複数 doc refs を返す。main thread が dedup（fail-closed 等の横断は VO 1件に複数 refs）・品質ゲート（節タイトル言い換え reject）・**REQ→mechanism→VO の明示的な鎖として合成**して登録。
+- **63 VO ゼロベース検証**: 上流導出の VO 数が20でも120でもそれが正しい。旧 VO との一致を仮定しない。
+- **inventory の使い所は後段**: 192管理テストの分類・突合データは「VO ↔ Test 突合」フェーズで生きる（例: resolver 非対称は『discovery/audit が同一 target に異なる resolution を返してはならない』という VO の違反 evidence として表現される — これが SpecTracer の本来の向き）。
+- 旧 bottom-up 63 VO/7 REQ は 191 注釈が参照中のため削除しない（dangling covers 防止）。remapping フェーズで置換。
+
 ## ★dogfood 実行フェーズ（Owner 指示 2026-08-15: 問題1=全テスト管理を ultracode で埋める）
 Owner 指示: 「問題1だったもの（未注釈205件）を全部埋めてみて。サブエージェント/ultracode で」。仕様変更なし。black-box(問題2)は parked だが、注釈自体は可能（target を実シンボルにすれば test_traceability は通る。static_audit UNKNOWN は問題2として観測）。
 段階設計（VO 一貫性のため main thread が ontology 所有・fan-out は読取り/適用のみ）:

@@ -1,0 +1,9 @@
+id: 'REQ-EXISTING-PROJECT'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§23'
+summary: 'Projects with pre-existing code and tests are analyzable; unregistered tests, missing canon, or unaudited state is surfaced, never treated as verified'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

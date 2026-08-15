@@ -1,0 +1,9 @@
+id: 'REQ-APPROVAL'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§25'
+summary: 'Verification artifacts carry approval state bound to the current dependency closure; approvals with changed dependencies or missing closure are not honored'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

@@ -1,0 +1,9 @@
+id: 'REQ-TEST-EXECUTION'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§14, §15, §16, §32-7'
+summary: 'Tests are executed producing evidence with runtime result, per-target execution verification, and revision binding; stale or unbound evidence never passes'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

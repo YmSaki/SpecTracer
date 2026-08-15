@@ -1,0 +1,9 @@
+id: 'REQ-NFR-001'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-001'
+summary: 'The system tolerates concurrent modification by multiple AI agents'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

@@ -1,0 +1,9 @@
+id: 'REQ-P-004'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§2 P-004'
+summary: 'Operations with known steps and inputs are exposed as structured, validated forms rather than free-form AI editing'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

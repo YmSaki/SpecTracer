@@ -1,0 +1,9 @@
+id: 'REQ-P-003'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§2 P-003'
+summary: 'A fact derivable from canonical data is never recorded redundantly; derived indexes are rebuildable from the canon'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

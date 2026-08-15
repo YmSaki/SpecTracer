@@ -1,0 +1,9 @@
+id: 'REQ-VERIFICATION-PLANNING'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§3, §4, §5, §6, §32-2'
+summary: 'Specifications are taken into Requirements and decomposed into independently verifiable VOs with hierarchy, partitions, combinations, and reasoned coverage judgment'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

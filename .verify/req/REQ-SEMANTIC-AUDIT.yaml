@@ -1,0 +1,9 @@
+id: 'REQ-SEMANTIC-AUDIT'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§12, §13, §32-6'
+summary: 'LLM audits verify VO, test intent, test code, and implementation agree, kept distinct from deterministic verdicts and always carrying reasons'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

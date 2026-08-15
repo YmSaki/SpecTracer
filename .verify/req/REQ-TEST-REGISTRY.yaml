@@ -1,0 +1,9 @@
+id: 'REQ-TEST-REGISTRY'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§7, §8, §9, §10, §32-3'
+summary: 'Every discovered test is a managed entity addressable by a stable Test ID linking intent, VOs, source targets, construct, location, audits, and evidence'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

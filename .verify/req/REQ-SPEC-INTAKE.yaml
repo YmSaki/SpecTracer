@@ -1,0 +1,9 @@
+id: 'REQ-SPEC-INTAKE'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§24, §32-1'
+summary: 'Upstream artifacts (requirements, specs, schemas) are usable as specification sources; doc comments of the target itself are never its sole justification'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

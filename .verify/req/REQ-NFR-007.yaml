@@ -1,0 +1,9 @@
+id: 'REQ-NFR-007'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-007'
+summary: 'All functions are usable non-interactively by agents, CI, and CLI'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

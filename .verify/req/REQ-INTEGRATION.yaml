@@ -1,0 +1,9 @@
+id: 'REQ-INTEGRATION'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§26, §28, §32-10'
+summary: 'CLI and MCP interfaces serve developers, AI agents, and CI non-interactively'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

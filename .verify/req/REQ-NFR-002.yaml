@@ -1,0 +1,9 @@
+id: 'REQ-NFR-002'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-002'
+summary: 'Verification results are reproducible for the same revision and conditions'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

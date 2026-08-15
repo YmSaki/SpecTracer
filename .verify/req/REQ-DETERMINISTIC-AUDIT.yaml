@@ -1,0 +1,9 @@
+id: 'REQ-DETERMINISTIC-AUDIT'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§11, §32-5'
+summary: 'Obviously meaningless tests (constant assertion, target not invoked, result unverified, self-comparison) are rejected deterministically before LLM audit'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

@@ -1,0 +1,9 @@
+id: 'REQ-NFR-004'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-004'
+summary: 'Derived data (indexes) can be rebuilt from canonical records'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

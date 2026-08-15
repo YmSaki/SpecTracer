@@ -1,0 +1,9 @@
+id: 'REQ-NFR-003'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-003'
+summary: 'Requirement to Test to Source to Evidence is traceable in both directions'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

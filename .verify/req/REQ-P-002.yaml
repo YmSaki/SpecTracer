@@ -1,0 +1,9 @@
+id: 'REQ-P-002'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§2 P-002'
+summary: 'Unverified states (NOT_CHECKED/UNKNOWN/NOT_EXECUTED/MISSING/MISMATCH/FAIL/STALE) are never treated as passing in full verification; scope narrowing never converts unverified to PASS'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

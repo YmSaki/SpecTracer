@@ -1,0 +1,9 @@
+id: 'REQ-STRUCTURED-OPERATIONS'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§20, §21, §22, §32-4'
+summary: 'Create/Edit/Query/Audit test operations are structured, validate inputs at entry, and touch exactly one test per edit'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

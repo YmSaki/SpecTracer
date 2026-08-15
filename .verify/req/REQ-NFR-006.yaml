@@ -1,0 +1,9 @@
+id: 'REQ-NFR-006'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-006'
+summary: 'Non-trivial verdicts, especially AI ones, expose their grounds, not just conclusions'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

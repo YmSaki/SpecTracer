@@ -1,0 +1,9 @@
+id: 'REQ-AGGREGATION'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§17, §19, §32-8'
+summary: 'Results aggregate fail-closed from Test through VO, Feature, Requirement, and Specification; full-verification OK requires every required check PASS'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

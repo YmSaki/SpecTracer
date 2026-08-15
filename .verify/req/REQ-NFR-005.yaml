@@ -1,0 +1,9 @@
+id: 'REQ-NFR-005'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-005'
+summary: 'Unverified facts are never passed by guesswork (fail closed)'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

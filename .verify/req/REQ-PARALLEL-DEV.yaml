@@ -1,0 +1,9 @@
+id: 'REQ-PARALLEL-DEV'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§29'
+summary: 'Parallel AI agents can add and change tests without shared-ledger contention; ID collisions, dangling references, and semantic conflicts are detectable'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

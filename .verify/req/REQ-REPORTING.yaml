@@ -1,0 +1,9 @@
+id: 'REQ-REPORTING'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§17, §18, §32-9'
+summary: 'OK/NG plus drill-down detail expose the cause of every NG with evidence and reasoning'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

@@ -1,0 +1,9 @@
+id: 'REQ-ADAPTER-BOUNDARY'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§27'
+summary: 'The concept model is language-neutral; adapters plug in behind a boundary without core changes, and missing capability never inflates results to PASS'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'

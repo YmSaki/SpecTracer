@@ -1,0 +1,9 @@
+id: 'REQ-NFR-008'
+parent: null
+spec_refs:
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-008'
+summary: 'Humans can survey shortages, mismatches, and NG reasons across Requirement, VO, and Test at a glance'
+status: 'active'
+created: '2026-08-15T09:53:33Z'
+updated: '2026-08-15T09:53:33Z'
