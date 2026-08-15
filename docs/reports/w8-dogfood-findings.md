@@ -17,13 +17,12 @@ Owner 指示: 仕様変更は現段階で行わず dogfooding し、「どのよ
 
 → **in-process テストは 8/12 PASS（監査追加で 11/12）。12/12 を阻むのは test_traceability のみ。**
 
-## 問題1: test_traceability は project 全体 item で、incremental dogfood 不能
+## 観測1（問題ではない）: test_traceability は project 全体を要求＝設計どおり
 
-- test_traceability は `scan.diagnostics` の W-SCAN-101（未注釈テスト）を集約する **project 全体**の判定。単一テストを完全管理しても、他に未注釈テストが1件でもあれば MISSING。
-- 実測: **未注釈テスト 205件 / 24ファイル**（adapter_acceptance 41, scan/lib 17, verify/lib 17, store/records 14, w1 13, m2 12, static_audit 11, ...）。
-- scope 絞り（finding C, `scan.include` を dir/file 限定）でも、**scan 対象単位の中に未注釈テストが混在**すれば同じ壁。全テストが管理済みのファイル/dir を作らない限り PASS しない。
-- **帰結**: 「1本ずつ緑化して積み上げる」incremental dogfood が構造的に不能。test_traceability は all-or-nothing。
-- **副次観測（動く的）**: 本セッションで W6 実装の unit テストを追加した結果、未注釈テストが 194→205 に増えた。テストを増やすほど dogfood 対象が増える。all-194（今や all-205）は移動する目標。
+**Owner 判定: これは問題ではなく、意図した挙動**。test_traceability は「全テストが追跡下にあるか」を検証する項目なので、未注釈テストが1件でもあれば MISSING になるのが正しい。単に dogfood が未完なだけ。
+
+- 実測: 現時点で**未注釈テスト 205件 / 24ファイル**（adapter_acceptance 41, scan/lib 17, verify/lib 17, store/records 14, w1 13, m2 12, static_audit 11, ...）。dogfood 完了 = これらを全て @vtest 管理下に置くこと。
+- 帰結（作業計画上の含意, defect ではない）: dogfood は「全テスト管理」が前提のため、達成可能 subset だけ緑化しても test_traceability は PASS しない。完了には未注釈 205件すべての管理が要る。テストを増やせば対象も増える（本セッションで 194→205）。これは目標が動くのではなく、dogfood の定義（全テスト）どおり。
 
 ## 問題2: subprocess/black-box テストに white-box 規則を当てている（Owner 仮説の裏付け）
 
@@ -37,13 +36,15 @@ Owner 指示: 仕様変更は現段階で行わず dogfooding し、「どのよ
 
 - `crates/vtest-scan/src/lib.rs`(17) や `crates/vtest-verify/src/lib.rs`(17) は in-process unit テストの塊だが、同一クレートの `tests/*_acceptance.rs` は subprocess。**同一ファイル内**でも in-process 単体テストと契約テストが混じるケースがあり（例: adapter が in-process、CLI が subprocess）、ファイル単位の scope 分離では white-box/black-box を切り分けられない。
 
-## 示唆（判断は Owner。ここでは仕様変更しない）
+## 唯一の未決事項（問題2）: black-box テストの監査モデル
 
-実データは Owner 仮説「分解が間違っている / black-box と white-box を混ぜている」を支持する。到達性モデル（DA-002 runtime 救済）は in-process/cross-file-in-body-assert には正しく効くが、**black-box 契約テストは監査モデルの対象種別として未分化**である。考えられる方向（いずれも要仕様判断・今は未実施）:
+Owner 判定: **完全未定**。仕様事項か運用ルールかも含めて未定。ここでは仕様変更も設計決定もしない。以下は判断のための材料のみ。
 
-1. **達成可能 subset のみ dogfood**: in-process/in-body-assert テストを管理し all-12-PASS。black-box 契約テストは監査対象外として明示除外。ただし test_traceability の all-or-nothing により、除外テストを scan から外す（scope 設計）か、test_traceability の意味を「管理対象と宣言したテスト集合の網羅」に再定義する必要。
-2. **black-box 契約テストの第一級化**: 契約（CLI コマンド / MCP method）を target とする test topology を導入し、その検証を境界 assert（runtime_result）で行う。DA-002/DA-003（white-box）は N/A とし、契約網羅（呼出項目一覧の一致等）を別 rule で見る。← Owner の「呼び出せるか・項目一覧が一致するか」に対応。
-3. 現状維持で subprocess は恒久的に 11/12 未満（UNKNOWN）を受容。
+- 到達性モデル（DA-002 runtime 救済）は in-process / cross-file-in-body-assert には正しく効く。
+- **black-box 契約テストは監査モデルの対象種別として未分化**（target は必ず Rust シンボル＝white-box 前提）。Owner の「呼び出せるか・呼び出し項目一覧が一致するか」は契約検証であり、現 white-box 規則（DA-002/003）では表現できない。
+- 「仕様 or 運用」の切り分け材料: 現モデルで black-box テストを扱う場合、(a) target を Rust シンボルにする限り DA-002/003 は UNKNOWN で止まる（仕様の対象種別の話）、(b) 契約網羅（コマンド/method 一覧の一致）や境界 assert の十分性は、テスト設計の規律に寄る面もある（運用ルールの話）。両者が混じるため未定というのは妥当。
+
+（達成可能 subset のみを管理して緑化する運用は現仕様のまま可能だが、test_traceability は全テスト管理を要するため、black-box テストの扱いが決まるまで dogfood 全体は完了しない。）
 
 ## 再現コマンド
 
