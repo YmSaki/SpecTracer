@@ -1,0 +1,1685 @@
+{
+ "note": "covers remap PROPOSAL (non-destructive; application blocked on the Owner auxiliary decision). Rule: covers = correspondence declaration = shadow-mapping verdict PROVES or PARTIAL against ontology v3 (sufficiency stays the job of the vo-coverage semantic audit per spec covers semantics; NO-verdict relevance is not correspondence). Auxiliary tests receive NO covers - fake covers are forbidden; their handling (covers-exempt kind vs unmanaged vs accepted MISSING) is the pending Owner spec judgment.",
+ "stats": {
+  "managed_tests": 192,
+  "tests_with_covers": 169,
+  "auxiliary_zero_covers": 23,
+  "total_mappings": 385,
+  "covers_count_distribution": {
+   "0": 23,
+   "1": 61,
+   "2": 45,
+   "3": 32,
+   "4": 19,
+   "5": 11,
+   "7": 1
+  },
+  "v3_amendment_mappings": {
+   "TEST-VERIFY-001": [
+    "VO-EXEC-14"
+   ],
+   "TEST-SCAN-016": [
+    "VO-PARALLEL-10"
+   ],
+   "TEST-CLI-010": [
+    "VO-PARALLEL-10"
+   ],
+   "TEST-STORE-031": [
+    "VO-PARALLEL-10"
+   ],
+   "TEST-SCAN-017": [
+    "VO-PARALLEL-10"
+   ],
+   "TEST-CLI-052": [
+    "VO-PARALLEL-10",
+    "VO-REGISTRY-15"
+   ],
+   "TEST-STORE-011": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-CLI-014": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-CLI-015": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-STORE-013": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-STORE-015": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-CLI-028": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-CLI-026": [
+    "VO-ADAPTER-14"
+   ],
+   "TEST-SCAN-013": [
+    "VO-REGISTRY-15"
+   ],
+   "TEST-SCAN-015": [
+    "VO-REGISTRY-15"
+   ],
+   "TEST-ARUST-002": [
+    "VO-ADAPTER-13"
+   ],
+   "TEST-ARUST-001": [
+    "VO-ADAPTER-13"
+   ],
+   "TEST-SCAN-010": [
+    "VO-ADAPTER-15"
+   ]
+  }
+ },
+ "auxiliary": [
+  {
+   "test_id": "TEST-AAPI-002",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-ARUST-004",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-ARUST-005",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-ARUST-006",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-ARUST-017",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-CLI-005",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-CLI-025",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-CLI-060",
+   "category": "C-regression"
+  },
+  {
+   "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-MODEL-001",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-MODEL-002",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-MODEL-005",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-MODEL-007",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-MODEL-008",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-SCAN-018",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-007",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-008",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-009",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-010",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-012",
+   "category": "C-regression"
+  },
+  {
+   "test_id": "TEST-STORE-018",
+   "category": "B-supporting"
+  },
+  {
+   "test_id": "TEST-STORE-020",
+   "category": "A-rejected-spec-silent (upstream re-derivation found no normative obligation; now auxiliary)"
+  },
+  {
+   "test_id": "TEST-STORE-021",
+   "category": "A-rejected-spec-silent (upstream re-derivation found no normative obligation; now auxiliary)"
+  }
+ ],
+ "tests": [
+  {
+   "test_id": "TEST-AAPI-001",
+   "file": "crates/vtest-adapter-api/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-04"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-002",
+   "file": "crates/vtest-adapter-api/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-AAPI-003",
+   "file": "crates/vtest-adapter-api/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-04"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-004",
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "covers": [
+    "VO-ADAPTER-02",
+    "VO-ADAPTER-12",
+    "VO-REGISTRY-11"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-005",
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "covers": [
+    "VO-ADAPTER-03",
+    "VO-ADAPTER-05"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-006",
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "covers": [
+    "VO-ADAPTER-03",
+    "VO-ADAPTER-08"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-007",
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "covers": [
+    "VO-ADAPTER-08",
+    "VO-REGISTRY-09"
+   ]
+  },
+  {
+   "test_id": "TEST-AAPI-010",
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "covers": [
+    "VO-ADAPTER-07",
+    "VO-STATAUDIT-14"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-001",
+   "file": "crates/vtest-adapter-rust/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-02",
+    "VO-ADAPTER-12",
+    "VO-ADAPTER-13"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-002",
+   "file": "crates/vtest-adapter-rust/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-13"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-003",
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "covers": [
+    "VO-EXEC-02"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-004",
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-ARUST-005",
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-ARUST-006",
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-ARUST-007",
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "covers": [
+    "VO-EXEC-08"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-008",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-009",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-010",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-011",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-012",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-11",
+    "VO-STATAUDIT-12"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-013",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-014",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-015",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-11"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-016",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-ARUST-017",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-ARUST-018",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-001",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": [
+    "VO-EXIST-01",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-002",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": [
+    "VO-APPROVE-07",
+    "VO-INTAKE-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-003",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": [
+    "VO-APPROVE-01",
+    "VO-APPROVE-02",
+    "VO-APPROVE-05",
+    "VO-APPROVE-09"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-004",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": [
+    "VO-STRUCTOP-01",
+    "VO-STRUCTOP-04",
+    "VO-STRUCTOP-05",
+    "VO-STRUCTOP-06",
+    "VO-STRUCTOP-12"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-005",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-CLI-006",
+   "file": "crates/vtest-cli/src/lib.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-010",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-PARALLEL-10",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-014",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-14",
+    "VO-AGG-01",
+    "VO-REPORT-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-015",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-14",
+    "VO-AGG-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-016",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-AGG-07",
+    "VO-REGISTRY-01",
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-017",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-REGISTRY-01",
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-018",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-PARALLEL-05",
+    "VO-REGISTRY-01",
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-019",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-PARALLEL-03",
+    "VO-REGISTRY-01",
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-020",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-AGG-01",
+    "VO-INTEG-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-021",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-AGG-01",
+    "VO-INTEG-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-022",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-04",
+    "VO-ADAPTER-11",
+    "VO-EXIST-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-023",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-04",
+    "VO-EXIST-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-024",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXIST-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-025",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-CLI-026",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-14",
+    "VO-STATAUDIT-02",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-027",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-028",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-14",
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-029",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-030",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-031",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-03"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-032",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-04",
+    "VO-EXEC-09",
+    "VO-REGISTRY-11"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-033",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05",
+    "VO-EXEC-11"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-034",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-035",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-036",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-037",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-038",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-INTAKE-04",
+    "VO-SEMAUDIT-04",
+    "VO-SEMAUDIT-10"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-039",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-SEMAUDIT-07",
+    "VO-SEMAUDIT-08"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-040",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-PLAN-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-041",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-02",
+    "VO-APPROVE-04",
+    "VO-INTAKE-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-042",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-AGG-01",
+    "VO-INTEG-01",
+    "VO-INTEG-09"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-043",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-044",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-03",
+    "VO-APPROVE-06"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-045",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-REGISTRY-10"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-046",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-REGISTRY-10"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-047",
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "covers": [
+    "VO-PARALLEL-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-048",
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "covers": [
+    "VO-ADAPTER-12",
+    "VO-PARALLEL-05",
+    "VO-PARALLEL-06",
+    "VO-REGISTRY-13",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-049",
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "covers": [
+    "VO-EXIST-02",
+    "VO-INTEG-04",
+    "VO-REGISTRY-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-050",
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "covers": [
+    "VO-EXIST-01",
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-051",
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "covers": [
+    "VO-EXIST-07",
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-052",
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "covers": [
+    "VO-PARALLEL-01",
+    "VO-PARALLEL-03",
+    "VO-PARALLEL-05",
+    "VO-PARALLEL-10",
+    "VO-REGISTRY-12",
+    "VO-REGISTRY-15",
+    "VO-STRUCTOP-13"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-053",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-01",
+    "VO-APPROVE-02",
+    "VO-APPROVE-05",
+    "VO-APPROVE-09"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-054",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-PLAN-08"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-055",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-056",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-06",
+    "VO-EXIST-02",
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-057",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-058",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-059",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04",
+    "VO-STRUCTOP-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-060",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-CLI-061",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-PLAN-08",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-062",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-INTAKE-01",
+    "VO-INTAKE-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-063",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-05",
+    "VO-EXIST-03",
+    "VO-SEMAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-064",
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-07",
+    "VO-INTEG-04",
+    "VO-REPORT-04",
+    "VO-STRUCTOP-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-065",
+   "file": "C:/programing/SpecTracer/crates/vtest-cli/tests/m3_acceptance.rs",
+   "covers": [
+    "VO-STATAUDIT-01",
+    "VO-STATAUDIT-02",
+    "VO-STATAUDIT-04",
+    "VO-STATAUDIT-05",
+    "VO-STATAUDIT-11"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-066",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-02",
+    "VO-EXEC-04",
+    "VO-EXEC-05",
+    "VO-EXEC-08",
+    "VO-INTEG-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-067",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-04",
+    "VO-EXEC-05",
+    "VO-REGISTRY-11"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-068",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05",
+    "VO-INTEG-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-069",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-070",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-02",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-071",
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "covers": [
+    "VO-EXEC-02",
+    "VO-EXEC-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-072",
+   "file": "crates/vtest-cli/tests/m5_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-SEMAUDIT-02"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-073",
+   "file": "crates/vtest-cli/tests/m5_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-P001-04",
+    "VO-REPORT-04",
+    "VO-SEMAUDIT-03"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-074",
+   "file": "crates/vtest-cli/tests/m5_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-REGISTRY-08",
+    "VO-SEMAUDIT-03"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-075",
+   "file": "crates/vtest-cli/tests/m5_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-REPORT-04",
+    "VO-SEMAUDIT-04",
+    "VO-SEMAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-076",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-EXEC-05",
+    "VO-INTEG-04",
+    "VO-INTEG-08",
+    "VO-REPORT-02",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-077",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-AGG-01",
+    "VO-PLAN-07",
+    "VO-REPORT-01",
+    "VO-SEMAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-078",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-AGG-02",
+    "VO-AGG-08",
+    "VO-EXIST-03",
+    "VO-EXIST-06",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-079",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-AGG-02",
+    "VO-EXEC-01",
+    "VO-EXEC-06",
+    "VO-EXIST-03",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-080",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-AGG-01",
+    "VO-AGG-05",
+    "VO-AGG-06",
+    "VO-REPORT-03"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-081",
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "covers": [
+    "VO-AGG-02",
+    "VO-EXIST-03",
+    "VO-REPORT-01",
+    "VO-STATAUDIT-06"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-082",
+   "file": "crates/vtest-cli/tests/m7_acceptance.rs",
+   "covers": [
+    "VO-EXEC-07",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-083",
+   "file": "crates/vtest-cli/tests/m7_acceptance.rs",
+   "covers": [
+    "VO-EXEC-02",
+    "VO-EXEC-07",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-084",
+   "file": "crates/vtest-cli/tests/m7_acceptance.rs",
+   "covers": [
+    "VO-EXEC-08",
+    "VO-INTEG-04",
+    "VO-REPORT-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-085",
+   "file": "crates/vtest-cli/tests/m8_acceptance.rs",
+   "covers": [
+    "VO-INTEG-03",
+    "VO-INTEG-04",
+    "VO-REPORT-04",
+    "VO-STRUCTOP-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-086",
+   "file": "crates/vtest-cli/tests/m8_acceptance.rs",
+   "covers": [
+    "VO-REGISTRY-06",
+    "VO-REGISTRY-07",
+    "VO-STRUCTOP-12"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-087",
+   "file": "crates/vtest-cli/tests/m8_acceptance.rs",
+   "covers": [
+    "VO-STRUCTOP-06",
+    "VO-STRUCTOP-14"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-088",
+   "file": "crates/vtest-cli/tests/m8_acceptance.rs",
+   "covers": [
+    "VO-STRUCTOP-04"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-089",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-01",
+    "VO-INTEG-08"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-090",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-09"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-091",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-06"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-092",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-08",
+    "VO-INTEG-01",
+    "VO-INTEG-04",
+    "VO-INTEG-08"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-093",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-INTEG-05"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-094",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-APPROVE-08",
+    "VO-EXEC-05",
+    "VO-INTEG-08",
+    "VO-REPORT-02",
+    "VO-STRUCTOP-12"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-095",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-06",
+    "VO-INTEG-08",
+    "VO-STRUCTOP-12"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-096",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-INTEG-05",
+    "VO-STRUCTOP-01"
+   ]
+  },
+  {
+   "test_id": "TEST-CLI-097",
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "covers": [
+    "VO-INTEG-04",
+    "VO-INTEG-05",
+    "VO-INTEG-09",
+    "VO-P001-04",
+    "VO-STRUCTOP-01"
+   ]
+  },
+  {
+   "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
+   "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-MODEL-001",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-MODEL-002",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-MODEL-003",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": [
+    "VO-INTEG-04"
+   ]
+  },
+  {
+   "test_id": "TEST-MODEL-004",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-08"
+   ]
+  },
+  {
+   "test_id": "TEST-MODEL-005",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-MODEL-006",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-MODEL-007",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-MODEL-008",
+   "file": "crates/vtest-model/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-SCAN-001",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-03",
+    "VO-ADAPTER-05",
+    "VO-ADAPTER-08",
+    "VO-REGISTRY-09"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-002",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-08",
+    "VO-ADAPTER-09",
+    "VO-EXIST-07"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-003",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-EXIST-07",
+    "VO-REGISTRY-10"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-004",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-10"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-005",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-EXIST-07",
+    "VO-EXIST-08",
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-006",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-02"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-007",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-02"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-008",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-EXIST-02"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-009",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-02"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-010",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-15"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-011",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-10",
+    "VO-SEMAUDIT-09"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-012",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-03"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-013",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-15"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-014",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-12"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-015",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-REGISTRY-11",
+    "VO-REGISTRY-15"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-016",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-PARALLEL-10"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-017",
+   "file": "crates/vtest-scan/src/lib.rs",
+   "covers": [
+    "VO-APPROVE-01",
+    "VO-INTAKE-03",
+    "VO-PARALLEL-05",
+    "VO-PARALLEL-10"
+   ]
+  },
+  {
+   "test_id": "TEST-SCAN-018",
+   "file": "crates/vtest-scan/src/operations.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-001",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-03"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-002",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-02",
+    "VO-APPROVE-04",
+    "VO-APPROVE-05",
+    "VO-INTAKE-04"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-003",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-02",
+    "VO-APPROVE-03",
+    "VO-APPROVE-09"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-004",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-06"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-005",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-02",
+    "VO-APPROVE-03"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-006",
+   "file": "crates/vtest-store/src/approval.rs",
+   "covers": [
+    "VO-APPROVE-01"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-007",
+   "file": "crates/vtest-store/src/forms.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-008",
+   "file": "crates/vtest-store/src/forms.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-009",
+   "file": "crates/vtest-store/src/forms.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-010",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-011",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-14"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-012",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-013",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-14"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-014",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-11"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-015",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-11",
+    "VO-ADAPTER-14"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-016",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-AGG-01"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-017",
+   "file": "crates/vtest-store/src/lib.rs",
+   "covers": [
+    "VO-ADAPTER-11"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-018",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-019",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-PARALLEL-02"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-020",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-021",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": []
+  },
+  {
+   "test_id": "TEST-STORE-022",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-APPROVE-08"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-023",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-APPROVE-03",
+    "VO-APPROVE-06"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-024",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-PARALLEL-02",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-025",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-026",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-027",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-028",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-029",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-030",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-P001-03",
+    "VO-SEMAUDIT-03"
+   ]
+  },
+  {
+   "test_id": "TEST-STORE-031",
+   "file": "crates/vtest-store/src/records.rs",
+   "covers": [
+    "VO-PARALLEL-02",
+    "VO-PARALLEL-10"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-001",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-EXEC-14"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-002",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02",
+    "VO-STATAUDIT-10"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-003",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02",
+    "VO-STATAUDIT-10"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-004",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-005",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-006",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02",
+    "VO-STATAUDIT-10"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-007",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-05"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-008",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-009",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-010",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-011",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-012",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-013",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06",
+    "VO-STATAUDIT-07"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-014",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-015",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-02"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-016",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06"
+   ]
+  },
+  {
+   "test_id": "TEST-VERIFY-017",
+   "file": "crates/vtest-verify/src/lib.rs",
+   "covers": [
+    "VO-STATAUDIT-06"
+   ]
+  }
+ ]
+}
