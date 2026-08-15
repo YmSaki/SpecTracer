@@ -46,6 +46,36 @@ Owner 判定: **完全未定**。仕様事項か運用ルールかも含めて�
 
 （達成可能 subset のみを管理して緑化する運用は現仕様のまま可能だが、test_traceability は全テスト管理を要するため、black-box テストの扱いが決まるまで dogfood 全体は完了しない。）
 
+## ★全テスト注釈を実施した結果（ultracode, 2026-08-15）— 決定的な実測
+
+Owner 指示「問題1だったものを全部埋めてみて」を ultracode で実行。inventory(24ファイル fan-out) → ontology 生成(SPEC 流用/REQ 7/VO 63, target クラスタ) → annotation(24ファイル fan-out で `@vtest` 適用) → build/scan/verify。
+
+### 注釈の結果
+- **190/204 テストを管理化**（frozen commit f825713）。build + 全206テスト green（注釈は doc-comment で挙動不変）。
+- **14件は管理不能**（structural/architectural テスト）: 依存グラフ検査・API surface 検査・凍結 fixture 不変条件など、**production 関数を target に持たない**。target 必須モデルでは表現できず未注釈のまま。→ 問題2と並ぶ第二の分化欠如（black-box 契約テストとは別カテゴリ）。
+
+### 管理化した190件の static_audit 分布 — **188 UNKNOWN / 3 FAIL / 1 PASS**
+| topology | 件数 | static_audit |
+|---|---|---|
+| in-process（白箱） | 107 | **全て UNKNOWN** |
+| subprocess（黒箱） | 81+3 | UNKNOWN 81 / **FAIL 3** |
+| （既存 M3, 修飾済） | 1 | **PASS** |
+
+**注釈だけでは PASS にならない。管理化 = UNKNOWN 到達であって PASS ではない。** 唯一 PASS したのは既存 M3 テスト（`super::` 修飾済）1件のみ。
+
+### 決定的 finding A（白箱107件, 実測確定）: bare call は runtime でも救済されない
+in-process 白箱テストは target を**本体で呼び結果を assert している**（例 TEST-SCAN-001: `let m = materialize_discovery_batch(&root, observed).unwrap(); assert_eq!(m.adapter, ...)`）のに UNKNOWN。理由:
+- **bare call**（`super::`/`crate::` 修飾なし）→ DA-002「ambiguous/external call」→ UNKNOWN。
+- 同じく DA-003「declared target call is not present in the body」→ UNKNOWN。
+- **measured run で実測**: TEST-SCAN-001 を llvm-cov 実行後も static_audit = **UNKNOWN のまま**。DA-002 は runtime 救済され得るが **DA-003 は runtime 救済経路が無い**ため not-present UNKNOWN が残る。
+- ∴ **白箱テストを PASS にするには、各テスト本体の target 呼出を `super::`/`crate::` で修飾する編集が必要**（推定107件）。annotation だけでは不可、runtime でも不可。idiomatic Rust の `use super::*` + bare call が DA-002/003 と衝突する構造的摩擦。
+
+### finding: 黒箱テストの DA-006 false-FAIL（3件）
+TEST-CLI-022/023/060（subprocess）は DA-006「検証構文なし」で**FAIL**。実際は assert を**helper 関数経由**で行っており本体に inline assert が無いだけ。UNKNOWN より悪い（監査が「検証していない」と断定）。白箱 assert 規則が helper 委譲・黒箱スタイルを誤審する例。
+
+### 総括: all-12-PASS への距離（実測に基づく）
+suite 全体を all-12-PASS にするには — (a) 白箱**107件の本体を修飾編集**（invasive, 監査を通すためにテストコードを書き換える是非も論点）、(b) 黒箱**81件の問題2**を解決（未決）、(c) structural**14件**の target-less 表現（未決）。現状 static_audit を通るのは修飾済み M3 の1件のみ。**「テストを増やすほど管理対象が増える」以前に、管理化しても大半が UNKNOWN で止まる**のが実像。
+
 ## 再現コマンド
 
 ```
