@@ -23,15 +23,15 @@ composability gate は実際に効いた: facet が揃っても構成不能（�
 
 | カテゴリ | 件数 |
 |---|---|
-| **A ontology-gap（導出漏れの obligation を検証していた）** | **8** |
+| **A ontology-gap candidate（upstream re-derivation candidate）** | **8** |
 | B supporting（helper/parser 検証・正当な存在） | 19 |
 | C regression（過去 bug の再発防止・正当な存在） | 3 |
 | D/E/F | 0 |
 
-A の例: 「compat wire fields は decode 時に neutral execution と一致必須（基本仕様 §2.4）」「v1 flat config の compat 読み（詳細設計）」— **top-down 導出が config-compat / wire-compat 領域の obligation を落としていた**ことを既存 test が逆照射。ontology への追補候補 8 件。
+A の例: 「compat wire fields は decode 時に neutral execution と一致必須（基本仕様 §2.4）」「v1 flat config の compat 読み（詳細設計）」。**現時点で確定しているのは「現154 VO に対応先が無い」まで** — Test は gap の**センサー**であって ontology の正典ではない。各件は上流（Normative Spec → design mechanism）から再導出し、spec に要求が無ければ VO に追加しない（8件全部が追補されるとは限らない）。
 
 ## 次段（remap はまだ）
 
-1. **CONTRADICTED 42 の検証パス**: 候補ごとに引用コードを main thread（紛糾時のみ Fable 単発）で追試し、CONFIRMED / REFUTED / NEEDS-SPEC-JUDGMENT に確定。confirmed は SpecTracer 本来の出力「仕様・設計上成立すべき命題に対する反証 evidence」として一級の成果。
-2. A-gap 8 件の ontology 追補（freeze の追記手続き＝gate を単発で通す）。
+1. **CONTRADICTED 42 の検証パス**（4値: **CONFIRMED / REFUTED / NOT-REPRODUCIBLE / NEEDS-SPEC-JUDGMENT**）。REFUTED=候補の論理自体が誤り、NOT-REPRODUCIBLE=local observation は正しいが reachable path/前提の欠如で system-level 反例が成立しない — 両者の区別が contradiction detector の品質評価を可能にする。NEEDS-SPEC-JUDGMENT で spec が silent なら **SPEC GAP** として surface（実装バグではない）。CONFIRMED の成立条件は8点鎖を必須とする: (1)VO claim (2)normative source (3)design mechanism (4)反例を起こす concrete condition/input (5)implementation path (6)expected (7)actual (8)**actual が claim を論理的に否定する理由**（local omission ≠ system-level contradiction。他 gate が必ず reject するなら非成立。reachable + 他 gate 不 reject + normative behavior 破れ、まで通す）。
+2. A-gap candidate 8 件の**上流再導出**（spec に要求あり→mechanism 確認→omission 確定 / 無し→追加しない）。genuine omission が出れば **freeze v2 → controlled amendment → freeze v3**（154 を最終数として守らない。Test 起点の疑義を上流から正当に再導出した amendment は freeze の失敗ではない）→ adequacy 再計算。
 3. その後に新 covers 設計 → 適用 → doctor → 旧63 retire（比較資料保存）。
