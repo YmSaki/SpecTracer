@@ -974,6 +974,80 @@ fn parse_check_value(value: &str) -> CheckValue {
     }
 }
 
+/// Pure-static fold of per-target verdicts into a rule-level verdict
+/// (詳細設計 §7.2): FAIL dominates, then UNKNOWN, else PASS. Evidence is never
+/// consulted; this is the value persisted on the record and the one the
+/// malformed-consistency check re-derives. An empty list folds to UNKNOWN
+/// (fail-closed); callers never persist a target-scoped rule with an empty list.
+pub fn pure_static_fold(verdicts: &[CheckValue]) -> CheckValue {
+    if verdicts.contains(&CheckValue::Fail) {
+        CheckValue::Fail
+    } else if verdicts.is_empty() || verdicts.contains(&CheckValue::Unknown) {
+        CheckValue::Unknown
+    } else {
+        CheckValue::Pass
+    }
+}
+
+/// Classify whether a static Audit Record's per-target verdict lists are
+/// malformed (詳細設計 §3.6 → E-SCAN-010). Returns the defect reason when the
+/// record must be excluded from the valid set — its per-target FAILs are then
+/// not extracted either — or `None` when every target-scoped reason is well
+/// formed. `declared_canonical` is the deduplicated set of canonical Locators of
+/// the Test's declared targets. Per DA-002 / DA-003 reason that carries a
+/// per-target list: the target set equals `declared_canonical` with no missing,
+/// duplicate, or surplus entry, and the rule verdict is the pure-static fold of
+/// the per-target verdicts.
+pub fn static_record_target_defect(
+    record: &AuditRecord,
+    declared_canonical: &BTreeSet<String>,
+) -> Option<String> {
+    for reason in &record.reasons {
+        if reason.targets.is_empty() {
+            continue;
+        }
+        let rule = reason.rule.as_deref().unwrap_or("<unnamed>");
+        let mut seen = BTreeSet::new();
+        for target in &reason.targets {
+            if !seen.insert(target.target.clone()) {
+                return Some(format!(
+                    "rule {rule} lists target {} more than once",
+                    target.target
+                ));
+            }
+            if !declared_canonical.contains(&target.target) {
+                return Some(format!(
+                    "rule {rule} lists target {} which the Test does not declare",
+                    target.target
+                ));
+            }
+        }
+        if &seen != declared_canonical {
+            return Some(format!(
+                "rule {rule} per-target set does not match the {} declared targets",
+                declared_canonical.len()
+            ));
+        }
+        let verdicts: Vec<CheckValue> = reason
+            .targets
+            .iter()
+            .map(|target| parse_check_value(&target.verdict))
+            .collect();
+        let folded = pure_static_fold(&verdicts);
+        let stored = reason
+            .verdict
+            .as_deref()
+            .map(parse_check_value)
+            .unwrap_or(CheckValue::Unknown);
+        if folded != stored {
+            return Some(format!(
+                "rule {rule} verdict {stored:?} is not the pure-static fold {folded:?} of its per-target verdicts"
+            ));
+        }
+    }
+    None
+}
+
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     let text = read_text(path)?;
     let fallback = path
@@ -2589,6 +2663,103 @@ mod tests {
         // A non-target-scoped rule (DA-001) emits no targets block.
         assert_eq!(yaml.matches("    targets:\n").count(), 2);
         assert_eq!(AuditRecord::from_yaml(&yaml, &id).unwrap(), record);
+    }
+
+    fn target_verdict(target: &str, verdict: &str) -> AuditTargetVerdictRecord {
+        AuditTargetVerdictRecord {
+            target: target.to_owned(),
+            verdict: verdict.to_owned(),
+            basis: vec![AuditBasisRecord {
+                kind: "test-code".to_owned(),
+                reference: "rust-cargo::tests/t.rs::case:1".to_owned(),
+            }],
+        }
+    }
+
+    fn da002_record(rule_verdict: &str, targets: Vec<AuditTargetVerdictRecord>) -> AuditRecord {
+        AuditRecord {
+            id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_owned(),
+            kind: "static".to_owned(),
+            bundle_id: None,
+            subjects: Vec::new(),
+            verdict: "UNKNOWN".to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: Some("DA-002".to_owned()),
+                verdict: Some(rule_verdict.to_owned()),
+                claim: "reachability".to_owned(),
+                basis: vec![AuditBasisRecord {
+                    kind: "test-code".to_owned(),
+                    reference: "rust-cargo::tests/t.rs::case:1".to_owned(),
+                }],
+                targets,
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: false,
+            },
+        }
+    }
+
+    fn declared(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|item| (*item).to_owned()).collect()
+    }
+
+    #[test]
+    fn pure_static_fold_is_fail_dominant_then_unknown_then_pass() {
+        use CheckValue::*;
+        assert_eq!(pure_static_fold(&[Pass, Fail, Unknown]), Fail);
+        assert_eq!(pure_static_fold(&[Pass, Unknown]), Unknown);
+        assert_eq!(pure_static_fold(&[Pass, Pass]), Pass);
+        // An empty list folds to UNKNOWN, never a vacuous PASS.
+        assert_eq!(pure_static_fold(&[]), Unknown);
+    }
+
+    #[test]
+    fn well_formed_per_target_record_has_no_defect() {
+        let record = da002_record(
+            "UNKNOWN",
+            vec![target_verdict("A", "PASS"), target_verdict("B", "UNKNOWN")],
+        );
+        assert_eq!(
+            static_record_target_defect(&record, &declared(&["A", "B"])),
+            None
+        );
+    }
+
+    #[test]
+    fn surplus_missing_or_duplicate_targets_are_malformed() {
+        let surplus = da002_record(
+            "UNKNOWN",
+            vec![target_verdict("A", "PASS"), target_verdict("B", "UNKNOWN")],
+        );
+        assert!(static_record_target_defect(&surplus, &declared(&["A"])).is_some());
+
+        let missing = da002_record("PASS", vec![target_verdict("A", "PASS")]);
+        assert!(static_record_target_defect(&missing, &declared(&["A", "B"])).is_some());
+
+        let duplicate = da002_record(
+            "PASS",
+            vec![target_verdict("A", "PASS"), target_verdict("A", "PASS")],
+        );
+        assert!(static_record_target_defect(&duplicate, &declared(&["A"])).is_some());
+    }
+
+    #[test]
+    fn rule_verdict_inconsistent_with_the_fold_is_malformed() {
+        // Per-target PASS + UNKNOWN folds to UNKNOWN; a stored PASS contradicts it.
+        let record = da002_record(
+            "PASS",
+            vec![target_verdict("A", "PASS"), target_verdict("B", "UNKNOWN")],
+        );
+        assert!(static_record_target_defect(&record, &declared(&["A", "B"])).is_some());
     }
 
     #[test]

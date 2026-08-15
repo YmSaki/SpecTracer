@@ -118,6 +118,9 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 - [x] **PR #5 マージ完了**（Owner）。develop=2aa428e。feature へ merge 済（新 spec 取込、競合なし）。
 - [x] 別紙B に §5 実装項目追記（M3/W4・M7/W5・M6/W6 マッピング、Phase 1/2）。
 - [ ] **← 実装 Phase 1（現在ここ）**: 5.1 per-target verdict + DA-003 pin（M3/W4）→ 5.3 評価時 join + §11.3 scope（M6/W6）。in-process/cross-crate で検証、subprocess coverage 非依存。
+  - [x] W4 step2 adapter per-target loop + version bump（a20ccec）
+  - [x] W4 step3 core fold所有 + store per-target round-trip + classifier（0e8a7c9 impl / 2ef1356 test）。find_target_source を scan へ公開。malformed classifier `static_record_target_defect` は W6 verify が呼ぶ。
+  - [ ] **← W6 評価時 join（現在ここ）**: verify が static_audit を検証時算出（保存 fold は使わない）。per-target 実効 DA-002（§8.5）× runtime target_execution（§11.2）。classifier で malformed 除外。§11.3 scope。+ 横断 finding（Evidence identity canonical 化）。
 - [ ] 実装 Phase 2: 5.2 subprocess coverage 帰属（M7/W5）。高リスク、実現性検証先行。
 - [ ] SPEC-DOGFOOD-M3.yaml sha256 再登録 → dogfood 再実行 → 残 W8 gate
 
@@ -176,6 +179,15 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 - **malformed 検査（E-SCAN-010）**: 単一分類関数 `classify_static_record`（Valid/Malformed/Stale）を **core（vtest-audit）に実装**し W6 verify(§8.5) が呼ぶ。条件: target集合≠宣言canonical集合（欠落/重複/余剰）| per-target fold≠rule verdict。malformed は有効集合から除外し per-target FAIL も抽出しない（L422）。
 
 実行分割: **main thread** = find_target_source 移動 / store struct+field 凍結 / write 側（canonical解決・fold・cross-check・re-aggregate）/ classifier / exemplar YAML + round-trip golden。**subagent 委譲** = 別紙C §18.2 malformed fixtures 手書き + 追加 acceptance 更新（struct 凍結・exemplar 後）。壊れる acceptance は spec 節引用の test-only 別コミット。
+
+### W6 評価時 join 実装計画（advisor 承認, 別紙C §18.3.2 が受入マトリクス）
+一次情報: runtime 側 `evidence: BTreeMap<test_id, EvidenceRecord>` は `read_evidence_records`（verify:1608）が test ごと最新1件のみ保持＝§11.2 選択が**データ構造で強制**（古い有効 Evidence へフォールバック不能）。`TargetExecutionObservation{target:String canonical, result:CheckValue, count:Option<u64>}`（model:791）。static 側 valid record の DA-002/003 per-target を §8.5 で実効選択。
+- `evaluate_static_audit(layout,scan)` → `(root,layout,evidence,scan)` に変更。dispatcher(647) は既に4値保持。
+- **手順（各 test）**: (1) declared_canonical = `test.targets` を find_target_source で canonical 集合へ。**解決不能 target が1件でもあれば先頭で非PASS+診断**（classifier を空集合で回さない）。(2) valid record 選択: **subject-currency 通過 → その後 classifier**（`static_record_target_defect`）。stale は classifier より先に落とす（stale≠malformed, 値もメッセージも別）。classifier-malformed は既存 parse-malformed バケツへ合流＝UNKNOWN 強制。(3) 実効選択: **FAIL 支配は全 valid record 横断**、非FAIL は**最新 valid record 1件**の当該 target verdict（古い PASS で UNKNOWN を上書きしない, L1009）。valid は全て classifier 通過＝target 集合同一 + store validate が全6 rule 強制 → lookup total。(4) DA-002 per-target 到達: effective PASS→到達 / effective UNKNOWN→runtime 証明成立時のみ到達 / effective FAIL→未達（救済不可）。runtime 証明 = **evidence_validity==PASS ∧ checked ∧ 当該 canonical の per-target result==PASS ∧ count>0**（literal）。(5) DA-003 per-target・DA-001/004/005/006 は §8.5 実効、DA-003 UNKNOWN は runtime 救済せず非PASS 寄与。(6) static_audit = 全宣言 target 到達充足 ∧ 全ルール PASS のとき PASS、FAIL 支配、それ以外 UNKNOWN。runtime 救済 basis に Evidence record ID を引用。
+- **invariant**: L963「充足済み到達は算出時点で UNKNOWN を生じない」をコード comment に引用（PR#5 争点）。§11.3: 限定 scope（--items static_audit）でも Evidence 鮮度/target_execution を内部依存評価、scope 外 item の report value は NOT_CHECKED 保持（L109）。
+- no-per-target→STALE は三層（version bump が CONFIG hash 変更で v1 自動 STALE / incomplete-closure v2 は target subject 欠落で binds_test_subjects が落とす / 明示 per-target 欠落チェックは手書き・破損用の薄い第三層）。
+- **テスト先行**: R1(DA-002 FAIL)/R2(UNKNOWN) 矛盾 record を**手書き fixture**で（決定論監査で生成不能, L107）。matrix=別紙C §18.3.2 L101-112（UNKNOWN+cov PASS→PASS / per-target FAIL 救済不可 / NOT_CHECKED·STALE·Evidence 不在 救済不可 / DA-003 UNKNOWN 据置 / malformed 除外+UNKNOWN / legacy→STALE / 多 target A静的 B runtime / 構造のみ未達）。既存 `write_static_audit` helper(verify:1806) は legacy 形状 → `static_audit_uses_only_current_per_test_records_and_fail_wins` 等が**設計どおり壊れる** → helper に per-target 変種追加・期待値更新は §7.3 L1019/L990 引用の test-only コミット。
+- **コミット**: join impl + co-located unit tests / fixture・期待値更新 test-only / Evidence canonical 化は独立。
 
 ### ★W6 前提として持ち越す横断 finding（Evidence identity 整合）
 Evidence writer（vtest-exec:177）は `test.entity.targets[i].normalized()`（宣言形）で target_execution/hashes.targets の identity を書く。SrcId 宣言（M3 `@vtest.target SRC-*`, TEST-DUAL-SRC 等が実使用）では SrcId 文字列になり、W4 の静的 record（canonical Locator）と §7.3 join で不一致になる。spec §6.1.1/§921 は**両者 canonical 必須**。→ **W6 で join を配線する際、Evidence writer も find_target_source 経由で canonical へ揃える**（Evidence YAML が SrcId target で変わる＝該当 acceptance を spec 節引用で更新）。W4 単体テストには影響しない（join は W6）。
