@@ -154,3 +154,35 @@ tests/fixtures/calc/
 - helper / fixture / 通常sourceの編集管理（OOS-003）
 - 開発process管理（OOS-004）
 - 本冊 §19の提供範囲外事項
+
+## 5. 到達 static/runtime 補完（PR #5）実装項目
+
+PR #5（詳細設計 §3.6・§7.1〜§7.3・§10.1〜§10.2・§11.2〜§11.3、別紙A・別紙C）を満たすため、既存 M3 / M6 / M7 を該当 wave まで戻って再修正する。
+
+### 5.1 M3 / W4 — per-target verdict と DA-003 pin（情報モデル）
+- `vtest-adapter-rust` static_audit: DA-002 / DA-003 を宣言 target ごとの verdict（PASS/UNKNOWN/FAIL + basis）で返す（fold 前）。
+- DA-003: 宣言 target への呼出が Test 本体に現れない場合（subprocess spawn 等）は UNKNOWN に pin（空虚 PASS/FAIL 禁止）。
+- `vtest-adapter-api` / `vtest-model`: RuleObservationDraft が per-target verdict list を持つ。
+- `vtest-audit`(core): per-target verdict を保存、規則単位 verdict は純静的 fold の派生値。
+- `vtest-store`: 監査 record read/write に per-target verdict。malformed（欠落/重複/余剰/宣言target不一致/純静的fold不整合）= E-SCAN-010、有効 record から除外。
+- static rule-set version を bump（既存 record が STALE 化）。
+- 完了条件（別紙C §18.3.2）: per-target verdict の1:1・純静的fold整合・malformed=E-SCAN-010・旧 record STALE。
+
+### 5.2 M7 / W5 — subprocess coverage 帰属（capability）
+- `vtest-adapter-rust` coverage: 起動した subprocess / spawn thread の実行を宣言 target へ帰属（起動実行体も instrument 対象化＋子プロセス profile merge、LLVM_PROFILE_FILE 継承）。
+- 帰属不能なら当該 target UNKNOWN、計測不能なら `target_execution = NOT_CHECKED`（能力欠如で捏造しない）。
+- 完了条件（別紙C §18.3.6）: subprocess/thread 実行の target 別 PASS、帰属不能時 UNKNOWN / NOT_CHECKED。
+- **★リスク**: spike で現状 0%。実現性を最初に検証。不能なら capability 無しとして fail-closed のまま出荷し別途課題化（DA-002 は UNKNOWN のまま）。
+
+### 5.3 M6 / W6 — 評価時 join と scope（統合）
+- `vtest-verify`: static_audit 項目を検証時に算出（target ごとに 静的到達 / runtime到達 / 未充足、全 target 充足かつ DA-001/003/004/005/006 全 PASS で PASS）。
+- 選択規則再利用: per-target DA-002 は §3.6/§8.5 を per-target 適用、runtime は §11.2 選択 Evidence（`evidence_validity = PASS` 時）。§11.2 と独立に fallback しない。
+- §11.3: 表示 scope と内部依存評価の分離（`--items static_audit` で Evidence 鮮度/target_execution を内部依存評価、scope 外 report value は NOT_CHECKED）。
+- report: runtime 依存 static_audit は Evidence 根拠を引用。
+- 完了条件（別紙C §18.3.2）: 評価時 join、A=static/B=runtime の multi-target、subprocess は PASS 不到達、限定 scope 依存評価、履歴不一致を生じない。
+
+### 5.4 順序
+- **Phase 1**: 5.1（M3/W4）→ 5.3（M6/W6）= per-target verdict + 評価時 join。in-process / cross-crate で検証可能、subprocess coverage 非依存。
+- **Phase 2**: 5.2（M7/W5）= subprocess coverage。独立・高リスク、実現性検証を先行。
+- 各 Phase で `cargo test --workspace` / clippy / fmt / `vtest doctor` の gate を通す。
+- 完了後: SPEC-DOGFOOD-M3 sha256 再登録 → dogfood 再実行。

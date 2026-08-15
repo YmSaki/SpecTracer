@@ -115,10 +115,16 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
       - open item: subprocess coverage 帰属は実装課題（spike 実証）／STRUCTURAL は本モデル未解決
 - [x] Owner REQUEST CHANGES（1 blocker）: モデルは正しいが複数 target の join 評価に必要な **target 別 static verdict が canonical record に無い**（DA-002/003 は fold 済み test 単位のみ）。「情報モデルを先に仕様化」。
       → 追加2コミット: (1fbe73d) 情報モデル — static record の DA-002/003 に per-target verdict list（§3.6/§7.1 adapter契約/§7.2 fold・version bump/別紙A wire/別紙C）。(9078c87) join 再配線 — §7.3 は single-record から per-target DA-002 verdict を読む。DA-002 のみ join、DA-003 は記録のみ。PR #5 に push・再レビュー依頼済。
-- [ ] **← Owner が PR #5 を再レビュー・マージ（現在ここで停止）**
-- [ ] （merge 後）別紙B 実装計画へ追加 → 必要 W へ戻り実装修正（runner/coverage の subprocess 帰属含む）
-- [ ] SPEC-DOGFOOD-M3.yaml sha256 再登録（詳細設計変更で stale）
-- [ ] dogfood 再実行 → 残 W8 gate
+- [x] **PR #5 マージ完了**（Owner）。develop=2aa428e。feature へ merge 済（新 spec 取込、競合なし）。
+- [x] 別紙B に §5 実装項目追記（M3/W4・M7/W5・M6/W6 マッピング、Phase 1/2）。
+- [ ] **← 実装 Phase 1（現在ここ）**: 5.1 per-target verdict + DA-003 pin（M3/W4）→ 5.3 評価時 join + §11.3 scope（M6/W6）。in-process/cross-crate で検証、subprocess coverage 非依存。
+- [ ] 実装 Phase 2: 5.2 subprocess coverage 帰属（M7/W5）。高リスク、実現性検証先行。
+- [ ] SPEC-DOGFOOD-M3.yaml sha256 再登録 → dogfood 再実行 → 残 W8 gate
+
+### 実装対象クレート（PR #5）
+- W4: adapter-rust/static_audit.rs（per-target verdict, DA-003 pin）, adapter-api/model（RuleObservationDraft）, vtest-audit（純静的 fold）, store/records.rs（record + E-SCAN-010）
+- W6: vtest-verify（評価時 join, §11.2/§3.6/§8.5 再利用, §11.3 scope, basis 引用）
+- W5: adapter-rust/runner.rs coverage（subprocess 帰属）
 
 ### 注記（Owner 判断待ち事項）
 - origin/develop(036a166) は local develop(4357562, #3 マージ済) より3コミット遅延。PR #5 は origin/develop 基準の単一コミットに rebase 済み。develop の同期は Owner 管理。
