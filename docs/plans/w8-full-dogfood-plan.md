@@ -124,6 +124,16 @@ gate: 全コミットで fmt + clippy -D warnings + workspace test green（206 t
 - 達成可能 subset の実行: 対象選定 → 一括注釈（target 修飾込み, finding A）→ 真正 semantic/impl/vo-coverage bundle+submit（機械的 PASS 量産禁止）→ VO approve → measured run → full verify。大規模・多時間。
 - SPEC-DOGFOOD-M3.yaml sha256 再登録（W-SCAN-104 既出＝詳細設計 doc 変更由来）。
 
+## ★dogfood 実行フェーズ（Owner 指示 2026-08-15: 問題1=全テスト管理を ultracode で埋める）
+Owner 指示: 「問題1だったもの（未注釈205件）を全部埋めてみて。サブエージェント/ultracode で」。仕様変更なし。black-box(問題2)は parked だが、注釈自体は可能（target を実シンボルにすれば test_traceability は通る。static_audit UNKNOWN は問題2として観測）。
+段階設計（VO 一貫性のため main thread が ontology 所有・fan-out は読取り/適用のみ）:
+1. **inventory workflow（read-only, 実行中 wf_82f1b92f-93a）**: 24ファイルを fan-out、各テストの {test_fn, target(locator or ""), intent, topology(in-process/subprocess/structural)} を分類 JSON で返す。black-box/white-box 定量も兼ねる。
+2. **ontology 生成（main thread）**: inventory から SPEC/REQ/VO を設計。record 作成手段=CLI `vtest spec add --id --path --title` / `vtest req add --id --summary --spec --sections` / `vtest vo add --id --claim --req --spec --sections`。既存=SPEC-DOGFOOD-M3(詳細設計)/REQ-DOGFOOD-M3/VO-DOGFOOD-M3。方針: SPEC=spec docs、REQ=crate/subsystem 単位、VO=test-cluster or per-test。dangling 回避のため SPEC→REQ→VO→TEST を全段繋ぐ。
+3. **annotation workflow（fan-out per file, source 編集）**: 各テスト fn の上に doc-comment `/// @vtest.id <ID>` `/// @vtest.covers <VO>` `/// @vtest.target <locator>` `/// @vtest.intent <text>` を追記（別ファイルなので worktree 不要・並列安全）。map は main thread 供給、sub-agent は適用のみ（発明禁止）。
+4. **verify**: test_traceability を確認。black-box の static_audit UNKNOWN 等の問題を観測・記録。
+注意: 注釈は construct hash を変えるので、注釈を全コミット後に audit/evidence 再生成（finding E, frozen tree）。
+自己チェック: 断定は advisor/sonnet に当ててから出す（[[check-overclaims-with-second-model]]）。
+
 ## 進捗
 - [x] doctor exit 0（記録同期コミット 0fae5ef）
 - [x] Pilot 1 実証（9/12 PASS, per-test 全経路, finding A-E）＋ M3 `super::` 修飾修正（未コミット）
