@@ -698,8 +698,15 @@ pub(crate) fn rule_da003(
     let all_verified = called && analyzer.all_origins.is_subset(&analyzer.verified_origins);
     let verdict = if analyzer.uncertain || helper_boundary {
         AuditVerdict::Unknown
-    } else if !called || should_panic || all_verified {
+    } else if should_panic || all_verified {
         AuditVerdict::Pass
+    } else if !called {
+        // Fable review Blocker 1: the declared target call is not present in the
+        // test body (a subprocess-driven test executes it in another process, or
+        // a spawned thread hides it).  A result that is not produced in-body
+        // cannot be verified statically, so this is UNKNOWN — never a vacuous
+        // PASS (§7.2 "呼出そのものが Test 本体に現れない場合の DA-003", §7.3).
+        AuditVerdict::Unknown
     } else {
         AuditVerdict::Fail
     };
@@ -707,19 +714,18 @@ pub(crate) fn rule_da003(
         rule: "DA-003".to_owned(),
         verdict,
         reason: match verdict {
+            AuditVerdict::Unknown if helper_boundary => {
+                "target result crosses a same-file helper boundary".to_owned()
+            }
+            AuditVerdict::Unknown if !called => {
+                "declared target call is not present in the body; result verification is not statically decidable"
+                    .to_owned()
+            }
             AuditVerdict::Unknown => {
-                if helper_boundary {
-                    "target result crosses a same-file helper boundary".to_owned()
-                } else {
-                    "target result crosses a macro, closure, mutation, or control-flow boundary"
-                        .to_owned()
-                }
+                "target result crosses a macro, closure, mutation, or control-flow boundary".to_owned()
             }
             AuditVerdict::Fail => {
                 "at least one target result does not reach assert-like syntax".to_owned()
-            }
-            AuditVerdict::Pass if !called => {
-                "target is not called, so result-flow is not applicable".to_owned()
             }
             AuditVerdict::Pass if should_panic => {
                 "#[should_panic] verifies the target failure behavior".to_owned()
@@ -1942,8 +1948,8 @@ mod tests {
                 &[],
             )
             .verdict,
-            AuditVerdict::Pass,
-            "DA-002 owns target reachability for an unrelated external call"
+            AuditVerdict::Unknown,
+            "the declared target is not called in-body, so its result cannot be verified statically (UNKNOWN, not a vacuous PASS)"
         );
     }
 
