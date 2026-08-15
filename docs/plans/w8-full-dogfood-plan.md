@@ -136,6 +136,15 @@ Normative Specification → Requirement → Design decision/mechanism → VO →
 - **inventory の使い所は後段**: 192管理テストの分類・突合データは「VO ↔ Test 突合」フェーズで生きる（例: resolver 非対称は『discovery/audit が同一 target に異なる resolution を返してはならない』という VO の違反 evidence として表現される — これが SpecTracer の本来の向き）。
 - 旧 bottom-up 63 VO/7 REQ は 191 注釈が参照中のため削除しない（dangling covers 防止）。remapping フェーズで置換。
 
+### ★★現在地（2026-08-15 compact 前 handoff）: contradiction verification 完了 → root-cause clustering 走行中
+- **検証パス完了**（c493432, dossiers=docs/plans/dogfood-contradiction-verification.json）: 42候補 → **CONFIRMED 39 / REFUTED 2（VO-EXEC-10, VO-PLAN-06）/ NEEDS-SPEC-JUDGMENT 1（VO-STATAUDIT-01）/ NOT-REPRO 0**。8点鎖+隔離再現付き。報告書（w8-contradiction-verification.md）に「39/42 確認率自体への懐疑注記＝サンプル再懐疑 or Owner dossier レビュー推奨」明記。
+- **`/** */` 件（VO-REGISTRY-05）の root cause 特定済み**: discovery は syn attribute 経由（///と/** */が同じ #[doc] に脱糖＝形式非依存でタダで両対応, discovery.rs:93）、edit renderer は raw text で `starts_with("///")` のみ（operations.rs:523）。**AST vs raw text の表現レベル差から創発した意図なき非対称** + operations.rs は adapter 分離以前の M4 期コードで create 側だけ移設済み・edit renderer が移設漏れ。自然な修正形= StructuredTestAdapter に edit-rendering 契約を追加し renderer を adapter へ（着手は Owner 判断/P-001）。
+- **root-cause clustering worker（opus, 背景走行中）**: 39 CONFIRMED を「単一修正で全 member が消えるか」基準でクラスタ化 → docs/plans/dogfood-rootcause-clusters.json に書く。完了通知が来たら: 全39の exactly-one 被覆を検証 → クラスタ構造を裁定 → 報告書化+コミット。
+- **検証閉包 thesis 正典化済み**（docs/reports/verification-closure-thesis.md, cce3c40 + memory）。auxiliary test（22件）と covers≥1 の張力は未決仕様判断。
+- **残パイプライン**: clustering 裁定 → VO-STATAUDIT-01 の仕様判断（Owner）→ A-gap candidate 8 の上流再導出（Test はセンサーであって正典でない）→ 必要なら freeze v3 → adequacy 再計算 → covers 設計（auxiliary に偽 covers 禁止）→ 適用 → 旧63/7 retire（比較資料保存）。
+- 数値正典: 206 scan可視 = 192 managed + 14 unmanaged(structural)。154 VO = PROVEN 14 / PARTIAL 67 / UNSUPPORTED 31 / CONFIRMED 39+α（4値は dogfood-evidence-adequacy.json の final_per_vo、検証後の再計算はまだ）。
+- ワーカーモデル方針: 通常=明示 opus（+effort で調整）、Fable は最重要単発のみ（週間残量注意）。
+
 ### 現在地: adequacy フェーズ（shadow mapping 完了後, Owner 3点補正反映済み b944b60）
 - shadow mapping 完了（7ba3f76, docs/plans/dogfood-shadow-mapping.json）: Test側 15 proves/147 partial/30 none、VO側 13 proven/88 partial/23 touched/30 uncovered。506 candidate mappings 中 PARTIAL 349、negative facet 欠落 153 / positive 欠落 154（単位=candidate mapping）。
 - **covers 意味論確定**（基本仕様§6.2/§7.4）: covers=対応宣言（test_existence/traceability 駆動）、十分性= vo-coverage 監査。Evidence Set ⊨ VO の判定席は監査理由（第一級 record 無し=finding）。remap 安全。
