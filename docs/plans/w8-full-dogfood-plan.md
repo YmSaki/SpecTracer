@@ -136,6 +136,12 @@ Normative Specification → Requirement → Design decision/mechanism → VO →
 - **inventory の使い所は後段**: 192管理テストの分類・突合データは「VO ↔ Test 突合」フェーズで生きる（例: resolver 非対称は『discovery/audit が同一 target に異なる resolution を返してはならない』という VO の違反 evidence として表現される — これが SpecTracer の本来の向き）。
 - 旧 bottom-up 63 VO/7 REQ は 191 注釈が参照中のため削除しない（dangling covers 防止）。remapping フェーズで置換。
 
+### 現在地: adequacy フェーズ（shadow mapping 完了後, Owner 3点補正反映済み b944b60）
+- shadow mapping 完了（7ba3f76, docs/plans/dogfood-shadow-mapping.json）: Test側 15 proves/147 partial/30 none、VO側 13 proven/88 partial/23 touched/30 uncovered。506 candidate mappings 中 PARTIAL 349、negative facet 欠落 153 / positive 欠落 154（単位=candidate mapping）。
+- **covers 意味論確定**（基本仕様§6.2/§7.4）: covers=対応宣言（test_existence/traceability 駆動）、十分性= vo-coverage 監査。Evidence Set ⊨ VO の判定席は監査理由（第一級 record 無し=finding）。remap 安全。
+- **adequacy workflow 起動**: (P1) 88 partial VO → required facets 正規化 → test 横断候補集約 → facet completeness → **composability gate**（欄埋め≠証明。同一契約への evidence set として構成可能か）→ SUFFICIENT/PARTIAL/CONTRADICTED/NONE。CONTRADICTED=実装が claim に反する実測（w8-dogfood-findings.md の resolver 非対称等を各 area で照合）、INSUFFICIENT と区別。(P2) proves_no_vo 30 test を A ontology-gap/B supporting/C regression/D impl-detail/E redundant/F obsolete に分類（B/C は存在してよい。Test exists ≠ must prove VO）。
+- その後: Sufficient Evidence Set 確定 → uncovered/insufficient/contradicted 確定 → 新 covers 適用 → doctor → 旧63 retire（比較資料は保存: bottom-up が見落とした/束ねた/test-cluster に引かれた obligations 分類 = test-derived traceability の危険の自己実証）。
+
 ### Owner 確定パイプライン（destructive remap は最後）
 ```
 118 VO 登録 → [ONTOLOGY FREEZE GATE]（今ここ） → 192 Test shadow mapping（covers 不変・非破壊）
