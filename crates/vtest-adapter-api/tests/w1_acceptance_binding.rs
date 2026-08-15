@@ -48,6 +48,7 @@ impl StaticAuditAdapter for SyntheticStaticAudit {
                 verdict: CheckValue::Pass,
                 reason: "synthetic assertion is present".to_owned(),
                 location: test.location.clone(),
+                targets: Vec::new(),
             }],
             config: StaticAuditConfigDraft {
                 rule_set_id: "synthetic-static".to_owned(),

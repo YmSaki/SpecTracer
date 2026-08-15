@@ -156,12 +156,29 @@ pub struct ExecutionStateDraft {
 /// human-readable reasons, and source locations can only originate here.  The
 /// core reshapes these into the persisted `AuditRecord` reasons (rule / verdict
 /// / claim / basis) and the CLI `data.audits[].rules[]` projection.
+/// A per-target verdict for a target-scoped rule (DA-002 / DA-003).  The adapter
+/// returns one entry per declared target *before* the core folds them into the
+/// rule-level `verdict`; the core maps `target` to its canonical Locator for the
+/// persisted record (詳細設計 §3.6, §7.1, §7.2).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct RuleTargetVerdictDraft {
+    pub target: TargetRef,
+    pub verdict: CheckValue,
+    pub reason: String,
+    pub location: SourceLocation,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RuleObservationDraft {
     pub rule: String,
     pub verdict: CheckValue,
     pub reason: String,
     pub location: SourceLocation,
+    /// Per-target verdicts for the target-scoped rules DA-002 / DA-003; empty
+    /// for non-target-scoped rules.  The rule-level `verdict` above is the pure
+    /// static fold of these (§7.2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<RuleTargetVerdictDraft>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

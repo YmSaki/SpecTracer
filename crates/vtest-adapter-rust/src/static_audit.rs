@@ -1767,6 +1767,7 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
                 verdict: verdict_to_check(rule.verdict),
                 reason: rule.reason,
                 location: rule.location,
+                targets: Vec::new(),
             })
             .collect();
 
