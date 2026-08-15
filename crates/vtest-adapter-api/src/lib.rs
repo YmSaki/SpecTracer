@@ -660,6 +660,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-AAPI-001
+    /// @vtest.covers VO-AAPI-001
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent Registering two adapters with the same ID is rejected as a duplicate
     #[test]
     fn registry_rejects_duplicate_adapter_ids() {
         let error = AdapterRegistry::from_registrations([
@@ -671,6 +675,10 @@ mod tests {
         assert!(error.to_string().contains("duplicate adapter ID"));
     }
 
+    /// @vtest.id TEST-AAPI-002
+    /// @vtest.covers VO-AAPI-002
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::ids
+    /// @vtest.intent Registry iteration and lookup are deterministically ordered by adapter ID
     #[test]
     fn registry_iteration_and_lookup_are_id_sorted() {
         let registry = AdapterRegistry::from_registrations([
@@ -692,6 +700,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-AAPI-003
+    /// @vtest.covers VO-AAPI-001
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent A declared capability with no implementation is rejected at registration
     #[test]
     fn registry_rejects_declared_capability_without_implementation() {
         let mut descriptor = descriptor("synthetic");

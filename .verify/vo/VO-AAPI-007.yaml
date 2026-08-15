@@ -1,0 +1,13 @@
+id: 'VO-AAPI-007'
+parent: null
+requirements: ['REQ-AAPI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'missing_capability_semantics: Missing capabilities map to specific non-pass semantics states'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

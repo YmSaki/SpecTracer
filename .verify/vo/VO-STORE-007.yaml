@@ -1,0 +1,13 @@
+id: 'VO-STORE-007'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'new_record_id: 4096 generated record ids are unique and valid ULIDs'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

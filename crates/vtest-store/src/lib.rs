@@ -597,6 +597,10 @@ pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 3], StoreError> {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-STORE-010
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Default config serialized then parsed preserves name, includes, coverage
     #[test]
     fn generated_config_round_trips_m1_fields() {
         let expected = ProjectConfig::default_for("calc");
@@ -606,6 +610,10 @@ mod tests {
         assert_eq!(parsed.rust_cargo().run.coverage, "llvm-cov");
     }
 
+    /// @vtest.id TEST-STORE-011
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Explicit scan.include replaces defaults rather than merging
     #[test]
     fn explicit_include_list_does_not_retain_defaults() {
         let parsed = ProjectConfig::from_yaml(
@@ -616,6 +624,10 @@ mod tests {
         assert_eq!(parsed.rust_cargo().scan.include, vec!["examples"]);
     }
 
+    /// @vtest.id TEST-STORE-012
+    /// @vtest.covers VO-STORE-006
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::to_yaml
+    /// @vtest.intent assertion_macros round-trip and stay separate from scan.include
     #[test]
     fn assertion_macro_block_list_round_trips_without_becoming_scan_includes() {
         let mut expected = ProjectConfig::default_for("calc");
@@ -633,6 +645,10 @@ mod tests {
         assert_eq!(parsed.rust_cargo().scan.include, vec!["tests"]);
     }
 
+    /// @vtest.id TEST-STORE-013
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Bracketed and empty scan list forms parse as documented
     #[test]
     fn scan_lists_accept_documented_bracketed_and_empty_forms() {
         let parsed = ProjectConfig::from_yaml(
@@ -648,6 +664,10 @@ mod tests {
         assert!(parsed.rust_cargo().scan.assertion_macros.is_empty());
     }
 
+    /// @vtest.id TEST-STORE-014
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Non-identifier assertion macro path fails closed
     #[test]
     fn invalid_assertion_macro_path_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -658,6 +678,10 @@ mod tests {
         assert!(error.to_string().contains("assertion_macros"));
     }
 
+    /// @vtest.id TEST-STORE-015
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Unknown run.coverage mode is rejected
     #[test]
     fn unsupported_coverage_mode_is_rejected() {
         let error = ProjectConfig::from_yaml("run:\n  coverage: guessed\n", "fallback")
@@ -686,6 +710,10 @@ evidence_validity, test_traceability";
         )
     }
 
+    /// @vtest.id TEST-STORE-016
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent v2 full_scope rejects unknown items and a thirteenth entry
     #[test]
     fn version_two_full_scope_rejects_unknown_and_extra_items() {
         let adapters = one_adapter("[\".\"]");
@@ -702,6 +730,10 @@ evidence_validity, test_traceability";
         assert!(error.to_string().contains("full_scope"), "{error}");
     }
 
+    /// @vtest.id TEST-STORE-017
+    /// @vtest.covers VO-STORE-005
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent Adapter roots must be present, unique, and project-relative
     #[test]
     fn adapter_roots_must_be_present_unique_and_project_relative() {
         let error = version_two(&one_adapter("[\"crates\", \"crates/\"]"), CANONICAL_TWELVE)

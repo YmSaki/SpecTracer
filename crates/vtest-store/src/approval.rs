@@ -481,6 +481,10 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    /// @vtest.id TEST-STORE-001
+    /// @vtest.covers VO-STORE-001
+    /// @vtest.target crates/vtest-store/src/approval.rs::resolve_upstream_closure
+    /// @vtest.intent Closure spans parent REQs and their SPECs, excluding the subject VO itself
     #[test]
     fn closure_spans_requirements_and_their_specifications() {
         let (layout, vo) = bound_project("closure");
@@ -497,6 +501,10 @@ mod tests {
         cleanup(&layout);
     }
 
+    /// @vtest.id TEST-STORE-002
+    /// @vtest.covers VO-STORE-002
+    /// @vtest.target crates/vtest-store/src/approval.rs::derive_vo_status
+    /// @vtest.intent A changed Specification source makes the closure unresolvable and un-approves the VO
     #[test]
     fn specification_source_change_invalidates_the_recorded_closure() {
         let (layout, vo) = bound_project("spec-change");
@@ -521,6 +529,10 @@ mod tests {
         cleanup(&layout);
     }
 
+    /// @vtest.id TEST-STORE-003
+    /// @vtest.covers VO-STORE-002
+    /// @vtest.target crates/vtest-store/src/approval.rs::derive_vo_status
+    /// @vtest.intent Editing the subject VO lapses the approval without flagging it invalid
     #[test]
     fn editing_the_subject_vo_supersedes_the_approval_without_reporting_it() {
         let (layout, vo) = bound_project("subject-edit");
@@ -550,6 +562,10 @@ mod tests {
         cleanup(&layout);
     }
 
+    /// @vtest.id TEST-STORE-004
+    /// @vtest.covers VO-STORE-002
+    /// @vtest.target crates/vtest-store/src/approval.rs::derive_vo_status
+    /// @vtest.intent A compatibility Approval with no closure is never approved (ClosureAbsent)
     #[test]
     fn compatibility_approval_without_a_closure_is_never_approved() {
         let (layout, vo) = bound_project("compatibility");
@@ -564,6 +580,10 @@ mod tests {
         cleanup(&layout);
     }
 
+    /// @vtest.id TEST-STORE-005
+    /// @vtest.covers VO-STORE-002
+    /// @vtest.target crates/vtest-store/src/approval.rs::derive_vo_status
+    /// @vtest.intent A stale recorded closure is reported as ClosureChanged, not an approval
     #[test]
     fn a_stale_closure_is_reported_as_changed_not_as_an_approval() {
         let (layout, vo) = bound_project("stale-closure");
@@ -586,6 +606,10 @@ mod tests {
         cleanup(&layout);
     }
 
+    /// @vtest.id TEST-STORE-006
+    /// @vtest.covers VO-STORE-001
+    /// @vtest.target crates/vtest-store/src/approval.rs::resolve_upstream_closure
+    /// @vtest.intent The compatibility status field never alters any upstream closure subject
     #[test]
     fn the_compatibility_status_field_never_reaches_the_record_subject() {
         let (layout, vo) = bound_project("status-field");

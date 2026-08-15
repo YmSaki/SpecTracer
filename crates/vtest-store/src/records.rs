@@ -2350,6 +2350,10 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-STORE-018
+    /// @vtest.covers VO-STORE-007
+    /// @vtest.target crates/vtest-store/src/records.rs::new_record_id
+    /// @vtest.intent 4096 generated record ids are unique and valid ULIDs
     #[test]
     fn generated_record_ids_are_valid_and_unique() {
         let ids = (0..4096).map(|_| new_record_id()).collect::<BTreeSet<_>>();
@@ -2357,6 +2361,10 @@ mod tests {
         assert!(ids.iter().all(|id| is_valid_ulid(id)));
     }
 
+    /// @vtest.id TEST-STORE-019
+    /// @vtest.covers VO-STORE-008
+    /// @vtest.target crates/vtest-store/src/records.rs::write_new_record
+    /// @vtest.intent append-only write errors on collision and preserves prior content
     #[test]
     fn append_only_write_never_replaces_an_existing_fact() {
         let root = temporary_directory("append-only");
@@ -2368,6 +2376,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-020
+    /// @vtest.covers VO-STORE-008
+    /// @vtest.target crates/vtest-store/src/records.rs::write_new_record
+    /// @vtest.intent append-only write publishes full content atomically
     #[test]
     fn append_only_write_publishes_complete_content() {
         let root = temporary_directory("append-only-complete");
@@ -2383,6 +2395,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-021
+    /// @vtest.covers VO-STORE-009
+    /// @vtest.target crates/vtest-store/src/records.rs::write_atomic
+    /// @vtest.intent atomic write replaces entity file with complete new content
     #[test]
     fn atomic_write_replaces_the_complete_entity_file() {
         let root = temporary_directory("atomic");
@@ -2394,6 +2410,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-022
+    /// @vtest.covers VO-STORE-010
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent approval round-trips and rejects a missing traceable approver
     #[test]
     fn approval_round_trip_requires_a_traceable_approver() {
         let id = new_record_id();
@@ -2440,6 +2460,10 @@ mod tests {
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
     }
 
+    /// @vtest.id TEST-STORE-023
+    /// @vtest.covers VO-STORE-010
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent approval closure distinguishes absent/empty/duplicate dependencies
     #[test]
     fn approval_closure_distinguishes_absent_empty_and_duplicate_entries() {
         let id = new_record_id();
@@ -2482,6 +2506,10 @@ mod tests {
         assert!(ApprovalRecord::from_yaml(&duplicated, &id).is_err());
     }
 
+    /// @vtest.id TEST-STORE-024
+    /// @vtest.covers VO-STORE-011
+    /// @vtest.target crates/vtest-store/src/records.rs::AuditRecord::from_yaml
+    /// @vtest.intent static audit round-trips and enforces exactly one TEST subject
     #[test]
     fn audit_round_trip_binds_subjects_and_reads_from_a_ulid_file() {
         let id = new_record_id();
@@ -2583,6 +2611,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-025
+    /// @vtest.covers VO-STORE-012
+    /// @vtest.target crates/vtest-store/src/records.rs::AuditRecord::to_yaml
+    /// @vtest.intent per-target verdict blocks serialize and round-trip through YAML
     #[test]
     fn audit_per_target_verdicts_round_trip_through_yaml() {
         let id = new_record_id();
@@ -2712,6 +2744,10 @@ mod tests {
         items.iter().map(|item| (*item).to_owned()).collect()
     }
 
+    /// @vtest.id TEST-STORE-026
+    /// @vtest.covers VO-STORE-013
+    /// @vtest.target crates/vtest-store/src/records.rs::pure_static_fold
+    /// @vtest.intent fold is FAIL-dominant then UNKNOWN then PASS, empty is UNKNOWN
     #[test]
     fn pure_static_fold_is_fail_dominant_then_unknown_then_pass() {
         use CheckValue::*;
@@ -2722,6 +2758,10 @@ mod tests {
         assert_eq!(pure_static_fold(&[]), Unknown);
     }
 
+    /// @vtest.id TEST-STORE-027
+    /// @vtest.covers VO-STORE-014
+    /// @vtest.target crates/vtest-store/src/records.rs::static_record_target_defect
+    /// @vtest.intent a well-formed per-target record reports no defect
     #[test]
     fn well_formed_per_target_record_has_no_defect() {
         let record = da002_record(
@@ -2734,6 +2774,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-028
+    /// @vtest.covers VO-STORE-014
+    /// @vtest.target crates/vtest-store/src/records.rs::static_record_target_defect
+    /// @vtest.intent surplus, missing, or duplicate targets are flagged malformed
     #[test]
     fn surplus_missing_or_duplicate_targets_are_malformed() {
         let surplus = da002_record(
@@ -2752,6 +2796,10 @@ mod tests {
         assert!(static_record_target_defect(&duplicate, &declared(&["A"])).is_some());
     }
 
+    /// @vtest.id TEST-STORE-029
+    /// @vtest.covers VO-STORE-014
+    /// @vtest.target crates/vtest-store/src/records.rs::static_record_target_defect
+    /// @vtest.intent rule verdict inconsistent with per-target fold is malformed
     #[test]
     fn rule_verdict_inconsistent_with_the_fold_is_malformed() {
         // Per-target PASS + UNKNOWN folds to UNKNOWN; a stored PASS contradicts it.
@@ -2762,6 +2810,10 @@ mod tests {
         assert!(static_record_target_defect(&record, &declared(&["A", "B"])).is_some());
     }
 
+    /// @vtest.id TEST-STORE-030
+    /// @vtest.covers VO-STORE-011
+    /// @vtest.target crates/vtest-store/src/records.rs::AuditRecord::from_yaml
+    /// @vtest.intent malformed or untraceable audit records are rejected
     #[test]
     fn audit_rejects_malformed_or_untraceable_records() {
         let id = new_record_id();
@@ -2827,6 +2879,10 @@ mod tests {
         assert!(static_with_bundle.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-031
+    /// @vtest.covers VO-STORE-015
+    /// @vtest.target crates/vtest-store/src/records.rs::RelationRecord::from_yaml
+    /// @vtest.intent relation round-trips and rejects invalid immutable records
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
         let id = new_relation_id();

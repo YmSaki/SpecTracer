@@ -1,0 +1,13 @@
+id: 'VO-CLI-001'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_init: init builds the .verify layout and a second init is a usage error; init writes a v2 config with adapters and form owner metadata'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

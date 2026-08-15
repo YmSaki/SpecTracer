@@ -1,0 +1,13 @@
+id: 'VO-CLI-016'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_audit_submit: submit with empty reasons is rejected E-AUDIT-005 and appends no audit record; submit against a changed test fails E-AUDIT-002 and appends no audit'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

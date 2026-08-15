@@ -144,6 +144,10 @@ fn assert_scan_diagnostics_have_locations(json: &str) {
     }
 }
 
+/// @vtest.id TEST-CLI-048
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent scan/doctor/text agree on calc fixture: 7 tests, E-SCAN-003, exit 1, runnable selection
 #[test]
 fn m1_calc_fixture_extracts_tests_and_scan_matches_doctor() {
     let fixture = fixture_path("")
@@ -228,6 +232,10 @@ fn m1_calc_fixture_extracts_tests_and_scan_matches_doctor() {
     );
 }
 
+/// @vtest.id TEST-CLI-049
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent warning-only scan (W-SCAN-101) exits 0 with ok:true and located diagnostic
 #[test]
 fn m1_warning_only_scan_exits_zero() {
     let project = TempProject::new("warning-only");
@@ -257,6 +265,10 @@ fn m1_warning_only_scan_exits_zero() {
     assert_eq!(warning["location"]["path"], "tests/unregistered.rs");
 }
 
+/// @vtest.id TEST-CLI-050
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent re-init of existing project is a JSON usage error E-OP-001, exit 2
 #[test]
 fn m1_repeated_init_is_a_json_usage_error() {
     let project = TempProject::new("usage-error");
@@ -274,6 +286,10 @@ fn m1_repeated_init_is_a_json_usage_error() {
     assert!(json.contains("\"E-OP-001\""));
 }
 
+/// @vtest.id TEST-CLI-051
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent malformed canonical config yields E-CONFIG-001 config error, exit 2
 #[test]
 fn m1_invalid_project_config_is_a_json_internal_error() {
     let project = TempProject::new("internal-error");
@@ -299,6 +315,10 @@ fn m1_invalid_project_config_is_a_json_internal_error() {
     assert!(json.contains("\"E-CONFIG-001\""));
 }
 
+/// @vtest.id TEST-CLI-052
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent scan reports E-SCAN-002..010 matrix with correct file locations, exit 1
 #[test]
 fn m1_error_diagnostic_matrix_is_reported_by_the_cli() {
     let project = TempProject::new("diagnostics");

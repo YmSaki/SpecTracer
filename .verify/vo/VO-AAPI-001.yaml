@@ -1,0 +1,13 @@
+id: 'VO-AAPI-001'
+parent: null
+requirements: ['REQ-AAPI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'register: Registering two adapters with the same ID is rejected as a duplicate; A declared capability with no implementation is rejected at registration'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

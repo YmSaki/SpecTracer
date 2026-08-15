@@ -1,0 +1,13 @@
+id: 'VO-AAPI-002'
+parent: null
+requirements: ['REQ-AAPI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'ids: Registry iteration and lookup are deterministically ordered by adapter ID; Registry binds codec and yields adapter ids in deterministic sorted order'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

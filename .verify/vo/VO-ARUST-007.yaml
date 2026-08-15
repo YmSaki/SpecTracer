@@ -1,0 +1,13 @@
+id: 'VO-ARUST-007'
+parent: null
+requirements: ['REQ-ARUST']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'rule_da002: target called inside assertion passes DA-001/DA-002/DA-003; one-hop same-file helper passes DA-002; external call is Unknown'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

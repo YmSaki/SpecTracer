@@ -1,0 +1,13 @@
+id: 'VO-AAPI-006'
+parent: null
+requirements: ['REQ-AAPI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'Structural fixtures in w1_acceptance_binding preserve their invariants'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

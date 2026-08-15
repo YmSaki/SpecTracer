@@ -1,0 +1,13 @@
+id: 'VO-ARUST-001'
+parent: null
+requirements: ['REQ-ARUST']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'decode_execution: Round-trips a Test through encode_properties then decode_execution losslessly; decode_execution rejects disagreeing and incomplete compatibility fields'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

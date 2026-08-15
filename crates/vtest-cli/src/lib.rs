@@ -3989,6 +3989,10 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-CLI-001
+    /// @vtest.covers VO-CLI-001
+    /// @vtest.target crates/vtest-cli/src/lib.rs::run_init
+    /// @vtest.intent init builds the .verify layout and a second init is a usage error
     #[test]
     fn init_creates_project_and_second_init_is_usage_error() {
         let root = root();
@@ -4021,6 +4025,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-CLI-002
+    /// @vtest.covers VO-CLI-002
+    /// @vtest.target crates/vtest-cli/src/lib.rs::approve_vo
+    /// @vtest.intent approve fails-closed on a moved spec source without writing an approval
     #[test]
     fn approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record() {
         let root = root();
@@ -4107,6 +4115,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-CLI-003
+    /// @vtest.covers VO-CLI-003
+    /// @vtest.target crates/vtest-cli/src/lib.rs::effective_vo_status
+    /// @vtest.intent VO status is derived: approved after approve, draft after edit
     #[test]
     fn approval_is_derived_and_edit_makes_it_draft() {
         let root = root();
@@ -4192,6 +4204,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-CLI-004
+    /// @vtest.covers VO-CLI-004
+    /// @vtest.target crates/vtest-scan/src/operations.rs::create_test
+    /// @vtest.intent structured create/edit yields a scannable test and rejects bad targets
     #[test]
     fn structured_create_generates_a_scannable_test() {
         let root = root();
@@ -4518,6 +4534,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-CLI-005
+    /// @vtest.covers VO-CLI-005
+    /// @vtest.target crates/vtest-cli/src/lib.rs::merge_diagnostics
+    /// @vtest.intent merged scan+audit diagnostics sort deterministically by severity/code
     #[test]
     fn audit_diagnostics_are_merged_in_deterministic_order() {
         let diagnostics = merge_diagnostics(
@@ -4536,6 +4556,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-CLI-006
+    /// @vtest.covers VO-CLI-006
+    /// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_static
+    /// @vtest.intent audit static rejects passing both --test and --all with usage exit
     #[test]
     fn static_audit_rejects_combined_test_and_all_selectors() {
         let root = root();

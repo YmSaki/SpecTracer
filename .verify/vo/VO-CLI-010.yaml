@@ -1,0 +1,13 @@
+id: 'VO-CLI-010'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_run: run records evidence with neutral subject hashes and complete execution state; An execution-input mutation during run yields E-EXEC-004 and no evidence'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

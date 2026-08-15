@@ -1,0 +1,13 @@
+id: 'VO-SCAN-002'
+parent: null
+requirements: ['REQ-SCAN']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'scan_project: Annotated test and source extracted with execution metadata; Missing/invalid Cargo metadata fails closed with E-SCAN-004'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

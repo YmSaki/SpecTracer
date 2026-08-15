@@ -1,0 +1,13 @@
+id: 'VO-SCAN-001'
+parent: null
+requirements: ['REQ-SCAN']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'materialize_discovery_batch: Validated batch materializes tests/targets with expected content hashes; Fragment bytes not matching current source are rejected'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

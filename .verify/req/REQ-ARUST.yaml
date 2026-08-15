@@ -1,0 +1,9 @@
+id: 'REQ-ARUST'
+parent: null
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+summary: 'vtest-adapter-rust crate realizes its detailed-design behavior'
+status: 'active'
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

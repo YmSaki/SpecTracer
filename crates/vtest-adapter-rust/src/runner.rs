@@ -356,6 +356,10 @@ pub(crate) fn not_checked_target_execution() -> TargetExecution {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-ARUST-003
+    /// @vtest.covers VO-ARUST-002
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::parse_result
+    /// @vtest.intent parse_result maps ok/FAILED/ignored lines and rejects non-matching filters
     #[test]
     fn parser_distinguishes_pass_fail_and_ignored() {
         assert_eq!(
@@ -373,6 +377,10 @@ mod tests {
         assert_eq!(parse_result("test y ... ok", "x"), None);
     }
 
+    /// @vtest.id TEST-ARUST-004
+    /// @vtest.covers VO-ARUST-003
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count
+    /// @vtest.intent llvm_cov_function_count sums matched counts/regions and returns None when absent
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
         let target = RustLocator {
@@ -409,6 +417,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &absent), None);
     }
 
+    /// @vtest.id TEST-ARUST-005
+    /// @vtest.covers VO-ARUST-003
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count
+    /// @vtest.intent llvm_cov_function_count preserves a zero count as Some(0) not None
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
         let target = RustLocator {
@@ -427,6 +439,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &target), Some(0));
     }
 
+    /// @vtest.id TEST-ARUST-006
+    /// @vtest.covers VO-ARUST-004
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::llvm_name_matches
+    /// @vtest.intent llvm_name_matches demangles rust v0 symbols and matches by item path
     #[test]
     fn llvm_cov_parser_demangles_rust_v0_symbols() {
         assert!(llvm_name_matches(
@@ -439,6 +455,10 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-ARUST-007
+    /// @vtest.covers VO-ARUST-005
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::not_checked_target_execution
+    /// @vtest.intent not_checked_target_execution yields checked:false, null result, empty targets
     #[test]
     fn not_checked_target_execution_is_null_and_empty() {
         let target_execution = not_checked_target_execution();

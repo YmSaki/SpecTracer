@@ -1,0 +1,13 @@
+id: 'VO-ARUST-009'
+parent: null
+requirements: ['REQ-ARUST']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'rule_da003: identifier substring of target does not prove result verification; target result crossing a helper boundary is DA-003 Unknown'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

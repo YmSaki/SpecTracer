@@ -1,0 +1,13 @@
+id: 'VO-STORE-014'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'static_record_target_defect: a well-formed per-target record reports no defect; surplus, missing, or duplicate targets are flagged malformed'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

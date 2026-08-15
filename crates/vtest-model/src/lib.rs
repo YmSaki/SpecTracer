@@ -1002,6 +1002,10 @@ pub struct FormAnswers {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-MODEL-001
+    /// @vtest.covers VO-MODEL-001
+    /// @vtest.target crates/vtest-model/src/lib.rs::normalize_hashed_text
+    /// @vtest.intent Hash normalization folds CRLF/CR and trailing spaces but preserves leading space and final newline
     #[test]
     fn hash_normalization_only_changes_line_endings_and_trailing_space() {
         assert_eq!(
@@ -1015,6 +1019,10 @@ mod tests {
         assert_ne!(ContentHash::from_text("a"), ContentHash::from_text("a\n"));
     }
 
+    /// @vtest.id TEST-MODEL-002
+    /// @vtest.covers VO-MODEL-002
+    /// @vtest.target crates/vtest-model/src/lib.rs::TargetRef::normalized
+    /// @vtest.intent Locator TargetRef normalizes to adapter-scoped opaque string
     #[test]
     fn locator_is_adapter_scoped_and_opaque() {
         let locator = TargetRef::Locator {
@@ -1027,6 +1035,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-003
+    /// @vtest.covers VO-MODEL-003
+    /// @vtest.target crates/vtest-model/src/lib.rs::JsonEnvelope::new
+    /// @vtest.intent JsonEnvelope serializes with ok, data, and diagnostics top-level fields
     #[test]
     fn envelope_has_required_top_level_fields() {
         let value = serde_json::to_value(JsonEnvelope::new(
@@ -1096,6 +1108,10 @@ mod tests {
         })
     }
 
+    /// @vtest.id TEST-MODEL-004
+    /// @vtest.covers VO-MODEL-004
+    /// @vtest.target crates/vtest-model/src/lib.rs::hash_test_subject
+    /// @vtest.intent Changing intent metadata changes the test subject hash
     #[test]
     fn non_adjacent_logical_metadata_changes_the_test_subject() {
         assert_ne!(
@@ -1104,6 +1120,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-005
+    /// @vtest.covers VO-MODEL-004
+    /// @vtest.target crates/vtest-model/src/lib.rs::hash_test_subject
+    /// @vtest.intent Moving byte range without content change leaves test subject hash stable
     #[test]
     fn byte_range_movement_does_not_change_the_test_subject() {
         let original = synthetic_test_hash("adding two values returns their sum");
@@ -1135,6 +1155,10 @@ mod tests {
         assert_eq!(original, actual);
     }
 
+    /// @vtest.id TEST-MODEL-006
+    /// @vtest.covers VO-MODEL-005
+    /// @vtest.target crates/vtest-model/src/lib.rs::hash_static_audit_config_subject
+    /// @vtest.intent Static audit config subject hash binds the typed projection deterministically
     #[test]
     fn static_config_subject_binds_only_the_typed_projection() {
         let adapter = AdapterId::new("synthetic");
@@ -1159,6 +1183,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-007
+    /// @vtest.covers VO-MODEL-006
+    /// @vtest.target crates/vtest-model/src/lib.rs::CanonicalProjection::encode
+    /// @vtest.intent CanonicalProjection encoding distinguishes null, empty string, and empty list
     #[test]
     fn subject_encoding_distinguishes_null_empty_and_empty_list() {
         let null = CanonicalProjection::Null.encode();
@@ -1169,6 +1197,10 @@ mod tests {
         assert_ne!(null, list);
     }
 
+    /// @vtest.id TEST-MODEL-008
+    /// @vtest.covers VO-MODEL-007
+    /// @vtest.target crates/vtest-model/src/lib.rs::hash_record_subject
+    /// @vtest.intent Domain separation prevents cross-type hash reuse across subject kinds
     #[test]
     fn subject_domains_prevent_cross_type_hash_reuse() {
         let value = CanonicalProjection::String("same bytes".to_owned());

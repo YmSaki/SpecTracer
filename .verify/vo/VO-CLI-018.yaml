@@ -1,0 +1,13 @@
+id: 'VO-CLI-018'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_mcp: MCP initialize/tools.list advertises all tools and scan matches CLI envelope; JSON-RPC notifications yield no response and don''t consume next request'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

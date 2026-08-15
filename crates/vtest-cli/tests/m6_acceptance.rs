@@ -194,6 +194,10 @@ fn submit(project: &TempProject, bundle_id: &str, kind: &str, reasons: Value) ->
     value["data"].clone()
 }
 
+/// @vtest.id TEST-CLI-076
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent verify/report honors --test/--vo/--req entity scope selection
 #[test]
 fn m6_entity_scope_selects_test_vo_and_report() {
     let project = TempProject::from_m1_base("entity-scope");
@@ -261,6 +265,10 @@ fn m6_entity_scope_selects_test_vo_and_report() {
     assert_eq!(report_json["data"]["report"]["result"], "PASS");
 }
 
+/// @vtest.id TEST-CLI-077
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent a fully-covered fixture passes all eleven verification items
 #[test]
 fn m6_complete_fixture_is_ok_for_all_eleven_items() {
     let project = TempProject::from_m1_base("complete");
@@ -432,6 +440,10 @@ fn m6_complete_fixture_is_ok_for_all_eleven_items() {
     }
 }
 
+/// @vtest.id TEST-CLI-078
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent an uncovered leaf VO reports MISSING and is named in basis
 #[test]
 fn m6_leaf_without_test_is_missing_and_not_masked_by_another_leaf() {
     let project = TempProject::from_m1_base("leaf-missing");
@@ -459,6 +471,10 @@ fn m6_leaf_without_test_is_missing_and_not_masked_by_another_leaf() {
     );
 }
 
+/// @vtest.id TEST-CLI-079
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent missing Evidence for one test is fail-closed NOT_EXECUTED
 #[test]
 fn m6_missing_evidence_for_one_test_is_not_project_pass() {
     let project = TempProject::from_m1_base("partial-execution");
@@ -481,6 +497,10 @@ fn m6_missing_evidence_for_one_test_is_not_project_pass() {
     );
 }
 
+/// @vtest.id TEST-CLI-080
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent limited --items scope leaves other items NOT_CHECKED in text report
 #[test]
 fn m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like() {
     let project = TempProject::from_m1_base("limited-scope");
@@ -501,6 +521,10 @@ fn m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like() {
     assert!(output.contains("NOT_CHECKED"), "text report: {output}");
 }
 
+/// @vtest.id TEST-CLI-081
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent each check item can independently make verification NG
 #[test]
 fn m6_each_check_item_can_be_non_pass_without_aggregate_promotion() {
     let items = [

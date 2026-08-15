@@ -206,6 +206,10 @@ fn assert_tree_child(response: &Value, root_id: &str, child_id: &str) {
     assert_eq!(children.len(), 1, "tree root has only its expected child");
 }
 
+/// @vtest.id TEST-CLI-053
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Editing an approved VO invalidates approval and reverts effective status to draft
 #[test]
 fn m2_vo_edit_invalidates_approval_and_returns_to_effective_draft() {
     let project = TempProject::from_m1_base("approval-invalidation");
@@ -308,6 +312,10 @@ fn m2_vo_edit_invalidates_approval_and_returns_to_effective_draft() {
         .any(|item| item["id"] == "VO-M2-APPROVAL" && item["status"] == "draft"));
 }
 
+/// @vtest.id TEST-CLI-054
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Full-product expand --dry-run lists cartesian children without writing records
 #[test]
 fn m2_full_product_expand_dry_run_lists_cartesian_children_without_writes() {
     let project = TempProject::from_m1_base("full-product-dry-run");
@@ -365,6 +373,10 @@ fn m2_full_product_expand_dry_run_lists_cartesian_children_without_writes() {
     );
 }
 
+/// @vtest.id TEST-CLI-055
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Dry-run expand rejects colliding partition slugs without creating children
 #[test]
 fn m2_dry_run_rejects_slug_collisions_without_returning_duplicate_children() {
     let project = TempProject::from_m1_base("slug-collision");
@@ -403,6 +415,10 @@ fn m2_dry_run_rejects_slug_collisions_without_returning_duplicate_children() {
     );
 }
 
+/// @vtest.id TEST-CLI-056
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Malformed approval is non-effective and scan reports E-SCAN-010 error
 #[test]
 fn m2_malformed_approval_is_not_effective_and_is_a_scan_error() {
     let project = TempProject::from_m1_base("malformed-approval");
@@ -472,6 +488,10 @@ fn m2_malformed_approval_is_not_effective_and_is_a_scan_error() {
     );
 }
 
+/// @vtest.id TEST-CLI-057
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Lowercase VO id is a usage error and writes no canonical record
 #[test]
 fn m2_lowercase_vo_id_is_a_usage_error_without_a_record_write() {
     let project = TempProject::from_m1_base("lowercase-id");
@@ -494,6 +514,10 @@ fn m2_lowercase_vo_id_is_a_usage_error_without_a_record_write() {
     assert_eq!(vo_files(&project), before);
 }
 
+/// @vtest.id TEST-CLI-058
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Path-like VO id is rejected without writing outside .verify/vo
 #[test]
 fn m2_path_like_vo_id_is_a_usage_error_without_an_outside_write() {
     let project = TempProject::from_m1_base("path-like-id");
@@ -523,6 +547,10 @@ fn m2_path_like_vo_id_is_a_usage_error_without_an_outside_write() {
     );
 }
 
+/// @vtest.id TEST-CLI-059
+/// @vtest.covers VO-CLI-014
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_spec
+/// @vtest.intent Invalid spec --kind is a usage error and creates no canonical record
 #[test]
 fn m2_invalid_spec_kind_is_a_usage_error_without_a_canonical_record() {
     let project = TempProject::from_m1_base("invalid-spec-kind");
@@ -555,6 +583,10 @@ fn m2_invalid_spec_kind_is_a_usage_error_without_a_canonical_record() {
     );
 }
 
+/// @vtest.id TEST-CLI-060
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent REQ and VO --tree lists return each child exactly once
 #[test]
 fn m2_req_and_vo_tree_lists_include_each_child_once() {
     let project = TempProject::from_m1_base("record-trees");
@@ -636,6 +668,10 @@ fn m2_req_and_vo_tree_lists_include_each_child_once() {
     assert_tree_child(&vo_tree, "VO-M2-TREE-ROOT", "VO-M2-TREE-CHILD");
 }
 
+/// @vtest.id TEST-CLI-061
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Explicit expansion uses only declared combinations; invalid combos rejected
 #[test]
 fn m2_explicit_vo_expansion_uses_only_declared_combinations() {
     let project = TempProject::from_m1_base("explicit-expansion");
@@ -730,6 +766,10 @@ fn m2_explicit_vo_expansion_uses_only_declared_combinations() {
     }
 }
 
+/// @vtest.id TEST-CLI-062
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Mutating a registered spec document yields scan warning W-SCAN-104
 #[test]
 fn m2_mutating_registered_spec_document_reports_w_scan_104() {
     let project = TempProject::from_m1_base("stale-spec");
@@ -779,6 +819,10 @@ fn m2_mutating_registered_spec_document_reports_w_scan_104() {
     );
 }
 
+/// @vtest.id TEST-CLI-063
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent vo show reports covering tests, audit state, and valid approval history
 #[test]
 fn m2_vo_show_reports_covering_tests_audit_state_and_valid_approval_history() {
     let project = TempProject::from_m1_base("vo-show");
@@ -832,6 +876,10 @@ fn m2_vo_show_reports_covering_tests_audit_state_and_valid_approval_history() {
     );
 }
 
+/// @vtest.id TEST-CLI-064
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent Approval with a missing basis is rejected before mutating the VO
 #[test]
 fn m2_approval_rejects_a_missing_basis_before_mutating_the_vo() {
     let project = TempProject::from_m1_base("missing-approval-basis");

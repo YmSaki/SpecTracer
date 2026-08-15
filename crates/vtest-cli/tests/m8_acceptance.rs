@@ -129,6 +129,10 @@ fn scanned_test(response: &Value, id: &str) -> Value {
         .unwrap_or_else(|| panic!("scan did not contain {id}: {response}"))
 }
 
+/// @vtest.id TEST-CLI-085
+/// @vtest.covers VO-CLI-017
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_test
+/// @vtest.intent test create rejects an invalid source symbol with E-OP-001 and candidates
 #[test]
 fn m8_invalid_symbol_is_rejected_with_candidates() {
     let project = TempProject::from_m1_base("invalid-symbol");
@@ -154,6 +158,10 @@ fn m8_invalid_symbol_is_rejected_with_candidates() {
     assert_eq!(diagnostic["candidates"][0], "src/lib.rs::known");
 }
 
+/// @vtest.id TEST-CLI-086
+/// @vtest.covers VO-CLI-017
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_test
+/// @vtest.intent created structured Test is scanned and exposed via show/list/query
 #[test]
 fn m8_test_create_is_scanned_and_exposed_by_queries() {
     let project = TempProject::from_m1_base("create");
@@ -236,6 +244,10 @@ fn m8_test_create_is_scanned_and_exposed_by_queries() {
         .any(|item| item["id"] == "TEST-M8-CREATED"));
 }
 
+/// @vtest.id TEST-CLI-087
+/// @vtest.covers VO-CLI-017
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_test
+/// @vtest.intent test edit mutates only the selected Test and preserves other Test hashes
 #[test]
 fn m8_edit_changes_only_selected_test_and_preserves_other_hash() {
     let project = TempProject::from_m1_base("edit-boundary");
@@ -295,6 +307,10 @@ fn m8_edit_changes_only_selected_test_and_preserves_other_hash() {
     );
 }
 
+/// @vtest.id TEST-CLI-088
+/// @vtest.covers VO-CLI-017
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_test
+/// @vtest.intent reapplying the same test edit is byte-idempotent and reports no change
 #[test]
 fn m8_reapplying_same_edit_is_byte_idempotent() {
     let project = TempProject::from_m1_base("idempotent");

@@ -151,6 +151,10 @@ fn setup_project(name: &str, test_body: &str) -> TempProject {
     project
 }
 
+/// @vtest.id TEST-CLI-082
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent run records measured PASS when a registered test executes its target under llvm-cov
 #[test]
 fn m7_called_target_records_measured_pass() {
     let project = setup_project("CALLED", "assert_eq!(calc_m1_base::known(), 1);");
@@ -170,6 +174,10 @@ fn m7_called_target_records_measured_pass() {
     assert!(evidence["target_execution"]["count"].as_u64().unwrap_or(0) >= 1);
 }
 
+/// @vtest.id TEST-CLI-083
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent passing test that never calls target records target_execution FAIL with count 0
 #[test]
 fn m7_passing_test_that_misses_target_records_measured_fail() {
     let project = setup_project(
@@ -192,6 +200,10 @@ fn m7_passing_test_that_misses_target_records_measured_fail() {
     assert_eq!(evidence["target_execution"]["count"], 0);
 }
 
+/// @vtest.id TEST-CLI-084
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent absent cargo-llvm-cov yields not-checked null result and W-EXEC-101 warning
 #[test]
 fn m7_missing_llvm_cov_is_warning_and_not_checked() {
     let project = setup_project("UNAVAILABLE", "assert_eq!(calc_m1_base::known(), 1);");

@@ -1517,6 +1517,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         (root, batch)
     }
 
+    /// @vtest.id TEST-SCAN-001
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent Validated batch materializes tests/targets with expected content hashes
     #[test]
     fn core_validates_current_bytes_before_materializing_adapter_drafts() {
         let (root, batch) = discovery_materialization_fixture();
@@ -1566,6 +1570,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-002
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent Fragment bytes not matching current source are rejected
     #[test]
     fn core_rejects_stale_fragment_bytes_without_materializing_entities() {
         let (root, batch) = discovery_materialization_fixture();
@@ -1580,6 +1588,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-003
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent Source Target canonical target must be a locator, not a SRC ID
     #[test]
     fn core_rejects_a_permanent_src_id_as_a_canonical_source_target() {
         let (root, mut batch) = discovery_materialization_fixture();
@@ -1593,6 +1605,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-004
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent SRC ID reaches Source Target without altering its subject hash
     #[test]
     fn a_permanent_src_id_travels_beside_the_target_without_entering_its_subject() {
         let (anonymous_root, anonymous) = discovery_materialization_fixture();
@@ -1619,6 +1635,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-005
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent Missing provenance and incomplete discovery both rejected
     #[test]
     fn core_rejects_missing_metadata_provenance_and_incomplete_discovery() {
         let (root, mut batch) = discovery_materialization_fixture();
@@ -1636,6 +1656,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(incomplete_root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-006
+    /// @vtest.covers VO-SCAN-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent Missing and Multiple managed links materialize without guessing
     #[test]
     fn core_materializes_missing_and_multiple_links_without_guessing() {
         let (missing_root, mut missing_batch) = discovery_materialization_fixture();
@@ -1671,6 +1695,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::remove_dir_all(multiple_root).unwrap();
     }
 
+    /// @vtest.id TEST-SCAN-007
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Annotated test and source extracted with execution metadata
     #[test]
     fn extracts_annotated_test_and_source() {
         let root = fixture();
@@ -1697,6 +1725,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-008
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Missing/invalid Cargo metadata fails closed with E-SCAN-004
     #[test]
     fn missing_or_invalid_cargo_metadata_is_fail_closed() {
         let root = fixture();
@@ -1737,6 +1769,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-009
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Workspace packages, targets, and module filters resolve correctly
     #[test]
     fn resolves_workspace_packages_targets_and_external_module_filters() {
         let root = fixture();
@@ -1864,6 +1900,10 @@ fn parses_integration() { exercise(); }
         assert_eq!(binary.execution.selector, "checks_binary");
     }
 
+    /// @vtest.id TEST-SCAN-010
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Gitignored Rust files are excluded from scanning
     #[test]
     fn ignored_rust_files_are_not_scanned() {
         let root = fixture();
@@ -1886,6 +1926,10 @@ fn parses_integration() { exercise(); }
             .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
+    /// @vtest.id TEST-SCAN-011
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Ambiguous source locator is not resolved (E-SCAN-004)
     #[test]
     fn ambiguous_target_locator_is_not_resolved() {
         let root = fixture();
@@ -1922,6 +1966,10 @@ fn ambiguous() {}
         }));
     }
 
+    /// @vtest.id TEST-SCAN-012
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Unregistered tests reported as W-SCAN-101
     #[test]
     fn reports_unregistered_tests() {
         let root = fixture();
@@ -1930,6 +1978,10 @@ fn ambiguous() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "W-SCAN-101"));
     }
 
+    /// @vtest.id TEST-SCAN-013
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Unknown and duplicate annotation keys rejected
     #[test]
     fn rejects_unknown_and_duplicate_annotation_keys() {
         let root = fixture();
@@ -1959,6 +2011,10 @@ fn duplicate_key() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-006"));
     }
 
+    /// @vtest.id TEST-SCAN-014
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Missing required annotation rejected with E-SCAN-007
     #[test]
     fn rejects_missing_required_annotation() {
         let root = fixture();
@@ -1977,6 +2033,10 @@ fn missing_intent() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-007"));
     }
 
+    /// @vtest.id TEST-SCAN-015
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Only integration tests may declare multiple targets
     #[test]
     fn integration_tests_allow_multiple_targets_only() {
         let root = fixture();
@@ -2024,6 +2084,10 @@ fn duplicate_target() {}
         }));
     }
 
+    /// @vtest.id TEST-SCAN-016
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Aliased relation ids sharing a ULID payload are both diagnosed
     #[test]
     fn relation_id_aliases_cannot_duplicate_one_ulid_payload() {
         let root = fixture();
@@ -2054,6 +2118,10 @@ fn duplicate_target() {}
             .all(|diagnostic| diagnostic.location.is_some()));
     }
 
+    /// @vtest.id TEST-SCAN-017
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent Record integrity and staleness diagnostics all emitted with location
     #[test]
     fn reports_record_integrity_and_staleness_diagnostics() {
         let root = fixture();

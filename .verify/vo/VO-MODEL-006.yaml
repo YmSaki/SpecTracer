@@ -1,0 +1,13 @@
+id: 'VO-MODEL-006'
+parent: null
+requirements: ['REQ-MODEL']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'encode: CanonicalProjection encoding distinguishes null, empty string, and empty list'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

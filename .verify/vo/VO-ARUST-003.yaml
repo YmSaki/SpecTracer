@@ -1,0 +1,13 @@
+id: 'VO-ARUST-003'
+parent: null
+requirements: ['REQ-ARUST']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'llvm_cov_function_count: llvm_cov_function_count sums matched counts/regions and returns None when absent; llvm_cov_function_count preserves a zero count as Some(0) not None'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

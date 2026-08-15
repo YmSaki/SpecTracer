@@ -212,6 +212,10 @@ fn submit(project: &TempProject, file: &Path, context: &str) -> Value {
     )
 }
 
+/// @vtest.id TEST-CLI-072
+/// @vtest.covers VO-CLI-015
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_bundle
+/// @vtest.intent audit bundle emits full schema fields for test-semantic, vo-coverage, impl-consistency
 #[test]
 fn m5_bundles_include_schema_fields_for_all_audit_kinds() {
     let project = TempProject::from_m1_base("bundle-schema");
@@ -270,6 +274,10 @@ fn m5_bundles_include_schema_fields_for_all_audit_kinds() {
     }
 }
 
+/// @vtest.id TEST-CLI-073
+/// @vtest.covers VO-CLI-016
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_submit
+/// @vtest.intent submit with empty reasons is rejected E-AUDIT-005 and appends no audit record
 #[test]
 fn m5_empty_reasons_are_rejected_without_an_audit_record() {
     let project = TempProject::from_m1_base("empty-reasons");
@@ -302,6 +310,10 @@ fn m5_empty_reasons_are_rejected_without_an_audit_record() {
     );
 }
 
+/// @vtest.id TEST-CLI-074
+/// @vtest.covers VO-CLI-016
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_submit
+/// @vtest.intent submit against a changed test fails E-AUDIT-002 and appends no audit
 #[test]
 fn m5_changed_test_rejects_submission_with_e_audit_002() {
     let project = TempProject::from_m1_base("stale-bundle");
@@ -333,6 +345,10 @@ fn m5_changed_test_rejects_submission_with_e_audit_002() {
     );
 }
 
+/// @vtest.id TEST-CLI-075
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent accepted semantic audit is typed then goes STALE after its target changes
 #[test]
 fn m5_accepted_audit_is_typed_and_becomes_stale_after_target_change() {
     let project = TempProject::from_m1_base("accepted-stale");

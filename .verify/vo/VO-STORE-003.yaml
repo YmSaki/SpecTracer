@@ -1,0 +1,13 @@
+id: 'VO-STORE-003'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'parse_form_schema: Built-in unit form parses to expected kind, field count, and template; Unknown form field property causes parse_form_schema to error'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

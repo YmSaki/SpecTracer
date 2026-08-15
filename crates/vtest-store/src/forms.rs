@@ -492,6 +492,10 @@ fn safe_form_kind(kind: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-STORE-007
+    /// @vtest.covers VO-STORE-003
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_schema
+    /// @vtest.intent Built-in unit form parses to expected kind, field count, and template
     #[test]
     fn built_in_unit_form_parses() {
         let form = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
@@ -500,6 +504,10 @@ mod tests {
         assert!(form.template.contains("@vtest.target {target}"));
     }
 
+    /// @vtest.id TEST-STORE-008
+    /// @vtest.covers VO-STORE-004
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_answers
+    /// @vtest.intent Answers parse both inline and block list forms into FormValue::List
     #[test]
     fn answers_support_inline_and_block_lists() {
         let parsed = parse_form_answers(
@@ -513,6 +521,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-009
+    /// @vtest.covers VO-STORE-003
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_schema
+    /// @vtest.intent Unknown form field property causes parse_form_schema to error
     #[test]
     fn unknown_form_field_property_is_rejected() {
         let invalid = RUST_UNIT_FUNCTION_FORM.replace(

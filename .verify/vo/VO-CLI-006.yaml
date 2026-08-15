@@ -1,0 +1,13 @@
+id: 'VO-CLI-006'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_audit_static: audit static rejects passing both --test and --all with usage exit; CLI audit static maps DA-001..006 fails, keeps UNKNOWN, warns on ignored, persists per-target '
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'

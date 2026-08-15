@@ -177,6 +177,10 @@ fn report_item<'a>(response: &'a Value, item: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("missing report item {item}: {response}"))
 }
 
+/// @vtest.id TEST-CLI-066
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent run --all --fast writes one PASS Evidence per registered test with revision binding
 #[test]
 fn m4_run_fast_records_one_evidence_per_registered_test() {
     let project = TempProject::from_m1_base("run-fast");
@@ -215,6 +219,10 @@ fn m4_run_fast_records_one_evidence_per_registered_test() {
     assert_eq!(report_item(&verify, "evidence_validity")["value"], "PASS");
 }
 
+/// @vtest.id TEST-CLI-067
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent Evidence records a target hash for every declared target on a multi-target test
 #[test]
 fn m4_multi_target_evidence_records_every_declared_target_hash() {
     let project = TempProject::from_m1_base("multi-target");
@@ -263,6 +271,10 @@ fn m4_multi_target_evidence_records_every_declared_target_hash() {
     assert_eq!(report_item(&verify, "evidence_validity")["value"], "PASS");
 }
 
+/// @vtest.id TEST-CLI-068
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent mutating a target after run makes verify report evidence_validity STALE and fail
 #[test]
 fn m4_target_mutation_makes_evidence_stale() {
     let project = TempProject::from_m1_base("stale-target");
@@ -284,6 +296,10 @@ fn m4_target_mutation_makes_evidence_stale() {
     assert_eq!(report_item(&verify, "evidence_validity")["value"], "STALE");
 }
 
+/// @vtest.id TEST-CLI-069
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent build failure yields E-EXEC-001 and publishes no Evidence
 #[test]
 fn m4_build_failure_reports_e_exec_001_without_evidence() {
     let project = TempProject::from_m1_base("build-failure");
@@ -313,6 +329,10 @@ fn m4_build_failure_reports_e_exec_001_without_evidence() {
     );
 }
 
+/// @vtest.id TEST-CLI-070
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent an #[ignore] test is a successful non-execution emitting no Evidence
 #[test]
 fn m4_ignored_test_emits_no_evidence() {
     let project = TempProject::from_m1_base("ignored");
@@ -333,6 +353,10 @@ fn m4_ignored_test_emits_no_evidence() {
     assert!(evidence_files(&project).is_empty());
 }
 
+/// @vtest.id TEST-CLI-071
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent missing result line yields E-EXEC-002 and publishes no Evidence
 #[test]
 fn m4_missing_result_line_emits_e_exec_002_without_evidence() {
     let project = TempProject::from_m1_base("missing-result");

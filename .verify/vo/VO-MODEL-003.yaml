@@ -1,0 +1,13 @@
+id: 'VO-MODEL-003'
+parent: null
+requirements: ['REQ-MODEL']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'new: JsonEnvelope serializes with ok, data, and diagnostics top-level fields'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

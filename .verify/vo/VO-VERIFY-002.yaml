@@ -1,0 +1,13 @@
+id: 'VO-VERIFY-002'
+parent: null
+requirements: ['REQ-VERIFY']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'evaluate_static_audit: DA-002 UNKNOWN rescued to PASS by valid runtime target_execution (count>0); Runtime rescue denied when measured count is zero; item stays UNKNOWN'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

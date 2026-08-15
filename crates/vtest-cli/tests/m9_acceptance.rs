@@ -330,6 +330,10 @@ fn generated_test_answers(id: &str) -> Value {
     })
 }
 
+/// @vtest.id TEST-CLI-089
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent MCP initialize/tools.list advertises all tools and scan matches CLI envelope
 #[test]
 fn m9_stdio_lists_tools_and_preserves_cli_scan_envelope() {
     let project = TempProject::from_m1_base("protocol");
@@ -397,6 +401,10 @@ fn m9_stdio_lists_tools_and_preserves_cli_scan_envelope() {
     assert_eq!(responses[2]["result"]["isError"], false);
 }
 
+/// @vtest.id TEST-CLI-090
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent JSON-RPC notifications yield no response and don't consume next request
 #[test]
 fn m9_notifications_are_silent_and_do_not_consume_following_requests() {
     let project = TempProject::from_m1_base("notifications");
@@ -416,6 +424,10 @@ fn m9_notifications_are_silent_and_do_not_consume_following_requests() {
     assert_eq!(responses[0]["result"], json!({}));
 }
 
+/// @vtest.id TEST-CLI-091
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent form_get reloads schema after form file mtime changes mid-session
 #[test]
 fn m9_form_get_refreshes_after_form_mtime_changes_in_one_server_session() {
     let project = TempProject::from_m1_base("form-mtime");
@@ -440,6 +452,10 @@ fn m9_form_get_refreshes_after_form_mtime_changes_in_one_server_session() {
     );
 }
 
+/// @vtest.id TEST-CLI-092
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent Every advertised MCP tool produces envelope equivalent to CLI output
 #[test]
 fn m9_all_advertised_tools_match_cli_envelopes() {
     let project = TempProject::from_m1_base("parity");
@@ -759,6 +775,10 @@ fn m9_all_advertised_tools_match_cli_envelopes() {
     }
 }
 
+/// @vtest.id TEST-CLI-093
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent req/vo upsert edits supported fields and fail-closed rejects unsupported updates
 #[test]
 fn m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates() {
     let project = TempProject::from_m1_base("upsert-edit");
@@ -955,6 +975,10 @@ fn m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updat
     );
 }
 
+/// @vtest.id TEST-CLI-094
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent Full reference spec-to-verify flow completes over MCP stdio
 #[test]
 fn m9_reference_flow_completes_over_mcp_stdio() {
     let project = TempProject::from_m1_base("complete-flow");
@@ -1143,6 +1167,10 @@ fn m9_reference_flow_completes_over_mcp_stdio() {
     }
 }
 
+/// @vtest.id TEST-CLI-095
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent MCP reference flow reaches existing CLI create/query/audit/run operations
 #[test]
 fn m9_reference_flow_reaches_existing_cli_operations() {
     let project = TempProject::from_m1_base("flow");
@@ -1191,6 +1219,10 @@ fn m9_reference_flow_reaches_existing_cli_operations() {
     assert!(responses[5]["result"]["structuredContent"]["data"].is_object());
 }
 
+/// @vtest.id TEST-CLI-096
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent Invalid tool input returns E-OP-001 with message and candidate suggestions
 #[test]
 fn m9_invalid_tool_input_returns_error_code_message_and_candidates() {
     let project = TempProject::from_m1_base("errors");
@@ -1230,6 +1262,10 @@ fn m9_invalid_tool_input_returns_error_code_message_and_candidates() {
     );
 }
 
+/// @vtest.id TEST-CLI-097
+/// @vtest.covers VO-CLI-018
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_mcp
+/// @vtest.intent Protocol/error matrix is fail-closed with correct codes and no audit writes
 #[test]
 fn m9_protocol_and_error_matrix_is_fail_closed_without_writes() {
     let project = TempProject::from_m1_base("error-matrix");

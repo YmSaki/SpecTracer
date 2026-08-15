@@ -1,0 +1,13 @@
+id: 'VO-STORE-005'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'from_yaml: Default config serialized then parsed preserves name, includes, coverage; Explicit scan.include replaces defaults rather than merging'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

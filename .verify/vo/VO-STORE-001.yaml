@@ -1,0 +1,13 @@
+id: 'VO-STORE-001'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'resolve_upstream_closure: Closure spans parent REQs and their SPECs, excluding the subject VO itself; The compatibility status field never alters any upstream closure subject'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

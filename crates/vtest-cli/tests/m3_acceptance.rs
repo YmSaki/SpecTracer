@@ -173,6 +173,10 @@ fn assert_failed_rule(response: &Value, test_id: &str, rule_name: &str) {
     );
 }
 
+/// @vtest.id TEST-CLI-065
+/// @vtest.covers VO-CLI-006
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_static
+/// @vtest.intent CLI audit static maps DA-001..006 fails, keeps UNKNOWN, warns on ignored, persists per-target verdicts
 #[test]
 fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests() {
     let project = TempProject::from_m1_base("deterministic-rules");

@@ -1169,6 +1169,10 @@ fn rollback(path: &Path, original: &str, diagnostic: Diagnostic) -> Result<(), D
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-SCAN-018
+    /// @vtest.covers VO-SCAN-003
+    /// @vtest.target crates/vtest-adapter-rust/src/operations_support.rs::edit_distance
+    /// @vtest.intent edit_distance returns correct Levenshtein distances for transposition and disjoint strings
     #[test]
     fn edit_distance_handles_transcription_errors() {
         assert_eq!(edit_distance("parse", "prase"), 2);

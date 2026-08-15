@@ -1,0 +1,13 @@
+id: 'VO-CLI-015'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'run_audit_bundle: audit bundle emits full schema fields for test-semantic, vo-coverage, impl-consistency'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

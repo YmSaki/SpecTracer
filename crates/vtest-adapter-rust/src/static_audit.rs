@@ -1962,6 +1962,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-ARUST-008
+    /// @vtest.covers VO-ARUST-006
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da001
+    /// @vtest.intent all-constant assertion arguments yield a DA-001 Fail verdict
     #[test]
     fn constant_assertion_is_a_deterministic_failure() {
         let file =
@@ -1980,6 +1984,10 @@ mod tests {
         assert!(has_assert_like(item, &[]));
     }
 
+    /// @vtest.id TEST-ARUST-009
+    /// @vtest.covers VO-ARUST-007
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da002
+    /// @vtest.intent target called inside assertion passes DA-001/DA-002/DA-003
     #[test]
     fn target_call_in_assertion_passes_call_and_result_rules() {
         let file = syn::parse_file("#[test] fn x() { assert_eq!(add(1, 2), 3); }").unwrap();
@@ -2029,6 +2037,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-010
+    /// @vtest.covers VO-ARUST-008
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da004
+    /// @vtest.intent assert_eq of identical operands fails DA-004
     #[test]
     fn empty_and_self_comparing_tests_fail_their_rules() {
         let empty = item("#[test] fn x() {}");
@@ -2037,6 +2049,10 @@ mod tests {
         assert_eq!(rule_da004(&self_compare).verdict, AuditVerdict::Fail);
     }
 
+    /// @vtest.id TEST-ARUST-011
+    /// @vtest.covers VO-ARUST-009
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da003
+    /// @vtest.intent identifier substring of target does not prove result verification
     #[test]
     fn result_flow_never_uses_identifier_substrings_as_proof() {
         let file = syn::parse_file(
@@ -2056,6 +2072,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-012
+    /// @vtest.covers VO-ARUST-007
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da002
+    /// @vtest.intent one-hop same-file helper passes DA-002; external call is Unknown
     #[test]
     fn same_file_helper_is_followed_once_and_external_call_is_unknown() {
         let helper_file = syn::parse_file(
@@ -2100,6 +2120,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-013
+    /// @vtest.covers VO-ARUST-007
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da002
+    /// @vtest.intent qualified same-name call does not prove declared target in DA-002/003
     #[test]
     fn qualified_homonym_never_proves_the_declared_target_call() {
         let file = syn::parse_file("#[test] fn x() { assert_eq!(Other::known(), 1); }").unwrap();
@@ -2126,6 +2150,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-014
+    /// @vtest.covers VO-ARUST-007
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da002
+    /// @vtest.intent imports, shadows, and nested items never prove the target call
     #[test]
     fn bare_import_alias_and_local_shadow_never_prove_the_target() {
         let imported =
@@ -2179,6 +2207,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-015
+    /// @vtest.covers VO-ARUST-009
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da003
+    /// @vtest.intent target result crossing a helper boundary is DA-003 Unknown
     #[test]
     fn helper_target_result_flow_is_unknown_not_pass() {
         let file = syn::parse_file(
@@ -2208,6 +2240,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-016
+    /// @vtest.covers VO-ARUST-009
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::rule_da003
+    /// @vtest.intent configured macro args are recognized by DA-003 flow analysis
     #[test]
     fn nested_comma_self_comparison_and_configured_macro_are_recognized() {
         let file = syn::parse_file(
@@ -2229,6 +2265,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-017
+    /// @vtest.covers VO-ARUST-010
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::find_function
+    /// @vtest.intent find_function resolves module-qualified paths, rejects ambiguous bare name
     #[test]
     fn exact_module_path_prevents_same_name_test_mixup() {
         let file = syn::parse_file(
@@ -2241,6 +2281,10 @@ mod tests {
         assert!(find_function(&file, "checks").is_none());
     }
 
+    /// @vtest.id TEST-ARUST-018
+    /// @vtest.covers VO-ARUST-011
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::has_assert_like
+    /// @vtest.intent unwrap, try, and Result-err bodies count as assert-like syntax
     #[test]
     fn unwrap_try_and_result_err_are_assert_like() {
         assert!(has_assert_like(

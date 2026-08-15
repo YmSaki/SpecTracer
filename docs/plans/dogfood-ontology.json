@@ -1,5 +1,5 @@
 {
- "note": "VO claims are provisional (derived from test intents); weak claims expected to surface in vo_coverage audit. TEST IDs are permanent once committed.",
+ "note": "VO claims are provisional (derived from test intents); weak claims expected to surface in vo_coverage audit. TEST IDs are permanent once committed. [post-apply fixes: TEST-CLI-004 target->operations.rs; TEST-AAPI-015 dropped as structural (no fn target)].",
  "spec_reuse": "SPEC-DOGFOOD-M3",
  "reqs": [
   {
@@ -608,14 +608,6 @@
      "target": "",
      "intent": "Incomplete discovery is representable and never complete empty success",
      "topology": "structural"
-    },
-    {
-     "fn": "a_non_rust_adapter_expresses_an_optional_permanent_src_id",
-     "id": "TEST-AAPI-015",
-     "covers": "VO-AAPI-006",
-     "target": "",
-     "intent": "Non-rust adapter expresses opaque locator plus optional permanent SRC ID",
-     "topology": "structural"
     }
    ]
   },
@@ -809,7 +801,7 @@
      "fn": "tests::structured_create_generates_a_scannable_test",
      "id": "TEST-CLI-004",
      "covers": "VO-CLI-004",
-     "target": "crates/vtest-scan/src/lib.rs::create_test",
+     "target": "crates/vtest-scan/src/operations.rs::create_test",
      "intent": "structured create/edit yields a scannable test and rejects bad targets",
      "topology": "in-process"
     },

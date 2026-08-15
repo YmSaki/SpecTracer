@@ -1893,6 +1893,10 @@ mod tests {
         AuditorRecord,
     };
 
+    /// @vtest.id TEST-VERIFY-001
+    /// @vtest.covers VO-VERIFY-001
+    /// @vtest.target crates/vtest-verify/src/lib.rs::compare_evidence_recency
+    /// @vtest.intent Evidence recency ordering uses actual RFC3339 instant, not lexical order
     #[test]
     fn evidence_recency_uses_the_actual_rfc3339_instant() {
         let make = |id: &str, executed_at: &str| EvidenceRecord {
@@ -2308,6 +2312,10 @@ mod tests {
         evidence
     }
 
+    /// @vtest.id TEST-VERIFY-002
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent DA-002 UNKNOWN rescued to PASS by valid runtime target_execution (count>0)
     #[test]
     fn static_audit_da002_unknown_is_rescued_by_runtime_target_execution() {
         // DA-002 is statically UNKNOWN but DA-003 PASS (result asserted in body).
@@ -2325,6 +2333,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-003
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Runtime rescue denied when measured count is zero; item stays UNKNOWN
     #[test]
     fn static_audit_runtime_rescue_needs_a_positive_measured_count() {
         // The same DA-002 UNKNOWN target is not rescued when coverage measured a
@@ -2340,6 +2352,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-004
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Per-target DA-002 FAIL dominates a newer UNKNOWN record
     #[test]
     fn static_audit_da002_fail_dominates_a_newer_unknown_record() {
         // Two subject-current records for the same target: an older FAIL and a
@@ -2356,6 +2372,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-005
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent DA-003 UNKNOWN gets no runtime rescue; item is UNKNOWN
     #[test]
     fn static_audit_da003_unknown_is_not_rescued_by_runtime() {
         // DA-002 is statically PASS (reachable) but DA-003 is UNKNOWN. Coverage
@@ -2370,6 +2390,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-006
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Statically-unproven DA-002 with no Evidence stays UNKNOWN, not PASS
     #[test]
     fn static_audit_da002_unknown_without_runtime_stays_unknown() {
         // A statically-unproven DA-002 (UNKNOWN) is not reachable without runtime
@@ -2384,6 +2408,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-007
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Per-target list naming undeclared target is malformed; item UNKNOWN
     #[test]
     fn static_audit_per_target_set_mismatch_is_malformed_unknown() {
         // A subject-current record whose per-target list names a target the Test
@@ -2404,6 +2432,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-008
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Only current per-test records used; FAIL wins over PASS/UNKNOWN
     #[test]
     fn static_audit_uses_only_current_per_test_records_and_fail_wins() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2422,6 +2454,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-009
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Assertion-macro config change stales the static audit record
     #[test]
     fn static_audit_becomes_stale_when_assertion_configuration_changes() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2439,6 +2475,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-010
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Moving the Test locator stales the static audit record
     #[test]
     fn static_audit_becomes_stale_when_the_test_locator_moves() {
         let (layout, mut scan) = static_fixture(&["TEST-ONE"]);
@@ -2455,6 +2495,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-011
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent A subject hash mismatch marks the static audit stale
     #[test]
     fn static_audit_marks_hash_mismatch_stale() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2470,6 +2514,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-012
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Any non-current bound subject makes the static audit stale
     #[test]
     fn static_audit_requires_every_bound_subject_to_be_current() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2495,6 +2543,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-013
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Missing/substituted declared-target subject makes audit stale
     #[test]
     fn static_audit_requires_the_exact_declared_target_subject() {
         let (layout, mut scan) = static_fixture(&["TEST-ONE"]);
@@ -2542,6 +2594,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-014
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent A record binding multiple Tests is rejected; item UNKNOWN
     #[test]
     fn static_audit_rejects_a_record_that_binds_multiple_tests() {
         let (layout, scan) = static_fixture(&["TEST-ONE", "TEST-TWO"]);
@@ -2567,6 +2623,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-015
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent Latest record chosen by actual RFC3339 instant across offsets
     #[test]
     fn static_audit_orders_offsets_by_the_actual_rfc3339_instant() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2594,6 +2654,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-016
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent A registered Test with no static audit yields NotChecked
     #[test]
     fn static_audit_requires_an_audit_for_every_registered_test() {
         let (layout, scan) = static_fixture(&["TEST-ONE", "TEST-TWO"]);
@@ -2609,6 +2673,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-VERIFY-017
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent A malformed static record surfaces as UNKNOWN, not silently ignored
     #[test]
     fn malformed_static_audit_is_unknown_not_silently_ignored() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);

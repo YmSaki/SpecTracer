@@ -139,6 +139,10 @@ fn synthetic_test() -> TestEntity {
     }
 }
 
+/// @vtest.id TEST-AAPI-004
+/// @vtest.covers VO-AAPI-003
+/// @vtest.target crates/vtest-adapter-api/src/lib.rs::normalize_wire_targets
+/// @vtest.intent Neutral wire targets round-trip and reject dual targets vs single target
 #[test]
 fn synthetic_wire_properties_round_trip_without_rust_fields() {
     let codec = SyntheticCodec;
@@ -172,6 +176,10 @@ fn synthetic_wire_properties_round_trip_without_rust_fields() {
     assert!(test.validate().is_err());
 }
 
+/// @vtest.id TEST-AAPI-005
+/// @vtest.covers VO-AAPI-002
+/// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::ids
+/// @vtest.intent Registry binds codec and yields adapter ids in deterministic sorted order
 #[test]
 fn registry_binds_codec_and_preserves_deterministic_id_order() {
     let mut synthetic = AdapterRegistration::new(AdapterDescriptor {
@@ -197,6 +205,10 @@ fn registry_binds_codec_and_preserves_deterministic_id_order() {
         .is_ok());
 }
 
+/// @vtest.id TEST-AAPI-006
+/// @vtest.covers VO-AAPI-004
+/// @vtest.target crates/vtest-model/src/lib.rs::hash_static_audit_config_subject
+/// @vtest.intent Static observation is hash-free and core computes config subject hash
 #[test]
 fn registry_static_observation_is_hash_free_and_core_owns_config_hashing() {
     let adapter = AdapterId::new("synthetic");
@@ -234,6 +246,10 @@ fn registry_static_observation_is_hash_free_and_core_owns_config_hashing() {
     );
 }
 
+/// @vtest.id TEST-AAPI-007
+/// @vtest.covers VO-AAPI-005
+/// @vtest.target crates/vtest-model/src/lib.rs::hash_test_subject
+/// @vtest.intent Discovery DTO is hash-free and core hash binds the test subject
 #[test]
 fn discovery_dto_is_hash_free_and_core_hash_function_binds_the_subject() {
     let test = synthetic_test();
@@ -322,6 +338,10 @@ fn target_observation_fixture_has_no_representative_target_escape_hatch() {
     assert_eq!(fixture["expected_aggregate"], "FAIL");
 }
 
+/// @vtest.id TEST-AAPI-010
+/// @vtest.covers VO-AAPI-007
+/// @vtest.target crates/vtest-adapter-api/src/lib.rs::missing_capability_semantics
+/// @vtest.intent Missing capabilities map to specific non-pass semantics states
 #[test]
 fn capability_absence_and_analysis_limits_bind_to_non_pass_states() {
     assert_eq!(

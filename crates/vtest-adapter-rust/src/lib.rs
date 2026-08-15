@@ -236,6 +236,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-ARUST-001
+    /// @vtest.covers VO-ARUST-001
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoCodec::decode_execution
+    /// @vtest.intent Round-trips a Test through encode_properties then decode_execution losslessly
     #[test]
     fn version_one_compatibility_round_trips_losslessly() {
         let codec = RustCargoCodec;
@@ -256,6 +260,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ARUST-002
+    /// @vtest.covers VO-ARUST-001
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoCodec::decode_execution
+    /// @vtest.intent decode_execution rejects disagreeing and incomplete compatibility fields
     #[test]
     fn compatibility_contradictions_and_partial_fields_are_rejected() {
         let codec = RustCargoCodec;

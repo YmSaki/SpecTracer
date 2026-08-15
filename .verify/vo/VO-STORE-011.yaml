@@ -1,0 +1,13 @@
+id: 'VO-STORE-011'
+parent: null
+requirements: ['REQ-STORE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'from_yaml: static audit round-trips and enforces exactly one TEST subject; malformed or untraceable audit records are rejected'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:44Z'
+updated: '2026-08-15T08:18:44Z'

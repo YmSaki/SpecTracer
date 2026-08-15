@@ -444,6 +444,10 @@ fn synthetic_variants_cover_capability_failure_mutation_and_ordering_inputs() {
     assert_eq!(ambiguous_form["rust_fallback_allowed"], false);
 }
 
+/// @vtest.id TEST-CLI-010
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Duplicate bare+prefixed Relation aliases make scan emit E-SCAN-010 and exit 1
 #[test]
 fn duplicate_bare_and_prefixed_relation_payload_is_rejected() {
     let project = TempProject::from_m1_base("duplicate-relation-alias");
@@ -569,6 +573,10 @@ fn orchestration_crates_have_no_direct_rust_analysis_dependencies() {
     }
 }
 
+/// @vtest.id TEST-CLI-014
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent Default verify reports exactly the fixed twelve items without rewriting config
 #[test]
 fn default_verify_evaluates_the_fixed_twelve_items() {
     let project = TempProject::from_m1_base("fixed-twelve");
@@ -590,6 +598,10 @@ fn default_verify_evaluates_the_fixed_twelve_items() {
     );
 }
 
+/// @vtest.id TEST-CLI-015
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent v1 config without full_scope verifies the fixed twelve and never rewrites config
 #[test]
 fn version_one_without_full_scope_uses_fixed_twelve_without_rewrite() {
     let project = TempProject::from_m1_base("v1-no-full-scope");
@@ -621,6 +633,10 @@ fn version_one_without_full_scope_uses_fixed_twelve_without_rewrite() {
     assert_eq!(fs::read(&config_path).expect("reread v1 config"), before);
 }
 
+/// @vtest.id TEST-CLI-016
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An unregistered test makes test_traceability report MISSING
 #[test]
 fn unregistered_test_is_traceability_missing() {
     let project = TempProject::from_m1_base("unregistered");
@@ -632,6 +648,10 @@ fn unregistered_test_is_traceability_missing() {
     assert_traceability(&project, "MISSING");
 }
 
+/// @vtest.id TEST-CLI-017
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A test with no covers metadata makes test_traceability report MISSING
 #[test]
 fn empty_covers_is_traceability_missing() {
     let project = TempProject::from_m1_base("empty-covers");
@@ -642,6 +662,10 @@ fn empty_covers_is_traceability_missing() {
     assert_traceability(&project, "MISSING");
 }
 
+/// @vtest.id TEST-CLI-018
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A dangling VO reference makes test_traceability report MISMATCH
 #[test]
 fn dangling_vo_is_traceability_mismatch() {
     let project = TempProject::from_m1_base("dangling-vo");
@@ -652,6 +676,10 @@ fn dangling_vo_is_traceability_mismatch() {
     assert_traceability(&project, "MISMATCH");
 }
 
+/// @vtest.id TEST-CLI-019
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent Duplicate test IDs make test_traceability report MISMATCH
 #[test]
 fn duplicate_test_id_is_traceability_mismatch() {
     let project = TempProject::from_m1_base("duplicate-test-id");
@@ -663,6 +691,10 @@ fn duplicate_test_id_is_traceability_mismatch() {
     assert_traceability(&project, "MISMATCH");
 }
 
+/// @vtest.id TEST-CLI-020
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent v2 rust-cargo config passes doctor; incomplete scope yields E-CONFIG-001 exit 2
 #[test]
 fn version_two_config_is_accepted_and_incomplete_scope_is_rejected() {
     let project = TempProject::from_m1_base("config-v2");
@@ -687,6 +719,10 @@ fn version_two_config_is_accepted_and_incomplete_scope_is_rejected() {
     );
 }
 
+/// @vtest.id TEST-CLI-021
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent Duplicate v2 full_scope entry is rejected with E-CONFIG-001 and no result
 #[test]
 fn version_two_duplicate_full_scope_is_e_config_001() {
     let project = TempProject::from_m1_base("v2-duplicate-scope");
@@ -736,6 +772,10 @@ fn assert_adapter_usage_error(project: &TempProject, command: &str, expected_cod
     );
 }
 
+/// @vtest.id TEST-CLI-022
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Unknown adapter id makes scan fail with E-ADAPTER-001 and no result
 #[test]
 fn unknown_adapter_rejects_scan_without_result() {
     let project = TempProject::from_m1_base("unknown-adapter");
@@ -746,6 +786,10 @@ fn unknown_adapter_rejects_scan_without_result() {
     assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
 }
 
+/// @vtest.id TEST-CLI-023
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Duplicate adapter id makes scan fail with E-ADAPTER-001 and no result
 #[test]
 fn duplicate_adapter_id_rejects_scan_without_result() {
     let project = TempProject::from_m1_base("duplicate-adapter");
@@ -756,6 +800,10 @@ fn duplicate_adapter_id_rejects_scan_without_result() {
     assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
 }
 
+/// @vtest.id TEST-CLI-024
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Empty adapter registry fails closed on scan with E-ADAPTER-001
 #[test]
 fn zero_adapter_registry_is_fail_closed() {
     let project = TempProject::from_m1_base("zero-adapter");
@@ -767,6 +815,10 @@ fn zero_adapter_registry_is_fail_closed() {
     assert_adapter_usage_error(&project, "scan", "E-ADAPTER-001");
 }
 
+/// @vtest.id TEST-CLI-025
+/// @vtest.covers VO-CLI-001
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_init
+/// @vtest.intent init writes a v2 config with adapters and form owner metadata
 #[test]
 fn init_writes_v2_adapter_namespace_and_form_owner() {
     let project = TempProject::empty("init-v2");
@@ -787,6 +839,10 @@ fn init_writes_v2_adapter_namespace_and_form_owner() {
     }
 }
 
+/// @vtest.id TEST-CLI-026
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A run-only config change does not stale the static_audit verdict (stays PASS)
 #[test]
 fn static_audit_ignores_run_only_config_changes() {
     let project = TempProject::from_m1_base("static-config-projection");
@@ -814,6 +870,10 @@ fn static_audit_ignores_run_only_config_changes() {
     );
 }
 
+/// @vtest.id TEST-CLI-027
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A consulted-helper-only change stales static_audit to STALE
 #[test]
 fn static_helper_only_change_stales_the_audit_record() {
     let project = TempProject::from_m1_base("static-helper-stale");
@@ -857,6 +917,10 @@ fn static_helper_only_change_stales_the_audit_record() {
     );
 }
 
+/// @vtest.id TEST-CLI-028
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An assertion_macros config change stales static_audit to STALE
 #[test]
 fn assertion_macro_change_stales_the_static_audit_record() {
     let project = TempProject::from_m1_base("assertion-macro-stale");
@@ -890,6 +954,10 @@ fn assertion_macro_change_stales_the_static_audit_record() {
     );
 }
 
+/// @vtest.id TEST-CLI-029
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent run records evidence with neutral subject hashes and complete execution state
 #[test]
 fn evidence_contains_neutral_subjects_and_complete_execution_state() {
     let project = TempProject::from_m1_base("execution-state");
@@ -907,6 +975,10 @@ fn evidence_contains_neutral_subjects_and_complete_execution_state() {
     assert!(evidence["execution_state"]["repository_inputs"].is_array());
 }
 
+/// @vtest.id TEST-CLI-030
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A target-external helper change stales evidence_validity to STALE
 #[test]
 fn target_external_helper_change_stales_evidence() {
     let project = TempProject::from_m1_base("external-helper-stale");
@@ -937,6 +1009,10 @@ fn target_external_helper_change_stales_evidence() {
     );
 }
 
+/// @vtest.id TEST-CLI-031
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent An execution-input mutation during run yields E-EXEC-004 and no evidence
 #[test]
 fn execution_state_mutation_reports_e_exec_004_without_evidence() {
     let project = TempProject::from_m1_base("execution-mutation");
@@ -957,6 +1033,10 @@ fn execution_state_mutation_reports_e_exec_004_without_evidence() {
         .is_some_and(Vec::is_empty));
 }
 
+/// @vtest.id TEST-CLI-032
+/// @vtest.covers VO-CLI-010
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_run
+/// @vtest.intent Multi-target run records per-target hashes and per-target execution results
 #[test]
 fn multi_target_evidence_keeps_target_specific_results() {
     let project = TempProject::from_m1_base("multi-target-neutral");
@@ -1006,6 +1086,10 @@ fn multi_target_evidence_keeps_target_specific_results() {
     assert_eq!(results.len(), 2);
 }
 
+/// @vtest.id TEST-CLI-033
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent Evidence missing execution_state makes evidence_validity STALE
 #[test]
 fn evidence_without_execution_state_is_compatibility_stale() {
     let project = TempProject::from_m1_base("missing-execution-state");
@@ -1038,6 +1122,10 @@ fn evidence_without_execution_state_is_compatibility_stale() {
     );
 }
 
+/// @vtest.id TEST-CLI-034
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An incomplete current execution snapshot makes evidence_validity UNKNOWN
 #[test]
 fn incomplete_current_execution_snapshot_is_unknown() {
     let project = TempProject::from_m1_base("incomplete-execution-snapshot");
@@ -1066,6 +1154,10 @@ fn incomplete_current_execution_snapshot_is_unknown() {
     );
 }
 
+/// @vtest.id TEST-CLI-035
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent Evidence with unknown revision commit makes evidence_validity STALE
 #[test]
 fn evidence_without_revision_commit_is_stale() {
     let project = TempProject::from_m1_base("missing-revision");
@@ -1090,6 +1182,10 @@ fn evidence_without_revision_commit_is_stale() {
     );
 }
 
+/// @vtest.id TEST-CLI-036
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An unrelated HEAD advance makes evidence_validity STALE
 #[test]
 fn head_change_without_test_or_target_change_stales_evidence() {
     let project = TempProject::from_m1_base("head-stale");
@@ -1108,6 +1204,10 @@ fn head_change_without_test_or_target_change_stales_evidence() {
     );
 }
 
+/// @vtest.id TEST-CLI-037
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A local path-dependency change makes evidence_validity STALE
 #[test]
 fn local_dependency_change_stales_evidence() {
     let project = TempProject::from_m1_base("local-dependency-stale");
@@ -1160,6 +1260,10 @@ fn local_dependency_change_stales_evidence() {
     );
 }
 
+/// @vtest.id TEST-CLI-038
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A spec-source-only change stales impl_consistency to STALE
 #[test]
 fn specification_only_change_stales_impl_consistency() {
     let project = TempProject::from_m1_base("impl-spec-stale");
@@ -1184,6 +1288,10 @@ fn specification_only_change_stales_impl_consistency() {
     );
 }
 
+/// @vtest.id TEST-CLI-039
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An impl-consistency FAIL audit maps to impl_consistency MISMATCH
 #[test]
 fn impl_consistency_fail_maps_to_mismatch() {
     let project = TempProject::from_m1_base("impl-fail-mismatch");
@@ -1199,6 +1307,10 @@ fn impl_consistency_fail_maps_to_mismatch() {
     );
 }
 
+/// @vtest.id TEST-CLI-040
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent A spec requirement without an active REQ makes spec_coverage non-PASS
 #[test]
 fn specification_requirement_without_active_req_is_non_pass() {
     let project = TempProject::from_m1_base("spec-without-req");
@@ -1229,6 +1341,10 @@ fn specification_requirement_without_active_req_is_non_pass() {
     assert_ne!(value, "PASS");
 }
 
+/// @vtest.id TEST-CLI-041
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent A spec-dependency change reverts approved VO effective_status to draft
 #[test]
 fn specification_dependency_change_invalidates_vo_approval() {
     let project = TempProject::from_m1_base("approval-spec-stale");
@@ -1262,6 +1378,10 @@ fn specification_dependency_change_invalidates_vo_approval() {
     assert_eq!(envelope(&show)["data"]["effective_status"], "draft");
 }
 
+/// @vtest.id TEST-CLI-042
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent CLI and MCP default verify return the identical fixed-contract envelope
 #[test]
 fn cli_and_mcp_default_verify_share_the_fixed_contract() {
     let project = TempProject::from_m1_base("cli-mcp-parity");
@@ -1285,6 +1405,10 @@ fn cli_and_mcp_default_verify_share_the_fixed_contract() {
     );
 }
 
+/// @vtest.id TEST-CLI-043
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent vo edit never persists a derived status; effective_status stays draft
 /// AF-041: the canonical VO record carries no approval-derived `status`.
 #[test]
 fn canonical_vo_record_never_stores_the_derived_status() {
@@ -1311,6 +1435,10 @@ fn canonical_vo_record_never_stores_the_derived_status() {
     assert_eq!(envelope(&shown)["data"]["effective_status"], "draft");
 }
 
+/// @vtest.id TEST-CLI-044
+/// @vtest.covers VO-CLI-011
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_vo
+/// @vtest.intent A closure-less Approval keeps VO draft and is reported as W-STORE-002
 /// AF-042: an Approval without an upstream dependency closure is inert.
 #[test]
 fn approval_without_a_dependency_closure_is_reported_and_never_approves() {
@@ -1376,6 +1504,10 @@ fn prepare_dual_addressed_target(project: &TempProject) {
     .expect("reference the target by locator and by SRC ID");
 }
 
+/// @vtest.id TEST-CLI-045
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent Locator and SRC ID addressing resolve to one canonical Source Target
 /// AF-043: both addressing modes reach one Source Target, never two.
 #[test]
 fn locator_and_src_id_resolve_to_one_source_target() {
@@ -1405,6 +1537,10 @@ fn locator_and_src_id_resolve_to_one_source_target() {
     assert_eq!(targets[0]["src_id"], "SRC-DUAL");
 }
 
+/// @vtest.id TEST-CLI-046
+/// @vtest.covers VO-CLI-012
+/// @vtest.target crates/vtest-model/src/lib.rs::hash_target_subject
+/// @vtest.intent The target subject hash is computed from the canonical locator, not the SRC ID
 /// AF-044: the subject is the canonical locator and the construct, never the
 /// SRC ID spelling a referring Test happened to use.
 #[test]
@@ -1452,6 +1588,10 @@ fn the_target_subject_binds_the_canonical_locator_not_the_src_id() {
     );
 }
 
+/// @vtest.id TEST-CLI-047
+/// @vtest.covers VO-CLI-008
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_scan
+/// @vtest.intent A duplicate permanent SRC ID yields E-SCAN-011 and E-SCAN-004, exit 1
 /// AF-045: a permanent SRC ID claimed twice resolves to nothing.
 #[test]
 fn duplicate_permanent_src_id_is_fail_closed() {

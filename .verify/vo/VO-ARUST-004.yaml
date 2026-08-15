@@ -1,0 +1,13 @@
+id: 'VO-ARUST-004'
+parent: null
+requirements: ['REQ-ARUST']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'llvm_name_matches: llvm_name_matches demangles rust v0 symbols and matches by item path'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T08:18:43Z'
+updated: '2026-08-15T08:18:43Z'
