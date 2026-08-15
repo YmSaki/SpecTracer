@@ -1,0 +1,56 @@
+id: '01M028SZPF20P1M10001A40055'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-STORE-022'
+    hash: 'sha256:627f92e25941dc82ed4e0326a1b9491b4e0b3763356bac28a8a24e3d290359ce'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver'
+    hash: 'sha256:627f92e25941dc82ed4e0326a1b9491b4e0b3763356bac28a8a24e3d290359ce'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::new_record_id'
+    hash: 'sha256:24d8cc6b3060cb1dd7dabdb69d6df45e4fd8dd29dc1775d070e7304cf0f4b7bc'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2448'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2413'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2413'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2413'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2413'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::approval_round_trip_requires_a_traceable_approver:2413'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:32Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

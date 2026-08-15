@@ -1,0 +1,68 @@
+id: '01M02CA7PW3NARS20002H2R00E'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-ARUST-007'
+    hash: 'sha256:bec5c99e4e79192aa0f780b8922ef1693cbf22f1aa137ed91082a553b003b114'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty'
+    hash: 'sha256:bec5c99e4e79192aa0f780b8922ef1693cbf22f1aa137ed91082a553b003b114'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::not_checked_target_execution'
+    hash: 'sha256:04ab56997c219247571054530a679ef2a117b03e11d9a74f234f302226a1870e'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:465'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::not_checked_target_execution'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::not_checked_target_execution_is_null_and_empty:458'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:458'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::not_checked_target_execution'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::not_checked_target_execution_is_null_and_empty:458'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:458'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:458'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:458'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::not_checked_target_execution_is_null_and_empty:458'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:54Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

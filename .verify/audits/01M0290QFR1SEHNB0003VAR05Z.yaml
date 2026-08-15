@@ -1,0 +1,70 @@
+id: '01M0290QFR1SEHNB0003VAR05Z'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-VERIFY-017'
+    hash: 'sha256:69d410db3bb6099cc14977d8750e621c6fe8858599021de61e360632b0b295c6'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored'
+    hash: 'sha256:69d410db3bb6099cc14977d8750e621c6fe8858599021de61e360632b0b295c6'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+    hash: 'sha256:d4e9e4d290aa3b94e5ec39d13cc6ab97f3827826f78e4df0bab98dca191a8b17'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::static_fixture'
+    hash: 'sha256:d9a049ccdc0640af743a705f34d24007c1dac00c57961296daf52d123f9fab4b'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2692'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::malformed_static_audit_is_unknown_not_silently_ignored:2676'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:12Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

@@ -1,0 +1,58 @@
+id: '01M02C6F1Y70T3MN0002SVR04Z'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-STORE-016'
+    hash: 'sha256:82fed40f2ee2126b5da41dc70fc971e96e710115a7e2813916f4fcc06beb3888'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items'
+    hash: 'sha256:82fed40f2ee2126b5da41dc70fc971e96e710115a7e2813916f4fcc06beb3888'
+  - locator: 'rust-cargo::crates/vtest-store/src/lib.rs::tests::one_adapter'
+    hash: 'sha256:d6ffac72d49f16c2bd8e09539967abd41e160e47f25aee9e8889246ae524b22e'
+  - locator: 'rust-cargo::crates/vtest-store/src/lib.rs::tests::version_two'
+    hash: 'sha256:bcfe3d29993ba466dc662447c0ad452ac9f75201fb581835d300ab9ff8263876'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:720'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:713'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:713'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:713'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:713'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::version_two_full_scope_rejects_unknown_and_extra_items:713'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:47Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

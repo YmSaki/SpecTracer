@@ -1,0 +1,30 @@
+id: '01M026FJNN0R61Y90002BKG000'
+test_id: 'TEST-DOGFOOD-M3-TARGET-RULES'
+adapter: 'rust-cargo'
+result: 'PASS'
+executed_at: '2026-08-15T07:51:49Z'
+revision:
+  commit: '97186142a9a920d70fbdb3359c26286233ab4de2'
+  dirty: true
+execution_state:
+  schema: 'rust-cargo-execution-state-v1'
+  complete: true
+  hash: 'sha256:fa0ad22a27c048269213286df59812257cdc64e8f19b8d2bb32ef55f444d0bff'
+hashes:
+  test_subject: 'sha256:54ac201ab44c63db6b80ff3763c842705225118ed058c1bd7b9a171b5301ef33'
+  targets:
+    - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call'
+      target_construct: 'sha256:2fd64c8adb4648e693554d1b453cfbcb5590faba4e1576c8a2dd0ca85a4ebccb'
+runner:
+  kind: 'cargo-llvm-cov'
+  command: 'cargo llvm-cov test -p vtest-adapter-rust --lib --json --output-path C:/Users/star/AppData/Local/Temp/vtest-cov-38712-TEST-DOGFOOD-M3-TARGET-RULES.json -- --exact static_audit::tests::dogfood_exact_target_path_is_classified'
+  exit_code: 0
+target_execution:
+  checked: true
+  method: 'llvm-cov'
+  result: 'PASS'
+  targets:
+    - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call'
+      result: 'PASS'
+      count: 1
+log_ref: 'cache/logs/01M026FJNN0R61Y90002BKG000.log'

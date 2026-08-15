@@ -1,0 +1,72 @@
+id: '01M028SPV01FQ7A10001A4000K'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-ARUST-012'
+    hash: 'sha256:30397052aed381374d23975e60daa1cc4b81adccdd9289490e6757f7f3dd3067'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown'
+    hash: 'sha256:30397052aed381374d23975e60daa1cc4b81adccdd9289490e6757f7f3dd3067'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::rule_da002'
+    hash: 'sha256:f10b60db68e9ba5f146de6566964e84bc2378a2d4d801561c06e85625ba63deb'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::rule_da003'
+    hash: 'sha256:57286c12755f31a9f78a7a9d6cae7753701d1f709d454ba191a65a3dd7d78f37'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::find_function'
+    hash: 'sha256:6eb3bd044e1742736c11b77c3e9a27300009c41e17fc145a883a9b30b853a865'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2086'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::rule_da002'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::rule_da002'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::same_file_helper_is_followed_once_and_external_call_is_unknown:2075'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:26Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

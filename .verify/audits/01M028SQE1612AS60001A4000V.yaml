@@ -1,0 +1,72 @@
+id: '01M028SQE1612AS60001A4000V'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-002'
+    hash: 'sha256:9ceb6c84f091924edb4521b8259f72c0cf5ebc504faf2ec721faa225be6406b5'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record'
+    hash: 'sha256:9ceb6c84f091924edb4521b8259f72c0cf5ebc504faf2ec721faa225be6406b5'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::approve_vo'
+    hash: 'sha256:3fc79d3f7b0a9d3cf567e85cb707c2db02ee9ba37eb3edad23fb285a198479aa'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::effective_vo_status'
+    hash: 'sha256:3fafee7e9caf24ab054da724a757bccdd14479a54f1e8815c288702e70745864'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::root'
+    hash: 'sha256:99ffa2996cf7ac36a6f88a97c0582101d3875be724024362128f5644a443532a'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4045'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::approve_vo'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::approve_vo'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record:4028'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:27Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

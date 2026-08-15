@@ -1,0 +1,74 @@
+id: '01M02CAF771BVE7B0002H2R03T'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-MODEL-005'
+    hash: 'sha256:daafc3b86a0badb7e9e82c4875fc01da492fde7c9fe2997093fa68e03a043aee'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject'
+    hash: 'sha256:daafc3b86a0badb7e9e82c4875fc01da492fde7c9fe2997093fa68e03a043aee'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_test_subject'
+    hash: 'sha256:406fcda8c46a4360a1481a62397496ea57b172af9f76f1f2d9d0077342b72caa'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::fixture_location'
+    hash: 'sha256:5111f516de3ce92804b2d6bade4cd0565a439d58df5a78a9b91d22acad1c648c'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::fixture_execution'
+    hash: 'sha256:0ba8e41acb7f1f405a9bbb73f1a44c539919b89fe658eb5806f25fb76b36ab55'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::synthetic_test_hash'
+    hash: 'sha256:1c6d8c2b24344a4d07ee35a1c2d3a3be73b68f9b6c25520303d98d9bb075fcb5'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1155'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_test_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::byte_range_movement_does_not_change_the_test_subject:1123'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1123'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'target result crosses a same-file helper boundary'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_test_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::byte_range_movement_does_not_change_the_test_subject:1123'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1123'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1123'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1123'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::byte_range_movement_does_not_change_the_test_subject:1123'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:58Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

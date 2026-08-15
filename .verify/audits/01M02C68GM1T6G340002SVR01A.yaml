@@ -1,0 +1,72 @@
+id: '01M02C68GM1T6G340002SVR01A'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-023'
+    hash: 'sha256:457696a32115ff92ea7c28168a77cb749f5bf4cbd113a0fde847981060de5d70'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result'
+    hash: 'sha256:457696a32115ff92ea7c28168a77cb749f5bf4cbd113a0fde847981060de5d70'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+    hash: 'sha256:07d8be26805fd24e2d473b5f3dd6e9092261d2a6b916e4e5fbd432ab6b3f4c92'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::adapter_config'
+    hash: 'sha256:eb5ff41ee96ea1fa5bad1a74f1ca302bf104ef6f5e4b20cb5a78218206332d9b'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::assert_adapter_usage_error'
+    hash: 'sha256:5d41a9ffe2e7c1240977c76368fdb5d73a4a85fd1ad05adeecbe9db46c2dc682'
+verdict: 'FAIL'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'PASS'
+    claim: 'at least one assertion depends on runtime data, or the rule is not applicable'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::duplicate_adapter_id_rejects_scan_without_result:789'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::duplicate_adapter_id_rejects_scan_without_result:789'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+  - rule: 'DA-006'
+    verdict: 'FAIL'
+    claim: 'no assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::duplicate_adapter_id_rejects_scan_without_result:789'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:43Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

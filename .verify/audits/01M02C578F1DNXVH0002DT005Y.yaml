@@ -1,0 +1,72 @@
+id: '01M02C578F1DNXVH0002DT005Y'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-VERIFY-016'
+    hash: 'sha256:dbb50d94f4856dc7577082fe98d85d49c1b2148e3d77e5b80553aa13e73f082c'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test'
+    hash: 'sha256:dbb50d94f4856dc7577082fe98d85d49c1b2148e3d77e5b80553aa13e73f082c'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+    hash: 'sha256:d4e9e4d290aa3b94e5ec39d13cc6ab97f3827826f78e4df0bab98dca191a8b17'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::static_fixture'
+    hash: 'sha256:d9a049ccdc0640af743a705f34d24007c1dac00c57961296daf52d123f9fab4b'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::write_static_audit'
+    hash: 'sha256:75711dae18fe933f72da2548dea1c9907a0f1f8fc758c33c17af6d8d72e000dd'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2670'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::static_audit_requires_an_audit_for_every_registered_test:2657'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2657'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::evaluate_static_audit'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::static_audit_requires_an_audit_for_every_registered_test:2657'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2657'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2657'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2657'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::static_audit_requires_an_audit_for_every_registered_test:2657'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:05Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

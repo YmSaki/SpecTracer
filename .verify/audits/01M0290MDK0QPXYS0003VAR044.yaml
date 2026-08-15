@@ -1,0 +1,70 @@
+id: '01M0290MDK0QPXYS0003VAR044'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-SCAN-007'
+    hash: 'sha256:cf7e65c1392217d1eafc5cee52dea68343b06afad435dcdd7beef8f3ff692d3e'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source'
+    hash: 'sha256:cf7e65c1392217d1eafc5cee52dea68343b06afad435dcdd7beef8f3ff692d3e'
+  - locator: 'rust-cargo::crates/vtest-scan/src/lib.rs::scan_project'
+    hash: 'sha256:44ccbdc342dec62683e4b01974f85f82d57bf70bbf7948968b41227d38ae2b78'
+  - locator: 'rust-cargo::crates/vtest-scan/src/lib.rs::tests::fixture'
+    hash: 'sha256:e2bf1b6f21ef3470eb7ae693331919b13938c366277d9a4688ac79933c32d209'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1706'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-scan/src/lib.rs::scan_project'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::extracts_annotated_test_and_source:1698'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1698'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-scan/src/lib.rs::scan_project'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::extracts_annotated_test_and_source:1698'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1698'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1698'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1698'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-scan/src/lib.rs::tests::extracts_annotated_test_and_source:1698'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:10Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

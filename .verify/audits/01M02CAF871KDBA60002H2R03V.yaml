@@ -1,0 +1,68 @@
+id: '01M02CAF871KDBA60002H2R03V'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-MODEL-006'
+    hash: 'sha256:1a0ef5e2d4d0e6e5850c99ea59ffc9933172b4e07d4cbfa814ac91efb69a8fd2'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection'
+    hash: 'sha256:1a0ef5e2d4d0e6e5850c99ea59ffc9933172b4e07d4cbfa814ac91efb69a8fd2'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+    hash: 'sha256:0ad8cbbcd14b28a5f3da3a1b66b798255ba0d760fa854c2110e65644065e0227'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1179'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::static_config_subject_binds_only_the_typed_projection:1158'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1158'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::static_config_subject_binds_only_the_typed_projection:1158'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1158'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1158'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1158'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::static_config_subject_binds_only_the_typed_projection:1158'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:58Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

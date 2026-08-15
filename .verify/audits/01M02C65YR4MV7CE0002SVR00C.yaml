@@ -1,0 +1,68 @@
+id: '01M02C65YR4MV7CE0002SVR00C'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-ARUST-005'
+    hash: 'sha256:e87f4fe2a0cac8218e4d5a08992082d62571633ee1bfc84b7ab610dd211a9e65'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure'
+    hash: 'sha256:e87f4fe2a0cac8218e4d5a08992082d62571633ee1bfc84b7ab610dd211a9e65'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count'
+    hash: 'sha256:302bc3a728413e3d6f367e7e674c4f13b90935a075902164125d56877ea4c7c1'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:439'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/runner.rs::tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure:420'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:42Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

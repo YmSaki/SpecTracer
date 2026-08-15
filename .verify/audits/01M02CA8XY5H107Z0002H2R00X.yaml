@@ -1,0 +1,74 @@
+id: '01M02CA8XY5H107Z0002H2R00X'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-004'
+    hash: 'sha256:358e1fb41a641279870927169ea1c142b3b04ef751e0104793c6443d7018df95'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test'
+    hash: 'sha256:358e1fb41a641279870927169ea1c142b3b04ef751e0104793c6443d7018df95'
+  - locator: 'rust-cargo::crates/vtest-scan/src/operations.rs::create_test'
+    hash: 'sha256:5322db13ead734dfcf92f0f2bdb72417e54cd4fc5f9c0b91cf11d08fa09828b9'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::scan_with_registry'
+    hash: 'sha256:2b9e6ea121956cb1e22397bfba9edbce83e4f99ec145af5d432a09d07d43941f'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run'
+    hash: 'sha256:dd9ec8af81f2fb1cfdddd2aaba5819cedf3ae83c63a8a9b7298c46f03c6b7113'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::root'
+    hash: 'sha256:99ffa2996cf7ac36a6f88a97c0582101d3875be724024362128f5644a443532a'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4237'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-scan/src/operations.rs::create_test'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::structured_create_generates_a_scannable_test:4207'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4207'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-scan/src/operations.rs::create_test'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::structured_create_generates_a_scannable_test:4207'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4207'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4207'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4207'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::structured_create_generates_a_scannable_test:4207'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:54Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

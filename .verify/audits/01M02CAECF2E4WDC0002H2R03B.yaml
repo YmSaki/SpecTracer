@@ -1,0 +1,72 @@
+id: '01M02CAECF2E4WDC0002H2R03B'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-088'
+    hash: 'sha256:f5d32bb3fde6b52412a76526504a00dcd849da4da3b67013ce2418984084924a'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent'
+    hash: 'sha256:f5d32bb3fde6b52412a76526504a00dcd849da4da3b67013ce2418984084924a'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_test'
+    hash: 'sha256:703a426daccd48df132d5c85570041052e02d71235c49500167ac787715469b5'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m8_acceptance.rs::invoke'
+    hash: 'sha256:e8f58629b404ab3b7070f47b7a5aea3b8b3b11035e6a6c33ee46718547390495'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m8_acceptance.rs::assert_ok'
+    hash: 'sha256:09c002b6e54d6b4bcfee519b5a304cdda8714014ac76518d75a10ec723c9813c'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:348'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_test'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m8_reapplying_same_edit_is_byte_idempotent:310'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:310'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_test'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m8_reapplying_same_edit_is_byte_idempotent:310'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:310'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:310'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:310'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m8_acceptance.rs::m8_reapplying_same_edit_is_byte_idempotent:310'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:57Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

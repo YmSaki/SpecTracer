@@ -1,0 +1,80 @@
+id: '01M0290H1J4S9C7Q0003VAR02B'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-056'
+    hash: 'sha256:e57c69d027e9d342355d60cf887801d9300c60baf1e7916c93872265fe18774b'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error'
+    hash: 'sha256:e57c69d027e9d342355d60cf887801d9300c60baf1e7916c93872265fe18774b'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+    hash: 'sha256:07d8be26805fd24e2d473b5f3dd6e9092261d2a6b916e4e5fbd432ab6b3f4c92'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::invoke'
+    hash: 'sha256:7f3d8c45c4afaa53cff223e4c5c5e0da13b695111ee5125ea505083a534a8cdf'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::assert_exit'
+    hash: 'sha256:2c45e8b448a1eeca6894bcb99f00e6dc09e6e5f1d5623f637c6be1741e1a604e'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::envelope'
+    hash: 'sha256:4e89c7c17b680b8b3917a447f9cbe06a19246b6644f16b285bc6b73bc470bfb6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::assert_ok'
+    hash: 'sha256:37efa5163137c241122095c93a8821fa0b5a132cb71e8d76136e9d5f12263cff'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::only_approval_file'
+    hash: 'sha256:adbe2673b65f10a553b078187c639ee07e05ed01b299f48035401ae7f7678636'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::remove_approver_block'
+    hash: 'sha256:f0837a979e37ff6077789e254103e5413fbb74af5c0659ded2ec3e3cd515cb6e'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:458'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_scan'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_malformed_approval_is_not_effective_and_is_a_scan_error:418'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:08Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

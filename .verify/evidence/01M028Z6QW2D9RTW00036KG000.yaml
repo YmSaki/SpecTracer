@@ -1,0 +1,30 @@
+id: '01M028Z6QW2D9RTW00036KG000'
+test_id: 'TEST-SCAN-001'
+adapter: 'rust-cargo'
+result: 'PASS'
+executed_at: '2026-08-15T08:35:20Z'
+revision:
+  commit: 'f8257134b1ca08ec74f651481caff797433e3d3e'
+  dirty: true
+execution_state:
+  schema: 'rust-cargo-execution-state-v1'
+  complete: true
+  hash: 'sha256:bd45c4a13642f23d07a9d3845c0038d56a6ca0cb9460b47946dc46984fb794fe'
+hashes:
+  test_subject: 'sha256:a5fdfb0a6df15da9c903c69cc684fce5eb5a7e47780aabf02eed8d9984e2951c'
+  targets:
+    - target: 'rust-cargo::crates/vtest-scan/src/lib.rs::materialize_discovery_batch'
+      target_construct: 'sha256:f7f4ca40c61630b23d72b1c3da752f1e9ade0dca29ea2df4111492567a0782fc'
+runner:
+  kind: 'cargo-llvm-cov'
+  command: 'cargo llvm-cov test -p vtest-scan --lib --json --output-path C:/Users/star/AppData/Local/Temp/vtest-cov-52536-TEST-SCAN-001.json -- --exact tests::core_validates_current_bytes_before_materializing_adapter_drafts'
+  exit_code: 0
+target_execution:
+  checked: true
+  method: 'llvm-cov'
+  result: 'PASS'
+  targets:
+    - target: 'rust-cargo::crates/vtest-scan/src/lib.rs::materialize_discovery_batch'
+      result: 'PASS'
+      count: 1
+log_ref: 'cache/logs/01M028Z6QW2D9RTW00036KG000.log'

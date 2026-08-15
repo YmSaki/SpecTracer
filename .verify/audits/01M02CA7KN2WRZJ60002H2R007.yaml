@@ -1,0 +1,70 @@
+id: '01M02CA7KN2WRZJ60002H2R007'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-AAPI-010'
+    hash: 'sha256:f163c23c39101b60241aded35ee37b970d6c03eb3eec775e34a89c121fd37347'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states'
+    hash: 'sha256:f163c23c39101b60241aded35ee37b970d6c03eb3eec775e34a89c121fd37347'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::missing_capability_semantics'
+    hash: 'sha256:eb45ffc97f89a352aed7c471c2d2f23738b640e9b1e10cde2a12d8de13f60c99'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::json'
+    hash: 'sha256:e123fd460adfe9a48bdd605705efacea9162034d7727d167b5c4c5c3b27e0a02'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:347'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::missing_capability_semantics'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::missing_capability_semantics'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::capability_absence_and_analysis_limits_bind_to_non_pass_states:341'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:54Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

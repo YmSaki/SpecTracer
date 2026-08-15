@@ -1,0 +1,76 @@
+id: '01M028SWS423Q6MA0001A40037'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-084'
+    hash: 'sha256:fcde6d443236c8a00cc43996ee50d037299a86e08226cfd9eed573642bee9623'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked'
+    hash: 'sha256:fcde6d443236c8a00cc43996ee50d037299a86e08226cfd9eed573642bee9623'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_run'
+    hash: 'sha256:e2732477469e2199730b9aab37e94cea93b58c6c7195b17d92b06ef2dc0c2592'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m7_acceptance.rs::envelope'
+    hash: 'sha256:dcd52cf183aecbda34339379c7410f8201d509965e6d7fb8273e1e572279aad2'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m7_acceptance.rs::setup_project'
+    hash: 'sha256:dc9fb3f8fda99b87fec2dc6c69f1193eddf13553dcfbd9691392511e7165aefe'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m7_acceptance.rs::find_cargo'
+    hash: 'sha256:c6a8ef23a7700245a51fea4afbe715c9a3f5ae1744ea59d849ad30fe342c6c0d'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m7_acceptance.rs::find_tool'
+    hash: 'sha256:a6078b01ffc683c884ee3dae0b1b43ea88be410ca64671d88bac07cd1b195642'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:232'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_run'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_run'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m7_acceptance.rs::m7_missing_llvm_cov_is_warning_and_not_checked:203'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:30Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

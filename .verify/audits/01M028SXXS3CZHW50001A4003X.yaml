@@ -1,0 +1,70 @@
+id: '01M028SXXS3CZHW50001A4003X'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-MODEL-008'
+    hash: 'sha256:c12ee1dc7642c5d1321cb05a6cddc48e1506a1b1157c5f21bd58a3fd0684ec90'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse'
+    hash: 'sha256:c12ee1dc7642c5d1321cb05a6cddc48e1506a1b1157c5f21bd58a3fd0684ec90'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_record_subject'
+    hash: 'sha256:786fb3ac11a7a1940d7c9fc7f27b803003753293df13384d25076e219833cba2'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_spec_subject'
+    hash: 'sha256:93d5587783474d17152020c596eb4b353b38f39f3498fd53813f6d00b1ec932d'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1207'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_record_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::subject_domains_prevent_cross_type_hash_reuse:1200'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1200'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_record_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::subject_domains_prevent_cross_type_hash_reuse:1200'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1200'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1200'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1200'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::subject_domains_prevent_cross_type_hash_reuse:1200'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:30Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

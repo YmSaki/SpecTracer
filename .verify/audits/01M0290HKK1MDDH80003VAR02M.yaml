@@ -1,0 +1,80 @@
+id: '01M0290HKK1MDDH80003VAR02M'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-065'
+    hash: 'sha256:34e6a90c669cdd95884c0facba046012b007f5bf12789525b5ab9a9fe67d61ca'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests'
+    hash: 'sha256:34e6a90c669cdd95884c0facba046012b007f5bf12789525b5ab9a9fe67d61ca'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_audit_static'
+    hash: 'sha256:54309010596224ba92e6e5375ff75d2c037c8b0a58c5cd1a1ef658dd6bf688fc'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::invoke_static'
+    hash: 'sha256:a859c7533bc4b262074b75dcd964199e35e44148b88f39bc07285744167c09e8'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::invoke_static_all'
+    hash: 'sha256:0f70a40dd70f2dc2d9212944c8397932a0cf48d6bb91827e907a6243a8d80d2a'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::audit_response'
+    hash: 'sha256:5ab146c1b2d005ee7695ad57a62feec43e5d77087dda1a0b6e578ce6e697e920'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::only_audit'
+    hash: 'sha256:e7400b29231785d85e08d88c6430133aad6aba1adaf2f7f1fdc2591520c98f3c'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::rule'
+    hash: 'sha256:6b760104ae855d8a90a74e72985db17c3749606322a25c6bd09c5154747b1c78'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m3_acceptance.rs::assert_failed_rule'
+    hash: 'sha256:3e1a2f0dcc5fad293fd8858ea2fe21d7f81bc0451904dd2c349d9c37dff67d4a'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:207'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_audit_static'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_audit_static'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m3_acceptance.rs::m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests:176'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:08Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

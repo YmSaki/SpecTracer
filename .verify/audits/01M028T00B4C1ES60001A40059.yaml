@@ -1,0 +1,68 @@
+id: '01M028T00B4C1ES60001A40059'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-STORE-026'
+    hash: 'sha256:681e6f38f0695cdac8f5da94f0d8f390ef43feb051a8dfa9c1c8cb1cb1d53d95'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass'
+    hash: 'sha256:681e6f38f0695cdac8f5da94f0d8f390ef43feb051a8dfa9c1c8cb1cb1d53d95'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::pure_static_fold'
+    hash: 'sha256:d664517f349603dc1b54aa4c1dd20f7f4f637a6dbae619af6bdac77becfe309c'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2754'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-store/src/records.rs::pure_static_fold'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-store/src/records.rs::pure_static_fold'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass:2747'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:32Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

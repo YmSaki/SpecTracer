@@ -1,0 +1,54 @@
+id: '01M0290N4D65PHCF0003VAR04V'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-STORE-012'
+    hash: 'sha256:2038e000e95a33ffdd07644ebf1123977ef98f8b003a4b5e806c2ea7b30b6cad'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes'
+    hash: 'sha256:2038e000e95a33ffdd07644ebf1123977ef98f8b003a4b5e806c2ea7b30b6cad'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:641'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:627'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target symbol could not be resolved'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:627'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:627'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:627'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/lib.rs::tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes:627'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:11Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

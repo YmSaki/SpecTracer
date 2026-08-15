@@ -1,0 +1,68 @@
+id: '01M02CAF2S09W5Z00002H2R03N'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-DOGFOOD-M3-TARGET-RULES'
+    hash: 'sha256:54ac201ab44c63db6b80ff3763c842705225118ed058c1bd7b9a171b5301ef33'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified'
+    hash: 'sha256:54ac201ab44c63db6b80ff3763c842705225118ed058c1bd7b9a171b5301ef33'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call'
+    hash: 'sha256:2fd64c8adb4648e693554d1b453cfbcb5590faba4e1576c8a2dd0ca85a4ebccb'
+verdict: 'PASS'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'PASS'
+    claim: 'at least one assertion depends on runtime data, or the rule is not applicable'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2034'
+  - rule: 'DA-002'
+    verdict: 'PASS'
+    claim: 'declared target is called directly'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call'
+        verdict: 'PASS'
+        basis:
+          - kind: 'test-code'
+            ref: '::dogfood_exact_target_path_is_classified:2027'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2027'
+  - rule: 'DA-003'
+    verdict: 'PASS'
+    claim: 'every target result reaches assert-like syntax'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::classify_target_call'
+        verdict: 'PASS'
+        basis:
+          - kind: 'test-code'
+            ref: '::dogfood_exact_target_path_is_classified:2027'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2027'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2027'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2027'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::dogfood_exact_target_path_is_classified:2027'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:58Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

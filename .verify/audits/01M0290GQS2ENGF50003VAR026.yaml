@@ -1,0 +1,76 @@
+id: '01M0290GQS2ENGF50003VAR026'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-051'
+    hash: 'sha256:92c4d2b244e8836b27949803195d6f8895c302847daf565561807cdd937131e7'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error'
+    hash: 'sha256:92c4d2b244e8836b27949803195d6f8895c302847daf565561807cdd937131e7'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run'
+    hash: 'sha256:dd9ec8af81f2fb1cfdddd2aaba5819cedf3ae83c63a8a9b7298c46f03c6b7113'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m1_acceptance.rs::invoke'
+    hash: 'sha256:2e71c73e46231d9e2d7398655110d6267ff71a7cb5da4bd0e916c05329012d22'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m1_acceptance.rs::stdout'
+    hash: 'sha256:d08af8efd974394be5f1cae436b40e55a3324483b9c2662efa70188973e5120d'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m1_acceptance.rs::assert_success'
+    hash: 'sha256:62094fd69cb4ee696147da063c83ae90352cfe4f961a7bbb25d0709994c88a87'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m1_acceptance.rs::assert_json_envelope'
+    hash: 'sha256:294486e1e0007e65517270bcdfe2330807e819e7287ad91bfe8151baac3746d8'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:314'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m1_invalid_project_config_is_a_json_internal_error:289'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:289'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m1_invalid_project_config_is_a_json_internal_error:289'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:289'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:289'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:289'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m1_acceptance.rs::m1_invalid_project_config_is_a_json_internal_error:289'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:07Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

@@ -1,0 +1,68 @@
+id: '01M02C4WSB3FCHXC0002DT000R'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-ARUST-017'
+    hash: 'sha256:a926e133ead875a49933edece6f941a9a5934bbabaae9a6ca9d0ff04ee5b6229'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup'
+    hash: 'sha256:a926e133ead875a49933edece6f941a9a5934bbabaae9a6ca9d0ff04ee5b6229'
+  - locator: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::find_function'
+    hash: 'sha256:6eb3bd044e1742736c11b77c3e9a27300009c41e17fc145a883a9b30b853a865'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2280'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::find_function'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::exact_module_path_prevents_same_name_test_mixup:2268'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2268'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-rust/src/static_audit.rs::find_function'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::exact_module_path_prevents_same_name_test_mixup:2268'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2268'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2268'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2268'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-rust/src/static_audit.rs::tests::exact_module_path_prevents_same_name_test_mixup:2268'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:30:59Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

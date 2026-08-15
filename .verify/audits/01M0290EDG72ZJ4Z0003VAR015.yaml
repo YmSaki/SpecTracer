@@ -1,0 +1,70 @@
+id: '01M0290EDG72ZJ4Z0003VAR015'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-018'
+    hash: 'sha256:67e21f1741776dbed1a704d8097c2120ab6d520cb8543a46182c2d9ad807d1ff'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch'
+    hash: 'sha256:67e21f1741776dbed1a704d8097c2120ab6d520cb8543a46182c2d9ad807d1ff'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+    hash: 'sha256:651a53dfd5a0f10c0e1f28c3d9753041d80ce40db8147a1e77ac47bfd4079ed1'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::assert_traceability'
+    hash: 'sha256:dbbb38e2a1d56a630a8b6afd816a97231fa72b410916c1b9a8b50803eec74648'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'PASS'
+    claim: 'at least one assertion depends on runtime data, or the rule is not applicable'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::dangling_vo_is_traceability_mismatch:665'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::dangling_vo_is_traceability_mismatch:665'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::dangling_vo_is_traceability_mismatch:665'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:06Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

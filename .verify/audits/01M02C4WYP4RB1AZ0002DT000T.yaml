@@ -1,0 +1,72 @@
+id: '01M02C4WYP4RB1AZ0002DT000T'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-001'
+    hash: 'sha256:acd054c975bc2ff48e1f2e26470c4eac3106d27fc3a1170881f8b366eaeac388'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error'
+    hash: 'sha256:acd054c975bc2ff48e1f2e26470c4eac3106d27fc3a1170881f8b366eaeac388'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_init'
+    hash: 'sha256:e722fde4475f8587bccc9cef4da457c337e782514f924c82e170d445ee6301a1'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run'
+    hash: 'sha256:dd9ec8af81f2fb1cfdddd2aaba5819cedf3ae83c63a8a9b7298c46f03c6b7113'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::root'
+    hash: 'sha256:99ffa2996cf7ac36a6f88a97c0582101d3875be724024362128f5644a443532a'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error:3999'
+  - rule: 'DA-002'
+    verdict: 'PASS'
+    claim: 'same-file helper `run` calls the declared target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_init'
+        verdict: 'PASS'
+        basis:
+          - kind: 'test-code'
+            ref: '::run:352'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::run:352'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'target result crosses a same-file helper boundary'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_init'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::init_creates_project_and_second_init_is_usage_error:3992'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error:3992'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error:3992'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error:3992'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::init_creates_project_and_second_init_is_usage_error:3992'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:30:59Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

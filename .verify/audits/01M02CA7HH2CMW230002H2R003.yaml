@@ -1,0 +1,70 @@
+id: '01M02CA7HH2CMW230002H2R003'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-AAPI-004'
+    hash: 'sha256:b4547ab275dce214546f11567c17d99280c8ebda64a98ecfc719a2aa4d8c8be5'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields'
+    hash: 'sha256:b4547ab275dce214546f11567c17d99280c8ebda64a98ecfc719a2aa4d8c8be5'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::normalize_wire_targets'
+    hash: 'sha256:69cabf9f8a4c6af3186abc32a0a68f0b62534485b2833ff718532d49cbe1bc97'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_test'
+    hash: 'sha256:813748b060282e5abc546942909c6eb80a5db0ff433fdddb75d8ed9bf0ac72c9'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:159'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::normalize_wire_targets'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::synthetic_wire_properties_round_trip_without_rust_fields:142'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:142'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-adapter-api/src/lib.rs::normalize_wire_targets'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::synthetic_wire_properties_round_trip_without_rust_fields:142'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:142'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:142'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:142'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_wire_properties_round_trip_without_rust_fields:142'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:33:53Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

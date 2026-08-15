@@ -1,0 +1,74 @@
+id: '01M028STES6QV8PW0001A40021'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-046'
+    hash: 'sha256:2b06259bf02cbf43d53dc37adeab1cadb1ba2a276fb61d415e3ebd50ecf1245c'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id'
+    hash: 'sha256:2b06259bf02cbf43d53dc37adeab1cadb1ba2a276fb61d415e3ebd50ecf1245c'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_target_subject'
+    hash: 'sha256:f908591b9944165d13f77022a42da160d361c61ff7c14b0a8c49eff5934939fd'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::invoke'
+    hash: 'sha256:eea7914a30b0f33203d6bbb2cdd21b43529218c1fbceb0983973562ed24b758c'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::envelope'
+    hash: 'sha256:2eba9636137f187cc75a12bd9dbcb511932f08fbe1ceca2dabbb063007a85c73'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/adapter_acceptance.rs::prepare_dual_addressed_target'
+    hash: 'sha256:608c9e122e4f307d3a85a0463c4f8c75598715f6acbd129a3ea4e93b9eae5c00'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1575'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_target_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_target_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/adapter_acceptance.rs::the_target_subject_binds_the_canonical_locator_not_the_src_id:1540'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:28Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

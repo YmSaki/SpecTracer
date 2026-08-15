@@ -1,0 +1,68 @@
+id: '01M02C56347DK4N30002DT005F'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-VERIFY-001'
+    hash: 'sha256:15b88e666feb61a0fd31b49329ba5271134ce9361207e5c0bf38c3e128b27d32'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant'
+    hash: 'sha256:15b88e666feb61a0fd31b49329ba5271134ce9361207e5c0bf38c3e128b27d32'
+  - locator: 'rust-cargo::crates/vtest-verify/src/lib.rs::compare_evidence_recency'
+    hash: 'sha256:6ec59401ceb64475fa485f22fb3a3946e7a48709d1b6fceeaffed761f81adfec'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1941'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::compare_evidence_recency'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-verify/src/lib.rs::compare_evidence_recency'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-verify/src/lib.rs::tests::evidence_recency_uses_the_actual_rfc3339_instant:1896'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:04Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

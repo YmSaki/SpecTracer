@@ -1,0 +1,78 @@
+id: '01M0290KHD1F12AH0003VAR03G'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-093'
+    hash: 'sha256:f58fe9af371aea1326a79fa2156cd76425dfd8b1cc876a887fb05df3037c61db'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates'
+    hash: 'sha256:f58fe9af371aea1326a79fa2156cd76425dfd8b1cc876a887fb05df3037c61db'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_mcp'
+    hash: 'sha256:46fe52754851a764819913b24893fad8526b962fab9ee845736593d6da751665'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::mcp_call'
+    hash: 'sha256:b60d9b4925358fe5665c7b0e3992d56d4ab81f60f1d786cbab675db0a7d44d31'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::mcp_envelope'
+    hash: 'sha256:cdd53ef4dbac97aadefac3276a02c746f1195e1f03178ed3a12d5bdf4debce6b'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::assert_mcp_ok'
+    hash: 'sha256:ccdd4fb3c83e006ae3d1256361ffeb7f6aae9e89f6e2f4fabe82d8eed68d8db0'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::assert_mcp_failure'
+    hash: 'sha256:dbadbdeb2559e382050e46a08282cdbc1acd302c7447bdbc815cf4b1d66e4a8d'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m9_acceptance.rs::prepare_spec_fixture'
+    hash: 'sha256:17e5aff2184137afd0cd01a46ae1fbaf9b2e31bfb5632047e6f1f1c83eef9af4'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:842'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_mcp'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_mcp'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m9_acceptance.rs::m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates:778'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:09Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

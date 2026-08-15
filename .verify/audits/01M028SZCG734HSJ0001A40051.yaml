@@ -1,0 +1,68 @@
+id: '01M028SZCG734HSJ0001A40051'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-STORE-018'
+    hash: 'sha256:5310a08d55e65c2e343c3c39994c479457368a943890004d27d7c5f9756ada61'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique'
+    hash: 'sha256:5310a08d55e65c2e343c3c39994c479457368a943890004d27d7c5f9756ada61'
+  - locator: 'rust-cargo::crates/vtest-store/src/records.rs::new_record_id'
+    hash: 'sha256:24d8cc6b3060cb1dd7dabdb69d6df45e4fd8dd29dc1775d070e7304cf0f4b7bc'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2360'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-store/src/records.rs::new_record_id'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::generated_record_ids_are_valid_and_unique:2353'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2353'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-store/src/records.rs::new_record_id'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::generated_record_ids_are_valid_and_unique:2353'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2353'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2353'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2353'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-store/src/records.rs::tests::generated_record_ids_are_valid_and_unique:2353'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:32Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

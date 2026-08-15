@@ -1,0 +1,80 @@
+id: '01M02C6C6E03B2CH0002SVR030'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-077'
+    hash: 'sha256:a679d52bcb592ad0f83d6e9045e2ae8e220ea09e62b4a12608d29518fa39c236'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items'
+    hash: 'sha256:a679d52bcb592ad0f83d6e9045e2ae8e220ea09e62b4a12608d29518fa39c236'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+    hash: 'sha256:651a53dfd5a0f10c0e1f28c3d9753041d80ce40db8147a1e77ac47bfd4079ed1'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::invoke'
+    hash: 'sha256:410b54f714f7faf0bae2b050a72744272384706d722198b5760dd6b175876ae0'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::envelope'
+    hash: 'sha256:8ba56b070fbe8b9f97ec4a3e063268fe4c7cd018f85b3e323cc818050378b486'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::assert_exit'
+    hash: 'sha256:53b248593335af61af2fae767631af5085305eace074198d576173e8077fa547'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::report_item'
+    hash: 'sha256:221b1aea4ccb0b3f04b0cdc06451e9d107cfeb6751b3486e1822ddbe137e2491'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::bundle'
+    hash: 'sha256:f30101c70a8bb0bc1f552c14cc1334ec1bf061d439d5a3907c783772c779a6cb'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m6_acceptance.rs::submit'
+    hash: 'sha256:08c0b3b1f173723ea5abe1b55b749164ffddb6b8c28f0769025d1a1d49864b0e'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:425'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_verify'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m6_acceptance.rs::m6_complete_fixture_is_ok_for_all_eleven_items:268'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:45Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

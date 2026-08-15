@@ -1,0 +1,68 @@
+id: '01M02C6DJY38KXT10002SVR03P'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-MODEL-001'
+    hash: 'sha256:c49217a3a76b1f892f56299802975f480c419b0bb6c5c5e04d828da4759bcf24'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space'
+    hash: 'sha256:c49217a3a76b1f892f56299802975f480c419b0bb6c5c5e04d828da4759bcf24'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::normalize_hashed_text'
+    hash: 'sha256:e936032e46f8e2298ade4cf39726d44ea4a526f5277843594a7815f3962b9158'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1011'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::normalize_hashed_text'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::normalize_hashed_text'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-model/src/lib.rs::tests::hash_normalization_only_changes_line_endings_and_trailing_space:1005'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T09:31:46Z'
+revision: { commit: '164f4a15ed0aee99330bce2914ac551dac81a994', dirty: true }

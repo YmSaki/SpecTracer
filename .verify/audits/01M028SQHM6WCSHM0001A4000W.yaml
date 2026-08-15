@@ -1,0 +1,70 @@
+id: '01M028SQHM6WCSHM0001A4000W'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-003'
+    hash: 'sha256:88a3813d68148e270833a0fb9d7405943fe4721215b68b5bf2270b46c3494809'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft'
+    hash: 'sha256:88a3813d68148e270833a0fb9d7405943fe4721215b68b5bf2270b46c3494809'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::effective_vo_status'
+    hash: 'sha256:3fafee7e9caf24ab054da724a757bccdd14479a54f1e8815c288702e70745864'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::tests::root'
+    hash: 'sha256:99ffa2996cf7ac36a6f88a97c0582101d3875be724024362128f5644a443532a'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4135'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::effective_vo_status'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::approval_is_derived_and_edit_makes_it_draft:4118'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4118'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::effective_vo_status'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::approval_is_derived_and_edit_makes_it_draft:4118'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4118'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4118'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4118'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/src/lib.rs::tests::approval_is_derived_and_edit_makes_it_draft:4118'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:32:27Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

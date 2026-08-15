@@ -1,0 +1,70 @@
+id: '01M0290CHC06VTPY0003VAR005'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-AAPI-006'
+    hash: 'sha256:20c374e7e5ce46fb381797a73f1ad32ee09f7376566b4c1a0f9db3d469c9cdce'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing'
+    hash: 'sha256:20c374e7e5ce46fb381797a73f1ad32ee09f7376566b4c1a0f9db3d469c9cdce'
+  - locator: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+    hash: 'sha256:0ad8cbbcd14b28a5f3da3a1b66b798255ba0d760fa854c2110e65644065e0227'
+  - locator: 'rust-cargo::crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::synthetic_test'
+    hash: 'sha256:813748b060282e5abc546942909c6eb80a5db0ff433fdddb75d8ed9bf0ac72c9'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:233'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-model/src/lib.rs::hash_static_audit_config_subject'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-adapter-api/tests/w1_acceptance_binding.rs::registry_static_observation_is_hash_free_and_core_owns_config_hashing:208'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:05Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }

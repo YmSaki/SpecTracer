@@ -1,0 +1,72 @@
+id: '01M0290H5G5Q56ZG0003VAR02D'
+kind: 'static'
+bundle_id: null
+subjects:
+  - id: 'TEST-CLI-058'
+    hash: 'sha256:eb6e4e33d72a166f77a9b579f710177015deb48baa5cb20d18dee94f67dec069'
+  - id: 'CONFIG'
+    hash: 'sha256:45697d3717ab32a7e7dfcb03335e5f86219a8de9d0a12f2c1346ed3b1596bbf6'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write'
+    hash: 'sha256:eb6e4e33d72a166f77a9b579f710177015deb48baa5cb20d18dee94f67dec069'
+  - locator: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_vo'
+    hash: 'sha256:d648f4e5c9b8d0b52f5820bcae17019b6a2cea203c0138cd94d1a5b3d1f2a663'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::invoke'
+    hash: 'sha256:7f3d8c45c4afaa53cff223e4c5c5e0da13b695111ee5125ea505083a534a8cdf'
+  - locator: 'rust-cargo::crates/vtest-cli/tests/m2_acceptance.rs::assert_usage_error'
+    hash: 'sha256:57a21ee6cf0cfa25ea6fce714634bd2cb920651397292a7b9b7c1e2442a20fa5'
+verdict: 'UNKNOWN'
+reasons:
+  - rule: 'DA-001'
+    verdict: 'UNKNOWN'
+    claim: 'at least one assertion expression has unresolved constness'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:525'
+  - rule: 'DA-002'
+    verdict: 'UNKNOWN'
+    claim: 'an external, ambiguous, macro, or closure call may reach the target'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_vo'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+  - rule: 'DA-003'
+    verdict: 'UNKNOWN'
+    claim: 'declared target call is not present in the body; result verification is not statically decidable'
+    targets:
+      - target: 'rust-cargo::crates/vtest-cli/src/lib.rs::run_vo'
+        verdict: 'UNKNOWN'
+        basis:
+          - kind: 'test-code'
+            ref: '::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+  - rule: 'DA-004'
+    verdict: 'PASS'
+    claim: 'no identical assert_eq! operands found'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+  - rule: 'DA-005'
+    verdict: 'PASS'
+    claim: 'test body contains statements'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+  - rule: 'DA-006'
+    verdict: 'PASS'
+    claim: 'assert-like syntax is present'
+    basis:
+      - kind: 'test-code'
+        ref: 'crates/vtest-cli/tests/m2_acceptance.rs::m2_path_like_vo_id_is_a_usage_error_without_an_outside_write:517'
+exclusions: []
+auditor:
+  kind: 'deterministic'
+  id: 'vtest'
+audited_at: '2026-08-15T08:36:08Z'
+revision: { commit: 'f8257134b1ca08ec74f651481caff797433e3d3e', dirty: true }
