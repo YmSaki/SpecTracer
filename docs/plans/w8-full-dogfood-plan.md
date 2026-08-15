@@ -103,6 +103,27 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 - **整合性 sweep**: 基本仕様 §4.2/§7.9, 別紙C §93/§118, 詳細設計 §935/§953/§960-962/§1262-1267 の fail-closed 文を全 doc 横断で更新（1 doc 変更で他 doc に矛盾文が残ると contract 違反）。
 - **follow-up**: 詳細設計変更で SPEC-DOGFOOD-M3.yaml sha256 が stale → 再登録要（既に1回実施済）。
 
+## ★実装 Phase 1 完了（2026-08-15）— 到達性モデル実装 + E2E 検証済み
+コミット列（feature/adapter-separation-alpha2-implementation）:
+- `a20ccec` W4 step2: adapter per-target loop + RULE_SET_VERSION "1"→"2"
+- `0e8a7c9` W4 step3: core fold 所有 + store per-target round-trip + classifier / `2ef1356` M3 acceptance per-target E2E
+- `e48f38c` refactor: fold+classifier を vtest-store へ移設（verify から到達可能に）
+- `1f2f806` W6: verify 評価時 join（per-target 実効 DA-002 × runtime target_execution、DA-003 非救済、malformed 除外、§11.3 scope）
+gate: 全コミットで fmt + clippy -D warnings + workspace test green（206 tests）。join は unit で positive 救済（UNKNOWN→PASS, valid Evidence + count>0）/ count0 非救済 / DA-003 非救済 / DA-002 FAIL 支配（recency 無視）/ malformed→UNKNOWN を全網羅。
+
+**実 dogfood テストで E2E 検証済み**（`TEST-DOGFOOD-M3-TARGET-RULES`, `classify_target_call` を修飾呼出＋結果 assert）:
+- `vtest audit static --test ...` → verdict PASS、DA-002/DA-003 とも per-target canonical Locator 付き PASS（静的到達証明、runtime 救済不要）。
+- `vtest verify --items static_audit --test ...` → **static_audit = PASS**。旧 v1 record 8件は version bump で STALE、v2 record が有効。§11.3 で scope 外項目は NOT_CHECKED。
+
+### 後回し（dogfood クリティカルパス外）
+- **Evidence identity canonical 化**: M3 dogfood は Locator 宣言（`declared.normalized()==canonical`）なので runtime 救済は canonical 化なしで機能。SrcId 宣言テストの救済のみ dead（fail-closed で誤りではない）。exec writer(:171) + evidence_record_validity(:1794) の両側を同一コミットで find_target_source 経由 canonical に揃える改修は SrcId テストを dogfood に含める場合のみ必要。§6.1.1 準拠の latent 修正として保留。
+- **Phase 2 subprocess coverage（W5）**: spike で 0% 実証。かつ §7.3 で subprocess は DA-003 UNKNOWN のまま → static_audit UNKNOWN → all-12-PASS 不到達（設計どおり）。∴ subprocess coverage 帰属は all-12 目標に寄与せず、dogfood scope から subprocess を除外すれば不要。
+
+### 残：完全 dogfood（W8 の本体、要 scope 判断）
+- all-194-all-12-PASS は subprocess/structural に対し**仕様上到達不能**（PR#5 設計の帰結、pivot で既知）。達成可能 scope = in-process/in-body-assert テスト（DA-002 静的PASS or cross-file+runtime救済、DA-003 PASS）。subprocess/structural は明示除外（文書化）。
+- 達成可能 subset の実行: 対象選定 → 一括注釈（target 修飾込み, finding A）→ 真正 semantic/impl/vo-coverage bundle+submit（機械的 PASS 量産禁止）→ VO approve → measured run → full verify。大規模・多時間。
+- SPEC-DOGFOOD-M3.yaml sha256 再登録（W-SCAN-104 既出＝詳細設計 doc 変更由来）。
+
 ## 進捗
 - [x] doctor exit 0（記録同期コミット 0fae5ef）
 - [x] Pilot 1 実証（9/12 PASS, per-test 全経路, finding A-E）＋ M3 `super::` 修飾修正（未コミット）
