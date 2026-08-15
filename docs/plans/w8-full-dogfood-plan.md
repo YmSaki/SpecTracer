@@ -146,7 +146,7 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 ### step 2 詳細設計（adapter-rust static_audit.rs, 実装中）
 - [x] step1 DTO（commit b4cb137）: RuleTargetVerdictDraft + RuleObservationDraft.targets。
 - [x] DA-003 pin（commit e333969）: rule_da003 の `!called → PASS`（空虚）を `!called → UNKNOWN` に修正（Fable Blocker 1）。co-located unit test 更新済。**まだ per-target ではない・version bump もまだ**。
-- [ ] **残: per-target loop + version bump（次チャンク）**。設計:
+- [x] **per-target loop + version bump（commit a20ccec）**。adapter が全 test.targets を解決・各 target で DA-002/003 実行・FAIL支配 fold（DA-001 は PASS支配・単一 verdict）・per-target list を DTO へ・RULE_SET_VERSION "1"→"2"（両所）。19 unit pass, workspace green。
   - RuleResult は不変（4フィールド）。per-target は audit() が `BTreeMap<String, Vec<RuleTargetResult{target,verdict,reason,location}>>`（rule名→per-target）で管理。RuleTargetResult struct を追加。
   - audit(): `test.targets.first()` を廃し全 test.targets ループ。まず `resolved: Vec<(TargetRef, ResolvedSource)>` を collect（resolve_target で None は除外＝解決不能は core 委任）。各 (tref, rsrc) で `TargetResolution::new(&rsrc.item_path, locator, rsrc.path==test_path)` を作り、DA-002/DA-003 を実行→per-target verdict。
   - fold: DA-002/003 は FAIL支配（§962）。DA-001 は per-target 実行し PASS支配（any runtime→PASS）＝単一 verdict のまま（per-target list 無し）。
@@ -165,6 +165,20 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
   - 解決不能 target（resolve_target=None）: per-target UNKNOWN entry に黙ってしない。§8.1/§6.1 整合（core が MISSING/MISMATCH 側で扱う）→ adapter は解決済み target のみ per-target 出力、未解決は observation に含めず core 判定に委ねる（要 core 側確認）。
 - 変換（1765 map）: DA-002/003 の RuleResult.targets を RuleTargetVerdictDraft へ写す。fold は adapter が DTO 用に埋めるが **core が純静的 fold を再導出・所有**（step3）。
 - fmt/clippy/test gate。既存 audit shape test は test-only コミットで更新。
+
+### step 3 確定設計（core fold 所有 + store per-target + malformed, advisor 承認）
+一次情報で確定した事実:
+- **canonical Locator 解決**: `find_target_source(scan, &TargetRef)`（現 vtest-cli:1584）が既存 resolver。Locator は完全一致、SrcId は `source.src_id` 一致で SourceTarget を引く。`SourceFunction = SourceTarget`（model:603）で `.target` は常に canonical Locator（materialize が Locator 強制, scan:265）。canonical = `source.target.normalized()`。→ **vtest-scan へ `pub fn` 移動**して audit/cli 共用（§907 単一解決経路）。
+- **`TestEntity.targets` は宣言形を保持**（materialize_test:232 は書換えず, SrcId は SrcId のまま）。∴ per-target の `target` identity は宣言 ref を find_target_source で canonical へ解決して得る（`declared.normalized()` を使わない — SrcId で §6.1.1 違反になる）。
+- **fold ownership**: core が per-target list から FAIL支配 fold を再導出し保存。adapter 自身の rule-level verdict と core fold が不一致なら **malformed adapter output として拒否**（黙って上書きしない, 前例 scan §728）。observation 全体 verdict も再集約（§7.1 L962）+ incomplete-clamp。
+- **解決不能 target**: adapter は解決分のみ per-target 出力 + `complete=false`。core は **complete 時のみ per-target list を record へ添付**。incomplete 時は DA-002/003 を per-target 無し・rule verdict UNKNOWN で保存 → §7.3 L1019 で「per-target 無し record は無効」→ STALE → 非PASS（fail-closed）。部分 1:1 な malformed record を書かない（§3.6 L422, Evidence L1263 と対称）。
+- **canonical dedup**: 二重宣言（Locator+SrcId が同一 Source Target, §922）は canonical で1件に潰れる。write 時に canonical で dedup（宣言順）、per-target set は「解決 canonical 集合」と 1:1（Evidence L465 と対称）。
+- **malformed 検査（E-SCAN-010）**: 単一分類関数 `classify_static_record`（Valid/Malformed/Stale）を **core（vtest-audit）に実装**し W6 verify(§8.5) が呼ぶ。条件: target集合≠宣言canonical集合（欠落/重複/余剰）| per-target fold≠rule verdict。malformed は有効集合から除外し per-target FAIL も抽出しない（L422）。
+
+実行分割: **main thread** = find_target_source 移動 / store struct+field 凍結 / write 側（canonical解決・fold・cross-check・re-aggregate）/ classifier / exemplar YAML + round-trip golden。**subagent 委譲** = 別紙C §18.2 malformed fixtures 手書き + 追加 acceptance 更新（struct 凍結・exemplar 後）。壊れる acceptance は spec 節引用の test-only 別コミット。
+
+### ★W6 前提として持ち越す横断 finding（Evidence identity 整合）
+Evidence writer（vtest-exec:177）は `test.entity.targets[i].normalized()`（宣言形）で target_execution/hashes.targets の identity を書く。SrcId 宣言（M3 `@vtest.target SRC-*`, TEST-DUAL-SRC 等が実使用）では SrcId 文字列になり、W4 の静的 record（canonical Locator）と §7.3 join で不一致になる。spec §6.1.1/§921 は**両者 canonical 必須**。→ **W6 で join を配線する際、Evidence writer も find_target_source 経由で canonical へ揃える**（Evidence YAML が SrcId target で変わる＝該当 acceptance を spec 節引用で更新）。W4 単体テストには影響しない（join は W6）。
 
 ### 注記（Owner 判断待ち事項）
 - origin/develop(036a166) は local develop(4357562, #3 マージ済) より3コミット遅延。PR #5 は origin/develop 基準の単一コミットに rebase 済み。develop の同期は Owner 管理。

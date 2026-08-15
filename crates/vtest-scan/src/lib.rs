@@ -58,6 +58,27 @@ pub struct ScanResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Resolve a declared `TargetRef` to the single Source Target it names, the
+/// core's one resolution path (詳細設計 §6.1, §907). A locator matches by exact
+/// canonical target; a permanent SRC ID matches the Source Target that declared
+/// it. The resolved `source.target` is always a canonical locator, so callers
+/// take `source.target.normalized()` as the target identity (§6.1.1) rather than
+/// the declared spelling, which for an SRC ID reference is not a locator.
+pub fn find_target_source<'a>(
+    scan: &'a ScanResult,
+    target: &TargetRef,
+) -> Option<&'a SourceFunction> {
+    match target {
+        TargetRef::Locator { .. } => scan.sources.iter().find(|source| source.target == *target),
+        TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
+            source
+                .src_id
+                .as_ref()
+                .is_some_and(|candidate| candidate == src_id)
+        }),
+    }
+}
+
 /// Core-owned result of validating and materializing one adapter discovery batch.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MaterializedDiscovery {

@@ -1879,6 +1879,7 @@ mod tests {
                         kind: "test-code".to_owned(),
                         reference: "tests/static.rs:1".to_owned(),
                     }],
+                    targets: Vec::new(),
                 })
                 .collect(),
             exclusions: Vec::new(),

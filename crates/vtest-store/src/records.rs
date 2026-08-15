@@ -130,14 +130,28 @@ pub struct AuditBasisRecord {
     pub reference: String,
 }
 
+/// One target-scoped verdict inside a static audit reason. DA-002 / DA-003 carry
+/// one of these per declared target, identified by its canonical Locator; the
+/// rule-level `verdict` is the pure-static fold of them (詳細設計 §3.6, §7.2).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AuditTargetVerdictRecord {
+    pub target: String,
+    pub verdict: String,
+    pub basis: Vec<AuditBasisRecord>,
+}
+
 /// An explained audit conclusion. Static audits may attach a rule and a
-/// per-rule verdict; semantic audits normally leave both fields absent.
+/// per-rule verdict; semantic audits normally leave both fields absent. The
+/// target-scoped static rules (DA-002 / DA-003) additionally carry a per-target
+/// verdict list; other rules leave it empty (詳細設計 §3.6).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AuditReasonRecord {
     pub rule: Option<String>,
     pub verdict: Option<String>,
     pub claim: String,
     pub basis: Vec<AuditBasisRecord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<AuditTargetVerdictRecord>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -512,6 +526,23 @@ impl AuditRecord {
             }
             if reason.rule.is_some() {
                 out.push_str(&format!("    claim: {}\n", yaml_scalar(&reason.claim)));
+            }
+            if !reason.targets.is_empty() {
+                out.push_str("    targets:\n");
+                for target in &reason.targets {
+                    out.push_str(&format!(
+                        "      - target: {}\n        verdict: {}\n        basis:\n",
+                        yaml_scalar(&target.target),
+                        yaml_scalar(&target.verdict),
+                    ));
+                    for basis in &target.basis {
+                        out.push_str(&format!(
+                            "          - kind: {}\n            ref: {}\n",
+                            yaml_scalar(&basis.kind),
+                            yaml_scalar(&basis.reference),
+                        ));
+                    }
+                }
             }
             out.push_str("    basis:\n");
             for basis in &reason.basis {
@@ -1821,8 +1852,92 @@ fn parse_audit_reasons(field: &AuditYamlField) -> Result<Vec<AuditReasonRecord>,
         );
         index += 1;
         let mut saw_basis = false;
+        let mut targets: Vec<AuditTargetVerdictRecord> = Vec::new();
         while index < field.children.len() && !field.children[index].starts_with("  - ") {
             let raw = &field.children[index];
+            if raw == "    targets:" {
+                index += 1;
+                while index < field.children.len()
+                    && field.children[index].starts_with("      - target:")
+                {
+                    let target = field.children[index]
+                        .strip_prefix("      - target:")
+                        .map(|value| audit_scalar(value, "target verdict target"))
+                        .transpose()?
+                        .flatten()
+                        .filter(|value| !value.trim().is_empty())
+                        .ok_or_else(|| {
+                            StoreError::InvalidConfig(
+                                "audit target verdict must contain a target locator".to_owned(),
+                            )
+                        })?;
+                    index += 1;
+                    let verdict = field
+                        .children
+                        .get(index)
+                        .and_then(|value| value.strip_prefix("        verdict:"))
+                        .map(|value| audit_scalar(value, "target verdict"))
+                        .transpose()?
+                        .flatten()
+                        .filter(|value| !value.trim().is_empty())
+                        .ok_or_else(|| {
+                            StoreError::InvalidConfig(
+                                "audit target verdict must contain a verdict".to_owned(),
+                            )
+                        })?;
+                    index += 1;
+                    if field.children.get(index).map(String::as_str) != Some("        basis:") {
+                        return Err(StoreError::InvalidConfig(
+                            "audit target verdict must contain a basis list".to_owned(),
+                        ));
+                    }
+                    index += 1;
+                    let mut target_basis = Vec::new();
+                    while index < field.children.len()
+                        && field.children[index].starts_with("          - kind:")
+                    {
+                        let kind = field.children[index]
+                            .strip_prefix("          - kind:")
+                            .map(|value| audit_scalar(value, "target basis kind"))
+                            .transpose()?
+                            .flatten()
+                            .filter(|value| !value.trim().is_empty())
+                            .ok_or_else(|| {
+                                StoreError::InvalidConfig(
+                                    "audit target basis entries must contain kind and ref"
+                                        .to_owned(),
+                                )
+                            })?;
+                        let reference = field
+                            .children
+                            .get(index + 1)
+                            .and_then(|value| value.strip_prefix("            ref:"))
+                            .map(|value| audit_scalar(value, "target basis ref"))
+                            .transpose()?
+                            .flatten()
+                            .filter(|value| !value.trim().is_empty())
+                            .ok_or_else(|| {
+                                StoreError::InvalidConfig(
+                                    "audit target basis entries must contain kind and ref"
+                                        .to_owned(),
+                                )
+                            })?;
+                        target_basis.push(AuditBasisRecord { kind, reference });
+                        index += 2;
+                    }
+                    if target_basis.is_empty() {
+                        return Err(StoreError::InvalidConfig(
+                            "audit target verdict must contain a basis list".to_owned(),
+                        ));
+                    }
+                    targets.push(AuditTargetVerdictRecord {
+                        target,
+                        verdict,
+                        basis: target_basis,
+                    });
+                }
+                continue;
+            }
             if raw == "    basis:" {
                 saw_basis = true;
                 index += 1;
@@ -1869,6 +1984,7 @@ fn parse_audit_reasons(field: &AuditYamlField) -> Result<Vec<AuditReasonRecord>,
                     verdict,
                     claim,
                     basis,
+                    targets,
                 });
                 break;
             }
@@ -2319,6 +2435,7 @@ mod tests {
                         kind: "test-code".to_owned(),
                         reference: "tests/parser_test.rs:12".to_owned(),
                     }],
+                    targets: Vec::new(),
                 })
                 .collect(),
             exclusions: vec![AuditExclusionRecord {
@@ -2393,6 +2510,88 @@ mod tests {
     }
 
     #[test]
+    fn audit_per_target_verdicts_round_trip_through_yaml() {
+        let id = new_record_id();
+        let per_target = |rule: &str| {
+            if rule == "DA-002" || rule == "DA-003" {
+                vec![
+                    AuditTargetVerdictRecord {
+                        target: "rust-cargo::src/parser.rs::Parser::parse".to_owned(),
+                        verdict: "PASS".to_owned(),
+                        basis: vec![AuditBasisRecord {
+                            kind: "test-code".to_owned(),
+                            reference: "rust-cargo::tests/parser_test.rs::case:12".to_owned(),
+                        }],
+                    },
+                    AuditTargetVerdictRecord {
+                        target: "rust-cargo::src/parser.rs::Parser::finish".to_owned(),
+                        verdict: "UNKNOWN".to_owned(),
+                        basis: vec![AuditBasisRecord {
+                            kind: "test-code".to_owned(),
+                            reference: "rust-cargo::tests/parser_test.rs::case:20".to_owned(),
+                        }],
+                    },
+                ]
+            } else {
+                Vec::new()
+            }
+        };
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "static".to_owned(),
+            bundle_id: None,
+            subjects: vec![AuditSubjectRecord {
+                id: Some("TEST-PARSER-044".to_owned()),
+                locator: None,
+                hash: ContentHash::from_text("test body\n"),
+            }],
+            // DA-002 and DA-003 fold PASS+UNKNOWN to UNKNOWN, so the record is UNKNOWN.
+            verdict: "UNKNOWN".to_owned(),
+            reasons: ["DA-001", "DA-002", "DA-003", "DA-004", "DA-005", "DA-006"]
+                .into_iter()
+                .map(|rule| AuditReasonRecord {
+                    rule: Some(rule.to_owned()),
+                    verdict: Some(
+                        if rule == "DA-002" || rule == "DA-003" {
+                            "UNKNOWN"
+                        } else {
+                            "PASS"
+                        }
+                        .to_owned(),
+                    ),
+                    claim: format!("{rule} result"),
+                    basis: vec![AuditBasisRecord {
+                        kind: "test-code".to_owned(),
+                        reference: "rust-cargo::tests/parser_test.rs::case:1".to_owned(),
+                    }],
+                    targets: per_target(rule),
+                })
+                .collect(),
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: Some("abc123".to_owned()),
+                dirty: false,
+            },
+        };
+        let yaml = record.to_yaml().unwrap();
+        // The per-target block nests target/verdict/basis under the reason (§3.6).
+        assert!(yaml.contains("    targets:\n"));
+        assert!(yaml.contains("      - target: 'rust-cargo::src/parser.rs::Parser::parse'\n"));
+        assert!(yaml.contains("        verdict: 'UNKNOWN'\n"));
+        assert!(yaml.contains("          - kind: 'test-code'\n"));
+        // A non-target-scoped rule (DA-001) emits no targets block.
+        assert_eq!(yaml.matches("    targets:\n").count(), 2);
+        assert_eq!(AuditRecord::from_yaml(&yaml, &id).unwrap(), record);
+    }
+
+    #[test]
     fn audit_rejects_malformed_or_untraceable_records() {
         let id = new_record_id();
         let record = AuditRecord {
@@ -2413,6 +2612,7 @@ mod tests {
                     kind: "test-code".to_owned(),
                     reference: "tests/parser_test.rs::rejects_invalid_utf8".to_owned(),
                 }],
+                targets: Vec::new(),
             }],
             exclusions: Vec::new(),
             auditor: AuditorRecord {

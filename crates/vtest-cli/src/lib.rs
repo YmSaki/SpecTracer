@@ -15,10 +15,10 @@ use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdic
 use vtest_exec::{run_tests, RunnableTest};
 use vtest_model::{
     hash_specification_source, AdapterId, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId,
-    Revision, ScanSummary, SourceFunction, SpecId, TargetRef, TestEntity, VoId,
+    Revision, ScanSummary, SourceFunction, SpecId, TestEntity, VoId,
 };
 use vtest_scan::{
-    create_test, edit_test, list_tests, parse_test_set_values, query_tests,
+    create_test, edit_test, find_target_source, list_tests, parse_test_set_values, query_tests,
     scan_project_with_discovery, show_test, ScanError, ScanResult,
 };
 use vtest_store::{
@@ -1579,18 +1579,6 @@ fn find_test<'a>(scan: &'a ScanResult, id: Option<&str>) -> CommandResult<&'a Te
                 ExitCode::Usage,
             )
         })
-}
-
-fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'a SourceFunction> {
-    match target {
-        TargetRef::Locator { .. } => scan.sources.iter().find(|source| source.target == *target),
-        TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
-            source
-                .src_id
-                .as_ref()
-                .is_some_and(|candidate| candidate == src_id)
-        }),
-    }
 }
 
 fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandResult<String> {

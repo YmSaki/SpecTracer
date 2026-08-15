@@ -5,7 +5,7 @@
 //! and reshapes each observation into a persisted `AuditRecord` — it performs no
 //! Rust parsing of its own.
 
-use std::{fs, path::Path, process::Command};
+use std::{collections::BTreeSet, fs, path::Path, process::Command};
 
 use serde::Serialize;
 use thiserror::Error;
@@ -15,12 +15,13 @@ use vtest_model::{
     SourceLocation, TestEntity,
 };
 use vtest_scan::{
-    rust_cargo_static_audit_projection, ScanResult, STATIC_AUDIT_RULE_SET_ID,
+    find_target_source, rust_cargo_static_audit_projection, ScanResult, STATIC_AUDIT_RULE_SET_ID,
     STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
     load_config, new_record_id, now_rfc3339, write_new_record, AuditBasisRecord, AuditReasonRecord,
-    AuditRecord, AuditSubjectRecord, AuditorRecord, StoreError, VerifyLayout,
+    AuditRecord, AuditSubjectRecord, AuditTargetVerdictRecord, AuditorRecord, StoreError,
+    VerifyLayout,
 };
 
 #[derive(Debug, Error)]
@@ -36,6 +37,8 @@ pub enum AuditError {
     Store(#[from] StoreError),
     #[error("adapter error: {0}")]
     Adapter(#[from] AdapterError),
+    #[error("malformed static audit observation: {0}")]
+    MalformedObservation(String),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -46,12 +49,114 @@ pub enum AuditVerdict {
     Unknown,
 }
 
+/// One target-scoped verdict of a static rule (DA-002 / DA-003), keyed by the
+/// resolved canonical Locator of the declared target (詳細設計 §3.6).
+#[derive(Clone, Debug, Serialize)]
+pub struct RuleTargetVerdict {
+    pub target: String,
+    pub verdict: AuditVerdict,
+    pub basis: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct RuleResult {
     pub rule: String,
     pub verdict: AuditVerdict,
     pub reason: String,
     pub location: SourceLocation,
+    /// Per-target verdicts for the target-scoped rules; empty for the rest. The
+    /// `verdict` above is their pure-static fold (詳細設計 §3.6, §7.2).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<RuleTargetVerdict>,
+}
+
+/// Pure-static fold of per-target verdicts into a rule-level verdict
+/// (詳細設計 §7.2): FAIL dominates, then UNKNOWN, else PASS. Evidence is never
+/// consulted — this is the value persisted on the record and the one the
+/// malformed-consistency check re-derives. An empty list folds to UNKNOWN
+/// (fail-closed); callers never persist a target-scoped rule with an empty list.
+pub fn pure_static_fold(verdicts: &[AuditVerdict]) -> AuditVerdict {
+    if verdicts.contains(&AuditVerdict::Fail) {
+        AuditVerdict::Fail
+    } else if verdicts.is_empty() || verdicts.contains(&AuditVerdict::Unknown) {
+        AuditVerdict::Unknown
+    } else {
+        AuditVerdict::Pass
+    }
+}
+
+/// Classify whether a static Audit Record's per-target verdict lists are
+/// malformed (詳細設計 §3.6 → E-SCAN-010). Returns the defect reason when the
+/// record must be excluded from the valid set (its per-target FAILs are then not
+/// extracted either), or `None` when every target-scoped reason is well formed.
+/// `declared_canonical` is the deduplicated set of canonical Locators for the
+/// Test's declared targets. Two conditions are checked per DA-002 / DA-003
+/// reason that carries a per-target list: the target set equals
+/// `declared_canonical` with no missing, duplicate, or surplus entry, and the
+/// rule verdict is the pure-static fold of the per-target verdicts.
+pub fn static_record_target_defect(
+    record: &AuditRecord,
+    declared_canonical: &BTreeSet<String>,
+) -> Option<String> {
+    for reason in &record.reasons {
+        if reason.targets.is_empty() {
+            continue;
+        }
+        let rule = reason.rule.as_deref().unwrap_or("<unnamed>");
+        let mut seen = BTreeSet::new();
+        for target in &reason.targets {
+            if !seen.insert(target.target.clone()) {
+                return Some(format!(
+                    "rule {rule} lists target {} more than once",
+                    target.target
+                ));
+            }
+            if !declared_canonical.contains(&target.target) {
+                return Some(format!(
+                    "rule {rule} lists target {} which the Test does not declare",
+                    target.target
+                ));
+            }
+        }
+        if &seen != declared_canonical {
+            return Some(format!(
+                "rule {rule} per-target set does not match the {} declared targets",
+                declared_canonical.len()
+            ));
+        }
+        let verdicts: Vec<AuditVerdict> = reason
+            .targets
+            .iter()
+            .map(|target| parse_verdict(&target.verdict))
+            .collect();
+        let folded = pure_static_fold(&verdicts);
+        let stored = reason
+            .verdict
+            .as_deref()
+            .map(parse_verdict)
+            .unwrap_or(AuditVerdict::Unknown);
+        if folded != stored {
+            return Some(format!(
+                "rule {rule} verdict {stored:?} is not the pure-static fold {folded:?} of its per-target verdicts"
+            ));
+        }
+    }
+    None
+}
+
+fn parse_verdict(value: &str) -> AuditVerdict {
+    match value {
+        "PASS" => AuditVerdict::Pass,
+        "FAIL" => AuditVerdict::Fail,
+        _ => AuditVerdict::Unknown,
+    }
+}
+
+fn basis_reference(location: &SourceLocation) -> String {
+    format!(
+        "{}::{}:{}",
+        location.path, location.locator, location.byte_range.start_line
+    )
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -116,7 +221,7 @@ pub fn audit_static(
             test,
             observation,
             &config_hash,
-        ));
+        )?);
     }
     Ok(StaticAuditSummary { audits })
 }
@@ -146,13 +251,20 @@ pub fn persist_static_audits(
                     claim: rule.reason.clone(),
                     basis: vec![AuditBasisRecord {
                         kind: "test-code".to_owned(),
-                        reference: format!(
-                            "{}::{}:{}",
-                            rule.location.path,
-                            rule.location.locator,
-                            rule.location.byte_range.start_line
-                        ),
+                        reference: basis_reference(&rule.location),
                     }],
+                    targets: rule
+                        .targets
+                        .iter()
+                        .map(|target| AuditTargetVerdictRecord {
+                            target: target.target.clone(),
+                            verdict: format_verdict(target.verdict),
+                            basis: vec![AuditBasisRecord {
+                                kind: "test-code".to_owned(),
+                                reference: target.basis.clone(),
+                            }],
+                        })
+                        .collect(),
                 })
                 .collect(),
             exclusions: Vec::new(),
@@ -192,21 +304,75 @@ fn record_from_observation(
     test: &TestEntity,
     observation: vtest_adapter_api::StaticAuditObservation,
     config_hash: &ContentHash,
-) -> StaticAudit {
-    let rules: Vec<RuleResult> = observation
-        .rules
-        .into_iter()
-        .map(|rule| RuleResult {
+) -> Result<StaticAudit, AuditError> {
+    // A PASS over an incomplete analysis input closure is clamped to UNKNOWN
+    // (詳細設計 §5.2, §7.1). An incomplete closure also means some declared
+    // target did not resolve, so the per-target lists are dropped below rather
+    // than persisted as a malformed partial (1:1-violating) list (§7.2, §7.3).
+    let complete = observation.analysis.complete;
+    let mut rules: Vec<RuleResult> = Vec::new();
+    for rule in observation.rules {
+        let mut targets: Vec<RuleTargetVerdict> = Vec::new();
+        if complete {
+            let mut seen = BTreeSet::new();
+            for entry in &rule.targets {
+                // The core owns target resolution (§6.1.1): the persisted target
+                // identity is the resolved canonical Locator, never the declared
+                // spelling (an SRC ID reference is not a locator).
+                let Some(source) = find_target_source(scan, &entry.target) else {
+                    continue;
+                };
+                let canonical = source.target.normalized();
+                // The same canonical Source Target declared twice (locator + SRC
+                // ID, §922) collapses to a single per-target entry.
+                if !seen.insert(canonical.clone()) {
+                    continue;
+                }
+                targets.push(RuleTargetVerdict {
+                    target: canonical,
+                    verdict: check_to_verdict(entry.verdict),
+                    basis: basis_reference(&entry.location),
+                });
+            }
+        }
+        // The core owns the rule-level fold. With per-target verdicts present it
+        // is their pure-static fold; the adapter's own folded verdict must agree
+        // or the observation is a malformed adapter output (§7.1, §7.2).
+        let verdict = if targets.is_empty() {
+            check_to_verdict(rule.verdict)
+        } else {
+            let per_target: Vec<AuditVerdict> = targets.iter().map(|t| t.verdict).collect();
+            let folded = pure_static_fold(&per_target);
+            if folded != check_to_verdict(rule.verdict) {
+                return Err(AuditError::MalformedObservation(format!(
+                    "rule {} verdict {:?} disagrees with the fold {:?} of its per-target verdicts",
+                    rule.rule, rule.verdict, folded
+                )));
+            }
+            folded
+        };
+        rules.push(RuleResult {
             rule: rule.rule,
-            verdict: check_to_verdict(rule.verdict),
+            verdict,
             reason: rule.reason,
             location: rule.location,
-        })
-        .collect();
-    // Spec §5.2 (詳細設計 line 781): an incomplete analysis input closure
-    // forbids PASS even when no rule reported a violation.
-    let verdict = match check_to_verdict(observation.verdict) {
-        AuditVerdict::Pass if !observation.analysis.complete => AuditVerdict::Unknown,
+            targets,
+        });
+    }
+    // Aggregate the core-derived rule verdicts (§7.1 L962): FAIL dominates, then
+    // UNKNOWN; a PASS over an incomplete closure is clamped to UNKNOWN.
+    let aggregate = if rules.iter().any(|rule| rule.verdict == AuditVerdict::Fail) {
+        AuditVerdict::Fail
+    } else if rules
+        .iter()
+        .any(|rule| rule.verdict == AuditVerdict::Unknown)
+    {
+        AuditVerdict::Unknown
+    } else {
+        AuditVerdict::Pass
+    };
+    let verdict = match aggregate {
+        AuditVerdict::Pass if !complete => AuditVerdict::Unknown,
         other => other,
     };
     let mut diagnostics = Vec::new();
@@ -260,7 +426,7 @@ fn record_from_observation(
             hash,
         });
     }
-    StaticAudit {
+    Ok(StaticAudit {
         id: new_record_id(),
         test_id: test.id.to_string(),
         subject_hash: test.content_hash.clone(),
@@ -268,7 +434,7 @@ fn record_from_observation(
         verdict,
         rules,
         diagnostics,
-    }
+    })
 }
 
 fn git_revision(root: &Path) -> Revision {
@@ -350,4 +516,100 @@ fn format_verdict(verdict: AuditVerdict) -> String {
         AuditVerdict::Unknown => "UNKNOWN",
     }
     .to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vtest_store::{AuditBasisRecord, AuditReasonRecord, AuditorRecord};
+
+    fn target(target: &str, verdict: &str) -> AuditTargetVerdictRecord {
+        AuditTargetVerdictRecord {
+            target: target.to_owned(),
+            verdict: verdict.to_owned(),
+            basis: vec![AuditBasisRecord {
+                kind: "test-code".to_owned(),
+                reference: "rust-cargo::tests/t.rs::case:1".to_owned(),
+            }],
+        }
+    }
+
+    fn record_with_da002(
+        rule_verdict: &str,
+        targets: Vec<AuditTargetVerdictRecord>,
+    ) -> AuditRecord {
+        AuditRecord {
+            id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_owned(),
+            kind: "static".to_owned(),
+            bundle_id: None,
+            subjects: Vec::new(),
+            verdict: "UNKNOWN".to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: Some("DA-002".to_owned()),
+                verdict: Some(rule_verdict.to_owned()),
+                claim: "reachability".to_owned(),
+                basis: vec![AuditBasisRecord {
+                    kind: "test-code".to_owned(),
+                    reference: "rust-cargo::tests/t.rs::case:1".to_owned(),
+                }],
+                targets,
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: false,
+            },
+        }
+    }
+
+    fn declared(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|item| (*item).to_owned()).collect()
+    }
+
+    #[test]
+    fn fold_is_fail_dominant_then_unknown_then_pass() {
+        use AuditVerdict::*;
+        assert_eq!(pure_static_fold(&[Pass, Fail, Unknown]), Fail);
+        assert_eq!(pure_static_fold(&[Pass, Unknown]), Unknown);
+        assert_eq!(pure_static_fold(&[Pass, Pass]), Pass);
+        // An empty list folds to UNKNOWN, never a vacuous PASS.
+        assert_eq!(pure_static_fold(&[]), Unknown);
+    }
+
+    #[test]
+    fn well_formed_per_target_record_has_no_defect() {
+        let record =
+            record_with_da002("UNKNOWN", vec![target("A", "PASS"), target("B", "UNKNOWN")]);
+        assert_eq!(
+            static_record_target_defect(&record, &declared(&["A", "B"])),
+            None
+        );
+    }
+
+    #[test]
+    fn surplus_missing_or_duplicate_targets_are_malformed() {
+        let surplus =
+            record_with_da002("UNKNOWN", vec![target("A", "PASS"), target("B", "UNKNOWN")]);
+        assert!(static_record_target_defect(&surplus, &declared(&["A"])).is_some());
+
+        let missing = record_with_da002("PASS", vec![target("A", "PASS")]);
+        assert!(static_record_target_defect(&missing, &declared(&["A", "B"])).is_some());
+
+        let duplicate = record_with_da002("PASS", vec![target("A", "PASS"), target("A", "PASS")]);
+        assert!(static_record_target_defect(&duplicate, &declared(&["A"])).is_some());
+    }
+
+    #[test]
+    fn rule_verdict_inconsistent_with_the_fold_is_malformed() {
+        // Per-target PASS + UNKNOWN folds to UNKNOWN; a stored PASS contradicts it.
+        let record = record_with_da002("PASS", vec![target("A", "PASS"), target("B", "UNKNOWN")]);
+        assert!(static_record_target_defect(&record, &declared(&["A", "B"])).is_some());
+    }
 }
