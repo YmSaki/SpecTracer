@@ -1,0 +1,33 @@
+{
+  "id": "VO-STRUCTOP-15",
+  "outcome": "CONFIRMED",
+  "outcome_qualifier": "Contradiction is real at the declared-schema surface. The candidate's enforcement mechanism (required gate at operations.rs:920-927) is REFUTED by repro: the flag is inert on the create path.",
+  "chain": {
+    "claim": "The two built-in Form kinds parse to their declared schemas; rust-integration differs from rust-unit-function only by its required multi-locator `targets` field.",
+    "normative_source": "別紙A §14.1 declares the rust-unit-function schema verbatim, including `- name: file / question: 追加先ファイルは？（省略可）/ type: path / required: false / validate: [rust-file]`. §14.3: 「`rust-integration`：単一の`target` fieldに代えて、1件以上のロケータを持つ`targets`を必須入力として受け取る。他は同一」. The only other integration deviation the annex wants is declared in the next sentence (multi-@vtest.target emission, empty/duplicate rejection). Swept 基本仕様 / 詳細設計本冊 / 別紙B / 別紙C / 要件定義: no document pins `file` as required for integration (別紙C never mentions rust-integration).",
+    "mechanism": "Built-in schemas are Rust string constants (vtest-store/src/forms.rs:5-115). init materializes both to .verify/forms/<kind>.yaml (vtest-store/src/lib.rs:504-511); when the file is absent, load_form_schema falls back to the constants (forms.rs:127-131) and MCP form_get serves the parsed result.",
+    "condition": "Every `vtest init`, and every form_get on rust-integration.",
+    "impl_path": "forms.rs:42-46 (unit `file` required:false) vs forms.rs:98-102 (integration `file` required:true).",
+    "expected": "Per 他は同一, integration's `file` field is byte-identical to unit's: required:false.",
+    "actual": "required:true, on disk after init and in the form_get payload.",
+    "negation": "Normative break is the declared artifact, not the accept/reject decision. Reachable (written by every init, served by every form_get); no prior gate rejects (the schema parses and registers cleanly); the annex's declared schema is contradicted at the field-property level. The create-path behavior is NOT the break: counterfactual repro shows an annex-conformant required:false produces the identical E-OP-001."
+  },
+  "repro": {
+    "env": "/tmp/tmp.xtps5GTZhK (mktemp -d, outside repo), vtest.exe built from repo via cargo build -p vtest-cli; every invocation --project the temp dir.",
+    "A_artifact": "init-emitted .verify/forms/rust-integration.yaml -> `- name: file ... required: true`; rust-unit-function.yaml -> `required: false`. Contradiction reproduced at the artifact.",
+    "B_form_get": "MCP form_get kind=rust-integration with NO Form file on disk (built-in constant path) returns {name: file, required: true, type: path, validate: [rust-file]}.",
+    "C_unit_create": "test create --form rust-unit-function, answers omit `file` -> ok:true, file=src/lib.rs (destination derived from target), kind line `@vtest.kind unit-normal`. exit 0.",
+    "D_integration_create": "test create --form rust-integration, answers omit `file` -> ok:false, E-OP-001 `answers require \\`file\\` when no single target is present`, exit 2. NOTE the message: it is operations_support.rs:157-160 (destination_file), NOT operations.rs:922 (`required answer \\`file\\` is missing`).",
+    "E_counterfactual": "Rewrote the emitted rust-integration.yaml to required:false (annex-conformant) and re-ran D -> byte-identical failure: E-OP-001 `answers require \\`file\\` when no single target is present`, exit 2.",
+    "masking_explanation": "validate_form_answers (operations.rs:71) runs before destination_file (operations.rs:73), but field order puts fn_name (index 7) before file (index 8), and the unique-fn-name validator itself calls destination_file (operations.rs:968-974) to compute the insertion target. For integration there is no `target` key, so that call errors first and shadows the required check. Flipping the flag alone changes nothing observable."
+  },
+  "secondary": {
+    "kind_line": "NOT a deviation. 詳細設計 §4 (line 523) keys the multi-line `target` allowance to 「`kind` が integration 系の Test」, citing 別紙A §14.3. A template emitting `unit-*` would have its own multi-target output rejected at scan (E-SCAN-005). The impl (forms.rs:110, operations.rs:342-348) is correct; 別紙A §14.3's 「他は同一」 is over-broad here and the VO's 'differing only by targets' wording is falsified even for a corrected impl.",
+    "title": "Outside any sensible 他は同一 scope: title, like kind, is an identity field. Separate, broader looseness worth one line: the impl renders BOTH forms' titles and questions in English ('Rust function unit test', 'Destination Rust file?') where the annex declares Japanese ('Rust 関数単体テスト', '追加先ファイルは？（省略可）'), i.e. 'parses to its declared schema' is not pinned at the string surface for either form."
+  },
+  "freeze_amendments": [
+    "VO-STRUCTOP-15 wording must drop 'differing only by targets': the integration template's `@vtest.kind integration-*` line is mandated by 詳細設計 §4:523 and is a second legitimate difference.",
+    "別紙A §14.3 should enumerate integration's deviations (targets, kind prefix) instead of relying on 他は同一, or the impl must set file required:false.",
+    "Remediation note: flipping forms.rs:101 to required:false does not restore an omit-file integration create; the destination derivation (operations_support.rs:148-160) has no targets-aware fallback."
+  ]
+}

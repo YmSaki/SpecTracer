@@ -24,7 +24,13 @@ adequacy agent は「ordering claim は ontology over-reach」と主張したが
 
 ### VO-STRUCTOP-15（CONTRADICTED 候補 — 検証中）
 
-unit form の `file` は required:false、integration は required:true（forms.rs:42-46 vs 98-102、E-OP-001 で挙動差も実在）。別紙A §14.3 は「他は同一」— 仕様と実装が同じ点で desync。**どちらが正か（実装逸脱=CONFIRMED / VO claim 側の修正=REFUTED / 仕様曖昧=NEEDS-SPEC-JUDGMENT）は §14.1/§14.3 の実読を含む 8点鎖検証 agent の結果待ち**（走行中 — 結果は追記コミットで確定）。
+unit form の `file` は required:false、integration は required:true（forms.rs:42-46 vs 98-102）。8点鎖検証（dossier: `docs/plans/dogfood-vo-structop-15-dossier.json`）: **CONFIRMED（宣言成果物レベル）**。
+
+- **決め手の判別原則**: integration の正当な差分は全て corpus のどこかで*宣言*されている（targets=§14.3 / kind 接頭辞=詳細設計 §4 L523 / kind・title=identity field）のに対し、`file` の required 非対称だけが**沈黙による逸脱** — これが NEEDS-SPEC-JUDGMENT を退けた。別紙A §14.1 は unit の `file` を `required: false` と逐語宣言、§14.3 は「他は同一」。破れは受理判定でなく**宣言成果物**（全 `vtest init` の出力 + `form_get` payload）に現れ、隔離 repro で再現済み。
+- **候補の強制箇所は反証**: operations.rs:920-927 の required 検査は create 経路で**不活性**（field 順で `unique-fn-name` 検証器が先に `destination_file` を呼び遮蔽 — 反実仮想 repro: フラグを false に書換えても同一の失敗）。実際の拒否は operations_support.rs:157-160 の別機構。→ required フラグは死んだ宣言不整合 + 拒否は独立経路、という**二層の欠陥**。
+- **VO claim 自体の欠陥も発見**: 「targets のみで異なる」は kind 接頭辞（`unit-*`/`integration-*` — 詳細設計 §4 L523 が宣言）の存在により修正後実装でも偽 → **claim を仕様宣言済み差分の列挙形に補正**（v4 JSON 修正済み、gate=CLAIM-CORRECTED-POST-VERIFICATION）。
+- **Owner 二択（P-001）**: (a) §14.3 側に integration の `file` 必須を宣言追加 / (b) forms.rs:101 を false へ反転 + operations_support.rs に targets 対応の導出 fallback を追加（**フラグ反転だけでは通らない**ことを dossier が実証済み）。
+- 副次: 実装の Form title/question が英語で別紙A の日本語宣言と文字列不一致（identity field ゆえ射程外、別件記録）。
 
 ## 数値正典への反映
 

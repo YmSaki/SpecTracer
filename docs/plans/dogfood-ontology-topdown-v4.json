@@ -5183,7 +5183,7 @@
   },
   {
    "id": "VO-STRUCTOP-15",
-   "claim": "With no user-provided Form file present, the Form registry resolves exactly the two rust-cargo-owned built-in kinds rust-unit-function and rust-integration, each parsing to its declared built-in schema - fields, types, required flags, validators, and annotation-emitting template, the integration Form differing only by its required multi-locator targets field emitting one @vtest.target line per element in declaration order.",
+   "claim": "With no user-provided Form file present, the Form registry resolves exactly the two rust-cargo-owned built-in kinds rust-unit-function and rust-integration, each parsing to its declared built-in schema - fields, types, required flags, validators, and annotation-emitting template - the integration Form differing from the unit Form only in the specification-declared respects: its required multi-locator targets field (emitting one @vtest.target line per element in declaration order) and the integration kind prefix in the emitted @vtest.kind line.",
    "requirements": [
     "REQ-STRUCTURED-OPERATIONS"
    ],
@@ -5208,7 +5208,7 @@
    "origin": [
     "B-GAP:TEST-STORE-007"
    ],
-   "gate": "V4-AMENDMENT-PASS-CLAIM-TIGHTENED"
+   "gate": "V4-AMENDMENT-PASS-CLAIM-CORRECTED-POST-VERIFICATION"
   },
   {
    "id": "VO-STRUCTOP-16",
