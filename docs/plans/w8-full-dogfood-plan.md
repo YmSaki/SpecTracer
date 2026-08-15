@@ -126,6 +126,46 @@ Pilot で「(A) 全194・全12 PASS は構造的に不能」と判明（統合10
 - W6: vtest-verify（評価時 join, §11.2/§3.6/§8.5 再利用, §11.3 scope, basis 引用）
 - W5: adapter-rust/runner.rs coverage（subprocess 帰属）
 
+### Phase 1 実装順序（advisor 確定, DTO-first 依存チェーン）
+1. **adapter-api**: `RuleObservationDraft` に `targets: Vec<RuleTargetVerdictDraft>{target,verdict,reason,location}` 追加。空 vec=非target-scoped。w1 acceptance の DTO surface test（`adapter_api_crate_exposes_every_neutral_draft_type`）更新。
+2. **adapter-rust**: 全 target ループ + per-target verdict + DA-003 pin + rule-set version bump（1コミット）。
+3. **vtest-audit + vtest-store**: 純静的 fold（**core 所有**、adapter は fold しない）, record write/read, malformed→E-SCAN-010（1コミット）。
+4. **vtest-verify**: 評価時 join（1コミット）。
+- **test-fix は impl と別コミット**（§442 と同様、spec 節を引用する test-only コミット）。
+### 実装 design 決定（advisor）
+- fold は adapter でなく core（§7.1: adapter は pre-fold を返す）。
+- 解決不能 target（E-SCAN-004）は per-target UNKNOWN entry に「黙って」しない。§8.1/§6.1（bundle 拒否・MISSING/MISMATCH 写像）と整合。
+- DA-003 pin 条件＝「本体に当該 target 呼出が現れない」を analyzer facts（当該 target の call 分類が無い）から導出。**DA-002-Ambiguous-but-visible（M3 の bare 呼出）は pin しない**。
+- DA-001 の target_resolution: single-resolution のままか target 集合要かを**明示決定**（first() を惰性継承しない）。
+- §8.5 per-target 選択（全有効 record 走査・FAIL 支配・非FAILは最新）: **矛盾 R1/R2 手書き test を実装前に書く**（決定論監査では作れない唯一の検出手段）。
+### トラップ（advisor）
+- rule-set version bump で M3 dogfood audit は STALE 化＝想定内、追わない（dogfood 再実行は Phase1+2 後）。
+- 既存 acceptance（audit JSON shape, m3 `read_audit`, adapter DTO pin）は spec 追従で壊れる＝**test-only コミットで spec 節引用**して更新。
+- store read/write plumbing と fixture 手書き（旧形式/矛盾/malformed record）は DTO 確定＋exemplar 後に subagent 委譲。DA-rule ループ/fold/verify join は main thread。
+
+### step 2 詳細設計（adapter-rust static_audit.rs, 実装中）
+- [x] step1 DTO（commit b4cb137）: RuleTargetVerdictDraft + RuleObservationDraft.targets。
+- [x] DA-003 pin（commit e333969）: rule_da003 の `!called → PASS`（空虚）を `!called → UNKNOWN` に修正（Fable Blocker 1）。co-located unit test 更新済。**まだ per-target ではない・version bump もまだ**。
+- [ ] **残: per-target loop + version bump（次チャンク）**。設計:
+  - RuleResult は不変（4フィールド）。per-target は audit() が `BTreeMap<String, Vec<RuleTargetResult{target,verdict,reason,location}>>`（rule名→per-target）で管理。RuleTargetResult struct を追加。
+  - audit(): `test.targets.first()` を廃し全 test.targets ループ。まず `resolved: Vec<(TargetRef, ResolvedSource)>` を collect（resolve_target で None は除外＝解決不能は core 委任）。各 (tref, rsrc) で `TargetResolution::new(&rsrc.item_path, locator, rsrc.path==test_path)` を作り、DA-002/DA-003 を実行→per-target verdict。
+  - fold: DA-002/003 は FAIL支配（§962）。DA-001 は per-target 実行し PASS支配（any runtime→PASS）＝単一 verdict のまま（per-target list 無し）。
+  - lifetime 注意: TargetResolution<'a> は item_path を借用→ResolvedSource を先に collect して存続させる。
+  - DTO map（現 b4cb137 で targets:Vec::new()）: rule名で per-target map を引いて RuleTargetVerdictDraft へ写す。
+  - RULE_SET_VERSION "1"→"2"（static_audit.rs:1459 と vtest-scan/lib.rs:457 STATIC_AUDIT_RULE_SET_VERSION 両方）。← per-target verdict が実際に出る時点で bump（version2=full shape）。
+  - 既存 acceptance（m3 read_audit, adapter DTO pin, m5 等）は shape 変化で壊れる→**別 test-only コミット**で spec 節引用更新。
+  - Python brace-match は match 式ネストで誤挿入するので使わない（手 Edit か慎重に）。
+- RULE_SET_VERSION "1"→"2"（adapter-rust static_audit.rs:1459 **と** vtest-scan/src/lib.rs:457 STATIC_AUDIT_RULE_SET_VERSION、両方同時）。
+- RuleResult に `targets: Vec<RuleTargetResult{target:TargetRef,verdict:AuditVerdict,reason,location}>` 追加（非target-scoped は空）。
+- audit(): `test.targets.first()` を廃し **全 test.targets をループ**。各 target を resolve_target→TargetResolution。
+  - DA-002/DA-003: target ごとに rule 実行→per-target verdict 収集。rule-level verdict＝**FAIL支配 fold**（§962: 1件FAIL→FAIL, FAILなくUNKNOWN有→UNKNOWN, 全PASS→PASS）。
+  - **DA-003 pin**: 当該 target への呼出が Test 本体に現れない（analyzer facts で当該 target が Absent かつ same-file helper でも到達せず ＝ `called==false` かつ helper_boundary なし）→ verdict UNKNOWN（空虚 FAIL にしない）。DA-002-Ambiguous(可視 bare)は pin 対象外。
+  - DA-001: 単一 verdict（per-target list 無し, §3.6 対象外）。ただし multi-target を正しく見るため各 target で classify し **PASS支配 fold**（any target で runtime→PASS、なければ UNKNOWN>FAIL）。
+  - DA-004/005/006/W-DA-101: target 非依存、単一のまま。
+  - 解決不能 target（resolve_target=None）: per-target UNKNOWN entry に黙ってしない。§8.1/§6.1 整合（core が MISSING/MISMATCH 側で扱う）→ adapter は解決済み target のみ per-target 出力、未解決は observation に含めず core 判定に委ねる（要 core 側確認）。
+- 変換（1765 map）: DA-002/003 の RuleResult.targets を RuleTargetVerdictDraft へ写す。fold は adapter が DTO 用に埋めるが **core が純静的 fold を再導出・所有**（step3）。
+- fmt/clippy/test gate。既存 audit shape test は test-only コミットで更新。
+
 ### 注記（Owner 判断待ち事項）
 - origin/develop(036a166) は local develop(4357562, #3 マージ済) より3コミット遅延。PR #5 は origin/develop 基準の単一コミットに rebase 済み。develop の同期は Owner 管理。
 - 旧中間 remote ブランチ `spec/runtime-target-reachability`（rebase 前・#3 混在）が origin に残存（force-push 権限拒否のため）。不要なら削除可。
