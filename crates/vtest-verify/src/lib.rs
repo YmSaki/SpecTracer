@@ -12,13 +12,13 @@ use vtest_model::{
     EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
-    rust_cargo_execution_state_hash, rust_cargo_static_audit_projection, ScanResult,
-    STATIC_AUDIT_RULE_SET_ID, STATIC_AUDIT_RULE_SET_VERSION,
+    find_target_source, rust_cargo_execution_state_hash, rust_cargo_static_audit_projection,
+    ScanResult, STATIC_AUDIT_RULE_SET_ID, STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
-    read_record_ids, read_req, read_text, read_vo, yaml_scalar_value, AuditRecord,
-    AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
+    read_record_ids, read_req, read_text, read_vo, static_record_target_defect, yaml_scalar_value,
+    AuditRecord, AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
 };
 
 pub const ALL_ITEMS: [&str; 12] = [
@@ -644,7 +644,7 @@ fn evaluate_item(
                 )
             }
         }
-        "static_audit" => evaluate_static_audit(layout, scan),
+        "static_audit" => evaluate_static_audit(root, layout, evidence, scan),
         "semantic_audit" => evaluate_test_audit(root, layout, scan, "test-semantic"),
         "impl_consistency" => evaluate_test_audit(root, layout, scan, "impl-consistency"),
         "test_execution" => evaluate_test_execution(root, evidence, scan),
@@ -688,7 +688,12 @@ fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
 /// historical audit record as a project-wide evergreen result.  A static
 /// audit is current only when it binds the Test under evaluation and every
 /// recorded subject still has its captured hash.
-fn evaluate_static_audit(layout: &VerifyLayout, scan: &ScanResult) -> (CheckValue, Vec<String>) {
+fn evaluate_static_audit(
+    root: &Path,
+    layout: &VerifyLayout,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    scan: &ScanResult,
+) -> (CheckValue, Vec<String>) {
     if scan.tests.is_empty() {
         return (
             CheckValue::NotChecked,
@@ -723,28 +728,62 @@ fn evaluate_static_audit(layout: &VerifyLayout, scan: &ScanResult) -> (CheckValu
     let mut basis = Vec::new();
     for test in &scan.tests {
         let test_id = test.id.as_str();
+
+        // Resolve the declared targets to their canonical Locators. A target
+        // that cannot be resolved leaves reachability unprovable, so the item is
+        // non-PASS with a diagnostic and the malformed classifier is not run
+        // over a partial declared set (詳細設計 §6.1, §7.3).
+        let declared = match declared_canonical_targets(scan, test) {
+            Ok(declared) => declared,
+            Err(unresolved) => {
+                project_value = combine_values(project_value, CheckValue::Unknown);
+                basis.push(format!(
+                    "Test {test_id}: Unknown (declared target(s) do not resolve: {})",
+                    unresolved.join(", ")
+                ));
+                continue;
+            }
+        };
+
         let test_records = records
             .iter()
             .filter(|record| audit_mentions_test(record, test_id))
             .collect::<Vec<_>>();
-        let malformed_for_test = malformed
+        let mut malformed_for_test = malformed
             .iter()
             .filter(|(_, _, text)| audit_text_mentions_test(text, test_id))
+            .map(|(id, error, _)| format!("{id} ({error})"))
             .collect::<Vec<_>>();
 
         let mut valid = Vec::new();
         let mut stale = 0usize;
         for record in &test_records {
-            if static_audit_binds_test_subjects(record, test, scan)
+            // Stale is decided before the classifier: a record whose subjects no
+            // longer match current bytes is out of date, not malformed.
+            let subjects_current = static_audit_binds_test_subjects(record, test, scan)
                 && record
                     .subjects
                     .iter()
-                    .all(|subject| audit_subject_is_current(layout, scan, subject))
-            {
-                valid.push(*record);
-            } else {
+                    .all(|subject| audit_subject_is_current(layout, scan, subject));
+            if !subjects_current {
                 stale += 1;
+                continue;
             }
+            // A subject-current record with an inconsistent per-target list is
+            // malformed (E-SCAN-010); it is excluded and its per-target FAILs are
+            // not extracted (詳細設計 §3.6).
+            if let Some(defect) = static_record_target_defect(record, &declared) {
+                malformed_for_test.push(format!("{} ({defect})", record.id));
+                continue;
+            }
+            // A record without per-target DA-002/DA-003 verdicts is not a valid
+            // v2 record for a target-declaring Test; treat it as STALE, never a
+            // source of a current PASS (詳細設計 §7.3 L1019).
+            if !record_carries_per_target(record) {
+                stale += 1;
+                continue;
+            }
+            valid.push(*record);
         }
 
         let value = if !malformed_for_test.is_empty() {
@@ -755,13 +794,8 @@ fn evaluate_static_audit(layout: &VerifyLayout, scan: &ScanResult) -> (CheckValu
             } else {
                 CheckValue::Stale
             }
-        } else if valid.iter().any(|record| record.verdict == "FAIL") {
-            CheckValue::Fail
         } else {
-            valid
-                .iter()
-                .max_by(|left, right| compare_audit_recency(left, right))
-                .map_or(CheckValue::Unknown, |record| audit_verdict_value(record))
+            static_audit_item_value(root, evidence, test, scan, &valid, &declared)
         };
 
         project_value = combine_values(project_value, value);
@@ -819,6 +853,195 @@ fn evaluate_static_audit(layout: &VerifyLayout, scan: &ScanResult) -> (CheckValu
         ));
     }
     (project_value, basis)
+}
+
+/// Resolve every declared target of a Test to its canonical Locator, the one
+/// resolution path (§6.1). Returns the deduplicated canonical set, or the list
+/// of declared spellings that do not resolve (`Err`) so the caller can surface a
+/// diagnostic without running the classifier over a partial set.
+fn declared_canonical_targets(
+    scan: &ScanResult,
+    test: &TestEntity,
+) -> Result<BTreeSet<String>, Vec<String>> {
+    let mut resolved = BTreeSet::new();
+    let mut unresolved = Vec::new();
+    for target in &test.targets {
+        match find_target_source(scan, target) {
+            Some(source) => {
+                resolved.insert(source.target.normalized());
+            }
+            None => unresolved.push(target.normalized()),
+        }
+    }
+    if unresolved.is_empty() {
+        Ok(resolved)
+    } else {
+        Err(unresolved)
+    }
+}
+
+/// A valid v2 static record carries per-target verdicts for both target-scoped
+/// rules; every registered Test declares at least one target (§7.3 L1019).
+fn record_carries_per_target(record: &AuditRecord) -> bool {
+    let carries = |rule: &str| {
+        record
+            .reasons
+            .iter()
+            .any(|reason| reason.rule.as_deref() == Some(rule) && !reason.targets.is_empty())
+    };
+    carries("DA-002") && carries("DA-003")
+}
+
+fn parse_static_verdict(value: &str) -> CheckValue {
+    match value {
+        "PASS" => CheckValue::Pass,
+        "FAIL" => CheckValue::Fail,
+        _ => CheckValue::Unknown,
+    }
+}
+
+fn per_target_static_verdict(
+    record: &AuditRecord,
+    rule: &str,
+    canonical: &str,
+) -> Option<CheckValue> {
+    record
+        .reasons
+        .iter()
+        .find(|reason| reason.rule.as_deref() == Some(rule))
+        .and_then(|reason| {
+            reason
+                .targets
+                .iter()
+                .find(|target| target.target == canonical)
+        })
+        .map(|target| parse_static_verdict(&target.verdict))
+}
+
+/// The effective per-target verdict of a target-scoped rule across a Test's
+/// valid records, per §8.5 applied per target: a FAIL in any valid record
+/// dominates; otherwise the latest valid record's verdict for that target — the
+/// old record's PASS never overrides a newer UNKNOWN (詳細設計 §7.3 L1009,
+/// L1016). Every valid record shares the same target set (classifier) and
+/// carries all six rules (store validation), so the lookup is total.
+fn effective_target_verdict(valid: &[&AuditRecord], rule: &str, canonical: &str) -> CheckValue {
+    if valid
+        .iter()
+        .any(|record| per_target_static_verdict(record, rule, canonical) == Some(CheckValue::Fail))
+    {
+        return CheckValue::Fail;
+    }
+    valid
+        .iter()
+        .max_by(|left, right| compare_audit_recency(left, right))
+        .and_then(|record| per_target_static_verdict(record, rule, canonical))
+        .unwrap_or(CheckValue::Unknown)
+}
+
+/// The effective verdict of a non-target-scoped rule across a Test's valid
+/// records, per §8.5 at record granularity: FAIL dominates, otherwise the latest
+/// valid record's rule verdict (詳細設計 §7.3 L1027).
+fn effective_rule_verdict(valid: &[&AuditRecord], rule: &str) -> CheckValue {
+    let rule_verdict = |record: &AuditRecord| -> CheckValue {
+        record
+            .reasons
+            .iter()
+            .find(|reason| reason.rule.as_deref() == Some(rule))
+            .and_then(|reason| reason.verdict.as_deref())
+            .map(parse_static_verdict)
+            .unwrap_or(CheckValue::Unknown)
+    };
+    if valid
+        .iter()
+        .any(|record| rule_verdict(record) == CheckValue::Fail)
+    {
+        return CheckValue::Fail;
+    }
+    valid
+        .iter()
+        .max_by(|left, right| compare_audit_recency(left, right))
+        .map(|record| rule_verdict(record))
+        .unwrap_or(CheckValue::Unknown)
+}
+
+/// Runtime proof of target reachability (詳細設計 §7.3 step 2, §10.2): the
+/// §11.2-selected latest Evidence (the one this test maps to) is valid, coverage
+/// was measured, and that target's per-target result is PASS with count > 0. The
+/// evidence map holds one record per Test, so there is no fallback to an older
+/// valid Evidence (L1017).
+fn runtime_target_reached(
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    test: &TestEntity,
+    scan: &ScanResult,
+    canonical: &str,
+) -> bool {
+    let Some(record) = evidence.get(test.id.as_str()) else {
+        return false;
+    };
+    if evidence_record_validity(root, record, test, scan) != CheckValue::Pass {
+        return false;
+    }
+    if !record.target_execution.checked {
+        return false;
+    }
+    record.target_execution.targets.iter().any(|observation| {
+        observation.target == canonical
+            && observation.result == CheckValue::Pass
+            && observation.count.is_some_and(|count| count > 0)
+    })
+}
+
+/// Compute the static_audit item value for one Test at evaluation time
+/// (詳細設計 §7.3): the stored fold is not used here. Each declared target's
+/// DA-002 reachability is satisfied statically (effective PASS) or by runtime
+/// proof (effective UNKNOWN + runtime target_execution PASS); a per-target FAIL
+/// is never overturned by runtime. DA-003 and the non-target-scoped rules
+/// contribute their effective verdicts with no runtime rescue. The item is PASS
+/// only when every declared target's reachability is satisfied and every rule is
+/// PASS. Per §7.1 L963 this preserves the invariant "a satisfied reachability
+/// does not yield an UNKNOWN at computation time" — it is not an UNKNOWN→PASS
+/// promotion.
+fn static_audit_item_value(
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    test: &TestEntity,
+    scan: &ScanResult,
+    valid: &[&AuditRecord],
+    declared: &BTreeSet<String>,
+) -> CheckValue {
+    let mut contributions = Vec::new();
+    for canonical in declared {
+        let reachability = match effective_target_verdict(valid, "DA-002", canonical) {
+            CheckValue::Pass => CheckValue::Pass,
+            // A DA-002 FAIL statically denies reachability and is never rescued.
+            CheckValue::Fail => CheckValue::Fail,
+            // Statically unproven: reachable only if runtime proves it.
+            _ => {
+                if runtime_target_reached(root, evidence, test, scan, canonical) {
+                    CheckValue::Pass
+                } else {
+                    CheckValue::Unknown
+                }
+            }
+        };
+        contributions.push(reachability);
+    }
+    // DA-003 is target-scoped but has no runtime rescue: coverage proves
+    // execution, not result verification (§7.3 L1019, 別紙C §18.3.6).
+    for canonical in declared {
+        contributions.push(effective_target_verdict(valid, "DA-003", canonical));
+    }
+    for rule in ["DA-001", "DA-004", "DA-005", "DA-006"] {
+        contributions.push(effective_rule_verdict(valid, rule));
+    }
+    if contributions.contains(&CheckValue::Fail) {
+        CheckValue::Fail
+    } else if contributions.iter().all(|value| *value == CheckValue::Pass) {
+        CheckValue::Pass
+    } else {
+        CheckValue::Unknown
+    }
 }
 
 fn audit_mentions_test(record: &AuditRecord, test_id: &str) -> bool {
@@ -969,15 +1192,6 @@ fn audit_text_mentions_test(text: &str, test_id: &str) -> bool {
             || line == format!("- id: {test_id}")
             || line == format!("- id: '{test_id}'")
     })
-}
-
-fn audit_verdict_value(record: &AuditRecord) -> CheckValue {
-    match record.verdict.as_str() {
-        "PASS" => CheckValue::Pass,
-        "FAIL" => CheckValue::Fail,
-        "UNKNOWN" => CheckValue::Unknown,
-        _ => CheckValue::Unknown,
-    }
 }
 
 /// The static-audit CONFIG subject hash. Binds the rule set identity and the
@@ -1671,11 +1885,12 @@ mod tests {
     use vtest_model::{
         AdapterId, EvidenceHashes, EvidenceRecord, EvidenceTargetHash, ExecutionDescriptor,
         ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary, SourceFunction,
-        SourceLocation, SourceRange, TargetExecution, TargetRef, TestEntity, TestId, TestResult,
-        TestSuite, VoId,
+        SourceLocation, SourceRange, TargetExecution, TargetExecutionObservation, TargetRef,
+        TestEntity, TestId, TestResult, TestSuite, VoId,
     };
     use vtest_store::{
-        init_project, new_record_id, AuditBasisRecord, AuditReasonRecord, AuditorRecord,
+        init_project, new_record_id, AuditBasisRecord, AuditReasonRecord, AuditTargetVerdictRecord,
+        AuditorRecord,
     };
 
     #[test]
@@ -1808,8 +2023,15 @@ mod tests {
         test: &TestEntity,
         verdict: &str,
         hash: ContentHash,
-    ) {
-        write_static_audit_with_subjects(layout, verdict, static_audit_subjects(test, hash));
+    ) -> String {
+        let canonical = test.targets[0].normalized();
+        write_static_audit_at(
+            layout,
+            verdict,
+            static_audit_subjects(test, hash),
+            Some(&canonical),
+            "2026-08-08T00:00:00Z",
+        )
     }
 
     fn static_audit_subjects(test: &TestEntity, hash: ContentHash) -> Vec<AuditSubjectRecord> {
@@ -1842,18 +2064,22 @@ mod tests {
         ]
     }
 
+    /// Write a legacy-shape record (no per-target verdicts). Used by tests whose
+    /// records are expected to be excluded (stale subjects), where the shape does
+    /// not matter because staleness dominates.
     fn write_static_audit_with_subjects(
         layout: &VerifyLayout,
         verdict: &str,
         subjects: Vec<AuditSubjectRecord>,
     ) -> String {
-        write_static_audit_at(layout, verdict, subjects, "2026-08-08T00:00:00Z")
+        write_static_audit_at(layout, verdict, subjects, None, "2026-08-08T00:00:00Z")
     }
 
     fn write_static_audit_at(
         layout: &VerifyLayout,
         verdict: &str,
         mut subjects: Vec<AuditSubjectRecord>,
+        canonical: Option<&str>,
         audited_at: &str,
     ) -> String {
         let config = load_config(&layout.root).expect("load fixture config");
@@ -1871,15 +2097,37 @@ mod tests {
             verdict: verdict.to_owned(),
             reasons: ["DA-001", "DA-002", "DA-003", "DA-004", "DA-005", "DA-006"]
                 .into_iter()
-                .map(|rule| AuditReasonRecord {
-                    rule: Some(rule.to_owned()),
-                    verdict: Some(if rule == "DA-001" { verdict } else { "PASS" }.to_owned()),
-                    claim: format!("fixture result for {rule}"),
-                    basis: vec![AuditBasisRecord {
-                        kind: "test-code".to_owned(),
-                        reference: "tests/static.rs:1".to_owned(),
-                    }],
-                    targets: Vec::new(),
+                .map(|rule| {
+                    let target_scoped = matches!(rule, "DA-002" | "DA-003");
+                    // Per-target mode: the target-scoped rules carry the declared
+                    // target at `verdict`, the rest are PASS, and the record folds
+                    // to `verdict`. Legacy mode keeps the old shape (DA-001 carries
+                    // `verdict`, no per-target list).
+                    let (rule_verdict, targets) = match (canonical, target_scoped) {
+                        (Some(canonical), true) => (
+                            verdict,
+                            vec![AuditTargetVerdictRecord {
+                                target: canonical.to_owned(),
+                                verdict: verdict.to_owned(),
+                                basis: vec![AuditBasisRecord {
+                                    kind: "test-code".to_owned(),
+                                    reference: "tests/static.rs:1".to_owned(),
+                                }],
+                            }],
+                        ),
+                        (Some(_), false) => ("PASS", Vec::new()),
+                        (None, _) => (if rule == "DA-001" { verdict } else { "PASS" }, Vec::new()),
+                    };
+                    AuditReasonRecord {
+                        rule: Some(rule.to_owned()),
+                        verdict: Some(rule_verdict.to_owned()),
+                        claim: format!("fixture result for {rule}"),
+                        basis: vec![AuditBasisRecord {
+                            kind: "test-code".to_owned(),
+                            reference: "tests/static.rs:1".to_owned(),
+                        }],
+                        targets,
+                    }
                 })
                 .collect(),
             exclusions: Vec::new(),
@@ -1903,16 +2151,275 @@ mod tests {
         id
     }
 
+    /// Write a per-target record whose DA-002 and DA-003 verdicts differ, so the
+    /// join can be exercised where reachability (DA-002) and result verification
+    /// (DA-003) diverge. Other rules are PASS; the record folds accordingly.
+    fn write_static_audit_split(
+        layout: &VerifyLayout,
+        test: &TestEntity,
+        da002: &str,
+        da003: &str,
+        audited_at: &str,
+    ) -> String {
+        let canonical = test.targets[0].normalized();
+        let mut subjects = static_audit_subjects(test, test.content_hash.clone());
+        let config = load_config(&layout.root).expect("load fixture config");
+        subjects.push(AuditSubjectRecord {
+            id: Some("CONFIG".to_owned()),
+            locator: None,
+            hash: static_audit_config_subject_hash(&config),
+        });
+        let rule_verdict = |rule: &str| match rule {
+            "DA-002" => da002,
+            "DA-003" => da003,
+            _ => "PASS",
+        };
+        let record_verdict = if da002 == "FAIL" || da003 == "FAIL" {
+            "FAIL"
+        } else if da002 == "UNKNOWN" || da003 == "UNKNOWN" {
+            "UNKNOWN"
+        } else {
+            "PASS"
+        };
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "static".to_owned(),
+            bundle_id: None,
+            subjects,
+            verdict: record_verdict.to_owned(),
+            reasons: ["DA-001", "DA-002", "DA-003", "DA-004", "DA-005", "DA-006"]
+                .into_iter()
+                .map(|rule| AuditReasonRecord {
+                    rule: Some(rule.to_owned()),
+                    verdict: Some(rule_verdict(rule).to_owned()),
+                    claim: format!("fixture result for {rule}"),
+                    basis: vec![AuditBasisRecord {
+                        kind: "test-code".to_owned(),
+                        reference: "tests/static.rs:1".to_owned(),
+                    }],
+                    targets: if matches!(rule, "DA-002" | "DA-003") {
+                        vec![AuditTargetVerdictRecord {
+                            target: canonical.clone(),
+                            verdict: rule_verdict(rule).to_owned(),
+                            basis: vec![AuditBasisRecord {
+                                kind: "test-code".to_owned(),
+                                reference: "tests/static.rs:1".to_owned(),
+                            }],
+                        }]
+                    } else {
+                        Vec::new()
+                    },
+                })
+                .collect(),
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest-audit".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: audited_at.to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+        };
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            record.to_yaml().expect("serialise static audit"),
+        )
+        .expect("write static audit");
+        id
+    }
+
+    /// Build a valid Evidence (passing `evidence_record_validity`) whose
+    /// per-target target_execution carries `result`/`count`, keyed to the Test.
+    fn valid_runtime_evidence(
+        layout: &VerifyLayout,
+        test: &TestEntity,
+        scan: &ScanResult,
+        result: CheckValue,
+        count: Option<u64>,
+    ) -> BTreeMap<String, EvidenceRecord> {
+        let adapter = test.execution.adapter.clone();
+        let kind = "cargo-llvm-cov";
+        let hash = rust_cargo_execution_state_hash(&layout.root, &adapter, test, kind, false)
+            .expect("fixture execution state hash resolves");
+        let target_hashes = test
+            .targets
+            .iter()
+            .map(|target_ref| EvidenceTargetHash {
+                target: target_ref.normalized(),
+                target_construct: find_target_source(scan, target_ref)
+                    .expect("resolve target")
+                    .content_hash
+                    .clone(),
+            })
+            .collect::<Vec<_>>();
+        let target_execution_targets = test
+            .targets
+            .iter()
+            .map(|target_ref| TargetExecutionObservation {
+                target: find_target_source(scan, target_ref)
+                    .expect("resolve target")
+                    .target
+                    .normalized(),
+                result,
+                count,
+            })
+            .collect::<Vec<_>>();
+        let record = EvidenceRecord {
+            id: new_record_id(),
+            test_id: test.id.clone(),
+            adapter: Some(adapter),
+            result: TestResult::Pass,
+            executed_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: Some("abc123".to_owned()),
+                dirty: false,
+            },
+            execution_state: Some(ExecutionStateSubject {
+                schema: "rust-cargo-execution-state-v1".to_owned(),
+                complete: true,
+                hash: Some(hash),
+            }),
+            hashes: EvidenceHashes {
+                test_subject: Some(test.content_hash.clone()),
+                targets: target_hashes,
+                compatibility: None,
+            },
+            runner: RunnerInfo {
+                kind: kind.to_owned(),
+                command: "cargo llvm-cov".to_owned(),
+                exit_code: 0,
+            },
+            target_execution: TargetExecution {
+                checked: true,
+                method: Some("llvm-cov".to_owned()),
+                result: Some(result),
+                targets: target_execution_targets,
+                compatibility_count: None,
+            },
+            log_ref: "cache/logs/e.log".to_owned(),
+        };
+        let mut evidence = BTreeMap::new();
+        evidence.insert(test.id.as_str().to_owned(), record);
+        evidence
+    }
+
+    #[test]
+    fn static_audit_da002_unknown_is_rescued_by_runtime_target_execution() {
+        // DA-002 is statically UNKNOWN but DA-003 PASS (result asserted in body).
+        // A valid Evidence whose per-target target_execution is PASS (count > 0)
+        // proves reachability, so the item is PASS — a satisfied reachability
+        // yields no UNKNOWN at computation time, not an UNKNOWN→PASS promotion
+        // (詳細設計 §7.1 L963, §7.3, 別紙C §18.3.2 L104).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        let evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &evidence, &scan).0,
+            CheckValue::Pass
+        );
+    }
+
+    #[test]
+    fn static_audit_runtime_rescue_needs_a_positive_measured_count() {
+        // The same DA-002 UNKNOWN target is not rescued when coverage measured a
+        // zero count (target_execution FAIL): the item stays UNKNOWN
+        // (詳細設計 §7.3 L1031, 別紙C §18.3.2 L110).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        let evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Fail, Some(0));
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &evidence, &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    #[test]
+    fn static_audit_da002_fail_dominates_a_newer_unknown_record() {
+        // Two subject-current records for the same target: an older FAIL and a
+        // newer UNKNOWN — a contradiction only hand-written records can hold.
+        // FAIL dominates per §8.5 applied per target; selection does not pick
+        // the latest to escape the FAIL (詳細設計 §7.3 L1016, 別紙C §18.3.2 L107).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "FAIL", "PASS", "2026-08-08T00:00:00Z");
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Fail
+        );
+    }
+
+    #[test]
+    fn static_audit_da003_unknown_is_not_rescued_by_runtime() {
+        // DA-002 is statically PASS (reachable) but DA-003 is UNKNOWN. Coverage
+        // proves execution, not result verification, so the item is UNKNOWN with
+        // no runtime rescue for DA-003 (詳細設計 §7.3 L1019, 別紙C §18.3.2 L111).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "PASS", "UNKNOWN", "2026-08-08T00:00:00Z");
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    #[test]
+    fn static_audit_da002_unknown_without_runtime_stays_unknown() {
+        // A statically-unproven DA-002 (UNKNOWN) is not reachable without runtime
+        // proof; with no Evidence the item is UNKNOWN, never a vacuous PASS
+        // (詳細設計 §7.3 L1025, 別紙C §18.3.2 L110).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    #[test]
+    fn static_audit_per_target_set_mismatch_is_malformed_unknown() {
+        // A subject-current record whose per-target list names a target the Test
+        // does not declare is malformed (E-SCAN-010): excluded, its verdicts not
+        // extracted, and the item is UNKNOWN (詳細設計 §3.6).
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_at(
+            &layout,
+            "PASS",
+            static_audit_subjects(test, test.content_hash.clone()),
+            Some("rust-cargo::src/lib.rs::not_declared"),
+            "2026-08-08T00:00:00Z",
+        );
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
     #[test]
     fn static_audit_uses_only_current_per_test_records_and_fail_wins() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
         write_static_audit(&layout, test, "UNKNOWN", test.content_hash.clone());
         write_static_audit(&layout, test, "PASS", test.content_hash.clone());
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Pass);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Pass
+        );
 
         write_static_audit(&layout, test, "FAIL", test.content_hash.clone());
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Fail);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Fail
+        );
     }
 
     #[test]
@@ -1926,7 +2433,10 @@ mod tests {
             "  assertion_macros:\n    - assert_valid",
         );
         fs::write(layout.config(), config).expect("change assertion macro configuration");
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
     }
 
     #[test]
@@ -1939,7 +2449,10 @@ mod tests {
             scan.tests[0].content_hash.clone(),
         );
         scan.tests[0].location.locator = "moved::TEST-ONE".to_owned();
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
     }
 
     #[test]
@@ -1951,7 +2464,10 @@ mod tests {
             "PASS",
             ContentHash::from_text("historic test body"),
         );
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
     }
 
     #[test]
@@ -1973,7 +2489,10 @@ mod tests {
                 },
             ],
         );
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
     }
 
     #[test]
@@ -1989,7 +2508,10 @@ mod tests {
                 hash: test.content_hash.clone(),
             }],
         );
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
 
         let helper = SourceFunction {
             target: rust_target("src/lib.rs::helper"),
@@ -2014,7 +2536,10 @@ mod tests {
                 },
             ],
         );
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Stale);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Stale
+        );
     }
 
     #[test]
@@ -2036,28 +2561,37 @@ mod tests {
             yaml.replace("verdict:", &format!("{second_subject}verdict:")),
         )
         .expect("write multi-test static audit");
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Unknown);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Unknown
+        );
     }
 
     #[test]
     fn static_audit_orders_offsets_by_the_actual_rfc3339_instant() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
+        let canonical = test.targets[0].normalized();
         // 09:00+09:00 is 00:00Z.  It is lexically later than 00:30Z but
         // chronologically earlier, so the later PASS must be selected.
         write_static_audit_at(
             &layout,
             "UNKNOWN",
             static_audit_subjects(test, test.content_hash.clone()),
+            Some(&canonical),
             "2026-08-08T09:00:00+09:00",
         );
         write_static_audit_at(
             &layout,
             "PASS",
             static_audit_subjects(test, test.content_hash.clone()),
+            Some(&canonical),
             "2026-08-08T00:30:00Z",
         );
-        assert_eq!(evaluate_static_audit(&layout, &scan).0, CheckValue::Pass);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Pass
+        );
     }
 
     #[test]
@@ -2070,7 +2604,7 @@ mod tests {
             scan.tests[0].content_hash.clone(),
         );
         assert_eq!(
-            evaluate_static_audit(&layout, &scan).0,
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
             CheckValue::NotChecked
         );
     }
@@ -2086,7 +2620,7 @@ mod tests {
             ),
         )
         .expect("write malformed static audit");
-        let result = evaluate_static_audit(&layout, &scan);
+        let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
         assert_eq!(result.0, CheckValue::Unknown, "basis: {:?}", result.1);
     }
 }
