@@ -136,6 +136,16 @@ Normative Specification → Requirement → Design decision/mechanism → VO →
 - **inventory の使い所は後段**: 192管理テストの分類・突合データは「VO ↔ Test 突合」フェーズで生きる（例: resolver 非対称は『discovery/audit が同一 target に異なる resolution を返してはならない』という VO の違反 evidence として表現される — これが SpecTracer の本来の向き）。
 - 旧 bottom-up 63 VO/7 REQ は 191 注釈が参照中のため削除しない（dangling covers 防止）。remapping フェーズで置換。
 
+### Owner 確定パイプライン（destructive remap は最後）
+```
+118 VO 登録 → [ONTOLOGY FREEZE GATE]（今ここ） → 192 Test shadow mapping（covers 不変・非破壊）
+→ evidence adequacy 分析（relevance ≠ proof を分離） → gap/contradiction/orphan 検出
+→ 新 covers 確定 → 旧63 VO/7 REQ retire（bottom-up が何を見落としたか自体が成果）
+```
+- **母集団照合済み**: W-SCAN-102×120 = 新118（全 leaf・test 未 mapping＝正当）+ 旧2（VO-AAPI-006=唯一 member の注釈除去 / VO-CLI-007=member が structural skip 群で孤立）。invariant `W-SCAN-102(new)=118=registered_new_vo` 成立。
+- **freeze gate（wf_081a6a94-9fe 実行中）**: 15 area fan-out の敵対的レビュー。reject 基準 A-I: A=REQ言い換え / B=機構説明 / C=判定不能語 / D=compound（独立命題の and 結合→分割） / E=実装現在形の仕様昇格（normative 根拠を doc 照合） / F=Test 存在前提 / G=implementation-specific（設計が normative に要求する場合は可） / H=**VO vs evidence-admissibility rule 境界**（SpecTracer は verifier ゆえ大半は正当な verifier-behavior VO。純粋に dogfood 側の判定規則のみ flag） / I=**merge 21件の truth-condition 同一性**（文言類似でなく同一状況で成立するか。異なる input domain/failure mode なら de-merge）。
+- **shadow mapping の形式**（gate 通過後）: Test→candidate VO→{relevance, evidence(positive/negative/ambiguity case), verdict PROVES/PARTIAL/NO} を別 inventory として作成。双方向分類: VO→{sufficient/partial/no evidence}, Test→{proves/partially supports/proves no current VO}。resolver 非対称は「VO は uncovered かつ現実装に反証 evidence あり」と表現される。
+
 ## ★dogfood 実行フェーズ（Owner 指示 2026-08-15: 問題1=全テスト管理を ultracode で埋める）
 Owner 指示: 「問題1だったもの（未注釈205件）を全部埋めてみて。サブエージェント/ultracode で」。仕様変更なし。black-box(問題2)は parked だが、注釈自体は可能（target を実シンボルにすれば test_traceability は通る。static_audit UNKNOWN は問題2として観測）。
 段階設計（VO 一貫性のため main thread が ontology 所有・fan-out は読取り/適用のみ）:
