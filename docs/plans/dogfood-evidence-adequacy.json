@@ -1,0 +1,2000 @@
+{
+ "note": "Evidence adequacy with composability gate + contradiction duty + proves_no_vo classification. CONTRADICTED entries are AGENT-CITED CANDIDATES: each carries code citations but requires a main-thread verification pass before being treated as a confirmed implementation defect.",
+ "adequacy": [
+  {
+   "area": "VO-P001",
+   "vos": [
+    {
+     "id": "VO-P001-02",
+     "required_facets": "Positive: a verify/scan/audit/run op appends only a new evidence/audit record. Negative: pre-existing declaration/impl/evidence records byte-unchanged and a detected MISMATCH persists (no system-initiated canon write erasing it). Structural: no output/record field designates a fix target.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "No test asserts canon records unchanged after verify/scan/audit/run, MISMATCH persistence, or absence of a fix-target field; 014/015 only guard .verify/config.yaml (not a canon layer), STORE-019 tests the write primitive with no operation driven.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-P001-03",
+     "required_facets": "Negative (load-bearing): out-of-vocabulary verdict at the audit submit surface -> E-AUDIT-004 AND no audit record appended, for both vocabularies (PASS/FAIL/UNKNOWN kinds and COMPLETE/INCOMPLETE/UNKNOWN kinds). Positive: an in-vocabulary verdict is accepted (boundary of the partition).",
+     "evidence_set": [
+      "TEST-STORE-030"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "STORE-030 rejects verdict MISSING at AuditRecord::from_yaml, not at submit: no E-AUDIT-004 code and no no-record assertion; coverage vocabulary and in-vocabulary acceptance untested.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-P001-04",
+     "required_facets": "Negative only (three arms): empty reasons; a reason lacking a claim; a reason with zero basis — each rejected with E-AUDIT-005 and no audit record appended. No positive or ambiguity facet is required by the claim.",
+     "evidence_set": [
+      "TEST-CLI-073"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "Only the empty-reasons arm is witnessed; claim-less and zero-basis arms untested. TEST-CLI-097's E-AUDIT-005 comes from vtest-mcp validate_args (missing reasons key), a different check than CLI validate_reasons.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-P001-05",
+     "required_facets": "Positive: an accepted audit record's field set equals the §3.6 record contract. Negative: a submission carrying an extra field (notably a fix-target/fix-proposal) is either rejected or dropped so the stored record still contains only contract fields. No ambiguity branch required.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "TEST-CLI-075 asserts only kind/bundle_id/verdict on the stored record; nothing asserts the full field set equals §3.6 nor that extra/fix-target fields are rejected or dropped. AuditRecord::to_yaml's fixed field list is code structure, not test evidence.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-INTEG",
+   "vos": [
+    {
+     "id": "VO-INTEG-01",
+     "required_facets": "Positive: MCP result == CLI --format json data/diagnostics per tool; positive: same adapter resolved; negative: identical adapter-selection error, no MCP fallback.",
+     "evidence_set": [
+      "TEST-CLI-092",
+      "TEST-CLI-089",
+      "TEST-CLI-042"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No adapter-resolution or selection-error parity case; no error-path comparison; form_get, the only tool not delegating to the CLI, is never compared.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-03",
+     "required_facets": "Positive: 0=OK, 1=NG; negative: 2=refused with no verification result, 3=internal error; plus the 3>2>1>0 precedence when conditions co-occur.",
+     "evidence_set": [
+      "TEST-CLI-050",
+      "TEST-CLI-056",
+      "TEST-CLI-068",
+      "TEST-CLI-021",
+      "TEST-CLI-057",
+      "TEST-CLI-085"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Exit 3 (internal) is never observed at the process boundary, and no test forces two outcome conditions at once, so 3>2>1>0 stays unexercised.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-04",
+     "required_facets": "Positive: {ok,data,diagnostics} on CLI --format json and MCP results, on success and failure; each diagnostic carries code/severity/message, plus location where applicable.",
+     "evidence_set": [
+      "TEST-CLI-049",
+      "TEST-CLI-051",
+      "TEST-CLI-056",
+      "TEST-CLI-072",
+      "TEST-CLI-093",
+      "TEST-CLI-097"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "MCP side never asserts severity, location or the diagnostics array; vtest-mcp failure_envelope is a second producer checked only for code+message.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-06",
+     "required_facets": "Positive: an external source change between two calls is reflected in the second; mechanism: both mtime branches (unchanged=no rescan, changed=rescan), on every tool not one.",
+     "evidence_set": [
+      "TEST-CLI-095",
+      "TEST-CLI-091"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "Both witnesses are equally explained by per-call CLI delegation (every call rescans anyway); no external source change, no unchanged-mtime branch.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-07",
+     "required_facets": "Needs a PASS computed pre-change, a source change, a re-served verdict. Negative (load-bearing): the stale PASS is not re-served; positive: post-change scan is reflected.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "No test computes a verdict before a change; TEST-CLI-091 alters a form title and computes none, so the stale-PASS branch is entirely untouched.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-08",
+     "required_facets": "Positive existence and reachability in the published set of all five: scoped verify, STO create/edit, exit-code rerun, evidence cross-check, spec/REQ drill-down. No negative facet.",
+     "evidence_set": [
+      "TEST-CLI-089",
+      "TEST-CLI-094",
+      "TEST-CLI-076",
+      "TEST-CLI-095"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Exit-code rerun and evidence cross-check are exercised by no candidate; TEST-CLI-094 notes rerun-by-exit-code is unreachable over MCP.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTEG-09",
+     "required_facets": "Well-formed request answered by id; notification silent and not consuming the next; batch per contract; malformed transport mapped to -32700/-32600/-32601 without crashing.",
+     "evidence_set": [
+      "TEST-CLI-097",
+      "TEST-CLI-090",
+      "TEST-CLI-042"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Batch input untested; serve() rejects any JSON array as -32600, unadjudicated against 別紙C L194 'JSON-RPC contract どおり' (MCP 2025-06-18 drops batching).",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-REGISTRY",
+   "vos": [
+    {
+     "id": "VO-REGISTRY-01",
+     "required_facets": "Negative: each necessity condition (unregistered/non-1:1, <1 covers, unresolvable VO ref, duplicate Test ID) forces non-PASS. Positive: an all-conditions-met project actually yields PASS.",
+     "evidence_set": [
+      "TEST-CLI-016",
+      "TEST-CLI-017",
+      "TEST-CLI-018",
+      "TEST-CLI-019"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No PASS witness: nothing asserts test_traceability=PASS on a clean project, so a never-PASS implementation satisfies the claim vacuously.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-02",
+     "required_facets": "All three typed branches: missing declaration->MISSING; ID collision / ManagedTestLink::Multiple / dangling covers->MISMATCH; incomplete discovery->UNKNOWN; plus never a zero-test PASS.",
+     "evidence_set": [
+      "TEST-CLI-016",
+      "TEST-CLI-017",
+      "TEST-CLI-018",
+      "TEST-CLI-019",
+      "TEST-SCAN-005",
+      "TEST-SCAN-006"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Multiple-link->MISMATCH and incomplete-discovery->UNKNOWN values never asserted (SCAN-005/006 stop at typed gaps); no test rules out a zero-test PASS.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-03",
+     "required_facets": "Positive: W-SCAN-101 displayed for EVERY unregistered construct. Positive: partial canon (missing SPEC/REQ/VO, unaudited/unexecuted) stays readable while yielding non-PASS values, never total OK.",
+     "evidence_set": [
+      "TEST-CLI-049",
+      "TEST-SCAN-012"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Each uses exactly one unregistered construct; 'every construct', partial-canon readability, and the non-PASS/never-total-OK verify values are unevidenced.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-04",
+     "required_facets": "Structural: no persisted second copy of covers/targets anywhere under .verify/. Positive: a direct edit of the declaration followed by scan leaves covers/targets consistent (desync structurally impossible).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "Only TEST-SCAN-005 is adjacent and asserts neither no-second-copy nor edit-then-rescan consistency; no direct-edit-then-scan test exists at all.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-05",
+     "required_facets": "Positive: core materializes Test Entities from adapter-normalized logical fields only. Negative/structural: core contains no interpretation of comment forms, decorators, attributes or manifest syntax.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No candidate test at all (class=uncovered); neither the materialization-only positive nor the no-syntax-interpretation structural facet is exercised.",
+     "contradiction": "Core violates the second conjunct. crates/vtest-scan/src/operations.rs:510-590 (render_edited_test, production path, called at :235 from the Edit Test operation) both INTERPRETS and GENERATES rust-cargo declaration syntax and placement: it partitions lines by trimmed.starts_with(\"///\") and trimmed.contains(\"@vtest.\") into free_before/annotation/free_after (placement), rewrites `fn <selector>`, and emits literal `/// @vtest.id|covers|target|intent|input|expect|kind|case|related` lines. operations.rs:12 hard-imports `vtest_adapter_rust::operations_support::*` and :15 a `RUST_ADAPTER_ID` const, so this is not adapter-delegated: `StructuredTestAdapter` (crates/vtest-adapter-api/src/lib.rs:438-441) exposes only built_in_form_kinds/accepts_compatibility_form and has no rendering method, i.e. no adapter path for declaration rendering exists. This is contrary to the claim's own refs: 基本仕様 §6.1 'coreはadapter固有のcomment形式、decorator、attribute、manifest構文を解釈しない' and §8.1/§8.2 which assign generating/updating the metadata declaration to the adapter. This is active contrary behavior, not missing evidence."
+    },
+    {
+     "id": "VO-REGISTRY-06",
+     "required_facets": "Positive only: from a Test ID alone, each of intent, covers, targets, construct, location, audit results and execution evidence is actually retrievable via test show / list / query.",
+     "evidence_set": [
+      "TEST-CLI-086"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "show/list/query are invoked but only the id field is asserted; construct, location, audit results and execution-evidence retrievability are entirely unasserted.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-07",
+     "required_facets": "Positive: SRC-to-Test reverse lookup returns the right Tests. Structural: it is derived data, fully rebuildable by vtest scan and never persisted as a second canon.",
+     "evidence_set": [
+      "TEST-CLI-086"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only that `query --source` hits the created Test; nothing shows the index is rebuilt by scan nor that no second-canon copy is persisted under .verify/.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-08",
+     "required_facets": "Positive per-field change-sensitivity, each varied alone: adapter ID, Test ID, covers, targets (declared TargetRef spellings), Source Location, ExecutionDescriptor, normalized construct bytes.",
+     "evidence_set": [
+      "TEST-MODEL-004",
+      "TEST-CLI-074"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only intent (MODEL-004) and construct bytes (CLI-074) are varied; covers, targets, adapter/Test ID, Source Location and ExecutionDescriptor sensitivity unevidenced.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-09",
+     "required_facets": "Positive: core computes BOTH TestEntity and SourceTarget subject hashes from the adapter's DTO. Negative/structural: the discovery DTO is hash-free, so an adapter has no channel to self-finalize a hash.",
+     "evidence_set": [
+      "TEST-AAPI-007",
+      "TEST-SCAN-001"
+     ],
+     "facet_complete": true,
+     "composable": true,
+     "verdict": "SUFFICIENT",
+     "missing": "",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-10",
+     "required_facets": "Negative: SrcId as a Source Target's own canonical target rejected; ambiguous ref resolves to none. Positive: locator and SRC ID refs reach one target and one hash. Storage: Evidence/audits hold only the canonical Locator.",
+     "evidence_set": [
+      "TEST-SCAN-003",
+      "TEST-SCAN-004",
+      "TEST-SCAN-011",
+      "TEST-CLI-045",
+      "TEST-CLI-046"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No member reads Evidence / audit records / target_execution, so 'store only the canonical Locator, never the referring Test's declared spelling' is unwitnessed.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-11",
+     "required_facets": "Positive: >=1 declared targets each held individually (1:N), never reduced to a representative. Negative: empty targets rejected; distinct spellings resolving to one canonical target -> E-SCAN-005.",
+     "evidence_set": [
+      "TEST-AAPI-004",
+      "TEST-CLI-067",
+      "TEST-CLI-032",
+      "TEST-SCAN-015"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Duplicate-spelling->E-SCAN-005 never exercised; SCAN-015's E-SCAN-005 is the target-kind restriction, a different rule, so that cell only looks filled.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-12",
+     "required_facets": "Negative: missing intent yields E-SCAN-007 AND makes the entity structurally incomplete -> test_traceability MISSING. Positive: a Test with no input/expect is still structurally complete.",
+     "evidence_set": [
+      "TEST-CLI-052",
+      "TEST-SCAN-014"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the E-SCAN-007 diagnostic; the ->MISSING value derivation and the input/expect-stay-optional positive half are unasserted (CLI-017 perturbs covers, not intent).",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REGISTRY-14",
+     "required_facets": "Positive: reordering cases changes the Test subject hash (declaration-order encoding). Contrast: reordering covers/targets/related does NOT change it (ascending normalized order).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "TEST-MODEL-004 passes cases:&[] and reorders nothing; no test varies case order, and none shows covers/targets/related order-insensitivity.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-EXIST",
+   "vos": [
+    {
+     "id": "VO-EXIST-01",
+     "required_facets": "Positive: init into a project that already holds code creates only .verify/ and leaves every pre-existing file byte-identical. Negative: re-init over an existing .verify/ exits 2 without overwriting it.",
+     "evidence_set": [
+      "TEST-CLI-001",
+      "TEST-CLI-050"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No fixture holds pre-existing project code; nothing asserts existing files survive, that only .verify/ was written, or that the rejected re-init left .verify/ intact.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXIST-02",
+     "required_facets": "Positive/liveness only: scan and read operations complete without aborting for each enumerated absent class - SPEC/REQ/VO, Test metadata declarations, Audits, Evidence. No negative or ambiguity branch.",
+     "evidence_set": [
+      "TEST-CLI-049",
+      "TEST-CLI-056",
+      "TEST-SCAN-008"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "Only absent Test metadata is asserted as such; SPEC/REQ/audit/evidence absence is incidental to m1/base, and reads other than scan are only shown on a malformed record.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXIST-03",
+     "required_facets": "Negative only: three exact mappings (missing artifact->MISSING, no Evidence->NOT_EXECUTED, no audit->NOT_CHECKED), each never PASS, plus partial canon never aggregating to overall OK.",
+     "evidence_set": [
+      "TEST-CLI-078",
+      "TEST-CLI-079",
+      "TEST-CLI-081"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "no-audit -> NOT_CHECKED is never asserted through vtest verify (only via vo show in TEST-CLI-063), and TEST-CLI-081 asserts only !=PASS, never a specific 4.1 value.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXIST-04",
+     "required_facets": "Negative/fail-closed only: a full verification or a requested scope containing 0 registered SPEC records yields spec_coverage = MISSING and can never yield PASS.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "",
+     "contradiction": "crates/vtest-verify/src/lib.rs:546-582 computes spec_coverage purely from REQ->VO linkage and never reads a SPEC record (the only 'spec' reads in the crate are audit-subject reads at 1583-1584). With reqs non-empty and every REQ linked from a VO it returns CheckValue::Pass regardless of there being 0 SPEC records. The state is reachable: `req add` without --spec stores spec_refs: [] (crates/vtest-cli/src/lib.rs:2816 with spec_refs_from_args at 3646-3670), and full-scope req_ids is every REQ record (crates/vtest-verify/src/lib.rs:189). So 0 registered SPECs yields PASS, the value the claim forbids."
+    },
+    {
+     "id": "VO-EXIST-05",
+     "required_facets": "Negative/fail-closed only: an active REQ with 0 corresponding VOs yields vo_coverage = MISSING (not PASS, not NOT_CHECKED).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "",
+     "contradiction": "crates/vtest-verify/src/lib.rs:1265-1353 derives vo_coverage solely from vo-coverage audit records plus VO approval; it never enumerates REQ records, so 'REQ with 0 VOs' is not an input to the item. MISSING is emitted only when a valid audit PASSes on an unapproved VO (1331-1332). An active REQ with no VOs therefore yields PASS in full scope when the remaining VOs are audited+approved, and NOT_CHECKED under `verify --req` because selection.vo_ids is empty (1271-1276) - never MISSING. The REQ->VO existence check the claim assigns to vo_coverage is implemented under spec_coverage instead (546-582)."
+    },
+    {
+     "id": "VO-EXIST-08",
+     "required_facets": "Negative only: an incomplete/unparseable discovery is not materialized as a complete 0-test discovery, AND the affected verification plus test_traceability take the value UNKNOWN, which cannot PASS.",
+     "evidence_set": [
+      "TEST-SCAN-005"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "",
+     "contradiction": "The first conjunct holds but the mandated UNKNOWN mapping is unreachable in the implementation. crates/vtest-scan/src/lib.rs:98-102 rejects an Incomplete batch with a hard E-ADAPTER-002 error before anything is materialized (asserted by TEST-SCAN-005, crates/vtest-scan/src/lib.rs:1650-1655), and crates/vtest-verify/src/lib.rs:659-685 (evaluate_test_traceability) can only return Mismatch, Missing or Pass - there is no CheckValue::Unknown branch for that item. run_verify aborts on the scan error with a null-data envelope (crates/vtest-cli/src/lib.rs:2480-2494), so no report is produced at all. The divergence is stricter fail-closed (operation error, matching VO-EXIST-07's shape) rather than fail-open, but the claim's stated observable - test_traceability = UNKNOWN - can never occur; VO-EXIST-07 and VO-EXIST-08 prescribe different outcomes for the same E-ADAPTER-002 trigger and only 07's is implemented."
+    },
+    {
+     "id": "VO-EXIST-09",
+     "required_facets": "Non-PASS branch only: each unregistered or mis-corresponding test is listed with adapter ID, source location, diagnostic code and verdict, and that listing is identical in the text and JSON reports.",
+     "evidence_set": [
+      "TEST-SCAN-012"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "",
+     "contradiction": "crates/vtest-verify/src/lib.rs:659-677 builds the test_traceability basis from diagnostic.message alone, discarding code, location and adapter; the W-SCAN-101 message is only the function name (crates/vtest-adapter-rust/src/discovery.rs:962-968), so no basis entry carries adapter ID, source location, code or verdict. Text/JSON parity is also violated: emit_text renders report items as item+value only and never prints basis (crates/vtest-cli/src/lib.rs:3888-3896 and print_text_tree_node 3937-3959), and prints diagnostics as 'severity code: message' dropping SourceLocation (3921-3934), while the JSON envelope serializes the full location including its adapter field (crates/vtest-model/src/lib.rs:310-316, 671-679). The two formats therefore list different information for the same non-PASS test_traceability."
+    }
+   ]
+  },
+  {
+   "area": "VO-INTAKE",
+   "vos": [
+    {
+     "id": "VO-INTAKE-01",
+     "required_facets": "Positive: registration stores a SPEC record identified by project path + sha256 captured at that moment. Absence: no copy of the document body written under .verify/. No UNKNOWN branch.",
+     "evidence_set": [
+      "TEST-CLI-062",
+      "TEST-CLI-002"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No test asserts that .verify/spec/*.yaml (or any .verify/ file) holds no copy of the source body.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTAKE-02",
+     "required_facets": "Positive: explicit spec add [--update] is what creates/updates a SPEC record. Negative: a scan/discovery/adapter run over doc comments creates or mutates no SPEC record (yields Test metadata + SRC IDs only).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "TEST-CLI-059 only shows a rejected add. No test runs scan/discovery over adapter doc comments and asserts SPEC records unchanged.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTAKE-04",
+     "required_facets": "Negative, both conjuncts: while source != registered sha256, audits carrying that SPEC subject are STALE AND approvals whose closure holds it are invalid; plus a no-drift valid control.",
+     "evidence_set": [
+      "TEST-STORE-002",
+      "TEST-CLI-041",
+      "TEST-CLI-038"
+     ],
+     "facet_complete": true,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Audit half is only driven with drift AFTER bundling; no test drifts the SPEC before bundling, which is the case that breaks the claim.",
+     "contradiction": "The audit half is not anchored on the registered sha256 at all. crates/vtest-cli/src/lib.rs:1327-1345 and 1478-1490 bind an audit's spec subject to the CURRENT source hash, with the explicit design comment 'Bind the current Specification source so a body that moved after registration is detected, not the frozen registration snapshot'; crates/vtest-cli/src/lib.rs:1910-1920 (submit) and crates/vtest-verify/src/lib.rs:1584-1590 (subject_is_current, kind==\"spec\") both recompute that same current-source hash and never read SpecRecord.sha256. run_audit_bundle (lib.rs:877-957) does not gate on scan diagnostics, and W-SCAN-104 is a warning (vtest-scan/src/lib.rs:698-710), so this state is reachable: register SPEC-X at H0 -> edit the source to H1 (W-SCAN-104 now live, record still H0) -> audit bundle + submit binds H1 -> verify finds the subject current, so the audit counts as VALID while the SPEC source mismatches its registered sha256. The approval half does honour the claim (vtest-store/src/approval.rs:138-151 fails the closure with 'recorded sha256 does not match the current Specification source'), which is exactly why the evidence set is non-composable: TEST-STORE-002/TEST-CLI-041 witness the registered-sha256 mechanism, TEST-CLI-038 witnesses a different bundle-time-subject mechanism. Same asymmetry as the discovery-vs-static-audit resolver split in w8-dogfood-findings.md."
+    },
+    {
+     "id": "VO-INTAKE-05",
+     "required_facets": "Positive: spec add --update does change the stored sha256. Negative: scan mismatch detection leaves the stored record byte-identical (re-read / second scan shows no self-heal).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "--update occurs in no test (only inside add_spec's error string); TEST-CLI-062 never re-reads the stored record after scan.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTAKE-06",
+     "required_facets": "Positive: re-registering a changed source changes the SPEC subject hash. Negative: an approval dependency entry carrying the prior hash is never accepted as satisfying the current closure.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "TEST-STORE-005 fabricates a stale REQ hash, never re-registers a SPEC; --update untested. Note: same-bytes --update leaves the subject unchanged.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-INTAKE-08",
+     "required_facets": "Positive: a resolvable spec_refs.spec permits PASS. Negative: an unresolvable spec_refs.spec yields MISSING/MISMATCH on vo_decomposition (§11.1.1) and can never be PASS.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Uncovered: no test in the shadow mapping exercises spec_refs.spec resolution at all.",
+     "contradiction": "§11.1.1 (docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md:1360-1370) makes vo_decomposition MISSING when 'REQ / VOのspec_refs.specが解決不能', and PASS only when every spec_refs SPEC reference resolves. The implementation never evaluates that: crates/vtest-verify/src/lib.rs:584-598 computes vo_decomposition as FAIL if any scan error exists, MISSING if no VO records exist, otherwise PASS ('scan and canonical VO records are structurally readable') — spec_refs are never inspected. And scan emits nothing for a dangling reference: validate_req_record / validate_vo_record (vtest-scan/src/lib.rs:714-840) check id/fields/status/policy/dimensions but never spec_refs, and E-SCAN-008 (lib.rs:936-995) covers only parent-missing and parent-cycle. So a hand-written REQ/VO citing SPEC-GHOST yields vo_decomposition = PASS. build_bundle compounds it by silently dropping the unresolvable reference (crates/vtest-cli/src/lib.rs:1328 and 1480, 'if let Ok(record) = read_spec(...)'), so the SPEC never becomes an audit subject."
+    },
+    {
+     "id": "VO-INTAKE-09",
+     "required_facets": "Negative: an empty spec_refs.section yields MISMATCH. Absence: core performs no syntactic check of the citation against the Specification body, and no such in-body check can produce PASS.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Uncovered: no test constructs an empty spec_refs.section or asserts the MISMATCH mapping.",
+     "contradiction": "The empty-section clause is unimplemented and the CLI manufactures the forbidden state by default. §11.1.1 (詳細設計 v0.1.md:1366) requires 'sectionが空 ... の場合はMISMATCH'. crates/vtest-cli/src/lib.rs:3646-3670 (spec_refs_from_args) makes --section optional and writes section: \"\" via sections.get(index).cloned().unwrap_or_default() (line 3666) — so `vtest req add --spec SPEC-X` with no --section persists an empty section with exit 0. No consumer then checks emptiness: vo_decomposition (vtest-verify/src/lib.rs:584-598) never reads spec_refs; scan's REQ/VO validators (vtest-scan/src/lib.rs:714-840) never read section; records.rs:1523-1555 only serializes/parses it. Result: an empty section is created by the tool and reaches vo_decomposition = PASS, never MISMATCH. (The claim's second half — no syntactic in-body citation check — is honoured; nothing reads the Specification body for the citation.)"
+    }
+   ]
+  },
+  {
+   "area": "VO-SEMAUDIT",
+   "vos": [
+    {
+     "id": "VO-SEMAUDIT-02",
+     "required_facets": "positive: one bundle carries test meta+source, covered VOs, ALL target sources, static_audit, prior_audits, with content hashes and revision; negative: no required element null or silently dropped",
+     "evidence_set": [
+      "TEST-CLI-072"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "multi-target case unproven; only non-null presence asserted, never hash/revision values, prior_audits contents, or per-element correctness",
+     "contradiction": "crates/vtest-cli/src/lib.rs:~1215 builds the test-semantic bundle from `test.targets.first()` and emits a singular `target` field plus exactly one `target` subject, so a multi-target test's remaining target sources are structurally unreachable. Multi-target tests are legal (crates/vtest-adapter-rust/src/discovery.rs:1027-1033 permits >1 @vtest.target for kind=integration*), and 詳細設計 §8.2 (docs/...詳細設計 v0.1.md:1170) requires test-semantic subjects to contain Test subject・VO・全target. 'all target implementation sources' is therefore violated by construction, not merely untested."
+    },
+    {
+     "id": "VO-SEMAUDIT-03",
+     "required_facets": "negative x5: missing bundle, kind mismatch, stale subject hash, invalid verdict, empty/claim-basis-less reasons — each rejected with no record appended; positive control: a valid submit is accepted",
+     "evidence_set": [
+      "TEST-CLI-073",
+      "TEST-CLI-074",
+      "TEST-CLI-075"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "no submit-path test for missing-bundle, kind-mismatch, invalid-verdict; TEST-STORE-030 is AuditRecord::from_yaml, a different surface than the submit gate",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-SEMAUDIT-04",
+     "required_facets": "positive: accepted record stays valid while nothing changes; negative: a content change of each subject kind (test/target/VO/SPEC) and any change of the subject SET stales the record",
+     "evidence_set": [
+      "TEST-CLI-075",
+      "TEST-CLI-038"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "test- and VO-subject mutation and subject-SET change never exercised; each test mutates exactly one subject on a single-target fixture",
+     "contradiction": "Two ways the record fails to bind the kind's COMPLETE subject set. (1) Only the first declared target becomes a subject (crates/vtest-cli/src/lib.rs:~1215 and ~1423, `test.targets.first()`), so for a multi-target integration test, editing target #2's implementation leaves an accepted test-semantic/impl-consistency record valid — 詳細設計 §8.5 defines the impl-consistency current subject set as Test/VO・全target・SPEC完全集合. (2) crates/vtest-verify/src/lib.rs:1385-1388 computes validity as `!subjects.is_empty() && all(subject_is_current)`: it re-hashes only the RECORDED subjects and never recomputes the currently-required set, so §8.5's '対象集合が現在の監査対象集合と完全一致' is unenforced — e.g. an upstream REQ gaining a spec_ref grows the required SPEC set while the record stays valid."
+    },
+    {
+     "id": "VO-SEMAUDIT-05",
+     "required_facets": "positive: valid PASS→PASS; negative: any FAIL among valid records→FAIL; ordering: otherwise the latest verdict wins over an older differing one; degenerate: no valid record→NOT_CHECKED/STALE, never PASS",
+     "evidence_set": [
+      "TEST-CLI-075",
+      "TEST-CLI-077",
+      "TEST-CLI-063",
+      "TEST-VERIFY-008",
+      "TEST-VERIFY-015"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "FAIL-dominance and latest-of-many are never exercised on evaluate_test_audit; only the separate static fold has them",
+     "contradiction": "crates/vtest-verify/src/lib.rs:1414-1425 folds every valid semantic/impl-consistency record with combine_values (severity rank, lib.rs:1854-1876) and never orders by audited_at. With two valid records on one unchanged subject set — an older UNKNOWN and a newer PASS — the item yields UNKNOWN, whereas 詳細設計 §8.5/§3.6 mandate 'FAILが1件でもあればFAIL、なければ最新のverdictを採る' (latest = PASS). The 'else the latest verdict' half of the claim is not implemented on this path at all. This also breaks composability of the set: TEST-VERIFY-008/015 witness latest-wins/FAIL-wins in evaluate_static_audit — a different function that DOES sort by RFC3339 instant — and TEST-CLI-063 asserts `vo show` audit_state, not the semantic_audit item, so the three surfaces cannot jointly witness the one claim."
+    },
+    {
+     "id": "VO-SEMAUDIT-06",
+     "required_facets": "positive: deterministic and agent/human results stored AND presented with distinct auditor.kind; negative: neither substitutes for the other in the corresponding check item",
+     "evidence_set": [
+      "TEST-STORE-030"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "NONE",
+     "missing": "no test asserts auditor.kind values, their distinct presentation, or that a deterministic/static record cannot satisfy semantic_audit and vice versa",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-SEMAUDIT-07",
+     "required_facets": "negative: an audit-detected inconsistency is presented as MISMATCH; ambiguity: the no-audit ambiguous-resolution case is ALSO MISMATCH; absence: the presentation names no artifact to fix",
+     "evidence_set": [
+      "TEST-CLI-039"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "no assertion that the presented item designates no fix target; the ambiguous-resolution branch is untested and unreachable",
+     "contradiction": "The claim's explicitly included 'no-audit ambiguous-resolution case' is never presented as MISMATCH. Ambiguous target resolution is reported only as a scan diagnostic (E-SCAN-004 at crates/vtest-scan/src/lib.rs:1319-1334; E-SCAN-011 for SRC ID collision), and no verify check item consumes either code — crates/vtest-verify/src/lib.rs:664-676 reads only E-SCAN-002/003 (→Mismatch) and W-SCAN-101/E-SCAN-007 (→Missing). A test whose target resolves ambiguously produces no bundle, hence no record, hence impl_consistency = NOT_CHECKED (lib.rs:1411-1412), which 基本仕様 §7.5 and 詳細設計 §11.1 explicitly forbid conflating with the inconsistency values."
+    },
+    {
+     "id": "VO-SEMAUDIT-08",
+     "required_facets": "positive PASS→PASS; negative FAIL→MISMATCH; ambiguity UNKNOWN→UNKNOWN; the stored record retains the submitted verdict; the mapping never overwrites MISSING/MISMATCH/NOT_CHECKED/STALE",
+     "evidence_set": [
+      "TEST-CLI-039",
+      "TEST-CLI-038",
+      "TEST-CLI-077"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "UNKNOWN→UNKNOWN and record-keeps-submitted-FAIL unasserted; the no-overwrite clause is untestable today because resolution-derived MISSING/MISMATCH is never produced (VO-SEMAUDIT-09)",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-SEMAUDIT-09",
+     "required_facets": "negative: unresolvable target → no impl-consistency bundle and no auto-selected candidate; negative: absent target → MISSING; ambiguity: ambiguous resolution → MISMATCH; the two never collapsed into one value",
+     "evidence_set": [
+      "TEST-SCAN-011",
+      "TEST-ARUST-017"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "neither test reaches bundle generation or the impl_consistency check value; the absent-vs-ambiguous distinction is never observed anywhere",
+     "contradiction": "Only the 'no bundle / no candidate' half holds (crates/vtest-cli/src/lib.rs:1423-1431 fails with E-SCAN-004). The value half is violated: scan emits the SAME code and message for both branches — crates/vtest-scan/src/lib.rs:1319-1334 raises E-SCAN-004 'test `X` target cannot be resolved' whether the locator matched 0 or >1 sources — and no verify check item consumes E-SCAN-004 or E-SCAN-011 (crates/vtest-verify/src/lib.rs:664-676), so both cases surface as impl_consistency NOT_CHECKED instead of MISSING (absent) vs MISMATCH (ambiguous). 基本仕様 §7.5 and 詳細設計 §8.1/§11.1 require the split. The set is also non-composable: TEST-SCAN-011 exercises scan_project's locator resolver while TEST-ARUST-017 exercises static_audit::find_function — the two resolvers the W8 dogfood report proved asymmetric (docs/reports/w8-dogfood-findings.md, 'resolver 非対称': discovery indexes impl methods, static_audit's find_function walks only Item::Fn/Item::Mod) — so they cannot jointly witness one resolution contract."
+    },
+    {
+     "id": "VO-SEMAUDIT-10",
+     "required_facets": "positive: SPEC subjects = the complete upstream closure of the covered VOs; negative: a SPEC record, source, or set change alone → STALE even for a limited-scope PASS; degenerate: unresolvable set → MISSING, never a SPEC-less bundle",
+     "evidence_set": [
+      "TEST-CLI-038"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "only SPEC-source change is tested; SPEC-record change, set change, ancestor closure, and the limited-scope-PASS clause are unexercised",
+     "contradiction": "Three violations of 'complete SPEC subject set'. (1) crates/vtest-cli/src/lib.rs:1455-1490 derives SPEC subjects only from each covered VO's own spec_refs plus that VO's DIRECT requirements' spec_refs — no recursion into parent VOs or parent REQs, while 詳細設計 §3.5 defines the upstream closure as the recursive parent VOs, their REQs, and recursive parent REQs. TEST-CLI-038 hides this because prepare_spec_dependency (crates/vtest-cli/tests/adapter_acceptance.rs:240-275) attaches SPEC-ADAPTER directly to VO-KNOWN. (2) A SPEC-less bundle is produced today: tests/fixtures/calc/m1/base/.verify/vo/VO-KNOWN.yaml has `requirements: []` and `spec_refs: []`, and the currently green TEST-CLI-072 generates an impl-consistency bundle on that fixture and asserts non-empty subjects — 基本仕様 §7.5 / 詳細設計 §8.1 require MISSING and forbid 'SPECを省略したbundle'. (3) 'SPEC record change alone' is undetectable: crates/vtest-verify/src/lib.rs:1583-1589 hashes only the referenced source text for a spec subject, never the SPEC record or its registered sha256, and record validity never recomputes the required SPEC set (lib.rs:1385-1388), so set growth via an upstream REQ leaves an accepted PASS valid."
+    },
+    {
+     "id": "VO-SEMAUDIT-11",
+     "required_facets": "positive: a multi-target test's impl-consistency bundle carries every declared target's implementation source and adapter structure info; negative: no declared target omitted from the judgment",
+     "evidence_set": [
+      "TEST-CLI-072"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "no multi-target fixture exists anywhere; TEST-CLI-072 checks only kind and non-empty subjects on a single-target test",
+     "contradiction": "crates/vtest-cli/src/lib.rs:1423-1431 builds the impl-consistency bundle from `test.targets.first()` and emits one singular `target` value plus one `target` subject; targets 2..n are dropped with no diagnostic. Multi-target tests are a supported first-class case (crates/vtest-adapter-rust/src/discovery.rs:1027-1033 admits repeated @vtest.target for kind=integration*, and the static audit stores per-target verdicts over the full declared set — crates/vtest-store/src/records.rs static_record_target_defect over declared(&[\"A\",\"B\"])), so 基本仕様 §7.5 '全targetの…をバンドルに含め、判定対象から一部targetを省略しない' and 詳細設計 §8.2 (line 1170) are actively violated."
+    }
+   ]
+  },
+  {
+   "area": "VO-STATAUDIT",
+   "vos": [
+    {
+     "id": "VO-STATAUDIT-01",
+     "required_facets": "positive: FAIL on a deterministically confirmed violation; ambiguity: an undeterminable verdict is UNKNOWN, never FAIL; and UNKNOWN is never read as no-violation.",
+     "evidence_set": [
+      "TEST-CLI-065",
+      "TEST-ARUST-012",
+      "TEST-ARUST-014",
+      "TEST-ARUST-008"
+     ],
+     "facet_complete": true,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "",
+     "contradiction": "DA-006 has no UNKNOWN branch: crates/vtest-adapter-rust/src/static_audit.rs:1800-1812 emits `if has_assert {Pass} else {Fail}`, and has_assert_like (same file, :1190-1199) inspects only the Test fn body — unlike DA-002, which by design walks one hop into same-file helpers. So a Test whose verification is delegated to an assert helper gets FAIL for a violation the rule cannot confirm (it never reads the helper body). Measured, not inferred: docs/reports/w8-dogfood-findings.md 'DA-006 FAIL 3件は全件 helper 委譲 assert（3/3 個別確認）' — TEST-CLI-022/023/060 delegate to assert_adapter_usage_error / assert_ok / assert_tree_child, and the report lists it as '(4) helper 委譲 assert の DA-006 誤 FAIL（3件, 全数確認）'. This is FAIL on an undeterminable case, exactly what the claim forbids. (Root cause may sit in 詳細設計 §7.2, whose DA-006 row defines the class syntactically with 'UNKNOWN へ退避する例: なし'; the VO is still violated as stated.)"
+    },
+    {
+     "id": "VO-STATAUDIT-03",
+     "required_facets": "negative: a Test with a DA-001..006 FAIL in its effective record is excluded by default; positive: --include-failed forces the bundle; ambiguity: an UNKNOWN Test is still bundled.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "CLI-072's bundle() helper always appends --include-failed and bundles the clean TEST-M1-CLEAN; no FAIL or UNKNOWN Test is ever bundled. All 3 facets unevidenced.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-04",
+     "required_facets": "positive: each REQ §11 class draws non-PASS from its designated rule; negative: a Test exhibiting no class draws no FAIL from any rule; plus universality over arbitrary inputs, not a fixture corpus.",
+     "evidence_set": [
+      "TEST-CLI-065",
+      "TEST-ARUST-008",
+      "TEST-ARUST-010",
+      "TEST-ARUST-011",
+      "TEST-ARUST-016",
+      "TEST-ARUST-018",
+      "TEST-ARUST-009"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Universality clause: all evidence is a fixed corpus (CLI-065's m3 fixture project, ARUST syn fixtures). No property-based or exhaustive argument exists.",
+     "contradiction": "The second conjunct ('a Test exhibiting no class receives no FAIL from any rule') is violated. TEST-CLI-022/023/060 verify their outcome through assert helpers, so their verification result does depend on implementation correctness — they exhibit none of REQ §11's classes (constant assertion / target not called / result unverified / self-comparison / 'その他、検証結果が対象実装の正しさに依存しない構造'). Yet DA-006 FAILs all three: docs/reports/w8-dogfood-findings.md 'DA-006 FAIL 3件は全件 helper 委譲 assert（3/3 個別確認）… DA-006 は関数呼出を assert 相当と認識しないため「検証構文なし=FAIL」', listed in the summary as 誤 FAIL. Code: static_audit.rs:1800-1812 + has_assert_like:1190."
+    },
+    {
+     "id": "VO-STATAUDIT-05",
+     "required_facets": "positive: per-target DA-002/003 stored 1:1 with declared targets; negative: missing/dup/extra/mismatch/fold contradiction → malformed (E-SCAN-010), excluded, per-target FAILs not extracted.",
+     "evidence_set": [
+      "TEST-STORE-025",
+      "TEST-STORE-027",
+      "TEST-STORE-028",
+      "TEST-STORE-029",
+      "TEST-VERIFY-007"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No malformed record carrying a per-target FAIL (VERIFY-007's is PASS); E-SCAN-010 never asserted for audit records; an empty per-target list bypasses the defect check.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-06",
+     "required_facets": "negative only: with no valid record, STALE (invalidated only) or NOT_CHECKED (never audited), never PASS; both branches needed, and never-PASS must hold with valid runtime proof present.",
+     "evidence_set": [
+      "TEST-VERIFY-009",
+      "TEST-VERIFY-010",
+      "TEST-VERIFY-011",
+      "TEST-VERIFY-012",
+      "TEST-VERIFY-013",
+      "TEST-VERIFY-016",
+      "TEST-CLI-027",
+      "TEST-CLI-028"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "All candidates pass an empty Evidence map, so 'never PASS regardless of runtime proof' is unevidenced; malformed-only → UNKNOWN sits outside the claim's enumeration.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-07",
+     "required_facets": "positive: the subject hash binds Test, targets, rule-set, rule-affecting config, referenced fragments; negative: each change → STALE; negative-control: rule-irrelevant config never alters the hash.",
+     "evidence_set": [
+      "TEST-CLI-026",
+      "TEST-CLI-027",
+      "TEST-CLI-028",
+      "TEST-VERIFY-010",
+      "TEST-VERIFY-011",
+      "TEST-VERIFY-013",
+      "TEST-STORE-024",
+      "TEST-MODEL-006"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Rule-set ID/version binding: MODEL-006 pins ('rules','1') and never varies it; no test stales a record by a rule-set change. Invariance shown for one run-only field.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-10",
+     "required_facets": "positive: valid latest Evidence + per-target PASS/count>0 satisfies DA-002 UNKNOWN; negative: invalid latest (no fallback to older), non-PASS/checked:false unmet, DA-002 FAIL never overridden.",
+     "evidence_set": [
+      "TEST-VERIFY-002",
+      "TEST-VERIFY-003",
+      "TEST-VERIFY-006"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No invalid/stale latest Evidence (the no-fallback clause), no checked:false or NOT_CHECKED variant; DA-002 FAIL is only tested with an empty Evidence map (VERIFY-004).",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-12",
+     "required_facets": "positive: DA-003 UNKNOWN/FAIL contributes unchanged while the same target's DA-002 is satisfied by runtime proof; corollary: a call-invisible subprocess Test cannot reach static_audit PASS.",
+     "evidence_set": [
+      "TEST-ARUST-012",
+      "TEST-VERIFY-005"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "No test pairs DA-003 UNKNOWN with valid runtime Evidence: VERIFY-005 satisfies DA-002 statically with an empty Evidence map; ARUST-012 only proves the adapter-side premise.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-13",
+     "required_facets": "positive: core aggregates normalized rule results and validates hashes/spans/DTO completeness/encoding; negative: core interprets no adapter AST, assertion syntax, or call graph.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "AAPI-010's only candidate (AAPI-006) asserts nothing on a core path; no test exercises core-side validation or the no-AST-interpretation property.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STATAUDIT-14",
+     "required_facets": "positive: absent StaticAudit capability → NOT_CHECKED; positive: adapter incompleteness / analysis limits / incomplete analysis-input set → UNKNOWN; negative: neither read as no-violation.",
+     "evidence_set": [
+      "TEST-AAPI-010"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the capability→NOT_CHECKED table lookup. No test derives UNKNOWN from analysis.complete=false (AAPI-010 merely reads the fixture flag) or from an incomplete input set.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-STRUCTOP",
+   "vos": [
+    {
+     "id": "VO-STRUCTOP-01",
+     "required_facets": "Negative x5: unresolvable target, missing VO/Test ref, dup Test ID, unknown field, missing required field, each E-OP-001; plus envelope candidates for symbol/enum resolution failures.",
+     "evidence_set": [
+      "TEST-CLI-004",
+      "TEST-CLI-085",
+      "TEST-CLI-096"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only target-symbol + enum-variant rejects driven; VO/Test ref, dup ID, unknown field, missing-required untested; enum candidates asserted at lib level only.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-02",
+     "required_facets": "Positive: declared validator enforced. Negative: required-missing and unknown-field rejected on every form. Contrast: a form omitting symbol/vo/ident/path validators is not subjected to them.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "Both candidates sit at the form-definition parse layer; no test applies validators to answers, and no two-form contrast exists to show scoping.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-04",
+     "required_facets": "Positive only, on both operations: re-applying an identical desired state via Edit yields zero file change, and via Create yields zero file change; first application as change control.",
+     "evidence_set": [
+      "TEST-CLI-088",
+      "TEST-CLI-004"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Create re-apply never exercised; per code it rejects via unique-fn-name/dup-ID rather than no-op, so its zero-change half is unverified.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-05",
+     "required_facets": "Positive x2: the regenerated block emits the fixed key order (ideally from scrambled input), and a non-@vtest free doc line survives and keeps its relative position.",
+     "evidence_set": [
+      "TEST-CLI-004"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Free-line position never asserted (contains-only); impl moves interleaved lines after the block (operations.rs:520-589); key order tested only from canonical input.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-06",
+     "required_facets": "Positive: a legit edit is one replacement of the extended range with other-Test hashes unchanged. Negative: pre-apply range and post-apply hash violations each revert the file with E-OP-003.",
+     "evidence_set": [
+      "TEST-CLI-087",
+      "TEST-CLI-004"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Revert path never driven: no post-apply hash/desired-state failure, no stale range; CLI-004's invalid body is pre-apply E-OP-001, not E-OP-003.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-09",
+     "required_facets": "Positive: exactly one StructuredTest-capable adapter resolves the kind. Negative x4: duplicate kind, owner mismatch, unknown adapter, missing capability (E-ADAPTER-004) reject with no file change.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test exercises Form->adapter resolution at all; TEST-CLI-025 only text-asserts `adapter: rust-cargo` in init output.",
+     "contradiction": "No Form->adapter resolution exists on the Structured Test path, so the claimed rejections are unreachable. crates/vtest-scan/src/operations.rs:56 create_test and :163 edit_test take no registry/adapter parameter; operations.rs:12 unconditionally does `use vtest_adapter_rust::operations_support::*` and :68/:199 read `config.rust_cargo()`. FormSchema.adapter is parsed at crates/vtest-store/src/forms.rs:193 and never read by any consumer, and is declared Option<String> at crates/vtest-model/src/lib.rs:946 although 別紙A §14.4 makes it mandatory. Registry::structured_test (crates/vtest-adapter-api/src/lib.rs:596), the only StructuredTest capability accessor and the only E-ADAPTER-004 source (:244, :603), has zero call sites. A Form declaring an unknown or mismatched adapter owner is therefore accepted and applied by rust-cargo instead of rejected."
+    },
+    {
+     "id": "VO-STRUCTOP-10",
+     "required_facets": "Positive: a Form lacking `adapter` resolves iff exactly one registered adapter's kind claim/schema matcher accepts it. Negative: 0 or 2+ matches reject; no rust-cargo fallback on unknown kind.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Class is uncovered; no candidate test touches Form->adapter matching, so the gap is mechanism-level, not test-level.",
+     "contradiction": "Core always falls back to rust-cargo. crates/vtest-scan/src/operations.rs:12 statically links vtest_adapter_rust::operations_support and :68/:199 use config.rust_cargo(); create_test/edit_test (operations.rs:56,163) accept no registry, so no built-in kind claim or schema matcher is ever consulted. A Form lacking `adapter` (FormSchema.adapter is Option<String>, crates/vtest-model/src/lib.rs:946, parsed-but-unread at crates/vtest-store/src/forms.rs:193) resolves unconditionally with 0 matches instead of rejecting, which is exactly the no-fallback clause the claim asserts."
+    },
+    {
+     "id": "VO-STRUCTOP-13",
+     "required_facets": "Positive: a hand-written (direct-edit) Test is accepted by scan. Negative x3: duplicate Test ID, dangling VO ref, and missing required metadata each surface as non-PASS integrity findings.",
+     "evidence_set": [
+      "TEST-CLI-052"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Non-PASS asserted only as exit 1 + E-SCAN-002/003/007 codes, never as a verify item value (test_traceability=MISMATCH); acceptance of a valid direct edit unasserted.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-STRUCTOP-14",
+     "required_facets": "Positive: rescan after a declaration change returns new covers/targets. Discriminating: a DIRECT source edit outside the official op still rescans correctly; persisted records hold no independent copy.",
+     "evidence_set": [
+      "TEST-CLI-087"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the official edit path is exercised, which rewrites source and rescans in one process - a writer-maintained external copy would pass identically.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-REPORT",
+   "vos": [
+    {
+     "id": "VO-REPORT-01",
+     "required_facets": "Positive: full-scope all-items-PASS -> OK/exit 0. Negative: any single non-PASS item -> NG, and any single non-PASS entity among PASS siblings -> NG. No UNKNOWN branch required.",
+     "evidence_set": [
+      "TEST-CLI-077",
+      "TEST-CLI-081",
+      "TEST-CLI-014"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "entity-axis quantifier (one non-PASS entity among PASS siblings -> NG) unasserted; TEST-CLI-078/079 carry it but are mapped only to VO-REPORT-04",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REPORT-02",
+     "required_facets": "Positive parity on identical scope: same per-item values, representative and overall verdict (verify vs report); plus report actually carrying grounds: audit record IDs, Evidence IDs, diagnostics.",
+     "evidence_set": [
+      "TEST-CLI-076",
+      "TEST-CLI-094"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "only headline parity asserted (076 PASS, 094 STALE); per-item values and grounds (audit/Evidence IDs) never compared; parity is structural (Report->run_verify)",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REPORT-03",
+     "required_facets": "Positive: both text and --format json produced for one scope; JSON returns the same ground lists as text (per-Test test_traceability grounds) and the complete §3.7 per-target list.",
+     "evidence_set": [
+      "TEST-CLI-080"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "no text-vs-JSON ground-list comparison; test_traceability per-Test grounds and per-target completeness never asserted in either format",
+     "contradiction": "The report JSON structurally cannot carry the §3.7 per-target list: VerificationReport/ReportItem (crates/vtest-verify/src/lib.rs:50-79) have no target field, and evidence_basis (crates/vtest-verify/src/lib.rs:1753-1763) flattens target_execution to one 'Test X: <value> (Evidence <id>, log_ref <y>)' string per Test. Yet the runner does record one TargetExecutionObservation per declared target (crates/vtest-adapter-rust/src/runner.rs:196-218, model TargetExecution.targets at crates/vtest-model/src/lib.rs:791-805), so the antecedent 'Evidence has multi-target measurement results' is satisfiable. 別紙A L228-230 requires the text report to show each target's ref/result/count as child nodes and the JSON to return the 本冊 §3.7 (Evidence record, 詳細設計 L424) target-wise list 欠落なく; the text renderer (crates/vtest-cli/src/lib.rs:3937-3965) emits no per-target children either. The omission is measured implementation behavior, not missing test coverage."
+    },
+    {
+     "id": "VO-REPORT-04",
+     "required_facets": "0 on OK/op success; 1 on NG incl. scan/doctor with E-SCAN-*; 2 on op rejection plus 'no verification result'; 3 on internal error; and the 3>2>1>0 precedence when outcomes coexist in one run.",
+     "evidence_set": [
+      "TEST-CLI-075",
+      "TEST-CLI-056",
+      "TEST-CLI-021"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "exit 3 and 3>2>1>0 precedence have zero evidence; TEST-CLI-074 exits 1 on an E-AUDIT-002 submit rejection (specs silent on that class; flagged, not counted)",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-REPORT-05",
+     "required_facets": "Positive: distinct symbols for ancestor continuation, middle child, and last child. Structural negative: an ancestor's own branch mark must never appear on any descendant line.",
+     "evidence_set": [
+      "TEST-CLI-060",
+      "TEST-CLI-080"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "no test anywhere asserts any branch glyph; '└' does not occur in crates/ at all, so the last-sibling rule has zero coverage",
+     "contradiction": "crates/vtest-cli/src/lib.rs:3886 renders every top-level node with a fixed \"├─ \" and no '└─' exists anywhere in crates/ (grep over --include=*.rs returns only lines 3886/3893/3956/3962), so the last child is NOT given a unique symbol. Line 3962 recurses as print_text_tree_node(child, &format!(\"{prefix}│  \")) and line 3956 prints \"{prefix}│  ├─ {key}\", so a root's own \"├─ \" literally prefixes every descendant node line and every item line (a depth-2 line reads '├─ │  ├─ ...'). 別紙A L234-236 states the rule the claim encodes: per level append '│  ' when the ancestor has following siblings else 3 spaces, mark the current node '├─ ' if a middle sibling and '└─ ' if the last, apply the same middle/last rule to top-level nodes, and never inherit an ancestor's own '├─ '/'└─ ' onto descendant lines. All three parts are violated. 詳細設計 §19 L1531 grants latitude only over ツリー描画の細部（文字種、折返し）, i.e. glyph choice, which does not license collapsing the middle/last distinction or inheriting the ancestor mark."
+    }
+   ]
+  },
+  {
+   "area": "VO-PLAN",
+   "vos": [
+    {
+     "id": "VO-PLAN-01",
+     "required_facets": "Rejection of a spec-less active REQ at add/edit; MISMATCH for a stored refs-less active REQ; withdrawn-REQ retains refs but leaves the current corresponding set; positive: refs-bearing REQ accepted.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test asserts rejection, MISMATCH for refs-less stored REQ, or the withdrawn-REQ exclusion branch; both candidates assert the opposite.",
+     "contradiction": "add_req (crates/vtest-cli/src/lib.rs:2792-2831) validates only id/summary/parent and writes status:active with empty spec_refs when --spec/--section are omitted - no rejection path exists. spec_coverage (crates/vtest-verify/src/lib.rs:546-585) never inspects spec_refs, so a refs-less active REQ with a linked VO yields PASS, never MISMATCH. In-suite counter-instances that pass green: TEST-CLI-060 (m2_acceptance.rs:591-606, req add with no --spec asserted OK) and TEST-CLI-093 (m9_acceptance.rs:800-810, req_upsert REQ-M9-OTHER with no specs/sections asserted OK)."
+    },
+    {
+     "id": "VO-PLAN-02",
+     "required_facets": "Positive: spec_coverage PASS only after a valid COMPLETE spec-coverage audit. Negative: mere REQ existence, unconfirmed intake, and empty SPEC/REQ sets stay non-PASS (fail-closed, never promoted).",
+     "evidence_set": [
+      "TEST-CLI-040"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Only one empty-REQ-set negative (value unpinned); the audit-gated PASS path has no test because the mechanism does not exist.",
+     "contradiction": "There is no spec-coverage audit kind at all: supported kinds are test-semantic|vo-coverage|impl-consistency (crates/vtest-cli/src/lib.rs:922, crates/vtest-mcp/src/lib.rs:419/676) and static (crates/vtest-store/src/records.rs:647). evaluate_item's spec_coverage arm (crates/vtest-verify/src/lib.rs:546-585) returns PASS whenever every selected REQ has >=1 linked VO, consulting no audit record - exactly the 'REQ existence promoted to PASS' the claim forbids. Empirically TEST-CLI-077 (m6_acceptance.rs:273-440) asserts spec_coverage==PASS while submitting only test-semantic, impl-consistency and vo-coverage bundles."
+    },
+    {
+     "id": "VO-PLAN-03",
+     "required_facets": "Two distinct stored audit results: spec-coverage (Spec->REQ intake completeness) and vo-coverage (REQ->VO coverage); each verdict drives only its own check item; neither is reused or substituted for the other.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test exercises separation; the spec-coverage side of the pair has no implementation to test.",
+     "contradiction": "The two axes are conflated in the opposite direction from the claim: spec_coverage's verdict is itself a REQ->VO correspondence judgment - its PASS basis string is literally 'every selected REQ has at least one linked VO' and its MISSING basis is 'selected REQ record(s) have no linked VO' (crates/vtest-verify/src/lib.rs:546-585). The Spec->REQ intake axis is never audited or stored anywhere (no spec-coverage audit kind: crates/vtest-cli/src/lib.rs:922, crates/vtest-store/src/records.rs:647), so the REQ->VO axis is stored under the spec-coverage name while intake completeness has no result at all."
+    },
+    {
+     "id": "VO-PLAN-04",
+     "required_facets": "Negative-dominant: a vo-coverage submission with verdict COMPLETE but reasons lacking any of (spec basis as SPEC ID+section, decomposition viewpoints, exclusions with spec grounds) is rejected and vo_coverage stays non-PASS. Positive: structured submission accepted.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test submits a structurally deficient COMPLETE vo-coverage result, so the rejection rule is unexercised as well as under-implemented.",
+     "contradiction": "validate_reasons (crates/vtest-cli/src/lib.rs:1977-2045) enforces only existence checks for vo-coverage: >=1 reason with kind 'decomposition-viewpoint' and >=1 basis with kind 'spec' whose ref is merely non-empty. There is no SPEC ID+section format validation and no exclusions concept anywhere on the bundle/submit path, so a COMPLETE submission that lacks the enumerated SPEC-BASIC 7.4 structure is provably accepted and can carry vo_coverage to PASS. Adjacent (not decisive): TEST-CLI-077's exclusion-free reason set is accepted (m6_acceptance.rs:339-349)."
+    },
+    {
+     "id": "VO-PLAN-05",
+     "required_facets": "Negative-dominant: a spec-coverage submission missing adopted requirements, corresponding REQs, or excluded passages with grounds is rejected; consequent: spec_coverage stays non-PASS. Positive: complete submission accepted.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Rejection-rule half is unexercisable: kind 'spec-coverage' is not a submittable kind, so no test can drive the antecedent.",
+     "contradiction": "The claim's consequent is violated: spec_coverage reaches PASS with zero accepted spec-coverage submissions, because the verify arm PASSes on REQ->VO linkage alone (crates/vtest-verify/src/lib.rs:546-585) and TEST-CLI-077 (m6_acceptance.rs:273-440) asserts that PASS. Transparency for a narrower reading: the rejection half is trivially satisfied only because 'spec-coverage' is not an accepted submit kind at all (crates/vtest-cli/src/lib.rs:922), so 'accepted only when...' is unexercisable rather than implemented."
+    },
+    {
+     "id": "VO-PLAN-06",
+     "required_facets": "Positive: audit binds hashes of the complete subject set. Negative: after subject content changes prior verdict is STALE, and after the correspondence (VO<->Test) set changes prior verdict is STALE; a STALE record never counts as current PASS.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No listed candidate test; the subject-content STALE branch is only incidentally exercised inside TEST-CLI-077's re-submission comment, never asserted.",
+     "contradiction": "The vo-coverage bundle binds only vo/req/spec subjects (crates/vtest-cli/src/lib.rs:1299-1414: subject_value pushed for 'vo', 'req', 'spec'); the VO->Test correspondence is computed as leaf_coverage (lib.rs:1390-1405) and emitted for the auditor but never hash-bound as a subject. subject_is_current / evaluate_vo_coverage (crates/vtest-verify/src/lib.rs:1264-1348) therefore cannot detect a correspondence change: adding a new Test that covers an audited VO leaves every subject hash intact, so the prior COMPLETE verdict still counts as a current PASS - directly contrary to 'after the ... correspondence set changes, prior verdicts become STALE'."
+    },
+    {
+     "id": "VO-PLAN-07",
+     "required_facets": "Positive: COMPLETE vo-coverage audit + valid subtree approvals bound to upstream closure => PASS. Negative: missing/invalid approval or unapproved subtree member => non-PASS; a REQ with zero VOs => MISSING.",
+     "evidence_set": [
+      "TEST-CLI-077"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "Negative facets absent: no unapproved-subtree case and no zero-VO REQ case; the single positive is one VO with one audit plus one approval.",
+     "contradiction": "evaluate_vo_coverage (crates/vtest-verify/src/lib.rs:1264-1348) is REQ-blind: it iterates selection.vo_ids only and never reads selection.req_ids, so in project scope a REQ with zero VOs cannot make vo_coverage MISSING - vo_coverage stays PASS whenever the existing VOs carry current audits and approvals (the zero-VO REQ is instead caught by spec_coverage, lib.rs:546-585, which is the other item). Secondary: under `verify --req X` on a zero-VO REQ, vo_ids is empty and the arm returns NOT_CHECKED, not MISSING (lib.rs:1268-1274). Positive facet from TEST-CLI-077 (m6_acceptance.rs:339-401) remains valid evidence for the audit+approval half."
+    },
+    {
+     "id": "VO-PLAN-08",
+     "required_facets": "Positive only (determinism claim): one materialized child set per policy - independent-axes (one child per partition), full-product (cross product), explicit (listed combinations only) - plus repeat-expansion idempotence and default child-ID scheme. No rejection facet required.",
+     "evidence_set": [
+      "TEST-CLI-054",
+      "TEST-CLI-061"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No independent-axes case, no repeated-expansion idempotence, and no real materialization: both tests are --dry-run with created=false and assert no records were written.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PLAN-11",
+     "required_facets": "Positive: vo_decomposition value derives from REQ/VO parent, requirements, spec_refs and structural Relations. Negative/isolation: injected Test, target-resolution, adapter-parse and Evidence errors leave the value unchanged.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test asserts derivation from parent/requirements/spec_refs, and none asserts invariance under Test/target/adapter/Evidence errors.",
+     "contradiction": "The vo_decomposition arm (crates/vtest-verify/src/lib.rs:584-596) is `if scan.diagnostics.iter().any(Diagnostic::is_error) => FAIL`, else MISSING when no VO exists, else PASS - it never reads parent, requirements, spec_refs or Relations, and it fails on ANY scan error diagnostic, including adapter-parse and Test-side ones (diagnostics are unscoped: lib.rs:119 clones the full scan diagnostics). TEST-CLI-081 (m6_acceptance.rs:552-570) deliberately writes malformed src/broken.rs to force vo_decomposition non-PASS and passes green in the 206-test suite (docs/reports/w8-dogfood-findings.md), which is exactly the influence the claim forbids."
+    }
+   ]
+  },
+  {
+   "area": "VO-ADAPTER",
+   "vos": [
+    {
+     "id": "VO-ADAPTER-01",
+     "required_facets": "Absence claim: one structural negative facet - assert that vtest-adapter-api's exported types and signatures name no Cargo, Rust-parser or llvm-cov type. No positive or ambiguity case is required.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "No test inspects the crate's public surface; TEST-AAPI-004 asserts JSON field names only. Manual read of the surface shows it is neutral, but that is unasserted.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-03",
+     "required_facets": "Positive only: one standalone registration per capability (SourceDiscovery, TestWireCodec, StaticAudit, StructuredTest, TestRunner, Coverage) that registers and resolves without providing another.",
+     "evidence_set": [
+      "TEST-AAPI-005",
+      "TEST-AAPI-006",
+      "TEST-SCAN-001"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "StructuredTest, TestRunner, Coverage never registered standalone; Coverage/StructuredTest have no implementor at all, so 3 of 6 capabilities stay unwitnessed.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-04",
+     "required_facets": "Three negative facets, all at the registry: duplicate ID rejected, declared-vs-implemented capability mismatch rejected, unregistered-adapter reference rejected. No positive case required.",
+     "evidence_set": [
+      "TEST-AAPI-001",
+      "TEST-AAPI-003"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Unregistered-reference rejection untested at AdapterRegistry; TEST-CLI-022/023 reject inside vtest-store::validate_adapters (config), never reaching the registry.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-05",
+     "required_facets": "Positive end-to-end: a non-.rs, non-function, non-doc-comment adapter registers, scans and verifies; plus the constraint facet that vtest-model/scan/verify need no adapter-specific change.",
+     "evidence_set": [
+      "TEST-SCAN-001",
+      "TEST-AAPI-005"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Verify is never exercised for a non-Rust adapter; only in-memory registration and materialize_discovery_batch are.",
+     "contradiction": "Two of the three named crates are Rust-bound in production code. vtest-scan/src/lib.rs:31,33 re-exports vtest_adapter_rust and hardcodes RUST_ADAPTER_ID; the injection point scan_project_with_discovery feeds EVERY injected adapter rust_cargo_discovery_projection(config) built from config.rust_cargo() (lib.rs:415,457). vtest-verify/src/lib.rs:1205-1211 hashes the static-audit config subject under a hardcoded AdapterId::new(\"rust-cargo\") plus the rust rule set, and :1814-1815 re-derives every Evidence's Execution State via rust_cargo_execution_state_hash -> vtest_adapter_rust::build_execution_state regardless of the Test's adapter (coverage_off recovered from runner.kind != \"cargo-llvm-cov\"). A non-Rust adapter therefore cannot verify without changing vtest-verify, nor receive its own config namespace without changing vtest-scan."
+    },
+    {
+     "id": "VO-ADAPTER-06",
+     "required_facets": "Positive: the shipped registry's membership is exactly rust-cargo. Negative: no synthetic/fixture adapter is registered on any production path (it stays cfg(test)/fixture-only).",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "Nothing asserts built_in_registry() membership (vtest-cli/src/lib.rs:338) or that synthetic adapters stay cfg(test)/fixture-only; TEST-CLI-025 only greps the init config.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-07",
+     "required_facets": "Negative: missing capability aborts with E-ADAPTER-004, writing no change/Audit/Evidence, and is never inferred PASS. Positive: NOT_CHECKED (audit/coverage), NOT_EXECUTED (runner). Ambiguity: limit -> UNKNOWN.",
+     "evidence_set": [
+      "TEST-AAPI-010"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No test drives the E-ADAPTER-004 abort, UNKNOWN, or no-inferred-PASS; CLI re-codes AdapterError to E-ADAPTER-001 (cli:563) or E-CORE-001/Internal (cli:2306).",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-08",
+     "required_facets": "Positive: adapter DTOs serialize hash-free and core computes each subject hash (test, target, audit-config, execution-state). Negative: core rejects fragments disagreeing with current source bytes.",
+     "evidence_set": [
+      "TEST-AAPI-007",
+      "TEST-SCAN-001",
+      "TEST-SCAN-002",
+      "TEST-AAPI-006"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Execution State subject (adapter draft -> core hash, vtest-exec:236) unwitnessed; no test refuses an adapter-supplied hash - the DTOs carry no hash field at all.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-09",
+     "required_facets": "Positive: core resolves an opaque locator via the owning adapter. Negative: rejects a mismatched returned adapter ID and disagreeing range/bytes. Structural: core parses no locator syntax.",
+     "evidence_set": [
+      "TEST-SCAN-002"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Adapter-ID mismatch rejection (vtest-scan:288-292) undriven; nothing witnesses delegated locator resolution or that core never parses locator syntax.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-10",
+     "required_facets": "Negative: differing Evidence adapter ID -> MISMATCH. Positive: adapter-less Evidence read as compatible only on uniquely confirmed rust-cargo execution. Ambiguity: otherwise UNKNOWN.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No candidate test exists for any facet (class 'uncovered').",
+     "contradiction": "vtest-verify/src/lib.rs:1771-1773 evidence_record_validity returns CheckValue::Stale for ANY Evidence whose adapter ID is absent: the compat evaluation the claim describes (rust-cargo Test + uniquely confirmed Rust execution from compat runner info and hashes) never happens, and the claim's UNKNOWN fallback is never reached. No back-fill exists upstream either - vtest-store/src/records.rs:1165 leaves adapter None when the field is missing/null. Only the first half (differing adapter ID -> Mismatch, verify:1774-1776) matches the claim. Ontology gate on this VO is already REVISE."
+    },
+    {
+     "id": "VO-ADAPTER-11",
+     "required_facets": "Negative: unknown adapter ID is an operation error; failed adapter-specific config validation is an operation error; plus no inference/back-fill of languages or capabilities (no rust fallback).",
+     "evidence_set": [
+      "TEST-CLI-022",
+      "TEST-STORE-017"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No-inference facet unevidenced: only a JSON fixture asserts rust_fallback_allowed=false; TEST-STORE-014/015 fail on the v1 legacy config path as E-CONFIG-001.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-ADAPTER-12",
+     "required_facets": "Positive: the rust-cargo codec emits filter/package/test_target for a rust-cargo Test. Negative: a non-Rust Test's wire carries none of them, with no empty, dummy or Rust-default substitute.",
+     "evidence_set": [
+      "TEST-ARUST-001",
+      "TEST-AAPI-004"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Negative half rests on a synthetic codec structurally unable to emit the fields; RustCargoCodec::encode_properties rejecting a foreign Test (adapter-rust:61-65) is undriven.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-APPROVE",
+   "vos": [
+    {
+     "id": "VO-APPROVE-01",
+     "required_facets": "Positive: status derived from approvals; writer emits no status key. Negative: a compat status is ignored by derivation and warned as W-STORE-001. Invariant: status excluded from the VO subject hash. No UNKNOWN branch.",
+     "evidence_set": [
+      "TEST-CLI-003",
+      "TEST-CLI-043",
+      "TEST-CLI-053",
+      "TEST-SCAN-017",
+      "TEST-STORE-006"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No test shows a compat status:approved is ignored by derivation, nor that it is excluded from the VO subject hash.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-APPROVE-02",
+     "required_facets": "Positive: approved while subject_hash and closure both match current. Negative: a subject edit lapses it; a closure change lapses it. Invariant: the lapse mutates no append-only approval record.",
+     "evidence_set": [
+      "TEST-STORE-002",
+      "TEST-STORE-003",
+      "TEST-STORE-005",
+      "TEST-CLI-053",
+      "TEST-CLI-041"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Append-only clause untested: no test re-reads the approval record after a lapse to show it is unchanged.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-APPROVE-03",
+     "required_facets": "Positive: closure equals the recursive parent-VO/REQ/SPEC set, kind-then-id sorted, subject present only as subject_hash. Negative: missing, duplicate and extra entries each rejected.",
+     "evidence_set": [
+      "TEST-STORE-001",
+      "TEST-STORE-003",
+      "TEST-STORE-005",
+      "TEST-STORE-023",
+      "TEST-CLI-044"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "Flat fixture leaves parent-VO/parent-REQ recursion untested; extra-entry rejection absent; duplicate cell only at the parser layer.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-APPROVE-04",
+     "required_facets": "Positive: the SPEC dependency hash varies with the SPEC record and with its source independently. Negative: a source change lapses approvals; a record change, including re-registration by spec add --update, lapses them.",
+     "evidence_set": [
+      "TEST-STORE-002",
+      "TEST-CLI-041"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the source arm is driven; record-change / spec add --update untested, and nothing shows the hash binds record and source both.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-APPROVE-05",
+     "required_facets": "Positive: a successful vo approve yields a record that derives approved at that instant with hashes bound to current content. Negative: across re-registration no entry from a prior approval is carried over.",
+     "evidence_set": [
+      "TEST-CLI-053",
+      "TEST-CLI-063",
+      "TEST-CLI-003",
+      "TEST-STORE-002"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No re-registration-then-re-approve case; the never-carried-over clause has zero evidence in any test.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-APPROVE-07",
+     "required_facets": "Negative only: each of an unresolvable target, an unresolvable closure entity, and a stale SPEC source is rejected with code E-APPROVAL-001, exit 2, and no approval record written.",
+     "evidence_set": [
+      "TEST-CLI-002"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Only the stale-SPEC-source branch is driven; the E-APPROVAL-001 code is never asserted; target and closure-entity branches untested.",
+     "contradiction": "The target-unresolvable branch actively violates the claim. approve_vo resolves the target with read_vo(layout, id).map_err(store_failure) (crates/vtest-cli/src/lib.rs:3400) and store_failure maps every StoreError to E-CORE-001 with ExitCode::Internal (crates/vtest-cli/src/lib.rs:3791-3793); only the closure-resolution failure at :3403 raises E-APPROVAL-001/ExitCode::Usage. Measured on the current tree with target/debug/vtest.exe: `vtest vo approve VO-NOEXIST --approver-kind human --approver-id r` returns diagnostic E-CORE-001 (\"I/O error at .verify/vo/VO-NOEXIST.yaml\") and exit 3, not E-APPROVAL-001 with exit 2. The claim's trigger list and 別紙A L104 (\"対象またはいずれかの依存entity / SPEC sourceを完全・currentに解決できない場合はE-APPROVAL-001\") explicitly include the target. No record is written, so only the code/exit half of the clause is violated."
+    },
+    {
+     "id": "VO-APPROVE-08",
+     "required_facets": "Positive: both human and agent approver kinds are accepted and persisted as approver kind + identifier in the record; an optional audit-record basis is persisted and traceable. No UNKNOWN branch.",
+     "evidence_set": [
+      "TEST-STORE-022",
+      "TEST-CLI-092",
+      "TEST-CLI-094"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "Agent-kind persistence unevidenced: the record-layer test only ever uses human, and the agent tests never inspect a stored record.",
+     "contradiction": ""
+    }
+   ]
+  },
+  {
+   "area": "VO-AGG",
+   "vos": [
+    {
+     "id": "VO-AGG-01",
+     "required_facets": "Positive: omitted scope yields exactly the fixed 12 in order, incl. v1 compat config. Negative: any full_scope shrinking/redefining the set is rejected, not honoured. Positive: --items run marked limited.",
+     "evidence_set": [
+      "TEST-CLI-014",
+      "TEST-CLI-015",
+      "TEST-CLI-020",
+      "TEST-CLI-021",
+      "TEST-STORE-016",
+      "TEST-CLI-080"
+     ],
+     "facet_complete": true,
+     "composable": true,
+     "verdict": "SUFFICIENT",
+     "missing": "",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-AGG-02",
+     "required_facets": "Negative at each level Test>VO>REQ>SPEC: one non-PASS child (each of the 7 values) forces the parent non-PASS; positive: all-PASS children yield a PASS parent.",
+     "evidence_set": [
+      "TEST-CLI-078",
+      "TEST-CLI-079",
+      "TEST-CLI-081",
+      "TEST-VERIFY-016",
+      "TEST-CLI-077"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "No test folds the Test>VO>REQ node tree (node_with_children); only 3 of 7 non-PASS values appear; no SPEC-level node exists in the report at all.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-AGG-03",
+     "required_facets": "Positive: with several coexisting non-PASS children the parent shows exactly the top of FAIL>MISMATCH>MISSING>STALE>NOT_EXECUTED>NOT_CHECKED>UNKNOWN; needs multiple adjacent pairs.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test at all; needs coexisting non-PASS pairs across the order, plus the static_audit malformed-record path.",
+     "contradiction": "combine_values (crates/vtest-verify/src/lib.rs:1854-1876) implements the exact order, but evaluate_static_audit overrides its own fold: an unassociated malformed static record forces the item to UNKNOWN unless the value is FAIL (same file:837-854). Reproduced on a scratch project with target/debug/vtest.exe: one Test contributing NOT_CHECKED plus one malformed static record yields static_audit=UNKNOWN while basis lists both grounds ('Test TEST-DEMO-1: NotChecked' and the malformed record) - NOT_CHECKED outranks UNKNOWN in the fixed order, so the displayed representative is not the highest-priority coexisting value."
+    },
+    {
+     "id": "VO-AGG-04",
+     "required_facets": "Positive: detail output shows each child's own value plus every coexisting non-PASS ground; negative: no ground or value is dropped when the parent picks a representative.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test at all; needs a per-entity value differing from the aggregate and a text-channel detail assertion.",
+     "contradiction": "The text detail channel loses values. emit_text renders the tree branch only and never prints basis (crates/vtest-cli/src/lib.rs:3858-3935 and print_text_tree_node 3937-3965); `report`, documented as 'the same aggregate with detailed basis references' (line 112), dispatches to the identical run_verify call (lines 378-383). No node kind carries test_traceability (item_copies key lists at crates/vtest-verify/src/lib.rs:444, 460-465, 490-501), so its value can never appear in text. Reproduced: a scratch run printed 'Result: FAIL' while neither the FAIL item (vo_decomposition) nor test_traceability MISMATCH appeared anywhere in the text output. JSON items[]/basis do retain all 12 values and all grounds, so the loss is confined to the text detail output."
+    },
+    {
+     "id": "VO-AGG-05",
+     "required_facets": "Positive: a scoped run keeps out-of-scope items NOT_CHECKED and OK asserts only the requested scope. Negative: an out-of-scope item that would be non-PASS is not promoted to PASS nor folded into OK.",
+     "evidence_set": [
+      "TEST-CLI-080",
+      "TEST-CLI-014"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No out-of-scope item known non-PASS (e.g. test_traceability MISMATCH) is shown retained as NOT_CHECKED; the 'outside requested scope' basis is never asserted.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-AGG-06",
+     "required_facets": "Positive only, on both channels: text and JSON each state the requested scope and that out-of-scope items are unverified. No negative or ambiguity branch required.",
+     "evidence_set": [
+      "TEST-CLI-080"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "JSON side asserts only the boolean flag, not requested_scope content; the text assertions are loose substrings that any item row already satisfies.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-AGG-07",
+     "required_facets": "Negative: an entity-scoped run still spans all Discovered Tests, so one unmanaged test forces NG; positive contrast: every graph item PASS in that same run.",
+     "evidence_set": [
+      "TEST-CLI-016",
+      "TEST-CLI-077"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "No entity-scoped (--test/--vo/--req) run checks test_traceability; the 'all graph items PASS yet overall NG' contrast is never assembled.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-AGG-08",
+     "required_facets": "Positive: from an NG at SPEC/REQ level both text and JSON expose the failing entity, check item, value and the audit-record/Evidence-ID grounding. No negative branch required.",
+     "evidence_set": [
+      "TEST-CLI-078"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Even setting the defect aside: no test asserts text output, SPEC/REQ-level drill-down, or audit-record/Evidence-ID grounding.",
+     "contradiction": "Reproduced with target/debug/vtest.exe on a scratch project: text `report` printed 'NG' / 'Result: FAIL' with a tree containing only a test node, while the items that caused the NG (vo_decomposition FAIL, test_traceability MISMATCH) appeared nowhere, and no basis - hence no audit record ID and no Evidence ID - is ever printed on the text channel (crates/vtest-cli/src/lib.rs:3858-3935, 3937-3965). Additionally every entity node carries copies of the project-level item values and basis (item_copies, crates/vtest-verify/src/lib.rs:505-509; verified in a two-test run where both test nodes listed both tests' grounds and identical values), so drilling down cannot identify which entity failed. JSON basis does carry audit record IDs and Evidence IDs, but the claim requires text and JSON."
+    },
+    {
+     "id": "VO-AGG-10",
+     "required_facets": "Positive: a runtime-derived static_audit cites the Evidence ID and the per-target target_execution result. Negative: internal-dependency STALE/non-satisfaction is presented as the ground.",
+     "evidence_set": [
+      "TEST-VERIFY-002"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "No test asserts the static_audit basis at all; TEST-VERIFY-002 discards the returned basis vector.",
+     "contradiction": "The citation the claim requires cannot be emitted by the current code. static_audit_item_value returns only a CheckValue (crates/vtest-verify/src/lib.rs:1005-1045) and runtime_target_reached returns bool, discarding the Evidence record it consulted (same file:972-993). The basis line assembled in evaluate_static_audit (same file:802-822) contains only the Test id, the value, the current static audit record ids and stale/malformed counts - never an Evidence ID and never the per-target target_execution result, on either the rescued-PASS path or the non-satisfaction path where runtime rescue is denied."
+    }
+   ]
+  },
+  {
+   "area": "VO-EXEC",
+   "vos": [
+    {
+     "id": "VO-EXEC-01",
+     "required_facets": "positive: only the selected registered Test executes; negative: a selector that merely prefixes/contains another never runs nor contributes a result (exact-match selection).",
+     "evidence_set": [
+      "TEST-CLI-079",
+      "TEST-ARUST-003"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "No prefix/contains near-miss anywhere; ARUST-003 tests result-line parsing ('y' vs 'x'), not selection; --exact selection never driven on overlapping IDs.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-02",
+     "required_facets": "positive: ok->PASS, FAILED->FAIL, ignored->NOT_EXECUTED with no Evidence; negative: E-EXEC-002 missing line and E-EXEC-003 exit/result-count contradiction fail the run and record no Evidence.",
+     "evidence_set": [
+      "TEST-ARUST-003",
+      "TEST-CLI-066",
+      "TEST-CLI-083",
+      "TEST-CLI-070",
+      "TEST-CLI-071"
+     ],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "PARTIAL",
+     "missing": "E-EXEC-003 has zero tests in the suite; FAILED->FAIL never reaches Evidence.result; ignored's derived NOT_EXECUTED never asserted (070 never verifies).",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-03",
+     "required_facets": "negative: build failure, runner failure, capability lack, target ambiguity, mid-run state change each yield zero Evidence (never partial); positive: Evidence only when all targets resolve uniquely.",
+     "evidence_set": [
+      "TEST-CLI-069",
+      "TEST-CLI-071",
+      "TEST-CLI-031"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Capability-lack and ambiguity (E-SCAN-004/011) branches undriven; TEST-SCAN-011 shows only the ambiguity precondition, not Evidence withholding.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-04",
+     "required_facets": "positive: subject hash, per-target locator+construct hashes in declared order with no gaps/dups, adapter ID, revision and Execution State present; plus degraded marking (commit:null, complete:false) as writer output.",
+     "evidence_set": [
+      "TEST-CLI-029",
+      "TEST-CLI-032",
+      "TEST-CLI-067",
+      "TEST-CLI-066"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Declared order, no-gap and no-duplicate never asserted; locator values unchecked; degraded records in 034/035 are hand-written, never observed as writer output.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-05",
+     "required_facets": "positive: all five conditions match now -> PASS; negative: breach of test hash, target set+hashes, HEAD revision, Execution State completeness, or adapter maps to STALE/MISMATCH/UNKNOWN, never PASS.",
+     "evidence_set": [
+      "TEST-CLI-066",
+      "TEST-CLI-067",
+      "TEST-CLI-076",
+      "TEST-CLI-068",
+      "TEST-CLI-030",
+      "TEST-CLI-033",
+      "TEST-CLI-034",
+      "TEST-CLI-035",
+      "TEST-CLI-036",
+      "TEST-CLI-037"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Adapter-mismatch -> MISMATCH branch (verify lib.rs:1774) undriven; test-subject-hash breach (Test body change) never exercised.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-06",
+     "required_facets": "negative: with non-PASS evidence_validity all three of test_execution/runtime_result/target_execution keep that same non-PASS value; with no Evidence all three are NOT_EXECUTED.",
+     "evidence_set": [
+      "TEST-CLI-079"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Only the no-Evidence NOT_EXECUTED half of one item (test_execution) is evidenced; invalid-Evidence propagation is untested for all three items.",
+     "contradiction": "crates/vtest-verify/src/lib.rs:1630-1636 (evaluate_runtime) and :1663-1673 (evaluate_target_execution) collapse EVERY non-PASS evidence_record_validity to STALE, while test_execution (:1741) propagates the real value. 詳細設計 §11.2 and 別紙C require the same MISMATCH/STALE/UNKNOWN in all three. Reachable via TEST-CLI-034's setup: complete:false gives evidence_validity=UNKNOWN, but runtime_result/target_execution report STALE."
+    },
+    {
+     "id": "VO-EXEC-07",
+     "required_facets": "positive: count>0 -> per-target PASS, Test PASS only when 1+ targets all PASS; negative: count==0 -> FAIL, unidentifiable -> UNKNOWN, and in the Test-level fold FAIL dominates UNKNOWN.",
+     "evidence_set": [
+      "TEST-CLI-082",
+      "TEST-CLI-083"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Both candidates are single-target, so the multi-target precedence facet (the one that is violated) and the unidentifiable-UNKNOWN facet are unevidenced.",
+     "contradiction": "crates/vtest-adapter-rust/src/runner.rs:225-237 tests UNKNOWN before FAIL, so a Test with one count==0 target and one unattributable target aggregates to UNKNOWN; 基本仕様 mandates 'FAILが1件でもあればFAIL、FAILがなくUNKNOWNがあればUNKNOWN'. verify (lib.rs:1667-1672) passes the stored aggregate through unchanged, so nothing downstream repairs it. The function's own doc comment (runner.rs:196-199) states the spec order, contradicting its code."
+    },
+    {
+     "id": "VO-EXEC-08",
+     "required_facets": "positive: --fast and coverage tool/capability lack both record checked:false and evaluate NOT_CHECKED; negative: never converted to PASS; ambiguity: analysis limits stay UNKNOWN.",
+     "evidence_set": [
+      "TEST-CLI-066",
+      "TEST-CLI-084",
+      "TEST-ARUST-007"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "The verify-derived NOT_CHECKED value is never asserted anywhere (all candidates stop at the recorded checked:false/null); analysis-limit UNKNOWN unevidenced.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-EXEC-09",
+     "required_facets": "positive: one target_execution entry per current canonical Source Target, 1:1 by resolved canonical Locator; negative: missing, duplicate, extra or mismatched entries never count as PASS.",
+     "evidence_set": [
+      "TEST-CLI-032"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "Only entry count (2 declared -> 2 entries) is asserted; locator identity and every negative (missing/dup/extra/mismatch) facet is absent.",
+     "contradiction": "crates/vtest-verify/src/lib.rs:1663-1673 reads the stored target_execution.result with no reconciliation of the entry set against the current canonical Source Target set, and crates/vtest-store/src/records.rs:1151-1160 silently drops entries lacking a `target` field (filter_map). An Evidence whose entries are missing/duplicated therefore still yields PASS; evidence_record_validity checks hashes.targets only, not the target_execution block. Reachable via hand-edited/legacy records — the technique TEST-CLI-033/034/035 already use."
+    },
+    {
+     "id": "VO-EXEC-10",
+     "required_facets": "positive: coverage attributes subprocess/thread execution to declared targets; negative: unattributable target -> UNKNOWN, unmeasurable run -> NOT_CHECKED, capability lack never fabricates PASS.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test drives a real cross-boundary run; the UNKNOWN/NOT_CHECKED degradation path is never observed for a subprocess-executed target.",
+     "contradiction": "docs/plans/w8-full-dogfood-plan.md L174 (measured spike): cargo-llvm-cov attributes 0.00% of subprocess execution to the vtest symbols, and Phase 2 (L187, 別紙B §5.2) is unimplemented — runner.rs contains no child-profile merge / LLVM_PROFILE_FILE inheritance code — so the claim's 'must attribute' clause is violated as measured. Consequence, conditional on the symbol being present in the report at count 0: runner.rs:213-217 records FAIL where 詳細設計 §10.2 mandates UNKNOWN (関数不見当扱い); the spike measured the percentage, not the resulting CheckValue."
+    },
+    {
+     "id": "VO-EXEC-12",
+     "required_facets": "positive: adapter-less Evidence evaluated as compat when the Test is rust-cargo and runner kind + content hashes uniquely confirm Rust (may satisfy §11.2 cond 5); negative: otherwise UNKNOWN; explicit adapter mismatch -> MISMATCH.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "CONTRADICTED",
+     "missing": "No test exercises an adapter-less or adapter-mismatched Evidence record; uncovered in the shadow mapping.",
+     "contradiction": "crates/vtest-verify/src/lib.rs:1771-1773 returns STALE for any Evidence lacking an adapter ID, whereas 基本仕様 §11.2 requires compat evaluation when the current Test is rust-cargo and runner info + content hashes confirm Rust execution, and UNKNOWN otherwise. No compat evaluation path exists in vtest-verify at all (hashes.compatibility, populated at records.rs:1119-1130, is never read). Only the MISMATCH clause (:1774) is honored."
+    }
+   ]
+  },
+  {
+   "area": "VO-PARALLEL",
+   "vos": [
+    {
+     "id": "VO-PARALLEL-01",
+     "required_facets": "Positive: each SPEC/REQ/VO is exactly one ID-named file and distinct entities touch disjoint files; Negative: no central ledger/index file exists and name!=id is rejected.",
+     "evidence_set": [
+      "TEST-CLI-052"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the name!=id rejection (E-SCAN-010) is asserted. No test shows one-file-per-ID layout, disjoint files for parallel edits, or absence of a ledger.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PARALLEL-02",
+     "required_facets": "Positive: relation/approval/audit/evidence records are created as new ULID-named files; Negative: writing over an existing record file fails and no operation edits one; plus Relation change = delete old + add new.",
+     "evidence_set": [
+      "TEST-STORE-019",
+      "TEST-STORE-024",
+      "TEST-STORE-031"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Relation change as delete+add is unevidenced (no rel CLI path exists); no test drives a real operation (approve/audit/run) to show it never edits an existing record.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PARALLEL-03",
+     "required_facets": "Negative (load-bearing): duplicate Test ID across adapters is detected at scan, reported as E-SCAN-002, forces test_traceability=MISMATCH, and neither colliding Test is silently adopted.",
+     "evidence_set": [
+      "TEST-CLI-019",
+      "TEST-CLI-052"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Both duplicates are same-adapter (rust-cargo); cross-adapter scope and 'never silently picking one' (both entries rejected) are never asserted.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PARALLEL-04",
+     "required_facets": "Negative: a permanent SRC ID claimed twice (repository-wide, across adapters) is E-SCAN-011, resolves to no target, and no candidate appears in audit subjects, Evidence, or target_execution.",
+     "evidence_set": [
+      "TEST-CLI-047"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Collision is within one rust adapter/file; downstream exclusion from audit subjects, Evidence and target_execution is never observed, only scan-time E-SCAN-011/004.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PARALLEL-05",
+     "required_facets": "Negative: dangling covers, Relation from AND to, parent, and spec_refs each flagged as scan errors driving non-PASS; Positive: the referencing entity survives (dangling covers = MISMATCH, not removal).",
+     "evidence_set": [
+      "TEST-CLI-018",
+      "TEST-CLI-048",
+      "TEST-CLI-052",
+      "TEST-SCAN-017"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "CONTRADICTED",
+     "missing": "spec_refs branch unevidenced (and unimplemented); dangling Relation 'to' never exercised; MISMATCH value asserted only for covers (CLI-018).",
+     "contradiction": "Implementation does not flag dangling spec_refs at all. Probe (scratchpad copy of tests/fixtures/calc/m1/base, VO-KNOWN given spec_refs: SPEC-GHOST): `vtest --project <p> scan` and `doctor` both print OK, summary {files:2,sources:2,tests:1}, exit 0, zero diagnostics (binary target/debug/vtest.exe 2026-08-15 17:30 postdates crates/vtest-scan/src/lib.rs 17:22). Code confirms: validate_vo_record (crates/vtest-scan/src/lib.rs:768-841) and validate_req_record (:713-766) never resolve spec_refs against .verify/spec; the only reference-resolution loops are parent (E-SCAN-008, :936-999), relation from/to (E-SCAN-009, :1072-1082) and covers (E-SCAN-003, :1295). So a dangling spec_ref yields PASS-side scan output, contrary to 'flags ... spec_refs as errors driving non-PASS'."
+    },
+    {
+     "id": "VO-PARALLEL-06",
+     "required_facets": "Positive: doctor surfaces post-merge logical inconsistencies a syntactic merge accepts — duplicate Test ID (E-SCAN-002), dangling refs (E-SCAN-003/009), and approved-VO content drift via the approval's derived lapsed state.",
+     "evidence_set": [
+      "TEST-CLI-048"
+     ],
+     "facet_complete": false,
+     "composable": true,
+     "verdict": "PARTIAL",
+     "missing": "Only the dangling-ref class (E-SCAN-003) via doctor. Duplicate Test ID and approved-VO drift/lapsed state are never observed through doctor; SCAN-017 calls scan_project, not doctor.",
+     "contradiction": ""
+    },
+    {
+     "id": "VO-PARALLEL-08",
+     "required_facets": "Positive: graph and current target set are rebuilt from adapter-owned covers/targets declarations (changing a declaration changes them); Negative: no external record is canon and Evidence target keys never generate or repair relations.",
+     "evidence_set": [],
+     "facet_complete": false,
+     "composable": false,
+     "verdict": "NONE",
+     "missing": "CLI-063 only observes VO-KNOWN listing its covering test once; neither rebuild-from-declaration nor the no-second-canon / Evidence-never-repairs-relations negative is exercised.",
+     "contradiction": ""
+    }
+   ]
+  }
+ ],
+ "classification": {
+  "tests": [
+   {
+    "test_id": "TEST-ARUST-002",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: compat wire fields must agree with neutral `execution` on decode (基本仕様 122); disagreement/partial set rejected. VO-ADAPTER-12 constrains output only."
+   },
+   {
+    "test_id": "TEST-AAPI-002",
+    "category": "B-supporting",
+    "rationale": "Registry iteration/lookup ordering helper; deterministic adapter listing underpins VO-INTEG-01/VO-ADAPTER-04 without driving any rejection or capability rule."
+   },
+   {
+    "test_id": "TEST-SCAN-018",
+    "category": "B-supporting",
+    "rationale": "Pure edit_distance utility behind the <=2 candidate filter used by VO-STRUCTOP-01 resolution failures and VO-INTEG-05 candidate lists."
+   },
+   {
+    "test_id": "TEST-ARUST-004",
+    "category": "B-supporting",
+    "rationale": "llvm-cov JSON parser helper producing the per-target counts VO-EXEC-07 maps to PASS/FAIL/UNKNOWN; no CheckValue observed here."
+   },
+   {
+    "test_id": "TEST-ARUST-005",
+    "category": "B-supporting",
+    "rationale": "Same parser; pins Some(0) vs None, the input distinction VO-EXEC-07's count==0 FAIL vs unidentifiable UNKNOWN rests on."
+   },
+   {
+    "test_id": "TEST-ARUST-006",
+    "category": "B-supporting",
+    "rationale": "Rust v0 demangling/name-match helper behind coverage attribution (VO-EXEC-10); no target_execution value asserted."
+   },
+   {
+    "test_id": "TEST-CLI-005",
+    "category": "B-supporting",
+    "rationale": "merge_diagnostics ordering utility; deterministic order underpins CLI/MCP diagnostic equality (VO-INTEG-01) and verify/report equality (VO-REPORT-02). No spec text on ordering."
+   },
+   {
+    "test_id": "TEST-MODEL-001",
+    "category": "B-supporting",
+    "rationale": "Text normalizer (CRLF/trailing space) underneath every content hash, incl. VO-REGISTRY-08 normalized construct bytes; no subject field set asserted."
+   },
+   {
+    "test_id": "TEST-MODEL-002",
+    "category": "B-supporting",
+    "rationale": "TargetRef::Locator normalization helper behind adapter-scoped opaque locators (VO-ADAPTER-09/05); no resolution or delegation path exercised."
+   },
+   {
+    "test_id": "TEST-MODEL-005",
+    "category": "B-supporting",
+    "rationale": "Relocation-stable subject hashing is the mechanism behind VO-STRUCTOP-06's post-apply other-Test hash invariance; no Edit or E-OP-003 exercised."
+   },
+   {
+    "test_id": "TEST-MODEL-007",
+    "category": "B-supporting",
+    "rationale": "Injective null/empty/empty-list encoding underneath every subject hash (VO-REGISTRY-08, VO-STATAUDIT-07); asserts no subject field set."
+   },
+   {
+    "test_id": "TEST-MODEL-008",
+    "category": "B-supporting",
+    "rationale": "Cross-domain hash non-reuse hygiene underpinning subject-binding VOs (VO-APPROVE-04, VO-SEMAUDIT-04); no record, subject set or STALE transition."
+   },
+   {
+    "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
+    "category": "B-supporting",
+    "rationale": "Pins only the crate:: prefix-strip branch of classify_target_call (sole unit pin); DA-002/DA-003 rule verdicts are proved by TEST-ARUST-012 and siblings."
+   },
+   {
+    "test_id": "TEST-ARUST-017",
+    "category": "B-supporting",
+    "rationale": "find_function lookup helper; no auto-selection on an ambiguous bare name feeds VO-SEMAUDIT-09 / VO-STATAUDIT-01 upstream, but no verdict asserted."
+   },
+   {
+    "test_id": "TEST-STORE-007",
+    "category": "B-supporting",
+    "rationale": "Shipped Form schema parses (kind/field count/template placeholder), a precondition for VO-STRUCTOP-02/05/09; no validator scoping or key order asserted."
+   },
+   {
+    "test_id": "TEST-STORE-008",
+    "category": "B-supporting",
+    "rationale": "Answer-file parser helper (inline vs block lists) underpinning structured Test creation; no accept-time check or E-OP-001 exercised."
+   },
+   {
+    "test_id": "TEST-STORE-009",
+    "category": "B-supporting",
+    "rationale": "Form-schema parser strictness (unknown property errors) underpinning VO-STRUCTOP-09/10 kind resolution; spec's unknown-field rule (E-OP-001) is about answers, not schema."
+   },
+   {
+    "test_id": "TEST-STORE-010",
+    "category": "B-supporting",
+    "rationale": "ProjectConfig writer/reader round-trip helper for the default v2 config; underpins config-driven behaviour but asserts no normative rule."
+   },
+   {
+    "test_id": "TEST-STORE-011",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: version-1 flat scan/run config reads into the rust-cargo adapter namespace as v1-compat wire values (詳細設計 150/188). No VO covers config schema/compat."
+   },
+   {
+    "test_id": "TEST-STORE-012",
+    "category": "C-regression",
+    "rationale": "Pins that assertion_macros round-trip under the adapters namespace and no longer leak into scan.include; a concrete past serialization bug, not a design obligation."
+   },
+   {
+    "test_id": "TEST-STORE-013",
+    "category": "C-regression",
+    "rationale": "Pins bracketed/empty scan list parsing with a comma-inside-quoted-item element — signature of a past comma-splitting bug in the config reader."
+   },
+   {
+    "test_id": "TEST-CLI-060",
+    "category": "C-regression",
+    "rationale": "Exactly-once child counting in req/vo --tree JSON; no spec text beyond the flag listing and no VO entails the tree shape, so it is a rendering correctness pin."
+   },
+   {
+    "test_id": "TEST-SCAN-010",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: discovery scope is the .gitignore-compliant walk owned by the adapter (詳細設計 67/868); ignored files yield no source and no E-SCAN-001."
+   },
+   {
+    "test_id": "TEST-SCAN-013",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: declaration syntax integrity — duplicate non-repeatable key = E-SCAN-005, unknown @vtest.* key = E-SCAN-006 as error not warning (詳細設計 §5.4)."
+   },
+   {
+    "test_id": "TEST-SCAN-016",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: record-ID compat normalization — bare/prefixed mixing or a duplicated ULID payload is E-SCAN-010 with no canonical winner (詳細設計 294, 別紙C §82)."
+   },
+   {
+    "test_id": "TEST-CLI-025",
+    "category": "B-supporting",
+    "rationale": "Shipped v2 config and forms carry adapter owners — the precondition for VO-STRUCTOP-09/10 kind resolution; neither re-init exit 2 nor rejection paths exercised."
+   },
+   {
+    "test_id": "TEST-STORE-018",
+    "category": "B-supporting",
+    "rationale": "ULID generator uniqueness/validity behind the ULID-named record files of VO-PARALLEL-02; no record file created or left unedited."
+   },
+   {
+    "test_id": "TEST-STORE-020",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: atomic complete publication (no torn read, no temp residue) — presupposed by VO-PARALLEL-09's lock-free pure-read claim; here for new record files."
+   },
+   {
+    "test_id": "TEST-STORE-021",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: atomic complete publication (no torn read, no temp residue) — presupposed by VO-PARALLEL-09's lock-free pure-read claim; here for entity file replacement."
+   },
+   {
+    "test_id": "TEST-VERIFY-001",
+    "category": "A-ontology-gap",
+    "rationale": "Missing: 'latest Evidence' (§11.2) is selected by real chronological instant across UTC offsets, never lexical timestamp order; no VO defines the ordering."
+   }
+  ]
+ },
+ "final_per_vo": {
+  "VO-P001-01": "UNSUPPORTED",
+  "VO-P001-02": "UNSUPPORTED",
+  "VO-P001-03": "PARTIAL",
+  "VO-P001-04": "PARTIAL",
+  "VO-P001-05": "UNSUPPORTED",
+  "VO-INTAKE-01": "PARTIAL",
+  "VO-INTAKE-02": "UNSUPPORTED",
+  "VO-INTAKE-03": "PROVEN",
+  "VO-INTAKE-04": "CONTRADICTED",
+  "VO-INTAKE-05": "UNSUPPORTED",
+  "VO-INTAKE-06": "UNSUPPORTED",
+  "VO-INTAKE-07": "UNSUPPORTED",
+  "VO-INTAKE-08": "CONTRADICTED",
+  "VO-INTAKE-09": "CONTRADICTED",
+  "VO-PLAN-01": "CONTRADICTED",
+  "VO-PLAN-02": "CONTRADICTED",
+  "VO-PLAN-03": "CONTRADICTED",
+  "VO-PLAN-04": "CONTRADICTED",
+  "VO-PLAN-05": "CONTRADICTED",
+  "VO-PLAN-06": "CONTRADICTED",
+  "VO-PLAN-07": "CONTRADICTED",
+  "VO-PLAN-08": "PARTIAL",
+  "VO-PLAN-09": "UNSUPPORTED",
+  "VO-PLAN-10": "UNSUPPORTED",
+  "VO-PLAN-11": "CONTRADICTED",
+  "VO-REGISTRY-01": "PARTIAL",
+  "VO-REGISTRY-02": "PARTIAL",
+  "VO-REGISTRY-03": "PARTIAL",
+  "VO-REGISTRY-04": "UNSUPPORTED",
+  "VO-REGISTRY-05": "CONTRADICTED",
+  "VO-REGISTRY-06": "PARTIAL",
+  "VO-REGISTRY-07": "PARTIAL",
+  "VO-REGISTRY-08": "PARTIAL",
+  "VO-REGISTRY-09": "PROVEN",
+  "VO-REGISTRY-10": "PARTIAL",
+  "VO-REGISTRY-11": "PARTIAL",
+  "VO-REGISTRY-12": "PARTIAL",
+  "VO-REGISTRY-13": "PROVEN",
+  "VO-REGISTRY-14": "UNSUPPORTED",
+  "VO-STRUCTOP-01": "PARTIAL",
+  "VO-STRUCTOP-02": "UNSUPPORTED",
+  "VO-STRUCTOP-03": "UNSUPPORTED",
+  "VO-STRUCTOP-04": "PARTIAL",
+  "VO-STRUCTOP-05": "PARTIAL",
+  "VO-STRUCTOP-06": "PARTIAL",
+  "VO-STRUCTOP-07": "UNSUPPORTED",
+  "VO-STRUCTOP-08": "UNSUPPORTED",
+  "VO-STRUCTOP-09": "CONTRADICTED",
+  "VO-STRUCTOP-10": "CONTRADICTED",
+  "VO-STRUCTOP-11": "UNSUPPORTED",
+  "VO-STRUCTOP-12": "PROVEN",
+  "VO-STRUCTOP-13": "PARTIAL",
+  "VO-STRUCTOP-14": "PARTIAL",
+  "VO-STATAUDIT-01": "CONTRADICTED",
+  "VO-STATAUDIT-02": "PROVEN",
+  "VO-STATAUDIT-03": "UNSUPPORTED",
+  "VO-STATAUDIT-04": "CONTRADICTED",
+  "VO-STATAUDIT-05": "PARTIAL",
+  "VO-STATAUDIT-06": "PARTIAL",
+  "VO-STATAUDIT-07": "PARTIAL",
+  "VO-STATAUDIT-08": "UNSUPPORTED",
+  "VO-STATAUDIT-09": "UNSUPPORTED",
+  "VO-STATAUDIT-10": "PARTIAL",
+  "VO-STATAUDIT-11": "PROVEN",
+  "VO-STATAUDIT-12": "PARTIAL",
+  "VO-STATAUDIT-13": "UNSUPPORTED",
+  "VO-STATAUDIT-14": "PARTIAL",
+  "VO-SEMAUDIT-01": "UNSUPPORTED",
+  "VO-SEMAUDIT-02": "CONTRADICTED",
+  "VO-SEMAUDIT-03": "PARTIAL",
+  "VO-SEMAUDIT-04": "CONTRADICTED",
+  "VO-SEMAUDIT-05": "CONTRADICTED",
+  "VO-SEMAUDIT-06": "UNSUPPORTED",
+  "VO-SEMAUDIT-07": "CONTRADICTED",
+  "VO-SEMAUDIT-08": "PARTIAL",
+  "VO-SEMAUDIT-09": "CONTRADICTED",
+  "VO-SEMAUDIT-10": "CONTRADICTED",
+  "VO-SEMAUDIT-11": "CONTRADICTED",
+  "VO-EXEC-01": "PARTIAL",
+  "VO-EXEC-02": "PARTIAL",
+  "VO-EXEC-03": "PARTIAL",
+  "VO-EXEC-04": "PARTIAL",
+  "VO-EXEC-05": "PARTIAL",
+  "VO-EXEC-06": "CONTRADICTED",
+  "VO-EXEC-07": "CONTRADICTED",
+  "VO-EXEC-08": "PARTIAL",
+  "VO-EXEC-09": "CONTRADICTED",
+  "VO-EXEC-10": "CONTRADICTED",
+  "VO-EXEC-11": "PROVEN",
+  "VO-EXEC-12": "CONTRADICTED",
+  "VO-EXEC-13": "UNSUPPORTED",
+  "VO-AGG-01": "PROVEN",
+  "VO-AGG-02": "PARTIAL",
+  "VO-AGG-03": "CONTRADICTED",
+  "VO-AGG-04": "CONTRADICTED",
+  "VO-AGG-05": "PARTIAL",
+  "VO-AGG-06": "PARTIAL",
+  "VO-AGG-07": "PARTIAL",
+  "VO-AGG-08": "CONTRADICTED",
+  "VO-AGG-09": "UNSUPPORTED",
+  "VO-AGG-10": "CONTRADICTED",
+  "VO-REPORT-01": "PARTIAL",
+  "VO-REPORT-02": "PARTIAL",
+  "VO-REPORT-03": "CONTRADICTED",
+  "VO-REPORT-04": "PARTIAL",
+  "VO-REPORT-05": "CONTRADICTED",
+  "VO-INTEG-01": "PARTIAL",
+  "VO-INTEG-02": "UNSUPPORTED",
+  "VO-INTEG-03": "PARTIAL",
+  "VO-INTEG-04": "PARTIAL",
+  "VO-INTEG-05": "PROVEN",
+  "VO-INTEG-06": "PARTIAL",
+  "VO-INTEG-07": "UNSUPPORTED",
+  "VO-INTEG-08": "PARTIAL",
+  "VO-INTEG-09": "PARTIAL",
+  "VO-EXIST-01": "PARTIAL",
+  "VO-EXIST-02": "PARTIAL",
+  "VO-EXIST-03": "PARTIAL",
+  "VO-EXIST-04": "CONTRADICTED",
+  "VO-EXIST-05": "CONTRADICTED",
+  "VO-EXIST-06": "PROVEN",
+  "VO-EXIST-07": "PROVEN",
+  "VO-EXIST-08": "CONTRADICTED",
+  "VO-EXIST-09": "CONTRADICTED",
+  "VO-APPROVE-01": "PARTIAL",
+  "VO-APPROVE-02": "PARTIAL",
+  "VO-APPROVE-03": "PARTIAL",
+  "VO-APPROVE-04": "PARTIAL",
+  "VO-APPROVE-05": "PARTIAL",
+  "VO-APPROVE-06": "PROVEN",
+  "VO-APPROVE-07": "CONTRADICTED",
+  "VO-APPROVE-08": "PARTIAL",
+  "VO-APPROVE-09": "PROVEN",
+  "VO-ADAPTER-01": "UNSUPPORTED",
+  "VO-ADAPTER-02": "PROVEN",
+  "VO-ADAPTER-03": "PARTIAL",
+  "VO-ADAPTER-04": "PARTIAL",
+  "VO-ADAPTER-05": "CONTRADICTED",
+  "VO-ADAPTER-06": "UNSUPPORTED",
+  "VO-ADAPTER-07": "PARTIAL",
+  "VO-ADAPTER-08": "PARTIAL",
+  "VO-ADAPTER-09": "PARTIAL",
+  "VO-ADAPTER-10": "CONTRADICTED",
+  "VO-ADAPTER-11": "PARTIAL",
+  "VO-ADAPTER-12": "PARTIAL",
+  "VO-PARALLEL-01": "PARTIAL",
+  "VO-PARALLEL-02": "PARTIAL",
+  "VO-PARALLEL-03": "PARTIAL",
+  "VO-PARALLEL-04": "PARTIAL",
+  "VO-PARALLEL-05": "CONTRADICTED",
+  "VO-PARALLEL-06": "PARTIAL",
+  "VO-PARALLEL-07": "UNSUPPORTED",
+  "VO-PARALLEL-08": "UNSUPPORTED",
+  "VO-PARALLEL-09": "UNSUPPORTED"
+ }
+}
