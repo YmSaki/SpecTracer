@@ -1,0 +1,136 @@
+{
+ "clusters": [
+  {
+   "name": "spec-coverage-is-req-vo-linkage",
+   "root_cause": "The spec_coverage check item is implemented as a REQ->VO linkage test instead of the SPEC-rooted, audit-driven item the canon defines. Its single evaluator returns PASS whenever every selected REQ has at least one linked VO, never opening a SPEC record, spec_refs, source hash or audit record, and the item is attached to REQ nodes rather than a SPEC evaluation point. The normative PASS path is not merely unconsulted but unconstructible: `spec-coverage` is absent from every bundleable-kind and valid-audit-kind allow-list, so the audit result that is supposed to drive the item cannot be generated, submitted or stored at all. Every member is the same PASS emitted from the same basis string with an empty audit directory.",
+   "locus": "crates/vtest-verify/src/lib.rs:546-585 (evaluate_item arm \"spec_coverage\"); tree attachment at crates/vtest-verify/src/lib.rs:416,444; kind allow-lists at crates/vtest-cli/src/lib.rs:922, crates/vtest-mcp/src/lib.rs:419,676, crates/vtest-store/src/records.rs:645-652",
+   "members": [
+    "VO-EXIST-04",
+    "VO-PLAN-02",
+    "VO-PLAN-03",
+    "VO-PLAN-05"
+   ],
+   "fix_shape": "Introduce the spec-coverage audit kind end-to-end (bundle -> submit -> record) and re-home spec_coverage to a SPEC evaluation point whose value derives from a valid, non-stale COMPLETE spec-coverage record bound to the current SPEC source plus the complete active-REQ set, with MISSING as the fail-closed degenerate value.",
+   "confidence": "high"
+  },
+  {
+   "name": "req-vo-structural-dimension-unimplemented",
+   "root_cause": "No component in the system resolves or validates the REQ/VO structural reference graph on the spec_refs axis. The writer (spec_refs_from_args / add_req) persists an empty spec_refs list and an empty `section` with no error; scan's validate_req_record and validate_vo_record check only id/fields/status and never resolve spec_refs, and E-SCAN-012 — the diagnostic the mapping in the detailed design depends on — has no emit site anywhere in crates/. Verify's `vo_decomposition` arm is a placeholder that reads only the global 'any error diagnostic' flag plus VO existence, which makes it simultaneously under-inclusive (dangling or empty spec_refs are invisible) and over-inclusive (an unrelated adapter source-parse error flips it to FAIL). One derivation is missing, and both symptom directions follow from its absence.",
+   "locus": "crates/vtest-scan/src/lib.rs:713-766 validate_req_record and :768-841 validate_vo_record (no spec_refs resolution; no E-SCAN-012 emitter anywhere in crates/); crates/vtest-verify/src/lib.rs:584-598 (evaluate_item arm \"vo_decomposition\"); crates/vtest-cli/src/lib.rs:3646-3670 spec_refs_from_args, :2792-2831 add_req, :2934+ edit_req",
+   "members": [
+    "VO-INTAKE-08",
+    "VO-INTAKE-09",
+    "VO-PARALLEL-05",
+    "VO-PLAN-01",
+    "VO-PLAN-11"
+   ],
+   "fix_shape": "Add the missing structural-resolution pass over canonical REQ/VO records (spec_refs.spec resolution, spec_refs/section emptiness, requirements, parent, Relation endpoints) emitting the specified E-SCAN codes, and replace vo_decomposition's blanket any-error gate with the subject-routed mapping so those codes — and only those — produce its MISSING/MISMATCH values.",
+   "confidence": "medium"
+  },
+  {
+   "name": "audit-subject-set-snapshot-only",
+   "root_cause": "Audit-record validity is defined as 'every RECORDED subject still hashes current' instead of 'the recorded subject set equals the currently required subject set, and each member is current'. Nothing ever re-derives the required set: validate_bundle_subjects re-hashes only what the bundle already contains, and verify's validity predicate is a pure re-hash of the stored list. Combined with bundle generators that derive an incomplete required set in the first place — `test.targets.first()` for target subjects, and an upstream SPEC closure that never walks VO/REQ parents (with the --vo arm emitting zero SPEC subjects) — an accepted record permanently binds a strict subset of the objects it is supposed to cover, so edits to the unbound objects can never stale it.",
+   "locus": "crates/vtest-cli/src/lib.rs:1215-1225 (test-semantic), :1420-1504 (impl-consistency --test), :1507-1558 (impl-consistency --vo), :1853-1933 validate_bundle_subjects, :1130 audit_record_yaml; crates/vtest-verify/src/lib.rs:1295-1298 and :1385-1388 (valid = subjects.iter().all(subject_is_current)), :1559-1596 subject_is_current",
+   "members": [
+    "VO-SEMAUDIT-02",
+    "VO-SEMAUDIT-04",
+    "VO-SEMAUDIT-10",
+    "VO-SEMAUDIT-11"
+   ],
+   "fix_shape": "Extract one required-subject-set derivation per audit kind (all declared targets, full upstream SPEC closure through VO/REQ parents) and call it from both bundle generation and record validity, so validity becomes set-equality against the freshly derived set plus per-subject hash currency.",
+   "confidence": "high"
+  },
+  {
+   "name": "target-resolution-ambiguity-collapsed",
+   "root_cause": "Target resolution has no arity discipline, and its failures reach no check item. find_target_source resolves with `.find()`, so an ambiguous target silently becomes one chosen candidate; the bundle generator calls it through `test.targets.first()` and fails only on the None arm, so an ambiguous target still yields a bundle with an auto-selected candidate. Scan emits the same E-SCAN-004 code and message for both 0 and >1 candidates, and neither E-SCAN-004 nor E-SCAN-011 is consumed anywhere in vtest-verify — impl_consistency is derived exclusively from audit records — so the absent and ambiguous cases collapse into the single value NOT_CHECKED, and into PASS once an audit is submitted against the auto-selected candidate.",
+   "locus": "crates/vtest-scan/src/lib.rs:67-80 find_target_source and :1306-1334 cross_entity_diagnostics; crates/vtest-cli/src/lib.rs:877-1005 run_audit_bundle (no scan-diagnostic gate), :1418-1431 and :1520-1560 build_bundle; crates/vtest-verify/src/lib.rs:649 -> :1355-1445 evaluate_test_audit",
+   "members": [
+    "VO-SEMAUDIT-07",
+    "VO-SEMAUDIT-09"
+   ],
+   "fix_shape": "Make target resolution arity-aware with distinct absent/ambiguous outcomes and codes, gate bundle generation on it so no candidate is auto-selected, and give impl_consistency a diagnostic input path so absent maps to MISSING and ambiguous to MISMATCH independently of audit-record presence.",
+   "confidence": "high"
+  },
+  {
+   "name": "vo-coverage-not-req-anchored",
+   "root_cause": "vo_coverage is implemented as a per-VO item rather than the REQ-anchored decomposition-completeness dimension it is specified to be. evaluate_vo_coverage never reads selection.req_ids: it early-returns NOT_CHECKED when the VO set is empty and otherwise folds one value per selected VO. Tree assembly matches — vo_coverage is attached only in build_vo_node, while build_req_node carries spec_coverage alone. An active REQ with zero corresponding VOs therefore contributes nothing at all, so the item folds to PASS from the surviving VOs or to NOT_CHECKED in a REQ-scoped run, and MISSING is unreachable.",
+   "locus": "crates/vtest-verify/src/lib.rs:1264-1348 evaluate_vo_coverage (selection.req_ids never read; early NOT_CHECKED at :1268-1274); build_req_node :401-444 vs build_vo_node :446-487",
+   "members": [
+    "VO-EXIST-05",
+    "VO-PLAN-07"
+   ],
+   "fix_shape": "Evaluate vo_coverage at the REQ evaluation point — iterate the active REQ set, take each REQ's corresponding VO set, yield MISSING on an empty set — and attach the item to REQ nodes in the detail tree.",
+   "confidence": "high"
+  },
+  {
+   "name": "structured-test-ops-not-adapter-routed",
+   "root_cause": "The adapter separation never reached the Structured Test operation path in core. create_test and edit_test take no registry or adapter parameter and statically import `vtest_adapter_rust::operations_support::*`, so a Form kind is never resolved to an owning adapter: AdapterRegistry::structured_test, built_in_form_kinds and accepts_compatibility_form have zero call sites, FormSchema.adapter is parsed and never read, and rust_cargo_registration never declares the StructuredTest capability, making E-ADAPTER-004 unreachable. The same gap leaves declaration rendering in core on the edit path — render_edited_test is defined in vtest-scan and hard-codes the rust-cargo `///` doc-comment form and placement.",
+   "locus": "crates/vtest-scan/src/operations.rs:12 (`use vtest_adapter_rust::operations_support::*`), :52 create_test, :162 edit_test, :235 and :510-590 render_edited_test, :592+ normalize_body; crates/vtest-adapter-api/src/lib.rs:438-441 StructuredTestAdapter (no rendering method), :596-604 structured_test; crates/vtest-store/src/forms.rs:119-193; crates/vtest-adapter-rust/src/lib.rs:88-103 rust_cargo_registration",
+   "members": [
+    "VO-REGISTRY-05",
+    "VO-STRUCTOP-09",
+    "VO-STRUCTOP-10"
+   ],
+   "fix_shape": "Pass the adapter registry into create_test/edit_test, resolve the Form kind to exactly one StructuredTest-capable adapter before any file mutation (rejecting 0 and 2+ matches), and move declaration rendering behind a trait method so core hands over logical fields and never emits adapter-owned syntax.",
+   "confidence": "medium"
+  },
+  {
+   "name": "evidence-validity-adapter-axis-hardwired",
+   "root_cause": "The adapter axis of the single Evidence freshness ladder is wired to rust-cargo instead of dispatched through the record's own adapter. evidence_record_validity opens with an unconditional `let Some(adapter) = record.adapter.as_ref() else { return CheckValue::Stale; }` — the compat channel for adapter-less records does not exist anywhere in vtest-verify (record.hashes.compatibility is never read) — and it closes by re-deriving the Execution State subject through rust_cargo_execution_state_hash for every Test regardless of adapter, recovering coverage state with the Rust-specific `runner.kind != \"cargo-llvm-cov\"` rule. Both ends produce STALE for records the contract says must be PASS or UNKNOWN.",
+   "locus": "crates/vtest-verify/src/lib.rs:1764-1819 evidence_record_validity — :1770-1773 (adapter absent -> Stale) and :1814-1815 (rust_cargo_execution_state_hash + coverage_off) -> crates/vtest-scan/src/lib.rs:513-527 -> crates/vtest-adapter-rust/src/runner.rs:502-521",
+   "members": [
+    "VO-ADAPTER-05",
+    "VO-ADAPTER-10",
+    "VO-EXEC-12"
+   ],
+   "fix_shape": "Resolve the record's adapter through the registry inside evidence_record_validity — routing adapter-less records through the compat confirmation (else UNKNOWN) and re-deriving the execution-state draft via that adapter's own schema — instead of a single rust-cargo path.",
+   "confidence": "medium"
+  },
+  {
+   "name": "target-execution-entry-set-never-read",
+   "root_cause": "evaluate_target_execution treats the Evidence record's stored aggregate scalar as authoritative: it returns record.target_execution.result and never reads record.target_execution.targets. Because the per-target entry list is never consulted, the item is neither validated against the current canonical Source Target set (no 1:1, cardinality, duplicate or locator-identity check) nor surfaced anywhere in the report — the Test node is built with empty children and the item contributes exactly one summary basis string per Test. One never-read field explains both the false PASS and the missing per-target detail.",
+   "locus": "crates/vtest-verify/src/lib.rs:1648-1684 evaluate_target_execution (record.target_execution.targets never read); evidence_basis :1753-1763; test_node :489-503 (children set to an empty Vec)",
+   "members": [
+    "VO-EXEC-09",
+    "VO-REPORT-03"
+   ],
+   "fix_shape": "Derive the target_execution value from the entry set validated 1:1 against the currently resolved canonical Source Targets, and emit one report child per target carrying its locator, result and count.",
+   "confidence": "high"
+  },
+  {
+   "name": "text-report-not-annex-a",
+   "root_cause": "The human-readable report channel was written as a debug printer rather than the Annex A detail report, and the node assembly feeding it matches. emit_text prints the tree XOR the scope-level items (making the items branch dead whenever any entity exists, and leaving no project-checks section); print_text_tree_node emits only `kind:id value` and `item value`, with a hardcoded branch mark for every top-level node and every item and a prefix built by appending to the parent's full prefix, so an ancestor's own mark opens every descendant line and the last-sibling glyph occurs nowhere in the codebase; ReportItem.basis is never referenced on the text path. On the producer side item_copies clones the same scope-level values into every node and no node kind's key list contains test_traceability.",
+   "locus": "crates/vtest-cli/src/lib.rs:3858-3935 emit_text (incl. :3884-3887 hardcoded top-level mark) and :3937-3965 print_text_tree_node; crates/vtest-verify/src/lib.rs:401-509 build_req_node/build_vo_node/test_node/item_copies (11 of 12 items; test_traceability in none)",
+   "members": [
+    "VO-REPORT-05",
+    "VO-AGG-04",
+    "VO-AGG-08"
+   ],
+   "fix_shape": "Rewrite the text renderer against Annex A — sibling-aware branch marks composed from ancestor state, per-node basis lines, and a project-level checks section for repository-scope items — and give tree nodes their own per-entity values covering all 12 items.",
+   "confidence": "medium"
+  },
+  {
+   "name": "basis-grounding-unstructured",
+   "root_cause": "ReportItem.basis is an unstructured Vec<String> that each evaluator fills with an ad-hoc format!, so the structured grounding the contract requires is destroyed at the producer before any renderer can choose to show it. evaluate_test_traceability reduces a Diagnostic to `diagnostic.message.clone()`, discarding its code, adapter and SourceLocation; evaluate_static_audit formats `Test {id}: {value:?}` and its runtime-rescue helper returns a bare bool, discarding the EvidenceRecord and the matched per-target observation. The data exists in the model in both cases and is dropped on the way into the report item.",
+   "locus": "crates/vtest-verify/src/lib.rs:51-55 ReportItem{item,value,basis:Vec<String>}; :659-677 evaluate_test_traceability (basis = diagnostic.message.clone()); :802-822 evaluate_static_audit basis assembly; :972-993 runtime_target_reached (returns bool)",
+   "members": [
+    "VO-EXIST-09",
+    "VO-AGG-10"
+   ],
+   "fix_shape": "Carry grounding as structured data through ReportItem — diagnostic code + SourceLocation + adapter, audit/Evidence IDs, per-target results — and let the renderers format it, instead of pre-flattening it into one sentence at each evaluator.",
+   "confidence": "medium"
+  }
+ ],
+ "singletons": [
+  "VO-EXIST-08",
+  "VO-INTAKE-04",
+  "VO-STATAUDIT-04",
+  "VO-APPROVE-07",
+  "VO-PLAN-04",
+  "VO-EXEC-06",
+  "VO-EXEC-07",
+  "VO-AGG-03",
+  "VO-SEMAUDIT-05"
+ ],
+ "notes": "Singleton rationale (each has its own mechanism and locus, sharing none with a cluster): VO-EXIST-08 — the incompleteness signal is structurally absent (Scanner::finish hard-codes DiscoveryCompleteness::Complete at crates/vtest-adapter-rust/src/discovery.rs:1176-1185, materialize_discovery_batch rejects any non-Complete batch, and ScanResult carries no completeness field), so an unparseable tree is a complete 0-test discovery. VO-INTAKE-04 — the `spec` audit subject deliberately binds the CURRENT Specification source instead of the registered sha256, so registration drift is invisible to audits while the approval closure fails closed on the same fact. VO-STATAUDIT-04 — DA-006's verdict is `if has_assert { Pass } else { Fail }` with no UNKNOWN branch (crates/vtest-adapter-rust/src/static_audit.rs:1800-1812), so an analysis-scope limit is reported as a confirmed violation. VO-APPROVE-07 — approve_vo's `read_vo(...)?` at crates/vtest-cli/src/lib.rs:3400 returns through store_failure (E-CORE-001, exit 3) before reaching the E-APPROVAL-001/exit 2 mapping that wraps resolve_upstream_closure; a pure error-mapping defect. VO-PLAN-04 — validate_reasons (crates/vtest-cli/src/lib.rs:1977-2045) implements only a token presence check for vo-coverage reasons, never reads `exclusions`, and E-AUDIT-007 has no occurrence in crates/. VO-EXEC-06 — evaluate_runtime (`_ => CheckValue::Stale`) and evaluate_target_execution (`!= Pass -> Stale`) collapse the one freshness verdict instead of propagating it, unlike evaluate_test_execution which already does. VO-EXEC-07 — the adapter's per-target fold at crates/vtest-adapter-rust/src/runner.rs:224-237 tests UNKNOWN before FAIL, inverting the fixed priority. VO-AGG-03 — evaluate_static_audit's unassociated-malformed override at crates/vtest-verify/src/lib.rs:828-854 assigns Unknown directly, bypassing combine_values. VO-SEMAUDIT-05 — evaluate_test_audit reduces valid verdicts with combine_values (severity max) and never consults audited_at, although compare_audit_recency already exists and is used on the static path. Straddles and near-merges worth knowing: (1) VO-PLAN-01's legs (b) 'refs-less active REQ must be MISMATCH' and (c) 'withdrawn REQ excluded from the corresponding-REQ set' both also die with the spec-coverage-is-req-vo-linkage fix; it is placed in the structural cluster because its decisive leg is that spec_refs emptiness is checked by no writer and no reader. (2) VO-INTAKE-04 lives in exactly the two functions of audit-subject-set-snapshot-only (bundle subject construction and subject_is_current) and would merge under a broader 'subject binding unfaithful to the audit contract'; kept apart because the defective predicate differs — hash basis (current source vs registered sha256) rather than set completeness — and because it is a documented design choice, not an omission. (3) VO-EXEC-07 nearly merges into target-execution-entry-set-never-read: making verify derive the aggregate from the entry set would mask the adapter's inverted fold. Kept separate because the confirmed claim binds the PERSISTED Evidence aggregate as well, which a verify-side rewrite leaves wrong. (4) VO-AGG-03 and VO-SEMAUDIT-05 share the shape 'ad-hoc local fold diverges from the specified aggregation rule' (and VO-EXEC-07 is a third instance), but the rules are different (parent representative-value order vs. audit-record selection vs. per-target aggregation) and the edits are disjoint; a shared aggregation module would be a refactor proposal, not one underlying defect. (5) A shared background condition sits behind req-vo-structural-dimension-unimplemented, target-resolution-ambiguity-collapsed and VO-EXIST-08: there is no diagnostic-to-check-item routing table at all — vtest-verify consumes only E-SCAN-002/003 and W-SCAN-101/E-SCAN-007, and ScopeSelection::scope_scan copies diagnostics verbatim without subject filtering. A mega-cluster on that basis was considered and rejected: the decisive leg differs in each case (missing emitter, first-match resolution, absent completeness field). (6) text-report-not-annex-a and basis-grounding-unstructured overlap on VO-EXIST-09/VO-AGG-08 symptoms but are kept apart because one is a renderer rewrite and the other a producer/type change; neither fix alone resolves the other's members. (7) The four spec_coverage members and the five structural members together account for nearly a quarter of the corpus and share one theme (the SPEC->REQ->VO intake axis is unimplemented end to end); they are kept as two clusters because the repairs land in different crates on different mechanisms."
+}

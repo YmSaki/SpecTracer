@@ -17,7 +17,7 @@ composability gate は実際に効いた: facet が揃っても構成不能（�
 
 - **VO-INTAKE-08**: `vo_decomposition` は spec_refs を一切検査しない（verify/lib.rs:584-598）。scan も REQ/VO の spec_refs 解決を検査せず（scan/lib.rs:714-840 に検査なし）、`SPEC-GHOST` を引く REQ/VO でも **PASS** になる — §11.1.1 の「解決不能→MISSING」に反する fail-closed 穴の疑い。bundle も unresolvable 参照を黙って drop（cli/lib.rs:1328,1480 の `if let Ok`）。
 - **VO-INTAKE-04**: audit の SPEC subject は registered sha256 でなく**現在の source hash**に束縛（cli/lib.rs:1327-1345 ほか）。register 後に source を編集 → bundle/submit すると、W-SCAN-104 が生きたまま audit が VALID になる経路が到達可能。approval 側（store/approval.rs:138-151）は registered sha256 を守っており、**resolver 非対称と同型の subsystem 間非対称**。
-- 集中領域: VO-PLAN 系 7、VO-SEMAUDIT 系 7、VO-EXEC 系 5 — 監査受理・検証規則まわりに候補が密集（真の未実装/穴か、agent の過剰判定かは検証パスで判別）。
+- 集中領域: VO-PLAN 系 8、VO-SEMAUDIT 系 7、VO-EXEC 系 5 — 監査受理・検証規則まわりに候補が密集（真の未実装/穴か、agent の過剰判定かは検証パスで判別）。
 
 ## proves_no_vo 30 test の分類
 

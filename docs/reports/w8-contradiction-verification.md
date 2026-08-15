@@ -20,7 +20,7 @@ wf_e7cc4f6e-00d（42 per-candidate agents, opus/effort-high, 懐疑 default・�
 ## 読み方の注意（fail-closed な自己申告）
 
 - **39/42 という確認率は高く、検証 agent 側の confirm 傾向の可能性を排除しきれない**。dossier には再現ログ・コード引用が揃っており個別の質は高いが、CONFIRMED 全39を確定欠陥として扱う前に、**サンプル抽出の再懐疑パス（または Owner による dossier 直接レビュー）**を推奨。NOT-REPRODUCIBLE が0件なのは、候補が元々コード引用ベースで生成されており到達性の弱い候補が少なかったためと考えられるが、これも上記パスで裏取りするのが安全。
-- 分布の偏り: PLAN 6/7・SEMAUDIT 7/7・EXIST 4/4 が CONFIRMED — **監査受理/検証規則まわり（submission validation・coverage 判定・spec_refs 解決）に系統的な未実装/穴が集中**している示唆。個別39件は少数の root cause に畳める可能性が高く、修正計画は root-cause clustering から始めるべき。
+- 分布の偏り: PLAN 7/8・SEMAUDIT 7/7・EXIST 4/4 が CONFIRMED（候補数は adequacy JSON の prefix 別集計で機械確認済み） — **監査受理/検証規則まわり（submission validation・coverage 判定・spec_refs 解決）に系統的な未実装/穴が集中**している示唆。個別39件は少数の root cause に畳める可能性が高く、修正計画は root-cause clustering から始めるべき。
 
 ## 位置づけ
 
