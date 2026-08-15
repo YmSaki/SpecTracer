@@ -1,0 +1,284 @@
+{
+ "run_id": "wf_a5c2b410-844",
+ "method": "top-down upstream re-derivation per candidate; Test treated as sensor only; normativity order 要件定義>基本仕様>詳細設計(本冊+別紙A+別紙C正規/別紙B非正規); purity gate self-check",
+ "details": [
+  {
+   "test_id": "TEST-STORE-011",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "基本仕様 §2.4 adapter設定とwire互換 (line 116): 「readerはversion 1を単一の `rust-cargo` adapter設定としてin-memory変換して読み取るが、読み取りだけで正典を書き換えない。」",
+    "詳細設計本冊 §2.2 config.yaml (lines 150-151): 「config writerはversion 2を正規形とする。readerはversion 1をin-memoryで単一 `rust-cargo` adapterへ変換し、読み取りだけでcanonical configを書き換えない。」",
+    "詳細設計本冊 §2.2 (line 188): 「`scan` と `run` はversion 1 schema互換のwire値とする。」",
+    "詳細設計 別紙C 受入仕様 §18.3.9 adapter contract (line 210): 「config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。」"
+   ],
+   "existing_vo_check": "Not covered. Near-misses, all different subjects: VO-ADAPTER-12 governs Rust wire-compat fields in Test JSON (filter/package/test_target), not config.yaml. VO-STRUCTOP-11 states read-only compatibility resolution for the Form file only. VO-AGG-01 mentions config compat fields solely to forbid shrinking the fixed 12 items (verify.full_scope invariant). VO-P001-02 forbids canon mutation by comparison operations over declaration/implementation/evidence records; config-version normalization is not its subject. VO-ADAPTER-11 covers unknown adapter IDs and failed adapter-specific config validation, not v1→namespace routing. Stretching any of these would import a subject their claims do not name.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-13",
+    "claim": "A version-1 config.yaml is read as exactly one adapter configuration with ID rust-cargo, whose scan and run settings take the file's flat version-1-compatible wire values; the conversion exists only in memory and reading never rewrites the canonical config file.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.4 adapter設定とwire互換"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§2.2 config.yaml"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9 adapter contract"
+     }
+    ]
+   },
+   "gate_check": "PASS. Not a REQ restatement: REQ-ADAPTER-BOUNDARY demands a core/adapter boundary; this states a specific reader outcome. Truth-condition is decidable: read a v1 file, observe one rust-cargo adapter entry carrying the flat scan/run values, and observe the file bytes unchanged. Not compound — the in-memory/no-rewrite clause is the mode of the same conversion, matching the spec's single sentence and the VO-STRUCTOP-11 precedent. No implementation identifiers (no ProjectConfig/from_yaml). No test-presupposing wording. Deliberately excludes the 詳細設計 line 189-190 non-Rust-namespace prohibition and the writer/init version-2 output obligation, which are separate claims.",
+   "rationale": "The suspicion's pointer holds, but not for the reason the test asserts. TEST-STORE-011 asserts explicit scan.include replaces defaults; no normative text imposes replace-over-merge (詳細設計 §2.2 only comments 省略時はワークスペース全体), so that assertion stays a regression pin. What the test incidentally exercises — a flat version-1 document surfacing under the rust-cargo namespace — is imposed at all three normative layers with prohibition strength (書き換えない). No frozen VO holds config schema/compat, so the obligation is genuinely uncovered and one reader-side VO is warranted.",
+   "mechanism": "Design mechanism: the config reader's version-dispatch/normalization step in 詳細設計 §2.2 — version 2 is the writer's canonical form with per-adapter root/scan/run namespaces, and version 1 is lifted in memory into a single rust-cargo adapter entry whose scan and run keep v1 schema-compatible wire values, with no write-back to the canonical file. 別紙C §18.3.9 discharges it as an acceptance criterion (reader accepts v1 and v2; reading never rewrites config).",
+   "req_anchor": "REQ-ADAPTER-BOUNDARY already exists and anchors VO-ADAPTER-01 through VO-ADAPTER-12; its family already cites SPEC-BASIC §2.4 and SPEC-REQDEF §27 (core verifierを変更せずに別adapterを登録できる境界). The v1-compat namespace routing is precisely a boundary obligation: legacy flat settings must land inside an adapter namespace rather than remaining core-owned Rust settings. No new REQ is required for this amendment."
+  },
+  {
+   "test_id": "TEST-SCAN-016",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "詳細設計 (SPEC-DOGFOOD-M3) §3.4 Relation レコード, line 294: 「canonical Relation IDは`REL-`と26文字のULID payloadからなり…prefixed / bareの混在、ファイル名と`id`のpayload不一致、または同じpayloadの複数recordは**E-SCAN-010とし、いずれかを選ばない**。」 (operative: E-SCAN-010とし、いずれかを選ばない = diagnose and adopt neither)",
+    "詳細設計 (SPEC-DOGFOOD-M3) §5.4 整合性診断, line 847: 「E-SCAN-010 | error | レコードのid / ファイル名 / schema不一致、または**互換正規化後のlogical record ID重複**」",
+    "別紙C 受入仕様 (SPEC-ACCEPT) §18.3.1, line 82: 「readerは…in-memoryで`REL-<ULID>`へ正規化するが、ファイルを書き換えない。**同じpayloadのbare / prefixed重複、混在形、ファイル名とIDの不一致はE-SCAN-010になる**。」",
+    "基本仕様 (SPEC-BASIC) §5.2, line 154 (upstream anchor for the compat reader): 「readerはversion 1互換入力としてbare ULIDのRelationを読み取り、同じULID payloadを持つ`REL-<ULID>`へin-memoryで正規化するが、読み取りだけでファイルを書き換えない。」"
+   ],
+   "req_anchor": "REQ-PARALLEL-DEV (SPEC-REQDEF §29 並列AI開発への要求 — ID衝突とdangling referenceを検出できること; the record-store form is fixed in SPEC-BASIC §5.2) with REQ-P-002 (Fail Closed, SPEC-REQDEF §P-002) supplying the non-adoption half. Both already exist in the frozen REQ layer; no new REQ is required. This is the same anchoring pair used by the sibling identity-collision VOs VO-PARALLEL-03 (Test ID / E-SCAN-002) and VO-PARALLEL-04 (permanent SRC ID / E-SCAN-011).",
+   "mechanism": "Discovery/record load in vtest-scan normalizes each `.verify/rel/` record's ID to the canonical `REL-<ULID>` logical ID in memory (never rewriting the file), then checks logical-ID uniqueness across the loaded record set together with file-name/`id` payload agreement. A non-unique or disagreeing payload emits E-SCAN-010 per involved record with a location, and the affected records are excluded from the Relation set rather than one spelling being elected — the same fail-closed non-selection shape used for E-SCAN-002 (Test ID) and E-SCAN-011 (permanent SRC ID).",
+   "existing_vo_check": "Not covered by any of the 154 frozen VOs. Nearest four, all distinct: VO-PARALLEL-02 asserts Relation/approval/audit/evidence records are ULID-named, append-only and immutable — file lifecycle, not ID spelling or collision. VO-PARALLEL-01 covers one-file-per-ID for SPEC/REQ/VO only. VO-STATAUDIT-05 uses E-SCAN-010 for a different subject (per-target audit-record malformedness). VO-STRUCTOP-11 asserts read-only compat resolution for Forms, not Relation records. VO-PARALLEL-03/04 are the exact structural analogues for Test ID and SRC ID, which makes the Relation logical-ID case a real hole rather than an implied instance of them.",
+   "proposed_vo": {
+    "id_suggestion": "VO-PARALLEL-10",
+    "claim": "A Relation record's identity is its compat-normalized `REL-<ULID>` logical ID: if two records normalize to the same payload (bare plus prefixed, or a repeated spelling) or a file name and its `id` carry different payloads, every record involved is reported E-SCAN-010 with a location and none of them is adopted as the canonical Relation (基本仕様 §5.2; 詳細設計 §3.4, §5.4; 別紙C §18.3.1).",
+    "requirements": [
+     "REQ-PARALLEL-DEV",
+     "REQ-P-002"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§5.2"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§3.4 Relation レコード"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.4 整合性診断 (E-SCAN-010)"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.1 discovery・record・graph"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§29"
+     }
+    ]
+   },
+   "gate_check": "PASS. (A) Not a REQ restatement — §29 asks only that ID collisions be detectable; the claim fixes the subject (compat-normalized Relation logical ID), the code, and non-adoption. (B) Truth-condition, not mechanism: observable as per-record diagnostics plus absence of any adopted Relation. (C) Decidable — construct a colliding pair, read the outcome. (D) Single condition: one identity-uniqueness predicate, with the enumerated spellings as instances (same shape as frozen VO-PARALLEL-03/04, VO-STATAUDIT-05). (E) No implementation promotion — E-SCAN-010 is the spec's own code. (F) No test-presupposing wording; no reference to a test, fixture, or count. Residual risk: the \"no canonical winner\" clause could be read as a second condition; kept because the normative sentence binds both in one obligation.",
+   "rationale": "The suspicion's pointer holds up under re-derivation. 詳細設計 §3.4 states the obligation in operative form — 「E-SCAN-010とし、いずれかを選ばない」 — and it is reinforced, not merely restated, by the §5.4 diagnostic table (「互換正規化後のlogical record ID重複」) and by normative 別紙C §18.3.1. 基本仕様 §5.2 supplies the upstream compat-reader contract, so this is not a 詳細設計-only invention; 別紙B carries only a non-normative echo. No frozen VO claims it: the Test-ID and SRC-ID collision analogues exist (VO-PARALLEL-03/04) while the Relation logical-ID case does not, and stretching VO-PARALLEL-02 (immutability) or VO-STATAUDIT-05 (audit-record malformedness) onto it would misstate both. Genuine freeze-v3 amendment candidate under an existing REQ."
+  },
+  {
+   "test_id": "TEST-STORE-021",
+   "spec_requires": "NO",
+   "normative_citations": [
+    "詳細設計本冊 §16.1 ロック不要の根拠 (docs/…詳細設計 v0.1.md:1452-1461): 「書き込み操作は次のいずれかに分類され、ファイルロックを必要としない。…エンティティファイル編集（spec / req / vo）：1 エンティティ 1 ファイル。…同一エンティティの並列編集は Git のマージ衝突として顕在化する。」「同時実行された vtest プロセス同士の調停は行わない。すべての判定は『その時点の正典の読み取り』に基づき」 — lock-freedom is grounded in file disjointness plus Git merge, never in atomic replacement or exclusion of torn reads.",
+    "基本仕様 §5.2 並列編集耐性の設計原則 (:262-270): 「1レコード＝1ファイル」「…新規ファイル追加のみで作成する。既存ファイルの編集を伴わない。」「衝突した場合の解決は Git のマージに委ね」 — no write-atomicity or temp-file clause anywhere in the section.",
+    "要件定義 §29 並列AI開発への要求 (:917): 「具体的な保存形式や競合回避方式は基本設計で決定する。」 — delegates downward and imposes no atomicity obligation itself.",
+    "DISQUALIFYING (non-normative): 実装スケジュール v0.1 §6 M2 (:131) 「vtest-store に原子的な書き込みと1エンティティ1ファイル規約を実装する」 is the ONLY 原子的/atomic occurrence in docs/. That document's §0 states 「本書は…プロジェクト台帳である。製品仕様や受入基準を追加・変更しない。」and 別紙Bは非正規. 別紙A・別紙C・本冊・基本仕様・要件定義: zero occurrences.",
+    "詳細設計 §2.1 .verify/ レイアウト (:99-118) fixes file naming (VO-<NAME>.yaml) but states no prohibition on residual files; 「no temp residue」 appears in no normative document."
+   ],
+   "existing_vo_check": "No frozen VO claims atomic entity-file replacement. VO-PARALLEL-09 claims lock-free pure reads; atomicity is its unstated enabling assumption, not its truth-condition — stretching it to cover write atomicity would smuggle in an obligation the spec never states. VO-PARALLEL-01/02 cover one-file-per-entity and ULID append-only creation (structure, not write mechanics). VO-P001-02 covers 追記型 non-mutation by verification ops. The test's declared covers, VO-STORE-009, belongs to the pre-freeze bottom-up ontology; its ref \"SPEC-DOGFOOD-M3 §7\" resolves to 詳細設計 §7 Static Audit orchestration — unrelated to store writes, confirming a code-derived VO with a fabricated citation.",
+   "proposed_vo": null,
+   "gate_check": "Not reached. The candidate fails upstream at step 1 (no normative source of obligation), so no draft was carried into gate A-I. A trial draft was sketched and abandoned: it would have failed the gate anyway as implementation-promoted (write_atomic's temp+rename mechanism raised to a claim) and test-presupposing (the \"no temp residue\" half derives solely from the test's fs::read_dir(&root).count() == 1 assertion, which has no counterpart in any normative document). Reporting no proposed VO rather than manufacturing one.",
+   "req_anchor": "REQ-PARALLEL-DEV (anchored to 要件定義 §29, NFR-001) would be the natural anchor if the obligation existed, and no new REQ would be needed. But §29 explicitly delegates 保存形式・競合回避方式 to 基本設計, and 基本仕様 §5.2 discharges that delegation with one-file-per-entity, append-only ULID records, and Git-merge conflict resolution — not with atomicity. The anchor exists; the obligation to hang on it does not.",
+   "mechanism": "Implemented by crates/vtest-store write_atomic (entity-file replacement) and write_new_record (append-only creation). This mechanism traces only to 実装スケジュール §6 M2's implementation-order item — a project ledger that disclaims spec authority — and to 別紙B-level planning. It is a sound implementation choice, but it discharges no normative obligation, so it warrants no VO.",
+   "rationale": "The sensor fired correctly: TEST-STORE-021 has no frozen VO to prove. Re-derivation upstream finds no obligation to attach it to. Every mention of atomicity in docs/ lives in the non-normative 実装スケジュール, whose own §0 forbids adding product spec or acceptance criteria. The normative parallel-tolerance chain (要件定義 §29 → 基本仕様 §5.2 → 詳細設計 §16.1) discharges concurrency entirely through file disjointness, append-only ULID records, and Git merge, and never mentions torn reads, temp files, or atomic replacement. \"No temp residue\" is purely test-derived. Not AMBIGUOUS: §16.1's 「その時点の正典の読み取り」 presupposes atomicity at most by inference, and its operative sentence asserts 調停は行わない, not a write obligation. Correct answer is NO — the test is an unanchored implementation-detail test, not evidence of an ontology gap."
+  },
+  {
+   "test_id": "TEST-SCAN-013",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "詳細設計本冊 §4.2 (line 523): 「他のキーの重複はエラー E-SCAN-005。」— 'repetition of any other key is error E-SCAN-005'.",
+    "詳細設計本冊 §4.2 (line 524): 「`@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。」— operative words: 「エラー」「警告ではなくエラーとする」.",
+    "詳細設計本冊 §5.4 整合性診断 table (lines 842-843): 「E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複」/「E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在」, followed by 「error は該当エンティティに関わるチェック項目を非PASSにする。」",
+    "基本仕様 §16 詳細設計へ委譲する事項 (line 734): 「adapterごとのTest metadata宣言構文とパースエラーの扱い」— the basic spec normatively delegates this obligation's home to 詳細設計本冊 (normative), so it is not annex-B-only or test-inferred.",
+    "詳細設計本冊 §4.4 (line 549): 「`rust-cargo` annotationの構文違反は§5.4のE-SCAN-005、E-SCAN-006、E-SCAN-007で報告する。」"
+   ],
+   "existing_vo_check": "Not covered. VO-REGISTRY-11 names E-SCAN-005 only in its target-alias branch (distinct spellings resolving to one canonical target, §6.1.1) — not repetition of a non-repeatable key, and never E-SCAN-006. VO-REGISTRY-12 covers absent required metadata (E-SCAN-007), the opposite failure. VO-REGISTRY-02's typed gap list (MISSING/MISMATCH/UNKNOWN) omits unknown/duplicate fields. VO-STRUCTOP-01 and VO-STRUCTOP-02 govern structured-operation accept time (E-OP-001, Form validators), a different entry path. VO-STRUCTOP-13 lists scan-detected duplicate Test ID (E-SCAN-002, two Tests sharing an ID), dangling covers, missing metadata — not two `id` lines in one declaration. Stretching any of these would change its subject.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-15",
+    "claim": "A declaration key the adapter's field contract does not admit — unrecognized inside the `@vtest.` namespace (E-SCAN-006) or a repeat of a non-repeatable key (E-SCAN-005) — is diagnosed at error severity rather than downgraded to a warning or ignored as free text, leaving the affected entity's check items non-PASS.",
+    "requirements": [
+     "REQ-TEST-REGISTRY",
+     "REQ-P-002"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§4.2 `rust-cargo` annotation文法"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§4.4 宣言エラーの扱い"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.4 整合性診断"
+     },
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§16 詳細設計へ委譲する事項"
+     }
+    ]
+   },
+   "gate_check": "PASS with one reservation, reported honestly. Not a REQ restatement: REQ-TEST-REGISTRY says nothing about key vocabulary or repetition. Not a mechanism description: the truth-condition is the severity/outcome (error, non-PASS), not the parser's steps. Decidable: feed a declaration with an unadmitted key, read severity and the resulting check value. No test-presupposing wording, no implementation present-tense promotion (it does not say \"the scanner emits\"). Compound risk: two diagnostic codes appear. I judge this one predicate — \"a key the field contract does not admit\" — with two instances, matching §5.4's own grouping, not a conjunction of two obligations. A stricter reading would split it into two VOs.",
+   "mechanism": "詳細設計 §4.2 fixes the `rust-cargo` key vocabulary and the repeatable set (`case`/`related`, plus `target` for integration kinds per 別紙A §14.3); §4.4 routes annotation syntax violations to the §5.4 diagnostic codes; §5.4 assigns both codes severity `error`, and error severity drives the affected entity's check items non-PASS. Detection sits adapter-side, so it does not breach VO-REGISTRY-05 (core never interprets declaration syntax); core classifies the returned diagnostic. The distinct-spelling branch of E-SCAN-005 is separately owned by core at resolution time (§6.1.1) and is already claimed by VO-REGISTRY-11.",
+   "req_anchor": "Existing REQ suffices; no new REQ needed. REQ-TEST-REGISTRY (.verify/req/REQ-TEST-REGISTRY.yaml → SPEC-REQDEF §7,§8,§9,§10,§32-3) anchors it: 要件定義 §7.1 defines 構造上完全 as materializing a 構文上有効な Test ID and required metadata from the source declaration, which a duplicated non-repeatable key defeats. REQ-P-002 (Fail Closed) anchors the error-not-warning choice. The unknown-key obligation has no sentence of its own in 要件定義; it enters legitimately through 基本仕様 §16's explicit delegation of 宣言構文とパースエラーの扱い to 詳細設計本冊.",
+   "rationale": "The citation pointed at §5.4, but the operative grammar rule lives in §4.2; both are 詳細設計本冊, which is normative, and 基本仕様 §16 expressly delegates this topic there — so the obligation is spec-imposed, not merely implied by the test. Its normative content is substantive: unknown `@vtest.*` keys are errors \"警告ではなく\" because a typo must not silently become a no-op. 別紙C carries acceptance criteria only for the target-alias branch of E-SCAN-005, so annex coverage does not absorb it. No frozen VO claims the field-contract predicate; the gap is real and the amendment is warranted rather than manufactured."
+  },
+  {
+   "test_id": "TEST-STORE-020",
+   "spec_requires": "NO",
+   "normative_citations": [
+    "詳細設計 本冊 §16.1 ロック不要の根拠 (line ~1454): 「書き込み操作は次のいずれかに分類され、ファイルロックを必要としない。… **新規レコード追加**（rel / approvals / audits / evidence）：ULID ファイル名の新規作成のみ。**並列生成は衝突しない**。」 — the asserted non-collision is filename/ID collision, not content completeness.",
+    "詳細設計 本冊 §16.1: 「すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回の scan / verify が差分を反映する。」 — constrains the judgment basis (reader), imposes nothing on writer visibility semantics.",
+    "基本仕様 §5.2 並列編集耐性の設計原則: 「Relation・承認・監査・Evidence の各レコードは ULID をファイル名とする新規ファイル追加のみで作成する。既存ファイルの編集を伴わない。」 — the whole physical-storage delegation (基本仕様 §15 item 15「並列編集時の物理的保存方式」→ 本書 §5.2) stops at one-record-one-file/ULID/immutability; no atomicity, durability, or temp-residue clause.",
+    "要件定義 §29 並列AI開発への要求: 「具体的な保存形式や競合回避方式は基本設計で決定する。」 + NFR-001「複数AI Agentによる並列変更に耐えられること。」 — delegates, and 基本仕様 discharges it without an atomic-publication obligation.",
+    "非正規: 実装スケジュール v0.1 §… line 131「`vtest-store` に原子的な書き込みと1エンティティ1ファイル規約を実装する。」 — the ONLY 「原子的な書き込み」 in the corpus; that document's §0 states 「本書は…プロジェクト台帳である。製品仕様や受入基準を追加・変更しない。」 別紙B and 別紙A/C contain no atomicity text at all."
+   ],
+   "existing_vo_check": "Nearest frozen VOs, read strictly: VO-PARALLEL-01 (one entity = one ID-named file, disjoint parallel touches), VO-PARALLEL-02 (records created only as new ULID-named files, no existing-record edits, Relations immutable), VO-PARALLEL-09 (no locks/arbitration; judgment = pure read at that instant). None asserts that a new record file becomes visible only with complete content, nor that no temp artifact remains. VO-EXEC-03 and 別紙C §129 forbid *partial Evidence records* semantically (missing target resolution), not partial bytes. VO-STRUCTOP-06 reverts source-file edits on boundary violation — different subject. So the obligation is genuinely uncovered — but uncovered is not the same as spec-imposed.",
+   "proposed_vo": null,
+   "gate_check": "No draft submitted, so no A-I gate run. I did draft-and-reject internally: any candidate (\"a new record file is observable only with its complete content and leaves no temp artifact\") fails at the source, not at the gate — it has no normative sentence to cite, so its spec_refs would have to point at 実装スケジュール (non-normative) or at 詳細設計 §16.1 text that says something else. Adding it would let the test's existence manufacture an obligation, i.e. the exact test-as-authority inversion the Owner's rule forbids. Rejected before gate.",
+   "rationale": "The suspicion's pointer (VO-PARALLEL-09 presupposes atomic publication) does not survive reading §16.1. That section is titled 「ロック不要の根拠」 and its non-collision claim is scoped to ULID filenames; the pure-read sentence governs the reader's basis. The spec does address the torn/malformed-file case — reader-side and fail-closed: E-SCAN-001 (parse failure → DiscoveryBatch Incomplete), E-SCAN-010 (id/filename/schema mismatch → record excluded from valid results, never PASS). A partially visible record is therefore already dispositioned by normative text without any writer-atomicity obligation. Atomic publication is a sound implementation choice, not a spec contract.",
+   "mechanism": "Implementation-level only: crates/vtest-store/src/records.rs::write_new_record writes to a ULID-suffixed .tmp, publishes via fs::hard_link (fails on collision, preserving prior content), then unlinks the temp — best-effort, so a crash can leave residue. write_atomic is the entity-file counterpart. No normative document names, requires, or constrains this mechanism; 基本仕様 §15 item 15 delegates 「並列編集時の物理的保存方式」 to §5.2, which specifies only file-per-record/ULID/immutability. The mechanism therefore discharges no stated obligation — it is defense the spec never asked for.",
+   "req_anchor": "No anchoring REQ exists. REQ-PARALLEL-DEV (要件定義 §29) enumerates seven concrete demands — no shared ledger, blast-radius containment, ID-collision detection, dangling-reference detection, semantic-conflict detection, rebuildable indexes, no memory-dependent sync — none of which is write atomicity, and it explicitly delegates 競合回避方式 to 基本設計, which then does not impose it. REQ-NFR-001 (並列変更に耐えられること) is discharged by 基本仕様 §13's mapping to §5.2. Creating a new REQ to host this would be inventing an upstream obligation to justify a downstream test; not warranted."
+  },
+  {
+   "test_id": "TEST-ARUST-002",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "基本仕様 v0.1 §2.4 (line 126): 「`execution`と互換fieldが併存する場合は同じ実行座標を表さなければならない。欠落・矛盾時は入力を拒否し、推測で実行可能として扱わない。」— must-strength (しなければならない) plus explicit 拒否 obligation.",
+    "基本仕様 v0.1 §2.4 (line 126): 「Test入力に `execution` がない場合は、`rust-cargo` codecだけが完全で相互整合するRust互換fieldからdescriptorを導出できる。」",
+    "詳細設計 本冊 v0.1 §5.2 (lines 656-658): 「JSON readerは`execution`を優先し、互換field併存時はdescriptorとの一致を検証する。…不完全・矛盾時は入力を拒否し、空selectorまたはdummy値を生成しない。」",
+    "詳細設計 別紙A v0.1 §12.1 (lines 29-30): 「Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が与えられた場合だけである。`execution`と互換fieldが併存する場合は一致を必須とする。」",
+    "詳細設計 別紙C v0.1 §18.3.9 (lines 215-216): 「`execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。」「`execution`とRust互換fieldが矛盾する入力を拒否する。」"
+   ],
+   "req_anchor": "REQ-ADAPTER-BOUNDARY already exists and anchors all twelve VO-ADAPTER items; its upstream text is 要件定義 §27 (「検証契約・ID・ハッシュ・Evidence・集約の概念モデルは言語およびtest runnerに依存しない」/「解析不能の場合、検証結果を推測でPASSへ昇格してはならない」). No new REQ is required. The decode obligation is the input-side leg of the same neutral-core-plus-owned-compat boundary that REQ-ADAPTER-BOUNDARY governs.",
+   "mechanism": "The TestWireCodec capability defined in 詳細設計 本冊 §5.2: core holds only the neutral ExecutionDescriptor, and the rust-cargo codec exclusively owns the version-1 compat triple. On read, the codec discharges the obligation by preferring `execution`, cross-checking any coexisting compat set for equality of the derived coordinates, deriving a descriptor from the compat set only when it is complete and mutually consistent, and rejecting all other shapes fail-closed instead of synthesizing an empty selector or Rust default. Non-rust-cargo codecs never interpret the fields at all.",
+   "existing_vo_check": "Dumped and read all 154 claims, not a keyword subset. No VO covers wire-input decode. VO-ADAPTER-12 is explicitly output-only (\"are output only by the rust-cargo codec... no empty, dummy, or Rust-default values are ever generated\") and says nothing about accepting/rejecting input. VO-ADAPTER-02 constrains the model shape (fields absent from TestEntity), not decode. VO-EXEC-12/13 and VO-ADAPTER-10 govern Evidence-record compat (adapter ID, hashes.target_fn, singular target_execution) — a different record and field family. VO-REGISTRY-04/08 and VO-STRUCTOP-11 govern the scan/Form path, not Test JSON. Genuinely absent.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-13",
+    "claim": "A Test wire input yields an ExecutionDescriptor only when it carries `execution`, or carries a complete and mutually consistent Rust compatibility set (filter, package, test_target) that denotes the same execution coordinates as any coexisting `execution`; every other input is rejected rather than treated as executable, and no empty selector or default coordinate is synthesized.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.4"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.2"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§12.1"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§27"
+     }
+    ]
+   },
+   "gate_check": "PASS. Not a REQ restatement — §27 states language neutrality; this states a decidable acceptance condition on one wire input. Not a mechanism description — it names a truth-condition evaluable by presenting inputs and observing accept/reject, with no reference to a call, type, or error variant. Not test-presupposing — no assertion, fixture, or \"the test shows\" wording; the codec's internal API names are deliberately absent. Not implementation-promoted — phrased as an obligation on any conforming reader, not as a present-tense description of current code. Single condition — one fail-closed only-when rule with its complement, mirroring the spec's own sentence, not two conjoined rejections. Decidable, no vague qualifiers.",
+   "rationale": "The suspicion's pointer (基本仕様 122) lands on the output paragraph, which VO-ADAPTER-12 already discharges; the operative normative text is the next paragraph, line 126, and it is unambiguously must-strength. Four normative layers repeat it (基本仕様 §2.4, 本冊 §5.2, 別紙A §12.1, 別紙C §18.3.9); none of it is 別紙B-only or inference. So the obligation is real, is the input-side complement of VO-ADAPTER-12, and no frozen VO expresses it. Corroborating, the test's `@vtest.covers VO-ARUST-001` names an ID absent from the frozen 154 — the pointer predates the freeze. Recommend adding VO-ADAPTER-13 in freeze-v3; repo untouched."
+  },
+  {
+   "test_id": "TEST-VERIFY-001",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "詳細設計 本冊 §11.2 Evidence 鮮度判定 (L1384): 「対象 Test の Evidence のうち**最新のもの**について：」 — the freshness algorithm operates on the latest Evidence.",
+    "詳細設計 本冊 §7.3 (L1010): 「**§11.2 が選択した最新 Evidence** の `evidence_validity` が PASS のとき…」 and (L1017) 「runtime 側は §11.2 が選択した**最新 Evidence だけ**を用いる…古い有効 Evidence へフォールバックしない」 — the selection is load-bearing for runtime proof.",
+    "詳細設計 本冊 §1.2 依存クレート表 (L70): 「| 日時 | `time` | **RFC 3339** |」 — record timestamps are RFC 3339, which admits non-Z offsets. No spec text anywhere restricts timestamps to UTC/Z (searched 時刻/タイムゾーン/オフセット/UTC across all docs: zero hits).",
+    "基本仕様 v0.1 §附録表 17 (L726): 「監査レコードは複数保持でき、**最新の有効レコードを判定に用いる**」 — same 最新-selection duty in the parent layer."
+   ],
+   "req_anchor": "REQ-TEST-EXECUTION (要件定義 §15 Execution Evidence の鮮度: 「過去のPASSが現在のPASSへ無条件に引き継がれてはならない」). Existing anchor; no new REQ needed. §15 supplies the freshness duty, §11.2 supplies the selection duty this VO fixes.",
+   "mechanism": "§11.2 requires the freshness algorithm to run against one designated record per Test. The only execution-time field in the §3.7 Evidence schema is `executed_at` (RFC 3339); ULID record IDs are declared (基本仕様 §5.2, L154) for parallel filename collision avoidance, not ordering. So the designation is discharged by comparing `executed_at` as normalized instants before the five freshness conditions are applied — a single Evidence per Test enters §11.2, with no fallback (§7.3 L1017).",
+   "existing_vo_check": "Not covered. VO-STATAUDIT-10 and VO-EXEC-05/06 all say \"the latest Evidence selected by §11.2\" / \"the Evidence\" — they presuppose the selection and constrain only what happens after it. VO-SEMAUDIT-05 (\"any FAIL yields FAIL, else the latest verdict\") is audit records, not Evidence, and likewise leaves ordering undefined. VO-EXEC-04/11/13 constrain record contents. No VO in the frozen 154 states which of several Evidence records is the latest. Separately: the test declares `covers VO-VERIFY-001`, an ID absent from the frozen 154 — part of why this fired.",
+   "proposed_vo": {
+    "id_suggestion": "VO-EXEC-14",
+    "claim": "When a Test has more than one Evidence record, the record whose §11.2 freshness is judged is the one whose executed_at denotes the greatest chronological instant under RFC 3339 offset normalization, never the lexically greatest timestamp string.",
+    "requirements": [
+     "REQ-TEST-EXECUTION"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§11.2"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§7.3"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.2"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§15"
+     }
+    ]
+   },
+   "gate_check": "PASS. Not a REQ restatement: 要件定義 §15 is hash-binding freshness, this is selection ordering. Not a mechanism description: it states a truth-condition decidable from two records plus their timestamps. Decidable: offset-normalized instant comparison is total on RFC 3339 values. Single condition (the trailing \"never lexical\" is the contrapositive of the same condition, matching existing VO style, not a second obligation). No implementation promotion: `compare_evidence_recency` is not named. Not test-presupposing: worded independently of the test's @vtest.intent. Deliberately excluded as implementation policy, not spec-imposed: tie-breaking and unparseable-timestamp handling.",
+   "rationale": "最新 is a temporal superlative; its literal content is chronological recency. Since §1.2 fixes RFC 3339 and no spec text restricts timestamps to Z, lexical string order provably diverges from 最新 (09:00+09:00 sorts above 00:30Z yet is 30 min earlier), so \"never lexical\" is the contrapositive of the quoted obligation, not a new inference. Two derivation steps disclosed rather than upgraded: (a) the key is executed_at — argued from §3.7 being the only execution-time field and ULID's stated collision-avoidance purpose, not stated outright; (b) the RFC 3339 designation sits in the 依存クレート table, the weakest normative link in the chain. Neither candidate key licenses lexical ordering, so the core obligation is not two-readable."
+  },
+  {
+   "test_id": "TEST-SCAN-010",
+   "spec_requires": "YES",
+   "normative_citations": [
+    "詳細設計本冊 §5.5 `rust-cargo` SourceDiscoveryAdapter, 手順1 (L866-868): 「adapter configのinclude配下の*.rsをignoreクレートで列挙（**.gitignore準拠、target/は除外**）」 — lead-in L864: 「`rust-cargo` adapterは次の処理で§5.1の`DiscoveryBatch`を構築する。`vtest-scan`はこれらのRust固有処理を実行しない。」",
+    "詳細設計本冊 §1.2 主要依存クレート (L67): 「Rust source走査 | `ignore` | `vtest-adapter-rust`が所有する`.gitignore`準拠の走査」 — descriptive reinforcement only.",
+    "詳細設計別紙C §18.3.9 (L206): 「`vtest-scan`は…`*.rs`列挙…を所有しない」 — ownership of the walk (already covered by VO-REGISTRY-05 / VO-ADAPTER-09), not scope semantics.",
+    "NOT FOUND anywhere: any sentence stating that an ignored file produces no E-SCAN-001. §5.5 手順2 only says 「解析エラーのファイルはE-SCAN-001を返し」 (L872)."
+   ],
+   "req_anchor": "No REQ imposes discovery-scope semantics. 要件定義 §7.1 defines the discovered set D as 「登録adapterがTestとして発見した実行可能なtest construct」 — scope-agnostic by construction; §23 and NFRs are silent on file walking. Nearest anchor is REQ-ADAPTER-BOUNDARY (the walk is adapter-owned, 別紙C §18.3.9), which carries ownership but not scope. Strictly, scope semantics (\"VCS-ignored files are out of the verified population\") has no requirement-layer parent; adopting the VO under REQ-ADAPTER-BOUNDARY is the minimal option, a new REQ the honest one.",
+   "mechanism": "§5.5 step 1: the rust-cargo SourceDiscoveryAdapter enumerates `*.rs` beneath the adapter config `include` roots (詳細設計 §1.2 config sample L127/L161: `include: [\"src\",\"tests\",\"crates\"]`) through a `.gitignore`-compliant walk, with `target/` excluded, and hands the result to §5.1 `DiscoveryBatch` construction. Core (`vtest-scan`) never enumerates files, so the discovered population D that feeds test_traceability, Source Target indexing and diagnostics is exactly this walk's output.",
+   "existing_vo_check": "Absent from the frozen 154. VO-REGISTRY-01/02 and VO-AGG-07 quantify over \"every discovered test\" but never fix what discovery covers; VO-EXIST-08 governs incomplete discovery, not scope; VO-REGISTRY-05, VO-ADAPTER-05/09 and VO-EXIST-07 govern ownership/delegation of the walk, not which files it visits. Stretching any of these to mean \"VCS-ignored files are outside D\" would import a premise none of them states. The shadow mapping already records TEST-SCAN-010 as `proves_no_vo: true, candidates: []`, and dogfood-ontology-gate-findings.json contains no entry rejecting a discovery-scope VO — so it was never considered, not deliberately dropped.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-13",
+    "claim": "Files excluded by the repository's VCS ignore rules lie outside the rust-cargo adapter's discovery scope: such a file is absent from the DiscoveryBatch built from the configured include roots.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.5"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.2"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9"
+     }
+    ]
+   },
+   "gate_check": "A (REQ restatement): passes — no REQ states it. B (mechanism description): passes — truth-condition on discovery output, not on how the walk is built. C (undecidable): passes — membership in the batch is observable. D (compound): passes — one exclusion condition; `target/` exclusion is deliberately left out as a sibling obligation rather than and-joined. E (implementation-present-tense promotion): passes — grounded in §5.5, and the crate name is removed. F (test-presupposing): passes. G: rust-cargo specificity is permitted since the design normatively requires it. Residual weakness: the source is a pseudo-code block, weaker register than prose obligations.",
+   "rationale": "The suspicion splits in three. (a) Adapter owns the walk — normative but already covered. (b) `.gitignore`-compliant scope — stated in the normative 本冊 §5.5 in the same する-register as step 2, whose E-SCAN-001 clause is indisputably binding (mirrored in the diagnostics table L838, covered by VO-EXIST-08); 「target/は除外」 uses the same 除外 verb the spec uses contractually at L483. That grounds YES. (c) \"ignored files yield no E-SCAN-001\" is stated nowhere — it follows only from step1→step2 ordering, so it is dropped from the claim and must not be read into it. Verdict YES, narrowed to (b)."
+  }
+ ]
+}
