@@ -21,6 +21,8 @@
 | 分布（covers/test） | 1:61, 2:45, 3:32, 4:19, 5:11, 7:1 |
 | v3 amendment 由来の新規 mapping | 18 tests → 6 新 VO（sensor 6 + 周辺 12） |
 
+数値ブリッジ（機械検証済み）: **proves_no_vo 30 − sensor 6（v3 で VO 獲得）− TEST-STORE-013（C-regression。v3 sweep で VO-ADAPTER-14 の versionless-v1 境界 facet を獲得）= auxiliary 23**。予期しない流入ゼロ（ID 集合 diff で確認）。
+
 ## 適用（destructive remap）を停止する理由
 
 適用すると 192 test の `@vtest.covers` 注釈が書き換わり、**auxiliary 23 test は covers を失って test_traceability MISSING で赤くなる**。これは隠蔽より正しい（fail-closed）が、その赤の最終的な扱いは Owner が明示的に保留した spec 判断そのもの:
@@ -33,4 +35,4 @@
 
 ## 副産物
 
-- 旧 covers はすべて旧 63 VO 体系への参照であり、適用時に全 192 test で置換となる（増分適用の余地なし — これは旧体系が test 起点で生成されていたことの帰結で、「test 由来 traceability の危険」の比較資料そのもの）。
+- 旧 covers はすべて旧体系への参照であり、適用時に全 192 test で置換となる（増分適用の余地なし）。**機械検証済み**: 全 .rs ファイルの `@vtest.covers` から抽出した旧 VO ID 70種と v3 の160 ID の交差 = **0**（名前衝突なし。旧体系が test 起点で生成されていたことの帰結で、「test 由来 traceability の危険」の比較資料そのもの）。
