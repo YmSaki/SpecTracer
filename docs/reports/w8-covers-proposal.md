@@ -36,3 +36,7 @@
 ## 副産物
 
 - 旧 covers はすべて旧体系への参照であり、適用時に全 192 test で置換となる（増分適用の余地なし）。**機械検証済み**: 全 .rs ファイルの `@vtest.covers` から抽出した旧 VO ID 70種と v3 の160 ID の交差 = **0**（名前衝突なし。旧体系が test 起点で生成されていたことの帰結で、「test 由来 traceability の危険」の比較資料そのもの）。
+
+## 更新（freeze v4 後・2026-08-16）
+
+B19+C2 の上流再導出（`w8-b19-freeze-v4.md`）により **15 tests が covers を獲得**。現在値: **184 tests / 400 mappings / auxiliary 8**（B-supporting 5 + regression-anchor-none 1 + A-棄却 2）。分布: 1:76, 2:45, 3:32, 4:19, 5:11, 7:1。v4 由来 mapping は sensor 由来（shadow-mapping verdict 未付与）— v4 adequacy 評価待ちの注記を JSON に記載。本文冒頭の 169/385/23 は v4 前の値。

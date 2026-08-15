@@ -1,0 +1,646 @@
+{
+ "run_id": "wf_72449ef9-48b",
+ "method": "light upstream re-derivation for auxiliary B19+C2: normative design contract check, existing-VO strict read, freeze-v4 VO draft + purity gate self-check",
+ "details": [
+  {
+   "test_id": "TEST-MODEL-007",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 v0.1 §1.3 内容ハッシュの定義 (docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md:79): 「null、空文字、空listは異なる値としてencodeする。」 — operative する-register, 本冊 = normative.",
+    "詳細設計 v0.1 §1.3 (same line 79, context): 「hash inputはdomain separatorと長さ付きfieldから構成する。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を行わない。」 — the ambiguity-free encoding obligation the injectivity sentence completes (kept OUT of the proposed VO to avoid a compound claim).",
+    "基本仕様 v0.1 §6.1 (line 290): 「したがって`covers`、`targets`、`intent`、実行座標その他の意味変更は内容ハッシュを必ず変化させる。」 — the semantic-change⇒hash-change obligation that injective value encoding is required to make true (already carried by VO-REGISTRY-08)."
+   ],
+   "existing_vo_check": "Not covered, read strictly. VO-REGISTRY-08 fixes WHICH fields the Test subject hash binds (field set + declared-spelling targets), not how a field VALUE is encoded; a hash that collapsed null/\"\"/[] would still satisfy it. VO-REGISTRY-14 is the other §1.3 encoding VO but claims only ORDER significance (cases declaration order vs covers/targets/related ascending) — a different truth condition. VO-STATAUDIT-07 binds the static-audit subject and staleness, silent on projection value encoding. VO-REGISTRY-09 assigns encoding to core (who computes), not the encoding's injectivity. No other VO among the 160 mentions null/empty/encoding.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "In any content-hash subject, a null field, an empty-string field, and an empty-list field are distinct encoded values: two subjects that are identical except that one field is null in one and the empty string or empty list in the other never share a content hash (詳細設計 §1.3).",
+    "requirements": [
+     "REQ-TEST-REGISTRY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.3 内容ハッシュの定義"
+     },
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§6.1"
+     }
+    ]
+   },
+   "gate_check": "A: no — §1.3 design rule, absent from 要件定義. B: closest risk; mitigated by stating an observable outcome (hashes differ) instead of describing the encoder. C: none — null/empty string/empty list are decidable. D: single injectivity condition; the length-prefixed/no-concatenation obligation from the same sentence pair is deliberately excluded as a separate proposition. E: no — quoted normative sentence, not implementation present tense. F: no test corpus presupposed; holds for arbitrary subjects. G: the triple is named by the spec itself, not by Rust types. H: verifier-behavior VO (staleness detection depends on it). I: truth condition disjoint from VO-REGISTRY-08/09/14 and VO-STATAUDIT-07.",
+   "recommended_role": "verification",
+   "rationale": "The test exercises hash-input value encoding, not the Test-entity field set — which is why the shadow mapping correctly said NO to VO-REGISTRY-08/VO-STATAUDIT-07. But 詳細設計 §1.3 obliges exactly this behavior in an operative sentence, so \"supporting, zero covers\" understates the spec: the obligation exists and no frozen VO carries it. Proposed as freeze-v4 amendment VO-REGISTRY-16 (sensor = TEST-MODEL-007, origin A-GAP), following VO-REGISTRY-14's precedent of anchoring a §1.3 encoding rule to REQ-TEST-REGISTRY. Caveat for the Owner: the rule is cross-cutting over all six subject domains while the anchor is registry-scoped; if a hash-general REQ anchor is preferred, re-anchor without changing the claim."
+  },
+  {
+   "test_id": "TEST-MODEL-008",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 v0.1 §1.3 内容ハッシュの定義 (line 79): 「hash inputは**domain separator**と長さ付きfieldから**構成する**。各fieldは`field-name`、UTF-8 byte length、byte列の順にencodeし、単純な文字列連結を**行わない**。」",
+    "詳細設計 v0.1 §1.3 (line 82): 「Source Target hash：**domain `vtest:target-subject:v1`を用い**、canonical Target Referenceと…implementation construct bytesを束縛する。」",
+    "詳細設計 v0.1 §1.3 (line 86): 「VO / REQ hash：**domain `vtest:record-subject:v1`を用い**、readerが具体化したcanonical recordを…encodeする。」",
+    "詳細設計 v0.1 §1.3 (line 87): 「SPEC subject hash：**domain `vtest:spec-subject:v1`を用い**、canonical SPEC recordと参照先Specification sourceの正規化内容を束縛する。」",
+    "詳細設計 v0.1 §1.3 (lines 81, 83-85): 同一register で `vtest:test-subject:v1` / `vtest:static-audit-config:v1` / `vtest:static-analysis-source:v1` / `vtest:execution-state:v1` を各subject kindへ割当（7 kinds, pairwise distinct）。"
+   ],
+   "existing_vo_check": "No frozen v3 VO carries this claim. §1.3-anchored VOs cover other conditions: VO-REGISTRY-08 = what the Test subject binds; VO-REGISTRY-09 / VO-ADAPTER-08 = core (not adapter) computes hashes; VO-REGISTRY-14 = field ordering (cases declaration order vs covers/targets ascending). VO-STATAUDIT-07, VO-SEMAUDIT-04, VO-APPROVE-04, VO-INTAKE-04/06 are subject-set/STALE-transition claims that presuppose per-kind subjects but never state that each kind's hash input is domain-prefixed, nor that the separators are pairwise distinct. Read strictly, none entails cross-kind non-collision; stretching VO-REGISTRY-08 would silently widen a Test-scoped claim to all seven kinds.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "Each subject kind's content-hash input is constructed from that kind's own §1.3 domain separator (vtest:test-subject:v1, vtest:target-subject:v1, vtest:static-audit-config:v1, vtest:static-analysis-source:v1, vtest:execution-state:v1, vtest:record-subject:v1, vtest:spec-subject:v1) plus named length-prefixed fields, never plain concatenation; the separators being pairwise distinct, identical field bytes hashed under two different subject kinds never yield the same content hash.",
+    "requirements": [
+     "REQ-TEST-REGISTRY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.3 内容ハッシュの定義"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A decidable: yes — hash two equal payloads under two kinds, compare. B single condition: one rule (domain-prefixed input) with its entailed non-collision; the domain list is enumeration, not a second obligation. C not test-presupposing: states the encoding contract, no test/fixture wording. D not implementation-promoted: the seven domain strings and the no-concatenation prohibition are literal spec text, not code discovered. E spec-grounded: 詳細設計 §1.3, normative 本冊. F non-duplicative: see existing_vo_check. G adapter-neutral: core-owned, language-independent. H honest weakness: the REQ anchor is a convention pick — the claim spans all subject kinds while REQ-TEST-REGISTRY is Test-scoped; REQ-NFR-005 or a cross-cutting anchor is arguable. I ID VO-REGISTRY-15 is already occupied by a pending NEEDS-SPEC-JUDGMENT candidate, hence -16.",
+   "rationale": "The test asserts hash_record_subject(v) ≠ hash_spec_subject(v, …) and ≠ from_subject(\"vtest:target-subject:v1\", [(\"record\", v.encode())]) — same field name, same bytes, different domain. That is exactly §1.3's mandate, which obliges domain-separator construction and assigns a distinct versioned domain to each of seven subject kinds. So this is not helper hygiene: the spec imposes it, independent of the test's existence. 基本仕様 and 要件定義書 are silent on the encoding (they only speak of 内容ハッシュ束縛), and 別紙C §18.3.1 does not restate it, so 詳細設計 §1.3 is the sole normative locus — sufficient, being 本冊. Reclassify B-supporting → verification, covering the proposed VO."
+  },
+  {
+   "test_id": "TEST-AAPI-002",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 v0.1 §5.1 処理フロー, step 2 (line 562): 「登録順ではなくadapter ID順にSourceDiscoveryAdapterを呼び出す」 — operative する-register sentence explicitly excluding registration order.",
+    "詳細設計 v0.1 §5.1 処理フロー, step 5 (lines 574-575): 「決定論的な統合 / adapter ID、project-relative path、opaque locator、Test IDの順に正規化する」",
+    "基本仕様 v0.1 §2.1 正典の三層構造 (line 69): 「adapterが返す導出結果はregistryでmergeし、adapter ID、path、Test IDの順に正規化する。」",
+    "別紙C 受入仕様 v0.1 §18.3.9 adapter contract (line 219): 「Rustとsyntheticの結果をadapter ID、path、Test IDで決定論的に統合する。」"
+   ],
+   "existing_vo_check": "Not covered by the 160 frozen VOs read strictly. VO-ADAPTER-04 covers only registry rejection (duplicate ID, capability/impl mismatch, unregistered reference) — silent on ordering. VO-INTEG-01 asserts CLI/MCP resolve the same adapter, not the order adapters are visited. VO-REGISTRY-14 is about hash-encoding order of cases/covers/targets, a different subject. VO-EXIST-07/08 concern rejected or incomplete discovery. VO-ADAPTER-09/11 concern locator delegation and unknown IDs. No frozen claim asserts that iteration/delegation over registered adapters is adapter-ID-ordered and registration-order-independent.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-16",
+    "claim": "Registered source discovery adapters are visited in ascending adapter-ID order rather than registration order, so the delegation sequence is a function of the registered adapter-ID set alone.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY",
+     "REQ-NFR-002"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.1 処理フロー（2. discovery委譲）"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9 adapter contract"
+     },
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.1 正典の三層構造"
+     }
+    ]
+   },
+   "gate_check": "A: no REQ restates ordering (REQ-ADAPTER-BOUNDARY/NFR-002 are silent on order) — pass. B: states an observable order obligation, not a mechanism walkthrough — pass, though wording sits near the registry API. C: \"ascending adapter-ID order\", \"independent of registration order\" are decidable. D: single condition; merge-result normalization (adapter ID/path/locator/Test ID) deliberately excluded as a separate proposition. E: backed by 詳細設計 §5.1 step 2, not promoted from code. F: no test presupposed. G: registry-internal but normatively required. H: verifier behavior, not dogfood admissibility. I: not a merge.",
+   "recommended_role": "verification",
+   "rationale": "The test registers zeta then alpha and asserts ids() yields [alpha, zeta] plus id-keyed lookup — exactly the registration-order-independent, adapter-ID-ordered visitation that 詳細設計 §5.1 step 2 obliges (\"登録順ではなくadapter ID順に…呼び出す\"). That is a normative design contract, not a helper convenience, and it is the precondition for the deterministic integration required by 基本仕様 §2.1 and 別紙C §18.3.9. No frozen VO asserts it, so the prior \"B-supporting, zero covers\" classification understates the test: it is a genuine sensor of an uncovered obligation. Recommend verification role once VO-ADAPTER-16 lands in freeze-v4."
+  },
+  {
+   "test_id": "TEST-MODEL-001",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 本冊 §1.3 内容ハッシュの定義 (line 77): 「**内容ハッシュ**はSHA-256を使用し、`sha256:<hex>`形式で記録する。subject固有規則でbyte-exactを要求しないテキストfragmentは改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しない。」— operative する-register: 統一する / 除去する / 正規化しない.",
+    "詳細設計 本冊 §1.3 (line 93, rust-cargo construct bytes): 「format変更を構文上の意味だけから同値とみなさず、上記正規化後のsource bytesが変化した場合は安全側でSTALEにする。」— makes the normalizer the sole admitted formatting-equivalence boundary.",
+    "詳細設計 本冊 §1.3 (line 79): 「hash inputはdomain separatorと長さ付きfieldから構成する…null、空文字、空listは異なる値としてencodeする。」— encoding rule, distinct subject from the text-fragment normalization above.",
+    "(negative) 基本仕様 §6.1 / 別紙C §18.3.1 bind the subject field set and core-computes-hash duty but state no line-ending or trailing-whitespace rule."
+   ],
+   "existing_vo_check": "Not covered. VO-REGISTRY-08 names \"normalized construct bytes\" but its claim is the subject field set and change-detection; it stays true under any normalizer, so it does not assert LF folding or trailing-whitespace stripping. VO-REGISTRY-09 / VO-ADAPTER-08 fix who computes the hash, not how text is normalized. VO-REGISTRY-14 fixes ordering (cases declaration order vs ascending covers/targets/related), i.e. §1.3's encoding paragraph, not the text-fragment paragraph. VO-INTAKE-01/03 and VO-STATAUDIT-07 concern sha256 registration and subject staleness. No claim in the 160 mentions line endings, trailing whitespace, or the \"no other whitespace\" closure. Reading any of them to include it would import a subject they do not name.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "A text fragment that its subject rule does not require to be byte-exact enters the content hash only after normalization that unifies line endings to LF and removes each line's trailing whitespace, and that changes no other whitespace — so leading whitespace and the presence or absence of a final newline still change the resulting hash.",
+    "requirements": [
+     "REQ-TEST-REGISTRY",
+     "REQ-NFR-002"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.3 内容ハッシュの定義"
+     }
+    ]
+   },
+   "gate_check": "A: not a REQ restatement — REQ-NFR-002 asks for reproducible results; this fixes one byte-level rule. B: procedural in shape, but the truth-condition is an observable hash-equality relation, not a mechanism narrative. C: no undecidable words. D: three clauses of one closed definition; splitting would leave \"no other whitespace\" undefined, so kept whole. E: avoided implementation promotion — spec says 末尾空白, so the claim says \"trailing whitespace\", not the impl's space/tab set. F: no test presupposed; the leading-space and final-newline consequences derive from 「これ以外の空白は正規化しない」, not from assertions. G: adapter-neutral. H: verifier behavior (core computes hashes). I: distinct truth-condition from VO-REGISTRY-08/09/14.",
+   "recommended_role": "verification",
+   "rationale": "The test exercises normalize_hashed_text underneath ContentHash::from_text: CRLF/CR folded, trailing spaces stripped, leading space and final newline preserved. 詳細設計 本冊 §1.3 obliges exactly that rule in operative する-register, and its closure clause 「これ以外の空白は正規化しない」 is what makes the two assert_ne! arms normative rather than incidental. The rule is subject-agnostic — it sits under Test subject, Source Target, SPEC and Static Analysis Source hashes alike — which is precisely why no existing subject-scoped VO states it, leaving a real ontology hole rather than a redundancy. The VO is proposed because the spec imposes it; the test only revealed the gap. Slotted into the REGISTRY family since the other §1.3-derived VOs live there."
+  },
+  {
+   "test_id": "TEST-CLI-005",
+   "contract_exists": "AMBIGUOUS",
+   "normative_citations": [
+    "別紙C 受入仕様 §18.3.8 (line 192): 「別紙A §13の全toolが同じ入力に対するCLI JSONと同じdata / diagnosticsを返す。」— operative する-register; the only normative sentence touching diagnostics equality.",
+    "別紙A インターフェース仕様 §13.1 (line 261): 「各ツールの結果は CLI の `--format json` と同一の JSON 構造とする。」— obliges identical structure, not array order.",
+    "別紙A §12.1 (line 14): 「JSON 出力は最上位に `{ \"ok\", \"data\", \"diagnostics\" }` を持つ」— envelope shape only; no ordering rule.",
+    "要件定義 §30 NFR-002 (line 929): 「CI等により同一revision・同一検証条件で結果を再現可能であること。」— narrowed by 基本仕様 §14 (line 651) to Evidence revision binding, deterministic-audit re-runnability, scan rebuild; not output ordering.",
+    "NEGATIVE: 詳細設計 §1.3 (line 79) fixes ordering only for hash inputs (mapはkey昇順…casesは宣言順); 詳細設計 §5.4 (lines 834-858) defines diagnostic codes/severity semantics with no ordering obligation. No normative sentence fixes severity-then-code sorting of output diagnostics."
+   ],
+   "existing_vo_check": "VO-INTEG-01 (MCP returns the same data/diagnostics as the CLI --format json) is the only claim that can touch this. Read strictly it constrains cross-surface equality, and only under sequence-equality does it imply process-independent diagnostic order; it never fixes the sort key. VO-INTEG-04 constrains envelope/field shape only. VO-REPORT-02 constrains verify-vs-report aggregation equality with diagnostics as grounds — again cross-surface, not the merge order. VO-AGG-03's fixed order is value priority (FAIL>MISMATCH>…), a different subject; stretching it to diagnostic list order would be a category error. No existing VO states the merged-diagnostics ordering rule, and none needs to.",
+   "proposed_vo": null,
+   "recommended_role": "supporting",
+   "gate_check": "Vacuous: I propose no VO. A candidate such as \"merged scan+audit diagnostics are ordered by severity then code\" would fail E (実装現在形の仕様昇格 — the severity/code key exists only in merge_diagnostics, with no normative sentence) and F (test-presupposing — its truth condition would be copied from this test's assertion). A weaker candidate restricted to determinism would fail as a duplicate of VO-INTEG-01 under the sequence-equality reading, and would be unfounded under the content-equality reading. The Owner rule holds: the test's existence is not an obligation.",
+   "rationale": "The test exercises merge_diagnostics: concatenate scan+audit diagnostics and sort by severity, then code, message, candidates, location. Sweeping 要件定義/基本仕様/詳細設計本冊/別紙A/別紙C found no operative sentence obliging any ordering of output diagnostics. Ambiguity is confined to 別紙C §18.3.8: under content-equality \"同じdiagnostics\" imposes nothing on order; under JSON sequence-equality it forbids process-dependent order, i.e. requires determinism — but never severity-then-code. Even under the second reading, a single-process unit test on one helper cannot witness CLI/MCP equality, so it is weak evidence for VO-INTEG-01. Role stays supporting (helper hygiene). If the Owner adopts sequence-equality, the correct action is to cover it under VO-INTEG-01, not to mint a VO."
+  },
+  {
+   "test_id": "TEST-STORE-008",
+   "contract_exists": "NO",
+   "normative_citations": [
+    "別紙A §14 `vtest test create`（nearest miss, NOT obliging）: 「--answers answers.yaml」＋```yaml 例 `covers: [VO-PARSER-UTF8-003]` — 例示とファイル名のみで、回答ファイルの列記法（inline flow / block sequence）を義務づける operative 文がない",
+    "基本仕様 §5.1（scope mismatch）: 「ファイル形式はすべて YAML とする。」— 直前の `.verify/` ツリー（config/spec/req/vo/rel/forms/...）に係る規定であり、ユーザ入力の answers ファイルは `.verify/` 外で対象外",
+    "別紙A §14.2（obliging but different behavior）: 「`required` を欠く回答、未知のフィールド名は E-OP-001 とする。」— accept-time 検証の義務であり、本テストは拒否を一切行使しない",
+    "別紙A §14.3（obliging but different behavior）: 「`rust-integration`は`targets`の全要素を入力順に個別の`@vtest.target`行として出力する。空listと重複targetをE-OP-001で拒否する。」— list 値の順序保存と拒否の義務。parser 表層構文の等価性ではない",
+    "基本仕様 §6.2 表（entity 側）: 「`covers` | 1件以上必須 | 複数指定可」— Test entity の多値性の義務であって、回答ファイルの記法選択の義務ではない"
+   ],
+   "existing_vo_check": "No existing VO is exercised. VO-STRUCTOP-01/02 (accept-time E-OP-001, form-scoped validators) require a rejection path this test never triggers. VO-STRUCTOP-09/10/11 concern kind→adapter resolution, not answer syntax. VO-STRUCTOP-12 (create→scan round-trip covers equality) would touch multi-valued covers, but the test exercises the store-level parser in isolation, never a create or scan. VO-REGISTRY-11/12 are scan-side declared-target/intent claims. Stretching any of these to \"block sequences parse to List\" would be an unsupported widening, so no cover is assigned.",
+   "proposed_vo": null,
+   "recommended_role": "supporting",
+   "rationale": "The mechanism exercised is answer-file surface syntax: `covers:` as a block sequence yields FormValue::List (inline `[...]` per intent). Normative texts oblige list semantics downstream — order-preserving target emission, empty/duplicate rejection, multi-valued covers — and accept-time E-OP-001, none of which this test touches. The only hook for the syntax itself is the illustrative `answers.yaml` filename and yaml fence in 別紙A §14; 基本仕様 §5.1's YAML rule is scoped to `.verify/`, and answers files live outside it. Choosing which YAML sequence spellings the parser accepts is implementation latitude, so no VO may be grown here. Prior B-supporting classification confirmed: helper-hygiene sensor, zero covers.",
+   "gate_check": "Purity gate A-I not exercised: no VO proposed. Self-check on the temptation to propose one — a claim like \"list-typed answers accept both inline and block spellings\" fails gate B (no normative obligation; presupposes the parser's design) and gate D (test-presupposing wording, grown from the test's existence). A §14.3-derived VO (integration targets emitted in input order; empty/duplicate rejected as E-OP-001) is genuinely normative and appears uncovered by the 160, but TEST-STORE-008 does not exercise it; proposing it here would manufacture a false cover. Flagged to the orchestrator as a separate freeze-v4 candidate, not as this test's VO."
+  },
+  {
+   "test_id": "TEST-ARUST-004",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 v0.1 (SPEC-DOGFOOD-M3) §10.2, L1291: 「出力 JSON（llvm-cov export 形式）の `data[].functions[]` から、Testが宣言する各対象関数を検索する」",
+    "詳細設計 v0.1 (SPEC-DOGFOOD-M3) §10.2, L1294-1296: 「一致条件： demangle 済み関数名の末尾が locator の item-path と一致し、かつ filenames のいずれかの末尾が locator の path と一致する」",
+    "詳細設計 v0.1 (SPEC-DOGFOOD-M3) §10.2, L1298: 「ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。」(する-register operative)",
+    "詳細設計 v0.1 (SPEC-DOGFOOD-M3) §10.2, L1303: 「関数が見つからない → UNKNOWN（インライン化・cfg 除外等の可能性）」",
+    "基本仕様 v0.1 (SPEC-BASIC) §7.9, L493/L498: 「targetごとのカバレッジ計測により確認する」「implementation constructを確実に同定または計測できなければ`UNKNOWN`とする」",
+    "要件定義 v0.1 (SPEC-REQDEF) §16, L586: 「複数targetを宣言したTestでは、各targetの実行を個別に計測する。」"
+   ],
+   "existing_vo_check": "Not covered. VO-EXEC-07 takes a per-target count as given and only maps count>0/==0/unidentifiable to PASS/FAIL/UNKNOWN plus the Test-level fold; an adapter reporting only the first generic instantiation's count, or matching by bare name without the filenames condition, satisfies VO-EXEC-07 while violating §10.2 — independent failure mode. VO-EXEC-09 governs entry/canonical-Locator set integrity, VO-EXEC-10 subprocess/thread attribution, VO-EXEC-08 NOT_CHECKED, VO-ADAPTER-01 API type leakage. None states how a target's count is derived from `data[].functions[]`. The absent-function→UNKNOWN branch this test also exercises IS covered by VO-EXEC-07 (\"unidentifiable UNKNOWN\"), so I exclude it from the proposal rather than duplicate it.",
+   "proposed_vo": {
+    "id_suggestion": "VO-EXEC-15",
+    "claim": "A declared target's measured execution count is the sum of the counts of every coverage function whose demangled name ends with the target's item-path and one of whose filenames ends with the target's path; several instantiations of the same generic target aggregate into that one per-target count, and a function failing either match condition contributes none of its count to that target.",
+    "requirements": [
+     "REQ-TEST-EXECUTION"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§10.2"
+     },
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§7.9"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§16"
+     }
+    ]
+   },
+   "gate_check": "A: no — REQ §16 requires only per-target measurement; the match/aggregation rule is design-level. C: no undecidable term; both suffix matches and the sum are decidable. D: one function definition plus its complementary edge (VO-STATAUDIT-01 pattern), not an and-join. E: grounded verbatim in §10.2 L1294-1298; I deliberately exclude the implementation's regions-max fallback, which the spec never states. F: no test presupposed. H: verifier-behavior VO. Honest residual risk on B/G: the claim is close to restating §10.2's matching mechanism and is llvm-cov/Rust-specific — admissible only because 詳細設計 本冊 normatively imposes it (G's stated exception), but an Owner could still judge it too mechanism-shaped.",
+   "recommended_role": "verification",
+   "rationale": "The prior \"helper, no CheckValue\" reading looked only at the verdict mapping. The test exercises llvm_cov_function_count: it sums 2 (calc::add::<i32>) + 3 (calc::add::<u64>) = 5 across generic instantiations, excludes other::add by the filenames condition, and returns None for an absent target. §10.2 obliges exactly that derivation (\"合算する\", the 一致条件 block); §7.9/§16 oblige per-target measurement and identification. So a normative design contract exists and the test is a genuine sensor for it. Recommend verification: covers VO-EXEC-07 for the absent→UNKNOWN edge, plus proposed VO-EXEC-15 for the match-and-sum rule that no frozen VO states."
+  },
+  {
+   "test_id": "TEST-STORE-007",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §8.5 Form Schema (line 551): 「Rust関数単体Test用と小規模結合Test用の組込schemaを同梱する。」/ (line 554)「組込formは `rust-cargo` adapterが登録する。」— operative する-register obligation to ship the two built-in schemas.",
+    "詳細設計 別紙A §14.3 組込フォーム: 「組込フォームは `rust-cargo` adapterが提供する。…次の2種を組込Formとして同梱する。- `rust-unit-function`（§14.1）- `rust-integration`：…」",
+    "詳細設計 別紙A §14.1 スキーマ形式: 「次は`rust-cargo` adapterが登録するForm Schemaである。」followed by the normative schema block: kind: rust-unit-function; fields target/covers/behavior/test_kind/input/expect/fn_name/file (8); template containing 「/// @vtest.target {target}」.",
+    "詳細設計 本冊 §2.1 `.verify/` レイアウト (line 117): 「`vtest init` は上記ディレクトリ、`config.yaml` の雛形、`.verify/.gitignore`、組込 Form Schema（§14）を生成する。」",
+    "詳細設計 本冊 §1.1 (lines 49-50): 「`vtest-store`はForm Schemaの中立parserとcanonical保存だけを提供し、組込Rust formの内容と配置は `vtest-adapter-rust` が所有する。」(ownership constraint on the same obligation)"
+   ],
+   "existing_vo_check": "Not covered. VO-STRUCTOP-09/10/11 are about kind→adapter resolution, adapter-less compatibility matching, and read-only resolution — they presuppose a Form but assert nothing about which Forms ship or their content. VO-STRUCTOP-02 scopes validators; VO-STRUCTOP-01 covers accept-time rejection. VO-STRUCTOP-05 fixes annotation key order for Edit-time regeneration, not the Form template's emitted keys. VO-STRUCTOP-12 asserts create-then-scan round-trip, not schema conformance. No frozen VO, read strictly, claims the built-in Form set exists with the 別紙A §14.1/§14.3 field set and template.",
+   "proposed_vo": {
+    "id_suggestion": "VO-STRUCTOP-15",
+    "claim": "With no user-provided Form file present, the Form registry resolves exactly the two rust-cargo-owned built-in kinds `rust-unit-function` and `rust-integration`, each parsing to the schema declared in 別紙A §14.1/§14.3: the unit Form declares the eight fields target, covers, behavior, test_kind, input, expect, fn_name, file with their declared types, required flags and validators, and a template emitting the @vtest annotation block including a `@vtest.target {target}` line; the integration Form differs only by a required multi-locator `targets` field emitting one `@vtest.target` line per element in declaration order.",
+    "requirements": [
+     "REQ-STRUCTURED-OPERATIONS"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§8.5 Form Schema"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§14.1 スキーマ形式（.verify/forms/<kind>.yaml）"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§14.3 組込フォーム"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§2.1 `.verify/` レイアウト"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.1 クレート構成"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A: not a REQ restatement — 要件定義 carries no built-in-Form sentence; the obligation appears first at 基本仕様 §8.5. B: states a truth condition (registry content equals declared schema), not a mechanism narrative. C: decidable by parsing the shipped Forms against §14.1. D: partial risk — \"exactly two kinds\" and \"each conforms\" could be split; they share one failure mode (built-in set not as declared), so kept single; a splitter could de-merge. E: doc-grounded, not implementation promoted. F: no test presupposed. G: field/template specifics are normatively required by §14.1, so the exception applies. H: verifier-product behavior, not a dogfood judgment rule. I: no merge.",
+   "rationale": "TEST-STORE-007 exercises the shipped built-in unit Form's identity (kind), field set (8), and template placeholder — exactly the content 基本仕様 §8.5 obliges to be 同梱 and 別紙A §14.1/§14.3 fixes verbatim. So the spec imposes the contract independently of the test, and the prior \"precondition only / B-supporting\" reading understates it: the assertions are the schema conformance obligation, not a parser precondition. Note a spec-drift signal (not ontology authority): 詳細設計 §1.1 assigns built-in Rust form content/placement to vtest-adapter-rust, while the constant and this test live in vtest-store — worth Owner review of the covers target once VO-STRUCTOP-15 lands."
+  },
+  {
+   "test_id": "TEST-MODEL-005",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §1 用語定義 (line 31, Test subject): 「内容ハッシュはこのsubject全体に対して計算し、前方の無関係な編集で変動する**byte range自体は含めない**。」",
+    "詳細設計 本冊 §1.3 内容ハッシュの定義 (line 81, Test subject hash): 「**byte range自体は**前方の無関係な編集で変化するため**hash inputにしない**。」",
+    "詳細設計 別紙C 受入仕様 §18.3.9 adapter contract (line 203): 「`TestEntity.content_hash`は…Test subjectへ束縛される。**byte range自体は含めず**、非隣接metadataだけの意味変更でもhashが変化する。」",
+    "(参考・同族) 詳細設計 §1.3 line 84 Static Analysis Source subject: 「byte range自体はhash inputにしない。」"
+   ],
+   "existing_vo_check": "Not covered. VO-REGISTRY-08 is the inclusion/sensitivity claim (hash binds adapter ID, Test ID, logical fields, Source Location, ExecutionDescriptor, construct bytes → changes to covers/targets/intent change the hash). Read strictly it never asserts exclusion, and its unqualified \"Source Location\" names a struct that contains byte_range (詳細設計 line 616), so if anything it leans the opposite way. VO-REGISTRY-14 covers only cases ordering. VO-STATAUDIT-07 states an exclusion (\"rule-irrelevant config never alters the subject hash\") but on the Static Audit Config subject — different subject domain, different input. Gate-I de-merge: 08 detects under-binding, this proposal detects over-binding.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "Byte range is not an input to the Test subject hash: two Test subjects identical in adapter ID, Test ID, all canonical/logical metadata, the Source Location's adapter, project-relative path and opaque locator, ExecutionDescriptor, and normalized Test construct bytes, differing only in byte range, yield the identical Test subject hash (基本仕様 §1 用語定義; 詳細設計 §1.3; 別紙C §18.3.9).",
+    "requirements": [
+     "REQ-TEST-REGISTRY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§1 用語定義 (Test subject)"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§1.3 内容ハッシュの定義"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9 adapter contract"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A (REQ paraphrase): no — REQ-TEST-REGISTRY does not name byte range. B (mechanism): no — states a truth-condition over hash equality, not how hashing works. C (undecidable terms): no — hash equality under a fully enumerated field-identity condition. D (compound): no — one predicate (exclusion of byte range). E (implementation promoted): no — three normative layers state it independently; the spec register is 含めない/しない. F (test-presupposing): no — the claim quantifies over Test subjects, not over a test's existence; the rationale narrative (前方の無関係な編集) was deliberately dropped so the condition is not scenario-bound. G (implementation-specific): no — adapter-neutral. H (VO vs evidence-admissibility): VO — core hashing contract. I (merge identity): distinct from VO-REGISTRY-08 (opposite failure mode) and VO-STATAUDIT-07 (different subject).",
+   "rationale": "The test exercises exactly one mechanism: relocation stability of hash_test_subject — same inputs, byte_range shifted by +100, hash must be equal. The spec obliges this at three normative layers in prohibitive register (基本仕様 §1, 詳細設計 §1.3, 別紙C §18.3.9); 別紙B is not relied on. The frozen 160 VOs bind only the inclusion side, so the obligation is imposed and uncovered → the test is a verification test once VO-REGISTRY-16 lands, not B-supporting. The prior \"mechanism behind VO-STRUCTOP-06\" reading conflated a downstream consumer (post-apply other-Test hash invariance) with the hash-input contract itself. ID note: v3 already occupies VO-REGISTRY-15 and concurrent agents may also mint 16 — treat the ID as a suggestion for orchestrator dedupe."
+  },
+  {
+   "test_id": "TEST-MODEL-002",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 v0.1 §3.3 (L159-164): 「対象は**Target Reference**で識別する。Target Referenceはadapter IDとadapter所有のopaque locatorの組、または任意のSRC ID参照である。」+ 形式ブロック「<adapter-id>::<opaque-locator>」（例：rust-cargo::src/parser.rs::Parser::parse）",
+    "詳細設計 本冊 v0.1 §4.1 (L509): 「locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所有のopaque文字列である。coreがpath、module、symbol種別を分解しない。」",
+    "詳細設計 本冊 v0.1 §9.4 (L462-463): 「各`target`は§6.1で解決したcanonical Source Targetの**canonical Locator**の正規化文字列表現とする」（規範レコード実体は §3.6 L357/405、§9.4 L440-456、§17 JSON L1086 で `\"rust-cargo::src/parser.rs::Parser::parse\"`）",
+    "別紙A §13.3 (L292): 「フォーム、監査、実行の入力に含まれるadapter namespaceはopaque値として扱い、…Rust用の既定値へ暗黙変換しない。」"
+   ],
+   "existing_vo_check": "Not covered by any of the 160 v3 VOs read strictly. VO-ADAPTER-09 is resolve-time delegation (core verifies returned adapter ID/range/bytes, never parses locator syntax) — it says nothing about the identity string's form. VO-ADAPTER-05 is an end-to-end register/scan/verify capability claim for a non-Rust adapter, not an encoding claim. VO-REGISTRY-10 fixes identity direction (declared ref → canonical Locator, one target, one hash); VO-EXEC-04/09 require Evidence and target_execution entries to be canonical Locators. All treat the canonical Locator as a given token; none states that its normalized string is adapter-ID-prefixed with the adapter-owned value verbatim.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "The canonical string identity of a Locator Target Reference is exactly the owning adapter ID, the separator `::`, and the adapter-owned opaque locator value verbatim — no core reformatting, decomposition, or adapter-prefix omission.",
+    "requirements": [
+     "REQ-TEST-REGISTRY",
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§3.3 Source Target の識別"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§4.1 adapter-neutralな正規化"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§9.4 Evidence レコード"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§13.3"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9"
+     }
+    ]
+   },
+   "gate_check": "A: no — REQ §8 only says permanent SRC IDs are optional. C: decidable (string equality). D: single equality condition. E: the `::` form is spec-fixed (基本仕様 §3.3 form block, plus audit/Evidence record shapes serializing `rust-cargo::…`), not promoted from code. F: no test presupposed. H: verifier identity contract, not a dogfood admissibility rule. I: truth-condition differs from VO-ADAPTER-09/REGISTRY-10. Residual risk B/G: a reviewer may read §3.3's block as documentation notation rather than a serialization contract; the tie-breaker is the normative record shapes in §3.6/§9.4/§17 that literally carry the adapter-prefixed string.",
+   "recommended_role": "verification",
+   "rationale": "The test asserts `TargetRef::Locator{synthetic, \"component(add)/scenario[happy]\"}.normalized() == \"synthetic::component(add)/scenario[happy]\"` — the adapter-prefixed identity string with a non-Rust value passed through unchanged. That string is not a helper convenience: it is the target identity persisted in audit subjects and Evidence and the `target` field of `hash_target_subject`, and the spec fixes its shape (基本仕様 §3.3 form; 詳細設計 §9.4 「正規化文字列表現とする」; §4.1 「coreがpath、module、symbol種別を分解しない」). A contract therefore exists and is uncovered, so the test is verification-role once VO-REGISTRY-16 lands in freeze-v4; without it the coverage of that contract is genuinely absent, not the test's fault."
+  },
+  {
+   "test_id": "TEST-ARUST-005",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §7.9 Target Execution Verification (docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md, L498): 「各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、implementation constructを確実に同定または計測できなければ`UNKNOWN`とする。」 — operative する-register; measured zero is FAIL, only failure-to-identify/measure is UNKNOWN.",
+    "詳細設計 本冊 §10.2 判定 (docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md, L1301-1303) target別判定表: 「count > 0 → PASS / count == 0 → FAIL / 関数が見つからない → UNKNOWN（インライン化・cfg 除外等の可能性）」 — the match condition (demangled name suffix + filenames suffix) defines found-ness, making the count==0 and 見つからない branches disjoint.",
+    "詳細設計 本冊 §3.7 Evidence schema (L455): 「count: 3  # UNKNOWNではnull」 — a FAIL target records count 0, so a measured zero must survive as 0, not null."
+   ],
+   "existing_vo_check": "Covered by VO-EXEC-07 (\"Per target: count>0 is PASS, count==0 FAIL, unidentifiable UNKNOWN; …\"). No stretch is needed: a function matched per §10.2's match condition with count 0 is by definition 「確実に同定または計測できた」, so §7.9 assigns it FAIL; UNKNOWN is reserved for identification/measurement failure. An implementation returning None (unidentifiable) for a matched zero-count target would make VO-EXEC-07's claim false. The Some(0)/None distinction is not adjacent to VO-EXEC-07 — it is the input classification its trichotomy quantifies over. No other VO fits: VO-EXEC-08 is NOT_CHECKED, VO-EXEC-10 is cross-boundary attribution, VO-EXEC-09 is entry set correspondence.",
+   "proposed_vo": null,
+   "recommended_role": "verification",
+   "rationale": "The prior B-supporting call rested on the shadow-mapping note \"CheckValue::Fail is never asserted\" — an assertion-surface/adequacy judgment, not an ontology one. Under the sensor rule the question is whether the normative spec obliges the behavior, and 基本仕様 §7.9 plus 詳細設計 §10.2 do: measured zero must be classified as count==0 (FAIL), never collapsed into unidentifiable (UNKNOWN). That obligation is already VO-EXEC-07's, so this is a re-derivation of covers, not a new claim. Caveat for the adequacy pass: the test pins only the extraction half (Some(0) vs None), not the verdict fold, so it is partial evidence for VO-EXEC-07 — insufficient alone, but that does not change the role.",
+   "gate_check": "N/A — no VO proposed, so purity gate A–I (which applies to draft claims) is not exercised. The one gate-relevant check performed instead was anti-duplication: VO-EXEC-07 read strictly already carries this obligation, and growing a VO from the test's existence was explicitly avoided. No freeze-v4 amendment is requested; the only change is covers on TEST-ARUST-005 (B-supporting, zero covers → verification, covers VO-EXEC-07)."
+  },
+  {
+   "test_id": "TEST-ARUST-006",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計本冊 (SPEC-DOGFOOD-M3) §10.2 判定, lines 1291-1298: 「出力 JSON（llvm-cov export 形式）の `data[].functions[]` から、Testが宣言する各対象関数を検索する。」／「一致条件： demangle 済み関数名の末尾が locator の item-path と一致し、かつ filenames のいずれかの末尾が locator の path と一致する」 (operative: 検索する + 一致条件 fixes the attribution predicate)",
+    "基本仕様 (SPEC-BASIC) §7.9, line 498: 「各targetについて、実行回数が1以上ならtarget別結果を`PASS`、0なら`FAIL`、implementation constructを確実に同定または計測できなければ`UNKNOWN`とする。」 (upstream: identification must be 確実 — the criterion cannot be left free)",
+    "詳細設計 別紙C 受入仕様 (SPEC-ACCEPT) §18.3.6, line 170: 「各宣言targetについて、計測countが1以上ならtarget別PASS、0ならtarget別FAIL、確実に同定または計測できなければtarget別UNKNOWNになる。」 (acceptance discharge of the identification obligation)",
+    "詳細設計本冊 (SPEC-DOGFOOD-M3) §19 実装選択と提供範囲, line 1528: 「demangle 実装（`rustc-demangle`）の適用範囲」 — bounds the contract: which symbols a demangler handles is implementation choice; that attribution is decided on the demangled name is not."
+   ],
+   "existing_vo_check": "Not covered by any of the 160. VO-EXEC-07 maps an already-obtained count to PASS/FAIL/UNKNOWN and calls the un-identified case UNKNOWN, but never says how an entry is identified. VO-EXEC-09 governs entry/target set cardinality (1:1, no gaps, canonical Locator identity), not entry-to-target matching. VO-EXEC-10 governs cross-boundary (subprocess/thread) attributability as a capability question, not the name/path predicate. VO-REGISTRY-10 fixes TargetRef→canonical Locator resolution direction upstream of measurement. VO-ADAPTER-09 forbids the core parsing locator syntax — the adapter's own matching rule is its complement, not its content. Reading any of these to include the 一致条件 would import a subject their claims do not name.",
+   "proposed_vo": {
+    "id_suggestion": "VO-EXEC-15",
+    "claim": "In rust-cargo target execution verification, a coverage report function entry counts toward a declared target exactly when the entry's demangled function name ends at the target's canonical Locator item-path and one of the entry's filenames ends at the Locator path; an entry failing either condition contributes no count to that target.",
+    "requirements": [
+     "REQ-TEST-EXECUTION"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§7.9"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§10.2"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.6"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§16"
+     }
+    ]
+   },
+   "gate_check": "PASS. A: REQ §16 demands per-target execution measurement only; the attribution predicate is design-level, not a restatement. B: it is a truth-condition over observable attribution, not a walk-through of the parser. C: decidable — feed an entry whose demangled tail matches and whose filename does not, observe zero contribution. D: one biconditional defining one attribution function (VO-STATAUDIT-04 precedent), not and-joined independent claims. E/G: grounded in normative 本冊 §10.2 and 別紙C §18.3.6; deliberately says \"demangled name\", not \"v0 symbols\", because §19 leaves demangler scope to implementation. F: no fixture or test presupposed. H: verifier-behavior VO. I: no truth-condition overlap with EXEC-07/09/10.",
+   "recommended_role": "verification",
+   "rationale": "The prior \"helper behind coverage attribution\" reading stopped at the mechanism. The behavior the helper implements is obliged: 本冊 §10.2 states the 一致条件 as the attribution predicate, and 基本仕様 §7.9 / 別紙C §18.3.6 make UNKNOWN turn on 確実な同定, so the criterion cannot be free. No frozen VO holds it. Caveat honestly recorded: the test's specific v0 assertion is inside §19's implementation-choice window (demangler scope), so that half stays a regression pin; what the test evidences of VO-EXEC-15 is the name limb only, positive and negative — the filename limb is unexercised, so expect PARTIAL, not PROVES."
+  },
+  {
+   "test_id": "TEST-SCAN-018",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計 本冊 (SPEC-DOGFOOD-M3) §6.3 候補提示, line 938: 「Structured Operationの入力検証（§14、§15）で解決に失敗した場合、coreはadapterが返した候補を共通envelopeで表示する。`rust-cargo` adapterは次の順で候補を構築する。」 — operative する-register; 「次の順で」 binds the numbered list that follows, so it is obligation, not illustration.",
+    "詳細設計 本冊 (SPEC-DOGFOOD-M3) §6.3, lines 941-942 (the list bound by that sentence): 「1. item-path の末尾セグメント一致（別パスの同名関数） / 2. 編集距離 2 以内の近似名」 — fixes both the tiers, their order, and the distance threshold 2. (The 出力例 lines 943-947 are illustrative and are not cited as obligation.)"
+   ],
+   "existing_vo_check": "Not covered. VO-STRUCTOP-01 (「resolution failures … additionally carry adapter-provided candidates in the common envelope」) and VO-INTEG-05 (「input-validation errors include candidates」) both ref §6.3 but claim only that a candidates field is *present*; neither constrains membership, tier order, or the ≤2 threshold. An empty or arbitrary list satisfies both read strictly. No other VO among the 160 mentions candidate composition or edit distance. Separately: the test declares @vtest.covers VO-SCAN-003, and no VO-SCAN-* ID exists in v3 — that dangling reference explains its zero-covers state in the remap, not an absence of contract.",
+   "proposed_vo": {
+    "id_suggestion": "VO-STRUCTOP-15",
+    "claim": "When structured-operation input validation cannot resolve a requested rust-cargo symbol target, the candidates shown in the common failure envelope are the indexed items whose item-path tail segment equals the requested tail segment, followed by the items whose tail segment lies within edit distance 2 of it.",
+    "requirements": [
+     "REQ-STRUCTURED-OPERATIONS"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§6.3 候補提示"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "rationale": "TEST-SCAN-018 exercises the metric that decides §6.3 tier 2 (「編集距離 2 以内」). The spec's own example is literally `Parser::prase` → candidate `Parser::parse`; the test's boundary assertion edit_distance(\"parse\",\"prase\")==2 is exactly what makes that documented case fall inside the obliged threshold. So the spec, not the test, imposes the obligation. Gate notes: the claim avoids naming Levenshtein (the spec says 編集距離, variant unspecified — Damerau would give 1; both satisfy ≤2), and omits sort/dedup/near-minus-exact, which are implementation. Scope stays at §6.3's symbol path; id_candidates (test-ID suggestions, no suffix tier) is deliberately not generalized into the claim.",
+   "gate_check": "A: not a REQ paraphrase — REQ-STRUCTURED-OPERATIONS says nothing about candidate composition. B: states the resulting list, not the algorithm. C: decidable — tail-segment equality and a ≤2 distance over the indexed items. D: borderline; ordering plus two tiers, but it is one composition rule from one spec block, stated as one condition over one list. E: no implementation-present-tense promotion — Levenshtein, sorting, dedup and near/exact exclusion are all withheld; only spec words survive. F: no test presupposed. G: rust-cargo-specific, permitted because 本冊 §6.3 names that adapter. H: verifier-behavior VO, not a dogfood admissibility rule. I: truth-condition distinct from VO-STRUCTOP-01/VO-INTEG-05 (presence vs content)."
+  },
+  {
+   "test_id": "TEST-CLI-025",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §2.4 adapter設定とwire互換 (L116): 「`config.yaml` writerの正規形はversion 2とし、adapterごとにroot、scan、run設定をnamespace化する。…`vtest init`はversion 2を生成する。」",
+    "詳細設計本冊 §2.2 `config.yaml` (L185): 「`vtest init`はversion 2を生成する。」(§2.1 L117: 「`vtest init` は上記ディレクトリ、`config.yaml` の雛形、`.verify/.gitignore`、組込 Form Schema（§14）を生成する。」)",
+    "別紙A §12.2 `vtest init` (L43-44): 「`.verify/` 一式（本冊 §2.1）を生成する。`config.yaml` は本冊 §2.2のversion 2で、組込 `rust-cargo` adapter namespaceを含む。」",
+    "別紙C §18.3.9 adapter contract (L211): 「config writerと`vtest init`はversion 2のadapter namespaceを出力する。」",
+    "(sibling, form側) 基本仕様 §8.5 Form Schema (L554): 「schemaはそのFormを処理するadapter IDを別fieldとして宣言する」／別紙A §14.4 (L408): 「Form Schema は…登録済みStructured Test adapterの`adapter` IDを必須とする。」"
+   ],
+   "existing_vo_check": "Not covered by any of the 160. VO-EXIST-01 constrains init only as \"creates .verify/, never touches code, re-init exits 2\" — silent on emitted content. VO-ADAPTER-14 is the reader direction (v1 read as one in-memory rust-cargo adapter, no rewrite); read strictly it says nothing about which version is written. VO-STRUCTOP-09/10 govern kind→adapter resolution at operation time, not what init emits; VO-STRUCTOP-11 is read-only resolution. VO-ADAPTER-06 fixes rust-cargo as the only production adapter, not the config shape. So the writer-side canonical form (version 2, per-adapter namespace) has no VO — a genuine hole, not a stretch of an existing claim.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-16",
+    "claim": "Every config.yaml the system emits — the config writer's output and the file `vtest init` creates — is in version 2 canonical form, with roots, scan and run namespaced under each adapter entry and the built-in rust-cargo adapter entry present; the flat version-1 shape is never written.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.4 adapter設定とwire互換"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§2.2 config.yaml"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§12.2 コマンド仕様（vtest init）"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9 adapter contract"
+     }
+    ]
+   },
+   "gate_check": "A: no REQ states an emitted config version — passes. B: truth-condition on the written file, not on the writer's steps. C: decidable — run init (or any config write), read version and namespace shape. D: one predicate (canonical emitted shape); the rust-cargo entry is 別紙A §12.2's content of that same shape, not a second obligation — the residual compound risk is reported honestly. E: no implementation identifiers. F: no test-presupposing wording. G: rust-cargo specificity is normatively required. Deliberately excluded as a sibling, not and-joined: built-in Form Schemas must declare their owning adapter ID (基本仕様 §8.5, 別紙A §14.4) — also uncovered; Owner may want a second VO.",
+   "recommended_role": "verification",
+   "rationale": "The prior \"B-supporting, zero covers\" reading treated init's v2 config and form owners as mere preconditions. The normative stack contradicts that: three normative layers oblige it, and 別紙A §12.2 states init's emitted config must be version 2 including the built-in rust-cargo adapter namespace — exactly the test's first three assertions. So the test is a sensor over a real, uncovered contract, not helper hygiene. Proposed VO-ADAPTER-16 completes the reader/writer pair with VO-ADAPTER-14. The test's form assertions (adapter: rust-cargo in the two built-in forms) rest on a separately sourced obligation I did not and-join; if the Owner adds that sibling VO, this test covers both."
+  },
+  {
+   "test_id": "TEST-STORE-009",
+   "contract_exists": "NO",
+   "normative_citations": [
+    "別紙A §14.2（line 386, 近接だが射程外）: 「`required` を欠く回答、未知のフィールド名は E-OP-001 とする。」— 操作動詞の主語は『回答』(answers)であり、Form Schema ファイル自身の property 文法ではない。",
+    "別紙C §18.3.7（line 184, 近接だが射程外）: 「Form Schemaの必須値と未知fieldを常に検証する。」— 後続節「symbol、VO / Test参照…は選択したFormが該当fieldとvalidatorを宣言した場合だけ検証し」が、対象を『選択した Form に対する利用者入力の検証』と確定させる。",
+    "要件定義 §20: 「入力内容は可能な限りその場で検証する。」— 対象は構造化『入力内容』（回答）。",
+    "反証側・詳細設計 §3（line 202）: 「すべてのレコードは YAML とし、未知フィールドはエラーではなく警告とする。」— 本プロジェクトの既定姿勢は未知キー寛容であり、schema ファイルの厳格拒否を義務づける規範文は存在しない。",
+    "基本仕様 §8.5 / 詳細設計 §（line 812）は Form Schema について kind 一意性・adapter owner 解決・重複/未知 adapter 拒否だけを義務づけ、schema 内 property 集合の閉性には言及しない。"
+   ],
+   "existing_vo_check": "VO-STRUCTOP-01/02 は unknown field 拒否を含むが、厳密に読むと射程は『受理時の構造化入力（回答）』の検証（E-OP-001、form-scoped validator）であり、Form Schema ファイル側の property 文法ではない。VO-STRUCTOP-09/10 は kind → adapter owner 解決と matcher の決定性であって、schema parser の未知 property 拒否を含意しない。VO-REGISTRY-05 は adapter 所有宣言構文の話で無関係。よって本 test の機構は既存 VO に覆われていないが、同時に規範による義務づけも存在しない（未被覆＝VO 追加事由ではない）。",
+   "proposed_vo": null,
+   "recommended_role": "supporting",
+   "rationale": "この test が動かす機構は parse_form_schema の field 定義における未知 property キー（`surprise: yes`）の拒否、すなわち schema ファイル自身の閉じた property 文法である。規範文書を通覧した結果、未知 field 拒否を命じる operative sentence は例外なく『Form Schema に照らした回答（構造化入力）の検証』を主語とし、schema ファイル側の厳格性を義務づける文は 要件定義・基本仕様・本冊・別紙A・別紙C のいずれにも存在しない。むしろ詳細設計 §3 は未知 field を警告扱いとする既定を置く。実装の厳格さは妥当な hygiene だが仕様上の債務ではないため、test の存在から VO を生やさず supporting に留める。",
+   "gate_check": "VO 提案なしのため purity gate A–I は適用せず（空提案として honest 報告）。自己点検: (1) test の存在を根拠に契約を発明していない、(2) 別紙A §14.2 / 別紙C §18.3.7 を『回答→schema ファイル』へ拡大解釈していない、(3) 既存 VO-STRUCTOP-01/02 を伸長して covers を捏造していない、(4) 別紙B・実装コードは規範として数えていない。AMBIGUOUS を選ばなかった理由: 別紙C の一文は後続節により回答検証と確定し、二読可能性が残らないため。"
+  },
+  {
+   "test_id": "TEST-STORE-012",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §2.4 (L116): 「`config.yaml` writerの正規形はversion 2と**し**、adapterごとにroot、scan、run設定をnamespace化**する**。」— operative する-register on the writer's canonical output.",
+    "詳細設計本冊 §2.2 (L150): 「config writerはversion 2を正規形と**する**。」with the normative version-2 schema block (L153-166) placing `scan.include` / `scan.assertion_macros` / `run` under `adapters[].`",
+    "詳細設計本冊 §2.2 (L188-190): 「`scan` と `run` はversion 1 schema互換のwire値と**する**。…非Rust namespaceの値をcoreがRust設定として推測・書換えして**はならない**。」",
+    "詳細設計 別紙A §vtest init (L44, normative annex): 「`config.yaml` は本冊 §2.2のversion 2で、組込 `rust-cargo` adapter namespaceを含む。」"
+   ],
+   "existing_vo_check": "Not covered. VO-ADAPTER-14 (v3 L4811) is strictly reader-direction: a version-1 file is read as one in-memory rust-cargo adapter and reading never rewrites canon. It says nothing about what the writer emits. VO-CLI (v3 L3500) constrains `vtest init` only to not touching existing code / failing on an existing .verify/. VO-VERIFY (L2763) covers `verify.full_scope`, not adapter namespacing. Grep of v3 for version-2 / writer / serialization returns no writer-side config claim. Highest existing ID is VO-ADAPTER-15, so no collision.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-16",
+    "claim": "The canonical config.yaml a writer emits is version 2: every adapter's root, scan (including scan.assertion_macros) and run settings appear under that adapter's entry in the adapters namespace, never as top-level flat version-1 fields.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.4"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§2.2"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§12.2 vtest init"
+     }
+    ]
+   },
+   "gate_check": "A: not a REQ restatement — REQ-ADAPTER-BOUNDARY is generic; this fixes the writer's canonical wire form. B: states an obligation on output, not a mechanism. C: decidable — inspect emitted YAML for version 2 and namespaced placement. D: single condition (writer canonical form); `vtest init` generation and reader v1 compat deliberately excluded. E/G: `assertion_macros` is named only because 詳細設計 §2.2's normative schema block lists it — honest residual G, permitted. F: no test presupposed; round-trip equality and the scan.include leak are the test's sensor, excluded from the claim. H: verifier-behavior VO, not a dogfood judging rule. I: no truth-condition overlap with VO-ADAPTER-14 (reader direction).",
+   "recommended_role": "regression-anchor-normative",
+   "rationale": "The test exercises the writer side of the config schema: to_yaml must place scan.assertion_macros under the adapters namespace (asserted via the 8-space-indented block) and a re-read must reproduce the same config. The normative stack obliges exactly that canonical form (基本仕様 §2.4, 詳細設計本冊 §2.2 + schema, 別紙A §vtest init); only the round-trip equality and the historical scan.include leak are test-local sensor detail. Contract exists and is uncovered by the 160 frozen VOs, so the anchor is normative and a freeze-v4 amendment (VO-ADAPTER-16) is warranted. Promotion of the test to verification/covers is a downstream step once the amendment is accepted, not part of this derivation."
+  },
+  {
+   "test_id": "TEST-ARUST-017",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "詳細設計本冊 §6.2 `rust-cargo` locator解決 (L927): 「`rust-cargo`のlocator `path::item-path`の解決は、§5.5で構築したSRC索引への完全一致検索と**する**。」",
+    "詳細設計本冊 §6.2 (L932-933): 「一意に決まらない場合（同名 fn が cfg 分岐で複数等）はすべて候補として返し、**解決失敗（E-SCAN-004）とする**」",
+    "詳細設計本冊 §6.1 (L901): 「解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とし、**推測で候補を選択しない**。」",
+    "詳細設計本冊 §6.1 (L907): 「各subsystemが独自にcandidate列を走査して1件を選ぶ経路を**持ってはならない**。」(静的監査を名指し)",
+    "詳細設計本冊 §5.5 (L874-876): 「モジュールパス構築 … 各itemの完全モジュールパスを**構築する**」",
+    "別紙C §18.3.1 (L70): 「曖昧はfail-closedな終端状態と**する**。…候補の1件を解決結果として記録しない。」",
+    "要件定義 §8 Source Target (L430): 「各adapterは、Source Targetを**一意に解決でき**…Target Referenceを提供する。」"
+   ],
+   "existing_vo_check": "Not covered by any of the 160. No v3 VO mentions E-SCAN-004 or states the resolver's own decision rule. Strict readings: VO-SEMAUDIT-09 governs bundle generation and MISSING/MISMATCH mapping downstream of an already-made ambiguity determination; VO-EXEC-03/-09 consume unique resolution as an Evidence precondition; VO-PARALLEL-04 covers SRC ID collision (E-SCAN-011), a different ambiguity source; VO-REGISTRY-10 fixes identity direction, VO-REGISTRY-11 the converse case (many spellings to one target, E-SCAN-005); VO-STRUCTOP-01 is accept-time Structured Operation rejection; VO-ADAPTER-09 asserts the core side (never parses locator syntax), leaving the adapter side unstated. Stretching any would import a subject its claim does not name.",
+   "proposed_vo": {
+    "id_suggestion": "VO-REGISTRY-16",
+    "claim": "A rust-cargo locator's item-path resolves to a Source Target only when exactly one construct in the module-qualified path index built at discovery matches it exactly; zero or two or more matches leave the reference unresolved (E-SCAN-004).",
+    "requirements": [
+     "REQ-TEST-REGISTRY",
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§6.2 `rust-cargo` locator解決"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§5.5 `rust-cargo` SourceDiscoveryAdapter"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§6.1 adapter-neutral解決contract"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.1 discovery・record・graph"
+     },
+     {
+      "spec": "SPEC-REQDEF",
+      "section": "§8 Source Target"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A: low risk — REQ §8 says only 「一意に解決でき」; the VO adds §6.2's concrete decision rule (exact match over the module-qualified index, multiplicity is failure). B: states a truth-condition, not mechanism narration. C: decidable from index plus item-path. D: one biconditional; the \"candidates are diagnostics only\" clause was deliberately left out (§6.1 L905/§6.3, and overlaps SEMAUDIT-09/EXEC-03). E: grounded in §6.2, not promoted from code; no function name appears. F: no test presupposed. G: rust-cargo-specific but normatively so (§6.2 is a normative adapter section). H: verifier-behavior VO. I: distinct input domains from SEMAUDIT-09, PARALLEL-04, EXEC-03.",
+   "rationale": "The test exercises module-qualified exact lookup (a::checks vs b::checks) and refusal to auto-select on an ambiguous bare name — precisely §6.2's rule and §6.1 L907's prohibition, which names 静的監査 among the subsystems forbidden to scan candidates and pick one. Disclosure: the helper is static_audit's local lookup, and dogfood-evidence-adequacy.json plus the w8 findings prove it asymmetric with the §5.5 discovery resolver (it walks only Item::Fn/Item::Mod, missing impl methods), so the test is a partial witness of the discovery-path contract, not a full one. Separate spec/impl tension, not grown into the VO: the implementation adds a unique-suffix fallback that 完全一致検索 does not authorize, though it preserves uniqueness."
+  },
+  {
+   "test_id": "TEST-CLI-060",
+   "contract_exists": "AMBIGUOUS",
+   "normative_citations": [
+    "詳細設計 別紙A §13.2 ツール一覧 (L271, table row): 「`req_list` / `req_get` | `id`、`tree: bool` | REQ レコード（木）」 — the only output-shape text; a cell annotation, not an operative sentence, and it never states nesting, field names, or exactly-once.",
+    "詳細設計 別紙A §12.2 (L82, L95): 「vtest req list [--tree]」「vtest vo list [--tree]」 — flag listing only; §12.1 (L14) fixes only the `{ok,data,diagnostics}` envelope, no list/tree payload shape.",
+    "詳細設計 別紙A §13.2 (L272 area): the `vo_list` / `vo_get` row declares inputs 「`id`、`req`、`status`」 and output 「VO レコード、covers 状況、承認状態」 — no `tree` input and no 木 output, so the VO half of this test has zero spec anchor.",
+    "負の証拠 — 詳細設計本冊 §19 実装選択 (L1531): 「レポートのツリー描画の細部（文字種、折返し）」は実装選択. Scoped to report text rendering only, so it neither grants nor disclaims a list-JSON tree contract.",
+    "負の証拠 — 別紙C 受入仕様: no acceptance criterion mentions req/vo list or --tree (only L166 text-tree branch symbols, already VO-REPORT-05). 要件定義 §4.3 / 基本仕様 L27-28,137-138 say REQ/VO 「階層構造を持てる」「階層可」 — data-model capability, not a listing-output obligation."
+   ],
+   "existing_vo_check": "No frozen v3 VO reaches this behavior read strictly. VO-REPORT-05 is the verify/report text tree's branch symbols (別紙A §12.2 prefix rule), not list JSON nesting. VO-INTEG-04 fixes only the {ok,data,diagnostics} envelope. VO-INTEG-01 fixes CLI/MCP parity of data, not the data's shape. VO-PARALLEL-05 and VO-PLAN-11 constrain the stored parent graph (dangling/cyclic parent) and vo_decomposition scope, not the list projection. VO-REGISTRY-06 is the Test query surface. Stretching any of these to cover \"each child returned exactly once under its root\" would be duplication by re-reading, not coverage.",
+   "proposed_vo": null,
+   "recommended_role": "regression-anchor-none",
+   "rationale": "The test asserts a list-projection shape: data.tree==true, root present exactly once in data.items, and exactly one matching child in root.children, for both `req list --tree` and `vo list --tree`. Two readings survive. (1) 別紙A §13.2's 「REQ レコード（木）」 with `tree: bool` obliges tree-shaped output, and treeness entails one appearance per node. (2) That cell is a 主要フィールド summary, not a decidable obligation; no doc states nesting, field names, or exactly-once, and `vo_list` has no tree at all. Reading (2) governs the VO half outright, so I do not confirm a contract. Fail-closed: anchor=none, no VO invented. This is a spec gap (別紙A §13.2 under-specifies list --tree and omits vo tree) to raise with the Owner, not a VO gap the test may fill.",
+   "gate_check": "Purity gate A-I not exercised: no VO drafted. A draft such as \"list --tree returns each record exactly once nested under its parent\" would fail the gate — its truth-condition (items/children/exactly-once) is readable only from the implementation and this test, not from any spec sentence; it would be implementation-promoted wording and test-presupposing, and it would over-cover the spec-silent VO tree. Requirements anchor is also unavailable: no REQ in the existing set obliges a listing-output shape (NFR-008 覆う対象 is §7.10 report trees, already VO-REPORT-05). Reported honestly rather than rescued."
+  },
+  {
+   "test_id": "TEST-STORE-010",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 §2.4 adapter設定とwire互換 (L116): 「`config.yaml` writerの正規形はversion 2とし、adapterごとにroot、scan、run設定をnamespace化する。…`vtest init`はversion 2を生成する。」",
+    "詳細設計 別紙A インターフェース仕様 §12.2 `vtest init` (L44-45): 「`.verify/` 一式（本冊 §2.1）を生成する。`config.yaml` は本冊 §2.2のversion 2で、組込 `rust-cargo` adapter namespaceを含む。」",
+    "詳細設計 別紙C 受入仕様 §18.3.9 adapter contract (L211): 「config writerと`vtest init`はversion 2のadapter namespaceを出力する。」",
+    "詳細設計 本冊 §2.2 (L150): 「config writerはversion 2を正規形とする。」（別紙C L210: 「config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。」）"
+   ],
+   "existing_vo_check": "Not covered. VO-ADAPTER-14 is strictly reader-side: it constrains how a version-1 file is converted in memory to one rust-cargo adapter and forbids rewriting canon; it says nothing about the form the writer emits. VO-EXIST-01 constrains init's effects (creates .verify/ only, exit 2 on existing) but not the emitted config's version or namespacing. VO-AGG-01 governs verify.full_scope's fixed 12 items only. VO-ADAPTER-11/06 concern unknown-adapter errors and shipped-adapter identity. No frozen claim, read strictly, asserts the writer/init canonical output form.",
+   "proposed_vo": {
+    "id_suggestion": "VO-ADAPTER-16",
+    "claim": "A config.yaml produced by the config writer (including the one vtest init generates) is a version-2 document in which each adapter's roots, scan, and run settings sit inside that adapter's namespace, init's containing the built-in rust-cargo adapter namespace; the flat version-1 layout is never emitted.",
+    "requirements": [
+     "REQ-ADAPTER-BOUNDARY"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§2.4"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§2.2"
+     },
+     {
+      "spec": "SPEC-IFACE",
+      "section": "§12.2 vtest init"
+     },
+     {
+      "spec": "SPEC-ACCEPT",
+      "section": "§18.3.9"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A: not a REQ paraphrase (REQ-ADAPTER-BOUNDARY is broader). B: states an output form, not a mechanism. C: decidable — parse the generated file, check version and namespacing. D: writer and init are stated in one operative sentence (別紙C §18.3.9), so non-compound. E: not implementation-promoted; quotable in three normative docs. Concrete defaults (include [src,tests,crates], coverage llvm-cov) deliberately excluded — they appear only as a 詳細設計 §2.2 schema example. F: no test presupposed. G: rust-cargo namespace is spec-required (別紙A). H: verifier-behavior VO. I: no truth-condition overlap with VO-ADAPTER-14.",
+   "rationale": "The test round-trips the default config the writer/init emits and reads the values back through the rust-cargo adapter namespace, so it exercises writer canonical form — a behavior the normative spec obliges in three places. Honest limit: TEST-STORE-010 never asserts version == 2, so it is a partial sensor; a flat v1 emission would still pass via the reader's compat path (VO-ADAPTER-14's territory). TEST-STORE-012's full-equality assertion pins the version field. Role is therefore verification with covers → proposed VO-ADAPTER-16 (partial evidence), not supporting; the prior \"asserts no normative rule\" rationale missed the writer-form contract."
+  },
+  {
+   "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
+   "contract_exists": "NO",
+   "normative_citations": [
+    "詳細設計 本冊 §7.2 rust-cargo ルール一覧, DA-002 row: 「宣言された target シンボルを呼んでいない」 / FAIL 条件「関数本体および同一ファイル内の呼出先 helper（1段）を探索して呼出が存在しない、かつ他ファイルへの呼出も存在しない」 — names the rule's object (the declared symbol) and the verdict conditions, but prescribes no call-identification mechanism; the UNKNOWN column is headed 「UNKNOWN へ退避する例」 (examples, non-exhaustive), so no positive case is forced to PASS. Near-miss, not an obligation on path resolution.",
+    "詳細設計 本冊 §7.1 判定の原則: 「決定論的に確定できる違反のみ FAIL とする。」「解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし」「違反なしと推測しない」 — obliges the fail-closed direction only (undeterminable ⇒ UNKNOWN), never that a determinable call must be PASS.",
+    "別紙C §18.3.2: 「正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。」 — corpus-scoped acceptance over §18.2 fixtures, and 別紙C itself lists normal Tests whose DA-002 is UNKNOWN (他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTest（DA-002 UNKNOWN・DA-003 PASS）), so it cannot be read as a general 'call present ⇒ PASS' contract.",
+    "詳細設計 本冊 §7.3: DA-002 の UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表す — constrains the meaning of UNKNOWN, not the criterion by which a call path is matched to the declared target."
+   ],
+   "existing_vo_check": "The only spec-obliged directions touching this behavior are already held, read strictly: VO-STATAUDIT-04 (a Test exhibiting REQ §11's 「宣言されたSource Targetを実行していない」 class within deterministic scope gets non-PASS; no class ⇒ no FAIL) covers a call to a deterministically different same-name item; VO-STATAUDIT-01 (undeterminable ⇒ UNKNOWN, never treated as no-violation) covers the ambiguous/shadowed call. Neither is stretched. Verdict-level DA-002/DA-003 contracts are sensed by TEST-ARUST-009/011/012. A \"call-path denotation identity\" VO would sit in the 01∩04 intersection — duplication, not a gap.",
+   "proposed_vo": null,
+   "gate_check": "No VO proposed, so gate A-I is not exercised. The candidate I considered and dropped (\"a call proves DA-002 reachability exactly when it denotes the declared canonical Source Target\") failed two gate legs: the affirmative half would restate classify_target_call's Proven branch (implementation-promoted wording) and is false as stated against the spec's own UNKNOWN classes; the negative half duplicates VO-STATAUDIT-01 + VO-STATAUDIT-04. It also existed only because this test exists — the growth pattern the Owner's rule forbids.",
+   "recommended_role": "supporting",
+   "rationale": "The test asserts an internal classifier enum (classify_target_call(\"crate::module::target\") == Proven), i.e. Rust path-prefix normalization against the target item path. The normative layers oblige DA-002's verdict-level outcomes (FAIL only on deterministic non-call, UNKNOWN when undeterminable) and never a call-identification mechanism; no operative sentence obliges the affirmative \"exact qualified path ⇒ PASS\". The intent line advertises a Proven-vs-Ambiguous distinction, but the body pins only the positive branch — the sensor is narrower than its label. B-supporting (helper hygiene, cover-less) is confirmed, now on spec-silence grounds rather than evidence adequacy."
+  },
+  {
+   "test_id": "TEST-STORE-018",
+   "contract_exists": "YES",
+   "normative_citations": [
+    "基本仕様 v0.1 §3.2 ID規則 (line 154): 「承認・監査・Evidence IDはbare ULIDとする。ULID payloadにより並列生成時のファイル名衝突を実用上排除する。」— operative する-register obligation on generated record IDs.",
+    "基本仕様 v0.1 §3.1 エンティティ表 (lines 141-144): Relation=`REL-`（ULID）/ Approval・Audit・Execution Evidence = ULID as the ID form for `.verify/rel|approvals|audits|evidence/` records (table counts as normative).",
+    "詳細設計 v0.1 §16.1 ロック不要の根拠 (line 1456): 「新規レコード追加（rel / approvals / audits / evidence）：ULID ファイル名の新規作成のみ。並列生成は衝突しない。」",
+    "詳細設計 v0.1 §3.4 (line 294): 「canonical Relation IDは`REL-`と26文字のULID payloadからなり、writerは…同値の`id`だけを生成する。」— fixes the generated payload as a 26-character ULID."
+   ],
+   "existing_vo_check": "Not covered by any of the 160 frozen v3 VOs, read strictly. VO-PARALLEL-02 obliges file discipline (records created only as new ULID-named files, no edit of an existing record file); it stays true even if a generator emitted a colliding name and the write failed closed, so it cannot carry collision-freedom — though its \"ULID-named\" already absorbs the name-form facet. VO-PARALLEL-09 claims no locks/arbitration and pure reads of canon; it cites §16.1 but its truth condition says nothing about ID generation. VO-PARALLEL-10 is reader-side identity normalization of `REL-<ULID>` and is Relation-only. No VO-STORE-* exists in v3 (the in-code `covers VO-STORE-007` is a legacy bottom-up ID).",
+   "proposed_vo": {
+    "id_suggestion": "VO-PARALLEL-11",
+    "claim": "Every record ID the store generates for a new rel/approval/audit/evidence file is a fresh 26-character ULID distinct from every other ID it generates, so concurrently created records never address the same record file name.",
+    "requirements": [
+     "REQ-PARALLEL-DEV",
+     "REQ-NFR-001"
+    ],
+    "spec_refs": [
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§3.2 ID規則"
+     },
+     {
+      "spec": "SPEC-BASIC",
+      "section": "§3.1 エンティティとID"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§16.1"
+     },
+     {
+      "spec": "SPEC-DOGFOOD-M3",
+      "section": "§3.4"
+     }
+    ]
+   },
+   "recommended_role": "verification",
+   "gate_check": "A: not a REQ restatement — REQ-PARALLEL-DEV/NFR-001 say only \"withstand parallel change\"; the ID-distinctness contract is design-level. B: leads with 基本仕様 §3.2 (rules section), citing 詳細設計 §16.1 (a 根拠 section) second. C: avoids 実用上/\"practically\"; 基本仕様 hedges 実用上 while 詳細設計 states 衝突しない flatly — the per-instance form (\"pairwise distinct; an observed duplicate is a defect\") is decidable under either reading. D: one condition — distinctness; \"26-character ULID\" types the generated ID rather than adding a claim. E/G: no counter/PID/nanos/entropy wording. F: no \"4096\" or other test operationalization. H: store-behavior VO, not an admissibility rule. I: no merge.",
+   "rationale": "The test exercises the record-ID generator (new_record_id): validity as a ULID and distinctness across generations. The normative stack obliges exactly this, unlike TEST-STORE-020/021 (write atomicity), where the spec was silent: 基本仕様 §3.2 makes approval/audit/evidence IDs bare ULIDs and rests parallel-generation filename non-collision on the ULID payload; §3.1's table fixes the ID form; 詳細設計 §16.1 states parallel generation does not collide; §3.4 fixes 26 characters. The obligation is an authored design contract, not an artifact of the test's existence. Because the collision-freedom facet is uncovered by VO-PARALLEL-02/09/10 read strictly, the test becomes a verification test once VO-PARALLEL-11 is adopted as a freeze-v4 amendment; if the Owner rejects the amendment, it falls back to B-supporting."
+  }
+ ]
+}

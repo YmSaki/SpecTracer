@@ -1,13 +1,13 @@
 {
- "note": "covers remap PROPOSAL (non-destructive; application blocked on the Owner auxiliary decision). Rule: covers = correspondence declaration = shadow-mapping verdict PROVES or PARTIAL against ontology v3 (sufficiency stays the job of the vo-coverage semantic audit per spec covers semantics; NO-verdict relevance is not correspondence). Auxiliary tests receive NO covers - fake covers are forbidden; their handling (covers-exempt kind vs unmanaged vs accepted MISSING) is the pending Owner spec judgment.",
+ "note": "covers remap PROPOSAL (non-destructive; application blocked on the Owner auxiliary decision). Rule: covers = correspondence declaration = shadow-mapping verdict PROVES or PARTIAL against ontology v3 (sufficiency stays the job of the vo-coverage semantic audit per spec covers semantics; NO-verdict relevance is not correspondence). Auxiliary tests receive NO covers - fake covers are forbidden; their handling (covers-exempt kind vs unmanaged vs accepted MISSING) is the pending Owner spec judgment. UPDATED after freeze v4 (B19+C2 re-derivation): 15 tests gained covers, auxiliary shrank 23 -> 8. NOTE: v4-derived mappings carry no shadow-mapping verdict yet (sensor-derived; v4 adequacy pass pending) - the PROVES|PARTIAL rule applies to them once the v4 adequacy evaluation lands.",
  "stats": {
   "managed_tests": 192,
-  "tests_with_covers": 169,
-  "auxiliary_zero_covers": 23,
-  "total_mappings": 385,
+  "tests_with_covers": 184,
+  "auxiliary_zero_covers": 8,
+  "total_mappings": 400,
   "covers_count_distribution": {
-   "0": 23,
-   "1": 61,
+   "0": 8,
+   "1": 76,
    "2": 45,
    "3": 32,
    "4": 19,
@@ -70,100 +70,87 @@
    "TEST-SCAN-010": [
     "VO-ADAPTER-15"
    ]
+  },
+  "v4_amendment_mappings": {
+   "TEST-AAPI-002": [
+    "VO-ADAPTER-17"
+   ],
+   "TEST-ARUST-004": [
+    "VO-EXEC-15"
+   ],
+   "TEST-ARUST-005": [
+    "VO-EXEC-07"
+   ],
+   "TEST-ARUST-006": [
+    "VO-EXEC-15"
+   ],
+   "TEST-ARUST-017": [
+    "VO-REGISTRY-21"
+   ],
+   "TEST-CLI-025": [
+    "VO-ADAPTER-16"
+   ],
+   "TEST-MODEL-001": [
+    "VO-REGISTRY-16"
+   ],
+   "TEST-MODEL-002": [
+    "VO-REGISTRY-20"
+   ],
+   "TEST-MODEL-005": [
+    "VO-REGISTRY-17"
+   ],
+   "TEST-MODEL-007": [
+    "VO-REGISTRY-18"
+   ],
+   "TEST-MODEL-008": [
+    "VO-REGISTRY-19"
+   ],
+   "TEST-SCAN-018": [
+    "VO-STRUCTOP-16"
+   ],
+   "TEST-STORE-007": [
+    "VO-STRUCTOP-15"
+   ],
+   "TEST-STORE-010": [
+    "VO-ADAPTER-16"
+   ],
+   "TEST-STORE-012": [
+    "VO-ADAPTER-16"
+   ]
   }
  },
  "auxiliary": [
   {
-   "test_id": "TEST-AAPI-002",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-ARUST-004",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-ARUST-005",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-ARUST-006",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-ARUST-017",
-   "category": "B-supporting"
-  },
-  {
    "test_id": "TEST-CLI-005",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-CLI-025",
-   "category": "B-supporting"
+   "role": "supporting"
   },
   {
    "test_id": "TEST-CLI-060",
-   "category": "C-regression"
+   "role": "regression-anchor-none"
   },
   {
    "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-MODEL-001",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-MODEL-002",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-MODEL-005",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-MODEL-007",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-MODEL-008",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-SCAN-018",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-STORE-007",
-   "category": "B-supporting"
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-008",
-   "category": "B-supporting"
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-009",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-STORE-010",
-   "category": "B-supporting"
-  },
-  {
-   "test_id": "TEST-STORE-012",
-   "category": "C-regression"
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-018",
-   "category": "B-supporting"
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-020",
-   "category": "A-rejected-spec-silent (upstream re-derivation found no normative obligation; now auxiliary)"
+   "role": "delete-leaning (Owner) / else supporting"
   },
   {
    "test_id": "TEST-STORE-021",
-   "category": "A-rejected-spec-silent (upstream re-derivation found no normative obligation; now auxiliary)"
+   "role": "delete-leaning (Owner) / else supporting"
   }
  ],
  "tests": [
@@ -177,7 +164,9 @@
   {
    "test_id": "TEST-AAPI-002",
    "file": "crates/vtest-adapter-api/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-ADAPTER-17"
+   ]
   },
   {
    "test_id": "TEST-AAPI-003",
@@ -253,17 +242,23 @@
   {
    "test_id": "TEST-ARUST-004",
    "file": "crates/vtest-adapter-rust/src/runner.rs",
-   "covers": []
+   "covers": [
+    "VO-EXEC-15"
+   ]
   },
   {
    "test_id": "TEST-ARUST-005",
    "file": "crates/vtest-adapter-rust/src/runner.rs",
-   "covers": []
+   "covers": [
+    "VO-EXEC-07"
+   ]
   },
   {
    "test_id": "TEST-ARUST-006",
    "file": "crates/vtest-adapter-rust/src/runner.rs",
-   "covers": []
+   "covers": [
+    "VO-EXEC-15"
+   ]
   },
   {
    "test_id": "TEST-ARUST-007",
@@ -345,7 +340,9 @@
   {
    "test_id": "TEST-ARUST-017",
    "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-21"
+   ]
   },
   {
    "test_id": "TEST-ARUST-018",
@@ -395,7 +392,8 @@
   {
    "test_id": "TEST-CLI-005",
    "file": "crates/vtest-cli/src/lib.rs",
-   "covers": []
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-CLI-006",
@@ -510,7 +508,9 @@
   {
    "test_id": "TEST-CLI-025",
    "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
-   "covers": []
+   "covers": [
+    "VO-ADAPTER-16"
+   ]
   },
   {
    "test_id": "TEST-CLI-026",
@@ -805,7 +805,8 @@
   {
    "test_id": "TEST-CLI-060",
    "file": "crates/vtest-cli/tests/m2_acceptance.rs",
-   "covers": []
+   "covers": [],
+   "role": "regression-anchor-none"
   },
   {
    "test_id": "TEST-CLI-061",
@@ -1157,17 +1158,22 @@
   {
    "test_id": "TEST-DOGFOOD-M3-TARGET-RULES",
    "file": "C:\\programing\\SpecTracer\\crates\\vtest-adapter-rust\\src\\static_audit.rs",
-   "covers": []
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-MODEL-001",
    "file": "crates/vtest-model/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-16"
+   ]
   },
   {
    "test_id": "TEST-MODEL-002",
    "file": "crates/vtest-model/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-20"
+   ]
   },
   {
    "test_id": "TEST-MODEL-003",
@@ -1186,7 +1192,9 @@
   {
    "test_id": "TEST-MODEL-005",
    "file": "crates/vtest-model/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-17"
+   ]
   },
   {
    "test_id": "TEST-MODEL-006",
@@ -1198,12 +1206,16 @@
   {
    "test_id": "TEST-MODEL-007",
    "file": "crates/vtest-model/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-18"
+   ]
   },
   {
    "test_id": "TEST-MODEL-008",
    "file": "crates/vtest-model/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-REGISTRY-19"
+   ]
   },
   {
    "test_id": "TEST-SCAN-001",
@@ -1340,7 +1352,9 @@
   {
    "test_id": "TEST-SCAN-018",
    "file": "crates/vtest-scan/src/operations.rs",
-   "covers": []
+   "covers": [
+    "VO-STRUCTOP-16"
+   ]
   },
   {
    "test_id": "TEST-STORE-001",
@@ -1393,22 +1407,28 @@
   {
    "test_id": "TEST-STORE-007",
    "file": "crates/vtest-store/src/forms.rs",
-   "covers": []
+   "covers": [
+    "VO-STRUCTOP-15"
+   ]
   },
   {
    "test_id": "TEST-STORE-008",
    "file": "crates/vtest-store/src/forms.rs",
-   "covers": []
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-009",
    "file": "crates/vtest-store/src/forms.rs",
-   "covers": []
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-010",
    "file": "crates/vtest-store/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-ADAPTER-16"
+   ]
   },
   {
    "test_id": "TEST-STORE-011",
@@ -1420,7 +1440,10 @@
   {
    "test_id": "TEST-STORE-012",
    "file": "crates/vtest-store/src/lib.rs",
-   "covers": []
+   "covers": [
+    "VO-ADAPTER-16"
+   ],
+   "role": "regression-anchor-normative"
   },
   {
    "test_id": "TEST-STORE-013",
@@ -1461,7 +1484,8 @@
   {
    "test_id": "TEST-STORE-018",
    "file": "crates/vtest-store/src/records.rs",
-   "covers": []
+   "covers": [],
+   "role": "supporting"
   },
   {
    "test_id": "TEST-STORE-019",
@@ -1473,12 +1497,14 @@
   {
    "test_id": "TEST-STORE-020",
    "file": "crates/vtest-store/src/records.rs",
-   "covers": []
+   "covers": [],
+   "role": "delete-leaning (Owner) / else supporting"
   },
   {
    "test_id": "TEST-STORE-021",
    "file": "crates/vtest-store/src/records.rs",
-   "covers": []
+   "covers": [],
+   "role": "delete-leaning (Owner) / else supporting"
   },
   {
    "test_id": "TEST-STORE-022",
