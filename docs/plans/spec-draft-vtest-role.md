@@ -1,6 +1,16 @@
-# test role 仕様設計案 v2（免除フラグではなく role × covers の直交設計）
+# test role 仕様設計案 v3（role × covers × anchor の直交設計）
 
-Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に賛成・仕様設計は要チェック。GPT-5.6-sol の整理（role taxonomy・closure 寄与規則の分離・regression の escape 穴の指摘）を取り込んだ v2。**採否・字句は Owner レビュー（spec/* PR）で確定**。syntax は概念確定後。
+Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に賛成・仕様設計は要チェック。v2 に対する Owner レビュー = **大枠 APPROVE + spec PR 前の3修正要求**（① anchor classification の構造化 ② test-local audit の通常適用の明文化 ③ role × topology 直交の明文化）を反映した v3。syntax は概念確定後。
+
+## 形式モデル（確定した最終形）
+
+- **ManagedTest(t)**: 全テストに要求（∀t Managed(t) — test_traceability の責務）
+- **Role(t)**: テストの存在理由（purpose）
+- **Covers(t,o)**: 規範対応宣言（normative correspondence）
+- **AdequateEvidence(t,o)**: 証拠品質（意味監査・DA 規則の領分）
+- **Contributes(t,o) = Covers(t,o) ∧ AdequateEvidence(t,o)** — 閉包寄与はこの2項だけで決まる
+- **RoleConstraints(t)**: role は covers / anchor 宣言の**合法性だけ**を制約する
+- **Role ⇏ Contribution**（role から寄与を導出しない — 本設計の不変条件）
 
 ## 中心原理
 
@@ -23,22 +33,68 @@ Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に�
 
 ## role の値と covers 制約
 
-| role | covers 制約 | 閉包寄与 | 違反時 |
+| role | covers / anchor 制約 | 閉包寄与（= Covers ∧ AdequateEvidence） | 違反時 |
 |---|---|---|---|
-| **verification**（省略時の既定） | **≥1 必須**（現行維持） | covers 先の VO の適合性証拠 | covers 0 → E-SCAN-007（現行どおり・後方互換） |
-| **supporting** | **0 必須**（推奨案。下記 open-1） | なし（閉包の外。実行管理のみ） | covers 併存 → E-SCAN-013 |
-| **regression** | **≥1、または明示の no-anchor 根拠宣言**（保護対象の挙動が規範由来なら covers 必須。規範義務が無いと主張するならその理由を宣言に書く） | covers があれば verification と同じく寄与（role は由来 metadata） | covers 0 ∧ 根拠宣言なし → E-SCAN-013 |
-| **characterization** | 0（現状固定の記録。非適合性証拠） | なし | covers 併存 → E-SCAN-013 |
+| **verification**（省略時の既定） | covers **≥1 必須**（現行維持） | covers 先の VO の適合性証拠 | covers 0 → E-SCAN-007（現行どおり・後方互換） |
+| **supporting** | covers **0 必須**（**Owner 確定** — 事故史論拠により禁止で確定） | なし（閉包の外。実行管理は下記「test-local 監査」どおり維持） | covers 併存 → role-covers 制約違反 |
+| **regression** | **anchor classification 必須**（下記） | anchor=normative なら verification と同じく寄与（role は由来 metadata） | anchor/covers 不整合 → anchor-covers 制約違反 |
+| **characterization** | — | — | **reserved role value; not admitted by this version**（予約語。受理語彙だが本 version では宣言不可。意味論は導入時に定義） |
 
-- **regression の escape hatch は「うるさく」する**: 「保護対象が規範的か」は機械判定不能なので、cover-less regression には明示の根拠宣言（例: `@vtest.no-anchor <理由>` — syntax 未定）を必須にする。逃がすことは可能だが、**silent には逃がせない**（宣言 = 内容ハッシュに参加 = 監査可能・grep 可能・relabel は STALE 誘発）。
-- E-SCAN-013 = 「role-covers 制約違反」の族コード（message で細別）。**コード番号は spec PR 時点の空き番号を採る（013 は仮）** — E-SCAN-012 は cluster 2 修正が emitter を実装予定であり、VO-REGISTRY-15 の scope 判断（判断キュー③）の帰結次第で spec 側が別の新コードを要する可能性があるため。E-SCAN-007 は既定 role の covers 欠落のまま温存（後方互換・fail-closed 既定の維持）。
+### regression の anchor classification（v3 で構造化 — free-text escape の廃止）
+
+cover-less regression を「理由を書けば済む」free-text 免罪にしない。**anchor を第一級の分類宣言**にする:
+
+```
+role   = regression
+anchor = normative | none
+```
+
+- **anchor=normative** → covers ≥1 必須（保護対象の挙動は規範義務 — 通常の閉包寄与）
+- **anchor=none** → covers 0 必須 + rationale 必須（「この regression は normative obligation を保護していない」という**第一級の宣言**）
+
+これにより escape は免罪文でなく監査対象の分類になり、report にも自然に出せる（例: `Regression tests — normative: N / non-normative: M`）。宣言は内容ハッシュに参加するため silent relabel 不可。anchor=none ∧ 実は規範義務あり、の誤分類は remap/監査時に anchor=none 一覧を舐めるだけで発見可能。
+### 診断 ontology（番号は spec PR で振る — 013 等は仮）
+
+failure class を潰さずに並べてから番号を振る（Owner レビュー指摘）:
+
+| class | 例 | 性質 |
+|---|---|---|
+| **invalid role value** | `@vtest.role xyz` / characterization（予約語） | metadata syntax/schema validation の層 |
+| **role-covers 制約違反** | `role supporting` + `covers VO-X` | semantic constraint violation |
+| **anchor-covers 制約違反** | `anchor normative` + covers 0 / `anchor none` + covers 1 / anchor 欠落 regression | semantic constraint violation |
+
+同じコード族に載せる場合も**診断意味は潰さない**（message でなく class として区別可能に）。E-SCAN-007 は既定 role の covers 欠落のまま温存（後方互換・fail-closed 既定の維持）。E-SCAN-012 は cluster 2 修正が emitter を実装予定のため番号は流用しない。
+
 - **fail-closed の要**: role 省略 = verification。忘れによる免除は構造的に不可能。
 
-## open 論点（Owner 判断）
+### test-local 監査の通常適用（Auditability ≠ Contribution — 明文化必須）
 
-1. **supporting + covers の扱い**: 推奨 = 禁止（E-SCAN-013）。最強の論拠は **covers の意味の単一性**: 禁止なら「covers がある = 閉包に寄与する」が例外なしの全称になり、verify の寄与規則が role を読まずに済む。optional 許容（GPT 原案）だと寄与判定が「covers あり ∧ role ≠ supporting」の2変数条件になり、cluster 2 型（条件分岐の under/over-inclusion）の温床になる。実例: TEST-STORE-013 は supporting 的な見た目だが v3 sweep で VO-ADAPTER-14 の facet を獲得 → 一語で verification に変えるのが正しい処置。
-2. **characterization を初期版に入れるか**: 推奨 = **予約語のみ確保**（宣言されたら「未実装 role」の error。意味論は導入時に定義）。現 corpus に該当 0件の role に受入ケース・診断分岐・report 表示を生やすと死んだ仕様面になる — text-report-not-annex-a（debug printer 化）で観測済みの失敗様式。
-3. **DetailedDesignContract → SupportingTest 層**（GPT 提案）: helper が実は設計契約であるケース（正規化・ハッシュ規則等）の個別 VO 化余地は残る（排他でない）。層としての仕様化は今回 scope 外を推奨。
+**Auditability(t) と Contribution(t,o) は別物**。covers を持たないテストも監査の二級市民にならない。仕様に pin する文（趣旨）:
+
+> All managed tests remain subject to test-local integrity, execution, freshness, and applicable static/semantic checks. A test without covers does not contribute those results to any Verification Obligation.
+
+具体的に、supporting / anchor=none regression / （将来の）characterization にも通常適用されるもの:
+- intent と実装の一致（意味監査の test-local 面）
+- fixture が条件を成立させているか
+- oracle が結果を実際に観測しているか（DA-001/003 系の test-local 面）
+- targets 宣言があれば当該 target への実到達（DA-002 / target_execution）
+- execution evidence の鮮度（test_execution / evidence_validity）
+
+**Contribution(t,o) = 0 なだけ** — 検査値はどの VO にも算入されない。これを書かないと「supporting は audit 不要」という実装読み違えが起きる（cluster 6/7 型の読み違えの予防）。
+
+### role × topology の直交（明文化必須）
+
+**role = なぜ存在するか。topology = どうやって SUT へ到達するか。** 両者は独立の軸であり、規範文として pin する（趣旨）:
+
+> Test role MUST NOT determine execution topology, target-reachability applicability, or boundary semantics.
+
+`verification + subprocess` / `regression + subprocess` / `supporting + in-process` / `supporting + structural` — 全組合せが理論上あり得る。「targets 宣言があれば target_execution 通常適用」の規則はこの原則の系。到達性モデル（DA-002 静的 OR runtime）の適用可否も role からは決して導出しない — 過去事故（test kind と execution topology の混同を却下した経緯）の再発防止。
+
+## 確定済み論点（Owner レビューで解決）
+
+1. **supporting + covers 禁止 — 確定**。論拠: covers の意味の単一性（Covers(t,o) ⇒ CandidateEvidence(t,o) が role 非依存の全称で読める）。optional だと verification core に「covers あり ∧ role ≠ supporting」の余計な条件が入り、事故史（条件分岐の under/over-inclusion 19件）に照らして誤り。
+2. **characterization は予約語のみ — 確定**。字句は「reserved role value; not admitted by this version」（受理語彙だが本 version で宣言不可、と読める表現。「予約語なのに error」という不正確な見え方を避ける）。
+3. **DetailedDesignContract → SupportingTest 層**: 層としての仕様化は scope 外。ただし B19 は supporting 確定の**前に**軽い上流再導出を1回かける（下記見取り図 — 正規化・ハッシュ・parser 意味論は詳細設計の normative contract が既に存在する可能性がある）。原則は不変: **Test から VO を生やさない**。spec に契約があれば verification へ、無ければ supporting。
 
 ## 仕様変更点（規範層別）
 
@@ -50,8 +106,8 @@ Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に�
 
 ### 詳細設計
 5. §4.2: admitted key に `role`（反復不可。不正値は error）+ 根拠宣言キー。**注意: 新キーの追加は VO-REGISTRY-15 の scope 判断（③ = §4.2 L513 の適用範囲）と同じ PR で扱うこと** — キーを足す PR とキー検出の scope を確定させる PR が別だと L513 問題を再演する。
-6. §4.4: E-SCAN-007 の適用を「既定 role の covers 欠落」と明記。**E-SCAN-013**（role-covers 制約違反、番号は仮）を新設。**宣言→entity 具体化のどの段で「構文上完全」を判定するかの条件分岐位置を明記**（現行 §4.4 は role 分岐を持たない。L545-547/L858 の ManagedTestLink::Missing 経路が supporting の covers 0 を Missing と誤判定しないよう、完全性検査の role 条件化を scanner 段で確定させる）。
-7. §5.4 診断表: E-SCAN-013 行追加。
+6. §4.4: E-SCAN-007 の適用を「既定 role の covers 欠落」と明記。**role-covers / anchor-covers 制約違反の診断を新設**（番号は診断 ontology 確定後に spec PR で付与）。**宣言→entity 具体化のどの段で「構文上完全」を判定するかの条件分岐位置を明記**（現行 §4.4 は role 分岐を持たない。L545-547/L858 の ManagedTestLink::Missing 経路が supporting の covers 0 を Missing と誤判定しないよう、完全性検査の role 条件化を scanner 段で確定させる）。
+7. §5.4 診断表: 上記診断 ontology の3 class を行として追加（invalid role value / role-covers / anchor-covers）。
 8. 検証項目の適用（supporting / cover-less regression / characterization）:
    - `test_traceability` / `test_execution` / `runtime_result` / `evidence_validity`: **通常適用**（壊れれば赤くなる。実行管理は維持 — 削除しない価値はここ）
    - `target_execution`: targets 宣言があれば通常適用
@@ -62,7 +118,7 @@ Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に�
 10. TestEntity に `role` field（省略時 verification。field 無し = verification 読み・読取だけで書換えない）。
 
 ### 別紙C
-11. 受入: (a) supporting・covers 0 → scan OK・traceability PASS / (b) supporting・covers 1 → E-SCAN-013 / (c) 既定 role・covers 0 → E-SCAN-007 / (d) regression・covers 0・根拠なし → E-SCAN-013 / (e) regression・covers 0・根拠あり → scan OK / (f) relabel → hash 変化 → evidence STALE。
+11. 受入: (a) supporting・covers 0 → scan OK・traceability PASS / (b) supporting・covers 1 → role-covers 制約違反 / (c) 既定 role・covers 0 → E-SCAN-007 / (d) regression・anchor=normative・covers ≥1 → scan OK・閉包寄与 / (e) regression・anchor=normative・covers 0 → anchor-covers 制約違反 / (f) regression・anchor=none・covers 0・rationale あり → scan OK・寄与なし / (g) regression・anchor=none・covers 1 → anchor-covers 制約違反 / (h) regression・anchor 欠落 → anchor-covers 制約違反 / (i) characterization 宣言 → reserved role value エラー / (j) relabel（role/anchor いずれも）→ hash 変化 → evidence STALE / (k) supporting test の test-local 監査（intent 一致・target 到達・鮮度）が通常適用されること。
 
 ## 系の性質
 
@@ -73,8 +129,8 @@ Owner 方針（2026-08-16）: auxiliary は削除せず宣言で第一級化に�
 
 | 群 | 処置 |
 |---|---|
-| B 19 | `role supporting`（covers 0） |
-| C 2 | `role regression`。**TEST-STORE-012**: 規範アンカー候補 = 基本仕様 L116「writer の正規形は version 2・adapter ごとに namespace 化」（writer 側 VO は v3 に不在を確認済み）→ mini 上流再導出が成立すれば covers 獲得。**TEST-CLI-060**: アンカー無しの見込み → 根拠宣言付き cover-less regression か削除 |
+| B 19 | **即 supporting 確定しない** — 軽い上流再導出を先にかける: 「normative design contract が詳細設計に存在するか？ yes → verification + covers（freeze v4 amendment 経由で VO 化）/ no → supporting」。CRLF 正規化・ハッシュ正規化・parser 意味論あたりは contract 実在の可能性が高い |
+| C 2 | `role regression` + anchor classification。**TEST-STORE-012**: anchor=normative 候補 = 基本仕様 L116「writer の正規形は version 2・adapter ごとに namespace 化」（writer 側 VO は v3 に不在を確認済み）→ mini 上流再導出が成立すれば covers 獲得。**TEST-CLI-060**: アンカー無しの見込み → anchor=none + rationale か削除 |
 | A 2 | 「verification evidence ではない」は確定（上流再導出済み）。**VO 捏造での救済は禁止**。残すなら supporting（実装品質 pin）、削除は保守判断 — Owner 傾きは削除 |
 
 ## 手順
