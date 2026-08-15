@@ -1,0 +1,2245 @@
+{
+ "note": "VO claims are provisional (derived from test intents); weak claims expected to surface in vo_coverage audit. TEST IDs are permanent once committed.",
+ "spec_reuse": "SPEC-DOGFOOD-M3",
+ "reqs": [
+  {
+   "id": "REQ-AAPI",
+   "summary": "vtest-adapter-api crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-ARUST",
+   "summary": "vtest-adapter-rust crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-CLI",
+   "summary": "vtest-cli crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-MODEL",
+   "summary": "vtest-model crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-SCAN",
+   "summary": "vtest-scan crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-STORE",
+   "summary": "vtest-store crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  },
+  {
+   "id": "REQ-VERIFY",
+   "summary": "vtest-verify crate realizes its detailed-design behavior",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7"
+  }
+ ],
+ "vos": [
+  {
+   "id": "VO-AAPI-001",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "register: Registering two adapters with the same ID is rejected as a duplicate; A declared capability with no implementation is rejected at registration"
+  },
+  {
+   "id": "VO-AAPI-002",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "ids: Registry iteration and lookup are deterministically ordered by adapter ID; Registry binds codec and yields adapter ids in deterministic sorted order"
+  },
+  {
+   "id": "VO-AAPI-003",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "normalize_wire_targets: Neutral wire targets round-trip and reject dual targets vs single target"
+  },
+  {
+   "id": "VO-AAPI-004",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_static_audit_config_subject: Static observation is hash-free and core computes config subject hash"
+  },
+  {
+   "id": "VO-AAPI-005",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_test_subject: Discovery DTO is hash-free and core hash binds the test subject"
+  },
+  {
+   "id": "VO-AAPI-006",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "Structural fixtures in w1_acceptance_binding preserve their invariants"
+  },
+  {
+   "id": "VO-AAPI-007",
+   "req": "REQ-AAPI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "missing_capability_semantics: Missing capabilities map to specific non-pass semantics states"
+  },
+  {
+   "id": "VO-ARUST-001",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "decode_execution: Round-trips a Test through encode_properties then decode_execution losslessly; decode_execution rejects disagreeing and incomplete compatibility fields"
+  },
+  {
+   "id": "VO-ARUST-002",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "parse_result: parse_result maps ok/FAILED/ignored lines and rejects non-matching filters"
+  },
+  {
+   "id": "VO-ARUST-003",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "llvm_cov_function_count: llvm_cov_function_count sums matched counts/regions and returns None when absent; llvm_cov_function_count preserves a zero count as Some(0) not None"
+  },
+  {
+   "id": "VO-ARUST-004",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "llvm_name_matches: llvm_name_matches demangles rust v0 symbols and matches by item path"
+  },
+  {
+   "id": "VO-ARUST-005",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "not_checked_target_execution: not_checked_target_execution yields checked:false, null result, empty targets"
+  },
+  {
+   "id": "VO-ARUST-006",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "rule_da001: all-constant assertion arguments yield a DA-001 Fail verdict"
+  },
+  {
+   "id": "VO-ARUST-007",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "rule_da002: target called inside assertion passes DA-001/DA-002/DA-003; one-hop same-file helper passes DA-002; external call is Unknown"
+  },
+  {
+   "id": "VO-ARUST-008",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "rule_da004: assert_eq of identical operands fails DA-004"
+  },
+  {
+   "id": "VO-ARUST-009",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "rule_da003: identifier substring of target does not prove result verification; target result crossing a helper boundary is DA-003 Unknown"
+  },
+  {
+   "id": "VO-ARUST-010",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "find_function: find_function resolves module-qualified paths, rejects ambiguous bare name"
+  },
+  {
+   "id": "VO-ARUST-011",
+   "req": "REQ-ARUST",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "has_assert_like: unwrap, try, and Result-err bodies count as assert-like syntax"
+  },
+  {
+   "id": "VO-CLI-001",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_init: init builds the .verify layout and a second init is a usage error; init writes a v2 config with adapters and form owner metadata"
+  },
+  {
+   "id": "VO-CLI-002",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "approve_vo: approve fails-closed on a moved spec source without writing an approval"
+  },
+  {
+   "id": "VO-CLI-003",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "effective_vo_status: VO status is derived: approved after approve, draft after edit"
+  },
+  {
+   "id": "VO-CLI-004",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "create_test: structured create/edit yields a scannable test and rejects bad targets"
+  },
+  {
+   "id": "VO-CLI-005",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "merge_diagnostics: merged scan+audit diagnostics sort deterministically by severity/code"
+  },
+  {
+   "id": "VO-CLI-006",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_audit_static: audit static rejects passing both --test and --all with usage exit; CLI audit static maps DA-001..006 fails, keeps UNKNOWN, warns on ignored, persists per-target "
+  },
+  {
+   "id": "VO-CLI-007",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "Structural fixtures in adapter_acceptance preserve their invariants"
+  },
+  {
+   "id": "VO-CLI-008",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_scan: Duplicate bare+prefixed Relation aliases make scan emit E-SCAN-010 and exit 1; Unknown adapter id makes scan fail with E-ADAPTER-001 and no result"
+  },
+  {
+   "id": "VO-CLI-009",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_verify: Default verify reports exactly the fixed twelve items without rewriting config; v1 config without full_scope verifies the fixed twelve and never rewrites config"
+  },
+  {
+   "id": "VO-CLI-010",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_run: run records evidence with neutral subject hashes and complete execution state; An execution-input mutation during run yields E-EXEC-004 and no evidence"
+  },
+  {
+   "id": "VO-CLI-011",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_vo: A spec-dependency change reverts approved VO effective_status to draft; vo edit never persists a derived status; effective_status stays draft"
+  },
+  {
+   "id": "VO-CLI-012",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_target_subject: The target subject hash is computed from the canonical locator, not the SRC ID"
+  },
+  {
+   "id": "VO-CLI-013",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run: scan/doctor/text agree on calc fixture: 7 tests, E-SCAN-003, exit 1, runnable selection; warning-only scan (W-SCAN-101) exits 0 with ok:true and located diagnostic"
+  },
+  {
+   "id": "VO-CLI-014",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_spec: Invalid spec --kind is a usage error and creates no canonical record"
+  },
+  {
+   "id": "VO-CLI-015",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_audit_bundle: audit bundle emits full schema fields for test-semantic, vo-coverage, impl-consistency"
+  },
+  {
+   "id": "VO-CLI-016",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_audit_submit: submit with empty reasons is rejected E-AUDIT-005 and appends no audit record; submit against a changed test fails E-AUDIT-002 and appends no audit"
+  },
+  {
+   "id": "VO-CLI-017",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_test: test create rejects an invalid source symbol with E-OP-001 and candidates; created structured Test is scanned and exposed via show/list/query"
+  },
+  {
+   "id": "VO-CLI-018",
+   "req": "REQ-CLI",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "run_mcp: MCP initialize/tools.list advertises all tools and scan matches CLI envelope; JSON-RPC notifications yield no response and don't consume next request"
+  },
+  {
+   "id": "VO-MODEL-001",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "normalize_hashed_text: Hash normalization folds CRLF/CR and trailing spaces but preserves leading space and final newline"
+  },
+  {
+   "id": "VO-MODEL-002",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "normalized: Locator TargetRef normalizes to adapter-scoped opaque string"
+  },
+  {
+   "id": "VO-MODEL-003",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "new: JsonEnvelope serializes with ok, data, and diagnostics top-level fields"
+  },
+  {
+   "id": "VO-MODEL-004",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_test_subject: Changing intent metadata changes the test subject hash; Moving byte range without content change leaves test subject hash stable"
+  },
+  {
+   "id": "VO-MODEL-005",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_static_audit_config_subject: Static audit config subject hash binds the typed projection deterministically"
+  },
+  {
+   "id": "VO-MODEL-006",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "encode: CanonicalProjection encoding distinguishes null, empty string, and empty list"
+  },
+  {
+   "id": "VO-MODEL-007",
+   "req": "REQ-MODEL",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "hash_record_subject: Domain separation prevents cross-type hash reuse across subject kinds"
+  },
+  {
+   "id": "VO-SCAN-001",
+   "req": "REQ-SCAN",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "materialize_discovery_batch: Validated batch materializes tests/targets with expected content hashes; Fragment bytes not matching current source are rejected"
+  },
+  {
+   "id": "VO-SCAN-002",
+   "req": "REQ-SCAN",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "scan_project: Annotated test and source extracted with execution metadata; Missing/invalid Cargo metadata fails closed with E-SCAN-004"
+  },
+  {
+   "id": "VO-SCAN-003",
+   "req": "REQ-SCAN",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "edit_distance: edit_distance returns correct Levenshtein distances for transposition and disjoint strings"
+  },
+  {
+   "id": "VO-STORE-001",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "resolve_upstream_closure: Closure spans parent REQs and their SPECs, excluding the subject VO itself; The compatibility status field never alters any upstream closure subject"
+  },
+  {
+   "id": "VO-STORE-002",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "derive_vo_status: A changed Specification source makes the closure unresolvable and un-approves the VO; Editing the subject VO lapses the approval without flagging it invalid"
+  },
+  {
+   "id": "VO-STORE-003",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "parse_form_schema: Built-in unit form parses to expected kind, field count, and template; Unknown form field property causes parse_form_schema to error"
+  },
+  {
+   "id": "VO-STORE-004",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "parse_form_answers: Answers parse both inline and block list forms into FormValue::List"
+  },
+  {
+   "id": "VO-STORE-005",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "from_yaml: Default config serialized then parsed preserves name, includes, coverage; Explicit scan.include replaces defaults rather than merging"
+  },
+  {
+   "id": "VO-STORE-006",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "to_yaml: assertion_macros round-trip and stay separate from scan.include"
+  },
+  {
+   "id": "VO-STORE-007",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "new_record_id: 4096 generated record ids are unique and valid ULIDs"
+  },
+  {
+   "id": "VO-STORE-008",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "write_new_record: append-only write errors on collision and preserves prior content; append-only write publishes full content atomically"
+  },
+  {
+   "id": "VO-STORE-009",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "write_atomic: atomic write replaces entity file with complete new content"
+  },
+  {
+   "id": "VO-STORE-010",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "from_yaml: approval round-trips and rejects a missing traceable approver; approval closure distinguishes absent/empty/duplicate dependencies"
+  },
+  {
+   "id": "VO-STORE-011",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "from_yaml: static audit round-trips and enforces exactly one TEST subject; malformed or untraceable audit records are rejected"
+  },
+  {
+   "id": "VO-STORE-012",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "to_yaml: per-target verdict blocks serialize and round-trip through YAML"
+  },
+  {
+   "id": "VO-STORE-013",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "pure_static_fold: fold is FAIL-dominant then UNKNOWN then PASS, empty is UNKNOWN"
+  },
+  {
+   "id": "VO-STORE-014",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "static_record_target_defect: a well-formed per-target record reports no defect; surplus, missing, or duplicate targets are flagged malformed"
+  },
+  {
+   "id": "VO-STORE-015",
+   "req": "REQ-STORE",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "from_yaml: relation round-trips and rejects invalid immutable records"
+  },
+  {
+   "id": "VO-VERIFY-001",
+   "req": "REQ-VERIFY",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "compare_evidence_recency: Evidence recency ordering uses actual RFC3339 instant, not lexical order"
+  },
+  {
+   "id": "VO-VERIFY-002",
+   "req": "REQ-VERIFY",
+   "spec": "SPEC-DOGFOOD-M3",
+   "section": "§7",
+   "claim": "evaluate_static_audit: DA-002 UNKNOWN rescued to PASS by valid runtime target_execution (count>0); Runtime rescue denied when measured count is zero; item stays UNKNOWN"
+  }
+ ],
+ "file_map": [
+  {
+   "file": "crates/vtest-adapter-api/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::registry_rejects_duplicate_adapter_ids",
+     "id": "TEST-AAPI-001",
+     "covers": "VO-AAPI-001",
+     "target": "crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register",
+     "intent": "Registering two adapters with the same ID is rejected as a duplicate",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::registry_iteration_and_lookup_are_id_sorted",
+     "id": "TEST-AAPI-002",
+     "covers": "VO-AAPI-002",
+     "target": "crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::ids",
+     "intent": "Registry iteration and lookup are deterministically ordered by adapter ID",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::registry_rejects_declared_capability_without_implementation",
+     "id": "TEST-AAPI-003",
+     "covers": "VO-AAPI-001",
+     "target": "crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register",
+     "intent": "A declared capability with no implementation is rejected at registration",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-adapter-api/tests/w1_acceptance_binding.rs",
+   "tests": [
+    {
+     "fn": "synthetic_wire_properties_round_trip_without_rust_fields",
+     "id": "TEST-AAPI-004",
+     "covers": "VO-AAPI-003",
+     "target": "crates/vtest-adapter-api/src/lib.rs::normalize_wire_targets",
+     "intent": "Neutral wire targets round-trip and reject dual targets vs single target",
+     "topology": "in-process"
+    },
+    {
+     "fn": "registry_binds_codec_and_preserves_deterministic_id_order",
+     "id": "TEST-AAPI-005",
+     "covers": "VO-AAPI-002",
+     "target": "crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::ids",
+     "intent": "Registry binds codec and yields adapter ids in deterministic sorted order",
+     "topology": "in-process"
+    },
+    {
+     "fn": "registry_static_observation_is_hash_free_and_core_owns_config_hashing",
+     "id": "TEST-AAPI-006",
+     "covers": "VO-AAPI-004",
+     "target": "crates/vtest-model/src/lib.rs::hash_static_audit_config_subject",
+     "intent": "Static observation is hash-free and core computes config subject hash",
+     "topology": "in-process"
+    },
+    {
+     "fn": "discovery_dto_is_hash_free_and_core_hash_function_binds_the_subject",
+     "id": "TEST-AAPI-007",
+     "covers": "VO-AAPI-005",
+     "target": "crates/vtest-model/src/lib.rs::hash_test_subject",
+     "intent": "Discovery DTO is hash-free and core hash binds the test subject",
+     "topology": "in-process"
+    },
+    {
+     "fn": "collision_fixture_proves_repository_global_ids_are_not_namespaced",
+     "id": "TEST-AAPI-008",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Collision fixture shows repository-global ids are not namespaced",
+     "topology": "structural"
+    },
+    {
+     "fn": "target_observation_fixture_has_no_representative_target_escape_hatch",
+     "id": "TEST-AAPI-009",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Target observation fixture aggregates to FAIL with no escape hatch",
+     "topology": "structural"
+    },
+    {
+     "fn": "capability_absence_and_analysis_limits_bind_to_non_pass_states",
+     "id": "TEST-AAPI-010",
+     "covers": "VO-AAPI-007",
+     "target": "crates/vtest-adapter-api/src/lib.rs::missing_capability_semantics",
+     "intent": "Missing capabilities map to specific non-pass semantics states",
+     "topology": "in-process"
+    },
+    {
+     "fn": "frozen_ordering_variants_have_one_canonical_observable",
+     "id": "TEST-AAPI-011",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Ordering-variant fixtures produce one canonical test order",
+     "topology": "structural"
+    },
+    {
+     "fn": "form_owner_fixtures_forbid_ambiguous_or_rust_fallback_resolution",
+     "id": "TEST-AAPI-012",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Form fixtures forbid ambiguous match and rust fallback resolution",
+     "topology": "structural"
+    },
+    {
+     "fn": "v2_rust_fixture_binds_to_the_same_neutral_adapter_id_as_v1_compatibility",
+     "id": "TEST-AAPI-013",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "v2 rust-cargo config binds to same neutral adapter id as v1",
+     "topology": "structural"
+    },
+    {
+     "fn": "incomplete_discovery_is_representable_and_never_complete_empty_success",
+     "id": "TEST-AAPI-014",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Incomplete discovery is representable and never complete empty success",
+     "topology": "structural"
+    },
+    {
+     "fn": "a_non_rust_adapter_expresses_an_optional_permanent_src_id",
+     "id": "TEST-AAPI-015",
+     "covers": "VO-AAPI-006",
+     "target": "",
+     "intent": "Non-rust adapter expresses opaque locator plus optional permanent SRC ID",
+     "topology": "structural"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-adapter-rust/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::version_one_compatibility_round_trips_losslessly",
+     "id": "TEST-ARUST-001",
+     "covers": "VO-ARUST-001",
+     "target": "crates/vtest-adapter-rust/src/lib.rs::RustCargoCodec::decode_execution",
+     "intent": "Round-trips a Test through encode_properties then decode_execution losslessly",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::compatibility_contradictions_and_partial_fields_are_rejected",
+     "id": "TEST-ARUST-002",
+     "covers": "VO-ARUST-001",
+     "target": "crates/vtest-adapter-rust/src/lib.rs::RustCargoCodec::decode_execution",
+     "intent": "decode_execution rejects disagreeing and incomplete compatibility fields",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-adapter-rust/src/runner.rs",
+   "tests": [
+    {
+     "fn": "tests::parser_distinguishes_pass_fail_and_ignored",
+     "id": "TEST-ARUST-003",
+     "covers": "VO-ARUST-002",
+     "target": "crates/vtest-adapter-rust/src/runner.rs::parse_result",
+     "intent": "parse_result maps ok/FAILED/ignored lines and rejects non-matching filters",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::llvm_cov_parser_extracts_target_function_count",
+     "id": "TEST-ARUST-004",
+     "covers": "VO-ARUST-003",
+     "target": "crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count",
+     "intent": "llvm_cov_function_count sums matched counts/regions and returns None when absent",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::llvm_cov_zero_count_is_preserved_as_a_measured_failure",
+     "id": "TEST-ARUST-005",
+     "covers": "VO-ARUST-003",
+     "target": "crates/vtest-adapter-rust/src/runner.rs::llvm_cov_function_count",
+     "intent": "llvm_cov_function_count preserves a zero count as Some(0) not None",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::llvm_cov_parser_demangles_rust_v0_symbols",
+     "id": "TEST-ARUST-006",
+     "covers": "VO-ARUST-004",
+     "target": "crates/vtest-adapter-rust/src/runner.rs::llvm_name_matches",
+     "intent": "llvm_name_matches demangles rust v0 symbols and matches by item path",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::not_checked_target_execution_is_null_and_empty",
+     "id": "TEST-ARUST-007",
+     "covers": "VO-ARUST-005",
+     "target": "crates/vtest-adapter-rust/src/runner.rs::not_checked_target_execution",
+     "intent": "not_checked_target_execution yields checked:false, null result, empty targets",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-adapter-rust/src/static_audit.rs",
+   "tests": [
+    {
+     "fn": "tests::constant_assertion_is_a_deterministic_failure",
+     "id": "TEST-ARUST-008",
+     "covers": "VO-ARUST-006",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da001",
+     "intent": "all-constant assertion arguments yield a DA-001 Fail verdict",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::target_call_in_assertion_passes_call_and_result_rules",
+     "id": "TEST-ARUST-009",
+     "covers": "VO-ARUST-007",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da002",
+     "intent": "target called inside assertion passes DA-001/DA-002/DA-003",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::empty_and_self_comparing_tests_fail_their_rules",
+     "id": "TEST-ARUST-010",
+     "covers": "VO-ARUST-008",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da004",
+     "intent": "assert_eq of identical operands fails DA-004",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::result_flow_never_uses_identifier_substrings_as_proof",
+     "id": "TEST-ARUST-011",
+     "covers": "VO-ARUST-009",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da003",
+     "intent": "identifier substring of target does not prove result verification",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::same_file_helper_is_followed_once_and_external_call_is_unknown",
+     "id": "TEST-ARUST-012",
+     "covers": "VO-ARUST-007",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da002",
+     "intent": "one-hop same-file helper passes DA-002; external call is Unknown",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::qualified_homonym_never_proves_the_declared_target_call",
+     "id": "TEST-ARUST-013",
+     "covers": "VO-ARUST-007",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da002",
+     "intent": "qualified same-name call does not prove declared target in DA-002/003",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::bare_import_alias_and_local_shadow_never_prove_the_target",
+     "id": "TEST-ARUST-014",
+     "covers": "VO-ARUST-007",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da002",
+     "intent": "imports, shadows, and nested items never prove the target call",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::helper_target_result_flow_is_unknown_not_pass",
+     "id": "TEST-ARUST-015",
+     "covers": "VO-ARUST-009",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da003",
+     "intent": "target result crossing a helper boundary is DA-003 Unknown",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::nested_comma_self_comparison_and_configured_macro_are_recognized",
+     "id": "TEST-ARUST-016",
+     "covers": "VO-ARUST-009",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::rule_da003",
+     "intent": "configured macro args are recognized by DA-003 flow analysis",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::exact_module_path_prevents_same_name_test_mixup",
+     "id": "TEST-ARUST-017",
+     "covers": "VO-ARUST-010",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::find_function",
+     "intent": "find_function resolves module-qualified paths, rejects ambiguous bare name",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::unwrap_try_and_result_err_are_assert_like",
+     "id": "TEST-ARUST-018",
+     "covers": "VO-ARUST-011",
+     "target": "crates/vtest-adapter-rust/src/static_audit.rs::has_assert_like",
+     "intent": "unwrap, try, and Result-err bodies count as assert-like syntax",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::init_creates_project_and_second_init_is_usage_error",
+     "id": "TEST-CLI-001",
+     "covers": "VO-CLI-001",
+     "target": "crates/vtest-cli/src/lib.rs::run_init",
+     "intent": "init builds the .verify layout and a second init is a usage error",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::approve_refuses_an_unresolvable_upstream_closure_without_writing_a_record",
+     "id": "TEST-CLI-002",
+     "covers": "VO-CLI-002",
+     "target": "crates/vtest-cli/src/lib.rs::approve_vo",
+     "intent": "approve fails-closed on a moved spec source without writing an approval",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::approval_is_derived_and_edit_makes_it_draft",
+     "id": "TEST-CLI-003",
+     "covers": "VO-CLI-003",
+     "target": "crates/vtest-cli/src/lib.rs::effective_vo_status",
+     "intent": "VO status is derived: approved after approve, draft after edit",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::structured_create_generates_a_scannable_test",
+     "id": "TEST-CLI-004",
+     "covers": "VO-CLI-004",
+     "target": "crates/vtest-scan/src/lib.rs::create_test",
+     "intent": "structured create/edit yields a scannable test and rejects bad targets",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::audit_diagnostics_are_merged_in_deterministic_order",
+     "id": "TEST-CLI-005",
+     "covers": "VO-CLI-005",
+     "target": "crates/vtest-cli/src/lib.rs::merge_diagnostics",
+     "intent": "merged scan+audit diagnostics sort deterministically by severity/code",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_rejects_combined_test_and_all_selectors",
+     "id": "TEST-CLI-006",
+     "covers": "VO-CLI-006",
+     "target": "crates/vtest-cli/src/lib.rs::run_audit_static",
+     "intent": "audit static rejects passing both --test and --all with usage exit",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/adapter_acceptance.rs",
+   "tests": [
+    {
+     "fn": "adapter_boundary_fixture_is_non_rust_and_non_adjacent",
+     "id": "TEST-CLI-007",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "Synthetic adapter fixture is non-Rust, non-adjacent, with valid manifest/metadata shapes",
+     "topology": "structural"
+    },
+    {
+     "fn": "adapter_api_compile_contract_type_checks",
+     "id": "TEST-CLI-008",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "The adapter API compile-contract fixture crate type-checks via cargo check",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "synthetic_variants_cover_capability_failure_mutation_and_ordering_inputs",
+     "id": "TEST-CLI-009",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "Synthetic adapter fixture variants encode capability/failure/mutation/ordering inputs",
+     "topology": "structural"
+    },
+    {
+     "fn": "duplicate_bare_and_prefixed_relation_payload_is_rejected",
+     "id": "TEST-CLI-010",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Duplicate bare+prefixed Relation aliases make scan emit E-SCAN-010 and exit 1",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "adapter_api_crate_exposes_every_neutral_draft_type",
+     "id": "TEST-CLI-011",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "vtest-adapter-api exposes neutral draft types and forbids Rust-analysis deps",
+     "topology": "structural"
+    },
+    {
+     "fn": "core_model_is_neutral_and_has_the_fixed_check_set",
+     "id": "TEST-CLI-012",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "Core model is language-neutral and retains no legacy Rust-specific fields",
+     "topology": "structural"
+    },
+    {
+     "fn": "orchestration_crates_have_no_direct_rust_analysis_dependencies",
+     "id": "TEST-CLI-013",
+     "covers": "VO-CLI-007",
+     "target": "",
+     "intent": "scan/audit/exec crates have no direct syn/quote/rustc-demangle dependency",
+     "topology": "structural"
+    },
+    {
+     "fn": "default_verify_evaluates_the_fixed_twelve_items",
+     "id": "TEST-CLI-014",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "Default verify reports exactly the fixed twelve items without rewriting config",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "version_one_without_full_scope_uses_fixed_twelve_without_rewrite",
+     "id": "TEST-CLI-015",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "v1 config without full_scope verifies the fixed twelve and never rewrites config",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "unregistered_test_is_traceability_missing",
+     "id": "TEST-CLI-016",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "An unregistered test makes test_traceability report MISSING",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "empty_covers_is_traceability_missing",
+     "id": "TEST-CLI-017",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A test with no covers metadata makes test_traceability report MISSING",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "dangling_vo_is_traceability_mismatch",
+     "id": "TEST-CLI-018",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A dangling VO reference makes test_traceability report MISMATCH",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "duplicate_test_id_is_traceability_mismatch",
+     "id": "TEST-CLI-019",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "Duplicate test IDs make test_traceability report MISMATCH",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "version_two_config_is_accepted_and_incomplete_scope_is_rejected",
+     "id": "TEST-CLI-020",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "v2 rust-cargo config passes doctor; incomplete scope yields E-CONFIG-001 exit 2",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "version_two_duplicate_full_scope_is_e_config_001",
+     "id": "TEST-CLI-021",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "Duplicate v2 full_scope entry is rejected with E-CONFIG-001 and no result",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "unknown_adapter_rejects_scan_without_result",
+     "id": "TEST-CLI-022",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Unknown adapter id makes scan fail with E-ADAPTER-001 and no result",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "duplicate_adapter_id_rejects_scan_without_result",
+     "id": "TEST-CLI-023",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Duplicate adapter id makes scan fail with E-ADAPTER-001 and no result",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "zero_adapter_registry_is_fail_closed",
+     "id": "TEST-CLI-024",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Empty adapter registry fails closed on scan with E-ADAPTER-001",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "init_writes_v2_adapter_namespace_and_form_owner",
+     "id": "TEST-CLI-025",
+     "covers": "VO-CLI-001",
+     "target": "crates/vtest-cli/src/lib.rs::run_init",
+     "intent": "init writes a v2 config with adapters and form owner metadata",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "static_audit_ignores_run_only_config_changes",
+     "id": "TEST-CLI-026",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A run-only config change does not stale the static_audit verdict (stays PASS)",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "static_helper_only_change_stales_the_audit_record",
+     "id": "TEST-CLI-027",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A consulted-helper-only change stales static_audit to STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "assertion_macro_change_stales_the_static_audit_record",
+     "id": "TEST-CLI-028",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "An assertion_macros config change stales static_audit to STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "evidence_contains_neutral_subjects_and_complete_execution_state",
+     "id": "TEST-CLI-029",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "run records evidence with neutral subject hashes and complete execution state",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "target_external_helper_change_stales_evidence",
+     "id": "TEST-CLI-030",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A target-external helper change stales evidence_validity to STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "execution_state_mutation_reports_e_exec_004_without_evidence",
+     "id": "TEST-CLI-031",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "An execution-input mutation during run yields E-EXEC-004 and no evidence",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "multi_target_evidence_keeps_target_specific_results",
+     "id": "TEST-CLI-032",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "Multi-target run records per-target hashes and per-target execution results",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "evidence_without_execution_state_is_compatibility_stale",
+     "id": "TEST-CLI-033",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "Evidence missing execution_state makes evidence_validity STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "incomplete_current_execution_snapshot_is_unknown",
+     "id": "TEST-CLI-034",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "An incomplete current execution snapshot makes evidence_validity UNKNOWN",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "evidence_without_revision_commit_is_stale",
+     "id": "TEST-CLI-035",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "Evidence with unknown revision commit makes evidence_validity STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "head_change_without_test_or_target_change_stales_evidence",
+     "id": "TEST-CLI-036",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "An unrelated HEAD advance makes evidence_validity STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "local_dependency_change_stales_evidence",
+     "id": "TEST-CLI-037",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A local path-dependency change makes evidence_validity STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "specification_only_change_stales_impl_consistency",
+     "id": "TEST-CLI-038",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A spec-source-only change stales impl_consistency to STALE",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "impl_consistency_fail_maps_to_mismatch",
+     "id": "TEST-CLI-039",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "An impl-consistency FAIL audit maps to impl_consistency MISMATCH",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "specification_requirement_without_active_req_is_non_pass",
+     "id": "TEST-CLI-040",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "A spec requirement without an active REQ makes spec_coverage non-PASS",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "specification_dependency_change_invalidates_vo_approval",
+     "id": "TEST-CLI-041",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "A spec-dependency change reverts approved VO effective_status to draft",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "cli_and_mcp_default_verify_share_the_fixed_contract",
+     "id": "TEST-CLI-042",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "CLI and MCP default verify return the identical fixed-contract envelope",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "canonical_vo_record_never_stores_the_derived_status",
+     "id": "TEST-CLI-043",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "vo edit never persists a derived status; effective_status stays draft",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "approval_without_a_dependency_closure_is_reported_and_never_approves",
+     "id": "TEST-CLI-044",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "A closure-less Approval keeps VO draft and is reported as W-STORE-002",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "locator_and_src_id_resolve_to_one_source_target",
+     "id": "TEST-CLI-045",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Locator and SRC ID addressing resolve to one canonical Source Target",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "the_target_subject_binds_the_canonical_locator_not_the_src_id",
+     "id": "TEST-CLI-046",
+     "covers": "VO-CLI-012",
+     "target": "crates/vtest-model/src/lib.rs::hash_target_subject",
+     "intent": "The target subject hash is computed from the canonical locator, not the SRC ID",
+     "topology": "in-process"
+    },
+    {
+     "fn": "duplicate_permanent_src_id_is_fail_closed",
+     "id": "TEST-CLI-047",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "A duplicate permanent SRC ID yields E-SCAN-011 and E-SCAN-004, exit 1",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m1_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m1_calc_fixture_extracts_tests_and_scan_matches_doctor",
+     "id": "TEST-CLI-048",
+     "covers": "VO-CLI-013",
+     "target": "crates/vtest-cli/src/lib.rs::run",
+     "intent": "scan/doctor/text agree on calc fixture: 7 tests, E-SCAN-003, exit 1, runnable selection",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m1_warning_only_scan_exits_zero",
+     "id": "TEST-CLI-049",
+     "covers": "VO-CLI-013",
+     "target": "crates/vtest-cli/src/lib.rs::run",
+     "intent": "warning-only scan (W-SCAN-101) exits 0 with ok:true and located diagnostic",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m1_repeated_init_is_a_json_usage_error",
+     "id": "TEST-CLI-050",
+     "covers": "VO-CLI-013",
+     "target": "crates/vtest-cli/src/lib.rs::run",
+     "intent": "re-init of existing project is a JSON usage error E-OP-001, exit 2",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m1_invalid_project_config_is_a_json_internal_error",
+     "id": "TEST-CLI-051",
+     "covers": "VO-CLI-013",
+     "target": "crates/vtest-cli/src/lib.rs::run",
+     "intent": "malformed canonical config yields E-CONFIG-001 config error, exit 2",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m1_error_diagnostic_matrix_is_reported_by_the_cli",
+     "id": "TEST-CLI-052",
+     "covers": "VO-CLI-013",
+     "target": "crates/vtest-cli/src/lib.rs::run",
+     "intent": "scan reports E-SCAN-002..010 matrix with correct file locations, exit 1",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m2_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m2_vo_edit_invalidates_approval_and_returns_to_effective_draft",
+     "id": "TEST-CLI-053",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Editing an approved VO invalidates approval and reverts effective status to draft",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_full_product_expand_dry_run_lists_cartesian_children_without_writes",
+     "id": "TEST-CLI-054",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Full-product expand --dry-run lists cartesian children without writing records",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_dry_run_rejects_slug_collisions_without_returning_duplicate_children",
+     "id": "TEST-CLI-055",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Dry-run expand rejects colliding partition slugs without creating children",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_malformed_approval_is_not_effective_and_is_a_scan_error",
+     "id": "TEST-CLI-056",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Malformed approval is non-effective and scan reports E-SCAN-010 error",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_lowercase_vo_id_is_a_usage_error_without_a_record_write",
+     "id": "TEST-CLI-057",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Lowercase VO id is a usage error and writes no canonical record",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_path_like_vo_id_is_a_usage_error_without_an_outside_write",
+     "id": "TEST-CLI-058",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Path-like VO id is rejected without writing outside .verify/vo",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_invalid_spec_kind_is_a_usage_error_without_a_canonical_record",
+     "id": "TEST-CLI-059",
+     "covers": "VO-CLI-014",
+     "target": "crates/vtest-cli/src/lib.rs::run_spec",
+     "intent": "Invalid spec --kind is a usage error and creates no canonical record",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_req_and_vo_tree_lists_include_each_child_once",
+     "id": "TEST-CLI-060",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "REQ and VO --tree lists return each child exactly once",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_explicit_vo_expansion_uses_only_declared_combinations",
+     "id": "TEST-CLI-061",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Explicit expansion uses only declared combinations; invalid combos rejected",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_mutating_registered_spec_document_reports_w_scan_104",
+     "id": "TEST-CLI-062",
+     "covers": "VO-CLI-008",
+     "target": "crates/vtest-cli/src/lib.rs::run_scan",
+     "intent": "Mutating a registered spec document yields scan warning W-SCAN-104",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_vo_show_reports_covering_tests_audit_state_and_valid_approval_history",
+     "id": "TEST-CLI-063",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "vo show reports covering tests, audit state, and valid approval history",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m2_approval_rejects_a_missing_basis_before_mutating_the_vo",
+     "id": "TEST-CLI-064",
+     "covers": "VO-CLI-011",
+     "target": "crates/vtest-cli/src/lib.rs::run_vo",
+     "intent": "Approval with a missing basis is rejected before mutating the VO",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m3_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests",
+     "id": "TEST-CLI-065",
+     "covers": "VO-CLI-006",
+     "target": "crates/vtest-cli/src/lib.rs::run_audit_static",
+     "intent": "CLI audit static maps DA-001..006 fails, keeps UNKNOWN, warns on ignored, persists per-target verdicts",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m4_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m4_run_fast_records_one_evidence_per_registered_test",
+     "id": "TEST-CLI-066",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "run --all --fast writes one PASS Evidence per registered test with revision binding",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m4_multi_target_evidence_records_every_declared_target_hash",
+     "id": "TEST-CLI-067",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "Evidence records a target hash for every declared target on a multi-target test",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m4_target_mutation_makes_evidence_stale",
+     "id": "TEST-CLI-068",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "mutating a target after run makes verify report evidence_validity STALE and fail",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m4_build_failure_reports_e_exec_001_without_evidence",
+     "id": "TEST-CLI-069",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "build failure yields E-EXEC-001 and publishes no Evidence",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m4_ignored_test_emits_no_evidence",
+     "id": "TEST-CLI-070",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "an #[ignore] test is a successful non-execution emitting no Evidence",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m4_missing_result_line_emits_e_exec_002_without_evidence",
+     "id": "TEST-CLI-071",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "missing result line yields E-EXEC-002 and publishes no Evidence",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m5_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m5_bundles_include_schema_fields_for_all_audit_kinds",
+     "id": "TEST-CLI-072",
+     "covers": "VO-CLI-015",
+     "target": "crates/vtest-cli/src/lib.rs::run_audit_bundle",
+     "intent": "audit bundle emits full schema fields for test-semantic, vo-coverage, impl-consistency",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m5_empty_reasons_are_rejected_without_an_audit_record",
+     "id": "TEST-CLI-073",
+     "covers": "VO-CLI-016",
+     "target": "crates/vtest-cli/src/lib.rs::run_audit_submit",
+     "intent": "submit with empty reasons is rejected E-AUDIT-005 and appends no audit record",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m5_changed_test_rejects_submission_with_e_audit_002",
+     "id": "TEST-CLI-074",
+     "covers": "VO-CLI-016",
+     "target": "crates/vtest-cli/src/lib.rs::run_audit_submit",
+     "intent": "submit against a changed test fails E-AUDIT-002 and appends no audit",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m5_accepted_audit_is_typed_and_becomes_stale_after_target_change",
+     "id": "TEST-CLI-075",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "accepted semantic audit is typed then goes STALE after its target changes",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m6_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m6_entity_scope_selects_test_vo_and_report",
+     "id": "TEST-CLI-076",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "verify/report honors --test/--vo/--req entity scope selection",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m6_complete_fixture_is_ok_for_all_eleven_items",
+     "id": "TEST-CLI-077",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "a fully-covered fixture passes all eleven verification items",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m6_leaf_without_test_is_missing_and_not_masked_by_another_leaf",
+     "id": "TEST-CLI-078",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "an uncovered leaf VO reports MISSING and is named in basis",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m6_missing_evidence_for_one_test_is_not_project_pass",
+     "id": "TEST-CLI-079",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "missing Evidence for one test is fail-closed NOT_EXECUTED",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m6_limited_scope_keeps_other_items_not_checked_and_text_is_tree_like",
+     "id": "TEST-CLI-080",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "limited --items scope leaves other items NOT_CHECKED in text report",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m6_each_check_item_can_be_non_pass_without_aggregate_promotion",
+     "id": "TEST-CLI-081",
+     "covers": "VO-CLI-009",
+     "target": "crates/vtest-cli/src/lib.rs::run_verify",
+     "intent": "each check item can independently make verification NG",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m7_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m7_called_target_records_measured_pass",
+     "id": "TEST-CLI-082",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "run records measured PASS when a registered test executes its target under llvm-cov",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m7_passing_test_that_misses_target_records_measured_fail",
+     "id": "TEST-CLI-083",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "passing test that never calls target records target_execution FAIL with count 0",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m7_missing_llvm_cov_is_warning_and_not_checked",
+     "id": "TEST-CLI-084",
+     "covers": "VO-CLI-010",
+     "target": "crates/vtest-cli/src/lib.rs::run_run",
+     "intent": "absent cargo-llvm-cov yields not-checked null result and W-EXEC-101 warning",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m8_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m8_invalid_symbol_is_rejected_with_candidates",
+     "id": "TEST-CLI-085",
+     "covers": "VO-CLI-017",
+     "target": "crates/vtest-cli/src/lib.rs::run_test",
+     "intent": "test create rejects an invalid source symbol with E-OP-001 and candidates",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m8_test_create_is_scanned_and_exposed_by_queries",
+     "id": "TEST-CLI-086",
+     "covers": "VO-CLI-017",
+     "target": "crates/vtest-cli/src/lib.rs::run_test",
+     "intent": "created structured Test is scanned and exposed via show/list/query",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m8_edit_changes_only_selected_test_and_preserves_other_hash",
+     "id": "TEST-CLI-087",
+     "covers": "VO-CLI-017",
+     "target": "crates/vtest-cli/src/lib.rs::run_test",
+     "intent": "test edit mutates only the selected Test and preserves other Test hashes",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m8_reapplying_same_edit_is_byte_idempotent",
+     "id": "TEST-CLI-088",
+     "covers": "VO-CLI-017",
+     "target": "crates/vtest-cli/src/lib.rs::run_test",
+     "intent": "reapplying the same test edit is byte-idempotent and reports no change",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-cli/tests/m9_acceptance.rs",
+   "tests": [
+    {
+     "fn": "m9_stdio_lists_tools_and_preserves_cli_scan_envelope",
+     "id": "TEST-CLI-089",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "MCP initialize/tools.list advertises all tools and scan matches CLI envelope",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_notifications_are_silent_and_do_not_consume_following_requests",
+     "id": "TEST-CLI-090",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "JSON-RPC notifications yield no response and don't consume next request",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_form_get_refreshes_after_form_mtime_changes_in_one_server_session",
+     "id": "TEST-CLI-091",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "form_get reloads schema after form file mtime changes mid-session",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_all_advertised_tools_match_cli_envelopes",
+     "id": "TEST-CLI-092",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "Every advertised MCP tool produces envelope equivalent to CLI output",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_existing_record_upserts_edit_supported_fields_and_reject_unsupported_updates",
+     "id": "TEST-CLI-093",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "req/vo upsert edits supported fields and fail-closed rejects unsupported updates",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_reference_flow_completes_over_mcp_stdio",
+     "id": "TEST-CLI-094",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "Full reference spec-to-verify flow completes over MCP stdio",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_reference_flow_reaches_existing_cli_operations",
+     "id": "TEST-CLI-095",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "MCP reference flow reaches existing CLI create/query/audit/run operations",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_invalid_tool_input_returns_error_code_message_and_candidates",
+     "id": "TEST-CLI-096",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "Invalid tool input returns E-OP-001 with message and candidate suggestions",
+     "topology": "subprocess"
+    },
+    {
+     "fn": "m9_protocol_and_error_matrix_is_fail_closed_without_writes",
+     "id": "TEST-CLI-097",
+     "covers": "VO-CLI-018",
+     "target": "crates/vtest-cli/src/lib.rs::run_mcp",
+     "intent": "Protocol/error matrix is fail-closed with correct codes and no audit writes",
+     "topology": "subprocess"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-model/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::hash_normalization_only_changes_line_endings_and_trailing_space",
+     "id": "TEST-MODEL-001",
+     "covers": "VO-MODEL-001",
+     "target": "crates/vtest-model/src/lib.rs::normalize_hashed_text",
+     "intent": "Hash normalization folds CRLF/CR and trailing spaces but preserves leading space and final newline",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::locator_is_adapter_scoped_and_opaque",
+     "id": "TEST-MODEL-002",
+     "covers": "VO-MODEL-002",
+     "target": "crates/vtest-model/src/lib.rs::TargetRef::normalized",
+     "intent": "Locator TargetRef normalizes to adapter-scoped opaque string",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::envelope_has_required_top_level_fields",
+     "id": "TEST-MODEL-003",
+     "covers": "VO-MODEL-003",
+     "target": "crates/vtest-model/src/lib.rs::JsonEnvelope::new",
+     "intent": "JsonEnvelope serializes with ok, data, and diagnostics top-level fields",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::non_adjacent_logical_metadata_changes_the_test_subject",
+     "id": "TEST-MODEL-004",
+     "covers": "VO-MODEL-004",
+     "target": "crates/vtest-model/src/lib.rs::hash_test_subject",
+     "intent": "Changing intent metadata changes the test subject hash",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::byte_range_movement_does_not_change_the_test_subject",
+     "id": "TEST-MODEL-005",
+     "covers": "VO-MODEL-004",
+     "target": "crates/vtest-model/src/lib.rs::hash_test_subject",
+     "intent": "Moving byte range without content change leaves test subject hash stable",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_config_subject_binds_only_the_typed_projection",
+     "id": "TEST-MODEL-006",
+     "covers": "VO-MODEL-005",
+     "target": "crates/vtest-model/src/lib.rs::hash_static_audit_config_subject",
+     "intent": "Static audit config subject hash binds the typed projection deterministically",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::subject_encoding_distinguishes_null_empty_and_empty_list",
+     "id": "TEST-MODEL-007",
+     "covers": "VO-MODEL-006",
+     "target": "crates/vtest-model/src/lib.rs::CanonicalProjection::encode",
+     "intent": "CanonicalProjection encoding distinguishes null, empty string, and empty list",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::subject_domains_prevent_cross_type_hash_reuse",
+     "id": "TEST-MODEL-008",
+     "covers": "VO-MODEL-007",
+     "target": "crates/vtest-model/src/lib.rs::hash_record_subject",
+     "intent": "Domain separation prevents cross-type hash reuse across subject kinds",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-scan/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::core_validates_current_bytes_before_materializing_adapter_drafts",
+     "id": "TEST-SCAN-001",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "Validated batch materializes tests/targets with expected content hashes",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::core_rejects_stale_fragment_bytes_without_materializing_entities",
+     "id": "TEST-SCAN-002",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "Fragment bytes not matching current source are rejected",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::core_rejects_a_permanent_src_id_as_a_canonical_source_target",
+     "id": "TEST-SCAN-003",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "Source Target canonical target must be a locator, not a SRC ID",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::a_permanent_src_id_travels_beside_the_target_without_entering_its_subject",
+     "id": "TEST-SCAN-004",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "SRC ID reaches Source Target without altering its subject hash",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::core_rejects_missing_metadata_provenance_and_incomplete_discovery",
+     "id": "TEST-SCAN-005",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "Missing provenance and incomplete discovery both rejected",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::core_materializes_missing_and_multiple_links_without_guessing",
+     "id": "TEST-SCAN-006",
+     "covers": "VO-SCAN-001",
+     "target": "crates/vtest-scan/src/lib.rs::materialize_discovery_batch",
+     "intent": "Missing and Multiple managed links materialize without guessing",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::extracts_annotated_test_and_source",
+     "id": "TEST-SCAN-007",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Annotated test and source extracted with execution metadata",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::missing_or_invalid_cargo_metadata_is_fail_closed",
+     "id": "TEST-SCAN-008",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Missing/invalid Cargo metadata fails closed with E-SCAN-004",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::resolves_workspace_packages_targets_and_external_module_filters",
+     "id": "TEST-SCAN-009",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Workspace packages, targets, and module filters resolve correctly",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::ignored_rust_files_are_not_scanned",
+     "id": "TEST-SCAN-010",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Gitignored Rust files are excluded from scanning",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::ambiguous_target_locator_is_not_resolved",
+     "id": "TEST-SCAN-011",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Ambiguous source locator is not resolved (E-SCAN-004)",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::reports_unregistered_tests",
+     "id": "TEST-SCAN-012",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Unregistered tests reported as W-SCAN-101",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::rejects_unknown_and_duplicate_annotation_keys",
+     "id": "TEST-SCAN-013",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Unknown and duplicate annotation keys rejected",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::rejects_missing_required_annotation",
+     "id": "TEST-SCAN-014",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Missing required annotation rejected with E-SCAN-007",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::integration_tests_allow_multiple_targets_only",
+     "id": "TEST-SCAN-015",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Only integration tests may declare multiple targets",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::relation_id_aliases_cannot_duplicate_one_ulid_payload",
+     "id": "TEST-SCAN-016",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Aliased relation ids sharing a ULID payload are both diagnosed",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::reports_record_integrity_and_staleness_diagnostics",
+     "id": "TEST-SCAN-017",
+     "covers": "VO-SCAN-002",
+     "target": "crates/vtest-scan/src/lib.rs::scan_project",
+     "intent": "Record integrity and staleness diagnostics all emitted with location",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-scan/src/operations.rs",
+   "tests": [
+    {
+     "fn": "tests::edit_distance_handles_transcription_errors",
+     "id": "TEST-SCAN-018",
+     "covers": "VO-SCAN-003",
+     "target": "crates/vtest-adapter-rust/src/operations_support.rs::edit_distance",
+     "intent": "edit_distance returns correct Levenshtein distances for transposition and disjoint strings",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-store/src/approval.rs",
+   "tests": [
+    {
+     "fn": "tests::closure_spans_requirements_and_their_specifications",
+     "id": "TEST-STORE-001",
+     "covers": "VO-STORE-001",
+     "target": "crates/vtest-store/src/approval.rs::resolve_upstream_closure",
+     "intent": "Closure spans parent REQs and their SPECs, excluding the subject VO itself",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::specification_source_change_invalidates_the_recorded_closure",
+     "id": "TEST-STORE-002",
+     "covers": "VO-STORE-002",
+     "target": "crates/vtest-store/src/approval.rs::derive_vo_status",
+     "intent": "A changed Specification source makes the closure unresolvable and un-approves the VO",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::editing_the_subject_vo_supersedes_the_approval_without_reporting_it",
+     "id": "TEST-STORE-003",
+     "covers": "VO-STORE-002",
+     "target": "crates/vtest-store/src/approval.rs::derive_vo_status",
+     "intent": "Editing the subject VO lapses the approval without flagging it invalid",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::compatibility_approval_without_a_closure_is_never_approved",
+     "id": "TEST-STORE-004",
+     "covers": "VO-STORE-002",
+     "target": "crates/vtest-store/src/approval.rs::derive_vo_status",
+     "intent": "A compatibility Approval with no closure is never approved (ClosureAbsent)",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::a_stale_closure_is_reported_as_changed_not_as_an_approval",
+     "id": "TEST-STORE-005",
+     "covers": "VO-STORE-002",
+     "target": "crates/vtest-store/src/approval.rs::derive_vo_status",
+     "intent": "A stale recorded closure is reported as ClosureChanged, not an approval",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::the_compatibility_status_field_never_reaches_the_record_subject",
+     "id": "TEST-STORE-006",
+     "covers": "VO-STORE-001",
+     "target": "crates/vtest-store/src/approval.rs::resolve_upstream_closure",
+     "intent": "The compatibility status field never alters any upstream closure subject",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-store/src/forms.rs",
+   "tests": [
+    {
+     "fn": "tests::built_in_unit_form_parses",
+     "id": "TEST-STORE-007",
+     "covers": "VO-STORE-003",
+     "target": "crates/vtest-store/src/forms.rs::parse_form_schema",
+     "intent": "Built-in unit form parses to expected kind, field count, and template",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::answers_support_inline_and_block_lists",
+     "id": "TEST-STORE-008",
+     "covers": "VO-STORE-004",
+     "target": "crates/vtest-store/src/forms.rs::parse_form_answers",
+     "intent": "Answers parse both inline and block list forms into FormValue::List",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::unknown_form_field_property_is_rejected",
+     "id": "TEST-STORE-009",
+     "covers": "VO-STORE-003",
+     "target": "crates/vtest-store/src/forms.rs::parse_form_schema",
+     "intent": "Unknown form field property causes parse_form_schema to error",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-store/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::generated_config_round_trips_m1_fields",
+     "id": "TEST-STORE-010",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Default config serialized then parsed preserves name, includes, coverage",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::explicit_include_list_does_not_retain_defaults",
+     "id": "TEST-STORE-011",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Explicit scan.include replaces defaults rather than merging",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::assertion_macro_block_list_round_trips_without_becoming_scan_includes",
+     "id": "TEST-STORE-012",
+     "covers": "VO-STORE-006",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::to_yaml",
+     "intent": "assertion_macros round-trip and stay separate from scan.include",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::scan_lists_accept_documented_bracketed_and_empty_forms",
+     "id": "TEST-STORE-013",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Bracketed and empty scan list forms parse as documented",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::invalid_assertion_macro_path_is_rejected",
+     "id": "TEST-STORE-014",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Non-identifier assertion macro path fails closed",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::unsupported_coverage_mode_is_rejected",
+     "id": "TEST-STORE-015",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Unknown run.coverage mode is rejected",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::version_two_full_scope_rejects_unknown_and_extra_items",
+     "id": "TEST-STORE-016",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "v2 full_scope rejects unknown items and a thirteenth entry",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::adapter_roots_must_be_present_unique_and_project_relative",
+     "id": "TEST-STORE-017",
+     "covers": "VO-STORE-005",
+     "target": "crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml",
+     "intent": "Adapter roots must be present, unique, and project-relative",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-store/src/records.rs",
+   "tests": [
+    {
+     "fn": "tests::generated_record_ids_are_valid_and_unique",
+     "id": "TEST-STORE-018",
+     "covers": "VO-STORE-007",
+     "target": "crates/vtest-store/src/records.rs::new_record_id",
+     "intent": "4096 generated record ids are unique and valid ULIDs",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::append_only_write_never_replaces_an_existing_fact",
+     "id": "TEST-STORE-019",
+     "covers": "VO-STORE-008",
+     "target": "crates/vtest-store/src/records.rs::write_new_record",
+     "intent": "append-only write errors on collision and preserves prior content",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::append_only_write_publishes_complete_content",
+     "id": "TEST-STORE-020",
+     "covers": "VO-STORE-008",
+     "target": "crates/vtest-store/src/records.rs::write_new_record",
+     "intent": "append-only write publishes full content atomically",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::atomic_write_replaces_the_complete_entity_file",
+     "id": "TEST-STORE-021",
+     "covers": "VO-STORE-009",
+     "target": "crates/vtest-store/src/records.rs::write_atomic",
+     "intent": "atomic write replaces entity file with complete new content",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::approval_round_trip_requires_a_traceable_approver",
+     "id": "TEST-STORE-022",
+     "covers": "VO-STORE-010",
+     "target": "crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml",
+     "intent": "approval round-trips and rejects a missing traceable approver",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::approval_closure_distinguishes_absent_empty_and_duplicate_entries",
+     "id": "TEST-STORE-023",
+     "covers": "VO-STORE-010",
+     "target": "crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml",
+     "intent": "approval closure distinguishes absent/empty/duplicate dependencies",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::audit_round_trip_binds_subjects_and_reads_from_a_ulid_file",
+     "id": "TEST-STORE-024",
+     "covers": "VO-STORE-011",
+     "target": "crates/vtest-store/src/records.rs::AuditRecord::from_yaml",
+     "intent": "static audit round-trips and enforces exactly one TEST subject",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::audit_per_target_verdicts_round_trip_through_yaml",
+     "id": "TEST-STORE-025",
+     "covers": "VO-STORE-012",
+     "target": "crates/vtest-store/src/records.rs::AuditRecord::to_yaml",
+     "intent": "per-target verdict blocks serialize and round-trip through YAML",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::pure_static_fold_is_fail_dominant_then_unknown_then_pass",
+     "id": "TEST-STORE-026",
+     "covers": "VO-STORE-013",
+     "target": "crates/vtest-store/src/records.rs::pure_static_fold",
+     "intent": "fold is FAIL-dominant then UNKNOWN then PASS, empty is UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::well_formed_per_target_record_has_no_defect",
+     "id": "TEST-STORE-027",
+     "covers": "VO-STORE-014",
+     "target": "crates/vtest-store/src/records.rs::static_record_target_defect",
+     "intent": "a well-formed per-target record reports no defect",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::surplus_missing_or_duplicate_targets_are_malformed",
+     "id": "TEST-STORE-028",
+     "covers": "VO-STORE-014",
+     "target": "crates/vtest-store/src/records.rs::static_record_target_defect",
+     "intent": "surplus, missing, or duplicate targets are flagged malformed",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::rule_verdict_inconsistent_with_the_fold_is_malformed",
+     "id": "TEST-STORE-029",
+     "covers": "VO-STORE-014",
+     "target": "crates/vtest-store/src/records.rs::static_record_target_defect",
+     "intent": "rule verdict inconsistent with per-target fold is malformed",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::audit_rejects_malformed_or_untraceable_records",
+     "id": "TEST-STORE-030",
+     "covers": "VO-STORE-011",
+     "target": "crates/vtest-store/src/records.rs::AuditRecord::from_yaml",
+     "intent": "malformed or untraceable audit records are rejected",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::relation_round_trip_requires_a_valid_immutable_record",
+     "id": "TEST-STORE-031",
+     "covers": "VO-STORE-015",
+     "target": "crates/vtest-store/src/records.rs::RelationRecord::from_yaml",
+     "intent": "relation round-trips and rejects invalid immutable records",
+     "topology": "in-process"
+    }
+   ]
+  },
+  {
+   "file": "crates/vtest-verify/src/lib.rs",
+   "tests": [
+    {
+     "fn": "tests::evidence_recency_uses_the_actual_rfc3339_instant",
+     "id": "TEST-VERIFY-001",
+     "covers": "VO-VERIFY-001",
+     "target": "crates/vtest-verify/src/lib.rs::compare_evidence_recency",
+     "intent": "Evidence recency ordering uses actual RFC3339 instant, not lexical order",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_da002_unknown_is_rescued_by_runtime_target_execution",
+     "id": "TEST-VERIFY-002",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "DA-002 UNKNOWN rescued to PASS by valid runtime target_execution (count>0)",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_runtime_rescue_needs_a_positive_measured_count",
+     "id": "TEST-VERIFY-003",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Runtime rescue denied when measured count is zero; item stays UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_da002_fail_dominates_a_newer_unknown_record",
+     "id": "TEST-VERIFY-004",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Per-target DA-002 FAIL dominates a newer UNKNOWN record",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_da003_unknown_is_not_rescued_by_runtime",
+     "id": "TEST-VERIFY-005",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "DA-003 UNKNOWN gets no runtime rescue; item is UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_da002_unknown_without_runtime_stays_unknown",
+     "id": "TEST-VERIFY-006",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Statically-unproven DA-002 with no Evidence stays UNKNOWN, not PASS",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_per_target_set_mismatch_is_malformed_unknown",
+     "id": "TEST-VERIFY-007",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Per-target list naming undeclared target is malformed; item UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_uses_only_current_per_test_records_and_fail_wins",
+     "id": "TEST-VERIFY-008",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Only current per-test records used; FAIL wins over PASS/UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_becomes_stale_when_assertion_configuration_changes",
+     "id": "TEST-VERIFY-009",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Assertion-macro config change stales the static audit record",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_becomes_stale_when_the_test_locator_moves",
+     "id": "TEST-VERIFY-010",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Moving the Test locator stales the static audit record",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_marks_hash_mismatch_stale",
+     "id": "TEST-VERIFY-011",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "A subject hash mismatch marks the static audit stale",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_requires_every_bound_subject_to_be_current",
+     "id": "TEST-VERIFY-012",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Any non-current bound subject makes the static audit stale",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_requires_the_exact_declared_target_subject",
+     "id": "TEST-VERIFY-013",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Missing/substituted declared-target subject makes audit stale",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_rejects_a_record_that_binds_multiple_tests",
+     "id": "TEST-VERIFY-014",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "A record binding multiple Tests is rejected; item UNKNOWN",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_orders_offsets_by_the_actual_rfc3339_instant",
+     "id": "TEST-VERIFY-015",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "Latest record chosen by actual RFC3339 instant across offsets",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::static_audit_requires_an_audit_for_every_registered_test",
+     "id": "TEST-VERIFY-016",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "A registered Test with no static audit yields NotChecked",
+     "topology": "in-process"
+    },
+    {
+     "fn": "tests::malformed_static_audit_is_unknown_not_silently_ignored",
+     "id": "TEST-VERIFY-017",
+     "covers": "VO-VERIFY-002",
+     "target": "crates/vtest-verify/src/lib.rs::evaluate_static_audit",
+     "intent": "A malformed static record surfaces as UNKNOWN, not silently ignored",
+     "topology": "in-process"
+    }
+   ]
+  }
+ ]
+}
