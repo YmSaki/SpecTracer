@@ -1,0 +1,3500 @@
+{
+ "note": "Top-down derivation: Normative Spec -> REQ -> design mechanism -> VO. Claims carry verbatim quotes; absorbed lists dedup provenance. Supersedes the bottom-up crate VOs (scaffolding).",
+ "vos": [
+  {
+   "id": "VO-P001-01",
+   "claim": "Each adjacent artifact pair in the chain is verified independently; disagreement is presented as MISMATCH on that pair, never resolved by an upstream-priority rule picking a canonical side.",
+   "requirements": [
+    "REQ-P-001"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "2.2 検証チェーンと照合"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "2 P-001 検証機であり修正方針決定機ではない"
+    }
+   ],
+   "quote": "単純な上流優先のチェーンではなく、不一致はどちらが正かを決めずに MISMATCH として提示する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-P001-02",
+   "claim": "The system compares declaration, implementation, and evidence but never rewrites any canon layer to resolve a detected inconsistency; the fix-target choice stays outside the system.",
+   "requirements": [
+    "REQ-P-001"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.4 提供範囲外"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "2.1 正典の三層構造"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "2 P-001 検証機であり修正方針決定機ではない"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "31 OOS-002 修正方針決定"
+    }
+   ],
+   "quote": "どれかを正として他を修正させることはしない（要件定義 P-001）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-P001-03",
+   "claim": "Audit submissions are confined to the kind's fixed verdict vocabulary plus claim/basis reasons; out-of-vocabulary verdicts are rejected (E-AUDIT-004), and no fix proposal is solicited or stored.",
+   "requirements": [
+    "REQ-P-001"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "8.3 提出スキーマ"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "8.4 提出の検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "8.6 参考プロンプト"
+    }
+   ],
+   "quote": "以下だけを判定せよ。修正方針の提案はしない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTAKE-01",
+   "claim": "Spec intake registers upstream artifacts as SPEC records identified by project path + sha256 captured at registration; the document body is never duplicated into .verify/.",
+   "requirements": [
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "vtest spec add / list / show"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§24"
+    }
+   ],
+   "quote": "仕様文書への参照（パス＋内容ハッシュ）",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTAKE-02",
+   "claim": "Specification is defined to exclude the target implementation's own doc comments; no intake path treats a doc comment as the sole spec basis for that same implementation.",
+   "requirements": [
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§24"
+    }
+   ],
+   "quote": "対象ソースコード自身の doc comment は含まない（要件定義 §24）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTAKE-03",
+   "claim": "A SPEC source that no longer matches its registered sha256 is detected at scan (W-SCAN-104), and every audit or approval bound to that SPEC subject becomes invalid, never reused.",
+   "requirements": [
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.1"
+    }
+   ],
+   "quote": "スキャン時に SPEC レコードの `sha256` と実ファイルを比較し、不一致なら W-SCAN-104 を出す。 当該 SPEC を subjects に含む監査レコードは無効（STALE）となる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTAKE-04",
+   "claim": "Spec updates take effect only via explicit re-registration; the new SPEC subject hash bars reusing prior dependency entries, and dependent audit/approval expiry is surfaced.",
+   "requirements": [
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.4"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "vtest spec add / list / show"
+    }
+   ],
+   "quote": "仕様文書の更新は `vtest spec add --update` による再登録で反映し、依存する監査・承認が失効することを利用者へ提示する。再登録でSPEC subject hashが変化するため、以前のdependency entryを現在の承認へ流用しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTAKE-05",
+   "claim": "spec_refs resolve deterministically to SPEC record and current source; section is a non-empty opaque citation core never parses, and no syntactic in-body check can yield PASS.",
+   "requirements": [
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.2"
+    }
+   ],
+   "quote": "coreはSPEC ID、SPEC record、参照先sourceと現在hashを決定論的に解決するが、任意形式のSpecification本文からsection文字列の存在を構文的に推測しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-01",
+   "claim": "An active REQ requires one or more spec_refs; each spec_refs.spec must resolve deterministically to an existing SPEC record and its current source.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING",
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1 discovery・record・graph"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.2 REQ レコード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "vtest req add / edit / list / show"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§3 検証モデル"
+    }
+   ],
+   "quote": "Requirementは1件以上のSpecification箇所を参照しなければならない。",
+   "absorbed": [
+    "REQ-SPEC-INTAKE#6"
+   ]
+  },
+  {
+   "id": "VO-PLAN-02",
+   "claim": "spec_coverage PASSes only via a valid COMPLETE spec-coverage audit; REQ existence, unconfirmed intake, or empty SPEC/REQ sets are MISSING or non-PASS, never promoted to PASS.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5 verify・report"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4 Specification / VO網羅性監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1 チェック項目の評価地点"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§3 検証モデル"
+    }
+   ],
+   "quote": "Requirementが存在するという事実だけ、または取り込みの未確認・判定不能・不完全な状態を、Specification coverageの合格として扱ってはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-03",
+   "claim": "Spec→REQ intake completeness and REQ→VO coverage are audited and stored as separate results (spec-coverage vs vo-coverage); neither verdict is reused or substituted for the other.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.2 検証チェーンと照合"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4 Specification / VO網羅性監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1 バンドル生成"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§3 検証モデル"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§6 Specification・VO網羅性のAI検証"
+    }
+   ],
+   "quote": "両者は別の監査結果として保存し、一方の判定を他方へ流用しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-04",
+   "claim": "A coverage submission whose reasons lack the required structure (decomposition viewpoint with spec basis; exclusions with spec grounds) is rejected even with verdict COMPLETE.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4 Specification / VO網羅性監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.3 提出スキーマ"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.4 提出の検証"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest audit bundle / submit"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§6 Specification・VO網羅性のAI検証"
+    }
+   ],
+   "quote": "`COMPLETE` 相当の判定であっても、理由の構造を欠く提出は受理されず、`vo_coverage` は非 PASS のままとなる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-05",
+   "claim": "Coverage audits bind hashes of the complete subject set; after the subject content or correspondence set changes, prior verdicts become STALE and never count as current PASS.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.2 共通fixture"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4 Specification / VO網羅性監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.4 SPEC 鮮度"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.5 有効性と多重監査"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§6 Specification・VO網羅性のAI検証"
+    }
+   ],
+   "quote": "SpecificationまたはRequirementとの対応関係が変化した後も、以前の判定を無条件に現在の`PASS`として扱ってはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-06",
+   "claim": "vo_coverage is PASS only when a valid vo-coverage audit is COMPLETE and the whole VO subtree holds valid approvals bound to the upstream closure; a REQ with zero VOs is MISSING.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING",
+    "REQ-APPROVAL",
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1 discovery・record・graph"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "7.4"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.2"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4 Specification / VO網羅性監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1 チェック項目の評価地点"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.5 承認レコード"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest vo add / edit / list / show / expand / approve"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§23"
+    }
+   ],
+   "quote": "監査が`COMPLETE`で、対象VO部分木の承認が§3.5によりすべて有効な場合だけ`PASS`とする。",
+   "absorbed": [
+    "REQ-EXISTING-PROJECT#5",
+    "REQ-APPROVAL#7"
+   ]
+  },
+  {
+   "id": "VO-PLAN-07",
+   "claim": "VO expansion is deterministic per coverage_policy; deterministic checks judge only leaf-VO coverage, while combination-space sufficiency stays with the vo-coverage semantic audit.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1 discovery・record・graph"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.6 Partition と組合せ検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.3.1 dimensions と組合せの実体化"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest vo add / edit / list / show / expand / approve"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§5.1 Partition"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§5.2 組合せ検証"
+    }
+   ],
+   "quote": "組合せ空間の定義が仕様に対して十分かは `vo-coverage` 意味監査の判定対象である（基本仕様 §7.6）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-08",
+   "claim": "A Test covering multiple VOs joins each VO's aggregation independently, but its existence alone never counts as completed independent verification of each covered viewpoint.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING",
+    "REQ-AGGREGATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.6 Partition と組合せ検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3 集約アルゴリズム"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§4.4 VOとTestの対応"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§5.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§5.3 複数VOを検証するTest"
+    }
+   ],
+   "quote": "複数 VO を同時に検証する Test は、その存在だけでは各 VO の独立検証の完了とみなさない（要件定義 §5.3）。",
+   "absorbed": [
+    "REQ-AGGREGATION#7"
+   ]
+  },
+  {
+   "id": "VO-PLAN-09",
+   "claim": "vo_decomposition evaluates only REQ/VO parent, requirements, spec_refs and structural Relations; Test, target-resolution, adapter-parse and Evidence errors never change its value.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5 verify・report"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.2 チェック項目"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1.1 `vo_decomposition`の診断写像"
+    }
+   ],
+   "quote": "Test ID、Test metadata、target解決、adapter source parse、Evidenceの各errorは対応するTest・実行・Evidence dimensionへ写像し、`vo_decomposition`を変更しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PLAN-10",
+   "claim": "spec_refs.section is an opaque non-empty citation; core never judges its in-document existence syntactically for PASS—semantic validity is confirmed only through audit reasons.",
+   "requirements": [
+    "REQ-VERIFICATION-PLANNING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1 discovery・record・graph"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1 チェック項目の評価地点"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.2 REQ レコード"
+    }
+   ],
+   "quote": "`section`は非空のopaque citationであり、coreは任意形式のSpecification本文からsectionの存在を構文的に判定しない。citationの意味的妥当性は§8の監査理由で検証する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-01",
+   "claim": "test_traceability = PASS only when every discovered test maps 1:1 to a structurally complete managed entity with a globally unique Test ID, >=1 covers, and all VO refs resolvable.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.2"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§7.1"
+    }
+   ],
+   "quote": "全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、`covers`が1件以上、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-02",
+   "claim": "Registry gaps stay fail-closed and typed: missing declaration→MISSING; ID collision/multi-link/dangling covers→MISMATCH; incomplete discovery→UNKNOWN, never a zero-test PASS.",
+   "requirements": [
+    "REQ-TEST-REGISTRY",
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§12"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§4.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§7.1"
+    }
+   ],
+   "quote": "discoveryが不完全または解析不能な状態は`UNKNOWN`とする。いずれも完全検証のPASSとして扱ってはならない。",
+   "absorbed": [
+    "REQ-EXISTING-PROJECT#1"
+   ]
+  },
+  {
+   "id": "VO-REGISTRY-03",
+   "claim": "The adapter-owned source declaration is the sole canon for Test Entity and covers/targets relations; core never parses adapter syntax, so direct edits cannot desync covers/targets.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§4.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§7.1"
+    }
+   ],
+   "quote": "Test metadataはTest constructと対応付けられたadapter所有のsource declarationに記述する。この宣言がTest EntityおよびTest由来の関係（covers / targets）の正典である。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-04",
+   "claim": "Test ID is a handle resolving intent, covers, targets, location, audit results and evidence; SRC→Test reverse lookup is scan-derived and rebuildable, never a second stored canon.",
+   "requirements": [
+    "REQ-TEST-REGISTRY",
+    "REQ-NFR-003"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§5.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.3"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§7"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§8"
+    }
+   ],
+   "quote": "TestからSourceを検索でき、Sourceから関連Testを逆引きできること。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-05",
+   "claim": "Core (never the adapter) computes the Test hash over the full Test subject — all logical fields, location, ExecutionDescriptor, construct — so any covers/targets/intent/execution change alters it.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    }
+   ],
+   "quote": "したがって`covers`、`targets`、`intent`、実行座標その他の意味変更は内容ハッシュを必ず変化させる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-06",
+   "claim": "Target identity fixes one-way (declared TargetRef→resolve→canonical Locator); locator and SRC ID refs reach one target and one hash; Evidence/audits store only the canonical Locator.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§8"
+    }
+   ],
+   "quote": "SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決し、同じSource Targetへのlocator参照と**同一のcanonical Source Target・同一のSource Target hash**へ到達する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-07",
+   "claim": "A Test's >=1 declared targets are held individually (1:N), never reduced to a representative; distinct spellings resolving to one canonical target are duplicates (E-SCAN-005).",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§8"
+    }
+   ],
+   "quote": "1つのTestは1件以上のSource Targetを宣言できる。複数targetを宣言した場合も、各targetを独立に識別し、代表1件へ縮約してはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-08",
+   "claim": "Intent is mandatory metadata alongside id/covers/targets — its absence makes the entity structurally incomplete (E-SCAN-007→MISSING) — while input/expect remain optional.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§4.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§9"
+    }
+   ],
+   "quote": "必須metadata（id / covers / targets / intent）の欠落",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REGISTRY-09",
+   "claim": "A table-driven construct may register as exactly one Test Entity; per-case Test IDs are not required, and optional cases are bound into the Test subject hash in declaration order.",
+   "requirements": [
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§4.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§10"
+    }
+   ],
+   "quote": "この場合、adapterが識別したtable-driven test construct全体を一つのTestとして登録できる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-01",
+   "claim": "Structured input is checked at accept time: unresolvable target, missing VO/Test ref, duplicate ID, unknown or missing-required field rejects as E-OP-001 with candidates.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS",
+    "REQ-P-004"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.3 入力検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1 診断コード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.3 候補提示"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 コマンド仕様（vtest test create）"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.2 検証器"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§20 Structured Test Operation"
+    }
+   ],
+   "quote": "回答の検証エラーは E-OP-001 として候補付きで報告する（本冊 §6.3）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-02",
+   "claim": "Validators are form-scoped: required/unknown fields are always checked; symbol, VO/Test ref, ident, path only when the chosen Form declares them; unresolvable free text is accepted, not rejected.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.3 候補提示"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.2 検証器"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§20 Structured Test Operation"
+    }
+   ],
+   "quote": "Form Schemaの必須値と未知fieldを常に検証する。symbol、VO / Test参照、identifier、pathは選択したFormが該当fieldとvalidatorを宣言した場合だけ検証し、すべてのadapterへ一律に要求しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-03",
+   "claim": "Create/Edit take a full desired state, the adapter diffs it against current source, and re-applying the same desired state is idempotent via fixed key-order annotation regeneration.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.2 desired state 方式"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.2 `rust-cargo` 編集の適用"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.3 `rust-cargo` annotation blockの再生成"
+    }
+   ],
+   "quote": "Create / Edit の入力は差分操作ではなく**あるべき状態（desired state）**とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-04",
+   "claim": "Edit applies one single replacement of the target Test's extended range, checked pre-apply (range) and post-apply (other-Test hash invariance); violations revert the file with E-OP-003.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS",
+    "REQ-PARALLEL-DEV"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.4 編集境界"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1 (E-OP-003)"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1 診断コード"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.2 `rust-cargo` 編集の適用"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.4"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.4 `rust-cargo` 1 Test境界の保証"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§21 Test編集の境界"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "置換範囲が単一のテスト関数の拡張 range に限られることを、適用前（範囲計算）と適用後（他 Test のハッシュ不変確認）の二重で検査する。",
+   "absorbed": [
+    "REQ-PARALLEL-DEV#1"
+   ]
+  },
+  {
+   "id": "VO-STRUCTOP-05",
+   "claim": "The edit target is re-located by re-parsing the target file immediately before applying; if the Test ID is not found the operation aborts with E-OP-002 instead of editing a stale location.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1 診断コード"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.1 `rust-cargo` 対象の特定"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§21 Test編集の境界"
+    }
+   ],
+   "quote": "スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の位置を再確認する。再確認で見つからない場合は E-OP-002。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-06",
+   "claim": "The official surface offers no operation that edits helpers, fixtures, or normal source; those remain ordinary source changes outside Test Edit's responsibility.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.4 編集境界"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§15.4 `rust-cargo` 1 Test境界の保証"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§21 Test編集の境界"
+    }
+   ],
+   "quote": "Test 外部の通常ソースコード、helper、fixture の編集は責務外とし、操作を提供しない（要件定義 OOS-003）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-07",
+   "claim": "Form kind must resolve to exactly one Structured-Test-capable adapter; duplicate kind, owner mismatch, unknown adapter, or missing capability (E-ADAPTER-004) rejects with no file change.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.5 Form Schema"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1 診断コード"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.2 検証器"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.3 組込フォーム"
+    }
+   ],
+   "quote": "registryは`kind`からちょうど1件のStructured Test adapterへ解決できる場合だけ操作を許可し、重複、未知adapter、未対応capability、曖昧な対応を拒否する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-08",
+   "claim": "A Form lacking `adapter` resolves only if exactly one built-in kind claim or deterministic schema matcher accepts it; 0 or 2+ reject, with no rust-cargo fallback and no Form file rewrite.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.5 Form Schema"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§14.2 検証器"
+    }
+   ],
+   "quote": "`adapter`を欠く読取り互換Formは、登録済みadapterのbuilt-in kind宣言またはschemaを検査するcompatibility matcherのうちちょうど1件だけが受理する場合に限って解決し、0件または複数件なら拒否する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-09",
+   "claim": "A created Test is re-discovered by scan with identical ID, intent, covers, and targets; the emitted source declaration is the canon, so official output and discovery cannot diverge.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.7 Structured Test Operation"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.1 論理契約と正典性"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§8.1 提供する操作"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§20 Structured Test Operation"
+    }
+   ],
+   "quote": "create結果はscanで同じTest ID・intent・covers・targetsとして認識される。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STRUCTOP-10",
+   "claim": "Direct edits are allowed, but scan/consistency checks detect resulting duplicate IDs, dangling VO refs, and missing required metadata; covers/targets cannot desync since the declaration is canon.",
+   "requirements": [
+    "REQ-STRUCTURED-OPERATIONS"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.3 直接編集の扱い"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1 スキャンと整合性検査"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§22 直接編集"
+    }
+   ],
+   "quote": "直接編集された場合もadapter discoveryとcore整合性検査が不整合（ID重複、dangling VO参照、必須metadata欠落）を検出する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-01",
+   "claim": "Static rules mark FAIL only for deterministically confirmed violations; verdicts a rule cannot determine are UNKNOWN, never FAIL and never treated as no-violation.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.1 判定の原則"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§11 Test静的監査"
+    }
+   ],
+   "quote": "決定論的に確定できる違反のみ `FAIL` とし、確定できないものは `UNKNOWN` として意味監査へ送る。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-02",
+   "claim": "The static_audit item folds effective rule verdicts (after §7.3 reachability) fail-closed: any FAIL makes FAIL, else any UNKNOWN makes UNKNOWN; PASS only when all rules are clean.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.2 チェック項目"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.1 判定の原則"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.3 target 到達の静的証明と runtime 証明の関係"
+    }
+   ],
+   "quote": "Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-03",
+   "claim": "A Test whose deterministic audit is FAIL can be rejected before semantic audit; bundle generation skips DA-001..DA-006 FAILed Tests by default, forced only via --include-failed.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.2 rust-cargo ルール一覧"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 コマンド仕様（vtest audit bundle / submit）"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§11 Test静的監査"
+    }
+   ],
+   "quote": "決定論的監査で `FAIL` となった Test は、意味監査へ送る前に拒否できる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-04",
+   "claim": "Every REQ §11 violation class is realized by a concrete deterministic rule (DA-001..DA-006); a clean Test yields no violation and each violation fixture goes non-PASS on its rule.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.2 rust-cargo ルール一覧"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§11 Test静的監査"
+    }
+   ],
+   "quote": "正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-05",
+   "claim": "Per-target DA-002/003 verdicts are canonical, 1:1 with declared targets; mismatch makes the record malformed; no valid record leaves static_audit STALE/NOT_CHECKED, not PASS.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.6 監査レコード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.2 rust-cargo ルール一覧"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 コマンド仕様（vtest audit static）"
+    }
+   ],
+   "quote": "target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictの純静的fold結果の矛盾はmalformed recordとする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-06",
+   "claim": "A Static Audit Record binds Test, targets, rule-set, rule-affecting config and referenced fragments; changes make it STALE; rule-irrelevant config never alters the subject hash.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.3 内容ハッシュの定義"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.6 監査レコード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.2 rust-cargo ルール一覧"
+    }
+   ],
+   "quote": "rule-set、rule影響config、参照source fragmentの値または対象集合が変化したrecordは`STALE`とし、現在の`static_audit = PASS`へ利用しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-07",
+   "claim": "A rule that referenced analysis inputs it cannot bind into the freshness subject must return UNKNOWN, never PASS; core refuses PASS when a referenced fragment DTO is missing.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.1 判定の原則"
+    }
+   ],
+   "quote": "helper、展開済みsource、symbol tableその他の解析入力を参照しながら、その入力をfreshness subjectへ束縛できない場合、当該ruleを`PASS`にせず`UNKNOWN`とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-08",
+   "claim": "Per-target DA-002 UNKNOWN is satisfied only by target_execution PASS from the §11.2-selected latest valid Evidence; FAIL is never overridden; non-PASS coverage leaves it unmet.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.3 target 到達の静的証明と runtime 証明の関係"
+    }
+   ],
+   "quote": "いずれも fail-closed を保ち、coverage が利用不能・未計測・非PASS のとき到達要件を満たさず PASS へ昇格しない",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-09",
+   "claim": "Runtime coverage never substitutes DA-003: call-invisible targets get DA-003 UNKNOWN, not vacuous PASS/FAIL, so subprocess E2E Tests cannot reach static_audit = PASS.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2 deterministic static audit"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.2 rust-cargo ルール一覧"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.3 target 到達の静的証明と runtime 証明の関係"
+    }
+   ],
+   "quote": "runtime coverageはDA-003を代替しない。結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのままstatic_auditへ寄与する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-STATAUDIT-10",
+   "claim": "Core never interprets adapter AST/assertion syntax; missing Static Audit capability yields NOT_CHECKED and reported adapter incompleteness UNKNOWN, never presumed no-violation.",
+   "requirements": [
+    "REQ-DETERMINISTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.2 決定論的テスト監査"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.1 判定の原則"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§11 Test静的監査"
+    }
+   ],
+   "quote": "Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-01",
+   "claim": "vtest never invokes an LLM itself; AI verdicts enter the system only through the bundle-generation, submission-validation, and audit-record storage path.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1/§8.3/§8.4 意味監査プロトコル"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest audit bundle / submit"
+    }
+   ],
+   "quote": "`vtest` はLLM APIを直接呼び出さない。AI判定は上記のbundle生成・提出検証・保存の経路だけから受理する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-02",
+   "claim": "A test-semantic bundle must include test metadata+source, covered VOs, all target implementation sources, static-audit result, and prior audits, with content hashes and revision.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1 バンドル生成"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.2 バンドル JSON スキーマ"
+    }
+   ],
+   "quote": "Test（metadata宣言・Test construct source全文）、covers先VOレコード、全targetのimplementation construct source全文、関連Testのidとintent、同一VOをcoversする他Testの一覧、決定論的監査の結果、有効な過去監査の要約",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-03",
+   "claim": "audit submit rejects missing bundle, kind mismatch, stale subject hash, invalid verdict, and empty reasons or reasons lacking claim+basis; a reasonless verdict is never accepted.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT",
+    "REQ-NFR-006"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.4 提出の検証"
+    }
+   ],
+   "quote": "空のreasons、schema違反、kind不一致、stale bundle hashを拒否する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-04",
+   "claim": "Accepted audits bind to the full subject set and hashes; any subject/set change auto-STALEs the record; target subjects use canonical Locator, not the declared spelling.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.6 監査レコード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.5 有効性と多重監査"
+    }
+   ],
+   "quote": "受理された結果は監査レコードとして保存され、監査種別ごとの完全な対象集合と内容ハッシュに束縛される。対象集合またはいずれかの対象内容が変更されると、監査レコードは自動的に `STALE` となる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-05",
+   "claim": "Among valid audit records on one subject set, any FAIL yields FAIL, else the latest verdict; with no valid record the item is NOT_CHECKED or STALE, never PASS.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1 チェック項目の評価地点"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.6 監査レコード"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.5 有効性と多重監査"
+    }
+   ],
+   "quote": "同一対象に有効なレコードが複数ある場合、FAIL が1件でもあれば FAIL、なければ最新の verdict を採る。有効なレコードが1件もなければ `NOT_CHECKED`（一度も監査されていない）または `STALE`（無効化されたレコードのみ存在）とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-06",
+   "claim": "Deterministic and AI audit results are stored and presented distinctly (auditor.kind: deterministic/agent/human); one never substitutes for the other.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.3 意味監査（エージェント委譲プロトコル）"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.6 監査レコード"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§12 Test意味監査"
+    }
+   ],
+   "quote": "決定論的監査結果とAI監査結果は区別して保持・提示する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-07",
+   "claim": "Spec/VO/Test vs implementation mismatch is presented as MISMATCH with no fix-direction decision; submitted FAIL maps to MISMATCH while NOT_CHECKED/STALE/UNKNOWN stay distinct.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT",
+    "REQ-P-001"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "8.3 提出スキーマ"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1 チェック項目の評価地点"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.3 提出スキーマ"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "13 対象実装との一致検証"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§13 対象実装との一致検証"
+    }
+   ],
+   "quote": "不一致は `MISMATCH` として提示し、どちらを修正すべきかは決定しない。`impl-consistency`監査が外部提出形式で`FAIL`を返す場合も、検証項目`impl_consistency`では`MISMATCH`へ写像する。",
+   "absorbed": [
+    "REQ-P-001#2"
+   ]
+  },
+  {
+   "id": "VO-SEMAUDIT-08",
+   "claim": "Unresolvable targets produce no impl-consistency bundle and no auto-selected candidate; absent target yields MISSING, ambiguous resolution MISMATCH, never collapsed to one value.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT",
+    "REQ-P-001"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "8.1 バンドル生成"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1 バンドル生成"
+    }
+   ],
+   "quote": "targetを一意に解決できない場合はバンドルを生成せず、候補のいずれも選択しない。対象が存在しない場合は`MISSING`、複数候補により曖昧な場合は`MISMATCH`とする。",
+   "absorbed": [
+    "REQ-P-001#3"
+   ]
+  },
+  {
+   "id": "VO-SEMAUDIT-09",
+   "claim": "impl-consistency binds to the complete SPEC subject set derived from upstream spec_refs; changing SPEC record, source, or set alone STALEs the record even for limited-scope PASS.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4 semantic audit protocol"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1 バンドル生成"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.5 有効性と多重監査"
+    }
+   ],
+   "quote": "判定根拠となるSpecification subjectは、対象VOとその上流VO / REQの`spec_refs`から決定論的に導出した完全集合とする。Specification record、参照先source、または集合が変更された監査は`STALE`とし、限定scopeの`impl_consistency = PASS`にも利用しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-SEMAUDIT-10",
+   "claim": "For multi-target tests the impl-consistency bundle includes every declared target's implementation source and structure info; no target is omitted from the judgment.",
+   "requirements": [
+    "REQ-SEMANTIC-AUDIT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.5 実装一致検証"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§8.1 バンドル生成"
+    }
+   ],
+   "quote": "複数のtargetを宣言したTestでは、全targetのimplementation construct sourceとadapterが提供する構造情報をバンドルに含め、判定対象から一部targetを省略しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-01",
+   "claim": "Only selected tests run via exact selectors; each filter maps to PASS/FAIL, ignored gives NOT_EXECUTED, and a missing result line or exit-code contradiction records no Evidence",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.7"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§14"
+    }
+   ],
+   "quote": "要求した各フィルタについて結果行が得られなかった場合、その Test の実行は失敗（E-EXEC-002）とし、Evidence を記録しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-02",
+   "claim": "Evidence exists only when all declared targets resolve uniquely; build/runner failure, capability lack, ambiguity, or mid-run state change produce no Evidence, never a partial one",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.10"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§14"
+    }
+   ],
+   "quote": "1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）なら**Evidenceを生成しない**。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-03",
+   "claim": "Each Evidence binds test subject hash, per-target canonical Locators+construct hashes in declared order, adapter ID, HEAD revision, and a complete Execution State subject",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.7"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.7"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§15"
+    }
+   ],
+   "quote": "実行時のHEAD revision、実行adapter・runner・toolchain・実行影響config、および現在の実行可能状態を変えうるrepository / local dependency入力の完全なsnapshotを束縛したExecution State subject",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-04",
+   "claim": "evidence_validity=PASS only if test hash, target set+hashes, HEAD revision, complete Execution State, and adapter all match now; breaches map to STALE/MISMATCH/UNKNOWN, never PASS",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.8"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§15"
+    }
+   ],
+   "quote": "内容ハッシュ、Execution State subject、またはrevision条件を満たさない Evidence は `STALE` とし、有効な PASS として扱わない。adapter IDが存在して現在値と不一致の場合は `MISMATCH` とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-05",
+   "claim": "Invalid Evidence is never mined for results: test_execution, runtime_result, target_execution keep the same non-PASS value; with no Evidence all three are NOT_EXECUTED",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.8"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§15"
+    }
+   ],
+   "quote": "Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidenceから`test_execution`、`runtime_result`、`target_execution`をPASSまたはFAILとして再利用せず、同じ鮮度・対応関係の非PASS値を保持する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-06",
+   "claim": "Per target: count>0 is PASS, count==0 FAIL, unidentifiable UNKNOWN; Test-level PASS only when 1+ targets all PASS; any FAIL wins, else any UNKNOWN wins",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§16"
+    }
+   ],
+   "quote": "複数targetを宣言したTestでは、各targetの実行を個別に計測する。1件でも実行回数が0なら`FAIL`、1件でも解析不能でかつ`FAIL`がなければ`UNKNOWN`とし、全targetの実行を確認できた場合だけ`PASS`とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-07",
+   "claim": "Skipping TEV (--fast) or lacking coverage tool/capability records checked:false and evaluates NOT_CHECKED, never converted to PASS; analysis limits stay UNKNOWN",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§16"
+    }
+   ],
+   "quote": "計測環境（カバレッジツール）が利用できない場合も `NOT_CHECKED` とし、PASS へ変換しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-08",
+   "claim": "target_execution entries use resolved canonical Locators 1:1 with the current canonical Source Target set; missing, duplicate, extra, or mismatched entries never count as PASS",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.7"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§16"
+    }
+   ],
+   "quote": "target別結果の欠落、重複、または現在の宣言targetを解決したcanonical Source Target集合との不一致を、全target計測済みの`PASS`として扱わない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-09",
+   "claim": "Coverage must attribute subprocess/thread execution to declared targets; unattributable targets are UNKNOWN, unmeasurable runs NOT_CHECKED; capability lack never fabricates PASS",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§16"
+    }
+   ],
+   "quote": "coverage 計測は当該境界越しの実行を宣言 target へ帰属させる。帰属できなければその target を`UNKNOWN`、計測不能なら`NOT_CHECKED`とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXEC-10",
+   "claim": "Legacy Evidence lacking adapter ID or Execution State reads as history but scores STALE/UNKNOWN; singular compat form applies only to one-target Tests; never a current PASS",
+   "requirements": [
+    "REQ-TEST-EXECUTION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.8"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§3.7"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§15"
+    }
+   ],
+   "quote": "Execution State subjectを欠く互換Evidenceは履歴として読み取れるが`STALE`とし、現在のPASSへ昇格しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-AGG-01",
+   "claim": "Full verification evaluates exactly the fixed 12 check items; omitting item scope selects all 12, and no config value can shrink or redefine the set.",
+   "requirements": [
+    "REQ-AGGREGATION",
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.2"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    }
+   ],
+   "quote": "完全検証の項目集合はこの12項目と完全一致し、設定によって追加・削除できない。項目の部分集合を指定した実行は限定scopeであり、完全検証として表示または集約しない。",
+   "absorbed": [
+    "REQ-REPORTING#1"
+   ]
+  },
+  {
+   "id": "VO-AGG-02",
+   "claim": "Aggregation Test→VO→REQ→SPEC is fail-closed: one non-PASS child makes the parent non-PASS, and any single non-PASS item in scope forces overall NG.",
+   "requirements": [
+    "REQ-AGGREGATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§19"
+    }
+   ],
+   "quote": "下位から上位への集約（Test → VO → REQ → SPEC）も fail-closed とする。子に1つでも非 PASS があれば親は非 PASS（要件定義 §19）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-AGG-03",
+   "claim": "Mixed non-PASS values roll up by fixed priority FAIL>MISMATCH>MISSING>STALE>NOT_EXECUTED>NOT_CHECKED>UNKNOWN; detail output retains all child values and grounds.",
+   "requirements": [
+    "REQ-AGGREGATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    }
+   ],
+   "quote": "集約時に複数の非 PASS 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > MISSING > STALE > NOT_EXECUTED > NOT_CHECKED > UNKNOWN` とする。詳細出力では子の個別値をすべて確認できる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-AGG-04",
+   "claim": "A scoped run's OK means only 'requested scope OK': out-of-scope items stay NOT_CHECKED, never become PASS, and output must state the scope and that the rest is unverified.",
+   "requirements": [
+    "REQ-AGGREGATION",
+    "REQ-INTEGRATION",
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    }
+   ],
+   "quote": "scope を限定した検証の OK は「要求された scope 内が OK」という意味に限られる。\nscope 外の項目は `NOT_CHECKED` のまま保持し、PASS へ変換しない。\n出力には要求 scope と、scope 外項目が未検証である旨を必ず併記する。",
+   "absorbed": [
+    "REQ-REPORTING#3",
+    "REQ-INTEGRATION#5"
+   ]
+  },
+  {
+   "id": "VO-AGG-05",
+   "claim": "Entity scope never narrows repository-level evaluation: test_traceability spans all Discovered Tests, so one unmanaged test forces overall NG even if all graph items PASS.",
+   "requirements": [
+    "REQ-AGGREGATION",
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§12"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§23"
+    }
+   ],
+   "quote": "管理済みgraph側の11項目がすべてPASSでも、未登録Testが1件あれば`test_traceability`により総合NGになる。",
+   "absorbed": [
+    "REQ-EXISTING-PROJECT#2",
+    "REQ-EXISTING-PROJECT#6"
+   ]
+  },
+  {
+   "id": "VO-AGG-06",
+   "claim": "From an NG at SPEC/REQ level, the user can drill down to the failing entity, check item, and value, with grounding references (audit record ID / Evidence ID) in text and JSON.",
+   "requirements": [
+    "REQ-AGGREGATION",
+    "REQ-NFR-008",
+    "REQ-P-001",
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.5 verify・report"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.4 提供範囲外"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "7.10 集約とレポート"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.10"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "12.2 コマンド仕様（vtest verify / vtest report）"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest report"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§18"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§19"
+    }
+   ],
+   "quote": "PMなどは上位SpecificationまたはRequirement単位からNG箇所まで掘り下げられること。",
+   "absorbed": [
+    "REQ-REPORTING#4",
+    "REQ-P-001#5"
+   ]
+  },
+  {
+   "id": "VO-AGG-07",
+   "claim": "Missing adapter capability is never supplemented to PASS: absent static/coverage capability yields NOT_CHECKED, absent runner yields NOT_EXECUTED, analysis limits yield UNKNOWN.",
+   "requirements": [
+    "REQ-AGGREGATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.6"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.10"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    }
+   ],
+   "quote": "adapter能力の欠落または失敗を `PASS` へ補完しない。検証時にstatic auditまたはcoverage能力がなければ該当項目は `NOT_CHECKED`、runner能力がなければ実行関連項目は `NOT_EXECUTED`、解析限界は `UNKNOWN` とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-AGG-08",
+   "claim": "Evaluating static_audit's internal runtime dependencies never changes out-of-scope display values; a runtime-proofed static_audit cites its Evidence ID and target result.",
+   "requirements": [
+    "REQ-AGGREGATION",
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§18"
+    }
+   ],
+   "quote": "内部依存評価は scope 外項目の表示値を変えない。runtime 証明に依存する `static_audit` の値は、根拠として用いた Evidence ID と当該 target の target_execution 結果を report で引用する。",
+   "absorbed": [
+    "REQ-REPORTING#8"
+   ]
+  },
+  {
+   "id": "VO-REPORT-01",
+   "claim": "Full verification is OK only when every check item on every entity in scope is PASS; a single non-PASS value on any item or entity forces the overall result to NG.",
+   "requirements": [
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    }
+   ],
+   "quote": "**完全検証の OK** は、対象範囲内のすべてのチェック項目・すべてのエンティティが `PASS` である場合に限る。1項目でも非 PASS があれば NG（fail-closed。要件定義 P-002）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REPORT-02",
+   "claim": "FAIL/MISMATCH/MISSING/NOT_CHECKED/NOT_EXECUTED/STALE/UNKNOWN are never promoted to PASS/OK, and adapter capability gaps map to NOT_CHECKED/NOT_EXECUTED/UNKNOWN, never PASS.",
+   "requirements": [
+    "REQ-REPORTING",
+    "REQ-NFR-005",
+    "REQ-P-002"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.10"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.2"
+    }
+   ],
+   "quote": "adapter能力の欠落または失敗を `PASS` へ補完しない。検証時にstatic auditまたはcoverage能力がなければ該当項目は `NOT_CHECKED`、runner能力がなければ実行関連項目は `NOT_EXECUTED`、解析限界は `UNKNOWN` とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REPORT-03",
+   "claim": "With mixed non-PASS children, the shown representative follows the fixed priority order, while detail output keeps every child's individual value and all coexisting grounds.",
+   "requirements": [
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.4"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§18"
+    }
+   ],
+   "quote": "集約時に複数の非 PASS 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > MISSING > STALE > NOT_EXECUTED > NOT_CHECKED > UNKNOWN` とする。詳細出力では子の個別値をすべて確認できる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REPORT-04",
+   "claim": "report runs the identical aggregation as verify; both text and JSON are emitted, and JSON carries the same grounds and complete per-target lists with no loss versus text.",
+   "requirements": [
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.10"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest report"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§18"
+    }
+   ],
+   "quote": "`verify` と同じ集約を実行し、根拠（監査レコード ID・Evidence ID・診断）を含む完全な詳細を出力する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REPORT-05",
+   "claim": "Exit code 0 is returned only when the requested scope verifies OK and 1 only for NG; operation rejection exits 2 without generating any verification result; priority 3>2>1>0.",
+   "requirements": [
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§17.1"
+    }
+   ],
+   "quote": "| 0 | 要求 scope の検証結果が OK（操作コマンドでは成功） |\n| 1 | 検証結果が NG |",
+   "absorbed": []
+  },
+  {
+   "id": "VO-REPORT-06",
+   "claim": "The text tree renders ancestor continuation, middle child, and last child with unique branch symbols, and an ancestor's own branch mark is never inherited by descendant lines.",
+   "requirements": [
+    "REQ-REPORTING"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§18"
+    }
+   ],
+   "quote": "text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-01",
+   "claim": "For identical inputs, MCP tools return the same data/diagnostics as CLI --format json via one shared adapter registry; MCP never implicitly selects a different adapter than CLI.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.8"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.3"
+    }
+   ],
+   "quote": "CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択エラーを利用する。MCPがCLIと異なるadapterを暗黙に選択してはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-02",
+   "claim": "Every CLI command and MCP tool completes non-interactively; any confirmation prompt is suppressible with --yes, so agent/CI use never blocks on input.",
+   "requirements": [
+    "REQ-INTEGRATION",
+    "REQ-NFR-007"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    }
+   ],
+   "quote": "すべてのコマンドは非対話で完結する。確認プロンプトを出す場合は `--yes` で抑止できる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-03",
+   "claim": "Exit codes partition outcomes: 0 OK, 1 NG, 2 operation refused with no verification result, 3 internal error; conflicts resolve 3>2>1>0, letting CI judge on exit code alone.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    }
+   ],
+   "quote": "終了コードは `0`＝要求 scope が OK、`1`＝検証NG、`2`＝入力・adapter前提・capability等による操作拒否、`3`＝内部エラーとする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-04",
+   "claim": "Machine output carries a top-level {ok,data,diagnostics} envelope with coded diagnostics; MCP failures are tool errors with code/message and candidates on input-validation errors.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.8"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.1"
+    }
+   ],
+   "quote": "JSON 出力は最上位に `{ \"ok\": bool, \"data\": ..., \"diagnostics\": [...] }` を持つ。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-05",
+   "claim": "Every MCP tool call starts with an mtime-based rescan decision; a long-running MCP server never keeps serving a PASS computed before a source change.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.8"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.1"
+    }
+   ],
+   "quote": "MCP serverの長時間実行中もsource変更を再scanし、staleなPASSを保持しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-06",
+   "claim": "An explicit op lacking required adapter capability returns ok:false/E-ADAPTER-004/exit 2 with no file change, Audit Record, or Evidence; verify-time lack yields non-PASS, never PASS.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    }
+   ],
+   "quote": "明示操作に必須のadapter capabilityが未提供なら、`ok: false`、E-ADAPTER-004、終了コード2を返す。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-07",
+   "claim": "Every operation the five user paths require (scoped verify, STO create/edit, exit-code rerun, evidence cross-check, spec/REQ drill-down) exists in the published CLI/MCP set.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§10"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§11.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§26"
+    }
+   ],
+   "quote": "**Coder AI**：MCP 経由。担当した VO / Test を scope に指定して検証し、自身の変更が要求された検証を満たしたか確認する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-INTEG-08",
+   "claim": "The stdio MCP server handles JSON-RPC requests, notifications, batches, and malformed transport input per contract instead of crashing or misclassifying them.",
+   "requirements": [
+    "REQ-INTEGRATION"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.8"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§13.1"
+    }
+   ],
+   "quote": "request、notification、batch、malformed transportの各入力をJSON-RPC contractどおりに処理する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXIST-01",
+   "claim": "vtest init only creates .verify/ and never modifies existing project code; init on a project that already has .verify/ fails with exit code 2 instead of overwriting.",
+   "requirements": [
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§12"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest init"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§23"
+    }
+   ],
+   "quote": "`vtest init`は `.verify/` を作成し、既存コードを変更しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXIST-02",
+   "claim": "Projects missing parts of SPEC/REQ/VO, test metadata, audits, or evidence remain readable; verify maps each absence to its specific non-PASS value instead of aborting or passing.",
+   "requirements": [
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§12"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§4.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§23"
+    }
+   ],
+   "quote": "SPEC / REQ / VO、Test metadata宣言、Audit、Evidenceの一部が欠ける状態も読み取り可能とする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-EXIST-03",
+   "claim": "Empty sets are never complete: 0 registered SPECs -> spec_coverage=MISSING; active REQ with 0 VOs -> vo_coverage=MISSING; leaf VO with 0 covering tests -> test_existence=MISSING.",
+   "requirements": [
+    "REQ-EXISTING-PROJECT",
+    "REQ-AGGREGATION",
+    "REQ-SPEC-INTAKE"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§12"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    }
+   ],
+   "quote": "完全検証または指定scopeに登録SPECが0件なら`MISSING`とし、空集合をPASSにしない。",
+   "absorbed": [
+    "REQ-SPEC-INTAKE#5",
+    "REQ-AGGREGATION#9"
+   ]
+  },
+  {
+   "id": "VO-EXIST-04",
+   "claim": "Adapter discovery failure or an incomplete/unparseable discovery result is never treated as a normal 0-test scan; test_traceability becomes UNKNOWN and cannot PASS.",
+   "requirements": [
+    "REQ-EXISTING-PROJECT",
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§11.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "adapter discoveryの失敗をTest 0件の正常scanとして扱わない。",
+   "absorbed": [
+    "REQ-ADAPTER-BOUNDARY#4"
+   ]
+  },
+  {
+   "id": "VO-EXIST-05",
+   "claim": "Non-PASS test_traceability lists each unregistered or mis-corresponding test with adapter ID, source location, diagnostic code and verdict, identically in text and JSON reports.",
+   "requirements": [
+    "REQ-EXISTING-PROJECT"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.5"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.2 vtest verify"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§23"
+    }
+   ],
+   "quote": "非PASS時は、未登録または不正対応の各Testについてadapter ID、source location、diagnostic code、判定値をProject checks配下に表示する。JSONでも同じ根拠一覧を返す。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-01",
+   "claim": "VO status is derived only from approval records; writers never store `status`; a compat `status` field is ignored (W-STORE-001) and excluded from the VO content hash.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    }
+   ],
+   "quote": "VOの`status`は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-02",
+   "claim": "A VO is approved only while subject_hash and dependency closure match current hashes; any change lapses it to draft by derivation, never by mutating the append-only record.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "16.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "25"
+    }
+   ],
+   "quote": "対象、依存内容、または依存集合が変化すると承認は失効し、VOは`draft`相当として扱われる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-03",
+   "claim": "Approval dependencies must equal the recursive parent-VO/REQ/SPEC closure, sorted by kind then id, with no missing, duplicate, or extra entries; subject appears only as subject_hash.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    }
+   ],
+   "quote": "entryは`kind`、`id`の順でsortし、欠落・重複・余剰entryを許可しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-04",
+   "claim": "SPEC dependency hashes bind the SPEC record and its source; changing either or re-registering the SPEC invalidates the approval, and prior dependency entries cannot be reused.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.2"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "11.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "17.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    }
+   ],
+   "quote": "SPEC dependency hashはSPECレコードと参照先sourceの現在内容を束縛する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-05",
+   "claim": "Approval records lacking dependency closure or hashes are kept for read/history only, emit W-STORE-002, and never derive current approved; the VO stays draft-equivalent.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "25"
+    }
+   ],
+   "quote": "依存closureまたはdependency hashを欠く承認レコードは読み取り互換のため保持できるが、現在の`approved`を導出してはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-06",
+   "claim": "If the target or any closure entity/SPEC source cannot be resolved completely and currently, approval creation is rejected with E-APPROVAL-001, exit 2, and no record is written.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "18.3.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "17.1"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "12.2"
+    }
+   ],
+   "quote": "Approval対象または上流依存closureを完全・currentに解決できず、recordを生成しない",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-07",
+   "claim": "Approvers are not limited to humans: records store approver kind (human/agent) and identifier, with optional audit-record basis, tracing who approved what on which grounds.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "12.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "13.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "25"
+    }
+   ],
+   "quote": "承認主体は人間に限定しない。`human` / `agent` の種別と識別子（エージェント名・モデル名等）を記録する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-APPROVE-08",
+   "claim": "Editing an approved VO is permitted with a warning; the approval is never blocked or preserved — it auto-lapses through the hash mismatch on the next derivation.",
+   "requirements": [
+    "REQ-APPROVAL"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "16.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "3.5"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "12.2"
+    }
+   ],
+   "quote": "`edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-01",
+   "claim": "The adapter API and core domain model are language/runner-neutral: no Cargo, Rust-parser or llvm-cov types are exposed, and TestEntity carries only a neutral ExecutionDescriptor.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§0"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "`vtest-adapter-api`は言語・runner非依存であり、Cargo、Rust parser、llvm-cov固有型を公開しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-02",
+   "claim": "Each capability is a separate adapter contract; the registry rejects duplicate adapter IDs, declaration/implementation mismatch, and unregistered adapters.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "registryはadapter IDの重複、宣言capabilityと実装の不一致、未登録adapterを拒否する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-03",
+   "claim": "A non-Rust adapter registers, scans and verifies without changes to vtest-model/vtest-scan/vtest-verify; rust-cargo stays the sole shipped production adapter.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.2"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§19"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "synthetic adapterは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを、`vtest-model`、`vtest-scan`、`vtest-verify`の変更なしで登録・scan・verifyできる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-04",
+   "claim": "A missing required capability aborts explicit operations via E-ADAPTER-004 with no change, Audit or Evidence; verification yields NOT_CHECKED/NOT_EXECUTED/UNKNOWN, never an inferred PASS.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§10.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.2"
+    },
+    {
+     "spec": "SPEC-IFACE",
+     "section": "§12.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "明示操作に必須のcapabilityがなければE-ADAPTER-004となり、変更・Audit・Evidenceを生成しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-05",
+   "claim": "Adapters return hash-uncomputed DTOs; core validates them against current source bytes and computes every subject hash — an adapter never self-finalizes a content hash.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§1.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "adapterが最終的な`TestEntity.content_hash`または`SourceTarget.content_hash`を返して自己確定してはならない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-06",
+   "claim": "Core delegates opaque-locator interpretation to the owning adapter, verifying returned adapter ID, range and bytes; it never parses locator syntax or adapter-specific constructs.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "coreは返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証し、§1.3のSource Target hashを計算するが、opaque locatorの内部構文は解釈しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-07",
+   "claim": "Evidence binds the executing adapter ID: mismatch with the current Test is MISMATCH; ID-less legacy records count only if uniquely confirmed as Rust, else UNKNOWN.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.8"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§9.4"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-ADAPTER-08",
+   "claim": "Unknown adapters or failed adapter-config validation are operation errors without capability inference; Rust wire-compat fields come only from the rust-cargo codec, never dummied.",
+   "requirements": [
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§17.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§2.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    }
+   ],
+   "quote": "未知のadapterやadapter固有設定の検証失敗は操作エラーとし、利用可能な言語や能力を推測して補完しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-01",
+   "claim": "One record = one file with no central ledger; rel/approval/audit/evidence records are added only as new ULID-named files, never by editing existing files; Relations are immutable.",
+   "requirements": [
+    "REQ-PARALLEL-DEV"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§16.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "Relation・承認・監査・Evidence の各レコードは ULID をファイル名とする新規ファイル追加のみで作成する。既存ファイルの編集を伴わない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-02",
+   "claim": "Test ID uniqueness is exhaustively checked at scan across adapters; collision is integrity error E-SCAN-002 and forces test_traceability=MISMATCH, never silently picking one.",
+   "requirements": [
+    "REQ-PARALLEL-DEV",
+    "REQ-ADAPTER-BOUNDARY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.9"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.2"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§27"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "ID の一意性はスキャン時に全数検査し、衝突は整合性エラーとする（§7.1）。",
+   "absorbed": [
+    "REQ-ADAPTER-BOUNDARY#7"
+   ]
+  },
+  {
+   "id": "VO-PARALLEL-03",
+   "claim": "Permanent SRC IDs are repository-unique across adapters; collision is E-SCAN-011, resolves to no target, and no candidate reaches audit subjects, Evidence, or target_execution.",
+   "requirements": [
+    "REQ-PARALLEL-DEV",
+    "REQ-ADAPTER-BOUNDARY",
+    "REQ-TEST-REGISTRY"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§3.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§6.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§8"
+    }
+   ],
+   "quote": "恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とし、いずれのSource Targetも選択しない。",
+   "absorbed": [
+    "REQ-TEST-REGISTRY#6"
+   ]
+  },
+  {
+   "id": "VO-PARALLEL-04",
+   "claim": "Scan flags dangling references (covers→VO, Relation from/to, parent, spec_refs) as errors driving non-PASS; a dangling covers yields test_traceability=MISMATCH, not entity removal.",
+   "requirements": [
+    "REQ-PARALLEL-DEV"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-ACCEPT",
+     "section": "§18.3.1"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§7.1"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§5.4 (E-SCAN-003/008/009/012)"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "エラーは検証結果に反映され、該当エンティティのチェック項目を非 PASS にする。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-05",
+   "claim": "Semantic conflicts git merge cannot see (dup IDs, dangling covers, approved-VO drift) are caught by doctor; hash binding lapses approvals to draft, audits/evidence to STALE.",
+   "requirements": [
+    "REQ-PARALLEL-DEV"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§5.2"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§16.2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "`vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、version controlの構文的整合性だけでは判定できない論理的不整合を次の規則で検出する。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-06",
+   "claim": "Derived data (graph, reverse indexes, aggregates) is rebuilt in-memory from canon on every run; persistent cache is never treated as canon and cache loss cannot affect the canon.",
+   "requirements": [
+    "REQ-PARALLEL-DEV",
+    "REQ-NFR-004",
+    "REQ-P-003"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§5.3"
+    },
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§2"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§30 NFR-004"
+    }
+   ],
+   "quote": "検証グラフ、逆引きインデックス、集約結果はすべて正典からの導出物であり、`vtest scan` によっていつでも再構築できる（要件定義 NFR-004）。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-07",
+   "claim": "covers/targets exist only in adapter-owned metadata declarations, never in external records; Evidence target refs never regenerate relations, so sync loss cannot occur.",
+   "requirements": [
+    "REQ-PARALLEL-DEV"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§2.3"
+    },
+    {
+     "spec": "SPEC-BASIC",
+     "section": "§6.3"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    }
+   ],
+   "quote": "source declarationが正典であるため、直接編集と外部レコードの「同期漏れ」はcovers / targetsについては構造的に発生しない。",
+   "absorbed": []
+  },
+  {
+   "id": "VO-PARALLEL-08",
+   "claim": "Concurrent vtest processes require no locks or arbitration; every judgment is a pure read of the canon at that instant, and canon changes are reflected by the next scan/verify.",
+   "requirements": [
+    "REQ-PARALLEL-DEV",
+    "REQ-NFR-001",
+    "REQ-NFR-002"
+   ],
+   "refs": [
+    {
+     "spec": "SPEC-DOGFOOD-M3",
+     "section": "§16.1"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§29"
+    },
+    {
+     "spec": "SPEC-REQDEF",
+     "section": "§30 NFR-001"
+    }
+   ],
+   "quote": "同時実行された `vtest` プロセス同士の調停は行わない。すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回の scan / verify が差分を反映する。",
+   "absorbed": []
+  }
+ ]
+}

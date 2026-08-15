@@ -1,0 +1,23 @@
+id: 'VO-AGG-01'
+parent: null
+requirements: ['REQ-AGGREGATION', 'REQ-REPORTING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5'
+  - spec: 'SPEC-BASIC'
+    section: '§4.2'
+  - spec: 'SPEC-BASIC'
+    section: '§4.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest verify'
+  - spec: 'SPEC-REQDEF'
+    section: '§17.2'
+claim: 'Full verification evaluates exactly the fixed 12 check items; omitting item scope selects all 12, and no config value can shrink or redefine the set.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

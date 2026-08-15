@@ -1,0 +1,19 @@
+id: 'VO-REGISTRY-05'
+parent: null
+requirements: ['REQ-TEST-REGISTRY']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§6.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§1.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.2'
+claim: 'Core (never the adapter) computes the Test hash over the full Test subject — all logical fields, location, ExecutionDescriptor, construct — so any covers/targets/intent/execution change alters it.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,17 @@
+id: 'VO-AGG-03'
+parent: null
+requirements: ['REQ-AGGREGATION']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§4.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
+claim: 'Mixed non-PASS values roll up by fixed priority FAIL>MISMATCH>MISSING>STALE>NOT_EXECUTED>NOT_CHECKED>UNKNOWN; detail output retains all child values and grounds.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

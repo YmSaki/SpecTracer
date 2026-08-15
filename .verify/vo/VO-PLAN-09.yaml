@@ -1,0 +1,17 @@
+id: 'VO-PLAN-09'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5 verify・report'
+  - spec: 'SPEC-BASIC'
+    section: '§4.2 チェック項目'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1.1 `vo_decomposition`の診断写像'
+claim: 'vo_decomposition evaluates only REQ/VO parent, requirements, spec_refs and structural Relations; Test, target-resolution, adapter-parse and Evidence errors never change its value.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

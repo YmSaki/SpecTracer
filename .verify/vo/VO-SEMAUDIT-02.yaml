@@ -1,0 +1,19 @@
+id: 'VO-SEMAUDIT-02'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4 semantic audit protocol'
+  - spec: 'SPEC-BASIC'
+    section: '§7.3 意味監査（エージェント委譲プロトコル）'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.1 バンドル生成'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.2 バンドル JSON スキーマ'
+claim: 'A test-semantic bundle must include test metadata+source, covered VOs, all target implementation sources, static-audit result, and prior audits, with content hashes and revision.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

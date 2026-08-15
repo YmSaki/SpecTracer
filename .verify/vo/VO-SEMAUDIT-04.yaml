@@ -1,0 +1,19 @@
+id: 'VO-SEMAUDIT-04'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4 semantic audit protocol'
+  - spec: 'SPEC-BASIC'
+    section: '§7.3 意味監査（エージェント委譲プロトコル）'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.6 監査レコード'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.5 有効性と多重監査'
+claim: 'Accepted audits bind to the full subject set and hashes; any subject/set change auto-STALEs the record; target subjects use canonical Locator, not the declared spelling.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,33 @@
+id: 'VO-STRUCTOP-04'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS', 'REQ-PARALLEL-DEV']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.4 編集境界'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.1 (E-OP-003)'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.1 診断コード'
+  - spec: 'SPEC-IFACE'
+    section: '§15.2'
+  - spec: 'SPEC-IFACE'
+    section: '§15.2 `rust-cargo` 編集の適用'
+  - spec: 'SPEC-IFACE'
+    section: '§15.4'
+  - spec: 'SPEC-IFACE'
+    section: '§15.4 `rust-cargo` 1 Test境界の保証'
+  - spec: 'SPEC-REQDEF'
+    section: '§21 Test編集の境界'
+  - spec: 'SPEC-REQDEF'
+    section: '§29'
+claim: 'Edit applies one single replacement of the target Test''s extended range, checked pre-apply (range) and post-apply (other-Test hash invariance); violations revert the file with E-OP-003.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,17 @@
+id: 'VO-APPROVE-06'
+parent: null
+requirements: ['REQ-APPROVAL']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.3.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '17.1'
+  - spec: 'SPEC-IFACE'
+    section: '12.2'
+claim: 'If the target or any closure entity/SPEC source cannot be resolved completely and currently, approval creation is rejected with E-APPROVAL-001, exit 2, and no record is written.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

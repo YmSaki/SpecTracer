@@ -1,0 +1,17 @@
+id: 'VO-SEMAUDIT-05'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1 チェック項目の評価地点'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.6 監査レコード'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.5 有効性と多重監査'
+claim: 'Among valid audit records on one subject set, any FAIL yields FAIL, else the latest verdict; with no valid record the item is NOT_CHECKED or STALE, never PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

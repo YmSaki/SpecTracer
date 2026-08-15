@@ -1,0 +1,23 @@
+id: 'VO-REPORT-04'
+parent: null
+requirements: ['REQ-REPORTING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5'
+  - spec: 'SPEC-BASIC'
+    section: '§7.10'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest report'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest verify'
+  - spec: 'SPEC-REQDEF'
+    section: '§18'
+claim: 'report runs the identical aggregation as verify; both text and JSON are emitted, and JSON carries the same grounds and complete per-target lists with no loss versus text.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

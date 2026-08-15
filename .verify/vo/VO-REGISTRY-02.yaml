@@ -1,0 +1,25 @@
+id: 'VO-REGISTRY-02'
+parent: null
+requirements: ['REQ-TEST-REGISTRY', 'REQ-EXISTING-PROJECT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§12'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§4.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.4'
+  - spec: 'SPEC-REQDEF'
+    section: '§7.1'
+claim: 'Registry gaps stay fail-closed and typed: missing declaration→MISSING; ID collision/multi-link/dangling covers→MISMATCH; incomplete discovery→UNKNOWN, never a zero-test PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

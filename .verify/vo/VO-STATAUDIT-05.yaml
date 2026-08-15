@@ -1,0 +1,19 @@
+id: 'VO-STATAUDIT-05'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2 deterministic static audit'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.6 監査レコード'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.2 rust-cargo ルール一覧'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 コマンド仕様（vtest audit static）'
+claim: 'Per-target DA-002/003 verdicts are canonical, 1:1 with declared targets; mismatch makes the record malformed; no valid record leaves static_audit STALE/NOT_CHECKED, not PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

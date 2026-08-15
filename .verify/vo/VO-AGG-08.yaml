@@ -1,0 +1,19 @@
+id: 'VO-AGG-08'
+parent: null
+requirements: ['REQ-AGGREGATION', 'REQ-REPORTING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.3'
+  - spec: 'SPEC-REQDEF'
+    section: '§18'
+claim: 'Evaluating static_audit''s internal runtime dependencies never changes out-of-scope display values; a runtime-proofed static_audit cites its Evidence ID and target result.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,17 @@
+id: 'VO-AGG-07'
+parent: null
+requirements: ['REQ-AGGREGATION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.6'
+  - spec: 'SPEC-BASIC'
+    section: '§7.10'
+  - spec: 'SPEC-REQDEF'
+    section: '§17.2'
+claim: 'Missing adapter capability is never supplemented to PASS: absent static/coverage capability yields NOT_CHECKED, absent runner yields NOT_EXECUTED, analysis limits yield UNKNOWN.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

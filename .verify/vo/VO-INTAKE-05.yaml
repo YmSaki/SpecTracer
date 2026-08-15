@@ -1,0 +1,19 @@
+id: 'VO-INTAKE-05'
+parent: null
+requirements: ['REQ-SPEC-INTAKE']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2'
+claim: 'spec_refs resolve deterministically to SPEC record and current source; section is a non-empty opaque citation core never parses, and no syntactic in-body check can yield PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

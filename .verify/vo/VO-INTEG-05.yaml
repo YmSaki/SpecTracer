@@ -1,0 +1,15 @@
+id: 'VO-INTEG-05'
+parent: null
+requirements: ['REQ-INTEGRATION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.8'
+  - spec: 'SPEC-IFACE'
+    section: '§13.1'
+claim: 'Every MCP tool call starts with an mtime-based rescan decision; a long-running MCP server never keeps serving a PASS computed before a source change.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

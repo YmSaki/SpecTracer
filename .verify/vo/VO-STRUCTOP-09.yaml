@@ -1,0 +1,19 @@
+id: 'VO-STRUCTOP-09'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§6.1 論理契約と正典性'
+  - spec: 'SPEC-BASIC'
+    section: '§8.1 提供する操作'
+  - spec: 'SPEC-REQDEF'
+    section: '§20 Structured Test Operation'
+claim: 'A created Test is re-discovered by scan with identical ID, intent, covers, and targets; the emitted source declaration is the canon, so official output and discovery cannot diverge.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

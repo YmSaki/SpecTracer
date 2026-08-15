@@ -1,0 +1,17 @@
+id: 'VO-SEMAUDIT-03'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT', 'REQ-NFR-006']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4 semantic audit protocol'
+  - spec: 'SPEC-BASIC'
+    section: '§7.3 意味監査（エージェント委譲プロトコル）'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.4 提出の検証'
+claim: 'audit submit rejects missing bundle, kind mismatch, stale subject hash, invalid verdict, and empty reasons or reasons lacking claim+basis; a reasonless verdict is never accepted.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

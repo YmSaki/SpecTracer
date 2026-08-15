@@ -1,0 +1,21 @@
+id: 'VO-INTEG-01'
+parent: null
+requirements: ['REQ-INTEGRATION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.8'
+  - spec: 'SPEC-BASIC'
+    section: '§11.2'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+  - spec: 'SPEC-IFACE'
+    section: '§13.1'
+  - spec: 'SPEC-IFACE'
+    section: '§13.3'
+claim: 'For identical inputs, MCP tools return the same data/diagnostics as CLI --format json via one shared adapter registry; MCP never implicitly selects a different adapter than CLI.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

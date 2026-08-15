@@ -1,0 +1,21 @@
+id: 'VO-APPROVE-02'
+parent: null
+requirements: ['REQ-APPROVAL']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '9'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '16.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '3.5'
+  - spec: 'SPEC-REQDEF'
+    section: '25'
+claim: 'A VO is approved only while subject_hash and dependency closure match current hashes; any change lapses it to draft by derivation, never by mutating the append-only record.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

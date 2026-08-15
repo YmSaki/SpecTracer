@@ -1,0 +1,17 @@
+id: 'VO-STATAUDIT-07'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2 deterministic static audit'
+  - spec: 'SPEC-BASIC'
+    section: '§7.2 決定論的テスト監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.1 判定の原則'
+claim: 'A rule that referenced analysis inputs it cannot bind into the freshness subject must return UNKNOWN, never PASS; core refuses PASS when a referenced fragment DTO is missing.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

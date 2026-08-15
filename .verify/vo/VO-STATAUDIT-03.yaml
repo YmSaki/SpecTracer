@@ -1,0 +1,19 @@
+id: 'VO-STATAUDIT-03'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§7.2 決定論的テスト監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.2 rust-cargo ルール一覧'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 コマンド仕様（vtest audit bundle / submit）'
+  - spec: 'SPEC-REQDEF'
+    section: '§11 Test静的監査'
+claim: 'A Test whose deterministic audit is FAIL can be rejected before semantic audit; bundle generation skips DA-001..DA-006 FAILed Tests by default, forced only via --include-failed.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,19 @@
+id: 'VO-STRUCTOP-03'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.2 desired state 方式'
+  - spec: 'SPEC-IFACE'
+    section: '§15.2 `rust-cargo` 編集の適用'
+  - spec: 'SPEC-IFACE'
+    section: '§15.3 `rust-cargo` annotation blockの再生成'
+claim: 'Create/Edit take a full desired state, the adapter diffs it against current source, and re-applying the same desired state is idempotent via fixed key-order annotation regeneration.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,29 @@
+id: 'VO-SEMAUDIT-07'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT', 'REQ-P-001']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.3.4 semantic audit protocol'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4 semantic audit protocol'
+  - spec: 'SPEC-BASIC'
+    section: '7.5 実装一致検証'
+  - spec: 'SPEC-BASIC'
+    section: '§7.5 実装一致検証'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '8.3 提出スキーマ'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1 チェック項目の評価地点'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.3 提出スキーマ'
+  - spec: 'SPEC-REQDEF'
+    section: '13 対象実装との一致検証'
+  - spec: 'SPEC-REQDEF'
+    section: '§13 対象実装との一致検証'
+claim: 'Spec/VO/Test vs implementation mismatch is presented as MISMATCH with no fix-direction decision; submitted FAIL maps to MISMATCH while NOT_CHECKED/STALE/UNKNOWN stay distinct.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

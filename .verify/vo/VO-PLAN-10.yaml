@@ -1,0 +1,17 @@
+id: 'VO-PLAN-10'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1 discovery・record・graph'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1 チェック項目の評価地点'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2 REQ レコード'
+claim: 'spec_refs.section is an opaque non-empty citation; core never judges its in-document existence syntactically for PASS—semantic validity is confirmed only through audit reasons.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

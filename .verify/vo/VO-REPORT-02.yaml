@@ -1,0 +1,21 @@
+id: 'VO-REPORT-02'
+parent: null
+requirements: ['REQ-REPORTING', 'REQ-NFR-005', 'REQ-P-002']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5'
+  - spec: 'SPEC-BASIC'
+    section: '§4.1'
+  - spec: 'SPEC-BASIC'
+    section: '§7.10'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+  - spec: 'SPEC-REQDEF'
+    section: '§17.2'
+claim: 'FAIL/MISMATCH/MISSING/NOT_CHECKED/NOT_EXECUTED/STALE/UNKNOWN are never promoted to PASS/OK, and adapter capability gaps map to NOT_CHECKED/NOT_EXECUTED/UNKNOWN, never PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,19 @@
+id: 'VO-INTAKE-01'
+parent: null
+requirements: ['REQ-SPEC-INTAKE']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§3.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.1'
+  - spec: 'SPEC-IFACE'
+    section: 'vtest spec add / list / show'
+  - spec: 'SPEC-REQDEF'
+    section: '§24'
+claim: 'Spec intake registers upstream artifacts as SPEC records identified by project path + sha256 captured at registration; the document body is never duplicated into .verify/.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:18Z'
+updated: '2026-08-15T10:05:18Z'

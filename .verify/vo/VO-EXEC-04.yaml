@@ -1,0 +1,19 @@
+id: 'VO-EXEC-04'
+parent: null
+requirements: ['REQ-TEST-EXECUTION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§7.8'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.2'
+  - spec: 'SPEC-REQDEF'
+    section: '§15'
+claim: 'evidence_validity=PASS only if test hash, target set+hashes, HEAD revision, complete Execution State, and adapter all match now; breaches map to STALE/MISMATCH/UNKNOWN, never PASS'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

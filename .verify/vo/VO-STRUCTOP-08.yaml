@@ -1,0 +1,17 @@
+id: 'VO-STRUCTOP-08'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.5 Form Schema'
+  - spec: 'SPEC-IFACE'
+    section: '§14.2 検証器'
+claim: 'A Form lacking `adapter` resolves only if exactly one built-in kind claim or deterministic schema matcher accepts it; 0 or 2+ reject, with no rust-cargo fallback and no Form file rewrite.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

@@ -1,0 +1,15 @@
+id: 'VO-APPROVE-03'
+parent: null
+requirements: ['REQ-APPROVAL']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '9'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '3.5'
+claim: 'Approval dependencies must equal the recursive parent-VO/REQ/SPEC closure, sorted by kind then id, with no missing, duplicate, or extra entries; subject appears only as subject_hash.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

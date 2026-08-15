@@ -1,0 +1,15 @@
+id: 'VO-INTAKE-04'
+parent: null
+requirements: ['REQ-SPEC-INTAKE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.4'
+  - spec: 'SPEC-IFACE'
+    section: 'vtest spec add / list / show'
+claim: 'Spec updates take effect only via explicit re-registration; the new SPEC subject hash bars reusing prior dependency entries, and dependent audit/approval expiry is surfaced.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

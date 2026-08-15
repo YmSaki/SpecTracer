@@ -1,0 +1,17 @@
+id: 'VO-STATAUDIT-02'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§4.2 チェック項目'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.1 判定の原則'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.3 target 到達の静的証明と runtime 証明の関係'
+claim: 'The static_audit item folds effective rule verdicts (after §7.3 reachability) fail-closed: any FAIL makes FAIL, else any UNKNOWN makes UNKNOWN; PASS only when all rules are clean.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

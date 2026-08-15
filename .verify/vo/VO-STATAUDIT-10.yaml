@@ -1,0 +1,17 @@
+id: 'VO-STATAUDIT-10'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§7.2 決定論的テスト監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.1 判定の原則'
+  - spec: 'SPEC-REQDEF'
+    section: '§11 Test静的監査'
+claim: 'Core never interprets adapter AST/assertion syntax; missing Static Audit capability yields NOT_CHECKED and reported adapter incompleteness UNKNOWN, never presumed no-violation.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

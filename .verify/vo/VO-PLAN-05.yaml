@@ -1,0 +1,21 @@
+id: 'VO-PLAN-05'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.2 共通fixture'
+  - spec: 'SPEC-BASIC'
+    section: '§7.4 Specification / VO網羅性監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.4 SPEC 鮮度'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.5 有効性と多重監査'
+  - spec: 'SPEC-REQDEF'
+    section: '§6 Specification・VO網羅性のAI検証'
+claim: 'Coverage audits bind hashes of the complete subject set; after the subject content or correspondence set changes, prior verdicts become STALE and never count as current PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

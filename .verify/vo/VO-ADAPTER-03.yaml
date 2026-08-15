@@ -1,0 +1,21 @@
+id: 'VO-ADAPTER-03'
+parent: null
+requirements: ['REQ-ADAPTER-BOUNDARY']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.2'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.9'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§19'
+  - spec: 'SPEC-REQDEF'
+    section: '§27'
+claim: 'A non-Rust adapter registers, scans and verifies without changes to vtest-model/vtest-scan/vtest-verify; rust-cargo stays the sole shipped production adapter.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

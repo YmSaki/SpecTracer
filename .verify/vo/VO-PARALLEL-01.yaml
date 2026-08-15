@@ -1,0 +1,17 @@
+id: 'VO-PARALLEL-01'
+parent: null
+requirements: ['REQ-PARALLEL-DEV']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§5.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§16.1'
+  - spec: 'SPEC-REQDEF'
+    section: '§29'
+claim: 'One record = one file with no central ledger; rel/approval/audit/evidence records are added only as new ULID-named files, never by editing existing files; Relations are immutable.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

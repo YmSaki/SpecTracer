@@ -1,0 +1,21 @@
+id: 'VO-REPORT-03'
+parent: null
+requirements: ['REQ-REPORTING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4'
+  - spec: 'SPEC-BASIC'
+    section: '§4.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.2'
+  - spec: 'SPEC-REQDEF'
+    section: '§18'
+claim: 'With mixed non-PASS children, the shown representative follows the fixed priority order, while detail output keeps every child''s individual value and all coexisting grounds.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

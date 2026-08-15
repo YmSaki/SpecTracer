@@ -1,0 +1,21 @@
+id: 'VO-ADAPTER-07'
+parent: null
+requirements: ['REQ-ADAPTER-BOUNDARY']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§7.8'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.4'
+  - spec: 'SPEC-REQDEF'
+    section: '§27'
+claim: 'Evidence binds the executing adapter ID: mismatch with the current Test is MISMATCH; ID-less legacy records count only if uniquely confirmed as Rust, else UNKNOWN.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

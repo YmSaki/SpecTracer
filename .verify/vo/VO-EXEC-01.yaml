@@ -1,0 +1,21 @@
+id: 'VO-EXEC-01'
+parent: null
+requirements: ['REQ-TEST-EXECUTION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§7.7'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.3'
+  - spec: 'SPEC-REQDEF'
+    section: '§14'
+claim: 'Only selected tests run via exact selectors; each filter maps to PASS/FAIL, ignored gives NOT_EXECUTED, and a missing result line or exit-code contradiction records no Evidence'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

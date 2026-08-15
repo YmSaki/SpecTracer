@@ -1,0 +1,17 @@
+id: 'VO-SEMAUDIT-01'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§7.3 意味監査（エージェント委譲プロトコル）'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.1/§8.3/§8.4 意味監査プロトコル'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest audit bundle / submit'
+claim: 'vtest never invokes an LLM itself; AI verdicts enter the system only through the bundle-generation, submission-validation, and audit-record storage path.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

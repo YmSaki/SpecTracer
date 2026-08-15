@@ -1,0 +1,19 @@
+id: 'VO-STATAUDIT-04'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2 deterministic static audit'
+  - spec: 'SPEC-BASIC'
+    section: '§7.2 決定論的テスト監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.2 rust-cargo ルール一覧'
+  - spec: 'SPEC-REQDEF'
+    section: '§11 Test静的監査'
+claim: 'Every REQ §11 violation class is realized by a concrete deterministic rule (DA-001..DA-006); a clean Test yields no violation and each violation fixture goes non-PASS on its rule.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

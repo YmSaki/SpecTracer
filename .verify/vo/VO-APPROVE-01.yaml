@@ -1,0 +1,19 @@
+id: 'VO-APPROVE-01'
+parent: null
+requirements: ['REQ-APPROVAL']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '9'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '3.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '3.5'
+claim: 'VO status is derived only from approval records; writers never store `status`; a compat `status` field is ignored (W-STORE-001) and excluded from the VO content hash.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

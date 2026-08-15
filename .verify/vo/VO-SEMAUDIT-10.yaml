@@ -1,0 +1,15 @@
+id: 'VO-SEMAUDIT-10'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§7.5 実装一致検証'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.1 バンドル生成'
+claim: 'For multi-target tests the impl-consistency bundle includes every declared target''s implementation source and structure info; no target is omitted from the judgment.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

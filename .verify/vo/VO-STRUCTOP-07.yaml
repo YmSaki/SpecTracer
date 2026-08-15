@@ -1,0 +1,21 @@
+id: 'VO-STRUCTOP-07'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.5 Form Schema'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.1 診断コード'
+  - spec: 'SPEC-IFACE'
+    section: '§14.2 検証器'
+  - spec: 'SPEC-IFACE'
+    section: '§14.3 組込フォーム'
+claim: 'Form kind must resolve to exactly one Structured-Test-capable adapter; duplicate kind, owner mismatch, unknown adapter, or missing capability (E-ADAPTER-004) rejects with no file change.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

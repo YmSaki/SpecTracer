@@ -1,0 +1,21 @@
+id: 'VO-REGISTRY-01'
+parent: null
+requirements: ['REQ-TEST-REGISTRY']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§4.2'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.4'
+  - spec: 'SPEC-REQDEF'
+    section: '§7.1'
+claim: 'test_traceability = PASS only when every discovered test maps 1:1 to a structurally complete managed entity with a globally unique Test ID, >=1 covers, and all VO refs resolvable.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

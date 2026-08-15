@@ -1,0 +1,17 @@
+id: 'VO-INTEG-03'
+parent: null
+requirements: ['REQ-INTEGRATION']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.2'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+claim: 'Exit codes partition outcomes: 0 OK, 1 NG, 2 operation refused with no verification result, 3 internal error; conflicts resolve 3>2>1>0, letting CI judge on exit code alone.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

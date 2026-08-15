@@ -1,0 +1,25 @@
+id: 'VO-PLAN-08'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-AGGREGATION']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§7.6'
+  - spec: 'SPEC-BASIC'
+    section: '§7.6 Partition と組合せ検証'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3 集約アルゴリズム'
+  - spec: 'SPEC-REQDEF'
+    section: '§4.4 VOとTestの対応'
+  - spec: 'SPEC-REQDEF'
+    section: '§5.3'
+  - spec: 'SPEC-REQDEF'
+    section: '§5.3 複数VOを検証するTest'
+claim: 'A Test covering multiple VOs joins each VO''s aggregation independently, but its existence alone never counts as completed independent verification of each covered viewpoint.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

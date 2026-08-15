@@ -1,0 +1,27 @@
+id: 'VO-PLAN-01'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-SPEC-INTAKE']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1 discovery・record・graph'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2 REQ レコード'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.4'
+  - spec: 'SPEC-IFACE'
+    section: 'vtest req add / edit / list / show'
+  - spec: 'SPEC-REQDEF'
+    section: '§3 検証モデル'
+claim: 'An active REQ requires one or more spec_refs; each spec_refs.spec must resolve deterministically to an existing SPEC record and its current source.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

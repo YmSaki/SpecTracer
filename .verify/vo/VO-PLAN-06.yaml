@@ -1,0 +1,31 @@
+id: 'VO-PLAN-06'
+parent: null
+requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-APPROVAL', 'REQ-EXISTING-PROJECT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1 discovery・record・graph'
+  - spec: 'SPEC-BASIC'
+    section: '7.4'
+  - spec: 'SPEC-BASIC'
+    section: '§4.2'
+  - spec: 'SPEC-BASIC'
+    section: '§7.4 Specification / VO網羅性監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1 チェック項目の評価地点'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.5 承認レコード'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest vo add / edit / list / show / expand / approve'
+  - spec: 'SPEC-REQDEF'
+    section: '§23'
+claim: 'vo_coverage is PASS only when a valid vo-coverage audit is COMPLETE and the whole VO subtree holds valid approvals bound to the upstream closure; a REQ with zero VOs is MISSING.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

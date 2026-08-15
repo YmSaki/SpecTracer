@@ -1,0 +1,21 @@
+id: 'VO-APPROVE-04'
+parent: null
+requirements: ['REQ-APPROVAL']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.2'
+  - spec: 'SPEC-BASIC'
+    section: '9'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '11.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '17.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '3.5'
+claim: 'SPEC dependency hashes bind the SPEC record and its source; changing either or re-registering the SPEC invalidates the approval, and prior dependency entries cannot be reused.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:20Z'
+updated: '2026-08-15T10:05:20Z'

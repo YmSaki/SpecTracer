@@ -1,0 +1,21 @@
+id: 'VO-EXEC-03'
+parent: null
+requirements: ['REQ-TEST-EXECUTION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§7.7'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.7'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.4'
+  - spec: 'SPEC-REQDEF'
+    section: '§15'
+claim: 'Each Evidence binds test subject hash, per-target canonical Locators+construct hashes in declared order, adapter ID, HEAD revision, and a complete Execution State subject'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

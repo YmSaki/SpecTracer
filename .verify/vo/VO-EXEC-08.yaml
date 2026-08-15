@@ -1,0 +1,21 @@
+id: 'VO-EXEC-08'
+parent: null
+requirements: ['REQ-TEST-EXECUTION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.6'
+  - spec: 'SPEC-BASIC'
+    section: '§7.9'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§10.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.7'
+  - spec: 'SPEC-REQDEF'
+    section: '§16'
+claim: 'target_execution entries use resolved canonical Locators 1:1 with the current canonical Source Target set; missing, duplicate, extra, or mismatched entries never count as PASS'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

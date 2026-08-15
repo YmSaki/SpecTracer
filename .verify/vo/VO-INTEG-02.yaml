@@ -1,0 +1,15 @@
+id: 'VO-INTEG-02'
+parent: null
+requirements: ['REQ-INTEGRATION', 'REQ-NFR-007']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§11.2'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+claim: 'Every CLI command and MCP tool completes non-interactively; any confirmation prompt is suppressible with --yes, so agent/CI use never blocks on input.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'

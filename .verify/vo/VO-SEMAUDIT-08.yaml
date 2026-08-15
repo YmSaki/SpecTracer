@@ -1,0 +1,23 @@
+id: 'VO-SEMAUDIT-08'
+parent: null
+requirements: ['REQ-SEMANTIC-AUDIT', 'REQ-P-001']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '18.3.4 semantic audit protocol'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.4 semantic audit protocol'
+  - spec: 'SPEC-BASIC'
+    section: '7.5 実装一致検証'
+  - spec: 'SPEC-BASIC'
+    section: '§7.5 実装一致検証'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '8.1 バンドル生成'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§8.1 バンドル生成'
+claim: 'Unresolvable targets produce no impl-consistency bundle and no auto-selected candidate; absent target yields MISSING, ambiguous resolution MISMATCH, never collapsed to one value.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:05:19Z'
+updated: '2026-08-15T10:05:19Z'
