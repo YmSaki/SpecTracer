@@ -17,7 +17,7 @@ hashes:
       target_construct: 'sha256:f7f4ca40c61630b23d72b1c3da752f1e9ade0dca29ea2df4111492567a0782fc'
 runner:
   kind: 'cargo-llvm-cov'
-  command: 'cargo llvm-cov test -p vtest-scan --lib --json --output-path C:/Users/star/AppData/Local/Temp/vtest-cov-52536-TEST-SCAN-001.json -- --exact tests::core_validates_current_bytes_before_materializing_adapter_drafts'
+  command: 'cargo llvm-cov test -p vtest-scan --lib --json --output-path <LOCAL_TEMP>/vtest-cov-52536-TEST-SCAN-001.json -- --exact tests::core_validates_current_bytes_before_materializing_adapter_drafts'
   exit_code: 0
 target_execution:
   checked: true

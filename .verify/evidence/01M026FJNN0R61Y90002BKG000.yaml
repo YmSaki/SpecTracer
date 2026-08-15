@@ -17,7 +17,7 @@ hashes:
       target_construct: 'sha256:2fd64c8adb4648e693554d1b453cfbcb5590faba4e1576c8a2dd0ca85a4ebccb'
 runner:
   kind: 'cargo-llvm-cov'
-  command: 'cargo llvm-cov test -p vtest-adapter-rust --lib --json --output-path C:/Users/star/AppData/Local/Temp/vtest-cov-38712-TEST-DOGFOOD-M3-TARGET-RULES.json -- --exact static_audit::tests::dogfood_exact_target_path_is_classified'
+  command: 'cargo llvm-cov test -p vtest-adapter-rust --lib --json --output-path <LOCAL_TEMP>/vtest-cov-38712-TEST-DOGFOOD-M3-TARGET-RULES.json -- --exact static_audit::tests::dogfood_exact_target_path_is_classified'
   exit_code: 0
 target_execution:
   checked: true
