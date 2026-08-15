@@ -454,7 +454,10 @@ fn rust_cargo_discovery_projection(config: &ProjectConfig) -> CanonicalProjectio
 /// the config subject and its re-evaluation agree without reaching into the
 /// adapter; `RustCargoStaticAudit` echoes the same literal in its observation.
 pub const STATIC_AUDIT_RULE_SET_ID: &str = "rust-cargo-static-da";
-pub const STATIC_AUDIT_RULE_SET_VERSION: &str = "1";
+// Bumped to "2" with the adapter: DA-002/DA-003 now carry a per-target verdict
+// list folded into the rule-level verdict (詳細設計 §3.6, §7.2). The bump stales
+// every legacy static Audit record so it is re-derived under the v2 shape.
+pub const STATIC_AUDIT_RULE_SET_VERSION: &str = "2";
 
 /// Projects the rule-affecting subset of config (assertion macros) that the
 /// deterministic static auditor consumes. Run- and coverage-only settings are

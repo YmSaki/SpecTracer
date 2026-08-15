@@ -1448,8 +1448,8 @@ use std::path::Path;
 
 use vtest_adapter_api::AdapterError;
 use vtest_adapter_api::{
-    RuleObservationDraft, SourceFragment as ApiSourceFragment, StaticAnalysisClosureDraft,
-    StaticAuditAdapter, StaticAuditConfigDraft, StaticAuditObservation,
+    RuleObservationDraft, RuleTargetVerdictDraft, SourceFragment as ApiSourceFragment,
+    StaticAnalysisClosureDraft, StaticAuditAdapter, StaticAuditConfigDraft, StaticAuditObservation,
 };
 use vtest_model::{CanonicalProjection, CheckValue, SrcId, TargetRef, TestEntity};
 
@@ -1462,7 +1462,10 @@ use crate::RUST_CARGO_ADAPTER_ID;
 /// Identity of the deterministic Rust rule set. Feeds the config subject so
 /// the audit stales when the rule set itself is versioned.
 const RULE_SET_ID: &str = "rust-cargo-static-da";
-const RULE_SET_VERSION: &str = "1";
+// v2: DA-002/DA-003 carry a per-target verdict list and the rule-level verdict
+// is their pure-static fold; DA-003 is UNKNOWN (never a vacuous PASS) when the
+// declared target is not called in-body (詳細設計 §3.6, §7.2).
+const RULE_SET_VERSION: &str = "2";
 
 /// The built-in `rust-cargo` deterministic static auditor.
 #[derive(Default)]
@@ -1475,6 +1478,17 @@ struct ResolvedSource {
     item_path: String,
     location: SourceLocation,
     bytes: Vec<u8>,
+}
+
+/// One target-scoped rule verdict (DA-002/DA-003) for a single declared target.
+/// The adapter folds these into the rule-level `RuleResult.verdict` and also
+/// forwards the per-target list to the core, which owns the persisted per-target
+/// record (詳細設計 §3.6, §7.2).
+struct RuleTargetResult {
+    target: TargetRef,
+    verdict: AuditVerdict,
+    reason: String,
+    location: SourceLocation,
 }
 
 fn source_location(location: &SourceLocation, span: proc_macro2::Span) -> SourceLocation {
@@ -1610,6 +1624,65 @@ fn collect_file_functions<'a>(
     }
 }
 
+/// Convert an adapter-local per-target result into the neutral draft the core
+/// persists as the record's per-target verdict list.
+fn target_result_to_draft(result: &RuleTargetResult) -> RuleTargetVerdictDraft {
+    RuleTargetVerdictDraft {
+        target: result.target.clone(),
+        verdict: verdict_to_check(result.verdict),
+        reason: result.reason.clone(),
+        location: result.location.clone(),
+    }
+}
+
+/// Fold the per-target verdicts of a target-scoped rule (DA-002/DA-003) into a
+/// single rule-level verdict. FAIL-dominant (§962): one FAIL fails the rule, an
+/// UNKNOWN with no FAIL is UNKNOWN, and only all-PASS is PASS. The caller only
+/// invokes this with a non-empty list (the no-resolved-target case runs the rule
+/// once with `None` instead, preserving its "could not be resolved" UNKNOWN).
+fn fold_target_scoped_results(rule_name: &str, per_target: &[RuleTargetResult]) -> RuleResult {
+    let verdict = if per_target.iter().any(|t| t.verdict == AuditVerdict::Fail) {
+        AuditVerdict::Fail
+    } else if per_target
+        .iter()
+        .any(|t| t.verdict == AuditVerdict::Unknown)
+    {
+        AuditVerdict::Unknown
+    } else {
+        AuditVerdict::Pass
+    };
+    // `verdict` is one of the per-target verdicts, so a representative exists.
+    let representative = per_target
+        .iter()
+        .find(|t| t.verdict == verdict)
+        .expect("fold verdict is taken from a per-target entry");
+    RuleResult {
+        rule: rule_name.to_owned(),
+        verdict,
+        reason: representative.reason.clone(),
+        location: representative.location.clone(),
+    }
+}
+
+/// Fold DA-001 across resolved targets PASS-dominant: any target that makes an
+/// assertion runtime-dependent proves the rule PASS; otherwise an UNKNOWN
+/// dominates a FAIL. DA-001 is not target-scoped in the record (§3.6), so no
+/// per-target list is emitted. Called only with a non-empty result list.
+fn fold_da001_results(results: &[RuleResult]) -> RuleResult {
+    let verdict = if results.iter().any(|r| r.verdict == AuditVerdict::Pass) {
+        AuditVerdict::Pass
+    } else if results.iter().any(|r| r.verdict == AuditVerdict::Unknown) {
+        AuditVerdict::Unknown
+    } else {
+        AuditVerdict::Fail
+    };
+    results
+        .iter()
+        .find(|r| r.verdict == verdict)
+        .expect("fold verdict is taken from a result")
+        .clone()
+}
+
 impl StaticAuditAdapter for RustCargoStaticAudit {
     fn audit(
         &self,
@@ -1632,22 +1705,83 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
         let assertion_macros = assertion_macros_from(config);
         let offsets = line_offsets(&source);
 
-        let resolved_target = resolve_target(root, test.targets.first());
-        let target_resolution = resolved_target.as_ref().map(|resolved| {
-            TargetResolution::new(
-                &resolved.item_path,
-                test.location.locator.as_str(),
-                resolved.path == test_path,
-            )
-        });
+        // Resolve every declared target up front. `resolved` owns the
+        // `item_path` strings that each `TargetResolution` borrows, so it must
+        // outlive `resolutions`. Unresolvable targets are dropped here; that
+        // leaves the analysis closure incomplete (below) so the core forbids a
+        // PASS rather than inventing a per-target UNKNOWN entry (§8.1/§6.1).
+        let resolved: Vec<(TargetRef, ResolvedSource)> = test
+            .targets
+            .iter()
+            .filter_map(|target| {
+                resolve_target(root, Some(target)).map(|source| (target.clone(), source))
+            })
+            .collect();
+        let all_targets_resolved = resolved.len() == test.targets.len();
+        let resolutions: Vec<(TargetRef, TargetResolution<'_>)> = resolved
+            .iter()
+            .map(|(target, source)| {
+                (
+                    target.clone(),
+                    TargetResolution::new(
+                        &source.item_path,
+                        test.location.locator.as_str(),
+                        source.path == test_path,
+                    ),
+                )
+            })
+            .collect();
+
+        // Run the target-scoped rules once per resolved target, then fold. The
+        // per-target lists ride to the core on the DA-002/DA-003 observations.
+        let mut da001_results: Vec<RuleResult> = Vec::new();
+        let mut da002_targets: Vec<RuleTargetResult> = Vec::new();
+        let mut da003_targets: Vec<RuleTargetResult> = Vec::new();
+        for (target, resolution) in &resolutions {
+            da001_results.push(rule_da001(
+                item,
+                &syntax,
+                &assertion_macros,
+                Some(resolution),
+            ));
+            let da002 = rule_da002(item, &syntax, Some(resolution), &assertion_macros);
+            da002_targets.push(RuleTargetResult {
+                target: target.clone(),
+                verdict: da002.verdict,
+                reason: da002.reason,
+                location: da002.location,
+            });
+            let da003 = rule_da003(item, &syntax, Some(resolution), &assertion_macros);
+            da003_targets.push(RuleTargetResult {
+                target: target.clone(),
+                verdict: da003.verdict,
+                reason: da003.reason,
+                location: da003.location,
+            });
+        }
+        let da001 = if da001_results.is_empty() {
+            rule_da001(item, &syntax, &assertion_macros, None)
+        } else {
+            fold_da001_results(&da001_results)
+        };
+        let da002 = if da002_targets.is_empty() {
+            rule_da002(item, &syntax, None, &assertion_macros)
+        } else {
+            fold_target_scoped_results("DA-002", &da002_targets)
+        };
+        let da003 = if da003_targets.is_empty() {
+            rule_da003(item, &syntax, None, &assertion_macros)
+        } else {
+            fold_target_scoped_results("DA-003", &da003_targets)
+        };
 
         let has_assert = has_assert_like(item, &assertion_macros);
         let ignored = has_attribute(&item.attrs, "ignore");
 
         let mut rules = vec![
-            rule_da001(item, &syntax, &assertion_macros, target_resolution.as_ref()),
-            rule_da002(item, &syntax, target_resolution.as_ref(), &assertion_macros),
-            rule_da003(item, &syntax, target_resolution.as_ref(), &assertion_macros),
+            da001,
+            da002,
+            da003,
             rule_da004(item),
             RuleResult {
                 rule: "DA-005".to_owned(),
@@ -1726,10 +1860,16 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
             bytes: source_slice(&source, &test_location).as_bytes().to_vec(),
             location: test_location,
         });
-        if let Some(resolved) = &resolved_target {
+        for (_, resolved_source) in &resolved {
+            if sources
+                .iter()
+                .any(|fragment| fragment.location.locator == resolved_source.location.locator)
+            {
+                continue;
+            }
             sources.push(ApiSourceFragment {
-                location: resolved.location.clone(),
-                bytes: resolved.bytes.clone(),
+                location: resolved_source.location.clone(),
+                bytes: resolved_source.bytes.clone(),
             });
         }
         let helper_names = call_facts(item, &assertion_macros).names;
@@ -1768,12 +1908,19 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
 
         let rule_observations = rules
             .into_iter()
-            .map(|rule| RuleObservationDraft {
-                rule: rule.rule,
-                verdict: verdict_to_check(rule.verdict),
-                reason: rule.reason,
-                location: rule.location,
-                targets: Vec::new(),
+            .map(|rule| {
+                let targets = match rule.rule.as_str() {
+                    "DA-002" => da002_targets.iter().map(target_result_to_draft).collect(),
+                    "DA-003" => da003_targets.iter().map(target_result_to_draft).collect(),
+                    _ => Vec::new(),
+                };
+                RuleObservationDraft {
+                    rule: rule.rule,
+                    verdict: verdict_to_check(rule.verdict),
+                    reason: rule.reason,
+                    location: rule.location,
+                    targets,
+                }
             })
             .collect();
 
@@ -1787,10 +1934,10 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
                 effective_config: config.clone(),
             },
             analysis: StaticAnalysisClosureDraft {
-                // The analysis input closure is incomplete when a target is
-                // declared but cannot be resolved on disk; the core forbids a
-                // PASS over an incomplete closure.
-                complete: test.targets.is_empty() || resolved_target.is_some(),
+                // The analysis input closure is incomplete when any declared
+                // target cannot be resolved on disk; the core forbids a PASS
+                // over an incomplete closure.
+                complete: all_targets_resolved,
                 sources,
             },
         })
