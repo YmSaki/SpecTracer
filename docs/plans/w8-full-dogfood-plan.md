@@ -146,6 +146,10 @@ Normative Specification → Requirement → Design decision/mechanism → VO →
 - **freeze gate（wf_081a6a94-9fe 実行中）**: 15 area fan-out の敵対的レビュー。reject 基準 A-I: A=REQ言い換え / B=機構説明 / C=判定不能語 / D=compound（独立命題の and 結合→分割） / E=実装現在形の仕様昇格（normative 根拠を doc 照合） / F=Test 存在前提 / G=implementation-specific（設計が normative に要求する場合は可） / H=**VO vs evidence-admissibility rule 境界**（SpecTracer は verifier ゆえ大半は正当な verifier-behavior VO。純粋に dogfood 側の判定規則のみ flag） / I=**merge 21件の truth-condition 同一性**（文言類似でなく同一状況で成立するか。異なる input domain/failure mode なら de-merge）。
 - **shadow mapping の形式**（gate 通過後）: Test→candidate VO→{relevance, evidence(positive/negative/ambiguity case), verdict PROVES/PARTIAL/NO} を別 inventory として作成。双方向分類: VO→{sufficient/partial/no evidence}, Test→{proves/partially supports/proves no current VO}。resolver 非対称は「VO は uncovered かつ現実装に反証 evidence あり」と表現される。
 
+### freeze gate 結果（wf_081a6a94-9fe, 118件全数判定・findings は dogfood-ontology-gate-findings.json）
+KEEP 57 / REVISE 19 / SPLIT 41 / DROP 1。criteria: D(compound)44, E(実装現在形/refs不実)10, C(判定不能語)7, I(merge truth-condition)7, B5, A4, F1。実質誤りの検出例: VO-EXEC-10「never a current PASS」は §11.2 条件5（compat 一意確認で PASS 可）に反する / VO-REPORT-05 exit-code は操作コマンド成功=0 を落とす / VO-STRUCTOP-01 candidates は §14.2 で validator 毎（全 failure class でない）。
+**orchestrator 裁定（X1-X6）**: X1=REPORT-03≡AGG-03 split（AGG 側へ統合・REQ-REPORTING 付与）。X2=capability-gap 写像4重複（ADAPTER-04/AGG-07/INTEG-06/REPORT-02b）→ ADAPTER-04 改訂版に一本化（op+verify の対は spec が一息で規定する完全分割＝non-compound）。X3=REPORT-02a→AGG-02 統合（P-002/NFR-005 維持）。X4=PLAN-01 part2 + PLAN-10(DROP)→INTAKE-05 split へ fold。X5=STRUCTOP-04 は absorbed 原文（PARALLEL-DEV#1）が edit-scoped 確認済→KEEP。X6=REGISTRY-02 は原文維持+§23 companion VO 復元。他は gate 提案どおり。組立=opus worker（機械転記・全118 origin 被覆検証込み）→ v2 JSON → 再登録。
+
 ## ★dogfood 実行フェーズ（Owner 指示 2026-08-15: 問題1=全テスト管理を ultracode で埋める）
 Owner 指示: 「問題1だったもの（未注釈205件）を全部埋めてみて。サブエージェント/ultracode で」。仕様変更なし。black-box(問題2)は parked だが、注釈自体は可能（target を実シンボルにすれば test_traceability は通る。static_audit UNKNOWN は問題2として観測）。
 段階設計（VO 一貫性のため main thread が ontology 所有・fan-out は読取り/適用のみ）:
