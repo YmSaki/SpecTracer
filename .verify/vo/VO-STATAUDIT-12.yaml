@@ -1,0 +1,19 @@
+id: 'VO-STATAUDIT-12'
+parent: null
+requirements: ['REQ-DETERMINISTIC-AUDIT']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2 deterministic static audit'
+  - spec: 'SPEC-BASIC'
+    section: '§7.2 決定論的テスト監査'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.2 rust-cargo ルール一覧'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.3 target 到達の静的証明と runtime 証明の関係'
+claim: 'Runtime coverage never substitutes DA-003: DA-003 UNKNOWN/FAIL contributes unchanged to static_audit even when the same target''s DA-002 reachability is satisfied by runtime proof — hence a call-invisible (subprocess E2E) Test cannot reach static_audit = PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

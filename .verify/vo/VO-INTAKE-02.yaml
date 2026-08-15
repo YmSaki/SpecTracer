@@ -6,10 +6,10 @@ spec_refs:
     section: '§1'
   - spec: 'SPEC-REQDEF'
     section: '§24'
-claim: 'Specification is defined to exclude the target implementation''s own doc comments; no intake path treats a doc comment as the sole spec basis for that same implementation.'
+claim: 'SPEC records are created and updated only by explicit vtest spec add [--update]; no scan/discovery/adapter path materializes or mutates a SPEC record — adapter doc-comment parsing yields only Test metadata and SRC ID declarations (詳細設計 §4.2, 別紙C §18.3.9), never a Specification source.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

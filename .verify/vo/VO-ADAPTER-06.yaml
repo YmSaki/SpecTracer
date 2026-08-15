@@ -3,19 +3,19 @@ parent: null
 requirements: ['REQ-ADAPTER-BOUNDARY']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
+    section: '§18.2'
+  - spec: 'SPEC-ACCEPT'
     section: '§18.3.9'
-  - spec: 'SPEC-BASIC'
-    section: '§3.3'
-  - spec: 'SPEC-BASIC'
-    section: '§6.1'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.4'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§6.1'
+    section: '§19'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'Core delegates opaque-locator interpretation to the owning adapter, verifying returned adapter ID, range and bytes; it never parses locator syntax or adapter-specific constructs.'
+claim: 'rust-cargo is the only registered production language adapter in the shipped product; the synthetic adapter is acceptance-fixture-only and is not shipped as a production adapter.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

@@ -2,16 +2,16 @@ id: 'VO-STRUCTOP-10'
 parent: null
 requirements: ['REQ-STRUCTURED-OPERATIONS']
 spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
   - spec: 'SPEC-BASIC'
-    section: '§6.3 直接編集の扱い'
-  - spec: 'SPEC-BASIC'
-    section: '§7.1 スキャンと整合性検査'
-  - spec: 'SPEC-REQDEF'
-    section: '§22 直接編集'
-claim: 'Direct edits are allowed, but scan/consistency checks detect resulting duplicate IDs, dangling VO refs, and missing required metadata; covers/targets cannot desync since the declaration is canon.'
+    section: '§8.5 Form Schema'
+  - spec: 'SPEC-IFACE'
+    section: '§14.2 検証器'
+claim: 'A Form lacking `adapter` resolves only if exactly one registered adapter''s built-in kind claim or deterministic schema matcher accepts it; 0 or 2+ matches reject, and core never falls back to rust-cargo on unknown kind.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

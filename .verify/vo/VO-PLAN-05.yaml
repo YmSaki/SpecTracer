@@ -3,19 +3,21 @@ parent: null
 requirements: ['REQ-VERIFICATION-PLANNING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.2 共通fixture'
+    section: '§18.3.4 semantic audit protocol'
   - spec: 'SPEC-BASIC'
     section: '§7.4 Specification / VO網羅性監査'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.4 SPEC 鮮度'
+    section: '§8.3 提出スキーマ'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§8.5 有効性と多重監査'
+    section: '§8.4 提出の検証'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest audit bundle / submit'
   - spec: 'SPEC-REQDEF'
     section: '§6 Specification・VO網羅性のAI検証'
-claim: 'Coverage audits bind hashes of the complete subject set; after the subject content or correspondence set changes, prior verdicts become STALE and never count as current PASS.'
+claim: 'A spec-coverage submission is accepted only when its reasons include the adopted requirements, the corresponding REQs, and the excluded passages with grounds (別紙C §18.3.4); otherwise it is rejected and spec_coverage stays non-PASS.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

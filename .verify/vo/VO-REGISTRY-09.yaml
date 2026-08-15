@@ -2,18 +2,18 @@ id: 'VO-REGISTRY-09'
 parent: null
 requirements: ['REQ-TEST-REGISTRY']
 spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
   - spec: 'SPEC-BASIC'
-    section: '§6.2'
+    section: '§6.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§1.3'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§4.2'
-  - spec: 'SPEC-REQDEF'
-    section: '§10'
-claim: 'A table-driven construct may register as exactly one Test Entity; per-case Test IDs are not required, and optional cases are bound into the Test subject hash in declaration order.'
+    section: '§5.2'
+claim: 'Core computes the Test subject hash from the adapter''s hash-uncomputed discovery DTO; an adapter must not self-finalize TestEntity.content_hash or SourceTarget.content_hash (詳細設計 §1.3; 別紙C §18.3.1).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

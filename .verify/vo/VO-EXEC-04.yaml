@@ -5,15 +5,17 @@ spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.3'
   - spec: 'SPEC-BASIC'
-    section: '§7.8'
+    section: '§7.7'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.2'
+    section: '§3.7'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.4'
   - spec: 'SPEC-REQDEF'
     section: '§15'
-claim: 'evidence_validity=PASS only if test hash, target set+hashes, HEAD revision, complete Execution State, and adapter all match now; breaches map to STALE/MISMATCH/UNKNOWN, never PASS'
+claim: 'Each Evidence record binds test subject hash, per-target canonical Locators+construct hashes in declared order with no gaps or duplicates, and adapter ID; revision and Execution State subject fields are always present, with degraded states explicitly marked (commit:null; complete:false with hash:null) rather than omitted or fabricated.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

@@ -3,15 +3,13 @@ parent: null
 requirements: ['REQ-INTEGRATION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.9'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§17.1'
+    section: '§18.3.8'
   - spec: 'SPEC-IFACE'
-    section: '§12.1'
-claim: 'An explicit op lacking required adapter capability returns ok:false/E-ADAPTER-004/exit 2 with no file change, Audit Record, or Evidence; verify-time lack yields non-PASS, never PASS.'
+    section: '§13.1'
+claim: 'Every MCP tool call performs an mtime-based rescan decision at its start (本冊 §2.3), so a source modified between two calls is re-scanned before the second call is served.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

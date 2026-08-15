@@ -1,17 +1,19 @@
 id: 'VO-PARALLEL-07'
 parent: null
-requirements: ['REQ-PARALLEL-DEV']
+requirements: ['REQ-PARALLEL-DEV', 'REQ-NFR-004', 'REQ-P-003']
 spec_refs:
   - spec: 'SPEC-BASIC'
-    section: '§2.3'
-  - spec: 'SPEC-BASIC'
-    section: '§6.3'
+    section: '§5.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§2'
   - spec: 'SPEC-REQDEF'
     section: '§29'
-claim: 'covers/targets exist only in adapter-owned metadata declarations, never in external records; Evidence target refs never regenerate relations, so sync loss cannot occur.'
+  - spec: 'SPEC-REQDEF'
+    section: '§30 NFR-004'
+claim: 'Derived data (graph, reverse indexes, aggregates) is rebuilt in-memory from canon on every run; persistent cache is never treated as canon and cache loss cannot affect the canon.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

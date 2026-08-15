@@ -8,10 +8,10 @@ spec_refs:
     section: '§16.1'
   - spec: 'SPEC-REQDEF'
     section: '§29'
-claim: 'One record = one file with no central ledger; rel/approval/audit/evidence records are added only as new ULID-named files, never by editing existing files; Relations are immutable.'
+claim: 'The canonical store has no central ledger: each SPEC/REQ/VO entity is exactly one file named by its ID, so parallel changes to different entities touch disjoint files.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

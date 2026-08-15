@@ -1,0 +1,17 @@
+id: 'VO-STRUCTOP-11'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.5 Form Schema'
+  - spec: 'SPEC-IFACE'
+    section: '§14.2 検証器'
+claim: 'Compatibility resolution is read-only — the reader never mutates the Form file as part of resolving it.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

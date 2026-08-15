@@ -1,21 +1,37 @@
 id: 'VO-ADAPTER-07'
 parent: null
-requirements: ['REQ-ADAPTER-BOUNDARY']
+requirements: ['REQ-ADAPTER-BOUNDARY', 'REQ-AGGREGATION', 'REQ-INTEGRATION', 'REQ-REPORTING', 'REQ-NFR-005', 'REQ-P-002']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.3'
+    section: '§18.3.5'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.6'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.9'
   - spec: 'SPEC-BASIC'
-    section: '§7.8'
+    section: '§4.1'
+  - spec: 'SPEC-BASIC'
+    section: '§7.10'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§10.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§9.2'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§9.4'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+  - spec: 'SPEC-REQDEF'
+    section: '§17.2'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'Evidence binds the executing adapter ID: mismatch with the current Test is MISMATCH; ID-less legacy records count only if uniquely confirmed as Rust, else UNKNOWN.'
+claim: 'A missing required capability aborts explicit operations with E-ADAPTER-004 and produces no change, Audit Record or Evidence; at verification, missing static-audit or coverage capability yields NOT_CHECKED, missing runner capability yields NOT_EXECUTED, and analysis limits yield UNKNOWN — none of these is ever promoted to an inferred PASS.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

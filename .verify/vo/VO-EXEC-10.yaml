@@ -3,17 +3,19 @@ parent: null
 requirements: ['REQ-TEST-EXECUTION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.3'
+    section: '§18.3.6'
   - spec: 'SPEC-BASIC'
-    section: '§7.8'
+    section: '§7.9'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§3.7'
+    section: '§10.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§10.2'
   - spec: 'SPEC-REQDEF'
-    section: '§15'
-claim: 'Legacy Evidence lacking adapter ID or Execution State reads as history but scores STALE/UNKNOWN; singular compat form applies only to one-target Tests; never a current PASS'
+    section: '§16'
+claim: 'Coverage must attribute subprocess/thread execution to declared targets; unattributable targets are UNKNOWN, unmeasurable runs NOT_CHECKED; capability lack never fabricates PASS'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

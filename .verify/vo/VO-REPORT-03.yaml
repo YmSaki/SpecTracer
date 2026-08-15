@@ -3,19 +3,21 @@ parent: null
 requirements: ['REQ-REPORTING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.4'
+    section: '§18.3.5'
   - spec: 'SPEC-BASIC'
-    section: '§4.3'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.2'
+    section: '§7.10'
+  - spec: 'SPEC-IFACE'
+    section: '§12.1'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest report'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest verify'
   - spec: 'SPEC-REQDEF'
     section: '§18'
-claim: 'With mixed non-PASS children, the shown representative follows the fixed priority order, while detail output keeps every child''s individual value and all coexisting grounds.'
+claim: 'Both output formats are available (default human text; --format json), and the JSON form is lossless relative to text: it returns the same ground lists (e.g. per-Test test_traceability grounds) and the complete per-target list per §3.7 with no omission (SPEC-BASIC §7.10, SPEC-IFACE §12.1, §12.2 vtest verify).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

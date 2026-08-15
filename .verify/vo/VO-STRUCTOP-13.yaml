@@ -1,0 +1,17 @@
+id: 'VO-STRUCTOP-13'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§6.3 直接編集の扱い'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1 スキャンと整合性検査'
+  - spec: 'SPEC-REQDEF'
+    section: '§22 直接編集'
+claim: 'Direct source edits are not blocked, and the next scan/consistency check detects any resulting duplicate Test ID, dangling VO reference, or missing required metadata as non-PASS integrity findings (§6.3, §7.1).'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

@@ -7,15 +7,13 @@ spec_refs:
   - spec: 'SPEC-BASIC'
     section: '§7.9'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§10.1'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§10.3'
+    section: '§10.2'
   - spec: 'SPEC-REQDEF'
     section: '§16'
-claim: 'Skipping TEV (--fast) or lacking coverage tool/capability records checked:false and evaluates NOT_CHECKED, never converted to PASS; analysis limits stay UNKNOWN'
+claim: 'Per target: count>0 is PASS, count==0 FAIL, unidentifiable UNKNOWN; Test-level PASS only when 1+ targets all PASS; any FAIL wins, else any UNKNOWN wins'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

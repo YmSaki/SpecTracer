@@ -1,0 +1,15 @@
+id: 'VO-INTEG-09'
+parent: null
+requirements: ['REQ-INTEGRATION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.8'
+  - spec: 'SPEC-IFACE'
+    section: '§13.1'
+claim: 'The stdio MCP server handles JSON-RPC requests, notifications, batches, and malformed transport input per contract instead of crashing or misclassifying them.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

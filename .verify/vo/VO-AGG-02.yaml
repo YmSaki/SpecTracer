@@ -1,6 +1,6 @@
 id: 'VO-AGG-02'
 parent: null
-requirements: ['REQ-AGGREGATION']
+requirements: ['REQ-AGGREGATION', 'REQ-REPORTING', 'REQ-NFR-005', 'REQ-P-002']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.5'
@@ -12,10 +12,10 @@ spec_refs:
     section: '§17.2'
   - spec: 'SPEC-REQDEF'
     section: '§19'
-claim: 'Aggregation Test→VO→REQ→SPEC is fail-closed: one non-PASS child makes the parent non-PASS, and any single non-PASS item in scope forces overall NG.'
+claim: 'Hierarchical aggregation Test→VO→REQ→SPEC is unconditionally fail-closed at every level: a parent is PASS only when all its children are PASS; any of the seven non-PASS values (FAIL/MISMATCH/MISSING/STALE/NOT_EXECUTED/NOT_CHECKED/UNKNOWN) in even one child makes the parent non-PASS.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

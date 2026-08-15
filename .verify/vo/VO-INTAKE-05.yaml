@@ -2,18 +2,14 @@ id: 'VO-INTAKE-05'
 parent: null
 requirements: ['REQ-SPEC-INTAKE']
 spec_refs:
-  - spec: 'SPEC-ACCEPT'
-    section: '§18.3.1'
-  - spec: 'SPEC-BASIC'
-    section: '§7.1'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§3.2'
-claim: 'spec_refs resolve deterministically to SPEC record and current source; section is a non-empty opaque citation core never parses, and no syntactic in-body check can yield PASS.'
+    section: '§11.4'
+  - spec: 'SPEC-IFACE'
+    section: 'vtest spec add / list / show'
+claim: 'The registered SPEC sha256 changes only via explicit vtest spec add --update; scan mismatch detection never mutates the stored record.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

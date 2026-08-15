@@ -1,31 +1,23 @@
 id: 'VO-AGG-06'
 parent: null
-requirements: ['REQ-AGGREGATION', 'REQ-NFR-008', 'REQ-P-001', 'REQ-REPORTING']
+requirements: ['REQ-AGGREGATION', 'REQ-INTEGRATION', 'REQ-REPORTING']
 spec_refs:
-  - spec: 'SPEC-ACCEPT'
-    section: '18.3.5 verify・report'
-  - spec: 'SPEC-ACCEPT'
-    section: '18.4 提供範囲外'
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.5'
   - spec: 'SPEC-BASIC'
-    section: '7.10 集約とレポート'
-  - spec: 'SPEC-BASIC'
-    section: '§7.10'
+    section: '§4.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
   - spec: 'SPEC-IFACE'
-    section: '12.2 コマンド仕様（vtest verify / vtest report）'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2 vtest report'
+    section: '§12.2'
   - spec: 'SPEC-IFACE'
     section: '§12.2 vtest verify'
   - spec: 'SPEC-REQDEF'
-    section: '§18'
-  - spec: 'SPEC-REQDEF'
-    section: '§19'
-claim: 'From an NG at SPEC/REQ level, the user can drill down to the failing entity, check item, and value, with grounding references (audit record ID / Evidence ID) in text and JSON.'
+    section: '§17.2'
+claim: 'Scoped-run output (text and JSON) must state the requested scope and that out-of-scope items are unverified.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

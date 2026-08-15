@@ -7,13 +7,11 @@ spec_refs:
   - spec: 'SPEC-BASIC'
     section: '§7.2 決定論的テスト監査'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§7.2 rust-cargo ルール一覧'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§7.3 target 到達の静的証明と runtime 証明の関係'
-claim: 'Runtime coverage never substitutes DA-003: call-invisible targets get DA-003 UNKNOWN, not vacuous PASS/FAIL, so subprocess E2E Tests cannot reach static_audit = PASS.'
+    section: '§7.1 判定の原則'
+claim: 'When core detects that the adapter referenced a source fragment but returned no corresponding DTO, core does not use that rule verdict as PASS.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

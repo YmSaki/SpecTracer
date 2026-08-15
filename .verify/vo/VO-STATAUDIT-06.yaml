@@ -4,18 +4,16 @@ requirements: ['REQ-DETERMINISTIC-AUDIT']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.2 deterministic static audit'
-  - spec: 'SPEC-BASIC'
-    section: '§7.2 決定論的テスト監査'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§1.3 内容ハッシュの定義'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§3.6 監査レコード'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§7.2 rust-cargo ルール一覧'
-claim: 'A Static Audit Record binds Test, targets, rule-set, rule-affecting config and referenced fragments; changes make it STALE; rule-irrelevant config never alters the subject hash.'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 コマンド仕様（vtest audit static）'
+claim: 'When no valid (non-malformed, non-STALE) static Audit Record exists, static_audit is STALE (invalidated records only) or NOT_CHECKED (never audited), never PASS, regardless of runtime proof.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

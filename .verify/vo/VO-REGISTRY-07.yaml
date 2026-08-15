@@ -1,23 +1,23 @@
 id: 'VO-REGISTRY-07'
 parent: null
-requirements: ['REQ-TEST-REGISTRY']
+requirements: ['REQ-TEST-REGISTRY', 'REQ-NFR-003']
 spec_refs:
-  - spec: 'SPEC-ACCEPT'
-    section: '§18.3.1'
   - spec: 'SPEC-BASIC'
     section: '§3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§5.3'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§5.2'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§6.1.1'
+    section: '§5.3'
   - spec: 'SPEC-IFACE'
-    section: '§14.3'
+    section: '§12.2'
+  - spec: 'SPEC-REQDEF'
+    section: '§7'
   - spec: 'SPEC-REQDEF'
     section: '§8'
-claim: 'A Test''s >=1 declared targets are held individually (1:N), never reduced to a representative; distinct spellings resolving to one canonical target are duplicates (E-SCAN-005).'
+claim: 'SRC-to-Test reverse lookup is provided from scan results as derived data — fully rebuildable by vtest scan and never persisted as a second canon (基本仕様 §2.3, §3.3, §5.3; NFR-003/NFR-004).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

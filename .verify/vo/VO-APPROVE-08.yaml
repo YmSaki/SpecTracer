@@ -2,16 +2,20 @@ id: 'VO-APPROVE-08'
 parent: null
 requirements: ['REQ-APPROVAL']
 spec_refs:
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '16.2'
+  - spec: 'SPEC-BASIC'
+    section: '9'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '3.5'
   - spec: 'SPEC-IFACE'
     section: '12.2'
-claim: 'Editing an approved VO is permitted with a warning; the approval is never blocked or preserved — it auto-lapses through the hash mismatch on the next derivation.'
+  - spec: 'SPEC-IFACE'
+    section: '13.2'
+  - spec: 'SPEC-REQDEF'
+    section: '25'
+claim: 'Approvers are not limited to humans: records store approver kind (human/agent) and identifier, with optional audit-record basis, tracing who approved what on which grounds.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

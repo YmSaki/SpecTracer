@@ -1,0 +1,15 @@
+id: 'VO-INTAKE-07'
+parent: null
+requirements: ['REQ-SPEC-INTAKE']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.4'
+  - spec: 'SPEC-IFACE'
+    section: 'vtest spec add / list / show'
+claim: 'vtest spec add --update surfaces to the user that dependent audits and approvals expire.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

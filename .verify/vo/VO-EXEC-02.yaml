@@ -5,15 +5,17 @@ spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.3'
   - spec: 'SPEC-BASIC'
-    section: '§7.10'
+    section: '§7.7'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§9.4'
+    section: '§9.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§9.3'
   - spec: 'SPEC-REQDEF'
     section: '§14'
-claim: 'Evidence exists only when all declared targets resolve uniquely; build/runner failure, capability lack, ambiguity, or mid-run state change produce no Evidence, never a partial one'
+claim: 'For each requested filter the result line maps ok→PASS, FAILED→FAIL, ignored→NOT_EXECUTED with no Evidence; a missing result line (E-EXEC-002) or exit-code/result-count contradiction (E-EXEC-003) fails the run and records no Evidence (基本仕様 §7.10: runnerの確定的失敗でもEvidenceを生成しない).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

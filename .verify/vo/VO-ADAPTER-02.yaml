@@ -5,17 +5,19 @@ spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.9'
   - spec: 'SPEC-BASIC'
-    section: '§2.1'
+    section: '§0'
+  - spec: 'SPEC-BASIC'
+    section: '§2.4'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§17.1'
+    section: '§1.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§5.2'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'Each capability is a separate adapter contract; the registry rejects duplicate adapter IDs, declaration/implementation mismatch, and unregistered adapters.'
+claim: 'vtest-model::TestEntity carries execution coordinates only as the language/runner-neutral ExecutionDescriptor (adapter, project, suite, opaque selector); filter, package, test_target and TestTarget are not TestEntity fields.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

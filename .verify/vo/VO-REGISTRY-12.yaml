@@ -1,0 +1,21 @@
+id: 'VO-REGISTRY-12'
+parent: null
+requirements: ['REQ-TEST-REGISTRY']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§6.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§4.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§5.4'
+  - spec: 'SPEC-REQDEF'
+    section: '§9'
+claim: 'Intent is mandatory metadata alongside id/covers/targets — its absence makes the entity structurally incomplete (E-SCAN-007→MISSING) — while input/expect remain optional.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

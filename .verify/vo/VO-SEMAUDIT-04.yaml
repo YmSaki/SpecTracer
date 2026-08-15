@@ -10,10 +10,10 @@ spec_refs:
     section: '§3.6 監査レコード'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§8.5 有効性と多重監査'
-claim: 'Accepted audits bind to the full subject set and hashes; any subject/set change auto-STALEs the record; target subjects use canonical Locator, not the declared spelling.'
+claim: 'Accepted audit records bind to the kind''s complete subject set and content hashes; any change to the subject set or any subject''s content automatically STALEs the record.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

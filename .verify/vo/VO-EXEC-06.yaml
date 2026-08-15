@@ -3,17 +3,17 @@ parent: null
 requirements: ['REQ-TEST-EXECUTION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.6'
+    section: '§18.3.3'
   - spec: 'SPEC-BASIC'
-    section: '§7.9'
+    section: '§7.8'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§10.2'
+    section: '§11.2'
   - spec: 'SPEC-REQDEF'
-    section: '§16'
-claim: 'Per target: count>0 is PASS, count==0 FAIL, unidentifiable UNKNOWN; Test-level PASS only when 1+ targets all PASS; any FAIL wins, else any UNKNOWN wins'
+    section: '§15'
+claim: 'Invalid Evidence is never mined for results: test_execution, runtime_result, target_execution keep the same non-PASS value; with no Evidence all three are NOT_EXECUTED'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

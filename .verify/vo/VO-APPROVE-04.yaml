@@ -12,10 +12,10 @@ spec_refs:
     section: '17.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '3.5'
-claim: 'SPEC dependency hashes bind the SPEC record and its source; changing either or re-registering the SPEC invalidates the approval, and prior dependency entries cannot be reused.'
+claim: 'SPEC dependency hashes bind both the SPEC record and its referenced source; a change to either — including re-registration via `spec add --update` — lapses every approval containing that entry to draft (詳細設計 §3.5, §11.4, 基本仕様 §9).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

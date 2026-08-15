@@ -1,31 +1,21 @@
 id: 'VO-PLAN-06'
 parent: null
-requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-APPROVAL', 'REQ-EXISTING-PROJECT']
+requirements: ['REQ-VERIFICATION-PLANNING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.1 discovery・record・graph'
-  - spec: 'SPEC-BASIC'
-    section: '7.4'
-  - spec: 'SPEC-BASIC'
-    section: '§4.2'
+    section: '§18.2 共通fixture'
   - spec: 'SPEC-BASIC'
     section: '§7.4 Specification / VO網羅性監査'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '11.1'
+    section: '§11.4 SPEC 鮮度'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1 チェック項目の評価地点'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§3.5 承認レコード'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2 vtest vo add / edit / list / show / expand / approve'
+    section: '§8.5 有効性と多重監査'
   - spec: 'SPEC-REQDEF'
-    section: '§23'
-claim: 'vo_coverage is PASS only when a valid vo-coverage audit is COMPLETE and the whole VO subtree holds valid approvals bound to the upstream closure; a REQ with zero VOs is MISSING.'
+    section: '§6 Specification・VO網羅性のAI検証'
+claim: 'Coverage audits bind hashes of the complete subject set; after the subject content or correspondence set changes, prior verdicts become STALE and never count as current PASS.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

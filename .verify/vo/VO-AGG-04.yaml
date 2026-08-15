@@ -1,23 +1,17 @@
 id: 'VO-AGG-04'
 parent: null
-requirements: ['REQ-AGGREGATION', 'REQ-INTEGRATION', 'REQ-REPORTING']
+requirements: ['REQ-AGGREGATION', 'REQ-REPORTING']
 spec_refs:
-  - spec: 'SPEC-ACCEPT'
-    section: '§18.3.5'
   - spec: 'SPEC-BASIC'
-    section: '§4.4'
+    section: '§4.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§11.3'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2 vtest verify'
-  - spec: 'SPEC-REQDEF'
-    section: '§17.2'
-claim: 'A scoped run''s OK means only ''requested scope OK'': out-of-scope items stay NOT_CHECKED, never become PASS, and output must state the scope and that the rest is unverified.'
+claim: 'Detail output retains every child''s individual value and all coexisting non-PASS grounds; representative selection loses no information at detail level.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

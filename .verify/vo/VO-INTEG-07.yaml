@@ -2,20 +2,14 @@ id: 'VO-INTEG-07'
 parent: null
 requirements: ['REQ-INTEGRATION']
 spec_refs:
-  - spec: 'SPEC-BASIC'
-    section: '§10'
-  - spec: 'SPEC-BASIC'
-    section: '§11.1'
-  - spec: 'SPEC-BASIC'
-    section: '§11.2'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.8'
   - spec: 'SPEC-IFACE'
-    section: '§13.3'
-  - spec: 'SPEC-REQDEF'
-    section: '§26'
-claim: 'Every operation the five user paths require (scoped verify, STO create/edit, exit-code rerun, evidence cross-check, spec/REQ drill-down) exists in the published CLI/MCP set.'
+    section: '§13.1'
+claim: 'A long-running MCP server never returns a PASS computed from pre-change sources: after any source change, subsequently served verdicts reflect the post-change scan.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

@@ -10,10 +10,10 @@ spec_refs:
     section: '§11.1'
   - spec: 'SPEC-REQDEF'
     section: '§23'
-claim: 'Projects missing parts of SPEC/REQ/VO, test metadata, audits, or evidence remain readable; verify maps each absence to its specific non-PASS value instead of aborting or passing.'
+claim: 'A project missing parts of SPEC/REQ/VO, Test metadata declarations, Audits, or Evidence remains readable — scan/read operations complete on the partial state without aborting (SPEC-BASIC §12).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

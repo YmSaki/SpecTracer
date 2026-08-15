@@ -1,0 +1,19 @@
+id: 'VO-INTAKE-08'
+parent: null
+requirements: ['REQ-SPEC-INTAKE', 'REQ-VERIFICATION-PLANNING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2'
+claim: 'Each spec_refs.spec resolves deterministically to an existing SPEC record and its current source/hash; unresolvable references yield MISSING/MISMATCH per §11.1.1, never PASS.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

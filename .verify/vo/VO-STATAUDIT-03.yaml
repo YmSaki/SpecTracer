@@ -10,10 +10,10 @@ spec_refs:
     section: '§12.2 コマンド仕様（vtest audit bundle / submit）'
   - spec: 'SPEC-REQDEF'
     section: '§11 Test静的監査'
-claim: 'A Test whose deterministic audit is FAIL can be rejected before semantic audit; bundle generation skips DA-001..DA-006 FAILed Tests by default, forced only via --include-failed.'
+claim: 'vtest audit bundle --kind test-semantic excludes by default any Test whose effective static Audit Record has a DA-001..DA-006 FAIL; a bundle for such a Test is generated only when --include-failed is passed (UNKNOWN Tests are still bundled).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

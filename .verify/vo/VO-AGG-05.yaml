@@ -1,25 +1,23 @@
 id: 'VO-AGG-05'
 parent: null
-requirements: ['REQ-AGGREGATION', 'REQ-EXISTING-PROJECT']
+requirements: ['REQ-AGGREGATION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.5'
   - spec: 'SPEC-BASIC'
-    section: '§12'
-  - spec: 'SPEC-BASIC'
-    section: '§4.3'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1'
+    section: '§4.4'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§11.3'
   - spec: 'SPEC-IFACE'
+    section: '§12.2'
+  - spec: 'SPEC-IFACE'
     section: '§12.2 vtest verify'
   - spec: 'SPEC-REQDEF'
-    section: '§23'
-claim: 'Entity scope never narrows repository-level evaluation: test_traceability spans all Discovered Tests, so one unmanaged test forces overall NG even if all graph items PASS.'
+    section: '§17.2'
+claim: 'Out-of-scope check items retain NOT_CHECKED in the derived results and are never converted to PASS; a scoped run''s OK asserts only the requested scope.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

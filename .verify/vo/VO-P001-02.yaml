@@ -10,10 +10,10 @@ spec_refs:
     section: '2 P-001 検証機であり修正方針決定機ではない'
   - spec: 'SPEC-REQDEF'
     section: '31 OOS-002 修正方針決定'
-claim: 'The system compares declaration, implementation, and evidence but never rewrites any canon layer to resolve a detected inconsistency; the fix-target choice stays outside the system.'
+claim: 'Comparison/verification operations (verify, scan, audit bundle/submit, run) mutate no canon layer except appending new evidence/audit records (追記型, SPEC-BASIC §2.1); existing declaration, implementation, and evidence records are never modified or deleted by these operations — a detected MISMATCH persists in output rather than being eliminated by a system-initiated canon write — and no output or record field designates which artifact must be changed.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:18Z'
-updated: '2026-08-15T10:05:18Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

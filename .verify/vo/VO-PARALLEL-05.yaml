@@ -2,16 +2,18 @@ id: 'VO-PARALLEL-05'
 parent: null
 requirements: ['REQ-PARALLEL-DEV']
 spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
   - spec: 'SPEC-BASIC'
-    section: '§5.2'
+    section: '§7.1'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§16.2'
+    section: '§5.4 (E-SCAN-003/008/009/012)'
   - spec: 'SPEC-REQDEF'
     section: '§29'
-claim: 'Semantic conflicts git merge cannot see (dup IDs, dangling covers, approved-VO drift) are caught by doctor; hash binding lapses approvals to draft, audits/evidence to STALE.'
+claim: 'Scan flags dangling references (covers→VO, Relation from/to, parent, spec_refs) as errors driving non-PASS; a dangling covers yields test_traceability=MISMATCH, not entity removal.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

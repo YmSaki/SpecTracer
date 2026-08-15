@@ -1,6 +1,6 @@
 id: 'VO-PLAN-01'
 parent: null
-requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-SPEC-INTAKE']
+requirements: ['REQ-VERIFICATION-PLANNING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.1'
@@ -18,10 +18,10 @@ spec_refs:
     section: 'vtest req add / edit / list / show'
   - spec: 'SPEC-REQDEF'
     section: '§3 検証モデル'
-claim: 'An active REQ requires one or more spec_refs; each spec_refs.spec must resolve deterministically to an existing SPEC record and its current source.'
+claim: 'An active REQ declares one or more spec_refs: vtest req add/edit rejects an active REQ without a --spec/--section pair, a stored active REQ lacking spec_refs is schema-invalid (spec_coverage MISMATCH, never PASS), and a withdrawn REQ retains its refs but is excluded from spec_coverage''s current corresponding-REQ set (詳細設計 §3.2).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

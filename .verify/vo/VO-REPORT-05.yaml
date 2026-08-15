@@ -2,16 +2,16 @@ id: 'VO-REPORT-05'
 parent: null
 requirements: ['REQ-REPORTING']
 spec_refs:
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§17.2'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5'
   - spec: 'SPEC-IFACE'
-    section: '§12.1'
+    section: '§12.2 vtest verify'
   - spec: 'SPEC-REQDEF'
-    section: '§17.1'
-claim: 'Exit code 0 is returned only when the requested scope verifies OK and 1 only for NG; operation rejection exits 2 without generating any verification result; priority 3>2>1>0.'
+    section: '§18'
+claim: 'The text tree renders ancestor continuation, middle child, and last child with unique branch symbols, and an ancestor''s own branch mark is never inherited by descendant lines.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

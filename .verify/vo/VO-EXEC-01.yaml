@@ -12,10 +12,10 @@ spec_refs:
     section: '§9.3'
   - spec: 'SPEC-REQDEF'
     section: '§14'
-claim: 'Only selected tests run via exact selectors; each filter maps to PASS/FAIL, ignored gives NOT_EXECUTED, and a missing result line or exit-code contradiction records no Evidence'
+claim: 'Only the selected registered Tests execute, and selectors are applied exact-match — a test whose selector merely prefixes/contains another never runs or contributes results.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

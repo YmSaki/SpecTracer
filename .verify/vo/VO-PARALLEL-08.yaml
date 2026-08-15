@@ -1,17 +1,17 @@
 id: 'VO-PARALLEL-08'
 parent: null
-requirements: ['REQ-PARALLEL-DEV', 'REQ-NFR-001', 'REQ-NFR-002']
+requirements: ['REQ-PARALLEL-DEV']
 spec_refs:
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§16.1'
+  - spec: 'SPEC-BASIC'
+    section: '§2.3'
+  - spec: 'SPEC-BASIC'
+    section: '§6.3'
   - spec: 'SPEC-REQDEF'
     section: '§29'
-  - spec: 'SPEC-REQDEF'
-    section: '§30 NFR-001'
-claim: 'Concurrent vtest processes require no locks or arbitration; every judgment is a pure read of the canon at that instant, and canon changes are reflected by the next scan/verify.'
+claim: 'Test→VO (covers) and Test→SRC (targets) relations have their canon solely in adapter-owned metadata declarations and are never duplicated into external records as canon; the graph and current target set are always rebuilt from those declarations, and Evidence target references (runtime snapshot keys) are never used to generate or repair relations.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

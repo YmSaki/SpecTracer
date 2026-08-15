@@ -1,0 +1,19 @@
+id: 'VO-INTAKE-09'
+parent: null
+requirements: ['REQ-SPEC-INTAKE', 'REQ-VERIFICATION-PLANNING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.2'
+claim: 'spec_refs.section is a non-empty opaque citation: empty section yields MISMATCH; core performs no syntactic check of the citation''s presence in the Specification body, and no syntactic in-body check can yield PASS — semantic validity is confirmed only via audit reasons.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

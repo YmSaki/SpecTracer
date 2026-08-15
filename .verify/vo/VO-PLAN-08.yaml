@@ -1,25 +1,23 @@
 id: 'VO-PLAN-08'
 parent: null
-requirements: ['REQ-VERIFICATION-PLANNING', 'REQ-AGGREGATION']
+requirements: ['REQ-VERIFICATION-PLANNING']
 spec_refs:
-  - spec: 'SPEC-BASIC'
-    section: '§7.6'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1 discovery・record・graph'
   - spec: 'SPEC-BASIC'
     section: '§7.6 Partition と組合せ検証'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.3'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.3 集約アルゴリズム'
+    section: '§3.3.1 dimensions と組合せの実体化'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest vo add / edit / list / show / expand / approve'
   - spec: 'SPEC-REQDEF'
-    section: '§4.4 VOとTestの対応'
+    section: '§5.1 Partition'
   - spec: 'SPEC-REQDEF'
-    section: '§5.3'
-  - spec: 'SPEC-REQDEF'
-    section: '§5.3 複数VOを検証するTest'
-claim: 'A Test covering multiple VOs joins each VO''s aggregation independently, but its existence alone never counts as completed independent verification of each covered viewpoint.'
+    section: '§5.2 組合せ検証'
+claim: 'vtest vo expand materializes a child-VO set that is a deterministic function of dimensions and coverage_policy (independent-axes: one child per partition; full-product: one per cross-product element; explicit: only the listed combinations); repeated expansion of the same record yields the same set. Child IDs follow the documented default scheme (既定 — not an invariant).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

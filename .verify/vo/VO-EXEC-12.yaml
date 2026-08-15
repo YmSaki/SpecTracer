@@ -1,0 +1,19 @@
+id: 'VO-EXEC-12'
+parent: null
+requirements: ['REQ-TEST-EXECUTION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.3'
+  - spec: 'SPEC-BASIC'
+    section: '§7.8'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§3.7'
+  - spec: 'SPEC-REQDEF'
+    section: '§15'
+claim: 'Evidence lacking adapter ID is evaluated as compat Evidence only when the current Test is rust-cargo and runner kind plus content hashes uniquely confirm Rust execution — in which case it can satisfy §11.2 condition 5; otherwise UNKNOWN, and explicit adapter mismatch is MISMATCH.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

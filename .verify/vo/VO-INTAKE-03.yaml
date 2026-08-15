@@ -10,10 +10,10 @@ spec_refs:
     section: '§11.4'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§3.1'
-claim: 'A SPEC source that no longer matches its registered sha256 is detected at scan (W-SCAN-104), and every audit or approval bound to that SPEC subject becomes invalid, never reused.'
+claim: 'At scan, each SPEC record''s registered sha256 is compared with the actual file; on mismatch W-SCAN-104 is emitted.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

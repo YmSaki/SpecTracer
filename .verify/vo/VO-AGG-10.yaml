@@ -1,0 +1,19 @@
+id: 'VO-AGG-10'
+parent: null
+requirements: ['REQ-AGGREGATION', 'REQ-REPORTING']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.3'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7.3'
+  - spec: 'SPEC-REQDEF'
+    section: '§18'
+claim: 'A static_audit value derived via runtime proof cites in the report the Evidence ID and the per-target target_execution result used; when internal-dependency STALE/non-satisfaction causes static_audit non-PASS in limited scope, that internal-dependency state is presented as the ground.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

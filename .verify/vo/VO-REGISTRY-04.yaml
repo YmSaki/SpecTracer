@@ -1,23 +1,19 @@
 id: 'VO-REGISTRY-04'
 parent: null
-requirements: ['REQ-TEST-REGISTRY', 'REQ-NFR-003']
+requirements: ['REQ-TEST-REGISTRY']
 spec_refs:
   - spec: 'SPEC-BASIC'
-    section: '§3.3'
+    section: '§6.1'
   - spec: 'SPEC-BASIC'
-    section: '§5.3'
+    section: '§6.3'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§5.3'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2'
+    section: '§4.1'
   - spec: 'SPEC-REQDEF'
-    section: '§7'
-  - spec: 'SPEC-REQDEF'
-    section: '§8'
-claim: 'Test ID is a handle resolving intent, covers, targets, location, audit results and evidence; SRC→Test reverse lookup is scan-derived and rebuildable, never a second stored canon.'
+    section: '§7.1'
+claim: 'The adapter-owned source declaration is the sole canon for Test Entity and covers/targets relations; no persisted second copy exists, so a direct edit of the declaration followed by scan cannot leave covers/targets desynced (基本仕様 §6.1, §6.3).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

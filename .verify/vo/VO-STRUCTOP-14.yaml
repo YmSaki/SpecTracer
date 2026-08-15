@@ -1,0 +1,17 @@
+id: 'VO-STRUCTOP-14'
+parent: null
+requirements: ['REQ-STRUCTURED-OPERATIONS']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '§6.3 直接編集の扱い'
+  - spec: 'SPEC-BASIC'
+    section: '§7.1 スキャンと整合性検査'
+  - spec: 'SPEC-REQDEF'
+    section: '§22 直接編集'
+claim: 'No component persists covers/targets independently of the source declaration; scan-derived covers/targets always equal the current declaration content, so no stale external copy can be consulted (§6.1, §6.3).'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

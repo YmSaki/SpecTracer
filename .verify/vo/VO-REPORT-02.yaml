@@ -1,21 +1,23 @@
 id: 'VO-REPORT-02'
 parent: null
-requirements: ['REQ-REPORTING', 'REQ-NFR-005', 'REQ-P-002']
+requirements: ['REQ-REPORTING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.5'
   - spec: 'SPEC-BASIC'
-    section: '§4.1'
-  - spec: 'SPEC-BASIC'
     section: '§7.10'
   - spec: 'SPEC-IFACE'
     section: '§12.1'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest report'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest verify'
   - spec: 'SPEC-REQDEF'
-    section: '§17.2'
-claim: 'FAIL/MISMATCH/MISSING/NOT_CHECKED/NOT_EXECUTED/STALE/UNKNOWN are never promoted to PASS/OK, and adapter capability gaps map to NOT_CHECKED/NOT_EXECUTED/UNKNOWN, never PASS.'
+    section: '§18'
+claim: 'For an identical scope and item set, report produces the same aggregation results as verify — same per-item values, representative values, and overall verdict — and includes complete grounds: audit record IDs, Evidence IDs, diagnostics (SPEC-IFACE §12.2 vtest report, SPEC-ACCEPT §18.3.5).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

@@ -4,12 +4,14 @@ requirements: ['REQ-INTEGRATION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.8'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§6.3'
   - spec: 'SPEC-IFACE'
     section: '§13.1'
-claim: 'Every MCP tool call starts with an mtime-based rescan decision; a long-running MCP server never keeps serving a PASS computed before a source change.'
+claim: 'Invalid MCP input surfaces as a tool error containing code and message, and input-validation errors include candidates'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

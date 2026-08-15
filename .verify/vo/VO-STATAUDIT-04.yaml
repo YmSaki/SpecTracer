@@ -10,10 +10,10 @@ spec_refs:
     section: '§7.2 rust-cargo ルール一覧'
   - spec: 'SPEC-REQDEF'
     section: '§11 Test静的監査'
-claim: 'Every REQ §11 violation class is realized by a concrete deterministic rule (DA-001..DA-006); a clean Test yields no violation and each violation fixture goes non-PASS on its rule.'
+claim: 'For each REQ §11 violation class there is a designated deterministic rule among DA-001..DA-006 such that any Test exhibiting that class within the rule''s deterministic scope receives non-PASS on that rule, and a Test exhibiting no class receives no FAIL from any rule — for arbitrary inputs, independent of any fixture corpus.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

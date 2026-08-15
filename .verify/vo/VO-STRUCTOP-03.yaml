@@ -4,16 +4,16 @@ requirements: ['REQ-STRUCTURED-OPERATIONS']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.7 Structured Test Operation'
-  - spec: 'SPEC-BASIC'
-    section: '§8.2 desired state 方式'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§6.3 候補提示'
   - spec: 'SPEC-IFACE'
-    section: '§15.2 `rust-cargo` 編集の適用'
-  - spec: 'SPEC-IFACE'
-    section: '§15.3 `rust-cargo` annotation blockの再生成'
-claim: 'Create/Edit take a full desired state, the adapter diffs it against current source, and re-applying the same desired state is idempotent via fixed key-order annotation regeneration.'
+    section: '§14.2 検証器'
+  - spec: 'SPEC-REQDEF'
+    section: '§20 Structured Test Operation'
+claim: 'Best-effort validators (enum-variant-exists when `expect` is not Type::Variant form) accept unresolvable free-form values instead of rejecting (別紙A §14.2, 本冊 §6.3).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

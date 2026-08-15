@@ -10,10 +10,10 @@ spec_refs:
     section: '§7.2 rust-cargo ルール一覧'
   - spec: 'SPEC-IFACE'
     section: '§12.2 コマンド仕様（vtest audit static）'
-claim: 'Per-target DA-002/003 verdicts are canonical, 1:1 with declared targets; mismatch makes the record malformed; no valid record leaves static_audit STALE/NOT_CHECKED, not PASS.'
+claim: 'Per-target DA-002/DA-003 verdicts are the canonical stored form, 1:1 with declared targets; any missing/duplicate/extra target entry, mismatch with the declared set, or contradiction with the pure-static fold makes the record malformed (E-SCAN-010) and excludes it from the valid record set without extracting its per-target FAILs.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

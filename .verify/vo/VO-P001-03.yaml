@@ -10,10 +10,10 @@ spec_refs:
     section: '8.4 提出の検証'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '8.6 参考プロンプト'
-claim: 'Audit submissions are confined to the kind''s fixed verdict vocabulary plus claim/basis reasons; out-of-vocabulary verdicts are rejected (E-AUDIT-004), and no fix proposal is solicited or stored.'
+claim: 'A submission whose verdict is outside the kind''s fixed vocabulary (test-semantic / impl-consistency: PASS/FAIL/UNKNOWN; spec-coverage / vo-coverage: COMPLETE/INCOMPLETE/UNKNOWN, §8.3) is rejected with E-AUDIT-004 and no audit record is created.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:18Z'
-updated: '2026-08-15T10:05:18Z'
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

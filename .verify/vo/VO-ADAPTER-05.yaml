@@ -3,21 +3,19 @@ parent: null
 requirements: ['REQ-ADAPTER-BOUNDARY']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.1'
+    section: '§18.2'
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.9'
-  - spec: 'SPEC-BASIC'
-    section: '§6.1'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.4'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§1.3'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§5.2'
+    section: '§19'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'Adapters return hash-uncomputed DTOs; core validates them against current source bytes and computes every subject hash — an adapter never self-finalizes a content hash.'
+claim: 'A non-Rust adapter whose sources are not .rs, whose Test constructs are not functions, whose metadata declarations are not doc comments, and whose opaque locators are not Rust item paths can register, scan and verify without any change to vtest-model, vtest-scan or vtest-verify.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

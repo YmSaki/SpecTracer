@@ -3,21 +3,21 @@ parent: null
 requirements: ['REQ-ADAPTER-BOUNDARY']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
+    section: '§18.3.1'
+  - spec: 'SPEC-ACCEPT'
     section: '§18.3.9'
   - spec: 'SPEC-BASIC'
-    section: '§2.4'
+    section: '§6.1'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§17.1'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§2.2'
+    section: '§1.3'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§5.2'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'Unknown adapters or failed adapter-config validation are operation errors without capability inference; Rust wire-compat fields come only from the rust-cargo codec, never dummied.'
+claim: 'Adapters return hash-uncomputed DTOs; core validates them against current source bytes and computes every subject hash — an adapter never self-finalizes a content hash.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

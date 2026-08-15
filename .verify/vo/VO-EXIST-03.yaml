@@ -1,19 +1,19 @@
 id: 'VO-EXIST-03'
 parent: null
-requirements: ['REQ-EXISTING-PROJECT', 'REQ-AGGREGATION', 'REQ-SPEC-INTAKE']
+requirements: ['REQ-EXISTING-PROJECT']
 spec_refs:
-  - spec: 'SPEC-ACCEPT'
-    section: '§18.3.5'
   - spec: 'SPEC-BASIC'
     section: '§12'
   - spec: 'SPEC-BASIC'
-    section: '§7.4'
+    section: '§4.1'
   - spec: 'SPEC-DOGFOOD-M3'
     section: '§11.1'
-claim: 'Empty sets are never complete: 0 registered SPECs -> spec_coverage=MISSING; active REQ with 0 VOs -> vo_coverage=MISSING; leaf VO with 0 covering tests -> test_existence=MISSING.'
+  - spec: 'SPEC-REQDEF'
+    section: '§23'
+claim: 'vtest verify maps each missing canonical artifact or verification fact to its corresponding non-PASS value of the §4.1 state model (missing artifact -> MISSING, no Evidence -> NOT_EXECUTED, no audit -> NOT_CHECKED, per 詳細設計 §11.1), never to PASS, and partial state never aggregates to overall OK (SPEC-BASIC §12, §4.1).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

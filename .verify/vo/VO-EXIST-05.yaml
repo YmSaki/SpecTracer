@@ -1,17 +1,19 @@
 id: 'VO-EXIST-05'
 parent: null
-requirements: ['REQ-EXISTING-PROJECT']
+requirements: ['REQ-EXISTING-PROJECT', 'REQ-AGGREGATION']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.5'
-  - spec: 'SPEC-IFACE'
-    section: '§12.2 vtest verify'
-  - spec: 'SPEC-REQDEF'
-    section: '§23'
-claim: 'Non-PASS test_traceability lists each unregistered or mis-corresponding test with adapter ID, source location, diagnostic code and verdict, identically in text and JSON reports.'
+  - spec: 'SPEC-BASIC'
+    section: '§12'
+  - spec: 'SPEC-BASIC'
+    section: '§7.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+claim: 'an active REQ with 0 corresponding VOs yields vo_coverage = MISSING (SPEC-BASIC §7.4, 詳細設計 §11.1)'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

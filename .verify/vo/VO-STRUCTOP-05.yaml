@@ -2,16 +2,18 @@ id: 'VO-STRUCTOP-05'
 parent: null
 requirements: ['REQ-STRUCTURED-OPERATIONS']
 spec_refs:
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§17.1 診断コード'
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.7 Structured Test Operation'
+  - spec: 'SPEC-BASIC'
+    section: '§8.2 desired state 方式'
   - spec: 'SPEC-IFACE'
-    section: '§15.1 `rust-cargo` 対象の特定'
-  - spec: 'SPEC-REQDEF'
-    section: '§21 Test編集の境界'
-claim: 'The edit target is re-located by re-parsing the target file immediately before applying; if the Test ID is not found the operation aborts with E-OP-002 instead of editing a stale location.'
+    section: '§15.2 `rust-cargo` 編集の適用'
+  - spec: 'SPEC-IFACE'
+    section: '§15.3 `rust-cargo` annotation blockの再生成'
+claim: 'Annotation blocks are regenerated with keys always in the fixed order (id, covers, target, intent, input, expect, kind, case, related) and non-@vtest free doc-comment lines are preserved in their relative position (別紙A §15.3).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

@@ -10,10 +10,10 @@ spec_refs:
     section: '§14.2 検証器'
   - spec: 'SPEC-REQDEF'
     section: '§20 Structured Test Operation'
-claim: 'Validators are form-scoped: required/unknown fields are always checked; symbol, VO/Test ref, ident, path only when the chosen Form declares them; unresolvable free text is accepted, not rejected.'
+claim: 'Validators are form-scoped — required values and unknown fields are always checked; symbol, VO/Test ref, ident, path are checked only when the chosen Form declares the field and validator, never demanded uniformly of all adapters (§18.3.7).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

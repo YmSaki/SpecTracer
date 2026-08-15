@@ -3,15 +3,21 @@ parent: null
 requirements: ['REQ-VERIFICATION-PLANNING']
 spec_refs:
   - spec: 'SPEC-ACCEPT'
-    section: '§18.3.5 verify・report'
+    section: '§18.3.1 discovery・record・graph'
   - spec: 'SPEC-BASIC'
-    section: '§4.2 チェック項目'
+    section: '§7.6 Partition と組合せ検証'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§11.1.1 `vo_decomposition`の診断写像'
-claim: 'vo_decomposition evaluates only REQ/VO parent, requirements, spec_refs and structural Relations; Test, target-resolution, adapter-parse and Evidence errors never change its value.'
+    section: '§3.3.1 dimensions と組合せの実体化'
+  - spec: 'SPEC-IFACE'
+    section: '§12.2 vtest vo add / edit / list / show / expand / approve'
+  - spec: 'SPEC-REQDEF'
+    section: '§5.1 Partition'
+  - spec: 'SPEC-REQDEF'
+    section: '§5.2 組合せ検証'
+claim: 'Deterministic checks (test_existence etc.) judge only materialized leaf-VO coverage; whether the combination space suffices for the Specification is judged solely by the vo-coverage semantic audit, never by a core syntactic judgment.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

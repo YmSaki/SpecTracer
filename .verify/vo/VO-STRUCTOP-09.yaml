@@ -5,15 +5,17 @@ spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.7 Structured Test Operation'
   - spec: 'SPEC-BASIC'
-    section: '§6.1 論理契約と正典性'
-  - spec: 'SPEC-BASIC'
-    section: '§8.1 提供する操作'
-  - spec: 'SPEC-REQDEF'
-    section: '§20 Structured Test Operation'
-claim: 'A created Test is re-discovered by scan with identical ID, intent, covers, and targets; the emitted source declaration is the canon, so official output and discovery cannot diverge.'
+    section: '§8.5 Form Schema'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§17.1 診断コード'
+  - spec: 'SPEC-IFACE'
+    section: '§14.2 検証器'
+  - spec: 'SPEC-IFACE'
+    section: '§14.3 組込フォーム'
+claim: 'Form kind must resolve to exactly one Structured-Test-capable adapter; duplicate kind, owner mismatch, unknown adapter, or missing capability (E-ADAPTER-004) rejects with no file change.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

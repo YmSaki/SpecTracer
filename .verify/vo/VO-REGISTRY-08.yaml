@@ -5,17 +5,15 @@ spec_refs:
   - spec: 'SPEC-ACCEPT'
     section: '§18.3.1'
   - spec: 'SPEC-BASIC'
-    section: '§6.2'
+    section: '§6.1'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§4.1'
+    section: '§1.3'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§5.4'
-  - spec: 'SPEC-REQDEF'
-    section: '§9'
-claim: 'Intent is mandatory metadata alongside id/covers/targets — its absence makes the entity structurally incomplete (E-SCAN-007→MISSING) — while input/expect remain optional.'
+    section: '§5.2'
+claim: 'The Test subject hash binds the full Test subject — adapter ID, Test ID, all logical fields (targets as declared TargetRef spellings, not resolved canonical Locators), Source Location, ExecutionDescriptor, and normalized construct bytes — so any change to covers, targets, intent, or execution coordinates necessarily changes the hash (基本仕様 §6.1; 詳細設計 §1.3).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

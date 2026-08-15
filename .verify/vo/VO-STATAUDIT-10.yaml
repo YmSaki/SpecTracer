@@ -2,16 +2,16 @@ id: 'VO-STATAUDIT-10'
 parent: null
 requirements: ['REQ-DETERMINISTIC-AUDIT']
 spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.2 deterministic static audit'
   - spec: 'SPEC-BASIC'
     section: '§7.2 決定論的テスト監査'
   - spec: 'SPEC-DOGFOOD-M3'
-    section: '§7.1 判定の原則'
-  - spec: 'SPEC-REQDEF'
-    section: '§11 Test静的監査'
-claim: 'Core never interprets adapter AST/assertion syntax; missing Static Audit capability yields NOT_CHECKED and reported adapter incompleteness UNKNOWN, never presumed no-violation.'
+    section: '§7.3 target 到達の静的証明と runtime 証明の関係'
+claim: 'Per-target DA-002 UNKNOWN reachability is satisfied only when the latest Evidence selected by §11.2 has evidence_validity = PASS and its per-target target_execution = PASS (checked: true, count > 0); if the latest Evidence is invalid there is no fallback to older valid Evidence; per-target DA-002 FAIL is never overridden by runtime proof; target_execution FAIL/UNKNOWN/NOT_CHECKED leaves the requirement unmet.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

@@ -14,10 +14,10 @@ spec_refs:
     section: '§5.2'
   - spec: 'SPEC-REQDEF'
     section: '§27'
-claim: 'The adapter API and core domain model are language/runner-neutral: no Cargo, Rust-parser or llvm-cov types are exposed, and TestEntity carries only a neutral ExecutionDescriptor.'
+claim: 'vtest-adapter-api exposes no Cargo, Rust-parser, or llvm-cov specific types in its public surface.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:20Z'
-updated: '2026-08-15T10:05:20Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

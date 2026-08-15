@@ -1,0 +1,19 @@
+id: 'VO-EXIST-06'
+parent: null
+requirements: ['REQ-EXISTING-PROJECT', 'REQ-AGGREGATION']
+spec_refs:
+  - spec: 'SPEC-ACCEPT'
+    section: '§18.3.5'
+  - spec: 'SPEC-BASIC'
+    section: '§12'
+  - spec: 'SPEC-BASIC'
+    section: '§7.4'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§11.1'
+claim: 'a leaf VO with 0 covering Tests yields test_existence = MISSING (詳細設計 §11.1)'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'

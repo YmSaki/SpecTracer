@@ -1,0 +1,19 @@
+id: 'VO-P001-05'
+parent: null
+requirements: ['REQ-P-001']
+spec_refs:
+  - spec: 'SPEC-BASIC'
+    section: '7.3 意味監査（エージェント委譲プロトコル）'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '8.3 提出スキーマ'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '8.4 提出の検証'
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '8.6 参考プロンプト'
+claim: 'Accepted audit records contain only the §3.6 record-contract fields, none of which can carry a fix-target designation or fix proposal.'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-15T10:44:10Z'
+updated: '2026-08-15T10:44:10Z'

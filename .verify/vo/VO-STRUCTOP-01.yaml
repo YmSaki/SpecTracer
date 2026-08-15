@@ -16,10 +16,10 @@ spec_refs:
     section: '§14.2 検証器'
   - spec: 'SPEC-REQDEF'
     section: '§20 Structured Test Operation'
-claim: 'Structured input is checked at accept time: unresolvable target, missing VO/Test ref, duplicate ID, unknown or missing-required field rejects as E-OP-001 with candidates.'
+claim: 'Structured input is checked at accept time: unresolvable target, missing VO/Test ref, duplicate Test ID, unknown field, or missing required field rejects as E-OP-001; resolution failures (target symbol, enum variant) additionally carry adapter-provided candidates in the common envelope (本冊 §6.3, 別紙A §14.2).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

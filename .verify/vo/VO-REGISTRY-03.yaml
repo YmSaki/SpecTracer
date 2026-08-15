@@ -1,19 +1,17 @@
 id: 'VO-REGISTRY-03'
 parent: null
-requirements: ['REQ-TEST-REGISTRY']
+requirements: ['REQ-EXISTING-PROJECT']
 spec_refs:
   - spec: 'SPEC-BASIC'
-    section: '§6.1'
+    section: '§12'
   - spec: 'SPEC-BASIC'
-    section: '§6.3'
-  - spec: 'SPEC-DOGFOOD-M3'
-    section: '§4.1'
-  - spec: 'SPEC-REQDEF'
     section: '§7.1'
-claim: 'The adapter-owned source declaration is the sole canon for Test Entity and covers/targets relations; core never parses adapter syntax, so direct edits cannot desync covers/targets.'
+  - spec: 'SPEC-REQDEF'
+    section: '§23'
+claim: 'On a project with pre-existing sources and tests, scan surfaces every discovered-but-unregistered construct (W-SCAN-101 diagnostics displayed, 基本仕様 §12/§7.1 — display is distinct from value derivation) and partial canon (missing SPEC/REQ/VO, unaudited or unexecuted state) remains readable while yielding the corresponding non-PASS values, never a total OK (要件定義 §23).'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:11Z'
+updated: '2026-08-15T10:44:11Z'

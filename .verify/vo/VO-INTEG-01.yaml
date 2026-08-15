@@ -12,10 +12,10 @@ spec_refs:
     section: '§13.1'
   - spec: 'SPEC-IFACE'
     section: '§13.3'
-claim: 'For identical inputs, MCP tools return the same data/diagnostics as CLI --format json via one shared adapter registry; MCP never implicitly selects a different adapter than CLI.'
+claim: 'For identical inputs and project state, every MCP tool returns the same data/diagnostics as the corresponding CLI command with --format json, and resolves the same adapter — or raises the same adapter-selection error — as the CLI; MCP never implicitly selects a different adapter.'
 dimensions:
 coverage_policy: null
 combinations: []
 representative_cases: []
-created: '2026-08-15T10:05:19Z'
-updated: '2026-08-15T10:05:19Z'
+created: '2026-08-15T10:44:12Z'
+updated: '2026-08-15T10:44:12Z'
