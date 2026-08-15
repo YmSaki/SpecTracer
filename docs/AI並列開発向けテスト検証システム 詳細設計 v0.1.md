@@ -364,7 +364,7 @@ subjects:                       # 監査対象と当時の内容ハッシュ
   - id: SPEC-BASIC-001
     hash: "sha256:..."
 verdict: PASS                   # PASS | FAIL | UNKNOWN
-reasons:                        # §8.3 の構造。static では規則違反の一覧
+reasons:                        # semantic は §8.3 の claim/basis 構造。static は §7.2 の規則別判定（後述の static reasons schema）
   - claim: テストは不正UTF-8入力に対する InvalidUtf8 の返却を検証している
     basis:
       - kind: test-code
@@ -419,7 +419,7 @@ reasons:
         ref: "rust-cargo::tests/parser_test.rs::rejects_invalid_utf8:18"
 ```
 
-target別verdictの`target`は§6.1で解決したcanonical Locatorとし、その集合はTestが宣言する全targetと過不足なく1対1に対応する。target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictのfold結果の矛盾はmalformed recordとし、現在の`static_audit`へ有効なPASSを供給しない。target-scopedでない規則（DA-001 / DA-004 / DA-005 / DA-006）は`targets`を持たない。
+target別verdictの`target`は§6.1で解決したcanonical Locatorとし、その集合はTestが宣言する全targetと過不足なく1対1に対応する。target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictの純静的fold結果の矛盾はmalformed recordとする。malformed recordは§3.7のEvidence（E-SCAN-010）と対称に**E-SCAN-010**とし、有効な結果に使用せず有効record集合から除外する（malformed recordの内容は信頼せず、その中のper-target FAILも抽出しない）。malformedでない有効なstatic Audit Recordが1件も残らなければ、`static_audit`はSTALE（無効化recordのみ存在）またはNOT_CHECKED（一度も監査なし）とし、PASSにしない。target-scopedでない規則（DA-001 / DA-004 / DA-005 / DA-006）は`targets`を持たない。
 
 ### 3.7 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
 
@@ -958,9 +958,9 @@ Structured Operationの入力検証（§14、§15）で解決に失敗した場�
 
 各ルールは `FAIL` / `UNKNOWN` / `PASS(違反なし)` のいずれかを返す。
 **決定論的に確定できる違反のみ FAIL とする。**
-解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる。
+解析の限界で確定できない場合は FAIL ではなく UNKNOWN とし、意味監査へ委ねる（ただし DA-002 の target 到達 UNKNOWN は §7.3 の runtime 到達証明で解決し、意味監査 bundle へは委ねない）。
 Test の `static_audit` チェック項目は、全ルールが違反なしなら PASS、1つでも FAIL があれば FAIL、FAIL がなく UNKNOWN があれば UNKNOWN とする。
-DA-002（target 到達）は静的な到達証明であり、その target 別 verdict（§3.6）の UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 の当該 target 別 verdict は集約（§7.2 の fold および static_audit 項目）へ UNKNOWN を寄与しない。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い target 別 DA-002 UNKNOWN、および target 別 DA-002 FAIL は従来どおり寄与する。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は集約時点で UNKNOWN を生じない）。
+DA-002（target 到達）は静的な到達証明であり、その target 別 verdict（§3.6）の UNKNOWN は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。§7.3 に従い当該 target の runtime target_execution が到達を証明した場合、その target の到達要件は充足済みとなり、DA-002 の当該 target 別 verdict は**検証時の static_audit 項目算出（§7.3）で UNKNOWN 扱いにならない**。record が保存する純静的 fold（§7.2）は Evidence を参照せず、当該 target 別 verdict の UNKNOWN をそのまま反映する（record 表示・malformed 整合検査用）。DA-003 を含む他ルールの UNKNOWN、runtime 証明の無い target 別 DA-002 UNKNOWN、および target 別 DA-002 FAIL は検証時算出でも従来どおり非 PASS を生む。この規則は「UNKNOWN の項目値を PASS へ昇格させない」不変条件を保つ（充足済み到達は算出時点で UNKNOWN を生じない）。
 
 `vtest-audit`は`TestEntity.execution.adapter`をregistryで解決し、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAuditAdapter`へ渡す。adapterはrule ID、verdict、根拠span、解析限界と、同じ判定に用いたrule-set identity・rule影響configのhash未計算projection、および判定時に実際に参照した全source fragmentのhash未計算DTOを返す。target-scopedなDA-002 / DA-003については、宣言targetごとのverdictと根拠spanを（規則単位のverdictへ畳み込む前の形で）返し、その集合を全宣言targetと過不足なく1対1に対応させる。coreはadapter ID、projection schema、source location・現在bytesとの対応、重複、決定論的encodingを検証し、§1.3のStatic Audit Config subject hashとStatic Analysis Source subject hashを監査対象集合へ加える。Test / target subjectが同じfragmentを完全に束縛する場合だけanalysis source subjectとの重複を除く。rule判定へ影響するfieldまたは参照sourceを欠落させない責任はadapter contractと§18の受入試験で強制する。coreは入力hashと返却されたsubjectの一致を検証して上記規則で集約するが、adapter固有のASTやassertion構文を解釈しない。
 
@@ -987,7 +987,10 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
-このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
+このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。この規則単位verdictは**Evidenceを参照しない純静的fold**であり、§3.6のmalformed整合検査（target別verdictと規則単位verdictの一致）はこの純静的foldに対して行う。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
+
+**呼出そのものが Test 本体に現れない場合の DA-003。** 宣言 target への呼出が Test 本体に静的に現れない場合（subprocess を起動して別プロセスで target を実行する等、target 呼出が source 内に存在しない）、**DA-003 の当該target別verdictを UNKNOWN** とする。呼出結果を観測できないことを「違反なし（空虚PASS）」とも「結果未到達（空虚FAIL）」とも判定しない。この場合 DA-002 も同 target で UNKNOWN であり、DA-002 が §7.3 の runtime 証明で救済されても DA-003 は UNKNOWN のまま static_audit へ寄与するため、**呼出が本体に現れない Test（典型的な subprocess E2E）は static_audit = PASS に到達しない**。
+一方、target 呼出は Test 本体に現れるが DA-002 が UNKNOWN になる場合（他ファイル・他クレートへの直接呼出で間接呼出の可能性を排除できない等）、その呼出結果が Test 本体内で assert 相当へ到達すれば DA-003 = PASS になりうる。この target は DA-002 を runtime で救済すれば static_audit = PASS に到達しうる（runtime 救済で実益が出る型）。クロージャ・マクロ展開の内側での到達は §7.2 の一般則どおり DA-002 / DA-003 とも UNKNOWN とする。
 ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
@@ -1013,11 +1016,19 @@ DA-002 は §7.2 の解析境界（関数本体および同一ファイル内 he
 - static 側は §3.6・§8.5 の実効監査選択を target ごとに用いる。したがって有効 record のいずれかで当該 target が FAIL なら record selection の段階から FAIL が支配し、runtime で覆らない（「最新の有効 record 1件」を独自に選んで FAIL を回避しない）。
 - runtime 側は §11.2 が選択した最新 Evidence だけを用いる。最新 Evidence が無効（`evidence_validity ≠ PASS`）なら runtime 証明は成立せず、§11.2 と独立に古い有効 Evidence へフォールバックしない。これにより同一検証内で `target_execution` が §11.2 で STALE の一方 static_audit が別 Evidence で PASS になる履歴不一致を防ぐ。
 
-DA-002 の target 別 verdict を持たない読取り互換 record（rule-set version 相違で STALE となる旧 record 等）は静的証明を供給せず、当該 target の到達は runtime 証明のみに依存する。
+DA-002 の target 別 verdict を持たない読取り互換 record（rule-set version 相違で STALE となる旧 record 等）は有効 record にならない。有効な static Audit Record が1件も無ければ、static_audit は runtime 証明の有無に関わらず STALE（無効化された record のみ存在）または NOT_CHECKED（一度も監査なし）であり、到達要件の充足は有効 record の代替にならない。再監査で per-target verdict を持つ有効 record が生成された後に §7.3 の到達判定が適用される。
+
+**static_audit 項目値は検証時に算出し、record へ保存しない。** record が保存するのは per-target verdict と、それらの純静的 fold（§7.2）だけである。検証時は、有効な static Audit Record（§3.6・§8.5）と §11.2 選択 Evidence から、target ごとに実効到達状態を定める。
+
+- **静的到達**: 実効 target 別 DA-002 verdict = PASS。
+- **runtime 到達**: 実効 target 別 DA-002 verdict = UNKNOWN かつ runtime 証明成立。
+- **未充足**: 実効 target 別 DA-002 verdict = FAIL、または UNKNOWN で runtime 証明が成立しない。
+
+static_audit 項目は、全宣言 target の DA-002 到達が静的到達または runtime 到達で充足され、**かつ** DA-003・DA-001・DA-004・DA-005・DA-006 がいずれも PASS のときだけ PASS になる。DA-003 を含むいずれかの rule が非 PASS なら §7.1 の集約に従い非 PASS。rule verdict の record 出所は、target-scoped rule（DA-002・DA-003）は §3.6・§8.5 を per-target 適用、非 target-scoped rule（DA-001・DA-004・DA-005・DA-006）は §8.5 の record 単位実効選択（FAIL 支配、なければ最新）とする。純静的 fold（§7.2）は record 表示と malformed 整合検査に用い、この項目値の算出には用いない。
 
 この関係は fail-closed を保つ。
 
-- runtime 証明は当該 target の target_execution = PASS のときだけ成立する。target_execution が FAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage 利用不能、未計測、`--fast`）のときは到達要件を満たさず、当該 target の DA-002 UNKNOWN は UNKNOWN のまま規則単位 verdict の fold（§7.2）と static_audit 集約へ寄与する。
+- runtime 証明は当該 target の target_execution = PASS のときだけ成立する。target_execution が FAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage 利用不能、未計測、`--fast`）のときは到達要件を満たさず、当該 target は上記の**未充足**となり、検証時の static_audit 項目算出で static_audit を非 PASS にする。
 - target 別 DA-002 verdict = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆さない。
 - 実行 target を持たない Test（構造・契約のみを assert し、宣言 target をどの topology でも実行しない Test）は静的にも runtime にも到達を確立できず、到達要件は未充足のままとなる。
 
@@ -1264,6 +1275,8 @@ Test ごとに §3.7 のレコードを1件生成する。
 
 カバレッジを Test 単位で対象関数へ帰属させるため、計測時は Test を1件ずつ実行する。
 
+Test が起動した subprocess・spawn した thread の実行を宣言 target へ帰属させられるかは `rust-cargo` CoverageAdapter の能力に属する（§10.2・§7.3）。subprocess 内の実行を計測するには起動される実行体も instrument 対象とし、子プロセスの profile を merge する必要がある。これを提供できない構成では境界越し target を UNKNOWN、計測不能なら `target_execution = NOT_CHECKED` とし、能力の有無で計測結果を捏造しない。この能力の実装可否が §7.3 の runtime 到達証明が subprocess E2E に及ぶかを左右するが、欠如時も fail-closed を保つ（DA-002 は UNKNOWN のまま）。
+
 ```text
 cargo llvm-cov test -p <project> --lib --json
   --output-path cache/cov/<ULID>.json
@@ -1418,7 +1431,7 @@ fail-closed 合成：
   代表値は基本仕様 §4.3 の優先順位で選ぶ。
 ```
 
-チェック項目の**表示scope**と、項目導出に必要な**内部依存の評価**は分離する。§7.3 により `static_audit` は当該 Test の Evidence 鮮度（§11.2）と target 別 target_execution へ横依存する。`static_audit` が項目scopeに含まれる場合、aggregator は §7.3 の runtime 到達証明の判定に必要な範囲でこれらを**内部依存として評価する**（`target_execution` / `evidence_validity` が項目scopeに無くても評価する）。ただしこれは導出のための内部評価であり、scope 外の `target_execution` / `evidence_validity` 自体の report value は step 5 のとおり `NOT_CHECKED` のまま保持する。内部依存評価は scope 外項目の表示値を変えない。
+チェック項目の**表示scope**と、項目導出に必要な**内部依存の評価**は分離する。§7.3 により `static_audit` は当該 Test の Evidence 鮮度（§11.2）と target 別 target_execution へ横依存する。`static_audit` が項目scopeに含まれる場合、aggregator は §7.3 の runtime 到達証明の判定に必要な範囲でこれらを**内部依存として評価する**（`target_execution` / `evidence_validity` が項目scopeに無くても評価する）。ただしこれは導出のための内部評価であり、scope 外の `target_execution` / `evidence_validity` 自体の report value は step 5 のとおり `NOT_CHECKED` のまま保持する。内部依存評価は scope 外項目の表示値を変えない。runtime 証明に依存する `static_audit` の値は、根拠として用いた Evidence ID と当該 target の target_execution 結果を report で引用する。限定 scope で内部依存の STALE / 非充足が `static_audit` の非 PASS を生む場合も、その内部依存状態を根拠として提示し、scope 外項目の表示値（NOT_CHECKED）だけでは原因を辿れない状態にしない。
 
 複数 VO を covers する Test の結果は、covers 先それぞれの VO の合成に独立に参加する。
 「1つの Test が複数 VO を検証していること」自体は許容し、各 leaf VO の `test_existence` と組合せの充足は §3.3.1 の実体化された leaf VO 単位で判定する（基本仕様 §7.6）。

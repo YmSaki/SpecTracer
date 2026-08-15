@@ -43,6 +43,11 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - 同一のSource Targetを、一方のTestがlocatorで、他方のTestが恒久SRC IDで宣言する状態
 - 同一のTestが同一Source Targetをlocatorと恒久SRC IDの両方で宣言する状態（E-SCAN-005）
 - Source Target constructの内側にある`@vtest.src-id`宣言だけを付与・変更・削除した状態
+- 呼出を静的に確認できない到達境界を越えてtargetを実行するTest（subprocess spawn型・spawn thread型）。DA-002 / DA-003がtarget別UNKNOWNになり、runtime target_executionのみでDA-002が充足される
+- 他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTest（DA-002 UNKNOWN・DA-003 PASS）
+- target別verdictを持たない旧形式のstatic Audit Record（rule-set version相違でSTALE化）。手書きで用意する
+- 同一subject・同一rule-setから決定論的監査では生成できない矛盾状態（同一targetにDA-002 = FAILとUNKNOWNを持つ複数の有効record）。§18.2の他の無効化fixtureと同様に手書きrecordで構成する
+- malformedなstatic Audit Record（target entryの欠落・重複・余剰・宣言target集合不一致・純静的fold不整合。E-SCAN-010）。手書きで構成する
 
 adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-process synthetic
 adapterを使用できる。synthetic adapterは配布対象のproduction language adapterではない。
@@ -94,11 +99,13 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
 - target-scopedなDA-002 / DA-003は宣言targetごとのverdictを監査レコードへ正典として保存し（本冊 §3.6）、その集合は全宣言targetと過不足なく1対1に対応する。規則単位verdictはこのtarget別verdictのfoldで導出する。target entryの欠落・重複・余剰、宣言target集合との不一致、またはtarget別verdictと規則単位verdictのfold不整合はmalformed recordとし、現在の`static_audit`へ有効なPASSを供給しない。
 - target別verdictを持たない読取り互換static Audit Recordはrule-set version相違によりSTALEとなり、現在のPASSへ昇格しない。
-- 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）なら到達要件は充足され、その target別 verdictはstatic_audit集約へUNKNOWNを寄与しない。他ルールが違反なしならstatic_auditはPASSになる。
-- 複数targetを宣言するTestで、target Aはstatic（target別DA-002 verdict = PASS）、target Bはruntime（Bのtarget別target_execution = PASS）で充足する場合、両到達要件が満たされstatic_auditはPASSになる。到達判定はtarget別に行い、record中のAのstatic verdictとBのstatic verdictを取り違えない。
-- target別のstatic verdictは§3.6・§8.5の実効監査選択をtargetごとに適用して定め（有効record間で当該targetにFAILがあればFAIL支配、なければ最新の有効recordの当該target verdict）、runtime resultは§11.2が選択した最新Evidenceが`evidence_validity = PASS`のときだけ用いる。§11.2と独立に古い有効Evidenceへフォールバックしない。target別DA-002 verdictを持たないrecordは静的証明を供給せず、当該targetの到達はruntime証明のみに依存する。
+- 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる（本冊 §7.3）。当該targetのruntime target_executionがPASS（checked: true・count > 0）ならDA-002到達要件は充足され、検証時の項目算出でその target別DA-002はUNKNOWN扱いにならない。
+- 呼出自体を静的に確認できないtarget（subprocess spawn等）は、DA-002だけでなくDA-003のtarget別verdictもUNKNOWNになり（空虚PASS / FAILとしない）、DA-003はruntimeで救済されない。したがってexit code / stdoutだけをassertするsubprocess E2Eは、DA-002をruntimeで充足しても当該targetのDA-003がUNKNOWNのままで`static_audit = UNKNOWN`となり、PASSに到達しない。
+- 他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTestは、DA-002 UNKNOWN・DA-003 PASSとなり、runtime target_executionがPASSでかつ他ルールも違反なしなら`static_audit = PASS`になる（runtime救済で実益が出るのはこの型）。
+- 複数targetを宣言するTestで、target Aは静的（DA-002 = PASS）、target Bはruntime（Bのtarget別target_execution = PASS）でDA-002到達を充足する場合、BもTest本体内で結果をassertしDA-003 = PASSなら`static_audit = PASS`になる。Bが呼出不可視（subprocess）でDA-003 UNKNOWNなら、DA-002が充足されても`static_audit = UNKNOWN`となる。到達判定はtarget別に行い、AとBのstatic verdictを取り違えない。
+- target別のstatic verdictは§3.6・§8.5の実効監査選択をtargetごとに適用して定め（有効record間で当該targetにFAILがあればFAIL支配、なければ最新の有効recordの当該target verdict）、runtime resultは§11.2が選択した最新Evidenceが`evidence_validity = PASS`のときだけ用いる。§11.2と独立に古い有効Evidenceへフォールバックしない。per-target verdictを持たないrecordは有効recordにならず、有効recordが1件も無ければstatic_auditはruntime証明の有無に関わらずSTALE / NOT_CHECKEDで、到達充足は有効recordの代替にならない（再監査後に§7.3を適用）。
 - 有効record R1で当該targetのDA-002 = FAIL、有効record R2で同targetのDA-002 = UNKNOWNが併存する矛盾状態では、target別にFAILが支配し、runtime target_executionがPASSでも当該targetの到達要件は充足しない（record selectionでFAILを回避しない）。
-- newest Evidenceが§11.2でSTALE（例: 過去commitへHEADを戻した）のとき`target_execution`はSTALEとなり、static_auditは古い有効Evidenceを拾わない。同一検証内で`target_execution`がSTALEかつ`static_audit`がPASSになる履歴不一致を生じない。
+- runtime証明に依存するstatic_audit PASSでは、§11.2で最新Evidenceが無効なら古い有効Evidenceへフォールバックせず、`target_execution`がSTALEの一方で別Evidenceからstatic_audit PASSになる履歴不一致を生じない。全targetを静的証明した`static_audit = PASS`はEvidence鮮度に依存せず、この不変条件の対象外。
 - 表示scopeと内部依存評価を分離する。`vtest verify --items static_audit`のような限定scopeでも、aggregatorは§7.3のruntime到達判定に必要なEvidence鮮度・target別target_executionを内部依存として評価するが、scope外の`target_execution` / `evidence_validity`自体のreport valueは`NOT_CHECKED`のまま保持する。
 - 同じ到達UNKNOWNのTestでも、当該targetのtarget_executionがFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、当該targetのDA-002 UNKNOWNはstatic_auditのUNKNOWNとして残る。target別DA-002 verdict = FAIL（境界内で到達を静的否定）はruntime証明で覆らない。
 - runtime coverageはDA-003を代替しない。結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのままstatic_auditへ寄与する。
