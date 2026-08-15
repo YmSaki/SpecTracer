@@ -341,6 +341,7 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
         all_audits.len(),
         "--all persists exactly one canonical audit per returned test"
     );
+    let mut saw_per_target_verdict = false;
     for audit in all_audits {
         let audit_id = audit["id"].as_str().expect("audit response has an ID");
         let test_id = audit["test_id"]
@@ -394,7 +395,38 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
             }),
             "audit reasons are not structured and traceable: {record:?}"
         );
+        // The target-scoped rules carry a per-target verdict list keyed by the
+        // resolved canonical Locator (詳細設計 §3.6, §7.2). Every M3 case declares
+        // a resolvable target, so DA-002 / DA-003 emit the list.
+        for reason in &record.reasons {
+            if !matches!(reason.rule.as_deref(), Some("DA-002" | "DA-003")) {
+                assert!(
+                    reason.targets.is_empty(),
+                    "only DA-002/DA-003 carry per-target verdicts: {reason:?}"
+                );
+                continue;
+            }
+            for target in &reason.targets {
+                saw_per_target_verdict = true;
+                assert!(
+                    target.target.starts_with("rust-cargo::"),
+                    "per-target identity must be a canonical Locator, not a declared spelling: {target:?}"
+                );
+                assert!(
+                    matches!(target.verdict.as_str(), "PASS" | "UNKNOWN" | "FAIL"),
+                    "per-target verdict must be PASS/UNKNOWN/FAIL: {target:?}"
+                );
+                assert!(
+                    !target.basis.is_empty(),
+                    "per-target verdict must cite a basis: {target:?}"
+                );
+            }
+        }
     }
+    assert!(
+        saw_per_target_verdict,
+        "the M3 batch produced no per-target DA-002/DA-003 verdicts"
+    );
 }
 
 const M3_CASES: &str = r#"
