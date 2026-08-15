@@ -1,0 +1,203 @@
+{
+ "run_id": "wf_a35fae93-ba3",
+ "method": "per-new-VO adequacy: sensor + corpus sweep, facet analysis, composability, contradiction duty (code-cited, unverified candidate)",
+ "by_final": {
+  "PROVEN": [],
+  "PARTIAL": [
+   "VO-ADAPTER-13",
+   "VO-ADAPTER-14",
+   "VO-ADAPTER-15",
+   "VO-EXEC-14",
+   "VO-PARALLEL-10"
+  ],
+  "UNSUPPORTED": [],
+  "CONTRADICTED_CANDIDATE": [
+   "VO-REGISTRY-15"
+  ]
+ },
+ "details": [
+  {
+   "vo_id": "VO-EXEC-14",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-VERIFY-001",
+     "verdict": "PARTIAL",
+     "facets": "Evidences the ordering facet only: one disambiguating cross-offset pair (09:00+09:00 vs 00:30Z) asserted lt, so chronological-over-lexical and its contrapositive 'never lexical' are the same single test point (verify/lib.rs:1896-1942). Uncovered: the claim's precondition and its consequent — no test presents >=2 Evidence records for one Test to the judging path. The test calls compare_evidence_recency in isolation; the wiring comparator -> read_evidence_records fold -> the record whose §11.2 freshness is judged is established only by code inspection (verify/lib.rs:119, 1822-1837), not by any test. Fractional-second and unparseable branches also unexercised."
+    },
+    {
+     "test_id": "TEST-VERIFY-015",
+     "verdict": "NO",
+     "facets": "Relevant but not proof. Same offset-ordering shape and the same rfc3339_instant helper (verify/lib.rs:1132), yet a different contract surface: AuditRecord.audited_at selected by compare_audit_recency (1114-1126) inside evaluate_static_audit, not EvidenceRecord.executed_at inside the §11.2 freshness path. Under the composability rule, shared-helper overlap does not transfer across mechanisms; it evidences the sibling audit-selection duty (VO-VERIFY-002), zero facets of this claim. Deliberately rejected, not overlooked."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. The judging path is chronological: read_evidence_records folds per test_id keeping the maximum — `if compare_evidence_recency(current, &record).is_lt() { *current = record.clone(); }` (verify/lib.rs:1822-1837) — and that comparator normalizes offsets via rfc3339_instant, subtracting `offset_seconds` before comparing (1132-1175, 1840-1851); the selected map feeds verify at 119. Exonerating note for the later pass: the lexical `evidence.sort_by(|l, r| l.executed_at.cmp(&r.executed_at))` at scan/operations.rs:784 is inside show_test, whose TestView is only serialized to JSON for `test show` (cli/lib.rs:477). It feeds no freshness verdict, so it does not contradict the claim as scoped.",
+   "notes": "Corpus sweep complete: grep over all 249 @vtest.id sites for executed_at/recency/latest/offset keywords yields only these two; the sole other EvidenceRecord fixture (verify/lib.rs:2281) is single-record with a fixed Z timestamp. Facet union is not proof union here — one unit test on a comparator cannot establish which record the freshness algorithm judges, so PARTIAL, not PROVEN. Gap to close: an integration test writing two Evidence records for one Test with divergent offsets, then asserting evidence_validity follows the chronologically later one. Minor, non-escalated: rfc3339_instant rejects lowercase `z`/`t`, valid under RFC 3339; such records rank unparseable-lowest. The rederivation gate_check carved out unparseable handling as implementation policy, so it does not negate the claim."
+  },
+  {
+   "vo_id": "VO-PARALLEL-10",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-SCAN-016",
+     "verdict": "PARTIAL",
+     "facets": "Duplicate-collision facet at the scan surface: bare + REL- prefixed files sharing one ULID payload both emit E-SCAN-010 (count==2) each with a location (scan/lib.rs:1032-1044). Does not exercise filename-vs-id mismatch; non-adoption is unobservable (relations are diagnose-only, no consumer), so satisfied vacuously, not proven."
+    },
+    {
+     "test_id": "TEST-CLI-010",
+     "verdict": "PARTIAL",
+     "facets": "Duplicate facet at the CLI surface (adapter_acceptance.rs:451-470): bare+prefixed fixtures give exit 1 and E-SCAN-010 present. Asserts code presence only — no location assert, no mismatch case, no normalization assertion."
+    },
+    {
+     "test_id": "TEST-STORE-031",
+     "verdict": "PARTIAL",
+     "facets": "Positive identity facet (records.rs:2910-2916: bare payload input yields the same canonical REL- record) plus mismatch rejection (2908: from_yaml with a different id is Err). Store-parser surface only — StoreError, not diagnostic code/location/non-adoption."
+    },
+    {
+     "test_id": "TEST-SCAN-017",
+     "verdict": "PARTIAL",
+     "facets": "Indirect positive path: a bare-named/bare-id relation parses (E-SCAN-009 asserted implies acceptance). No duplicate, no mismatch, no E-SCAN-010 assertion tied to a relation."
+    },
+    {
+     "test_id": "TEST-CLI-052",
+     "verdict": "PARTIAL",
+     "facets": "Indirect positive path at CLI: bare relation fixture 01J8XVZK3Q....yaml accepted, E-SCAN-009 located on it. Its E-SCAN-010 location assert is on a VO file, not a Relation, so it does not evidence the Relation rejection facet."
+    }
+   ],
+   "contradiction_evidence": "None. The implementation matches the claim's realizable scenarios: scan/lib.rs:1015-1024 keys payload_counts on compat-normalized file stems, 1032-1044 emits E-SCAN-010 with location and `continue`s (no adoption) for every colliding file; records.rs:838-848 normalizes bare/prefixed via relation_ulid_payload and errors when wire and filename payloads differ, surfacing as E-SCAN-010 with location at scan/lib.rs:1059-1070; canonical id is set to REL-<payload> (records.rs:850).",
+   "notes": "Facet union covers identity-normalization and duplicate-rejection at the scan/CLI surface, but the mismatch facet (file name vs `id` different payloads -> E-SCAN-010 with location) is evidenced only at the store-parser surface (TEST-STORE-031 asserts StoreError, not a diagnostic). No corpus test drives scan/CLI on a mismatching Relation, so the surfaces do not compose. Untested boundary, not a contradiction: two distinct filenames carrying one wire id (REL-X.yaml plus A.yaml with `id: REL-X`) — only the mismatching file is diagnosed; the duplicate clause keys on filename normalization. \"Non-adoption\" is unobservable: relations have no downstream consumer in cli/verify."
+  },
+  {
+   "vo_id": "VO-ADAPTER-14",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-STORE-011",
+     "verdict": "PARTIAL",
+     "facets": "Sensor. Positive path: an explicit `version: 1` flat file read by ProjectConfig::from_yaml yields an adapter reachable as rust_cargo() whose scan.include is the file's flat value (lib.rs:618-625). rust_cargo() panics if absent, so at-least-one-with-that-id is implied. Missing: exactly-one (no adapters.len() assertion), run values, roots, and the no-rewrite facet (pure in-memory call, no file involved). Its own core assertion (explicit include replaces defaults) is a regression pin with no normative source, outside this VO's facets."
+    },
+    {
+     "test_id": "TEST-CLI-014",
+     "verdict": "PARTIAL",
+     "facets": "In-memory-only / no-rewrite facet, at system level: verify runs against the v1 fixture (tests/fixtures/calc/m1/base/.verify/config.yaml, version 1, 11-item full_scope), reports the fixed twelve, and byte-compares config.yaml before/after (adapter_acceptance.rs:582-598). Proves the 11->12 compat normalization exists only in memory and reading does not rewrite the canonical file. Evidences nothing about adapter identity, cardinality, or scan/run wire values."
+    },
+    {
+     "test_id": "TEST-CLI-015",
+     "verdict": "PARTIAL",
+     "facets": "Same no-rewrite facet on an explicit flat v1 file carrying scan.include [src, tests] and run.coverage off with no full_scope key (adapter_acceptance.rs:605-634): twelve items reported, config bytes unchanged. Strongest evidence that the version-1 conversion is in-memory only. Still no assertion that the flat scan/run values land in a single rust-cargo adapter."
+    },
+    {
+     "test_id": "TEST-STORE-013",
+     "verdict": "PARTIAL",
+     "facets": "Boundary-ambiguity: a versionless file defaults to version 1 (lib.rs:242) and its bracketed/empty flat scan lists reach rust_cargo().scan (lib.rs:653-665). Reinforces the positive scan facet at the v1 default boundary; silent on cardinality, run, and no-rewrite."
+    },
+    {
+     "test_id": "TEST-STORE-015",
+     "verdict": "PARTIAL",
+     "facets": "Negative-rejection on the v1 flat run path: `run: coverage: guessed` in a versionless (v1) file fails closed with a run.coverage error (lib.rs:686-690). Shows the flat run block is read and validated as part of the v1 adapter conversion, but never asserts an accepted value reaching rust_cargo().run."
+    },
+    {
+     "test_id": "TEST-CLI-028",
+     "verdict": "PARTIAL",
+     "facets": "Behavioral inference only: editing flat v1 `assertion_macros` in config.yaml stales static_audit (adapter_acceptance.rs:924-955), implying the flat v1 scan block feeds the rust-cargo scan projection. It mutates the config itself, so it cannot evidence no-rewrite, and asserts no configuration value."
+    },
+    {
+     "test_id": "TEST-CLI-026",
+     "verdict": "PARTIAL",
+     "facets": "Behavioral inference only: changing flat v1 run.coverage off->llvm-cov keeps static_audit PASS (adapter_acceptance.rs:846-871), implying the flat v1 run block is read and classified run-only. No assertion that the value lands in rust_cargo().run; also mutates the config."
+    },
+    {
+     "test_id": "TEST-STORE-010",
+     "verdict": "NO",
+     "facets": "Round-trips ProjectConfig::default_for, which is version 2 (lib.rs:153), so to_yaml emits the v2 adapters form. Never exercises the version-1 flat wire path; relevance only, no facet credit."
+    }
+   ],
+   "contradiction_evidence": "No contradiction. The v1 branch of from_yaml builds a singleton adapter with the claimed ID and the file's flat values: `vec![AdapterSection { id: \"rust-cargo\".to_owned(), roots: vec![\".\".to_owned()], scan: wire.scan.unwrap_or_else(default_scan), run: wire.run.unwrap_or_else(default_run) }]` (crates/vtest-store/src/lib.rs:252-263). Reading is pure: load_config only does `fs::read_to_string(layout.config())` then from_yaml (lib.rs:548-559). The sole writer of layout.config() in the whole tree is init_project (lib.rs:503), which errors AlreadyInitialized when .verify exists (lib.rs:482-484); grep for layout.config()/\"config.yaml\" found no other write path. So no rewrite-on-read path exists.",
+   "notes": "Composition is legitimate here (all candidates route through the same from_yaml/load_config surface, unlike VO-INTAKE-04's dual mechanism), yet the facet union still leaves holes, so PARTIAL not PROVEN. Uncovered: (1) \"exactly one\" adapter is never asserted — rust_cargo() proves at-least-one-with-that-id, and no test checks adapters.len()==1 for a v1 read; (2) no positive assertion that a flat v1 run.coverage value lands in rust_cargo().run (only rejection and staleness inference); (3) the v1-with-`adapters:` rejection (lib.rs:253-257) is untested — grep found the message only in the impl. The no-rewrite facet is well evidenced (TEST-CLI-014/015)."
+  },
+  {
+   "vo_id": "VO-REGISTRY-15",
+   "final": "CONTRADICTED_CANDIDATE",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-SCAN-013",
+     "verdict": "PARTIAL",
+     "facets": "Sensor test (crates/vtest-scan/src/lib.rs:1981). Evidences F1 (unknown `@vtest.typo` on a test declaration yields E-SCAN-006) and F2 (repeated `@vtest.id` yields E-SCAN-005). Does NOT evidence F3: it asserts only `d.code ==`, never the severity field, so \"error rather than warning\" rests on the E- naming convention, not an observation. Does NOT evidence F4 (no check-item state read; scan-only). Does not touch the non-test declaration surface where the contract is unenforced."
+    },
+    {
+     "test_id": "TEST-CLI-052",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-cli/tests/m1_acceptance.rs:318, fixture tests/fixtures/calc/m1/cases/diagnostics.rs. Adds the operational half of F3: both codes surface at the CLI with correct file locations, `ok: false`, exit 1 — a warning would not fail the command. Still no severity-field assertion and no F4: `vtest scan` emits no check items, and run_verify (cli/lib.rs:2454-2494) proceeds past scan errors without binding them to entity check items."
+    },
+    {
+     "test_id": "TEST-SCAN-015",
+     "verdict": "PARTIAL",
+     "facets": "crates/vtest-scan/src/lib.rs:2035. Boundary-ambiguity facet only: which keys the contract admits is context-dependent — two `@vtest.target` lines are legal under `kind: integration-*` and E-SCAN-005 under `unit-normal`. But it exercises a different code path (discovery.rs:1032, the post-parse arity check), not the KNOWN/duplicate contract at discovery.rs:131-143, so it does not compose with the sensor over one contract surface."
+    },
+    {
+     "test_id": "TEST-CLI-047",
+     "verdict": "NO",
+     "facets": "crates/vtest-cli/tests/adapter_acceptance.rs:1592. Adjacent by keyword (`src-id`, duplicate) but a different predicate: one SRC ID value claimed by two constructs (E-SCAN-011 + E-SCAN-004), i.e. identifier uniqueness across entities, not repetition of a key within one declaration. Evidences no facet of this claim."
+    },
+    {
+     "test_id": "TEST-SCAN-014",
+     "verdict": "NO",
+     "facets": "crates/vtest-scan/src/lib.rs:2017. Inverse predicate — a required key absent (E-SCAN-007), not a key the contract refuses to admit. Swept in because it shares the parse path and error family; contributes no facet."
+    }
+   ],
+   "contradiction_evidence": "The field-contract diagnostics are gated behind test-ness. crates/vtest-adapter-rust/src/discovery.rs:947-960 pushes the Source Target, then `if !is_test_function(attrs) { return; }` — every E-SCAN-005/006 emission (971-980) sits after that return. parse_src_id (167-171) reads `values.get(\"src-id\")` and discards the `__parse_error__` sentinel set at 149-153. Concrete condition: a production function annotated `/// @vtest.src_id SRC-X` (underscore typo; KNOWN at :117 lists `src-id`). Expected per 詳細設計 §4.2 L524 (「打鍵ミスの検出を優先し、警告ではなくエラーとする」): E-SCAN-006. Actual: no diagnostic, key ignored as free text, Source Target registered with `src_id: None`, check items unaffected — the exact outcome the claim denies.",
+   "notes": "Sweep: grepped E-SCAN-005/006 (only 3 call sites), `__parse_error__`, KNOWN, `@vtest.typo`, `@vtest.src-id`, severity assertions across 233 `@vtest.id` declarations. Secondary defect, same file: discovery.rs:149-153 uses `else if`, so a declaration carrying both an unknown key and a duplicate key reports only E-SCAN-006 — E-SCAN-005 is swallowed. Also F4 is unevidenced anywhere: an offending Test is dropped via early `return` rather than left with non-PASS check items, so §5.4's 「error は該当エンティティに関わるチェック項目を非PASSにする」 has no implementation locus for this code family. Contradiction is UNVERIFIED; it hinges on whether §4.2/§5.4 scope reaches non-test adapter-owned declarations. Advisor call was rate-limited."
+  },
+  {
+   "vo_id": "VO-ADAPTER-13",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-ARUST-002",
+     "verdict": "PARTIAL",
+     "facets": "Sensor. Evidences F4 (compat set disagreeing with coexisting execution -> AdapterError::Mismatch) and F5 (incomplete compat set after removing `package` -> MalformedOutput). Does not touch F1 execution-only input, F6 neither-execution-nor-compat rejection (line 279 passes a partial compat map, not an empty one), F7 empty-selector/no-synthesis, F8 foreign-adapter execution."
+    },
+    {
+     "test_id": "TEST-ARUST-001",
+     "verdict": "PARTIAL",
+     "facets": "Same contract surface (RustCargoCodec::decode_execution, same fixture). Evidences F2 (complete compat set alone yields the descriptor) and F3 (coexisting execution + consistent compat set yields the same coordinates), plus encode round-trip. Silent on every rejection facet and on no-synthesis."
+    },
+    {
+     "test_id": "TEST-AAPI-004",
+     "verdict": "NO",
+     "facets": "Exercises a test-local SyntheticCodec, not the Rust compat contract; asserts filter/package/test_target never enter the neutral Test (non-leakage) and target normalization. Different contract surface; no facet of this claim."
+    },
+    {
+     "test_id": "TEST-CLI-048",
+     "verdict": "NO",
+     "facets": "Asserts scan JSON carries filter/package/test_target for the calc fixture — the encode/discovery direction, not wire-input decoding or rejection. Relevance only."
+    }
+   ],
+   "contradiction_evidence": "None found; the implementation is faithful. crates/vtest-adapter-rust/src/lib.rs:33-58: any of filter/package/test_target present forces decode_compatibility_execution, whose `?` rejects partial sets; arms reject disagreement (\"execution and rust-cargo compatibility fields disagree\"), foreign adapters, and (None,None) (\"neither execution nor complete compatibility fields\"). No default is fabricated: required_string (lib.rs:127-137) rejects empty/absent filter, test_target is required (lib.rs:115), compatibility_to_suite rejects invalid kind/name. Empty selectors carried on an incoming `execution` are closed one level up by test.validate() (crates/vtest-adapter-api/src/lib.rs:398-400 with crates/vtest-model/src/lib.rs:356-357).",
+   "notes": "Facet union of ARUST-001+002 composes (identical surface/fixture) but covers only F2-F5. Unevidenced: F1 (execution-only, no compat keys — the claim's primary positive facet), F6 ((None,None) rejection), F7 (no empty selector/default coordinate), F8 (foreign-adapter execution). Sharpest gap: decode_test_wire (adapter-api lib.rs:350) has no production and no test caller — the composed wire surface, where validate() is the only thing closing the empty-selector passthrough (F7's actual enforcement point), is entirely untested. Adjacent but out of scope: discovery.rs:649 empty-package fallback and :1119 \"unknown\" suite synthesize coordinates, though E-SCAN-004 keeps that path fail-closed. Root tests/ and plugins/ hold no further candidates."
+  },
+  {
+   "vo_id": "VO-ADAPTER-15",
+   "final": "PARTIAL",
+   "candidate_tests": [
+    {
+     "test_id": "TEST-SCAN-010",
+     "verdict": "PARTIAL",
+     "facets": "Exclusion path (strong): src/ignored.rs holds non-Rust bytes, so absence of any E-SCAN-001 'failed to parse ignored.rs' proves the file was never read — closing the DiscoveryBatch-vs-materialized-sources indirection (scan_project delegates to RustCargoDiscovery, vtest-scan/src/lib.rs:400,416). Positive non-vacuity: src/kept.rs is present, so absence is not a dead walk. Boundary: .ignore lists src/kept.rs yet it survives, evidencing VCS-only semantics (discovery.rs:692 .ignore(false)). Unevidenced: directory patterns, nested/negated .gitignore, .git/info/exclude, file-as-include-root."
+    },
+    {
+     "test_id": "TEST-SCAN-011",
+     "verdict": "NO",
+     "facets": "Same covers group (VO-SCAN-002) and same target scan_project, but exercises E-SCAN-004 ambiguous locator resolution. No ignore-rule or discovery-scope facet."
+    },
+    {
+     "test_id": "TEST-SCAN-012",
+     "verdict": "NO",
+     "facets": "W-SCAN-101 unregistered-test reporting; touches the discovered file set only downstream. No VCS-ignore facet."
+    }
+   ],
+   "contradiction_evidence": "Duty discharged; nothing promoted. Implementation matches the claim's own normative ref: 詳細設計 §5.5 \"include配下の*.rsをignoreクレートで列挙（.gitignore準拠、target/は除外）\" vs discovery.rs:687-700 — WalkBuilder rooted at project_root with .git_ignore(true):693, .require_git(false):696, .parents(false):691, .ignore(false):692, target/ pruned in filter_entry:699. Two near-misses judged wording/boundary, not contradictions: .git_global(false):694 and .git_exclude(false):695 mean .git/info/exclude and core.excludesFile do not exclude (spec says .gitignore only); and discovery.rs:679-684 `if path.is_file() { output.push(...) }` bypasses the walk when an include root names a file directly (spec models include as directories).",
+   "notes": "Sweep: grep for gitignore/ignore-crate mechanism across crates/ returns only TEST-SCAN-010; no second test touches the claim. Not PROVEN — one root-level file pattern is the whole evidence; directory patterns, nested/negated rules, and the file-include-root hole are unevidenced, and no test asserts on the DiscoveryBatch value itself (only the materialized ScanResult, mitigated by the never-parsed inference). Recommend at remap: tighten the claim wording from \"VCS ignore rules\" to \".gitignore rules (repository-local, parents/global/info-exclude out of scope)\" so it matches §5.5, and add a directory-pattern case plus a decision on file-valued scan.include."
+  }
+ ]
+}
