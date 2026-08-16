@@ -1713,3 +1713,47 @@ fn vo_scoped_bundle_refuses_when_any_covering_test_target_is_unresolved() {
         "the unresolved target is reported instead of a partial bundle over the other Test: {response}"
     );
 }
+
+/// @vtest.id TEST-CLI-105
+/// @vtest.covers VO-SEMAUDIT-07
+/// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_audit
+/// @vtest.intent A prior PASS impl-consistency audit is never presented once the declared target becomes ambiguous; MISMATCH replaces it, not PASS or STALE
+/// AF-048: 詳細設計 §8.3 forbids the audit-verdict mapping from overwriting a
+/// resolution-failure state -- verified in the harder direction, where a valid
+/// audit record already exists before the collision is introduced.
+#[test]
+fn ambiguous_target_overrides_a_prior_pass_audit_instead_of_staying_pass() {
+    let project = TempProject::from_m1_base("ambiguous-overrides-prior-pass");
+    prepare_dual_addressed_target(&project);
+    let bundle_id = bundle(&project, "impl-consistency", &["--test", "TEST-DUAL-SRC"]);
+    submit_audit(&project, &bundle_id, "impl-consistency");
+
+    let verify_before = invoke(
+        &project.root,
+        "verify",
+        &["--items", "impl_consistency", "--test", "TEST-DUAL-SRC"],
+    );
+    assert_eq!(
+        report_item(&envelope(&verify_before), "impl_consistency")["value"],
+        "PASS",
+        "sanity: the audit is valid before the collision is introduced"
+    );
+
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {}\n",
+    )
+    .expect("claim one permanent SRC ID from two constructs");
+
+    let verify_after = invoke(
+        &project.root,
+        "verify",
+        &["--items", "impl_consistency", "--test", "TEST-DUAL-SRC"],
+    );
+    let response = envelope(&verify_after);
+    assert_eq!(
+        report_item(&response, "impl_consistency")["value"],
+        "MISMATCH",
+        "the resolution-failure state replaces the prior audit-derived value, never overwritten to PASS or STALE: {response}"
+    );
+}
