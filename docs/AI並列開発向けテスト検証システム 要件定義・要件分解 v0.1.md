@@ -395,7 +395,7 @@ Test ID
 
 ## 7.1 Test traceability
 
-登録adapterがTestとして発見した実行可能なtest constructは、すべて宣言された目的（role）を持つ管理対象でなければならない。
+登録adapterがTestとして発見した実行可能なtest constructは、すべて有効な目的（実効role）が確定する管理対象でなければならない。
 すべてのTestを管理対象とすることと、当該Testを仕様適合の証拠として算入することは、別個の条件とする。
 
 発見されたTest集合を `D`、構造上完全なmanaged Test Entity集合を `M` とする。
