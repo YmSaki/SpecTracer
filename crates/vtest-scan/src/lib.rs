@@ -58,24 +58,66 @@ pub struct ScanResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Resolve a declared `TargetRef` to the single Source Target it names, the
-/// core's one resolution path (詳細設計 §6.1, §907). A locator matches by exact
-/// canonical target; a permanent SRC ID matches the Source Target that declared
-/// it. The resolved `source.target` is always a canonical locator, so callers
-/// take `source.target.normalized()` as the target identity (§6.1.1) rather than
-/// the declared spelling, which for an SRC ID reference is not a locator.
+/// Arity-classified outcome of resolving one declared `TargetRef` against a
+/// Source Target index — the three states 詳細設計 §6.1/§6.2 distinguish:
+/// resolved to exactly one candidate, absent (zero candidates), or ambiguous
+/// (2+ candidates, e.g. cfg-duplicated locators or a colliding permanent SRC
+/// ID). Zero and 2+ share one diagnostic code (E-SCAN-004, §6.2's pooled
+/// "解決失敗"); this type keeps the two conditions distinguishable in-process
+/// for callers that must map them to different `CheckValue`s (基本仕様 §7.5).
+#[derive(Debug)]
+pub enum TargetResolution<'a> {
+    Resolved(&'a SourceFunction),
+    Absent,
+    Ambiguous,
+}
+
+/// Classify a declared `TargetRef` against a Source Target index by exact
+/// match, the core's one resolution path (詳細設計 §6.1, §907): no other
+/// subsystem may independently scan a candidate list to pick one. A locator
+/// matches by exact canonical target; a permanent SRC ID matches the Source
+/// Target(s) that declared it. 2+ matches is ambiguous and selects nothing
+/// (§6.1 L905: "曖昧な解決から代表候補を選ばない").
+pub fn classify_target_resolution<'a>(
+    sources: &'a [SourceFunction],
+    target: &TargetRef,
+) -> TargetResolution<'a> {
+    let mut matches = match target {
+        TargetRef::Locator { .. } => sources
+            .iter()
+            .filter(|source| source.target == *target)
+            .collect::<Vec<_>>(),
+        TargetRef::SrcId(src_id) => sources
+            .iter()
+            .filter(|source| {
+                source
+                    .src_id
+                    .as_ref()
+                    .is_some_and(|candidate| candidate == src_id)
+            })
+            .collect::<Vec<_>>(),
+    };
+    match matches.len() {
+        0 => TargetResolution::Absent,
+        1 => TargetResolution::Resolved(matches.remove(0)),
+        _ => TargetResolution::Ambiguous,
+    }
+}
+
+/// Resolve a declared `TargetRef` to the single Source Target it names, or
+/// `None` on either failure arity (absent or ambiguous — §6.2's pooled
+/// E-SCAN-004). The resolved `source.target` is always a canonical locator, so
+/// callers take `source.target.normalized()` as the target identity (§6.1.1)
+/// rather than the declared spelling, which for an SRC ID reference is not a
+/// locator. Callers that must distinguish absent from ambiguous (§7.5) use
+/// `classify_target_resolution` directly instead.
 pub fn find_target_source<'a>(
     scan: &'a ScanResult,
     target: &TargetRef,
 ) -> Option<&'a SourceFunction> {
-    match target {
-        TargetRef::Locator { .. } => scan.sources.iter().find(|source| source.target == *target),
-        TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
-            source
-                .src_id
-                .as_ref()
-                .is_some_and(|candidate| candidate == src_id)
-        }),
+    match classify_target_resolution(&scan.sources, target) {
+        TargetResolution::Resolved(source) => Some(source),
+        TargetResolution::Absent | TargetResolution::Ambiguous => None,
     }
 }
 
@@ -1279,10 +1321,8 @@ fn cross_entity_diagnostics(
     vo_ids: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut locators = BTreeMap::<String, usize>::new();
     let mut src_ids = BTreeMap::<String, usize>::new();
     for source in sources {
-        *locators.entry(source.target.normalized()).or_default() += 1;
         if let Some(src_id) = &source.src_id {
             *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
         }
@@ -1318,10 +1358,10 @@ fn cross_entity_diagnostics(
     }
     for test in tests {
         for target in &test.targets {
-            let resolved = match target {
-                TargetRef::Locator { .. } => locators.get(&target.normalized()).copied() == Some(1),
-                TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
-            };
+            let resolved = matches!(
+                classify_target_resolution(sources, target),
+                TargetResolution::Resolved(_)
+            );
             if !resolved {
                 diagnostics.push(
                     Diagnostic::error(
@@ -1964,6 +2004,21 @@ fn ambiguous() {}
                     .as_ref()
                     .is_some_and(|location| location.locator == "ambiguous")
         }));
+        // The diagnostic alone does not constrain resolution (VO-REGISTRY-21):
+        // a 2+-match locator must stay unresolved at the one resolution path
+        // (§6.1, §907), not silently pick the first candidate.
+        let ambiguous_target = TargetRef::Locator {
+            adapter: AdapterId::new(RUST_ADAPTER_ID),
+            value: "src/ambiguous.rs::duplicate".to_owned(),
+        };
+        assert!(
+            find_target_source(&result, &ambiguous_target).is_none(),
+            "an ambiguous locator must not resolve to any candidate"
+        );
+        assert!(matches!(
+            classify_target_resolution(&result.sources, &ambiguous_target),
+            TargetResolution::Ambiguous
+        ));
     }
 
     /// @vtest.id TEST-SCAN-012

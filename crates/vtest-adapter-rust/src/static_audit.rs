@@ -1358,6 +1358,19 @@ pub(crate) fn try_parse_macro_exprs(mac: &Macro) -> Option<Vec<Expr>> {
         .map(|values| values.into_iter().collect())
 }
 
+/// Find the function at `item_path` within one already-selected file by exact
+/// match against its module-qualified path (詳細設計 §6.2: locator resolution
+/// is exact-match). `item_path` always comes from a locator the core's single
+/// resolution path (§6.1, §907) already validated against the discovery-built
+/// SRC index, and that index numbers a construct's module path the same way
+/// `collect` does here: reset to empty per file, extended only by in-file
+/// `mod foo { .. }` blocks (`vtest-adapter-rust::discovery::collect_items`).
+/// A file-backed `mod foo;` never contributes an outer prefix to a locator, so
+/// no reconciliation between the two is needed. This function must not fall
+/// back to a non-exact heuristic (e.g. a unique path suffix): that would make
+/// this file's own re-parse a second, independent candidate-selection path
+/// alongside the core's, which §907 forbids even when the heuristic happens to
+/// be arity-safe.
 pub(crate) fn find_function<'a>(file: &'a File, item_path: &str) -> Option<&'a ItemFn> {
     fn collect<'a>(items: &'a [Item], prefix: &str, output: &mut Vec<(String, &'a ItemFn)>) {
         for item in items {
@@ -1388,23 +1401,10 @@ pub(crate) fn find_function<'a>(file: &'a File, item_path: &str) -> Option<&'a I
     }
     let mut functions = Vec::new();
     collect(&file.items, "", &mut functions);
-    if let Some((_, item)) = functions.iter().find(|(path, _)| path == item_path) {
-        return Some(*item);
-    }
-    // A file-backed `mod foo;` contributes an outer scanner prefix that does
-    // not appear in the parsed file itself.  A unique suffix is safe; an
-    // ambiguity must not silently select the first same-named function.
-    let suffix = format!("::{item_path}");
-    let matches = functions
+    functions
         .iter()
-        .filter(|(path, _)| item_path.ends_with(&format!("::{path}")) || path.ends_with(&suffix))
+        .find(|(path, _)| path == item_path)
         .map(|(_, item)| *item)
-        .collect::<Vec<_>>();
-    if matches.len() == 1 {
-        Some(matches[0])
-    } else {
-        None
-    }
 }
 
 pub(crate) fn function_item_path(file: &File, needle: &ItemFn) -> Option<String> {
@@ -2300,6 +2300,20 @@ mod tests {
         let b = find_function(&file, "b::checks").unwrap();
         assert!(!std::ptr::eq(a, b));
         assert!(find_function(&file, "checks").is_none());
+    }
+
+    /// @vtest.id TEST-ARUST-023
+    /// @vtest.covers VO-ARUST-010
+    /// @vtest.target crates/vtest-adapter-rust/src/static_audit.rs::find_function
+    /// @vtest.intent A unique but non-exact path suffix does not resolve; only an exact module-qualified match does (§6.2, §907)
+    /// AF-047: resolving a unique suffix would make this file's own re-parse an
+    /// independent candidate-selection path alongside the core's single
+    /// resolution path, even though the suffix happens to be unambiguous here.
+    #[test]
+    fn unique_suffix_is_not_a_resolution() {
+        let file = syn::parse_file("mod outer { #[test] fn helper() {} }").unwrap();
+        assert!(find_function(&file, "helper").is_none());
+        assert!(find_function(&file, "outer::helper").is_some());
     }
 
     /// @vtest.id TEST-ARUST-018

@@ -1614,3 +1614,146 @@ fn duplicate_permanent_src_id_is_fail_closed() {
     );
     assert_exit(&scanned, 1, "a completed scan with errors");
 }
+
+/// @vtest.id TEST-CLI-102
+/// @vtest.covers VO-SEMAUDIT-09
+/// @vtest.target crates/vtest-cli/src/lib.rs::build_bundle
+/// @vtest.intent An ambiguous permanent SRC ID target refuses impl-consistency bundle generation and selects no candidate; verify (no audit) reports MISMATCH, never NOT_CHECKED
+/// AF-046: an unresolved target's failure state (§7.5) is never collapsed into the audit-missing value it is not.
+#[test]
+fn ambiguous_target_refuses_bundle_and_verify_reports_mismatch_without_an_audit() {
+    let project = TempProject::from_m1_base("ambiguous-bundle-refusal");
+    prepare_dual_addressed_target(&project);
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {}\n",
+    )
+    .expect("claim one permanent SRC ID from two constructs");
+
+    let bundle_attempt = invoke(
+        &project.root,
+        "audit",
+        &["bundle", "--kind", "impl-consistency", "--test", "TEST-DUAL-SRC"],
+    );
+    assert_exit(
+        &bundle_attempt,
+        2,
+        "an ambiguous target refuses bundle generation",
+    );
+    let bundle_response = envelope(&bundle_attempt);
+    assert_eq!(bundle_response["ok"], false);
+    assert!(
+        diagnostic_codes(&bundle_response).contains(&"E-SCAN-004"),
+        "the ambiguous resolution is reported instead of silently selecting a candidate: {bundle_response}"
+    );
+    assert!(
+        fs::read_dir(project.root.join(".verify/cache/bundles"))
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(true),
+        "no candidate bundle is persisted for the ambiguous target"
+    );
+
+    let verify = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    let verify_response = envelope(&verify);
+    assert_eq!(
+        report_item(&verify_response, "impl_consistency")["value"],
+        "MISMATCH",
+        "an ambiguous declared target is MISMATCH even with no audit on record: {verify_response}"
+    );
+}
+
+/// @vtest.id TEST-CLI-103
+/// @vtest.covers VO-SEMAUDIT-09
+/// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_audit
+/// @vtest.intent An absent target reports impl_consistency MISSING without an audit, distinct from the ambiguous MISMATCH
+#[test]
+fn absent_target_reports_missing_impl_consistency_without_an_audit() {
+    let project = TempProject::from_m1_base("absent-target-missing");
+    fs::write(
+        project.root.join("tests/registered.rs"),
+        "/// @vtest.id TEST-M1-CLEAN\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent provides a clean M1 scan baseline\n#[test]\nfn clean_scan_baseline() {}\n\n/// @vtest.id TEST-ABSENT\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::gone\n/// @vtest.intent the declared target does not exist\n#[test]\nfn absent_target() {}\n",
+    )
+    .expect("declare a target that does not exist");
+
+    let verify = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    let response = envelope(&verify);
+    assert_eq!(
+        report_item(&response, "impl_consistency")["value"],
+        "MISSING",
+        "an absent declared target is MISSING, not NOT_CHECKED: {response}"
+    );
+}
+
+/// @vtest.id TEST-CLI-104
+/// @vtest.covers VO-SEMAUDIT-09
+/// @vtest.target crates/vtest-cli/src/lib.rs::build_bundle
+/// @vtest.intent A VO-scoped impl-consistency bundle refuses when any covering Test's declared target is unresolved, rather than silently omitting that Test and bundling the rest
+#[test]
+fn vo_scoped_bundle_refuses_when_any_covering_test_target_is_unresolved() {
+    let project = TempProject::from_m1_base("vo-bundle-partial-refusal");
+    fs::write(
+        project.root.join("tests/registered.rs"),
+        "/// @vtest.id TEST-M1-CLEAN\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent provides a clean M1 scan baseline\n#[test]\nfn clean_scan_baseline() {}\n\n/// @vtest.id TEST-SECOND\n/// @vtest.covers VO-KNOWN\n/// @vtest.target src/lib.rs::gone\n/// @vtest.intent a second Test covering the same VO with an unresolved target\n#[test]\nfn second_test() {}\n",
+    )
+    .expect("declare a second covering Test with an absent target");
+
+    let output = invoke(
+        &project.root,
+        "audit",
+        &["bundle", "--kind", "impl-consistency", "--vo", "VO-KNOWN"],
+    );
+    assert_exit(
+        &output,
+        2,
+        "any covering Test's unresolved target refuses the VO-scoped bundle",
+    );
+    let response = envelope(&output);
+    assert!(
+        diagnostic_codes(&response).contains(&"E-SCAN-004"),
+        "the unresolved target is reported instead of a partial bundle over the other Test: {response}"
+    );
+}
+
+/// @vtest.id TEST-CLI-105
+/// @vtest.covers VO-SEMAUDIT-07
+/// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_audit
+/// @vtest.intent A prior PASS impl-consistency audit is never presented once the declared target becomes ambiguous; MISMATCH replaces it, not PASS or STALE
+/// AF-048: 詳細設計 §8.3 forbids the audit-verdict mapping from overwriting a
+/// resolution-failure state -- verified in the harder direction, where a valid
+/// audit record already exists before the collision is introduced.
+#[test]
+fn ambiguous_target_overrides_a_prior_pass_audit_instead_of_staying_pass() {
+    let project = TempProject::from_m1_base("ambiguous-overrides-prior-pass");
+    prepare_dual_addressed_target(&project);
+    let bundle_id = bundle(&project, "impl-consistency", &["--test", "TEST-DUAL-SRC"]);
+    submit_audit(&project, &bundle_id, "impl-consistency");
+
+    let verify_before = invoke(
+        &project.root,
+        "verify",
+        &["--items", "impl_consistency", "--test", "TEST-DUAL-SRC"],
+    );
+    assert_eq!(
+        report_item(&envelope(&verify_before), "impl_consistency")["value"],
+        "PASS",
+        "sanity: the audit is valid before the collision is introduced"
+    );
+
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-DUAL\npub fn known() {}\n\n/// @vtest.src-id SRC-DUAL\npub fn also_known() {}\n",
+    )
+    .expect("claim one permanent SRC ID from two constructs");
+
+    let verify_after = invoke(
+        &project.root,
+        "verify",
+        &["--items", "impl_consistency", "--test", "TEST-DUAL-SRC"],
+    );
+    let response = envelope(&verify_after);
+    assert_eq!(
+        report_item(&response, "impl_consistency")["value"],
+        "MISMATCH",
+        "the resolution-failure state replaces the prior audit-derived value, never overwritten to PASS or STALE: {response}"
+    );
+}

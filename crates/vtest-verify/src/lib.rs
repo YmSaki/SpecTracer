@@ -12,8 +12,9 @@ use vtest_model::{
     EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
-    find_target_source, rust_cargo_execution_state_hash, rust_cargo_static_audit_projection,
-    ScanResult, STATIC_AUDIT_RULE_SET_ID, STATIC_AUDIT_RULE_SET_VERSION,
+    classify_target_resolution, find_target_source, rust_cargo_execution_state_hash,
+    rust_cargo_static_audit_projection, ScanResult, TargetResolution, STATIC_AUDIT_RULE_SET_ID,
+    STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
@@ -1363,6 +1364,36 @@ fn evaluate_vo_coverage(
     (overall, basis)
 }
 
+/// §7.5 (基本仕様): a Test's declared target that fails to resolve reports
+/// `impl_consistency` as `MISSING` (absent, zero candidates) or `MISMATCH`
+/// (ambiguous, 2+ candidates -- including an `E-SCAN-011` permanent SRC ID
+/// collision). Both conditions share the pooled `E-SCAN-004` diagnostic code
+/// (詳細設計 §6.2), so the split is made on the resolution condition itself
+/// via `classify_target_resolution`, not on which code was emitted. `None`
+/// means every declared target resolved to exactly one Source Target.
+fn target_resolution_check_value(
+    scan: &ScanResult,
+    test: &TestEntity,
+) -> Option<(CheckValue, String)> {
+    let mut worst: Option<(CheckValue, Vec<String>)> = None;
+    for target in &test.targets {
+        let (value, label) = match classify_target_resolution(&scan.sources, target) {
+            TargetResolution::Resolved(_) => continue,
+            TargetResolution::Absent => (CheckValue::Missing, "absent"),
+            TargetResolution::Ambiguous => (CheckValue::Mismatch, "ambiguous"),
+        };
+        let entry = worst.get_or_insert_with(|| (value, Vec::new()));
+        entry.0 = combine_values(entry.0, value);
+        entry.1.push(format!("{} ({label})", target.normalized()));
+    }
+    worst.map(|(value, targets)| {
+        (
+            value,
+            format!("declared target(s) do not resolve: {}", targets.join(", ")),
+        )
+    })
+}
+
 fn evaluate_test_audit(
     root: &Path,
     layout: &VerifyLayout,
@@ -1429,6 +1460,19 @@ fn evaluate_test_audit(
     let mut basis = Vec::new();
     for test in &scan.tests {
         let test_id = test.id.as_str();
+        // §7.5/§8.1/§8.3: for impl-consistency, an unresolved declared target
+        // (absent -> MISSING, ambiguous -> MISMATCH; condition-keyed, not
+        // code-keyed, since §6.2 pools both under E-SCAN-004) is a
+        // resolution-failure state the audit-verdict mapping must not
+        // overwrite. It is checked -- and reported -- independently of
+        // whether any audit record exists, never combined with one.
+        if kind == "impl-consistency" {
+            if let Some((value, reason)) = target_resolution_check_value(scan, test) {
+                overall = combine_values(overall, value);
+                basis.push(format!("Test {test_id}: {value:?} ({reason})"));
+                continue;
+            }
+        }
         let records = per_test.get(test_id).cloned().unwrap_or_default();
         let current = if records.is_empty() {
             CheckValue::NotChecked

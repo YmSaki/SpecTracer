@@ -1420,6 +1420,24 @@ fn build_bundle(
         "impl-consistency" => {
             if let Some(test_id) = test_id {
                 let test = find_test(scan, Some(test_id))?;
+                // §8.1 L1056: if ANY declared target fails to resolve (absent or
+                // ambiguous — both E-SCAN-004, §6.2), no bundle is generated and
+                // no candidate is selected, not just the first declared target.
+                if let Some(unresolved) = test
+                    .targets
+                    .iter()
+                    .find(|target_ref| find_target_source(scan, target_ref).is_none())
+                {
+                    return Err(failure(
+                        "E-SCAN-004",
+                        format!(
+                            "test {} target `{}` cannot be resolved",
+                            test.id,
+                            unresolved.normalized()
+                        ),
+                        ExitCode::Usage,
+                    ));
+                }
                 let target = test
                     .targets
                     .first()
@@ -1518,6 +1536,25 @@ fn build_bundle(
                     .iter()
                     .filter(|test| test.covers.contains(&vo.id))
                     .collect::<Vec<_>>();
+                // §8.1 L1056: an unresolved declared target on ANY covering Test
+                // refuses the whole bundle rather than silently omitting that
+                // Test's contribution and selecting a candidate from the rest.
+                if let Some((unresolved_test, unresolved_target)) = tests.iter().find_map(|test| {
+                    test.targets
+                        .iter()
+                        .find(|target_ref| find_target_source(scan, target_ref).is_none())
+                        .map(|target_ref| (test, target_ref))
+                }) {
+                    return Err(failure(
+                        "E-SCAN-004",
+                        format!(
+                            "test {} target `{}` cannot be resolved",
+                            unresolved_test.id,
+                            unresolved_target.normalized()
+                        ),
+                        ExitCode::Usage,
+                    ));
+                }
                 let mut targets = Vec::new();
                 for test in &tests {
                     if let Some(target) = test
