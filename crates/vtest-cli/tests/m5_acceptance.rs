@@ -230,7 +230,7 @@ fn m5_bundles_include_schema_fields_for_all_audit_kinds() {
         "revision",
         "test",
         "vos",
-        "target",
+        "targets",
         "related_tests",
         "sibling_tests",
         "static_audit",
@@ -255,10 +255,16 @@ fn m5_bundles_include_schema_fields_for_all_audit_kinds() {
             "missing test field {key}"
         );
     }
-    for key in ["locator", "source", "content_hash"] {
+    // §8.2 schema: `targets` is a plural array, and each element's locator
+    // field is named `target`, not `locator`.
+    let targets = test_bundle["targets"]
+        .as_array()
+        .expect("targets is an array");
+    assert_eq!(targets.len(), 1, "TEST-M1-CLEAN declares one target");
+    for key in ["target", "source", "content_hash"] {
         assert!(
-            !test_bundle["target"][key].is_null(),
-            "missing target field {key}"
+            !targets[0][key].is_null(),
+            "missing targets[0] field {key}"
         );
     }
 

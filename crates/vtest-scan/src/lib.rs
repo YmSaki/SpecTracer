@@ -21,8 +21,8 @@ use vtest_model::{
 use vtest_store::{
     current_approval_subject, derive_vo_status, is_valid_ulid, load_config, read_approval,
     read_entity_ids, read_req, read_spec, read_text, read_vo, relation_ulid_payload,
-    yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord, StoreError, VerifyLayout,
-    VoRecord,
+    required_spec_closure, yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord,
+    StoreError, VerifyLayout, VoRecord,
 };
 
 pub mod operations;
@@ -56,6 +56,56 @@ pub struct ScanResult {
     pub tests: Vec<TestEntity>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Resolve a declared `TargetRef` to the single Source Target it names, the
+/// core's one resolution path (詳細設計 §6.1, §907). A locator matches by exact
+/// canonical target; a permanent SRC ID matches the Source Target that declared
+/// it. The resolved `source.target` is always a canonical locator, so callers
+/// take `source.target.normalized()` as the target identity (§6.1.1) rather than
+/// the declared spelling, which for an SRC ID reference is not a locator.
+/// The one required-subject-KEY-set derivation for a Test's `test-semantic`
+/// or `impl-consistency` audit (詳細設計 §8.1/§8.4/§8.5). Bundle generation
+/// and audit-record validity both call this, so the required set can never
+/// drift between the two: a key is `(kind, identity)`, where `identity` is a
+/// Test/VO/SPEC id or a target's normalized locator, and set-equality of a
+/// record's recorded subjects against this set is §8.5's validity rule's
+/// first conjunct (the second is per-subject hash currency).
+///
+/// A declared target that no longer resolves keeps its own declared
+/// normalized form as the key rather than being dropped, so a record bound
+/// to the previously-resolved locator can never satisfy set-equality again.
+/// Distinguishing that from a legitimately resolvable target (MISSING vs.
+/// MISMATCH) is a different cluster's concern; this function only has to
+/// fail closed, not classify the failure.
+pub fn required_subject_keys(
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    test: &TestEntity,
+    kind: &str,
+) -> Result<BTreeSet<(String, String)>, StoreError> {
+    let mut keys = BTreeSet::new();
+    keys.insert(("test".to_owned(), test.id.to_string()));
+    for vo_id in &test.covers {
+        keys.insert(("vo".to_owned(), vo_id.to_string()));
+    }
+    for target in &test.targets {
+        let locator = find_target_source(scan, target)
+            .map(|source| source.target.normalized())
+            .unwrap_or_else(|| target.normalized());
+        keys.insert(("target".to_owned(), locator));
+    }
+    if kind == "impl-consistency" {
+        let vo_ids = test
+            .covers
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        for spec_id in required_spec_closure(layout, &vo_ids)? {
+            keys.insert(("spec".to_owned(), spec_id));
+        }
+    }
+    Ok(keys)
 }
 
 /// Resolve a declared `TargetRef` to the single Source Target it names, the

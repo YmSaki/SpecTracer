@@ -14,8 +14,8 @@ use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
 use vtest_exec::{run_tests, RunnableTest};
 use vtest_model::{
-    hash_specification_source, AdapterId, ContentHash, Diagnostic, ExitCode, JsonEnvelope, ReqId,
-    Revision, ScanSummary, SourceFunction, SpecId, TestEntity, VoId,
+    hash_spec_audit_subject, hash_specification_source, AdapterId, ContentHash, Diagnostic,
+    ExitCode, JsonEnvelope, ReqId, Revision, ScanSummary, SourceFunction, SpecId, TestEntity, VoId,
 };
 use vtest_scan::{
     create_test, edit_test, find_target_source, list_tests, parse_test_set_values, query_tests,
@@ -24,10 +24,10 @@ use vtest_scan::{
 use vtest_store::{
     approval_subject_hash, current_approval_subject, derive_vo_status, find_project_root,
     init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339, read_approval,
-    read_form_answers, read_req, read_spec, read_text, read_vo, resolve_upstream_closure,
-    vo_record_subject, write_atomic, write_new_record, yaml_scalar_value, ApprovalBasis,
-    ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout,
-    VoRecord,
+    read_form_answers, read_req, read_spec, read_text, read_vo, required_spec_closure,
+    resolve_upstream_closure, vo_record_subject, write_atomic, write_new_record,
+    yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord,
+    SpecRef, StoreError, VerifyLayout, VoRecord,
 };
 use vtest_verify::{verify_project_scoped, EntityScope};
 
@@ -1212,17 +1212,10 @@ fn build_bundle(
                     "test_id": test.id,
                 }));
             }
-            let target = test
-                .targets
-                .first()
-                .and_then(|target| find_target_source(scan, target))
-                .ok_or_else(|| {
-                    failure(
-                        "E-SCAN-004",
-                        format!("test {} target cannot be resolved", test.id),
-                        ExitCode::Usage,
-                    )
-                })?;
+            // §7.5/§8.1/§8.4: a multi-target Test binds ALL declared targets,
+            // never just the first; dropping any is the omission the
+            // set-equality validity rule in §8.5 exists to catch.
+            let targets = resolve_all_targets(scan, test)?;
             let vos = test
                 .covers
                 .iter()
@@ -1234,12 +1227,14 @@ fn build_bundle(
                 None,
                 &test.content_hash,
             )];
-            subjects.push(subject_value(
-                "target",
-                None,
-                Some(&target.target.normalized()),
-                &target.content_hash,
-            ));
+            for target in &targets {
+                subjects.push(subject_value(
+                    "target",
+                    None,
+                    Some(&target.target.normalized()),
+                    &target.content_hash,
+                ));
+            }
             for (vo, subject) in test.covers.iter().zip(vos.iter()) {
                 subjects.push(subject_value(
                     "vo",
@@ -1274,7 +1269,12 @@ fn build_bundle(
                 .map(|candidate| serde_json::json!({ "id": candidate.id, "intent": candidate.intent }))
                 .collect::<Vec<_>>();
             let test_value = test_value(root, test)?;
-            let target_value = target_value(root, target)?;
+            // §8.2 schema: `targets` is a plural array of {target, source,
+            // content_hash} -- never the singular first-target object.
+            let target_values = targets
+                .iter()
+                .map(|target| target_value(root, target))
+                .collect::<Result<Vec<_>, _>>()?;
             let static_value = static_audit.map(|audit| {
                 serde_json::json!({
                     "verdict": audit.verdict,
@@ -1288,7 +1288,7 @@ fn build_bundle(
                 "revision": git_revision_json(root),
                 "test": test_value,
                 "vos": vos,
-                "target": target_value,
+                "targets": target_values,
                 "related_tests": related_tests,
                 "sibling_tests": sibling_tests,
                 "static_audit": static_value,
@@ -1327,18 +1327,11 @@ fn build_bundle(
                 for spec_ref in &vo.spec_refs {
                     if let Ok(record) = read_spec(layout, spec_ref.spec.as_str()) {
                         let key = record.id.to_string();
-                        // Bind the current Specification source so a body that
-                        // moved after registration is detected, not the frozen
-                        // registration snapshot.
-                        let source_hash = fs::read_to_string(root.join(&record.path))
-                            .map(|text| ContentHash::from_text(&text))
-                            .unwrap_or_else(|_| ContentHash::from_text(""));
-                        subjects.push(subject_value(
-                            "spec",
-                            Some(record.id.as_str()),
-                            None,
-                            &source_hash,
-                        ));
+                        // Bind both the SPEC record's own text and the
+                        // current Specification source, so a record edit or
+                        // a body that moved after registration is detected
+                        // -- not the frozen registration snapshot.
+                        subjects.push(spec_audit_subject(root, layout, record.id.as_str())?);
                         specs.insert(
                             key,
                             serde_json::json!({
@@ -1365,18 +1358,11 @@ fn build_bundle(
                     };
                     if let Ok(record) = read_spec(layout, spec_id) {
                         let key = record.id.to_string();
-                        // Bind the current Specification source so a body that
-                        // moved after registration is detected, not the frozen
-                        // registration snapshot.
-                        let source_hash = fs::read_to_string(root.join(&record.path))
-                            .map(|text| ContentHash::from_text(&text))
-                            .unwrap_or_else(|_| ContentHash::from_text(""));
-                        subjects.push(subject_value(
-                            "spec",
-                            Some(record.id.as_str()),
-                            None,
-                            &source_hash,
-                        ));
+                        // Bind both the SPEC record's own text and the
+                        // current Specification source, so a record edit or
+                        // a body that moved after registration is detected
+                        // -- not the frozen registration snapshot.
+                        subjects.push(spec_audit_subject(root, layout, record.id.as_str())?);
                         specs.entry(key).or_insert_with(|| {
                             serde_json::json!({
                                 "id": record.id,
@@ -1420,17 +1406,9 @@ fn build_bundle(
         "impl-consistency" => {
             if let Some(test_id) = test_id {
                 let test = find_test(scan, Some(test_id))?;
-                let target = test
-                    .targets
-                    .first()
-                    .and_then(|target| find_target_source(scan, target))
-                    .ok_or_else(|| {
-                        failure(
-                            "E-SCAN-004",
-                            format!("test {} target cannot be resolved", test.id),
-                            ExitCode::Usage,
-                        )
-                    })?;
+                // §7.5/§8.1/§8.4: all declared targets bind, never just the
+                // first.
+                let targets = resolve_all_targets(scan, test)?;
                 let vos = test
                     .covers
                     .iter()
@@ -1442,12 +1420,14 @@ fn build_bundle(
                     None,
                     &test.content_hash,
                 )];
-                subjects.push(subject_value(
-                    "target",
-                    None,
-                    Some(&target.target.normalized()),
-                    &target.content_hash,
-                ));
+                for target in &targets {
+                    subjects.push(subject_value(
+                        "target",
+                        None,
+                        Some(&target.target.normalized()),
+                        &target.content_hash,
+                    ));
+                }
                 for (vo, subject) in test.covers.iter().zip(vos.iter()) {
                     let hash = subject["content_hash"]
                         .as_str()
@@ -1455,40 +1435,32 @@ fn build_bundle(
                         .unwrap_or_else(|| ContentHash::from_text(""));
                     subjects.push(subject_value("vo", Some(vo.as_str()), None, &hash));
                 }
-                // Bind the upstream Specification sources of every covered VO
-                // (directly and through its Requirements) by current source
-                // hash, so a Specification-only change stales impl-consistency.
-                let mut seen_specs = BTreeSet::new();
-                for vo_id in &test.covers {
-                    let Ok(vo_record) = read_vo(layout, vo_id.as_str()) else {
-                        continue;
-                    };
-                    let mut spec_ids = vo_record
-                        .spec_refs
-                        .iter()
-                        .map(|spec_ref| spec_ref.spec.to_string())
-                        .collect::<Vec<_>>();
-                    for req_id in &vo_record.requirements {
-                        if let Ok(req) = read_req(layout, req_id.as_str()) {
-                            spec_ids.extend(req.spec_refs.iter().map(|r| r.spec.to_string()));
-                        }
-                    }
-                    for spec_id in spec_ids {
-                        if !seen_specs.insert(spec_id.clone()) {
-                            continue;
-                        }
-                        if let Ok(record) = read_spec(layout, &spec_id) {
-                            let source_hash = fs::read_to_string(root.join(&record.path))
-                                .map(|text| ContentHash::from_text(&text))
-                                .unwrap_or_else(|_| ContentHash::from_text(""));
-                            subjects.push(subject_value(
-                                "spec",
-                                Some(record.id.as_str()),
-                                None,
-                                &source_hash,
-                            ));
-                        }
-                    }
+                // §3.5/§8.1: bind the FULL upstream SPEC closure -- every
+                // covered VO's recursive parent VOs, every REQ referenced
+                // anywhere in that VO chain (and their recursive parent
+                // REQs), and every spec_refs entry on any VO or REQ visited.
+                // An unresolvable closure member refuses the bundle (§8.1)
+                // rather than silently narrowing what the record binds to.
+                let vo_ids = test
+                    .covers
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>();
+                let spec_ids = required_spec_closure(layout, &vo_ids).map_err(|error| {
+                    failure(
+                        "E-SCAN-004",
+                        format!("SPEC subject closure could not be resolved: {error}"),
+                        ExitCode::Usage,
+                    )
+                })?;
+                // §8.1: the bundle carries the closure's SPEC subjects AND
+                // its Specification source full text, so the auditor judges
+                // against the actual upstream contract, not just its hash.
+                let mut specs = Vec::new();
+                for spec_id in &spec_ids {
+                    let (subject, entry) = spec_audit_material(root, layout, spec_id)?;
+                    subjects.push(subject);
+                    specs.push(entry);
                 }
                 Ok(serde_json::json!({
                     "bundle_id": new_record_id(),
@@ -1497,7 +1469,8 @@ fn build_bundle(
                     "revision": git_revision_json(root),
                     "test": test_value(root, test)?,
                     "vos": vos,
-                    "target": target_value(root, target)?,
+                    "targets": targets.iter().map(|target| target_value(root, target)).collect::<Result<Vec<_>, _>>()?,
+                    "specs": specs,
                     "related_tests": test.related.iter().filter_map(|id| {
                         scan.tests.iter().find(|candidate| candidate.id == *id)
                     }).map(|candidate| serde_json::json!({ "id": candidate.id, "intent": candidate.intent })).collect::<Vec<_>>(),
@@ -1520,17 +1493,21 @@ fn build_bundle(
                     .collect::<Vec<_>>();
                 let mut targets = Vec::new();
                 for test in &tests {
-                    if let Some(target) = test
-                        .targets
-                        .first()
-                        .and_then(|target| find_target_source(scan, target))
-                    {
-                        subjects.push(subject_value(
-                            "test",
-                            Some(test.id.as_str()),
-                            None,
-                            &test.content_hash,
-                        ));
+                    // A test with any unresolvable declared target is
+                    // dropped from this VO's bundle entirely (unchanged from
+                    // prior behavior); resolving only some of its targets
+                    // would repeat the same completeness defect this fix
+                    // closes.
+                    let Ok(resolved) = resolve_all_targets(scan, test) else {
+                        continue;
+                    };
+                    subjects.push(subject_value(
+                        "test",
+                        Some(test.id.as_str()),
+                        None,
+                        &test.content_hash,
+                    ));
+                    for target in &resolved {
                         subjects.push(subject_value(
                             "target",
                             None,
@@ -1547,6 +1524,23 @@ fn build_bundle(
                         ExitCode::Usage,
                     ));
                 }
+                // §8.1: `--vo` starts at the selected VO subtree but must not
+                // narrow the upstream SPEC set -- it binds the same full
+                // closure the `--test` arm does, rooted at the selected VO.
+                let spec_ids =
+                    required_spec_closure(layout, &[vo.id.to_string()]).map_err(|error| {
+                        failure(
+                            "E-SCAN-004",
+                            format!("SPEC subject closure could not be resolved: {error}"),
+                            ExitCode::Usage,
+                        )
+                    })?;
+                let mut specs = Vec::new();
+                for spec_id in &spec_ids {
+                    let (subject, entry) = spec_audit_material(root, layout, spec_id)?;
+                    subjects.push(subject);
+                    specs.push(entry);
+                }
                 Ok(serde_json::json!({
                     "bundle_id": new_record_id(),
                     "kind": kind,
@@ -1555,6 +1549,7 @@ fn build_bundle(
                     "vo": vo_value,
                     "tests": tests.iter().map(|test| test_value(root, test)).collect::<Result<Vec<_>, _>>()?,
                     "targets": targets,
+                    "specs": specs,
                     "subjects": subjects,
                 }))
             }
@@ -1565,6 +1560,73 @@ fn build_bundle(
             ExitCode::Usage,
         )),
     }
+}
+
+/// Resolve every declared target of a Test, refusing (E-SCAN-004) if any one
+/// cannot be resolved. §7.5/§8.1 require a multi-target Test's bundle to
+/// bind ALL declared targets, never a subset -- this is the one place bundle
+/// generation enforces that.
+fn resolve_all_targets<'a>(
+    scan: &'a ScanResult,
+    test: &TestEntity,
+) -> CommandResult<Vec<&'a SourceFunction>> {
+    test.targets
+        .iter()
+        .map(|target| {
+            find_target_source(scan, target).ok_or_else(|| {
+                failure(
+                    "E-SCAN-004",
+                    format!("test {} target cannot be resolved", test.id),
+                    ExitCode::Usage,
+                )
+            })
+        })
+        .collect()
+}
+
+/// One "spec" audit subject, hash-bound to both the SPEC record's own text
+/// and its referenced Specification source (基本仕様 §7.3/§7.5, 詳細設計
+/// §8.5: SPEC record change OR Specification source change alone must STALE
+/// the record that binds it).
+fn spec_audit_subject(
+    root: &Path,
+    layout: &VerifyLayout,
+    spec_id: &str,
+) -> CommandResult<serde_json::Value> {
+    spec_audit_material(root, layout, spec_id).map(|(subject, _)| subject)
+}
+
+/// The "spec" audit subject AND the bundle-body entry for one SPEC in the
+/// impl-consistency closure: §8.1's impl-consistency row requires the
+/// bundle to carry the closure's SPEC subjects "とSpecification source全文"
+/// (full source text), unlike vo-coverage's row, which explicitly opts the
+/// body out ("source本体は含めない"). vo-coverage keeps its own body shape
+/// (id/path/sha256/section, no source) and only reuses this for the subject
+/// hash.
+fn spec_audit_material(
+    root: &Path,
+    layout: &VerifyLayout,
+    spec_id: &str,
+) -> CommandResult<(serde_json::Value, serde_json::Value)> {
+    let record = read_spec(layout, spec_id).map_err(|_| {
+        failure(
+            "E-SCAN-004",
+            format!("SPEC {spec_id} referenced by the upstream closure could not be resolved"),
+            ExitCode::Usage,
+        )
+    })?;
+    let record_text =
+        read_text(&layout.spec_dir().join(format!("{spec_id}.yaml"))).unwrap_or_default();
+    let source_text = fs::read_to_string(root.join(&record.path)).unwrap_or_default();
+    let hash = hash_spec_audit_subject(&record_text, &source_text);
+    let subject = subject_value("spec", Some(spec_id), None, &hash);
+    let body = serde_json::json!({
+        "id": record.id,
+        "path": record.path,
+        "sha256": record.sha256,
+        "source": source_text,
+    });
+    Ok((subject, body))
 }
 
 fn find_test<'a>(scan: &'a ScanResult, id: Option<&str>) -> CommandResult<&'a TestEntity> {
@@ -1628,8 +1690,9 @@ fn test_value(root: &Path, test: &TestEntity) -> CommandResult<serde_json::Value
 }
 
 fn target_value(root: &Path, target: &SourceFunction) -> CommandResult<serde_json::Value> {
+    // §8.2 schema: the element key is `target`, not `locator`.
     Ok(serde_json::json!({
-        "locator": target.target.normalized(),
+        "target": target.target.normalized(),
         "source": source_slice(root, &target.location)?,
         "content_hash": target.content_hash,
     }))
@@ -1913,10 +1976,10 @@ fn validate_bundle_subjects(
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or_default();
                 read_spec(layout, id).ok().and_then(|record| {
-                    let path = root.join(&record.path);
-                    fs::read_to_string(path)
-                        .ok()
-                        .map(|text| ContentHash::from_text(&text))
+                    let record_text =
+                        read_text(&layout.spec_dir().join(format!("{id}.yaml"))).ok()?;
+                    let source_text = fs::read_to_string(root.join(&record.path)).ok()?;
+                    Some(hash_spec_audit_subject(&record_text, &source_text))
                 })
             }
             _ => None,

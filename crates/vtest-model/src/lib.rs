@@ -543,6 +543,29 @@ impl fmt::Display for SpecSourceHash {
     }
 }
 
+/// The hash an audit "spec" subject binds to. 基本仕様 §7.3/§7.5 and 詳細設計
+/// §8.5 name three independent STALE triggers for a SPEC subject: the SPEC
+/// record changing, its referenced Specification source changing, or the SPEC
+/// set changing. This hash covers the first two by combining the SPEC
+/// record's own text with its referenced source text, so either mutation
+/// alone changes the result; the third (set membership) is a property of
+/// which subjects are present, not of any one subject's hash.
+pub fn hash_spec_audit_subject(record_text: &str, source_text: &str) -> ContentHash {
+    ContentHash::from_subject(
+        "vtest:spec-audit-subject:v1",
+        [
+            (
+                "record",
+                normalize_hashed_text(record_text).into_bytes(),
+            ),
+            (
+                "source",
+                normalize_hashed_text(source_text).into_bytes(),
+            ),
+        ],
+    )
+}
+
 impl FromStr for SpecSourceHash {
     type Err = String;
 
