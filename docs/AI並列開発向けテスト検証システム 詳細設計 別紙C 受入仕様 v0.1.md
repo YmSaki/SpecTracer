@@ -26,7 +26,13 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - 結果を検証しないTest
 - 自己比較を行うTest
 - annotationを持たないtest function（W-SCAN-101、`test_traceability = MISSING`）
-- 空のcoversを持つTest（`test_traceability = MISSING`）
+- `role`宣言を持たず空の`covers`を持つTest（E-SCAN-007、`test_traceability = MISSING`）
+- `role supporting`で`covers`を持たないTest
+- `role supporting`で`covers`を宣言するTest（E-SCAN-014）
+- `role regression`の`anchor`全組合せ：`anchor normative`＋`covers` 1件以上、`anchor normative`＋`covers` 0、`anchor none`＋`covers` 0＋`anchor_rationale`あり、`anchor none`＋`covers` 1件以上、`anchor none`＋`anchor_rationale`欠落、`anchor`宣言の欠落
+- `role characterization`を宣言するTest、および`role` / `anchor`の値が受理語彙にないTest（E-SCAN-013）
+- `role`または`anchor`の宣言だけを書き換えたTest（Test subject hash変化によりAudit / EvidenceがSTALE化）
+- `covers`を持たず、実行結果がFAILまたはEvidenceが失効したTest
 - 存在しないVOを参照するTest（E-SCAN-003、`test_traceability = MISMATCH`）
 - Test IDが衝突するTest（E-SCAN-002、`test_traceability = MISMATCH`）
 - `@vtest.case`を持つtable-driven Test
@@ -74,7 +80,16 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 管理宣言または必須metadataを持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出する。
 - 存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`test_traceability = MISMATCH`を導出する。`MISSING`として二重定義しない。
 - `ManagedTestLink::Multiple`またはTest ID衝突は`test_traceability = MISMATCH`になる。
-- 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、`covers`が1件以上、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、各entityが`role`の要求する`covers` / `anchor`を満たし、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- `role`宣言を欠くTestは`verification`として具体化し、`covers` 0はE-SCAN-007と`test_traceability = MISSING`になる。既定を`supporting`側へ緩和しない。
+- `role supporting`で`covers`を持たないTestはE-SCAN-007を生じず、構造上完全なManaged Test Entityとして具体化される。他に違反がなければ`test_traceability = PASS`になる。
+- `role supporting`が`covers`を宣言する場合はE-SCAN-014になる。entityと`ManagedTestLink::One`を保持したまま`test_traceability = MISMATCH`とし、`MISSING`として二重定義しない。
+- `role regression`は`anchor`宣言を必須とする。`anchor normative`は`covers`を1件以上、`anchor none`は`covers` 0と`anchor_rationale`を要求する。`anchor`欠落、`anchor normative`での`covers` 0、`anchor none`での`covers`宣言、`anchor none`での`anchor_rationale`欠落はいずれもE-SCAN-015と`test_traceability = MISMATCH`になる。`regression`の`covers`件数をE-SCAN-007として報告しない。
+- `anchor normative`で`covers`を持つ`regression` Testは、`covers`先VOの`test_existence`および検証の合成へ`verification`のTestと同一に寄与する。`anchor none`のTestはいずれのVOへも寄与しない。
+- `role characterization`の宣言、および`role` / `anchor`の受理語彙外の値はE-SCAN-013になる。`characterization`は受理語彙に含まれる予約値であり、未知キーのE-SCAN-006として報告しない。
+- `role`または`anchor`の宣言だけを書き換えるとTest subject hashが変化し、当該Testをsubjectsに含むAudit / EvidenceがSTALEになる。宣言の付替えを既存の監査・実行結果へ無変化で持ち込めない。
+- `covers`を持たないTestにも、`test_execution`、`runtime_result`、`evidence_validity`、宣言targetの`target_execution`、およびstatic / semantic監査のTest単位の判定を通常どおり適用する。これらの非PASSはいずれのVOの合成へも算入されないが、総合判定へは算入される。
+- `role`は実行topology、`target_execution`の適用可否、および本冊 §7.3の到達性判定の適用可否を変更しない。`targets`は`role`によらず1件以上必須である。
 - W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 - adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 - SPEC sourceの内容hash不一致をW-SCAN-104として検出する。
@@ -163,6 +178,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 限定scopeは要求項目だけを集約し、scope外をNOT_CHECKEDのまま表示する。
 - 限定scopeは要求された項目・entityがすべてPASSなら「要求scope内のOK」とし、完全検証OKとは表示しない。
 - reportはSPEC → REQ → VO → Testの構造と、各非PASSの根拠をtext / JSONで返す。
+- `covers`を持たないTestはVOの子ノードとして表示せず、project levelの節に`role`別で表示する。当該Testの非PASSは総合NGへ反映する。
 - text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。
 
 #### 18.3.6 Target Execution Verification

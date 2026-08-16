@@ -395,10 +395,11 @@ Test ID
 
 ## 7.1 Test traceability
 
-登録adapterがTestとして発見した実行可能なtest constructは、すべて検証目的を持つ管理対象でなければならない。
+登録adapterがTestとして発見した実行可能なtest constructは、すべて宣言された目的（role）を持つ管理対象でなければならない。
+すべてのTestを管理対象とすることと、当該Testを仕様適合の証拠として算入することは、別個の条件とする。
 
 発見されたTest集合を `D`、構造上完全なmanaged Test Entity集合を `M` とする。
-構造上完全とは、source declarationから構文上有効なTest ID、1件以上の`covers`、その他の必須metadataをTest Entityとして具体化できることをいう。Discovered Testとentityの対応数は構造完全性に含めず、独立した整合性条件とする。
+構造上完全とは、source declarationから構文上有効なTest ID、宣言されたroleが要求する件数の`covers`、その他の必須metadataをTest Entityとして具体化できることをいう。roleはTestの存在理由の分類であり、role値の集合、role別に要求される`covers`件数、および付随する分類宣言は下位仕様が定める。roleを宣言しないTestには、`covers`を1件以上要求する既定roleを適用する。Discovered Testとentityの対応数は構造完全性に含めず、独立した整合性条件とする。
 `M`はVO参照の解決とTest IDの大局的一意性を検査する前の集合とし、解決不能な`covers`を持つentityや、他のentityとTest IDが衝突するentityも含む。
 
 完全検証では次を要求する。
@@ -406,16 +407,16 @@ Test ID
 ```text
 ∀ d ∈ D:
   dに対応するmanaged Test Entityがちょうど1件存在する
-  and managed Test Entity.coversは1件以上である
+  and managed Test Entity.coversの件数が、宣言されたroleの要求を満たす
   and coversの全VO参照を解決できる
   and Test IDが発見結果全体で一意である
 ```
 
-adapter所有の管理宣言を持たないTest、必須metadataが欠落したTest、または空の`covers`によって対応するmanaged Test Entityが存在しない状態は`MISSING`とする。
-構造上完全なentityが持つVO参照を解決できない状態、同一Test constructから複数entityが生じる状態、またはTest ID衝突は`MISMATCH`とする。
+adapter所有の管理宣言を持たないTest、必須metadataが欠落したTest、または既定roleにおける空の`covers`によって対応するmanaged Test Entityが存在しない状態は`MISSING`とする。
+構造上完全なentityが持つVO参照を解決できない状態、同一Test constructから複数entityが生じる状態、またはTest ID衝突は`MISMATCH`とする。roleが要求する`covers`件数または付随する分類宣言に違反するentityも、entityを除去せず`MISMATCH`とする。
 discoveryが不完全または解析不能な状態は`UNKNOWN`とする。いずれも完全検証のPASSとして扱ってはならない。
 
-`test_existence` はleaf VOからTestへの方向、`test_traceability` は発見されたTestからVOへの方向を検証する。
+`test_existence` はleaf VOからTestへの方向、`test_traceability` は発見されたTestから管理宣言への方向を検証する。`covers`を宣言するTestについては、後者の方向にVO参照の解決を含む。
 両方がPASSの場合だけ、VOとTestの双方向完全性が成立する。
 
 ---

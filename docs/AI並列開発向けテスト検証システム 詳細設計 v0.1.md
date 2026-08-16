@@ -502,8 +502,11 @@ Rust実行であることを一意に確認できる場合だけ互換Evidence�
 `SourceDiscoveryAdapter`は、adapter所有のsource declarationを次の論理fieldへ正規化する。
 
 ```text
-id, covers[], targets[], intent, input?, expect?, kind?, cases[], related[]
+id, covers[], targets[], intent, role?, anchor?, anchor_rationale?,
+input?, expect?, kind?, cases[], related[]
 ```
+
+`role`、`anchor`、`anchor_rationale`はadapter非依存の論理fieldである。adapterは宣言された値をそのまま返し、既定値の補完と基本仕様 §6.2の制約評価を行わない（§4.4）。
 
 coreはsource declarationの構文と配置を解釈せず、adapterが返したTest Entity、Discovered Test observation、Source Location、Target Reference、source range、診断を検証・統合する。
 locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所有のopaque文字列である。coreがpath、module、symbol種別を分解しない。
@@ -516,13 +519,20 @@ locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所�
 annotation-line = "@vtest." key SP value
 key             = "id" | "covers" | "target" | "intent" | "input"
                 | "expect" | "kind" | "case" | "related" | "src-id"
+                | "role" | "anchor" | "anchor-rationale"
 value           = 行末までのテキスト（前後空白は除去）
+role-value      = "verification" | "supporting" | "regression"
+                | "characterization"
+anchor-value    = "normative" | "none"
 ```
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
 - `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
 - `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
+- `@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale` はいずれも反復不可であり、重複はE-SCAN-005とする。`@vtest.role` は論理field `role`、`@vtest.anchor` は `anchor`、`@vtest.anchor-rationale` は `anchor_rationale` へ対応付ける。
+- `role` の値が `role-value` に、`anchor` の値が `anchor-value` に含まれない場合、および `anchor-rationale` の値が空白のみの場合はエラー E-SCAN-013 とする。`characterization` は `role-value` に含まれる予約されたrole値であり、本versionでは宣言できない。未知キーのE-SCAN-006ではなくE-SCAN-013で報告する。
+- これら3キーはTest宣言の論理metadataであり、Test constructに対応する宣言として解析された場合にだけ当該Test Entityのfieldへ採り込む。coreはこれらの値をSource Targetのidentity、恒久SRC ID、target解決のいずれにも用いない。
 - `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。
 
 ### 4.3 `rust-cargo` locator構文
@@ -546,7 +556,20 @@ adapter固有のsource declarationを構文解析できない場合、adapterは
 
 source declarationを構文上完全なTest Entityへ正規化できるが、`covers`のVO IDをcore storeで解決できない場合、そのentityと`ManagedTestLink::One(id)`を保持する。E-SCAN-003と`test_traceability = MISMATCH`はcoreの参照整合性検査で生成する。
 
-`rust-cargo` annotationの構文違反は§5.4のE-SCAN-005、E-SCAN-006、E-SCAN-007で報告する。
+構文上完全なTest Entityの判定は、§5.1 step 4のcore materializationで`role`を確定してから行う。coreは`role`宣言を欠くdraftを`verification`として確定し、確定した`role`に対して基本仕様 §6.2の`covers` / `anchor`制約を評価する。adapterは`role`を解釈せず、この評価地点より前で`covers` 0を不完全と判定しない。
+
+E-SCAN-007の`covers`欠落は`role`が`verification`の場合にだけ成立する。`id` / `targets` / `intent`の欠落は`role`によらずE-SCAN-007とする。`role`が`supporting`または`regression`のTestの`covers`件数はE-SCAN-007では評価せず、次の区分に従う。
+
+- **E-SCAN-014**：確定した`role`がその宣言自体を許さない場合に成立する。`supporting`で`covers`が1件以上、または`regression`以外の`role`で`anchor`もしくは`anchor_rationale`を宣言した場合が該当する。
+- **E-SCAN-015**：`role`が`regression`のentity内部で`anchor`分類が整合しない場合に成立する。`anchor`宣言の欠落、`anchor normative`で`covers` 0、`anchor none`で`covers`が1件以上、`anchor none`で`anchor_rationale`欠落、`anchor normative`で`anchor_rationale`宣言が該当する。
+
+両者の成立条件は排他であり、1件の違反へ2つのcodeを与えない。
+
+E-SCAN-013 / E-SCAN-014 / E-SCAN-015が成立するTestは、entityと`ManagedTestLink::One(id)`を保持し、構造上完全でないentityとして`test_traceability = MISMATCH`とする。E-SCAN-003と同じく、違反を理由にentityを除去しない。`ManagedTestLink::Missing`となるのは管理宣言の欠落とE-SCAN-007の場合に限る。同一TestでE-SCAN-007とE-SCAN-013 / E-SCAN-014 / E-SCAN-015が同時に成立する場合、link状態はE-SCAN-007の`Missing`を優先し、他の診断は併記するだけでlink状態と`test_traceability`の値を変えない。
+
+`role`の値がE-SCAN-013で不正な場合は`role`を確定できないため`covers` / `anchor`制約を評価せず、E-SCAN-013とMISMATCHだけを生成する。`anchor`の値がE-SCAN-013で不正な場合も`anchor`分類を確定できないものとし、当該TestのE-SCAN-015を評価しない。
+
+`rust-cargo` annotationの構文違反は§5.4のE-SCAN-005、E-SCAN-006、E-SCAN-007、E-SCAN-013で報告する。
 
 ---
 
@@ -594,6 +617,9 @@ pub struct TestEntity {
     pub covers: Vec<VoId>,
     pub targets: Vec<TargetRef>,    // 各要素はadapter付きopaque locatorまたはSrcId、1件以上
     pub intent: String,
+    pub role: TestRole,             // 宣言なしはVerification（§4.4）
+    pub anchor: Option<TestAnchor>, // role = Regressionでのみ Some
+    pub anchor_rationale: Option<String>,
     pub input: Option<String>,
     pub expect: Option<String>,
     pub kind: Option<String>,
@@ -602,6 +628,18 @@ pub struct TestEntity {
     pub location: SourceLocation,
     pub content_hash: ContentHash,  // §1.3のTest subject hash（coreが計算）
     pub execution: ExecutionDescriptor,
+}
+
+pub enum TestRole {
+    Verification,
+    Supporting,
+    Regression,
+    // characterizationは予約値であり、本versionではvariantを持たない（§4.2）
+}
+
+pub enum TestAnchor {
+    Normative,
+    None,                           // 規範義務を保護しない宣言（anchor_rationale必須）
 }
 
 pub enum TargetRef {
@@ -760,7 +798,7 @@ pub enum ManagedTestLink {
 }
 ```
 
-`SourceDiscoveryAdapter`はadapterがTestとして認識した全Discovered Test draftを返す。`ManagedTestDraftLink::One`は、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataをdraftとして具体化できる場合に設定する。
+`SourceDiscoveryAdapter`はadapterがTestとして認識した全Discovered Test draftを返す。`ManagedTestDraftLink::One`は、構文上有効なTest IDと、`covers`件数以外の必須metadataをdraftとして具体化できる場合に設定する。`covers`の要求件数は`role`に依存するため、adapterはこれを判定せず、coreが§4.4のcore materializationで評価して`ManagedTestLink`を確定する。
 VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検査する。したがって、解決不能な`covers`を持つdraftもcore materialization後のmanaged entity集合に保持され、対応するobservationは`ManagedTestLink::One(id)`を持つ。
 `ManagedTestDraftLink::Missing`は管理宣言の欠落または必須metadataの欠落、`Multiple`は同一Test constructから複数draftが生じる状態を表す。core materialization後の対応する状態が`ManagedTestLink`となる。
 
@@ -841,12 +879,15 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-004 | error | `target` のロケータ／SRC ID を解決できない |
 | E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数の`target`宣言が同一canonical Source Targetへ解決 |
 | E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在 |
-| E-SCAN-007 | error | 必須metadata（id / covers / targets / intent）の欠落 |
+| E-SCAN-007 | error | 必須metadata（id / targets / intent、および`role`が`verification`の場合の covers）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
 | E-SCAN-010 | error | レコードのid / ファイル名 / schema不一致、または互換正規化後のlogical record ID重複 |
 | E-SCAN-011 | error | 恒久SRC IDが複数adapterまたは複数Source Targetで衝突 |
 | E-SCAN-012 | error | REQ / VO のrequirementsまたはspec_refs.specが存在しないentityを参照、またはspec_refs.sectionが空 |
+| E-SCAN-013 | error | `role` / `anchor` / `anchor_rationale` の値が受理語彙または値制約に違反（予約値`characterization`の宣言を含む） |
+| E-SCAN-014 | error | 確定した`role`が許さない宣言の併存（`supporting`と1件以上の`covers`、`regression`以外の`role`と`anchor` / `anchor_rationale`） |
+| E-SCAN-015 | error | `regression`の`anchor`分類が`covers` / `anchor_rationale`と不整合、または`anchor`宣言の欠落 |
 | W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
@@ -856,7 +897,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 error は該当エンティティに関わるチェック項目を非PASSにする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
 W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断とは独立した`test_traceability`評価で`MISSING`になる。
-`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、またはE-SCAN-003の解決不能なVO参照は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれのSource Targetも選択しない。いずれのadapterも選ばず、候補の1件を解決結果としてEvidence、監査subject、`target_execution`へ永続化しない（§6.1）。衝突する恒久SRC IDを宣言した各Source Target自体は、canonical locatorで独立に具体化されたまま保持する。
+`ManagedTestLink::Multiple`、E-SCAN-002のTest ID衝突、E-SCAN-003の解決不能なVO参照、またはE-SCAN-013 / E-SCAN-014 / E-SCAN-015の`role` / `anchor`制約違反は`test_traceability = MISMATCH`とする。E-SCAN-003が発生しても対応するTest Entityと`ManagedTestLink::One`を除去しない。E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決項目を`MISMATCH`とし、いずれのSource Targetも選択しない。いずれのadapterも選ばず、候補の1件を解決結果としてEvidence、監査subject、`target_execution`へ永続化しない（§6.1）。衝突する恒久SRC IDを宣言した各Source Target自体は、canonical locatorで独立に具体化されたまま保持する。
 
 ### 5.5 `rust-cargo` SourceDiscoveryAdapter
 
@@ -1372,11 +1413,23 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 
 `test_traceability`の判定は次のとおりとする。
 
-- `ManagedTestLink::Missing`なら`MISSING`。これは管理宣言の欠落、必須metadataの欠落、または空の`covers`を含む。
-- `ManagedTestLink::Multiple`、Test ID衝突、または`ManagedTestLink::One`が指すentityの`covers`参照を解決できない場合は`MISMATCH`。
+- `ManagedTestLink::Missing`なら`MISSING`。これは管理宣言の欠落、必須metadataの欠落、および`role`が`verification`のTestの空の`covers`を含む。
+- `ManagedTestLink::Multiple`、Test ID衝突、`ManagedTestLink::One`が指すentityの`covers`参照を解決できない場合、または当該entityが`role`の課す`covers` / `anchor`制約に違反して構造上完全でない場合（§4.4）は`MISMATCH`。
 - 全Discovered Testが`ManagedTestLink::One`を持ち、各linkがちょうど1件の構造上完全なentityを指し、Test IDが大局的に一意で、全`covers`参照を解決できる場合だけ`PASS`。
 - discovery結果が不完全または解析不能なら`UNKNOWN`とし、PASSにしない。
 - repository-level項目であるため、REQ / VO / TESTのentity scopeを指定してもDiscovered Test集合を狭めない。必要な場合は`--items`でこの項目自体をscope外にできるが、その値は`NOT_CHECKED`のまま保持する。
+
+#### 11.1.2 `role`とチェック項目の適用
+
+`role`はTestが存在する理由の分類であり、チェック項目の適用可否を決めない。次を不変条件とする。
+
+- **Auditability と Contribution の分離**：管理下の全Testに、Test単位の完全性・実行・鮮度・静的・意味の各検査を通常どおり適用する。`covers`を持たないTestは、これらの結果をいずれのVerification Obligationへも寄与させないだけである。
+- `test_traceability` / `test_execution` / `runtime_result` / `evidence_validity`は`role`によらず全Managed Test Entityで評価する。
+- `targets`は`role`によらず1件以上必須であり（基本仕様 §6.2）、`target_execution`は宣言targetに対して`role`によらず通常どおり適用する。
+- `static_audit`と`semantic_audit`のTest単位の判定は`role`によらず評価する。`test_existence`、および`static_audit` / `semantic_audit`のVO対応面へは`covers`を持つTestだけが寄与する。`role`が`regression`で`anchor`が`normative`のTestは、`covers`先VOに対して`verification`のTestと同一に寄与する。
+- **`role`とtopologyの直交**：`role`は実行topology、target到達性モデル（§7.3）の適用可否、および境界の意味論を決定してはならない。`role`の各値と、in-process / subprocess / 構造的な各topologyの組合せに制限を設けない。
+
+VOの検証への寄与は`covers`宣言と証拠の十分性判定だけから導出し、`role`から導出しない。
 
 ### 11.2 Evidence 鮮度判定
 
@@ -1432,6 +1485,8 @@ fail-closed 合成：
 ```
 
 チェック項目の**表示scope**と、項目導出に必要な**内部依存の評価**は分離する。§7.3 により `static_audit` は当該 Test の Evidence 鮮度（§11.2）と target 別 target_execution へ横依存する。`static_audit` が項目scopeに含まれる場合、aggregator は §7.3 の runtime 到達証明の判定に必要な範囲でこれらを**内部依存として評価する**（`target_execution` / `evidence_validity` が項目scopeに無くても評価する）。ただしこれは導出のための内部評価であり、scope 外の `target_execution` / `evidence_validity` 自体の report value は step 5 のとおり `NOT_CHECKED` のまま保持する。内部依存評価は scope 外項目の表示値を変えない。runtime 証明に依存する `static_audit` の値は、根拠として用いた Evidence ID と当該 target の target_execution 結果を report で引用する。限定 scope で内部依存の STALE / 非充足が `static_audit` の非 PASS を生む場合も、その内部依存状態を根拠として提示し、scope 外項目の表示値（NOT_CHECKED）だけでは原因を辿れない状態にしない。
+
+`covers`を持たないTestのscope内評価値も総合判定に参加する。いずれのleaf VOの合成にも参加しないため、step 10ではTest単位で直接fail-closedに算入する。管理下のTestが壊れた事実を、寄与先VOが無いことを理由に総合判定から落とさない（§11.1.2）。
 
 複数 VO を covers する Test の結果は、covers 先それぞれの VO の合成に独立に参加する。
 「1つの Test が複数 VO を検証していること」自体は許容し、各 leaf VO の `test_existence` と組合せの充足は §3.3.1 の実体化された leaf VO 単位で判定する（基本仕様 §7.6）。

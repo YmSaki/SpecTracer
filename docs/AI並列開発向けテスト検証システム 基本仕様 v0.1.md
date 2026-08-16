@@ -28,11 +28,12 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Verification Obligation（VO）**：独立して「この条件が成立するか」と検証可能な仕様上の命題（要件定義 §4.1）。階層構造を持てる。粒度は assert 文・テスト関数などのコード構文単位で決めない。
 - **Test**：登録adapterが実行可能な検証単位として識別し、Test IDで管理するtest construct。VOの検証実装単位であり、VOとN:Mの対応を持ちうる。
 - **Test Intent**：Testが「何を検証するか」を、実装コードを読まずに判断できる形で表した論理metadata。adapter所有の宣言表現から導出する（§6）。
+- **Test Role**：Testが存在する理由の分類。adapter所有のsource declarationの`role` fieldで表明する。`role`は`covers`と`anchor`の宣言可能性だけを制約し、検証への寄与を決めない（§6.2）。
 - **Test subject**：Test Entityのidentity、canonical metadata、Source Locationのadapter・path・opaque locator、execution descriptor、およびTest constructを正規化して束縛する検証対象。内容ハッシュはこのsubject全体に対して計算し、前方の無関係な編集で変動するbyte range自体は含めない。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能なimplementation construct。adapter IDとadapter所有のopaque locatorからなるTarget ReferenceまたはSRC IDで識別する。
 - **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetを解決したcanonical Source Targetの参照・内容ハッシュ・実行計測結果を含む。target参照はTestが宣言した綴りではなく、解決後のcanonical Target Referenceとする。
 - **Discovered Test**：登録adapterが実行可能なTestとして発見したsource上のtest construct。managed Test Entityへ変換できないものも含む。
-- **Managed Test Entity**：adapter所有のsource declarationから具体化され、構文上有効なTest ID、1件以上の`covers`、その他の必須metadataを持つTest Entity。Discovered Testとentityの対応数、VO参照の解決、Test IDの大局的一意性はentityの構造完全性と分けて検証する。
+- **Managed Test Entity**：adapter所有のsource declarationから具体化され、構文上有効なTest ID、`role`が要求する件数の`covers`、その他の必須metadataを持ち、`role`が課す`covers` / `anchor`制約に違反しないTest Entity。`role`ごとの要求は§6.2で定める。Discovered Testとentityの対応数、VO参照の解決、Test IDの大局的一意性はentityの構造完全性と分けて検証する。
 - **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
 - **チェック結果値**：各チェック項目が取る値（PASS / FAIL / MISMATCH / MISSING / NOT_CHECKED / NOT_EXECUTED / STALE / UNKNOWN）。
 - **完全検証**：12のチェック項目すべてを対象とする検証。1項目でも PASS 以外があれば NG（fail-closed）。
@@ -314,9 +315,12 @@ fn rejects_invalid_utf8() {
 | field | 必須 | 意味 |
 |---|---|---|
 | `id` | 必須 | Test ID。構文上有効であることを必須とし、発見結果全体の一意性はscan時に検査する |
-| `covers` | 1件以上必須 | 検証するVO ID。複数指定可（N:M対応。要件定義 §4.4） |
+| `covers` | `role`による（下表） | 検証するVO ID。複数指定可（N:M対応。要件定義 §4.4） |
 | `targets` | 1件以上必須 | adapter IDとopaque locatorの組またはSRC IDからなるTarget Referenceのリスト |
 | `intent` | 必須 | 何を検証するかの一文 |
+| `role` | 任意 | Testが存在する理由の分類。`verification` / `supporting` / `regression`。省略時は`verification`とする |
+| `anchor` | `role`による（下表） | `regression`が保護する挙動が規範義務かの分類。`normative` / `none` |
+| `anchor_rationale` | `role`・`anchor`による（下表） | 当該Testが規範義務を保護しないことの根拠 |
 | `input` | 任意 | 入力条件 |
 | `expect` | 任意 | 期待結果 |
 | `kind` | 任意 | テスト種別（Form Schemaの種別と対応） |
@@ -324,7 +328,22 @@ fn rejects_invalid_utf8() {
 | `related` | 任意・複数可 | 外部Relationに昇格しない軽量な関連Testの参照 |
 
 具体的入力値の記載は許容するが必須としない（要件定義 §9）。
-`rust-cargo` adapterはこれらを`@vtest.id`、`@vtest.covers`、`@vtest.target`、`@vtest.intent`、`@vtest.input`、`@vtest.expect`、`@vtest.kind`、`@vtest.case`、`@vtest.related`へ対応付ける。構文の完全な文法は詳細設計 §4 の`rust-cargo` contractで定める。
+`rust-cargo` adapterはこれらを`@vtest.id`、`@vtest.covers`、`@vtest.target`、`@vtest.intent`、`@vtest.input`、`@vtest.expect`、`@vtest.kind`、`@vtest.case`、`@vtest.related`、`@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale`へ対応付ける。構文の完全な文法は詳細設計 §4 の`rust-cargo` contractで定める。
+
+`role`は`covers`と`anchor`の宣言可能性だけを制約する。`role`ごとの要求は次のとおりとする。
+
+| `role` | `covers` | `anchor` | `anchor_rationale` |
+|---|---|---|---|
+| `verification`（省略時） | 1件以上必須 | 宣言不可 | 宣言不可 |
+| `supporting` | 0件必須 | 宣言不可 | 宣言不可 |
+| `regression`・`anchor normative` | 1件以上必須 | 必須 | 宣言不可 |
+| `regression`・`anchor none` | 0件必須 | 必須 | 必須 |
+| `characterization` | — | — | — |
+
+`characterization`は予約されたrole値であり、本versionでは宣言できない。値としては認識し、未知の値として扱わない。
+`targets`と`intent`は`role`によらず必須である。この表への違反は詳細設計 §5.4 の診断で報告する。
+
+VOの検証への寄与は`covers`宣言と証拠の十分性判定だけから導出し、`role`から導出しない。`covers`を1件以上持つTestは`role`によらず同じ寄与規則に従い、`covers`を持たないTestはいずれのVOへも寄与しない。`covers`を持たないTestも管理対象であり、Test単位の検査は通常どおり適用する（§7.10、詳細設計 §11.1.2）。
 
 ### 6.3 直接編集の扱い
 
@@ -343,16 +362,17 @@ source declarationが正典であるため、直接編集と外部レコード�
 
 - Test ID の重複（identity collision）
 - `covers`が存在しないVOを参照（dangling reference）
-- Test IDを宣言するがどのVOも参照しないTest（orphan test）※警告
+- Test IDを宣言するが、`role`が`covers`を要求するにもかかわらずどのVOも参照しないTest（orphan test）※警告。`role`が`covers` 0を要求するTestは該当しない
 - VO の parent が存在しない、または循環している
 - active REQの`spec_refs`、VOの`requirements` / `spec_refs`が存在しないentityを参照
 - Relation の from / to が存在しないエンティティを参照
 - 恒久SRC IDがadapter境界を越えて重複
 - 必須Test metadataの欠落
+- `role` / `anchor`の値が受理語彙にない、または`role`が課す`covers` / `anchor`制約への違反（§6.2）
 - adapterがTestとして発見したが管理宣言を持たないconstruct（unregistered test）※警告。`rust-cargo`では`@vtest` annotationを持たない`#[test]`等が該当する
 
 エラーは検証結果に反映され、該当エンティティのチェック項目を非 PASS にする。
-W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestが構造上完全なManaged Test Entityへ対応しない事実は`test_traceability = MISSING`として完全検証へ反映する。構造上完全なentityのTest ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。診断severityとチェック結果を混同しない。
+W-SCAN-101は診断severityとしてwarningのままとするが、発見されたTestが構造上完全なManaged Test Entityへ対応しない事実は`test_traceability = MISSING`として完全検証へ反映する。構造上完全なentityのTest ID重複、複数entityへの対応、または解決不能なVO参照は`test_traceability = MISMATCH`とする。`role`が課す`covers` / `anchor`制約に違反するentityも、除去せずに保持したうえで`MISMATCH`とする。診断severityとチェック結果を混同しない。
 
 `spec_refs.section`は、Specification内の根拠位置を示す非空のopaque citationである。coreはSPEC ID、SPEC record、参照先sourceと現在hashを決定論的に解決するが、任意形式のSpecification本文からsection文字列の存在を構文的に推測しない。section citationの意味的妥当性と要求事項の取り込み完全性は`spec-coverage`または`vo-coverage`の監査理由で確認する。
 
@@ -507,6 +527,8 @@ Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidence�
 
 - **簡易出力**：総合 OK / NG
 - **詳細出力**：要件定義 §18 の形式に準じたツリー表示。NG の場合、どのエンティティのどのチェック項目が、どの値で、どの根拠（監査レコード・Evidence への参照）により非 PASS かを掘り下げられる
+
+`covers`を持たないTestは、VOの子ノードとしてではなくproject levelの節に`role`別で表示する。管理下にある事実と、いずれのVOへも寄与しない事実の双方を出力から確認できる状態にする。
 
 人間向けテキストと機械可読 JSON の両方を出力できる（要件定義 NFR-007 / NFR-008）。
 

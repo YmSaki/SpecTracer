@@ -26,6 +26,11 @@ wire compatibility layerが`filter`、`package`、`test_target`を追加でき�
 Test JSONは1件以上の`targets` listを必ず返す。targetが1件の場合だけ同値の単数互換field`target`を
 追加できる。複数target Testでは単数fieldを省略し、先頭targetを代表値として返さない。
 
+Test JSONは本冊 §5.2の`role`を必ず返す。`role`宣言を持たないTestには`verification`を返し、
+`role`が未知であることを表す値を返さない。`anchor`と`anchor_rationale`は`role`が`regression`の
+Testでだけ返し、他の`role`では省略して空値やdummy値を返さない。`role`宣言を欠くsource declarationは
+読取りだけを行い、既定値をsourceへ書き戻さない。
+
 Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が
 与えられた場合だけである。`execution`と互換fieldが併存する場合は一致を必須とする。
 
@@ -145,7 +150,7 @@ desired state 方式（基本仕様 §8.2）。
 #### `vtest test show / list / query`
 
 ```text
-vtest test show TEST-X        # intent、covers、target、位置、監査・Evidence 状態
+vtest test show TEST-X        # intent、role、covers、target、位置、監査・Evidence 状態
 vtest test list [--vo VO-X] [--unregistered]
 vtest test query --source rust-cargo::src/parser.rs::Parser::parse   # SRC からの逆引き
 ```
@@ -275,7 +280,7 @@ stdio で MCP サーバを起動する（§13）。
 | `vo_expand` | `id`、`dry_run: bool` | 生成される子 VO 一覧 |
 | `vo_approve` | `id`、`approver`、`basis[]` | 承認レコード ID |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
-| `test_get` | `id` | Test 詳細（intent、位置、監査・Evidence 状態） |
+| `test_get` | `id` | Test 詳細（intent、role、位置、監査・Evidence 状態） |
 | `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
@@ -407,6 +412,7 @@ Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し�
 
 Form Schema はユーザー定義可能とし、大局的に一意な`kind`と登録済みStructured Test adapterの`adapter` IDを必須とする。`fields` の追加・変更でAPI Test・CLI Test等の質問列を定義できる（要件定義の質問テンプレート構想に対応）。
 partition・境界値を必須入力とする種別は、該当フィールドに `required: true` を設定することで表現する（基本仕様 §15 の項目16）。
+`role`が`verification`以外のTestを生成するFormは、`role`（`role`が`regression`の場合は`anchor`と`anchor_rationale`も）をfieldとして宣言し、`covers`の`required`を基本仕様 §6.2の制約に一致させる。組込Form 2種は`role`を宣言せず、`verification`のTestだけを生成する。
 
 ---
 
@@ -443,7 +449,7 @@ TEST-X → スキャン結果 → SourceLocation
 
 ### 15.3 `rust-cargo` annotation blockの再生成
 
-アノテーションは常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。
+アノテーションは常にキー順（id, role, covers, anchor, anchor-rationale, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。宣言されていない`role`を既定値として書き出さない。
 これにより、Structured Edit を繰り返しても差分が安定する。
 
 ### 15.4 `rust-cargo` 1 Test境界の保証
