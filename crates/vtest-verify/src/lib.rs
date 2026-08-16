@@ -8,12 +8,13 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    hash_static_audit_config_subject, AdapterId, CheckValue, ContentHash, Diagnostic,
-    EvidenceRecord, ScanSummary, TargetRef, TestEntity,
+    hash_spec_audit_subject, hash_static_audit_config_subject, AdapterId, CheckValue, ContentHash,
+    Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
-    classify_target_resolution, find_target_source, rust_cargo_execution_state_hash,
-    rust_cargo_static_audit_projection, ScanResult, TargetResolution, STATIC_AUDIT_RULE_SET_ID,
+    classify_target_resolution, find_target_source, required_subject_keys,
+    rust_cargo_execution_state_hash, rust_cargo_static_audit_projection, ScanResult,
+    TargetResolution, STATIC_AUDIT_RULE_SET_ID,
     STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
@@ -1274,6 +1275,20 @@ struct AuditSubject {
     hash: Option<ContentHash>,
 }
 
+/// The identity half of a subject -- kind plus id-or-locator -- with no
+/// hash. Two subjects with the same key name the same required object;
+/// comparing sets of these keys is §8.5's set-equality validity conjunct.
+fn audit_subject_key(subject: &AuditSubject) -> (String, String) {
+    (
+        subject.kind.clone(),
+        subject
+            .id
+            .clone()
+            .or_else(|| subject.locator.clone())
+            .unwrap_or_default(),
+    )
+}
+
 fn evaluate_vo_coverage(
     root: &Path,
     layout: &VerifyLayout,
@@ -1424,10 +1439,6 @@ fn evaluate_test_audit(
         if test_ids.is_empty() {
             continue;
         }
-        let valid = !subjects.is_empty()
-            && subjects
-                .iter()
-                .all(|subject| subject_is_current(root, layout, scan, subject));
         let verdict = match yaml_scalar_value(&text, "verdict").as_deref() {
             Some("PASS") => CheckValue::Pass,
             // impl-consistency contrasts implementation against specification, so
@@ -1438,7 +1449,29 @@ fn evaluate_test_audit(
             _ => CheckValue::Unknown,
         };
         let audited_at = yaml_scalar_value(&text, "audited_at").unwrap_or_default();
+        let recorded_keys = subjects
+            .iter()
+            .map(audit_subject_key)
+            .collect::<BTreeSet<_>>();
         for test_id in test_ids {
+            // §8.5: valid = the recorded subject SET exactly equals the
+            // currently required subject set for this Test/kind, AND every
+            // recorded subject's hash still matches current. Set-equality
+            // catches both a record that never bound everything required
+            // (an omitted target, an unwalked upstream SPEC) and a record
+            // whose requirement grew or shrank since acceptance; hash
+            // currency alone (the pre-fix predicate) caught neither. An
+            // unresolvable required closure (e.g. a dangling SPEC ref) fails
+            // the record closed rather than counting it valid.
+            let Some(test) = scan.tests.iter().find(|test| test.id.as_str() == test_id) else {
+                continue;
+            };
+            let valid = required_subject_keys(layout, scan, test, kind).is_ok_and(|required| {
+                recorded_keys == required
+                    && subjects
+                        .iter()
+                        .all(|subject| subject_is_current(root, layout, scan, subject))
+            });
             per_test
                 .entry(test_id)
                 .or_default()
@@ -1653,12 +1686,14 @@ fn subject_is_current(
         }),
         "vo" => record_hash(&layout.vo_dir(), subject.id.as_deref()),
         "req" => record_hash(&layout.req_dir(), subject.id.as_deref()),
+        // Bound to both the SPEC record's own text and its referenced
+        // Specification source (基本仕様 §7.3/§7.5, 詳細設計 §8.5): either
+        // one changing alone must invalidate the subject.
         "spec" => subject.id.as_deref().and_then(|id| {
-            let text = read_text(&layout.spec_dir().join(format!("{id}.yaml"))).ok()?;
-            let path = yaml_scalar_value(&text, "path")?;
-            fs::read_to_string(root.join(path))
-                .ok()
-                .map(|source| ContentHash::from_text(&source))
+            let record_text = read_text(&layout.spec_dir().join(format!("{id}.yaml"))).ok()?;
+            let path = yaml_scalar_value(&record_text, "path")?;
+            let source_text = fs::read_to_string(root.join(path)).ok()?;
+            Some(hash_spec_audit_subject(&record_text, &source_text))
         }),
         "config" => read_text(&layout.config())
             .ok()
@@ -2026,6 +2061,28 @@ mod tests {
             .as_nanos();
         let root = std::env::temp_dir().join(format!("vtest-verify-static-{suffix}"));
         let layout = init_project(&root, "fixture").expect("initialise fixture");
+        // Every fixture Test covers VO-ONE; give it a real record so `vo`
+        // audit subjects (required by evaluate_test_audit's set-equality
+        // check, §8.5) can resolve a current hash.
+        fs::write(
+            layout.vo_dir().join("VO-ONE.yaml"),
+            VoRecord {
+                id: VoId::new("VO-ONE"),
+                parent: None,
+                requirements: Vec::new(),
+                spec_refs: Vec::new(),
+                claim: "fixture claim".to_owned(),
+                dimensions: Vec::new(),
+                coverage_policy: None,
+                combinations: Vec::new(),
+                representative_cases: Vec::new(),
+                status: None,
+                created: "2026-08-08T00:00:00Z".to_owned(),
+                updated: "2026-08-08T00:00:00Z".to_owned(),
+            }
+            .to_yaml(),
+        )
+        .expect("write VO-ONE fixture record");
         let mut sources = vec![SourceFunction {
             target: rust_target("src/lib.rs::target"),
             src_id: None,
@@ -2895,25 +2952,48 @@ mod tests {
     }
 
     /// Write a `test-semantic` or `impl-consistency` audit record binding
-    /// exactly the Test subject, for exercising evaluate_test_audit's
-    /// per-test fold in isolation from each kind's bundle-specific subjects.
+    /// the complete required subject set (§8.4/§8.5: Test + covered VO(s) +
+    /// all declared target(s), all at their CURRENT hash) so the record is
+    /// valid under the set-equality validity rule, isolating
+    /// evaluate_test_audit's per-test fold from subject-completeness
+    /// concerns rather than from subject presence entirely.
     fn write_test_audit_at(
         layout: &VerifyLayout,
+        scan: &ScanResult,
         kind: &str,
         test: &TestEntity,
         verdict: &str,
         audited_at: &str,
     ) -> String {
+        let mut subjects = vec![AuditSubjectRecord {
+            id: Some(test.id.as_str().to_owned()),
+            locator: None,
+            hash: test.content_hash.clone(),
+        }];
+        for vo_id in &test.covers {
+            let text = fs::read_to_string(layout.vo_dir().join(format!("{vo_id}.yaml")))
+                .expect("fixture VO record for the covered VO");
+            subjects.push(AuditSubjectRecord {
+                id: Some(vo_id.to_string()),
+                locator: None,
+                hash: ContentHash::from_text(&text),
+            });
+        }
+        for target in &test.targets {
+            let source =
+                find_target_source(scan, target).expect("fixture declared target resolves");
+            subjects.push(AuditSubjectRecord {
+                id: None,
+                locator: Some(source.target.normalized()),
+                hash: source.content_hash.clone(),
+            });
+        }
         let id = new_record_id();
         let record = AuditRecord {
             id: id.clone(),
             kind: kind.to_owned(),
             bundle_id: None,
-            subjects: vec![AuditSubjectRecord {
-                id: Some(test.id.as_str().to_owned()),
-                locator: None,
-                hash: test.content_hash.clone(),
-            }],
+            subjects,
             verdict: verdict.to_owned(),
             reasons: vec![AuditReasonRecord {
                 rule: None,
@@ -2954,8 +3034,8 @@ mod tests {
     fn semantic_audit_selects_the_latest_valid_verdict_when_no_fail_exists() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
-        write_test_audit_at(&layout, "test-semantic", test, "UNKNOWN", "2026-08-08T00:00:00Z");
-        write_test_audit_at(&layout, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "test-semantic", test, "UNKNOWN", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
         assert_eq!(
             evaluate_test_audit(&layout.root, &layout, &scan, "test-semantic").0,
             CheckValue::Pass
@@ -2966,8 +3046,8 @@ mod tests {
     fn semantic_audit_fail_dominates_regardless_of_recency() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
-        write_test_audit_at(&layout, "test-semantic", test, "FAIL", "2026-08-08T00:00:00Z");
-        write_test_audit_at(&layout, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "test-semantic", test, "FAIL", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
         assert_eq!(
             evaluate_test_audit(&layout.root, &layout, &scan, "test-semantic").0,
             CheckValue::Fail
@@ -2978,8 +3058,8 @@ mod tests {
     fn impl_consistency_selects_the_latest_valid_verdict_when_no_mismatch_exists() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
-        write_test_audit_at(&layout, "impl-consistency", test, "UNKNOWN", "2026-08-08T00:00:00Z");
-        write_test_audit_at(&layout, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "impl-consistency", test, "UNKNOWN", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
         assert_eq!(
             evaluate_test_audit(&layout.root, &layout, &scan, "impl-consistency").0,
             CheckValue::Pass
@@ -2990,8 +3070,8 @@ mod tests {
     fn impl_consistency_fail_verdict_maps_to_mismatch_and_dominates() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
-        write_test_audit_at(&layout, "impl-consistency", test, "FAIL", "2026-08-08T00:00:00Z");
-        write_test_audit_at(&layout, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "impl-consistency", test, "FAIL", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, &scan, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
         assert_eq!(
             evaluate_test_audit(&layout.root, &layout, &scan, "impl-consistency").0,
             CheckValue::Mismatch

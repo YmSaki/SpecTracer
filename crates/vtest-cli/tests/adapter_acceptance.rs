@@ -189,6 +189,27 @@ fn bundle(project: &TempProject, kind: &str, selector: &[&str]) -> String {
         .to_owned()
 }
 
+/// Generate a bundle and return its content. `audit bundle`'s own JSON reply
+/// carries only `{bundle_id, kind, path}` (§8.1: bundles are cached files,
+/// not command output); the content lives at `.verify/cache/bundles/<id>.json`.
+fn bundle_content(project: &TempProject, kind: &str, selector: &[&str]) -> (String, Value) {
+    let mut args = vec!["bundle", "--kind", kind];
+    args.extend_from_slice(selector);
+    let output = invoke(&project.root, "audit", &args);
+    assert_exit(&output, 0, &format!("generate {kind} bundle"));
+    let data = &envelope(&output)["data"];
+    let bundle_id = data["bundle_id"].as_str().expect("bundle ID").to_owned();
+    let cache_path = project
+        .root
+        .join(".verify/cache/bundles")
+        .join(format!("{bundle_id}.json"));
+    let content: Value = serde_json::from_str(
+        &fs::read_to_string(&cache_path).expect("read cached bundle content"),
+    )
+    .expect("parse cached bundle content");
+    (bundle_id, content)
+}
+
 fn submit_audit(project: &TempProject, bundle_id: &str, kind: &str) -> Value {
     let verdict = if kind == "vo-coverage" {
         "COMPLETE"
@@ -1304,6 +1325,345 @@ fn impl_consistency_fail_maps_to_mismatch() {
     assert_eq!(
         report_item(&envelope(&verify), "impl_consistency")["value"],
         "MISMATCH"
+    );
+}
+
+/// @vtest.id TEST-CLI-106
+/// @vtest.covers VO-SEMAUDIT-02
+/// @vtest.target crates/vtest-cli/src/lib.rs::build_bundle
+/// @vtest.intent A multi-target Test's test-semantic and impl-consistency bundles bind
+/// EVERY declared target (not just the first), and editing a non-first target STALEs
+/// both accepted records. This one fixture also evidences VO-SEMAUDIT-04 (either kind
+/// STALEs on the change) and VO-SEMAUDIT-11 (impl-consistency's own multi-target
+/// completeness) -- all three share the identical bundle-subject-completeness defect
+/// this fix closes, so the same reproduction chain covers all of them.
+#[test]
+fn multi_target_bundle_binds_every_target_and_stales_on_any_change() {
+    let project = TempProject::from_m1_base("multi-target-audit-subjects");
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "pub fn known() {}\npub fn also_known() {}\n",
+    )
+    .expect("write two target constructs");
+    let test_path = project.root.join("tests/registered.rs");
+    let test = fs::read_to_string(&test_path).expect("read registered Test");
+    fs::write(
+        &test_path,
+        test.replace(
+            "/// @vtest.target src/lib.rs::known",
+            "/// @vtest.target src/lib.rs::known\n/// @vtest.target src/lib.rs::also_known",
+        )
+        .replace(
+            "/// @vtest.intent provides a clean M1 scan baseline",
+            "/// @vtest.intent provides a multi-target audit-subject fixture\n/// @vtest.kind integration-normal",
+        ),
+    )
+    .expect("declare two targets");
+    project.commit_baseline();
+
+    for kind in ["test-semantic", "impl-consistency"] {
+        // The fixture Test body is empty, so its static audit is FAIL;
+        // test-semantic bundle generation otherwise skips on that verdict.
+        let selector: &[&str] = if kind == "test-semantic" {
+            &["--test", "TEST-M1-CLEAN", "--include-failed"]
+        } else {
+            &["--test", "TEST-M1-CLEAN"]
+        };
+        let (bundle_id, content) = bundle_content(&project, kind, selector);
+        let target_subjects = content["subjects"]
+            .as_array()
+            .expect("subjects array")
+            .iter()
+            .filter(|subject| subject["kind"] == "target")
+            .count();
+        assert_eq!(
+            target_subjects, 2,
+            "{kind} bundle must bind both declared targets, not just the first"
+        );
+        submit_audit(&project, &bundle_id, kind);
+    }
+
+    let baseline = invoke(
+        &project.root,
+        "verify",
+        &["--items", "semantic_audit,impl_consistency"],
+    );
+    assert_exit(&baseline, 0, "both kinds are PASS before the second target changes");
+    let baseline_response = envelope(&baseline);
+    assert_eq!(
+        report_item(&baseline_response, "semantic_audit")["value"],
+        "PASS"
+    );
+    assert_eq!(
+        report_item(&baseline_response, "impl_consistency")["value"],
+        "PASS"
+    );
+
+    // Edit ONLY the second declared target; the first target, the Test, and
+    // the VO are untouched.
+    fs::write(
+        project.root.join("src/lib.rs"),
+        "pub fn known() {}\npub fn also_known() -> u32 { 7 }\n",
+    )
+    .expect("mutate only the second declared target");
+
+    let after = invoke(
+        &project.root,
+        "verify",
+        &["--items", "semantic_audit,impl_consistency"],
+    );
+    let after_response = envelope(&after);
+    assert_eq!(
+        report_item(&after_response, "semantic_audit")["value"],
+        "STALE",
+        "a change to the second declared target must STALE semantic_audit"
+    );
+    assert_eq!(
+        report_item(&after_response, "impl_consistency")["value"],
+        "STALE",
+        "a change to the second declared target must STALE impl_consistency"
+    );
+}
+
+/// @vtest.id TEST-CLI-107
+/// @vtest.covers VO-SEMAUDIT-10
+/// @vtest.target crates/vtest-cli/src/lib.rs::build_bundle
+/// @vtest.intent impl-consistency binds the FULL upstream SPEC closure through a VO's
+/// recursive parent chain (not just the covered VO's own direct spec_refs), and each of
+/// the three independent STALE triggers (§7.3/§7.5/§8.5) invalidates the accepted
+/// record on its own: the closure's SPEC SET growing, a bound SPEC's Specification
+/// SOURCE changing, and a bound SPEC's own RECORD changing.
+#[test]
+fn impl_consistency_binds_spec_closure_through_parent_vo() {
+    let project = TempProject::from_m1_base("spec-closure-parent");
+    fs::create_dir_all(project.root.join("docs")).expect("create docs directory");
+    fs::write(
+        project.root.join("docs/spec-x.md"),
+        "# SPEC-X\n\nChild-level contract.\n",
+    )
+    .expect("write SPEC-X source");
+    fs::write(
+        project.root.join("docs/spec-y.md"),
+        "# SPEC-Y\n\nParent-level contract.\n",
+    )
+    .expect("write SPEC-Y source");
+    fs::write(
+        project.root.join("docs/spec-z.md"),
+        "# SPEC-Z\n\nA third contract, not yet in the closure.\n",
+    )
+    .expect("write SPEC-Z source");
+    assert_exit(
+        &invoke(
+            &project.root,
+            "spec",
+            &["add", "--id", "SPEC-X", "--path", "docs/spec-x.md"],
+        ),
+        0,
+        "register SPEC-X",
+    );
+    assert_exit(
+        &invoke(
+            &project.root,
+            "spec",
+            &["add", "--id", "SPEC-Y", "--path", "docs/spec-y.md"],
+        ),
+        0,
+        "register SPEC-Y",
+    );
+    assert_exit(
+        &invoke(
+            &project.root,
+            "spec",
+            &["add", "--id", "SPEC-Z", "--path", "docs/spec-z.md"],
+        ),
+        0,
+        "register SPEC-Z",
+    );
+    assert_exit(
+        &invoke(
+            &project.root,
+            "req",
+            &[
+                "add", "--id", "REQ-A", "--summary", "child requirement", "--spec", "SPEC-X",
+                "--sections", "1",
+            ],
+        ),
+        0,
+        "register REQ-A",
+    );
+    assert_exit(
+        &invoke(
+            &project.root,
+            "vo",
+            &[
+                "add", "--id", "VO-PARENT", "--claim", "parent claim", "--spec", "SPEC-Y",
+                "--sections", "1",
+            ],
+        ),
+        0,
+        "register VO-PARENT",
+    );
+    assert_exit(
+        &invoke(
+            &project.root,
+            "vo",
+            &[
+                "add", "--id", "VO-CHILD", "--claim", "child claim", "--parent", "VO-PARENT",
+                "--req", "REQ-A",
+            ],
+        ),
+        0,
+        "register VO-CHILD",
+    );
+
+    fs::write(
+        project.root.join("tests/registered.rs"),
+        "/// @vtest.id TEST-R1\n/// @vtest.covers VO-CHILD\n/// @vtest.target src/lib.rs::known\n/// @vtest.intent covers VO-CHILD through its parent VO's SPEC closure\n#[test]\nfn covers_child() {}\n",
+    )
+    .expect("declare Test covering VO-CHILD");
+    project.commit_baseline();
+
+    // Facet (a): the closure reaches SPEC-Y through VO-CHILD's parent
+    // VO-PARENT, not just SPEC-X through VO-CHILD's own REQ-A.
+    let (bundle_id, content) =
+        bundle_content(&project, "impl-consistency", &["--test", "TEST-R1"]);
+    let spec_ids = content["subjects"]
+        .as_array()
+        .expect("subjects array")
+        .iter()
+        .filter(|subject| subject["kind"] == "spec")
+        .filter_map(|subject| subject["id"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        spec_ids,
+        std::collections::BTreeSet::from(["SPEC-X", "SPEC-Y"]),
+        "the SPEC closure must reach SPEC-Y through the parent VO"
+    );
+    // §8.1: the bundle must also carry the closure's Specification source
+    // full text, not merely subject hashes -- unlike vo-coverage, which
+    // explicitly opts the body out.
+    let spec_sources = content["specs"]
+        .as_array()
+        .expect("specs array")
+        .iter()
+        .filter_map(|entry| entry["source"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        spec_sources
+            .iter()
+            .any(|source| source.contains("Child-level contract")),
+        "specs body must carry SPEC-X's Specification source text"
+    );
+    assert!(
+        spec_sources
+            .iter()
+            .any(|source| source.contains("Parent-level contract")),
+        "specs body must carry SPEC-Y's Specification source text"
+    );
+
+    // Facet (a), `--vo` selector: §8.1 forbids a SPEC-less impl-consistency
+    // bundle; the `--vo` arm must carry the same closure the `--test` arm
+    // does, not zero SPEC subjects and no Specification body.
+    let (_, vo_content) = bundle_content(&project, "impl-consistency", &["--vo", "VO-CHILD"]);
+    let vo_spec_ids = vo_content["subjects"]
+        .as_array()
+        .expect("subjects array")
+        .iter()
+        .filter(|subject| subject["kind"] == "spec")
+        .filter_map(|subject| subject["id"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        vo_spec_ids,
+        std::collections::BTreeSet::from(["SPEC-X", "SPEC-Y"]),
+        "the `--vo` selector must not emit a SPEC-less impl-consistency bundle"
+    );
+    assert_eq!(
+        vo_content["specs"].as_array().expect("specs array").len(),
+        2,
+        "the `--vo` selector must carry both Specification sources"
+    );
+
+    submit_audit(&project, &bundle_id, "impl-consistency");
+    let baseline = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_exit(&baseline, 0, "impl-consistency PASS with the full closure bound");
+    assert_eq!(
+        report_item(&envelope(&baseline), "impl_consistency")["value"],
+        "PASS"
+    );
+
+    // Facet (b): the closure's SPEC SET growing alone -- reached only
+    // through REQ-A gaining a THIRD spec_ref the closure did not previously
+    // include -- STALEs the record even though nothing already-bound
+    // changed.
+    let req_path = project.root.join(".verify/req/REQ-A.yaml");
+    let req = fs::read_to_string(&req_path).expect("read REQ-A");
+    let grown = req.replace(
+        "  - spec: 'SPEC-X'\n    section: '1'\n",
+        "  - spec: 'SPEC-X'\n    section: '1'\n  - spec: 'SPEC-Z'\n    section: '1'\n",
+    );
+    assert_ne!(grown, req, "REQ-A.yaml must contain the expected spec_refs shape");
+    fs::write(&req_path, grown).expect("grow REQ-A's SPEC set");
+    let after_growth = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&after_growth), "impl_consistency")["value"],
+        "STALE",
+        "growing the required SPEC set alone must STALE the record"
+    );
+    fs::write(&req_path, &req).expect("restore REQ-A to its accepted SPEC set");
+
+    // Facet (c): a bound SPEC's Specification SOURCE changing, reached only
+    // through the parent VO, STALEs the record.
+    fs::write(
+        project.root.join("docs/spec-y.md"),
+        "# SPEC-Y\n\nParent-level contract CHANGED.\n",
+    )
+    .expect("change only SPEC-Y's Specification source");
+    let after_source = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&after_source), "impl_consistency")["value"],
+        "STALE",
+        "a change to the parent-reached SPEC's source alone must STALE the record"
+    );
+    fs::write(
+        project.root.join("docs/spec-y.md"),
+        "# SPEC-Y\n\nParent-level contract.\n",
+    )
+    .expect("restore SPEC-Y's source");
+
+    // Facet (d): a bound SPEC's own RECORD changing (its source untouched)
+    // STALEs the record.
+    let spec_x_path = project.root.join(".verify/spec/SPEC-X.yaml");
+    let spec_x = fs::read_to_string(&spec_x_path).expect("read SPEC-X record");
+    fs::write(
+        &spec_x_path,
+        format!("{spec_x}note: 'renamed after acceptance'\n"),
+    )
+    .expect("mutate only the SPEC-X record");
+    let after_record = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&after_record), "impl_consistency")["value"],
+        "STALE",
+        "a change to a bound SPEC's own record alone must STALE the record"
+    );
+    fs::write(&spec_x_path, spec_x).expect("restore the SPEC-X record");
+
+    // Facet (e), the mirror of facet (b): the required SET SHRINKING alone
+    // -- REQ-A loses its spec_refs entirely, so the freshly required closure
+    // becomes {SPEC-Y} while the accepted record still binds {SPEC-X,
+    // SPEC-Y} -- also STALEs the record, even though every already-recorded
+    // subject's hash is still current. A superset-only membership check
+    // (rather than true set equality) would miss exactly this direction.
+    let shrunk = req.replace(
+        "spec_refs:\n  - spec: 'SPEC-X'\n    section: '1'\n",
+        "spec_refs:\n  []\n",
+    );
+    assert_ne!(shrunk, req, "REQ-A.yaml must contain the expected spec_refs shape");
+    fs::write(&req_path, shrunk).expect("shrink REQ-A's SPEC set");
+    let after_shrink = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&after_shrink), "impl_consistency")["value"],
+        "STALE",
+        "shrinking the required SPEC set alone must STALE a record whose subjects are now a strict superset of what's required"
     );
 }
 

@@ -1215,6 +1215,63 @@ pub fn read_vo(layout: &VerifyLayout, id: &str) -> Result<VoRecord, StoreError> 
     Ok(VoRecord::from_yaml(&text, id))
 }
 
+/// The one derivation of the SPEC subject closure an `impl-consistency` audit
+/// binds to (詳細設計 §8.1/§8.4/§8.5, importing §3.5's upstream rule): for
+/// every given VO, walk its recursive parent VO chain, collect every REQ
+/// referenced anywhere in that VO chain plus each REQ's recursive parent
+/// chain, then union the `spec_refs` of every VO and REQ visited. Both bundle
+/// generation and audit-record validity must call this same function so the
+/// required SPEC set can never drift between the two. A dangling parent VO,
+/// parent REQ, or requirement reference fails closed (`Err`) rather than
+/// silently narrowing the closure, since §8.1 requires refusing to generate a
+/// bundle (and, by the same rule, refusing to call a record valid) when the
+/// full SPEC subject set cannot be resolved.
+pub fn required_spec_closure(
+    layout: &VerifyLayout,
+    vo_ids: &[String],
+) -> Result<BTreeSet<String>, StoreError> {
+    let mut visited_vo = BTreeSet::new();
+    let mut relevant_vos = Vec::new();
+    for vo_id in vo_ids {
+        let mut current = Some(vo_id.clone());
+        while let Some(id) = current {
+            if !visited_vo.insert(id.clone()) {
+                break;
+            }
+            let vo = read_vo(layout, &id)?;
+            current = vo.parent.as_ref().map(ToString::to_string);
+            relevant_vos.push(vo);
+        }
+    }
+    let mut visited_req = BTreeSet::new();
+    let mut relevant_reqs = Vec::new();
+    for vo in &relevant_vos {
+        for req_id in &vo.requirements {
+            let mut current = Some(req_id.to_string());
+            while let Some(id) = current {
+                if !visited_req.insert(id.clone()) {
+                    break;
+                }
+                let req = read_req(layout, &id)?;
+                current = req.parent.as_ref().map(ToString::to_string);
+                relevant_reqs.push(req);
+            }
+        }
+    }
+    let mut specs = BTreeSet::new();
+    for vo in &relevant_vos {
+        for spec_ref in &vo.spec_refs {
+            specs.insert(spec_ref.spec.to_string());
+        }
+    }
+    for req in &relevant_reqs {
+        for spec_ref in &req.spec_refs {
+            specs.insert(spec_ref.spec.to_string());
+        }
+    }
+    Ok(specs)
+}
+
 pub fn read_approval(path: &Path) -> Result<ApprovalRecord, StoreError> {
     let text = read_text(path)?;
     let fallback = path
