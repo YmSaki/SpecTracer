@@ -1,0 +1,13 @@
+id: 'VO-CLI-019'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'approve_vo: approve maps a nonexistent target VO to E-APPROVAL-001/exit 2, not E-CORE-001/exit 3, and writes no record'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-16T00:00:00Z'
+updated: '2026-08-16T00:00:00Z'

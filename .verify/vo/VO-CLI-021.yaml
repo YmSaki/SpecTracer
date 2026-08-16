@@ -1,0 +1,13 @@
+id: 'VO-CLI-021'
+parent: null
+requirements: ['REQ-CLI']
+spec_refs:
+  - spec: 'SPEC-DOGFOOD-M3'
+    section: '§7'
+claim: 'validate_reasons: a vo-coverage spec basis ref must be a SPEC ID + section reference, not an arbitrary string'
+dimensions:
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: '2026-08-16T00:00:00Z'
+updated: '2026-08-16T00:00:00Z'
