@@ -26,7 +26,14 @@ Evidenceを含む小規模projectとする。fixtureは少なくとも次を表�
 - 結果を検証しないTest
 - 自己比較を行うTest
 - annotationを持たないtest function（W-SCAN-101、`test_traceability = MISSING`）
-- 空のcoversを持つTest（`test_traceability = MISSING`）
+- `role`宣言を持たず空の`covers`を持つTest（E-SCAN-007、`test_traceability = MISSING`）
+- `role supporting`で`covers`を持たないTest
+- `role supporting`で`covers`を宣言するTest（E-SCAN-014）
+- `role regression`の`anchor`全組合せ：`anchor normative`＋`covers` 1件以上、`anchor normative`＋`covers` 0、`anchor none`＋`covers` 0＋`anchor_rationale`あり、`anchor none`＋`covers` 1件以上、`anchor none`＋`anchor_rationale`欠落、`anchor`宣言の欠落
+- `role characterization`を宣言するTest、および`role` / `anchor`の値が受理語彙にないTest（E-SCAN-013）
+- `role`または`anchor`の宣言だけを書き換えたTest（Test subject hash変化によりAudit / EvidenceがSTALE化）
+- `role`宣言を持たないTestと`role verification`を明示宣言したTest（実効`role`は同じでTest subject hashが異なる）
+- `covers`を持たず、実行結果がFAILまたはEvidenceが失効したTest
 - 存在しないVOを参照するTest（E-SCAN-003、`test_traceability = MISMATCH`）
 - Test IDが衝突するTest（E-SCAN-002、`test_traceability = MISMATCH`）
 - `@vtest.case`を持つtable-driven Test
@@ -74,7 +81,20 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 管理宣言または必須metadataを持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`test_traceability = MISSING`を導出する。
 - 存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`test_traceability = MISMATCH`を導出する。`MISSING`として二重定義しない。
 - `ManagedTestLink::Multiple`またはTest ID衝突は`test_traceability = MISMATCH`になる。
-- 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、`covers`が1件以上、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、各entityが`role`の要求する`covers` / `anchor`を満たし、かつ全VO参照を解決できる場合だけ`test_traceability = PASS`になる。
+- `role`宣言を欠くTestは`verification`として具体化し、`covers` 0はE-SCAN-007と`test_traceability = MISSING`になる。既定を`supporting`側へ緩和しない。
+- `role supporting`で`covers`を持たないTestはE-SCAN-007を生じず、構造上完全なManaged Test Entityとして具体化される。他に違反がなければ`test_traceability = PASS`になる。
+- `role supporting`が`covers`を宣言する場合はE-SCAN-014になる。entityと`ManagedTestLink::One`を保持したまま`test_traceability = MISMATCH`とし、`MISSING`として二重定義しない。
+- `role regression`は`anchor`宣言を必須とする。`anchor normative`は`covers`を1件以上、`anchor none`は`covers` 0と`anchor_rationale`を要求する。`anchor`欠落、`anchor normative`での`covers` 0、`anchor none`での`covers`宣言、`anchor none`での`anchor_rationale`欠落はいずれもE-SCAN-015と`test_traceability = MISMATCH`になる。`regression`の`covers`件数をE-SCAN-007として報告しない。
+- `anchor normative`で`covers`を持つ`regression` Testは、`covers`先VOの`test_existence`および検証の合成へ`verification`のTestと同一に寄与する。`anchor none`のTestはいずれのVOへも寄与しない。
+- `role characterization`の宣言、および`role` / `anchor`の受理語彙外の値はE-SCAN-013になる。`characterization`は受理語彙に含まれる予約値であり、未知キーのE-SCAN-006として報告しない。
+- adapterは受理語彙外の値と予約値も逐語のままdraftへ載せて返し、これを理由にdraftを`Missing`へ落とさない。値を除去・置換したadapter出力からはE-SCAN-013を生成できない。
+- 受理語彙に違反する`role`宣言を持つTestは実効`role`が`None`となり、entityと`ManagedTestLink::One`を保持したまま`test_traceability = MISMATCH`になる。coreは当該Testを`verification`として具体化せず、宣言されていない目的を与えない。
+- 実効`role`が`None`のentityの適用項目集合は`test_execution`、`runtime_result`、`evidence_validity`、`target_execution`へ縮退し、`static_audit`、`semantic_audit`、`impl_consistency`をinstantiateしない。`test_traceability`はrepository-level項目としてscan result全体で一度だけ評価され、当該entityはその値の原因（MISMATCH）になるがentityへのinstantiateは生じない。非適用の項目は「非適用」として表示し、`NOT_CHECKED`として表示しない。
+- Test subject hashは`role` / `anchor` / `anchor_rationale`の宣言逐語値を束縛し、確定した実効値を束縛しない。`role`宣言を持たないTestと`role verification`を明示宣言したTestは、実効`role`が同じでもTest subject hashが異なる。
+- `role`または`anchor`の宣言だけを書き換えるとTest subject hashが変化し、当該Testをsubjectsに含むAudit / EvidenceがSTALEになる。宣言の付替えを既存の監査・実行結果へ無変化で持ち込めない。
+- `covers`を持たないTestにも、適用項目集合内の`test_execution`、`runtime_result`、`evidence_validity`、宣言targetの`target_execution`、およびstatic / semantic監査のTest単位の判定を通常どおり適用する。これらの非PASSはいずれのVOの合成へも算入されないが、総合判定へは算入される。
+- `role`は実行topology、`target_execution`の適用可否、および本冊 §7.3の到達性判定の適用可否を変更しない。`targets`は`role`によらず1件以上必須である。
 - W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 - adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 - SPEC sourceの内容hash不一致をW-SCAN-104として検出する。
@@ -142,6 +162,11 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - spec-coverage、test-semantic、vo-coverage、impl-consistencyのbundleは本冊 §8の必須情報を含む。
 - spec-coverageは対象SPEC sourceと、それを参照するactive REQの完全集合へ束縛され、要求事項の取り込み、対応REQ、exclusion根拠を含む場合だけ受理される。
 - 空のreasons、schema違反、kind不一致、stale bundle hashを拒否する。
+- `covers`が1件以上のTestのtest-semantic bundleはVOレコードと同一VOをcoversする他Testの一覧を含み、VO claim × Test Intent × Test codeを判定次元とする。
+- `covers`が0件のTestのtest-semantic bundleは`vos`と`sibling_tests`を空listとして出力し、subjectsからVOレコードを除外する。Test subjectと全宣言targetのsubjectは維持し、判定次元はTest Intent × Test codeになる。
+- `covers`が0件のTestに対して、他の`covers` 0 Testを`sibling_tests`として補わない。sibling比較の対象はVOが定義するものであり、VOが無い状態で代替の比較対象を選ばない。
+- `covers`が0件のTestの提出は各reasonに`test-code`のbasisを要求し、`vo` basisを要求しない。VO claimを参照できないことをbasis欠落の理由にしない。
+- `covers`が0件のTestで生成したtest-semantic recordを、VO subjectを含まないことだけを理由にSTALEにしない。`covers`を獲得または喪失したTestではTest subject hashが変化し、既存recordはSTALEになる。
 - 受理するAudit Recordはsubjectsの内容hashへ束縛される。
 - deterministic結果とagent / human結果を区別して保存・表示する。
 - impl-consistency bundleとAudit Recordは、対象VOと上流VO / REQの`spec_refs`から導出したSPEC subject完全集合へ束縛される。Specification record、参照先source、または集合だけを変更しても既存recordはSTALEになり、限定scopeの`impl_consistency = PASS`へ利用されない。
@@ -151,9 +176,12 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 #### 18.3.5 verify・report
 
 - 完全検証は基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
-- 完全検証は全12項目がPASSの場合だけOKとする。
+- 完全検証は、各チェック項目の評価地点（SPEC / REQ / VO / TEST / repository）でinstantiateされた全評価値がPASSの場合だけOKとする。Test Entityへのinstantiate可否は適用項目集合に従う。非適用のTest項目は判定へ参加せず、非適用の存在は完全検証のOKを妨げない。
 - `--items`を省略したCLI / MCP検証は常に固定12項目を評価する。version 1 configの`full_scope`欠落は固定12項目、11項目形は`test_traceability`を補った固定12項目へin-memoryで正規化し、configを書き換えない。version 1の重複・未知項目、およびversion 2の欠落・重複・未知・余剰項目はE-CONFIG-001とし、検証結果を生成しない。
 - 12項目未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。
+- `covers`が0件のTestでは`impl_consistency`をinstantiateせず、値を生成しない。当該項目を「非適用（`covers`なし）」として表示し、`NOT_CHECKED`として表示しない。
+- 総合判定へ算入するのは当該Testの適用項目集合内の非PASSだけであり、非適用の項目は算入されない。非適用を`NOT_CHECKED`として算入することでNGを生じさせない。
+- entity単位の非適用が存在しても、完全検証の項目集合はproject全体で12項目のまま変わらず、「完全検証」表示が限定scopeへ降格しない。
 - `spec_coverage`は登録Specificationの要求事項がactive REQへ完全に取り込まれたことを有効なspec-coverage監査で確認した場合だけPASSとする。active REQの存在だけ、またはREQ → VO対応の存在だけでPASSにしない。
 - 登録Specificationが0件の完全検証を`spec_coverage = MISSING`とし、空集合をPASSにしない。
 - `vo_decomposition`はREQ / VOのparent、requirements、spec_refs、構造Relationだけを評価し、Test metadata、target、adapter parse、Evidenceのerrorによって値を変更しない。
@@ -163,6 +191,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 限定scopeは要求項目だけを集約し、scope外をNOT_CHECKEDのまま表示する。
 - 限定scopeは要求された項目・entityがすべてPASSなら「要求scope内のOK」とし、完全検証OKとは表示しない。
 - reportはSPEC → REQ → VO → Testの構造と、各非PASSの根拠をtext / JSONで返す。
+- `covers`を持たないTestはVOの子ノードとして表示せず、project levelの節に`role`別で表示する。当該Testの非PASSは総合NGへ反映する。
 - text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。
 
 #### 18.3.6 Target Execution Verification
