@@ -28,7 +28,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Verification Obligation（VO）**：独立して「この条件が成立するか」と検証可能な仕様上の命題（要件定義 §4.1）。階層構造を持てる。粒度は assert 文・テスト関数などのコード構文単位で決めない。
 - **Test**：登録adapterが実行可能な検証単位として識別し、Test IDで管理するtest construct。VOの検証実装単位であり、VOとN:Mの対応を持ちうる。
 - **Test Intent**：Testが「何を検証するか」を、実装コードを読まずに判断できる形で表した論理metadata。adapter所有の宣言表現から導出する（§6）。
-- **Test Role**：Testが存在する理由の分類。adapter所有のsource declarationの`role` fieldで表明する。`role`は`covers`と`anchor`の宣言可能性だけを制約し、検証への寄与を決めない（§6.2）。
+- **Test Role**：Testが存在する理由の分類。adapter所有のsource declarationの`role` fieldで表明する。`role`は`covers`・`anchor`・`anchor_rationale`の宣言可能性だけを制約し、検証への寄与を決めない（§6.2）。
 - **Test subject**：Test Entityのidentity、canonical metadata、Source Locationのadapter・path・opaque locator、execution descriptor、およびTest constructを正規化して束縛する検証対象。内容ハッシュはこのsubject全体に対して計算し、前方の無関係な編集で変動するbyte range自体は含めない。
 - **Source Target（SRC）**：テスト対象となる実装コード上の識別可能なimplementation construct。adapter IDとadapter所有のopaque locatorからなるTarget ReferenceまたはSRC IDで識別する。
 - **Execution Evidence**：テスト実行の事実の記録。結果、実行時のリポジトリ状態、全宣言targetを解決したcanonical Source Targetの参照・内容ハッシュ・実行計測結果を含む。target参照はTestが宣言した綴りではなく、解決後のcanonical Target Referenceとする。
@@ -331,7 +331,7 @@ fn rejects_invalid_utf8() {
 具体的入力値の記載は許容するが必須としない（要件定義 §9）。
 `rust-cargo` adapterはこれらを`@vtest.id`、`@vtest.covers`、`@vtest.target`、`@vtest.intent`、`@vtest.input`、`@vtest.expect`、`@vtest.kind`、`@vtest.case`、`@vtest.related`、`@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale`へ対応付ける。構文の完全な文法は詳細設計 §4 の`rust-cargo` contractで定める。
 
-`role`は`covers`と`anchor`の宣言可能性だけを制約する。`role`ごとの要求は次のとおりとする。
+`role`は`covers`・`anchor`・`anchor_rationale`の宣言可能性だけを制約する。`role`ごとの要求は次のとおりとする。
 
 | `role` | `covers` | `anchor` | `anchor_rationale` |
 |---|---|---|---|

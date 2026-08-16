@@ -90,7 +90,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - `role characterization`の宣言、および`role` / `anchor`の受理語彙外の値はE-SCAN-013になる。`characterization`は受理語彙に含まれる予約値であり、未知キーのE-SCAN-006として報告しない。
 - adapterは受理語彙外の値と予約値も逐語のままdraftへ載せて返し、これを理由にdraftを`Missing`へ落とさない。値を除去・置換したadapter出力からはE-SCAN-013を生成できない。
 - 受理語彙に違反する`role`宣言を持つTestは実効`role`が`None`となり、entityと`ManagedTestLink::One`を保持したまま`test_traceability = MISMATCH`になる。coreは当該Testを`verification`として具体化せず、宣言されていない目的を与えない。
-- 実効`role`が`None`のentityの適用項目集合は`test_traceability`、`test_execution`、`runtime_result`、`evidence_validity`、`target_execution`へ縮退し、`static_audit`、`semantic_audit`、`impl_consistency`をinstantiateしない。非適用の項目は「非適用」として表示し、`NOT_CHECKED`として表示しない。
+- 実効`role`が`None`のentityの適用項目集合は`test_execution`、`runtime_result`、`evidence_validity`、`target_execution`へ縮退し、`static_audit`、`semantic_audit`、`impl_consistency`をinstantiateしない。`test_traceability`はrepository-level項目としてscan result全体で一度だけ評価され、当該entityはその値の原因（MISMATCH）になるがentityへのinstantiateは生じない。非適用の項目は「非適用」として表示し、`NOT_CHECKED`として表示しない。
 - Test subject hashは`role` / `anchor` / `anchor_rationale`の宣言逐語値を束縛し、確定した実効値を束縛しない。`role`宣言を持たないTestと`role verification`を明示宣言したTestは、実効`role`が同じでもTest subject hashが異なる。
 - `role`または`anchor`の宣言だけを書き換えるとTest subject hashが変化し、当該Testをsubjectsに含むAudit / EvidenceがSTALEになる。宣言の付替えを既存の監査・実行結果へ無変化で持ち込めない。
 - `covers`を持たないTestにも、適用項目集合内の`test_execution`、`runtime_result`、`evidence_validity`、宣言targetの`target_execution`、およびstatic / semantic監査のTest単位の判定を通常どおり適用する。これらの非PASSはいずれのVOの合成へも算入されないが、総合判定へは算入される。

@@ -1458,7 +1458,7 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 
 `role`はTestが存在する理由の分類であり、チェック項目の適用可否を`role`値から決めない。どの項目を評価するかは、entityごとの**適用項目集合（applicable check-item set）**として定める。
 
-**適用項目集合**とは、あるManaged Test Entityについて値を生成して評価するチェック項目の集合をいう。集合に含まれない項目は当該entityへ**instantiateしない**。値を生成せず、§11.3 step 10のTest単位のfail-closed算入にも参加しない。reportでは「非適用」として理由（例：`covers`なし）とともに表示し、`NOT_CHECKED`と明確に区別する。`NOT_CHECKED`は「適用対象でありながら未検証」を意味する値である（基本仕様 §4.1）。適用対象でない項目へこの値を与えると、未検証の事実と適用外の事実が同じ表示に潰れ、`NOT_CHECKED`が保護している意味が失われる。
+**適用項目集合**とは、ある具体化されたTest Entity — 構造上完全なManaged Test Entityと、§4.4で除去せずに保持する構造上完全でないentityの双方 — について値を生成して評価するチェック項目の集合をいう。構造上完全でないentityはManaged Test Entityではないが（基本仕様 §2、要件定義 §7.1）、具体化されている限り適用項目集合を持つ。repository-level項目である`test_traceability`は、個々のentityへはinstantiateせずrepositoryのscan result全体に対して一度だけ評価する（§11.1.1）。したがっていかなるentityの適用項目集合にも含まれない。構造上完全でないentityは`test_traceability`の**値の原因**（MISMATCH）にはなるが、その項目を当該entityへinstantiateすることとは別である。集合に含まれない項目は当該entityへ**instantiateしない**。値を生成せず、§11.3 step 10のTest単位のfail-closed算入にも参加しない。reportでは「非適用」として理由（例：`covers`なし）とともに表示し、`NOT_CHECKED`と明確に区別する。`NOT_CHECKED`は「適用対象でありながら未検証」を意味する値である（基本仕様 §4.1）。適用対象でない項目へこの値を与えると、未検証の事実と適用外の事実が同じ表示に潰れ、`NOT_CHECKED`が保護している意味が失われる。
 
 完全検証の項目集合はproject全体で基本仕様 §4.2の12項目のまま変わらない。適用項目集合が制御するのはentity単位のinstantiateだけであり、非適用の存在は完全検証を12項目未満の限定scopeにしない。
 
@@ -1466,12 +1466,12 @@ E-SCAN-008、E-SCAN-012、および選択部分木のREQ / VO / 構造Relation�
 
 - 既定では、Test単位で評価する全項目を適用項目集合に含める。
 - `covers`が0件のTestでは`impl_consistency`をinstantiateしない。`impl_consistency`は仕様・VO・Testと対象実装の一致判定であり（基本仕様 §7.5）、対象VOが無ければ判定根拠となる上流SPEC subjectの完全集合を導出できず、判定の入力自体が定義されない。
-- 実効`role`が`None`のentity（§4.4）では、適用項目集合を`test_traceability`、`test_execution`、`runtime_result`、`evidence_validity`、`target_execution`へ縮退させる。この集合は、Testの目的を前提とせずに評価できるtraceabilityとtest-localな実行系だけからなる。目的が確定していない段階で、その目的を前提とする監査次元（`static_audit`、`semantic_audit`、`impl_consistency`）をinstantiateしない。目的の不確定そのものは`test_traceability = MISMATCH`として報告済みであり、確定しない目的に対する監査結果を重ねて生成しない。
+- 実効`role`が`None`のentity（§4.4）では、適用項目集合を`test_execution`、`runtime_result`、`evidence_validity`、`target_execution`へ縮退させる。この集合は、Testの目的を前提とせずに評価できるtest-localな実行系だけからなる。目的が確定していない段階で、その目的を前提とする監査次元（`static_audit`、`semantic_audit`、`impl_consistency`）をinstantiateしない。目的の不確定そのものは`test_traceability = MISMATCH`として報告済みであり、確定しない目的に対する監査結果を重ねて生成しない。
 
 その上で次を不変条件とする。
 
 - **Auditability と Contribution の分離**：管理下の全Testに、適用項目集合内の完全性・実行・鮮度・静的・意味の各検査を通常どおり適用する。`covers`を持たないTestは、これらの結果をいずれのVerification Obligationへも寄与させないだけである。
-- `test_traceability` / `test_execution` / `runtime_result` / `evidence_validity`は全Managed Test Entityの適用項目集合に含まれ、`role`値によらず評価する。
+- `test_execution` / `runtime_result` / `evidence_validity`は全ての具体化されたTest Entityの適用項目集合に含まれ、`role`値によらず評価する。`test_traceability`はrepository-level項目であり、entityの適用項目集合の対象外である（上記）。
 - `targets`は`role`によらず1件以上必須であり（基本仕様 §6.2）、`target_execution`は宣言targetに対して`role`によらず通常どおり適用する。
 - 適用項目集合に含まれる限り、`static_audit`と`semantic_audit`のTest単位の判定は`role`値によらず評価する。`semantic_audit`の判定次元は`covers`の有無で定まる（§8.1）。`test_existence`、および`static_audit` / `semantic_audit`のVO対応面へは`covers`を持つTestだけが寄与する。`role`が`regression`で`anchor`が`normative`のTestは、`covers`先VOに対して`verification`のTestと同一に寄与する。
 - **`role`とtopologyの直交**：`role`は実行topology、target到達性モデル（§7.3）の適用可否、および境界の意味論を決定してはならない。`role`の各値と、in-process / subprocess / 構造的な各topologyの組合せに制限を設けない。
