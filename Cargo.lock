@@ -660,6 +660,8 @@ name = "vtest-verify"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
