@@ -2024,6 +2024,10 @@ fn validate_reasons(kind: &str, result: &serde_json::Value) -> Result<(), Comman
             reason.get("kind").and_then(serde_json::Value::as_str)
                 == Some("decomposition-viewpoint")
         });
+        // 基本仕様 §7.4 requires the spec basis as a "SPEC ID＋節参照"
+        // (SPEC ID + section reference), not merely a non-empty string; the
+        // shared submission shape at 詳細設計 §8.3 shows this as
+        // `SPEC-BASIC-001#3.1`.
         let has_spec = reasons
             .iter()
             .flat_map(|reason| {
@@ -2033,16 +2037,58 @@ fn validate_reasons(kind: &str, result: &serde_json::Value) -> Result<(), Comman
                     .into_iter()
                     .flatten()
             })
-            .any(|basis| basis.get("kind").and_then(serde_json::Value::as_str) == Some("spec"));
-        if !has_viewpoint || !has_spec {
+            .any(|basis| {
+                basis.get("kind").and_then(serde_json::Value::as_str) == Some("spec")
+                    && basis
+                        .get("ref")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(is_spec_section_ref)
+            });
+        // 基本仕様 §7.4 also requires the excluded conditions and their spec
+        // grounds as part of the same structured reason (item 3 of 4; only
+        // examples, item 4, are "as needed"). 詳細設計 §8.3's vo-coverage
+        // example carries `exclusions: [{item, basis}]` alongside `reasons`.
+        let has_exclusions = result
+            .get("exclusions")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|exclusions| {
+                exclusions.iter().all(|exclusion| {
+                    exclusion
+                        .get("item")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|item| !item.trim().is_empty())
+                        && exclusion
+                            .get("basis")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|basis| !basis.trim().is_empty())
+                })
+            });
+        if !has_viewpoint || !has_spec || !has_exclusions {
             return Err(failure(
                 "E-AUDIT-006",
-                "vo-coverage requires a decomposition-viewpoint reason and a spec basis",
+                "vo-coverage requires a decomposition-viewpoint reason, a spec basis \
+                 formatted as `SPEC-ID#section`, and an exclusions list whose entries \
+                 each carry a non-empty item and spec-grounded basis",
                 ExitCode::Usage,
             ));
         }
     }
     Ok(())
+}
+
+/// Whether `reference` is a SPEC ID + section reference (基本仕様 §7.4),
+/// e.g. `SPEC-BASIC-001#3.1`. Only the structural shape is checked here;
+/// resolving it against a registered SPEC record is not this gate's job.
+fn is_spec_section_ref(reference: &str) -> bool {
+    let Some((spec_id, section)) = reference.split_once('#') else {
+        return false;
+    };
+    !section.trim().is_empty()
+        && spec_id.len() > "SPEC-".len()
+        && spec_id.starts_with("SPEC-")
+        && spec_id.chars().all(|character| {
+            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
+        })
 }
 
 fn audit_record_yaml(
@@ -3397,7 +3443,18 @@ fn approve_vo(
             ));
         }
     }
-    let vo = read_vo(layout, id).map_err(store_failure)?;
+    // The target itself is resolved through the same E-APPROVAL-001/exit-2
+    // mapping as its upstream closure (別紙A L104: "対象またはいずれかの依存
+    // entity / SPEC sourceを完全・currentに解決できない場合はE-APPROVAL-001"),
+    // not through the generic store_failure/E-CORE-001 internal-error mapping:
+    // a nonexistent VO id is an operation rejection, not a tool-internal fault.
+    let vo = read_vo(layout, id).map_err(|error| {
+        failure(
+            "E-APPROVAL-001",
+            format!("cannot approve {id}: target vo {id} is not completely and currently resolvable: {error}"),
+            ExitCode::Usage,
+        )
+    })?;
     // The closure is resolved before any write so a rejected approve leaves the
     // VO and the append-only approvals untouched.
     let dependencies = resolve_upstream_closure(layout, &vo).map_err(|failure_reason| {
@@ -4113,6 +4170,92 @@ mod tests {
         let vo = read_vo(&layout, "VO-CALC").unwrap();
         assert_eq!(effective_vo_status(&layout, &vo), "draft");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-CLI-098
+    /// @vtest.covers VO-CLI-019
+    /// @vtest.target crates/vtest-cli/src/lib.rs::approve_vo
+    /// @vtest.intent approve maps a nonexistent target VO to E-APPROVAL-001/exit 2, not E-CORE-001/exit 3, and writes no record
+    #[test]
+    fn approve_maps_a_missing_target_vo_to_e_approval_001_not_e_core_001() {
+        let root = root();
+        let layout = VerifyLayout::new(&root);
+        let error = approve_vo(&layout, "VO-NOEXIST", "human", "reviewer", None, &[])
+            .expect_err("the target VO does not exist");
+        assert_eq!(error.diagnostic.code, "E-APPROVAL-001");
+        assert_eq!(error.code, ExitCode::Usage);
+        assert_eq!(
+            fs::read_dir(root.join(".verify/approvals"))
+                .unwrap()
+                .flatten()
+                .filter(
+                    |entry| entry.path().extension().and_then(|value| value.to_str())
+                        == Some("yaml")
+                )
+                .count(),
+            0,
+            "an unresolvable target must not append an approval fact either"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-CLI-099
+    /// @vtest.covers VO-CLI-020
+    /// @vtest.target crates/vtest-cli/src/lib.rs::validate_reasons
+    /// @vtest.intent a vo-coverage submission with no exclusions structure at all is rejected with E-AUDIT-006
+    #[test]
+    fn validate_reasons_rejects_vo_coverage_missing_exclusions() {
+        let submission = serde_json::json!({
+            "reasons": [{
+                "kind": "decomposition-viewpoint",
+                "claim": "looks complete to me",
+                "basis": [{"kind": "spec", "ref": "SPEC-REPRO#3.1"}]
+            }]
+        });
+        let error = validate_reasons("vo-coverage", &submission)
+            .expect_err("vo-coverage without an exclusions structure must be rejected");
+        assert_eq!(error.diagnostic.code, "E-AUDIT-006");
+        assert_eq!(error.code, ExitCode::Usage);
+    }
+
+    /// @vtest.id TEST-CLI-100
+    /// @vtest.covers VO-CLI-021
+    /// @vtest.target crates/vtest-cli/src/lib.rs::validate_reasons
+    /// @vtest.intent a vo-coverage spec basis ref must be a SPEC ID + section reference, not an arbitrary string
+    #[test]
+    fn validate_reasons_rejects_vo_coverage_spec_basis_without_section_reference() {
+        let submission = serde_json::json!({
+            "reasons": [{
+                "kind": "decomposition-viewpoint",
+                "claim": "looks complete to me",
+                "basis": [{"kind": "spec", "ref": "trust me bro"}]
+            }],
+            "exclusions": []
+        });
+        let error = validate_reasons("vo-coverage", &submission)
+            .expect_err("a spec basis ref lacking `SPEC-ID#section` shape must be rejected");
+        assert_eq!(error.diagnostic.code, "E-AUDIT-006");
+        assert_eq!(error.code, ExitCode::Usage);
+    }
+
+    /// @vtest.id TEST-CLI-101
+    /// @vtest.covers VO-CLI-022
+    /// @vtest.target crates/vtest-cli/src/lib.rs::validate_reasons
+    /// @vtest.intent a vo-coverage exclusion entry missing its spec-grounded basis is rejected with E-AUDIT-006
+    #[test]
+    fn validate_reasons_rejects_vo_coverage_exclusion_without_spec_grounds() {
+        let submission = serde_json::json!({
+            "reasons": [{
+                "kind": "decomposition-viewpoint",
+                "claim": "looks complete to me",
+                "basis": [{"kind": "spec", "ref": "SPEC-REPRO#3.1"}]
+            }],
+            "exclusions": [{"item": "edge case", "basis": ""}]
+        });
+        let error = validate_reasons("vo-coverage", &submission)
+            .expect_err("an exclusion entry without spec grounds must be rejected");
+        assert_eq!(error.diagnostic.code, "E-AUDIT-006");
+        assert_eq!(error.code, ExitCode::Usage);
     }
 
     /// @vtest.id TEST-CLI-003
