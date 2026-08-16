@@ -31,6 +31,8 @@
 
 「12項目 all PASS」= 閉包成立。
 
+**2026-08-17 改訂（role 仕様 PR #6 merge に伴う operational definition の読み替え）**: 項目集合は project 全体で12のまま不変だが、量化は「全 entity × 全12項目」ではなく「**各チェック項目の評価地点（SPEC / REQ / VO / TEST / repository）で instantiate された全評価値**」に対して行う。Test Entity への instantiate 可否は**適用項目集合**に従う（covers を持たない Test に impl_consistency は instantiate されない等）。非 instantiate は「非適用」であり NOT_CHECKED（適用対象なのに未検証）と区別される — 閉包の分母から**正当に**外れているのであって、未検証として残っているのではない。中心命題は不変: すべての Test を管理するが、すべての Test を仕様適合の証拠として数えない（Role ⇏ Contribution、寄与は covers × 証拠十分性のみから導出）。
+
 ## Red の意味（2×2）
 
 |  | 実装適合 | 実装非適合 |
