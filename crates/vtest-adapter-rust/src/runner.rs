@@ -468,7 +468,7 @@ mod tests {
         assert_eq!(target_execution.compatibility_count, None);
     }
 
-    /// @vtest.id TEST-ARUST-008
+    /// @vtest.id TEST-ARUST-022
     /// @vtest.covers VO-ARUST-012
     /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::coverage_target_execution
     /// @vtest.intent a FAIL target dominates a mixed FAIL+UNKNOWN per-target fold (FAIL outranks UNKNOWN)
