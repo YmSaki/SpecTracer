@@ -430,7 +430,7 @@ fn build_req_node(
             kind: "req".to_owned(),
             id: id.to_owned(),
             value: CheckValue::Unknown,
-            items: item_copies(values, &["spec_coverage"]),
+            items: item_copies(values, &["spec_coverage", "vo_coverage"]),
             children: Vec::new(),
         };
     }
@@ -458,7 +458,11 @@ fn build_req_node(
         }
     }
     visiting.remove(id);
-    let items = item_copies(values, &["spec_coverage"]);
+    // §11.1's 評価地点 column lists vo_coverage's evaluation point as "REQ /
+    // VO"; it is attached at both node kinds (unlike the earlier bug, where
+    // it was reachable only from build_vo_node and a zero-VO REQ carried no
+    // vo_coverage item at all).
+    let items = item_copies(values, &["spec_coverage", "vo_coverage"]);
     node_with_children("req", id, items, children)
 }
 
@@ -1312,19 +1316,113 @@ fn audit_subject_key(subject: &AuditSubject) -> (String, String) {
     )
 }
 
+/// `vo_coverage` (詳細設計 §11.1 L1356-1358 / 基本仕様 §7.4 L428-430): evaluated
+/// per active REQ over that REQ's corresponding VO set (`vo.requirements`
+/// contains the REQ id), not per VO -- an active REQ with zero corresponding
+/// VOs must yield MISSING, and that 0-VO clause is ordered before any audit
+/// consultation (VO-EXIST-05, VO-PLAN-07). Withdrawn REQs are excluded from
+/// the active-REQ set (詳細設計 §3.2; the VO-PLAN-01 leg (c) exclusion rule,
+/// independently required here since this item's REQ set is its own).
 fn evaluate_vo_coverage(
     root: &Path,
     layout: &VerifyLayout,
     scan: &ScanResult,
     selection: &ScopeSelection,
 ) -> (CheckValue, Vec<String>) {
-    if selection.vo_ids.is_empty() {
+    let reqs = selection
+        .req_ids
+        .iter()
+        .filter_map(|id| read_req(layout, id).ok())
+        .filter(|req| req.status == "active")
+        .collect::<Vec<_>>();
+    if reqs.is_empty() {
         return (
             CheckValue::NotChecked,
-            vec!["no VO records are available in the selected scope".to_owned()],
+            vec!["no active REQ records are available in the selected scope".to_owned()],
         );
     }
-    let mut per_vo: BTreeMap<String, Vec<(String, bool, CheckValue, String)>> = BTreeMap::new();
+
+    // The REQ->VO correspondence and the approval-subtree gate both need
+    // structural VO facts (requirements, parent) beyond the item-scoped
+    // `selection.vo_ids` set: 基本仕様 §7.4 L428 binds the vo-coverage audit
+    // subject to "対応REQとVO部分木" (the corresponding REQ and its VO
+    // subtree). Restricting the correspondence lookup to `selection.vo_ids`
+    // would let an entity-scoped `--vo` selection silently drop a sibling
+    // VO of the same REQ and false-PASS on a partial view.
+    let vo_records = read_record_ids(&layout.vo_dir())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|id| read_vo(layout, &id).ok().map(|record| (id, record)))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut overall = CheckValue::Pass;
+    let mut basis = Vec::new();
+    for req in &reqs {
+        let corresponding = vo_records
+            .iter()
+            .filter(|(_, vo)| vo.requirements.iter().any(|candidate| candidate == &req.id))
+            .map(|(id, _)| id.clone())
+            .collect::<BTreeSet<_>>();
+        if corresponding.is_empty() {
+            overall = combine_values(overall, CheckValue::Missing);
+            basis.push(format!("REQ {}: Missing (no corresponding VO)", req.id));
+            continue;
+        }
+        let mut audit_fold = CheckValue::Pass;
+        let mut audit_details = Vec::new();
+        for vo_id in &corresponding {
+            let (value, detail) = vo_coverage_audit_fold(root, layout, scan, vo_id);
+            audit_fold = combine_values(audit_fold, value);
+            audit_details.push(detail);
+        }
+        let value = if audit_fold == CheckValue::Pass {
+            // 詳細設計 §11.1 L1358: the approval gate is quantified over the
+            // target VO **subtree** ("対象VO部分木の承認…すべて有効"), so it
+            // spans each corresponding VO plus its descendants. The audit
+            // itself is still bound only to the directly-corresponding
+            // VO(s) above -- a vo-coverage bundle is not required per
+            // descendant.
+            let mut approval_domain = corresponding.clone();
+            include_vo_descendants(&vo_records, &mut approval_domain);
+            let unapproved = approval_domain
+                .iter()
+                .filter(|vo_id| !vo_is_approved(layout, vo_id))
+                .cloned()
+                .collect::<Vec<_>>();
+            if unapproved.is_empty() {
+                CheckValue::Pass
+            } else {
+                audit_details.push(format!("unapproved VO(s): {}", unapproved.join(", ")));
+                CheckValue::Missing
+            }
+        } else {
+            audit_fold
+        };
+        overall = combine_values(overall, value);
+        basis.push(format!(
+            "REQ {}: {value:?} ({})",
+            req.id,
+            audit_details.join("; ")
+        ));
+    }
+    (overall, basis)
+}
+
+/// The vo-coverage audit fold for one directly-corresponding VO: §8.5's
+/// two-stage recency rule (any FAIL among the valid records bound to this
+/// VO dominates; otherwise the chronologically latest valid record's
+/// verdict is authoritative -- audited_at is consulted, not a severity-max
+/// fold that ignores recency). Preserved unchanged from wave 2
+/// (VO-SEMAUDIT-05) as the per-VO building block `evaluate_vo_coverage`
+/// folds over; the §3.5 approval gate is applied by the caller across the
+/// REQ's VO subtree, not per VO here.
+fn vo_coverage_audit_fold(
+    root: &Path,
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    vo_id: &str,
+) -> (CheckValue, String) {
+    let mut records = Vec::new();
     for id in read_record_ids(&layout.audits_dir()).unwrap_or_default() {
         let path = layout.audits_dir().join(format!("{id}.yaml"));
         let Ok(text) = read_text(&path) else { continue };
@@ -1332,14 +1430,10 @@ fn evaluate_vo_coverage(
             continue;
         }
         let subjects = parse_audit_subjects(&text);
-        let vo_ids = subjects
+        let binds_vo = subjects
             .iter()
-            .filter(|subject| subject.kind == "vo")
-            .filter_map(|subject| subject.id.as_deref())
-            .filter(|id| selection.vo_ids.contains(*id))
-            .map(str::to_owned)
-            .collect::<BTreeSet<_>>();
-        if vo_ids.is_empty() {
+            .any(|subject| subject.kind == "vo" && subject.id.as_deref() == Some(vo_id));
+        if !binds_vo {
             continue;
         }
         let valid = !subjects.is_empty()
@@ -1353,67 +1447,44 @@ fn evaluate_vo_coverage(
             _ => CheckValue::Unknown,
         };
         let audited_at = yaml_scalar_value(&text, "audited_at").unwrap_or_default();
-        for vo_id in vo_ids {
-            per_vo
-                .entry(vo_id)
-                .or_default()
-                .push((id.clone(), valid, verdict, audited_at.clone()));
-        }
+        records.push((id.clone(), valid, verdict, audited_at));
     }
-
-    let mut overall = CheckValue::Pass;
-    let mut basis = Vec::new();
-    for vo_id in &selection.vo_ids {
-        let records = per_vo.get(vo_id).cloned().unwrap_or_default();
-        let current = if records.is_empty() {
-            CheckValue::NotChecked
-        } else {
-            let valid = records
-                .iter()
-                .filter(|(_, current, _, _)| *current)
-                .collect::<Vec<_>>();
-            if valid.is_empty() {
-                CheckValue::Stale
-            } else {
-                // §8.5, same two-stage rule as evaluate_test_audit
-                // (VO-SEMAUDIT-05): among the valid records bound to this
-                // VO, any FAIL dominates; otherwise the chronologically
-                // latest valid record's verdict is authoritative --
-                // audited_at is consulted, not a severity-max fold that
-                // ignores recency. The approval gate below is unchanged.
-                let audit_value = if valid
-                    .iter()
-                    .any(|(_, _, verdict, _)| *verdict == CheckValue::Fail)
-                {
-                    CheckValue::Fail
-                } else {
-                    valid
-                        .iter()
-                        .max_by(|left, right| compare_recency(&left.3, &left.0, &right.3, &right.0))
-                        .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
-                };
-                if audit_value == CheckValue::Pass && !vo_is_approved(layout, vo_id) {
-                    CheckValue::Missing
-                } else {
-                    audit_value
-                }
-            }
-        };
-        overall = combine_values(overall, current);
-        let record_basis = records
+    let record_basis = records
+        .iter()
+        .map(|(id, valid, _, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if records.is_empty() {
+        return (
+            CheckValue::NotChecked,
+            format!("VO {vo_id}: NotChecked (coverage audit missing)"),
+        );
+    }
+    let valid = records
+        .iter()
+        .filter(|(_, current, _, _)| *current)
+        .collect::<Vec<_>>();
+    if valid.is_empty() {
+        return (
+            CheckValue::Stale,
+            format!("VO {vo_id}: Stale (coverage audits: {record_basis})"),
+        );
+    }
+    let audit_value = if valid
+        .iter()
+        .any(|(_, _, verdict, _)| *verdict == CheckValue::Fail)
+    {
+        CheckValue::Fail
+    } else {
+        valid
             .iter()
-            .map(|(id, valid, _, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
-            .collect::<Vec<_>>();
-        if records.is_empty() {
-            basis.push(format!("VO {vo_id}: {current:?} (coverage audit missing)"));
-        } else {
-            basis.push(format!(
-                "VO {vo_id}: {current:?} (coverage audits: {})",
-                record_basis.join(", ")
-            ));
-        }
-    }
-    (overall, basis)
+            .max_by(|left, right| compare_recency(&left.3, &left.0, &right.3, &right.0))
+            .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
+    };
+    (
+        audit_value,
+        format!("VO {vo_id}: {audit_value:?} (coverage audits: {record_basis})"),
+    )
 }
 
 /// §7.5 (基本仕様): a Test's declared target that fails to resolve reports
@@ -2075,15 +2146,15 @@ mod tests {
     };
     use vtest_model::{
         AdapterId, CanonicalProjection, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
-        ExecutionDescriptor, ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary,
-        SourceFunction, SourceLocation, SourceRange, TargetExecution, TargetExecutionObservation,
-        TargetRef, TestEntity, TestId, TestResult, TestSuite, VoId,
+        ExecutionDescriptor, ExecutionStateSubject, ProjectPath, ReqId, Revision, RunnerInfo,
+        ScanSummary, SourceFunction, SourceLocation, SourceRange, TargetExecution,
+        TargetExecutionObservation, TargetRef, TestEntity, TestId, TestResult, TestSuite, VoId,
     };
     use vtest_scan::rust_cargo_execution_state_hash;
     use vtest_store::{
-        approval_subject_hash, init_project, new_record_id, vo_record_subject, ApprovalDependency,
-        ApprovalRecord, Approver, AuditBasisRecord, AuditReasonRecord, AuditTargetVerdictRecord,
-        AuditorRecord,
+        approval_subject_hash, init_project, new_record_id, resolve_upstream_closure,
+        vo_record_subject, ApprovalDependency, ApprovalRecord, Approver, AuditBasisRecord,
+        AuditReasonRecord, AuditTargetVerdictRecord, AuditorRecord,
     };
 
     /// @vtest.id TEST-VERIFY-001
@@ -2779,21 +2850,139 @@ mod tests {
         ContentHash::from_text(&text)
     }
 
+    /// Write a minimal active REQ record with no `spec_refs` (schema
+    /// enforcement for active REQs is a different cluster's obligation;
+    /// leaving `spec_refs` empty keeps this fixture's upstream approval
+    /// closure resolvable without a SPEC record).
+    fn write_active_req(layout: &VerifyLayout, req_id: &str) {
+        let text = ReqRecord {
+            id: ReqId::new(req_id),
+            parent: None,
+            spec_refs: Vec::new(),
+            summary: "fixture requirement".to_owned(),
+            status: "active".to_owned(),
+            created: "2026-01-01".to_owned(),
+            updated: "2026-01-01".to_owned(),
+        }
+        .to_yaml();
+        fs::write(layout.req_dir().join(format!("{req_id}.yaml")), text)
+            .expect("write active REQ record");
+    }
+
+    /// Write a minimal `status: withdrawn` REQ record (詳細設計 §3.2:
+    /// withdrawn REQs keep their references for history but are excluded
+    /// from the current corresponding-REQ set).
+    fn write_withdrawn_req(layout: &VerifyLayout, req_id: &str) {
+        let text = ReqRecord {
+            id: ReqId::new(req_id),
+            parent: None,
+            spec_refs: Vec::new(),
+            summary: "fixture requirement (withdrawn)".to_owned(),
+            status: "withdrawn".to_owned(),
+            created: "2026-01-01".to_owned(),
+            updated: "2026-01-01".to_owned(),
+        }
+        .to_yaml();
+        fs::write(layout.req_dir().join(format!("{req_id}.yaml")), text)
+            .expect("write withdrawn REQ record");
+    }
+
+    /// Write a current, approved VO record covering `requirements`,
+    /// resolving the REAL upstream approval closure (each referenced REQ
+    /// record must already exist on disk). Extends `write_approved_vo`'s
+    /// empty-closure fixture to the REQ-anchored `evaluate_vo_coverage`
+    /// tests, which need `vo.requirements` populated so the REQ->VO
+    /// correspondence used by the fix under test actually links up.
+    fn write_approved_vo_covering(
+        layout: &VerifyLayout,
+        vo_id: &str,
+        requirements: &[&str],
+    ) -> ContentHash {
+        let path = layout.vo_dir().join(format!("{vo_id}.yaml"));
+        let text = VoRecord {
+            id: VoId::new(vo_id),
+            parent: None,
+            requirements: requirements.iter().map(|id| ReqId::new(*id)).collect(),
+            spec_refs: Vec::new(),
+            claim: "fixture".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            status: None,
+            created: "2026-01-01".to_owned(),
+            updated: "2026-01-01".to_owned(),
+        }
+        .to_yaml();
+        fs::write(&path, &text).expect("write VO record");
+        let vo = read_vo(layout, vo_id).expect("read VO record");
+        let dependencies =
+            resolve_upstream_closure(layout, &vo).expect("resolve upstream closure");
+        let approval_id = new_record_id();
+        let approval = ApprovalRecord {
+            id: approval_id.clone(),
+            subject: VoId::new(vo_id),
+            subject_hash: approval_subject_hash(&vo_record_subject(&vo), &dependencies),
+            dependencies: Some(dependencies),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: Vec::new(),
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        fs::write(
+            layout.approvals_dir().join(format!("{approval_id}.yaml")),
+            approval.to_yaml(),
+        )
+        .expect("write approval");
+        ContentHash::from_text(&text)
+    }
+
+    /// Write a VO record with a `parent` link and no Approval at all, so
+    /// `vo_is_approved` reports false. Used to pin the §11.1 L1358 approval
+    /// gate's subtree quantification ("対象VO部分木の承認…すべて有効").
+    fn write_unapproved_child_vo(layout: &VerifyLayout, vo_id: &str, parent_id: &str) {
+        let text = VoRecord {
+            id: VoId::new(vo_id),
+            parent: Some(VoId::new(parent_id)),
+            requirements: Vec::new(),
+            spec_refs: Vec::new(),
+            claim: "fixture child".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            status: None,
+            created: "2026-01-01".to_owned(),
+            updated: "2026-01-01".to_owned(),
+        }
+        .to_yaml();
+        fs::write(layout.vo_dir().join(format!("{vo_id}.yaml")), text)
+            .expect("write child VO record");
+    }
+
     /// @vtest.id TEST-VERIFY-023
     /// @vtest.covers VO-SEMAUDIT-05
-    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.target crates/vtest-verify/src/lib.rs::vo_coverage_audit_fold
     /// @vtest.intent §8.5, the same two-stage rule as evaluate_test_audit
     /// (VO-SEMAUDIT-05): among the valid records bound to one VO, the
     /// chronologically LATEST valid record's verdict is authoritative, not a
     /// severity-max fold that ignores recency -- an older UNKNOWN and a
-    /// newer PASS must fold to PASS (with the approval gate satisfied).
+    /// newer PASS must fold to PASS.
     /// Stretch: VO-SEMAUDIT-05's claim is stated for test-semantic /
-    /// impl-consistency audits; evaluate_vo_coverage applies the identical
-    /// §8.5 recency rule to vo-coverage audits under its own approval-gating
-    /// branch, so this covers the closest existing VO record for that
-    /// shared rule (the registry is retiring; no new VO is minted). Fixed:
-    /// this fold previously used combine_values (severity max), which picks
-    /// UNKNOWN over PASS regardless of which record is newer.
+    /// impl-consistency audits; vo_coverage_audit_fold applies the identical
+    /// §8.5 recency rule to vo-coverage audits, so this covers the closest
+    /// existing VO record for that shared rule (the registry is retiring; no
+    /// new VO is minted). Fixed: this fold previously used combine_values
+    /// (severity max), which picks UNKNOWN over PASS regardless of which
+    /// record is newer. Wave 5 (cluster5-vo-coverage) re-homed the caller
+    /// (evaluate_vo_coverage) to iterate active REQs rather than VOs and
+    /// extracted this per-VO fold as its unchanged building block; the
+    /// approval gate this test used to exercise inline now lives in the
+    /// caller (see the REQ-anchored tests below), so this test targets the
+    /// extracted fold directly.
     #[test]
     fn vo_coverage_selects_the_latest_valid_verdict_over_severity_max() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
@@ -2806,16 +2995,165 @@ mod tests {
             "2026-08-08T00:00:00Z",
         );
         write_vo_coverage_audit(&layout, "VO-ONE", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            vo_coverage_audit_fold(&layout.root, &layout, &scan, "VO-ONE").0,
+            CheckValue::Pass
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-050
+    /// @vtest.covers VO-EXIST-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent 詳細設計 §11.1 L1356 / 基本仕様 §7.4 L429: an active REQ
+    /// with zero corresponding VOs yields vo_coverage = MISSING, and that
+    /// clause is ordered before any audit consultation. Fixed: the prior
+    /// per-VO implementation never read `selection.req_ids`, so a zero-VO
+    /// REQ contributed nothing and MISSING was unreachable (it folded to
+    /// PASS from unrelated VOs, or NOT_CHECKED under an entity scope).
+    #[test]
+    fn active_req_with_zero_vos_is_missing() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-ORPHAN");
         let selection = ScopeSelection {
             entity_scope: None,
             test_ids: BTreeSet::new(),
-            vo_ids: BTreeSet::from(["VO-ONE".to_owned()]),
-            req_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-ORPHAN".to_owned()]),
+        };
+        let (value, basis) = evaluate_vo_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::Missing);
+        assert!(basis.iter().any(|line| line.contains("REQ-ORPHAN")));
+    }
+
+    /// @vtest.id TEST-VERIFY-051
+    /// @vtest.covers VO-EXIST-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent VO-EXIST-05 repro leg (C): under an `EntityScope::Req`
+    /// selection of the zero-VO REQ itself, vo_coverage must still be
+    /// MISSING, not NOT_CHECKED. Fixed: the prior implementation's
+    /// `selection.vo_ids.is_empty()` early return reported NOT_CHECKED for
+    /// exactly this case, which 詳細設計 §11.1's clause ordering rules out.
+    #[test]
+    fn active_req_with_zero_vos_is_missing_under_req_entity_scope() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-ORPHAN");
+        let selection = ScopeSelection {
+            entity_scope: Some(EntityScope::Req("REQ-ORPHAN".to_owned())),
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-ORPHAN".to_owned()]),
+        };
+        assert_eq!(
+            evaluate_vo_coverage(&layout.root, &layout, &scan, &selection).0,
+            CheckValue::Missing
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-052
+    /// @vtest.covers VO-EXIST-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent 詳細設計 §3.2: a `status: withdrawn` REQ is excluded
+    /// from the current corresponding-REQ set, so a withdrawn zero-VO REQ
+    /// must not itself force vo_coverage to MISSING when the remaining
+    /// active REQ is genuinely covered and approved.
+    #[test]
+    fn withdrawn_zero_vo_req_is_excluded_from_the_active_req_set() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-HEALTHY");
+        write_withdrawn_req(&layout, "REQ-WD");
+        let vo_hash = write_approved_vo_covering(&layout, "VO-HEALTHY", &["REQ-HEALTHY"]);
+        write_vo_coverage_audit(&layout, "VO-HEALTHY", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-HEALTHY".to_owned(), "REQ-WD".to_owned()]),
         };
         assert_eq!(
             evaluate_vo_coverage(&layout.root, &layout, &scan, &selection).0,
             CheckValue::Pass
         );
+    }
+
+    /// @vtest.id TEST-VERIFY-053
+    /// @vtest.covers VO-PLAN-07
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent VO-PLAN-07's full scenario: one active REQ is genuinely
+    /// covered (approved VO, COMPLETE PASS audit) while a second active REQ
+    /// has zero corresponding VOs. The item-level fold must be MISSING
+    /// overall -- the healthy REQ must not mask the zero-VO REQ.
+    #[test]
+    fn mixed_active_reqs_with_one_zero_vo_req_yields_overall_missing() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-HEALTHY");
+        write_active_req(&layout, "REQ-ORPHAN");
+        let vo_hash = write_approved_vo_covering(&layout, "VO-HEALTHY", &["REQ-HEALTHY"]);
+        write_vo_coverage_audit(&layout, "VO-HEALTHY", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-HEALTHY".to_owned(), "REQ-ORPHAN".to_owned()]),
+        };
+        let (value, basis) = evaluate_vo_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::Missing);
+        assert!(
+            basis
+                .iter()
+                .any(|line| line.contains("REQ-ORPHAN") && line.contains("Missing")),
+            "{basis:?}"
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-054
+    /// @vtest.covers VO-PLAN-07
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent 詳細設計 §11.1 L1358: vo_coverage is PASS only when the
+    /// corresponding VO's vo-coverage audit is COMPLETE (PASS) and its
+    /// approval is valid. This pins the REQ-anchored happy path end to end
+    /// (REQ -> approved VO with a current PASS audit -> PASS), not just the
+    /// per-VO fold in isolation.
+    #[test]
+    fn req_anchored_happy_path_is_pass() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-HEALTHY");
+        let vo_hash = write_approved_vo_covering(&layout, "VO-HEALTHY", &["REQ-HEALTHY"]);
+        write_vo_coverage_audit(&layout, "VO-HEALTHY", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-HEALTHY".to_owned()]),
+        };
+        assert_eq!(
+            evaluate_vo_coverage(&layout.root, &layout, &scan, &selection).0,
+            CheckValue::Pass
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-055
+    /// @vtest.covers VO-PLAN-07
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent 詳細設計 §11.1 L1358: the approval gate is quantified
+    /// over "対象VO部分木" (the target VO subtree), not just the directly
+    /// corresponding VO. An approved, COMPLETE-audited top VO with an
+    /// unapproved child VO must still yield Missing, not Pass.
+    #[test]
+    fn unapproved_descendant_vo_blocks_pass_via_the_subtree_approval_gate() {
+        let (layout, scan) = static_fixture(&[]);
+        write_active_req(&layout, "REQ-HEALTHY");
+        let vo_hash = write_approved_vo_covering(&layout, "VO-TOP", &["REQ-HEALTHY"]);
+        write_vo_coverage_audit(&layout, "VO-TOP", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        write_unapproved_child_vo(&layout, "VO-CHILD", "VO-TOP");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-HEALTHY".to_owned()]),
+        };
+        let (value, basis) = evaluate_vo_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::Missing);
+        assert!(basis.iter().any(|line| line.contains("VO-CHILD")), "{basis:?}");
     }
 
     /// @vtest.id TEST-VERIFY-002
