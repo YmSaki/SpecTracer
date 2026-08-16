@@ -1776,6 +1776,23 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
         };
 
         let has_assert = has_assert_like(item, &assertion_macros);
+        // DA-006 catch-all: absence of assert-equivalent syntax in the body
+        // is only a confirmed FAIL when nothing in the body could be hiding
+        // it. A call the analyzer does not expand — anything other than a
+        // call to one of the declared targets — may route the actual
+        // verification through a helper function, so that case is UNKNOWN
+        // (analysis-scope limit), never a false FAIL (基本仕様 §7.2
+        // l.370-371, 詳細設計 §7.1 l.960-961, 別紙C §18.3.2).
+        let da006_target_names: BTreeSet<String> = resolutions
+            .iter()
+            .map(|(_, resolution)| resolution.target_name().to_owned())
+            .collect();
+        let da006_facts = call_facts(item, &assertion_macros);
+        let da006_unexpanded_call = da006_facts.uncertain
+            || da006_facts
+                .names
+                .iter()
+                .any(|name| !da006_target_names.contains(name));
         let ignored = has_attribute(&item.attrs, "ignore");
 
         let mut rules = vec![
@@ -1801,11 +1818,15 @@ impl StaticAuditAdapter for RustCargoStaticAudit {
                 rule: "DA-006".to_owned(),
                 verdict: if has_assert {
                     AuditVerdict::Pass
+                } else if da006_unexpanded_call {
+                    AuditVerdict::Unknown
                 } else {
                     AuditVerdict::Fail
                 },
                 reason: if has_assert {
                     "assert-like syntax is present".to_owned()
+                } else if da006_unexpanded_call {
+                    "a call is not expanded by static analysis and may carry assert-equivalent syntax".to_owned()
                 } else {
                     "no assert-like syntax is present".to_owned()
                 },

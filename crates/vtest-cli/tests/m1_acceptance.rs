@@ -360,3 +360,48 @@ fn m1_error_diagnostic_matrix_is_reported_by_the_cli() {
         );
     }
 }
+
+/// @vtest.id TEST-CLI-098
+/// @vtest.covers VO-CLI-013
+/// @vtest.target crates/vtest-adapter-rust/src/discovery.rs::parse_annotations
+/// @vtest.intent a declaration with an unknown key and a duplicate key reports both defects, and repeated same-kind defects are not collapsed to one
+#[test]
+fn m1_declaration_with_mixed_annotation_defects_reports_every_defect() {
+    let project = TempProject::new("diagnostics-multi");
+    project.copy_fixture("m1/base");
+    project.copy_case("diagnostics_multi.rs", "tests/diagnostics_multi.rs");
+
+    let output = invoke(&project.root, "scan", &[]);
+    assert_success(&output, 1, "scanner diagnostics must fail the command");
+    let json = stdout(&output);
+    assert_json_envelope(&json);
+    let envelope: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let diagnostics = envelope["diagnostics"].as_array().unwrap();
+
+    // Two distinct unknown keys (typo-one, typo-two) must both surface as
+    // E-SCAN-006, and the duplicate `id` key must independently surface as
+    // E-SCAN-005 in the same declaration -- none of the three may be
+    // swallowed by the others.
+    let unknown_key_count = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic["code"] == "E-SCAN-006"
+                && diagnostic["location"]["path"] == "tests/diagnostics_multi.rs"
+        })
+        .count();
+    assert_eq!(
+        unknown_key_count, 2,
+        "expected both unknown keys reported, got: {json}"
+    );
+    let duplicate_key_count = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic["code"] == "E-SCAN-005"
+                && diagnostic["location"]["path"] == "tests/diagnostics_multi.rs"
+        })
+        .count();
+    assert_eq!(
+        duplicate_key_count, 1,
+        "expected the duplicate `id` key reported alongside the unknown keys, got: {json}"
+    );
+}

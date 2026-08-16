@@ -222,17 +222,17 @@ pub(crate) fn coverage_target_execution(
             }
         })
         .collect::<Vec<_>>();
-    let aggregate = if observations.is_empty()
+    let aggregate = if observations
+        .iter()
+        .any(|observation| observation.result == CheckValue::Fail)
+    {
+        CheckValue::Fail
+    } else if observations.is_empty()
         || observations
             .iter()
             .any(|observation| observation.result == CheckValue::Unknown)
     {
         CheckValue::Unknown
-    } else if observations
-        .iter()
-        .any(|observation| observation.result == CheckValue::Fail)
-    {
-        CheckValue::Fail
     } else {
         CheckValue::Pass
     };
@@ -466,6 +466,252 @@ mod tests {
         assert_eq!(target_execution.result, None);
         assert!(target_execution.targets.is_empty());
         assert_eq!(target_execution.compatibility_count, None);
+    }
+
+    /// @vtest.id TEST-ARUST-008
+    /// @vtest.covers VO-ARUST-012
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::coverage_target_execution
+    /// @vtest.intent a FAIL target dominates a mixed FAIL+UNKNOWN per-target fold (FAIL outranks UNKNOWN)
+    #[test]
+    fn coverage_target_execution_fail_dominates_unknown() {
+        use vtest_model::{
+            AdapterId, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
+            TargetRef, TestId, TestSuite,
+        };
+
+        // "never_called" is present with count 0 (FAIL); "ghost" is entirely
+        // absent from the llvm-cov export (UNKNOWN). The fixed priority must
+        // report FAIL for the aggregate, never UNKNOWN.
+        let coverage_json = r#"{
+            "data": [{
+                "functions": [
+                    {"name": "calc::never_called", "filenames": ["src/lib.rs"], "count": 0}
+                ]
+            }]
+        }"#;
+        let coverage_path = std::env::temp_dir().join(format!(
+            "vtest-arust-008-{}-{:?}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        fs::write(&coverage_path, coverage_json).expect("write synthetic llvm-cov export");
+
+        let test = TestEntity {
+            id: TestId::new("TEST-ARUST-COVERAGE-FOLD"),
+            covers: vec!["VO-ARUST-012".into()],
+            targets: vec![
+                TargetRef::Locator {
+                    adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                    value: "src/lib.rs::never_called".to_owned(),
+                },
+                TargetRef::Locator {
+                    adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                    value: "src/lib.rs::ghost".to_owned(),
+                },
+            ],
+            intent: "mixed FAIL+UNKNOWN target fold".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: SourceLocation {
+                adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                path: ProjectPath::new("tests/multi.rs"),
+                locator: "tests::coverage_fold".to_owned(),
+                byte_range: SourceRange {
+                    start: 0,
+                    end: 1,
+                    start_line: 1,
+                    end_line: 1,
+                },
+            },
+            content_hash: ContentHash::from_text("test"),
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                project: Some("calc".to_owned()),
+                suite: Some(TestSuite {
+                    kind: "integration".to_owned(),
+                    name: Some("multi".to_owned()),
+                }),
+                selector: "tests::coverage_fold".to_owned(),
+            },
+        };
+
+        let target_execution = coverage_target_execution(&coverage_path, &test);
+        let _ = fs::remove_file(&coverage_path);
+
+        assert_eq!(
+            target_execution.result,
+            Some(CheckValue::Fail),
+            "{target_execution:?}"
+        );
+        assert_eq!(target_execution.targets.len(), 2, "{target_execution:?}");
+        assert_eq!(
+            target_execution.targets[0].result,
+            CheckValue::Fail,
+            "{target_execution:?}"
+        );
+        assert_eq!(
+            target_execution.targets[1].result,
+            CheckValue::Unknown,
+            "{target_execution:?}"
+        );
+    }
+
+    /// A minimal multi-target `TestEntity` for exercising the
+    /// `coverage_target_execution` fold in isolation, mirroring the fixture
+    /// built inline by `coverage_target_execution_fail_dominates_unknown`.
+    fn synthetic_fold_test(target_names: &[&str]) -> TestEntity {
+        use vtest_model::{
+            AdapterId, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
+            TargetRef, TestId, TestSuite,
+        };
+
+        TestEntity {
+            id: TestId::new("TEST-ARUST-COVERAGE-FOLD"),
+            covers: vec!["VO-ARUST-012".into()],
+            targets: target_names
+                .iter()
+                .map(|name| TargetRef::Locator {
+                    adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                    value: format!("src/lib.rs::{name}"),
+                })
+                .collect(),
+            intent: "target fold coverage".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: SourceLocation {
+                adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                path: ProjectPath::new("tests/multi.rs"),
+                locator: "tests::coverage_fold".to_owned(),
+                byte_range: SourceRange {
+                    start: 0,
+                    end: 1,
+                    start_line: 1,
+                    end_line: 1,
+                },
+            },
+            content_hash: ContentHash::from_text("test"),
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new(crate::RUST_CARGO_ADAPTER_ID),
+                project: Some("calc".to_owned()),
+                suite: Some(TestSuite {
+                    kind: "integration".to_owned(),
+                    name: Some("multi".to_owned()),
+                }),
+                selector: "tests::coverage_fold".to_owned(),
+            },
+        }
+    }
+
+    fn write_synthetic_coverage(unique: &str, json: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "vtest-arust-fold-{unique}-{}-{:?}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        fs::write(&path, json).expect("write synthetic llvm-cov export");
+        path
+    }
+
+    /// @vtest.id TEST-ARUST-019
+    /// @vtest.covers VO-ARUST-012
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::coverage_target_execution
+    /// @vtest.intent a declared-but-empty target set is UNKNOWN, never a vacuous PASS
+    #[test]
+    fn coverage_target_execution_empty_target_set_is_unknown() {
+        let coverage_path = write_synthetic_coverage("empty", r#"{"data": [{"functions": []}]}"#);
+        let test = synthetic_fold_test(&[]);
+
+        let target_execution = coverage_target_execution(&coverage_path, &test);
+        let _ = fs::remove_file(&coverage_path);
+
+        assert_eq!(
+            target_execution.result,
+            Some(CheckValue::Unknown),
+            "{target_execution:?}"
+        );
+        assert!(target_execution.targets.is_empty(), "{target_execution:?}");
+    }
+
+    /// @vtest.id TEST-ARUST-020
+    /// @vtest.covers VO-ARUST-012
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::coverage_target_execution
+    /// @vtest.intent UNKNOWN dominates PASS when no target FAILs
+    #[test]
+    fn coverage_target_execution_unknown_dominates_pass_without_fail() {
+        let coverage_json = r#"{
+            "data": [{
+                "functions": [
+                    {"name": "calc::seen", "filenames": ["src/lib.rs"], "count": 3}
+                ]
+            }]
+        }"#;
+        let coverage_path = write_synthetic_coverage("pass-unknown", coverage_json);
+        let test = synthetic_fold_test(&["seen", "ghost"]);
+
+        let target_execution = coverage_target_execution(&coverage_path, &test);
+        let _ = fs::remove_file(&coverage_path);
+
+        assert_eq!(
+            target_execution.result,
+            Some(CheckValue::Unknown),
+            "{target_execution:?}"
+        );
+        assert_eq!(
+            target_execution.targets[0].result,
+            CheckValue::Pass,
+            "{target_execution:?}"
+        );
+        assert_eq!(
+            target_execution.targets[1].result,
+            CheckValue::Unknown,
+            "{target_execution:?}"
+        );
+    }
+
+    /// @vtest.id TEST-ARUST-021
+    /// @vtest.covers VO-ARUST-012
+    /// @vtest.target crates/vtest-adapter-rust/src/runner.rs::coverage_target_execution
+    /// @vtest.intent every declared target measured PASS yields the Test-level PASS
+    #[test]
+    fn coverage_target_execution_all_pass_targets_yield_pass() {
+        let coverage_json = r#"{
+            "data": [{
+                "functions": [
+                    {"name": "calc::first", "filenames": ["src/lib.rs"], "count": 2},
+                    {"name": "calc::second", "filenames": ["src/lib.rs"], "count": 1}
+                ]
+            }]
+        }"#;
+        let coverage_path = write_synthetic_coverage("all-pass", coverage_json);
+        let test = synthetic_fold_test(&["first", "second"]);
+
+        let target_execution = coverage_target_execution(&coverage_path, &test);
+        let _ = fs::remove_file(&coverage_path);
+
+        assert_eq!(
+            target_execution.result,
+            Some(CheckValue::Pass),
+            "{target_execution:?}"
+        );
+        assert!(
+            target_execution
+                .targets
+                .iter()
+                .all(|target| target.result == CheckValue::Pass),
+            "{target_execution:?}"
+        );
     }
 }
 
