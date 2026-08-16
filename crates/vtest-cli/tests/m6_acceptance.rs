@@ -567,8 +567,17 @@ fn m6_each_check_item_can_be_non_pass_without_aggregate_promotion() {
             .expect("add uncovered VO");
         }
         if item == "vo_decomposition" {
-            fs::write(project.root.join("src/broken.rs"), "pub fn broken( {\n")
-                .expect("add malformed source");
+            // 詳細設計 §11.1.1: vo_decomposition evaluates only REQ/VO
+            // parent, requirements, spec_refs and structural Relations -- a
+            // dangling parent (E-SCAN-008) is a structural defect, unlike
+            // the malformed-adapter-source construction used by every other
+            // item in this loop (see TEST-CLI-120 below, which asserts the
+            // opposite: an adapter parse error must NOT move this item).
+            fs::write(
+                project.root.join(".verify/vo/VO-KNOWN.yaml"),
+                "id: VO-KNOWN\nparent: 'VO-GHOST'\nrequirements: []\nspec_refs: []\nclaim: known behavior\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+            )
+            .expect("give VO-KNOWN a dangling parent");
         }
         project.commit_baseline();
         let verify = invoke(&project.root, "verify", &["--items", item]);
@@ -842,5 +851,165 @@ fn spec_coverage_bundle_without_spec_selector_is_rejected() {
             .iter()
             .any(|diagnostic| diagnostic["code"] == "E-OP-001"),
         "missing E-OP-001: {json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-120
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent an adapter source-parse error does not move vo_decomposition
+///   off PASS -- 詳細設計 §11.1.1 / 別紙C §18.3.1 bind this item to REQ/VO
+///   parent, requirements, spec_refs and structural Relations only, and name
+///   adapter source parse explicitly as an error that must map to the
+///   Test/execution dimension instead (VO-PLAN-11).
+#[test]
+fn m6_adapter_parse_error_does_not_move_vo_decomposition() {
+    let project = TempProject::from_m1_base("vo-decomposition-isolation");
+    fs::write(project.root.join("src/broken.rs"), "pub fn broken( {\n")
+        .expect("add malformed source");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_decomposition"]);
+    assert_exit(
+        &verify,
+        0,
+        "vo_decomposition alone must stay PASS despite the adapter parse error",
+    );
+    let json = envelope(&verify);
+    assert_eq!(json["ok"], true, "{json}");
+    assert_eq!(
+        report_item(&json, "vo_decomposition")["value"],
+        "PASS",
+        "an unrelated adapter parse error must not flip vo_decomposition: {json}"
+    );
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .is_some_and(|diagnostics| diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "E-SCAN-001")),
+        "the adapter parse error must still surface in diagnostics: {json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-121
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent a REQ whose spec_refs.spec resolves to no existing SPEC
+///   record makes vo_decomposition MISSING (詳細設計 §11.1.1; VO-INTAKE-08 /
+///   VO-PARALLEL-05)
+#[test]
+fn m6_dangling_spec_ref_makes_vo_decomposition_missing() {
+    let project = TempProject::from_m1_base("vo-decomposition-dangling-spec");
+    fs::write(
+        project.root.join(".verify/req/REQ-DANGLING-SPEC.yaml"),
+        "id: REQ-DANGLING-SPEC\nparent: null\nspec_refs:\n  - spec: SPEC-GHOST\n    section: '1'\nsummary: dangling spec ref\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write REQ with a dangling spec_refs.spec");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_decomposition"]);
+    assert_exit(&verify, 1, "dangling spec_refs.spec is non-PASS");
+    let json = envelope(&verify);
+    assert_eq!(
+        report_item(&json, "vo_decomposition")["value"],
+        "MISSING",
+        "{json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-122
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent a spec_refs entry with an empty section makes
+///   vo_decomposition MISMATCH even though the SPEC itself resolves
+///   (詳細設計 §11.1.1; VO-INTAKE-09)
+#[test]
+fn m6_empty_section_makes_vo_decomposition_mismatch() {
+    let project = TempProject::from_m1_base("vo-decomposition-empty-section");
+    fs::create_dir_all(project.root.join("docs")).expect("create docs dir");
+    fs::write(project.root.join("docs/spec.md"), "spec body\n").expect("write spec source");
+    let add_spec = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add", "--id", "SPEC-REAL", "--path", "docs/spec.md", "--title", "real spec",
+        ],
+    );
+    assert_exit(&add_spec, 0, "register SPEC-REAL");
+    fs::write(
+        project.root.join(".verify/req/REQ-EMPTY-SECTION.yaml"),
+        "id: REQ-EMPTY-SECTION\nparent: null\nspec_refs:\n  - spec: SPEC-REAL\n    section: ''\nsummary: empty section\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write REQ with an empty spec_refs.section");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_decomposition"]);
+    assert_exit(&verify, 1, "empty spec_refs.section is non-PASS");
+    let json = envelope(&verify);
+    assert_eq!(
+        report_item(&json, "vo_decomposition")["value"],
+        "MISMATCH",
+        "{json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-123
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent a REQ parent cycle makes vo_decomposition MISMATCH, distinct
+///   from a dangling parent's MISSING (詳細設計 §11.1.1)
+#[test]
+fn m6_req_parent_cycle_makes_vo_decomposition_mismatch() {
+    let project = TempProject::from_m1_base("vo-decomposition-parent-cycle");
+    fs::write(
+        project.root.join(".verify/req/REQ-CYCLE-A.yaml"),
+        "id: REQ-CYCLE-A\nparent: REQ-CYCLE-B\nspec_refs: []\nsummary: cycle a\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write REQ-CYCLE-A");
+    fs::write(
+        project.root.join(".verify/req/REQ-CYCLE-B.yaml"),
+        "id: REQ-CYCLE-B\nparent: REQ-CYCLE-A\nspec_refs: []\nsummary: cycle b\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write REQ-CYCLE-B");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_decomposition"]);
+    assert_exit(&verify, 1, "a REQ parent cycle is non-PASS");
+    let json = envelope(&verify);
+    assert_eq!(
+        report_item(&json, "vo_decomposition")["value"],
+        "MISMATCH",
+        "{json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-124
+/// @vtest.covers VO-CLI-009
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent a structural Relation (REQ/VO endpoint) with a dangling
+///   other endpoint makes vo_decomposition MISSING (詳細設計 §11.1.1)
+#[test]
+fn m6_dangling_structural_relation_makes_vo_decomposition_missing() {
+    let project = TempProject::from_m1_base("vo-decomposition-dangling-relation");
+    fs::create_dir_all(project.root.join(".verify/rel")).expect("create .verify/rel");
+    fs::write(
+        project.root.join(".verify/rel/REL-01ARZ3NDEKTSV4RRFFQ69G5FAV.yaml"),
+        "id: REL-01ARZ3NDEKTSV4RRFFQ69G5FAV\ntype: depends-on\nfrom: VO-KNOWN\nto: VO-GHOST-ENTITY\nnote: ''\ncreated: '2026-01-01T00:00:00Z'\n",
+    )
+    .expect("write a Relation dangling on its non-REQ/VO endpoint");
+    project.commit_baseline();
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_decomposition"]);
+    assert_exit(
+        &verify,
+        1,
+        "a structural Relation with a dangling endpoint is non-PASS",
+    );
+    let json = envelope(&verify);
+    assert_eq!(
+        report_item(&json, "vo_decomposition")["value"],
+        "MISSING",
+        "{json}"
     );
 }
