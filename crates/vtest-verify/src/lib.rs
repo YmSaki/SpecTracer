@@ -835,13 +835,13 @@ fn evaluate_static_audit(
         })
         .collect::<Vec<_>>();
     if !unassociated_malformed.is_empty() {
-        // A deterministic FAIL remains stronger than an unreadable record,
-        // but every other aggregate must expose the malformed static input as
-        // UNKNOWN rather than letting the normal NotChecked/Stale ordering
-        // obscure it.
-        if project_value != CheckValue::Fail {
-            project_value = CheckValue::Unknown;
-        }
+        // §4.3: the malformed record is an Unknown-flavoured ground on the
+        // parent representative, folded through the one aggregation rule --
+        // never an ad-hoc overwrite of the fold's already-correct result.
+        // Unknown is the order's minimum, so this only ever demotes an
+        // otherwise-PASS aggregate; any coexisting higher-priority value
+        // (FAIL, STALE, NOT_CHECKED, ...) still wins.
+        project_value = combine_values(project_value, CheckValue::Unknown);
         basis.push(format!(
             "{} malformed static audit record(s) could not be assigned to a registered Test: {}",
             unassociated_malformed.len(),
@@ -1113,16 +1113,27 @@ fn source_for_target<'a>(
 /// format, but retain an invalid-last fallback so an unexpected malformed
 /// in-memory record cannot be promoted to the latest result.
 fn compare_audit_recency(left: &AuditRecord, right: &AuditRecord) -> std::cmp::Ordering {
-    match (
-        rfc3339_instant(&left.audited_at),
-        rfc3339_instant(&right.audited_at),
-    ) {
-        (Some(left_time), Some(right_time)) => left_time
-            .cmp(&right_time)
-            .then_with(|| left.id.cmp(&right.id)),
+    compare_recency(&left.audited_at, &left.id, &right.audited_at, &right.id)
+}
+
+/// Compare two audit records' recency by the actual RFC 3339 instant of
+/// `audited_at` (whose lexical order differs from chronological order when
+/// offsets differ), falling back to `id` when a timestamp is missing or
+/// unparsable so ordering stays total and deterministic. Shared by every
+/// audit-record fold that must pick "the latest valid record" (§8.5).
+fn compare_recency(
+    left_at: &str,
+    left_id: &str,
+    right_at: &str,
+    right_id: &str,
+) -> std::cmp::Ordering {
+    match (rfc3339_instant(left_at), rfc3339_instant(right_at)) {
+        (Some(left_time), Some(right_time)) => {
+            left_time.cmp(&right_time).then_with(|| left_id.cmp(right_id))
+        }
         (Some(_), None) => std::cmp::Ordering::Greater,
         (None, Some(_)) => std::cmp::Ordering::Less,
-        (None, None) => left.id.cmp(&right.id),
+        (None, None) => left_id.cmp(right_id),
     }
 }
 
@@ -1364,7 +1375,7 @@ fn evaluate_test_audit(
             vec![format!("no registered Tests are available for {kind}")],
         );
     }
-    let mut per_test: BTreeMap<String, Vec<(String, bool, CheckValue)>> = BTreeMap::new();
+    let mut per_test: BTreeMap<String, Vec<(String, bool, CheckValue, String)>> = BTreeMap::new();
     for id in read_record_ids(&layout.audits_dir()).unwrap_or_default() {
         let path = layout.audits_dir().join(format!("{id}.yaml"));
         let Ok(text) = read_text(&path) else { continue };
@@ -1395,13 +1406,24 @@ fn evaluate_test_audit(
             Some("UNKNOWN") => CheckValue::Unknown,
             _ => CheckValue::Unknown,
         };
+        let audited_at = yaml_scalar_value(&text, "audited_at").unwrap_or_default();
         for test_id in test_ids {
             per_test
                 .entry(test_id)
                 .or_default()
-                .push((id.clone(), valid, verdict));
+                .push((id.clone(), valid, verdict, audited_at.clone()));
         }
     }
+
+    // §8.5: among the valid records bound to one subject set, this kind's
+    // FAIL marker (MISMATCH for impl-consistency, FAIL otherwise) dominates;
+    // otherwise the chronologically latest valid record's verdict is
+    // authoritative -- audited_at is consulted, not just severity-max.
+    let fail_marker = if kind == "impl-consistency" {
+        CheckValue::Mismatch
+    } else {
+        CheckValue::Fail
+    };
 
     let mut overall = CheckValue::Pass;
     let mut basis = Vec::new();
@@ -1413,15 +1435,22 @@ fn evaluate_test_audit(
         } else {
             let valid = records
                 .iter()
-                .filter(|(_, current, _)| *current)
+                .filter(|(_, current, _, _)| *current)
                 .collect::<Vec<_>>();
             if valid.is_empty() {
                 CheckValue::Stale
+            } else if valid
+                .iter()
+                .any(|(_, _, verdict, _)| *verdict == fail_marker)
+            {
+                fail_marker
             } else {
                 valid
                     .iter()
-                    .map(|(_, _, verdict)| *verdict)
-                    .fold(CheckValue::Pass, combine_values)
+                    .max_by(|left, right| {
+                        compare_recency(&left.3, &left.0, &right.3, &right.0)
+                    })
+                    .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
             }
         };
         overall = combine_values(overall, current);
@@ -1430,7 +1459,7 @@ fn evaluate_test_audit(
         } else {
             let record_basis = records
                 .iter()
-                .map(|(id, valid, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
+                .map(|(id, valid, _, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
                 .collect::<Vec<_>>();
             basis.push(format!(
                 "Test {test_id}: {current:?} (audits: {})",
@@ -1623,18 +1652,19 @@ fn evaluate_runtime(
     let mut value = CheckValue::Pass;
     let mut basis = Vec::new();
     for test in &scan.tests {
-        let current = evidence
-            .get(test.id.as_str())
-            .map_or(
-                CheckValue::NotExecuted,
-                |record| match evidence_record_validity(root, record, test, scan) {
-                    CheckValue::Pass => match record.result {
-                        vtest_model::TestResult::Pass => CheckValue::Pass,
-                        vtest_model::TestResult::Fail => CheckValue::Fail,
-                    },
-                    _ => CheckValue::Stale,
+        let current = evidence.get(test.id.as_str()).map_or(
+            CheckValue::NotExecuted,
+            |record| match evidence_record_validity(root, record, test, scan) {
+                CheckValue::Pass => match record.result {
+                    vtest_model::TestResult::Pass => CheckValue::Pass,
+                    vtest_model::TestResult::Fail => CheckValue::Fail,
                 },
-            );
+                // §11.2: an invalid Evidence is never mined for a runtime result --
+                // hold the SAME freshness verdict the ladder produced (STALE,
+                // MISMATCH, UNKNOWN, ...), not a fixed STALE for every case.
+                non_pass => non_pass,
+            },
+        );
         value = combine_values(value, current);
         basis.push(evidence_basis(
             test,
@@ -1662,8 +1692,12 @@ fn evaluate_target_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                if evidence_record_validity(root, record, test, scan) != CheckValue::Pass {
-                    CheckValue::Stale
+                let validity = evidence_record_validity(root, record, test, scan);
+                // §11.2: propagate the SAME freshness verdict for an invalid
+                // Evidence (mirrors evaluate_test_execution); the checked:false
+                // NOT_CHECKED escape is spec-gated to a VALID Evidence only.
+                if validity != CheckValue::Pass {
+                    validity
                 } else if record.target_execution.checked {
                     record
                         .target_execution
@@ -2690,5 +2724,233 @@ mod tests {
         .expect("write malformed static audit");
         let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
         assert_eq!(result.0, CheckValue::Unknown, "basis: {:?}", result.1);
+    }
+
+    /// Fixed VO-EXEC-06: an invalid Evidence's freshness verdict must be
+    /// propagated verbatim into runtime_result / target_execution rather than
+    /// flattened to STALE, so an incomplete Execution State snapshot reads as
+    /// UNKNOWN and a foreign-adapter Evidence reads as MISMATCH -- the same
+    /// distinctions evaluate_test_execution already preserves.
+    #[test]
+    fn runtime_result_propagates_unknown_freshness_instead_of_flattening_to_stale() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .execution_state
+            .as_mut()
+            .expect("execution state")
+            .complete = false;
+        assert_eq!(
+            evaluate_runtime(&layout.root, &evidence, &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    #[test]
+    fn target_execution_propagates_unknown_freshness_instead_of_flattening_to_stale() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .execution_state
+            .as_mut()
+            .expect("execution state")
+            .complete = false;
+        assert_eq!(
+            evaluate_target_execution(&layout.root, &evidence, &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    #[test]
+    fn runtime_result_propagates_mismatch_freshness_instead_of_flattening_to_stale() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
+        evidence.get_mut(test.id.as_str()).expect("evidence for test").adapter =
+            Some(AdapterId::new("python-pytest"));
+        assert_eq!(
+            evaluate_runtime(&layout.root, &evidence, &scan).0,
+            CheckValue::Mismatch
+        );
+    }
+
+    #[test]
+    fn target_execution_propagates_mismatch_freshness_instead_of_flattening_to_stale() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
+        evidence.get_mut(test.id.as_str()).expect("evidence for test").adapter =
+            Some(AdapterId::new("python-pytest"));
+        assert_eq!(
+            evaluate_target_execution(&layout.root, &evidence, &scan).0,
+            CheckValue::Mismatch
+        );
+    }
+
+    /// Fixed VO-AGG-03: an unassociated malformed static record must fold
+    /// through combine_values (§4.3) as an Unknown-flavoured ground, so a
+    /// coexisting higher-priority child value (NOT_CHECKED, STALE, ...) is
+    /// never demoted to UNKNOWN by the ad-hoc override this replaces.
+    #[test]
+    fn static_audit_unassociated_malformed_record_does_not_downgrade_a_notchecked_aggregate() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let id = new_record_id();
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            format!("id: {id}\nkind: static\nthis_is: garbage\n"),
+        )
+        .expect("write unassociated malformed static audit");
+        let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
+        assert_eq!(result.0, CheckValue::NotChecked, "basis: {:?}", result.1);
+    }
+
+    #[test]
+    fn static_audit_unassociated_malformed_record_does_not_downgrade_a_stale_aggregate() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        // Same shape as static_audit_requires_the_exact_declared_target_subject:
+        // one subject only, so the record is excluded as STALE.
+        write_static_audit_with_subjects(
+            &layout,
+            "PASS",
+            vec![AuditSubjectRecord {
+                id: Some(test.id.as_str().to_owned()),
+                locator: None,
+                hash: test.content_hash.clone(),
+            }],
+        );
+        let id = new_record_id();
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            format!("id: {id}\nkind: static\nthis_is: garbage\n"),
+        )
+        .expect("write unassociated malformed static audit");
+        let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
+        assert_eq!(result.0, CheckValue::Stale, "basis: {:?}", result.1);
+    }
+
+    #[test]
+    fn static_audit_unassociated_malformed_record_does_not_outrank_a_fail_aggregate() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "FAIL", "PASS", "2026-08-08T00:00:00Z");
+        let id = new_record_id();
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            format!("id: {id}\nkind: static\nthis_is: garbage\n"),
+        )
+        .expect("write unassociated malformed static audit");
+        let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
+        assert_eq!(result.0, CheckValue::Fail, "basis: {:?}", result.1);
+    }
+
+    /// Write a `test-semantic` or `impl-consistency` audit record binding
+    /// exactly the Test subject, for exercising evaluate_test_audit's
+    /// per-test fold in isolation from each kind's bundle-specific subjects.
+    fn write_test_audit_at(
+        layout: &VerifyLayout,
+        kind: &str,
+        test: &TestEntity,
+        verdict: &str,
+        audited_at: &str,
+    ) -> String {
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: kind.to_owned(),
+            bundle_id: None,
+            subjects: vec![AuditSubjectRecord {
+                id: Some(test.id.as_str().to_owned()),
+                locator: None,
+                hash: test.content_hash.clone(),
+            }],
+            verdict: verdict.to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: None,
+                verdict: None,
+                claim: format!("fixture result for {kind}"),
+                basis: vec![AuditBasisRecord {
+                    kind: "test-code".to_owned(),
+                    reference: "tests/semantic.rs:1".to_owned(),
+                }],
+                targets: Vec::new(),
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest-audit".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: audited_at.to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+        };
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            record.to_yaml().expect("serialise test audit"),
+        )
+        .expect("write test audit");
+        id
+    }
+
+    /// Fixed VO-SEMAUDIT-05: among valid records with no FAIL, evaluate_test_audit
+    /// must select the chronologically LATEST verdict (§8.5), not the
+    /// severity-max fold that lets an older UNKNOWN permanently outrank a
+    /// newer PASS.
+    #[test]
+    fn semantic_audit_selects_the_latest_valid_verdict_when_no_fail_exists() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_test_audit_at(&layout, "test-semantic", test, "UNKNOWN", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            evaluate_test_audit(&layout.root, &layout, &scan, "test-semantic").0,
+            CheckValue::Pass
+        );
+    }
+
+    #[test]
+    fn semantic_audit_fail_dominates_regardless_of_recency() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_test_audit_at(&layout, "test-semantic", test, "FAIL", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, "test-semantic", test, "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            evaluate_test_audit(&layout.root, &layout, &scan, "test-semantic").0,
+            CheckValue::Fail
+        );
+    }
+
+    #[test]
+    fn impl_consistency_selects_the_latest_valid_verdict_when_no_mismatch_exists() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_test_audit_at(&layout, "impl-consistency", test, "UNKNOWN", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            evaluate_test_audit(&layout.root, &layout, &scan, "impl-consistency").0,
+            CheckValue::Pass
+        );
+    }
+
+    #[test]
+    fn impl_consistency_fail_verdict_maps_to_mismatch_and_dominates() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_test_audit_at(&layout, "impl-consistency", test, "FAIL", "2026-08-08T00:00:00Z");
+        write_test_audit_at(&layout, "impl-consistency", test, "PASS", "2026-08-09T00:00:00Z");
+        assert_eq!(
+            evaluate_test_audit(&layout.root, &layout, &scan, "impl-consistency").0,
+            CheckValue::Mismatch
+        );
     }
 }
