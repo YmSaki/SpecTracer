@@ -3156,6 +3156,37 @@ mod tests {
         assert!(basis.iter().any(|line| line.contains("VO-CHILD")), "{basis:?}");
     }
 
+    /// @vtest.id TEST-VERIFY-056
+    /// @vtest.covers VO-EXIST-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent degenerate scope: when the selected REQ set contains no
+    /// active REQ at all (empty, or every member withdrawn), vo_coverage
+    /// must be NOT_CHECKED, not silently PASS -- both this and MISSING are
+    /// non-PASS in the requested-scope fold, so this cannot false-accept;
+    /// the distinction from MISSING matters because MISSING is reserved for
+    /// an active REQ that IS in scope with zero corresponding VOs (see
+    /// active_req_with_zero_vos_is_missing above), not for the absence of
+    /// any active REQ to evaluate.
+    #[test]
+    fn all_withdrawn_req_set_is_not_checked() {
+        let (layout, scan) = static_fixture(&[]);
+        write_withdrawn_req(&layout, "REQ-WD");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-WD".to_owned()]),
+        };
+        let (value, basis) = evaluate_vo_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::NotChecked);
+        assert!(
+            basis
+                .iter()
+                .any(|line| line.contains("no active REQ records")),
+            "{basis:?}"
+        );
+    }
+
     /// @vtest.id TEST-VERIFY-002
     /// @vtest.covers VO-VERIFY-002
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
