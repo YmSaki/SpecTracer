@@ -399,7 +399,7 @@ Test ID
 すべてのTestを管理対象とすることと、当該Testを仕様適合の証拠として算入することは、別個の条件とする。
 
 発見されたTest集合を `D`、構造上完全なmanaged Test Entity集合を `M` とする。
-構造上完全とは、source declarationから構文上有効なTest ID、宣言されたroleが要求する件数の`covers`、その他の必須metadataをTest Entityとして具体化できることをいう。roleはTestの存在理由の分類であり、role値の集合、role別に要求される`covers`件数、および付随する分類宣言は下位仕様が定める。roleを宣言しないTestには、`covers`を1件以上要求する既定roleを適用する。Discovered Testとentityの対応数は構造完全性に含めず、独立した整合性条件とする。
+構造上完全とは、source declarationから構文上有効なTest ID、適用されるroleが要求する件数の`covers`、その他の必須metadataをTest Entityとして具体化できることをいう。roleはTestの存在理由の分類であり、role値の集合、role別に要求される`covers`件数、および付随する分類宣言は下位仕様が定める。roleを宣言しないTestには、`covers`を1件以上要求する既定roleを適用する。Discovered Testとentityの対応数は構造完全性に含めず、独立した整合性条件とする。
 `M`はVO参照の解決とTest IDの大局的一意性を検査する前の集合とし、解決不能な`covers`を持つentityや、他のentityとTest IDが衝突するentityも含む。
 
 完全検証では次を要求する。
@@ -407,7 +407,7 @@ Test ID
 ```text
 ∀ d ∈ D:
   dに対応するmanaged Test Entityがちょうど1件存在する
-  and managed Test Entity.coversの件数が、宣言されたroleの要求を満たす
+  and managed Test Entity.coversの件数が、適用されるroleの要求を満たす
   and coversの全VO参照を解決できる
   and Test IDが発見結果全体で一意である
 ```
