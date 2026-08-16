@@ -488,6 +488,120 @@ fn m6_leaf_without_test_is_missing_and_not_masked_by_another_leaf() {
     );
 }
 
+/// @vtest.id TEST-CLI-130
+/// @vtest.covers VO-PLAN-07
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent VO-PLAN-07's decisive system-level observation: in the
+/// normatively supported `--items vo_coverage` scope (no other item runs to
+/// catch the state), an active REQ with zero corresponding VOs must make
+/// the vo_coverage-scoped verification non-PASS (exit != 0), even though a
+/// sibling active REQ's VO is approved with a current, COMPLETE vo-coverage
+/// audit. Fixed: the prior per-VO implementation folded only over existing
+/// VOs, so the zero-VO REQ contributed nothing and this scope false-
+/// accepted (ok=true, result=PASS, exit 0).
+#[test]
+fn m6_zero_vo_req_is_non_pass_under_vo_coverage_item_scope() {
+    let project = TempProject::from_m1_base("vo-coverage-req-anchored");
+    fs::create_dir_all(project.root.join("docs")).expect("create fixture docs");
+    fs::write(
+        project.root.join("docs/m6-spec.md"),
+        "# M6 fixture specification\nThe known operation returns successfully.\n",
+    )
+    .expect("write fixture specification");
+    let spec = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add",
+            "--id",
+            "SPEC-M6-FIXTURE",
+            "--path",
+            "docs/m6-spec.md",
+        ],
+    );
+    assert_exit(&spec, 0, "register fixture SPEC");
+    fs::write(
+        project.root.join(".verify/req/REQ-M6-FIXTURE.yaml"),
+        "id: REQ-M6-FIXTURE\nparent: null\nspec_refs:\n  - spec: SPEC-M6-FIXTURE\n    section: 1\nsummary: healthy requirement\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\nversion: 1\n",
+    )
+    .expect("write healthy fixture REQ");
+    fs::write(
+        project.root.join(".verify/req/REQ-M6-ORPHAN.yaml"),
+        "id: REQ-M6-ORPHAN\nparent: null\nspec_refs:\n  - spec: SPEC-M6-FIXTURE\n    section: 1\nsummary: zero-VO active requirement\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\nversion: 1\n",
+    )
+    .expect("write zero-VO fixture REQ, no VO ever references it");
+    let vo_path = project.root.join(".verify/vo/VO-KNOWN.yaml");
+    let vo = fs::read_to_string(&vo_path).expect("read fixture VO");
+    fs::write(
+        &vo_path,
+        vo.replace("requirements: []", "requirements:\n  - REQ-M6-FIXTURE")
+            .replace(
+                "spec_refs: []",
+                "spec_refs:\n  - spec: SPEC-M6-FIXTURE\n    section: 1",
+            ),
+    )
+    .expect("link fixture VO to the healthy REQ only");
+    project.commit_baseline();
+
+    let vo_bundle = bundle(&project, "vo-coverage", &["--vo", "VO-KNOWN"]);
+    let vo_audit = submit(
+        &project,
+        &vo_bundle,
+        "vo-coverage",
+        serde_json::json!([{
+            "kind": "decomposition-viewpoint",
+            "claim": "the fixture VO is covered by its leaf test",
+            "basis": [{"kind": "spec", "ref": "SPEC-M6-FIXTURE#1"}]
+        }]),
+    );
+    let vo_audit_id = vo_audit["audit_id"]
+        .as_str()
+        .expect("vo audit id")
+        .to_owned();
+    let mut approval_args = vec![
+        "approve",
+        "VO-KNOWN",
+        "--approver-kind",
+        "human",
+        "--approver-id",
+        "m6-reviewer",
+        "--basis",
+    ];
+    approval_args.push(&vo_audit_id);
+    let approval = invoke(&project.root, "vo", &approval_args);
+    assert_exit(&approval, 0, "approve fixture VO");
+    // Approval derives the VO status and therefore changes its canonical
+    // hash; regenerate the coverage audit so the current record can PASS.
+    let current_vo_bundle = bundle(&project, "vo-coverage", &["--vo", "VO-KNOWN"]);
+    submit(
+        &project,
+        &current_vo_bundle,
+        "vo-coverage",
+        serde_json::json!([{
+            "kind": "decomposition-viewpoint",
+            "claim": "the approved fixture VO is covered by its leaf test",
+            "basis": [{"kind": "spec", "ref": "SPEC-M6-FIXTURE#1"}]
+        }]),
+    );
+
+    let verify = invoke(&project.root, "verify", &["--items", "vo_coverage"]);
+    let json = envelope(&verify);
+    assert_eq!(
+        json["ok"], false,
+        "a zero-VO active REQ must not false-accept the vo_coverage scope: {json}"
+    );
+    assert_ne!(
+        verify.status.code(),
+        Some(0),
+        "non-PASS vo_coverage scope must exit non-zero: {json}"
+    );
+    assert_eq!(
+        report_item(&json, "vo_coverage")["value"],
+        "MISSING",
+        "{json}"
+    );
+}
+
 /// @vtest.id TEST-CLI-079
 /// @vtest.covers VO-CLI-009
 /// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
