@@ -3162,6 +3162,32 @@ mod tests {
         assert_eq!(value, CheckValue::Stale, "reason: {reason}");
     }
 
+    /// @vtest.id TEST-VERIFY-049
+    /// @vtest.covers VO-PLAN-02
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent 詳細設計 L1349 / 別紙C §18.3.5: a SPEC record whose
+    /// referenced Specification source no longer exists on disk is MISSING,
+    /// even though the record itself is still readable (the INTAKE-08
+    /// re-skeptic finding: deleting the SPEC's source left spec_coverage PASS).
+    #[test]
+    fn spec_coverage_missing_specification_source_is_missing() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: "1".to_owned(),
+            }],
+        );
+        fs::remove_file(layout.root.join("docs/spec.md"))
+            .expect("delete fixture Specification source");
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Missing, "reason: {reason}");
+    }
+
     /// @vtest.id TEST-VERIFY-042
     /// @vtest.covers VO-PLAN-02
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage

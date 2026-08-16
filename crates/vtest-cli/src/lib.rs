@@ -1617,10 +1617,12 @@ fn build_bundle(
                     .filter(|spec_ref| spec_ref.spec.as_str() == target_spec_id)
                     .map(|spec_ref| spec_ref.section.clone())
                     .collect::<Vec<_>>();
+                // 詳細設計 §8.1 L1051: "全record・内容hash" -- the complete
+                // REQ record (matching vo-coverage's own `requirements` body
+                // shape, `serde_json::to_value(record)`), not a projection.
                 active_requirements.push(serde_json::json!({
                     "id": req.id,
-                    "summary": req.summary,
-                    "status": req.status,
+                    "record": req,
                     "sections": sections,
                     "content_hash": hash,
                 }));

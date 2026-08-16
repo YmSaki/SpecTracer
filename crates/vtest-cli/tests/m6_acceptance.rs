@@ -653,6 +653,11 @@ fn spec_coverage_bundle_binds_spec_and_active_req_set_only() {
         .expect("active_requirements is an array");
     assert_eq!(active.len(), 1, "active_requirements: {active:?}");
     assert_eq!(active[0]["id"], "REQ-CLI-110");
+    // §8.1 L1051: "全record" -- the complete REQ record, not a projection.
+    assert_eq!(active[0]["record"]["id"], "REQ-CLI-110");
+    assert_eq!(active[0]["record"]["status"], "active");
+    assert_eq!(active[0]["record"]["summary"], "fixture requirement");
+    assert_eq!(active[0]["sections"], serde_json::json!(["1"]));
     assert!(
         !active[0]["content_hash"]
             .as_str()
