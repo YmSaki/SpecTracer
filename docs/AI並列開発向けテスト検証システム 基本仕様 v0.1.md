@@ -197,6 +197,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 
 完全検証は次の12項目で構成する（要件定義 §17.2 に対応）。
 完全検証の項目集合はこの12項目と完全一致し、設定によって追加・削除できない。項目の部分集合を指定した実行は限定scopeであり、完全検証として表示または集約しない。
+個々のエンティティに対してどの項目をinstantiateするかは、適用項目集合として詳細設計 §11.1.2が定める。適用項目集合外の項目は値を持たず「非適用」として表示し、§4.1の`NOT_CHECKED`（適用対象でありながら未検証）と区別する。entity単位の非適用はproject全体の項目集合を12項目未満へ縮退させない。
 
 | # | チェック項目キー | 内容 | 主な判定方式 |
 |---|---|---|---|
@@ -205,7 +206,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 | 3 | `vo_coverage` | VO 群が対応REQを網羅しているか | AI監査（理由必須）＋承認 |
 | 4 | `test_existence` | 各 leaf VO に対応する Test が存在するか | 決定論 |
 | 5 | `static_audit` | Test が決定論的監査を通過したか | 決定論 |
-| 6 | `semantic_audit` | VO・Test Intent・テストコードが同じ振る舞いを検証しているか | AI監査（理由必須） |
+| 6 | `semantic_audit` | VO・Test Intent・テストコードが同じ振る舞いを検証しているか（`covers`を持たないTestではTest Intentとテストコードの一致。§7.3） | AI監査（理由必須） |
 | 7 | `impl_consistency` | 仕様・VO・Test と対象実装が一致しているか | AI監査（理由必須）＋決定論（対象シンボル存在） |
 | 8 | `test_execution` | Test が実際に実行されたか | 決定論 |
 | 9 | `runtime_result` | 実行結果が PASS だったか | 決定論 |
@@ -343,7 +344,7 @@ fn rejects_invalid_utf8() {
 `characterization`は予約されたrole値であり、本versionでは宣言できない。値としては認識し、未知の値として扱わない。
 `targets`と`intent`は`role`によらず必須である。この表への違反は詳細設計 §5.4 の診断で報告する。
 
-VOの検証への寄与は`covers`宣言と証拠の十分性判定だけから導出し、`role`から導出しない。`covers`を1件以上持つTestは`role`によらず同じ寄与規則に従い、`covers`を持たないTestはいずれのVOへも寄与しない。`covers`を持たないTestも管理対象であり、Test単位の検査は通常どおり適用する（§7.10、詳細設計 §11.1.2）。
+VOの検証への寄与は`covers`宣言と証拠の十分性判定だけから導出し、`role`から導出しない。`covers`を1件以上持つTestは`role`によらず同じ寄与規則に従い、`covers`を持たないTestはいずれのVOへも寄与しない。`covers`を持たないTestも管理対象であり、Test単位の検査は当該Testの適用項目集合（§4.2、詳細設計 §11.1.2）に従って通常どおり適用する（§7.10）。
 
 ### 6.3 直接編集の扱い
 
@@ -428,6 +429,7 @@ adapterは各rule verdictを変えうる解析入力の完全な集合を返さ�
 決定論的監査結果とAI監査結果は区別して保存・提示する（要件定義 §12）。
 
 監査種別は `spec-coverage`（Specification ↔ REQ）、`test-semantic`（VO ↔ Test Intent ↔ テストコード）、`vo-coverage`（REQ ↔ VO。§7.4）、`impl-consistency`（§7.5）の4種とする。
+`test-semantic`の判定次元は対象Testの`covers`の有無で定まる。`covers`を持たないTestではVO claimを判定に含められないため、Test Intent ↔ テストコードの一致だけを判定対象とし、バンドルからVOレコードを除く（詳細設計 §8.1）。
 
 `vtest` はLLM APIを直接呼び出さない。AI判定は上記のbundle生成・提出検証・保存の経路だけから受理する。
 
@@ -529,6 +531,7 @@ Evidenceが存在しても`evidence_validity`が非PASSなら、そのEvidence�
 - **詳細出力**：要件定義 §18 の形式に準じたツリー表示。NG の場合、どのエンティティのどのチェック項目が、どの値で、どの根拠（監査レコード・Evidence への参照）により非 PASS かを掘り下げられる
 
 `covers`を持たないTestは、VOの子ノードとしてではなくproject levelの節に`role`別で表示する。管理下にある事実と、いずれのVOへも寄与しない事実の双方を出力から確認できる状態にする。
+適用項目集合外の項目（§4.2）は「非適用」とその理由を表示し、`NOT_CHECKED`として表示しない。
 
 人間向けテキストと機械可読 JSON の両方を出力できる（要件定義 NFR-007 / NFR-008）。
 
