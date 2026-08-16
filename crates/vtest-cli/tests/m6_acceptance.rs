@@ -168,7 +168,7 @@ fn bundle(project: &TempProject, kind: &str, selector: &[&str]) -> String {
 
 fn submit(project: &TempProject, bundle_id: &str, kind: &str, reasons: Value) -> Value {
     let file = project.root.join(format!("m6-{kind}.json"));
-    let verdict = if kind == "vo-coverage" {
+    let verdict = if kind == "vo-coverage" || kind == "spec-coverage" {
         "COMPLETE"
     } else {
         "PASS"
@@ -315,6 +315,23 @@ fn m6_complete_fixture_is_ok_for_all_eleven_items() {
 
     let static_audit = invoke(&project.root, "audit", &["static", "--all"]);
     assert_exit(&static_audit, 0, "complete fixture static audit");
+
+    // spec_coverage is a SPEC-rooted item, distinct from vo_coverage's REQ<->VO
+    // axis: it needs its own spec-coverage bundle/submission bound to the
+    // registered SPEC and the complete active-REQ set referencing it.
+    let spec_bundle = bundle(&project, "spec-coverage", &["--spec", "SPEC-M6-FIXTURE"]);
+    submit(
+        &project,
+        &spec_bundle,
+        "spec-coverage",
+        serde_json::json!([{
+            "claim": "SPEC-M6-FIXTURE's requirement is fully adopted by REQ-M6-FIXTURE",
+            "basis": [
+                {"kind": "spec", "ref": "SPEC-M6-FIXTURE#1"},
+                {"kind": "req", "ref": "REQ-M6-FIXTURE"}
+            ]
+        }]),
+    );
 
     let semantic_bundle = bundle(&project, "test-semantic", &["--test", "TEST-M1-CLEAN"]);
     submit(
@@ -568,4 +585,257 @@ fn m6_each_check_item_can_be_non_pass_without_aggregate_promotion() {
             "{item} was promoted to PASS: {json}"
         );
     }
+}
+
+/// A project with SPEC-CLI-110 registered, an active REQ-CLI-110 referencing
+/// it with a real section, and a withdrawn REQ-CLI-110-WITHDRAWN also
+/// referencing it -- shared by the spec-coverage end-to-end tests below.
+fn spec_coverage_project(name: &str) -> TempProject {
+    let project = TempProject::from_m1_base(name);
+    fs::create_dir_all(project.root.join("docs")).expect("create fixture docs dir");
+    fs::write(
+        project.root.join("docs/spec-coverage.md"),
+        "# Fixture Specification\nRequirement one must hold.\n",
+    )
+    .expect("write fixture Specification source");
+    let spec = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add",
+            "--id",
+            "SPEC-CLI-110",
+            "--path",
+            "docs/spec-coverage.md",
+        ],
+    );
+    assert_exit(&spec, 0, "register fixture SPEC");
+    fs::write(
+        project.root.join(".verify/req/REQ-CLI-110.yaml"),
+        "id: REQ-CLI-110\nparent: null\nspec_refs:\n  - spec: SPEC-CLI-110\n    section: '1'\nsummary: fixture requirement\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write active fixture REQ");
+    fs::write(
+        project.root.join(".verify/req/REQ-CLI-110-WITHDRAWN.yaml"),
+        "id: REQ-CLI-110-WITHDRAWN\nparent: null\nspec_refs:\n  - spec: SPEC-CLI-110\n    section: '2'\nsummary: withdrawn fixture requirement\nstatus: withdrawn\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+    )
+    .expect("write withdrawn fixture REQ");
+    project.commit_baseline();
+    project
+}
+
+/// @vtest.id TEST-CLI-110
+/// @vtest.covers VO-PLAN-03
+/// @vtest.target crates/vtest-cli/src/lib.rs::build_bundle
+/// @vtest.intent a spec-coverage bundle binds the SPEC subject and the
+/// complete active-REQ set only; a withdrawn REQ is bundle content (詳細設計
+/// §8.1 table) but never a subject
+#[test]
+fn spec_coverage_bundle_binds_spec_and_active_req_set_only() {
+    let project = spec_coverage_project("bundle-shape");
+    let bundle_id = bundle(&project, "spec-coverage", &["--spec", "SPEC-CLI-110"]);
+    let bundle_path = project
+        .root
+        .join(".verify/cache/bundles")
+        .join(format!("{bundle_id}.json"));
+    let bundle_text = fs::read_to_string(&bundle_path).expect("read generated bundle cache");
+    let bundle: Value = serde_json::from_str(&bundle_text).expect("bundle cache is valid JSON");
+    assert_eq!(bundle["kind"], "spec-coverage");
+    assert!(
+        !bundle["spec"]["source"]
+            .as_str()
+            .unwrap_or_default()
+            .is_empty(),
+        "bundle: {bundle}"
+    );
+    let active = bundle["active_requirements"]
+        .as_array()
+        .expect("active_requirements is an array");
+    assert_eq!(active.len(), 1, "active_requirements: {active:?}");
+    assert_eq!(active[0]["id"], "REQ-CLI-110");
+    assert!(
+        !active[0]["content_hash"]
+            .as_str()
+            .unwrap_or_default()
+            .is_empty(),
+        "active[0]: {:?}",
+        active[0]
+    );
+    assert_eq!(
+        bundle["withdrawn_requirements"],
+        Value::Array(vec![Value::String("REQ-CLI-110-WITHDRAWN".to_owned())])
+    );
+    let subjects = bundle["subjects"].as_array().expect("subjects is an array");
+    assert_eq!(subjects.len(), 2, "subjects: {subjects:?}");
+    assert!(subjects
+        .iter()
+        .any(|subject| subject["id"] == "SPEC-CLI-110"));
+    assert!(subjects
+        .iter()
+        .any(|subject| subject["id"] == "REQ-CLI-110"));
+    assert!(
+        !subjects
+            .iter()
+            .any(|subject| subject["id"] == "REQ-CLI-110-WITHDRAWN"),
+        "withdrawn REQ leaked into subjects: {subjects:?}"
+    );
+}
+
+/// @vtest.id TEST-CLI-111
+/// @vtest.covers VO-PLAN-02
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_submit
+/// @vtest.intent a COMPLETE spec-coverage submission whose reasons carry
+/// spec and req basis is accepted and stored, and spec_coverage becomes PASS
+#[test]
+fn spec_coverage_valid_complete_submission_yields_pass() {
+    let project = spec_coverage_project("submit-accept");
+    let bundle_id = bundle(&project, "spec-coverage", &["--spec", "SPEC-CLI-110"]);
+    let submission = submit(
+        &project,
+        &bundle_id,
+        "spec-coverage",
+        serde_json::json!([{
+            "claim": "SPEC-CLI-110's requirement is captured by REQ-CLI-110",
+            "basis": [
+                {"kind": "spec", "ref": "SPEC-CLI-110#1"},
+                {"kind": "req", "ref": "REQ-CLI-110"}
+            ]
+        }]),
+    );
+    assert_eq!(submission["accepted"], true, "submission: {submission}");
+    let verify = invoke(&project.root, "verify", &["--items", "spec_coverage"]);
+    assert_exit(&verify, 0, "spec_coverage PASSes after a valid submission");
+    let json = envelope(&verify);
+    assert_eq!(json["ok"], true, "{json}");
+    assert_eq!(report_item(&json, "spec_coverage")["value"], "PASS");
+}
+
+/// @vtest.id TEST-CLI-112
+/// @vtest.covers VO-PLAN-05
+/// @vtest.target crates/vtest-cli/src/lib.rs::validate_reasons
+/// @vtest.intent 詳細設計 L1165-1166 (E-AUDIT-007): a spec-coverage reason
+/// missing a req basis is rejected, and no audit record is appended
+#[test]
+fn spec_coverage_reason_without_req_basis_is_rejected() {
+    let project = spec_coverage_project("submit-reject-req-basis");
+    let bundle_id = bundle(&project, "spec-coverage", &["--spec", "SPEC-CLI-110"]);
+    let before = fs::read_dir(project.root.join(".verify/audits"))
+        .map(|entries| entries.count())
+        .unwrap_or(0);
+    let file = project.root.join("spec-coverage-missing-req.json");
+    fs::write(
+        &file,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "bundle_id": bundle_id,
+            "kind": "spec-coverage",
+            "verdict": "COMPLETE",
+            "reasons": [{
+                "claim": "adopted requirement without a req basis",
+                "basis": [{"kind": "spec", "ref": "SPEC-CLI-110#1"}]
+            }],
+            "exclusions": [],
+            "auditor": {"kind": "agent", "id": "m6-acceptance", "model": "acceptance"},
+            "confidence": "high"
+        }))
+        .expect("serialize malformed spec-coverage submission"),
+    )
+    .expect("write malformed spec-coverage submission");
+    let path = file.to_string_lossy().into_owned();
+    let output = invoke(&project.root, "audit", &["submit", "--file", &path]);
+    assert_exit(
+        &output,
+        2,
+        "reject spec-coverage reason missing a req basis",
+    );
+    let json = envelope(&output);
+    assert_eq!(json["ok"], false, "{json}");
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .expect("diagnostics is an array")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-AUDIT-007"),
+        "missing E-AUDIT-007: {json}"
+    );
+    let after = fs::read_dir(project.root.join(".verify/audits"))
+        .map(|entries| entries.count())
+        .unwrap_or(0);
+    assert_eq!(
+        before, after,
+        "rejected submission must not append an audit"
+    );
+}
+
+/// @vtest.id TEST-CLI-113
+/// @vtest.covers VO-PLAN-05
+/// @vtest.target crates/vtest-cli/src/lib.rs::validate_reasons
+/// @vtest.intent 詳細設計 L1166 (E-AUDIT-007): a spec-coverage exclusion
+/// entry without a spec-grounded basis is rejected
+#[test]
+fn spec_coverage_exclusion_without_spec_grounds_is_rejected() {
+    let project = spec_coverage_project("submit-reject-exclusion");
+    let bundle_id = bundle(&project, "spec-coverage", &["--spec", "SPEC-CLI-110"]);
+    let file = project.root.join("spec-coverage-bad-exclusion.json");
+    fs::write(
+        &file,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "bundle_id": bundle_id,
+            "kind": "spec-coverage",
+            "verdict": "COMPLETE",
+            "reasons": [{
+                "claim": "SPEC-CLI-110's requirement is captured by REQ-CLI-110",
+                "basis": [
+                    {"kind": "spec", "ref": "SPEC-CLI-110#1"},
+                    {"kind": "req", "ref": "REQ-CLI-110"}
+                ]
+            }],
+            "exclusions": [{"item": "an excluded passage", "basis": ""}],
+            "auditor": {"kind": "agent", "id": "m6-acceptance", "model": "acceptance"},
+            "confidence": "high"
+        }))
+        .expect("serialize malformed spec-coverage submission"),
+    )
+    .expect("write malformed spec-coverage submission");
+    let path = file.to_string_lossy().into_owned();
+    let output = invoke(&project.root, "audit", &["submit", "--file", &path]);
+    assert_exit(
+        &output,
+        2,
+        "reject spec-coverage exclusion missing spec-grounded basis",
+    );
+    let json = envelope(&output);
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .expect("diagnostics is an array")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-AUDIT-007"),
+        "missing E-AUDIT-007: {json}"
+    );
+}
+
+/// @vtest.id TEST-CLI-114
+/// @vtest.covers VO-PLAN-02
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_audit_bundle
+/// @vtest.intent a spec-coverage bundle request without a --spec selector is
+/// rejected E-OP-001, not silently defaulted to some other target
+#[test]
+fn spec_coverage_bundle_without_spec_selector_is_rejected() {
+    let project = spec_coverage_project("bundle-missing-selector");
+    let output = invoke(
+        &project.root,
+        "audit",
+        &["bundle", "--kind", "spec-coverage"],
+    );
+    assert_exit(&output, 2, "reject spec-coverage bundle without --spec");
+    let json = envelope(&output);
+    assert_eq!(json["ok"], false, "{json}");
+    assert!(
+        json["diagnostics"]
+            .as_array()
+            .expect("diagnostics is an array")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-OP-001"),
+        "missing E-OP-001: {json}"
+    );
 }

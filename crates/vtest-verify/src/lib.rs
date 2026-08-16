@@ -11,8 +11,9 @@ use serde::Serialize;
 use vtest_adapter_api::{hash_execution_state_draft, AdapterRegistry};
 use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_model::{
-    hash_spec_audit_subject, hash_static_audit_config_subject, AdapterId, CheckValue, ContentHash,
-    Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
+    hash_spec_audit_subject, hash_specification_source, hash_static_audit_config_subject,
+    AdapterId, CheckValue, ContentHash, Diagnostic, EvidenceRecord, ScanSummary, TargetRef,
+    TestEntity,
 };
 use vtest_scan::{
     classify_target_resolution, find_target_source, required_subject_keys,
@@ -21,8 +22,9 @@ use vtest_scan::{
 };
 use vtest_store::{
     current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
-    read_record_ids, read_req, read_text, read_vo, static_record_target_defect, yaml_scalar_value,
-    AuditRecord, AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
+    read_record_ids, read_req, read_spec, read_text, read_vo, required_spec_coverage_subject_keys,
+    spec_coverage_req_sets, static_record_target_defect, yaml_scalar_value, AuditRecord,
+    AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
 };
 
 /// The registry of adapters `evidence_record_validity` can resolve a
@@ -179,6 +181,16 @@ struct ScopeSelection {
     test_ids: BTreeSet<String>,
     vo_ids: BTreeSet<String>,
     req_ids: BTreeSet<String>,
+    /// The SPEC ids `spec_coverage` evaluates. Full scope (no entity_scope)
+    /// is every registered SPEC record -- 基本仕様 §7.4/L419 pins MISSING to
+    /// the count of *registered* Specifications, not to which ones some REQ
+    /// happens to reference, so an unreferenced SPEC still counts toward the
+    /// "0 registered" degenerate case. A REQ/VO/Test entity_scope narrows to
+    /// the SPECs the selected REQs reference (§11.1 L1353: the entity axis
+    /// must not narrow which REQs count toward one of those SPECs' own
+    /// coverage -- that full-closure re-derivation happens inside
+    /// `evaluate_one_spec_coverage`, not here).
+    spec_ids: BTreeSet<String>,
 }
 
 impl ScopeSelection {
@@ -199,11 +211,16 @@ impl ScopeSelection {
             .filter_map(|id| read_req(layout, &id).ok().map(|record| (id, record)))
             .collect::<BTreeMap<_, _>>();
         if entity_scope.is_none() {
+            let spec_ids = read_record_ids(&layout.spec_dir())
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<BTreeSet<_>>();
             return Self {
                 entity_scope,
                 test_ids: all_test_ids,
                 vo_ids: vo_records.keys().cloned().collect(),
                 req_ids: req_records.keys().cloned().collect(),
+                spec_ids,
             };
         }
 
@@ -256,11 +273,25 @@ impl ScopeSelection {
                 req_ids.extend(vo.requirements.iter().map(|req| req.as_str().to_owned()));
             }
         }
+        // §11.1 L1353: the REQ/VO/Test entity axis implicates a SPEC (so its
+        // spec_coverage still shows) without narrowing which REQs count
+        // toward it -- `evaluate_one_spec_coverage` re-derives that SPEC's
+        // full active-REQ closure independently of `req_ids` above.
+        let spec_ids = req_ids
+            .iter()
+            .filter_map(|id| req_records.get(id))
+            .flat_map(|req| {
+                req.spec_refs
+                    .iter()
+                    .map(|spec_ref| spec_ref.spec.to_string())
+            })
+            .collect::<BTreeSet<_>>();
         Self {
             entity_scope,
             test_ids,
             vo_ids,
             req_ids,
+            spec_ids,
         }
     }
 
@@ -362,12 +393,52 @@ fn build_tree(
     let mut roots = Vec::new();
     let mut attached_vos = BTreeSet::new();
     let mut attached_reqs = BTreeSet::new();
+    // §11.1 L1425/step 9: "SPECはspec_coverageとREQ部分木の合成" -- a SPEC
+    // node's children are every top-level REQ subtree whose own `spec_refs`
+    // names it. A REQ can reference more than one SPEC (or none); this
+    // mirrors how a Test already appears under every VO it `covers` rather
+    // than being deduplicated to one parent.
+    for spec_id in &selection.spec_ids {
+        let mut children = Vec::new();
+        for (id, req) in &reqs {
+            if req
+                .parent
+                .as_ref()
+                .is_some_and(|parent| reqs.contains_key(parent.as_str()))
+            {
+                continue;
+            }
+            if !req
+                .spec_refs
+                .iter()
+                .any(|spec_ref| spec_ref.spec.as_str() == spec_id)
+            {
+                continue;
+            }
+            attached_reqs.insert(id.clone());
+            children.push(build_req_node(
+                id,
+                &reqs,
+                &vos,
+                scan,
+                &values,
+                &mut attached_vos,
+                &mut BTreeSet::new(),
+            ));
+        }
+        roots.push(spec_node(spec_id, &values, children));
+    }
+    // A top-level REQ with no spec_refs (or none selected) stays an orphan
+    // root, the same treatment orphan VOs below already get.
     for (id, req) in &reqs {
         if req
             .parent
             .as_ref()
             .is_some_and(|parent| reqs.contains_key(parent.as_str()))
         {
+            continue;
+        }
+        if attached_reqs.contains(id) {
             continue;
         }
         attached_reqs.insert(id.clone());
@@ -410,10 +481,22 @@ fn build_tree(
             children: Vec::new(),
         });
     }
-    // Keep this binding explicit: it documents that REQ records were loaded
-    // for the tree even when the selected graph contains only orphan VOs.
-    let _ = attached_reqs;
     roots
+}
+
+/// A SPEC node: `spec_coverage`'s own value plus the fail-closed fold of its
+/// attached REQ subtrees (§11.1 step 9). Like every other multi-instance
+/// item in this tree (`test_node`, `build_vo_node`), the node shows the same
+/// project-wide aggregate `spec_coverage` `ReportItem` rather than a
+/// per-SPEC slice -- `evaluate_spec_coverage`'s basis strings carry the
+/// per-SPEC detail.
+fn spec_node(
+    id: &str,
+    values: &BTreeMap<&str, &ReportItem>,
+    children: Vec<VerificationNode>,
+) -> VerificationNode {
+    let items = item_copies(values, &["spec_coverage"]);
+    node_with_children("spec", id, items, children)
 }
 
 fn build_req_node(
@@ -430,7 +513,11 @@ fn build_req_node(
             kind: "req".to_owned(),
             id: id.to_owned(),
             value: CheckValue::Unknown,
-            items: item_copies(values, &["spec_coverage"]),
+            // §11.1: spec_coverage is now the SPEC node's own item; a REQ
+            // node carries none of the fixed 12 items directly (cf. C-2's
+            // sibling cluster, vo_decomposition, which is not this fix's
+            // scope either).
+            items: Vec::new(),
             children: Vec::new(),
         };
     }
@@ -458,8 +545,7 @@ fn build_req_node(
         }
     }
     visiting.remove(id);
-    let items = item_copies(values, &["spec_coverage"]);
-    node_with_children("req", id, items, children)
+    node_with_children("req", id, Vec::new(), children)
 }
 
 fn build_vo_node(
@@ -560,44 +646,9 @@ fn evaluate_item(
     selection: &ScopeSelection,
 ) -> (CheckValue, Vec<String>) {
     match item {
-        "spec_coverage" => {
-            let reqs = selection
-                .req_ids
-                .iter()
-                .filter_map(|id| read_req(layout, id).ok())
-                .collect::<Vec<_>>();
-            let vos = selection
-                .vo_ids
-                .iter()
-                .filter_map(|id| read_vo(layout, id).ok())
-                .collect::<Vec<_>>();
-            let missing = reqs
-                .iter()
-                .filter(|req| {
-                    !vos.iter()
-                        .any(|vo| vo.requirements.iter().any(|candidate| candidate == &req.id))
-                })
-                .map(|req| req.id.as_str().to_owned())
-                .collect::<Vec<_>>();
-            if !reqs.is_empty() && missing.is_empty() {
-                (
-                    CheckValue::Pass,
-                    vec!["every selected REQ has at least one linked VO".to_owned()],
-                )
-            } else {
-                (
-                    CheckValue::Missing,
-                    if reqs.is_empty() {
-                        vec!["no REQ records exist in the selected scope".to_owned()]
-                    } else {
-                        vec![format!(
-                            "selected REQ record(s) have no linked VO: {}",
-                            missing.join(", ")
-                        )]
-                    },
-                )
-            }
-        }
+        // §7.4/§11.1: spec_coverage is a SPEC-rooted Spec→REQ intake item,
+        // never a REQ→VO linkage check (that axis is vo_coverage's own).
+        "spec_coverage" => evaluate_spec_coverage(root, layout, scan, selection),
         "vo_decomposition" => {
             if scan.diagnostics.iter().any(Diagnostic::is_error) {
                 (
@@ -1309,6 +1360,178 @@ fn audit_subject_key(subject: &AuditSubject) -> (String, String) {
             .clone()
             .or_else(|| subject.locator.clone())
             .unwrap_or_default(),
+    )
+}
+
+/// §7.4/§11.1 L1346-1354: `spec_coverage` folds every SPEC in the selected
+/// scope with §4.3's fail-closed priority (`combine_values`, shared with
+/// every other multi-subject item). Zero registered SPECs in scope is the
+/// degenerate empty set 別紙C explicitly forbids promoting to PASS.
+fn evaluate_spec_coverage(
+    root: &Path,
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    selection: &ScopeSelection,
+) -> (CheckValue, Vec<String>) {
+    if selection.spec_ids.is_empty() {
+        return (
+            CheckValue::Missing,
+            vec!["no registered Specification exists in the selected scope".to_owned()],
+        );
+    }
+    let mut overall = CheckValue::Pass;
+    let mut basis = Vec::new();
+    for spec_id in &selection.spec_ids {
+        let (value, reason) = evaluate_one_spec_coverage(root, layout, scan, spec_id);
+        overall = combine_values(overall, value);
+        basis.push(format!("SPEC {spec_id}: {value:?} ({reason})"));
+    }
+    (overall, basis)
+}
+
+/// One SPEC's `spec_coverage` verdict (詳細設計 §11.1 L1346-1352, in the
+/// document's own order):
+/// 1. SPEC record or its Specification source unreadable -> MISSING.
+/// 2. The record's registered `sha256` no longer matches the current source
+///    -> STALE. §1.3 L87's SPEC-subject currency rule, applied here only --
+///    generalizing it to every kind that carries a "spec" subject (e.g.
+///    impl-consistency's SPEC closure) is wave-4's VO-INTAKE-04, not this fix.
+/// 3. Zero active REQ reference it -> MISSING (submission or not, per L1144).
+///    An active REQ whose reference has an empty `section` -> MISMATCH.
+/// 4. Otherwise, the latest valid spec-coverage Audit Record bound to the
+///    current SPEC subject and the complete active-REQ set: COMPLETE/
+///    INCOMPLETE/UNKNOWN map to PASS/FAIL/UNKNOWN (mapped to that at submit
+///    time, so the stored verdict is already PASS/FAIL/UNKNOWN here).
+/// 5. No spec-coverage audit at all -> NOT_CHECKED; only invalid ones exist
+///    -> STALE.
+fn evaluate_one_spec_coverage(
+    root: &Path,
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    spec_id: &str,
+) -> (CheckValue, String) {
+    let Ok(record) = read_spec(layout, spec_id) else {
+        return (
+            CheckValue::Missing,
+            "SPEC record could not be read".to_owned(),
+        );
+    };
+    let Ok(source) = read_text(&root.join(&record.path)) else {
+        return (
+            CheckValue::Missing,
+            "Specification source could not be read".to_owned(),
+        );
+    };
+    if hash_specification_source(&source) != record.sha256 {
+        return (
+            CheckValue::Stale,
+            "SPEC record's registered sha256 does not match the current Specification source"
+                .to_owned(),
+        );
+    }
+    let sets = match spec_coverage_req_sets(layout, spec_id) {
+        Ok(sets) => sets,
+        Err(error) => {
+            return (
+                CheckValue::Unknown,
+                format!("active REQ set referencing {spec_id} could not be resolved: {error}"),
+            )
+        }
+    };
+    if !sets.malformed.is_empty() {
+        return (
+            CheckValue::Mismatch,
+            format!(
+                "active REQ(s) reference {spec_id} with an empty section: {}",
+                sets.malformed.join(", ")
+            ),
+        );
+    }
+    if sets.active.is_empty() {
+        return (
+            CheckValue::Missing,
+            format!("no active REQ references {spec_id}"),
+        );
+    }
+    let required = match required_spec_coverage_subject_keys(layout, spec_id) {
+        Ok(required) => required,
+        Err(error) => {
+            return (
+                CheckValue::Unknown,
+                format!("required subject set for {spec_id} could not be resolved: {error}"),
+            )
+        }
+    };
+    let mut records = Vec::new();
+    for id in read_record_ids(&layout.audits_dir()).unwrap_or_default() {
+        let path = layout.audits_dir().join(format!("{id}.yaml"));
+        let Ok(text) = read_text(&path) else { continue };
+        if yaml_scalar_value(&text, "kind").as_deref() != Some("spec-coverage") {
+            continue;
+        }
+        let subjects = parse_audit_subjects(&text);
+        let matches_spec = subjects
+            .iter()
+            .any(|subject| subject.kind == "spec" && subject.id.as_deref() == Some(spec_id));
+        if !matches_spec {
+            continue;
+        }
+        let recorded_keys = subjects
+            .iter()
+            .map(audit_subject_key)
+            .collect::<BTreeSet<_>>();
+        // §8.5: valid = the recorded subject SET exactly equals the current
+        // required set (spec + complete active-REQ set) AND every recorded
+        // subject's hash is still current -- the same two-conjunct rule
+        // `evaluate_test_audit` applies via `required_subject_keys`.
+        let valid = recorded_keys == required
+            && subjects
+                .iter()
+                .all(|subject| subject_is_current(root, layout, scan, subject));
+        let verdict = match yaml_scalar_value(&text, "verdict").as_deref() {
+            Some("PASS") => CheckValue::Pass,
+            Some("FAIL") => CheckValue::Fail,
+            Some("UNKNOWN") => CheckValue::Unknown,
+            _ => CheckValue::Unknown,
+        };
+        let audited_at = yaml_scalar_value(&text, "audited_at").unwrap_or_default();
+        records.push((id, valid, verdict, audited_at));
+    }
+    if records.is_empty() {
+        return (
+            CheckValue::NotChecked,
+            "no spec-coverage audit exists".to_owned(),
+        );
+    }
+    let valid = records
+        .iter()
+        .filter(|(_, current, _, _)| *current)
+        .collect::<Vec<_>>();
+    let record_basis = records
+        .iter()
+        .map(|(id, current, _, _)| format!("{id}{}", if *current { "" } else { " (stale)" }))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if valid.is_empty() {
+        return (
+            CheckValue::Stale,
+            format!("only invalid spec-coverage audit(s) exist: {record_basis}"),
+        );
+    }
+    let audit_value = if valid
+        .iter()
+        .any(|(_, _, verdict, _)| *verdict == CheckValue::Fail)
+    {
+        CheckValue::Fail
+    } else {
+        valid
+            .iter()
+            .max_by(|left, right| compare_recency(&left.3, &left.0, &right.3, &right.0))
+            .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
+    };
+    (
+        audit_value,
+        format!("spec-coverage audit(s): {record_basis}"),
     )
 }
 
@@ -2075,15 +2298,15 @@ mod tests {
     };
     use vtest_model::{
         AdapterId, CanonicalProjection, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
-        ExecutionDescriptor, ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary,
-        SourceFunction, SourceLocation, SourceRange, TargetExecution, TargetExecutionObservation,
-        TargetRef, TestEntity, TestId, TestResult, TestSuite, VoId,
+        ExecutionDescriptor, ExecutionStateSubject, ProjectPath, ReqId, Revision, RunnerInfo,
+        ScanSummary, SourceFunction, SourceLocation, SourceRange, SpecId, TargetExecution,
+        TargetExecutionObservation, TargetRef, TestEntity, TestId, TestResult, TestSuite, VoId,
     };
     use vtest_scan::rust_cargo_execution_state_hash;
     use vtest_store::{
         approval_subject_hash, init_project, new_record_id, vo_record_subject, ApprovalDependency,
         ApprovalRecord, Approver, AuditBasisRecord, AuditReasonRecord, AuditTargetVerdictRecord,
-        AuditorRecord,
+        AuditorRecord, SpecRecord, SpecRef,
     };
 
     /// @vtest.id TEST-VERIFY-001
@@ -2779,6 +3002,434 @@ mod tests {
         ContentHash::from_text(&text)
     }
 
+    /// Register a SPEC record whose `sha256` matches `source` exactly (a
+    /// "current" SPEC per 詳細設計 §1.3 L87). Returns the source text's
+    /// subject hash so callers can independently compute the "spec" audit
+    /// subject via `hash_spec_audit_subject`.
+    fn write_current_spec(layout: &VerifyLayout, spec_id: &str, path: &str, source: &str) {
+        let full_path = layout.root.join(path);
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent).expect("create fixture Specification source directory");
+        }
+        fs::write(&full_path, source).expect("write fixture Specification source");
+        let record = SpecRecord {
+            id: SpecId::new(spec_id),
+            kind: "document".to_owned(),
+            path: path.to_owned(),
+            sha256: hash_specification_source(source),
+            title: None,
+            note: None,
+            registered_at: "2026-01-01T00:00:00Z".to_owned(),
+        };
+        fs::write(
+            layout.spec_dir().join(format!("{spec_id}.yaml")),
+            record.to_yaml(),
+        )
+        .expect("write fixture SPEC record");
+    }
+
+    fn write_req(
+        layout: &VerifyLayout,
+        req_id: &str,
+        status: &str,
+        spec_refs: Vec<SpecRef>,
+    ) -> ContentHash {
+        let text = ReqRecord {
+            id: ReqId::new(req_id),
+            parent: None,
+            spec_refs,
+            summary: "fixture requirement".to_owned(),
+            status: status.to_owned(),
+            created: "2026-01-01T00:00:00Z".to_owned(),
+            updated: "2026-01-01T00:00:00Z".to_owned(),
+        }
+        .to_yaml();
+        fs::write(layout.req_dir().join(format!("{req_id}.yaml")), &text)
+            .expect("write fixture REQ record");
+        ContentHash::from_text(&text)
+    }
+
+    fn write_vo_with_requirements(layout: &VerifyLayout, vo_id: &str, requirements: &[&str]) {
+        let text = VoRecord {
+            id: VoId::new(vo_id),
+            parent: None,
+            requirements: requirements.iter().map(|id| ReqId::new(*id)).collect(),
+            spec_refs: Vec::new(),
+            claim: "fixture".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            status: None,
+            created: "2026-01-01T00:00:00Z".to_owned(),
+            updated: "2026-01-01T00:00:00Z".to_owned(),
+        }
+        .to_yaml();
+        fs::write(layout.vo_dir().join(format!("{vo_id}.yaml")), text)
+            .expect("write fixture VO record");
+    }
+
+    fn write_spec_coverage_audit(
+        layout: &VerifyLayout,
+        subjects: Vec<AuditSubjectRecord>,
+        verdict: &str,
+        audited_at: &str,
+    ) -> String {
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "spec-coverage".to_owned(),
+            bundle_id: None,
+            subjects,
+            verdict: verdict.to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: None,
+                verdict: None,
+                claim: "fixture spec-coverage result".to_owned(),
+                basis: vec![
+                    AuditBasisRecord {
+                        kind: "spec".to_owned(),
+                        reference: "SPEC-FX#1".to_owned(),
+                    },
+                    AuditBasisRecord {
+                        kind: "req".to_owned(),
+                        reference: "REQ-FX".to_owned(),
+                    },
+                ],
+                targets: Vec::new(),
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "agent".to_owned(),
+                id: "fixture".to_owned(),
+                model: Some("fixture-model".to_owned()),
+            },
+            confidence: Some("high".to_owned()),
+            audited_at: audited_at.to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+        };
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            record.to_yaml().expect("serialise spec-coverage audit"),
+        )
+        .expect("write spec-coverage audit");
+        id
+    }
+
+    /// @vtest.id TEST-VERIFY-040
+    /// @vtest.covers VO-EXIST-04
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_spec_coverage
+    /// @vtest.intent full verification or a requested scope with 0 registered
+    /// SPECs yields spec_coverage = MISSING, never PASS -- even when every
+    /// selected REQ already has a linked VO (基本仕様 §7.4, 別紙C §18.3.5).
+    #[test]
+    fn spec_coverage_zero_registered_specs_is_missing_never_pass() {
+        let (layout, scan) = static_fixture(&[]);
+        write_req(&layout, "REQ-X", "active", Vec::new());
+        write_vo_with_requirements(&layout, "VO-X", &["REQ-X"]);
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::from(["VO-X".to_owned()]),
+            req_ids: BTreeSet::from(["REQ-X".to_owned()]),
+            spec_ids: BTreeSet::new(),
+        };
+        let (value, basis) = evaluate_spec_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::Missing, "basis: {basis:?}");
+        assert!(basis
+            .iter()
+            .any(|line| line.contains("no registered Specification")));
+    }
+
+    /// @vtest.id TEST-VERIFY-041
+    /// @vtest.covers VO-PLAN-02
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent 詳細設計 §1.3 L87: a SPEC record whose registered sha256
+    /// no longer matches its current Specification source is STALE, checked
+    /// independently of any spec-coverage audit.
+    #[test]
+    fn spec_coverage_registered_sha256_mismatch_is_stale() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "original text");
+        // Mutate the Specification source without re-registering the SPEC
+        // record, so the record's `sha256` field goes stale.
+        fs::write(layout.root.join("docs/spec.md"), "mutated text")
+            .expect("mutate fixture Specification source");
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Stale, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-042
+    /// @vtest.covers VO-PLAN-02
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent 詳細設計 L1144/L1350: 0 active REQ referencing a current
+    /// SPEC keeps spec_coverage MISSING regardless of a submission -- even a
+    /// spec-coverage audit bound to the (degenerate) spec-only subject set
+    /// does not promote it.
+    #[test]
+    fn spec_coverage_zero_active_req_stays_missing_even_with_a_submission() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        let spec_hash = hash_spec_audit_subject(
+            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "fixture text",
+        );
+        write_spec_coverage_audit(
+            &layout,
+            vec![AuditSubjectRecord {
+                id: Some("SPEC-FX".to_owned()),
+                locator: None,
+                hash: spec_hash,
+            }],
+            "PASS",
+            "2026-08-08T00:00:00Z",
+        );
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Missing, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-043
+    /// @vtest.covers VO-PLAN-03
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent 詳細設計 L1350: an active REQ whose reference to the
+    /// target SPEC has an empty `section` is MISMATCH.
+    #[test]
+    fn spec_coverage_active_req_with_empty_section_is_mismatch() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: String::new(),
+            }],
+        );
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Mismatch, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-044
+    /// @vtest.covers VO-PLAN-02
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent a valid COMPLETE (submitted as PASS) spec-coverage audit
+    /// whose recorded subjects exactly equal the required set (SPEC + the
+    /// complete active-REQ set) yields PASS.
+    #[test]
+    fn spec_coverage_valid_complete_audit_is_pass() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        let req_hash = write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: "1".to_owned(),
+            }],
+        );
+        let spec_hash = hash_spec_audit_subject(
+            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "fixture text",
+        );
+        write_spec_coverage_audit(
+            &layout,
+            vec![
+                AuditSubjectRecord {
+                    id: Some("SPEC-FX".to_owned()),
+                    locator: None,
+                    hash: spec_hash,
+                },
+                AuditSubjectRecord {
+                    id: Some("REQ-FX".to_owned()),
+                    locator: None,
+                    hash: req_hash,
+                },
+            ],
+            "PASS",
+            "2026-08-08T00:00:00Z",
+        );
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Pass, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-045
+    /// @vtest.covers VO-PLAN-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent 詳細設計 L1352: a current SPEC with a well-formed active
+    /// REQ but zero spec-coverage audits yields NOT_CHECKED, not PASS.
+    #[test]
+    fn spec_coverage_no_audit_is_not_checked() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: "1".to_owned(),
+            }],
+        );
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::NotChecked, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-046
+    /// @vtest.covers VO-PLAN-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_one_spec_coverage
+    /// @vtest.intent §8.5 set-equality: a spec-coverage audit bound to only
+    /// the SPEC subject (omitting the required REQ subject) is invalid, so
+    /// the item is STALE, not PASS, even though the audit's own verdict is
+    /// PASS.
+    #[test]
+    fn spec_coverage_audit_missing_a_required_req_subject_is_stale() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
+        write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: "1".to_owned(),
+            }],
+        );
+        let spec_hash = hash_spec_audit_subject(
+            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "fixture text",
+        );
+        write_spec_coverage_audit(
+            &layout,
+            vec![AuditSubjectRecord {
+                id: Some("SPEC-FX".to_owned()),
+                locator: None,
+                hash: spec_hash,
+            }],
+            "PASS",
+            "2026-08-08T00:00:00Z",
+        );
+        let (value, reason) = evaluate_one_spec_coverage(&layout.root, &layout, &scan, "SPEC-FX");
+        assert_eq!(value, CheckValue::Stale, "reason: {reason}");
+    }
+
+    /// @vtest.id TEST-VERIFY-047
+    /// @vtest.covers VO-PLAN-02
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_spec_coverage
+    /// @vtest.intent multiple SPECs in scope fold with 基本仕様 §4.3's
+    /// fail-closed priority: one PASS SPEC and one MISSING SPEC combine to
+    /// an overall MISSING, not PASS.
+    #[test]
+    fn spec_coverage_folds_multiple_specs_fail_closed() {
+        let (layout, scan) = static_fixture(&[]);
+        write_current_spec(&layout, "SPEC-PASS", "docs/pass.md", "pass text");
+        let req_hash = write_req(
+            &layout,
+            "REQ-PASS",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-PASS"),
+                section: "1".to_owned(),
+            }],
+        );
+        let spec_pass_hash = hash_spec_audit_subject(
+            &read_text(&layout.spec_dir().join("SPEC-PASS.yaml")).expect("read SPEC record"),
+            "pass text",
+        );
+        write_spec_coverage_audit(
+            &layout,
+            vec![
+                AuditSubjectRecord {
+                    id: Some("SPEC-PASS".to_owned()),
+                    locator: None,
+                    hash: spec_pass_hash,
+                },
+                AuditSubjectRecord {
+                    id: Some("REQ-PASS".to_owned()),
+                    locator: None,
+                    hash: req_hash,
+                },
+            ],
+            "PASS",
+            "2026-08-08T00:00:00Z",
+        );
+        // SPEC-MISSING has 0 active REQ referencing it.
+        write_current_spec(&layout, "SPEC-MISSING", "docs/missing.md", "missing text");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::new(),
+            spec_ids: BTreeSet::from(["SPEC-PASS".to_owned(), "SPEC-MISSING".to_owned()]),
+        };
+        let (value, basis) = evaluate_spec_coverage(&layout.root, &layout, &scan, &selection);
+        assert_eq!(value, CheckValue::Missing, "basis: {basis:?}");
+        assert!(basis
+            .iter()
+            .any(|line| line.starts_with("SPEC SPEC-PASS: Pass")));
+        assert!(basis
+            .iter()
+            .any(|line| line.starts_with("SPEC SPEC-MISSING: Missing")));
+    }
+
+    /// @vtest.id TEST-VERIFY-048
+    /// @vtest.covers VO-PLAN-03
+    /// @vtest.target crates/vtest-verify/src/lib.rs::build_tree
+    /// @vtest.intent 詳細設計 §11.1 step 9 ("SPECはspec_coverageとREQ部分木の
+    /// 合成"): a top-level REQ referencing a SPEC attaches under that SPEC's
+    /// own tree node, which owns the spec_coverage item; the REQ node itself
+    /// no longer carries spec_coverage (that axis moved off of it).
+    #[test]
+    fn spec_node_owns_spec_coverage_and_attaches_its_referencing_req_subtree() {
+        let (layout, scan) = static_fixture(&[]);
+        write_req(
+            &layout,
+            "REQ-FX",
+            "active",
+            vec![SpecRef {
+                spec: SpecId::new("SPEC-FX"),
+                section: "1".to_owned(),
+            }],
+        );
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::from(["REQ-FX".to_owned()]),
+            spec_ids: BTreeSet::from(["SPEC-FX".to_owned()]),
+        };
+        let items = vec![ReportItem {
+            item: "spec_coverage".to_owned(),
+            value: CheckValue::Pass,
+            basis: vec!["fixture".to_owned()],
+        }];
+        let tree = build_tree(&layout, &selection, &scan, &items);
+        assert_eq!(tree.len(), 1, "tree: {tree:?}");
+        assert_eq!(tree[0].kind, "spec");
+        assert_eq!(tree[0].id, "SPEC-FX");
+        assert_eq!(
+            tree[0]
+                .items
+                .iter()
+                .map(|item| item.item.as_str())
+                .collect::<Vec<_>>(),
+            vec!["spec_coverage"]
+        );
+        assert_eq!(
+            tree[0].children.len(),
+            1,
+            "children: {:?}",
+            tree[0].children
+        );
+        assert_eq!(tree[0].children[0].kind, "req");
+        assert_eq!(tree[0].children[0].id, "REQ-FX");
+        assert!(tree[0].children[0].items.is_empty());
+    }
+
     /// @vtest.id TEST-VERIFY-023
     /// @vtest.covers VO-SEMAUDIT-05
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
@@ -2811,6 +3462,7 @@ mod tests {
             test_ids: BTreeSet::new(),
             vo_ids: BTreeSet::from(["VO-ONE".to_owned()]),
             req_ids: BTreeSet::new(),
+            spec_ids: BTreeSet::new(),
         };
         assert_eq!(
             evaluate_vo_coverage(&layout.root, &layout, &scan, &selection).0,
