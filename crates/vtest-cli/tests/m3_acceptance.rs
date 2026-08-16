@@ -287,6 +287,22 @@ fn m3_static_audit_maps_failures_preserves_unknown_and_warns_for_ignored_tests()
     assert_eq!(rule(helper, "DA-002")["verdict"], "PASS", "{helper}");
     assert_eq!(rule(helper, "DA-003")["verdict"], "UNKNOWN", "{helper}");
 
+    // VO-STATAUDIT-04: the target is called and its result is bound, but
+    // verification happens inside a same-file helper the analyzer does not
+    // expand. DA-006 has no way to confirm assert-equivalent syntax is
+    // absent, so it must report UNKNOWN (an analysis-scope limit) rather
+    // than the false FAIL the un-fixed rule produced (基本仕様 §7.2
+    // l.370-371, 詳細設計 §7.1 l.960-961, 別紙C §18.3.2).
+    let delegated = audit_response(
+        &invoke_static(&project.root, "TEST-M3-DA-006-HELPER"),
+        1,
+        "verification delegated to a helper must not be a confirmed DA-006 FAIL",
+    );
+    let delegated = only_audit(&delegated, "TEST-M3-DA-006-HELPER");
+    assert_eq!(delegated["verdict"], "UNKNOWN", "{delegated}");
+    assert_eq!(rule(delegated, "DA-006")["verdict"], "UNKNOWN", "{delegated}");
+    assert_ne!(rule(delegated, "DA-006")["verdict"], "FAIL", "{delegated}");
+
     let substring = audit_response(
         &invoke_static(&project.root, "TEST-M3-DA-003-SUBSTRING"),
         1,
@@ -453,6 +469,10 @@ fn nested_pair(_: (), pair: (i32, i32)) -> (i32, i32) {
     pair
 }
 
+fn assert_delegated(actual: (), expected: ()) {
+    assert_eq!(actual, expected);
+}
+
 /// @vtest.id TEST-M3-DA-001
 /// @vtest.covers VO-KNOWN
 /// @vtest.target tests/m3_rules.rs::known
@@ -553,6 +573,16 @@ fn configured_assertion_macro() {
 #[test]
 fn same_file_helper_reaches_target() {
     assert_eq!(same_file_helper(), ());
+}
+
+/// @vtest.id TEST-M3-DA-006-HELPER
+/// @vtest.covers VO-KNOWN
+/// @vtest.target tests/m3_rules.rs::known
+/// @vtest.intent verification delegated to a same-file assert helper is an analysis-scope limit (UNKNOWN), not a confirmed FAIL
+#[test]
+fn da006_verification_delegated_to_helper() {
+    let actual = known();
+    assert_delegated(actual, ());
 }
 
 /// @vtest.id TEST-M3-SRC-ID

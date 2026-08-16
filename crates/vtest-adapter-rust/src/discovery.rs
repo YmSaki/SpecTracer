@@ -88,6 +88,18 @@ pub(crate) enum TestTarget {
 pub(crate) struct ParsedAnnotations {
     pub(crate) values: BTreeMap<String, String>,
     pub(crate) repeated: BTreeMap<String, Vec<String>>,
+    /// Every unrecognized-key (E-SCAN-006) and repeated-non-repeatable-key
+    /// (E-SCAN-005) defect found while scanning the declaration, in the
+    /// order encountered. A declaration can carry more than one of either
+    /// kind; each one is its own defect and must survive to a diagnostic
+    /// (詳細設計 §5.4 — E-SCAN-005/006 are per-defect, not per-declaration).
+    pub(crate) parse_errors: Vec<AnnotationParseError>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum AnnotationParseError {
+    UnknownKey(String),
+    DuplicateKey(String),
 }
 
 pub(crate) fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations> {
@@ -116,7 +128,10 @@ pub(crate) fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations
     const KNOWN: &[&str] = &[
         "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related", "src-id",
     ];
-    let mut had_error = false;
+    // Every unknown-key and duplicate-key defect is collected, not just the
+    // first or the most recent: a declaration carrying more than one such
+    // defect (of the same kind or of both kinds) must surface all of them.
+    let mut parse_errors = Vec::new();
     for line in lines {
         let Some(annotation) = line.strip_prefix("@vtest.") else {
             continue;
@@ -129,30 +144,20 @@ pub(crate) fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations
         let key = key.trim().to_owned();
         let value = value.trim().to_owned();
         if !KNOWN.contains(&key.as_str()) {
-            // The caller cannot attach a parser diagnostic without losing the
-            // source location, so retain a sentinel that is handled below.
-            values.insert("__unknown_key__".to_owned(), key);
-            had_error = true;
+            parse_errors.push(AnnotationParseError::UnknownKey(key));
             continue;
         }
         if matches!(key.as_str(), "case" | "related" | "target") {
             repeated.entry(key).or_default().push(value);
         } else if values.insert(key.clone(), value).is_some() {
-            values.insert("__duplicate_key__".to_owned(), key);
-            had_error = true;
+            parse_errors.push(AnnotationParseError::DuplicateKey(key));
         }
     }
-    if had_error {
-        // Preserve parse information in a deterministic diagnostic channel.
-        // `parse_annotations` itself stays total and its caller emits the
-        // proper location-aware diagnostic.
-        if let Some(key) = values.remove("__unknown_key__") {
-            values.insert("__parse_error__".to_owned(), format!("unknown:{key}"));
-        } else if let Some(key) = values.remove("__duplicate_key__") {
-            values.insert("__parse_error__".to_owned(), format!("duplicate:{key}"));
-        }
-    }
-    Some(ParsedAnnotations { values, repeated })
+    Some(ParsedAnnotations {
+        values,
+        repeated,
+        parse_errors,
+    })
 }
 
 pub(crate) fn is_test_function(attrs: &[Attribute]) -> bool {
@@ -968,17 +973,22 @@ impl<'a> Scanner<'a> {
             );
             return;
         };
-        if let Some(parse_error) = annotation.values.get("__parse_error__") {
-            let (kind, key) = parse_error
-                .split_once(':')
-                .unwrap_or(("unknown", parse_error));
-            let (code, message) = if kind == "duplicate" {
-                ("E-SCAN-005", format!("duplicate annotation key `{key}`"))
-            } else {
-                ("E-SCAN-006", format!("unknown @vtest key `{key}`"))
-            };
-            self.diagnostics
-                .push(Diagnostic::error(code, message).with_location(location));
+        if !annotation.parse_errors.is_empty() {
+            // Every collected defect gets its own diagnostic — a declaration
+            // with both an unknown key and a duplicate key (or several of
+            // either) must not have any of them swallowed.
+            for parse_error in &annotation.parse_errors {
+                let (code, message) = match parse_error {
+                    AnnotationParseError::DuplicateKey(key) => {
+                        ("E-SCAN-005", format!("duplicate annotation key `{key}`"))
+                    }
+                    AnnotationParseError::UnknownKey(key) => {
+                        ("E-SCAN-006", format!("unknown @vtest key `{key}`"))
+                    }
+                };
+                self.diagnostics
+                    .push(Diagnostic::error(code, message).with_location(location.clone()));
+            }
             return;
         }
         let Some(id) = annotation
