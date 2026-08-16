@@ -5,10 +5,10 @@
 //! small scalar/list subset emitted by vtest and preserves unknown fields by
 //! ignoring them (forward-compatible read behavior).
 
-use crate::{StoreError, VerifyLayout};
+use crate::{read_record_ids, StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -644,7 +644,7 @@ impl AuditRecord {
         }
         if !matches!(
             self.kind.as_str(),
-            "test-semantic" | "vo-coverage" | "impl-consistency" | "static"
+            "test-semantic" | "vo-coverage" | "impl-consistency" | "static" | "spec-coverage"
         ) {
             return Err(StoreError::InvalidConfig(
                 "audit has an invalid kind".to_owned(),
@@ -1270,6 +1270,74 @@ pub fn required_spec_closure(
         }
     }
     Ok(specs)
+}
+
+/// The REQ records that reference one SPEC by id, split by status. `active`
+/// carries the full record (needed for both the bundle body and the
+/// required-subject-set derivation below); `withdrawn` and `malformed` carry
+/// ids only -- `withdrawn` is spec-coverage bundle CONTENT, never a bundle
+/// subject (詳細設計 §8.1 table), and `malformed` flags an active REQ whose
+/// reference to this SPEC has an empty `section` (詳細設計 L1350, the
+/// spec_coverage MISMATCH condition).
+#[derive(Clone, Debug, Default)]
+pub struct SpecCoverageReqSets {
+    pub active: BTreeMap<String, ReqRecord>,
+    pub withdrawn: Vec<String>,
+    pub malformed: Vec<String>,
+}
+
+/// The one derivation of a spec-coverage subject's REQ sets (詳細設計
+/// §8.1/§8.4/§8.5). Bundle generation and record validity both call this, so
+/// "the complete set of active REQ referencing SPEC-X" can never drift
+/// between what a bundle binds to and what verify later checks against
+/// (VO-PLAN-02/03/05).
+pub fn spec_coverage_req_sets(
+    layout: &VerifyLayout,
+    spec_id: &str,
+) -> Result<SpecCoverageReqSets, StoreError> {
+    let mut sets = SpecCoverageReqSets::default();
+    for id in read_record_ids(&layout.req_dir())? {
+        let req = read_req(layout, &id)?;
+        let refs = req
+            .spec_refs
+            .iter()
+            .filter(|spec_ref| spec_ref.spec.as_str() == spec_id)
+            .collect::<Vec<_>>();
+        if refs.is_empty() {
+            continue;
+        }
+        match req.status.as_str() {
+            "active" => {
+                if refs
+                    .iter()
+                    .any(|spec_ref| spec_ref.section.trim().is_empty())
+                {
+                    sets.malformed.push(id.clone());
+                }
+                sets.active.insert(id, req);
+            }
+            "withdrawn" => sets.withdrawn.push(id),
+            _ => {}
+        }
+    }
+    Ok(sets)
+}
+
+/// The required spec-coverage subject KEY set for `spec_id`: the SPEC
+/// subject itself plus one `("req", id)` key per currently active REQ that
+/// references it. Set-equality of a recorded audit's subjects against this
+/// set is §8.5's validity rule's first conjunct -- the same
+/// `required_subject_keys` pattern `vtest-scan` uses for Test-scoped audits,
+/// adapted to spec-coverage's SPEC-rooted subject shape (one derivation, not
+/// a second independent one).
+pub fn required_spec_coverage_subject_keys(
+    layout: &VerifyLayout,
+    spec_id: &str,
+) -> Result<BTreeSet<(String, String)>, StoreError> {
+    let sets = spec_coverage_req_sets(layout, spec_id)?;
+    let mut keys = BTreeSet::from([("spec".to_owned(), spec_id.to_owned())]);
+    keys.extend(sets.active.keys().map(|id| ("req".to_owned(), id.clone())));
+    Ok(keys)
 }
 
 pub fn read_approval(path: &Path) -> Result<ApprovalRecord, StoreError> {

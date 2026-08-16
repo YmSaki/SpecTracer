@@ -416,10 +416,11 @@ fn tool_input_schema(name: &str) -> Value {
         ),
         "audit_bundle" => (
             json!({
-                "kind": {"type": "string", "enum": ["test-semantic", "vo-coverage", "impl-consistency"]},
+                "kind": {"type": "string", "enum": ["test-semantic", "vo-coverage", "impl-consistency", "spec-coverage"]},
                 "test": {"type": "string"},
                 "vo": {"type": "string"},
                 "req": {"type": "string"},
+                "spec": {"type": "string"},
                 "include_failed": {"type": "boolean"}
             }),
             vec!["kind"],
@@ -496,7 +497,7 @@ fn validate_tool_arguments(
         "test_create" => &["form", "answers", "id", "dry_run"][..],
         "test_edit" => &["id", "answers", "set", "body", "dry_run"][..],
         "audit_static" => &["test", "all"][..],
-        "audit_bundle" => &["kind", "test", "vo", "req", "include_failed"][..],
+        "audit_bundle" => &["kind", "test", "vo", "req", "spec", "include_failed"][..],
         "audit_submit" => &["submission"][..],
         "run_tests" => &["test", "vo", "req", "all", "fast"][..],
         "verify" | "report" => &["items", "req", "vo", "test"][..],
@@ -673,7 +674,10 @@ fn validate_tool_arguments(
         }
         "audit_bundle" => {
             let kind = required_nonempty_string(args, "kind")?;
-            if !matches!(kind, "test-semantic" | "vo-coverage" | "impl-consistency") {
+            if !matches!(
+                kind,
+                "test-semantic" | "vo-coverage" | "impl-consistency" | "spec-coverage"
+            ) {
                 return Err(failure_envelope(
                     "E-OP-001",
                     format!("unsupported audit bundle kind {kind}"),
@@ -681,16 +685,19 @@ fn validate_tool_arguments(
                         "test-semantic".to_owned(),
                         "vo-coverage".to_owned(),
                         "impl-consistency".to_owned(),
+                        "spec-coverage".to_owned(),
                     ],
                 ));
             }
             optional_id(args, "test", "TEST-")?;
             optional_id(args, "vo", "VO-")?;
             optional_id(args, "req", "REQ-")?;
+            optional_id(args, "spec", "SPEC-")?;
             optional_bool(args, "include_failed")?;
             let selected = usize::from(args.contains_key("test"))
                 + usize::from(args.contains_key("vo"))
-                + usize::from(args.contains_key("req"));
+                + usize::from(args.contains_key("req"))
+                + usize::from(args.contains_key("spec"));
             if selected != 1 {
                 return Err(failure_envelope(
                     "E-OP-001",
@@ -702,6 +709,7 @@ fn validate_tool_arguments(
                 "test-semantic" => args.contains_key("test"),
                 "vo-coverage" => args.contains_key("vo") || args.contains_key("req"),
                 "impl-consistency" => args.contains_key("test") || args.contains_key("vo"),
+                "spec-coverage" => args.contains_key("spec"),
                 _ => false,
             };
             if !compatible {
@@ -1298,7 +1306,12 @@ fn audit_bundle(root: &Path, args: &Value) -> Value {
         "--kind".to_owned(),
         kind.to_owned(),
     ];
-    let selectors = [("test", "--test"), ("vo", "--vo"), ("req", "--req")];
+    let selectors = [
+        ("test", "--test"),
+        ("vo", "--vo"),
+        ("req", "--req"),
+        ("spec", "--spec"),
+    ];
     let selected = selectors
         .iter()
         .filter_map(|(key, flag)| string_arg(args, key).map(|value| (*flag, value.to_owned())))

@@ -24,10 +24,10 @@ use vtest_scan::{
 use vtest_store::{
     approval_subject_hash, current_approval_subject, derive_vo_status, find_project_root,
     init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339, read_approval,
-    read_form_answers, read_req, read_spec, read_text, read_vo, required_spec_closure,
-    resolve_upstream_closure, vo_record_subject, write_atomic, write_new_record,
-    yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension, ReqRecord, SpecRecord,
-    SpecRef, StoreError, VerifyLayout, VoRecord,
+    read_audit, read_form_answers, read_req, read_spec, read_text, read_vo, required_spec_closure,
+    resolve_upstream_closure, spec_coverage_req_sets, vo_record_subject, write_atomic,
+    write_new_record, yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension,
+    ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout, VoRecord,
 };
 use vtest_verify::{verify_project_scoped, EntityScope};
 
@@ -142,6 +142,8 @@ pub enum AuditCommand {
         vo: Option<String>,
         #[arg(long)]
         req: Option<String>,
+        #[arg(long)]
+        spec: Option<String>,
         #[arg(long)]
         include_failed: bool,
     },
@@ -685,6 +687,7 @@ fn run_audit(project: &Path, command: AuditCommand, format: OutputFormat, quiet:
             test,
             vo,
             req,
+            spec,
             include_failed,
         } => run_audit_bundle(
             project,
@@ -692,6 +695,7 @@ fn run_audit(project: &Path, command: AuditCommand, format: OutputFormat, quiet:
             test.as_deref(),
             vo.as_deref(),
             req.as_deref(),
+            spec.as_deref(),
             include_failed,
             format,
             quiet,
@@ -880,6 +884,7 @@ fn run_audit_bundle(
     test_id: Option<&str>,
     vo_id: Option<&str>,
     req_id: Option<&str>,
+    spec_id: Option<&str>,
     include_failed: bool,
     format: OutputFormat,
     quiet: bool,
@@ -906,7 +911,8 @@ fn run_audit_bundle(
     };
     let selector_count = usize::from(test_id.is_some())
         + usize::from(vo_id.is_some())
-        + usize::from(req_id.is_some());
+        + usize::from(req_id.is_some())
+        + usize::from(spec_id.is_some());
     let selector_error = |message: String| {
         emit(
             format,
@@ -919,7 +925,10 @@ fn run_audit_bundle(
         );
         ExitCode::Usage
     };
-    let supported = matches!(kind, "test-semantic" | "vo-coverage" | "impl-consistency");
+    let supported = matches!(
+        kind,
+        "test-semantic" | "vo-coverage" | "impl-consistency" | "spec-coverage"
+    );
     if !supported {
         return selector_error(format!("unsupported audit bundle kind {kind}"));
     }
@@ -927,11 +936,12 @@ fn run_audit_bundle(
         "test-semantic" => selector_count == 1 && test_id.is_some(),
         "vo-coverage" => selector_count == 1 && (vo_id.is_some() || req_id.is_some()),
         "impl-consistency" => selector_count == 1 && (test_id.is_some() || vo_id.is_some()),
+        "spec-coverage" => selector_count == 1 && spec_id.is_some(),
         _ => false,
     };
     if !selector_valid {
         return selector_error(format!(
-            "audit bundle {kind} requires exactly one compatible --test, --vo, or --req selector"
+            "audit bundle {kind} requires exactly one compatible --test, --vo, --req, or --spec selector"
         ));
     }
 
@@ -943,6 +953,7 @@ fn run_audit_bundle(
         test_id,
         vo_id,
         req_id,
+        spec_id,
         include_failed,
     ) {
         Ok(bundle) => bundle,
@@ -1183,6 +1194,7 @@ fn build_bundle(
     test_id: Option<&str>,
     vo_id: Option<&str>,
     req_id: Option<&str>,
+    spec_id: Option<&str>,
     include_failed: bool,
 ) -> CommandResult<serde_json::Value> {
     match kind {
@@ -1573,6 +1585,64 @@ fn build_bundle(
                 }))
             }
         }
+        "spec-coverage" => {
+            let target_spec_id = spec_id.expect("validated selector");
+            if read_spec(layout, target_spec_id).is_err() {
+                return Err(failure(
+                    "E-OP-001",
+                    format!("SPEC {target_spec_id} was not found"),
+                    ExitCode::Usage,
+                ));
+            }
+            // §8.1: the bundle carries the SPEC subject AND the Specification
+            // source full text (reusing the same helper impl-consistency's
+            // SPEC closure uses, so a SPEC subject hash is computed exactly
+            // one way everywhere).
+            let (spec_subject, spec_body) = spec_audit_material(root, layout, target_spec_id)?;
+            let mut subjects = vec![spec_subject];
+            // §8.1: bound to the complete set of active REQ referencing this
+            // SPEC. Zero active REQ still yields a bundle (詳細設計 L1144);
+            // verify keeps spec_coverage at MISSING regardless of what gets
+            // submitted for it.
+            let sets = spec_coverage_req_sets(layout, target_spec_id).map_err(store_failure)?;
+            let mut active_requirements = Vec::new();
+            for (id, req) in &sets.active {
+                let path = layout.req_dir().join(format!("{id}.yaml"));
+                let text = read_text(&path).map_err(store_failure)?;
+                let hash = ContentHash::from_text(&text);
+                subjects.push(subject_value("req", Some(id.as_str()), None, &hash));
+                let sections = req
+                    .spec_refs
+                    .iter()
+                    .filter(|spec_ref| spec_ref.spec.as_str() == target_spec_id)
+                    .map(|spec_ref| spec_ref.section.clone())
+                    .collect::<Vec<_>>();
+                // 詳細設計 §8.1 L1051: "全record・内容hash" -- the complete
+                // REQ record (matching vo-coverage's own `requirements` body
+                // shape, `serde_json::to_value(record)`), not a projection.
+                active_requirements.push(serde_json::json!({
+                    "id": req.id,
+                    "record": req,
+                    "sections": sections,
+                    "content_hash": hash,
+                }));
+            }
+            Ok(serde_json::json!({
+                "bundle_id": new_record_id(),
+                "kind": kind,
+                "generated_at": now_rfc3339(),
+                "revision": git_revision_json(root),
+                "spec": spec_body,
+                // §8.1: the complete active-REQ set (record + content hash) that
+                // references the target SPEC.
+                "active_requirements": active_requirements,
+                // Bundle CONTENT only -- withdrawn REQs are never a bundle
+                // subject (they carry no currency binding).
+                "withdrawn_requirements": sets.withdrawn,
+                "prior_audits": prior_spec_coverage_audits(layout, target_spec_id),
+                "subjects": subjects,
+            }))
+        }
         _ => Err(failure(
             "E-OP-001",
             "unsupported bundle kind",
@@ -1908,6 +1978,50 @@ fn prior_audits(
     records
 }
 
+/// The "有効な過去監査の要約" (§8.1) content for a spec-coverage bundle:
+/// every existing spec-coverage Audit Record bound to `spec_id`, by its own
+/// structured `subjects` (not text scraping, unlike `prior_audits`'s
+/// test-scoped heuristic) -- `AuditSubjectRecord` carries no `kind` field on
+/// disk, so an `id` match against a SPEC-prefixed id is exactly the same
+/// identification vtest-verify's own subject-kind inference uses.
+fn prior_spec_coverage_audits(layout: &VerifyLayout, spec_id: &str) -> Vec<serde_json::Value> {
+    let Ok(entries) = fs::read_dir(layout.audits_dir()) else {
+        return Vec::new();
+    };
+    let mut records = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
+            continue;
+        }
+        let Ok(record) = read_audit(&path) else {
+            continue;
+        };
+        if record.kind != "spec-coverage" {
+            continue;
+        }
+        if !record
+            .subjects
+            .iter()
+            .any(|subject| subject.id.as_deref() == Some(spec_id))
+        {
+            continue;
+        }
+        records.push(serde_json::json!({
+            "id": record.id,
+            "verdict": record.verdict,
+            "audited_at": record.audited_at,
+        }));
+    }
+    records.sort_by(|left, right| {
+        left["id"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(right["id"].as_str().unwrap_or_default())
+    });
+    records
+}
+
 fn nonempty_string<'a>(
     value: &'a serde_json::Value,
     field: &str,
@@ -2038,7 +2152,7 @@ fn submitted_verdict(kind: &str, result: &serde_json::Value) -> Result<String, C
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     let valid = match kind {
-        "vo-coverage" => matches!(verdict, "COMPLETE" | "INCOMPLETE" | "UNKNOWN"),
+        "vo-coverage" | "spec-coverage" => matches!(verdict, "COMPLETE" | "INCOMPLETE" | "UNKNOWN"),
         "test-semantic" | "impl-consistency" => matches!(verdict, "PASS" | "FAIL" | "UNKNOWN"),
         _ => false,
     };
@@ -2151,6 +2265,62 @@ fn validate_reasons(kind: &str, result: &serde_json::Value) -> Result<(), Comman
                 "vo-coverage requires a decomposition-viewpoint reason, a spec basis \
                  formatted as `SPEC-ID#section`, and an exclusions list whose entries \
                  each carry a non-empty item and spec-grounded basis",
+                ExitCode::Usage,
+            ));
+        }
+    }
+    if kind == "spec-coverage" {
+        // 詳細設計 L1165-1166 (E-AUDIT-007): EACH reason -- not merely at
+        // least one across the array, unlike vo-coverage's decomposition
+        // basis -- must carry a spec basis (adopted requirement, §7.4/8.1's
+        // `SPEC-ID#section` convention) AND a req basis (the REQ it was
+        // incorporated into).
+        let each_reason_has_spec_and_req = reasons.iter().all(|reason| {
+            let basis = reason
+                .get("basis")
+                .and_then(serde_json::Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let has_spec = basis.iter().any(|item| {
+                item.get("kind").and_then(serde_json::Value::as_str) == Some("spec")
+                    && item
+                        .get("ref")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(is_spec_section_ref)
+            });
+            let has_req = basis.iter().any(|item| {
+                item.get("kind").and_then(serde_json::Value::as_str) == Some("req")
+                    && item
+                        .get("ref")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|reference| !reference.trim().is_empty())
+            });
+            has_spec && has_req
+        });
+        // exclusions must be present as an array (possibly empty -- nothing
+        // excluded is a legitimate COMPLETE submission); any entry present
+        // must carry a non-empty item and spec-grounded basis (詳細設計 L1143).
+        let exclusions_ok = result
+            .get("exclusions")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|exclusions| {
+                exclusions.iter().all(|exclusion| {
+                    exclusion
+                        .get("item")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|item| !item.trim().is_empty())
+                        && exclusion
+                            .get("basis")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|basis| !basis.trim().is_empty())
+                })
+            });
+        if !each_reason_has_spec_and_req || !exclusions_ok {
+            return Err(failure(
+                "E-AUDIT-007",
+                "spec-coverage requires each reason to carry a spec basis (`SPEC-ID#section`) \
+                 and a req basis, and an exclusions list whose entries each carry a non-empty \
+                 item and spec-grounded basis",
                 ExitCode::Usage,
             ));
         }
