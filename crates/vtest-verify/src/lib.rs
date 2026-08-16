@@ -4,17 +4,19 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
+    sync::OnceLock,
 };
 
 use serde::Serialize;
+use vtest_adapter_api::{hash_execution_state_draft, AdapterRegistry};
+use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_model::{
     hash_spec_audit_subject, hash_static_audit_config_subject, AdapterId, CheckValue, ContentHash,
     Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
     classify_target_resolution, find_target_source, required_subject_keys,
-    rust_cargo_execution_state_hash, rust_cargo_static_audit_projection, ScanResult,
-    TargetResolution, STATIC_AUDIT_RULE_SET_ID,
+    rust_cargo_static_audit_projection, ScanResult, TargetResolution, STATIC_AUDIT_RULE_SET_ID,
     STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
@@ -22,6 +24,19 @@ use vtest_store::{
     read_record_ids, read_req, read_text, read_vo, static_record_target_defect, yaml_scalar_value,
     AuditRecord, AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
 };
+
+/// The registry of adapters `evidence_record_validity` can resolve a
+/// record's own `AdapterId` through, so freshness re-derivation always uses
+/// the adapter's own schema (詳細設計 line 810 / 1390) instead of a single
+/// hardcoded rust-cargo path. Built once; adding a future adapter here (the
+/// only vtest-verify touch it needs) is registration, not new control flow.
+fn built_in_test_runners() -> &'static AdapterRegistry {
+    static REGISTRY: OnceLock<AdapterRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(|| {
+        AdapterRegistry::from_registrations([rust_cargo_registration()])
+            .expect("built-in rust-cargo adapter registration is well-formed")
+    })
+}
 
 pub const ALL_ITEMS: [&str; 12] = [
     "spec_coverage",
@@ -788,10 +803,16 @@ fn evaluate_static_audit(
             valid.push(*record);
         }
 
-        let value = if !malformed_for_test.is_empty() {
-            CheckValue::Unknown
-        } else if valid.is_empty() {
-            if test_records.is_empty() {
+        // 詳細設計 §3.6: a malformed record is E-SCAN-010 -- excluded from the
+        // valid set, its content untrusted, never a distinct per-test UNKNOWN
+        // in its own right. If a valid record still exists among this Test's
+        // records, its value stands unmodified by the sibling malformed
+        // record; if none does, the Test falls through to the same "no valid
+        // record" rule STALE-only records already use (STALE when some
+        // record -- valid-content-mismatched or malformed -- was attempted,
+        // NOT_CHECKED only when this Test was never audited at all).
+        let value = if valid.is_empty() {
+            if test_records.is_empty() && malformed_for_test.is_empty() {
                 CheckValue::NotChecked
             } else {
                 CheckValue::Stale
@@ -981,7 +1002,9 @@ fn runtime_target_reached(
     let Some(record) = evidence.get(test.id.as_str()) else {
         return false;
     };
-    if evidence_record_validity(root, record, test, scan) != CheckValue::Pass {
+    if evidence_record_validity(root, record, test, scan, built_in_test_runners())
+        != CheckValue::Pass
+    {
         return false;
     }
     if !record.target_execution.checked {
@@ -1130,9 +1153,9 @@ fn compare_recency(
     right_id: &str,
 ) -> std::cmp::Ordering {
     match (rfc3339_instant(left_at), rfc3339_instant(right_at)) {
-        (Some(left_time), Some(right_time)) => {
-            left_time.cmp(&right_time).then_with(|| left_id.cmp(right_id))
-        }
+        (Some(left_time), Some(right_time)) => left_time
+            .cmp(&right_time)
+            .then_with(|| left_id.cmp(right_id)),
         (Some(_), None) => std::cmp::Ordering::Greater,
         (None, Some(_)) => std::cmp::Ordering::Less,
         (None, None) => left_id.cmp(right_id),
@@ -1301,7 +1324,7 @@ fn evaluate_vo_coverage(
             vec!["no VO records are available in the selected scope".to_owned()],
         );
     }
-    let mut per_vo: BTreeMap<String, Vec<(String, bool, CheckValue)>> = BTreeMap::new();
+    let mut per_vo: BTreeMap<String, Vec<(String, bool, CheckValue, String)>> = BTreeMap::new();
     for id in read_record_ids(&layout.audits_dir()).unwrap_or_default() {
         let path = layout.audits_dir().join(format!("{id}.yaml"));
         let Ok(text) = read_text(&path) else { continue };
@@ -1329,11 +1352,12 @@ fn evaluate_vo_coverage(
             Some("UNKNOWN") => CheckValue::Unknown,
             _ => CheckValue::Unknown,
         };
+        let audited_at = yaml_scalar_value(&text, "audited_at").unwrap_or_default();
         for vo_id in vo_ids {
             per_vo
                 .entry(vo_id)
                 .or_default()
-                .push((id.clone(), valid, verdict));
+                .push((id.clone(), valid, verdict, audited_at.clone()));
         }
     }
 
@@ -1346,15 +1370,28 @@ fn evaluate_vo_coverage(
         } else {
             let valid = records
                 .iter()
-                .filter(|(_, current, _)| *current)
+                .filter(|(_, current, _, _)| *current)
                 .collect::<Vec<_>>();
             if valid.is_empty() {
                 CheckValue::Stale
             } else {
-                let audit_value = valid
+                // §8.5, same two-stage rule as evaluate_test_audit
+                // (VO-SEMAUDIT-05): among the valid records bound to this
+                // VO, any FAIL dominates; otherwise the chronologically
+                // latest valid record's verdict is authoritative --
+                // audited_at is consulted, not a severity-max fold that
+                // ignores recency. The approval gate below is unchanged.
+                let audit_value = if valid
                     .iter()
-                    .map(|(_, _, verdict)| *verdict)
-                    .fold(CheckValue::Pass, combine_values);
+                    .any(|(_, _, verdict, _)| *verdict == CheckValue::Fail)
+                {
+                    CheckValue::Fail
+                } else {
+                    valid
+                        .iter()
+                        .max_by(|left, right| compare_recency(&left.3, &left.0, &right.3, &right.0))
+                        .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
+                };
                 if audit_value == CheckValue::Pass && !vo_is_approved(layout, vo_id) {
                     CheckValue::Missing
                 } else {
@@ -1365,7 +1402,7 @@ fn evaluate_vo_coverage(
         overall = combine_values(overall, current);
         let record_basis = records
             .iter()
-            .map(|(id, valid, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
+            .map(|(id, valid, _, _)| format!("{id}{}", if *valid { "" } else { " (stale)" }))
             .collect::<Vec<_>>();
         if records.is_empty() {
             basis.push(format!("VO {vo_id}: {current:?} (coverage audit missing)"));
@@ -1524,9 +1561,7 @@ fn evaluate_test_audit(
             } else {
                 valid
                     .iter()
-                    .max_by(|left, right| {
-                        compare_recency(&left.3, &left.0, &right.3, &right.0)
-                    })
+                    .max_by(|left, right| compare_recency(&left.3, &left.0, &right.3, &right.0))
                     .map_or(CheckValue::Unknown, |(_, _, verdict, _)| *verdict)
             }
         };
@@ -1731,19 +1766,27 @@ fn evaluate_runtime(
     let mut value = CheckValue::Pass;
     let mut basis = Vec::new();
     for test in &scan.tests {
-        let current = evidence.get(test.id.as_str()).map_or(
-            CheckValue::NotExecuted,
-            |record| match evidence_record_validity(root, record, test, scan) {
-                CheckValue::Pass => match record.result {
-                    vtest_model::TestResult::Pass => CheckValue::Pass,
-                    vtest_model::TestResult::Fail => CheckValue::Fail,
+        let current = evidence
+            .get(test.id.as_str())
+            .map_or(
+                CheckValue::NotExecuted,
+                |record| match evidence_record_validity(
+                    root,
+                    record,
+                    test,
+                    scan,
+                    built_in_test_runners(),
+                ) {
+                    CheckValue::Pass => match record.result {
+                        vtest_model::TestResult::Pass => CheckValue::Pass,
+                        vtest_model::TestResult::Fail => CheckValue::Fail,
+                    },
+                    // §11.2: an invalid Evidence is never mined for a runtime result --
+                    // hold the SAME freshness verdict the ladder produced (STALE,
+                    // MISMATCH, UNKNOWN, ...), not a fixed STALE for every case.
+                    non_pass => non_pass,
                 },
-                // §11.2: an invalid Evidence is never mined for a runtime result --
-                // hold the SAME freshness verdict the ladder produced (STALE,
-                // MISMATCH, UNKNOWN, ...), not a fixed STALE for every case.
-                non_pass => non_pass,
-            },
-        );
+            );
         value = combine_values(value, current);
         basis.push(evidence_basis(
             test,
@@ -1771,7 +1814,8 @@ fn evaluate_target_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                let validity = evidence_record_validity(root, record, test, scan);
+                let validity =
+                    evidence_record_validity(root, record, test, scan, built_in_test_runners());
                 // §11.2: propagate the SAME freshness verdict for an invalid
                 // Evidence (mirrors evaluate_test_execution); the checked:false
                 // NOT_CHECKED escape is spec-gated to a VALID Evidence only.
@@ -1814,7 +1858,7 @@ fn evaluate_evidence_validity(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(root, record, test, scan)
+                evidence_record_validity(root, record, test, scan, built_in_test_runners())
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1851,7 +1895,7 @@ fn evaluate_test_execution(
         let current = evidence
             .get(test.id.as_str())
             .map_or(CheckValue::NotExecuted, |record| {
-                evidence_record_validity(root, record, test, scan)
+                evidence_record_validity(root, record, test, scan, built_in_test_runners())
             });
         value = combine_values(value, current);
         basis.push(evidence_basis(
@@ -1880,13 +1924,36 @@ fn evidence_record_validity(
     record: &EvidenceRecord,
     test: &TestEntity,
     scan: &ScanResult,
+    registry: &AdapterRegistry,
 ) -> CheckValue {
-    let Some(adapter) = record.adapter.as_ref() else {
-        return CheckValue::Stale;
+    let adapter = match record.adapter.as_ref() {
+        Some(adapter) => {
+            if adapter != &test.execution.adapter {
+                return CheckValue::Mismatch;
+            }
+            adapter.clone()
+        }
+        None => {
+            // 基本仕様 §7.8 line 488 / 詳細設計 §3.7: an Evidence reader
+            // accepts a record lacking an adapter ID. It is evaluated as
+            // compat Evidence ONLY when the current Test is rust-cargo and
+            // the record's runner kind uniquely confirms Rust execution (no
+            // other adapter's runner emits these exact kinds) -- everything
+            // else is UNKNOWN, never a guessed STALE. The writer always
+            // stamps `adapter` (別紙C §18.3.3); this branch exists solely
+            // for legacy/hand-written records. Once confirmed, the record is
+            // treated exactly as an explicit rust-cargo record from here on
+            // -- content-hash or Execution State drift discovered below is
+            // still STALE (VO-EXEC-12: STALE is reserved for a failure of
+            // one of those conditions), not a second UNKNOWN.
+            if test.execution.adapter.as_str() != RUST_CARGO_ADAPTER_ID
+                || !matches!(record.runner.kind.as_str(), "cargo-test" | "cargo-llvm-cov")
+            {
+                return CheckValue::Unknown;
+            }
+            test.execution.adapter.clone()
+        }
     };
-    if adapter != &test.execution.adapter {
-        return CheckValue::Mismatch;
-    }
     let Some(execution_state) = record.execution_state.as_ref() else {
         return CheckValue::Stale;
     };
@@ -1919,13 +1986,19 @@ fn evidence_record_validity(
     {
         return CheckValue::Stale;
     }
-    // §1315: reconstruct the current Execution State subject and compare it to
-    // the recorded hash. An incomplete current snapshot cannot prove freshness
-    // (UNKNOWN); a subject that moved — input manifest, HEAD, toolchain — is
-    // STALE even when the Test and target hashes are unchanged. `coverage_off`
-    // is recovered from the recorded runner kind.
-    let coverage_off = record.runner.kind != "cargo-llvm-cov";
-    match rust_cargo_execution_state_hash(root, adapter, test, &record.runner.kind, coverage_off) {
+    // §1315 / §9 / §11.2: reconstruct the current Execution State subject
+    // through the RECORD'S OWN adapter -- resolved from the registry, never
+    // hardcoded to rust-cargo -- and compare it to the recorded hash. An
+    // adapter the registry cannot resolve, or one that cannot prove its
+    // current input closure is complete, cannot prove freshness: UNKNOWN,
+    // never a guessed STALE or a guessed PASS (基本仕様 §7.8). A subject
+    // that moved -- input manifest, HEAD, toolchain -- is STALE even when
+    // the Test and target hashes are unchanged.
+    let Ok(runner) = registry.test_runner(&adapter) else {
+        return CheckValue::Unknown;
+    };
+    let draft = runner.current_execution_state(root, test, &record.runner.kind);
+    match hash_execution_state_draft(&adapter, &draft) {
         None => CheckValue::Unknown,
         Some(current) if Some(&current) == execution_state.hash.as_ref() => CheckValue::Pass,
         Some(_) => CheckValue::Stale,
@@ -1991,18 +2064,25 @@ fn combine_values(left: CheckValue, right: CheckValue) -> CheckValue {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
     use std::{
         fs,
         time::{SystemTime, UNIX_EPOCH},
     };
-    use vtest_model::{
-        AdapterId, EvidenceHashes, EvidenceRecord, EvidenceTargetHash, ExecutionDescriptor,
-        ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary, SourceFunction,
-        SourceLocation, SourceRange, TargetExecution, TargetExecutionObservation, TargetRef,
-        TestEntity, TestId, TestResult, TestSuite, VoId,
+    use vtest_adapter_api::{
+        AdapterCapability, AdapterDescriptor, AdapterError, AdapterRegistration,
+        ExecutionStateDraft, RunnerOutcome, TestRunnerAdapter,
     };
+    use vtest_model::{
+        AdapterId, CanonicalProjection, EvidenceHashes, EvidenceRecord, EvidenceTargetHash,
+        ExecutionDescriptor, ExecutionStateSubject, ProjectPath, Revision, RunnerInfo, ScanSummary,
+        SourceFunction, SourceLocation, SourceRange, TargetExecution, TargetExecutionObservation,
+        TargetRef, TestEntity, TestId, TestResult, TestSuite, VoId,
+    };
+    use vtest_scan::rust_cargo_execution_state_hash;
     use vtest_store::{
-        init_project, new_record_id, AuditBasisRecord, AuditReasonRecord, AuditTargetVerdictRecord,
+        approval_subject_hash, init_project, new_record_id, vo_record_subject, ApprovalDependency,
+        ApprovalRecord, Approver, AuditBasisRecord, AuditReasonRecord, AuditTargetVerdictRecord,
         AuditorRecord,
     };
 
@@ -2447,6 +2527,297 @@ mod tests {
         evidence
     }
 
+    /// A `TestRunnerAdapter` test double that reports a fixed, caller-supplied
+    /// Execution State draft regardless of input -- lets a test exercise the
+    /// registry-dispatched `current_execution_state` path for an adapter the
+    /// built-in production registry does not register.
+    struct FixedDraftRunner {
+        draft: ExecutionStateDraft,
+    }
+
+    impl TestRunnerAdapter for FixedDraftRunner {
+        fn run(
+            &self,
+            _root: &Path,
+            _config: &CanonicalProjection,
+            _test: &TestEntity,
+        ) -> Result<RunnerOutcome, AdapterError> {
+            unimplemented!("not exercised by evidence_record_validity")
+        }
+
+        fn current_execution_state(
+            &self,
+            _root: &Path,
+            _test: &TestEntity,
+            _runner_kind: &str,
+        ) -> ExecutionStateDraft {
+            self.draft.clone()
+        }
+    }
+
+    fn synthetic_registry(draft: ExecutionStateDraft) -> AdapterRegistry {
+        let mut registration = AdapterRegistration::new(AdapterDescriptor {
+            id: AdapterId::new("synthetic"),
+            languages: vec!["synthetic".to_owned()],
+            capabilities: vec![AdapterCapability::TestRunner],
+            config_namespace: "synthetic".to_owned(),
+        });
+        registration.test_runner = Some(Arc::new(FixedDraftRunner { draft }));
+        AdapterRegistry::from_registrations([registration]).expect("registry")
+    }
+
+    fn with_execution_adapter(test: &TestEntity, adapter: &str) -> TestEntity {
+        let mut test = test.clone();
+        test.execution.adapter = AdapterId::new(adapter);
+        test
+    }
+
+    /// @vtest.id TEST-VERIFY-019
+    /// @vtest.covers VO-ADAPTER-10
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_record_validity
+    /// @vtest.intent An adapter-less Evidence for a rust-cargo Test, whose
+    /// runner kind is a recognised Rust runner kind and whose content hashes
+    /// are all current, is compat Evidence and reaches PASS (基本仕様 §7.8
+    /// line 488; same branch also stated by VO-EXEC-12). Fixed: this branch
+    /// previously returned STALE unconditionally before any runner/hash
+    /// inspection.
+    #[test]
+    fn evidence_validity_adapter_less_rust_cargo_compat_reaches_pass() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut record = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1))
+            .remove(test.id.as_str())
+            .expect("evidence for test");
+        record.adapter = None;
+        assert_eq!(
+            evidence_record_validity(&layout.root, &record, test, &scan, built_in_test_runners()),
+            CheckValue::Pass
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-020
+    /// @vtest.covers VO-ADAPTER-10
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_record_validity
+    /// @vtest.intent An adapter-less Evidence whose runner kind is not a
+    /// recognised Rust runner kind cannot uniquely confirm Rust execution:
+    /// UNKNOWN, never a guessed STALE (same branch also stated by
+    /// VO-EXEC-12).
+    #[test]
+    fn evidence_validity_adapter_less_unconfirmable_runner_is_unknown() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut record = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1))
+            .remove(test.id.as_str())
+            .expect("evidence for test");
+        record.adapter = None;
+        record.runner.kind = "synth-runner".to_owned();
+        assert_eq!(
+            evidence_record_validity(&layout.root, &record, test, &scan, built_in_test_runners()),
+            CheckValue::Unknown
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-021
+    /// @vtest.covers VO-ADAPTER-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_record_validity
+    /// @vtest.intent An Evidence whose adapter matches the current Test's
+    /// execution adapter, for an adapter the running registry cannot resolve
+    /// a TestRunnerAdapter for, cannot have its input closure proven
+    /// complete: UNKNOWN, not the pre-fix false STALE from an unconditional
+    /// rust-cargo re-derivation.
+    #[test]
+    fn evidence_validity_explicit_unresolvable_adapter_is_unknown_not_stale() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = with_execution_adapter(&scan.tests[0], "synthetic");
+        let record = valid_runtime_evidence(&layout, &test, &scan, CheckValue::Pass, Some(1))
+            .remove(test.id.as_str())
+            .expect("evidence for test");
+        assert_eq!(
+            evidence_record_validity(&layout.root, &record, &test, &scan, built_in_test_runners()),
+            CheckValue::Unknown
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-022
+    /// @vtest.covers VO-ADAPTER-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_record_validity
+    /// @vtest.intent PASS is reachable for a non-rust-cargo adapter once its
+    /// TestRunnerAdapter is resolvable through the registry -- freshness
+    /// re-derivation dispatches via the record's own adapter and schema,
+    /// never a hardcoded rust-cargo path (詳細設計 line 810/1390). Stretch:
+    /// the production `built_in_test_runners()` registers only rust-cargo
+    /// (see closure notes), so this exercises a caller-supplied registry
+    /// directly, and keeps the fixture's rust-cargo target locators rather
+    /// than modelling a full non-Rust scan.
+    #[test]
+    fn evidence_validity_registered_non_rust_cargo_adapter_reaches_pass() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = with_execution_adapter(&scan.tests[0], "synthetic");
+        let draft = ExecutionStateDraft {
+            schema_id: "synthetic-execution-state-v1".to_owned(),
+            schema_version: "1".to_owned(),
+            complete: true,
+            head_revision: None,
+            runner_kind: "synth-runner".to_owned(),
+            invocation: CanonicalProjection::Null,
+            toolchain_identity: "synthetic-toolchain".to_owned(),
+            effective_config: CanonicalProjection::Null,
+            inputs: Vec::new(),
+        };
+        let hash = hash_execution_state_draft(&test.execution.adapter, &draft)
+            .expect("a complete draft always hashes");
+        let mut record = valid_runtime_evidence(&layout, &test, &scan, CheckValue::Pass, Some(1))
+            .remove(test.id.as_str())
+            .expect("evidence for test");
+        record.runner.kind = "synth-runner".to_owned();
+        record.execution_state = Some(ExecutionStateSubject {
+            schema: draft.schema_id.clone(),
+            complete: true,
+            hash: Some(hash),
+        });
+        let registry = synthetic_registry(draft);
+        assert_eq!(
+            evidence_record_validity(&layout.root, &record, &test, &scan, &registry),
+            CheckValue::Pass
+        );
+    }
+
+    /// Write a minimal `kind: vo-coverage` Audit Record binding one VO
+    /// subject, mirroring `write_static_audit_at`'s construction style.
+    fn write_vo_coverage_audit(
+        layout: &VerifyLayout,
+        vo_id: &str,
+        vo_hash: &ContentHash,
+        verdict: &str,
+        audited_at: &str,
+    ) -> String {
+        let id = new_record_id();
+        let record = AuditRecord {
+            id: id.clone(),
+            kind: "vo-coverage".to_owned(),
+            bundle_id: None,
+            subjects: vec![AuditSubjectRecord {
+                id: Some(vo_id.to_owned()),
+                locator: None,
+                hash: vo_hash.clone(),
+            }],
+            verdict: verdict.to_owned(),
+            reasons: vec![AuditReasonRecord {
+                rule: None,
+                verdict: None,
+                claim: "fixture vo-coverage result".to_owned(),
+                basis: vec![AuditBasisRecord {
+                    kind: "test-code".to_owned(),
+                    reference: "tests/static.rs:1".to_owned(),
+                }],
+                targets: Vec::new(),
+            }],
+            exclusions: Vec::new(),
+            auditor: AuditorRecord {
+                kind: "deterministic".to_owned(),
+                id: "vtest-audit".to_owned(),
+                model: None,
+            },
+            confidence: None,
+            audited_at: audited_at.to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+        };
+        fs::write(
+            layout.audits_dir().join(format!("{id}.yaml")),
+            record.to_yaml().expect("serialise vo-coverage audit"),
+        )
+        .expect("write vo-coverage audit");
+        id
+    }
+
+    /// Write a minimal current, approved VO record (empty upstream closure)
+    /// so `vo_is_approved` reports true, letting a test reach the
+    /// `audit_value == Pass` leg of `evaluate_vo_coverage` without a full
+    /// SPEC/REQ chain.
+    fn write_approved_vo(layout: &VerifyLayout, vo_id: &str) -> ContentHash {
+        let path = layout.vo_dir().join(format!("{vo_id}.yaml"));
+        let text = VoRecord {
+            id: VoId::new(vo_id),
+            parent: None,
+            requirements: Vec::new(),
+            spec_refs: Vec::new(),
+            claim: "fixture".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            status: None,
+            created: "2026-01-01".to_owned(),
+            updated: "2026-01-01".to_owned(),
+        }
+        .to_yaml();
+        fs::write(&path, &text).expect("write VO record");
+        let vo = read_vo(layout, vo_id).expect("read VO record");
+        let approval_id = new_record_id();
+        let dependencies: Vec<ApprovalDependency> = Vec::new();
+        let approval = ApprovalRecord {
+            id: approval_id.clone(),
+            subject: VoId::new(vo_id),
+            subject_hash: approval_subject_hash(&vo_record_subject(&vo), &dependencies),
+            dependencies: Some(dependencies),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: Vec::new(),
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        fs::write(
+            layout.approvals_dir().join(format!("{approval_id}.yaml")),
+            approval.to_yaml(),
+        )
+        .expect("write approval");
+        ContentHash::from_text(&text)
+    }
+
+    /// @vtest.id TEST-VERIFY-023
+    /// @vtest.covers VO-SEMAUDIT-05
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_vo_coverage
+    /// @vtest.intent §8.5, the same two-stage rule as evaluate_test_audit
+    /// (VO-SEMAUDIT-05): among the valid records bound to one VO, the
+    /// chronologically LATEST valid record's verdict is authoritative, not a
+    /// severity-max fold that ignores recency -- an older UNKNOWN and a
+    /// newer PASS must fold to PASS (with the approval gate satisfied).
+    /// Stretch: VO-SEMAUDIT-05's claim is stated for test-semantic /
+    /// impl-consistency audits; evaluate_vo_coverage applies the identical
+    /// §8.5 recency rule to vo-coverage audits under its own approval-gating
+    /// branch, so this covers the closest existing VO record for that
+    /// shared rule (the registry is retiring; no new VO is minted). Fixed:
+    /// this fold previously used combine_values (severity max), which picks
+    /// UNKNOWN over PASS regardless of which record is newer.
+    #[test]
+    fn vo_coverage_selects_the_latest_valid_verdict_over_severity_max() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let vo_hash = write_approved_vo(&layout, "VO-ONE");
+        write_vo_coverage_audit(
+            &layout,
+            "VO-ONE",
+            &vo_hash,
+            "UNKNOWN",
+            "2026-08-08T00:00:00Z",
+        );
+        write_vo_coverage_audit(&layout, "VO-ONE", &vo_hash, "PASS", "2026-08-09T00:00:00Z");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::from(["VO-ONE".to_owned()]),
+            req_ids: BTreeSet::new(),
+        };
+        assert_eq!(
+            evaluate_vo_coverage(&layout.root, &layout, &scan, &selection).0,
+            CheckValue::Pass
+        );
+    }
+
     /// @vtest.id TEST-VERIFY-002
     /// @vtest.covers VO-VERIFY-002
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
@@ -2546,12 +2917,16 @@ mod tests {
     /// @vtest.id TEST-VERIFY-007
     /// @vtest.covers VO-VERIFY-002
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
-    /// @vtest.intent Per-target list naming undeclared target is malformed; item UNKNOWN
+    /// @vtest.intent Per-target list naming undeclared target is malformed (E-SCAN-010,
+    /// excluded); with no valid record remaining the item is STALE, not a
+    /// distinct UNKNOWN (詳細設計 §3.6). Fixed: this pinned the pre-fix
+    /// per-test `malformed -> Unknown` override; the correct value is STALE.
     #[test]
-    fn static_audit_per_target_set_mismatch_is_malformed_unknown() {
+    fn static_audit_per_target_set_mismatch_is_malformed_stale() {
         // A subject-current record whose per-target list names a target the Test
         // does not declare is malformed (E-SCAN-010): excluded, its verdicts not
-        // extracted, and the item is UNKNOWN (詳細設計 §3.6).
+        // extracted. No valid record remains, so the item falls through to the
+        // same "no valid record" rule as a stale-content record: STALE.
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
         write_static_audit_at(
@@ -2563,7 +2938,34 @@ mod tests {
         );
         assert_eq!(
             evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
-            CheckValue::Unknown
+            CheckValue::Stale
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-018
+    /// @vtest.covers VO-VERIFY-002
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
+    /// @vtest.intent A malformed record does not blank out a valid sibling record's
+    /// verdict for the same Test (詳細設計 §3.6: malformed is excluded, not an
+    /// override of the fold over the remaining valid records).
+    #[test]
+    fn static_audit_valid_record_wins_over_a_malformed_sibling() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        // A valid, current PASS record for TEST-ONE.
+        write_static_audit(&layout, test, "PASS", test.content_hash.clone());
+        // A second, malformed record for the SAME Test (per-target list names an
+        // undeclared target) must not blank the valid PASS above to UNKNOWN.
+        write_static_audit_at(
+            &layout,
+            "PASS",
+            static_audit_subjects(test, test.content_hash.clone()),
+            Some("rust-cargo::src/lib.rs::not_declared"),
+            "2026-08-08T00:00:00Z",
+        );
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
+            CheckValue::Pass
         );
     }
 
@@ -2732,7 +3134,11 @@ mod tests {
     /// @vtest.id TEST-VERIFY-014
     /// @vtest.covers VO-VERIFY-002
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
-    /// @vtest.intent A record binding multiple Tests is rejected; item UNKNOWN
+    /// @vtest.intent A record binding multiple Tests fails to parse (rejected by
+    /// `AuditRecord::validate`) and is treated as malformed for both bound
+    /// Tests (E-SCAN-010); with no valid record for either, both are STALE.
+    /// Fixed: this pinned the pre-fix per-test `malformed -> Unknown`
+    /// override; the correct value is STALE, not a distinct UNKNOWN.
     #[test]
     fn static_audit_rejects_a_record_that_binds_multiple_tests() {
         let (layout, scan) = static_fixture(&["TEST-ONE", "TEST-TWO"]);
@@ -2754,7 +3160,7 @@ mod tests {
         .expect("write multi-test static audit");
         assert_eq!(
             evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan).0,
-            CheckValue::Unknown
+            CheckValue::Stale
         );
     }
 
@@ -2811,9 +3217,13 @@ mod tests {
     /// @vtest.id TEST-VERIFY-017
     /// @vtest.covers VO-VERIFY-002
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_static_audit
-    /// @vtest.intent A malformed static record surfaces as UNKNOWN, not silently ignored
+    /// @vtest.intent A malformed static record surfaces as STALE, not silently
+    /// ignored as NOT_CHECKED (詳細設計 §3.6: an audit attempt was made for
+    /// this Test, so the "never audited" NOT_CHECKED value does not apply).
+    /// Fixed: this pinned the pre-fix per-test `malformed -> Unknown`
+    /// override; the correct value is STALE.
     #[test]
-    fn malformed_static_audit_is_unknown_not_silently_ignored() {
+    fn malformed_static_audit_surfaces_as_stale_not_silently_ignored() {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let id = new_record_id();
         fs::write(
@@ -2824,7 +3234,7 @@ mod tests {
         )
         .expect("write malformed static audit");
         let result = evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
-        assert_eq!(result.0, CheckValue::Unknown, "basis: {:?}", result.1);
+        assert_eq!(result.0, CheckValue::Stale, "basis: {:?}", result.1);
     }
 
     /// Fixed VO-EXEC-06: an invalid Evidence's freshness verdict must be
@@ -2873,8 +3283,10 @@ mod tests {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
         let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
-        evidence.get_mut(test.id.as_str()).expect("evidence for test").adapter =
-            Some(AdapterId::new("python-pytest"));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .adapter = Some(AdapterId::new("python-pytest"));
         assert_eq!(
             evaluate_runtime(&layout.root, &evidence, &scan).0,
             CheckValue::Mismatch
@@ -2886,8 +3298,10 @@ mod tests {
         let (layout, scan) = static_fixture(&["TEST-ONE"]);
         let test = &scan.tests[0];
         let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(1));
-        evidence.get_mut(test.id.as_str()).expect("evidence for test").adapter =
-            Some(AdapterId::new("python-pytest"));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .adapter = Some(AdapterId::new("python-pytest"));
         assert_eq!(
             evaluate_target_execution(&layout.root, &evidence, &scan).0,
             CheckValue::Mismatch

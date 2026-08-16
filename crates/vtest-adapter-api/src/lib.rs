@@ -454,6 +454,41 @@ pub trait TestRunnerAdapter: Send + Sync {
         config: &CanonicalProjection,
         test: &TestEntity,
     ) -> Result<RunnerOutcome, AdapterError>;
+
+    /// Reconstruct the CURRENT Execution State draft for `test` under this
+    /// adapter's own schema, without running the Test. Verify-time freshness
+    /// re-derivation (`evidence_validity`) calls this -- through the adapter
+    /// resolved from the record's own `AdapterId` via the registry, never a
+    /// hardcoded adapter -- and compares its hash to the recorded one, so a
+    /// re-derivation is only ever compared against a subject produced by the
+    /// SAME schema (詳細設計 line 810 / 1390).
+    ///
+    /// `runner_kind` is the persisted `runner.kind` from the Evidence being
+    /// re-checked, letting the adapter recover any runner-kind-dependent
+    /// projection (e.g. coverage on/off) the same way the original run did.
+    ///
+    /// The default returns an incomplete draft: an adapter that has not
+    /// implemented this cannot prove its current input closure is complete,
+    /// so the caller's freshness verdict is UNKNOWN, never a guessed match or
+    /// a guessed drift (基本仕様 §7.8).
+    fn current_execution_state(
+        &self,
+        _root: &Path,
+        _test: &TestEntity,
+        _runner_kind: &str,
+    ) -> ExecutionStateDraft {
+        ExecutionStateDraft {
+            schema_id: String::new(),
+            schema_version: String::new(),
+            complete: false,
+            head_revision: None,
+            runner_kind: String::new(),
+            invocation: CanonicalProjection::Null,
+            toolchain_identity: String::new(),
+            effective_config: CanonicalProjection::Null,
+            inputs: Vec::new(),
+        }
+    }
 }
 
 pub trait CoverageAdapter: Send + Sync {

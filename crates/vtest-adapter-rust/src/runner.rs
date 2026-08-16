@@ -890,6 +890,25 @@ fn rustc_identity(root: &Path) -> String {
 }
 
 impl TestRunnerAdapter for RustCargoRunner {
+    /// Recover `coverage_off` from the persisted `runner_kind` the same way
+    /// `run` derives it from the live config (`cargo-test` ⟺ coverage off),
+    /// then delegate to the single `build_execution_state` reconstruction so
+    /// a verify-time re-derivation is byte-identical to what a fresh run
+    /// would snapshot when nothing changed.
+    fn current_execution_state(
+        &self,
+        root: &Path,
+        test: &TestEntity,
+        runner_kind: &str,
+    ) -> ExecutionStateDraft {
+        let coverage_off = runner_kind != "cargo-llvm-cov";
+        let effective_config = CanonicalProjection::Map(std::collections::BTreeMap::from([(
+            "coverage".to_owned(),
+            CanonicalProjection::String(if coverage_off { "off" } else { "llvm-cov" }.to_owned()),
+        )]));
+        build_execution_state(root, &effective_config, test, runner_kind)
+    }
+
     fn run(
         &self,
         root: &Path,
