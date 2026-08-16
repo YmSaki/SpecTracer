@@ -15,14 +15,15 @@ use vtest_model::{
     Diagnostic, EvidenceRecord, ScanSummary, TargetRef, TestEntity,
 };
 use vtest_scan::{
-    classify_target_resolution, find_target_source, required_subject_keys,
-    rust_cargo_static_audit_projection, ScanResult, TargetResolution, STATIC_AUDIT_RULE_SET_ID,
-    STATIC_AUDIT_RULE_SET_VERSION,
+    classify_parent, classify_target_resolution, detect_parent_cycles, find_target_source,
+    required_subject_keys, rust_cargo_static_audit_projection, ParentResolution, ScanResult,
+    TargetResolution, STATIC_AUDIT_RULE_SET_ID, STATIC_AUDIT_RULE_SET_VERSION,
 };
 use vtest_store::{
-    current_approval_subject, derive_vo_status, load_config, read_audit, read_evidence,
-    read_record_ids, read_req, read_text, read_vo, static_record_target_defect, yaml_scalar_value,
-    AuditRecord, AuditSubjectRecord, ProjectConfig, ReqRecord, VerifyLayout, VoRecord,
+    current_approval_subject, derive_vo_status, load_config, read_audit, read_entity_ids,
+    read_evidence, read_record_ids, read_req, read_text, read_vo, static_record_target_defect,
+    yaml_scalar_value, AuditRecord, AuditSubjectRecord, ProjectConfig, RelationRecord, ReqRecord,
+    VerifyLayout, VoRecord,
 };
 
 /// The registry of adapters `evidence_record_validity` can resolve a
@@ -598,21 +599,7 @@ fn evaluate_item(
                 )
             }
         }
-        "vo_decomposition" => {
-            if scan.diagnostics.iter().any(Diagnostic::is_error) {
-                (
-                    CheckValue::Fail,
-                    vec!["scan emitted an error diagnostic".to_owned()],
-                )
-            } else if selection.vo_ids.is_empty() {
-                (CheckValue::Missing, vec!["no VO records exist".to_owned()])
-            } else {
-                (
-                    CheckValue::Pass,
-                    vec!["scan and canonical VO records are structurally readable".to_owned()],
-                )
-            }
-        }
+        "vo_decomposition" => evaluate_vo_decomposition(root, layout, scan, selection),
         "vo_coverage" => evaluate_vo_coverage(root, layout, scan, selection),
         "test_existence" => {
             let vos = selection
@@ -671,6 +658,202 @@ fn evaluate_item(
         "test_traceability" => evaluate_test_traceability(scan),
         _ => (CheckValue::Unknown, vec!["unknown check item".to_owned()]),
     }
+}
+
+/// 詳細設計 §11.1.1 / 別紙C §18.3.1: `vo_decomposition` is an independent
+/// structural dimension over the selected REQ/VO subtree's `parent`,
+/// `requirements`, `spec_refs`, and structural Relations. It must never react
+/// to Test ID, Test metadata, target resolution, adapter source parse, or
+/// Evidence errors -- the pre-fix blanket `scan.diagnostics.any(is_error)`
+/// gate did (VO-PLAN-11), while simultaneously never reading `parent` /
+/// `requirements` / `spec_refs` at all, so a dangling or unresolvable
+/// reference was invisible (VO-INTAKE-08 / VO-INTAKE-09 / VO-PLAN-01 /
+/// VO-PARALLEL-05).
+///
+/// Parent and spec_refs/requirements resolution need a MISSING-vs-MISMATCH
+/// split that E-SCAN-008 and E-SCAN-012 each pool under one code, so those
+/// are re-derived directly from the records here (mirroring
+/// `target_resolution_check_value`'s "condition-keyed, not code-keyed"
+/// precedent for E-SCAN-004) rather than parsed out of diagnostic text.
+/// Record schema validity (E-SCAN-010) and dangling structural-Relation
+/// endpoints (E-SCAN-009) map to MISMATCH/MISSING unambiguously per code, so
+/// those are routed straight from `scan.diagnostics`, scoped to REQ/VO
+/// subjects and to Relations with an in-scope REQ/VO endpoint -- reusing
+/// scan's own validation instead of re-implementing it here.
+///
+/// A `spec_refs.spec` that resolves to an *existing entity of the wrong
+/// type* (詳細設計 §11.1.1's "参照型...矛盾") folds into MISSING here rather
+/// than a separate MISMATCH branch: no CONFIRMED defect exercises that
+/// distinction, both readings are non-PASS, and `spec_ids` (real SPEC
+/// records only) already makes a wrong-type reference resolve as "missing".
+fn evaluate_vo_decomposition(
+    root: &Path,
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    selection: &ScopeSelection,
+) -> (CheckValue, Vec<String>) {
+    if selection.vo_ids.is_empty() {
+        return (CheckValue::Missing, vec!["no VO records exist".to_owned()]);
+    }
+
+    let entity_ids = read_entity_ids(root).unwrap_or_default();
+    let spec_ids = entity_ids[0].iter().cloned().collect::<BTreeSet<_>>();
+    let all_req_ids = entity_ids[1].iter().cloned().collect::<BTreeSet<_>>();
+
+    let all_reqs = entity_ids[1]
+        .iter()
+        .filter_map(|id| read_req(layout, id).ok().map(|record| (id.clone(), record)))
+        .collect::<BTreeMap<_, _>>();
+    let all_vos = entity_ids[2]
+        .iter()
+        .filter_map(|id| read_vo(layout, id).ok().map(|record| (id.clone(), record)))
+        .collect::<BTreeMap<_, _>>();
+
+    let req_parents = all_reqs
+        .iter()
+        .map(|(id, record)| {
+            (
+                id.clone(),
+                record.parent.as_ref().map(|parent| parent.as_str().to_owned()),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let vo_parents = all_vos
+        .iter()
+        .map(|(id, record)| {
+            (
+                id.clone(),
+                record.parent.as_ref().map(|parent| parent.as_str().to_owned()),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let req_cycle_members = detect_parent_cycles(&req_parents)
+        .into_iter()
+        .flat_map(|(_, cycle)| cycle)
+        .collect::<BTreeSet<_>>();
+    let vo_cycle_members = detect_parent_cycles(&vo_parents)
+        .into_iter()
+        .flat_map(|(_, cycle)| cycle)
+        .collect::<BTreeSet<_>>();
+
+    let req_vo_scope = selection
+        .req_ids
+        .iter()
+        .chain(selection.vo_ids.iter())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let structural_relations = structural_relation_file_ids(layout, &req_vo_scope);
+
+    let mut value = CheckValue::Pass;
+    let mut basis = Vec::new();
+
+    for id in &selection.req_ids {
+        let Some(record) = all_reqs.get(id) else {
+            value = combine_values(value, CheckValue::Unknown);
+            basis.push(format!("REQ {id}: record is unreadable or incomplete"));
+            continue;
+        };
+        let mut current = CheckValue::Pass;
+        match classify_parent(id, &req_parents, &req_cycle_members) {
+            ParentResolution::Resolved => {}
+            ParentResolution::Dangling => current = combine_values(current, CheckValue::Missing),
+            ParentResolution::Cycle => current = combine_values(current, CheckValue::Mismatch),
+        }
+        for spec_ref in &record.spec_refs {
+            if !spec_ids.contains(spec_ref.spec.as_str()) {
+                current = combine_values(current, CheckValue::Missing);
+            }
+            if spec_ref.section.trim().is_empty() {
+                current = combine_values(current, CheckValue::Mismatch);
+            }
+        }
+        if current != CheckValue::Pass {
+            basis.push(format!("REQ {id}: {current:?}"));
+        }
+        value = combine_values(value, current);
+    }
+
+    for id in &selection.vo_ids {
+        let Some(record) = all_vos.get(id) else {
+            value = combine_values(value, CheckValue::Unknown);
+            basis.push(format!("VO {id}: record is unreadable or incomplete"));
+            continue;
+        };
+        let mut current = CheckValue::Pass;
+        match classify_parent(id, &vo_parents, &vo_cycle_members) {
+            ParentResolution::Resolved => {}
+            ParentResolution::Dangling => current = combine_values(current, CheckValue::Missing),
+            ParentResolution::Cycle => current = combine_values(current, CheckValue::Mismatch),
+        }
+        for req_id in &record.requirements {
+            if !all_req_ids.contains(req_id.as_str()) {
+                current = combine_values(current, CheckValue::Missing);
+            }
+        }
+        for spec_ref in &record.spec_refs {
+            if !spec_ids.contains(spec_ref.spec.as_str()) {
+                current = combine_values(current, CheckValue::Missing);
+            }
+            if spec_ref.section.trim().is_empty() {
+                current = combine_values(current, CheckValue::Mismatch);
+            }
+        }
+        if current != CheckValue::Pass {
+            basis.push(format!("VO {id}: {current:?}"));
+        }
+        value = combine_values(value, current);
+    }
+
+    for diagnostic in &scan.diagnostics {
+        let Some(location) = diagnostic.location.as_ref() else {
+            continue;
+        };
+        let locator = location.locator.as_str();
+        match diagnostic.code.as_str() {
+            "E-SCAN-010"
+                if req_vo_scope.contains(locator) || structural_relations.contains(locator) =>
+            {
+                value = combine_values(value, CheckValue::Mismatch);
+                basis.push(format!("{locator}: Mismatch ({})", diagnostic.message));
+            }
+            "E-SCAN-009" if structural_relations.contains(locator) => {
+                value = combine_values(value, CheckValue::Missing);
+                basis.push(format!("{locator}: Missing ({})", diagnostic.message));
+            }
+            _ => {}
+        }
+    }
+
+    if value == CheckValue::Pass {
+        basis = vec![
+            "parent, requirements, spec_refs and structural Relations all resolve".to_owned(),
+        ];
+    }
+    (value, basis)
+}
+
+/// File ids (in `.verify/rel/`) of Relation records with at least one
+/// endpoint (`from` or `to`) inside `req_vo_scope` -- the "構造Relation" §11.1.1
+/// binds to `vo_decomposition`, as opposed to Relations between other entity
+/// kinds (e.g. TEST-TEST), which this item must not react to.
+fn structural_relation_file_ids(
+    layout: &VerifyLayout,
+    req_vo_scope: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    let mut ids = BTreeSet::new();
+    for file_id in read_record_ids(&layout.relation_dir()).unwrap_or_default() {
+        let path = layout.relation_dir().join(format!("{file_id}.yaml"));
+        let Ok(text) = read_text(&path) else {
+            continue;
+        };
+        let Ok(relation) = RelationRecord::from_yaml(&text, &file_id) else {
+            continue;
+        };
+        if req_vo_scope.contains(&relation.from) || req_vo_scope.contains(&relation.to) {
+            ids.insert(file_id);
+        }
+    }
+    ids
 }
 
 fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {

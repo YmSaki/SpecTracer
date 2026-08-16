@@ -22,7 +22,7 @@ use vtest_store::{
     current_approval_subject, derive_vo_status, is_valid_ulid, load_config, read_approval,
     read_entity_ids, read_req, read_spec, read_text, read_vo, relation_ulid_payload,
     required_spec_closure, yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord,
-    StoreError, VerifyLayout, VoRecord,
+    SpecRef, StoreError, VerifyLayout, VoRecord,
 };
 
 pub mod operations;
@@ -649,6 +649,18 @@ fn record_diagnostics(
         }
     }
 
+    let spec_ids = entity_ids[0].iter().cloned().collect::<BTreeSet<_>>();
+    let req_ids = entity_ids[1].iter().cloned().collect::<BTreeSet<_>>();
+    validate_structural_refs(
+        root,
+        &layout,
+        &spec_ids,
+        &req_ids,
+        &reqs,
+        &vos,
+        &mut diagnostics,
+    );
+
     let req_parents = reqs
         .iter()
         .map(|(id, record)| {
@@ -686,6 +698,83 @@ fn record_diagnostics(
     validate_vo_warnings(&layout, &vos, tests, &mut diagnostics);
     validate_approval_status(&layout, &vos, &mut diagnostics);
     diagnostics
+}
+
+/// 詳細設計 §5.4 L849 (E-SCAN-012): a REQ/VO's `spec_refs.spec` or a VO's
+/// `requirements` referencing a non-existent entity, or a `spec_refs.section`
+/// that is empty. This is the structural-resolution pass §11.1.1 depends on
+/// (`vo_decomposition` routes E-SCAN-012 into MISSING/MISMATCH); prior to its
+/// existence the check had no emit site anywhere in the crate (VO-INTAKE-08 /
+/// VO-INTAKE-09 / VO-PLAN-01 / VO-PARALLEL-05). An empty `spec_refs` list is
+/// not itself an E-SCAN-012 condition -- the spec's own enumeration at L849
+/// has no such clause; the active-REQ-must-cite-a-Specification rule belongs
+/// to the writer gate / `spec_coverage`, not this structural pass.
+fn validate_structural_refs(
+    root: &Path,
+    layout: &VerifyLayout,
+    spec_ids: &BTreeSet<String>,
+    req_ids: &BTreeSet<String>,
+    reqs: &BTreeMap<String, ReqRecord>,
+    vos: &BTreeMap<String, VoRecord>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for (id, record) in reqs {
+        let location = record_location(root, &layout.req_dir().join(format!("{id}.yaml")), id);
+        for spec_ref in &record.spec_refs {
+            validate_spec_ref_entry(&location, "REQ", id, spec_ref, spec_ids, diagnostics);
+        }
+    }
+    for (id, record) in vos {
+        let location = record_location(root, &layout.vo_dir().join(format!("{id}.yaml")), id);
+        for req_id in &record.requirements {
+            if !req_ids.contains(req_id.as_str()) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-012",
+                        format!(
+                            "VO {id} requirements references missing REQ {}",
+                            req_id.as_str()
+                        ),
+                    )
+                    .with_location(location.clone()),
+                );
+            }
+        }
+        for spec_ref in &record.spec_refs {
+            validate_spec_ref_entry(&location, "VO", id, spec_ref, spec_ids, diagnostics);
+        }
+    }
+}
+
+fn validate_spec_ref_entry(
+    location: &SourceLocation,
+    kind: &str,
+    id: &str,
+    spec_ref: &SpecRef,
+    spec_ids: &BTreeSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !spec_ids.contains(spec_ref.spec.as_str()) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-012",
+                format!(
+                    "{kind} {id} spec_refs references missing SPEC {}",
+                    spec_ref.spec.as_str()
+                ),
+            )
+            .with_location(location.clone()),
+        );
+    }
+    if spec_ref.section.trim().is_empty() {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-012",
+                format!("{kind} {id} spec_refs has an empty section citation"),
+            )
+            .with_location(location.clone()),
+        );
+    }
 }
 
 fn validate_spec_record(
@@ -1044,6 +1133,64 @@ fn validate_parent_graph(
         }
     }
 
+    for (location_id, cycle) in detect_parent_cycles(parents) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-008",
+                format!("{kind} parent cycle: {}", cycle.join(" -> ")),
+            )
+            .with_location(record_location(
+                root,
+                &directory.join(format!("{location_id}.yaml")),
+                &location_id,
+            )),
+        );
+    }
+}
+
+/// Per-id parent resolution outcome (詳細設計 §11.1.1: dangling parent ->
+/// `MISSING`, cycle -> `MISMATCH`). Shared between scan's E-SCAN-008 emitter
+/// (`validate_parent_graph`, via `detect_parent_cycles`) and verify's
+/// `vo_decomposition` derivation, so both sides classify a given REQ/VO the
+/// same way without verify re-parsing E-SCAN-008 message text (which pools
+/// both conditions under one code).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ParentResolution {
+    Resolved,
+    Dangling,
+    Cycle,
+}
+
+/// Classifies one id's own `parent` field against the full `parents` map
+/// (REQ id -> parent id, or VO id -> parent id). `cycle_members` is the
+/// pre-computed union of `detect_parent_cycles(parents)`'s cycle members.
+pub fn classify_parent(
+    id: &str,
+    parents: &BTreeMap<String, Option<String>>,
+    cycle_members: &BTreeSet<String>,
+) -> ParentResolution {
+    if cycle_members.contains(id) {
+        return ParentResolution::Cycle;
+    }
+    match parents.get(id) {
+        Some(Some(parent)) if !parents.contains_key(parent.as_str()) => {
+            ParentResolution::Dangling
+        }
+        _ => ParentResolution::Resolved,
+    }
+}
+
+/// Detects parent-chain cycles across `parents`. Returns one entry per
+/// distinct cycle: the id at which the walk first revisited an
+/// already-visited node (the same node `validate_parent_graph`'s E-SCAN-008
+/// cycle diagnostic has always been located at), paired with the ordered
+/// cycle membership. Extracted unchanged from the pre-existing detection loop
+/// so scan's diagnostic output is byte-identical; `classify_parent` reuses
+/// the flattened member set instead of duplicating this walk.
+pub fn detect_parent_cycles(
+    parents: &BTreeMap<String, Option<String>>,
+) -> Vec<(String, Vec<String>)> {
+    let mut cycles = Vec::new();
     let mut reported = BTreeSet::new();
     for start in parents.keys() {
         let mut path = Vec::new();
@@ -1056,17 +1203,7 @@ fn validate_parent_graph(
                 key_parts.sort();
                 let key = key_parts.join("|");
                 if reported.insert(key) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-008",
-                            format!("{kind} parent cycle: {}", cycle.join(" -> ")),
-                        )
-                        .with_location(record_location(
-                            root,
-                            &directory.join(format!("{current}.yaml")),
-                            &current,
-                        )),
-                    );
+                    cycles.push((current.clone(), cycle));
                 }
                 break;
             }
@@ -1081,6 +1218,7 @@ fn validate_parent_graph(
             current = parent.clone();
         }
     }
+    cycles
 }
 
 fn validate_relations(
@@ -2347,6 +2485,110 @@ fn covers_parent() {}
                 .iter()
                 .all(|diagnostic| diagnostic.location.is_some()),
             "every scanner diagnostic must identify its canonical source: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// @vtest.id TEST-SCAN-020
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent a REQ's spec_refs.spec naming a nonexistent SPEC is
+    ///   E-SCAN-012 (詳細設計 §5.4 L849; VO-INTAKE-08 / VO-PARALLEL-05)
+    #[test]
+    fn req_spec_ref_to_a_missing_spec_is_e_scan_012() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/req/REQ-GHOST-SPEC.yaml"),
+            "id: REQ-GHOST-SPEC\nparent: null\nspec_refs:\n  - spec: SPEC-GHOST\n    section: '1'\nsummary: dangling spec ref\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| diagnostic.code
+                == "E-SCAN-012"
+                && diagnostic.message.contains("SPEC-GHOST")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// @vtest.id TEST-SCAN-021
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent a spec_refs entry with an empty section is E-SCAN-012
+    ///   even when the SPEC itself resolves (VO-INTAKE-09)
+    #[test]
+    fn req_spec_ref_with_an_empty_section_is_e_scan_012() {
+        let root = fixture();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join("docs/spec.md"), "spec body\n").unwrap();
+        let spec_hash = ContentHash::from_text("spec body\n");
+        fs::write(
+            root.join(".verify/spec/SPEC-ONE.yaml"),
+            format!(
+                "id: SPEC-ONE\nkind: document\npath: docs/spec.md\nsha256: {spec_hash}\nregistered_at: '2026-01-01'\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            root.join(".verify/req/REQ-EMPTY-SECTION.yaml"),
+            "id: REQ-EMPTY-SECTION\nparent: null\nspec_refs:\n  - spec: SPEC-ONE\n    section: ''\nsummary: empty section\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| diagnostic.code
+                == "E-SCAN-012"
+                && diagnostic.message.contains("empty section")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// @vtest.id TEST-SCAN-022
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent a VO's requirements naming a nonexistent REQ is
+    ///   E-SCAN-012 (詳細設計 §5.4 L849)
+    #[test]
+    fn vo_requirements_to_a_missing_req_is_e_scan_012() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/vo/VO-DANGLING-REQ.yaml"),
+            "id: VO-DANGLING-REQ\nparent: null\nrequirements: ['REQ-GHOST']\nspec_refs: []\nclaim: dangling requirement\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| diagnostic.code
+                == "E-SCAN-012"
+                && diagnostic.message.contains("REQ-GHOST")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// @vtest.id TEST-SCAN-023
+    /// @vtest.covers VO-SCAN-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent an empty spec_refs list is not itself E-SCAN-012 --
+    ///   詳細設計 §5.4 L849 has no such clause; that gap belongs to the
+    ///   writer gate / spec_coverage, not this structural pass
+    #[test]
+    fn empty_spec_refs_list_is_not_e_scan_012() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/req/REQ-NO-REFS.yaml"),
+            "id: REQ-NO-REFS\nparent: null\nspec_refs: []\nsummary: no refs at all\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-012"),
+            "diagnostics: {:?}",
             result.diagnostics
         );
     }
