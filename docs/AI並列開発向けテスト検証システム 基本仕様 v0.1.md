@@ -36,7 +36,7 @@ Rust固有処理は組込 `rust-cargo` adapterが所有する。CLI・MCP・検�
 - **Managed Test Entity**：adapter所有のsource declarationから具体化され、構文上有効なTest ID、`role`が要求する件数の`covers`、その他の必須metadataを持ち、`role`が課す`covers` / `anchor`制約に違反しないTest Entity。`role`ごとの要求は§6.2で定める。Discovered Testとentityの対応数、VO参照の解決、Test IDの大局的一意性はentityの構造完全性と分けて検証する。
 - **チェック項目**：完全検証を構成する個々の検証観点（§4.2 の12項目）。
 - **チェック結果値**：各チェック項目が取る値（PASS / FAIL / MISMATCH / MISSING / NOT_CHECKED / NOT_EXECUTED / STALE / UNKNOWN）。
-- **完全検証**：12のチェック項目すべてを対象とする検証。repository-level 項目と、各エンティティの適用項目集合として instantiate された項目のうち、1項目でも PASS 以外があれば NG（fail-closed）。instantiate されない項目は判定に参加しない（§4.2、§4.3）。
+- **完全検証**：12のチェック項目すべてを対象とする検証。各チェック項目はその評価地点（SPEC / REQ / VO / TEST / repository）で instantiate され、instantiate された評価値のうち1件でも PASS 以外があれば NG（fail-closed）。Test Entity への instantiate 可否は適用項目集合に従い、instantiate されない項目は判定に参加しない（§4.2、§4.3）。
 - **scope**：利用者が検証対象とするチェック項目・エンティティ範囲の選択。scope を狭めても、対象外項目の状態は書き換えない。
 - **正典（source of truth）**：ある事実を決定する唯一の記録。正典から導出できる情報は派生情報とし、独立して保存しない（要件定義 P-003）。
 - **監査バンドル**：AI意味監査のために `vtest` が整形して出力する、判定に必要な情報一式（§7.3）。
@@ -197,7 +197,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 
 完全検証は次の12項目で構成する（要件定義 §17.2 に対応）。
 完全検証の項目集合はこの12項目と完全一致し、設定によって追加・削除できない。項目の部分集合を指定した実行は限定scopeであり、完全検証として表示または集約しない。
-個々のエンティティに対してどの項目をinstantiateするかは、適用項目集合として詳細設計 §11.1.2が定める。適用項目集合外の項目は値を持たず「非適用」として表示し、§4.1の`NOT_CHECKED`（適用対象でありながら未検証）と区別する。entity単位の非適用はproject全体の項目集合を12項目未満へ縮退させない。
+Test Entityに対してどの項目をinstantiateするかは、適用項目集合として詳細設計 §11.1.2が定める。SPEC / REQ / VO / repositoryを評価地点とする項目のinstantiateは各項目の定義（§7、詳細設計 §11.1）に従う。適用項目集合外の項目は値を持たず「非適用」として表示し、§4.1の`NOT_CHECKED`（適用対象でありながら未検証）と区別する。entity単位の非適用はproject全体の項目集合を12項目未満へ縮退させない。
 
 | # | チェック項目キー | 内容 | 主な判定方式 |
 |---|---|---|---|
@@ -217,7 +217,7 @@ Test → SRC の対応はadapter所有のTest metadata宣言から、SRC → Tes
 ### 4.3 総合判定
 
 - 利用者向け簡易出力は `OK` / `NG` の二値とする（要件定義 §17.1）。
-- **完全検証の OK** は、repository-level のチェック項目がすべて `PASS` であり、かつ対象範囲内の各エンティティについて適用項目集合として instantiate されたすべてのチェック項目が `PASS` である場合に限る。instantiate された項目が1項目でも非 PASS であれば NG（fail-closed。要件定義 P-002）。適用項目集合外として instantiate されない項目は値を持たず、総合判定へ参加しない（§4.2、詳細設計 §11.1.2）。
+- **完全検証の OK** は、repository-level のチェック項目がすべて `PASS` であり、かつ対象範囲内について各チェック項目の評価地点で instantiate されたすべての評価値が `PASS` である場合に限る。instantiate された評価値が1件でも非 PASS であれば NG（fail-closed。要件定義 P-002）。各項目の評価地点（SPEC / REQ / VO / TEST / repository）は詳細設計 §11.1 の写像に従う。Test Entity に対する項目の instantiate 可否は適用項目集合に従い、適用項目集合外の Test 項目は値を持たず総合判定へ参加しない（§4.2、詳細設計 §11.1.2）。
 - 下位から上位への集約（Test → VO → REQ → SPEC）も fail-closed とする。子に1つでも非 PASS があれば親は非 PASS（要件定義 §19）。
 - 集約時に複数の非 PASS 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > MISSING > STALE > NOT_EXECUTED > NOT_CHECKED > UNKNOWN` とする。詳細出力では子の個別値をすべて確認できる。
 

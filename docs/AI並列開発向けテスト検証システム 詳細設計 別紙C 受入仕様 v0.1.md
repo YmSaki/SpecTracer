@@ -176,7 +176,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 #### 18.3.5 verify・report
 
 - 完全検証は基本仕様 §4.2の12項目をすべて評価し、各項目の非PASSを総合NGへ反映する。
-- 完全検証は、repository-level項目と各entityの適用項目集合としてinstantiateされた全項目がPASSの場合だけOKとする。非適用の項目は判定へ参加せず、非適用の存在は完全検証のOKを妨げない。
+- 完全検証は、各チェック項目の評価地点（SPEC / REQ / VO / TEST / repository）でinstantiateされた全評価値がPASSの場合だけOKとする。Test Entityへのinstantiate可否は適用項目集合に従う。非適用のTest項目は判定へ参加せず、非適用の存在は完全検証のOKを妨げない。
 - `--items`を省略したCLI / MCP検証は常に固定12項目を評価する。version 1 configの`full_scope`欠落は固定12項目、11項目形は`test_traceability`を補った固定12項目へin-memoryで正規化し、configを書き換えない。version 1の重複・未知項目、およびversion 2の欠落・重複・未知・余剰項目はE-CONFIG-001とし、検証結果を生成しない。
 - 12項目未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。
 - `covers`が0件のTestでは`impl_consistency`をinstantiateせず、値を生成しない。当該項目を「非適用（`covers`なし）」として表示し、`NOT_CHECKED`として表示しない。
