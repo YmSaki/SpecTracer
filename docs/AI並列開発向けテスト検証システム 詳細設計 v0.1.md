@@ -1036,7 +1036,7 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 
 ### 7.2 `rust-cargo` ルール一覧
 
-`rust-cargo`の**assert相当の構文**（以下、**検証oracle**）は次のとおり定義し、DA-001〜DA-006で共通に用いる。
+`rust-cargo`の**assert相当の構文**は次のとおり定義し、DA-001〜DA-006で共通に用いる。
 
 - `assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロ
 - `#[should_panic]`属性
@@ -1050,19 +1050,16 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 | DA-003 結果未検証 | target を呼ぶが、その結果を assert 相当で一切検証しない | target 呼出結果（戻り値、および結果から派生した束縛）が assert 相当に到達しない、かつ `#[should_panic]` がない | 結果が可変参照・グローバル状態経由で検証される可能性がある場合 |
 | DA-004 自己比較 | `assert_eq!(a, b)` で a と b がトークン列として同一 | 該当 assert が存在する | なし（構文的に確定） |
 | DA-005 空テスト | 関数本体に文が存在しない | 該当 | なし |
-| DA-006 検証構文なし | Testに検証oracle（assert相当）が1つも存在しない | 探索視界（関数本体、および本体から呼び出す同一ファイル内の非target関数 1段）に検証oracleが1つも存在せず、かつ視界内から視界外の非target関数への呼出も存在しない | 視界内に検証oracleが無く、視界外の非target関数への呼出が存在する場合（helperからの2段目以降の委譲、他ファイル・他クレートの非target呼出）— 解析限界でありoracleの不在を決定論的に確定できない。クロージャ内・マクロ展開内・未対応構文の内側も同様 |
+| DA-006 検証構文なし | 関数内に assert 相当が1つも存在しない | 該当 | なし |
 | W-DA-101 ignored | `#[ignore]` 属性 | （FAILにしない。警告のみ。実行されなければ `test_execution` が NOT_EXECUTED になる） | |
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
-**DA-006 の責務は検証oracleの存在証明である。** 3規則は次のとおり責務を分担する: DA-002 = targetへ到達していることの証明、DA-003 = targetの結果・影響がoracleへ接続していることの証明、DA-006 = oracle自体が存在することの証明。DA-006はTestの検証方式（execution topology）を判定せず、oracleの存在だけを見る。宣言Source Targetへの呼出は実行であって検証の委譲ではなく、その内部にassert相当があるかはDA-006に関係しない（結果の検証はDA-003の領分）— targetを呼ぶだけで視界内にoracleも視界外への非target呼出も無いTestは、oracle不在を確定できるためFAILである。
-探索は関数本体および本体から呼び出す同一ファイル内の非target関数（helper）1段までとする（DA-002/003と同一境界）。「検証helper」の事前分類は行わず（fixture構築・setup・実行helperと検証helperを静的に前もって識別する規則は存在しない）、視界内の全helperを探索する。判定は§7.1の保守的判定原則に従う: 視界内にoracleが見つかれば違反なし — oracleを含んでいた1段helperが結果としてassertion wrapperである。視界内にoracleが無く、視界外の非target関数への呼出（helperからの2段目以降の委譲、他ファイル・他クレートの非target呼出）が存在する場合は、oracleの不在を決定論的に確定できないためFAILでなくUNKNOWNとし、意味監査へ送る。視界内にoracleが無く、視界外への非target呼出も無い場合に限りFAILを確定する。解析限界をTest構造への要求（oracleを1段以内に置く義務等）へ読み替えない — 上位仕様に存在しない規範を本設計は追加しない。この判定はrule-set versionを更新し、既存のstatic Audit RecordはSTALEとなり再監査で現在の判定へ更新される（§3.6）。
-現行の静的監査（DA-001〜DA-006）は、Source Targetを中心とするwhite-box証明モデル（Test → Source Target → result → oracle）である。target呼出がTest本体に現れないTest（subprocess等の境界越し実行）は、視界内にoracleがあってDA-006を満たしても、DA-003が後述「呼出そのものがTest本体に現れない場合のDA-003」に従いUNKNOWNのままであり、static_audit = PASSへ到達しない。境界越しの契約を検証するTestの証明モデル（契約target・observable outcomeの第一級化: Test → Contract Target → observable outcome → oracle）は、white-boxモデルのcall graph追跡の延長では表現せず、本仕様の範囲外の別設計事項とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
 このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。この規則単位verdictは**Evidenceを参照しない純静的fold**であり、§3.6のmalformed整合検査（target別verdictと規則単位verdictの一致）はこの純静的foldに対して行う。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
 
 **呼出そのものが Test 本体に現れない場合の DA-003。** 宣言 target への呼出が Test 本体に静的に現れない場合（subprocess を起動して別プロセスで target を実行する等、target 呼出が source 内に存在しない）、**DA-003 の当該target別verdictを UNKNOWN** とする。呼出結果を観測できないことを「違反なし（空虚PASS）」とも「結果未到達（空虚FAIL）」とも判定しない。この場合 DA-002 も同 target で UNKNOWN であり、DA-002 が §7.3 の runtime 証明で救済されても DA-003 は UNKNOWN のまま static_audit へ寄与するため、**呼出が本体に現れない Test（典型的な subprocess E2E）は static_audit = PASS に到達しない**。
 一方、target 呼出は Test 本体に現れるが DA-002 が UNKNOWN になる場合（他ファイル・他クレートへの直接呼出で間接呼出の可能性を排除できない等）、その呼出結果が Test 本体内で assert 相当へ到達すれば DA-003 = PASS になりうる。この target は DA-002 を runtime で救済すれば static_audit = PASS に到達しうる（runtime 救済で実益が出る型）。クロージャ・マクロ展開の内側での到達は §7.2 の一般則どおり DA-002 / DA-003 とも UNKNOWN とする。
-ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003 / DA-006で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
+ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
 
