@@ -34,9 +34,15 @@
 - remap: 84 件の偽 target 宣言が解消される（A′/B とも）。A′ は意味のある traceability だけ残せる
 - W5 で実装済みの subprocess coverage attribution は、A′ の「任意 traceability の runtime 確認」としてそのまま意味を持つ
 
-**推奨: A′**。理由: (1) white-box 世界は無変更（現行宣言がそのまま検証対象）(2) black-box の偽宣言強制を廃止（dogfood の実害の根治）(3) §8 の中核価値（逆引き・影響分析）を意味がある場面で保持 (4) B は単純だが traceability を構造的に失い、§13 の再導出が痩せる。
+**★裁定（2026-08-18 Owner）: A′ 採用。A/B 棄却**。ただし A′ の本質は「A の traceability 任意化」ではなく **Verification Target と Implementation Traceability の責務分離モデル**として記録する。
+- 3責務の分離: ①Test成立性 = Test→検証対象 ②仕様適合証拠 = VO→Test→検証対象→観測→判定 ③影響分析 = Test –任意→ Source Target。verification semantics と traceability semantics の直交（role × covers の分離と同型）。
+- A 棄却理由: black-box に Source Target を強制すると偽 target 捏造圧（実測84件）+ 内部リファクタでの不要な Test identity/validity 揺れ。B 棄却理由: 「関連実装への逆引き」を構造的に消す — 検証成立に不要でも影響分析に関連付けたい場合は実在する。
+- **white-box 互換の採用条件**: 既存の Source Target 宣言がそのまま検証対象宣言を兼ねる。二重宣言を要求しない。
+- **§13/§16 の責務訂正**（当初ブリーフの誤りを Owner 訂正）: §16 が証明するのは「検証対象の振る舞いの発生と観測」であって Contract↔Implementation 対応ではない。任意 traceability も**関連付け**であって実装対応の証明ではない。§13 は「仕様・VO・Test と、その Test が検証対象として宣言した対象との意味的一致」へ素直に一般化し、traceability の正しさ検証は背負わせない（将来の別 VO/仕様として導出可能）。
+- **要件 §8 では Contract Target という具体語を固定しない**: 「検証対象は実装 construct に限らず、外部から観測可能な契約・境界上の振る舞いでもよい」まで。VerificationTarget/ContractTarget/enum/構文は基本仕様以下へ。
+- **裁定文の最終原則**: 「検証対象と実装 traceability は別の関係として扱い、一方から他方を推定してはならない」（Contract→internal function の推測を将来設計に始めさせない）。
 
-**期限**: 基本仕様導出の前（本件が freeze ゲート）。
+**期限**: 基本仕様導出の前（本件が freeze ゲート）。→ §8 A′反映 → §13 再導出 → 要件全体横断レビュー → freeze → 基本仕様。
 
 ## ★差し戻し（PR #7 レビューで発見。裁定は変更せず Owner 再裁定待ち）
 
