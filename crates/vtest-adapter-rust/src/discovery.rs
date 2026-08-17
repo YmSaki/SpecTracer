@@ -1182,10 +1182,28 @@ impl<'a> Scanner<'a> {
     /// (E-SCAN-003 covers, E-SCAN-004 target resolution, E-SCAN-011 SRC ID
     /// collision) is owned by core, and canonical subjects are computed by
     /// `materialize_discovery_batch`.
+    ///
+    /// VO-EXIST-08 / 詳細設計 line 872: any E-SCAN-001 (a per-file
+    /// read/parse failure) makes this batch Incomplete -- it is the ONLY
+    /// diagnostic this adapter emits for that failure, so its presence is a
+    /// sound, sufficient signal that at least one file could not be scanned.
+    /// An Incomplete batch is still emitted (not rejected here); core must
+    /// still materialize a completed scan (exit 1) while carrying the
+    /// incompleteness forward so verify never certifies it a full 0-test
+    /// discovery.
     fn finish(self) -> DiscoveryBatch {
+        let completeness = if self
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SCAN-001")
+        {
+            DiscoveryCompleteness::Incomplete
+        } else {
+            DiscoveryCompleteness::Complete
+        };
         DiscoveryBatch {
             adapter: AdapterId::new(RUST_ADAPTER_ID),
-            completeness: DiscoveryCompleteness::Complete,
+            completeness,
             discovered_tests: self.discovered_tests,
             source_targets: self.source_targets,
             diagnostics: self.diagnostics,

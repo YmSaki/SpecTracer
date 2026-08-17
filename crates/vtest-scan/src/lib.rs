@@ -56,6 +56,14 @@ pub struct ScanResult {
     pub tests: Vec<TestEntity>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
+    /// VO-EXIST-08 / 詳細設計 §5.1, §11.1: whether every adapter discovery
+    /// batch that fed this scan was fully parseable. An adapter's per-file
+    /// read/parse failure (E-SCAN-001) still yields a completed scan (exit
+    /// 1, 別紙C §18.3.1) rather than an operation rejection, but must not be
+    /// presented as a complete 0-test discovery: this field carries that
+    /// fact forward to `test_traceability`, which must read it as UNKNOWN,
+    /// never PASS, while it is `Incomplete`.
+    pub completeness: DiscoveryCompleteness,
 }
 
 /// Arity-classified outcome of resolving one declared `TargetRef` against a
@@ -173,20 +181,26 @@ pub struct MaterializedDiscovery {
     pub managed_tests: Vec<TestEntity>,
     pub source_targets: Vec<SourceTarget>,
     pub diagnostics: Vec<Diagnostic>,
+    /// VO-EXIST-08: carried verbatim from the adapter's `DiscoveryBatch`. An
+    /// `Incomplete` batch is materialized here (not rejected) -- 別紙C
+    /// §18.3.1 requires E-SCAN-* to still yield a completed scan (exit 1);
+    /// what an Incomplete batch must never become is an undated `Complete`
+    /// 0-test discovery, which is why this field exists at all.
+    pub completeness: DiscoveryCompleteness,
 }
 
 /// Validate an adapter's hash-free observations against current filesystem bytes,
 /// then compute canonical subjects and materialize neutral domain entities.
+/// An `Incomplete` batch (VO-EXIST-08: adapter discovery failed to parse at
+/// least one file, E-SCAN-001) is materialized like any other -- whatever
+/// was successfully discovered still gets validated and hashed -- rather
+/// than rejected as malformed adapter output; only its `completeness` is
+/// carried forward for verify to read.
 pub fn materialize_discovery_batch(
     root: &Path,
     batch: DiscoveryBatch,
 ) -> Result<MaterializedDiscovery, ScanError> {
-    if batch.completeness != DiscoveryCompleteness::Complete {
-        return Err(malformed_adapter_output(
-            "incomplete discovery cannot be materialized as a successful scan",
-        ));
-    }
-
+    let completeness = batch.completeness;
     let adapter = batch.adapter.clone();
     if adapter.as_str().is_empty() {
         return Err(malformed_adapter_output("batch adapter ID is empty"));
@@ -227,6 +241,7 @@ pub fn materialize_discovery_batch(
         managed_tests,
         source_targets,
         diagnostics: batch.diagnostics,
+        completeness,
     })
 }
 
@@ -522,6 +537,7 @@ pub fn scan_project_with_discovery(
         tests: materialized.managed_tests,
         sources: materialized.source_targets,
         diagnostics: materialized.diagnostics,
+        completeness: materialized.completeness,
     };
     result.diagnostics.extend(cross_entity_diagnostics(
         &result.tests,
@@ -1860,22 +1876,40 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// @vtest.id TEST-SCAN-005
     /// @vtest.covers VO-SCAN-001
     /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
-    /// @vtest.intent Missing provenance and incomplete discovery both rejected
+    /// @vtest.intent Missing metadata provenance is rejected as malformed
+    /// adapter output (E-ADAPTER-002). Incomplete discovery's OWN acceptance
+    /// criteria moved to VO-EXIST-08 (TEST-SCAN-040): it is materialized, not
+    /// rejected -- 別紙C §18.3.1 forbids treating adapter discovery failure
+    /// as a Test-0 successful scan, but that is a completed-scan (exit 1)
+    /// outcome, not an operation-rejection (exit 2) one.
     #[test]
-    fn core_rejects_missing_metadata_provenance_and_incomplete_discovery() {
+    fn core_rejects_missing_metadata_provenance() {
         let (root, mut batch) = discovery_materialization_fixture();
         batch.discovered_tests[0].metadata_sources.clear();
         let error = materialize_discovery_batch(&root, batch).unwrap_err();
         assert!(error.to_string().contains("E-ADAPTER-002"));
         assert!(error.to_string().contains("provenance"));
-
-        let (incomplete_root, mut incomplete) = discovery_materialization_fixture();
-        incomplete.completeness = DiscoveryCompleteness::Incomplete;
-        let error = materialize_discovery_batch(&incomplete_root, incomplete).unwrap_err();
-        assert!(error.to_string().contains("E-ADAPTER-002"));
-        assert!(error.to_string().contains("incomplete discovery"));
         fs::remove_dir_all(root).unwrap();
-        fs::remove_dir_all(incomplete_root).unwrap();
+    }
+
+    /// @vtest.id TEST-SCAN-040
+    /// @vtest.covers VO-EXIST-08
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_discovery_batch
+    /// @vtest.intent An Incomplete DiscoveryBatch (詳細設計 line 872, adapter
+    /// source parse failure) is materialized like any other batch -- not
+    /// rejected as malformed adapter output -- and its completeness is
+    /// carried into MaterializedDiscovery verbatim, so a completed scan can
+    /// still surface it (別紙C §18.3.1: adapter discovery failure is never a
+    /// Test-0 successful scan, but IS a completed one).
+    #[test]
+    fn core_materializes_an_incomplete_batch_and_carries_completeness_forward() {
+        let (root, mut batch) = discovery_materialization_fixture();
+        batch.completeness = DiscoveryCompleteness::Incomplete;
+        let materialized =
+            materialize_discovery_batch(&root, batch).expect("Incomplete batch materializes");
+        assert_eq!(materialized.completeness, DiscoveryCompleteness::Incomplete);
+        assert_eq!(materialized.managed_tests.len(), 1, "{materialized:?}");
+        fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-SCAN-006
