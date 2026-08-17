@@ -13,6 +13,11 @@
 
 → ①②③④ は spec 変更を伴う。spec-only PR（develop 起点）として一括起案する。①③は実装変更も伴う（spec merge 後）。
 
+## ★差し戻し（PR #7 レビューで発見。裁定は変更せず Owner 再裁定待ち）
+
+- **②′ DA-006 の UNKNOWN-escape 問題**: 裁定②（視界外呼出 → UNKNOWN）のままだと、oracle を含まない fixture/setup 呼出（例: `prepare_fixture()` が別関数を呼ぶだけ）でも UNKNOWN へ逃げられる。一方これを FAIL に倒すと「oracle を1段以内に置け」という上位仕様に無い構造規範を詳細設計が発明することになり、保守的判定原則（解析できない ≠ 違反）に反する — PR #7 はこの理由で裁定通り（UNKNOWN 側）に固定した。**再裁定の論点**: false UNKNOWN の許容 vs 「検証 helper」の識別規則の導入（静的識別は現状不可能と判明済み）vs 上位仕様側へ可視性規範を追加。
+- **③′ file 導出の反例**: 裁定③（B: required:false + target 同一ファイルへの導出）に対し、integration test の追加先は `tests/*.rs` 側の suite であって target の source ファイルではないため、導出先として不自然（レビューで判明）。**A（required:true を仕様宣言。現実装が既に適合）への再裁定を推奨**。PR #7 は裁定通り B のまま。
+
 ---
 
 7件。各項目 = 何の話か / 確定している事実 / 選択肢 / いつまでに要るか / 推奨。
