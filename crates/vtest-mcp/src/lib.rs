@@ -14,7 +14,19 @@ use std::{
 };
 
 use serde_json::{json, Map, Value};
+use vtest_adapter_api::{resolve_structured_test_adapter, AdapterError, AdapterRegistry};
+use vtest_adapter_rust::rust_cargo_registration;
 use vtest_store::{load_form_schema, VerifyLayout};
+
+/// The registry `form_get` resolves a Form's owning adapter through, mirroring
+/// the same built-in registration `vtest-verify` and the CLI use (別紙C
+/// §18.3.7 gates `form_get` identically to `create`/`edit`). Built once: this
+/// crate deliberately delegates mutating tool execution to the CLI binary, so
+/// this read-only resolution check is the one place it constructs a registry
+/// itself rather than growing a second decision engine.
+fn built_in_registry() -> Result<AdapterRegistry, AdapterError> {
+    AdapterRegistry::from_registrations([rust_cargo_registration()])
+}
 
 const TOOL_NAMES: &[&str] = &[
     "scan",
@@ -1202,10 +1214,26 @@ fn form_get(root: &Path, args: &Value) -> Value {
     let Some(kind) = string_arg(args, "kind") else {
         return failure_envelope("E-OP-001", "form_get requires kind", Vec::new());
     };
-    match load_form_schema(&VerifyLayout::new(root), kind) {
-        Ok(schema) => json!({"ok": true, "data": schema, "diagnostics": []}),
-        Err(error) => failure_envelope("E-OP-001", error.to_string(), Vec::new()),
+    let schema = match load_form_schema(&VerifyLayout::new(root), kind) {
+        Ok(schema) => schema,
+        Err(error) => return failure_envelope("E-OP-001", error.to_string(), Vec::new()),
+    };
+    let registry = match built_in_registry() {
+        Ok(registry) => registry,
+        Err(error) => return failure_envelope("E-CORE-001", error.to_string(), Vec::new()),
+    };
+    // 別紙C §18.3.7: `form_get` is permitted only when the registry's kind
+    // owner, the schema's `adapter`, and the StructuredTest capability
+    // uniquely agree -- the identical gate `test create` / `test edit` apply.
+    if let Err(error) = resolve_structured_test_adapter(&registry, &schema) {
+        let code = if matches!(error, AdapterError::MissingCapability(_)) {
+            "E-ADAPTER-004"
+        } else {
+            "E-ADAPTER-001"
+        };
+        return failure_envelope(code, error.to_string(), Vec::new());
     }
+    json!({"ok": true, "data": schema, "diagnostics": []})
 }
 
 fn test_create(root: &Path, args: &Value) -> Value {
@@ -1523,4 +1551,46 @@ fn failure_envelope(code: &str, message: impl Into<String>, candidates: Vec<Stri
         diagnostic["candidates"] = json!(candidates);
     }
     json!({"ok": false, "data": null, "diagnostics": [diagnostic]})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vtest_store::init_project;
+
+    fn temp_project() -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-mcp-form-get-{suffix}"));
+        fs::create_dir_all(&root).unwrap();
+        init_project(&root, "form-get-fixture").unwrap();
+        root
+    }
+
+    /// @vtest.id TEST-SCAN-034
+    /// @vtest.covers VO-STRUCTOP-09
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::form_get
+    /// @vtest.intent MCP form_get is gated by the same registry resolution as test create/edit (別紙C §18.3.7) and rejects a Form owned by an unregistered adapter
+    #[test]
+    fn form_get_rejects_a_form_owned_by_an_unregistered_adapter() {
+        let root = temp_project();
+        fs::write(
+            root.join(".verify/forms/py-unit.yaml"),
+            "kind: py-unit\nadapter: python-pytest\ntitle: Python-flavored unit test\nfields:\n  - name: behavior\n    question: Behavior?\n    type: string\n    required: true\ntemplate: |\n  # placeholder\n",
+        )
+        .unwrap();
+
+        let unresolved = form_get(&root, &json!({"kind": "py-unit"}));
+        assert_eq!(unresolved["ok"], false);
+        assert_eq!(unresolved["diagnostics"][0]["code"], "E-ADAPTER-001");
+
+        let builtin = form_get(&root, &json!({"kind": "rust-unit-function"}));
+        assert_eq!(
+            builtin["ok"], true,
+            "a built-in Form owned by the registered rust-cargo adapter must still resolve"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }

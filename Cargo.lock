@@ -616,6 +616,8 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-audit",
  "vtest-exec",
  "vtest-model",
@@ -638,6 +640,7 @@ name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror",
  "vtest-adapter-api",
  "vtest-adapter-rust",

@@ -15,9 +15,11 @@ mod discovery;
 pub mod operations_support;
 mod runner;
 mod static_audit;
+mod structured_test;
 pub use discovery::{Locator, RustCargoDiscovery};
 pub use runner::{build_execution_state, RustCargoRunner};
 pub use static_audit::RustCargoStaticAudit;
+pub use structured_test::{RustCargoStructuredTest, RUST_INTEGRATION_KIND, RUST_UNIT_FUNCTION_KIND};
 
 pub const RUST_CARGO_ADAPTER_ID: &str = "rust-cargo";
 
@@ -93,6 +95,7 @@ pub fn rust_cargo_registration() -> AdapterRegistration {
             AdapterCapability::TestWireCodec,
             AdapterCapability::SourceDiscovery,
             AdapterCapability::StaticAudit,
+            AdapterCapability::StructuredTest,
             AdapterCapability::TestRunner,
         ],
         config_namespace: RUST_CARGO_ADAPTER_ID.to_owned(),
@@ -100,6 +103,7 @@ pub fn rust_cargo_registration() -> AdapterRegistration {
     registration.test_wire_codec = Some(Arc::new(RustCargoCodec));
     registration.source_discovery = Some(Arc::new(RustCargoDiscovery));
     registration.static_audit = Some(Arc::new(RustCargoStaticAudit));
+    registration.structured_test = Some(Arc::new(RustCargoStructuredTest));
     registration.test_runner = Some(Arc::new(RustCargoRunner));
     registration
 }

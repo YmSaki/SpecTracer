@@ -459,7 +459,7 @@ pub fn check_rust_block(source: &str) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
+pub(crate) fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
     let mut offset = 0;
     for (index, current) in source.split_inclusive('\n').enumerate() {
         if index + 1 == line {

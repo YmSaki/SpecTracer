@@ -420,6 +420,16 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
             )
         }
     };
+    let registry = match built_in_registry() {
+        Ok(registry) => registry,
+        Err(error) => {
+            return finish_record_command(
+                Err(failure("E-CORE-001", error.to_string(), ExitCode::Internal)),
+                format,
+                quiet,
+            )
+        }
+    };
     let result = match command {
         TestCommand::Create {
             form,
@@ -430,7 +440,7 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
             let answers_path = safe_project_path(&root, &answers)?;
             let supplied = read_form_answers(&answers_path)
                 .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
-            create_test(&root, &form, &supplied, id.as_deref(), dry_run)
+            create_test(&root, &registry, &form, &supplied, id.as_deref(), dry_run)
                 .map_err(operation_failure)
                 .and_then(|result| {
                     serde_json::to_value(result).map_err(|error| {
@@ -464,6 +474,7 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
                 .transpose()?;
             edit_test(
                 &root,
+                &registry,
                 &id,
                 supplied.as_ref(),
                 &set,
@@ -4628,9 +4639,10 @@ mod tests {
         )
         .unwrap();
 
+        let registry = built_in_registry().unwrap();
         let parsed_answers = read_form_answers(&root.join("answers.yaml")).unwrap();
         assert_eq!(
-            create_test(&root, "rust-unit-function", &parsed_answers, None, true)
+            create_test(&root, &registry, "rust-unit-function", &parsed_answers, None, true)
                 .unwrap()
                 .test_id,
             "TEST-CALC-001"
@@ -4898,6 +4910,7 @@ mod tests {
         let bad_answers = read_form_answers(&root.join("bad-answers.yaml")).unwrap();
         let error = create_test(
             &root,
+            &registry,
             "rust-unit-function",
             &bad_answers,
             Some("TEST-CALC-003"),
@@ -4915,6 +4928,7 @@ mod tests {
         let bad_enum_answers = read_form_answers(&root.join("bad-enum-answers.yaml")).unwrap();
         let enum_error = create_test(
             &root,
+            &registry,
             "rust-unit-function",
             &bad_enum_answers,
             Some("TEST-CALC-005"),

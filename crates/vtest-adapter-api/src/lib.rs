@@ -10,8 +10,9 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 use thiserror::Error;
 use vtest_model::{
     hash_execution_state_subject, AdapterId, CanonicalProjection, CheckValue, ContentHash,
-    Diagnostic, ExecutionDescriptor, ExecutionInputSubject, ExecutionStateSubjectInput, RunnerInfo,
-    SourceLocation, SrcId, TargetExecution, TargetRef, TestEntity, TestId, TestResult, VoId,
+    Diagnostic, ExecutionDescriptor, ExecutionInputSubject, ExecutionStateSubjectInput, FormSchema,
+    RunnerInfo, SourceLocation, SrcId, TargetExecution, TargetRef, TestEntity, TestId, TestResult,
+    VoId,
 };
 
 /// Compute the Execution State subject hash of a draft, or `None` when the draft
@@ -435,9 +436,52 @@ pub trait StaticAuditAdapter: Send + Sync {
     ) -> Result<StaticAuditObservation, AdapterError>;
 }
 
+/// Adapter-neutral desired state for a Structured Edit, produced by core from
+/// validated form answers / `--set` values / the current Test (詳細設計 §8.1).
+/// Every field is a LOGICAL value; only the owning `StructuredTestAdapter`
+/// renders it into its own declaration syntax (基本仕様 §6.1, 別紙A §15).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct StructuredEditFields {
+    pub id: String,
+    pub covers: Vec<String>,
+    pub targets: Vec<String>,
+    pub intent: String,
+    pub input: Option<String>,
+    pub expect: Option<String>,
+    pub kind: Option<String>,
+    pub cases: Vec<String>,
+    pub related: Vec<String>,
+    pub fn_name: String,
+    pub file: String,
+}
+
 pub trait StructuredTestAdapter: Send + Sync {
+    /// The Form `kind`s this adapter owns unconditionally, independent of any
+    /// declared `adapter` field (別紙A §14.3's built-in forms).
     fn built_in_form_kinds(&self) -> Vec<String>;
+
+    /// Deterministic acceptance of a Form Schema that declares no `adapter`
+    /// (a read-compatible legacy Form). Must decide from schema CONTENT --
+    /// never from `kind`'s string alone (別紙A §14.2) -- so an unrelated
+    /// adapter's Form is not silently claimed.
     fn accepts_compatibility_form(&self, schema: &Value) -> bool;
+
+    /// Render the full replacement text for a Test's extended source range
+    /// (declaration + construct) from LOGICAL desired fields only (別紙A
+    /// §15.1-§15.4). `current_source` is the Test's current extended range,
+    /// already de-indented; `current_id` / `current_selector` are read-only
+    /// context for diagnostics and signature relocation. Core never
+    /// interprets or emits this adapter's declaration syntax itself -- this
+    /// method is the sole authority for the edit path (mirrors the create
+    /// path's `render_form_template`, which is already adapter-owned).
+    fn render_edit(
+        &self,
+        current_source: &str,
+        current_id: &str,
+        current_selector: &str,
+        desired: &StructuredEditFields,
+        body: Option<&str>,
+    ) -> Result<String, Diagnostic>;
 }
 
 pub trait TestRunnerAdapter: Send + Sync {
@@ -661,6 +705,88 @@ impl AdapterRegistry {
 
 fn missing(id: &AdapterId, capability: AdapterCapability) -> AdapterError {
     AdapterError::MissingCapability(format!("adapter `{id}` has no {capability:?}"))
+}
+
+/// Resolves the Form `schema` to exactly one registered StructuredTest-capable
+/// adapter, per the registry contract (別紙A §14.2-§14.4, 別紙C §18.3.7): a
+/// Form declaring `adapter` must name a registered adapter that both carries
+/// the StructuredTest capability and owns `kind` (no OTHER adapter's built-in
+/// kind set already claims it); a Form with no `adapter` (a read-compatible
+/// legacy Form) resolves only if exactly one capable adapter's built-in kind
+/// declaration or `accepts_compatibility_form` matcher accepts it. Every
+/// rejection path (unknown adapter, missing capability, owner mismatch, 0 or
+/// 2+ matches) is returned as `Err` before any caller may mutate a file --
+/// core must never fall back to any adapter for an unresolved kind.
+pub fn resolve_structured_test_adapter<'a>(
+    registry: &'a AdapterRegistry,
+    schema: &FormSchema,
+) -> Result<(AdapterId, &'a dyn StructuredTestAdapter), AdapterError> {
+    let schema_value = serde_json::to_value(schema)
+        .map_err(|error| AdapterError::MalformedOutput(error.to_string()))?;
+    if let Some(declared) = &schema.adapter {
+        let adapter_id = AdapterId::new(declared.as_str());
+        let adapter = registry.structured_test(&adapter_id)?;
+        let owners = kind_owners(registry, &schema.kind);
+        if owners.len() > 1 {
+            return Err(AdapterError::Registration(format!(
+                "kind `{}` is declared as built-in by multiple adapters: {owners:?}",
+                schema.kind
+            )));
+        }
+        if let Some(owner) = owners.first() {
+            if owner != &adapter_id {
+                return Err(AdapterError::Registration(format!(
+                    "form `{}` declares adapter `{declared}` but kind `{}` is owned by `{owner}`",
+                    schema.kind, schema.kind
+                )));
+            }
+        }
+        return Ok((adapter_id, adapter));
+    }
+    let mut matches = Vec::new();
+    for id in registry.ids() {
+        let Ok(adapter) = registry.structured_test(id) else {
+            continue;
+        };
+        if adapter
+            .built_in_form_kinds()
+            .iter()
+            .any(|kind| kind == &schema.kind)
+            || adapter.accepts_compatibility_form(&schema_value)
+        {
+            matches.push((id.clone(), adapter));
+        }
+    }
+    match matches.len() {
+        1 => Ok(matches.into_iter().next().expect("length checked above")),
+        0 => Err(AdapterError::Registration(format!(
+            "form `{}` declares no `adapter` and no registered Structured Test adapter accepts it",
+            schema.kind
+        ))),
+        _ => Err(AdapterError::Registration(format!(
+            "form `{}` declares no `adapter` and matches multiple registered Structured Test adapters",
+            schema.kind
+        ))),
+    }
+}
+
+/// Every registered StructuredTest-capable adapter that declares `kind` as
+/// its own built-in (別紙A §14.3). More than one entry means the registry
+/// itself has a duplicate kind declaration (詳細設計 §17.1 E-ADAPTER-001,
+/// 別紙C §18.3.7's 「同じkindを複数adapterが宣言する」) -- independent of
+/// which adapter any particular Form happens to declare.
+fn kind_owners(registry: &AdapterRegistry, kind: &str) -> Vec<AdapterId> {
+    registry
+        .ids()
+        .filter_map(|id| {
+            let adapter = registry.structured_test(id).ok()?;
+            adapter
+                .built_in_form_kinds()
+                .iter()
+                .any(|candidate| candidate == kind)
+                .then(|| id.clone())
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
