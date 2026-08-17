@@ -528,12 +528,13 @@ anchor-value    = "normative" | "none"
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
 - `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
-- `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
+- `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。本節の文法とこの規則は、Test constructとして解析される宣言に適用する。
+- Test constructとして解析されない関数item（対象実装側の関数等）のdoc comment内でも、`@vtest.` で始まる行は自由記述として無視せず検査する。当該表面で認識されるキーは `src-id` のみであり、それ以外のキー、および `src-id` の重複は警告 W-SCAN-105 とする（§5.4）。打鍵ミス検出の目的は表面を問わず及ぶが、非Test表面の宣言はTest metadataを破損させないため、errorではなくwarningとする。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 - `@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale` はいずれも反復不可であり、重複はE-SCAN-005とする。`@vtest.role` は `role_declared`、`@vtest.anchor` は `anchor_declared`、`@vtest.anchor-rationale` は `anchor_rationale` へ、値を逐語のまま対応付ける（§4.1）。
 - `role-value` と `anchor-value` は受理語彙の定義であって、adapterが行う受理判定ではない。adapterはこの語彙に一致しない値も逐語で搬送し、値がいずれの語彙にも属さない場合、および `anchor-rationale` の値が空白のみの場合は、coreがcore materializationでエラー E-SCAN-013 を生成する（§4.4）。`characterization` は `role-value` に含まれる予約されたrole値であり、本versionでは宣言できない。宣言された場合も未知キーのE-SCAN-006ではなくE-SCAN-013で報告する。キーの綴り自体が未知である場合だけがadapter側のE-SCAN-006であり、既知キーの値が語彙に違反する場合はcore側のE-SCAN-013である。
 - これら3キーはTest宣言の論理metadataであり、Test constructに対応する宣言として解析された場合にだけ当該Test Entityのfieldへ採り込む。coreはこれらの値をSource Targetのidentity、恒久SRC ID、target解決のいずれにも用いない。
-- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。
+- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。この表面での打鍵ミス（`src_id` 等の未知キー）と `src-id` の重複は W-SCAN-105 で検出し、無音で無視しない（§5.4）。
 
 ### 4.3 `rust-cargo` locator構文
 
@@ -895,7 +896,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-003 | error | `covers` の参照先 VO が存在しない（dangling reference） |
 | E-SCAN-004 | error | `target` のロケータ／SRC ID を解決できない |
 | E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数の`target`宣言が同一canonical Source Targetへ解決 |
-| E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在 |
+| E-SCAN-006 | error | Test constructのadapter所有の宣言に未知fieldが存在（非Test construct表面はW-SCAN-105） |
 | E-SCAN-007 | error | 必須metadata（id / targets / intent、および`role`が`verification`の場合の covers）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
@@ -908,6 +909,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
+| W-SCAN-105 | warning | Test constructとして解析されない関数itemのdoc comment内の`@vtest.`行に、認識されないキーまたは反復不可キーの重複が存在（§4.2。打鍵ミス検出） |
 | W-STORE-001 | warning | VO recordに非正典の読取り互換field `status`が存在（値は無視し承認から導出） |
 | W-STORE-002 | warning | Approvalが現在の上流依存closureを欠くか一致せず、承認として無効 |
 
@@ -941,7 +943,9 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 
 6. Source Target抽出
    すべてのfn / impl fnをSRC候補として索引化し、
-   §4.3のlocator解決・逆引き・@vtest.src-id認識に使用する
+   §4.3のlocator解決・逆引き・@vtest.src-id認識に使用する。
+   このpassで非Test constructのdoc comment内の`@vtest.`行を検査し、
+   認識されないキーと`src-id`の重複からW-SCAN-105を生成する（§4.2）
 
 7. draft生成
    全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、
@@ -1040,16 +1044,17 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 | DA-003 結果未検証 | target を呼ぶが、その結果を assert 相当で一切検証しない | target 呼出結果（戻り値、および結果から派生した束縛）が assert 相当に到達しない、かつ `#[should_panic]` がない | 結果が可変参照・グローバル状態経由で検証される可能性がある場合 |
 | DA-004 自己比較 | `assert_eq!(a, b)` で a と b がトークン列として同一 | 該当 assert が存在する | なし（構文的に確定） |
 | DA-005 空テスト | 関数本体に文が存在しない | 該当 | なし |
-| DA-006 検証構文なし | 関数内に assert 相当が1つも存在しない | 該当 | なし |
+| DA-006 検証構文なし | 関数内に assert 相当が1つも存在しない | 関数本体および同一ファイル内の呼出先 helper（1段）を探索して assert 相当が1つも存在しない | 呼出先が他ファイル・他クレート、またはクロージャ内・マクロ展開内にあり、assert 相当の存在を確定できない場合 |
 | W-DA-101 ignored | `#[ignore]` 属性 | （FAILにしない。警告のみ。実行されなければ `test_execution` が NOT_EXECUTED になる） | |
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
+DA-006 の探索境界も同一とする（関数本体および同一ファイル内 helper 1段）。assert 相当を同一ファイルの helper へ委譲する Test は「helper が検証を行うこと」の確認と同値であり、視界内の helper に assert 相当が見つかれば違反なし、視界外へ委譲されて確定できない場合は §7.1 に従い FAIL でなく UNKNOWN として意味監査へ送る。この判定変更は rule-set version を更新し、既存の static Audit Record は STALE となり再監査で現在の判定へ更新される（§3.6）。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
 このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。この規則単位verdictは**Evidenceを参照しない純静的fold**であり、§3.6のmalformed整合検査（target別verdictと規則単位verdictの一致）はこの純静的foldに対して行う。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
 
 **呼出そのものが Test 本体に現れない場合の DA-003。** 宣言 target への呼出が Test 本体に静的に現れない場合（subprocess を起動して別プロセスで target を実行する等、target 呼出が source 内に存在しない）、**DA-003 の当該target別verdictを UNKNOWN** とする。呼出結果を観測できないことを「違反なし（空虚PASS）」とも「結果未到達（空虚FAIL）」とも判定しない。この場合 DA-002 も同 target で UNKNOWN であり、DA-002 が §7.3 の runtime 証明で救済されても DA-003 は UNKNOWN のまま static_audit へ寄与するため、**呼出が本体に現れない Test（典型的な subprocess E2E）は static_audit = PASS に到達しない**。
 一方、target 呼出は Test 本体に現れるが DA-002 が UNKNOWN になる場合（他ファイル・他クレートへの直接呼出で間接呼出の可能性を排除できない等）、その呼出結果が Test 本体内で assert 相当へ到達すれば DA-003 = PASS になりうる。この target は DA-002 を runtime で救済すれば static_audit = PASS に到達しうる（runtime 救済で実益が出る型）。クロージャ・マクロ展開の内側での到達は §7.2 の一般則どおり DA-002 / DA-003 とも UNKNOWN とする。
-ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
+ルールごとの判定結果と根拠（該当スパン）は監査レコード（kind: `static`、auditor.kind: `deterministic`）として保存する。subjectsにはTest、全宣言target、§1.3のStatic Audit Config subject、および判定時に参照したhelper等のStatic Analysis Source subject完全集合の現在hashを含める。DA-002 / DA-003 / DA-006で同一file helperを探索した場合、そのhelper fragmentはTest / target subjectと重複しない限り必須subjectである。`assertion_macros`、rule-set ID / version、参照helperの内容または参照集合の変更は既存recordを`STALE`にする。
 
 DA-001〜DA-006 で FAIL した Test は、意味監査バンドルの生成対象から除外できる（`vtest audit bundle` は既定でスキップし、`--include-failed` で強制生成できる）。
 
@@ -1562,6 +1567,8 @@ fail-closed 合成：
 
 同時実行された `vtest` プロセス同士の調停は行わない。
 すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回の scan / verify が差分を反映する。
+
+この「その時点の正典の読み取り」は書込みの**原子的公開**（基本仕様 §5.2）を前提とする。いずれの分類の書込みも、完全な内容が単一の操作で可視になる方式（同一ファイルシステム内へのtemp書込み＋rename等）で公開し、書きかけ状態・一時ファイル残渣を正典ディレクトリの読み手に観測させてはならない。
 
 ### 16.2 意味的衝突検出
 
