@@ -740,7 +740,7 @@ fn test_node(
     scan: &ScanResult,
     target_execution_in_scope: bool,
 ) -> VerificationNode {
-    let items = item_copies(
+    let items = item_copies_for_test(
         values,
         &[
             "static_audit",
@@ -751,6 +751,7 @@ fn test_node(
             "target_execution",
             "evidence_validity",
         ],
+        test.id.as_str(),
     );
     let children = if target_execution_in_scope {
         target_execution_children(root, evidence, test, scan)
@@ -763,6 +764,45 @@ fn test_node(
 fn item_copies<'a>(values: &BTreeMap<&'a str, &'a ReportItem>, keys: &[&str]) -> Vec<ReportItem> {
     keys.iter()
         .filter_map(|key| values.get(key).map(|item| (*item).clone()))
+        .collect()
+}
+
+/// Every per-test item evaluator (`evaluate_static_audit`, `evaluate_test_audit`,
+/// `evidence_basis`) writes its basis lines with a `"Test {test_id}: "` prefix,
+/// one per Test folded into the project-wide `ReportItem`. A Test node can
+/// therefore show its OWN evidence -- not a copy of the whole scope's basis,
+/// which reads identically for an audited and an unaudited sibling (VO-AGG-08
+/// leg i) -- without re-deriving any value: `item.value` stays the unchanged
+/// scope-level fold, only the citation each node displays is narrowed. A key
+/// whose basis carries no per-test-prefixed line at all (i.e. every evaluator
+/// this cluster does not touch) falls back to the unfiltered basis rather than
+/// showing nothing.
+fn item_copies_for_test<'a>(
+    values: &BTreeMap<&'a str, &'a ReportItem>,
+    keys: &[&str],
+    test_id: &str,
+) -> Vec<ReportItem> {
+    let prefix = format!("Test {test_id}: ");
+    keys.iter()
+        .filter_map(|key| {
+            values.get(key).map(|item| {
+                let narrowed = item
+                    .basis
+                    .iter()
+                    .filter(|line| line.starts_with(&prefix))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                ReportItem {
+                    item: item.item.clone(),
+                    value: item.value,
+                    basis: if narrowed.is_empty() {
+                        item.basis.clone()
+                    } else {
+                        narrowed
+                    },
+                }
+            })
+        })
         .collect()
 }
 
@@ -1076,21 +1116,11 @@ fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
             vec!["adapter discovery is incomplete or unparseable (E-SCAN-001)".to_owned()],
         );
     }
-    let mismatch = scan
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| matches!(diagnostic.code.as_str(), "E-SCAN-002" | "E-SCAN-003"))
-        .map(|diagnostic| diagnostic.message.clone())
-        .collect::<Vec<_>>();
+    let mismatch = test_traceability_basis(scan, &["E-SCAN-002", "E-SCAN-003"], CheckValue::Mismatch);
     if !mismatch.is_empty() {
         return (CheckValue::Mismatch, mismatch);
     }
-    let missing = scan
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| matches!(diagnostic.code.as_str(), "W-SCAN-101" | "E-SCAN-007"))
-        .map(|diagnostic| diagnostic.message.clone())
-        .collect::<Vec<_>>();
+    let missing = test_traceability_basis(scan, &["W-SCAN-101", "E-SCAN-007"], CheckValue::Missing);
     if !missing.is_empty() {
         return (CheckValue::Missing, missing);
     }
@@ -1101,6 +1131,30 @@ fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
             scan.tests.len()
         )],
     )
+}
+
+/// 別紙A §12.2: a non-PASS `test_traceability` must list each offending Test
+/// with adapter ID, source location, diagnostic code and verdict -- in text
+/// AND JSON, from the SAME basis list (VO-EXIST-09). The scan diagnostics
+/// this reads already carry `location` (every W-SCAN-101 / E-SCAN-002/003/007
+/// site attaches one); a diagnostic without one still contributes a basis
+/// line, just without the location clause, rather than being dropped.
+fn test_traceability_basis(scan: &ScanResult, codes: &[&str], verdict: CheckValue) -> Vec<String> {
+    scan.diagnostics
+        .iter()
+        .filter(|diagnostic| codes.contains(&diagnostic.code.as_str()))
+        .map(|diagnostic| match diagnostic.location.as_deref() {
+            Some(location) => format!(
+                "{} {} {}::{} {verdict:?}: {}",
+                diagnostic.code,
+                location.adapter,
+                location.path,
+                location.locator,
+                diagnostic.message
+            ),
+            None => format!("{} {verdict:?}: {}", diagnostic.code, diagnostic.message),
+        })
+        .collect()
 }
 
 /// Evaluate static audits per currently scanned Test, rather than treating a
@@ -1213,12 +1267,15 @@ fn evaluate_static_audit(
         // record" rule STALE-only records already use (STALE when some
         // record -- valid-content-mismatched or malformed -- was attempted,
         // NOT_CHECKED only when this Test was never audited at all).
-        let value = if valid.is_empty() {
-            if test_records.is_empty() && malformed_for_test.is_empty() {
-                CheckValue::NotChecked
-            } else {
-                CheckValue::Stale
-            }
+        let (value, citations) = if valid.is_empty() {
+            (
+                if test_records.is_empty() && malformed_for_test.is_empty() {
+                    CheckValue::NotChecked
+                } else {
+                    CheckValue::Stale
+                },
+                Vec::new(),
+            )
         } else {
             static_audit_item_value(root, evidence, test, scan, &valid, &declared)
         };
@@ -1243,6 +1300,17 @@ fn evaluate_static_audit(
                 "; {} malformed static audit record(s)",
                 malformed_for_test.len()
             ));
+        }
+        // 詳細設計 §11.3 L1434 (VO-AGG-10): when a target's DA-002 reachability
+        // was decided by runtime proof (rescued to PASS, or left UNKNOWN
+        // because the internal dependency was evaluated and not satisfied),
+        // the report must cite the Evidence ID and that target's
+        // target_execution result -- the only surface a limited-scope report
+        // (target_execution/evidence_validity themselves NOT_CHECKED) can
+        // trace the cause from.
+        for citation in &citations {
+            detail.push_str("; ");
+            detail.push_str(citation);
         }
         basis.push(detail);
     }
@@ -1417,14 +1485,77 @@ fn resolve_target_execution_entries<'a>(
     Ok(resolved)
 }
 
+/// The evidence this cluster's basis citation (VO-AGG-10) and cluster 8's
+/// entry-set predicate both need: the Evidence record ID this Test maps to
+/// (if any) and, when target_execution was measured, that one canonical
+/// target's own per-target result -- the two facts §11.3 requires the report
+/// to quote when a `static_audit` value was decided by runtime proof.
+struct RuntimeTargetProof {
+    reached: bool,
+    evidence_id: Option<String>,
+    target_execution_result: Option<CheckValue>,
+}
+
 /// Runtime proof of target reachability (詳細設計 §7.3 step 2, §10.2): the
 /// §11.2-selected latest Evidence (the one this test maps to) is valid, coverage
-/// was measured, the entry set validates 1:1 against `declared_canonical`
-/// (shared with `evaluate_target_execution` via
-/// `resolve_target_execution_entries` -- a malformed entry set proves nothing
-/// for any target, including this one), and that target's per-target result
-/// is PASS with count > 0. The evidence map holds one record per Test, so
-/// there is no fallback to an older valid Evidence (L1017).
+/// was measured, and that target's per-target result is PASS with count > 0. The
+/// evidence map holds one record per Test, so there is no fallback to an older
+/// valid Evidence (L1017).
+fn runtime_target_proof(
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    test: &TestEntity,
+    scan: &ScanResult,
+    declared_canonical: &BTreeSet<String>,
+    canonical: &str,
+) -> RuntimeTargetProof {
+    let Some(record) = evidence.get(test.id.as_str()) else {
+        return RuntimeTargetProof {
+            reached: false,
+            evidence_id: None,
+            target_execution_result: None,
+        };
+    };
+    let not_reached = |target_execution_result| RuntimeTargetProof {
+        reached: false,
+        evidence_id: Some(record.id.clone()),
+        target_execution_result,
+    };
+    if evidence_record_validity(root, record, test, scan, built_in_test_runners())
+        != CheckValue::Pass
+    {
+        return not_reached(None);
+    }
+    if !record.target_execution.checked {
+        return not_reached(None);
+    }
+    // Shared entry-set predicate (VO-EXEC-09): a malformed entry set proves
+    // nothing, so it yields no per-target result either.
+    let Ok(entries) =
+        resolve_target_execution_entries(&record.target_execution.targets, declared_canonical)
+    else {
+        return not_reached(None);
+    };
+    let observation = entries.get(canonical).copied();
+    let reached = observation.is_some_and(|observation| {
+        observation.result == CheckValue::Pass && observation.count.is_some_and(|count| count > 0)
+    });
+    RuntimeTargetProof {
+        reached,
+        evidence_id: Some(record.id.clone()),
+        target_execution_result: observation.map(|observation| observation.result),
+    }
+}
+
+/// Bool-only view of `runtime_target_proof`, kept as the one shared
+/// reachability predicate (w4 prep: cluster 8's entry-set derivation must not
+/// grow a second "matches the canonical Source Target" check) -- its
+/// signature and behavior are unchanged from before this cluster's basis
+/// enrichment. `static_audit_item_value` now calls `runtime_target_proof`
+/// directly (it needs the citation, not just the bool), so this wrapper has
+/// no caller inside this cluster's own diff; it is preserved, not deleted,
+/// as the stable predicate cluster 8's own branch reasons about.
+#[allow(dead_code)]
 fn runtime_target_reached(
     root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
@@ -1433,25 +1564,7 @@ fn runtime_target_reached(
     declared_canonical: &BTreeSet<String>,
     canonical: &str,
 ) -> bool {
-    let Some(record) = evidence.get(test.id.as_str()) else {
-        return false;
-    };
-    if evidence_record_validity(root, record, test, scan, built_in_test_runners())
-        != CheckValue::Pass
-    {
-        return false;
-    }
-    if !record.target_execution.checked {
-        return false;
-    }
-    let Ok(entries) =
-        resolve_target_execution_entries(&record.target_execution.targets, declared_canonical)
-    else {
-        return false;
-    };
-    entries.get(canonical).is_some_and(|observation| {
-        observation.result == CheckValue::Pass && observation.count.is_some_and(|count| count > 0)
-    })
+    runtime_target_proof(root, evidence, test, scan, declared_canonical, canonical).reached
 }
 
 /// Compute the static_audit item value for one Test at evaluation time
@@ -1471,8 +1584,15 @@ fn static_audit_item_value(
     scan: &ScanResult,
     valid: &[&AuditRecord],
     declared: &BTreeSet<String>,
-) -> CheckValue {
+) -> (CheckValue, Vec<String>) {
     let mut contributions = Vec::new();
+    // 詳細設計 §11.3 L1434 (VO-AGG-10): every DA-002 contribution decided by
+    // runtime proof -- rescued to PASS, or left UNKNOWN because the internal
+    // dependency was evaluated and not satisfied -- gets one citation line
+    // quoting the Evidence ID and that target's target_execution result, so
+    // the report can name the ground even though target_execution /
+    // evidence_validity themselves stay NOT_CHECKED in a limited scope.
+    let mut citations = Vec::new();
     for canonical in declared {
         let reachability = match effective_target_verdict(valid, "DA-002", canonical) {
             CheckValue::Pass => CheckValue::Pass,
@@ -1480,7 +1600,10 @@ fn static_audit_item_value(
             CheckValue::Fail => CheckValue::Fail,
             // Statically unproven: reachable only if runtime proves it.
             _ => {
-                if runtime_target_reached(root, evidence, test, scan, declared, canonical) {
+                let proof =
+                    runtime_target_proof(root, evidence, test, scan, declared, canonical);
+                citations.push(runtime_proof_citation(canonical, &proof));
+                if proof.reached {
                     CheckValue::Pass
                 } else {
                     CheckValue::Unknown
@@ -1497,13 +1620,26 @@ fn static_audit_item_value(
     for rule in ["DA-001", "DA-004", "DA-005", "DA-006"] {
         contributions.push(effective_rule_verdict(valid, rule));
     }
-    if contributions.contains(&CheckValue::Fail) {
+    let value = if contributions.contains(&CheckValue::Fail) {
         CheckValue::Fail
     } else if contributions.iter().all(|value| *value == CheckValue::Pass) {
         CheckValue::Pass
     } else {
         CheckValue::Unknown
-    }
+    };
+    (value, citations)
+}
+
+fn runtime_proof_citation(canonical: &str, proof: &RuntimeTargetProof) -> String {
+    let ground = match (&proof.evidence_id, proof.target_execution_result) {
+        (None, _) => "no valid Evidence / target_execution NOT_EXECUTED".to_owned(),
+        (Some(id), None) => format!("Evidence {id} target_execution NOT_CHECKED"),
+        (Some(id), Some(result)) => format!("Evidence {id} target_execution {result:?}"),
+    };
+    format!(
+        "target {canonical}: DA-002 {}, {ground}",
+        if proof.reached { "UNKNOWN rescued to PASS" } else { "UNKNOWN" }
+    )
 }
 
 fn audit_mentions_test(record: &AuditRecord, test_id: &str) -> bool {
@@ -5369,6 +5505,181 @@ mod tests {
         assert_eq!(
             evaluate_test_audit(&layout.root, &layout, &scan, "impl-consistency").0,
             CheckValue::Mismatch
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-070
+    /// @vtest.covers VO-EXIST-09
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_traceability
+    /// @vtest.intent a non-PASS test_traceability basis line carries the
+    /// diagnostic code, adapter ID, source location and verdict -- not only
+    /// the bare scan diagnostic message -- so text and JSON cite the SAME
+    /// tuple 別紙A §12.2 requires under `Project checks` (別紙A §12.2 L225-227).
+    #[test]
+    fn test_traceability_missing_basis_carries_the_full_citation_tuple() {
+        let (_layout, mut scan) = static_fixture(&[]);
+        scan.diagnostics.push(
+            Diagnostic::warning(
+                "W-SCAN-101",
+                "test function `orphan` has no @vtest annotation",
+            )
+            .with_location(location("tests/unregistered.rs", "orphan")),
+        );
+        let (value, basis) = evaluate_test_traceability(&scan);
+        assert_eq!(value, CheckValue::Missing);
+        assert_eq!(basis.len(), 1, "{basis:?}");
+        let line = &basis[0];
+        assert!(line.contains("W-SCAN-101"), "{line}");
+        assert!(line.contains("rust-cargo"), "{line}");
+        assert!(line.contains("tests/unregistered.rs::orphan"), "{line}");
+        assert!(line.contains("Missing"), "{line}");
+        assert!(line.contains("no @vtest annotation"), "{line}");
+    }
+
+    /// @vtest.id TEST-VERIFY-071
+    /// @vtest.covers VO-EXIST-09
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_traceability
+    /// @vtest.intent a MISMATCH diagnostic (E-SCAN-003) gets the same
+    /// structured citation as the MISSING branch -- the fix is not
+    /// MISSING-only.
+    #[test]
+    fn test_traceability_mismatch_basis_carries_the_full_citation_tuple() {
+        let (_layout, mut scan) = static_fixture(&[]);
+        scan.diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-003",
+                "test `TEST-DANGLING` references missing VO `VO-GONE`",
+            )
+            .with_location(location("tests/dangling.rs", "dangling_case")),
+        );
+        let (value, basis) = evaluate_test_traceability(&scan);
+        assert_eq!(value, CheckValue::Mismatch);
+        let line = &basis[0];
+        assert!(line.contains("E-SCAN-003"), "{line}");
+        assert!(line.contains("tests/dangling.rs::dangling_case"), "{line}");
+        assert!(line.contains("Mismatch"), "{line}");
+    }
+
+    /// @vtest.id TEST-VERIFY-072
+    /// @vtest.covers VO-AGG-08
+    /// @vtest.target crates/vtest-verify/src/lib.rs::item_copies_for_test
+    /// @vtest.intent an audited Test and an unaudited sibling covering the
+    /// same VO get DIFFERENT `static_audit` basis on their own Test node --
+    /// item_copies_for_test narrows the shared scope-level basis to each
+    /// Test's own `"Test {id}: "`-prefixed line, so an audited/unaudited pair
+    /// is no longer indistinguishable in the detail tree (VO-AGG-08 leg i/iii).
+    #[test]
+    fn test_node_basis_distinguishes_an_audited_test_from_an_unaudited_sibling() {
+        let (layout, scan) = static_fixture(&["TEST-AUDITED", "TEST-BARE"]);
+        let audited = scan
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-AUDITED")
+            .expect("audited test fixture");
+        write_static_audit_split(&layout, audited, "PASS", "PASS", "2026-08-08T00:00:00Z");
+        let selection = ScopeSelection {
+            entity_scope: None,
+            test_ids: BTreeSet::new(),
+            vo_ids: BTreeSet::new(),
+            req_ids: BTreeSet::new(),
+            spec_ids: BTreeSet::new(),
+        };
+        let items = ALL_ITEMS
+            .iter()
+            .map(|item| {
+                let (value, basis) = evaluate_item(
+                    &layout.root,
+                    &layout,
+                    &scan,
+                    item,
+                    &BTreeMap::new(),
+                    &selection,
+                );
+                ReportItem {
+                    item: (*item).to_owned(),
+                    value,
+                    basis,
+                }
+            })
+            .collect::<Vec<_>>();
+        let values = items
+            .iter()
+            .map(|item| (item.item.as_str(), item))
+            .collect::<BTreeMap<_, _>>();
+        let no_evidence = BTreeMap::new();
+        let audited_node = test_node(audited, &values, &layout.root, &no_evidence, &scan, false);
+        let bare = scan
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-BARE")
+            .expect("bare test fixture");
+        let bare_node = test_node(bare, &values, &layout.root, &no_evidence, &scan, false);
+        let audited_basis = &audited_node
+            .items
+            .iter()
+            .find(|item| item.item == "static_audit")
+            .expect("audited static_audit item")
+            .basis;
+        let bare_basis = &bare_node
+            .items
+            .iter()
+            .find(|item| item.item == "static_audit")
+            .expect("bare static_audit item")
+            .basis;
+        assert_ne!(audited_basis, bare_basis, "audited: {audited_basis:?} bare: {bare_basis:?}");
+        assert!(
+            audited_basis.iter().any(|line| line.contains("TEST-AUDITED")),
+            "{audited_basis:?}"
+        );
+        assert!(
+            !audited_basis.iter().any(|line| line.contains("TEST-BARE")),
+            "{audited_basis:?}"
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-073
+    /// @vtest.covers VO-AGG-10
+    /// @vtest.target crates/vtest-verify/src/lib.rs::static_audit_item_value
+    /// @vtest.intent when a DA-002 UNKNOWN target is rescued to PASS by
+    /// runtime target_execution, the static_audit basis cites the Evidence ID
+    /// and that target's target_execution result -- 詳細設計 §11.3 L1434's
+    /// only surface, since target_execution/evidence_validity themselves stay
+    /// NOT_CHECKED in a limited scope.
+    #[test]
+    fn static_audit_rescued_basis_cites_the_evidence_and_target_execution_result() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        let evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        let (value, basis) = evaluate_static_audit(&layout.root, &layout, &evidence, &scan);
+        assert_eq!(value, CheckValue::Pass);
+        let evidence_id = evidence.get("TEST-ONE").expect("fixture evidence").id.as_str();
+        let line = basis.iter().find(|line| line.starts_with("Test TEST-ONE: ")).expect("test basis line");
+        assert!(line.contains(evidence_id), "{line}");
+        assert!(line.contains("PASS") || line.contains("Pass"), "{line}");
+        assert!(line.contains("DA-002"), "{line}");
+    }
+
+    /// @vtest.id TEST-VERIFY-074
+    /// @vtest.covers VO-AGG-10
+    /// @vtest.target crates/vtest-verify/src/lib.rs::static_audit_item_value
+    /// @vtest.intent when DA-002 stays UNKNOWN because no Evidence satisfies
+    /// the runtime dependency, the basis names that internal-dependency state
+    /// as the ground rather than leaving the cause traceable only from a
+    /// scope-external NOT_CHECKED value (詳細設計 §11.3 L1434).
+    #[test]
+    fn static_audit_unrescued_basis_cites_the_unsatisfied_internal_dependency() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        let (value, basis) =
+            evaluate_static_audit(&layout.root, &layout, &BTreeMap::new(), &scan);
+        assert_eq!(value, CheckValue::Unknown);
+        let line = basis.iter().find(|line| line.starts_with("Test TEST-ONE: ")).expect("test basis line");
+        assert!(line.contains("DA-002"), "{line}");
+        assert!(
+            line.contains("no valid Evidence") || line.contains("target_execution"),
+            "{line}"
         );
     }
 }

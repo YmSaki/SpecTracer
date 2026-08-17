@@ -4191,44 +4191,7 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
     println!("{}", if envelope.ok { "OK" } else { "NG" });
     if let Ok(value) = serde_json::to_value(envelope.data) {
         if let Some(report) = value.get("report").and_then(serde_json::Value::as_object) {
-            let requested_scope = report
-                .get("requested_scope")
-                .and_then(serde_json::Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .collect::<Vec<_>>()
-                        .join(",")
-                })
-                .unwrap_or_else(|| "full".to_owned());
-            println!("Requested scope: {requested_scope}");
-            if let Some(entity) = report.get("entity_scope") {
-                println!("Entity scope: {entity}");
-            }
-            if report
-                .get("scope_outside_not_checked")
-                .and_then(serde_json::Value::as_bool)
-                == Some(true)
-            {
-                println!("Scope outside requested range: NOT_CHECKED");
-            }
-            if let Some(tree) = report.get("tree").and_then(serde_json::Value::as_array) {
-                for node in tree {
-                    print_text_tree_node(node, "├─ ");
-                }
-            } else if let Some(items) = report.get("items").and_then(serde_json::Value::as_array) {
-                for item in items {
-                    let key = item.get("item").and_then(serde_json::Value::as_str);
-                    let value = item.get("value").and_then(serde_json::Value::as_str);
-                    if let (Some(key), Some(value)) = (key, value) {
-                        println!("├─ {key:<24} {value}");
-                    }
-                }
-            }
-            if let Some(result) = report.get("result").and_then(serde_json::Value::as_str) {
-                println!("Result: {result}");
-            }
+            render_report_text(report);
         } else if value.get("result").is_some() && value.get("non_pass_items").is_some() {
             println!(
                 "Result: {}",
@@ -4266,7 +4229,116 @@ fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
     }
 }
 
-fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
+/// Render the `report` object of a verify/report envelope per 別紙A §12.2:
+/// a `Project checks` section for every requested item no tree node carries
+/// (repository-level `test_traceability` always; `spec_coverage`/`vo_coverage`
+/// too in a degenerate entity-less scope -- VO-AGG-04, VO-EXIST-09), followed
+/// by the REQ/VO/Test detail tree with sibling-aware branch marks (VO-REPORT-05)
+/// and per-item basis lines (VO-AGG-04, VO-AGG-08).
+fn render_report_text(report: &serde_json::Map<String, serde_json::Value>) {
+    let requested_scope = report
+        .get("requested_scope")
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .unwrap_or_else(|| "full".to_owned());
+    println!("Requested scope: {requested_scope}");
+    if let Some(entity) = report.get("entity_scope") {
+        println!("Entity scope: {entity}");
+    }
+    if report
+        .get("scope_outside_not_checked")
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
+    {
+        println!("Scope outside requested range: NOT_CHECKED");
+    }
+
+    let empty = Vec::new();
+    let tree = report
+        .get("tree")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty);
+    let items = report
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty);
+
+    // Every node kind's own item_copies is a deliberate per-kind subset
+    // (spec_node/build_req_node/build_vo_node/test_node, vtest-verify); a
+    // repository-level item like test_traceability is in NONE of them by
+    // design, and spec_coverage/vo_coverage fall out too whenever the
+    // corresponding SPEC/REQ/VO node never gets built (an entity-less or
+    // VO-only scope). Whatever key no node in THIS tree carries must not
+    // silently vanish from the text channel the way JSON's flat `items`
+    // never does.
+    let mut covered = BTreeSet::new();
+    collect_covered_items(tree, &mut covered);
+    let uncovered = items
+        .iter()
+        .filter(|item| {
+            item.get("item")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|key| !covered.contains(key))
+        })
+        .collect::<Vec<_>>();
+
+    if !uncovered.is_empty() {
+        println!("Project checks:");
+        let last = uncovered.len();
+        for (index, item) in uncovered.iter().enumerate() {
+            print_item_line(item, "", index + 1 == last);
+        }
+        println!();
+    }
+
+    let roots = if !tree.is_empty() { tree } else { items };
+    let last = roots.len();
+    for (index, node) in roots.iter().enumerate() {
+        if tree.is_empty() {
+            print_item_line(node, "", index + 1 == last);
+        } else {
+            print_tree_node(node, "", index + 1 == last);
+        }
+    }
+
+    if let Some(result) = report.get("result").and_then(serde_json::Value::as_str) {
+        println!("Result: {result}");
+    }
+}
+
+fn collect_covered_items(nodes: &[serde_json::Value], covered: &mut BTreeSet<String>) {
+    for node in nodes {
+        if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
+            for item in items {
+                if let Some(key) = item.get("item").and_then(serde_json::Value::as_str) {
+                    covered.insert(key.to_owned());
+                }
+            }
+        }
+        // No match on `kind` here: a concurrent per-target child under a
+        // Test node (or any future node kind) still gets its own items
+        // folded into `covered` without this renderer naming it.
+        if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
+            collect_covered_items(children, covered);
+        }
+    }
+}
+
+/// Print one tree node (kind-agnostic: no enumeration of `kind` values) plus
+/// its items and children as ONE combined, sibling-ordered sequence -- 別紙A's
+/// sample renders an item (`spec_coverage`) and a child node (a REQ) under the
+/// same SPEC node with consecutive sibling marks, not two separately-numbered
+/// lists. `prefix` carries only ANCESTOR continuation state (`│  ` if that
+/// ancestor has a following sibling, else three spaces); this node's own
+/// `├─ `/`└─ ` mark is never appended to `prefix` before recursing, so a
+/// descendant line never inherits it (VO-REPORT-05).
+fn print_tree_node(node: &serde_json::Value, prefix: &str, is_last: bool) {
     let kind = node
         .get("kind")
         .and_then(serde_json::Value::as_str)
@@ -4279,20 +4351,59 @@ fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
         .get("value")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("UNKNOWN");
-    println!("{prefix}{kind}:{id:<28} {value}");
-    if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
-        for item in items {
-            let key = item.get("item").and_then(serde_json::Value::as_str);
-            let value = item.get("value").and_then(serde_json::Value::as_str);
-            if let (Some(key), Some(value)) = (key, value) {
-                println!("{prefix}│  ├─ {key:<24} {value}");
-            }
-        }
+    let mark = if is_last { "└─ " } else { "├─ " };
+    println!("{prefix}{mark}{kind}:{id:<28} {value}");
+
+    let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
+    let empty = Vec::new();
+    let child_items = node
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty);
+    let children = node
+        .get("children")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty);
+    let last = child_items.len() + children.len();
+    let mut index = 0;
+    for item in child_items {
+        index += 1;
+        print_item_line(item, &child_prefix, index == last);
     }
-    if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
-        for child in children {
-            print_text_tree_node(child, &format!("{prefix}│  "));
-        }
+    for child in children {
+        index += 1;
+        print_tree_node(child, &child_prefix, index == last);
+    }
+}
+
+/// Print one `item value` line plus every `basis` entry as its own indented
+/// child bullet -- the text channel's only citation surface (VO-AGG-04,
+/// VO-AGG-08, VO-EXIST-09, VO-AGG-10): `report.basis` already carries the
+/// audit record / Evidence ID / diagnostic detail vtest-verify built, and it
+/// must survive into text, not only JSON.
+fn print_item_line(item: &serde_json::Value, prefix: &str, is_last: bool) {
+    let key = item
+        .get("item")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("?");
+    let value = item
+        .get("value")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("UNKNOWN");
+    let mark = if is_last { "└─ " } else { "├─ " };
+    println!("{prefix}{mark}{key:<24} {value}");
+
+    let empty = Vec::new();
+    let basis = item
+        .get("basis")
+        .and_then(serde_json::Value::as_array)
+        .unwrap_or(&empty);
+    let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
+    let last = basis.len();
+    for (index, entry) in basis.iter().enumerate() {
+        let Some(text) = entry.as_str() else { continue };
+        let mark = if index + 1 == last { "└─ " } else { "├─ " };
+        println!("{child_prefix}{mark}{text}");
     }
 }
 
