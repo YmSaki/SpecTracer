@@ -513,27 +513,29 @@ locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所�
 
 ### 4.2 `rust-cargo` annotation文法
 
-テスト関数直前の doc comment（`///` または `/** */`）内の行を対象とする。
+`rust-cargo`の`@vtest.`宣言表面は次の2種であり、本節は両表面の文法を定義する。表面ごとに認識する行形式が異なる。
+
+1. **Test constructのdoc comment**（`///` または `/** */`）: test-annotation-line を認識する。
+2. **Test constructではない関数itemのdoc comment**（対象実装側の関数等）: source-target-annotation-line を認識する。
 
 ```text
-annotation-line   = "@vtest." key SP value
-key               = test-key | source-target-key
+test-annotation-line          = "@vtest." test-key SP value
+source-target-annotation-line = "@vtest." source-target-key SP value
 test-key          = "id" | "covers" | "target" | "intent" | "input"
                   | "expect" | "kind" | "case" | "related"
                   | "role" | "anchor" | "anchor-rationale"
 source-target-key = "src-id"
 value             = 行末までのテキスト（前後空白は除去）
-role-value      = "verification" | "supporting" | "regression"
-                | "characterization"
-anchor-value    = "normative" | "none"
+role-value        = "verification" | "supporting" | "regression"
+                  | "characterization"
+anchor-value      = "normative" | "none"
 ```
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
 - `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
-- `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。本節の文法とこの規則は、Test constructとして解析される宣言に適用する。
-- Test constructの宣言で許可されるキーは test-key のみとする。`src-id`（source-target-key）をTest constructに置いた場合も E-SCAN-006 とする — 対象実装側の関数に付与すべきキーの誤配置であり、Test metadataへの取り込み先を持たない。
-- Test constructとして解析されない関数item（対象実装側の関数等）のdoc comment内でも、`@vtest.` で始まる行は自由記述として無視せず検査する。当該表面で認識されるキーは source-target-key（`src-id`）のみであり、それ以外のキー（test-keyを含む）は警告 W-SCAN-105 とする（§5.4）。打鍵ミス検出の目的は表面を問わず及ぶが、認識されないキーはTest metadataを破損させず採用値の曖昧さも生まないため、errorではなくwarningとする。
-- `src-id` はこの表面でも反復不可であり、同一関数itemでの重複は採用すべきIDを決定できないためエラー E-SCAN-005 とする。このときいずれの宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う（どちらかを推測で選ばない）。
+- 表面1で、`@vtest.` で始まるが test-key を持たない行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。未知キーに加え、source-target-key（`src-id`）の誤配置も含む — `src-id` は対象実装側の関数に付与すべきキーであり、Test metadataへの取り込み先を持たない。
+- 表面2で、`@vtest.` で始まるが source-target-key を持たない行（test-keyを含む）は警告 W-SCAN-105 とする（§5.4）。打鍵ミス検出の目的は両表面に及ぶが、表面2の宣言はTest metadataを破損させず採用値の曖昧さも生まないため、errorではなくwarningとする。
+- `src-id` は表面2でも反復不可であり、同一関数itemでの重複は採用すべきIDを決定できないためエラー E-SCAN-005 とする。このときいずれの宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う（どちらかを推測で選ばない）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 - `@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale` はいずれも反復不可であり、重複はE-SCAN-005とする。`@vtest.role` は `role_declared`、`@vtest.anchor` は `anchor_declared`、`@vtest.anchor-rationale` は `anchor_rationale` へ、値を逐語のまま対応付ける（§4.1）。
 - `role-value` と `anchor-value` は受理語彙の定義であって、adapterが行う受理判定ではない。adapterはこの語彙に一致しない値も逐語で搬送し、値がいずれの語彙にも属さない場合、および `anchor-rationale` の値が空白のみの場合は、coreがcore materializationでエラー E-SCAN-013 を生成する（§4.4）。`characterization` は `role-value` に含まれる予約されたrole値であり、本versionでは宣言できない。宣言された場合も未知キーのE-SCAN-006ではなくE-SCAN-013で報告する。キーの綴り自体が未知である場合だけがadapter側のE-SCAN-006であり、既知キーの値が語彙に違反する場合はcore側のE-SCAN-013である。
@@ -1048,12 +1050,12 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 | DA-003 結果未検証 | target を呼ぶが、その結果を assert 相当で一切検証しない | target 呼出結果（戻り値、および結果から派生した束縛）が assert 相当に到達しない、かつ `#[should_panic]` がない | 結果が可変参照・グローバル状態経由で検証される可能性がある場合 |
 | DA-004 自己比較 | `assert_eq!(a, b)` で a と b がトークン列として同一 | 該当 assert が存在する | なし（構文的に確定） |
 | DA-005 空テスト | 関数本体に文が存在しない | 該当 | なし |
-| DA-006 検証構文なし | Testに検証oracle（assert相当）が1つも存在しない | 探索視界（関数本体、および本体から呼び出す同一ファイル内の非target関数 1段）に検証oracleが1つも存在しない | 視界内のクロージャ内・マクロ展開内・未対応構文の内側にoracleが存在しうる場合に限る。視界外への呼出（fixture構築・setup・2段目以降の委譲を含む）はUNKNOWNの理由にしない |
+| DA-006 検証構文なし | Testに検証oracle（assert相当）が1つも存在しない | 探索視界（関数本体、および本体から呼び出す同一ファイル内の非target関数 1段）に検証oracleが1つも存在せず、かつ視界内から視界外の非target関数への呼出も存在しない | 視界内に検証oracleが無く、視界外の非target関数への呼出が存在する場合（helperからの2段目以降の委譲、他ファイル・他クレートの非target呼出）— 解析限界でありoracleの不在を決定論的に確定できない。クロージャ内・マクロ展開内・未対応構文の内側も同様 |
 | W-DA-101 ignored | `#[ignore]` 属性 | （FAILにしない。警告のみ。実行されなければ `test_execution` が NOT_EXECUTED になる） | |
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
-**DA-006 の責務は検証oracleの存在証明である。** 3規則は次のとおり責務を分担する: DA-002 = targetへ到達していることの証明、DA-003 = targetの結果・影響がoracleへ接続していることの証明、DA-006 = oracle自体が存在することの証明。DA-006はTestの検証方式（execution topology）を判定せず、視界内にoracleが存在するかだけを見る。宣言Source Targetを呼ぶだけで何も検証しないTestは、視界内にoracleを持たないためFAILである — targetへの呼出は実行であって検証の委譲ではなく、その内部にassert相当があるかはDA-006に関係しない（結果の検証はDA-003の領分）。
-DA-006はoracleの**可視性要件**として定義する: oracleは探索視界 — 関数本体、および本体から呼び出す同一ファイル内の非target関数（1段。DA-002/003と同一境界）— の内側に存在しなければならない。「検証helper」の事前分類は行わない（fixture構築・setup・実行helperと検証helperを静的に前もって識別する規則は存在しない）。視界の全探索がoracleを発見すれば違反なしであり、oracleを含んでいた1段helperが結果としてassertion wrapperである — 分類はoracle発見の帰結にすぎない。視界内にoracleが無ければ、helperがさらに先へ呼出しているか否かにかかわらずFAILを確定する: oracleを含まない呼出の先に「検証が隠れているかもしれない」と推測しない（それを認めるとあらゆるTestがUNKNOWNへ逃げられる）。これより深くへoracleを委譲するTestは、oracleを視界内（本体または1段helper）へ引き上げることで適合する。UNKNOWNへ退避してよいのは、視界内のクロージャ・マクロ展開・未対応構文の内側にoracleが存在しうる場合だけである（§7.2一般則）。この判定はrule-set versionを更新し、既存のstatic Audit RecordはSTALEとなり再監査で現在の判定へ更新される（§3.6）。
+**DA-006 の責務は検証oracleの存在証明である。** 3規則は次のとおり責務を分担する: DA-002 = targetへ到達していることの証明、DA-003 = targetの結果・影響がoracleへ接続していることの証明、DA-006 = oracle自体が存在することの証明。DA-006はTestの検証方式（execution topology）を判定せず、oracleの存在だけを見る。宣言Source Targetへの呼出は実行であって検証の委譲ではなく、その内部にassert相当があるかはDA-006に関係しない（結果の検証はDA-003の領分）— targetを呼ぶだけで視界内にoracleも視界外への非target呼出も無いTestは、oracle不在を確定できるためFAILである。
+探索は関数本体および本体から呼び出す同一ファイル内の非target関数（helper）1段までとする（DA-002/003と同一境界）。「検証helper」の事前分類は行わず（fixture構築・setup・実行helperと検証helperを静的に前もって識別する規則は存在しない）、視界内の全helperを探索する。判定は§7.1の保守的判定原則に従う: 視界内にoracleが見つかれば違反なし — oracleを含んでいた1段helperが結果としてassertion wrapperである。視界内にoracleが無く、視界外の非target関数への呼出（helperからの2段目以降の委譲、他ファイル・他クレートの非target呼出）が存在する場合は、oracleの不在を決定論的に確定できないためFAILでなくUNKNOWNとし、意味監査へ送る。視界内にoracleが無く、視界外への非target呼出も無い場合に限りFAILを確定する。解析限界をTest構造への要求（oracleを1段以内に置く義務等）へ読み替えない — 上位仕様に存在しない規範を本設計は追加しない。この判定はrule-set versionを更新し、既存のstatic Audit RecordはSTALEとなり再監査で現在の判定へ更新される（§3.6）。
 現行の静的監査（DA-001〜DA-006）は、Source Targetを中心とするwhite-box証明モデル（Test → Source Target → result → oracle）である。target呼出がTest本体に現れないTest（subprocess等の境界越し実行）は、視界内にoracleがあってDA-006を満たしても、DA-003が後述「呼出そのものがTest本体に現れない場合のDA-003」に従いUNKNOWNのままであり、static_audit = PASSへ到達しない。境界越しの契約を検証するTestの証明モデル（契約target・observable outcomeの第一級化: Test → Contract Target → observable outcome → oracle）は、white-boxモデルのcall graph追跡の延長では表現せず、本仕様の範囲外の別設計事項とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
 このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。この規則単位verdictは**Evidenceを参照しない純静的fold**であり、§3.6のmalformed整合検査（target別verdictと規則単位verdictの一致）はこの純静的foldに対して行う。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。

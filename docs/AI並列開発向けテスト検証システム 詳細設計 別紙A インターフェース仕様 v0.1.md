@@ -404,7 +404,7 @@ Structured Test capabilityはE-ADAPTER-004として作成・編集を中止し�
 次の2種を組込Formとして同梱する。
 
 - `rust-unit-function`（§14.1）
-- `rust-integration`：単一の`target` fieldに代えて、1件以上のロケータを持つ`targets`を必須入力として受け取る。また`file`はrequired:trueとする — integration testの追加先はintegration suite（`tests/*.rs`等）であってtargetのsourceファイルではないため、targetから追加先を導出する規則を持たない。§14.1との差分はこの2点であり、他は同一
+- `rust-integration`：単一の`target` fieldに代えて、1件以上のロケータを持つ`targets`を必須入力として受け取る。`file`は§14.1と同一にrequired:falseであり、省略時は全`targets`が同一ファイル内のロケータへ解決する場合に限りそのファイルへ導出し、複数ファイルへ跨って導出先が一意に定まらない場合はE-OP-001で明示入力を要求する。他は同一
 
 `rust-integration`は`targets`の全要素を入力順に個別の`@vtest.target`行として出力する。
 空listと重複targetをE-OP-001で拒否する。`target`キーはintegration種別に限り複数行を許容する
