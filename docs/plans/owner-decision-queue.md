@@ -1,5 +1,19 @@
 # Owner 判断キュー — 判断ブリーフ（2026-08-17）
 
+## ★裁定結果（2026-08-17 Owner 回答）
+
+1. **REGISTRY-15 = broad 採用**。目的（打鍵ミス検出）からして production 関数表面も含む。非テスト表面は error でなくてもよい — 「未定義キーを検出した」旨の **warning** を出す設計で可。
+2. **STATAUDIT-01 = helper 追跡採用**。Owner の枠組み: 「helper に委任する = helper が正常にジャッジできるかをテストすることと同値」→ DA-006 も同一ファイル helper 1段を追跡してよい。視界外は UNKNOWN 退避。
+3. **STRUCTOP-15 = 推奨どおり実装対称化**（file required:false + 全 targets 同一ファイルなら導出・跨るなら明示要求）。
+4. **原子性 = 推奨どおり追補**（一文 + VO 新設）。
+5. **black-box = 「ブラックボックスで考える」**: white-box 規則の緩和ではなく、black-box 視点から監査モデルを構想する（検証対象 = 境界契約、oracle = 境界観測）。設計着手は remap 後。
+6. **Evidence Set = 第一級化は将来必要というのが当然**（Owner 同意）。remap は現状意味論で通し、post-remap の spec PR 候補として⑤と並ぶ。
+7. **STORE-020/021 = ④追補の帰結として昇格**（削除しない。新 VO へ covers、remap 時に適用）。
+
+→ ①②③④ は spec 変更を伴う。spec-only PR（develop 起点）として一括起案する。①③は実装変更も伴う（spec merge 後）。
+
+---
+
 7件。各項目 = 何の話か / 確定している事実 / 選択肢 / いつまでに要るか / 推奨。
 一次資料: dogfood-vo-registry-15-dossier.md, dogfood-contradiction-verification.json (VO-STATAUDIT-01), dogfood-vo-structop-15-dossier.json, dogfood-agap-rederivation.json (STORE-020/021), w8-dogfood-findings.md (問題2)。
 
