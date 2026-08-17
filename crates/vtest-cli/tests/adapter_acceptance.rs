@@ -1398,6 +1398,47 @@ fn impl_consistency_recovers_after_the_spec_is_re_registered_at_the_current_hash
     );
 }
 
+/// @vtest.id TEST-CLI-142
+/// @vtest.covers VO-EXIST-08
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent An unparseable Rust source file (E-SCAN-001, discovery
+/// Incomplete) still yields a completed scan (別紙C §18.3.1: exit 1, not an
+/// operation rejection) whose test_traceability reads UNKNOWN, never PASS --
+/// discovery is never presented as a complete 0-test result even though the
+/// project's other registered Test remains discoverable.
+#[test]
+fn unparseable_source_file_makes_test_traceability_unknown_not_pass() {
+    let project = TempProject::from_m1_base("intake-exist08-unparseable");
+    fs::write(
+        project.root.join("src/broken.rs"),
+        "fn broken( { this is not valid rust ][\n",
+    )
+    .expect("write unparseable source file");
+    let scan = invoke(&project.root, "scan", &[]);
+    assert_exit(&scan, 1, "an unparseable file completes the scan at exit 1");
+    assert!(
+        envelope(&scan)["diagnostics"]
+            .as_array()
+            .expect("diagnostics array")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-SCAN-001"),
+        "expected E-SCAN-001: {:?}",
+        envelope(&scan)
+    );
+    let verify = invoke(&project.root, "verify", &["--items", "test_traceability"]);
+    assert_exit(
+        &verify,
+        1,
+        "test_traceability must not PASS while discovery is incomplete",
+    );
+    assert_eq!(
+        report_item(&envelope(&verify), "test_traceability")["value"],
+        "UNKNOWN",
+        "{:?}",
+        envelope(&verify)
+    );
+}
+
 /// @vtest.id TEST-CLI-039
 /// @vtest.covers VO-CLI-009
 /// @vtest.target crates/vtest-cli/src/lib.rs::run_verify

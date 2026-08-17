@@ -8,7 +8,7 @@ use std::{
 };
 
 use serde::Serialize;
-use vtest_adapter_api::{hash_execution_state_draft, AdapterRegistry};
+use vtest_adapter_api::{hash_execution_state_draft, AdapterRegistry, DiscoveryCompleteness};
 use vtest_adapter_rust::{rust_cargo_registration, RUST_CARGO_ADAPTER_ID};
 use vtest_model::{
     hash_spec_audit_subject, hash_specification_source, hash_static_audit_config_subject,
@@ -336,6 +336,7 @@ impl ScopeSelection {
             tests,
             sources: scan.sources.clone(),
             diagnostics: scan.diagnostics.clone(),
+            completeness: scan.completeness,
         }
     }
 
@@ -1062,6 +1063,19 @@ fn structural_relation_file_ids(
 }
 
 fn evaluate_test_traceability(scan: &ScanResult) -> (CheckValue, Vec<String>) {
+    // VO-EXIST-08 / 詳細設計 line 587, §11.1 L1378: an incomplete or
+    // unparseable discovery result is never presented as a complete 0-test
+    // discovery. Checked first and unconditionally -- 別紙C §18.3.1's
+    // "adapter discoveryの失敗をTest 0件の正常scanとして扱わない" gives no
+    // exception for a coexisting MISMATCH/MISSING diagnostic, and while
+    // discovery itself is incomplete none of those diagnostics can be
+    // trusted to reflect the true state either.
+    if scan.completeness == DiscoveryCompleteness::Incomplete {
+        return (
+            CheckValue::Unknown,
+            vec!["adapter discovery is incomplete or unparseable (E-SCAN-001)".to_owned()],
+        );
+    }
     let mismatch = scan
         .diagnostics
         .iter()
@@ -2959,6 +2973,7 @@ mod tests {
             tests,
             sources,
             diagnostics: Vec::new(),
+            completeness: DiscoveryCompleteness::Complete,
         };
         (layout, scan)
     }
@@ -5003,6 +5018,23 @@ mod tests {
             evaluate_static_audit(&layout.root, &layout, &evidence, &scan).0,
             CheckValue::Unknown
         );
+    }
+
+    /// @vtest.id TEST-VERIFY-065
+    /// @vtest.covers VO-EXIST-08
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_test_traceability
+    /// @vtest.intent An Incomplete discovery result (詳細設計 line 587,
+    /// §11.1 L1378) is never treated as a complete 0-test discovery:
+    /// test_traceability reads UNKNOWN, never PASS, while
+    /// `scan.completeness` is Incomplete -- checked ahead of the
+    /// mismatch/missing diagnostic scan since an incomplete discovery cannot
+    /// ground either of those either.
+    #[test]
+    fn test_traceability_is_unknown_while_discovery_is_incomplete() {
+        let (_, mut scan) = static_fixture(&[]);
+        scan.completeness = DiscoveryCompleteness::Incomplete;
+        let (value, basis) = evaluate_test_traceability(&scan);
+        assert_eq!(value, CheckValue::Unknown, "basis: {basis:?}");
     }
 
     /// Fixed VO-AGG-03: an unassociated malformed static record must fold
