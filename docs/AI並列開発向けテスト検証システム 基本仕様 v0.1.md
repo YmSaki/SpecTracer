@@ -703,12 +703,12 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | §8 Source Target | §3.3 |
 | §9 Test Intent | §6.2 |
 | §10 Parameterized Test | §6.2（`cases`）、§7.6 |
-| §11 Test静的監査 | §7.2 |
+| §11 Testの検証成立性 | §7.2 |
 | §12 Test意味監査 | §7.3 |
 | §13 対象実装との一致検証 | §7.5 |
 | §14 Test Execution | §7.7 |
 | §15 Evidenceの鮮度 | §7.8 |
-| §16 Target Execution Verification | §7.9 |
+| §16 検証対象の振る舞いの実現確認 | §7.9 |
 | §17 OK / NG | §4 |
 | §18 詳細出力 | §7.10 |
 | §19 上位への集約 | §4.3、§7.10 |
