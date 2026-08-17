@@ -700,12 +700,12 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | §5 検証空間と網羅性 | §7.6 |
 | §6 Specification・VO網羅性のAI検証 | §7.4 |
 | §7 Test Registry | §3、§6、§7.1 |
-| §8 Source Target | §3.3 |
+| §8 検証対象とSource Target | §3.3 |
 | §9 Test Intent | §6.2 |
 | §10 Parameterized Test | §6.2（`cases`）、§7.6 |
 | §11 Testの検証成立性 | §7.2 |
 | §12 Test意味監査 | §7.3 |
-| §13 対象実装との一致検証 | §7.5 |
+| §13 検証対象との一致検証 | §7.5 |
 | §14 Test Execution | §7.7 |
 | §15 Evidenceの鮮度 | §7.8 |
 | §16 検証対象の振る舞いの実現確認 | §7.9 |

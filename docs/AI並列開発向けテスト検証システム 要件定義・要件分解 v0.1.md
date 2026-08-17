@@ -421,9 +421,22 @@ discoveryが不完全または解析不能な状態は`UNKNOWN`とする。い�
 
 ---
 
-# 8. Source Target
+# 8. 検証対象とSource Target
 
-テスト対象となる実装コード上のimplementation constructを識別可能でなければならない。
+## 8.1 検証対象
+
+すべての管理対象Testは、1件以上の検証対象を識別可能でなければならない。
+検証対象は、そのTestが検証成立性（§11）を証明しようとする対象であり、実装constructそのものに限定しない。外部から観測可能な契約・境界上の振る舞いも検証対象にできる。
+
+実装construct（Source Target）を直接検証する実行形態では、既存のSource Target宣言をそのまま検証対象の宣言として扱い、同一対象の二重宣言を要求しない。
+
+外部契約・境界上の振る舞いを検証する実行形態では、その契約または振る舞いを検証対象とし、内部Source Targetの宣言をTest成立性の必須条件としない。
+
+検証対象と実装traceability（§8.3）は別の関係として扱い、一方から他方を推定してはならない。
+
+## 8.2 Source Targetの識別
+
+実装コード上のimplementation constructを、Source Targetとして識別可能でなければならない。
 
 1つのTestは1件以上のSource Targetを宣言できる。複数targetを宣言した場合も、各targetを独立に識別し、代表1件へ縮約してはならない。
 
@@ -434,7 +447,12 @@ Target Referenceの具体的な構文、namespace、symbol種別は下位仕様�
 恒久SRC IDを使用する場合、そのIDはadapter境界を越えてrepository全体で一意でなければならない。
 同一SRC IDを複数adapterまたは複数Source Targetが宣言した状態を曖昧な参照として受理してはならない。
 
-TestからSourceを検索でき、Sourceから関連Testを逆引きできること。
+## 8.3 実装traceability
+
+検証対象とは別に、Testまたは検証対象から、関連するSource Targetへのtraceabilityを保持できる。
+このtraceabilityは任意であり、影響分析・逆引き等に利用できるが、その存在自体をTest成立性の条件としてはならない。traceabilityは関連付けであって、実装対応の証明ではない。
+
+Source Targetとの関係（検証対象またはtraceability）を持つTestについて、TestからSourceを検索でき、Sourceから関連Testを逆引きできること。
 
 ---
 
@@ -548,9 +566,9 @@ Actual Test Code
 
 ---
 
-# 13. 対象実装との一致検証
+# 13. 検証対象との一致検証
 
-仕様・VO・Testと対象実装が一致しているか確認できること。
+仕様・VO・Testと、そのTestが検証対象として宣言した対象（§8.1）との意味的一致を確認できること。
 
 不一致を検出した場合、
 
@@ -561,6 +579,8 @@ MISMATCH
 として提示する。
 
 どちらを修正すべきかは決定しない。
+
+実装traceability（§8.3）は関連付けであり、その正しさの検証は本節の一致検証に含めない。
 
 ---
 
