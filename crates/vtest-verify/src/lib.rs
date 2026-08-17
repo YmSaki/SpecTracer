@@ -85,6 +85,12 @@ pub struct VerificationNode {
     pub value: CheckValue,
     pub items: Vec<ReportItem>,
     pub children: Vec<VerificationNode>,
+    /// Populated only on a `kind: "target"` child (Annex A L229-230, 詳細設計
+    /// §3.7): that target's measured count, alongside `id` (its canonical
+    /// locator) and `value` (its per-target result). Absent on every other
+    /// node kind.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -160,7 +166,22 @@ pub fn verify_project_scoped(
         .filter_map(|requested| items.iter().find(|item| &item.item == requested))
         .map(|item| item.value)
         .fold(CheckValue::Pass, combine_values);
-    let tree = build_tree(&layout, &selection, &scoped_scan, &items);
+    // VO-REPORT-03: per-target report children are themselves `target_execution`
+    // detail, so they are gated by the SAME item scope as the item itself --
+    // an out-of-scope `target_execution` never contaminates a node's folded
+    // value with a child the caller did not ask for (§4.4 scope discipline).
+    let target_execution_in_scope = requested_scope
+        .iter()
+        .any(|item| item == "target_execution");
+    let tree = build_tree(
+        &layout,
+        &selection,
+        &scoped_scan,
+        &items,
+        root,
+        &evidence,
+        target_execution_in_scope,
+    );
     let scope_outside_not_checked =
         requested_scope.len() < ALL_ITEMS.len() || entity_scope.is_some();
     VerificationResult {
@@ -375,6 +396,9 @@ fn build_tree(
     selection: &ScopeSelection,
     scan: &ScanResult,
     items: &[ReportItem],
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    target_execution_in_scope: bool,
 ) -> Vec<VerificationNode> {
     let values = items
         .iter()
@@ -425,6 +449,9 @@ fn build_tree(
                 &values,
                 &mut attached_vos,
                 &mut BTreeSet::new(),
+                root,
+                evidence,
+                target_execution_in_scope,
             ));
         }
         roots.push(spec_node(spec_id, &values, children));
@@ -451,13 +478,25 @@ fn build_tree(
             &values,
             &mut attached_vos,
             &mut BTreeSet::new(),
+            root,
+            evidence,
+            target_execution_in_scope,
         ));
     }
     // A VO whose requirement is not selected (or which has no REQ) remains a
     // top-level graph node rather than disappearing from a limited report.
     for (id, vo) in &vos {
         if vo.parent.is_none() && !attached_vos.contains(id) {
-            roots.push(build_vo_node(id, &vos, scan, &values, &mut attached_vos));
+            roots.push(build_vo_node(
+                id,
+                &vos,
+                scan,
+                &values,
+                &mut attached_vos,
+                root,
+                evidence,
+                target_execution_in_scope,
+            ));
         }
     }
     for test in &scan.tests {
@@ -466,7 +505,14 @@ fn build_tree(
             .iter()
             .any(|vo| attached_vos.contains(vo.as_str()))
         {
-            roots.push(test_node(test, &values));
+            roots.push(test_node(
+                test,
+                &values,
+                root,
+                evidence,
+                scan,
+                target_execution_in_scope,
+            ));
         }
     }
     if roots.is_empty() {
@@ -480,6 +526,7 @@ fn build_tree(
             value: CheckValue::NotChecked,
             items: items.to_vec(),
             children: Vec::new(),
+            count: None,
         });
     }
     roots
@@ -500,6 +547,7 @@ fn spec_node(
     node_with_children("spec", id, items, children)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_req_node(
     id: &str,
     reqs: &BTreeMap<String, ReqRecord>,
@@ -508,6 +556,9 @@ fn build_req_node(
     values: &BTreeMap<&str, &ReportItem>,
     attached_vos: &mut BTreeSet<String>,
     visiting: &mut BTreeSet<String>,
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    target_execution_in_scope: bool,
 ) -> VerificationNode {
     if !visiting.insert(id.to_owned()) {
         return VerificationNode {
@@ -518,6 +569,7 @@ fn build_req_node(
             // carries vo_coverage (評価地点 "REQ / VO").
             items: item_copies(values, &["vo_coverage"]),
             children: Vec::new(),
+            count: None,
         };
     }
     let mut children = Vec::new();
@@ -535,12 +587,24 @@ fn build_req_node(
                 values,
                 attached_vos,
                 visiting,
+                root,
+                evidence,
+                target_execution_in_scope,
             ));
         }
     }
     for (vo_id, vo) in vos {
         if vo.parent.is_none() && vo.requirements.iter().any(|req| req.as_str() == id) {
-            children.push(build_vo_node(vo_id, vos, scan, values, attached_vos));
+            children.push(build_vo_node(
+                vo_id,
+                vos,
+                scan,
+                values,
+                attached_vos,
+                root,
+                evidence,
+                target_execution_in_scope,
+            ));
         }
     }
     visiting.remove(id);
@@ -552,12 +616,16 @@ fn build_req_node(
     node_with_children("req", id, items, children)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_vo_node(
     id: &str,
     vos: &BTreeMap<String, VoRecord>,
     scan: &ScanResult,
     values: &BTreeMap<&str, &ReportItem>,
     attached_vos: &mut BTreeSet<String>,
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    target_execution_in_scope: bool,
 ) -> VerificationNode {
     if !attached_vos.insert(id.to_owned()) {
         return VerificationNode {
@@ -569,6 +637,7 @@ fn build_vo_node(
                 &["vo_decomposition", "vo_coverage", "test_existence"],
             ),
             children: Vec::new(),
+            count: None,
         };
     }
     let mut children = Vec::new();
@@ -578,12 +647,28 @@ fn build_vo_node(
             .as_ref()
             .is_some_and(|parent| parent.as_str() == id)
         {
-            children.push(build_vo_node(child_id, vos, scan, values, attached_vos));
+            children.push(build_vo_node(
+                child_id,
+                vos,
+                scan,
+                values,
+                attached_vos,
+                root,
+                evidence,
+                target_execution_in_scope,
+            ));
         }
     }
     for test in &scan.tests {
         if test.covers.iter().any(|vo| vo.as_str() == id) {
-            children.push(test_node(test, values));
+            children.push(test_node(
+                test,
+                values,
+                root,
+                evidence,
+                scan,
+                target_execution_in_scope,
+            ));
         }
     }
     let items = item_copies(
@@ -593,7 +678,67 @@ fn build_vo_node(
     node_with_children("vo", id, items, children)
 }
 
-fn test_node(test: &TestEntity, values: &BTreeMap<&str, &ReportItem>) -> VerificationNode {
+/// A Test node's own `target_execution` detail (VO-REPORT-03, Annex A
+/// L229-230): one child per declared target carrying that target's canonical
+/// locator (`id`), its validated per-target result (`value`), and its
+/// measured count. Reuses the SAME `resolve_target_execution_entries`
+/// predicate `evaluate_target_execution` derives the item value from (no
+/// second parallel derivation) -- an unvalidatable or structurally malformed
+/// entry set yields no children (the Test-level `target_execution` item
+/// already carries the fail-closed value; a synthesized per-target row would
+/// misattribute counts that were never validated). Gated by
+/// `target_execution_in_scope` so an out-of-scope item never contaminates
+/// this node's folded value via `node_with_children`'s child fold (§4.4
+/// scope discipline).
+fn target_execution_children(
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    test: &TestEntity,
+    scan: &ScanResult,
+) -> Vec<VerificationNode> {
+    let Some(record) = evidence.get(test.id.as_str()) else {
+        return Vec::new();
+    };
+    if evidence_record_validity(root, record, test, scan, built_in_test_runners())
+        != CheckValue::Pass
+    {
+        return Vec::new();
+    }
+    if !record.target_execution.checked {
+        return Vec::new();
+    }
+    let Ok(declared_canonical) = declared_canonical_targets(scan, test) else {
+        return Vec::new();
+    };
+    let Ok(entries) =
+        resolve_target_execution_entries(&record.target_execution.targets, &declared_canonical)
+    else {
+        return Vec::new();
+    };
+    declared_canonical
+        .iter()
+        .map(|locator| {
+            let observation = entries.get(locator.as_str());
+            VerificationNode {
+                kind: "target".to_owned(),
+                id: locator.clone(),
+                value: observation.map_or(CheckValue::Unknown, |entry| entry.result),
+                items: Vec::new(),
+                children: Vec::new(),
+                count: observation.and_then(|entry| entry.count),
+            }
+        })
+        .collect()
+}
+
+fn test_node(
+    test: &TestEntity,
+    values: &BTreeMap<&str, &ReportItem>,
+    root: &Path,
+    evidence: &BTreeMap<String, EvidenceRecord>,
+    scan: &ScanResult,
+    target_execution_in_scope: bool,
+) -> VerificationNode {
     let items = item_copies(
         values,
         &[
@@ -606,7 +751,12 @@ fn test_node(test: &TestEntity, values: &BTreeMap<&str, &ReportItem>) -> Verific
             "evidence_validity",
         ],
     );
-    node_with_children("test", test.id.as_str(), items, Vec::new())
+    let children = if target_execution_in_scope {
+        target_execution_children(root, evidence, test, scan)
+    } else {
+        Vec::new()
+    };
+    node_with_children("test", test.id.as_str(), items, children)
 }
 
 fn item_copies<'a>(values: &BTreeMap<&'a str, &'a ReportItem>, keys: &[&str]) -> Vec<ReportItem> {
@@ -632,6 +782,7 @@ fn node_with_children(
         value,
         items,
         children,
+        count: None,
     }
 }
 
@@ -1224,16 +1375,48 @@ fn effective_rule_verdict(valid: &[&AuditRecord], rule: &str) -> CheckValue {
         .unwrap_or(CheckValue::Unknown)
 }
 
+/// §10.2/§7.9/別紙C §18.3.6: validate a `target_execution` entry set 1:1
+/// against the resolved canonical Source Target set (VO-EXEC-09's shared
+/// entry-set-vs-canonical-target predicate). A duplicate entry for the same
+/// canonical locator, or an entry for a locator the Test does not currently
+/// declare, is a structural mismatch and fails closed (`Err`); a declared
+/// target with NO entry is represented by its absence from the returned map
+/// (§10.2's "関数が見つからない" case), not an error -- the caller folds
+/// that in as an UNKNOWN contribution. Shared by the DA-002 runtime rescue
+/// (`runtime_target_reached`, a single-target lookup) and
+/// `evaluate_target_execution`'s Test-level derivation (full-set fold plus
+/// per-target report children), so there is exactly one
+/// entry-set-vs-canonical-target derivation, not two.
+fn resolve_target_execution_entries<'a>(
+    entries: &'a [vtest_model::TargetExecutionObservation],
+    declared_canonical: &BTreeSet<String>,
+) -> Result<BTreeMap<&'a str, &'a vtest_model::TargetExecutionObservation>, ()> {
+    let mut resolved: BTreeMap<&str, &vtest_model::TargetExecutionObservation> = BTreeMap::new();
+    for entry in entries {
+        if !declared_canonical.contains(entry.target.as_str()) {
+            return Err(());
+        }
+        if resolved.insert(entry.target.as_str(), entry).is_some() {
+            return Err(());
+        }
+    }
+    Ok(resolved)
+}
+
 /// Runtime proof of target reachability (詳細設計 §7.3 step 2, §10.2): the
 /// §11.2-selected latest Evidence (the one this test maps to) is valid, coverage
-/// was measured, and that target's per-target result is PASS with count > 0. The
-/// evidence map holds one record per Test, so there is no fallback to an older
-/// valid Evidence (L1017).
+/// was measured, the entry set validates 1:1 against `declared_canonical`
+/// (shared with `evaluate_target_execution` via
+/// `resolve_target_execution_entries` -- a malformed entry set proves nothing
+/// for any target, including this one), and that target's per-target result
+/// is PASS with count > 0. The evidence map holds one record per Test, so
+/// there is no fallback to an older valid Evidence (L1017).
 fn runtime_target_reached(
     root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
     test: &TestEntity,
     scan: &ScanResult,
+    declared_canonical: &BTreeSet<String>,
     canonical: &str,
 ) -> bool {
     let Some(record) = evidence.get(test.id.as_str()) else {
@@ -1247,10 +1430,13 @@ fn runtime_target_reached(
     if !record.target_execution.checked {
         return false;
     }
-    record.target_execution.targets.iter().any(|observation| {
-        observation.target == canonical
-            && observation.result == CheckValue::Pass
-            && observation.count.is_some_and(|count| count > 0)
+    let Ok(entries) =
+        resolve_target_execution_entries(&record.target_execution.targets, declared_canonical)
+    else {
+        return false;
+    };
+    entries.get(canonical).is_some_and(|observation| {
+        observation.result == CheckValue::Pass && observation.count.is_some_and(|count| count > 0)
     })
 }
 
@@ -1280,7 +1466,7 @@ fn static_audit_item_value(
             CheckValue::Fail => CheckValue::Fail,
             // Statically unproven: reachable only if runtime proves it.
             _ => {
-                if runtime_target_reached(root, evidence, test, scan, canonical) {
+                if runtime_target_reached(root, evidence, test, scan, declared, canonical) {
                     CheckValue::Pass
                 } else {
                     CheckValue::Unknown
@@ -1608,7 +1794,7 @@ fn evaluate_one_spec_coverage(
             "Specification source could not be read".to_owned(),
         );
     };
-    if hash_specification_source(&source) != record.sha256 {
+    if !spec_registration_matches(&record, &source) {
         return (
             CheckValue::Stale,
             "SPEC record's registered sha256 does not match the current Specification source"
@@ -2173,6 +2359,29 @@ fn yaml_line_value(line: &str, key: &str) -> Option<String> {
     Some(value.to_owned())
 }
 
+/// §11.4/§3.1 (VO-INTAKE-04): whether a SPEC record's registered `sha256`
+/// matches the current Specification source it points at -- the
+/// state-anchored currency test the W-SCAN-104 mismatch window opens and a
+/// re-registration (`spec add --update`) closes. Pure comparator over
+/// already-read values; shared by `evaluate_one_spec_coverage`'s own SPEC
+/// gate (詳細設計 §1.3 L87) and `spec_registration_is_current` below, so
+/// there is exactly one "registered sha256 vs current source" comparison.
+fn spec_registration_matches(record: &vtest_store::SpecRecord, source: &str) -> bool {
+    hash_specification_source(source) == record.sha256
+}
+
+/// I/O wrapper over `spec_registration_matches`: reads SPEC `spec_id`'s
+/// record and current Specification source fresh (never cached from bundle
+/// time), so it discriminates a bundle taken INSIDE the mismatch window from
+/// one taken outside it and recovers the moment the SPEC is re-registered.
+/// `None` when the record or its source cannot be read (treated as "not
+/// current" by every caller, same as an unreadable subject already is).
+fn spec_registration_is_current(layout: &VerifyLayout, root: &Path, spec_id: &str) -> Option<bool> {
+    let record = read_spec(layout, spec_id).ok()?;
+    let source = read_text(&root.join(&record.path)).ok()?;
+    Some(spec_registration_matches(&record, &source))
+}
+
 fn subject_is_current(
     root: &Path,
     layout: &VerifyLayout,
@@ -2197,14 +2406,31 @@ fn subject_is_current(
         }),
         "vo" => record_hash(&layout.vo_dir(), subject.id.as_deref()),
         "req" => record_hash(&layout.req_dir(), subject.id.as_deref()),
-        // Bound to both the SPEC record's own text and its referenced
-        // Specification source (基本仕様 §7.3/§7.5, 詳細設計 §8.5): either
-        // one changing alone must invalidate the subject.
+        // Bound to the SPEC's identity/current source (basic-spec §7.3/§7.5,
+        // 詳細設計 §8.5: either the referenced source or the SPEC's own
+        // registration currency invalidates the subject). §11.4's
+        // registration-currency conjunct (VO-INTAKE-04) is checked FIRST and
+        // independently of the event-anchored hash below: it is a
+        // state-anchored condition (re-evaluated fresh here, never baked
+        // into the stored subject hash), so a SPEC bundled while its
+        // registered sha256 mismatched the current source is STALE even
+        // though the source bytes have not moved since bundling, and
+        // returns to current the moment the SPEC is re-registered.
         "spec" => subject.id.as_deref().and_then(|id| {
-            let record_text = read_text(&layout.spec_dir().join(format!("{id}.yaml"))).ok()?;
-            let path = yaml_scalar_value(&record_text, "path")?;
-            let source_text = fs::read_to_string(root.join(path)).ok()?;
-            Some(hash_spec_audit_subject(&record_text, &source_text))
+            if spec_registration_is_current(layout, root, id) != Some(true) {
+                return None;
+            }
+            let record = read_spec(layout, id).ok()?;
+            let source_text = fs::read_to_string(root.join(&record.path)).ok()?;
+            Some(hash_spec_audit_subject(
+                id,
+                &record.kind,
+                &record.path,
+                record.title.as_deref(),
+                record.note.as_deref(),
+                &record.registered_at,
+                &source_text,
+            ))
         }),
         "config" => read_text(&layout.config())
             .ok()
@@ -2273,6 +2499,54 @@ fn evaluate_runtime(
     (value, basis)
 }
 
+/// §10.2 Test-level aggregate over a validated `target_execution` entry set:
+/// FAIL dominates, then UNKNOWN (a missing entry, or any per-target verdict
+/// other than PASS/FAIL, folds in as UNKNOWN -- §10.2's "関数が見つからない"
+/// case), else PASS. Reuses `combine_values` (Fail > ... > Unknown > Pass),
+/// so this is the same fold every other multi-ground item in this module
+/// uses, not a bespoke aggregator.
+fn aggregate_target_execution_entries(
+    declared_canonical: &BTreeSet<String>,
+    entries: &BTreeMap<&str, &vtest_model::TargetExecutionObservation>,
+) -> CheckValue {
+    declared_canonical
+        .iter()
+        .map(|locator| {
+            entries
+                .get(locator.as_str())
+                .map_or(CheckValue::Unknown, |entry| match entry.result {
+                    CheckValue::Pass => CheckValue::Pass,
+                    CheckValue::Fail => CheckValue::Fail,
+                    _ => CheckValue::Unknown,
+                })
+        })
+        .fold(CheckValue::Pass, combine_values)
+}
+
+/// The `target_execution` value for one Test's valid, `checked: true`
+/// Evidence record (詳細設計 §11.1/§10.2, VO-EXEC-09): derive it from the
+/// per-target entry set validated 1:1 against the currently resolved
+/// canonical Source Target set -- never the stored aggregate scalar
+/// directly, which a foreign or legacy writer could set without the entries
+/// backing it up. An unresolvable declared target (E-SCAN-004) means no
+/// canonical set can be established, so the value fails closed to UNKNOWN; a
+/// structurally malformed entry set (duplicate entry, or an entry for a
+/// locator the Test does not declare) fails closed to MISMATCH, matching
+/// §7.9 / 別紙C §18.3.6's "PASSとして扱わない".
+fn target_execution_item_value(
+    scan: &ScanResult,
+    test: &TestEntity,
+    record: &EvidenceRecord,
+) -> CheckValue {
+    let Ok(declared_canonical) = declared_canonical_targets(scan, test) else {
+        return CheckValue::Unknown;
+    };
+    match resolve_target_execution_entries(&record.target_execution.targets, &declared_canonical) {
+        Ok(entries) => aggregate_target_execution_entries(&declared_canonical, &entries),
+        Err(()) => CheckValue::Mismatch,
+    }
+}
+
 fn evaluate_target_execution(
     root: &Path,
     evidence: &BTreeMap<String, EvidenceRecord>,
@@ -2298,10 +2572,7 @@ fn evaluate_target_execution(
                 if validity != CheckValue::Pass {
                     validity
                 } else if record.target_execution.checked {
-                    record
-                        .target_execution
-                        .result
-                        .unwrap_or(CheckValue::Unknown)
+                    target_execution_item_value(scan, test, record)
                 } else {
                     CheckValue::NotChecked
                 }
@@ -3453,7 +3724,12 @@ mod tests {
         let (layout, scan) = static_fixture(&[]);
         write_current_spec(&layout, "SPEC-FX", "docs/spec.md", "fixture text");
         let spec_hash = hash_spec_audit_subject(
-            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "SPEC-FX",
+            "document",
+            "docs/spec.md",
+            None,
+            None,
+            "2026-01-01T00:00:00Z",
             "fixture text",
         );
         write_spec_coverage_audit(
@@ -3512,7 +3788,12 @@ mod tests {
             }],
         );
         let spec_hash = hash_spec_audit_subject(
-            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "SPEC-FX",
+            "document",
+            "docs/spec.md",
+            None,
+            None,
+            "2026-01-01T00:00:00Z",
             "fixture text",
         );
         write_spec_coverage_audit(
@@ -3579,7 +3860,12 @@ mod tests {
             }],
         );
         let spec_hash = hash_spec_audit_subject(
-            &read_text(&layout.spec_dir().join("SPEC-FX.yaml")).expect("read SPEC record"),
+            "SPEC-FX",
+            "document",
+            "docs/spec.md",
+            None,
+            None,
+            "2026-01-01T00:00:00Z",
             "fixture text",
         );
         write_spec_coverage_audit(
@@ -3616,7 +3902,12 @@ mod tests {
             }],
         );
         let spec_pass_hash = hash_spec_audit_subject(
-            &read_text(&layout.spec_dir().join("SPEC-PASS.yaml")).expect("read SPEC record"),
+            "SPEC-PASS",
+            "document",
+            "docs/pass.md",
+            None,
+            None,
+            "2026-01-01T00:00:00Z",
             "pass text",
         );
         write_spec_coverage_audit(
@@ -3686,7 +3977,15 @@ mod tests {
             value: CheckValue::Pass,
             basis: vec!["fixture".to_owned()],
         }];
-        let tree = build_tree(&layout, &selection, &scan, &items);
+        let tree = build_tree(
+            &layout,
+            &selection,
+            &scan,
+            &items,
+            &layout.root,
+            &BTreeMap::new(),
+            false,
+        );
         assert_eq!(tree.len(), 1, "tree: {tree:?}");
         assert_eq!(tree[0].kind, "spec");
         assert_eq!(tree[0].id, "SPEC-FX");
@@ -3707,6 +4006,65 @@ mod tests {
         assert_eq!(tree[0].children[0].kind, "req");
         assert_eq!(tree[0].children[0].id, "REQ-FX");
         assert!(tree[0].children[0].items.is_empty());
+    }
+
+    /// @vtest.id TEST-VERIFY-063
+    /// @vtest.covers VO-REPORT-03
+    /// @vtest.target crates/vtest-verify/src/lib.rs::test_node
+    /// @vtest.intent Annex A L229-230 / 詳細設計 §3.7: when target_execution
+    /// is in the requested item scope, a Test node carries one child per
+    /// declared target with that target's canonical locator, its validated
+    /// result, and its measured count -- the per-target list the JSON report
+    /// must not omit (node level; the text renderer is a different cluster's
+    /// obligation).
+    #[test]
+    fn test_node_carries_one_child_per_target_when_target_execution_is_in_scope() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        let items = [ReportItem {
+            item: "target_execution".to_owned(),
+            value: CheckValue::Pass,
+            basis: vec!["fixture".to_owned()],
+        }];
+        let values = items
+            .iter()
+            .map(|item| (item.item.as_str(), item))
+            .collect::<BTreeMap<_, _>>();
+        let node = test_node(test, &values, &layout.root, &evidence, &scan, true);
+        assert_eq!(node.children.len(), 1, "children: {:?}", node.children);
+        assert_eq!(node.children[0].kind, "target");
+        assert_eq!(node.children[0].id, "rust-cargo::src/lib.rs::target");
+        assert_eq!(node.children[0].value, CheckValue::Pass);
+        assert_eq!(node.children[0].count, Some(3));
+    }
+
+    /// @vtest.id TEST-VERIFY-064
+    /// @vtest.covers VO-REPORT-03
+    /// @vtest.target crates/vtest-verify/src/lib.rs::test_node
+    /// @vtest.intent Scope discipline (基本仕様 §4.4): when target_execution
+    /// is OUTSIDE the requested item scope, a Test node carries NO per-target
+    /// children -- an out-of-scope target_execution detail must never
+    /// contaminate the node's folded value, even when the underlying
+    /// Evidence has a per-target FAIL that would otherwise dominate the
+    /// fold via `node_with_children`.
+    #[test]
+    fn test_node_carries_no_target_children_when_target_execution_is_out_of_scope() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Fail, Some(0));
+        let items = [ReportItem {
+            item: "target_execution".to_owned(),
+            value: CheckValue::NotChecked,
+            basis: vec!["outside requested scope".to_owned()],
+        }];
+        let values = items
+            .iter()
+            .map(|item| (item.item.as_str(), item))
+            .collect::<BTreeMap<_, _>>();
+        let node = test_node(test, &values, &layout.root, &evidence, &scan, false);
+        assert!(node.children.is_empty(), "children: {:?}", node.children);
+        assert_eq!(node.value, CheckValue::NotChecked, "node.value: {:?}", node.value);
     }
 
     /// Write a minimal active REQ record with no `spec_refs` (schema
@@ -4540,6 +4898,110 @@ mod tests {
         assert_eq!(
             evaluate_target_execution(&layout.root, &evidence, &scan).0,
             CheckValue::Mismatch
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-060
+    /// @vtest.covers VO-EXEC-09
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_execution
+    /// @vtest.intent A checked:true Evidence whose target_execution carries NO
+    /// per-target entry for the Test's one declared target must not derive
+    /// PASS from the stored aggregate scalar: the entry set is validated
+    /// against the current canonical Source Target set, and a missing entry
+    /// is §10.2's "関数が見つからない" case, which folds to UNKNOWN, never
+    /// PASS.
+    #[test]
+    fn target_execution_with_a_missing_per_target_entry_is_not_pass() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .target_execution
+            .targets
+            .clear();
+        assert_eq!(
+            evaluate_target_execution(&layout.root, &evidence, &scan).0,
+            CheckValue::Unknown
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-061
+    /// @vtest.covers VO-EXEC-09
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_execution
+    /// @vtest.intent A checked:true Evidence whose target_execution entries
+    /// are duplicated and reference a locator the Test does not declare must
+    /// fail closed to MISMATCH, never PASS: the entry set is structurally
+    /// inconsistent with the resolved canonical Source Target set (基本仕様
+    /// §7.9, 別紙C §18.3.6).
+    #[test]
+    fn target_execution_with_duplicate_and_undeclared_entries_is_mismatch() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .target_execution
+            .targets = vec![
+            TargetExecutionObservation {
+                target: "rust-cargo::src/other.rs::never_declared".to_owned(),
+                result: CheckValue::Pass,
+                count: Some(7),
+            },
+            TargetExecutionObservation {
+                target: "rust-cargo::src/other.rs::never_declared".to_owned(),
+                result: CheckValue::Pass,
+                count: Some(7),
+            },
+        ];
+        assert_eq!(
+            evaluate_target_execution(&layout.root, &evidence, &scan).0,
+            CheckValue::Mismatch
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-062
+    /// @vtest.covers VO-EXEC-09
+    /// @vtest.target crates/vtest-verify/src/lib.rs::runtime_target_reached
+    /// @vtest.intent The DA-002 runtime rescue shares the SAME
+    /// entry-set-vs-canonical-target predicate as target_execution: a
+    /// malformed entry set (duplicate entry for an undeclared locator) proves
+    /// reachability for NO target, including the one under test, so the
+    /// rescue is denied and the item stays UNKNOWN rather than being promoted
+    /// to PASS by an entry that happens to name the right locator alongside
+    /// the malformed one.
+    #[test]
+    fn static_audit_da002_runtime_rescue_denied_by_a_malformed_entry_set() {
+        let (layout, scan) = static_fixture(&["TEST-ONE"]);
+        let test = &scan.tests[0];
+        write_static_audit_split(&layout, test, "UNKNOWN", "PASS", "2026-08-08T00:00:00Z");
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        // The correct entry for the declared target is present (PASS,
+        // count > 0) but a duplicate, undeclared-locator entry rides along in
+        // the same record -- the whole entry set is malformed, so it cannot
+        // rescue ANY target, not just the offending one.
+        evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test")
+            .target_execution
+            .targets
+            .extend([
+                TargetExecutionObservation {
+                    target: "rust-cargo::src/other.rs::never_declared".to_owned(),
+                    result: CheckValue::Pass,
+                    count: Some(1),
+                },
+                TargetExecutionObservation {
+                    target: "rust-cargo::src/other.rs::never_declared".to_owned(),
+                    result: CheckValue::Pass,
+                    count: Some(1),
+                },
+            ]);
+        assert_eq!(
+            evaluate_static_audit(&layout.root, &layout, &evidence, &scan).0,
+            CheckValue::Unknown
         );
     }
 

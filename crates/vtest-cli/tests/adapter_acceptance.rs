@@ -1309,6 +1309,95 @@ fn specification_only_change_stales_impl_consistency() {
     );
 }
 
+/// @vtest.id TEST-CLI-140
+/// @vtest.covers VO-INTAKE-04
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent §11.4 mandatory assertion ① (VO-INTAKE-04): an
+/// impl-consistency Audit Record bundled INSIDE an open W-SCAN-104 mismatch
+/// window (the bound SPEC's registered sha256 does not match its current
+/// Specification source at bundle time) is STALE, even though the audit's
+/// own verdict is PASS and nothing drifts after bundling.
+#[test]
+fn impl_consistency_bundled_during_a_spec_registration_mismatch_is_stale() {
+    let project = TempProject::from_m1_base("intake04-window-stale");
+    prepare_spec_dependency(&project);
+    project.commit_baseline();
+    // Drift the SPEC source AFTER registration and BEFORE any bundle -- the
+    // W-SCAN-104 mismatch window is open.
+    fs::write(
+        project.root.join("docs/adapter-spec.md"),
+        "# Adapter contract\n\nThe known operation remains consistent.\nDrift added before any audit.\n",
+    )
+    .expect("drift Specification source before bundling");
+    let scan = invoke(&project.root, "scan", &[]);
+    assert!(
+        envelope(&scan)["diagnostics"]
+            .as_array()
+            .expect("diagnostics array")
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "W-SCAN-104"),
+        "expected W-SCAN-104 while the registration mismatch is open: {:?}",
+        envelope(&scan)
+    );
+    let bundle_id = bundle(&project, "impl-consistency", &["--test", "TEST-M1-CLEAN"]);
+    submit_audit(&project, &bundle_id, "impl-consistency");
+    let verify = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&verify), "impl_consistency")["value"],
+        "STALE",
+        "a bundle taken during an open SPEC registration mismatch must be STALE: {:?}",
+        envelope(&verify)
+    );
+}
+
+/// @vtest.id TEST-CLI-141
+/// @vtest.covers VO-INTAKE-04
+/// @vtest.target crates/vtest-cli/src/lib.rs::run_verify
+/// @vtest.intent §11.4 mandatory assertion ② (VO-INTAKE-04) -- the
+/// state-anchored/event-anchored discriminator: re-registering the SPEC at
+/// its current (drifted) hash after a bundle taken inside the mismatch
+/// window returns the SAME audit to valid. The implemented invariant must be
+/// "the record's registered sha256 matches the current source" (recovers),
+/// not "no bundle was ever taken while mismatched" (event-anchored, which
+/// would leave the audit permanently STALE).
+#[test]
+fn impl_consistency_recovers_after_the_spec_is_re_registered_at_the_current_hash() {
+    let project = TempProject::from_m1_base("intake04-recovery");
+    prepare_spec_dependency(&project);
+    project.commit_baseline();
+    fs::write(
+        project.root.join("docs/adapter-spec.md"),
+        "# Adapter contract\n\nThe known operation remains consistent.\nDrift added before any audit.\n",
+    )
+    .expect("drift Specification source before bundling");
+    let bundle_id = bundle(&project, "impl-consistency", &["--test", "TEST-M1-CLEAN"]);
+    submit_audit(&project, &bundle_id, "impl-consistency");
+    let before = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&before), "impl_consistency")["value"],
+        "STALE",
+        "precondition: the bundle must start STALE inside the mismatch window: {:?}",
+        envelope(&before)
+    );
+    // RECOVERY: re-register SPEC-ADAPTER at the current (drifted) hash --
+    // the source itself does not move again.
+    let update = invoke(
+        &project.root,
+        "spec",
+        &[
+            "add", "--id", "SPEC-ADAPTER", "--path", "docs/adapter-spec.md", "--update",
+        ],
+    );
+    assert_exit(&update, 0, "re-register SPEC-ADAPTER at its current hash");
+    let after = invoke(&project.root, "verify", &["--items", "impl_consistency"]);
+    assert_eq!(
+        report_item(&envelope(&after), "impl_consistency")["value"],
+        "PASS",
+        "re-registering at the current hash must return the SAME audit to valid: {:?}",
+        envelope(&after)
+    );
+}
+
 /// @vtest.id TEST-CLI-039
 /// @vtest.covers VO-CLI-009
 /// @vtest.target crates/vtest-cli/src/lib.rs::run_verify

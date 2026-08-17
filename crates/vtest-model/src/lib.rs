@@ -546,18 +546,41 @@ impl fmt::Display for SpecSourceHash {
 /// The hash an audit "spec" subject binds to. 基本仕様 §7.3/§7.5 and 詳細設計
 /// §8.5 name three independent STALE triggers for a SPEC subject: the SPEC
 /// record changing, its referenced Specification source changing, or the SPEC
-/// set changing. This hash covers the first two by combining the SPEC
-/// record's own text with its referenced source text, so either mutation
-/// alone changes the result; the third (set membership) is a property of
-/// which subjects are present, not of any one subject's hash.
-pub fn hash_spec_audit_subject(record_text: &str, source_text: &str) -> ContentHash {
+/// set changing. This binds every SPEC record field EXCEPT `sha256`
+/// (id, kind, path, title, note, registered_at) together with the CURRENT
+/// Specification source text -- so editing the record's own content (a
+/// `note`, a `title`, repointing `path`) still invalidates the subject, the
+/// source's own bytes moving still invalidates it, but the ONE field a plain
+/// `spec add --update` recovery exists to correct is excluded.
+///
+/// `sha256` is deliberately excluded: §11.4's registration-currency test
+/// (VO-INTAKE-04) -- "the record's registered sha256 matches the current
+/// source" -- is a separate, state-anchored condition checked fresh every
+/// time (`spec_registration_is_current`), not baked into this event-anchored
+/// "has the bundled content since moved" binding. Folding `sha256` in here
+/// would make re-registering a SPEC that was bundled during an open
+/// W-SCAN-104 mismatch window permanently STALE even after the registration
+/// mismatch is corrected, which is the event-anchored reading §11.4's
+/// recovery case rules out.
+#[allow(clippy::too_many_arguments)]
+pub fn hash_spec_audit_subject(
+    spec_id: &str,
+    kind: &str,
+    path: &str,
+    title: Option<&str>,
+    note: Option<&str>,
+    registered_at: &str,
+    source_text: &str,
+) -> ContentHash {
     ContentHash::from_subject(
-        "vtest:spec-audit-subject:v1",
+        "vtest:spec-audit-subject:v2",
         [
-            (
-                "record",
-                normalize_hashed_text(record_text).into_bytes(),
-            ),
+            ("id", spec_id.as_bytes().to_vec()),
+            ("kind", kind.as_bytes().to_vec()),
+            ("path", normalize_hashed_text(path).into_bytes()),
+            ("title", title.unwrap_or_default().as_bytes().to_vec()),
+            ("note", note.unwrap_or_default().as_bytes().to_vec()),
+            ("registered_at", registered_at.as_bytes().to_vec()),
             (
                 "source",
                 normalize_hashed_text(source_text).into_bytes(),

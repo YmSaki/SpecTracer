@@ -1704,10 +1704,16 @@ fn spec_audit_material(
             ExitCode::Usage,
         )
     })?;
-    let record_text =
-        read_text(&layout.spec_dir().join(format!("{spec_id}.yaml"))).unwrap_or_default();
     let source_text = fs::read_to_string(root.join(&record.path)).unwrap_or_default();
-    let hash = hash_spec_audit_subject(&record_text, &source_text);
+    let hash = hash_spec_audit_subject(
+        spec_id,
+        &record.kind,
+        &record.path,
+        record.title.as_deref(),
+        record.note.as_deref(),
+        &record.registered_at,
+        &source_text,
+    );
     let subject = subject_value("spec", Some(spec_id), None, &hash);
     let body = serde_json::json!({
         "id": record.id,
@@ -2109,10 +2115,16 @@ fn validate_bundle_subjects(
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or_default();
                 read_spec(layout, id).ok().and_then(|record| {
-                    let record_text =
-                        read_text(&layout.spec_dir().join(format!("{id}.yaml"))).ok()?;
                     let source_text = fs::read_to_string(root.join(&record.path)).ok()?;
-                    Some(hash_spec_audit_subject(&record_text, &source_text))
+                    Some(hash_spec_audit_subject(
+                        id,
+                        &record.kind,
+                        &record.path,
+                        record.title.as_deref(),
+                        record.note.as_deref(),
+                        &record.registered_at,
+                        &source_text,
+                    ))
                 })
             }
             _ => None,

@@ -429,11 +429,20 @@ fn m6_complete_fixture_is_ok_for_all_eleven_items() {
     fs::write(
         &evidence_path,
         // Fabricate a measured target execution from the §442 not-checked form
-        // (checked false, method/result null, empty targets).
+        // (checked false, method/result null, empty targets). VO-EXEC-09: the
+        // per-target entry list must also be populated and 1:1 with the
+        // Test's one declared target (`tests/registered.rs::known`, this
+        // fixture's same-file target) -- target_execution is now derived from
+        // the entry set, not the bare aggregate scalar, so an entry-less
+        // fabrication would (correctly) read back UNKNOWN, not PASS.
         evidence
             .replace("checked: false", "checked: true")
             .replace("method: null", "method: llvm-cov")
-            .replace("result: null", "result: 'PASS'"),
+            .replace("result: null", "result: 'PASS'")
+            .replace(
+                "  targets:\nlog_ref:",
+                "  targets:\n    - target: 'rust-cargo::tests/registered.rs::known'\n      result: 'PASS'\n      count: 3\nlog_ref:",
+            ),
     )
     .expect("mark fixture target execution measured");
     let verify = invoke(&project.root, "verify", &[]);
