@@ -2978,6 +2978,99 @@ mod tests {
         (layout, scan)
     }
 
+    /// A `static_fixture`-style project with ONE Test declaring TWO targets
+    /// (`src/lib.rs::known`, `src/lib.rs::second`) -- Annex A L229's own
+    /// antecedent ("Evidenceが複数targetの計測結果を持つ場合"), needed to
+    /// exercise VO-REPORT-03's per-target children on more than one target.
+    fn multi_target_fixture() -> (VerifyLayout, ScanResult) {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-verify-multi-target-{suffix}"));
+        let layout = init_project(&root, "fixture").expect("initialise fixture");
+        fs::write(
+            layout.vo_dir().join("VO-ONE.yaml"),
+            VoRecord {
+                id: VoId::new("VO-ONE"),
+                parent: None,
+                requirements: Vec::new(),
+                spec_refs: Vec::new(),
+                claim: "fixture claim".to_owned(),
+                dimensions: Vec::new(),
+                coverage_policy: None,
+                combinations: Vec::new(),
+                representative_cases: Vec::new(),
+                status: None,
+                created: "2026-08-08T00:00:00Z".to_owned(),
+                updated: "2026-08-08T00:00:00Z".to_owned(),
+            }
+            .to_yaml(),
+        )
+        .expect("write VO-ONE fixture record");
+        let mut sources = vec![
+            SourceFunction {
+                target: rust_target("src/lib.rs::known"),
+                src_id: None,
+                location: location("src/lib.rs", "known"),
+                content_hash: ContentHash::from_text("pub fn known() {}"),
+            },
+            SourceFunction {
+                target: rust_target("src/lib.rs::second"),
+                src_id: None,
+                location: location("src/lib.rs", "second"),
+                content_hash: ContentHash::from_text("pub fn second() {}"),
+            },
+        ];
+        let test = TestEntity {
+            id: TestId::new("TEST-MULTI"),
+            covers: vec![VoId::new("VO-ONE")],
+            targets: vec![
+                rust_target("src/lib.rs::known"),
+                rust_target("src/lib.rs::second"),
+            ],
+            intent: "fixture".to_owned(),
+            input: None,
+            expect: None,
+            kind: Some("integration".to_owned()),
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: location("tests/static.rs", "TEST-MULTI"),
+            content_hash: ContentHash::from_text("#[test] fn test_multi() {}"),
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new("rust-cargo"),
+                project: Some("fixture".to_owned()),
+                suite: Some(TestSuite {
+                    kind: "integration".to_owned(),
+                    name: Some("static".to_owned()),
+                }),
+                selector: "TEST-MULTI".to_owned(),
+            },
+        };
+        sources.push(SourceFunction {
+            target: rust_target(&format!(
+                "{}::{}",
+                test.location.path, test.location.locator
+            )),
+            src_id: None,
+            location: test.location.clone(),
+            content_hash: test.content_hash.clone(),
+        });
+        let tests = vec![test];
+        let scan = ScanResult {
+            summary: ScanSummary {
+                files: 2,
+                tests: tests.len(),
+                sources: sources.len(),
+            },
+            tests,
+            sources,
+            diagnostics: Vec::new(),
+            completeness: DiscoveryCompleteness::Complete,
+        };
+        (layout, scan)
+    }
+
     fn location(file: &str, function: &str) -> SourceLocation {
         SourceLocation {
             adapter: AdapterId::new("rust-cargo"),
@@ -4080,6 +4173,64 @@ mod tests {
         let node = test_node(test, &values, &layout.root, &evidence, &scan, false);
         assert!(node.children.is_empty(), "children: {:?}", node.children);
         assert_eq!(node.value, CheckValue::NotChecked, "node.value: {:?}", node.value);
+    }
+
+    /// @vtest.id TEST-VERIFY-066
+    /// @vtest.covers VO-REPORT-03
+    /// @vtest.target crates/vtest-verify/src/lib.rs::test_node
+    /// @vtest.intent Annex A L229's own antecedent: a Test declaring TWO
+    /// targets whose Evidence carries a per-target FAIL on the second. The
+    /// Test node's per-target children individually name each target by its
+    /// canonical locator with its own result and count, so a reader can tell
+    /// WHICH target failed -- the dossier's decisive adversarial control
+    /// ("neither format can name the failing target").
+    #[test]
+    fn test_node_names_the_failing_target_in_a_multi_target_evidence() {
+        let (layout, scan) = multi_target_fixture();
+        let test = &scan.tests[0];
+        let mut evidence = valid_runtime_evidence(&layout, test, &scan, CheckValue::Pass, Some(3));
+        let record = evidence
+            .get_mut(test.id.as_str())
+            .expect("evidence for test");
+        let second = record
+            .target_execution
+            .targets
+            .iter_mut()
+            .find(|observation| observation.target.ends_with("::second"))
+            .expect("second target entry");
+        second.result = CheckValue::Fail;
+        second.count = Some(0);
+        let items = [ReportItem {
+            item: "target_execution".to_owned(),
+            value: CheckValue::Fail,
+            basis: vec!["fixture".to_owned()],
+        }];
+        let values = items
+            .iter()
+            .map(|item| (item.item.as_str(), item))
+            .collect::<BTreeMap<_, _>>();
+        let node = test_node(test, &values, &layout.root, &evidence, &scan, true);
+        assert_eq!(node.children.len(), 2, "children: {:?}", node.children);
+        let known = node
+            .children
+            .iter()
+            .find(|child| child.id.ends_with("::known"))
+            .expect("known target child");
+        assert_eq!(known.value, CheckValue::Pass);
+        assert_eq!(known.count, Some(3));
+        let second = node
+            .children
+            .iter()
+            .find(|child| child.id.ends_with("::second"))
+            .expect("second target child");
+        assert_eq!(second.value, CheckValue::Fail);
+        assert_eq!(second.count, Some(0));
+        // §10.2: one FAIL among the per-target entries dominates the
+        // aggregate item value too.
+        assert_eq!(
+            evaluate_target_execution(&layout.root, &evidence, &scan).0,
+            CheckValue::Fail
+        );
     }
 
     /// Write a minimal active REQ record with no `spec_refs` (schema
