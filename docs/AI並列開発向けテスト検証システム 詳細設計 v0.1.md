@@ -513,27 +513,34 @@ locatorは`TargetRef::Locator { adapter, value }`とし、`value`はadapter所�
 
 ### 4.2 `rust-cargo` annotation文法
 
-テスト関数直前の doc comment（`///` または `/** */`）内の行を対象とする。
+`rust-cargo`の`@vtest.`宣言表面は次の2種であり、本節は両表面の文法を定義する。表面ごとに認識する行形式が異なる。
+
+1. **Test constructのdoc comment**（`///` または `/** */`）: test-annotation-line を認識する。
+2. **Test constructではない関数itemのdoc comment**（対象実装側の関数等）: source-target-annotation-line を認識する。
 
 ```text
-annotation-line = "@vtest." key SP value
-key             = "id" | "covers" | "target" | "intent" | "input"
-                | "expect" | "kind" | "case" | "related" | "src-id"
-                | "role" | "anchor" | "anchor-rationale"
-value           = 行末までのテキスト（前後空白は除去）
-role-value      = "verification" | "supporting" | "regression"
-                | "characterization"
-anchor-value    = "normative" | "none"
+test-annotation-line          = "@vtest." test-key SP value
+source-target-annotation-line = "@vtest." source-target-key SP value
+test-key          = "id" | "covers" | "target" | "intent" | "input"
+                  | "expect" | "kind" | "case" | "related"
+                  | "role" | "anchor" | "anchor-rationale"
+source-target-key = "src-id"
+value             = 行末までのテキスト（前後空白は除去）
+role-value        = "verification" | "supporting" | "regression"
+                  | "characterization"
+anchor-value      = "normative" | "none"
 ```
 
 - 1行1キー。`covers` と `related` の値はカンマ区切りで複数指定できる。
 - `case` と `related` はキー自体を複数行書ける。他のキーの重複はエラー E-SCAN-005。ただし `kind` が integration 系の Test に限り、`target` の複数行を許容する（別紙A §14.3）。許容された複数`target`内でも同じTargetRefの重複はE-SCAN-005とする。綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
-- `@vtest.` で始まるが未知のキーを持つ行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
+- 表面1で、`@vtest.` で始まるが test-key を持たない行はエラー E-SCAN-006（打鍵ミスの検出を優先し、警告ではなくエラーとする）。未知キーに加え、source-target-key（`src-id`）の誤配置も含む — `src-id` は対象実装側の関数に付与すべきキーであり、Test metadataへの取り込み先を持たない。
+- 表面2で、`@vtest.` で始まるが source-target-key を持たない行（test-keyを含む）は警告 W-SCAN-105 とする（§5.4）。打鍵ミス検出の目的は両表面に及ぶが、表面2の宣言はTest metadataを破損させず採用値の曖昧さも生まないため、errorではなくwarningとする。
+- `src-id` は表面2でも反復不可であり、同一関数itemでの重複は採用すべきIDを決定できないためエラー E-SCAN-005 とする。このときいずれの宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う（どちらかを推測で選ばない）。
 - doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 - `@vtest.role`、`@vtest.anchor`、`@vtest.anchor-rationale` はいずれも反復不可であり、重複はE-SCAN-005とする。`@vtest.role` は `role_declared`、`@vtest.anchor` は `anchor_declared`、`@vtest.anchor-rationale` は `anchor_rationale` へ、値を逐語のまま対応付ける（§4.1）。
 - `role-value` と `anchor-value` は受理語彙の定義であって、adapterが行う受理判定ではない。adapterはこの語彙に一致しない値も逐語で搬送し、値がいずれの語彙にも属さない場合、および `anchor-rationale` の値が空白のみの場合は、coreがcore materializationでエラー E-SCAN-013 を生成する（§4.4）。`characterization` は `role-value` に含まれる予約されたrole値であり、本versionでは宣言できない。宣言された場合も未知キーのE-SCAN-006ではなくE-SCAN-013で報告する。キーの綴り自体が未知である場合だけがadapter側のE-SCAN-006であり、既知キーの値が語彙に違反する場合はcore側のE-SCAN-013である。
 - これら3キーはTest宣言の論理metadataであり、Test constructに対応する宣言として解析された場合にだけ当該Test Entityのfieldへ採り込む。coreはこれらの値をSource Targetのidentity、恒久SRC ID、target解決のいずれにも用いない。
-- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。
+- `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。scannerは指定値を認識するが、付与を必須としない（基本仕様 §3.3）。`rust-cargo`のSource Target constructは属性とdoc commentを含む関数item全体であり（§1.3）、この宣言行はconstruct bytesの内側にある。したがって`@vtest.src-id`の付与・変更・削除はSource Target hashを変化させる。この表面での打鍵ミス（`src_id` 等の未知キー）は W-SCAN-105、`src-id` の重複は E-SCAN-005 で検出し、無音で無視しない（§4.2・§5.4）。
 
 ### 4.3 `rust-cargo` locator構文
 
@@ -895,7 +902,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | E-SCAN-003 | error | `covers` の参照先 VO が存在しない（dangling reference） |
 | E-SCAN-004 | error | `target` のロケータ／SRC ID を解決できない |
 | E-SCAN-005 | error | adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数の`target`宣言が同一canonical Source Targetへ解決 |
-| E-SCAN-006 | error | adapter所有の宣言に未知fieldが存在 |
+| E-SCAN-006 | error | Test constructのadapter所有の宣言に未知fieldが存在（非Test construct表面はW-SCAN-105） |
 | E-SCAN-007 | error | 必須metadata（id / targets / intent、および`role`が`verification`の場合の covers）の欠落 |
 | E-SCAN-008 | error | VO / REQ の parent 不在または循環 |
 | E-SCAN-009 | error | Relation の from / to が不在 |
@@ -908,6 +915,7 @@ VO / REQ / SPEC / Relation / Approval / AuditRecord / Evidence も §3 のスキ
 | W-SCAN-101 | warning | adapterが発見したが管理宣言に対応しないTest construct（unregistered test） |
 | W-SCAN-102 | warning | どの VO からも参照されず、Test も参照しない孤立 VO |
 | W-SCAN-103 | warning | `covers` を持つが対応 VO が leaf でない（中間 VO 直接参照。許容するが警告） |
+| W-SCAN-105 | warning | Test constructとして解析されない関数itemのdoc comment内の`@vtest.`行に認識されないキーが存在（§4.2。打鍵ミス検出。`src-id`の重複はE-SCAN-005） |
 | W-STORE-001 | warning | VO recordに非正典の読取り互換field `status`が存在（値は無視し承認から導出） |
 | W-STORE-002 | warning | Approvalが現在の上流依存closureを欠くか一致せず、承認として無効 |
 
@@ -941,7 +949,9 @@ W-SCAN-101またはE-SCAN-007が示す`ManagedTestLink::Missing`は、診断と�
 
 6. Source Target抽出
    すべてのfn / impl fnをSRC候補として索引化し、
-   §4.3のlocator解決・逆引き・@vtest.src-id認識に使用する
+   §4.3のlocator解決・逆引き・@vtest.src-id認識（非Test constructの宣言に限る。§4.2）に使用する。
+   このpassで非Test constructのdoc comment内の`@vtest.`行を検査し、
+   認識されないキーからW-SCAN-105を、`src-id`の重複からE-SCAN-005を生成する（§4.2）
 
 7. draft生成
    全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、
@@ -1562,6 +1572,8 @@ fail-closed 合成：
 
 同時実行された `vtest` プロセス同士の調停は行わない。
 すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回の scan / verify が差分を反映する。
+
+この「その時点の正典の読み取り」は書込みの**原子的公開**（基本仕様 §5.2）を前提とする。原子的公開の対象は`.verify/`配下のrecord・エンティティファイル（新規レコード追加とエンティティファイル編集）であり、完全な内容が単一の操作で可視になる方式（同一ファイルシステム内へのtemp書込み＋rename等）で公開し、書きかけ状態・一時ファイル残渣を正典ディレクトリの読み手に観測させてはならない。テストコード編集は通常のソース編集と同じ扱いで本規定の対象外とし、解析不能な中間状態は adapter discovery の E-SCAN-001 / Incomplete としてfail-closedに検出される（§5.1）。
 
 ### 16.2 意味的衝突検出
 
