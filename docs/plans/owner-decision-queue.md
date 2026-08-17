@@ -16,7 +16,8 @@
 ## ★差し戻し（PR #7 レビューで発見。裁定は変更せず Owner 再裁定待ち）
 
 - **②′ DA-006 の UNKNOWN-escape 問題 → ★再裁定済み（2026-08-17）: 検証コンポーネントモデルへ**。Owner 裁定: DA-006 は oracle 構文を call graph 上で再帰追跡する規則にすべきではない。Test が結果判定を別関数へ委譲する場合、その関数は**検証責務を持つ独立した検証コンポーネント**として扱い、その正当性は**別途**検証する。Test 側の責務は「検証対象の結果・影響がその検証コンポーネントへ正しく接続されていること」の確認。「helper を何段まで追ったら FAIL/UNKNOWN か」を Test の正当性判定基準にするのは責務境界の誤り — **旧裁定②の「同一ファイル helper 1段追跡」自体をこのモデルが置換する**（追跡ではなく宣言）。帰結: UNKNOWN-escape は消滅（探索が無いので逃げ場も無い）、cross-file 検証 helper が表現可能になる、判定は宣言集合上で決定論的。仕様化の残メカニズム選択（宣言方法・コンポーネント自身の検証方式）は Owner 確認中。
-- **③′ file 導出の反例**: 裁定③（B: required:false + target 同一ファイルへの導出）に対し、integration test の追加先は `tests/*.rs` 側の suite であって target の source ファイルではないため、導出先として不自然（レビューで判明）。**A（required:true を仕様宣言。現実装が既に適合）への再裁定を推奨**。PR #7 は裁定通り B のまま。
+- **③′ file 導出の反例 → ★再裁定済み（2026-08-17）: A 採用**。旧裁定 B を撤回し `rust-integration.file = required:true`。理由: Test suite location と Source Target location は別概念であり、現モデルでは targets から配置先を導出できない。将来 Test Suite（配置概念）が第一級化され一意導出規則が導入された場合にのみ省略可能性を再検討。PR #7 に反映済み（2965321）。
+- **②の後続 → ★要件定義パイプライン起動（2026-08-17）**: DA-006 の揺れの根因 =「Test が検証証拠として成立する条件」の要件未定義（棚卸し: req-evidence-validity-inventory.md）。Owner 確定: 上位原則「検証対象の振る舞いが Test の成否に因果的に反映される」+ 4条項（検証成立性/依存要素の信頼性/証明方法への非依存/未確認と違反の区別）、§11 自体を「Testの検証成立性」へ再構成（負例中心構造を正→負の順へ）。**PR #9**（spec/req-evidence-validity → develop）起案済み。merge 後: 基本仕様 → 詳細設計（white-box = Source Target / black-box = Contract Target〔⑤〕）→ DA-002/003/006 再導出〔②〕の順で一本化。
 
 ---
 
