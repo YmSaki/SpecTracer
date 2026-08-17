@@ -708,7 +708,7 @@ CLIとMCPは同じadapter registry composition、JSON envelope、adapter選択�
 | §13 対象実装との一致検証 | §7.5 |
 | §14 Test Execution | §7.7 |
 | §15 Evidenceの鮮度 | §7.8 |
-| §16 Target Execution Verification | §7.9 |
+| §16 検証対象の振る舞いの実現確認 | §7.9 |
 | §17 OK / NG | §4 |
 | §18 詳細出力 | §7.10 |
 | §19 上位への集約 | §4.3、§7.10 |
