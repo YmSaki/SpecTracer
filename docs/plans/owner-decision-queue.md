@@ -7,6 +7,7 @@
 3. **STRUCTOP-15 = 推奨どおり実装対称化**（file required:false + 全 targets 同一ファイルなら導出・跨るなら明示要求）。
 4. **原子性 = 推奨どおり追補**（一文 + VO 新設）。
 5. **black-box = 「ブラックボックスで考える」**: white-box 規則の緩和ではなく、black-box 視点から監査モデルを構想する（検証対象 = 境界契約、oracle = 境界観測）。設計着手は remap 後。
+   - **設計ブリーフ追補（2026-08-17 Owner、PR #7 レビュー中に確定）**: 証明モデルを検証方式ごとに第一級で分ける — white-box: `Test → Source Target → result → oracle` / black-box: `Test → Contract Target → observable outcome → oracle`。Contract Target の例: CLI command（observable = exit status / stdout / stderr / filesystem state）、MCP method（observable = response payload / protocol error / side effect）。DA-003 相当は「契約境界から得られた observable outcome が oracle へ接続されているか」になる。**call graph 追跡の延長で black-box へ対応しない**（White-box 監査モデルの無理な延長禁止 — PR #7 で概念混入を除去済み、詳細設計 §7.2 に out-of-scope 宣言あり）。SpecTracer の原則: 「Test の実装方式に合わせて verification obligation の証明モデルを変える」。
 6. **Evidence Set = 第一級化は将来必要というのが当然**（Owner 同意）。remap は現状意味論で通し、post-remap の spec PR 候補として⑤と並ぶ。
 7. **STORE-020/021 = ④追補の帰結として昇格**（削除しない。新 VO へ covers、remap 時に適用）。
 
