@@ -1034,7 +1034,7 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 
 ### 7.2 `rust-cargo` ルール一覧
 
-`rust-cargo`の**assert相当の構文**（以下、**検証oracle**）は次のとおり定義し、DA-001〜DA-006で共通に用いる。検証oracleは「Testが何らかのobservable outcomeを検証している」ことの構文的証拠であり、観測対象が内部シンボルの戻り値か外部境界越しの結果（exit code、出力、応答、状態変化）かを問わない。
+`rust-cargo`の**assert相当の構文**（以下、**検証oracle**）は次のとおり定義し、DA-001〜DA-006で共通に用いる。
 
 - `assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロ
 - `#[should_panic]`属性
@@ -1052,9 +1052,9 @@ Static Audit capabilityがない場合は`NOT_CHECKED`、adapterが不完全、�
 | W-DA-101 ignored | `#[ignore]` 属性 | （FAILにしない。警告のみ。実行されなければ `test_execution` が NOT_EXECUTED になる） | |
 
 DA-002 / DA-003 のデータフロー解析は関数内のローカル束縛の追跡（let 束縛、メソッドチェーン、フィールドアクセス）までとし、クロージャ内・マクロ展開内は UNKNOWN とする。
-**DA-006 の責務は検証oracleの存在証明である。** 3規則は次のとおり責務を分担する: DA-002 = targetへ到達していることの証明、DA-003 = targetの結果・影響がoracleへ接続していることの証明、DA-006 = oracle自体が存在することの証明。検証方式はwhite-boxでもblack-boxでもよい: 外部境界越しに実行して観測可能な結果をassertするTestは、oracleがTest本体にあるためtargetのcall graphが見えなくてもDA-006を満たす。逆に宣言Source Targetを呼ぶだけで何も観測しないTestは、どちらの方式としてもoracleを持たないためFAILである — targetへの呼出は実行であって検証の委譲ではなく、その内部にassert相当があるかはDA-006に関係しない（結果の検証はDA-003の領分）。
+**DA-006 の責務は検証oracleの存在証明である。** 3規則は次のとおり責務を分担する: DA-002 = targetへ到達していることの証明、DA-003 = targetの結果・影響がoracleへ接続していることの証明、DA-006 = oracle自体が存在することの証明。DA-006はTestの検証方式（execution topology）を判定せず、視界内にoracleが存在するかだけを見る。宣言Source Targetを呼ぶだけで何も検証しないTestは、視界内にoracleを持たないためFAILである — targetへの呼出は実行であって検証の委譲ではなく、その内部にassert相当があるかはDA-006に関係しない（結果の検証はDA-003の領分）。
 DA-006はoracleの**可視性要件**として定義する: oracleは探索視界 — 関数本体、および本体から呼び出す同一ファイル内の非target関数（1段。DA-002/003と同一境界）— の内側に存在しなければならない。「検証helper」の事前分類は行わない（fixture構築・setup・実行helperと検証helperを静的に前もって識別する規則は存在しない）。視界の全探索がoracleを発見すれば違反なしであり、oracleを含んでいた1段helperが結果としてassertion wrapperである — 分類はoracle発見の帰結にすぎない。視界内にoracleが無ければ、helperがさらに先へ呼出しているか否かにかかわらずFAILを確定する: oracleを含まない呼出の先に「検証が隠れているかもしれない」と推測しない（それを認めるとあらゆるTestがUNKNOWNへ逃げられる）。これより深くへoracleを委譲するTestは、oracleを視界内（本体または1段helper）へ引き上げることで適合する。UNKNOWNへ退避してよいのは、視界内のクロージャ・マクロ展開・未対応構文の内側にoracleが存在しうる場合だけである（§7.2一般則）。この判定はrule-set versionを更新し、既存のstatic Audit RecordはSTALEとなり再監査で現在の判定へ更新される（§3.6）。
-black-boxの許容はDA-006（oracle存在）に限られることに注意する。target呼出がTest本体に現れないsubprocess型black-box Testでは、DA-003の静的証明（結果→oracle接続）は後述「呼出そのものがTest本体に現れない場合のDA-003」に従いUNKNOWNのままであり、black-box Testが現行の静的監査だけでstatic_audit = PASSへ到達するわけではない。この接続をblack-box topologyとして閉じる監査モデル（契約target等）は本仕様の範囲外の別設計事項である。
+現行の静的監査（DA-001〜DA-006）は、Source Targetを中心とするwhite-box証明モデル（Test → Source Target → result → oracle）である。target呼出がTest本体に現れないTest（subprocess等の境界越し実行）は、視界内にoracleがあってDA-006を満たしても、DA-003が後述「呼出そのものがTest本体に現れない場合のDA-003」に従いUNKNOWNのままであり、static_audit = PASSへ到達しない。境界越しの契約を検証するTestの証明モデル（契約target・observable outcomeの第一級化: Test → Contract Target → observable outcome → oracle）は、white-boxモデルのcall graph追跡の延長では表現せず、本仕様の範囲外の別設計事項とする。
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。target別結果に1件でもFAILがあればrule結果をFAIL、FAILがなく1件でもUNKNOWNがあればUNKNOWN、全targetが違反なしの場合だけPASSとする。
 このtarget別verdictは監査レコードに正典として保存し（§3.6）、規則単位のverdictは上記foldで導出する派生値とする。この規則単位verdictは**Evidenceを参照しない純静的fold**であり、§3.6のmalformed整合検査（target別verdictと規則単位verdictの一致）はこの純静的foldに対して行う。§7.3のtarget別到達判定はこの保存済みtarget別DA-002 verdictを参照する。target別verdictの記録は監査根拠の構造を変える変更であり、これを採用するrule実装変更はrule-set versionを更新する。versionはStatic Audit Config subjectに含まれるため、target別verdictを持たない既存recordはSTALEとなり、再監査で現在の形へ更新される。
 
