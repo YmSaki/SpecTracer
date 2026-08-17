@@ -13,6 +13,31 @@
 
 → ①②③④ は spec 変更を伴う。spec-only PR（develop 起点）として一括起案する。①③は実装変更も伴う（spec merge 後）。
 
+## ★新規: 要件 §8 Target model（2026-08-18 dev レビューで表面化。基本仕様導出のゲート）
+
+**何の話か**: #9 で検証成立性は「検証対象の振る舞い → 観測 → 成否判定」という方式非依存モデルへ上がったが、要件 §8 は「テスト対象 = 実装コード上の implementation construct（Source Target）」のまま。基本仕様は「1つのTestは1件以上のSource Targetを持つ」と固定している。**black-box Test における「検証対象」と Source Target の関係が未定義** — ここを決めずに基本仕様へ降りると DA-006 の揺れを再演する。
+
+**事実**:
+- 要件 §8: 「テスト対象となる実装コード上のimplementation constructを識別可能でなければならない」「TestからSourceを検索でき、Sourceから関連Testを逆引きできること」（traceability/逆引き/影響分析が §8 の中核価値）
+- 基本仕様 §3.3: 「1つのTestは1件以上のSource Targetを持つ」（必須化）
+- dogfood 実測: 84 件の black-box 契約テストが「本体で呼ばない内部シンボル」を target 宣言させられていた — 必須化の強制が生んだ実害
+- 別紙C L103: 「exit code/stdout だけを assert する subprocess E2E は static_audit = UNKNOWN のまま PASS に到達しない」を**受入契約として固定**（再導出対象）
+
+**モデル選択肢**:
+- **A（2関係モデル）**: Test に「検証対象（Verification Target）」と「実装 traceability（Source Target）」の2関係を持たせる。white-box では両者が一致。black-box では検証対象 = Contract Target、Source Target は traceability として別途宣言。
+- **B（Target 和型モデル）**: Target 概念自体を Source Target | Contract Target の和へ一般化し、「Test は1件以上の Target を持つ」だけにする。実装 traceability は black-box では持たない。
+- **A′（合成 = A の traceability を任意化）**: 全 Test は1件以上の**検証対象**を宣言する（white-box 形態では検証対象 = Source Target — 現行と byte 互換、二重宣言なし）。black-box 形態では検証対象 = Contract Target とし、**Source Target traceability は任意宣言**（意味がある場合だけ張る。強制しない）。
+
+**波及**:
+- §13「対象実装との一致検証」: 検証対象との一致検証へ一般化し、Contract ↔ Implementation の対応は「振る舞いの実現確認（§16）」+ 任意 traceability が担う
+- 影響分析（Source→Test 逆引き）: A/A′ は black-box でも任意宣言分は保持。B は black-box テストが逆引きから消える
+- remap: 84 件の偽 target 宣言が解消される（A′/B とも）。A′ は意味のある traceability だけ残せる
+- W5 で実装済みの subprocess coverage attribution は、A′ の「任意 traceability の runtime 確認」としてそのまま意味を持つ
+
+**推奨: A′**。理由: (1) white-box 世界は無変更（現行宣言がそのまま検証対象）(2) black-box の偽宣言強制を廃止（dogfood の実害の根治）(3) §8 の中核価値（逆引き・影響分析）を意味がある場面で保持 (4) B は単純だが traceability を構造的に失い、§13 の再導出が痩せる。
+
+**期限**: 基本仕様導出の前（本件が freeze ゲート）。
+
 ## ★差し戻し（PR #7 レビューで発見。裁定は変更せず Owner 再裁定待ち）
 
 - **②′ DA-006 の UNKNOWN-escape 問題 → ★再裁定済み（2026-08-17）: 検証コンポーネントモデルへ**。Owner 裁定: DA-006 は oracle 構文を call graph 上で再帰追跡する規則にすべきではない。Test が結果判定を別関数へ委譲する場合、その関数は**検証責務を持つ独立した検証コンポーネント**として扱い、その正当性は**別途**検証する。Test 側の責務は「検証対象の結果・影響がその検証コンポーネントへ正しく接続されていること」の確認。「helper を何段まで追ったら FAIL/UNKNOWN か」を Test の正当性判定基準にするのは責務境界の誤り — **旧裁定②の「同一ファイル helper 1段追跡」自体をこのモデルが置換する**（追跡ではなく宣言）。帰結: UNKNOWN-escape は消滅（探索が無いので逃げ場も無い）、cross-file 検証 helper が表現可能になる、判定は宣言集合上で決定論的。仕様化の残メカニズム選択（宣言方法・コンポーネント自身の検証方式）は Owner 確認中。

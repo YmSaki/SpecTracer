@@ -30,16 +30,24 @@
 
 spec-only PR（develop 起点）1本: §7.2 再導出（引用付け替え + oracle 不在クラス + 委譲/信頼の WHAT + 両側 epistemic）・§7.9 一般化・§4.2 注記・接続一文。Contract Target の証明モデルは**詳細設計層**（ChatGPT 整理の最終版マップ通り）であり本 PR に含めない — ⑤の設計として別途（remap 後の予定は不変か、この系譜で前倒すかは Owner 判断）。
 
-## 残パイプライン位置
+## 残パイプライン位置（2026-08-18 dev レビューで順序訂正: §8 ゲートと別紙C を追加）
 
 ```
-#9 merge 済み（要件）
+#9 merge 済み（要件 §11/§16/§17）
   ↓
-基本仕様 PR（本計画）← 今ここ
+要件 §8 Target model 裁定（owner-decision-queue.md ★新規 — A/B/A′）← 今ここ
+  ↓（§13 も §8 の帰結として再確認）
+要件定義 freeze
   ↓
-詳細設計: DA-002/003/006 再導出 + 検証コンポーネント/信頼基盤の HOW
+基本仕様 PR（本計画 + target_execution 意味論の本体再導出〔12項目表含む〕）
+  ↓
+詳細設計: DA-002/003/006 再導出 + black-box 証明モデル（Contract Target）+ 検証コンポーネント/信頼基盤の HOW
+  ↓
+別紙C 再導出（L103 等の旧 white-box 受入契約 — subprocess E2E 永続 UNKNOWN の固定を解除）
   ↓
 実装追随（W-SCAN-105 / src-id 診断 / DA 再実装 + rule-set version bump / records.rs 案B / role 実装）
   ↓
 SPEC sha256 再登録 → remap → retire
 ```
+
+注: dev レビュー（2026-08-18）により、基本仕様 §4.2 12項目表の target_execution 定義（「対象コードが実行経路へ入ったか」）も本体再導出の対象と確定。#7 系（file required:true / 表面分離 / 原子性）は新要件と無衝突を確認済み。
