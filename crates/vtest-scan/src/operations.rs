@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
 use serde::Serialize;
+use vtest_adapter_api::{
+    resolve_structured_test_adapter, AdapterError, AdapterRegistry, StructuredEditFields,
+};
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
 };
@@ -12,6 +15,21 @@ use vtest_store::{
 use vtest_adapter_rust::operations_support::*;
 
 use crate::{Locator, ScanResult, RUST_ADAPTER_ID};
+
+/// Maps a registry rejection to the diagnostic codes 詳細設計 §17.1 defines:
+/// a missing StructuredTest capability is E-ADAPTER-004 specifically (別紙C
+/// §18.3.7's explicit assignment); every other rejection (unknown adapter,
+/// duplicate kind ownership, owner mismatch, ambiguous or absent
+/// compatibility match) is E-ADAPTER-001 ("adapterが未登録、重複、または
+/// registryの宣言と実装が不一致"), matching how `run_scan` already recodes
+/// any `AdapterError` surfaced during discovery. Both map to exit 2 -- core
+/// never falls back to any adapter on rejection.
+fn registry_resolution_diagnostic(error: AdapterError) -> Diagnostic {
+    match error {
+        AdapterError::MissingCapability(message) => Diagnostic::error("E-ADAPTER-004", message),
+        other => Diagnostic::error("E-ADAPTER-001", other.to_string()),
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -55,6 +73,7 @@ pub struct TestMutationResult {
 
 pub fn create_test(
     root: &Path,
+    registry: &AdapterRegistry,
     form_kind: &str,
     supplied: &FormAnswers,
     explicit_id: Option<&str>,
@@ -68,6 +87,10 @@ pub fn create_test(
     let includes = &config.rust_cargo().scan.include;
     let schema = load_form_schema(&layout, form_kind)
         .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
+    // Registry resolution (別紙A §14.2-§14.4, 別紙C §18.3.7) happens before any
+    // other validation or file mutation: the Form kind must resolve to
+    // exactly one StructuredTest-capable adapter, with no fallback.
+    resolve_structured_test_adapter(registry, &schema).map_err(registry_resolution_diagnostic)?;
     let answers = validate_form_answers(includes, root, &schema, supplied, &scan)?;
     let test_id = select_test_id(&scan, &answers, explicit_id)?;
     let file = destination_file(supplied)?;
@@ -162,6 +185,7 @@ pub fn parse_test_set_values(values: &[String]) -> Result<BTreeMap<String, FormV
 
 pub fn edit_test(
     root: &Path,
+    registry: &AdapterRegistry,
     test_id: &str,
     supplied: Option<&FormAnswers>,
     set: &BTreeMap<String, FormValue>,
@@ -191,6 +215,14 @@ pub fn edit_test(
             Diagnostic::error("E-OP-002", format!("Test `{test_id}` could not be located"))
                 .with_candidates(test_id_candidates(&scan.tests, test_id))
         })?;
+    // The Test's own declaring adapter must resolve to a registered
+    // StructuredTest-capable adapter BEFORE any file mutation -- this is the
+    // adapter whose `render_edit` owns declaration syntax for this Test,
+    // regardless of whether the edit is driven by --answers, --set, or
+    // --body-file (別紙A §14.3, §15).
+    let structured_adapter = registry
+        .structured_test(&current.location.adapter)
+        .map_err(registry_resolution_diagnostic)?;
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
         let layout = VerifyLayout::new(root);
@@ -199,6 +231,17 @@ pub fn edit_test(
         let includes = &config.rust_cargo().scan.include;
         let schema = load_form_schema(&layout, &supplied.form)
             .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
+        let (form_adapter_id, _) =
+            resolve_structured_test_adapter(registry, &schema).map_err(registry_resolution_diagnostic)?;
+        if form_adapter_id != current.location.adapter {
+            return Err(Diagnostic::error(
+                "E-ADAPTER-001",
+                format!(
+                    "form `{}` is owned by adapter `{form_adapter_id}`, but Test `{test_id}` is owned by `{}`",
+                    schema.kind, current.location.adapter
+                ),
+            ));
+        }
         let answers =
             validate_form_answers_for(includes, root, &schema, supplied, &scan, Some(test_id))?;
         desired.apply_complete_answers(&schema, &answers)?;
@@ -232,7 +275,14 @@ pub fn edit_test(
     }
     let indent = line_indent(&original, current.location.byte_range.start);
     let normalized_current = deindent(current_slice, &indent);
-    let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
+    let fields = structured_edit_fields(&desired);
+    let normalized_replacement = structured_adapter.render_edit(
+        &normalized_current,
+        current.id.as_str(),
+        &current.execution.selector,
+        &fields,
+        body,
+    )?;
     let rendered = indent_multiline(&normalized_replacement, &indent);
     let prospective = format!(
         "{}{}{}",
@@ -507,104 +557,24 @@ fn validate_desired_test(
     Ok(())
 }
 
-fn render_edited_test(
-    current_source: &str,
-    current: &TestEntity,
-    desired: &DesiredTest,
-    body: Option<&str>,
-) -> Result<String, Diagnostic> {
-    let mut free_before = Vec::new();
-    let mut free_after = Vec::new();
-    let mut tail = Vec::new();
-    let mut in_tail = false;
-    let mut saw_annotation = false;
-    for line in current_source.lines() {
-        let trimmed = line.trim_start();
-        if !in_tail && trimmed.starts_with("///") {
-            if trimmed.contains("@vtest.") {
-                saw_annotation = true;
-            } else if saw_annotation {
-                free_after.push(line.to_owned());
-            } else {
-                free_before.push(line.to_owned());
-            }
-        } else {
-            in_tail = true;
-            tail.push(line.to_owned());
-        }
+/// Converts the core-validated desired state into the adapter-neutral DTO
+/// handed to `StructuredTestAdapter::render_edit`. This is the boundary: core
+/// interprets form answers / `--set` values (business rules), but never
+/// renders adapter-owned declaration syntax itself (基本仕様 §6.1).
+fn structured_edit_fields(desired: &DesiredTest) -> StructuredEditFields {
+    StructuredEditFields {
+        id: desired.id.clone(),
+        covers: desired.covers.clone(),
+        targets: desired.targets.clone(),
+        intent: desired.intent.clone(),
+        input: desired.input.clone(),
+        expect: desired.expect.clone(),
+        kind: desired.kind.clone(),
+        cases: desired.cases.clone(),
+        related: desired.related.clone(),
+        fn_name: desired.fn_name.clone(),
+        file: desired.file.clone(),
     }
-    if tail.is_empty() {
-        return Err(Diagnostic::error(
-            "E-OP-002",
-            format!(
-                "Test `{}` has no function body in its source range",
-                current.id
-            ),
-        ));
-    }
-    let mut function = tail.join("\n");
-    if desired.fn_name != current.execution.selector {
-        let from = format!("fn {}", current.execution.selector);
-        let to = format!("fn {}", desired.fn_name);
-        if !function.contains(&from) {
-            return Err(Diagnostic::error(
-                "E-OP-002",
-                format!(
-                    "Test `{}` function signature could not be located",
-                    current.id
-                ),
-            ));
-        }
-        function = function.replacen(&from, &to, 1);
-    }
-    if let Some(body) = body {
-        let body = normalize_body(body)?;
-        let (start, end) = test_body_byte_range(&function)
-            .map_err(|error| Diagnostic::error("E-OP-002", error))?;
-        function.replace_range(start..end, &body);
-    }
-
-    let mut lines = free_before;
-    lines.push(format!("/// @vtest.id {}", desired.id));
-    lines.push(format!("/// @vtest.covers {}", desired.covers.join(",")));
-    for target in &desired.targets {
-        lines.push(format!("/// @vtest.target {target}"));
-    }
-    lines.push(format!("/// @vtest.intent {}", desired.intent));
-    if let Some(input) = &desired.input {
-        lines.push(format!("/// @vtest.input {input}"));
-    }
-    if let Some(expect) = &desired.expect {
-        lines.push(format!("/// @vtest.expect {expect}"));
-    }
-    if let Some(kind) = &desired.kind {
-        lines.push(format!("/// @vtest.kind {kind}"));
-    }
-    for case in &desired.cases {
-        lines.push(format!("/// @vtest.case {case}"));
-    }
-    for related in &desired.related {
-        lines.push(format!("/// @vtest.related {related}"));
-    }
-    lines.extend(free_after);
-    lines.push(function);
-    Ok(lines.join("\n"))
-}
-
-fn normalize_body(body: &str) -> Result<String, Diagnostic> {
-    let body = body.trim();
-    let body = if body.starts_with('{') && body.ends_with('}') {
-        body.to_owned()
-    } else {
-        format!("{{\n{body}\n}}")
-    };
-    check_rust_block(&body).map_err(|error| {
-        Diagnostic::error(
-            "E-OP-001",
-            format!("body file does not contain a valid Rust block: {error}"),
-        )
-    })?;
-    Ok(body)
 }
 
 fn verify_edit(
@@ -1168,6 +1138,9 @@ fn rollback(path: &Path, original: &str, diagnostic: Diagnostic) -> Result<(), D
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use vtest_store::init_project;
 
     /// @vtest.id TEST-SCAN-018
     /// @vtest.covers VO-SCAN-003
@@ -1178,5 +1151,269 @@ mod tests {
         assert_eq!(edit_distance("parse", "prase"), 2);
         assert_eq!(edit_distance("add", "add"), 0);
         assert_eq!(edit_distance("subtract", "add"), 7);
+    }
+
+    fn temp_project(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-structop-{label}-{suffix}"));
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"structop-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+        )
+        .unwrap();
+        init_project(&root, "structop-fixture").unwrap();
+        fs::write(
+            root.join(".verify/vo/VO-CALC-ADD.yaml"),
+            "id: VO-CALC-ADD\nparent: null\nrequirements: []\nspec_refs: []\nclaim: addition works\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+        )
+        .unwrap();
+        root
+    }
+
+    fn registry() -> AdapterRegistry {
+        AdapterRegistry::from_registrations([vtest_adapter_rust::rust_cargo_registration()])
+            .expect("built-in rust-cargo registration is well-formed")
+    }
+
+    /// @vtest.id TEST-SCAN-030
+    /// @vtest.covers VO-REGISTRY-05
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent Editing a `/** */` block-doc-declared Test round-trips through edit_test without duplicating the declaration or corrupting the dry-run payload
+    #[test]
+    fn edit_test_round_trips_a_block_doc_comment_declaration() {
+        let root = temp_project("block-doc");
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(left: i32, right: i32) -> i32 { left + right }\n\n/**\nfree text before\n@vtest.id TEST-ADD-001\n@vtest.covers VO-CALC-ADD\n@vtest.target src/lib.rs::add\n@vtest.intent add returns the sum of its two arguments\n*/\n#[test]\nfn add_returns_sum() {\n    assert_eq!(add(1, 2), 3);\n}\n",
+        )
+        .unwrap();
+
+        let scan = crate::scan_project(&root).unwrap();
+        let discovered = scan
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD-001")
+            .expect("block doc comment Test is discovered cleanly, with zero diagnostics");
+        assert_eq!(
+            discovered.intent,
+            "add returns the sum of its two arguments"
+        );
+
+        let registry = registry();
+        let set = parse_test_set_values(&[
+            "intent=add returns the arithmetic sum".to_owned(),
+        ])
+        .unwrap();
+
+        let dry_run = edit_test(&root, &registry, "TEST-ADD-001", None, &set, None, true)
+            .expect("dry-run edit of a block doc comment Test must succeed, not E-OP-003");
+        assert_eq!(
+            dry_run.rendered.matches("@vtest.id TEST-ADD-001").count(),
+            1,
+            "dry-run rendering must not emit a second, duplicated declaration"
+        );
+        assert!(dry_run.rendered.contains("free text before"));
+
+        let applied = edit_test(&root, &registry, "TEST-ADD-001", None, &set, None, false)
+            .expect("edit of a block doc comment Test must succeed, not roll back with E-OP-003");
+        assert!(applied.changed);
+        let after = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+        assert!(after.contains("add returns the arithmetic sum"));
+        assert_eq!(after.matches("@vtest.id TEST-ADD-001").count(), 1);
+
+        let rescanned = crate::scan_project(&root).unwrap();
+        let edited = rescanned
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD-001")
+            .expect("edited Test is still recognized by the scanner after the write");
+        assert_eq!(edited.intent, "add returns the arithmetic sum");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-SCAN-031
+    /// @vtest.covers VO-STRUCTOP-09
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::resolve_structured_test_adapter
+    /// @vtest.intent A Form declaring an unregistered adapter is rejected before any file mutation, not silently applied by rust-cargo
+    #[test]
+    fn create_test_rejects_a_form_owned_by_an_unregistered_adapter() {
+        let root = temp_project("unowned");
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(left: i32, right: i32) -> i32 { left + right }\n",
+        )
+        .unwrap();
+        // The template renders VALID Rust -- deliberately identical in shape
+        // to rust-unit-function's -- so the only thing that can prevent
+        // create_test from succeeding is the registry gate itself, exactly
+        // like the confirmed dossier repro (a syntactically-invalid template
+        // would fail downstream regardless, understating the defect).
+        fs::write(
+            root.join(".verify/forms/py-unit.yaml"),
+            "kind: py-unit\nadapter: python-pytest\ntitle: Python-flavored unit test\nfields:\n  - name: target\n    question: Target?\n    type: symbol\n    required: true\n    validate: [symbol-exists]\n  - name: covers\n    question: Verification objectives?\n    type: vo-ref-list\n    required: true\n    validate: [vo-exists]\n  - name: behavior\n    question: Behavior?\n    type: string\n    required: true\n  - name: fn_name\n    question: Test function name?\n    type: ident\n    required: true\ntemplate: |\n  /// @vtest.id {test_id}\n  /// @vtest.covers {covers}\n  /// @vtest.target {target}\n  /// @vtest.intent {behavior}\n  #[test]\n  fn {fn_name}() {\n      todo!(\"implement test body\")\n  }\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("answers.yaml"),
+            "form: py-unit\nanswers:\n  target: src/lib.rs::add\n  covers: [VO-CALC-ADD]\n  behavior: adds two integers\n  fn_name: py_unit_placeholder\n",
+        )
+        .unwrap();
+
+        let before = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+        let registry = registry();
+        let supplied = vtest_store::read_form_answers(&root.join("answers.yaml")).unwrap();
+        let error = create_test(&root, &registry, "py-unit", &supplied, None, false)
+            .expect_err("a Form owned by an unregistered adapter must be rejected");
+        assert_eq!(error.code, "E-ADAPTER-001");
+        assert_eq!(
+            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
+            before,
+            "rejection must leave every file byte-identical"
+        );
+        let rescanned = crate::scan_project(&root).unwrap();
+        assert!(
+            rescanned.tests.is_empty(),
+            "no Test may be materialized from a Form owned by an unregistered adapter"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-SCAN-032
+    /// @vtest.covers VO-STRUCTOP-10
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::resolve_structured_test_adapter
+    /// @vtest.intent A Form with no adapter and no rust-cargo-recognized validator is rejected on 0 compatibility matches, never falling back to rust-cargo
+    #[test]
+    fn create_test_rejects_an_adapterless_form_with_no_compatibility_match() {
+        let root = temp_project("no-match");
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(left: i32, right: i32) -> i32 { left + right }\n",
+        )
+        .unwrap();
+        // Same principle as TEST-SCAN-031: the template renders VALID Rust,
+        // targeting the existing `add` symbol directly, and none of the
+        // fields carry a rust-cargo validator -- so only the 0-match
+        // resolution gate, never a downstream syntax failure, can block it.
+        fs::write(
+            root.join(".verify/forms/pytest-case.yaml"),
+            "kind: pytest-case\ntitle: Pytest case\nfields:\n  - name: covers\n    question: Verification objectives?\n    type: vo-ref-list\n    required: true\n    validate: [vo-exists]\n  - name: behavior\n    question: Behavior?\n    type: string\n    required: true\n  - name: file\n    question: File?\n    type: path\n    required: true\n  - name: fn_name\n    question: Test function name?\n    type: ident\n    required: true\ntemplate: |\n  /// @vtest.id {test_id}\n  /// @vtest.covers {covers}\n  /// @vtest.target src/lib.rs::add\n  /// @vtest.intent {behavior}\n  #[test]\n  fn {fn_name}() {\n      todo!(\"implement test body\")\n  }\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("answers.yaml"),
+            "form: pytest-case\nanswers:\n  covers: [VO-CALC-ADD]\n  behavior: adds two integers\n  file: src/lib.rs\n  fn_name: pytest_style_placeholder\n",
+        )
+        .unwrap();
+
+        let before = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+        let registry = registry();
+        let supplied = vtest_store::read_form_answers(&root.join("answers.yaml")).unwrap();
+        let error = create_test(&root, &registry, "pytest-case", &supplied, None, false)
+            .expect_err("a Form with no adapter and no compatibility match must be rejected");
+        assert_eq!(error.code, "E-ADAPTER-001");
+        assert_eq!(
+            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
+            before,
+            "rejection must leave every file byte-identical; core must never fall back to rust-cargo"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-SCAN-033
+    /// @vtest.covers VO-STRUCTOP-09
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::resolve_structured_test_adapter
+    /// @vtest.intent Duplicate built-in kind ownership, missing StructuredTest capability, and 2+ compatibility matches all reject fail-closed, distinguishing E-ADAPTER-004 from every other rejection
+    #[test]
+    fn resolve_structured_test_adapter_rejects_duplicates_and_missing_capability() {
+        use std::sync::Arc;
+        use vtest_adapter_api::{AdapterCapability, AdapterDescriptor, AdapterRegistration, StructuredTestAdapter};
+        use vtest_model::{AdapterId, FormSchema};
+
+        struct SharedKindAdapter;
+        impl StructuredTestAdapter for SharedKindAdapter {
+            fn built_in_form_kinds(&self) -> Vec<String> {
+                vec!["shared-kind".to_owned()]
+            }
+            fn accepts_compatibility_form(&self, _schema: &serde_json::Value) -> bool {
+                false
+            }
+            fn render_edit(
+                &self,
+                _current_source: &str,
+                _current_id: &str,
+                _current_selector: &str,
+                _desired: &StructuredEditFields,
+                _body: Option<&str>,
+            ) -> Result<String, Diagnostic> {
+                Err(Diagnostic::error("E-OP-002", "synthetic adapter does not render"))
+            }
+        }
+
+        fn synthetic(id: &str, capable: bool) -> AdapterRegistration {
+            let mut registration = AdapterRegistration::new(AdapterDescriptor {
+                id: AdapterId::new(id),
+                languages: vec!["fixture".to_owned()],
+                capabilities: if capable {
+                    vec![AdapterCapability::StructuredTest]
+                } else {
+                    Vec::new()
+                },
+                config_namespace: id.to_owned(),
+            });
+            if capable {
+                registration.structured_test = Some(Arc::new(SharedKindAdapter));
+            }
+            registration
+        }
+
+        let registry = AdapterRegistry::from_registrations([
+            synthetic("synthetic-a", true),
+            synthetic("synthetic-b", true),
+            synthetic("synthetic-c", false),
+        ])
+        .unwrap();
+
+        let duplicate_schema = FormSchema {
+            kind: "shared-kind".to_owned(),
+            adapter: Some("synthetic-a".to_owned()),
+            title: "fixture".to_owned(),
+            fields: Vec::new(),
+            template: String::new(),
+        };
+        let error = match resolve_structured_test_adapter(&registry, &duplicate_schema) {
+            Ok(_) => panic!("a kind declared built-in by two adapters must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, AdapterError::Registration(_)));
+
+        let missing_capability_schema = FormSchema {
+            kind: "unowned-kind".to_owned(),
+            adapter: Some("synthetic-c".to_owned()),
+            title: "fixture".to_owned(),
+            fields: Vec::new(),
+            template: String::new(),
+        };
+        let error = match resolve_structured_test_adapter(&registry, &missing_capability_schema) {
+            Ok(_) => panic!("an adapter without the StructuredTest capability must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, AdapterError::MissingCapability(_)));
+
+        let ambiguous_schema = FormSchema {
+            kind: "shared-kind".to_owned(),
+            adapter: None,
+            title: "fixture".to_owned(),
+            fields: Vec::new(),
+            template: String::new(),
+        };
+        let error = match resolve_structured_test_adapter(&registry, &ambiguous_schema) {
+            Ok(_) => panic!("2+ compatibility matches must be rejected, never resolved by fallback"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, AdapterError::Registration(_)));
     }
 }
