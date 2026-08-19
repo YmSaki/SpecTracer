@@ -154,6 +154,10 @@ Normative Specification → Requirement → Design decision/mechanism → VO →
 - **ワーカー方針改訂適用**: 実装 = sonnet xhigh + obligation discovery/closure 足場（wave 1 で初適用・成功。落穂: rename hunk 未コミット1件は main 側で回収 e496c47）。worktree isolation の stale base 問題と対策は memory 記録済み。
 - **Fix wave 2 完了・merge 済み**（merge 3本 → acf1aa1、統合 gate exit 0）: **cluster 4**（arity 規律 — classify_target_resolution 新設・find_target_source は 0/2+ で None・bundle 生成は全 target 未解決で拒否・impl_consistency へ absent→MISSING/ambiguous→MISMATCH の diagnostic 経路・adapter 側 suffix fallback 撤去 = §907 単一解決経路。E-SCAN-004 は仕様どおり単一コード維持）**cluster 3**（required_subject_keys + required_spec_closure の単一導出を bundle 生成と validity の両方が使用・validity = 集合一致 + per-subject currency・--vo の SPEC subject ゼロ解消・spec subject は SPEC record + source の両束縛）**cluster 7**（evidence_record_validity の registry dispatch・adapter-less は compat 経路→UNKNOWN・per-adapter execution state）+ 隣接2件（malformed→§3.6 の STALE 系・vo_coverage の recency fold）。全 fix に revert 反証。merge 時の裁定: cross-branch テスト ID 衝突2件を renumber（TEST-CLI-106/107）・衝突9件は「実質変更 vs 整形」を判別して解決。**副産物: 基本仕様 §7.5 L444 の multi-target bundle content 不完全（cluster 4 単独では残る）は cluster 3 の resolve_all_targets が merge で解消**。残 wart: adapter find_function の同一 exact path 重複時 first-match（core gate が上流で遮断・記録のみ）。
 - **root cause 進捗: 19中 11 相当が修正済み**（wave1 = 7 singleton + E-SCAN-005 / wave2 = cluster 3・4・7 + REGISTRY-21 随伴 + 隣接2）。残 = cluster 1・2・5（wave 3）・cluster 6・8・9 + VO-EXIST-08・VO-INTAKE-04（wave 4。INTAKE-04 は設計選択の裁定込み）。
+### ★★★★ 2026-08-19 上書き: 本計画は Issue #11 凍結台帳により停止
+
+Owner 決定により https://github.com/YmSaki/SpecTracer/issues/11 が正典となり、Owner 自身が再設計する。本文書のパイプライン（role実装→SPEC再登録→remap→retire）は**停止**。最終状態は docs/reports/session-close-2026-08-19.md 参照。以下は歴史記録。
+
 ### ★★★compact 手前の現在地（2026-08-17）— 作業目的と in-flight
 
 **大目的**: W8 dogfood が確定させた 19 root cause の修正完遂 + role 仕様（merge 済み）の実装 → SPEC sha256 再登録 → covers remap 適用 → 旧63+bridge5 VO/7 REQ retire。Owner 指示 =「role 仕様 PR（済）と 19 root cause 修正を先に、残り（remap 等）はその後」。
