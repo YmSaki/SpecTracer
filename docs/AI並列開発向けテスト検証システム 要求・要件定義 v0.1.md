@@ -550,6 +550,7 @@ AI Testing Verification System
 - **状態**はエッジ（導出理由）の承認状態を示す。**ACCEPTED** = Issue #11 の本文・記録済み裁定・承認済み提示にトレースできる / **PENDING** = 導出理由は記録済みだが Owner の確定待ち（U-06 / U-07 / R-4 依存行）/ **PROPOSED** = 書記が本表で新たに起草した理由（Owner の採否待ち）。下流ノード（要件文自体）の有効性は本表ではなく本文と裁定履歴による。
 - 本表の「導出理由」は仕様作成プロセスのメタデータである。製品仕様としての `derives_from`（§3.2）は F11 の最小形（上流参照 + content_hash のみ）のままであり、製品のリンクへ理由を付加することは本表から含意されない（行う場合は新たな Owner 裁定を要する）。
 - 裁定の記録は `docs/reports/req-vs-issue11-ledger-audit.md`。§27 の分解ツリーは表示上のグループであり、導出ノードではない。
+- **freeze 条件（提案・プロセス規則）**: ROOT（Issue #11 の凍結事項・承認済み要求）を除く規範ノードは、ACCEPTED な上流から ACCEPTED なエッジのみで到達可能（accepted-path closure）でなければ、確定要件として freeze しない。本文は現在この closure を満たさない（PROPOSED / PENDING の親を持つ規範文が本文では確定形で存在する）ため、本 PR は Owner 裁定用ドラフトであって freeze 対象ではない。表は非規範のまま、この closure を freeze 時のゲートとして要求する。
 
 ## 第I部（根 → 要求）
 
@@ -585,6 +586,7 @@ AI Testing Verification System
 | F8 | §4.3 target_binding の静的+動的2証拠源 | 静的/動的は同一の問いの2つの証拠源（F8） | ACCEPTED |
 | U-03 裁定 | §4.3 per-target 規則（実行 0 回 = FAIL） | 状態割当の凍結の転記 | ACCEPTED |
 | U-04 裁定（条項3）・A′ 裁定 | §4.3 形態別確認方法は下位仕様 | 実行形態固有の確認方法を他形態へ一律要求しない | ACCEPTED |
+| P-002 | §4.3 完全検証で既定有効・限定 scope で省略可 | scope 限定は P-002 が許容。省略項目は集約時に NO_EVIDENCE（診断 NOT_CHECKED）で PASS にしない | ACCEPTED |
 | U-04 裁定 | §4.4 oracle_presence の出力3値 | 不成立の構造的証明→FAIL / 存在確認→成立側 / 決定論の限界→UNKNOWN | ACCEPTED |
 | U-04 裁定 | §4.4 静的解析＝不成立の証明 | 証明の失敗は UNKNOWN の事由ではない | ACCEPTED |
 | F3・F4 | §4.4 意味的一致は主張に含めない | 第3の検査は幻（F3）。意味判定の知能は載せない（F4） | ACCEPTED |
@@ -650,5 +652,8 @@ AI Testing Verification System
 | P-004 | OOS-003 通常編集管理の除外 | Test Edit の責務境界の裏面 | PROPOSED |
 | R-1 | OOS-004 開発プロセス管理の除外 | Verification Infrastructure という役割画定。R-1 の場面外 | PROPOSED |
 | R-2・F9 | OOS-005 非関知宣言・v0.2 送り | F9 の転記 | ACCEPTED |
-| F8・F7・P-002 | §26 完全検証 OK・fail-closed 集約 | 4検査 × 5状態 × fail-closed の合成 | ACCEPTED |
+| F2 | R-2 / OOS-005 過少・過実装は同一差分の両側 | 過少実装と過実装は宣言量に対する過不足の両側で単一概念（F2）。v0.1 は F9 により順方向側のみ実装し逆方向は v0.2 だが、「同一概念」の決定を伝播させ、v0.2 過実装検出が別物でないことを将来復元可能にする | ACCEPTED |
+| F8・F7・P-002 | §26.1 完全検証 OK・fail-closed 集約 | 4検査 × 5状態 × fail-closed の合成 | ACCEPTED |
+| NFR-006・NFR-008 | §26.2 OK/NG 簡易出力と NG の掘り下げ | 状態が行動を指示する（F7）には、どの検査・状態・診断で落ちたかを人間が辿れる必要がある | PROPOSED |
+| P-002・F8 | §26.3 上位単位への fail-closed 集約 | 宣言鎖は端まで辿れ（F8）、集約は未検証を合格にしない（P-002） | PROPOSED |
 | F10 | §28 下位仕様への委譲リスト | 要求→要件→基本仕様→詳細設計の分層（F10）。詳細の決定は下位層の責務 | ACCEPTED |
