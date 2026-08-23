@@ -167,3 +167,19 @@ decision / judgment と approval は別概念とする。
 - **判断済み ≠ 承認済み**。判断済みでも未承認なら承認済みより弱い。判断記録と承認記録を同一概念・同一 entity として扱わない。具体 schema は下位仕様へ委譲。
 
 **修正**: §12 は外部判断とその記録を扱い、§19 は判断・方針の正式採用（承認）を扱う。「UNKNOWN の解消は承認（§19）として記録される」という同一視を解き、「UNKNOWN に対して判断できること」と「その判断が正式承認されること」を別段階として表現する。2026-08-24（記録要件）の actor/subject/decision 必須・理由 optional は**判断記録**への要件。承認記録も誰が・何を承認したかは追跡可能とするが、判断記録と同一 entity であることは要求しない。
+
+---
+
+# 追補: Owner 裁定 2026-08-24（検証状態・承認・フェーズゲートの分離）
+
+1. **Verification State と Approval は別概念**。
+2. 5状態（PASS/FAIL/MISMATCH/NO_EVIDENCE/UNKNOWN）は**検証結果のみ**を表し、承認状態を混入させない。
+3. 技術的に PASS でも未承認である状態を許容する。
+4. 未承認であることだけを理由に PASS を UNKNOWN 等へ変更しない。
+5. 承認済みであることを理由に FAIL/MISMATCH/NO_EVIDENCE/UNKNOWN を PASS へ変更してはならない。
+6. 判断（judgment=選択・判定）と承認（approval=正式確定）を分離（2026-08-24 判断/承認分離の再確認）。
+7. Agent も承認権限を持ち得る。ただし全 Agent が承認権限を持つことは要求せず、一般作業 Agent が持つべきとも要求しない。
+8. 誰がどの対象・範囲について承認可能か（approval authority）はプロジェクト側で定義可能。
+9. フェーズ・工程・ゲートごとに、進行条件として必要な Verification State と Approval を定義できることが望ましい（例: 通常開発中=PASS で進行可・承認不要／Release gate=PASS + Reviewer 承認／Delivery gate=PASS + Owner/PM 承認）。具体的なフェーズ名・承認ロール・必要承認数・権限 schema は下位仕様へ委譲。
+
+**反映**: §5.5（検証状態と承認の分離）新設、§19（Agent の承認権限・approval authority のプロジェクト定義）追記、§26.4（フェーズゲート進行条件）新設。
