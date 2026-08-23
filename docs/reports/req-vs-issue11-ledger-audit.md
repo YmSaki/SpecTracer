@@ -193,3 +193,18 @@ decision / judgment と approval は別概念とする。
 - **正式要件**: プロジェクト側が登録したゲート条件について、現在の Verification State（§5）と Approval（§19）が通過条件を満たすかを**評価・提示できなければならない**。ゲート条件の定義を受理できること。
 - **スコープ外（OOS-004 維持）**: フェーズのライフサイクル管理・工程の自動遷移は SpecTracer の責務外。「Release フェーズへ遷移させる」は行わず、「Release gate の条件を現在満たしている」を評価・提示するに留まる。
 - 具体的なフェーズ名・承認ロール・必要承認数・権限 schema は下位仕様へ委譲（変更なし）。
+
+---
+
+# 追補: Owner 最終裁定 2026-08-24（v0.1 要求・要件定義の承認と freeze）
+
+Owner は現在の PR #12 `docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md` の内容を v0.1 の要求・要件定義として承認する。現在 PROPOSED / PENDING の規範項目も、本 revision の本文に記載の内容で承認する（「将来考え得る内容を全部承認」ではなく、この revision の本文を承認）。
+
+- 残る PROPOSED 25 → ACCEPTED。PENDING 1（U-07 / Structured Test Operation）→ ACCEPTED。
+- §26.4 のフェーズゲート除外は 2026-08-24 裁定を直接根拠とする（OOS-004 全体をこの裁定から導出しない）。OOS-004 の広い文言も現本文どおり ACCEPTED。
+- accepted-path closure 再計算: 全規範ノードが ROOT から ACCEPTED path で到達可能。PENDING = 0 / PROPOSED = 0。導出表 111 行すべて ACCEPTED。
+- 誤導出だった F7 → §19 承認主体 行は削除済み。§4.2 根の指定の親はプレースホルダから F12 へ是正。
+
+**freeze**: 本 revision を v0.1 baseline として freeze。freeze 後は要求・要件定義を実装都合で変更しない。実装中の不足・矛盾は P-005 に従い上流へ feedback し、Owner 判断を経て上流から変更する。
+
+**次工程**: 要求・要件定義 → 基本仕様 → 詳細設計 → VO → 実装・Test の順。既存の下位文書・実装が freeze 済み要件と不整合なら、要件に合わせて下流を再導出・修正する。Owner への追加質問は、要件から一意に決定できず実装選択でなく Owner 判断を本当に要する事項に限る。
