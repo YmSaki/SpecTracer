@@ -324,14 +324,17 @@ approved_at: 2026-08-08T00:00:00Z
 
 承認は検証状態と**独立の別軸**である（基本仕様 §4.5、§17、要件定義 §5.5）。承認済みを理由に非 `PASS` を `PASS` へ昇格させず、未承認を理由に `PASS` を降格させない。承認記録は §3.4 の判断記録と同一 entity であることを要求しない（別 entity でありうる）。承認は対象自身（`subject`）または参照する判断（`judgment_ref`）に承認済み状態を与える。
 
-**承認対象の値域。** `subject` に置ける ID は次の 2 種だけである。
+承認は特定のエンティティ型に従属しない独立の領域である。承認レコードの構造・値域・実効承認の導出・状態遷移は本節だけで定義し、対象の種別ごとに別の承認規則を置かない。入力経路も対象種別で分けず、対象種別を引数に取る単一の正典面（別紙A §12.2 の `vtest approval` コマンド群、§13.2 の `approval_*` ツール）に一本化する。エンティティ側に置く承認操作（`vtest vo approve` / `vo_approve`）はこの正典面への別名であり、独自の意味論を持たない。
 
-| `subject` の種別 | 意味 | 上流依存closure |
+**承認対象の値域。** 承認対象は次の 3 種であり、レコード上の表現は種別ごとに定まる。
+
+| 承認対象の種別 | レコード上の表現 | 上流依存closure |
 |---|---|---|
-| VO ID（`VO-*`） | 検証成果物としての VO の承認 | 対象 VO の再帰的な parent VO、対象 VO と各 parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document（`derives_from` 先） |
-| document ID（`DOC-*`） | 方針を含む上流文書の承認。方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない（§3.1、基本仕様 §3.1） | 対象 document の再帰的な上位 document（`derives_from` 先） |
+| `vo` | `subject` に VO ID（`VO-*`） | 対象 VO の再帰的な parent VO、対象 VO と各 parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document（`derives_from` 先） |
+| `document` | `subject` に document ID（`DOC-*`）。方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない（§3.1、基本仕様 §3.1） | 対象 document の再帰的な上位 document（`derives_from` 先） |
+| `judgment` | `judgment_ref` に判断記録 ULID。`subject` には当該判断記録の `subject`（VO ID または document ID）を置く | `subject` の種別に応じた上記の closure |
 
-判断記録は `subject` に置かない。判断記録の承認は `judgment_ref` によってのみ表す。`judgment_ref` が指す判断記録が存在しない場合は、書込み時に E-APPROVAL-001 として拒否し、既存レコードとして読み取った場合は当該レコードから VO / document の実効承認も判断記録の実効承認も導出しない（W-STORE-006）。判断記録 ULID を `subject` に持つ承認レコードは、書込み時に E-APPROVAL-002 として拒否し、既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006 を出す。VO ID・document ID のいずれにも解決しない `subject`（Test ID、Source Target locator、Relation ID 等）も同じ扱いとする。
+判断記録 ULID は `subject` に置かない。判断記録の承認は `judgment_ref` によってのみ表す。`judgment_ref` が指す判断記録が存在しない場合は、書込み時に E-APPROVAL-001 として拒否し、既存レコードとして読み取った場合は当該レコードから VO / document の実効承認も判断記録の実効承認も導出しない（W-STORE-006）。判断記録 ULID を `subject` に持つ承認レコードは、書込み時に E-APPROVAL-002 として拒否し、既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006 を出す。VO ID・document ID のいずれにも解決しない `subject`（Test ID、Source Target locator、Relation ID 等）も同じ扱いとする。
 
 いずれの種別でも対象自身は `subject_hash` で束縛するため `dependencies` へ重複して含めない。`dependencies` の entry は `kind`（`vo` | `document`）、`id` の順で sort し、欠落・重複・余剰 entry を許可しない。document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する。
 
@@ -364,6 +367,8 @@ approved_at: 2026-08-08T00:00:00Z
      withdrawn のレコードが1件以上ある                 → draft（fail-closed。機械はどちらかを選ばない）
    A'(X) の全レコードが approved_state == approved    → approved
 ```
+
+実効集合 A'(X) からの除外は `supersedes` による明示の名指しだけで起きる。`supersedes` 関係にない複数の有効承認レコードはすべて A'(X) に属する。`approved_at` / ULID の順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。同一対象に `approved` と `rejected` の有効承認レコードが `supersedes` 関係なく併存する場合、機械はどちらも採らず fail-closed に `draft` とする。
 
 `approved` を取り消すには `approved_state: withdrawn`、否認するには `approved_state: rejected` の承認レコードを追加する。取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードの ULID を `supersedes` に名指しした `approved_state: approved` のレコードを追加する。旧レコードを名指ししない `approved` の追加では `draft` のままとする。
 
@@ -1593,7 +1598,7 @@ scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、err
 | §3.2.1 dimensions | 基本§10 | CONFORM（vo-coverage 監査参照を UNKNOWN エスカレーションへ） |
 | §3.3 Relation レコード | 基本§2.3・§3.2 | CONFORM |
 | §3.4 判断記録レコード | 基本§11.3・要件§12 | 新設（M-2。actor/subject/decision/judgment_kind 必須・理由 optional、supersedes による多重度解消） |
-| §3.5 承認レコード | 基本§17・§4.5・§30 item18・要件§19 | 再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰、approved_state 値域と workflow 状態遷移、subject 値域 VO/document・判断記録は judgment_ref） |
+| §3.5 承認レコード | 基本§17・§4.5・§30 item18・要件§19 | 再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰、approved_state 値域と workflow 状態遷移、承認対象値域 vo/document/judgment、対象種別非従属の単一正典面） |
 | §3.6 Evidence レコード | 基本§21・§6・§7 | 再導出（target_execution field→target_coverage 改名、runtime_result 吸収） |
 | §4.1 adapter-neutral 正規化 | 基本§3・§9.1・§9.2・§12・要件§9.1 | 再導出（role/anchor/characterization 除去、covers≥1 一律、検証対象を core で一般化＝Source Target 実現は adapter 層／rust-cargo が targets≥1） |
 | §4.2 rust-cargo annotation 文法 | 基本§30 item4・§12 | 再導出（role/anchor キー・語彙撤去、src-id 存続） |

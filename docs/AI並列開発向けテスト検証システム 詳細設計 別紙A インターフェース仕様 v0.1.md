@@ -63,7 +63,7 @@ registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-
 
 `vtest scan` と同一処理の別名。自動化環境の整合性検査に使用する（本冊 §16.2）。同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、孤児 document（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。
 
-#### `vtest doc add / list / show / approve`
+#### `vtest doc add / list / show`
 
 ```text
 vtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md
@@ -72,10 +72,6 @@ vtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md
               [--root | --no-root] [--update]
 vtest doc list [--tree] [--roots]
 vtest doc show DOC-BASIC-001
-vtest doc approve DOC-BASIC-001 --approver-kind <human|agent> --approver-id <id>
-                  --state <approved|rejected|withdrawn>
-                  [--model <m>] [--judgment <decision-id>] [--basis <ref>]...
-                  [--supersedes <approval-id>]...
 ```
 
 `doc` は上流文書を総称 `document` レコード（本冊 §3.1、基本仕様 §3.1・§3.2）として管理する唯一のコマンドである。文書種別（要件定義・基本仕様・詳細設計・API Schema 等）を区別せず、段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し種別を増やさない。旧モデルの `vtest spec` / `vtest req` は廃し、SPEC / REQ 実体層は持たない。
@@ -83,8 +79,7 @@ vtest doc approve DOC-BASIC-001 --approver-kind <human|agent> --approver-id <id>
 - `add` は `--path` の対象ファイルの sha256 を計算して document subject（本冊 §1.3 document subject hash）へ束縛した DOC レコードを作成する。`--derives-from` は上流 document への導出リンク（0件可＝根候補）で、各リンクに任意の `--note`（導出理由・空可・非 `MISMATCH`。基本仕様 §3.4）を付けられる。
 - `--root` / `--no-root` は当該 DOC を `orphan_detection` の除外根（`config.yaml` の `doc.roots`。本冊 §2.2・§5.6）へ追加／除外する。根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する（`doc edit` は設けない。正典編集は `add --update`）。
 - `--update` は既存 DOC レコードの sha256 を現ファイルで再計算して更新する。document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する（本冊 §3.5・§8.5・§11.4）。`--root` / `--no-root` を併せて根指定も更新できる。
-- `list --tree` は `derives_from` の文書鎖を木として表示し、`--roots` は現在の根集合を表示する。`show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態（本冊 §3.5）を表示する。
-- `approve` は当該 document を `subject` とする承認レコード（`.verify/approvals/`）を追加する。方針は総称 document として登録した文書で表現するため（本冊 §3.1・§3.5）、方針の承認・却下・取消はこの経路で記録する。上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）とし、`--state` / `--judgment` / `--basis` / `--supersedes` の意味・拒否条件・実効承認の導出は `vo approve` と同一である（本冊 §3.5）。`--update` による再登録で document subject hash が変化した承認は失効する（本冊 §11.4）。
+- `list --tree` は `derives_from` の文書鎖を木として表示し、`--roots` は現在の根集合を表示する。`show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態（本冊 §3.5）を表示する。document の承認・却下・取消は `vtest approval` で行い、`doc` 側に承認操作を置かない。
 - `derives_from` の参照先 document が存在しなければ文書鎖のリンク切れとして `chain_integrity = MISMATCH`（E-SCAN-012）、`path` の実ファイルが `content_hash` と一致しなくなれば `chain_integrity = MISMATCH`（診断 `STALE`。本冊 §11.4）、根に指定されず親も持たない document は孤児として `orphan_detection = MISMATCH`（E-SCAN-016。本冊 §5.6）とする。
 
 #### `vtest vo add / edit / list / show / expand / approve`
@@ -102,17 +97,38 @@ vtest vo show VO-X          # claim、derives_from、covers している Test、
 vtest vo expand VO-X [--dry-run]
 vtest vo approve VO-X --approver-kind <human|agent> --approver-id <id>
                  --state <approved|rejected|withdrawn>
-                 [--model <m>] [--judgment <decision-id>] [--basis <ref>]...
-                 [--supersedes <approval-id>]...
+                 [--model <m>] [--basis <ref>]... [--supersedes <approval-id>]...
 ```
 
 VO は 1 件以上の `document` から `derives_from` で直結して導出される（本冊 §3.2、基本仕様 §3.2）。旧モデルの `--req`（REQ 参照）・`--spec` / `--section`（SPEC + 節参照）は廃し、上流参照は `--derives-from DOC-*`（任意の `--note`）へ一本化する。VO の `status`（`draft` / `approved`）は正典 field ではなく承認レコードから導出する表示値である（本冊 §3.2・§3.5。読取り互換 field として保存されていても値は無視し、存在自体は W-STORE-001）。旧 REQ の `active` / `withdrawn` 語彙は REQ 層とともに廃止する。`--doc DOC-X` は当該 document を根とする下流 VO の絞り込みである。
 
 `expand` は本冊 §3.3.1 の実体化（`independent-axes` / `full-product` / `explicit`）。`--dry-run` は生成予定の子 VO 一覧のみ表示する。
-`approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closure（再帰 parent VO・derives_from document・その上位 document）に束縛された承認レコード（`.verify/approvals/`）を追加する。`--state` は必須で、本冊 §3.5 の `approved_state`（`approved` / `rejected` / `withdrawn`）を与える。`--judgment` は参照する判断記録 ID（本冊 §3.5 の `judgment_ref`、任意）、`--basis` は根拠参照（任意）、`--supersedes` は明示に置き換える旧承認レコード ID（0件以上）である。承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない（本冊 §3.5、基本仕様 §4.5・§17）。
-対象、`--judgment` の参照先、またはいずれかの依存entity / document sourceを完全・currentに解決できない場合はE-APPROVAL-001、終了コード2としてrecordを追加しない。`--state` が値域外、`--supersedes` の参照先が存在しない・対象が一致しない・自己参照のいずれかであればE-APPROVAL-002、終了コード2としてrecordを追加しない。
-`vo list --status` および `vo show` が表示する承認状態は、本冊 §3.5 の実効承認導出（`approved_state` を参照し、実効集合に `rejected` / `withdrawn` が1件でも残れば `draft`）の結果であり、承認レコードの件数だけからは導出しない。取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する。
-`edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
+`vo approve VO-X <承認引数>` は `vtest approval create --subject-type vo --subject-id VO-X <承認引数>` の**別名**であり、引数・拒否条件・生成されるレコードは同一である。承認の意味論を重複して定義せず、正典は次項の `vtest approval` と本冊 §3.5 とする。
+`vo list --status` および `vo show` が表示する承認状態は、本冊 §3.5 の実効承認導出（`approved_state` を参照し、実効集合に `rejected` / `withdrawn` が1件でも残れば `draft`）の結果であり、承認レコードの件数・新旧からは導出しない。
+`edit` は実効承認が `approved` の VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
+
+#### `vtest approval create / withdraw / show`
+
+```text
+vtest approval create --subject-type <vo|document|judgment> --subject-id <id>
+                      --state <approved|rejected|withdrawn>
+                      --approver-kind <human|agent> --approver-id <id>
+                      [--model <m>] [--basis <ref>]... [--supersedes <approval-id>]...
+vtest approval withdraw <approval-id>
+                      --approver-kind <human|agent> --approver-id <id>
+                      [--model <m>] [--basis <ref>]...
+vtest approval show --subject-type <vo|document|judgment> --subject-id <id>
+```
+
+承認は特定のエンティティ型に従属しない独立の領域であり、対象種別を引数に取るこの経路が承認レコード生成の**唯一の正典面**である（本冊 §3.5）。エンティティ側の `vo approve` / `vo_approve` はこの経路への別名にすぎず、追加・相異する規則を持たない。
+
+- `--subject-type` と `--subject-id` は本冊 §3.5 の承認対象の値域に対応する。`vo` は `subject` に VO ID、`document` は `subject` に document ID を書き込む。`judgment` は `--subject-id` に判断記録 ULID を取り、`judgment_ref` へ書き込んだうえで `subject` に当該判断記録の `subject` を、`subject_hash` / `dependencies` にその対象の現在値を記録する。方針は総称 document として登録した文書で表現するため、方針の承認・却下・取消は `--subject-type document` で記録する（本冊 §3.1・§3.5）。
+- `--state` は必須で、本冊 §3.5 の `approved_state`（`approved` / `rejected` / `withdrawn`）を与える。`--basis` は根拠参照（任意）、`--supersedes` は明示に置き換える旧承認レコード ID（0件以上）である。
+- `withdraw <approval-id>` は `create --subject-type <当該レコードの対象種別> --subject-id <当該レコードの対象> --state withdrawn --supersedes <approval-id>` と同一のレコードを生成する短縮形であり、追加の意味論を持たない。
+- `show` は当該対象の承認レコード一覧（`approved_state`・`supersedes`・有効性）と、本冊 §3.5 の実効承認状態（`draft` / `approved`）を返す。
+- 対象、`--subject-type judgment` の参照先判断記録、またはいずれかの依存 entity / document source を完全・current に解決できない場合は E-APPROVAL-001、終了コード 2 として record を追加しない。`--state` が値域外、`--subject-type` と `--subject-id` の種別が一致しない、`--supersedes` の参照先が存在しない・対象が一致しない・自己参照のいずれかであれば E-APPROVAL-002、終了コード 2 として record を追加しない。
+- **実効承認は明示の `supersedes` 関係だけで決まる。** `supersedes` 関係にない複数の有効承認レコードはすべて実効集合に属し、`approved_at` / ULID の順序でどれかを「現在の承認」に選ぶことはしない。実効集合に `rejected` / `withdrawn` が 1 件でも残れば `draft` とする。取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する（本冊 §3.5）。
+- 承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない（本冊 §3.5、基本仕様 §4.5・§17）。
 
 #### `vtest test create`
 
@@ -187,7 +203,7 @@ vtest audit submit --file result.json
 - **競合の解消は `supersedes` だけによる。** 同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存する場合、実効判断は未確定（`UNKNOWN`）とし、W-STORE-004 を出す。機械は新旧・decision 値・件数のいずれによっても採用記録を選ばない。新しい判断記録が旧記録の ULID を `supersedes` で名指しした場合にだけ解消する（本冊 §8.5）。未確定の事実は `verify` / `report` の判断待ち section（§12.4）へ載せる。
 - **判断記録の受理は当該対象の検証状態（5状態）を昇格させない**（本冊 §8.3・§3.4、基本仕様 §11.3）。判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。旧モデルの `verdict → CheckValue` 写像・reasons / basis 必須検査（E-AUDIT-005〜007）は撤去する（本冊 §8.4）。
 
-**判断記録面と承認記録面の分離。** 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional。本冊 §3.4）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state。本冊 §3.5、`vo approve` / `doc approve` で生成）は別軸・別 entity である。判断済み ≠ 承認済みであり（本冊 §8.5、基本仕様 §17）、判断は承認なしでも記録でき、正式採用は承認の別段階である。いずれも検証状態を昇格・降格させない。
+**判断記録面と承認記録面の分離。** 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional。本冊 §3.4）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state。本冊 §3.5、`vtest approval create` で生成）は別軸・別 entity である。判断済み ≠ 承認済みであり（本冊 §8.5、基本仕様 §17）、判断は承認なしでも記録でき、正式採用は承認の別段階である。いずれも検証状態を昇格・降格させない。
 
 #### `vtest run`
 
@@ -338,11 +354,13 @@ stdio で MCP サーバを起動する（§13）。
 | `scan` | なし | 診断一覧、エンティティ数サマリ |
 | `doc_list` / `doc_get` | `id`（get のみ）、`tree: bool`、`roots: bool` | document レコード（木・根集合・鮮度） |
 | `doc_upsert` | document フィールド一式（`path`、`derives_from[]`（`doc` + 任意 `note`）、`root: bool`、`update: bool`） | 作成・更新結果（依存判断・承認の失効警告を含む） |
-| `doc_approve` | `id`（`DOC-*`）、`approver`、`state`（`approved` / `rejected` / `withdrawn`）、`judgment`（任意）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID。方針を含む document の承認・却下・取消（本冊 §3.5） |
+| `approval_create` | `subject: { type: vo \| document \| judgment, id }`、`approver`、`state`（`approved` / `rejected` / `withdrawn`）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID。承認レコード生成の唯一の正典面（本冊 §3.5） |
+| `approval_withdraw` | `approval_id`、`approver`、`basis[]`（任意） | 承認レコード ID。`approval_create` の `state: withdrawn` ＋ `supersedes: [approval_id]` と同一 |
+| `approval_get` | `subject: { type, id }` | 承認レコード一覧（`approved_state` / `supersedes` / 有効性）と実効承認状態（`draft` / `approved`） |
 | `vo_list` / `vo_get` | `id`、`doc`、`status` | VO レコード、derives_from、covers 状況、承認状態 |
 | `vo_upsert` | VO フィールド一式（`derives_from[]` 必須1件以上） | 作成・更新結果（承認失効の警告含む） |
 | `vo_expand` | `id`、`dry_run: bool` | 生成される子 VO 一覧 |
-| `vo_approve` | `id`、`approver`、`state`（`approved` / `rejected` / `withdrawn`。必須）、`judgment`（任意）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID |
+| `vo_approve` | `id`、`approver`、`state`（必須）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID。`approval_create` に `subject: { type: vo, id }` を与えた場合の別名であり、独自の意味論を持たない |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
 | `test_get` | `id` | Test 詳細（intent、covers、targets、位置、判断記録・Evidence 状態） |
 | `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
@@ -548,7 +566,8 @@ helper・fixture・通常ソースコードの編集手段は提供しない（�
 | §12.2 `vtest scan` | 本冊§5・§5.6／基本§23・§26.1 | CONFORM（整合性検査を chain_integrity/orphan_detection へ言換え） |
 | §12.2 `vtest doctor` | 本冊§16.2／基本§26.1 | CONFORM（失効を判断記録・承認のハッシュ束縛 STALE へ） |
 | §12.2 `vtest doc add/list/show` | 本冊§3.1・§5.6・§11.4／基本§3.1・§3.2・§16・§26.1・§30 item1-2 | 新設（spec/req コマンドを廃し doc へ統合、derives_from・根指定フラグ） |
-| §12.2 `vtest vo …` | 本冊§3.2・§3.3.1・§3.5／基本§10・§17・§26.1 | 再導出（--req/--spec/--section→--derives-from、承認 basis→judgment_ref+basis） |
+| §12.2 `vtest vo …` | 本冊§3.2・§3.3.1・§3.5／基本§10・§17・§26.1 | 再導出（--req/--spec/--section→--derives-from、`vo approve` は `approval create` の別名） |
+| §12.2 `vtest approval …` | 本冊§3.5／基本§17・§30 item18 | 新設（対象種別を引数に取る承認の唯一の正典面。create / withdraw / show） |
 | §12.2 `vtest test create` | 本冊§4.2・§6.3／基本§15・§26.1 | CONFORM（回答例の role 不在） |
 | §12.2 `vtest test edit` | 本冊§15／基本§15.1・§26.1 | CONFORM（desired state 参照を基本§15.1 へ） |
 | §12.2 `vtest test show/list/query` | 本冊§4.1・§5.3・§11.6／基本§12・§26.1 | 再導出（show の role 除去、covers/targets 表示、逆引きを projection 基盤へ） |
@@ -561,7 +580,7 @@ helper・fixture・通常ソースコードの編集手段は提供しない（�
 | §12.3 フェーズゲート評価 | 本冊§11.5・§2.2・§3.5／基本§20・§17・§30 item22-23／要件§26.4 | 新設（MUST、承認ロール解決規則 approval_roles を新設、評価/提示のみ） |
 | §12.4 判断待ち情報 section | 本冊§11.7／基本§18.3・§30 item19／要件§17.3 | 新設（verify/report JSON の pending section） |
 | §13.1 MCP 共通仕様 | 本冊§13／基本§26.2 | CONFORM（状態/診断2軸を反映） |
-| §13.2 ツール一覧 | 本冊§8・§7.1・§11.1／基本§26.2 | 再導出（spec_/req_→doc_、verify/report 固定4検査、audit_static はレコードID返さず、audit_submit は非昇格） |
+| §13.2 ツール一覧 | 本冊§8・§7.1・§11.1・§3.5／基本§26.2 | 再導出（spec_/req_→doc_、verify/report 固定4検査、audit_static はレコードID返さず、audit_submit は非昇格、承認は subject 汎用の `approval_*` へ一本化し `vo_approve` は別名） |
 | §13.3 エージェント向けフロー | 本冊§8／基本§11・§25 | CONFORM（doc/判断記録・非昇格を明示） |
 | §14.1 スキーマ形式 | 本冊§4.1・§4.2・§6.3／基本§15.4・§30 item4 | CONFORM（test_kind regression を意図ラベルとして明示、role 不在） |
 | §14.2 検証器 | 本冊§6.1・§6.3・§5.2／基本§15.4 | CONFORM（Form owner 解決参照を基本§15.4 へ） |
