@@ -245,7 +245,7 @@ coverage_policy: full-product
 - `full-product`：直積ごとに 1 子 VO（上例では 8 件）
 - `explicit`：`combinations` フィールドに列挙された組合せのみ
 
-生成される子 VO の ID は `VO-X-<PARTITION>`（直積は `VO-X-<P1>-<P2>`）を既定とし、生成前に一覧を提示して確認できる（`--dry-run`）。複数軸の suffix は `dimensions` の宣言順に連結し、`combinations` entry 内の記述順・map key 順に依存しない。
+生成される子 VO の ID は `VO-X-<PARTITION>`（直積は `VO-X-<P1>-<P2>`）を既定とし、生成前に一覧を提示して確認できる（`--dry-run`）。suffix は partition 値を大文字化した文字列とし、複数軸の suffix は `dimensions` の宣言順に連結する。`combinations` entry 内の記述順・map key 順には依存しない。
 実体化後は通常の VO として扱われるため、`chain_integrity` の leaf VO → Test 検査は「leaf VO に covers する Test が存在するか」だけを見ればよい。
 組合せ空間の定義が仕様に対して十分かは本システムの検査ではなく、`UNKNOWN` としてエスカレーション（§8、基本仕様 §11）の領分である（基本仕様 §10）。
 
@@ -1298,13 +1298,16 @@ Test が別プロセス（起動した subprocess 内）・別スレッド等の
 
 - 当該 revision の repository を走査した scan 結果（adapter が返す discovery 出力と、そこから core が具体化したエンティティ・内容ハッシュ）
 - `.verify/` 配下の正典ファイル集合：`config.yaml`、document レコード、VO レコード、Relation レコード、判断記録（`.verify/decisions/`）、承認レコード（`.verify/approvals/`）、Evidence レコード（`.verify/evidence/`）
+- Evidence 鮮度判定（§11.2）が現在の snapshot として再構築する Execution State subject の入力（toolchain identity、実行結果へ影響する adapter config の canonical projection、repository / local dependency の入力 manifest。§1.3）
 - 当該実行の要求 scope 指定（検査軸・エンティティ軸・`--gate`）
 
-この入力集合が同一であれば、4 検査の検証状態（5 状態）・診断ラベル・診断コード集合・集約結果・`pending` section の内容・終了コードは同一でなければならない。次を検査入力にしてはならない。
+この入力集合が同一であれば、4 検査の検証状態（5 状態）・診断ラベル・診断コード集合・集約結果・`pending` section の内容・終了コードは同一でなければならない。次を**それ自体として**検査入力にしてはならない。
 
 - 実行時の現在時刻・経過時間・乱数・プロセス ID
 - ロケール・タイムゾーン・環境変数・呼出し元の作業ディレクトリ（`--project` で解決したプロジェクトルート自体は入力に含む）
 - ネットワーク応答、および LLM API を含む外部サービスの応答
+
+環境の変化が結果へ影響しうるのは、上記の Execution State subject の入力（toolchain identity・adapter config・入力 manifest）を変える範囲に限る。その場合の影響は Evidence の鮮度喪失（`NO_EVIDENCE`、診断 `STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。ネットワーク応答と外部サービス応答は Execution State subject の入力に含まれないため、例外なく検査入力にならない。
 
 本システムは意味判定・候補生成を外部の判定器へ委ねる seam（実行時に差し替え可能な意味判定・意味生成の呼出し点）を 4 検査の評価経路に持たない。外部 AI／Agent は判断記録（§8）の**著者**として `.verify/decisions/` へ記録を残す経路でのみ関与し、その記録は上記の入力集合の一部としてファイル経由で読まれる。判断記録の受理は検証状態を昇格させない（§8.3）。将来そのような seam を評価経路へ設ける場合は、任意の判定を返す実装（正反対の判定を返す実装を含む）を差し替えても 4 検査の結果が変化しないことを満たさなければならない。
 
@@ -1321,7 +1324,7 @@ Test が別プロセス（起動した subprocess 内）・別スレッド等の
 `chain_integrity` は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う（基本仕様 §5.1）。次を評価し、いずれか違反があれば `MISMATCH`（切れた箇所を診断ラベルで示す）。
 
 - **文書層**：各 `document` の `derives_from` 参照先が存在し（E-SCAN-012）、`content_hash` が現物と一致すること（不一致は診断 `STALE`。§11.4）。
-- **VO 層**：各 VO が 1 件以上の `document` への解決可能な `derives_from` を持つこと（不在・解決不能は E-SCAN-012）。VO parent の不在・循環は E-SCAN-008。
+- **VO 層**：各 VO が 1 件以上の `document` への解決可能な `derives_from` を持つこと（不在・解決不能は E-SCAN-012）。VO parent の不在・循環は E-SCAN-008。`combinations` が §3.2.1 の受理条件を満たすこと（違反は E-SCAN-017）。
 - **Test 層**：発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・`intent` その他の必須 metadata。**`targets ≥ 1` は adapter 中立 core の必須リンクに含めず**、当該 adapter が必須とする追加 metadata として扱う〔`rust-cargo` では 1 件以上の `targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど 1 件存在し（欠落は E-SCAN-007、診断 `MISSING`）、`covers` の全 VO 参照を解決でき（E-SCAN-003）、Test ID が発見結果全体で一意であること（衝突は E-SCAN-002）。
 - **双方向完全性**：leaf VO → Test（検証実装の存在。covers する Test が 1 件以上）と、発見された Test → 宣言（管理宣言の解決）の両方向が成立して初めて成立する。covers する Test の無い leaf VO は `MISMATCH`（診断 `MISSING`）。
 - Relation の from / to 不在は E-SCAN-009。恒久 SRC ID の adapter 越え衝突は E-SCAN-011。

@@ -110,7 +110,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - `anchor` だけを変更した VO は VO subject hash が変化せず、当該 VO の承認が失効しない。
 - CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に 2 個目の `--anchor` を与えた場合は終了コード 2 で拒否し、レコードを書かない。
 
-**`vtest init` の非改変不変条件**（本冊 §18.1 相当、別紙A §12.2、基本仕様 §18.1）
+**`vtest init` の非改変不変条件**（別紙A §12.2、基本仕様 §18.1）
 
 - 既存ソース・既存テストを含む fixture project で `vtest init` を実行した前後で、`.verify/` を除いた作業ツリーの全ファイルのバイト列が同一である。`.verify/` 外のファイルの新規作成・変更・削除が 1 件も観測されない。
 - `init` は既存ソースへ Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を挿入しない。
@@ -221,7 +221,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 **判定の決定性**（本冊 §11.1、基本仕様 §11.1）
 
 - 同一 revision・同一 `.verify/` ファイル集合（`config.yaml`・document / VO / Relation レコード・判断記録・承認・Evidence）・同一 scope 指定に対して `verify` を繰り返し実行すると、4 検査の検証状態・診断ラベル・診断コード集合・集約結果・`pending` section・終了コードが毎回一致する。
-- 検査入力を変えずに実行時刻・ロケール・タイムゾーン・環境変数・呼出し元の作業ディレクトリを変えても、上記の出力が変化しない。ネットワークを遮断した環境でも同一の出力を返す。
+- 実行時刻・ロケール・タイムゾーン・呼出し元の作業ディレクトリを変えても、また Execution State subject（本冊 §1.3）の入力に影響しない環境変数を変えても、上記の出力が変化しない。ネットワークを遮断した環境でも同一の出力を返す。
+- toolchain identity・adapter config・入力 manifest を変える環境変更（`RUSTUP_TOOLCHAIN` の切替等）の影響は Evidence の鮮度喪失（`NO_EVIDENCE`、診断 `STALE`。本冊 §11.2）としてのみ現れ、環境そのものを判定条件として読む経路を持たない。
 - `vtest` は 4 検査の評価中に LLM API を含む外部サービスへ要求を出さない。外部 AI／Agent の関与は `.verify/decisions/` の判断記録ファイル経由に限られ、判断記録の受理は検証状態を昇格させない（§18.3.6）。
 - 4 検査の評価経路に、実行時に差し替え可能な意味判定 seam を持たない。評価経路へそのような seam を導入する変更を行う場合は、正反対の判定を返す stub を注入しても 4 検査の結果が変化しないことを受入で確認する。
 
