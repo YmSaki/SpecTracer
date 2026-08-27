@@ -63,7 +63,7 @@ registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-
 
 `vtest scan` と同一処理の別名。自動化環境の整合性検査に使用する（本冊 §16.2）。同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、孤児 document（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。
 
-#### `vtest doc add / list / show`
+#### `vtest doc add / list / show / approve`
 
 ```text
 vtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md
@@ -72,6 +72,10 @@ vtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md
               [--root | --no-root] [--update]
 vtest doc list [--tree] [--roots]
 vtest doc show DOC-BASIC-001
+vtest doc approve DOC-BASIC-001 --approver-kind <human|agent> --approver-id <id>
+                  --state <approved|rejected|withdrawn>
+                  [--model <m>] [--judgment <decision-id>] [--basis <ref>]...
+                  [--supersedes <approval-id>]...
 ```
 
 `doc` は上流文書を総称 `document` レコード（本冊 §3.1、基本仕様 §3.1・§3.2）として管理する唯一のコマンドである。文書種別（要件定義・基本仕様・詳細設計・API Schema 等）を区別せず、段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し種別を増やさない。旧モデルの `vtest spec` / `vtest req` は廃し、SPEC / REQ 実体層は持たない。
@@ -79,7 +83,8 @@ vtest doc show DOC-BASIC-001
 - `add` は `--path` の対象ファイルの sha256 を計算して document subject（本冊 §1.3 document subject hash）へ束縛した DOC レコードを作成する。`--derives-from` は上流 document への導出リンク（0件可＝根候補）で、各リンクに任意の `--note`（導出理由・空可・非 `MISMATCH`。基本仕様 §3.4）を付けられる。
 - `--root` / `--no-root` は当該 DOC を `orphan_detection` の除外根（`config.yaml` の `doc.roots`。本冊 §2.2・§5.6）へ追加／除外する。根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する（`doc edit` は設けない。正典編集は `add --update`）。
 - `--update` は既存 DOC レコードの sha256 を現ファイルで再計算して更新する。document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する（本冊 §3.5・§8.5・§11.4）。`--root` / `--no-root` を併せて根指定も更新できる。
-- `list --tree` は `derives_from` の文書鎖を木として表示し、`--roots` は現在の根集合を表示する。`show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）を表示する。
+- `list --tree` は `derives_from` の文書鎖を木として表示し、`--roots` は現在の根集合を表示する。`show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態（本冊 §3.5）を表示する。
+- `approve` は当該 document を `subject` とする承認レコード（`.verify/approvals/`）を追加する。方針は総称 document として登録した文書で表現するため（本冊 §3.1・§3.5）、方針の承認・却下・取消はこの経路で記録する。上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）とし、`--state` / `--judgment` / `--basis` / `--supersedes` の意味・拒否条件・実効承認の導出は `vo approve` と同一である（本冊 §3.5）。`--update` による再登録で document subject hash が変化した承認は失効する（本冊 §11.4）。
 - `derives_from` の参照先 document が存在しなければ文書鎖のリンク切れとして `chain_integrity = MISMATCH`（E-SCAN-012）、`path` の実ファイルが `content_hash` と一致しなくなれば `chain_integrity = MISMATCH`（診断 `STALE`。本冊 §11.4）、根に指定されず親も持たない document は孤児として `orphan_detection = MISMATCH`（E-SCAN-016。本冊 §5.6）とする。
 
 #### `vtest vo add / edit / list / show / expand / approve`
@@ -96,14 +101,17 @@ vtest vo list [--tree] [--doc DOC-X] [--status draft|approved]
 vtest vo show VO-X          # claim、derives_from、covers している Test、判断記録・承認状態を表示
 vtest vo expand VO-X [--dry-run]
 vtest vo approve VO-X --approver-kind <human|agent> --approver-id <id>
+                 --state <approved|rejected|withdrawn>
                  [--model <m>] [--judgment <decision-id>] [--basis <ref>]...
+                 [--supersedes <approval-id>]...
 ```
 
 VO は 1 件以上の `document` から `derives_from` で直結して導出される（本冊 §3.2、基本仕様 §3.2）。旧モデルの `--req`（REQ 参照）・`--spec` / `--section`（SPEC + 節参照）は廃し、上流参照は `--derives-from DOC-*`（任意の `--note`）へ一本化する。VO の `status`（`draft` / `approved`）は正典 field ではなく承認レコードから導出する表示値である（本冊 §3.2・§3.5。読取り互換 field として保存されていても値は無視し、存在自体は W-STORE-001）。旧 REQ の `active` / `withdrawn` 語彙は REQ 層とともに廃止する。`--doc DOC-X` は当該 document を根とする下流 VO の絞り込みである。
 
 `expand` は本冊 §3.3.1 の実体化（`independent-axes` / `full-product` / `explicit`）。`--dry-run` は生成予定の子 VO 一覧のみ表示する。
-`approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closure（再帰 parent VO・derives_from document・その上位 document）に束縛された承認レコード（`.verify/approvals/`）を追加する。`--judgment` は参照する判断記録 ID（本冊 §3.5 の `judgment_ref`、任意）、`--basis` は根拠参照（任意）である。承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない（本冊 §3.5、基本仕様 §4.5・§17）。
-対象またはいずれかの依存entity / document sourceを完全・currentに解決できない場合はE-APPROVAL-001、終了コード2としてrecordを追加しない。
+`approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closure（再帰 parent VO・derives_from document・その上位 document）に束縛された承認レコード（`.verify/approvals/`）を追加する。`--state` は必須で、本冊 §3.5 の `approved_state`（`approved` / `rejected` / `withdrawn`）を与える。`--judgment` は参照する判断記録 ID（本冊 §3.5 の `judgment_ref`、任意）、`--basis` は根拠参照（任意）、`--supersedes` は明示に置き換える旧承認レコード ID（0件以上）である。承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない（本冊 §3.5、基本仕様 §4.5・§17）。
+対象、`--judgment` の参照先、またはいずれかの依存entity / document sourceを完全・currentに解決できない場合はE-APPROVAL-001、終了コード2としてrecordを追加しない。`--state` が値域外、`--supersedes` の参照先が存在しない・対象が一致しない・自己参照のいずれかであればE-APPROVAL-002、終了コード2としてrecordを追加しない。
+`vo list --status` および `vo show` が表示する承認状態は、本冊 §3.5 の実効承認導出（`approved_state` を参照し、実効集合に `rejected` / `withdrawn` が1件でも残れば `draft`）の結果であり、承認レコードの件数だけからは導出しない。取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する。
 `edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
 
 #### `vtest test create`
@@ -164,19 +172,22 @@ vtest audit static [--test TEST-X | --all]
 #### `vtest audit bundle / submit`（判断記録プロトコル）
 
 ```text
-vtest audit bundle (--test TEST-X | --vo VO-X) [--kind test-semantic | impl-consistency]
+vtest audit bundle (--test TEST-X | --vo VO-X)
+                   [--kind test-semantic | impl-consistency | case-coverage]
                    [--include-failed]
 vtest audit submit --file result.json
 ```
 
 `audit bundle` / `submit` は本冊 §8 の**判断記録**プロトコルであり、意味検査ではない。本システムは宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを自ら発見・裁定せず、機械が決定論で確定できない疑義を `UNKNOWN` として外部（人間または判断可能 Agent）へ引き渡し、その判断を判断記録（`.verify/decisions/`）として追跡する（本冊 §8 冒頭、基本仕様 §11、要件定義 §12）。
 
-- `bundle` は判断対象（`--test` / `--vo`）ごとに、判断に必要な情報一式（対象 VO と claim・Test Intent・テストコード全文・対象実装全文・関連テスト・既知 partition・過去の判断・対象の内容ハッシュとリビジョン。本冊 §8.1）を JSON として `cache/bundles/<ULID>.json` へ出力し、パスと `bundle_id` を返す。バンドルは派生情報でありGit管理しない。
-- `--kind` は判断させる**UNKNOWN のエスカレーション質問**のラベルであって検査項目ではない。`test-semantic`＝「テストコードは VO の claim と Test Intent が宣言する振る舞いを実際に検証しているか」（本冊 §8.6）、`impl-consistency`＝「対象実装が宣言と一致するか」（本冊 §8.1。上流 document を要するため §3.5 と同じ上流依存規則で document 完全集合を同梱する）。省略時は対象種別に応じた既定の質問で生成する。VO 網羅の疑義は `--vo` バンドルの既知 partition 情報で運ぶ。旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。
-- `submit` は本冊 §8.4 の検証（bundle_id 存在＝E-AUDIT-001、subject 一致＝E-AUDIT-003、記録時ハッシュと現在ハッシュの一致＝E-AUDIT-002、decision が受理値＝E-AUDIT-004）を行い、受理時に判断記録 ID（`.verify/decisions/` の ULID）を出力する。判断は少なくとも actor / subject / decision を含み、理由・根拠（`reason` / `exclusions`）は任意である。**理由が空であることだけを根拠に判断を無効化しない**（本冊 §8.3、基本仕様 §11.3、要件定義 §12）。`decision` の受理値は `accepted` / `rejected` / `deferred` 等（本冊 §8.3）。
+- `bundle` は判断対象（`--test` / `--vo`）ごとに、判断に必要な情報一式（対象 VO と claim・Test Intent・テストコード全文・**Test が宣言した cases 集合**・対象実装全文・関連テスト・既知 partition・過去の判断・対象の内容ハッシュとリビジョン。本冊 §8.1）を JSON として `cache/bundles/<ULID>.json` へ出力し、パスと `bundle_id` を返す。`cases` は `@vtest.case` 宣言の正規化文字列を宣言順に並べた list であり、宣言が無い Test でも空 list を明示して項目を省略しない。バンドルは派生情報でありGit管理しない。
+- `--kind` は判断させる**UNKNOWN のエスカレーション質問**のラベル（本冊 §8.1 の判断型）であって検査項目ではない。値と `subject` 値域は本冊 §8.1 の表に従う。`test-semantic`＝「テストコードは VO の claim と Test Intent が宣言する振る舞いを実際に検証しているか」（`--test` のみ。本冊 §8.6）、`impl-consistency`＝「対象実装が宣言と一致するか」（`--test` のみ。上流 document を要するため §3.5 と同じ上流依存規則で document 完全集合を同梱する）、`case-coverage`＝「cases 集合が VO の要求入力空間を十分に代表・網羅しているか」（`--test` / `--vo` の双方。本冊 §8.1、基本仕様 §14）。`--test` で `--kind` を省略した場合は `test-semantic` とする。`--vo` では `--kind case-coverage` を必須とし、`--kind` 省略および `--vo` と `test-semantic` / `impl-consistency` の組合せは usage error（終了コード 2）としてバンドルを生成しない。旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。
+- バンドルは選ばれた判断型を `judgment_kind` として出力し、`submit` はこれを判断記録へ複製する。`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではなく、その未判断・判断結果はいずれの検査の値にも写像せず集約へ寄与しない（本冊 §8.1・§11.3）。
+- `submit` は本冊 §8.4 の検証（bundle_id 存在＝E-AUDIT-001、subject 一致＝E-AUDIT-003、judgment_kind 一致・値域＝E-AUDIT-003、記録時ハッシュと現在ハッシュの一致＝E-AUDIT-002、decision が受理値＝E-AUDIT-004、supersedes の参照先が同一 subject・同一 judgment_kind の既存判断記録で自己参照でない＝E-AUDIT-008）を行い、受理時に判断記録 ID（`.verify/decisions/` の ULID）を出力する。判断は少なくとも actor / subject / decision / judgment_kind を含み、理由・根拠（`reason` / `exclusions`）と `supersedes` は任意である。**理由が空であることだけを根拠に判断を無効化しない**（本冊 §8.3、基本仕様 §11.3、要件定義 §12）。`decision` の受理値は `accepted` / `rejected` / `deferred` 等（本冊 §8.3）。
+- **競合の解消は `supersedes` だけによる。** 同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存する場合、実効判断は未確定（`UNKNOWN`）とし、W-STORE-004 を出す。機械は新旧・decision 値・件数のいずれによっても採用記録を選ばない。新しい判断記録が旧記録の ULID を `supersedes` で名指しした場合にだけ解消する（本冊 §8.5）。未確定の事実は `verify` / `report` の判断待ち section（§12.4）へ載せる。
 - **判断記録の受理は当該対象の検証状態（5状態）を昇格させない**（本冊 §8.3・§3.4、基本仕様 §11.3）。判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。旧モデルの `verdict → CheckValue` 写像・reasons / basis 必須検査（E-AUDIT-005〜007）は撤去する（本冊 §8.4）。
 
-**判断記録面と承認記録面の分離。** 判断記録（`.verify/decisions/` の actor / subject / decision・理由 optional。本冊 §3.4）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state。本冊 §3.5、`vo approve` で生成）は別軸・別 entity である。判断済み ≠ 承認済みであり（本冊 §8.5、基本仕様 §17）、判断は承認なしでも記録でき、正式採用は承認の別段階である。いずれも検証状態を昇格・降格させない。
+**判断記録面と承認記録面の分離。** 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional。本冊 §3.4）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state。本冊 §3.5、`vo approve` / `doc approve` で生成）は別軸・別 entity である。判断済み ≠ 承認済みであり（本冊 §8.5、基本仕様 §17）、判断は承認なしでも記録でき、正式採用は承認の別段階である。いずれも検証状態を昇格・降格させない。
 
 #### `vtest run`
 
@@ -283,17 +294,29 @@ stdio で MCP サーバを起動する（§13）。
     "subject": "TEST-PARSER-044",
     "kind": "unknown",
     "check": { "item": "oracle_presence", "state": "UNKNOWN", "diagnostic": [] },
+    "judgment_kind": null,
     "basis": [ { "kind": "da-rule", "ref": "DA-003", "note": "クロージャ内到達のため確定不能" } ],
     "bundle_ref": "cache/bundles/01J8XVYY.json"
+  },
+  {
+    "subject": "TEST-PARSER-044",
+    "kind": "unknown",
+    "check": null,
+    "judgment_kind": "case-coverage",
+    "basis": [ { "kind": "decision", "ref": "01J8XVZZ...", "note": "実効判断 deferred" } ],
+    "bundle_ref": null
   }
 ]
 ```
 
 - `subject`：対象エンティティ ID または解決済み canonical Locator。
 - `kind`：`unknown`（`UNKNOWN` によるエスカレーション）/ `unregistered`（管理宣言欠落）/ `unresolved`（参照解決不能）/ `undecided`（VO 未確定）/ `pending_approval`（承認待ち）。
-- `check`：関係する4検査のいずれかと現在の検証状態・診断ラベル。
-- `basis`：機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照。
+- `check`：関係する4検査のいずれかと現在の検証状態・診断ラベル。4 検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では `null` とする。`check` が `null` の項目は集約（本冊 §11.3）へ寄与せず、いかなる検査の値も変更しない。
+- `judgment_kind`：外部判断が必要な場合の判断型（本冊 §8.1 の `test-semantic` / `impl-consistency` / `case-coverage`）。不要な項目では `null` とする。
+- `basis`：機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照。判断競合の項目では競合した全判断記録 ID を `kind: decision` として列挙する。
 - `bundle_ref`：外部判断が必要な場合の判断バンドル（§8.1）への参照（任意）。
+
+`judgment_kind: case-coverage` の項目の生成条件、および判断競合の項目の生成条件は本冊 §11.7 に定める。
 
 `UNKNOWN` だけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する。
 
@@ -315,18 +338,19 @@ stdio で MCP サーバを起動する（§13）。
 | `scan` | なし | 診断一覧、エンティティ数サマリ |
 | `doc_list` / `doc_get` | `id`（get のみ）、`tree: bool`、`roots: bool` | document レコード（木・根集合・鮮度） |
 | `doc_upsert` | document フィールド一式（`path`、`derives_from[]`（`doc` + 任意 `note`）、`root: bool`、`update: bool`） | 作成・更新結果（依存判断・承認の失効警告を含む） |
+| `doc_approve` | `id`（`DOC-*`）、`approver`、`state`（`approved` / `rejected` / `withdrawn`）、`judgment`（任意）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID。方針を含む document の承認・却下・取消（本冊 §3.5） |
 | `vo_list` / `vo_get` | `id`、`doc`、`status` | VO レコード、derives_from、covers 状況、承認状態 |
 | `vo_upsert` | VO フィールド一式（`derives_from[]` 必須1件以上） | 作成・更新結果（承認失効の警告含む） |
 | `vo_expand` | `id`、`dry_run: bool` | 生成される子 VO 一覧 |
-| `vo_approve` | `id`、`approver`、`judgment`（任意）、`basis[]`（任意） | 承認レコード ID |
+| `vo_approve` | `id`、`approver`、`state`（`approved` / `rejected` / `withdrawn`。必須）、`judgment`（任意）、`basis[]`（任意）、`supersedes[]`（任意） | 承認レコード ID |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
 | `test_get` | `id` | Test 詳細（intent、covers、targets、位置、判断記録・Evidence 状態） |
 | `form_get` | 大局的に一意な`kind` | owner adapterを明示したForm Schema（§14） |
 | `test_create` | `form`、`answers`（オブジェクト）、`dry_run` | 生成された Test ID、挿入位置、diff |
 | `test_edit` | `id`、`answers` または `set`、`body`、`dry_run` | 更新結果、diff |
 | `audit_static` | `test` または `all` | rule 別 verdict（target-scoped な DA-002 / DA-003 は target 別 verdict を含む。本冊 §3.6・§7.2）と根拠 span。正典レコードは生成しない（本冊 §7.1） |
-| `audit_bundle` | 対象 ID（`test` / `vo`）、`kind`（`test-semantic` / `impl-consistency`、任意） | bundle_id とバンドル本体（JSON） |
-| `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、判断記録 ID（`.verify/decisions/`）。受理は検証状態を昇格させない |
+| `audit_bundle` | 対象 ID（`test` / `vo`）、`kind`（`test-semantic` / `impl-consistency` / `case-coverage`。`test` では省略時 `test-semantic`、`vo` では `case-coverage` を必須） | bundle_id と `judgment_kind` を含むバンドル本体（JSON） |
+| `audit_submit` | 提出 JSON（本冊 §8.3。`judgment_kind` 必須、`supersedes[]` 任意） | 受理結果、判断記録 ID（`.verify/decisions/`）。受理は検証状態を昇格させない |
 | `run_tests` | `test` / `vo` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
 | `verify` | optional `items[]`（4検査の部分集合）、`doc` / `vo` / `test`、`gate`（任意）。items省略は固定4検査 | 総合 OK / NG、集約ツリー、`pending` section、`gate` 評価（指定時） |
 | `report` | 同上＋ `from` / `view` / `depth` / `direction`。items省略は固定4検査 | 根拠付き完全レポート、projection、`pending` section |

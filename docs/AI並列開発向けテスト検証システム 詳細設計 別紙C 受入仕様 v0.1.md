@@ -167,6 +167,16 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - deterministic 結果（§18.3.3 の静的解析）と agent / human の判断結果を区別して保存・表示する。
 - 判断記録の有効性は判定時に評価し、subject が一致し `subject_hash` が現在の内容ハッシュと一致し、`dependencies` が現在の上流依存closureとentity・hashとも完全一致する場合だけ有効とする。document は登録 content_hash と実ファイルの一致も要求し、不一致の document を STALE とし、依存する判断記録も無効とする（本冊 §8.5・§11.4）。
 - 同一対象に有効な判断記録が複数あってよい（再判断・多重判断）。
+- **判断バンドルは Test が宣言した cases 集合を規範項目として含む。** `@vtest.case` 宣言の正規化文字列を宣言順に並べた list として出力し、`@vtest.case` を持たない Test でも空 list を明示して項目を省略しない（本冊 §8.1・§8.2、基本仕様 §14）。
+- **バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。** 値域は `test-semantic` / `impl-consistency` / `case-coverage` であり、`subject` の値域は前 2 者が Test ID、`case-coverage` が Test ID または VO ID である。表にない組合せの要求ではバンドルを生成せず usage error（終了コード 2）とする（本冊 §8.1、別紙A §12.2）。
+- **`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。** その未判断・判断結果はいずれの検査の値へも写像せず、集約（本冊 §11.3）へ寄与しない。外部判断が必要な事実は判断待ち section（`check: null`、`judgment_kind: case-coverage`）としてだけ提示する（本冊 §8.1・§11.7）。
+- **`case-coverage` の判断待ち項目は決定論的に生成する。** `covers ≥ 1` かつ（`cases ≥ 1` または covers 先 VO のいずれかが `dimensions ≥ 1`）を満たす管理対象 Test ごとにちょうど 1 件生成し、`(当該 Test, case-coverage)` の実効判断が `accepted` の場合にだけ消滅する。実効判断が未確定・`rejected`・`deferred` のいずれでも項目は生成され、参照した判断記録 ID を `basis` に載せる。この消滅規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない（本冊 §11.7）。
+- **実効判断は `(subject, judgment_kind)` の組ごとに決まる。** 有効判断記録集合から、他の有効判断記録の `supersedes` に名指しされたものを除いた実効集合 E について、E が空なら未確定（`UNKNOWN`）、E の decision 値が全て同一ならその値、E に 2 種以上の decision 値があれば未確定（`UNKNOWN`）かつ W-STORE-004 とする（本冊 §8.5）。
+- **競合は `supersedes` による明示の置き換えでだけ解消する。** 判断記録の新旧（`decided_at` / ULID 順）、`decision` 値の優先順位、記録件数の多寡のいずれも採用規則に用いない。競合中の対象について機械がいずれかの判断記録を採用した結果を出力しない。
+- **`supersedes` の検証**：提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。`judgment_kind` がバンドルと不一致または値域外の提出は E-AUDIT-003 で拒否する（本冊 §8.4）。
+- **`supersedes` の循環**：レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。いずれかのレコードを推測で残さない（本冊 §8.5）。
+- **`judgment_kind` を欠くか値域外の判断記録**は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す（本冊 §3.4・§8.5）。
+- 実効判断が未確定であることは検証状態（§4.1 の 5 状態）を変更せず、`UNKNOWN` に §4.2 の診断ラベルを付与しない。未確定の事実は判断待ち section としてだけ提示する（本冊 §8.5・§11.7）。
 - 仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用せず、現在状態に対して §5 の 4 検査を再実施する。その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。変更そのものが `UNKNOWN` を生成するのではない（基本仕様 §11.3、要件定義 §12）。
 - 判断対象の target を一意に解決できない場合はバンドルを生成せず、候補のいずれも選択しない。対象が存在しない場合（E-SCAN-004）は `MISMATCH`（診断 `MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は `MISMATCH` とし、両者を一括して同一の状態値にしない（本冊 §8.1）。
 
@@ -174,10 +184,17 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 
 - **判断済みと承認済みを区別する**（判断済み ≠ 承認済み）。判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる（本冊 §3.4・§3.5、基本仕様 §11.3・§17）。判断は承認なしでも記録でき、正式採用は承認の別段階である。
 - **承認は検証状態と独立の別軸である。** 承認済みを理由に非 `PASS`（`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を `PASS` へ昇格させず、未承認を理由に `PASS` を降格させない（基本仕様 §4.5・§17）。判断受理も承認も、いずれも検証状態を昇格させない。
-- VO の実効承認状態は、subject が一致し `subject_hash` が現在の内容ハッシュと一致し、`dependencies` が現在の上流依存closureとentity・hashとも完全一致する承認レコードが 1 件以上存在する場合に `approved` とし、それ以外を `draft`（承認失効を含む）とする（本冊 §3.5）。
-- 上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document からなる。document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する（本冊 §3.5・§11.4）。
+- **`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。** 値域外の値、および値域外の `subject` 種別（判断記録 ULID・Test ID 等）は書込み時に E-APPROVAL-002 で拒否し record を生成しない。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず W-STORE-006 を出す（本冊 §3.5）。
+- **実効承認の導出は `approved_state` を参照する。** 有効承認レコード集合から、他の有効承認レコードの `supersedes` に名指しされたものを除いた実効集合について、集合が空なら `draft`、`rejected` または `withdrawn` が 1 件以上残るなら `draft`、全件が `approved` なら `approved` とする。有効の条件は `approved_state` が値域内であること、対象指定が一致すること、`subject_hash` が現在の内容ハッシュと一致すること、`dependencies` が現在の上流依存closureと entity・hash とも完全一致することである（本冊 §3.5）。
+- **承認取消・却下は実効承認を `draft` へ落とす。** `approved` の承認レコードが存在しても、後から `withdrawn` または `rejected` の有効承認レコードを追加すると実効承認は `draft` になる。機械は `approved` と `rejected` / `withdrawn` のどちらかを新旧・件数で選ばない。
+- **取消・却下後の再承認は `supersedes` による。** 当該 `withdrawn` / `rejected` レコードの ULID を `supersedes` に名指しした `approved` レコードを追加した場合にだけ `approved` へ戻る。名指ししない `approved` の追加では `draft` のままとする。`supersedes` の参照先が存在しない・対象が一致しない・自己参照は E-APPROVAL-002、循環は W-STORE-005 とする（本冊 §3.5）。
+- **承認対象の値域は VO ID と document ID である。** 判断記録の承認は `judgment_ref` によってのみ表し、判断記録 ULID を `subject` に置かない。`judgment_ref` の参照先が存在しない場合は書込み時に E-APPROVAL-001、読取り時は当該レコードから VO / document の実効承認も判断記録の実効承認も導出せず W-STORE-006 とする（本冊 §3.5）。
+- **判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。** supersede された判断記録・競合により未確定となった判断記録への承認は `draft` 相当とする（本冊 §3.5・§8.5）。
+- **方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。** document を対象とする承認の上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）からなり、`vtest doc approve` / `doc_approve` で記録する。document 再登録（`--update`）で document subject hash が変化すると当該承認は失効する（本冊 §3.1・§3.5・§11.4、別紙A §12.2・§13.2）。
+- VO を対象とする承認の上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document からなる。document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する（本冊 §3.5・§11.4）。
+- 実効承認状態の遷移は `draft` と `approved` の 2 値の間でだけ起き、検証状態（§4.1 の 5 状態）の変化・判断記録の追加そのもの・`basis` の内容によっては遷移しない（本冊 §3.5）。
 - 上流依存closureまたはハッシュを欠く互換 Approval は読取りと履歴表示だけを許可し、現在の `approved` を導出しない（W-STORE-002、VO は `draft` 相当）。
-- 承認主体は種別（`human` / `agent`）と識別子を記録する。承認権限（approval authority）・承認ロール・必要承認数・権限 schema・承認 workflow の状態遷移はプロジェクト設定と別紙A へ委譲する（基本仕様 §17・§30）。
+- 承認主体は種別（`human` / `agent`）と識別子を記録する。承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する（基本仕様 §17・§30）。承認 workflow の状態遷移と `approved_state` の値域は本冊 §3.5 に定める。
 
 #### 18.3.8 verify・report と scope
 
