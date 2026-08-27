@@ -94,6 +94,28 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - `vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による操作拒否をexit 2、完了したscanのE-SCAN-*をexit 1、errorなしをexit 0にする。
 - `full-product` VOは宣言partitionの直積を決定論的に実体化する。
 
+**VO の `combinations`（`coverage_policy: explicit`）**（本冊 §3.2.1・§17.1）
+
+- `coverage_policy: explicit` と妥当な `combinations` を持つ VO は、列挙された tuple ごとにちょうど 1 件の子 VO を生成し、子 VO ID の suffix は `dimensions` の宣言順で連結される。同じ tuple 集合を記述順・map key 順を変えて与えても、生成される子 VO 集合と ID は同一になる。
+- 次の各入力を持つ VO レコードは E-SCAN-017 と `chain_integrity = MISMATCH` になり、`vo expand` は子 VO を 1 件も生成しない（部分生成しない）：`explicit` かつ `combinations` 欠落、`explicit` かつ `combinations` 空 list、`explicit` かつ `dimensions` 空、`independent-axes` / `full-product` / `null` かつ `combinations` 非空、未宣言 dimension 名を含む tuple、当該 dimension の `partitions` に無い partition 値を含む tuple、宣言済み dimension を欠く tuple、同一 dimension 名を 2 回持つ tuple、重複 tuple。
+- `vo add` / `vo edit` / MCP `vo_upsert` は上記の各入力を受理時に E-SCAN-017・終了コード 2 で拒否し、レコードを作成・更新しない（拒否後に scan したエンティティ集合は操作前と同一）。
+- `vo edit --combination` は desired state として既存 `combinations` を置換し、追記しない。`--clear-combinations` は空にする。どちらも与えない `edit` は既存 `combinations` を保持する。
+- `combinations` だけを変更した `edit` は VO subject hash を変化させ、当該 VO の承認を失効させる。
+
+**`derives_from` の `anchor`**（本冊 §3.1・§3.2）
+
+- document / VO の `derives_from` entry に `anchor` を持つ状態と持たない状態の双方を読み取り、いずれも `chain_integrity` に影響しない（`anchor` の欠落・空文字列で `MISMATCH` にならない）。`anchor` の値を文書内位置へ解決せず、実在しない節番号を書いても診断を出さない。
+- 同一 `doc` を指す複数 `derives_from` entry を `anchor` 違いで保持でき、重複として拒否しない。
+- `anchor` だけを変更した document は `content_hash`（`path` の実ファイルのハッシュ）が不変のまま document subject hash が変化し、当該 document を上流依存 closure に含む承認・判断記録が失効する。
+- `anchor` だけを変更した VO は VO subject hash が変化せず、当該 VO の承認が失効しない。
+- CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に 2 個目の `--anchor` を与えた場合は終了コード 2 で拒否し、レコードを書かない。
+
+**`vtest init` の非改変不変条件**（別紙A §12.2、基本仕様 §18.1）
+
+- 既存ソース・既存テストを含む fixture project で `vtest init` を実行した前後で、`.verify/` を除いた作業ツリーの全ファイルのバイト列が同一である。`.verify/` 外のファイルの新規作成・変更・削除が 1 件も観測されない。
+- `init` は既存ソースへ Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を挿入しない。
+- 既存 `.verify/` があるプロジェクトでの `init` は終了コード 2 で中止し、その実行でファイル・ディレクトリを 1 件も作成・変更・削除しない（既存 `.verify/` の内容も不変）。
+
 #### 18.3.2 orphan_detection（文書層の孤児検出）
 
 - `orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う（本冊 §5.6、基本仕様 §5.2、要件定義 §4.2）。実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない（要件定義 R-2、基本仕様 §29 OOS-005）。
@@ -200,6 +222,19 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - `covers` を持つ Test は covers 先 VO の子ノードとして表示する。管理下にある事実と、いずれの VO へも寄与しない事実の双方を出力から確認できる（基本仕様 §22.3）。`covers` を持たない Test は §18.3.1 の `chain_integrity = MISMATCH` として扱い、役割別表示を設けない。
 - text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。
 
+**判定の決定性**（本冊 §11.1、基本仕様 §11.1）
+
+- 同一 revision・同一 `.verify/` ファイル集合（`config.yaml`・document / VO / Relation レコード・判断記録・承認・Evidence）・同一 scope 指定に対して `verify` を繰り返し実行すると、4 検査の検証状態・診断ラベル・診断コード集合・集約結果・`pending` section・終了コードが毎回一致する。
+- 実行時刻・ロケール・タイムゾーン・呼出し元の作業ディレクトリを変えても、また Execution State subject（本冊 §1.3）の入力に影響しない環境変数を変えても、上記の出力が変化しない。ネットワークを遮断した環境でも同一の出力を返す。
+- toolchain identity・adapter config・入力 manifest を変える環境変更（`RUSTUP_TOOLCHAIN` の切替等）の影響は Evidence の鮮度喪失（`NO_EVIDENCE`、診断 `STALE`。本冊 §11.2）としてのみ現れ、環境そのものを判定条件として読む経路を持たない。
+- `vtest` は 4 検査の評価中に LLM API を含む外部サービスへ要求を出さない。外部 AI／Agent の関与は `.verify/decisions/` の判断記録ファイル経由に限られ、判断記録の受理は検証状態を昇格させない（§18.3.6）。
+- 4 検査の評価経路に、実行時に差し替え可能な意味判定 seam を持たない。評価経路へそのような seam を導入する変更を行う場合は、正反対の判定を返す stub を注入しても 4 検査の結果が変化しないことを受入で確認する。
+
+**上流該当箇所の同伴**（本冊 §11.6・§3.1・§3.2、基本仕様 §11.1）
+
+- `report --from DOC-X --direction down --format json` は、`derives_from` エッジごとに `from` / `relation` / `to` と当該 entry の `anchor`・`note` を返し、「どの上流条項がどの VO へ対応するか」の対応ペア集合として読める。`anchor` を持たない entry では `anchor` を省略または `null` とし、空文字列で埋めない。
+- この対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。
+
 #### 18.3.9 フェーズゲート評価
 
 - プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを**評価・提示できなければならない（MUST）**（本冊 §11.5、基本仕様 §20、要件定義 §26.4）。
@@ -227,6 +262,14 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。
 - 同じdesired stateの再適用は冪等になる。
 - Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004となり、ファイルを変更しない。
+
+**Create の挿入後検証とロールバック**（別紙A §15.2、基本仕様 §15.1）
+
+- create は挿入後に対象ファイルを再パースし、構文妥当性・挿入分がちょうど 1 Test として認識されること・その Test ID と annotation が desired state と一致すること・他の Test と通常 source が不変であることを確認する。edit と同じ確認項目を create でも実施し、create 経路にだけ検証を省く分岐を設けない。
+- 挿入後の再パースが構文エラーになる fixture、挿入結果の annotation が desired state と一致しない fixture、挿入が他の Test 範囲へ及ぶ fixture のそれぞれで、create は E-OP-003・終了コード 2 になり、対象ファイルが挿入前のバイト列へ復元される。挿入によりファイルが新規作成されていた場合は不存在へ戻る。
+- ロールバック後に scan すると、当該 create 操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。部分適用された挿入内容・採番された Test ID・Evidence・判断記録がいずれも残らない。
+- `create --dry-run` は挿入内容と挿入位置を提示し、ファイルを変更しない。
+- 同一 desired state からの create と、その直後の同一 desired state による edit は差分を生じない（annotation block の再生成規則が create / edit で同一。別紙A §15.3）。
 
 #### 18.3.11 MCP interface
 

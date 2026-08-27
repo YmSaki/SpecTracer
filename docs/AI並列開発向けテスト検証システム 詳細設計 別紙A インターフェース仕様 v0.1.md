@@ -73,6 +73,13 @@ vtest init [--name <project-name>]
 `.verify/` 一式（本冊 §2.1）を生成する。`config.yaml` は本冊 §2.2のversion 2で、
 組込 `rust-cargo` adapter namespaceを含む。生成物には `doc/` / `vo/` / `rel/` / `forms/` / `decisions/` / `approvals/` / `evidence/` / `cache/` と `.verify/.gitignore`、組込 Form Schema（§14）を含む。既存の `.verify/` があればエラー（終了コード 2）。
 
+**非改変不変条件**（基本仕様 §18.1、要件定義 R-5）。`vtest init` は `.verify/` を作成するだけであり、既存コードを変更しない。観測可能な条件として次を満たす。
+
+- 作成するファイル・ディレクトリは `.verify/` とその配下に限る。プロジェクトルート直下の `.gitignore`・ビルド設定（`Cargo.toml` 等）・CI 設定を含め、`.verify/` の外にあるいかなるファイルも新規作成・変更・削除しない。
+- 既存ソースコード・既存テストコードのバイト列を変更しない。Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を既存ソースへ挿入しない。管理宣言の付与は `test create` / `test edit`（§15）と利用者自身の編集だけが行い、`init` は行わない。
+- 既存の `.verify/` があるときは終了コード 2 で中止し、その実行でファイル・ディレクトリを 1 件も作成・変更・削除しない。既存 `.verify/` の内容を上書き・マージ・移動しない。
+- したがって `init` の実行前後で、`.verify/` を除いた作業ツリーの内容は同一である。既存プロジェクトへの後からの導入が既存資産を書き換えないことは、この不変条件で保証する。
+
 #### `vtest scan`
 
 ```text
@@ -91,7 +98,7 @@ registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-
 ```text
 vtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md
               [--title <t>]
-              [--derives-from DOC-REQ-001 [--note <text>]]...
+              [--derives-from DOC-REQ-001 [--anchor <text>] [--note <text>]]...
               [--root | --no-root] [--update]
 vtest doc list [--tree] [--roots]
 vtest doc show DOC-BASIC-001
@@ -100,6 +107,7 @@ vtest doc show DOC-BASIC-001
 `doc` は上流文書を総称 `document` レコード（本冊 §3.1、基本仕様 §3.1・§3.2）として管理する唯一のコマンドである。文書種別（要件定義・基本仕様・詳細設計・API Schema 等）を区別せず、段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し種別を増やさない。旧モデルの `vtest spec` / `vtest req` は廃し、SPEC / REQ 実体層は持たない。
 
 - `add` は `--path` の対象ファイルの sha256 を計算して document subject（本冊 §1.3 document subject hash）へ束縛した DOC レコードを作成する。`--derives-from` は上流 document への導出リンク（0件可＝根候補）で、各リンクに任意の `--note`（導出理由・空可・非 `MISMATCH`。基本仕様 §3.4）を付けられる。
+- `--anchor <text>` は直前の `--derives-from` に束縛し、参照先 document 内の該当箇所（節番号・条項番号・見出し等）を記録する（本冊 §3.1）。`--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならない。値は不透明な文字列として保存し、文書内位置への解決・実在確認・書式検証を行わない。`--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。`show` は各 `derives_from` entry の `anchor` を表示する。
 - `--root` / `--no-root` は当該 DOC を `orphan_detection` の除外根（`config.yaml` の `doc.roots`。本冊 §2.2・§5.6）へ追加／除外する。根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する（`doc edit` は設けない。正典編集は `add --update`）。
 - `--update` は既存 DOC レコードの sha256 を現ファイルで再計算して更新する。document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する（本冊 §3.5・§8.5・§11.4）。`--root` / `--no-root` を併せて根指定も更新できる。
 - `list --tree` は `derives_from` の文書鎖を木として表示し、`--roots` は現在の根集合を表示する。`show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）を表示する。
@@ -109,12 +117,14 @@ vtest doc show DOC-BASIC-001
 
 ```text
 vtest vo add --id VO-X --claim <c>
-             --derives-from DOC-X [--note <text>]
-             [--derives-from DOC-Y --note <text>]...
+             --derives-from DOC-X [--anchor <text>] [--note <text>]
+             [--derives-from DOC-Y [--anchor <text>] [--note <text>]]...
              [--parent VO-Y]
              [--dimension <name>=<p1>,<p2>...]... [--policy <policy>]
-vtest vo edit VO-X [--claim ...] [--derives-from DOC-X --note <text>]...
+             [--combination <dim>=<part>[,<dim>=<part>]...]...
+vtest vo edit VO-X [--claim ...] [--derives-from DOC-X [--anchor <text>] [--note <text>]]...
              [--parent ...] [--dimension ...]... [--policy ...]
+             [--combination ...]... [--clear-combinations]
 vtest vo list [--tree] [--doc DOC-X] [--status draft|approved]
 vtest vo show VO-X          # claim、derives_from、covers している Test、判断記録・承認状態を表示
 vtest vo expand VO-X [--dry-run]
@@ -124,7 +134,12 @@ vtest vo approve VO-X --approver-kind <human|agent> --approver-id <id>
 
 VO は 1 件以上の `document` から `derives_from` で直結して導出される（本冊 §3.2、基本仕様 §3.2）。旧モデルの `--req`（REQ 参照）・`--spec` / `--section`（SPEC + 節参照）は廃し、上流参照は `--derives-from DOC-*`（任意の `--note`）へ一本化する。VO の `status`（`draft` / `approved`）は正典 field ではなく承認レコードから導出する表示値である（本冊 §3.2・§3.5。読取り互換 field として保存されていても値は無視し、存在自体は W-STORE-001）。旧 REQ の `active` / `withdrawn` 語彙は REQ 層とともに廃止する。`--doc DOC-X` は当該 document を根とする下流 VO の絞り込みである。
 
-`expand` は本冊 §3.3.1 の実体化（`independent-axes` / `full-product` / `explicit`）。`--dry-run` は生成予定の子 VO 一覧のみ表示する。
+`--anchor <text>` は直前の `--derives-from` に束縛し、参照先 document 内の該当箇所（節番号・条項番号・見出し等）を記録する（本冊 §3.2）。`--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。`--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。`show` は各 `derives_from` entry の `anchor` を表示する。`anchor` は VO subject hash に入らないため、`anchor` だけを変更した `edit` は承認を失効させない（本冊 §3.2）。
+
+`--combination` は `coverage_policy: explicit` のときに実体化する組合せ（本冊 §3.2.1 の `combinations`）を入力する。1 回の出現が 1 tuple に対応し、`<dim>=<part>` をカンマ区切りで並べて全軸の値を与える（例：`--combination operand-sign=positive,operator=div`）。複数 tuple は `--combination` を繰り返して与える。`edit` の `--combination` は desired state であり、1 回以上与えたときは既存 `combinations` を与えた集合で置換する（追記しない）。`--clear-combinations` は `combinations` を空にする。`--combination` も `--clear-combinations` も与えない `edit` は既存 `combinations` を保持する。
+`--combination` の値が本冊 §3.2.1 の受理条件（`explicit` 以外での指定、未宣言 dimension、未列挙 partition、宣言 dimension の欠落・重複、重複 tuple、`explicit` かつ tuple 0 件）に違反する場合は E-SCAN-017、終了コード 2 で拒否し、レコードを書かない（`add` では新規レコードを作成せず、`edit` では既存レコードを変更しない）。`<dim>=<part>` の形をなさない値は引数不正として終了コード 2 で拒否する。
+
+`expand` は本冊 §3.2.1 の実体化（`independent-axes` / `full-product` / `explicit`）。`--dry-run` は生成予定の子 VO 一覧のみ表示する。`explicit` の VO は `combinations` の各 tuple につき 1 件の子 VO を、`dimensions` の宣言順に連結した suffix（`VO-X-<P1>-<P2>`）で生成する。`combinations` が本冊 §3.2.1 の受理条件に違反する VO に対しては E-SCAN-017、終了コード 2 とし、子 VO を 1 件も生成しない（部分生成しない）。
 `approve` は現在のVO内容ハッシュと本冊 §3.5の上流依存closure（再帰 parent VO・derives_from document・その上位 document）に束縛された承認レコード（`.verify/approvals/`）を追加する。`--judgment` は参照する判断記録 ID（本冊 §3.5 の `judgment_ref`、任意）、`--basis` は根拠参照（任意）である。承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない（本冊 §3.5、基本仕様 §4.5・§17）。
 対象またはいずれかの依存entity / document sourceを完全・currentに解決できない場合はE-APPROVAL-001、終了コード2としてrecordを追加しない。
 `edit` は承認済 VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
@@ -269,6 +284,7 @@ vtest report [--doc DOC-X | --vo VO-X | --test TEST-X]
 
 - **役割別 projection**（本冊 §11.6、基本仕様 §19）：`--from <node>` は任意ノード（DOC / VO / TEST / SRC）からの局所トレースの起点、`--direction` は上流／下流／双方、`--depth` は連続追跡の段数、`--view` は役割 preset（`pm`＝上位 document・VO の状態と未確定/NG、`tester`＝VO・Test・検証対象・Evidence・未実施/失敗理由、`coder`＝実装から関連 Test・VO・上流 document へのトレース）である。役割を固定 enum として本冊は仕様化せず、preset・view 体系はここに委譲される（本冊 §11.6、基本仕様 §30 item21）。逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）を projection の基盤とする（本冊 §5.3）。
 - **機能単位の束ね表示**（本冊 §11.3・§11.6、基本仕様 §22.2）：機能単位の集約は親 VO（子 VO を持つ VO）を単位とする。`--vo <親VO>` または `--from <親VO> --direction down` は、当該親 VO の代表値（fail-closed 合成）と、その配下の子 VO ごと・Test ごとの内訳を同じツリーに返す。Feature を別エンティティとして出力せず、Feature 名・Feature ID の field を設けない。束ねの識別子は親 VO の ID とする。
+- **上流該当箇所の同伴**（本冊 §11.6・§3.1・§3.2、基本仕様 §11.1）：`--format json` の trace 出力に含まれる `derives_from` エッジ（DOC → DOC、DOC → VO）は、`anchor` と `note` を同伴する。エッジ要素は `{ "from": "DOC-REQ-001", "relation": "derives_from", "anchor": "§12.3", "note": "", "to": "VO-PARSER-UTF8-003" }` の形とし、`anchor` を持たない entry では `anchor` を省略または `null` とし空文字列で埋めない。`report --from DOC-REQ-001 --direction down --format json` は、この形式で「どの上流条項がどの概念（VO）へ対応するか」の対応ペア集合を返す。これが要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。`anchor` は不透明な文字列として transport し、文書内位置への解決・整合検査を行わない。
 - **判断待ち section**（本冊 §11.7、基本仕様 §18.3）：`--format json` の出力へ、未確定・要判断事項を横断的に集約した `pending` section を含める（§12.4）。
 - `--gate <name>` は `verify` と同じ解決規則に従い、未定義名は E-CONFIG-002・終了コード 2 で拒否する（本冊 §11.5）。
 
@@ -356,9 +372,9 @@ stdio で MCP サーバを起動する（§13）。
 |---|---|---|
 | `scan` | なし | 診断一覧、エンティティ数サマリ |
 | `doc_list` / `doc_get` | `id`（get のみ）、`tree: bool`、`roots: bool` | document レコード（木・根集合・鮮度） |
-| `doc_upsert` | document フィールド一式（`path`、`derives_from[]`（`doc` + 任意 `note`）、`root: bool`、`update: bool`） | 作成・更新結果（依存判断・承認の失効警告を含む） |
-| `vo_list` / `vo_get` | `id`、`doc`、`status` | VO レコード、derives_from、covers 状況、承認状態 |
-| `vo_upsert` | VO フィールド一式（`derives_from[]` 必須1件以上） | 作成・更新結果（承認失効の警告含む） |
+| `doc_upsert` | document フィールド一式（`path`、`derives_from[]`（`doc` + 任意 `anchor` + 任意 `note`）、`root: bool`、`update: bool`） | 作成・更新結果（依存判断・承認の失効警告を含む） |
+| `vo_list` / `vo_get` | `id`、`doc`、`status` | VO レコード、derives_from（`doc` + 任意 `anchor` + 任意 `note`）、covers 状況、承認状態 |
+| `vo_upsert` | VO フィールド一式（`derives_from[]` 必須1件以上（`doc` + 任意 `anchor` + 任意 `note`）、`dimensions[]`、`coverage_policy`、`combinations[]`（`explicit` のとき必須1件以上。各要素は dimension 名 → partition 値の map）） | 作成・更新結果（承認失効の警告含む） |
 | `vo_expand` | `id`、`dry_run: bool` | 生成される子 VO 一覧 |
 | `vo_approve` | `id`、`approver`、`judgment`（任意）、`basis[]`（任意） | 承認レコード ID |
 | `test_query` | `vo` / `source` / `unregistered` のいずれか | Test 一覧 |
@@ -374,6 +390,10 @@ stdio で MCP サーバを起動する（§13）。
 | `report` | 同上＋ `from` / `view` / `depth` / `direction`。items省略は固定4検査 | 最上位 `scope`（§12.1）、根拠付き完全レポート、projection（親 VO 起点の機能単位の束ねを含む）、`pending` section |
 
 `verify` / `report` の `gate` 入力は CLI の `--gate` と同じ解決規則に従い、config に定義の無いゲート名は E-CONFIG-002 の tool error（`candidates` に定義済みゲート名）とし、検証結果・部分結果を返さない（本冊 §11.5・§17.1）。`gate` を指定した呼び出しの `ok` はゲート充足を表す（§12.3）。
+
+`doc_upsert` / `vo_upsert` の `derives_from[]` 各要素は `doc`（必須）、`anchor`（任意）、`note`（任意）からなる。`anchor` は参照先 document 内の該当箇所を指す不透明な文字列であり、省略・空文字列を許容し `chain_integrity` 違反にしない（本冊 §3.1・§3.2）。CLI の `--anchor` と同じ値域・同じ扱いとし、文書内位置への解決・実在確認を行わない。
+
+`vo_upsert` の `combinations[]` は本冊 §3.2.1 の `combinations` を desired state として与える。各要素は dimension 名 → partition 値の map（例 `{"operand-sign": "positive", "operator": "div"}`）で、`dimensions` に宣言された全軸をちょうど 1 回ずつ持つ。`coverage_policy` が `explicit` のときは 1 件以上を必須とし、`explicit` 以外のときは省略または空 list でなければならない。本冊 §3.2.1 の受理条件（`explicit` での欠落・空、`explicit` 以外での非空、未宣言 dimension、未列挙 partition、宣言 dimension の欠落・重複、重複 tuple、`dimensions` 空での `explicit`）に違反する入力は、`ok: false` と `{ "code": "E-SCAN-017", ... }` の tool error で拒否し、レコードを作成・更新しない。`vo_upsert` で `combinations` を省略した更新は既存値を保持し、空 list を明示した更新は既存値を空にする。`vo_expand` は不正 `combinations` の VO に対して同じ E-SCAN-017 で拒否し、子 VO を 1 件も生成しない。
 
 `audit_static` は正典の監査レコード ID を返さない（再計算派生。本冊 §7.1）。`audit_submit` の受理結果は判断記録 ID であり、これは検証状態を変えない（本冊 §8.3）。旧モデルの `spec_list` / `spec_get` / `req_list` / `req_get` / `req_upsert` は廃止し、`doc_*` へ統合した。
 
@@ -530,7 +550,9 @@ TEST-X → スキャン結果 → SourceLocation
 スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の位置を再確認する。
 再確認で見つからない場合は E-OP-002。
 
-### 15.2 `rust-cargo` 編集の適用
+### 15.2 `rust-cargo` 編集・挿入の適用
+
+**Edit（既存 Test の更新）**
 
 1. desired state（answers / set / body）から、あるべきアノテーションブロックと関数シグネチャ・本体を生成する。
 2. 現状とあるべき状態の diff を計算する。
@@ -541,9 +563,27 @@ TEST-X → スキャン結果 → SourceLocation
    - 他の Test エンティティのソーステキストが変化していない
 5. 確認に失敗した場合はファイルを元へ戻し、E-OP-003 を返す。
 
+**Create（新規 Test の生成・挿入）**
+
+挿入後の再パース検証とロールバックは Edit と同一の規則で Create にも適用する。Create 経路にだけ検証を省く分岐を設けない（基本仕様 §15.1）。
+
+1. Form 回答（§14）から、あるべきアノテーションブロックと関数シグネチャ・本体、および挿入位置を決定する。回答自体の検証エラーは E-OP-001（候補付き。本冊 §6.3）。
+2. 挿入前の対象ファイルの内容を保持する。対象ファイルが存在しない場合は「不存在」を挿入前の状態として保持する。
+3. 生成した Test construct を挿入位置へ**単一挿入**として適用する。
+4. 適用後、対象ファイルを再パースし、次を確認する。
+   - 構文的に妥当である
+   - 挿入した Test construct がちょうど 1 件の Test エンティティとして認識される
+   - その Test のアノテーションが Form 回答から導いた desired state と一致し、Test ID が回答どおりである
+   - 挿入した Test 以外の Test エンティティのソーステキストが変化していない
+   - 挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していない
+5. 確認のいずれかに失敗した場合は、適用前の状態へ復元し（挿入によりファイルが新規作成された場合は不存在へ戻す）、E-OP-003 を返す。ロールバック後は、当該操作より前と同じソーステキストが観測できなければならない。部分適用された挿入内容を残さない。
+6. `--dry-run` は 1〜3 の生成結果と挿入位置のみを提示し、ファイルを変更しない。
+
+Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番・Evidence・判断記録を含む副産物をひとつも残さない。ロールバック後の再スキャンで、当該操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。
+
 ### 15.3 `rust-cargo` annotation blockの再生成
 
-アノテーションは常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。これにより、Structured Edit を繰り返しても差分が安定する。
+アノテーションは常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する。これにより、Structured Edit を繰り返しても差分が安定する。この再生成規則は Create が挿入する annotation block にも同一に適用する。同一の desired state からは Create / Edit のいずれの経路でも同一の annotation block を生成し、Create 直後に同じ desired state で Edit しても差分を生じない。
 
 このキー集合は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。本 version は存在理由分類（旧 `role` / `anchor` / `anchor-rationale`）のキーを持たず、再生成でも出力しない。`@vtest.src-id` は Test construct ではなく対象実装側の関数に付与するキーであり（本冊 §4.2 の source-target-key）、Test annotation block の再生成対象に含めない。
 
@@ -568,7 +608,7 @@ helper・fixture・通常ソースコードの編集手段は提供しない（�
 | §12.2 `vtest scan` | 本冊§5・§5.6／基本§23・§26.1 | CONFORM（整合性検査を chain_integrity/orphan_detection へ言換え） |
 | §12.2 `vtest doctor` | 本冊§16.2／基本§26.1 | CONFORM（失効を判断記録・承認のハッシュ束縛 STALE へ） |
 | §12.2 `vtest doc add/list/show` | 本冊§3.1・§5.6・§11.4／基本§3.1・§3.2・§16・§26.1・§30 item1-2 | 新設（spec/req コマンドを廃し doc へ統合、derives_from・根指定フラグ） |
-| §12.2 `vtest vo …` | 本冊§3.2・§3.3.1・§3.5／基本§10・§17・§26.1 | 再導出（--req/--spec/--section→--derives-from、承認 basis→judgment_ref+basis） |
+| §12.2 `vtest vo …` | 本冊§3.2・§3.2.1・§3.5／基本§10・§17・§26.1 | 再導出（--req/--spec/--section→--derives-from、承認 basis→judgment_ref+basis） |
 | §12.2 `vtest test create` | 本冊§4.2・§6.3／基本§15・§26.1 | CONFORM（回答例の role 不在） |
 | §12.2 `vtest test edit` | 本冊§15／基本§15.1・§26.1 | CONFORM（desired state 参照を基本§15.1 へ） |
 | §12.2 `vtest test show/list/query` | 本冊§4.1・§5.3・§11.6／基本§12・§26.1 | 再導出（show の role 除去、covers/targets 表示、逆引きを projection 基盤へ） |
