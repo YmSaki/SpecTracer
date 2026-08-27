@@ -11,9 +11,32 @@
 
 - すべてのコマンドは非対話で完結する。確認プロンプトを出す場合は `--yes` で抑止できる。
 - 出力は既定で人間向けテキスト、`--format json` で機械可読 JSON。
-- JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` を持つ。`diagnostics` の要素は `{ "code": "E-SCAN-002", "severity": "error", "message": "...", "location": ... }`。
+- JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` を持つ。`diagnostics` の要素は `{ "code": "E-SCAN-002", "severity": "error", "message": "...", "location": ... }`。検証結果を返す `verify` / `report`（CLI の `--format json` と同名 MCP ツール）は、これに加えて最上位に `scope` を持つ（下記**要求 scope の最上位表現**）。
 - 終了コードは本冊 §17.2 に従う。
 - グローバルオプション：`--project <dir>`（プロジェクトルート。既定はカレントから `.verify/` を上方探索）、`--format <text|json>`、`--quiet`。
+
+**要求 scope の最上位表現。** 限定 scope の検証結果を完全検証と取り違えないため、`verify` / `report` の JSON は要求 scope と「scope 外は未検証」の旨を最上位 field `scope` として返す（本冊 §11.3、基本仕様 §4.6）。text 出力の冒頭表示（§12.2）と同じ内容を機械可読に表したものである。
+
+```json
+{
+  "ok": true,
+  "scope": {
+    "requested": {
+      "items": ["chain_integrity", "orphan_detection", "target_binding", "oracle_presence"],
+      "entities": [ { "kind": "doc", "id": "DOC-BASIC-001" } ]
+    },
+    "unverified_outside_scope": true
+  },
+  "data": {},
+  "diagnostics": []
+}
+```
+
+- `scope.requested.items`：この実行で評価した検査軸を、本冊 §11.1 の検査名で列挙する。`--items`（MCP は `items[]`）省略時は固定4検査を 4 件すべて列挙し、空 list にしない。列挙順は上記例の固定順（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）とする。
+- `scope.requested.entities`：エンティティ軸で指定した対象を `{ "kind": "doc" | "vo" | "test", "id": ... }` の list として返す。`--doc` / `--vo` / `--test` をいずれも指定しない実行では空 list とし、暗黙の根エンティティで埋めない。
+- `scope.unverified_outside_scope`：`requested.items` が 4 件未満、または `requested.entities` が空でない場合に `true`、それ以外（固定4検査 × エンティティ軸無指定）は `false`。`true` は「要求 scope 外は未検証であり、`PASS` ではない」ことを表す。scope 外・未実施の検査は集約ツリー内で `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持する（本冊 §11.3）。
+- `verify` / `report` は `unverified_outside_scope: false` の完全検証でも `scope` を省略しない。`scope` を持たない出力は限定 scope と区別できないため、完全検証の根拠として扱わない。
+- `init` / `scan` / `doc *` / `vo *` / `test *` / `audit *` / `run` など検証結果を返さないコマンドは `scope` を持たない。
 
 **検証状態と診断ラベルの2列表現。** 検証結果を出力するすべてのコマンド（`verify` / `report` / `scan` の集約表示等）は、検証状態と診断ラベルを常に別軸の2列として提示する（本冊 §5.2、基本仕様 §4.1・§4.2）。
 
@@ -200,8 +223,8 @@ vtest verify [--items <check1,check2,...>]
 - **scope の2軸**（基本仕様 §4.6、本冊 §11.3）：`--items` が検査軸（4検査の部分集合）、`--doc` / `--vo` / `--test` がエンティティ軸（部分木）である。旧モデルの `--spec` / `--req` は廃止し、`--req` は除去する。
 - `--items` 省略時は常に固定4検査による完全検証を行う。`config.yaml` の `verify.full_scope` は本冊 §2.2 の invariant として事前に検証・正規化し、項目選択 knob として使用しない。旧12項目の列挙は version を問わず E-CONFIG-001 とし、version 1 の field 欠落だけを固定4検査へ具体化する（in-memory の項目補完は行わない。本冊 §2.2）。
 - `--items` に4検査未満の明示的な集合を指定した場合だけ限定 scope とし、scope 外・未実施の検査は `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持し、`PASS` へ変換しない。限定 scope の結果を完全検証 OK と表示しない。いかなる設定値も完全検証を4本未満へ縮退させない（基本仕様 §4.6・§22.1）。
-- scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検証」の旨を必ず表示する。
-- `--gate <name>` はフェーズゲート評価（§12.3）。`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する。
+- scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検証」の旨を必ず表示する。`--format json` では同じ内容を最上位 field `scope`（§12.1）として返し、完全検証の場合も省略しない。
+- `--gate <name>` はフェーズゲート評価（§12.3）。config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コード 2 で拒否し、検証を実行しない（本冊 §11.5・§17.1）。`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する。
 
 出力例（テキスト）：
 
@@ -245,7 +268,9 @@ vtest report [--doc DOC-X | --vo VO-X | --test TEST-X]
 `verify` と同じ集約を実行し、根拠（判断記録 ID・Evidence ID・DA rule 診断）を含む完全な詳細を出力する。`verify` が判定用、`report` が閲覧・提出用という役割分担とする。
 
 - **役割別 projection**（本冊 §11.6、基本仕様 §19）：`--from <node>` は任意ノード（DOC / VO / TEST / SRC）からの局所トレースの起点、`--direction` は上流／下流／双方、`--depth` は連続追跡の段数、`--view` は役割 preset（`pm`＝上位 document・VO の状態と未確定/NG、`tester`＝VO・Test・検証対象・Evidence・未実施/失敗理由、`coder`＝実装から関連 Test・VO・上流 document へのトレース）である。役割を固定 enum として本冊は仕様化せず、preset・view 体系はここに委譲される（本冊 §11.6、基本仕様 §30 item21）。逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）を projection の基盤とする（本冊 §5.3）。
+- **機能単位の束ね表示**（本冊 §11.3・§11.6、基本仕様 §22.2）：機能単位の集約は親 VO（子 VO を持つ VO）を単位とする。`--vo <親VO>` または `--from <親VO> --direction down` は、当該親 VO の代表値（fail-closed 合成）と、その配下の子 VO ごと・Test ごとの内訳を同じツリーに返す。Feature を別エンティティとして出力せず、Feature 名・Feature ID の field を設けない。束ねの識別子は親 VO の ID とする。
 - **判断待ち section**（本冊 §11.7、基本仕様 §18.3）：`--format json` の出力へ、未確定・要判断事項を横断的に集約した `pending` section を含める（§12.4）。
+- `--gate <name>` は `verify` と同じ解決規則に従い、未定義名は E-CONFIG-002・終了コード 2 で拒否する（本冊 §11.5）。
 
 #### `vtest mcp`
 
@@ -259,7 +284,9 @@ stdio で MCP サーバを起動する（§13）。
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（5状態）と承認（§3.5）が通過条件を満たすかを**評価・提示できなければならない（MUST）**（本冊 §11.5、基本仕様 §20、要件定義 §26.4）。本システムの責務はゲート条件が現在満たされているかの評価・提示に限り、フェーズのライフサイクル管理・工程の自動遷移は責務外とする（「Release フェーズへ遷移させる」ではなく「Release gate の条件を現在満たしている」を提示する）。
 
-- **ゲート定義**：`config.yaml` の `gates`（本冊 §2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。
+- **ゲート定義**：`config.yaml` の `gates`（本冊 §2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。`require.verification` は 5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）のいずれかとの完全一致でなければならず、違反は config 受理時に E-CONFIG-001（終了コード 2）とする。`require.approvals` の省略は空集合として受理する（本冊 §2.2）。
+- **ゲート名の指定**：`--gate <name>`（MCP は `gate` 入力）は `gates[].name` との大文字小文字を区別した完全一致でだけ解決する。未定義名・`gates` が空の状態での指定は E-CONFIG-002、`ok: false`、終了コード 2 とし、検証もゲート評価も実行せず、`data` に部分結果を返さない。診断 message には指定名と定義済みゲート名の一覧を含め、MCP では §13.1 の `candidates` に定義済みゲート名を入れる。
+- **充足判定**：検証条件は `require.verification` と要求 scope の集約代表値（本冊 §11.5）との**完全一致**でのみ充足する。5 状態に順序を設けず、「要求値以上」の解釈を採らない。したがって `require.verification: PASS` は代表値 `PASS` のときだけ、`require.verification: UNKNOWN` は代表値 `UNKNOWN` のときだけ充足する。`--items` で検査軸を限定した実行では scope 外検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値に参加するため、`require.verification: PASS` のゲートは限定 scope では充足しない。
 - **承認ロールの解決**（本別紙が新設する最小規則。基本仕様 §17・§30 item22 が別紙／プロジェクト設定へ委譲）：承認レコード（本冊 §3.5）は role field を持たないため、`config.yaml` に承認ロール → approver id 集合の対応を project 定義可能とする。
 
   ```yaml
@@ -271,6 +298,21 @@ stdio で MCP サーバを起動する（§13）。
   ロール `R` の承認が存在するとは、「本冊 §3.5 で有効な（subject_hash・依存 closure が現在一致する）対象の承認レコードのうち、`approver.id` が `approval_roles[R]` に属するものが1件以上存在する」ことをいう。`gates.require.approvals` が参照するロールが `approval_roles` に無い場合は config invariant 違反として E-CONFIG-001 とする。
 - **承認 subject の範囲**：ロール充足の判定対象は、当該 `verify` / `report` のエンティティ軸で指定した対象（`--doc` / `--vo` / `--test`。省略時は評価 scope の根エンティティ）に束縛された有効承認とする。scope 内に複数の対象がある場合は各対象について当該ロールの有効承認を要求する（fail-closed）。より細粒度の承認 authority・対象範囲はプロジェクト設定へ委譲する（基本仕様 §17・§30 item22）。
 - **評価**：`vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification`（例 `PASS`）を満たすか、(2) `require.approvals` の各ロールについて上記解決規則で有効な承認が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。`report --gate` は同評価を JSON の `gate` section で返す。検証状態と承認は独立の軸であり、承認未充足は検証状態を降格させない（本冊 §3.5、基本仕様 §4.5）。
+- **出力 schema**：`--gate` を指定した `verify` / `report` の JSON は `data.gate` を返す。
+
+  ```json
+  "gate": {
+    "name": "release",
+    "verification": { "required": "PASS", "actual": "MISMATCH", "satisfied": false },
+    "approvals": [
+      { "role": "reviewer", "satisfied": false, "missing_subjects": ["VO-PARSER-UTF8-004"] }
+    ],
+    "satisfied": false
+  }
+  ```
+
+  `verification.required` は `require.verification` の値、`verification.actual` は要求 scope の集約代表値（5 状態のいずれか）、`verification.satisfied` は両者の完全一致である。`approvals[]` は `require.approvals` の各ロールについて充足有無と未充足の対象を返し、`require.approvals` が空集合なら空 list とする。`gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積とする。text 出力では同じ 3 項目（要求値・現在の代表値・満否）と未充足ロール・不足している非 `PASS` 検査を提示する。
+- **`ok` と終了コード**：`--gate` を指定した実行では最上位 `ok` と終了コードをゲート充足で決める（充足 → `ok: true`・0、不充足 → `ok: false`・1、未定義ゲート名 → `ok: false`・2）。要求 scope の総合 OK / NG は集約ツリーと `gate.verification.actual` から読み取る（本冊 §17.2）。
 - 具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設定（`config.yaml`）へ委譲する（基本仕様 §30 items 22-23）。
 
 ### 12.4 判断待ち情報 section（`verify` / `report` JSON）
@@ -328,8 +370,10 @@ stdio で MCP サーバを起動する（§13）。
 | `audit_bundle` | 対象 ID（`test` / `vo`）、`kind`（`test-semantic` / `impl-consistency`、任意） | bundle_id とバンドル本体（JSON） |
 | `audit_submit` | 提出 JSON（本冊 §8.3） | 受理結果、判断記録 ID（`.verify/decisions/`）。受理は検証状態を昇格させない |
 | `run_tests` | `test` / `vo` / `all`、`fast: bool` | Test ごとの結果と Evidence ID |
-| `verify` | optional `items[]`（4検査の部分集合）、`doc` / `vo` / `test`、`gate`（任意）。items省略は固定4検査 | 総合 OK / NG、集約ツリー、`pending` section、`gate` 評価（指定時） |
-| `report` | 同上＋ `from` / `view` / `depth` / `direction`。items省略は固定4検査 | 根拠付き完全レポート、projection、`pending` section |
+| `verify` | optional `items[]`（4検査の部分集合）、`doc` / `vo` / `test`、`gate`（任意）。items省略は固定4検査 | 最上位 `scope`（§12.1）、総合 OK / NG、集約ツリー、`pending` section、`data.gate` 評価（指定時） |
+| `report` | 同上＋ `from` / `view` / `depth` / `direction`。items省略は固定4検査 | 最上位 `scope`（§12.1）、根拠付き完全レポート、projection（親 VO 起点の機能単位の束ねを含む）、`pending` section |
+
+`verify` / `report` の `gate` 入力は CLI の `--gate` と同じ解決規則に従い、config に定義の無いゲート名は E-CONFIG-002 の tool error（`candidates` に定義済みゲート名）とし、検証結果・部分結果を返さない（本冊 §11.5・§17.1）。`gate` を指定した呼び出しの `ok` はゲート充足を表す（§12.3）。
 
 `audit_static` は正典の監査レコード ID を返さない（再計算派生。本冊 §7.1）。`audit_submit` の受理結果は判断記録 ID であり、これは検証状態を変えない（本冊 §8.3）。旧モデルの `spec_list` / `spec_get` / `req_list` / `req_get` / `req_upsert` は廃止し、`doc_*` へ統合した。
 
@@ -519,7 +563,7 @@ helper・fixture・通常ソースコードの編集手段は提供しない（�
 
 | 別紙A の節 | 実現する上流§ | 区分 |
 |---|---|---|
-| §12.1 共通仕様 | 本冊§17.2・§5.2・§4.1／基本§4.1・§4.2・§22.3／要件§4.1 | 再導出（role/anchor 宣言逐語・実効 field 段落を除去、targets≥1 を adapter 層件数へ、状態5＋診断ラベル4の2列を明示） |
+| §12.1 共通仕様 | 本冊§17.2・§5.2・§4.1・§11.3／基本§4.1・§4.2・§4.6・§22.3／要件§4.1 | 再導出（role/anchor 宣言逐語・実効 field 段落を除去、targets≥1 を adapter 層件数へ、状態5＋診断ラベル4の2列を明示） |
 | §12.2 `vtest init` | 本冊§2.1・§2.2／基本§26.1 | CONFORM（生成物に doc/・decisions/ を反映） |
 | §12.2 `vtest scan` | 本冊§5・§5.6／基本§23・§26.1 | CONFORM（整合性検査を chain_integrity/orphan_detection へ言換え） |
 | §12.2 `vtest doctor` | 本冊§16.2／基本§26.1 | CONFORM（失効を判断記録・承認のハッシュ束縛 STALE へ） |

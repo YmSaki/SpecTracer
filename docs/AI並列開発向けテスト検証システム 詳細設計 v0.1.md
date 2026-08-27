@@ -162,7 +162,15 @@ coreは未知のnamespaceや値をRust設定として解釈しない。`vtest in
 
 `verify.full_scope`は利用者が完全検証を縮小する設定ではなく、基本仕様 §5 の**固定4検査**（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）を列挙するconfig invariantである。version 2 では重複・未知項目・欠落・余剰を E-CONFIG-001 で拒否する。version 1 では field 欠落を固定4検査として具体化し、重複または未知項目は E-CONFIG-001 で拒否する。旧12項目の列挙（`spec_coverage` / `test_existence` 等）は現行 invariant に違反するため version を問わず E-CONFIG-001 とし、in-memory 補完で受理しない。`--items` による明示的な部分集合だけを限定scopeとして扱い、項目指定を省略したCLI / MCP検証は常に固定4検査を評価する。いかなる設定値も完全検証の検査を4本未満へ縮退させない（基本仕様 §4.6、§22.1）。
 
-`doc.roots` は orphan_detection の除外根を DOC ID の集合として保持する（§5.6）。`gates` はフェーズゲートの進行条件定義を保持する（§11.5）。`scan` と `run` は version 1 schema 互換の wire 値とし、Rust固有の macro path や `llvm-cov` 制約は `rust-cargo` adapter に限って適用する。非Rust namespaceの値を core がRust設定として推測・書換えしてはならない。
+`gates` はフェーズゲートの進行条件定義を保持する（§11.5）。config 読込み時に次を検査し、いずれか違反があれば E-CONFIG-001（終了コード 2）として設定を受理せず、検証結果を生成しない。
+
+- `gates` field 自体の欠落と空 list は「ゲート定義なし」として受理する（`--gate` を指定しない実行は影響を受けない。未定義名の指定は §11.5）。
+- `gates[].name` は非空文字列であり、大文字小文字を区別した完全一致で重複してはならない。`--gate <name>` の解決は同じ完全一致で行う（§11.5）。
+- `gates[].require` は必須とし、その `verification` も必須とする。いずれの欠落も E-CONFIG-001 とする。
+- `require.verification` の値は、基本仕様 §4.1 の 5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）のいずれかと大文字小文字を区別して完全一致しなければならない。診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・object などの非文字列値はすべて E-CONFIG-001 とする。5 状態のうち `PASS` 以外を要求する定義自体は受理し、充足判定の意味は §11.5 で定める。
+- `require.approvals` は省略可能とし、省略は「要求する承認ロールなし（空集合）」として受理する。指定する場合は文字列ロール名の list とし、空文字列・重複ロール名は E-CONFIG-001 とする。ロール名が `approval_roles` に解決できない場合も E-CONFIG-001 とする（別紙A §12.3）。
+
+`doc.roots` は orphan_detection の除外根を DOC ID の集合として保持する（§5.6）。`scan` と `run` は version 1 schema 互換の wire 値とし、Rust固有の macro path や `llvm-cov` 制約は `rust-cargo` adapter に限って適用する。非Rust namespaceの値を core がRust設定として推測・書換えしてはならない。
 
 ### 2.3 派生情報
 
@@ -1324,7 +1332,8 @@ fn aggregate(scope) -> Report:
   4. 各 TEST について、scope の検査軸に含まれる target_binding / oracle_presence を評価
      （含まれない検査は NO_EVIDENCE、診断 NOT_CHECKED）
   5. 各 leaf VO について covers する TEST 群の結果を fail-closed で合成
-  6. 中間 VO は子 VO の合成（fail-closed）
+  6. 子 VO を持つ VO（親 VO）は、子 VO の値と、当該親 VO を直接 covers する TEST の値を
+     合わせて fail-closed で合成（直接 covers する TEST が無ければ子 VO の値だけを合成）
   7. DOC は下流 VO 部分木の合成（fail-closed）
   8. 総合判定：構造検査（chain_integrity / orphan_detection）と
      entity tree の scope 内評価がすべて PASS → OK、それ以外 → NG
@@ -1341,6 +1350,13 @@ fail-closed 合成：
 
 `covers` を持つ Test は covers 先それぞれの VO の合成に独立に参加する。「1つの Test が複数 VO を検証していること」自体は許容し、各 leaf VO の充足と組合せは §3.2.1 の実体化された leaf VO 単位で判定する（基本仕様 §10、§22.2）。
 
+**機能単位の集約（基本仕様 §22.2 の Feature 単位）。** 基本仕様 §22.2 が Test 単位の結果の集約先として挙げる「Feature 単位」は、**親 VO**（`parent` により 1 件以上の子 VO を持つ VO。§3.2）を単位として実現する。Feature を独立のエンティティ種別・レコードファイル・ID 体系・宣言 field として設けず、`.verify/` に Feature 用ディレクトリを置かない（基本仕様 §3.1 のエンティティ種別を増やさない）。
+
+- 親 VO の値は上記 step 6 の fail-closed 合成そのものであり、機能単位の表示のために別の合成規則・緩和規則を設けない。子に 1 つでも非 `PASS` があれば親 VO は非 `PASS` であり、代表値の優先順位も基本仕様 §22.2 と同一とする。
+- Test の結果が親 VO へ寄与する経路は、(a) covers する leaf VO 経由の伝播と、(b) 当該親 VO を直接 covers する Test の直接参加の 2 つに限る。covers 宣言を経由しない「機能名による束ね」（ファイルパス・モジュール名・命名規約からの推定束ね）を設けない。
+- 親 VO を持たない leaf VO は、それ自体が最上位の束ね単位となる。DOC 単位の集約（step 7）は VO 部分木の合成であり、機能単位の集約はその中間段に位置する。
+- 機能単位の表示経路（起点指定と内訳の提示）は §11.6 の projection で露出し、新規コマンド・ツール・出力エンティティを増やさない。
+
 ### 11.4 document 鮮度
 
 スキャン時に document レコードの `content_hash` と実ファイル（`path`）を比較し、不一致なら W-SCAN-104 を出す。
@@ -1354,6 +1370,12 @@ fail-closed 合成：
 
 - **ゲート定義**：`config.yaml` の `gates`（§2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。
 - **評価**：`vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の有効な承認（§3.5）が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。
+- **ゲート名の解決**：`--gate <name>` は `gates[].name` との大文字小文字を区別した完全一致で解決する。前方一致・部分一致・近似一致・既定ゲートへの代替は行わない。一致するゲート定義が無い場合（`gates` が空、または未定義名の指定）は usage error として **E-CONFIG-002**（終了コード 2）で拒否し、スキャン・検証・ゲート評価のいずれも実行せず、検証結果・部分結果を生成しない。診断には指定名と定義済みゲート名の一覧を含める。
+- **検証条件の充足判定**：ゲートの検証条件は、`require.verification` の値と、要求 scope の**集約代表値**との**完全一致**でのみ充足する。
+  - 集約代表値は、要求 scope 内で評価した全値（構造検査 `chain_integrity` / `orphan_detection` と、エンティティ軸の部分木で評価した各 Test / VO / DOC の検査値）を §11.3 の fail-closed 規則で合成した 1 値とする。全値が `PASS` なら代表値は `PASS`（総合 OK と同値）、非 `PASS` が混在する場合は基本仕様 §22.2 の優先順位 `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` で選ぶ。診断ラベルは充足判定に用いない。
+  - 5 状態に順序・優劣・包含関係を設けない。「要求値以上」「要求値より良い」といった比較解釈を採らず、`require.verification: UNKNOWN` は代表値が `UNKNOWN` のときだけ充足し、代表値が `PASS` でも充足しない。同様に `require.verification: PASS` は代表値が `PASS` のときだけ充足する。
+  - `--items` で検査軸を限定した実行では、scope 外の検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値の合成に参加する（§11.3、基本仕様 §4.6）。したがって限定 scope での `require.verification: PASS` は充足せず、限定 scope の結果でゲートを充足させることはできない。
+  - 承認条件は検証条件と独立に評価し、`require.approvals` が空集合（省略）なら承認条件は充足とする。承認未充足は検証状態を降格させず、検証の非 `PASS` は承認の充足有無を変えない（基本仕様 §4.5）。ゲート全体の充足は検証条件と承認条件の両方が充足した場合に限る。
 - **責務境界**：本システムの責務はゲート条件が現在満たされているかの**評価・提示に限る**。フェーズのライフサイクル管理・工程の自動遷移は責務外とする（基本仕様 §20、§29 OOS-004、要件定義 §26.4）。「Release フェーズへ遷移させる」のではなく「Release gate の条件を現在満たしている」を提示する。
 - **露出点**：新規 CLI コマンド・MCP ツールを増やさず、既存の `vtest verify` の `--gate` 引数と出力、および `report` の JSON でゲート評価を露出する（引数・出力 schema は別紙A）。具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する（基本仕様 §30）。
 
@@ -1363,6 +1385,7 @@ fail-closed 合成：
 
 - **任意ノードからの取得**：最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。常に全チェーンを表示することは求めない。
 - **projection**：役割または利用目的に応じた参照観点を preset として提供する（例：PM は上位の document・VO の状態と未確定/NG、Tester は VO・Test・検証対象・Evidence・未実施/失敗理由、Coder は実装から関連 Test・VO・上流 document へのトレース）。役割を固定 enum やモード名として本冊で仕様化せず、preset・UI・モード体系は別紙A へ委譲する（基本仕様 §30）。
+- **機能単位の束ね表示**：親 VO を起点とする下流方向の projection が、§11.3 の機能単位の集約（Feature 単位＝親 VO）を提示する経路である。当該親 VO の代表値と、その配下の子 VO ごと・Test ごとの内訳を同じ出力から辿れる。Feature 名・Feature ID の別 field を出力に設けず、束ねの識別子は親 VO の ID とする。
 - **露出点**：新規コマンド・ツールを増やさず、既存の `vtest report` の view / projection 引数と、`test query` の逆引きで露出する（引数・出力 schema は別紙A）。逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）を projection の基盤とする（§5.3）。
 
 ### 11.7 判断待ち情報の構造
@@ -1428,7 +1451,8 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | E-AUDIT-003 | error | subject の不一致・スキーマ違反 |
 | E-AUDIT-004 | error | decision が受理する判断値でない |
 | E-APPROVAL-001 | error | Approval対象または上流依存closureを完全・currentに解決できず、recordを生成しない |
-| E-CONFIG-001 | error | config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反（未知・重複adapter IDはE-ADAPTER-001） |
+| E-CONFIG-001 | error | config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`（名前重複、`require` / `require.verification` 欠落、`require.verification` が5状態語彙外、`require.approvals` の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反（未知・重複adapter IDはE-ADAPTER-001） |
+| E-CONFIG-002 | error | 呼出しが config に定義の無いゲート名を参照（`--gate` / MCP の `gate` 入力。config 内容自体は invariant を満たす。検証・ゲート評価を実行せず結果を生成しない。§11.5） |
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.3） |
 | E-OP-002 | error | Edit 対象 Test の特定失敗 |
 | E-OP-003 | error | 編集結果が1 Test の範囲を超える（別紙A §15.4。操作は中止される） |
@@ -1449,6 +1473,8 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | 1 | 検証結果が NG |
 | 2 | 操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-* / E-CONFIG-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない） |
 | 3 | 内部エラー（ツール自体の異常） |
+
+`--gate <name>` を指定した `vtest verify` / `vtest report` では、0 と 1 をゲート充足で決める。ゲート全体が充足（§11.5 の検証条件と承認条件の両方が充足）なら 0、いずれかが不充足なら 1 とする。`require.verification` に `PASS` 以外を定義したゲートでは、集約代表値が要求値と一致して充足した実行が 0 になり、この場合に総合が NG であることは 0 を妨げない。要求 scope の総合 OK / NG は JSON と text の集約出力から読み取れる（別紙A §12.1・§12.3）。ゲート名が未定義の場合は E-CONFIG-002 で 2 とし、0 / 1 を返さない。
 
 終了コードは診断severityだけでなく操作段階で決める。`vtest scan` / `vtest doctor`では、
 registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2、
@@ -1489,7 +1515,7 @@ scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、err
 | §1.2 主要依存クレート | 基本§27 | CONFORM（evidence_validity 参照を鮮度 STALE へ修復） |
 | §1.3 内容ハッシュの定義 | 基本§1・§6・§3・§9・§9.1・§21 | 再導出（role/anchor 束縛除去、SPEC/REQ hash→総称 document hash、静的 subject 廃止、Source Target hash を検証対象の Source Target 実現形態束縛として form-scope） |
 | §2.1 `.verify/` レイアウト | 基本§24.1・§3.1 | 再導出（spec/+req/→doc/、audits/ 廃止、decisions/ 追加） |
-| §2.2 `config.yaml` | 基本§2.4・§4.6・§5.2・§20・§22.1 | 再導出（full_scope 12→4検査 invariant、doc.roots・gates 追加） |
+| §2.2 `config.yaml` | 基本§2.4・§4.1・§4.6・§5.2・§20・§22.1 | 再導出（full_scope 12→4検査 invariant、doc.roots・gates 追加） |
 | §2.3 派生情報 | 基本§24.3・P-003 | CONFORM |
 | §3.1 document レコード | 基本§3.1・§3.2・§3.4・§18 | 再導出（SPEC/REQ→総称 document、derives_from＋任意 note〔M-6〕） |
 | §3.2 VO レコード | 基本§3.2・§10 | 再導出（requirements/spec_refs→derives_from:[DOC-]、section 廃止） |
@@ -1524,7 +1550,7 @@ scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、err
 | §11.3 集約アルゴリズム | 基本§22 | 再導出（4検査×5状態×fail-closed、§22.2 優先順位、診断ラベル併記） |
 | §11.4 document 鮮度 | 基本§6・§11.4 | 再導出（SPEC 鮮度→document 鮮度、chain_integrity STALE） |
 | §11.5 フェーズゲート評価 | 基本§20・要件§26.4 | 新設（M-3。MUST・評価/提示のみ、自動遷移は責務外） |
-| §11.6 役割別 projection | 基本§19・要件§3.4 | 新設（M-4。任意ノード取得・役割別 projection） |
+| §11.6 役割別 projection | 基本§19・§22.2・要件§3.4 | 新設（M-4。任意ノード取得・役割別 projection） |
 | §11.7 判断待ち情報の構造 | 基本§18.3・§30 item19 | 新設（M-5。機械可読な判断待ち構造） |
 | §16.1 ロック不要の根拠 | 基本§24.2 | CONFORM（decisions/ を追加、SPEC→document） |
 | §16.2 意味的衝突検出 | 基本§23・§24.2 | 再導出（監査失効→判断記録失効、孤児 document 追加） |
