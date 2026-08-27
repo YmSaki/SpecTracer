@@ -158,8 +158,8 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 #### 18.3.6 判断記録プロトコル（非ゲート）
 
 - `vtest audit bundle` は判断対象ごとに、判断に必要な情報（対象 VO と claim、Test Intent、テストコード、対象実装、関連テスト、既知 partition、過去の判断、対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/` へ出力する。バンドルは派生情報であり Git 管理しない（本冊 §8.1、基本仕様 §11.3）。
-- `vtest audit submit` の判断は少なくとも actor / subject / decision を含み、理由・根拠（`reason` / `exclusions`）は任意（optional）とする。
-- submit は次を順に検証し、失敗は §17 のエラーコードで拒否する：bundle_id のバンドルが存在する（E-AUDIT-001）、subject がバンドルと一致する（E-AUDIT-003）、バンドル記録時の各対象の内容ハッシュが現在と一致する（E-AUDIT-002）、decision が受理する判断値である（E-AUDIT-004）。
+- `vtest audit submit` の判断は少なくとも actor / subject / decision / judgment_kind を含み、理由・根拠（`reason` / `exclusions`）と `supersedes` は任意（optional）とする。
+- submit は次を順に検証し、失敗は §17 のエラーコードで拒否する：bundle_id のバンドルが存在する（E-AUDIT-001）、subject がバンドルと一致する（E-AUDIT-003）、judgment_kind がバンドルと一致し値域内である（E-AUDIT-003）、バンドル記録時の各対象の内容ハッシュが現在と一致する（E-AUDIT-002）、decision が受理する判断値である（E-AUDIT-004）、supersedes の各 ULID が同一 subject かつ同一 judgment_kind の既存判断記録を指し自己参照でない（E-AUDIT-008）。
 - **理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない**（基本仕様 §11.3、要件定義 §12）。旧モデルの reasons / claim / basis 必須検査（E-AUDIT-005）、decomposition-viewpoint 検査（E-AUDIT-006）、spec / req basis 検査（E-AUDIT-007）は撤去し、判断記録層で課さない。
 - 受理された提出は判断記録として `.verify/decisions/` へ保存され、バンドル生成時の全対象の内容ハッシュを `subject_hash` と `dependencies` として記録し、依存 closure のハッシュへ束縛する。
 - **判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。** このプロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である（本冊 §8、基本仕様 §11.3）。旧モデルの `verdict → CheckValue` 写像（`impl_consistency = MISMATCH` を含む検証状態への変換経路）は撤去する。
@@ -170,7 +170,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - **判断バンドルは Test が宣言した cases 集合を規範項目として含む。** `@vtest.case` 宣言の正規化文字列を宣言順に並べた list として出力し、`@vtest.case` を持たない Test でも空 list を明示して項目を省略しない（本冊 §8.1・§8.2、基本仕様 §14）。
 - **バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。** 値域は `test-semantic` / `impl-consistency` / `case-coverage` であり、`subject` の値域は前 2 者が Test ID、`case-coverage` が Test ID または VO ID である。表にない組合せの要求ではバンドルを生成せず usage error（終了コード 2）とする（本冊 §8.1、別紙A §12.2）。
 - **`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。** その未判断・判断結果はいずれの検査の値へも写像せず、集約（本冊 §11.3）へ寄与しない。外部判断が必要な事実は判断待ち section（`check: null`、`judgment_kind: case-coverage`）としてだけ提示する（本冊 §8.1・§11.7）。
-- **`case-coverage` の判断待ち項目は決定論的に生成する。** `covers ≥ 1` かつ（`cases ≥ 1` または covers 先 VO のいずれかが `dimensions ≥ 1`）を満たす管理対象 Test ごとにちょうど 1 件生成し、`(当該 Test, case-coverage)` の実効判断が `accepted` の場合にだけ消滅する。実効判断が未確定・`rejected`・`deferred` のいずれでも項目は生成され、参照した判断記録 ID を `basis` に載せる。この消滅規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない（本冊 §11.7）。
+- **`case-coverage` の判断待ち項目は決定論的に生成する。** `covers ≥ 1` かつ（`cases ≥ 1` または解決済みの covers 先 VO（レコードが存在する VO。E-SCAN-003 の dangling 参照を除く）のいずれかが `dimensions ≥ 1`）を満たす管理対象 Test ごとにちょうど 1 件生成し、`(当該 Test, case-coverage)` の実効判断が `accepted` の場合にだけ消滅する。実効判断が未確定・`rejected`・`deferred` のいずれでも項目は生成され、参照した判断記録 ID を `basis` に載せる。この消滅規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない（本冊 §11.7）。
 - **実効判断は `(subject, judgment_kind)` の組ごとに決まる。** 有効判断記録集合から、他の有効判断記録の `supersedes` に名指しされたものを除いた実効集合 E について、E が空なら未確定（`UNKNOWN`）、E の decision 値が全て同一ならその値、E に 2 種以上の decision 値があれば未確定（`UNKNOWN`）かつ W-STORE-004 とする（本冊 §8.5）。
 - **競合は `supersedes` による明示の置き換えでだけ解消する。** 判断記録の新旧（`decided_at` / ULID 順）、`decision` 値の優先順位、記録件数の多寡のいずれも採用規則に用いない。競合中の対象について機械がいずれかの判断記録を採用した結果を出力しない。
 - **`supersedes` の検証**：提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。`judgment_kind` がバンドルと不一致または値域外の提出は E-AUDIT-003 で拒否する（本冊 §8.4）。

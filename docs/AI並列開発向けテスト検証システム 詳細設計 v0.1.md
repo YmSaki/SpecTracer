@@ -261,7 +261,7 @@ Relation は不変。変更はファイル削除＋新規作成で表す。
 
 ### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
 
-判断記録は、`UNKNOWN` に対して外部（人間または判断可能 Agent）が下した判断の記録である（基本仕様 §11.3、要件定義 §12）。actor / subject / decision を必須項目とし、理由・根拠は任意。依存 closure のハッシュに束縛される。
+判断記録は、`UNKNOWN` に対して外部（人間または判断可能 Agent）が下した判断の記録である（基本仕様 §11.3、要件定義 §12）。actor / subject / decision / judgment_kind を必須項目とし、理由・根拠は任意。依存 closure のハッシュに束縛される。
 
 ```yaml
 id: 01J8XVZZ...
@@ -1465,7 +1465,7 @@ fail-closed 合成：
   - `bundle_ref`：外部判断が必要な場合の判断バンドル（§8.1）への参照（任意）。
 - **判断型に由来する項目の生成条件**：`judgment_kind: case-coverage` の項目（`kind: unknown`、`check: null`、`subject`＝対象 Test ID）は、次をすべて満たす管理対象 Test ごとにちょうど 1 件生成する。
   1. `covers` が 1 件以上ある。
-  2. 当該 Test の `cases` が 1 件以上ある、または covers 先 VO のいずれかが `dimensions` を 1 件以上持つ。
+  2. 当該 Test の `cases` が 1 件以上ある、または解決済みの covers 先 VO（レコードが存在する VO。E-SCAN-003 の dangling 参照を除く）のいずれかが `dimensions` を 1 件以上持つ。
   3. `(当該 Test, case-coverage)` の実効判断（§8.5）が `accepted` でない。実効判断が未確定・`rejected`・`deferred` のいずれの場合も項目を生成し、参照した判断記録 ID を `basis` に載せる。
 
   この生成条件は `case-coverage` 型の項目にだけ適用する。検査に由来する `kind: unknown` の項目（DA 規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断記録の有無で変わらない。
