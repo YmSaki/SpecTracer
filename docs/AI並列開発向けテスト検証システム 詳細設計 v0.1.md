@@ -188,12 +188,15 @@ content_hash: "sha256:..."      # 登録時の内容ハッシュ（§1.3 documen
 title: 基本仕様書               # 任意の表示名
 derives_from:                   # 上流 document への導出リンク（0件可＝根候補）
   - doc: DOC-REQ-001
+    anchor: "§12.3"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
     note: ""                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
 registered_at: 2026-08-08T00:00:00Z
 ```
 
 - `derives_from` は上流 document への唯一のリンク種別である（基本仕様 §3.2）。文書層の段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、段を増やしても種別を増やさない。リンクを追加してもスキーマは壊れない。
 - 各 `derives_from` entry の `note`（導出理由・説明文）は任意（optional）であり、空でも `chain_integrity` 違反・`MISMATCH` としてはならない（基本仕様 §3.4、§19）。ただし付加・保存できる構造とする。
+- 各 `derives_from` entry の `anchor`（参照先 document 内の該当箇所を指す文字列。節番号・条項番号・見出し等）は任意（optional）であり、欠落・空文字列を `chain_integrity` 違反・`MISMATCH` としてはならない（基本仕様 §3.4、§19）。値は不透明な文字列として保存・出力するだけで、本システムは `anchor` を `path` の実ファイル内位置へ解決せず、実在・一意性・書式を検証しない。`anchor` の内容不一致を検出する検査・診断コードは存在しない。同一 `doc` を指す複数 entry を `anchor` 違いで持つことを許容し、重複としない。この `anchor` は `derives_from` entry の field であり、Test metadata には存在しない（Test の存在理由分類 `role` / `anchor` / `anchor_rationale` は持たない。§4.1、基本仕様 §12）。
+- `anchor` は canonical document record の一部であり、§1.3 の document subject hash の入力に含まれる。`anchor` だけの変更は `path` の実ファイルを変えないため `content_hash` を変化させないが、document subject hash を変化させるため、当該 document を上流依存 closure に含む判断記録・承認は失効する（§3.5・§8.5）。
 - `derives_from` の参照先 document が存在しない場合は文書鎖のリンク切れとして `chain_integrity` の `MISMATCH`、`path` の実ファイルが `content_hash` と一致しなくなった場合は `MISMATCH`（診断 `STALE`）とする（§11.4）。
 - `derives_from` が空の document は根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。
 - 仕様文書そのものは `.verify/` へ複製しない。本システムは文書内容の意味的良否を検証しない（基本仕様 §29 OOS-001）。
@@ -205,16 +208,21 @@ id: VO-PARSER-UTF8-003
 parent: VO-PARSER-UTF8          # VO ID または null（階層化）
 derives_from:                   # 1件以上の document への直結（基本仕様 §3.2）
   - doc: DOC-BASIC-001
+    anchor: "§8.2条項2"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
     note: ""                    # 任意（空可・非 MISMATCH）
 claim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す
 dimensions: []                  # 検証軸（任意。§3.2.1）
 coverage_policy: null           # independent-axes | full-product | explicit | null
+combinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）
 representative_cases: []        # 代表入力値（任意）
 created: 2026-08-08
 updated: 2026-08-08
 ```
 
 VO は 1 件以上の `document` から `derives_from` で導出される。VO と document の間に他のエンティティ層を置かない（基本仕様 §1、§3.2）。旧モデルの `requirements`（REQ 参照）と `spec_refs`（SPEC + 節参照）は持たず、上流参照は `derives_from:[DOC-]` へ一本化する。`derives_from` の参照先 document が存在しなければ `chain_integrity` の `MISMATCH`（dangling reference、E-SCAN-003 相当は §5.4 の E-SCAN-012）。
+
+VO の `derives_from` entry も document レコードと同じく任意の `anchor`（参照先 document 内の該当箇所を指す不透明な文字列。節番号・条項番号・見出し等）と任意の `note` を持つ。欠落・空文字列は `chain_integrity` 違反・`MISMATCH` としない（基本仕様 §3.4、§19）。本システムは `anchor` を文書内位置へ解決せず、実在・一意性・書式を検証せず、内容不一致を検出する検査を持たない。同一 `doc` を `anchor` 違いで複数 entry として持つことを許容し、重複としない。「どの上流条項がどの VO へ対応するか」の対応ペアは、この `anchor` 付き `derives_from` エッジとして保持し、§11.6 の projection 出力で露出する（基本仕様 §11.1）。
+`anchor` と `note` は §1.3 の VO subject hash の入力に含まれない（VO subject hash は `derives_from` の参照先 document ID 集合を束縛する）。したがって `anchor` だけの変更で VO の承認・判断記録は失効しない。参照先 document 集合そのものの変更は従来どおり失効させる。
 
 VOの`status`は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。
 readerは読取り互換fieldとして`status`を受理するが、実効判定とVO subject hashでは無視し、
@@ -235,11 +243,39 @@ coverage_policy: full-product
 
 - `independent-axes`：partition ごとに 1 子 VO（上例では 2 + 4 = 6 件）
 - `full-product`：直積ごとに 1 子 VO（上例では 8 件）
-- `explicit`：`combinations:` フィールドに列挙された組合せのみ
+- `explicit`：`combinations` フィールドに列挙された組合せのみ
 
-生成される子 VO の ID は `VO-X-<PARTITION>`（直積は `VO-X-<P1>-<P2>`）を既定とし、生成前に一覧を提示して確認できる（`--dry-run`）。
+生成される子 VO の ID は `VO-X-<PARTITION>`（直積は `VO-X-<P1>-<P2>`）を既定とし、生成前に一覧を提示して確認できる（`--dry-run`）。複数軸の suffix は `dimensions` の宣言順に連結し、`combinations` entry 内の記述順・map key 順に依存しない。
 実体化後は通常の VO として扱われるため、`chain_integrity` の leaf VO → Test 検査は「leaf VO に covers する Test が存在するか」だけを見ればよい。
 組合せ空間の定義が仕様に対して十分かは本システムの検査ではなく、`UNKNOWN` としてエスカレーション（§8、基本仕様 §11）の領分である（基本仕様 §10）。
+
+**`combinations` の形式**（基本仕様 §10「明示列挙」の保存形式）。`combinations` は組合せ tuple の list である。各 entry は dimension 名 → partition 値の map とし、`dimensions` に宣言された全軸をちょうど 1 回ずつ持つ。
+
+```yaml
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+  - name: operator
+    partitions: [add, sub, mul, div]
+coverage_policy: explicit
+combinations:
+  - { operand-sign: positive, operator: div }
+  - { operand-sign: negative, operator: div }
+```
+
+上例の `explicit` 実体化は `VO-X-POSITIVE-DIV` と `VO-X-NEGATIVE-DIV` の 2 件を生成する。
+
+**`combinations` の受理条件と不成立時の扱い。** 次のいずれかに該当する VO レコードは `combinations` 不正とし、`E-SCAN-017`（§17.1）を報告して当該 VO の `chain_integrity` を `MISMATCH` とする。`vo expand` は子 VO を 1 件も生成せず、部分生成もしない。
+
+- `coverage_policy: explicit` かつ `combinations` が欠落、`null`、または空 list である。
+- `coverage_policy: explicit` かつ `dimensions` が空である。
+- `combinations` が空 list でないのに `coverage_policy` が `explicit` 以外（`independent-axes` / `full-product` / `null`）である。
+- entry が `dimensions` に宣言されていない dimension 名を含む。
+- entry の partition 値が当該 dimension の `partitions` に列挙されていない。
+- entry が宣言済み dimension のいずれかを欠く、または同じ dimension 名を 2 回以上持つ。
+- 同一の（dimension 名 → partition 値）対応を持つ entry が 2 件以上ある（重複 tuple）。
+
+`combinations` は canonical VO record の一部であり、§1.3 の VO subject hash に束縛される。`combinations` の変更は当該 VO の承認を失効させる（§3.5）。`combinations` の値が仕様に対して十分な組合せ集合かは本システムの検査ではなく、上と同じくエスカレーションの領分である（基本仕様 §10、§11）。
 
 ### 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`）
 
@@ -1258,6 +1294,20 @@ Test が別プロセス（起動した subprocess 内）・別スレッド等の
 | `target_binding` | TEST | §7.3 の合成。Evidence result FAIL は `FAIL`、全宣言 target の到達が静的到達または runtime 到達で充足されれば `PASS`。未充足は §11.2 の写像に従う |
 | `oracle_presence` | TEST | §7.1 の合成（DA-001 / DA-003 / DA-004 / DA-005 / DA-006）。全 PASS で `PASS`、1つでも FAIL で `FAIL`、FAIL なく UNKNOWN で `UNKNOWN` |
 
+**判定の決定性（不変条件）。** 4 検査の評価入力は次に限る（基本仕様 §11.1、要件定義 §17.2）。
+
+- 当該 revision の repository を走査した scan 結果（adapter が返す discovery 出力と、そこから core が具体化したエンティティ・内容ハッシュ）
+- `.verify/` 配下の正典ファイル集合：`config.yaml`、document レコード、VO レコード、Relation レコード、判断記録（`.verify/decisions/`）、承認レコード（`.verify/approvals/`）、Evidence レコード（`.verify/evidence/`）
+- 当該実行の要求 scope 指定（検査軸・エンティティ軸・`--gate`）
+
+この入力集合が同一であれば、4 検査の検証状態（5 状態）・診断ラベル・診断コード集合・集約結果・`pending` section の内容・終了コードは同一でなければならない。次を検査入力にしてはならない。
+
+- 実行時の現在時刻・経過時間・乱数・プロセス ID
+- ロケール・タイムゾーン・環境変数・呼出し元の作業ディレクトリ（`--project` で解決したプロジェクトルート自体は入力に含む）
+- ネットワーク応答、および LLM API を含む外部サービスの応答
+
+本システムは意味判定・候補生成を外部の判定器へ委ねる seam（実行時に差し替え可能な意味判定・意味生成の呼出し点）を 4 検査の評価経路に持たない。外部 AI／Agent は判断記録（§8）の**著者**として `.verify/decisions/` へ記録を残す経路でのみ関与し、その記録は上記の入力集合の一部としてファイル経由で読まれる。判断記録の受理は検証状態を昇格させない（§8.3）。将来そのような seam を評価経路へ設ける場合は、任意の判定を返す実装（正反対の判定を返す実装を含む）を差し替えても 4 検査の結果が変化しないことを満たさなければならない。
+
 完全検証の検査集合はこの4検査に固定し、設定で追加・削除できない（§2.2、基本仕様 §22.1）。旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在せず、次のとおり吸収・撤去した。
 
 - `test_existence` / `test_traceability` → `chain_integrity` へ統合。
@@ -1363,7 +1413,8 @@ fail-closed 合成：
 
 - **任意ノードからの取得**：最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。常に全チェーンを表示することは求めない。
 - **projection**：役割または利用目的に応じた参照観点を preset として提供する（例：PM は上位の document・VO の状態と未確定/NG、Tester は VO・Test・検証対象・Evidence・未実施/失敗理由、Coder は実装から関連 Test・VO・上流 document へのトレース）。役割を固定 enum やモード名として本冊で仕様化せず、preset・UI・モード体系は別紙A へ委譲する（基本仕様 §30）。
-- **露出点**：新規コマンド・ツールを増やさず、既存の `vtest report` の view / projection 引数と、`test query` の逆引きで露出する（引数・出力 schema は別紙A）。逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）を projection の基盤とする（§5.3）。
+- **上流該当箇所の同伴**：projection が出力する `derives_from` エッジ（DOC → DOC、DOC → VO）には、当該 entry の `anchor`（§3.1・§3.2）を常に同伴させる。`anchor` を持たない entry では当該 field を省略または `null` とし、空文字列で埋めない。これにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。`anchor` の値は不透明な文字列として transport するだけで、projection は文書内位置への解決・整合検査を行わない。
+- **露出点**：新規コマンド・ツールを増やさず、既存の `vtest report` の view / projection 引数と、`test query` の逆引きで露出する（引数・出力 schema は別紙A）。逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）を projection の基盤とする（§5.3）。この対応ペアの取得のために新規コマンド・ツールを設けない。
 
 ### 11.7 判断待ち情報の構造
 
@@ -1417,6 +1468,7 @@ version controlの構文的整合性だけでは判定できない論理的不�
 
 | コード | 種別 | 内容 |
 |---|---|---|
+| E-SCAN-017 | error | VO の `combinations` が不正（`coverage_policy: explicit` で欠落・空、`explicit` 以外で非空、未宣言 dimension・未列挙 partition の参照、宣言 dimension の欠落・重複、重複 tuple。§3.2.1）。当該 VO の `chain_integrity` を `MISMATCH` とし、`vo expand` は子 VO を生成しない |
 | W-SCAN-104 | warning | document レコードの content_hash と実ファイルの不一致（依存判断・依存Approvalは無効、鎖は chain_integrity STALE） |
 | E-EXEC-001 | error | テストビルド失敗 |
 | E-EXEC-002 | error | 要求したテストの結果行が得られない |
@@ -1431,7 +1483,7 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | E-CONFIG-001 | error | config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反（未知・重複adapter IDはE-ADAPTER-001） |
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.3） |
 | E-OP-002 | error | Edit 対象 Test の特定失敗 |
-| E-OP-003 | error | 編集結果が1 Test の範囲を超える（別紙A §15.4。操作は中止される） |
+| E-OP-003 | error | Create / Edit の適用後検証に失敗（再パース不能、生成された宣言が desired state と不一致、変更が1 Test の範囲を超える）。適用前の状態へロールバックし操作を中止する（別紙A §15.2・§15.4） |
 | E-ADAPTER-001 | error | adapterが未登録、重複、またはregistryの宣言と実装が不一致 |
 | E-ADAPTER-002 | error | adapterのdiscoveryまたはrunnerが確定的に失敗（Evidenceなし） |
 | E-ADAPTER-003 | error | Testのexecution descriptorと選択adapterが不一致 |
