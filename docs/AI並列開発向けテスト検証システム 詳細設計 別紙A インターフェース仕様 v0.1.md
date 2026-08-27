@@ -339,7 +339,7 @@ stdio で MCP サーバを起動する（§13）。
   ```
 
   `verification.required` は `require.verification` の値、`verification.actual` は要求 scope の集約代表値（5 状態のいずれか）、`verification.satisfied` は両者の完全一致である。`approvals[]` は `require.approvals` の各ロールについて充足有無と未充足の対象を返し、`require.approvals` が空集合なら空 list とする。`gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積とする。text 出力では同じ 3 項目（要求値・現在の代表値・満否）と未充足ロール・不足している非 `PASS` 検査を提示する。
-- **`ok` と終了コード**：`--gate` を指定した実行では最上位 `ok` と終了コードをゲート充足で決める（充足 → `ok: true`・0、不充足 → `ok: false`・1、未定義ゲート名 → `ok: false`・2）。要求 scope の総合 OK / NG は集約ツリーと `gate.verification.actual` から読み取る（本冊 §17.2）。
+- **`ok` と終了コード**：`--gate` を指定した実行では最上位 `ok` と終了コードをゲート充足で決める（充足 → `ok: true`・0、不充足 → `ok: false`・1、未定義ゲート名 → `ok: false`・2）。要求 scope の総合 OK / NG は集約ツリーと `gate.verification.actual` から読み取る（本冊 §17.2）。 ゲート充足は検証状態とは別軸の評価であり、検証状態を書き換えない。JSON では検証状態（集約ツリーと `gate.verification.actual`）と `gate.satisfied` を別 field として常に併記し、text 出力でも検証状態の行とゲート満否の行を分けて表示する。`--gate` 指定時の `ok: true`・終了コード 0 を検証状態 `PASS` と読ませる表示（例：検証状態の行を省略する、`PASS` の語をゲート満否に流用する）はしない。
 - 具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設定（`config.yaml`）へ委譲する（基本仕様 §30 items 22-23）。
 
 ### 12.4 判断待ち情報 section（`verify` / `report` JSON）
