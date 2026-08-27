@@ -187,6 +187,10 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 4検査未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。
 - **scope は 2 軸で限定できる**（基本仕様 §4.6、要件定義 P-002）。検査軸（4 本の部分集合）とエンティティ軸（対象とする document / VO / Test の部分木）を指定でき、限定scopeのOKは「要求scope内のOK」に限られる。いかなる設定値も完全検証の検査を 4 本未満へ縮退させない。
 - 限定scopeは要求項目だけを集約し、scope外・未実施の項目を `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持・併記する。出力には要求 scope と scope 外項目が未検証である旨を必ず併記する。
+- `verify` / `report` の JSON（CLI・MCP）は最上位に `scope` を返し、`scope.requested.items`（`--items` 省略時は固定4検査を4件すべて列挙）、`scope.requested.entities`（エンティティ軸無指定は空 list）、`scope.unverified_outside_scope`（検査軸4件未満またはエンティティ軸指定ありで `true`、完全検証で `false`）を持つ。完全検証でも `scope` を省略しない。
+- 検証結果を返さないコマンド（`init` / `scan` / `doc *` / `vo *` / `test *` / `audit *` / `run`）の JSON は `scope` を持たない。
+- 限定 scope の JSON 出力だけから、要求 scope と「scope 外は未検証」の旨を判定できる（`scope.unverified_outside_scope` が `true` で、scope 外検査ノードが `NO_EVIDENCE`／診断 `NOT_CHECKED`）。
+- 機能単位の集約は親 VO（子 VO を持つ VO）を単位とし、Feature を別エンティティ・別レコード・別 ID として設けない。親 VO の値は子 VO の値と当該親 VO を直接 covers する Test の値の fail-closed 合成であり、いずれかに非 `PASS` が 1 件でもあれば親 VO は非 `PASS` になる。`--vo <親VO>` および `--from <親VO> --direction down` が親 VO の代表値と配下の子 VO・Test の内訳を同一出力で返し、出力に Feature 名・Feature ID の field を含めない。
 - 要求scope内の `FAIL`・`MISMATCH`・`NO_EVIDENCE`・`UNKNOWN` のいずれも総合PASSへ昇格しない。
 - **NO_EVIDENCE を生む入力**（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。これらは `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない（基本仕様 §4.3・§4.6）。
 - 完全検証fixtureで4検査のそれぞれを単独で非PASSにすると総合NGになる。
@@ -202,6 +206,14 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - ゲート定義は `config.yaml` の `gates` に、ゲート名と進行条件（`require.verification` ＝要求する検証結果、`require.approvals` ＝要求する承認ロール集合）として保持する。
 - `vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の有効な承認が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。条件充足・不足の両方を fixture で確認する。
 - 検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。承認済みを理由に検証状態を昇格させない。
+- `require.verification` の値域を config 受理時に検査する。5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）との完全一致は受理し、診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）・`OK` / `NG`・小文字表記・旧12項目名・非文字列値は E-CONFIG-001・終了コード 2 で拒否して検証結果を生成しない。`require` および `require.verification` の欠落、`gates[].name` の重複も E-CONFIG-001 とし、`require.approvals` の省略と `gates` field 自体の欠落・空 list は受理する（本冊 §2.2）。
+- ゲートの検証条件は `require.verification` と要求 scope の集約代表値の完全一致でのみ充足する。`require.verification` に `PASS` 以外（例 `UNKNOWN`）を定義したゲートは、代表値が同じ値のときだけ充足し、代表値が `PASS` のときは充足しない。逆に `require.verification: PASS` のゲートは代表値が非 `PASS` のとき充足しない。順序・包含解釈による充足を認めない fixture を持つ。
+- 集約代表値は構造検査（`chain_integrity` / `orphan_detection`）を含む要求 scope 内の全評価値の fail-closed 合成であり、エンティティ軸の部分木が全 `PASS` でも構造検査が非 `PASS` なら代表値は非 `PASS` になる。
+- `--items` で検査軸を限定した実行では scope 外検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値に参加するため、`require.verification: PASS` のゲートは限定 scope で充足しない。
+- `--gate` を指定した `verify` / `report` の JSON は `data.gate` に `name`・`verification.{required, actual, satisfied}`・`approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す。`require.approvals` が空集合なら `approvals` は空 list、`gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積になる。
+- `--gate` 指定時の最上位 `ok` と終了コードはゲート充足で決まる（充足 → `ok: true`・0、不充足 → `ok: false`・1）。`require.verification` に `PASS` 以外を定義したゲートが充足した実行は、総合が NG でも終了コード 0 になる。
+- config の `gates` に定義の無いゲート名を `verify --gate` / `report --gate` / MCP の `gate` 入力へ指定すると、E-CONFIG-002・`ok: false`・終了コード 2 で拒否し、検証もゲート評価も実行せず部分結果を返さない。診断には指定名と定義済みゲート名の一覧を含み、MCP tool error は `candidates` に定義済みゲート名を持つ。`gates` が空・未定義の状態での指定も同じ扱いとする。
+- ゲート名の解決は大文字小文字を区別した完全一致だけで行い、前方一致・部分一致・近似一致・既定ゲートへの代替で受理しない。
 - **責務はゲート条件が現在満たされているかの評価・提示に限る。** フェーズのライフサイクル管理・工程の自動遷移は責務外とする（基本仕様 §20・§29 OOS-004、要件定義 §26.4）。
 - 新規 CLI コマンド・MCP ツールを増やさず、既存の `vtest verify` の `--gate` 引数と出力、および `report` の JSON でゲート評価を露出する。具体的なフェーズ名・承認ロール・必要承認数はプロジェクト設定と別紙A へ委譲する（基本仕様 §30）。
 
@@ -278,7 +290,7 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 | §18.3.6 判断記録プロトコル（非ゲート） | 基本§11・§11.3・要件§12・本冊§8 | 再導出（意味監査 bundle 4種別・検査扱い廃止、impl_consistency=MISMATCH 写像削除、E-AUDIT-005-007 撤去、bundle/submit を非昇格の判断記録へ、理由 optional） |
 | §18.3.7 承認と判断記録の分離 | 基本§4.5・§11.3・§17・本冊§3.4・§3.5 | 新設（判断≠承認・別 entity、承認は独立軸で非昇格、依存 closure hash 束縛、W-STORE-002） |
 | §18.3.8 verify・report と scope | 基本§4.6・§5・§22.1・§22.2・§22.3・本冊§2.2・§11.1・§11.3 | 再導出（12項目→4検査、旧項目列挙→E-CONFIG-001 拒否、role別表示除去、SPEC/REQ→DOC ツリー、scope 2軸・NO_EVIDENCE を生む入力・§22.2 優先順位を明示） |
-| §18.3.9 フェーズゲート評価 | 基本§20・要件§26.4・本冊§11.5 | 新設（MUST・評価/提示のみ、自動遷移は責務外、既存 verify --gate 露出） |
+| §18.3.9 フェーズゲート評価 | 基本§20・§4.1・§4.5・要件§26.4・本冊§11.5・§2.2・§17.1・§17.2 | 新設（MUST・評価/提示のみ、自動遷移は責務外、既存 verify --gate 露出） |
 | §18.3.10 Structured Test Operation | 基本§15・本冊§5.2 | CONFORM（項目名整合のみ） |
 | §18.3.11 MCP interface | 基本§26.2・本冊§16 | CONFORM（別紙A 参照を収録節範囲へ修復） |
 | §18.3.12 adapter contract | 基本§27・§2.4・本冊§5.2・§17.1 | CONFORM（NOT_CHECKED/NOT_EXECUTED を NO_EVIDENCE 診断へ、判断記録へ用語修復） |
