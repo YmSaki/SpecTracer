@@ -305,11 +305,13 @@ Relation は不変。変更はファイル削除＋新規作成で表す。
 
 ### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
 
-判断記録は、`UNKNOWN` に対して外部（人間または判断可能 Agent）が下した判断の記録である（基本仕様 §11.3、要件定義 §12）。actor / subject / decision を必須項目とし、理由・根拠は任意。依存 closure のハッシュに束縛される。
+判断記録は、`UNKNOWN` に対して外部（人間または判断可能 Agent）が下した判断の記録である（基本仕様 §11.3、要件定義 §12）。actor / subject / decision / judgment_kind を必須項目とし、理由・根拠は任意。依存 closure のハッシュに束縛される。
 
 ```yaml
 id: 01J8XVZZ...
 subject: TEST-PARSER-044        # 判断対象のエンティティID または解決済み canonical Locator
+judgment_kind: test-semantic    # 判断型（必須。値域は §8.1）
+supersedes: []                  # 明示に置き換える旧判断記録の ULID list（既定は空 list。§8.5）
 subject_hash: "sha256:..."      # 判断時点の対象の内容ハッシュ
 dependencies:                   # 判断時点の上流依存closure（完全一致を要求）
   - kind: vo
@@ -334,7 +336,9 @@ revision: { commit: "abc123...", dirty: false }
 ```
 
 - **理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない**（基本仕様 §11.3、要件定義 §12）。`reason` / `exclusions` は optional である。
-- 同一対象への判断記録は複数存在してよい（再判断・多重判断）。有効性判定と選択は §8.5 に従う。
+- 同一対象への判断記録は複数存在してよい（再判断・多重判断）。有効性判定と実効判断の決定は §8.5 に従う。
+- `judgment_kind` は判断対象を一意に区切る第二の key である。実効判断（§8.5）は `subject` 単独ではなく `(subject, judgment_kind)` の組ごとに独立に決まり、判断型の異なる判断記録どうしは競合しない。`judgment_kind` を欠くか §8.1 の値域外の判断記録は、履歴として保持するがいずれの `(subject, judgment_kind)` の実効判断へも寄与させず、W-STORE-003 を出す。
+- `supersedes` は、この判断記録が明示に置き換える旧判断記録の ULID を名指しする list である。列挙する各 ULID は、同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指さなければならない（提出時の検証は §8.4、読取り時の扱いは §8.5）。`supersedes` は §3.3 の Relation とは独立であり、`type: supersedes` の Relation レコードは実効判断の決定に用いない。
 - `subject` の `target` 参照は §6.1 で解決した canonical Source Target の canonical Locator とし、解決できない target を任意の候補で埋めない（§6.1.1）。
 - **判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない**（§8.3、基本仕様 §11.3）。判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。判断済みと承認済みは区別する（判断済み ≠ 承認済み。§3.5）。
 
@@ -342,8 +346,9 @@ revision: { commit: "abc123...", dirty: false }
 
 ```yaml
 id: 01J8XW0A9M...
-subject: VO-PARSER-UTF8-003     # 承認対象のエンティティID
+subject: VO-PARSER-UTF8-003     # 承認対象のエンティティID（VO ID または document ID）
 judgment_ref: 01J8XVZZ...       # 参照する判断記録ID（任意。judgment reference）
+supersedes: []                  # 明示に置き換える旧承認レコードの ULID list（既定は空 list）
 subject_hash: "sha256:..."      # 承認時点の対象の内容ハッシュ
 dependencies:                   # 承認時点の上流依存closure（完全一致を要求）
   - kind: vo
@@ -356,32 +361,67 @@ approver:
   kind: agent                   # human | agent
   id: reviewer-agent-01
   model: claude-fable-5         # agent の場合任意
-approved_state: approved        # どの承認状態か（必須）
+approved_state: approved        # どの承認状態か（必須。approved | rejected | withdrawn）
 basis: []                       # 根拠（任意）
 approved_at: 2026-08-08T00:00:00Z
 ```
 
-承認は検証状態と**独立の別軸**である（基本仕様 §4.5、§17、要件定義 §5.5）。承認済みを理由に非 `PASS` を `PASS` へ昇格させず、未承認を理由に `PASS` を降格させない。承認記録は §3.4 の判断記録と同一 entity であることを要求しない（別 entity でありうる）。承認は対象自身または参照する判断（`judgment_ref`）に承認済み状態を与える。
+承認は検証状態と**独立の別軸**である（基本仕様 §4.5、§17、要件定義 §5.5）。承認済みを理由に非 `PASS` を `PASS` へ昇格させず、未承認を理由に `PASS` を降格させない。承認記録は §3.4 の判断記録と同一 entity であることを要求しない（別 entity でありうる）。承認は対象自身（`subject`）または参照する判断（`judgment_ref`）に承認済み状態を与える。
 
-VO の実効承認状態は次で決まる。
+**承認対象の値域。** `subject` に置ける ID は次の 2 種だけである。
+
+| `subject` の種別 | 意味 | 上流依存closure |
+|---|---|---|
+| VO ID（`VO-*`） | 検証成果物としての VO の承認 | 対象 VO の再帰的な parent VO、対象 VO と各 parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document（`derives_from` 先） |
+| document ID（`DOC-*`） | 方針を含む上流文書の承認。方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない（§3.1、基本仕様 §3.1） | 対象 document の再帰的な上位 document（`derives_from` 先） |
+
+判断記録は `subject` に置かない。判断記録の承認は `judgment_ref` によってのみ表す。`judgment_ref` が指す判断記録が存在しない場合は、書込み時に E-APPROVAL-001 として拒否し、既存レコードとして読み取った場合は当該レコードから VO / document の実効承認も判断記録の実効承認も導出しない（W-STORE-006）。判断記録 ULID を `subject` に持つ承認レコードは、書込み時に E-APPROVAL-002 として拒否し、既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006 を出す。VO ID・document ID のいずれにも解決しない `subject`（Test ID、Source Target locator、Relation ID 等）も同じ扱いとする。
+
+いずれの種別でも対象自身は `subject_hash` で束縛するため `dependencies` へ重複して含めない。`dependencies` の entry は `kind`（`vo` | `document`）、`id` の順で sort し、欠落・重複・余剰 entry を許可しない。document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する。
+
+**`approved_state` の値域。** 次の 3 値だけを受理する。他の値は書込み時に E-APPROVAL-002 として拒否し、既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006 を出す。
+
+| 値 | 意味 |
+|---|---|
+| `approved` | この内容で進めることを認めた（承認） |
+| `rejected` | この内容で進めることを認めない（却下） |
+| `withdrawn` | 先に与えた承認を取り消した（承認取消） |
+
+**`supersedes`。** この承認レコードが明示に置き換える旧承認レコードの ULID を名指しする list である。列挙する各 ULID は、同一 `subject`（`judgment_ref` を持つ承認では同一 `judgment_ref`）の既存承認レコードを指さなければならない。参照先を解決できない、対象が一致しない、または自己参照する `supersedes` entry を含むレコードは、書込み時に E-APPROVAL-002 として拒否する。既存レコードとして読み取った場合、および supersede 関係が循環する場合は、当該レコードを実効集合へ寄与させず W-STORE-005 を出す。`supersedes` は §3.3 の Relation とは独立であり、`type: supersedes` の Relation レコードは実効承認の決定に用いない。
+
+**実効承認の導出。** 対象 X（VO ID、document ID、または `judgment_ref` が指す判断記録）に対して次の順に評価する。`approved_state` を参照せずに承認済みを導出してはならない。
 
 ```text
-approved =
-  「subject が一致し、subject_hash が現在の内容ハッシュと一致する
-   かつ dependencies が現在の上流依存closureとentity・hashとも完全一致する
-   という条件を満たす承認レコードが1件以上存在する」
-それ以外は draft（承認失効を含む）
+1. 有効承認レコード集合 A(X) を作る。承認レコード a が A(X) に属するのは次をすべて満たす場合だけとする。
+   a.approved_state が値域内である
+   a の対象指定が X と一致する
+     （X が VO / document のとき a.subject == X、X が判断記録のとき a.judgment_ref == X の ULID）
+   a.subject_hash が a.subject の現在の内容ハッシュと一致する
+   a.dependencies が a.subject の現在の上流依存closureと entity・hash とも完全一致する
+   a.dependencies の各 document が登録 content_hash と実ファイルの一致を満たす（§11.4）
+   X が判断記録のとき、さらに当該判断記録が §8.5 の有効判断であり、
+     かつ §8.5 の実効集合 E に属する
+2. 実効集合 A'(X) = A(X) から、A(X) 内の他レコードの supersedes に名指しされたものを除いた集合
+3. 実効承認状態：
+   A'(X) が空                                        → draft
+   A'(X) に approved_state が rejected または
+     withdrawn のレコードが1件以上ある                 → draft（fail-closed。機械はどちらかを選ばない）
+   A'(X) の全レコードが approved_state == approved    → approved
 ```
 
-上流依存closureは、対象VOの再帰的なparent VO、対象VOとparent VOが`derives_from`で参照する document、および各 document の再帰的な上位 document（`derives_from` 先）からなる（基本仕様 §17）。
-対象VO自身は`subject_hash`で束縛するため`dependencies`へ重複して含めない。
-entryは`kind`（`vo` | `document`）、`id`の順でsortし、欠落・重複・余剰entryを許可しない。
+`approved` を取り消すには `approved_state: withdrawn`、否認するには `approved_state: rejected` の承認レコードを追加する。取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードの ULID を `supersedes` に名指しした `approved_state: approved` のレコードを追加する。旧レコードを名指ししない `approved` の追加では `draft` のままとする。
 
-document dependencyは§1.3のdocument subject hashを使用するため、document recordまたは参照先sourceの変更で
-承認が失効する。依存entryを持たない互換Approvalは読取りと履歴表示だけを許可し、
-現在の`approved`を導出しない。W-STORE-002を出し、VOは`draft`相当とする。
+**承認 workflow の状態遷移。** 対象 X の実効承認状態は `draft` と `approved` の 2 値であり、遷移は次の入力だけで起きる。
 
-承認記録は「誰が（approver）」「何を（subject または judgment reference）」「どの承認状態か（approved_state）」を必須項目として追跡可能とし、根拠は任意に記録できる。承認主体は種別（`human` / `agent`）と識別子を記録する。誰がどの対象・範囲を承認できるか（approval authority）、承認ロール・必要承認数・権限 schema・承認 workflow の状態遷移はプロジェクト側で定義可能とし、その具体は別紙A / プロジェクト設定へ委譲する（基本仕様 §17、§30）。
+| 遷移 | 起こす入力 |
+|---|---|
+| `draft` → `approved` | `approved_state: approved` の有効承認レコードが加わり、実効集合に `rejected` / `withdrawn` が 1 件も残らなくなる |
+| `approved` → `draft` | (a) `approved_state` が `rejected` または `withdrawn` の有効承認レコードが加わる／(b) 実効集合の `approved` レコードがすべて他レコードの `supersedes` に名指しされる／(c) `subject` の内容ハッシュが変化する／(d) 上流依存closureの entity 構成またはいずれかの hash が変化する（document 再登録・参照先 source 変更を含む。§11.4）／(e) X が判断記録のとき、当該判断記録が §8.5 の有効判断または実効集合 E から外れる |
+| 状態を変えない入力 | 検証状態（§4.1 の 5 状態）の変化、判断記録の追加そのもの、`basis` の内容 |
+
+依存 entry を持たない互換 Approval は読取りと履歴表示だけを許可し、現在の `approved` を導出しない。W-STORE-002 を出し、対象は `draft` 相当とする。
+
+承認記録は「誰が（approver）」「何を（subject または judgment reference）」「どの承認状態か（approved_state）」を必須項目として追跡可能とし、根拠は任意に記録できる。承認主体は種別（`human` / `agent`）と識別子を記録する。誰がどの対象・範囲を承認できるか（approval authority）、承認ロール、必要承認数、権限 schema はプロジェクト側で定義可能とし、その具体は別紙A / プロジェクト設定へ委譲する（基本仕様 §17、§30）。承認レコードの入力経路は別紙A §12.2・§13.2 に定める。
 
 ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
 
@@ -838,6 +878,10 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 | W-SCAN-105 | warning | Test constructとして解析されない関数itemのdoc comment内の`@vtest.`行に認識されないキーが存在（§4.2。打鍵ミス検出。`src-id`の重複はE-SCAN-005） |
 | W-STORE-001 | warning | VO recordに非正典の読取り互換field `status`が存在（値は無視し承認から導出） |
 | W-STORE-002 | warning | Approvalが現在の上流依存closureを欠くか一致せず、承認として無効 |
+| W-STORE-003 | warning | 判断記録が `judgment_kind` を欠くか値域外で、いずれの実効判断へも寄与しない（§8.5） |
+| W-STORE-004 | warning | 同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存し、実効判断が未確定（§8.5） |
+| W-STORE-005 | warning | 判断記録または承認レコードの `supersedes` の参照先を解決できない、対象が一致しない、または supersede 関係が循環し、当該 record が実効集合へ寄与しない（§8.5・§3.5） |
+| W-STORE-006 | warning | 承認レコードの `approved_state` または `subject` の種別が値域外、あるいは `judgment_ref` の参照先が存在せず、実効承認を導出しない（§3.5） |
 
 error は該当エンティティに関わる検査を非 `PASS` にする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
@@ -1054,13 +1098,26 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
 - 対象 VO（`--vo` / `--test` から導出した covers 先 VO レコードと claim）
 - Test Intent（`--test` の場合の対象 Test の intent・input・expect）
 - テストコード（Test construct source 全文と metadata 宣言）
+- **Test の cases 集合**（対象 Test が `@vtest.case` で宣言した case の正規化文字列を宣言順に並べた list。§4.1 の論理 field `cases[]`）。宣言が無い Test では空 list を明示し、項目自体を省略しない
 - 対象実装（全宣言 target の implementation construct source 全文）
 - 関連テスト（related / 同一 VO を covers する他 Test の id と intent）
 - 既知 partition（対象 VO の dimensions・coverage_policy・representative_cases）
-- 過去の判断（同一対象への有効・無効な過去判断記録の要約）
+- 過去の判断（同一 `(subject, judgment_kind)` への有効・無効な過去判断記録の要約）
 - 対象の内容ハッシュとリビジョン（Test subject / target subject / VO subject の現在 hash、revision）
 
-`impl-consistency` 型の判断（対象実装が宣言と一致するかの意味判定）のように上流 document を要する対象では、対象 VO から §3.5 と同じ上流依存規則で導出する document subject 完全集合と source 全文を加える。宣言 target のいずれか、または上流 document のいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。解決失敗の種別は対象不在（E-SCAN-004、document 不在）を `MISMATCH`（診断 `MISSING`）、恒久 SRC ID 衝突による曖昧（E-SCAN-011）を `MISMATCH` として当該対象の検証結果へ保持する。
+**判断型（`judgment_kind`）。** バンドルは判断型をちょうど 1 件持ち、その値を `judgment_kind` として出力する。判断型は判断対象を一意に区切る key であり（§3.4）、判断記録へ複製される。本書が定義する値は次の 3 種であり、これ以外の値でバンドルを生成しない。
+
+| `judgment_kind` | `subject` の値域 | 外部へ引き渡す問い |
+|---|---|---|
+| `test-semantic` | Test ID | テストコードは、covers 先 VO の claim と Test Intent が宣言する振る舞いを実際に検証しているか |
+| `impl-consistency` | Test ID | 対象実装は宣言と一致しているか |
+| `case-coverage` | Test ID または VO ID | subject が Test ID のとき：当該 Test が宣言した cases 集合は、covers 先 VO の要求入力空間を十分に代表・網羅しているか。subject が VO ID のとき：当該 VO を covers する Test 群の cases 集合は、当該 VO の要求入力空間を十分に代表・網羅しているか（基本仕様 §14、§11） |
+
+`judgment_kind` と `subject` の種別の組合せがこの表にない要求ではバンドルを生成しない（別紙A §12.2 の usage error、終了コード 2）。
+
+`case-coverage` は §11 の判断対象であって §5 の 4 検査ではない。その未判断・判断結果はいずれも 4 検査の値へ写像せず、§11.3 の集約へ寄与しない。外部判断が必要な事実は §11.7 の判断待ち情報として提示する。
+
+`impl-consistency` 型の判断（対象実装が宣言と一致するかの意味判定）のように上流 document を要する対象では、対象 VO から §3.5 と同じ上流依存規則で導出する document subject 完全集合と source 全文を加える。`case-coverage` 型のバンドルでは、covers 先の全 leaf / 中間 VO の `dimensions`・`coverage_policy`・`representative_cases` と、Test の cases 集合を必須項目として含める。宣言 target のいずれか、または上流 document のいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。解決失敗の種別は対象不在（E-SCAN-004、document 不在）を `MISMATCH`（診断 `MISSING`）、恒久 SRC ID 衝突による曖昧（E-SCAN-011）を `MISMATCH` として当該対象の検証結果へ保持する。
 
 ### 8.2 バンドル JSON スキーマ（例）
 
@@ -1070,10 +1127,12 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
   "generated_at": "2026-08-08T00:00:00Z",
   "revision": { "commit": "abc123...", "dirty": false },
   "subject": "TEST-PARSER-044",
+  "judgment_kind": "test-semantic",
   "test": {
     "id": "TEST-PARSER-044",
     "intent": "不正な UTF-8 入力を与えた場合、ParseError::InvalidUtf8 を返すことを検証する",
-    "metadata": { "input": "...", "expect": "...", "kind": "unit-error", "cases": [] },
+    "metadata": { "input": "...", "expect": "...", "kind": "unit-error" },
+    "cases": [],
     "location": {
       "adapter": "rust-cargo",
       "path": "tests/parser_test.rs",
@@ -1093,7 +1152,8 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
   ],
   "related_tests": [ { "id": "TEST-PARSER-003", "intent": "..." } ],
   "static_analysis": { "oracle_presence": "PASS", "rules": [] },
-  "prior_decisions": [ { "id": "01J...", "decision": "accepted", "decided_at": "...", "valid": false } ]
+  "prior_decisions": [ { "id": "01J...", "judgment_kind": "test-semantic", "decision": "accepted",
+                         "decided_at": "...", "valid": false, "effective": false } ]
 }
 ```
 
@@ -1105,6 +1165,8 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
 {
   "bundle_id": "01J8XVYY...",
   "subject": "TEST-PARSER-044",
+  "judgment_kind": "test-semantic",
+  "supersedes": [],
   "decision": "accepted",
   "reason": [
     {
@@ -1123,6 +1185,8 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
 ```
 
 - `decision` の値集合はツールが受理する判断値（`accepted` / `rejected` / `deferred` 等）とし、その妥当性を §8.4 で検証する。旧モデルの `verdict → CheckValue` 写像（`PASS`/`FAIL`/`COMPLETE`/`INCOMPLETE` を検証状態へ変換する経路）は撤去する。判断記録は検証状態を変更しない（§8 冒頭）。
+- `judgment_kind` は必須であり、`bundle_id` が指すバンドルの `judgment_kind` と一致しなければならない（§8.4）。
+- `supersedes` は任意であり、省略時は空 list として記録する。列挙する各 ULID は、同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指さなければならない（§8.4）。
 - `reason` / `exclusions` は任意である。`basis.kind` は `document` / `vo` / `test-code` / `target-code` のいずれかとする。理由が空であることだけを根拠に判断を無効化しない（基本仕様 §11.3）。
 
 ### 8.4 提出の検証
@@ -1132,10 +1196,15 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
 ```text
 1. bundle_id のバンドルが cache に存在する      （E-AUDIT-001）
 2. subject がバンドルと一致する                 （E-AUDIT-003）
-3. バンドル記録時の各対象の内容ハッシュが、
+3. judgment_kind がバンドルと一致し、
+   §8.1 の値域内である                          （E-AUDIT-003）
+4. バンドル記録時の各対象の内容ハッシュが、
    現在のハッシュと一致する（対象が変更されて
    いれば判断は無効）                            （E-AUDIT-002）
-4. decision が受理する判断値である              （E-AUDIT-004）
+5. decision が受理する判断値である              （E-AUDIT-004）
+6. supersedes の各 ULID が、同一 subject かつ
+   同一 judgment_kind の既存判断記録を指し、
+   自己参照でない                                （E-AUDIT-008）
 ```
 
 受理された提出は判断記録（§3.4）として `.verify/decisions/` へ保存される。`subjects` に相当する対象集合はバンドル生成時の全対象の内容ハッシュを `subject_hash` と `dependencies` として記録し、依存 closure のハッシュに束縛する。**理由（`reason` / `exclusions`）の有無を提出の受理条件にしない**。旧モデルの reasons / claim / basis 必須検査（E-AUDIT-005）、decomposition-viewpoint 検査（E-AUDIT-006）、spec / req basis 検査（E-AUDIT-007）は撤去する。これらは要件定義 §12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。
@@ -1145,12 +1214,30 @@ DA-002 verdict が UNKNOWN（静的に証明できない）である target は�
 判断記録の有効性は判定時に評価する。
 
 ```text
-有効 = subject が一致し、subject_hash が現在の内容ハッシュと一致し、
+有効 = judgment_kind が §8.1 の値域内であり、
+       subject が一致し、subject_hash が現在の内容ハッシュと一致し、
        dependencies が現在の上流依存closureとentity・hashとも完全一致する
        （document は登録 content_hash と実ファイルの一致も要求。
         不一致の場合は当該 document を STALE とし、依存する判断記録も無効）
 ```
 
+**実効判断の決定。** 対象は `(subject, judgment_kind)` の組であり、組ごとに独立に評価する。判断値が食い違う有効判断記録が併存する場合、機械はどれも選ばない。
+
+```text
+1. V(subject, judgment_kind) = 上記「有効」を満たす判断記録の集合
+2. 実効集合 E = V から、V 内の他レコードの supersedes に名指しされたものを除いた集合
+   （supersede できるのは有効判断記録だけである。無効な判断記録の supersedes は何も除かない）
+3. 実効判断：
+   E が空                                   → 未確定（UNKNOWN）
+   E の全レコードの decision が同一値         → その decision を実効判断値とする
+   E に2種以上の decision 値がある（競合）     → 未確定（UNKNOWN）。W-STORE-004 を出す
+```
+
+- 実効判断が「未確定（`UNKNOWN`）」であることは、当該対象が §11 のエスカレーション状態にとどまることを意味する。これは §4.1 の検証状態を変更せず（§8 冒頭）、`UNKNOWN` に §4.2 の診断ラベルを付与しない。未確定である事実は §11.7 の判断待ち情報として提示する。
+- 競合は、新しい判断記録が旧判断記録を `supersedes` で明示に名指しして置き換えたときにだけ解消する。判断記録の新旧（`decided_at` / ULID 順）、`decision` 値の優先順位（`rejected` 優先等）、記録件数の多寡のいずれも解消規則に用いてはならない。
+- `supersedes` が循環する（レコード群が互いを名指しして E が空になる）場合は未確定（`UNKNOWN`）とし、W-STORE-005 を出す。いずれかのレコードを推測で残さない。
+- `judgment_kind` を欠くか値域外の判断記録は、いずれの `(subject, judgment_kind)` の V にも属さず、実効判断へ寄与しない。履歴表示だけを許可し、W-STORE-003 を出す。
+- 判断記録を対象とする承認（§3.5 の `judgment_ref`）は、当該判断記録が有効かつ E に属する場合にだけ実効承認を導出する。E から外れた判断記録への承認は `draft` 相当とする。
 - 同一対象に有効な判断記録が複数あってよい（再判断・多重判断）。回数はツールとして制限しない（運用ポリシー）。
 - 仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用してはならず、現在状態に対して通常の検証（§5 の 4 検査）を再実施する。その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。変更そのものが `UNKNOWN` を生成するのではない（基本仕様 §11.3、要件定義 §12）。
 - 判断済みと承認済みは区別する（判断済み ≠ 承認済み）。判断は承認なしでも記録でき、正式採用は §3.5 の承認の別段階である。
@@ -1422,7 +1509,7 @@ fail-closed 合成：
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§3.5）が通過条件を満たすかを**評価・提示できなければならない（MUST）**（基本仕様 §20、要件定義 §26.4）。検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。
 
 - **ゲート定義**：`config.yaml` の `gates`（§2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。
-- **評価**：`vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の有効な承認（§3.5）が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。
+- **評価**：`vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の実効承認状態（§3.5）が `approved` であるか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。
 - **ゲート名の解決**：`--gate <name>` は `gates[].name` との大文字小文字を区別した完全一致で解決する。前方一致・部分一致・近似一致・既定ゲートへの代替は行わない。一致するゲート定義が無い場合（`gates` が空、または未定義名の指定）は usage error として **E-CONFIG-002**（終了コード 2）で拒否し、スキャン・検証・ゲート評価のいずれも実行せず、検証結果・部分結果を生成しない。診断には指定名と定義済みゲート名の一覧を含める。
 - **検証条件の充足判定**：ゲートの検証条件は、`require.verification` の値と、要求 scope の**集約代表値**との**完全一致**でのみ充足する。
   - 集約代表値は、要求 scope 内で評価した全値（構造検査 `chain_integrity` / `orphan_detection` と、エンティティ軸の部分木で評価した各 Test / VO / DOC の検査値）を §11.3 の fail-closed 規則で合成した 1 値とする。全値が `PASS` なら代表値は `PASS`（総合 OK と同値）、非 `PASS` が混在する場合は基本仕様 §22.2 の優先順位 `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` で選ぶ。診断ラベルは充足判定に用いない。
@@ -1450,9 +1537,17 @@ fail-closed 合成：
 - **構造**：判断待ち情報は次の項目を持つ構造化 record（report JSON 内の section）として提示する。
   - `subject`：対象エンティティ ID または解決済み canonical Locator。
   - `kind`：`unknown`（UNKNOWN によるエスカレーション）/ `unregistered`（管理宣言欠落）/ `unresolved`（参照解決不能）/ `undecided`（VO 未確定）/ `pending_approval`（承認待ち）。
-  - `check`：関係する検査（4 検査のいずれか）と現在の検証状態・診断ラベル。
+  - `check`：関係する検査（4 検査のいずれか）と現在の検証状態・診断ラベル。4 検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では `null` とする。`check` が `null` の項目は §11.3 の集約へ寄与せず、いかなる検査の値も変更しない。
+  - `judgment_kind`：外部判断が必要な場合の判断型（§8.1 の値域）。不要な項目では `null` とする。
   - `basis`：機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照。
   - `bundle_ref`：外部判断が必要な場合の判断バンドル（§8.1）への参照（任意）。
+- **判断型に由来する項目の生成条件**：`judgment_kind: case-coverage` の項目（`kind: unknown`、`check: null`、`subject`＝対象 Test ID）は、次をすべて満たす管理対象 Test ごとにちょうど 1 件生成する。
+  1. `covers` が 1 件以上ある。
+  2. 当該 Test の `cases` が 1 件以上ある、または解決済みの covers 先 VO（レコードが存在する VO。E-SCAN-003 の dangling 参照を除く）のいずれかが `dimensions` を 1 件以上持つ。
+  3. `(当該 Test, case-coverage)` の実効判断（§8.5）が `accepted` でない。実効判断が未確定・`rejected`・`deferred` のいずれの場合も項目を生成し、参照した判断記録 ID を `basis` に載せる。
+
+  この生成条件は `case-coverage` 型の項目にだけ適用する。検査に由来する `kind: unknown` の項目（DA 規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断記録の有無で変わらない。
+- **判断競合の提示**：§8.5 の実効判断が競合により未確定となった `(subject, judgment_kind)` は、`kind: unknown`、`check: null`、当該 `judgment_kind`、および競合した全判断記録 ID を `basis`（`kind: decision`）に持つ項目として提示する。
 - **露出点**：新規コマンド・ツールを増やさず、`vtest verify` / `vtest report` の JSON 出力に判断待ち section を含めて露出する。UNKNOWN だけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。
 
 ---
@@ -1504,9 +1599,11 @@ version controlの構文的整合性だけでは判定できない論理的不�
 | W-EXEC-101 | warning | カバレッジツール利用不能（target_coverage は checked: false、検証時 NO_EVIDENCE/NOT_CHECKED） |
 | E-AUDIT-001 | error | 提出された bundle_id が存在しない |
 | E-AUDIT-002 | error | バンドル記録時のハッシュと現在のハッシュの不一致（対象が変更済） |
-| E-AUDIT-003 | error | subject の不一致・スキーマ違反 |
+| E-AUDIT-003 | error | subject または judgment_kind の不一致・値域外・スキーマ違反 |
 | E-AUDIT-004 | error | decision が受理する判断値でない |
-| E-APPROVAL-001 | error | Approval対象または上流依存closureを完全・currentに解決できず、recordを生成しない |
+| E-AUDIT-008 | error | supersedes の参照先が存在しない、subject または judgment_kind が一致しない、または自己参照（§8.4） |
+| E-APPROVAL-001 | error | Approval対象、`judgment_ref` の参照先、または上流依存closureを完全・currentに解決できず、recordを生成しない |
+| E-APPROVAL-002 | error | `approved_state` が値域外、`subject` の種別が値域外（判断記録 ULID・Test ID 等）、または `supersedes` の参照先が存在しない・対象が一致しない・自己参照（§3.5。recordを生成しない） |
 | E-CONFIG-001 | error | config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`（名前重複、`require` / `require.verification` 欠落、`require.verification` が5状態語彙外、`require.approvals` の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反（未知・重複adapter IDはE-ADAPTER-001） |
 | E-CONFIG-002 | error | 呼出しが config に定義の無いゲート名を参照（`--gate` / MCP の `gate` 入力。config 内容自体は invariant を満たす。検証・ゲート評価を実行せず結果を生成しない。§11.5） |
 | E-OP-001 | error | Structured Operation の入力検証失敗（候補提示を伴う。§6.3） |
@@ -1577,8 +1674,8 @@ scanが完了してrepository整合性のE-SCAN-*を報告した場合は1、err
 | §3.2 VO レコード | 基本§3.2・§10 | 再導出（requirements/spec_refs→derives_from:[DOC-]、section 廃止） |
 | §3.2.1 dimensions | 基本§10 | CONFORM（vo-coverage 監査参照を UNKNOWN エスカレーションへ） |
 | §3.3 Relation レコード | 基本§2.3・§3.2 | CONFORM |
-| §3.4 判断記録レコード | 基本§11.3・要件§12 | 新設（M-2。actor/subject/decision 必須・理由 optional） |
-| §3.5 承認レコード | 基本§17・§4.5・要件§19 | 再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰） |
+| §3.4 判断記録レコード | 基本§11.3・要件§12 | 新設（M-2。actor/subject/decision/judgment_kind 必須・理由 optional、supersedes による多重度解消） |
+| §3.5 承認レコード | 基本§17・§4.5・§30 item18・要件§19 | 再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰、approved_state 値域と workflow 状態遷移、subject 値域 VO/document・判断記録は judgment_ref） |
 | §3.6 Evidence レコード | 基本§21・§6・§7 | 再導出（target_execution field→target_coverage 改名、runtime_result 吸収） |
 | §4.1 adapter-neutral 正規化 | 基本§3・§9.1・§9.2・§12・要件§9.1 | 再導出（role/anchor/characterization 除去、covers≥1 一律、検証対象を core で一般化＝Source Target 実現は adapter 層／rust-cargo が targets≥1） |
 | §4.2 rust-cargo annotation 文法 | 基本§30 item4・§12 | 再導出（role/anchor キー・語彙撤去、src-id 存続） |
