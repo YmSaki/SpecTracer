@@ -2,7 +2,7 @@
 
 Owner 裁定（2026-08-28、104 件）を反映した検証義務（Verification Obligation, VO）セット。凍結スペック5文書（要求・要件定義 / 基本仕様 / 詳細設計 本冊 / 別紙A / 別紙C）だけを根拠とする（別紙B=実装計画は obligation 源にしない）。
 
-規模: 領域（親 VO）25 本 / leaf VO 199 本。
+規模: 領域（親 VO）24 本 / leaf VO 198 本。
 
 ## 凡例
 
@@ -114,7 +114,7 @@ Owner 裁定（2026-08-28、104 件）を反映した検証義務（Verification
 | 83 | FEAT-d18e8d78 | 追加 | VO-GATE-REQVER-01 / VO-GATE-REQVER-02 | |
 | 84 | FEAT-30470802 | 対象外 | — | §30 item22 の委譲事項 |
 | 85 | EXCESS-8eb6b2f1 | 統合 | VO-EVIDENCE-GEN-01 | 曖昧ケースの期待状態を MISMATCH へ修正し、誤った NO_EVIDENCE 規定を削除 |
-| 86 | EXTRACT-542a640e | 追加 | VO-DELIV-README-01 | |
+| 86 | EXTRACT-542a640e | 追加 | （VO 化せず RELEASE-1 へ移送） | Owner 裁定 2026-08-28: 検証対象が文書内容のためリリース時チェックリストへ |
 | 87 | EXTRACT-217a84b7 | 対象外 | — | 文書運用プロセスの規範 |
 | 88 | FATVO-625d4c8d | 分割 | 削除: VO-ADAPTER-WIRE ／ 生成: VO-ADAPTER-WIRE-01..05 | |
 | 89 | FATVO-b84378e8 | 分割 | 削除: VO-ADAPTER-REGISTER ／ 生成: VO-ADAPTER-REGISTER-01..05 | |
@@ -149,7 +149,17 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 
 ---
 
-## 領域一覧（親 VO 25 本）
+## リリース時チェックリストへ移送した条項（VO 化しない）
+
+vtest の実行時挙動ではなくリポジトリの文書内容を対象とするため、leaf VO ではなくリリース時の確認項目として保持する。
+
+| id | 条項 | 出典 | 確認内容 |
+|---|---|---|---|
+| RELEASE-1 | README に、宣言された義務の裏付けの検証のみで出荷し、宣言されていない実装の存在を関知しない旨の非関知宣言を記載する | EXTRACT-542a640e ／ BASIC §29（OOS-005）・REQ R-2 | リリース対象の README に当該宣言が 1 箇所以上存在する |
+
+---
+
+## 領域一覧（親 VO 24 本）
 
 | 領域 | 対象 | leaf 数 |
 |---|---|---|
@@ -177,8 +187,7 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 | IFACE | MCP = CLI 同一性・非対話性 | 10 |
 | INVARIANT | 領域横断の不変条件 | 3 |
 | DETERM | 決定性（verify・正規化） | 2 |
-| DELIV | 成果物受入 | 1 |
-| 計 | | 199 |
+| 計 | | 198 |
 
 ---
 
@@ -1078,15 +1087,6 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 
 ---
 
-## VO-DELIV（成果物受入）
-
-- **VO-DELIV-README-01** — README に、宣言された義務の裏付けの検証のみで出荷し宣言されていない実装の存在を関知しない旨の非関知宣言を記載する。
-  - derives_from: DOC-BASIC §29（OOS-005） ／ 上流: REQ R-2
-  - 入力 = リポジトリの README → 期待 = 未宣言の実装を検出しない旨の宣言が 1 箇所以上存在する
-  - 注: 本 VO の検証はリポジトリ内容の照合であり、vtest の実行時挙動の検証ではない（ESCALATE-4）
-
----
-
 ## 既存 VO レコードの処遇
 
 `.verify/vo/VO-DOGFOOD-M3-STATIC-AUDIT.yaml`（claim: "Static rules bind the declared target and result flow without promoting ambiguity to PASS"）:
@@ -1097,11 +1097,11 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 
 ---
 
-## ESCALATE（VO として起草しきれなかった裁定）
+## ESCALATE の裁定結果（すべて裁定済み）
 
 | id | 裁定 | 起草した範囲 | 未解決の点 |
 |---|---|---|---|
-| ESCALATE-1 | UNCOV-16dc1bdf（形態非依存の判定一致） | assert の所在（本体直書き / helper 委譲）だけが異なる 2 Test で 4 検査値が一致することを VO-INVARIANT-FORM-01 とした | Owner 裁定の文言「実行形態に依らず同一」を実行形態（process / thread boundary）軸へそのまま適用すると、詳細設計 本冊 §7.3 と両立しない。§7.3 は、呼出が Test 本体に現れない subprocess E2E で DA-003 が `UNKNOWN` のまま残り `oracle_presence` = PASS に到達しないことを明記している。したがって「同一入力事実を持つ形態違いの 2 Test は 4 検査値が一致する」を実行形態軸で普遍主張として立てると、§7.3 に対する反証テストが直ちに書ける。実行形態軸まで不変条件とするなら §7.3 の改訂が先に必要であり、Owner の裁定を要する |
+| ESCALATE-1 | UNCOV-16dc1bdf（形態非依存の判定一致） | assert の所在（本体直書き / helper 委譲）だけが異なる 2 Test で 4 検査値が一致することを VO-INVARIANT-FORM-01 とした | Owner 裁定 2026-08-28: assert の所在軸に限定したまま確定する。実行形態軸は本冊 §7.3 と両立しないため不変条件にしない（§7.3 は改訂しない） |
 | ESCALATE-2 | UNCOV-03ed7443 / FEAT-f35e635e（照合装置のグラフ終端） | Owner 裁定の意味論をそのまま VO-ORACLE-TERM-01 / -02 とし、VO-ORACLE-TERM-03 で正方向を固定した | 解消済み。詳細設計 本冊 §7.2.1「照合の委譲先の終端（DA-003・DA-006）」と 別紙C §18.3.3 の受入行が同一意味論で入り、`derives_from` を §7.2.1 へ確定した |
-| ESCALATE-3 | WEAK-6f4ffbf7（Test Intent の非ノード性） | 「Intent が独立ノードとして検証グラフに現れず、`input` / `expect` の欠落が `chain_integrity` を非 PASS にしない」を VO-CHAIN-TEST-01 のケースとして起草した | 裁定の obligation は「Test Intent の有無や欠落を宣言鎖検査の成否として扱わない」だが、詳細設計 本冊 §4.4 は `intent` を core 中立の必須 metadata とし、欠落を E-SCAN-007（`chain_integrity` = MISMATCH）としている。`intent` field の欠落まで「宣言鎖の成否に用いない」と読むと §4.4 と直接矛盾するため、ノード性と `input` / `expect` の任意性に限定して起草した。この限定の可否は Owner の裁定を要する |
-| ESCALATE-4 | EXTRACT-542a640e（README の非関知宣言） | VO-DELIV-README-01 として leaf 化した | 本 VO の検証対象は vtest の実行時挙動ではなくリポジトリの文書内容であり、他の 198 leaf と検証手段の種類が異なる。VO セットの中に置くか、リリース時のチェックリスト項目として VO の外へ出すかは Owner の裁定を要する。leaf として残した場合、covers する Test を rust-cargo Test として書くには README を Source Target として宣言する必要があり、`targets ≥ 1` の要求（VO-ADAPTER-TARGETREQ-02）と整合しない |
+| ESCALATE-3 | WEAK-6f4ffbf7（Test Intent の非ノード性） | 「Intent が独立ノードとして検証グラフに現れず、`input` / `expect` の欠落が `chain_integrity` を非 PASS にしない」を VO-CHAIN-TEST-01 のケースとして起草した | Owner 裁定 2026-08-28: ノード性と `input` / `expect` の任意性に限定したまま確定する。`intent` の core 必須性（本冊 §4.4・E-SCAN-007）は変更しない |
+| ESCALATE-4 | EXTRACT-542a640e（README の非関知宣言） | 起草時は leaf 化していた | Owner 裁定 2026-08-28: VO から外し RELEASE-1 としてリリース時チェックリストへ移送した |
