@@ -1,0 +1,525 @@
+# VO 裁定記録。Owner が ruling を埋める。
+# ruling: 追加 / 統合 / 分割 / §11移送 / 対象外 / 削除 / 現状維持 のいずれか。
+# 裁定したら ruled_hash に obligation_hash の値を写す（繰越判定の基準）。
+# _absent: true は現台帳から消えた過去項目（履歴保持）。
+rulings:
+- id: UNCOV-c4b2183f
+  obligation_hash: c4b2183fb0a72cf1b6fb75434ae2acdc8cebc2a5c689386ee90bd92dbf44ae57
+  ruled_hash: c4b2183fb0a72cf1b6fb75434ae2acdc8cebc2a5c689386ee90bd92dbf44ae57
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（打鍵ミス検出を行使する新 VO。宣言が黙殺される false-negative を塞ぐ）'
+- id: UNCOV-c1e239b4
+  obligation_hash: c1e239b4dffc686297855051be5c2a490ffd74a6486b2cdc9d7bba5316751758
+  ruled_hash: c1e239b4dffc686297855051be5c2a490ffd74a6486b2cdc9d7bba5316751758
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TARGET-MULTI-01 に entry 過不足・対象集合不一致ケースを追加。実行を伴わない対象の紛れ込みを防ぐ）'
+- id: UNCOV-097963f1
+  obligation_hash: 097963f1bd9eca5e23ef279b12f89d2da4a9e14db8fc06779128d668b61af1cd
+  ruled_hash: 097963f1bd9eca5e23ef279b12f89d2da4a9e14db8fc06779128d668b61af1cd
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（内部不整合 Evidence の棄却を行使する新 VO。破損証拠が鮮度検査を通り抜けて偽合格を生む経路を塞ぐ）'
+- id: UNCOV-f3f04b0d
+  obligation_hash: f3f04b0de7c6975ecf2e78b150d6b9183e7e7924908d7459b10bf5980b467e9c
+  ruled_hash: f3f04b0de7c6975ecf2e78b150d6b9183e7e7924908d7459b10bf5980b467e9c
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（機械判定と外部判断の出所区別を保存・表示レベルで行使する新 VO）'
+- id: UNCOV-9497ddc9
+  obligation_hash: 9497ddc97bb147deb02c006588fd54216aa8831a988789aea53c6ff3829a8215
+  ruled_hash: 9497ddc97bb147deb02c006588fd54216aa8831a988789aea53c6ff3829a8215
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（table-driven の cases 保持と 1 construct＝1 Test を行使する新 VO）'
+- id: UNCOV-3bac8f5f
+  obligation_hash: 3bac8f5fa78dcc403db586fe127c4d06396541a6c0f3db2a7c1f98e7b85a0722
+  ruled_hash: 3bac8f5fa78dcc403db586fe127c4d06396541a6c0f3db2a7c1f98e7b85a0722
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-TEST-04 に管理宣言複数対応の行使テストを追加。現状は Test ID 衝突側のみ行使し二重定義テストを見逃す）'
+- id: UNCOV-62527a0e
+  obligation_hash: 62527a0e2232a42c9e91d2fafdfdd78411fdc42f5fe3af9f195ed301ebc9b734
+  ruled_hash: 62527a0e2232a42c9e91d2fafdfdd78411fdc42f5fe3af9f195ed301ebc9b734
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（照合装置検査側の DA-003 対象別畳み込み・1 対 1 対応を行使する新 VO。VO-TARGET-MULTI-01 は検証対象実現側の集約であり別検査）'
+- id: UNCOV-065c6547
+  obligation_hash: 065c654767233b4c93163706a147375e1eb47c42e408fef5d01bc7749b29afbc
+  ruled_hash: 065c654767233b4c93163706a147375e1eb47c42e408fef5d01bc7749b29afbc
+  ruling: 対象外
+  note: 'Owner 2026-08-28: 運用規約に留める。機械では止めない。'
+- id: UNCOV-32c8ed52
+  obligation_hash: 32c8ed52b33a559df0326534c7129865a03b35bfd22f7ff145493597df2a6112
+  ruled_hash: 32c8ed52b33a559df0326534c7129865a03b35bfd22f7ff145493597df2a6112
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TARGET-CAP-01 に意図的 scope 省略ケースを追加。現状は計測能力欠如のみ扱う）'
+- id: UNCOV-0d23262d
+  obligation_hash: 0d23262d500628228402e83ee76f0ec0d9232b9f0ab756593476e94802abbc40
+  ruled_hash: 0d23262d500628228402e83ee76f0ec0d9232b9f0ab756593476e94802abbc40
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（真陰性 VO。既存 VO は各違反 fixture の FAIL 側のみ検査し正常テストの違反なし側を 1 本も行使していない）'
+- id: UNCOV-ad6cdacb
+  obligation_hash: ad6cdacb1ce2e3310e8443a03ee454b7c87d71be341f4b15103c3fc0012bb40a
+  ruled_hash: ad6cdacb1ce2e3310e8443a03ee454b7c87d71be341f4b15103c3fc0012bb40a
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（VO 分解・展開能力を行使する VO 群。明示列挙の combinations フィールド不備は別行の機能欠落として計上）'
+- id: UNCOV-91c13116
+  obligation_hash: 91c131160c7f38637499b5d6d63f8b715a795acddbf6f2a336de46229ed41bf3
+  ruled_hash: 91c131160c7f38637499b5d6d63f8b715a795acddbf6f2a336de46229ed41bf3
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（表現能力 VO 群の一部。階層構造と再帰分解操作の正しさを行使）'
+- id: UNCOV-5b5aa758
+  obligation_hash: 5b5aa758776b42ae1c605e33e82dd034e78af75056c0ceeda7c7c7160c211373
+  ruled_hash: 5b5aa758776b42ae1c605e33e82dd034e78af75056c0ceeda7c7c7160c211373
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（多重度許容を行使する VO。表現能力 VO 群の一部）'
+- id: UNCOV-16dc1bdf
+  obligation_hash: 16dc1bdf0318f5bb7a142b0a91ea2cbd70ee11b5034f8b33d1e5f316ada91532
+  ruled_hash: 16dc1bdf0318f5bb7a142b0a91ea2cbd70ee11b5034f8b33d1e5f316ada91532
+  ruling: 追加
+  note: 'Owner 2026-08-28: 形態の異なる2 Test に同一入力事実→4検査結果一致の不変条件 VO 1本。'
+- id: UNCOV-2ce2683a
+  obligation_hash: 2ce2683ac0982679497365336c29c90099ac030a04e1f2cfc5804d50e40381c6
+  ruled_hash: 2ce2683ac0982679497365336c29c90099ac030a04e1f2cfc5804d50e40381c6
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（targets≥1 を core 中立必須リンクへ持ち込む退行を捕捉する adapter 境界 VO）'
+- id: UNCOV-09b10bc1
+  obligation_hash: 09b10bc1232d33af4880498db0fecef811d7628972403be9a58c2512dfc1229e
+  ruled_hash: 09b10bc1232d33af4880498db0fecef811d7628972403be9a58c2512dfc1229e
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（対象不在と曖昧を別診断として区別する VO。曖昧ケースの状態値そのものは過剰 VO 行を参照）'
+- id: UNCOV-647db2de
+  obligation_hash: 647db2de5ef0018cbf84b151c69cae875dd0f6ec00a2d8337e66f396024230c3
+  ruled_hash: 647db2de5ef0018cbf84b151c69cae875dd0f6ec00a2d8337e66f396024230c3
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（不正な正規化出力の拒否を行使する新 VO。参照方法による identity 分裂を防ぐ）'
+- id: UNCOV-0b4ef718
+  obligation_hash: 0b4ef7188e8e7d0c2663a7e7a5e85d9917cfe0a4ebf366fa2f01bcd78e2ecd06
+  ruled_hash: 0b4ef7188e8e7d0c2663a7e7a5e85d9917cfe0a4ebf366fa2f01bcd78e2ecd06
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（ignore 除外の判定を行使する新 VO）'
+- id: UNCOV-f6001d8f
+  obligation_hash: f6001d8fa8385eed9e3eb88a269f167fb71062c1c0cc80a6796d0f12ef227a99
+  ruled_hash: f6001d8fa8385eed9e3eb88a269f167fb71062c1c0cc80a6796d0f12ef227a99
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（実行選択の厳密性を行使する新 VO。選択外テストの結果混入を防ぐ）'
+- id: UNCOV-8197a7f5
+  obligation_hash: 8197a7f574981137fedc5b1575c518c122b3336ecc82663c280066d290dbe9dd
+  ruled_hash: 8197a7f574981137fedc5b1575c518c122b3336ecc82663c280066d290dbe9dd
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-TEST-04 を DOC ID・VO ID の衝突検出へ拡張）'
+- id: UNCOV-55bd70d0
+  obligation_hash: 55bd70d070808f6204682775cedcd21a715e7738c07da0b5a78fdc09700f17e9
+  ruled_hash: 55bd70d070808f6204682775cedcd21a715e7738c07da0b5a78fdc09700f17e9
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-REL-01 に bare ULID 受理・非書き換えの肯定側を追加）'
+- id: UNCOV-7e5cf4ef
+  obligation_hash: 7e5cf4ef1b6bf94b3cf1337d02562f5f282f5a66a50c3069c3d966b1104306ae
+  ruled_hash: 7e5cf4ef1b6bf94b3cf1337d02562f5f282f5a66a50c3069c3d966b1104306ae
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（併記出力を行使する VO。JSON 出力フィールドの機能欠落行と対で裁定）'
+- id: UNCOV-21634c58
+  obligation_hash: 21634c584a008e81f5fee9d5a761523ab640755d229207144b0e3239c02c0dcd
+  ruled_hash: 21634c584a008e81f5fee9d5a761523ab640755d229207144b0e3239c02c0dcd
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（単一アダプタを二度走らせても同一結果になる反復決定性を行使する VO）'
+- id: UNCOV-c8c2e644
+  obligation_hash: c8c2e644c1cabb8c930789517f9ac00a50f2d1146c2fa0058f1140f7b2b39d39
+  ruled_hash: c8c2e644c1cabb8c930789517f9ac00a50f2d1146c2fa0058f1140f7b2b39d39
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（発見者向けデータ形態の生成 VO。実現側機能欠落行と対で裁定）'
+- id: UNCOV-766c4eb4
+  obligation_hash: 766c4eb46c12c7dd7cb1e9ac2bb117ed3dfc423217daafc8c55d32de43b4c276
+  ruled_hash: 766c4eb46c12c7dd7cb1e9ac2bb117ed3dfc423217daafc8c55d32de43b4c276
+  ruling: 追加
+  note: 'Owner 2026-08-28: 決定性 VO（verify 入力=scan結果・Evidence・判断記録のファイル集合のみ、同一入力→同一出力）。外部判定 seam は現状無し。seam 出現時は逆答 stub 注入で結果不変テストを追加。OBL-163 と統合可。'
+- id: UNCOV-74a67f9f
+  obligation_hash: 74a67f9f6bcecb619245c35fa1c48894f6f9828b04d92ceb335f9209b82f1bf5
+  ruled_hash: 74a67f9f6bcecb619245c35fa1c48894f6f9828b04d92ceb335f9209b82f1bf5
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（input/expect 欠如の受理を行使する正例 VO）'
+- id: UNCOV-d39ecd31
+  obligation_hash: d39ecd3158246010f98b55afa74529445bc48d396fbb9452ae248b2612710766
+  ruled_hash: d39ecd3158246010f98b55afa74529445bc48d396fbb9452ae248b2612710766
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（Test Intent 内容の提示を行使する VO）'
+- id: UNCOV-6d385b46
+  obligation_hash: 6d385b464bd991eadeb55d8a9ae8a4bd68636b9f4f91bfbb0e6e58d17d13ad81
+  ruled_hash: 6d385b464bd991eadeb55d8a9ae8a4bd68636b9f4f91bfbb0e6e58d17d13ad81
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（CLI／MCP 入口等価性を行使する VO）'
+- id: UNCOV-4ad0b24f
+  obligation_hash: 4ad0b24f7530a530148c9db2d0a5bd21768c9574941f102f1620b2c1defa2019
+  ruled_hash: 4ad0b24f7530a530148c9db2d0a5bd21768c9574941f102f1620b2c1defa2019
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（診断 severity 非混同の不変条件 VO。承認軸・照合装置軸には対応 VO があるがスキャン診断軸には無い）'
+- id: UNCOV-95224104
+  obligation_hash: 952241049773d1551285851cdd2d8e53e53598660489ddb62716f52650fe9dd6
+  ruled_hash: 952241049773d1551285851cdd2d8e53e53598660489ddb62716f52650fe9dd6
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（スキャンのスコープ境界を行使する負の不変条件 VO）'
+- id: UNCOV-d5020280
+  obligation_hash: d5020280ca738693e24e2f6b11d7ff7b10d89b736ed542500e92fc0ddbe1c687
+  ruled_hash: d5020280ca738693e24e2f6b11d7ff7b10d89b736ed542500e92fc0ddbe1c687
+  ruling: 追加
+  note: 'Owner 2026-08-28: store 層 temp→rename の決定論的テストで VO 化。'
+- id: UNCOV-f26145db
+  obligation_hash: f26145db1a46c09adfef1bfbb6ab82f21c752aa26dc8d01fd3f4a7409a8a7c68
+  ruled_hash: f26145db1a46c09adfef1bfbb6ab82f21c752aa26dc8d01fd3f4a7409a8a7c68
+  ruling: 追加
+  note: 'Owner 2026-08-28: 同一 ULID の内容ハッシュ変化→MISMATCH。'
+- id: UNCOV-bc1c3cc8
+  obligation_hash: bc1c3cc89f563a07aa7a2b570da3efbea5ec31a23e316b120bf06e3a01ef23a7
+  ruled_hash: bc1c3cc89f563a07aa7a2b570da3efbea5ec31a23e316b120bf06e3a01ef23a7
+  ruling: 追加
+  note: 'Owner 2026-08-28: 同一 ULID の内容ハッシュ変化→MISMATCH。'
+- id: UNCOV-24270b70
+  obligation_hash: 24270b705c2b8e7b1501754fad67e7e2bd113256906fbfd444f767f6e753f701
+  ruled_hash: 24270b705c2b8e7b1501754fad67e7e2bd113256906fbfd444f767f6e753f701
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（gitignore 生成・cache/ Git 除外を行使する VO）'
+- id: UNCOV-0a32dc96
+  obligation_hash: 0a32dc96bf0141edfc59df9df2727a32fa64b5e88a861134b3cf4e61873ea567
+  ruled_hash: 0a32dc96bf0141edfc59df9df2727a32fa64b5e88a861134b3cf4e61873ea567
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（非対話完結を行使する VO）'
+- id: UNCOV-c162ba7a
+  obligation_hash: c162ba7a3576dbaac2e37ab69543ba886437c45184fa46c0d6b038187c69d095
+  ruled_hash: c162ba7a3576dbaac2e37ab69543ba886437c45184fa46c0d6b038187c69d095
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（dirty 許容の合格側を行使する VO。証拠を常に鮮度喪失扱いにする素朴な実装を捕捉。§21 合格側クラスタの真陽性 PASS 行・壊れた Evidence 行と併読）'
+- id: UNCOV-03ed7443
+  obligation_hash: 03ed7443477780320e09176a5e04e91e7743a6f5f3fe5402aca5873b73df94a0
+  ruled_hash: 03ed7443477780320e09176a5e04e91e7743a6f5f3fe5402aca5873b73df94a0
+  ruling: 追加
+  note: 'Owner 2026-08-28: 信頼基盤はグラフ終端。assert 引数が非標準ヘルパ呼出→そのヘルパが別 Test の target として oracle_presence=PASS なら成立、無ければ UNKNOWN、循環→UNKNOWN。標準 assert 集合は adapter が列挙。新宣言機構は不要。'
+- id: UNCOV-15fa5eb1
+  obligation_hash: 15fa5eb1d5ee946f42fc5747d6bd53592967638795a6cdcd026970fc3ce58840
+  ruled_hash: 15fa5eb1d5ee946f42fc5747d6bd53592967638795a6cdcd026970fc3ce58840
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（信頼基盤を成立と認める正方向 VO。実装が assertion_macros 列挙を無視するリグレッションを検出。負側 VO・機能欠落と 3 行で対で裁定）'
+- id: UNCOV-326eb448
+  obligation_hash: 326eb4482699240b8b84db16ca0059547fade2f7d6e8f97c69621e58bd05aab5
+  ruled_hash: 326eb4482699240b8b84db16ca0059547fade2f7d6e8f97c69621e58bd05aab5
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（網羅十分性は意味判定であり §11 の領分。coverage の裁定を追認）'
+- id: UNCOV-2ab24ec0
+  obligation_hash: 2ab24ec070f954ba52f90ef92bd033c220e77f64a9ab69be07f347e3698dd42a
+  ruled_hash: 2ab24ec070f954ba52f90ef92bd033c220e77f64a9ab69be07f347e3698dd42a
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（禁止・失敗を判定する検査ではなく許容規定。ただし競合有効判断の選択規則不在は機能欠落行で別立て）'
+- id: UNCOV-766f9055
+  obligation_hash: 766f90559cd9528d112f9fdb3ae9a52317623536acb9a289cedd7f244ad82696
+  ruled_hash: 766f90559cd9528d112f9fdb3ae9a52317623536acb9a289cedd7f244ad82696
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（強い不変条件でなく設計原則であり判別テストに落ちない。coverage の裁定を追認）'
+- id: UNCOV-c8028652
+  obligation_hash: c80286525998c0054f61472011bb1428df16d5019a0fcacfdeb194f012856b18
+  ruled_hash: c80286525998c0054f61472011bb1428df16d5019a0fcacfdeb194f012856b18
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（コマンド増設禁止の設計制約であり個別の検証挙動でない。coverage の裁定を追認）'
+- id: UNCOV-bd43d724
+  obligation_hash: bd43d724bd5fe01e488ccb2dd7b01e292d30d31898e60b2709a4d1da5a20a438
+  ruled_hash: bd43d724bd5fe01e488ccb2dd7b01e292d30d31898e60b2709a4d1da5a20a438
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（検証機であり決定機でないという原則で単一の判別テストに落ちない。coverage の裁定を追認）'
+- id: UNCOV-31f27bcf
+  obligation_hash: 31f27bcf9e4be5c864ceb3c4c94c435af27bdd74ba3bb6c4277496b8e8420a49
+  ruled_hash: 31f27bcf9e4be5c864ceb3c4c94c435af27bdd74ba3bb6c4277496b8e8420a49
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（スコープ外宣言であり機能として実装・検査しない。coverage の裁定を追認）'
+- id: UNCOV-9afb95b8
+  obligation_hash: 9afb95b87ae8833ecc1a36525c853d82e57227e1bbf1ab80c47ced7a4e3eb42f
+  ruled_hash: 9afb95b87ae8833ecc1a36525c853d82e57227e1bbf1ab80c47ced7a4e3eb42f
+  ruling: 対象外
+  note: OOS-002 正典既決。
+- id: WEAK-d55ac5a0
+  obligation_hash: d55ac5a0e040d3ea00be1cf31406cad080b82aadbca483e764f84886ba7f489d
+  ruled_hash: d55ac5a0e040d3ea00be1cf31406cad080b82aadbca483e764f84886ba7f489d
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-DOCMODEL-03 に任意性・相互推定禁止・target 非計上ケースを追加。現状は関係型を単一へ潰さない一般則のみ行使。coverage は未カバーと申告）'
+- id: WEAK-f0cba1eb
+  obligation_hash: f0cba1eb91aa5e8c399a2c52a73d87e02d755149b447e814bdd5b57af7cd58e2
+  ruled_hash: f0cba1eb91aa5e8c399a2c52a73d87e02d755149b447e814bdd5b57af7cd58e2
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TARGET-PASS-01／VO-AGG-FAILCLOSED 等に瑕疵なし入力の真陽性 PASS テスト事例を追加。現状はいずれも非合格側のみ行使）'
+- id: WEAK-d6ee8e43
+  obligation_hash: d6ee8e433b89090e8dd169aa50015e5d1dea8f061a53b6df6ce2e691e4a6ac0a
+  ruled_hash: d6ee8e433b89090e8dd169aa50015e5d1dea8f061a53b6df6ce2e691e4a6ac0a
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TARGET-PASS-01／VO-TARGET-RT-01 に証拠皆無ケースと FAIL 区別を追加）'
+- id: WEAK-73843f36
+  obligation_hash: 73843f3661c06f923ecd35af3640f2063ea9189e39012d32994f41445355ac70
+  ruled_hash: 73843f3661c06f923ecd35af3640f2063ea9189e39012d32994f41445355ac70
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TRACE-INDEX に Evidence からの関係生成・修復禁止ケースを追加）'
+- id: WEAK-6f4ffbf7
+  obligation_hash: 6f4ffbf773dc93a2cf6f354fc273e838b6dcea0a3286e3ee8c76dd524044aa0e
+  ruled_hash: 6f4ffbf773dc93a2cf6f354fc273e838b6dcea0a3286e3ee8c76dd524044aa0e
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-TEST-01 に非ノード性ケースを追加。現状は intent を必須 metadata 欠落検査の一要素として含むのみ）'
+- id: WEAK-a491cb0b
+  obligation_hash: a491cb0bd1706fa307f8cce3e1c20cd753691cd559de6426474a07b9d8a22f58
+  ruled_hash: a491cb0bd1706fa307f8cce3e1c20cd753691cd559de6426474a07b9d8a22f58
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-ADAPTER-NOPROMOTE に NOT_CHECKED 値と UNKNOWN 区別を追加。現状は能力不足で合格へ昇格させない安全側のみ）'
+- id: WEAK-5a1be1fe
+  obligation_hash: 5a1be1febb31f6092ddcf98cfe3a47dcf5f4eb0526ce20a9491e1d3f2b13d164
+  ruled_hash: 5a1be1febb31f6092ddcf98cfe3a47dcf5f4eb0526ce20a9491e1d3f2b13d164
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-ORACLE-CONSERV に DA-001 定数性トリガを追加。現状はクロージャ内・マクロ展開内の UNKNOWN を例示するのみ）'
+- id: WEAK-2d5d9a7d
+  obligation_hash: 2d5d9a7df0640ecbd09ac4266666bdcd6fbbd4b4556a06e5966a17d00460b23c
+  ruled_hash: 2d5d9a7df0640ecbd09ac4266666bdcd6fbbd4b4556a06e5966a17d00460b23c
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-ADAPTER-SRC-DUAL にハッシュ構成ケースを追加。現状は両参照が同一ハッシュへ解決することのみ行使）'
+- id: WEAK-47e80c88
+  obligation_hash: 47e80c88e4ba851b7a4587874b845f24420a855acf2e22375ef23c1c04dd4fa2
+  ruled_hash: 47e80c88e4ba851b7a4587874b845f24420a855acf2e22375ef23c1c04dd4fa2
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-AGG-DRILLDOWN／VO-ONBOARD-VISUALIZE に非寄与事実の表示完全性を追加）'
+- id: WEAK-33661e6b
+  obligation_hash: 33661e6b720ff019d4644fa37da8667ae6392796217b96e2ede173cefc73a36d
+  ruled_hash: 33661e6b720ff019d4644fa37da8667ae6392796217b96e2ede173cefc73a36d
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-REL-01 に関係識別子の正規化衝突の行使テストを追加。現状は端点不在のみ行使）'
+- id: WEAK-ea96cd6f
+  obligation_hash: ea96cd6f4cbfe89d28bf70262c985a9c891c4049c6b88ed75edbf2ef13224a70
+  ruled_hash: ea96cd6f4cbfe89d28bf70262c985a9c891c4049c6b88ed75edbf2ef13224a70
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-SCOPE-2AXIS／VO-SCOPE-NOPROMOTE に限定スコープの非完全検証表示区別を追加）'
+- id: WEAK-23bbace5
+  obligation_hash: 23bbace5d6dc67514364cea2b0c765d8636e9cc96fec68c6a0caf70d42fbecfa
+  ruled_hash: 23bbace5d6dc67514364cea2b0c765d8636e9cc96fec68c6a0caf70d42fbecfa
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-ADAPTER-WIRE に非 Rust 空値・dummy 生成禁止ケースを追加。VO-ADAPTER-WIRE 自体は太い VO 行で分割対象）'
+- id: WEAK-59c77d7b
+  obligation_hash: 59c77d7b699fe3ff8d619e5daa5e445b73c443b50ed46eed26e35ee78708780c
+  ruled_hash: 59c77d7b699fe3ff8d619e5daa5e445b73c443b50ed46eed26e35ee78708780c
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-APPROVAL-INDEP に降格禁止方向のテスト例を追加。現状テスト例は昇格禁止方向のみ）'
+- id: WEAK-4e0ba018
+  obligation_hash: 4e0ba0187eabaf39bae0b223ecc6e20da1a13aa5641baa7815c188b657e7fa8a
+  ruled_hash: 4e0ba0187eabaf39bae0b223ecc6e20da1a13aa5641baa7815c188b657e7fa8a
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-EVIDENCE-FRESH-SUBJECT に実行座標変更の経路を追加。現状は非隣接メタデータ変更に限られる）'
+- id: WEAK-a78c0cf4
+  obligation_hash: a78c0cf491c8f1a42338bc2dfe2c8eff2369eeae5831a74f18bcc6cfbebfa2ac
+  ruled_hash: a78c0cf491c8f1a42338bc2dfe2c8eff2369eeae5831a74f18bcc6cfbebfa2ac
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-AUTHORITY-01 に不合格側の証拠消費を追加。現状は合格側の非再判定のみ）'
+- id: WEAK-eaa44487
+  obligation_hash: eaa444876554604375a6015122b1f3773415fed94308fed4d15167751f55deab
+  ruled_hash: eaa444876554604375a6015122b1f3773415fed94308fed4d15167751f55deab
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-AUTHORITY-01 に rust-cargo 具体の判定権威を追加。現状は総称レベルの照合のみ）'
+- id: WEAK-ad403b4e
+  obligation_hash: ad403b4eafaf1a492124fb6780057cae7bcfa44d606217c43d72ee3a69badabb
+  ruled_hash: ad403b4eafaf1a492124fb6780057cae7bcfa44d606217c43d72ee3a69badabb
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-DECISION-BUNDLE にバンドル内容完全性を追加。現状は派生キャッシュ出力と一意解決不能時の非生成のみ）'
+- id: WEAK-ab178d4e
+  obligation_hash: ab178d4ecc43185447b705762fc1c12c7f55b42e247ef114de541689061f9ef2
+  ruled_hash: ab178d4ecc43185447b705762fc1c12c7f55b42e247ef114de541689061f9ef2
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-ONBOARD-VISUALIZE に判断記録・Evidence 部分欠落の読み取り堅牢性を追加）'
+- id: WEAK-6d7bb36b
+  obligation_hash: 6d7bb36b5cee3a7a95df874331fac922c42bcd68687998437ffdd56cfd024e15
+  ruled_hash: 6d7bb36b5cee3a7a95df874331fac922c42bcd68687998437ffdd56cfd024e15
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-DOCMODEL-04 に説明文の保存・往復の肯定側を追加。現状は空でも不一致にしない否定側のみ）'
+- id: WEAK-1e1e7212
+  obligation_hash: 1e1e72120d7cd6afb5a5e548a735ffeb7eed9287b3b9f59b47c22c90fcd7e496
+  ruled_hash: 1e1e72120d7cd6afb5a5e548a735ffeb7eed9287b3b9f59b47c22c90fcd7e496
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-TRACE-ANYNODE に下降・全体構造・非テスト起点のテストを追加。現状はテストノード起点の上流トレースのみ）'
+- id: WEAK-79a0056a
+  obligation_hash: 79a0056aa3686a343b3ac2e4215088191ee64211f0cb712c8f7a6268231b296b
+  ruled_hash: 79a0056aa3686a343b3ac2e4215088191ee64211f0cb712c8f7a6268231b296b
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-CHAIN-TEST-01／VO-AGG-UNREG-NG に警告重大度と chain 反映の同時成立を追加）'
+- id: WEAK-a665014e
+  obligation_hash: a665014ec687c66921ae56a988fbd47cf38c730b7e16081799fbd5a7f38901d6
+  ruled_hash: a665014ec687c66921ae56a988fbd47cf38c730b7e16081799fbd5a7f38901d6
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-IFACE-PARITY にアダプタ選択拒否の負経路・暗黙フォールバック禁止のテストを追加。VO-IFACE-PARITY 自体は太い VO 行で分割対象）'
+- id: FEAT-f35e635e
+  obligation_hash: f35e635e6e6d510fd28e6b241548f6eeb2ce973c25317f61abe0825877f6269a
+  ruled_hash: f35e635e6e6d510fd28e6b241548f6eeb2ce973c25317f61abe0825877f6269a
+  ruling: 追加
+  note: 'Owner 2026-08-28: 裁定5のグラフ終端方式で DA-003 に定義（helper が別 Test の target として oracle_presence=PASS なら成立、無ければ UNKNOWN、循環→UNKNOWN）。新宣言機構なし。'
+- id: FEAT-66517617
+  obligation_hash: 665176176091a80d37a0d349a54d8076152d8cf8a52ae7a6c167a3b5b76f893a
+  ruled_hash: 665176176091a80d37a0d349a54d8076152d8cf8a52ae7a6c167a3b5b76f893a
+  ruling: 統合
+  note: 'Owner 2026-08-28: 新機能でなく derives_from に任意 anchor（節番号等）を持たせ、既存 TRACE projection がそれを出力する。コマンド不増設。'
+- id: FEAT-e87340f3
+  obligation_hash: e87340f3631aad9e733bacf542190eae42fae4be4f08f39c8041e82e8b6d9116
+  ruled_hash: e87340f3631aad9e733bacf542190eae42fae4be4f08f39c8041e82e8b6d9116
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-82c5f3c2
+  obligation_hash: 82c5f3c251cb8949baf544a227039b6d0c28708f040acd90bb8356adaf07d64e
+  ruled_hash: 82c5f3c251cb8949baf544a227039b6d0c28708f040acd90bb8356adaf07d64e
+  ruling: 対象外
+  note: 'Owner 2026-08-28: 裁定1（UNCOV-065c6547 対象外）と同じ。運用規約に留める。'
+- id: FEAT-9e603d25
+  obligation_hash: 9e603d25ea30704679d51bf8b1ef6d7efba5eb1ed4c20e10b4959fe45fa3cd32
+  ruled_hash: 9e603d25ea30704679d51bf8b1ef6d7efba5eb1ed4c20e10b4959fe45fa3cd32
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-c141aa53
+  obligation_hash: c141aa5301b83f20f8e6a9bd426d144f7f1611e660fc289eb4f7f6104aabefec
+  ruled_hash: c141aa5301b83f20f8e6a9bd426d144f7f1611e660fc289eb4f7f6104aabefec
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-6ec47bd0
+  obligation_hash: 6ec47bd01464604a7f55c9e88ffc688a2b8e4b395326484567768f85d449cfbd
+  ruled_hash: 6ec47bd01464604a7f55c9e88ffc688a2b8e4b395326484567768f85d449cfbd
+  ruling: 追加
+  note: 'Owner 2026-08-28: Feature という新エンティティは置かない。Test 結果を人が機能単位で読める粒度に束ねて表示することが目的であり、親 VO（既存集約ノード）を束ねの単位とし既存 AGG 規則を parent に適用する。'
+- id: FEAT-c134e8a6
+  obligation_hash: c134e8a6da2b74143a738bd379eba8b267ee3753e7e8ac278b018087d77f18b9
+  ruled_hash: c134e8a6da2b74143a738bd379eba8b267ee3753e7e8ac278b018087d77f18b9
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-0c90f367
+  obligation_hash: 0c90f367dab439677b7b7f00672c7e5652a0a01f959f041f27196f9b6b345aba
+  ruled_hash: 0c90f367dab439677b7b7f00672c7e5652a0a01f959f041f27196f9b6b345aba
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（詳細設計が明示的に後続版へ委譲済みで v0.1 スコープ外。ただし中立性のロックは targets core 中立行で別途担保）'
+- id: FEAT-9b4e5d68
+  obligation_hash: 9b4e5d684859c6c3621080e08a5110c4ef5e43a08067d608aea660fd49366a8d
+  ruled_hash: 9b4e5d684859c6c3621080e08a5110c4ef5e43a08067d608aea660fd49366a8d
+  ruling: 追加
+  note: 'Owner 2026-08-28: (A) 競合→UNKNOWN。機械は選ばない。新しい判断記録が旧を明示に supersede するときのみ解消。最新勝ち・rejected 優先は採らない。'
+- id: FEAT-01bd4ddd
+  obligation_hash: 01bd4ddd15f16a1390b4980dafdc50683637430cd99a35d68e6d09dcc50b1c51
+  ruled_hash: 01bd4ddd15f16a1390b4980dafdc50683637430cd99a35d68e6d09dcc50b1c51
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-d36760ad
+  obligation_hash: d36760adc769fb54e0e0da1b6be7c45c96e26fc7649ff172e068cc36196bc0ec
+  ruled_hash: d36760adc769fb54e0e0da1b6be7c45c96e26fc7649ff172e068cc36196bc0ec
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-7d03b44e
+  obligation_hash: 7d03b44e4009e1c8bf866ee90d8ba9aff48cbf7bfd15af766b536c79824ff4fc
+  ruled_hash: 7d03b44e4009e1c8bf866ee90d8ba9aff48cbf7bfd15af766b536c79824ff4fc
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-6c8f99f9
+  obligation_hash: 6c8f99f95e37bb0f9927d3ad7e12fb06ba92ba11ad60e65b15f834b281d0c84c
+  ruled_hash: 6c8f99f95e37bb0f9927d3ad7e12fb06ba92ba11ad60e65b15f834b281d0c84c
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-478da9f9
+  obligation_hash: 478da9f9c7894a29c658fc74acf8fa89e53b084c829f3846632a588bc0bbb71b
+  ruled_hash: 478da9f9c7894a29c658fc74acf8fa89e53b084c829f3846632a588bc0bbb71b
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-d18e8d78
+  obligation_hash: d18e8d78e834ee28d15ba6a56dda600aea78ac95f04d1f764d7ee384107b5e58
+  ruled_hash: d18e8d78e834ee28d15ba6a56dda600aea78ac95f04d1f764d7ee384107b5e58
+  ruling: 追加
+  note: 'Owner 2026-08-28: 束ね採択: 設計明文化（fail-closed 既定）。'
+- id: FEAT-30470802
+  obligation_hash: 30470802bebd596780755199c11e0c0716ccca5d8413381bd111cc8925f1959f
+  ruled_hash: 30470802bebd596780755199c11e0c0716ccca5d8413381bd111cc8925f1959f
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（coverage は §30 item22 の委譲事項として本 version の検査対象外と裁定。edge は追加を提案しており、この対立が裁定材料）'
+- id: EXCESS-8eb6b2f1
+  obligation_hash: 8eb6b2f1489ef9fc567f532e43290fdd63801a176791ad3d8804cf1ba2241ebe
+  ruled_hash: 8eb6b2f1489ef9fc567f532e43290fdd63801a176791ad3d8804cf1ba2241ebe
+  ruling: 統合
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 統合（VO-EVIDENCE-GEN-01 の曖昧ケースの期待状態を MISMATCH へ修正し誤った証拠なし規定を削除。MISSING と曖昧を潰さない区別 VO は対象不在 vs 曖昧の未カバー行で別立て）'
+- id: EXTRACT-542a640e
+  obligation_hash: 542a640efc78a0a767a91ea8cbe0279e6d8072cd1ed36a919fcd15d0aa2adfa4
+  ruled_hash: 542a640efc78a0a767a91ea8cbe0279e6d8072cd1ed36a919fcd15d0aa2adfa4
+  ruling: 追加
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 追加（成果物受入 VO／チェック。非関知宣言の欠落は過実装検出があるとの誤認を招く）'
+- id: EXTRACT-217a84b7
+  obligation_hash: 217a84b73f0dc965b05b0224e3b0f0e2033ae268b15d1cf971121b0314539212
+  ruled_hash: 217a84b73f0dc965b05b0224e3b0f0e2033ae268b15d1cf971121b0314539212
+  ruling: 対象外
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 対象外（文書運用プロセスの規範であり vtest 実行時 VO になじまない。VO 化するか自体を Owner 判断）'
+- id: FATVO-625d4c8d
+  obligation_hash: 625d4c8da4b90078b4067e05a74e92e066d95872c5742530aa6a94415b860a26
+  ruled_hash: 625d4c8da4b90078b4067e05a74e92e066d95872c5742530aa6a94415b860a26
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（旧形式非書換受理／新形式書出・初期化／実行座標常時保持／互換フィールドは特定アダプタのみ／対象一覧・単数互換は 1 件時のみ の 5 つの薄い VO へ）'
+- id: FATVO-b84378e8
+  obligation_hash: b84378e890f432e016adb16d6c19d16d76540ce90c425737bdd546a235cd1fe1
+  ruled_hash: b84378e890f432e016adb16d6c19d16d76540ce90c425737bdd546a235cd1fe1
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（登録成功 1 本と 4 つの拒否をそれぞれ別の薄い VO へ）'
+- id: FATVO-79525dc3
+  obligation_hash: 79525dc3734fdf6b8d92fb05fb031139be8fdb32aa3b28d6cbba72258ea73f94
+  ruled_hash: 79525dc3734fdf6b8d92fb05fb031139be8fdb32aa3b28d6cbba72258ea73f94
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（統合順序の決定論性／アダプタ間の同一根共有／同一アダプタ内根重複拒否／統合後の大局的 ID 一意 の 4 つの薄い VO へ）'
+- id: FATVO-1c8fcdd3
+  obligation_hash: 1c8fcdd383d038e61809bbbe557f53cc973eae9752f39c3dc9131ee92f3d6e9e
+  ruled_hash: 1c8fcdd383d038e61809bbbe557f53cc973eae9752f39c3dc9131ee92f3d6e9e
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（同一入力で CLI と機械 IF のデータ・診断が一致する 1 本に絞り、処理構成・アダプタ選択・エラー体系の共有をそれぞれ別の薄い VO へ。アダプタ選択拒否の負経路は弱い行と併読）'
+- id: FATVO-3542951b
+  obligation_hash: 3542951b8ec1e2f35d67c0dfa6f7c0a099f8c8df73152e9aafcff33dec95b659
+  ruled_hash: 3542951b8ec1e2f35d67c0dfa6f7c0a099f8c8df73152e9aafcff33dec95b659
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（不正入力→コード付きツールエラー 1 本と、要求・通知・バッチの各規約準拠をそれぞれ別の薄い VO へ）'
+- id: FATVO-1c1e9fdb
+  obligation_hash: 1c1e9fdbeb1e231e006eef4152632f618c8714061f35ff39431a23d10bfb9ec1
+  ruled_hash: 1c1e9fdbeb1e231e006eef4152632f618c8714061f35ff39431a23d10bfb9ec1
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（状態を承認から導出する／読み手は保存された互換フィールドを無視する／書き手は状態を保存しない の 3 つの薄い VO へ）'
+- id: FATVO-6b2b8e52
+  obligation_hash: 6b2b8e527c4dbdeec64f314aef6e2e5c6c62296aaf6584165ff1f03571290bbf
+  ruled_hash: 6b2b8e527c4dbdeec64f314aef6e2e5c6c62296aaf6584165ff1f03571290bbf
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（依存閉包・ハッシュを欠く互換承認から承認済みを導かない 1 本と、承認作成時に対象・依存を完全解決できないと記録を生成しない 1 本へ）'
+- id: FATVO-44619eef
+  obligation_hash: 44619eef0799e0f5cda02c2d53837e13e9725c4a12052e0e804760610c7e03d3
+  ruled_hash: 44619eef0799e0f5cda02c2d53837e13e9725c4a12052e0e804760610c7e03d3
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（曖昧は候補を選ばず診断のみで終端する薄い VO と解決状態 3 分類の薄い VO へ分け、中核の単一経路所有は設計制約として §11 判断記録へ移送）'
+- id: FATVO-45837267
+  obligation_hash: 4583726717e1f16a85fd0b6125b6026f74a336ab617055e7b1901ab693fc8686
+  ruled_hash: 4583726717e1f16a85fd0b6125b6026f74a336ab617055e7b1901ab693fc8686
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（宣言から正規化位置への一方向確定／証拠・判断記録は正規化位置で記録／別綴りが同一へ解決する状態を不一致として検出 の 3 つの薄い VO へ）'
+- id: FATVO-32c42934
+  obligation_hash: 32c4293440b6f5c5a8479f2cfd44ddc8fdc65cabeacb73d3fbd88f2c79a873b7
+  ruled_hash: 32c4293440b6f5c5a8479f2cfd44ddc8fdc65cabeacb73d3fbd88f2c79a873b7
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（複数対象を代表 1 件へ縮約しない と Test と対象を双方向に辿れる を別の薄い VO へ）'
+- id: FATVO-90c77c2e
+  obligation_hash: 90c77c2ec4b93493c2bf77c066cdcc4004c2a89f690829e7174aa5eb7736e237
+  ruled_hash: 90c77c2ec4b93493c2bf77c066cdcc4004c2a89f690829e7174aa5eb7736e237
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（恒久識別子は全体で一意であり衝突を拒否する と 衝突時も各対象は正規化位置で独立に具体化できる を別の薄い VO へ）'
+- id: FATVO-799af9f6
+  obligation_hash: 799af9f62898f69bbace30447dc606f4bad205c848eb0a9f637708b849d04778
+  ruled_hash: 799af9f62898f69bbace30447dc606f4bad205c848eb0a9f637708b849d04778
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（4 区分を検証済みとして扱わない fail-closed の否定判定だけを残した薄い VO にし、各区分→状態値の対応表は §11 判断記録へ移送、大量既存を検証対象にできる能力は別の薄い VO へ分離）'
+- id: FATVO-62d677c8
+  obligation_hash: 62d677c845d14d36350b4abc8fc1590aab05d002b03eef2009ee38d3032d84ea
+  ruled_hash: 62d677c845d14d36350b4abc8fc1590aab05d002b03eef2009ee38d3032d84ea
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（存在検査／対象一致／ハッシュ一致／受理値検査 の 4 つの薄い VO へ。各 VO にその条件のみを違反させた入力→拒否のテストを付ける）'
+- id: FATVO-5c87a685
+  obligation_hash: 5c87a685c700314b19cdd1cb29ee6984204f462d1a798ac14790cc5adc7bfc43
+  ruled_hash: 5c87a685c700314b19cdd1cb29ee6984204f462d1a798ac14790cc5adc7bfc43
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（バンドルはキャッシュへ派生出力し Git 管理外である と 対象が一意に解決できなければ生成せず候補選択もしない の 2 つの薄い VO へ）'
+- id: FATVO-2be19fa9
+  obligation_hash: 2be19fa9479a78ec79ee4f3bd55fa454bfaaff57d93ceda316ad62110963c2ca
+  ruled_hash: 2be19fa9479a78ec79ee4f3bd55fa454bfaaff57d93ceda316ad62110963c2ca
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（基本仕様 §22 の 4 検査合格の連言に合わせて『かつ証拠が要件を満たす』を削除する、または参照する定義済みの証拠妥当性検査を名指しする別の薄い VO へ分ける）'
+- id: FATVO-70f1bf0d
+  obligation_hash: 70f1bf0dc608ce071314ba65c63e45207496e00d362c8bcccaa2320ddcc38e49
+  ruled_hash: 70f1bf0dc608ce071314ba65c63e45207496e00d362c8bcccaa2320ddcc38e49
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（役割集合が固定列挙に縛られず可変である判定と、役割→見え方の写像に従い当該見え方を返す判定に 2 分割し、後者の具体対応は §11 判断記録へ移送）'
+- id: FATVO-65e9fa02
+  obligation_hash: 65e9fa02c3c5b260b332fb0b9766e44d10b56685f85b2280200c6690c35f0c25
+  ruled_hash: 65e9fa02c3c5b260b332fb0b9766e44d10b56685f85b2280200c6690c35f0c25
+  ruling: 分割
+  note: 'Owner 2026-08-28 一括採択（監査提案どおり）: 分割（原則を外し一回の編集対象を厳密に 1 テストとし他テスト・通常ソースを変えない薄い VO に固定し、複数テストにまたがる編集を許す例外条件が必要ならその判断を §11 判断記録へ移送）'
