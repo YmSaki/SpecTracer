@@ -79,10 +79,11 @@ document 鎖・孤児・鮮度の登録状態として次を含める。
   - Relation writerは`REL-<ULID>`を生成し、readerは整合したbare ULID互換recordをin-memoryで正規化する。同一payloadの重複・混在・不一致はE-SCAN-010になる。
   - `vtest scan --format json`の出力が別紙A §12.1の envelope 構造（検証状態 `state` と診断ラベル `diagnostic` の2軸）に従う。
   - E-ADAPTER-*による操作拒否は終了コード2、完了したscanのE-SCAN-*は1、errorなしは0になる。
+  - `vtest init` が `.verify/` 配下だけを生成し、既存ソース・既存 `.gitignore`・ビルド設定を新規作成・変更・削除しない（非改変不変条件、別紙A §12.2、基本仕様 §18.1）。既存 `.verify/` がある場合はファイル・ディレクトリを1件も作成・変更・削除せず終了コード2で中止する。
 
 ### M2 レコード管理とVO実体化
 
-- 実装：`vtest-store`（書き込み）、`doc` / `vo` 系コマンド（別紙A §12.2 の `vtest doc add/list/show`・`vtest vo add/edit/list/show/expand/approve`）、承認レコードと対象hash・上流依存closure束縛、`vo expand`、`doc.roots`（`orphan_detection` の除外根）の管理
+- 実装：`vtest-store`（書き込み）、`doc` / `vo` 系コマンド（別紙A §12.2 の `vtest doc add/list/show`・`vtest vo add/edit/list/show/expand`。`--derives-from` の任意 `--anchor`・`--note` を含む）、承認レコード生成の唯一の正典面 `vtest approval create/withdraw/show`（対象種別 `vo` / `document` / `judgment`。`vtest vo approve` はこの経路への別名。別紙A §12.2、本冊 §3.5）と対象hash・上流依存closure束縛、VO の `dimensions` / `coverage_policy` / `combinations`、`vo expand`、`doc.roots`（`orphan_detection` の除外根）の管理
 - 完了条件：
   - `doc add` が `--path` の sha256 を document subject（本冊 §1.3）へ束縛した DOC レコードを作成し、`--derives-from` で上流 document への導出リンク（0件可＝根候補）を、任意の `--note` 付きで登録できる。
   - `doc add --root` / `--no-root` が当該 DOC を `doc.roots` へ追加・除外し、根指定の変更が `orphan_detection` の除外に反映される。
@@ -91,6 +92,11 @@ document 鎖・孤児・鮮度の登録状態として次を含める。
   - dependency closureを完全・currentに解決できないapproveはE-APPROVAL-001となり、recordを生成しない。
   - `vo expand --dry-run`が`full-product`で直積の子VO一覧を出す。
   - document 登録後に実ファイルを書き換えると `content_hash` 不一致でW-SCAN-104（`chain_integrity = MISMATCH`、診断 `STALE`）が出る。
+  - `derives_from` entryの `anchor` は欠落・空文字列でも `chain_integrity` 違反にならず、値の変更は `path` 実ファイルを変えないため document の `content_hash` を変化させない（本冊 §3.1・§3.2）。
+  - `coverage_policy: explicit` での `combinations` 欠落・空、`explicit` 以外での非空、未宣言 dimension・未列挙 partition の参照、宣言 dimension の欠落・重複、重複 tupleをE-SCAN-017で拒否し、当該VOの`chain_integrity`を`MISMATCH`とする。不正`combinations`のVOに対する`vo expand`は子VOを1件も生成しない（本冊 §3.2.1・§17.1）。
+  - `approved_state`（`approved` / `rejected` / `withdrawn`）または `subject` 種別の値域外、および `supersedes` の不整合（参照先不在・対象不一致・自己参照）をE-APPROVAL-002で拒否する（本冊 §3.5）。
+  - `withdrawn` / `rejected` 後の再承認は、当該レコードのULIDを`supersedes`に名指しした`approved`レコードでのみ成立し、名指ししない追加は`draft`のままとなる（本冊 §3.5）。
+  - `judgment_ref` を対象とする承認（subject種別`judgment`）の参照先が存在しない場合は書込み時にE-APPROVAL-001で拒否する（本冊 §3.5）。
 
 ### M3 決定論的静的解析
 
@@ -118,12 +124,15 @@ document 鎖・孤児・鮮度の登録状態として次を含める。
 
 ### M5 判断記録プロトコル
 
-- 実装：`vtest audit bundle` / `vtest audit submit`、bundle生成（`kind` = `test-semantic` / `impl-consistency`）、提出検証（E-AUDIT-001〜004）、判断記録保存（`.verify/decisions/`）
+- 実装：`vtest audit bundle` / `vtest audit submit`、bundle生成（`--kind` = `test-semantic` / `impl-consistency` / `case-coverage`。本冊 §8.1）、提出検証（E-AUDIT-001〜004、E-AUDIT-008）、判断記録保存（`.verify/decisions/`）
 - 完了条件：
   - `test-semantic` bundleに本冊 §8.2の全fieldが含まれる。
-  - `--vo` バンドルが対象 VO の claim・既知 partition・過去の判断を同梱し、網羅の疑義を `UNKNOWN` のエスカレーションとして運べる（旧 `spec-coverage` 検査は設けない。網羅・意味の疑義は検査でなく判断記録へエスカレーションする）。
-  - 理由・根拠（`reason` / `exclusions`）が空でも提出は拒否されない（旧 E-AUDIT-005〜007 を課さない）。
+  - `--vo` バンドルが対象 VO の claim・既知 partition・過去の判断を同梱し、網羅の疑義を `UNKNOWN` のエスカレーションとして運べる（網羅・意味の疑義は検査でなく判断記録へエスカレーションする）。
+  - 理由・根拠（`reason` / `exclusions`）が空でも提出は拒否されない（本冊 §8.3・§8.4）。
   - bundle生成時と異なる対象hashの提出がE-AUDIT-002で拒否される。
+  - `supersedes` に自己参照・存在しない・同一 `(subject, judgment_kind)` でないULIDを含む提出がE-AUDIT-008で拒否される（本冊 §8.4）。
+  - `judgment_kind` を欠くか値域外の判断記録、および同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存する場合をそれぞれW-STORE-003・W-STORE-004とし、実効判断へ寄与させない（本冊 §8.5）。
+  - `supersedes` の参照先を解決できない、または循環する判断記録をW-STORE-005とし、実効集合へ寄与させない（本冊 §8.4・§8.5）。
   - 受理された判断記録が、対象変更（`subject_hash` 不一致）によって無効になる。
   - `impl-consistency` バンドルが対象VOの上流 document subject完全集合へ束縛され、document だけの変更でも判断記録が無効になる。
   - `impl-consistency` の判断提出（`accepted` / `rejected` / `deferred` 等）が判断記録として保存され、対象の検証状態（5状態）を昇格させない。旧モデルの `verdict → CheckValue` 写像・`impl_consistency = MISMATCH` は設けない。
@@ -139,9 +148,10 @@ document 鎖・孤児・鮮度の登録状態として次を含める。
   - Test metadata error は `chain_integrity` の非PASS要因になる（VO 分解を評価する旧 `vo_decomposition` 検査は存在しない）。
   - 4検査のそれぞれを単独で非PASSにするとNG・終了コード1になる。
   - 未登録Testが1件でもあれば、他の3検査がPASSでも`chain_integrity`によりNGになる。
-  - `--items chain_integrity,orphan_detection`の限定scopeでOKが出ても、scope外の検査は `NO_EVIDENCE`（診断 `NOT_CHECKED`）のまま表示され、出力冒頭に要求 scope と「scope 外は未検証」の旨が併記される。エンティティ軸（`--doc` / `--vo` / `--test` の部分木）でも限定できる。
+  - `--items chain_integrity,orphan_detection`の限定scopeでOKが出ても、scope外の検査は `NO_EVIDENCE`（診断 `NOT_CHECKED`）のまま表示され、`--format json` 出力の最上位 `scope` field（別紙A §12.1）に要求scopeが示され、テキスト出力冒頭にも要求 scope と「scope 外は未検証」の旨が併記される。エンティティ軸（`--doc` / `--vo` / `--test` の部分木）でも限定できる。
   - 出力treeが別紙A §12.2のbranch規則に従い、状態列と診断ラベル列を分離して表示する。
   - `vtest verify --gate <name>` が、指定ゲートの検証結果（`require.verification`）と承認ロール（`require.approvals`、別紙A §12.3 の `approval_roles` 解決規則）の充足・不足を評価・提示する。承認済みを理由に検証状態を昇格させない。
+  - config に定義の無いゲート名を指定した `--gate` 呼び出しをE-CONFIG-002で拒否し、検証・ゲート評価を実行せず結果を生成しない（本冊 §11.5・§17.1）。
   - `vtest report --from / --view / --depth / --direction` が役割別 projection（PM / Tester / Coder preset）を、M1 の逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs。本冊 §5.3）を基盤に提示する。
   - `vtest verify` / `vtest report` の `--format json` 出力が判断待ち情報 section（`pending`、本冊 §11.7・別紙A §12.4）を含む。
 
@@ -162,6 +172,7 @@ document 鎖・孤児・鮮度の登録状態として次を含める。
   - 誤ったsymbolを含む回答が候補付きE-OP-001で拒否される。
   - `test create`で生成されたTestがscanで正しく認識される。
   - `test edit`でcoversを変更しても他のTestのsource textが変化しない。
+  - `test create` / `test edit` の適用後検証に失敗した場合（再パース不能、生成された宣言が desired state と不一致、変更が1 Test の範囲を超える）、適用前の状態へロールバックし操作を中止する（E-OP-003、別紙A §15.2・§15.4）。
   - annotation再生成が冪等になる。
   - Form kindがrepository-globalに一意で、schema adapter・registry owner・Structured Test capabilityの一致からownerを解決する。重複・曖昧・未知ownerはfallbackせず拒否する。
 
