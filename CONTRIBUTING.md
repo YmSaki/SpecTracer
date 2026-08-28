@@ -10,22 +10,13 @@ public issue.
 
 ## Git Flow
 
-This repository uses **Git Flow, not GitHub Flow**.
-
-* `main`: released production code only. Do not develop directly on it.
-* `develop`: integration branch for the next release.
-* `feature/*`: branch from `develop`; merge back into `develop`.
-* `release/*`: branch from `develop`; when complete, merge into **both `main` and `develop`**.
-* `hotfix/*`: branch from `main`; when complete, merge into **both `main` and `develop`**.
-* For normal implementation work, use `feature/*` based on `develop`.
-* Do not treat `main` as the default development branch.
-
-The `develop` branch must be created before normal feature work begins. Until it
-exists, do not create feature branches from `main`; maintainers should establish
-the integration branch first.
+Branch roles, branch naming, tag naming, and merge destinations are defined
+canonically in [DEVELOPMENT.md](DEVELOPMENT.md). Contributors must follow that
+policy rather than defining or inferring a separate Git workflow here.
 
 Do not force-push shared branches. Keep pull requests focused and preserve the
-canonical-record and fail-closed invariants described in [ARCHITECTURE.md](ARCHITECTURE.md).
+canonical-record and fail-closed invariants described in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Pull requests
 
@@ -56,10 +47,8 @@ follow the adapter separation plan in
 
 ## Releases
 
-Only maintainers create release tags. Update the workspace version, add the
-user-visible entries to `CHANGELOG.md`, merge the release branch into `main`, and
-create a `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.1` tag. GitHub Actions
-verifies that the tag is on `main`, runs the full gate, builds Linux x86_64, macOS
-x86_64, and Windows x86_64 archives, and publishes them with SHA-256 checksum
-files. Pre-release tags are marked as GitHub pre-releases. See the
-[prebuilt release instructions](README.md#install-a-prebuilt-release).
+Only maintainers create release tags. Contributors must not create, move, or
+replace published release tags.
+
+The canonical release branch roles, merge destinations, tag naming, and release
+workflow are defined in [DEVELOPMENT.md](DEVELOPMENT.md).

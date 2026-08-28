@@ -18,12 +18,60 @@ cargo build --workspace --locked
 
 ## Git Flow
 
-Use the Git Flow branch model in `AGENTS.md`: `develop` is the integration
-branch, `feature/*` branches merge into it, and `release/*` or `hotfix/*`
-branches merge into both `main` and `develop`. `main` contains released
-production code only. The `develop` branch must be created before normal feature
-work begins.
+This repository uses **Git Flow, not GitHub Flow**. This section is the
+canonical source for branch roles, branch naming, and tag naming.
 
+### Long-lived branches
+
+- `main`: released production code only. Do not develop directly on it.
+- `develop`: integration branch for the next release. Normal work starts from
+  `develop` and returns to `develop`.
+
+### Working branches
+
+- `feature/<topic>`: implementation, tooling, documentation, or other normal
+  development work. Branch from `develop`; merge into `develop`.
+- `spec/<topic>`: normative specification or design work. Branch from
+  `develop`; merge into `develop`.
+- `release/<semver>`: release stabilization. Branch from `develop`; when
+  complete, merge into both `main` and `develop`.
+- `hotfix/<topic>`: urgent correction to released production code. Branch from
+  `main`; when complete, merge into both `main` and `develop`.
+- `experiment/<topic>`: optional disposable investigation branch. It is not a
+  release or baseline reference. Promote useful results through an appropriate
+  `feature/*` or `spec/*` change rather than treating the experiment branch as
+  permanent history.
+
+Use `feature/*`, not the abbreviated `feat/*`.
+
+Do not use numbered or version-like working branch names such as `v2`, `v13`,
+or similar names that can be confused with releases or baselines.
+
+Delete working branches after their merged or otherwise preserved work no
+longer requires a movable branch reference.
+
+### Tags
+
+Tags represent immutable historical points, not active development lines.
+
+- `vMAJOR.MINOR.PATCH` and prerelease forms such as
+  `vMAJOR.MINOR.PATCH-alpha.1`: released versions. Release tags must refer to
+  commits reachable from `main`.
+- `baseline/<name>-v<version>`: owner-approved normative baselines, for example
+  `baseline/requirements-v0.1` and `baseline/design-v0.1`.
+- `archive/<topic>-YYYY-MM-DD`: preserved historical or abandoned work whose
+  branch can then be deleted.
+
+Release, baseline, and archive identities belong in tags rather than permanent
+version-number working branches.
+
+Do not move or force-update an existing release, baseline, or archive tag.
+If a historical point was tagged incorrectly, stop and resolve it explicitly
+rather than silently repointing the tag.
+
+### Shared-history rules
+
+Do not force-push `main`, `develop`, shared working branches, or published tags.
 Keep commits focused. Documentation-only changes should not modify generated
 `.verify/cache/` data or unrelated source files.
 
