@@ -679,7 +679,8 @@ MCP を本体とし、CLI・CI は同じ検証の別入口とする。GUI は必
 | `vtest init` | `.verify/` の初期化 |
 | `vtest scan` | スキャンと整合性検査、派生情報の再構築 |
 | `vtest doc add / list / show` | document レコードの管理（derives_from・根指定を含む） |
-| `vtest vo add / edit / list / show / expand / approve` | VO レコードの管理、組合せの実体化、承認 |
+| `vtest vo add / edit / list / show / expand / approve` | VO レコードの管理、組合せの実体化。`approve` は `vtest approval create` の別名 |
+| `vtest approval create / withdraw / show` | 承認レコードの生成・取消・照会。対象種別（VO・document・判断記録）を引数に取る、承認の唯一の正典面 |
 | `vtest test create / edit / show / list / query` | Structured Test Operation |
 | `vtest audit static` | 決定論的解析（oracle_presence の不成立検出）の実行 |
 | `vtest audit bundle / submit` | 判断記録（§11）の bundle 生成と結果提出 |
@@ -688,7 +689,7 @@ MCP を本体とし、CLI・CI は同じ検証の別入口とする。GUI は必
 | `vtest report` | 詳細レポート出力（ツリー／JSON） |
 | `vtest doctor` | 整合性検査のみの実行 |
 
-終了コードは `0`＝要求 scope が OK、`1`＝検証 NG、`2`＝入力・adapter 前提・capability 等による操作拒否、`3`＝内部エラーとする。検証状態と内部エラーは終了コードで分離する（§4.4）。CI はこの終了コードのみで判定できる。終了コード体系の詳細は詳細設計へ委譲する（要件定義 §5.4、§28）。
+終了コードは `0`＝要求 scope が OK、`1`＝検証 NG、`2`＝入力・adapter 前提・capability 等による操作拒否、`3`＝内部エラーとする。ただしフェーズゲートを指定した実行（§20）では、`0` / `1` は当該ゲートの充足・不充足を表す。ゲート充足は検証状態とは別軸の評価であり、検証状態を書き換えない。出力では検証状態とゲート満否を別に提示し、ゲート指定時の `0` を検証状態 `PASS` と読ませない。検証状態と内部エラーは終了コードで分離する（§4.4）。CI はこの終了コードのみで判定できる。終了コード体系の詳細は詳細設計へ委譲する（要件定義 §5.4、§28）。
 
 ### 26.2 MCP ツール体系
 
@@ -698,7 +699,8 @@ MCP サーバは `vtest mcp` として起動し、CLI と同一のコア機能�
 |---|---|
 | `scan` | スキャンと整合性検査 |
 | `doc_list` / `doc_get` / `doc_upsert` | document 管理 |
-| `vo_list` / `vo_get` / `vo_upsert` / `vo_expand` / `vo_approve` | VO 管理 |
+| `vo_list` / `vo_get` / `vo_upsert` / `vo_expand` / `vo_approve` | VO 管理。`vo_approve` は `approval_create` の別名 |
+| `approval_create` / `approval_withdraw` / `approval_get` | 承認レコードの生成・取消・照会。対象種別を引数に取る、承認の唯一の正典面 |
 | `test_query` / `test_get` | Test 検索・逆引き |
 | `test_create` / `test_edit` | Structured Test Operation |
 | `form_get` | Form Schema の取得 |
