@@ -98,14 +98,16 @@ For test changes, additionally run the applicable `vtest audit static`, audit-bu
 - Require reasons and concrete basis references for semantic audit results. Reject empty reasons and stale bundle hashes.
 - Do not request GUI work, automatic repair policy, specification-to-specification auditing, general source-edit management, or other items explicitly outside v0.1 scope.
 
-## Git Flow
+## Git workflow for agents
 
-This repository uses **Git Flow, not GitHub Flow**.
+The canonical Git Flow, branch naming, merge destinations, and tag naming rules
+are defined in [DEVELOPMENT.md](DEVELOPMENT.md).
 
-* `main`: released production code only. Do not develop directly on it.
-* `develop`: integration branch for the next release.
-* `feature/*`: branch from `develop`; merge back into `develop`.
-* `release/*`: branch from `develop`; when complete, merge into **both `main` and `develop`**.
-* `hotfix/*`: branch from `main`; when complete, merge into **both `main` and `develop`**.
-* For normal implementation work, use `feature/*` based on `develop`.
-* Do not treat `main` as the default development branch.
+Agents must not invent an alternate branching convention, create version-like
+working branches such as `v2` or `v13`, use `feat/*` in place of `feature/*`,
+move published baseline/archive/release tags, or bypass the branch roles defined
+there.
+
+Before creating a branch, determine whether the work is specification work,
+normal development, release stabilization, hotfix work, or an experiment, and
+use the corresponding branch class from `DEVELOPMENT.md`.
