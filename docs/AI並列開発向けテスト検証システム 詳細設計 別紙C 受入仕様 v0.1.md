@@ -130,6 +130,13 @@ synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、do
 - 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 - 正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。
 - **oracle_presence への合成**：`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS`、1つでも `FAIL` があれば `FAIL`、`FAIL` がなく `UNKNOWN` があれば `UNKNOWN` になる（本冊 §7.1、基本仕様 §5.4）。`oracle_presence` に動的な昇格経路は無く、runtime 証拠で `PASS` へ昇格しない。
+- **照合の委譲先の終端（本冊 §7.2.1）**：Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合、次の各枝を満たす。
+  - 委譲先を宣言 target とする Test が存在し、その `oracle_presence` がすべて `PASS` である Test は、DA-003 / DA-006 が違反なしとなる。委譲先の assert 相当が委譲先側にしか無いことだけを理由に `FAIL` としない。
+  - 委譲先を宣言 target とする Test が 0 件の Test は、DA-003 / DA-006 が `UNKNOWN` となる。常に真を返す照合ヘルパを呼ぶだけの Test が `oracle_presence` = `PASS` にならない。
+  - 委譲先を宣言 target とする Test は存在するが、その `oracle_presence` が `PASS` でない Test は、DA-003 / DA-006 が `UNKNOWN` となる。
+  - 委譲先の終端が循環する（相互に照合を委譲し合う）2 Test は、いずれも DA-003 / DA-006 が `UNKNOWN` となり、評価順序を変えても同じ値になる。
+  - 委譲先が他ファイル・他クレート・マクロ展開内で同定できない Test は、DA-003 / DA-006 が `UNKNOWN` となる。
+  - 信頼を宣言する専用の注釈・設定項目・レコードを新設せず、covers / 宣言 target のグラフだけで上記の各値が決まる。
 - **target_binding 静的到達（DA-002）**：DA-002 の target 別 verdict が `UNKNOWN` のとき、当該 target の runtime 計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される（本冊 §7.3）。この runtime 救済は `target_binding` に固有であり、`oracle_presence` には及ばない。
 - static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
 - 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる（本冊 §7.3）。当該targetのruntime `target_coverage` がPASS（checked: true・count > 0）ならDA-002到達要件は充足され、検証時にその target別DA-002はUNKNOWN扱いにならない。
