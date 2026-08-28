@@ -42,7 +42,7 @@ Owner 裁定（2026-08-28、104 件）を反映した検証義務（Verification
 | 11 | UNCOV-ad6cdacb | 追加 | VO-VOMODEL-DIM-01 / VO-VOMODEL-EXPAND-01 / -02 / -03 | 組合せ方針 3 種は実体化規則が異なるため別 leaf |
 | 12 | UNCOV-91c13116 | 追加 | VO-VOMODEL-HIER-01 | 再帰分解操作は VO-VOMODEL-EXPAND-01..03 が担う |
 | 13 | UNCOV-5b5aa758 | 追加 | VO-VOMODEL-MULT-01 | |
-| 14 | UNCOV-16dc1bdf | 追加 | VO-INVARIANT-FORM-01 | assert 所在軸に限定して起草。実行形態軸の扱いは ESCALATE-1 |
+| 14 | UNCOV-16dc1bdf | 追加 | VO-INVARIANT-FORM-01 | assert 所在軸に限定。実行形態軸の扱いは ESCALATE-1 |
 | 15 | UNCOV-2ce2683a | 追加 | VO-ADAPTER-TARGETREQ-01 / -02 | core 中立側と rust-cargo 側で判定機構が異なる |
 | 16 | UNCOV-09b10bc1 | 追加 | VO-TARGET-RESOLVE-DIAG-01 | |
 | 17 | UNCOV-647db2de | 追加 | VO-ADAPTER-SRC-CANON-04 | |
@@ -65,7 +65,7 @@ Owner 裁定（2026-08-28、104 件）を反映した検証義務（Verification
 | 34 | UNCOV-24270b70 | 追加 | VO-STORE-GITIGNORE-01 | |
 | 35 | UNCOV-0a32dc96 | 追加 | VO-IFACE-NONINTERACTIVE-01 | |
 | 36 | UNCOV-c162ba7a | 追加 | VO-EVIDENCE-DIRTY-01 | |
-| 37 | UNCOV-03ed7443 | 追加 | VO-ORACLE-TERM-01 / VO-ORACLE-TERM-02 | derives_from は暫定（ESCALATE-2） |
+| 37 | UNCOV-03ed7443 | 追加 | VO-ORACLE-TERM-01 / VO-ORACLE-TERM-02 | derives_from = 本冊 §7.2.1 |
 | 38 | UNCOV-15fa5eb1 | 追加 | VO-ORACLE-TERM-03 | |
 | 39 | UNCOV-326eb448 | 対象外 | — | 網羅十分性は §11 の領分 |
 | 40 | UNCOV-2ab24ec0 | 対象外 | — | 多重判断の許容そのものは検査にしない。競合の扱いは #77 |
@@ -96,7 +96,7 @@ Owner 裁定（2026-08-28、104 件）を反映した検証義務（Verification
 | 65 | WEAK-1e1e7212 | 統合 | VO-TRACE-ANYNODE | 下降・全体構造・非 Test 起点を追加 |
 | 66 | WEAK-79a0056a | 統合 | VO-CHAIN-TEST-01 / VO-AGG-UNREG-NG | 警告重大度と chain 反映の同時成立を追加 |
 | 67 | WEAK-a665014e | 統合 | VO-IFACE-PARITY-03 | 分割後継へ接続。拒否入力の負経路・暗黙フォールバック禁止を追加 |
-| 68 | FEAT-f35e635e | 追加 | VO-ORACLE-TERM-01 / VO-ORACLE-TERM-02 | #37 と同一命題の設計側。derives_from 暫定（ESCALATE-2） |
+| 68 | FEAT-f35e635e | 追加 | VO-ORACLE-TERM-01 / VO-ORACLE-TERM-02 | #37 と同一命題の設計側。derives_from = 本冊 §7.2.1 |
 | 69 | FEAT-66517617 | 統合 | VO-TRACE-ANCHOR-01 | #24 と同一 leaf。anchor 付き derives_from エッジの同伴として実現 |
 | 70 | FEAT-e87340f3 | 追加 | VO-VOMODEL-COMB-01 / VO-VOMODEL-COMB-02 | 受理条件と入力経路で判定機構が異なる |
 | 71 | FEAT-82c5f3c2 | 対象外 | — | #8 と同一裁定 |
@@ -444,12 +444,12 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
   - 入力 = `#[should_panic]` を持ち target を呼ぶ Test → 期待 = DA-003 / DA-006 とも違反なし
   - 入力 = `Result` を返し `?` で伝播する Test → 期待 = DA-006 違反なし
 - **VO-ORACLE-TERM-01** — assert 相当の引数が標準 assert 集合に属さない helper 呼出である Test は、当該 helper が別の Test の宣言 target であり、その Test の `oracle_presence` が `PASS` であるときに限り照合装置の成立側を確認済みとし、そうでなければ `UNKNOWN` とする。
-  - derives_from: DOC-DETAIL §7.2（暫定。ESCALATE-2） ／ 上流: BASIC §8.2条項2・§5.4
+  - derives_from: DOC-DETAIL §7.2.1 ／ 上流: BASIC §8.2条項2・§5.4
   - 入力 = 判定を helper `assert_valid(..)` へ委譲する Test A、helper が Test B の宣言 target であり Test B の `oracle_presence` = PASS → 期待 = Test A の `oracle_presence` = PASS
   - 入力 = 同じ Test A、helper をいずれの Test も target として宣言していない → 期待 = Test A の `oracle_presence` = UNKNOWN（FAIL にしない）
   - 入力 = 同じ Test A、helper が Test B の target だが Test B の `oracle_presence` = UNKNOWN → 期待 = Test A の `oracle_presence` = UNKNOWN
 - **VO-ORACLE-TERM-02** — helper への委譲関係が循環する場合、`oracle_presence` を `UNKNOWN` とし、循環中のいずれかを推測で成立とみなさない。
-  - derives_from: DOC-DETAIL §7.2（暫定。ESCALATE-2） ／ 上流: BASIC §8.2条項2
+  - derives_from: DOC-DETAIL §7.2.1 ／ 上流: BASIC §8.2条項2
   - 入力 = Test A の判定 helper が Test B の target、Test B の判定 helper が Test A の target → 期待 = 双方とも `oracle_presence` = UNKNOWN
 - **VO-ORACLE-TERM-03** — 標準 assert 相当のみ、または `rust-cargo` config の `assertion_macros` に列挙されたマクロのみを照合装置として持つ Test を、DA-006 および `oracle_presence` で不合格にしない。
   - derives_from: DOC-DETAIL §7.2 ／ 上流: BASIC §8.2
@@ -1051,7 +1051,7 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 ## VO-INVARIANT（領域横断の不変条件）
 
 - **VO-INVARIANT-FORM-01** — 同一の静的事実（宣言 target への呼出が Test 本体に現れ、その結果が assert 相当へ到達する）を持ち、assert の所在だけが異なる 2 つの Test は、4 検査すべてで同一の状態値になる。assert の所在ごとの緩い判定規則を設けない。
-  - derives_from: DOC-DETAIL §7.2（暫定。ESCALATE-1・ESCALATE-2） ／ 上流: BASIC §5・§5.4・§8.2
+  - derives_from: DOC-DETAIL §7.2.1 ／ 上流: BASIC §5・§5.4・§8.2（実行形態軸は ESCALATE-1）
   - 入力 = Test A が本体で直接 `assert_eq!` する。Test B は同一の target 呼出結果を helper へ渡し、その helper は別 Test の宣言 target で `oracle_presence` = PASS → 期待 = A と B の `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の 4 値がすべて一致する
   - 注: 実行形態（process / thread boundary）軸の不変条件は詳細設計 §7.3 と両立しないため本 VO の範囲外とした（ESCALATE-1）
 - **VO-INVARIANT-SEVERITY-01** — 警告重大度だけの診断は、対象検査の検証値を降格も昇格もさせない。
@@ -1102,6 +1102,6 @@ VO にせず基本仕様 §11 の判断記録（judgment）として扱う条項
 | id | 裁定 | 起草した範囲 | 未解決の点 |
 |---|---|---|---|
 | ESCALATE-1 | UNCOV-16dc1bdf（形態非依存の判定一致） | assert の所在（本体直書き / helper 委譲）だけが異なる 2 Test で 4 検査値が一致することを VO-INVARIANT-FORM-01 とした | Owner 裁定の文言「実行形態に依らず同一」を実行形態（process / thread boundary）軸へそのまま適用すると、詳細設計 本冊 §7.3 と両立しない。§7.3 は、呼出が Test 本体に現れない subprocess E2E で DA-003 が `UNKNOWN` のまま残り `oracle_presence` = PASS に到達しないことを明記している。したがって「同一入力事実を持つ形態違いの 2 Test は 4 検査値が一致する」を実行形態軸で普遍主張として立てると、§7.3 に対する反証テストが直ちに書ける。実行形態軸まで不変条件とするなら §7.3 の改訂が先に必要であり、Owner の裁定を要する |
-| ESCALATE-2 | UNCOV-03ed7443 / FEAT-f35e635e（照合装置のグラフ終端） | Owner 裁定の意味論をそのまま VO-ORACLE-TERM-01 / -02 とし、VO-ORACLE-TERM-03 で正方向を固定した | 当該裁定に対応する詳細設計の改訂（本冊 §7.2 の DA-003 / DA-006 と標準 assert 集合、別紙C §18.3.3 の oracle 行）が本ブランチにまだ入っていない。`derives_from` を暫定的に本冊 §7.2 としているため、改訂のマージ後に節参照の照合が要る。現行 §7.2 の DA-006 は「関数内に assert 相当が 1 つも存在しない」を `FAIL` とするだけであり、helper 委譲の終端規則を持たない。VO-INVARIANT-FORM-01 も同じ改訂に依存する |
+| ESCALATE-2 | UNCOV-03ed7443 / FEAT-f35e635e（照合装置のグラフ終端） | Owner 裁定の意味論をそのまま VO-ORACLE-TERM-01 / -02 とし、VO-ORACLE-TERM-03 で正方向を固定した | 解消済み。詳細設計 本冊 §7.2.1「照合の委譲先の終端（DA-003・DA-006）」と 別紙C §18.3.3 の受入行が同一意味論で入り、`derives_from` を §7.2.1 へ確定した |
 | ESCALATE-3 | WEAK-6f4ffbf7（Test Intent の非ノード性） | 「Intent が独立ノードとして検証グラフに現れず、`input` / `expect` の欠落が `chain_integrity` を非 PASS にしない」を VO-CHAIN-TEST-01 のケースとして起草した | 裁定の obligation は「Test Intent の有無や欠落を宣言鎖検査の成否として扱わない」だが、詳細設計 本冊 §4.4 は `intent` を core 中立の必須 metadata とし、欠落を E-SCAN-007（`chain_integrity` = MISMATCH）としている。`intent` field の欠落まで「宣言鎖の成否に用いない」と読むと §4.4 と直接矛盾するため、ノード性と `input` / `expect` の任意性に限定して起草した。この限定の可否は Owner の裁定を要する |
 | ESCALATE-4 | EXTRACT-542a640e（README の非関知宣言） | VO-DELIV-README-01 として leaf 化した | 本 VO の検証対象は vtest の実行時挙動ではなくリポジトリの文書内容であり、他の 198 leaf と検証手段の種類が異なる。VO セットの中に置くか、リリース時のチェックリスト項目として VO の外へ出すかは Owner の裁定を要する。leaf として残した場合、covers する Test を rust-cargo Test として書くには README を Source Target として宣言する必要があり、`targets ≥ 1` の要求（VO-ADAPTER-TARGETREQ-02）と整合しない |
