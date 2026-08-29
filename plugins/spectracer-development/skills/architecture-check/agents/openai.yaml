@@ -1,4 +1,0 @@
-interface:
-  display_name: "Architecture Check"
-  short_description: "Review architecture and source-of-truth boundaries"
-  default_prompt: "Use $architecture-check to review this change for SpecTracer architecture compliance."
