@@ -6,9 +6,13 @@ import sys
 def main() -> int:
     payload = json.load(sys.stdin)
     context = (
-        "SpecTracer source precedence is requirements -> basic specification -> detailed design. "
-        "Preserve fail-closed results, canonical/derived separation, and M1-M9 order. "
-        "The project vtest MCP entry remains disabled until M9 is implemented."
+        "SpecTracer product behavior follows the current v0.1 requirements, basic specification, "
+        "detailed design, and Annexes A/C; DEVELOPMENT.md governs process only. "
+        "Verification uses exactly four checks (chain_integrity, orphan_detection, target_binding, "
+        "oracle_presence) and five states (PASS, FAIL, MISMATCH, NO_EVIDENCE, UNKNOWN). "
+        "MISSING, NOT_EXECUTED, NOT_CHECKED, and STALE are diagnostics, not states. "
+        "Keep Judgment, Approval, verification state, and gate satisfaction separate, and fail "
+        "closed when current conformance evidence is insufficient."
     )
     print(
         json.dumps(
