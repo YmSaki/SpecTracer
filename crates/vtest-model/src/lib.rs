@@ -13,6 +13,7 @@ mod protocol;
 mod source;
 mod test;
 mod verification;
+mod vo;
 
 pub use diagnostic::*;
 pub use document::*;
@@ -23,3 +24,4 @@ pub use protocol::*;
 pub use source::*;
 pub use test::*;
 pub use verification::*;
+pub use vo::*;
