@@ -67,3 +67,8 @@ define_string_id_type!(
     /// Identifier of a source-level implementation target.
     SrcId
 );
+
+define_string_id_type!(
+    /// Identifier of a canonical document record.
+    DocumentId
+);

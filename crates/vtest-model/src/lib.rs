@@ -5,6 +5,7 @@
 //! higher-level crates instead.
 
 mod diagnostic;
+mod document;
 mod evidence;
 mod hash;
 mod id;
@@ -14,6 +15,7 @@ mod test;
 mod verification;
 
 pub use diagnostic::*;
+pub use document::*;
 pub use evidence::*;
 pub use hash::*;
 pub use id::*;

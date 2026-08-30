@@ -45,7 +45,7 @@ pub enum VerificationCheck {
 pub struct VerificationResult {
     pub check: VerificationCheck,
     pub state: VerificationState,
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostic_labels: Vec<DiagnosticLabel>,
 }
 
@@ -120,25 +120,26 @@ mod tests {
         );
     }
 
-	#[test]
-	fn verification_result_serializes_correctly() {
-		let result = VerificationResult {
-			check: VerificationCheck::TargetBinding,
-			state: VerificationState::Fail,
-			diagnostic_labels: vec![DiagnosticLabel::NotExecuted],
-		};
+    #[test]
+    fn verification_result_serializes_correctly() {
+        let result = VerificationResult {
+            check: VerificationCheck::TargetBinding,
+            state: VerificationState::Fail,
+            diagnostic_labels: vec![DiagnosticLabel::NotExecuted],
+        };
 
-		let serialized = serde_json::to_string(&result).unwrap();
-		let expected = r#"{"check":"target_binding","state":"FAIL","diagnostic_labels":["NOT_EXECUTED"]}"#;
-		assert_eq!(serialized, expected);
+        let serialized = serde_json::to_string(&result).unwrap();
+        let expected =
+            r#"{"check":"target_binding","state":"FAIL","diagnostic_labels":["NOT_EXECUTED"]}"#;
+        assert_eq!(serialized, expected);
 
-		let success_result = VerificationResult {
-			check: VerificationCheck::ChainIntegrity,
-			state: VerificationState::Pass,
-			diagnostic_labels: vec![],
-		};
-		let serialized_success = serde_json::to_string(&success_result).unwrap();
-		let expected_success = r#"{"check":"chain_integrity","state":"PASS"}"#;
-		assert_eq!(serialized_success, expected_success);
-	}
+        let success_result = VerificationResult {
+            check: VerificationCheck::ChainIntegrity,
+            state: VerificationState::Pass,
+            diagnostic_labels: vec![],
+        };
+        let serialized_success = serde_json::to_string(&success_result).unwrap();
+        let expected_success = r#"{"check":"chain_integrity","state":"PASS"}"#;
+        assert_eq!(serialized_success, expected_success);
+    }
 }
