@@ -11,6 +11,7 @@ mod id;
 mod protocol;
 mod source;
 mod test;
+mod verification;
 
 pub use diagnostic::*;
 pub use evidence::*;
@@ -19,3 +20,4 @@ pub use id::*;
 pub use protocol::*;
 pub use source::*;
 pub use test::*;
+pub use verification::*;
