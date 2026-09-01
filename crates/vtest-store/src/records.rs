@@ -164,33 +164,6 @@ pub enum RelationType {
     ConflictsWith,
 }
 
-impl RelationType {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::DependsOn => "depends-on",
-            Self::Supersedes => "supersedes",
-            Self::RegressionFor => "regression-for",
-            Self::DerivedFrom => "derived-from",
-            Self::SamePartition => "same-partition",
-            Self::Complements => "complements",
-            Self::ConflictsWith => "conflicts-with",
-        }
-    }
-
-    fn parse(value: &str) -> Option<Self> {
-        match value {
-            "depends-on" => Some(Self::DependsOn),
-            "supersedes" => Some(Self::Supersedes),
-            "regression-for" => Some(Self::RegressionFor),
-            "derived-from" => Some(Self::DerivedFrom),
-            "same-partition" => Some(Self::SamePartition),
-            "complements" => Some(Self::Complements),
-            "conflicts-with" => Some(Self::ConflictsWith),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RelationRecord {
     pub id: String,
@@ -198,6 +171,7 @@ pub struct RelationRecord {
     pub relation_type: RelationType,
     pub from: String,
     pub to: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     pub created: String,
 }
@@ -752,34 +726,15 @@ impl AuditRecord {
 impl RelationRecord {
     pub fn to_yaml(&self) -> Result<String, StoreError> {
         self.validate(None)?;
-        let mut out = format!(
-            "id: {}\ntype: {}\nfrom: {}\nto: {}\n",
-            yaml_scalar(&self.id),
-            yaml_scalar(self.relation_type.as_str()),
-            yaml_scalar(&self.from),
-            yaml_scalar(&self.to),
-        );
-        if let Some(note) = &self.note {
-            out.push_str(&format!("note: {}\n", yaml_scalar(note)));
-        }
-        out.push_str(&format!("created: {}\n", yaml_scalar(&self.created)));
-        Ok(out)
+        yaml_serde::to_string(self).map_err(|error| {
+            StoreError::InvalidConfig(format!("could not serialize relation: {error}"))
+        })
     }
 
     pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
-        let record = Self {
-            id: required_top_level_scalar(text, "id", "relation")?,
-            relation_type: required_top_level_scalar(text, "type", "relation")
-                .ok()
-                .and_then(|value| RelationType::parse(&value))
-                .ok_or_else(|| {
-                    StoreError::InvalidConfig("relation has an invalid type".to_owned())
-                })?,
-            from: required_top_level_scalar(text, "from", "relation")?,
-            to: required_top_level_scalar(text, "to", "relation")?,
-            note: top_level_scalar(text, "note"),
-            created: required_top_level_scalar(text, "created", "relation")?,
-        };
+        let record: Self = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
         record.validate(Some(filename_id))?;
         Ok(record)
     }
@@ -2199,10 +2154,10 @@ mod tests {
         assert_eq!(RelationRecord::from_yaml(&yaml, &id).unwrap(), record);
 
         for malformed in [
-            yaml.replacen("type: 'complements'", "type: 'unknown'", 1),
-            yaml.replacen("from: 'TEST-PARSER-044'", "from: ''", 1),
-            yaml.replacen("to: 'TEST-PARSER-012'", "to: ''", 1),
-            yaml.replacen("created: '2026-08-08T00:00:00Z'", "created: ''", 1),
+            yaml.replacen("type: complements", "type: unknown", 1),
+            yaml.replacen("from: TEST-PARSER-044", "from: ''", 1),
+            yaml.replacen("to: TEST-PARSER-012", "to: ''", 1),
+            yaml.replacen("created: 2026-08-08T00:00:00Z", "created: ''", 1),
         ] {
             assert!(RelationRecord::from_yaml(&malformed, &id).is_err());
         }

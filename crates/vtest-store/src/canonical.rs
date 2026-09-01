@@ -1,63 +1,40 @@
 //! Canonical v0.1 record storage (詳細設計 v0.1 §3), for the types defined in
 //! `vtest-model`. Kept separate from `records.rs`'s predecessor Req/Spec-model
 //! types so neither module's exports collide with the other's.
+//!
+//! Serialization goes through `yaml_serde` rather than the hand-rolled
+//! scalar/list helpers `records.rs` uses for predecessor types: those
+//! helpers silently mis-parse inline comments and flow-mappings (both of
+//! which 詳細設計 v0.1's own YAML examples use), so canonical types rely on
+//! their existing `Serialize`/`Deserialize` derives (shared with their JSON
+//! representation) instead.
 
-use crate::records::{
-    list, parse_combinations, parse_inline_list, scalar, unquote, yaml_list, yaml_scalar,
-};
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
-use vtest_model::{ContentHash, DerivesFrom, DocumentId, DocumentRecord, VoId, VoRecord};
+use vtest_model::{DocumentRecord, VoRecord};
 
 /// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
-/// shape (詳細設計 v0.1 §3.1).
+/// shape (詳細設計 v0.1 §3.1) via `yaml_serde`, using `DocumentRecord`'s own
+/// `Serialize` derive.
 pub fn document_to_yaml(record: &DocumentRecord) -> String {
-    let mut out = format!(
-        "id: {}\npath: {}\ncontent_hash: {}\n",
-        yaml_scalar(record.id.as_str()),
-        yaml_scalar(&record.path),
-        yaml_scalar(record.content_hash.as_str()),
-    );
-    if let Some(title) = &record.title {
-        out.push_str(&format!("title: {}\n", yaml_scalar(title)));
-    }
-    out.push_str(&derives_from_yaml(&record.derives_from));
-    out.push_str(&format!(
-        "registered_at: {}\n",
-        yaml_scalar(&record.registered_at)
-    ));
-    out
+    yaml_serde::to_string(record).expect("DocumentRecord always serializes to valid YAML")
 }
 
 /// Parses a `DocumentRecord` from its canonical YAML representation.
-/// `id`/`path`/`content_hash`/`registered_at` are required (詳細設計 v0.1
-/// §3.1's example has no `?` marker on any of them); a missing field or an
-/// `id` that disagrees with the file name fails closed rather than
-/// synthesizing an empty-string or fallback-derived record, matching the
-/// strictness `RelationRecord`/`ApprovalRecord`/`AuditRecord` already apply.
+/// `yaml_serde::from_str` already fails closed on a missing required field
+/// or a malformed value via `DocumentRecord`'s `Deserialize` derive; this
+/// adds the one check the derive cannot express: the record's `id` must
+/// match the file name, matching the strictness `RelationRecord`/
+/// `ApprovalRecord`/`AuditRecord` already apply.
 pub fn document_from_yaml(text: &str, fallback_id: &str) -> Result<DocumentRecord, StoreError> {
-    let id = scalar(text, "id")
-        .ok_or_else(|| StoreError::InvalidConfig("document is missing id".to_owned()))?;
-    if id != fallback_id {
+    let record: DocumentRecord = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
+    if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
-            "document id {id} does not match file name {fallback_id}"
+            "document id {} does not match file name {fallback_id}",
+            record.id.as_str()
         )));
     }
-    let path = scalar(text, "path")
-        .ok_or_else(|| StoreError::InvalidConfig("document is missing path".to_owned()))?;
-    let content_hash: ContentHash = scalar(text, "content_hash")
-        .ok_or_else(|| StoreError::InvalidConfig("document is missing content_hash".to_owned()))?
-        .parse()
-        .map_err(|error: String| StoreError::InvalidConfig(error))?;
-    let registered_at = scalar(text, "registered_at")
-        .ok_or_else(|| StoreError::InvalidConfig("document is missing registered_at".to_owned()))?;
-    Ok(DocumentRecord {
-        id: DocumentId::new(id),
-        path,
-        content_hash,
-        title: scalar(text, "title"),
-        derives_from: parse_derives_from(text),
-        registered_at,
-    })
+    Ok(record)
 }
 
 /// Reads the canonical document record `<id>.yaml` from `.verify/doc/`.
@@ -78,167 +55,33 @@ pub fn write_document(layout: &VerifyLayout, record: &DocumentRecord) -> Result<
     write_atomic(&path, &document_to_yaml(record))
 }
 
-/// Serializes the `derives_from:` block list shared by document and VO
-/// records (詳細設計 v0.1 §3.1, §3.2).
-fn derives_from_yaml(entries: &[DerivesFrom]) -> String {
-    if entries.is_empty() {
-        return "derives_from: []\n".to_owned();
-    }
-    let mut out = String::from("derives_from:\n");
-    for entry in entries {
-        out.push_str(&format!("  - doc: {}\n", yaml_scalar(entry.doc.as_str())));
-        if let Some(anchor) = &entry.anchor {
-            out.push_str(&format!("    anchor: {}\n", yaml_scalar(anchor)));
-        }
-        if let Some(note) = &entry.note {
-            out.push_str(&format!("    note: {}\n", yaml_scalar(note)));
-        }
-    }
-    out
-}
-
-/// Parses the `derives_from:` block list. Each entry's `anchor`/`note` are
-/// optional and read in the fixed order the writer emits them.
-fn parse_derives_from(text: &str) -> Vec<DerivesFrom> {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(start) = lines.iter().position(|line| {
-        !line.starts_with([' ', '\t'])
-            && line
-                .trim()
-                .strip_prefix("derives_from:")
-                .is_some_and(|value| value.trim().is_empty())
-    }) else {
-        return Vec::new();
-    };
-    let block: Vec<&str> = lines[start + 1..]
-        .iter()
-        .take_while(|line| line.starts_with([' ', '\t']) || line.trim().is_empty())
-        .copied()
-        .collect();
-
-    let mut entries = Vec::new();
-    let mut index = 0;
-    while index < block.len() {
-        let line = block[index].trim();
-        let Some(doc) = line.strip_prefix("- doc:") else {
-            index += 1;
-            continue;
-        };
-        let doc = DocumentId::new(unquote(doc.trim()));
-        let mut anchor = None;
-        let mut note = None;
-        index += 1;
-        while index < block.len() {
-            let next = block[index].trim();
-            if let Some(value) = next.strip_prefix("anchor:") {
-                anchor = Some(unquote(value.trim()));
-                index += 1;
-            } else if let Some(value) = next.strip_prefix("note:") {
-                note = Some(unquote(value.trim()));
-                index += 1;
-            } else {
-                break;
-            }
-        }
-        entries.push(DerivesFrom { doc, anchor, note });
-    }
-    entries
-}
-
 /// Serializes a canonical `VoRecord` to its `.verify/vo/VO-*.yaml` shape
-/// (詳細設計 v0.1 §3.2). Distinct name from `read_vo`/`VoRecord` (records.rs)
-/// on purpose: that pair still serves the predecessor store-side `VoRecord`
-/// until PR8 retires it, and the two types are not interchangeable.
+/// (詳細設計 v0.1 §3.2) via `yaml_serde`. Distinct name from `read_vo`/
+/// `VoRecord` (records.rs) on purpose: that pair still serves the
+/// predecessor store-side `VoRecord` until PR8 retires it, and the two types
+/// are not interchangeable.
 pub fn vo_record_to_yaml(record: &VoRecord) -> String {
-    let mut out = format!(
-        "id: {}\nparent: {}\n",
-        yaml_scalar(record.id.as_str()),
-        record
-            .parent
-            .as_ref()
-            .map(|value| yaml_scalar(value.as_str()))
-            .unwrap_or_else(|| "null".to_owned()),
-    );
-    out.push_str(&derives_from_yaml(&record.derives_from));
-    out.push_str(&format!(
-        "claim: {}\ndimensions:\n",
-        yaml_scalar(&record.claim)
-    ));
-    for dimension in &record.dimensions {
-        out.push_str(&format!(
-            "  - name: {}\n    partitions: {}\n",
-            yaml_scalar(&dimension.name),
-            yaml_list(dimension.partitions.iter().map(String::as_str)),
-        ));
-    }
-    out.push_str(&format!(
-        "coverage_policy: {}\n",
-        record
-            .coverage_policy
-            .map(|policy| yaml_scalar(coverage_policy_str(policy)))
-            .unwrap_or_else(|| "null".to_owned()),
-    ));
-    if record.combinations.is_empty() {
-        out.push_str("combinations: []\n");
-    } else {
-        out.push_str("combinations:\n");
-        for combination in &record.combinations {
-            out.push_str(&format!(
-                "  - {}\n",
-                yaml_list(combination.iter().map(String::as_str))
-            ));
-        }
-    }
-    out.push_str(&format!(
-        "representative_cases: {}\ncreated: {}\nupdated: {}\n",
-        yaml_list(record.representative_cases.iter().map(String::as_str)),
-        yaml_scalar(&record.created),
-        yaml_scalar(&record.updated),
-    ));
-    out
+    yaml_serde::to_string(record).expect("VoRecord always serializes to valid YAML")
 }
 
-/// Parses a canonical `VoRecord` from its YAML representation. `id`/`claim`/
-/// `created`/`updated` are required, `id` must match the file name, and a
-/// `coverage_policy` value that is present but not one of the three known
-/// variants fails closed rather than silently collapsing to `None` (which
-/// would make it indistinguishable from an intentional `coverage_policy:
-/// null`). The `status` read-compat field (詳細設計 v0.1 §3.2) is parsed
-/// nowhere: canonical writers never persist it, and readers must not derive
-/// VO state from it.
+/// Parses a canonical `VoRecord` from its YAML representation.
+/// `yaml_serde::from_str` fails closed on a missing required field
+/// (`claim`/`created`/`updated`/etc.) or an unrecognized `coverage_policy`
+/// value via `VoRecord`'s `Deserialize` derive; this adds the id/file-name
+/// check the derive cannot express. The `status` read-compat field (詳細設計
+/// v0.1 §3.2) is accepted-and-ignored here (serde silently drops unknown
+/// fields) — notifying its mere presence is a separate diagnostic concern,
+/// not implemented by this function.
 pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, StoreError> {
-    let id = scalar(text, "id")
-        .ok_or_else(|| StoreError::InvalidConfig("VO is missing id".to_owned()))?;
-    if id != fallback_id {
+    let record: VoRecord = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
+    if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
-            "VO id {id} does not match file name {fallback_id}"
+            "VO id {} does not match file name {fallback_id}",
+            record.id.as_str()
         )));
     }
-    let claim = scalar(text, "claim")
-        .ok_or_else(|| StoreError::InvalidConfig("VO is missing claim".to_owned()))?;
-    let coverage_policy = match scalar(text, "coverage_policy") {
-        None => None,
-        Some(value) => Some(coverage_policy_from_str(&value).ok_or_else(|| {
-            StoreError::InvalidConfig(format!("VO has an unrecognized coverage_policy `{value}`"))
-        })?),
-    };
-    let created = scalar(text, "created")
-        .ok_or_else(|| StoreError::InvalidConfig("VO is missing created".to_owned()))?;
-    let updated = scalar(text, "updated")
-        .ok_or_else(|| StoreError::InvalidConfig("VO is missing updated".to_owned()))?;
-    Ok(VoRecord {
-        id: VoId::new(id),
-        parent: scalar(text, "parent")
-            .and_then(|value| (!value.is_empty()).then_some(VoId::new(value))),
-        derives_from: parse_derives_from(text),
-        claim,
-        dimensions: parse_dimensions(text),
-        coverage_policy,
-        combinations: parse_combinations(text),
-        representative_cases: list(text, "representative_cases"),
-        created,
-        updated,
-    })
+    Ok(record)
 }
 
 /// Reads the canonical VO record `<id>.yaml` from `.verify/vo/`.
@@ -255,48 +98,11 @@ pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), S
     write_atomic(&path, &vo_record_to_yaml(record))
 }
 
-fn coverage_policy_str(policy: vtest_model::CoveragePolicy) -> &'static str {
-    match policy {
-        vtest_model::CoveragePolicy::IndependentAxes => "independent-axes",
-        vtest_model::CoveragePolicy::FullProduct => "full-product",
-        vtest_model::CoveragePolicy::Explicit => "explicit",
-    }
-}
-
-fn coverage_policy_from_str(value: &str) -> Option<vtest_model::CoveragePolicy> {
-    match value {
-        "independent-axes" => Some(vtest_model::CoveragePolicy::IndependentAxes),
-        "full-product" => Some(vtest_model::CoveragePolicy::FullProduct),
-        "explicit" => Some(vtest_model::CoveragePolicy::Explicit),
-        _ => None,
-    }
-}
-
-fn parse_dimensions(text: &str) -> Vec<vtest_model::Dimension> {
-    let lines = text.lines().collect::<Vec<_>>();
-    let mut dimensions = Vec::new();
-    for (index, raw) in lines.iter().enumerate() {
-        let line = raw.trim();
-        let Some(name) = line.strip_prefix("- name:") else {
-            continue;
-        };
-        let partitions = lines
-            .get(index + 1)
-            .and_then(|next| next.trim().strip_prefix("partitions:"))
-            .map(|value| parse_inline_list(value.trim()))
-            .unwrap_or_default();
-        dimensions.push(vtest_model::Dimension {
-            name: unquote(name.trim()),
-            partitions,
-        });
-    }
-    dimensions
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vtest_model::{CoveragePolicy, Dimension};
+    use std::collections::BTreeMap;
+    use vtest_model::{ContentHash, CoveragePolicy, DerivesFrom, Dimension, DocumentId, VoId};
 
     fn sample_document() -> DocumentRecord {
         DocumentRecord {
@@ -336,6 +142,38 @@ mod tests {
         let yaml = document_to_yaml(&record);
         assert_eq!(
             document_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            record
+        );
+    }
+
+    /// 詳細設計 v0.1 §3.1's own example (L193-201), verbatim including its
+    /// inline comments — the fixture the hand-rolled parser used to
+    /// silently corrupt. Only `content_hash`'s value is substituted: the
+    /// spec itself writes it as the documentation placeholder
+    /// `"sha256:..."`, which is not a parseable hash.
+    #[test]
+    fn document_parses_the_literal_spec_example() {
+        let yaml = "\
+id: DOC-BASIC-001
+path: docs/basic-spec.md        # プロジェクト相対パス
+content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"      # 登録時の内容ハッシュ（§1.3 document subject）
+title: 基本仕様書               # 任意の表示名
+derives_from:                   # 上流 document への導出リンク（0件可＝根候補）
+  - doc: DOC-REQ-001
+    anchor: \"§12.3\"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
+    note: \"\"                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
+registered_at: 2026-08-08T00:00:00Z
+";
+        let record = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
+        assert_eq!(record.id.as_str(), "DOC-BASIC-001");
+        assert_eq!(record.path, "docs/basic-spec.md");
+        assert_eq!(record.title.as_deref(), Some("基本仕様書"));
+        assert_eq!(record.derives_from[0].doc.as_str(), "DOC-REQ-001");
+        assert_eq!(record.derives_from[0].anchor.as_deref(), Some("§12.3"));
+        assert_eq!(record.derives_from[0].note.as_deref(), Some(""));
+        let roundtrip = document_to_yaml(&record);
+        assert_eq!(
+            document_from_yaml(&roundtrip, "DOC-BASIC-001").unwrap(),
             record
         );
     }
@@ -431,6 +269,83 @@ mod tests {
         );
     }
 
+    /// 詳細設計 v0.1 §3.2's own example, verbatim (including its inline
+    /// comments), fed straight to the reader.
+    #[test]
+    fn vo_record_parses_the_literal_spec_example() {
+        let yaml = "\
+id: VO-PARSER-UTF8-003
+parent: VO-PARSER-UTF8          # VO ID または null（階層化）
+derives_from:                   # 1件以上の document への直結（基本仕様 §3.2）
+  - doc: DOC-BASIC-001
+    anchor: \"§8.2条項2\"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
+    note: \"\"                    # 任意（空可・非 MISMATCH）
+claim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す
+dimensions: []                  # 検証軸（任意。§3.2.1）
+coverage_policy: null           # independent-axes | full-product | explicit | null
+combinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）
+representative_cases: []        # 代表入力値（任意）
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let record = vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003").unwrap();
+        assert_eq!(
+            record.parent.as_ref().map(VoId::as_str),
+            Some("VO-PARSER-UTF8")
+        );
+        assert_eq!(record.derives_from[0].doc.as_str(), "DOC-BASIC-001");
+        assert_eq!(record.coverage_policy, None);
+        assert!(record.combinations.is_empty());
+        let roundtrip = vo_record_to_yaml(&record);
+        assert_eq!(
+            vo_record_from_yaml(&roundtrip, "VO-PARSER-UTF8-003").unwrap(),
+            record
+        );
+    }
+
+    /// 詳細設計 v0.1 §3.2.1's `explicit` combinations example, verbatim: each
+    /// entry is a dimension-name → partition-value flow-mapping, not a
+    /// positional list of bare strings.
+    #[test]
+    fn vo_record_parses_the_literal_combinations_example() {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+  - name: operator
+    partitions: [add, sub, mul, div]
+coverage_policy: explicit
+combinations:
+  - { operand-sign: positive, operator: div }
+  - { operand-sign: negative, operator: div }
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let record = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
+        assert_eq!(record.combinations.len(), 2);
+        assert_eq!(
+            record.combinations[0]
+                .get("operand-sign")
+                .map(String::as_str),
+            Some("positive")
+        );
+        assert_eq!(
+            record.combinations[0].get("operator").map(String::as_str),
+            Some("div")
+        );
+        let roundtrip = vo_record_to_yaml(&record);
+        assert_eq!(
+            vo_record_from_yaml(&roundtrip, "VO-ARITH-001").unwrap(),
+            record
+        );
+    }
+
     #[test]
     fn vo_record_status_read_compat_field_is_ignored() {
         let record = sample_vo();
@@ -468,14 +383,11 @@ mod tests {
 
     #[test]
     fn vo_record_with_unrecognized_coverage_policy_is_rejected() {
-        let yaml = vo_record_to_yaml(&sample_vo()).replace(
-            "coverage_policy: 'full-product'",
-            "coverage_policy: 'bogus'",
-        );
-        let error = vo_record_from_yaml(&yaml, "VO-PARSER-UTF8-003").expect_err(
+        let yaml = vo_record_to_yaml(&sample_vo())
+            .replace("coverage_policy: full-product", "coverage_policy: bogus");
+        vo_record_from_yaml(&yaml, "VO-PARSER-UTF8-003").expect_err(
             "an unrecognized coverage_policy must fail closed, not silently become None",
         );
-        assert!(error.to_string().contains("coverage_policy"));
     }
 
     #[test]
@@ -489,5 +401,30 @@ mod tests {
 
         write_vo_record(&layout, &record).unwrap();
         assert_eq!(read_vo_record(&layout, record.id.as_str()).unwrap(), record);
+    }
+
+    #[test]
+    fn vo_record_combinations_round_trip_as_dimension_keyed_maps() {
+        let mut record = sample_vo();
+        record.dimensions = vec![
+            Dimension {
+                name: "operand-sign".to_string(),
+                partitions: vec!["positive".to_string(), "negative".to_string()],
+            },
+            Dimension {
+                name: "operator".to_string(),
+                partitions: vec!["div".to_string()],
+            },
+        ];
+        record.coverage_policy = Some(CoveragePolicy::Explicit);
+        record.combinations = vec![BTreeMap::from([
+            ("operand-sign".to_string(), "positive".to_string()),
+            ("operator".to_string(), "div".to_string()),
+        ])];
+        let yaml = vo_record_to_yaml(&record);
+        assert_eq!(
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            record
+        );
     }
 }
