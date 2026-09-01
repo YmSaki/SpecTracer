@@ -944,6 +944,40 @@ pub fn read_audit(path: &Path) -> Result<AuditRecord, StoreError> {
     AuditRecord::from_yaml(&text, fallback)
 }
 
+pub fn read_relation(path: &Path) -> Result<RelationRecord, StoreError> {
+    let text = read_text(path)?;
+    let fallback = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    RelationRecord::from_yaml(&text, fallback)
+}
+
+/// Creates a new canonical Relation record and writes it to `.verify/rel/`.
+/// The id is always generated here as `REL-<ULID>`: 詳細設計 v0.1 §3.3
+/// requires the writer to emit only that form, even though `is_valid_relation_id`
+/// still accepts a bare ULID for version 1 compatibility on read.
+pub fn write_relation(
+    layout: &VerifyLayout,
+    relation_type: RelationType,
+    from: impl Into<String>,
+    to: impl Into<String>,
+    note: Option<String>,
+    created: impl Into<String>,
+) -> Result<RelationRecord, StoreError> {
+    let record = RelationRecord {
+        id: format!("REL-{}", new_record_id()),
+        relation_type,
+        from: from.into(),
+        to: to.into(),
+        note,
+        created: created.into(),
+    };
+    let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+    write_new_record(&path, &record.to_yaml()?)?;
+    Ok(record)
+}
+
 pub fn read_text(path: &Path) -> Result<String, StoreError> {
     fs::read_to_string(path).map_err(|source| StoreError::Io {
         path: path.to_owned(),
@@ -2195,5 +2229,30 @@ mod tests {
             ..RelationRecord::from_yaml(&yaml, &id).unwrap()
         };
         assert!(invalid.to_yaml().is_err());
+    }
+
+    #[test]
+    fn write_relation_always_generates_a_rel_prefixed_id() {
+        let root = temporary_directory("write-relation");
+        let layout = crate::init_project(&root, "example").unwrap();
+
+        let record = write_relation(
+            &layout,
+            RelationType::DependsOn,
+            "TEST-PARSER-044",
+            "TEST-PARSER-012",
+            None,
+            "2026-08-08T00:00:00Z",
+        )
+        .unwrap();
+
+        assert!(
+            record.id.starts_with("REL-"),
+            "expected a REL-prefixed id, got {}",
+            record.id
+        );
+
+        let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+        assert_eq!(read_relation(&path).unwrap(), record);
     }
 }
