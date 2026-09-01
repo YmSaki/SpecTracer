@@ -35,6 +35,9 @@ pub struct VoRecord {
     pub dimensions: Vec<Dimension>,
     pub coverage_policy: Option<CoveragePolicy>,
     pub combinations: Vec<Vec<String>>,
+    pub representative_cases: Vec<String>,
+    pub created: String,
+    pub updated: String,
 }
 
 #[cfg(test)]
@@ -80,11 +83,14 @@ mod tests {
             dimensions: vec![],
             coverage_policy: Some(CoveragePolicy::IndependentAxes),
             combinations: vec![],
+            representative_cases: vec![],
+            created: "2026-08-08".to_string(),
+            updated: "2026-08-08".to_string(),
         };
 
         assert_eq!(
             serde_json::to_string(&vo_record).unwrap(),
-            r#"{"id":"vo123","parent":"parent456","claim":"This is a claim.","dimensions":[],"coverage_policy":"independent-axes","combinations":[]}"#
+            r#"{"id":"vo123","parent":"parent456","claim":"This is a claim.","dimensions":[],"coverage_policy":"independent-axes","combinations":[],"representative_cases":[],"created":"2026-08-08","updated":"2026-08-08"}"#
         );
     }
 
@@ -98,11 +104,33 @@ mod tests {
             dimensions: vec![],
             coverage_policy: None,
             combinations: vec![],
+            representative_cases: vec![],
+            created: "2026-08-08".to_string(),
+            updated: "2026-08-08".to_string(),
         };
 
         assert_eq!(
             serde_json::to_string(&vo_record).unwrap(),
-            r#"{"id":"vo789","parent":null,"claim":"Another claim.","dimensions":[],"coverage_policy":null,"combinations":[]}"#
+            r#"{"id":"vo789","parent":null,"claim":"Another claim.","dimensions":[],"coverage_policy":null,"combinations":[],"representative_cases":[],"created":"2026-08-08","updated":"2026-08-08"}"#
         );
+    }
+
+    #[test]
+    fn vo_record_carries_representative_cases() {
+        let vo_record = VoRecord {
+            id: VoId::new("vo321"),
+            parent: None,
+            derives_from: vec![],
+            claim: "A claim with representative cases.".to_string(),
+            dimensions: vec![],
+            coverage_policy: None,
+            combinations: vec![],
+            representative_cases: vec!["empty input".to_string(), "max length input".to_string()],
+            created: "2026-08-08".to_string(),
+            updated: "2026-08-09".to_string(),
+        };
+
+        let json = serde_json::to_string(&vo_record).unwrap();
+        assert_eq!(serde_json::from_str::<VoRecord>(&json).unwrap(), vo_record);
     }
 }
