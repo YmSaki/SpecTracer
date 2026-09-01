@@ -967,8 +967,11 @@ pub fn load_config(root: &Path) -> Result<ProjectConfig, StoreError> {
     )
 }
 
-/// Return IDs from canonical entity records.  Full schema validation is an
-/// M2 concern; even this read-side helper never writes derived cache files.
+/// Returns the file-stem IDs of every `.yaml` record in `directory`, sorted.
+/// Generic over the directory: used for both the canonical (`doc/`, `vo/`)
+/// and the predecessor (`spec/`, `req/`) record layouts. Full schema
+/// validation is a separate concern; this read-side helper never writes
+/// derived cache files.
 pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
     let entries = fs::read_dir(directory).map_err(|source| StoreError::Io {
         path: directory.to_owned(),
@@ -992,6 +995,13 @@ pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
     Ok(ids)
 }
 
+/// Predecessor-model helper: IDs from the retired `spec/`/`req/` split plus
+/// `vo/`. Reads `spec_dir()`/`req_dir()`/`vo_dir()`, not the canonical
+/// `doc/`+`vo/` layout `init_project` now creates — against a freshly
+/// initialized canonical project, `spec_dir()`/`req_dir()` do not exist and
+/// this returns an `Io` error. Kept as-is for the existing `vtest-scan`
+/// caller; replacing it with a canonical `doc/`+`vo/` equivalent is PR3's
+/// job when scan itself moves onto the canonical model.
 pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 3], StoreError> {
     let layout = VerifyLayout::new(root);
     Ok([
@@ -1039,6 +1049,17 @@ mod tests {
                 "expected {removed:?} not to be created by init_project"
             );
         }
+    }
+
+    /// Documents a real gap rather than papering over it: `read_entity_ids`
+    /// is a predecessor-model helper (spec_dir/req_dir/vo_dir) that a freshly
+    /// initialized canonical project cannot satisfy, since init_project no
+    /// longer creates spec/req. Fixing the caller (vtest-scan) is PR3's job.
+    #[test]
+    fn read_entity_ids_errors_against_a_freshly_initialized_canonical_project() {
+        let root = temporary_directory("read-entity-ids");
+        init_project(&root, "example").unwrap();
+        assert!(read_entity_ids(&root).is_err());
     }
 
     #[test]
