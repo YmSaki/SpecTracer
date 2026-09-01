@@ -61,8 +61,21 @@ impl VerifyLayout {
         self.verify_dir().join("req")
     }
 
+    /// Canonical `document` record directory (詳細設計 v0.1 §2.1). Replaces the
+    /// predecessor `spec/`/`req/` split; those accessors stay for the readers
+    /// that still use them until PR8 removes the predecessor model.
+    pub fn doc_dir(&self) -> PathBuf {
+        self.verify_dir().join("doc")
+    }
+
     pub fn vo_dir(&self) -> PathBuf {
         self.verify_dir().join("vo")
+    }
+
+    /// Judgment-record directory (詳細設計 v0.1 §2.1, §3.4). New in the
+    /// canonical v0.1 layout; there is no predecessor equivalent.
+    pub fn decisions_dir(&self) -> PathBuf {
+        self.verify_dir().join("decisions")
     }
 
     pub fn relation_dir(&self) -> PathBuf {
@@ -427,16 +440,16 @@ pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError>
         return Err(StoreError::AlreadyInitialized(layout.verify_dir()));
     }
     for directory in [
-        layout.spec_dir(),
-        layout.req_dir(),
+        layout.doc_dir(),
         layout.vo_dir(),
         layout.relation_dir(),
         layout.forms_dir(),
+        layout.decisions_dir(),
         layout.approvals_dir(),
-        layout.audits_dir(),
         layout.evidence_dir(),
         layout.cache_dir().join("bundles"),
         layout.cache_dir().join("logs"),
+        layout.cache_dir().join("cov"),
     ] {
         fs::create_dir_all(&directory).map_err(|source| StoreError::Io {
             path: directory,
@@ -454,12 +467,11 @@ pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError>
         RUST_INTEGRATION_FORM.as_bytes(),
     )?;
     for directory in [
-        layout.spec_dir(),
-        layout.req_dir(),
+        layout.doc_dir(),
         layout.vo_dir(),
         layout.relation_dir(),
+        layout.decisions_dir(),
         layout.approvals_dir(),
-        layout.audits_dir(),
         layout.evidence_dir(),
     ] {
         write_new_file(&directory.join(".gitkeep"), b"")?;
@@ -540,6 +552,42 @@ pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 3], StoreError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temporary_directory(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("vtest-store-lib-{name}-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn init_project_creates_the_canonical_v01_layout() {
+        let root = temporary_directory("init");
+        let layout = init_project(&root, "example").unwrap();
+
+        for directory in [
+            layout.doc_dir(),
+            layout.vo_dir(),
+            layout.relation_dir(),
+            layout.forms_dir(),
+            layout.decisions_dir(),
+            layout.approvals_dir(),
+            layout.evidence_dir(),
+            layout.cache_dir().join("bundles"),
+            layout.cache_dir().join("logs"),
+            layout.cache_dir().join("cov"),
+        ] {
+            assert!(directory.is_dir(), "expected {directory:?} to exist");
+        }
+
+        // 詳細設計 v0.1 §2.1 replaces spec/+req/ with doc/, and drops the
+        // canonical audits/ directory entirely.
+        for removed in [layout.spec_dir(), layout.req_dir(), layout.audits_dir()] {
+            assert!(
+                !removed.exists(),
+                "expected {removed:?} not to be created by init_project"
+            );
+        }
+    }
 
     #[test]
     fn generated_config_round_trips_m1_fields() {
