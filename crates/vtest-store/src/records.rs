@@ -774,6 +774,24 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
+    // 詳細設計 v0.1 §3 header: "id とファイル名（拡張子除く）は一致しなければ
+    // ならない" applies schema-independently to every record type; 基本仕様
+    // §3.2: "判断・承認・Evidence の ID は bare ULID とする". A present-but-
+    // different `id` used to be silently accepted (only an *absent* id fell
+    // back to the file name), the same fail-open shape `read_approval`
+    // already closes for approvals.
+    let id = scalar(&text, "id")
+        .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing id".to_owned()))?;
+    if id != fallback {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} does not match file name {fallback}"
+        )));
+    }
+    if !is_valid_ulid(&id) {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} is not a valid ULID"
+        )));
+    }
     let test_hash = nested_scalar(&text, "hashes", "test_fn")
         .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing hashes.test_fn".to_owned()))?
         .parse()
@@ -829,7 +847,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         _ => CheckValue::Unknown,
     };
     Ok(EvidenceRecord {
-        id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
+        id,
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
@@ -2137,6 +2155,54 @@ mod tests {
             ..record
         };
         assert!(static_with_bundle.to_yaml().is_err());
+    }
+
+    /// 詳細設計 v0.1 §3 header ("id とファイル名は一致しなければならない") and
+    /// 基本仕様 §3.2 ("Evidence の ID は bare ULID とする") both apply to
+    /// Evidence the same as any other record type; `read_evidence` used to
+    /// accept a present-but-different `id` silently (only an absent one fell
+    /// back to the file name).
+    #[test]
+    fn read_evidence_enforces_id_file_name_and_ulid_invariants() {
+        let root = temporary_directory("read-evidence");
+        let id = new_record_id();
+        let base = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+
+        let matching_path = root.join(format!("{id}.yaml"));
+        fs::write(&matching_path, &base).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_ok(),
+            "a well-formed Evidence record with a matching bare-ULID id must parse"
+        );
+
+        let mismatched_path = root.join(format!("{}.yaml", new_record_id()));
+        fs::write(&mismatched_path, &base).unwrap();
+        let error = read_evidence(&mismatched_path)
+            .expect_err("an Evidence id that disagrees with the file name must fail closed");
+        assert!(error.to_string().contains("does not match file name"));
+
+        let non_ulid_id = "not-a-ulid";
+        let non_ulid_yaml = base.replacen(&id, non_ulid_id, 1);
+        let non_ulid_path = root.join(format!("{non_ulid_id}.yaml"));
+        fs::write(&non_ulid_path, &non_ulid_yaml).unwrap();
+        let error = read_evidence(&non_ulid_path)
+            .expect_err("a non-ULID Evidence id must fail closed even if it matches the file name");
+        assert!(error.to_string().contains("not a valid ULID"));
+
+        let missing_id_yaml = base
+            .lines()
+            .filter(|line| !line.starts_with("id:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&matching_path, &missing_id_yaml).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_err(),
+            "an Evidence record missing id entirely must fail closed, not fall back to the file name"
+        );
     }
 
     #[test]
