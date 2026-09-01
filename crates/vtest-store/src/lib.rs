@@ -483,7 +483,24 @@ fn validate_v2_config(config: &ProjectConfig) -> Result<(), StoreError> {
                 gate.name, gate.require.verification
             )));
         }
+        // 詳細設計 v0.1 §2.2: "指定する場合は文字列ロール名の list とし、
+        // 空文字列・重複ロール名は E-CONFIG-001 とする" — both conditions
+        // are scoped to *this gate's own* `approvals` list, distinct from
+        // whether a name resolves in `approval_roles` at all (checked below).
+        let mut seen_gate_approval_roles = std::collections::BTreeSet::new();
         for role in &gate.require.approvals {
+            if role.trim().is_empty() {
+                return Err(StoreError::InvalidConfig(format!(
+                    "gate `{}` has an empty approval role name",
+                    gate.name
+                )));
+            }
+            if !seen_gate_approval_roles.insert(role.as_str()) {
+                return Err(StoreError::InvalidConfig(format!(
+                    "gate `{}` duplicates approval role `{role}`",
+                    gate.name
+                )));
+            }
             if !config.approval_roles.contains_key(role) {
                 return Err(StoreError::InvalidConfig(format!(
                     "gate `{}` requires approval role `{role}`, which approval_roles does not define",
@@ -929,6 +946,41 @@ mod tests {
         let error = ProjectConfig::from_yaml(&config.to_yaml(), "fallback")
             .expect_err("a gate referencing an undefined approval role must fail closed");
         assert!(error.to_string().contains("approval role"));
+    }
+
+    /// 詳細設計 v0.1 §2.2: "指定する場合は文字列ロール名の list とし、
+    /// 空文字列・重複ロール名は E-CONFIG-001 とする".
+    #[test]
+    fn gate_with_duplicate_approval_role_is_rejected() {
+        let mut config = ProjectConfig::default_for("calc");
+        config
+            .approval_roles
+            .insert("reviewer".to_owned(), vec!["reviewer-agent-01".to_owned()]);
+        config.gates.push(GateConfig {
+            name: "release".to_owned(),
+            require: GateRequirement {
+                verification: "PASS".to_owned(),
+                approvals: vec!["reviewer".to_owned(), "reviewer".to_owned()],
+            },
+        });
+        let error = ProjectConfig::from_yaml(&config.to_yaml(), "fallback")
+            .expect_err("a gate listing the same approval role twice must fail closed");
+        assert!(error.to_string().contains("duplicates approval role"));
+    }
+
+    #[test]
+    fn gate_with_empty_approval_role_name_is_rejected() {
+        let mut config = ProjectConfig::default_for("calc");
+        config.gates.push(GateConfig {
+            name: "release".to_owned(),
+            require: GateRequirement {
+                verification: "PASS".to_owned(),
+                approvals: vec![String::new()],
+            },
+        });
+        let error = ProjectConfig::from_yaml(&config.to_yaml(), "fallback")
+            .expect_err("a gate with an empty approval role name must fail closed");
+        assert!(error.to_string().contains("empty approval role name"));
     }
 
     #[test]
