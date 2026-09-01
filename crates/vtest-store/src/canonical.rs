@@ -2,9 +2,11 @@
 //! `vtest-model`. Kept separate from `records.rs`'s predecessor Req/Spec-model
 //! types so neither module's exports collide with the other's.
 
-use crate::records::{scalar, unquote, yaml_scalar};
+use crate::records::{
+    list, parse_combinations, parse_inline_list, scalar, unquote, yaml_list, yaml_scalar,
+};
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
-use vtest_model::{ContentHash, DerivesFrom, DocumentId, DocumentRecord};
+use vtest_model::{ContentHash, DerivesFrom, DocumentId, DocumentRecord, VoId, VoRecord};
 
 /// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
 /// shape (詳細設計 v0.1 §3.1).
@@ -128,9 +130,136 @@ fn parse_derives_from(text: &str) -> Vec<DerivesFrom> {
     entries
 }
 
+/// Serializes a canonical `VoRecord` to its `.verify/vo/VO-*.yaml` shape
+/// (詳細設計 v0.1 §3.2). Distinct name from `read_vo`/`VoRecord` (records.rs)
+/// on purpose: that pair still serves the predecessor store-side `VoRecord`
+/// until PR8 retires it, and the two types are not interchangeable.
+pub fn vo_record_to_yaml(record: &VoRecord) -> String {
+    let mut out = format!(
+        "id: {}\nparent: {}\n",
+        yaml_scalar(record.id.as_str()),
+        record
+            .parent
+            .as_ref()
+            .map(|value| yaml_scalar(value.as_str()))
+            .unwrap_or_else(|| "null".to_owned()),
+    );
+    out.push_str(&derives_from_yaml(&record.derives_from));
+    out.push_str(&format!(
+        "claim: {}\ndimensions:\n",
+        yaml_scalar(&record.claim)
+    ));
+    for dimension in &record.dimensions {
+        out.push_str(&format!(
+            "  - name: {}\n    partitions: {}\n",
+            yaml_scalar(&dimension.name),
+            yaml_list(dimension.partitions.iter().map(String::as_str)),
+        ));
+    }
+    out.push_str(&format!(
+        "coverage_policy: {}\n",
+        record
+            .coverage_policy
+            .map(|policy| yaml_scalar(coverage_policy_str(policy)))
+            .unwrap_or_else(|| "null".to_owned()),
+    ));
+    if record.combinations.is_empty() {
+        out.push_str("combinations: []\n");
+    } else {
+        out.push_str("combinations:\n");
+        for combination in &record.combinations {
+            out.push_str(&format!(
+                "  - {}\n",
+                yaml_list(combination.iter().map(String::as_str))
+            ));
+        }
+    }
+    out.push_str(&format!(
+        "representative_cases: {}\ncreated: {}\nupdated: {}\n",
+        yaml_list(record.representative_cases.iter().map(String::as_str)),
+        yaml_scalar(&record.created),
+        yaml_scalar(&record.updated),
+    ));
+    out
+}
+
+/// Parses a canonical `VoRecord` from its YAML representation. The `status`
+/// read-compat field (詳細設計 v0.1 §3.2) is intentionally ignored: canonical
+/// writers never persist it, and readers must not derive VO state from it.
+pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, StoreError> {
+    Ok(VoRecord {
+        id: VoId::new(scalar(text, "id").unwrap_or_else(|| fallback_id.to_owned())),
+        parent: scalar(text, "parent")
+            .and_then(|value| (!value.is_empty()).then_some(VoId::new(value))),
+        derives_from: parse_derives_from(text),
+        claim: scalar(text, "claim").unwrap_or_default(),
+        dimensions: parse_dimensions(text),
+        coverage_policy: scalar(text, "coverage_policy")
+            .filter(|value| value != "null")
+            .and_then(|value| coverage_policy_from_str(&value)),
+        combinations: parse_combinations(text),
+        representative_cases: list(text, "representative_cases"),
+        created: scalar(text, "created").unwrap_or_default(),
+        updated: scalar(text, "updated").unwrap_or_default(),
+    })
+}
+
+/// Reads the canonical VO record `<id>.yaml` from `.verify/vo/`.
+pub fn read_vo_record(layout: &VerifyLayout, id: &str) -> Result<VoRecord, StoreError> {
+    let path = layout.vo_dir().join(format!("{id}.yaml"));
+    let text = read_text(&path)?;
+    vo_record_from_yaml(&text, id)
+}
+
+/// Writes (or overwrites) the canonical VO record to `.verify/vo/`. Mutable
+/// in place, for the same reason as `write_document` above.
+pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), StoreError> {
+    let path = layout.vo_dir().join(format!("{}.yaml", record.id.as_str()));
+    write_atomic(&path, &vo_record_to_yaml(record))
+}
+
+fn coverage_policy_str(policy: vtest_model::CoveragePolicy) -> &'static str {
+    match policy {
+        vtest_model::CoveragePolicy::IndependentAxes => "independent-axes",
+        vtest_model::CoveragePolicy::FullProduct => "full-product",
+        vtest_model::CoveragePolicy::Explicit => "explicit",
+    }
+}
+
+fn coverage_policy_from_str(value: &str) -> Option<vtest_model::CoveragePolicy> {
+    match value {
+        "independent-axes" => Some(vtest_model::CoveragePolicy::IndependentAxes),
+        "full-product" => Some(vtest_model::CoveragePolicy::FullProduct),
+        "explicit" => Some(vtest_model::CoveragePolicy::Explicit),
+        _ => None,
+    }
+}
+
+fn parse_dimensions(text: &str) -> Vec<vtest_model::Dimension> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let mut dimensions = Vec::new();
+    for (index, raw) in lines.iter().enumerate() {
+        let line = raw.trim();
+        let Some(name) = line.strip_prefix("- name:") else {
+            continue;
+        };
+        let partitions = lines
+            .get(index + 1)
+            .and_then(|next| next.trim().strip_prefix("partitions:"))
+            .map(|value| parse_inline_list(value.trim()))
+            .unwrap_or_default();
+        dimensions.push(vtest_model::Dimension {
+            name: unquote(name.trim()),
+            partitions,
+        });
+    }
+    dimensions
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_model::{CoveragePolicy, Dimension};
 
     fn sample_document() -> DocumentRecord {
         DocumentRecord {
@@ -185,5 +314,83 @@ mod tests {
 
         write_document(&layout, &record).unwrap();
         assert_eq!(read_document(&layout, record.id.as_str()).unwrap(), record);
+    }
+
+    fn sample_vo() -> VoRecord {
+        VoRecord {
+            id: VoId::new("VO-PARSER-UTF8-003"),
+            parent: Some(VoId::new("VO-PARSER-UTF8")),
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("DOC-BASIC-001"),
+                anchor: Some("§8.2条項2".to_string()),
+                note: None,
+            }],
+            claim: "不正な continuation byte を含む入力を与えた場合、InvalidUtf8 を返す"
+                .to_string(),
+            dimensions: vec![Dimension {
+                name: "operand-sign".to_string(),
+                partitions: vec!["positive".to_string(), "negative".to_string()],
+            }],
+            coverage_policy: Some(CoveragePolicy::FullProduct),
+            combinations: vec![],
+            representative_cases: vec!["empty input".to_string()],
+            created: "2026-08-08".to_string(),
+            updated: "2026-08-08".to_string(),
+        }
+    }
+
+    #[test]
+    fn vo_record_round_trips_through_canonical_yaml() {
+        let record = sample_vo();
+        let yaml = vo_record_to_yaml(&record);
+        assert_eq!(
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            record
+        );
+    }
+
+    #[test]
+    fn vo_record_without_parent_or_optional_fields_round_trips() {
+        let record = VoRecord {
+            id: VoId::new("VO-ROOT-001"),
+            parent: None,
+            derives_from: vec![],
+            claim: "A root VO.".to_string(),
+            dimensions: vec![],
+            coverage_policy: None,
+            combinations: vec![],
+            representative_cases: vec![],
+            created: "2026-08-08".to_string(),
+            updated: "2026-08-08".to_string(),
+        };
+        let yaml = vo_record_to_yaml(&record);
+        assert_eq!(
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            record
+        );
+    }
+
+    #[test]
+    fn vo_record_status_read_compat_field_is_ignored() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("status: draft\n");
+        assert_eq!(
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            record
+        );
+    }
+
+    #[test]
+    fn vo_record_read_write_round_trips_through_disk() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-vo-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        let record = sample_vo();
+
+        write_vo_record(&layout, &record).unwrap();
+        assert_eq!(read_vo_record(&layout, record.id.as_str()).unwrap(), record);
     }
 }

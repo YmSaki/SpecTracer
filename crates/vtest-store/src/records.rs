@@ -1284,7 +1284,7 @@ fn parse_dimensions(text: &str) -> Vec<Dimension> {
     dimensions
 }
 
-fn parse_combinations(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse_combinations(text: &str) -> Vec<Vec<String>> {
     let lines = text.lines().collect::<Vec<_>>();
     let Some(start) = lines.iter().position(|line| {
         !line.starts_with([' ', '\t'])
@@ -1839,7 +1839,7 @@ fn nested_scalar(text: &str, parent: &str, key: &str) -> Option<String> {
     None
 }
 
-fn list(text: &str, key: &str) -> Vec<String> {
+pub(crate) fn list(text: &str, key: &str) -> Vec<String> {
     let lines = text.lines().collect::<Vec<_>>();
     for (index, raw) in lines.iter().enumerate() {
         let line = raw.trim();
@@ -1864,7 +1864,7 @@ fn list(text: &str, key: &str) -> Vec<String> {
     Vec::new()
 }
 
-fn parse_inline_list(value: &str) -> Vec<String> {
+pub(crate) fn parse_inline_list(value: &str) -> Vec<String> {
     let value = value.trim();
     let value = value
         .strip_prefix('[')
@@ -1878,7 +1878,7 @@ fn parse_inline_list(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
+pub(crate) fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
     let values = values.map(yaml_scalar).collect::<Vec<_>>();
     format!("[{}]", values.join(", "))
 }
