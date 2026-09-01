@@ -633,18 +633,19 @@ pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
     Ok(ids)
 }
 
-/// Predecessor-model helper: IDs from the retired `spec/`/`req/` split plus
-/// `vo/`. Reads `spec_dir()`/`req_dir()`/`vo_dir()`, not the canonical
-/// `doc/`+`vo/` layout `init_project` now creates — against a freshly
-/// initialized canonical project, `spec_dir()`/`req_dir()` do not exist and
-/// this returns an `Io` error. Kept as-is for the existing `vtest-scan`
-/// caller; replacing it with a canonical `doc/`+`vo/` equivalent is PR3's
-/// job when scan itself moves onto the canonical model.
-pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 3], StoreError> {
+/// IDs of every registered `document` and `VO` record (詳細設計 v0.1 §2.1's
+/// `doc/`+`vo/` layout — the predecessor `spec/`+`req/` split collapsed into
+/// the single generic `document` type PR1 introduced, so this returns two
+/// slots, not the predecessor reader's three). `vtest-scan`, this function's
+/// only caller, still expects the retired three-slot `[spec, req, vo]` shape
+/// and does not compile against this branch's canonical `ProjectConfig`
+/// regardless (18 pre-existing errors, unrelated to this change); updating
+/// that caller to the shape below is PR3's job, when scan itself moves onto
+/// the canonical model.
+pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 2], StoreError> {
     let layout = VerifyLayout::new(root);
     Ok([
-        read_record_ids(&layout.spec_dir())?,
-        read_record_ids(&layout.req_dir())?,
+        read_record_ids(&layout.doc_dir())?,
         read_record_ids(&layout.vo_dir())?,
     ])
 }
@@ -689,15 +690,57 @@ mod tests {
         }
     }
 
-    /// Documents a real gap rather than papering over it: `read_entity_ids`
-    /// is a predecessor-model helper (spec_dir/req_dir/vo_dir) that a freshly
-    /// initialized canonical project cannot satisfy, since init_project no
-    /// longer creates spec/req. Fixing the caller (vtest-scan) is PR3's job.
     #[test]
-    fn read_entity_ids_errors_against_a_freshly_initialized_canonical_project() {
+    fn read_entity_ids_succeeds_against_a_freshly_initialized_canonical_project() {
         let root = temporary_directory("read-entity-ids");
         init_project(&root, "example").unwrap();
-        assert!(read_entity_ids(&root).is_err());
+        assert_eq!(
+            read_entity_ids(&root).unwrap(),
+            [Vec::<String>::new(), Vec::new()]
+        );
+    }
+
+    #[test]
+    fn read_entity_ids_reflects_registered_documents_and_vos() {
+        let root = temporary_directory("read-entity-ids-populated");
+        let layout = init_project(&root, "example").unwrap();
+        write_document(
+            &layout,
+            &vtest_model::DocumentRecord {
+                id: vtest_model::DocumentId::new("DOC-A"),
+                path: "docs/a.md".to_owned(),
+                content_hash: vtest_model::ContentHash::from_text("a"),
+                title: None,
+                derives_from: vec![],
+                registered_at: "2026-08-08T00:00:00Z".to_owned(),
+            },
+        )
+        .unwrap();
+        write_vo_record(
+            &layout,
+            &vtest_model::VoRecord {
+                id: vtest_model::VoId::new("VO-A"),
+                parent: None,
+                derives_from: vec![vtest_model::DerivesFrom {
+                    doc: vtest_model::DocumentId::new("DOC-A"),
+                    anchor: None,
+                    note: None,
+                }],
+                claim: "claim".to_owned(),
+                dimensions: vec![],
+                coverage_policy: None,
+                combinations: vec![],
+                representative_cases: vec![],
+                created: "2026-08-08".to_owned(),
+                updated: "2026-08-08".to_owned(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            read_entity_ids(&root).unwrap(),
+            [vec!["DOC-A".to_owned()], vec!["VO-A".to_owned()]]
+        );
     }
 
     #[test]
