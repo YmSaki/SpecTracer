@@ -1798,7 +1798,7 @@ fn top_level_scalar(text: &str, key: &str) -> Option<String> {
     })
 }
 
-fn scalar(text: &str, key: &str) -> Option<String> {
+pub(crate) fn scalar(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|raw| {
         let line = raw.trim();
         let (candidate, value) = line.split_once(':')?;
@@ -1883,11 +1883,11 @@ fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
     format!("[{}]", values.join(", "))
 }
 
-fn yaml_scalar(value: &str) -> String {
+pub(crate) fn yaml_scalar(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn unquote(value: &str) -> String {
+pub(crate) fn unquote(value: &str) -> String {
     if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
         value[1..value.len() - 1].replace("''", "'")
     } else if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {

@@ -10,8 +10,10 @@ use std::{
 };
 use thiserror::Error;
 
+pub mod canonical;
 pub mod forms;
 pub mod records;
+pub use canonical::*;
 pub use forms::*;
 pub use records::*;
 
