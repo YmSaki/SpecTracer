@@ -123,7 +123,13 @@ pub struct ProjectConfig {
     pub adapters: Vec<AdapterConfig>,
     pub doc: DocSection,
     pub verify: VerifySection,
+
+    /// 詳細設計 v0.1 §2.2: "`gates` field自体の欠落と空 list は「ゲート定義
+    /// なし」として受理する" — absence and `gates: []` are equivalent.
+    #[serde(default)]
     pub gates: Vec<GateConfig>,
+
+    #[serde(default)]
     pub approval_roles: BTreeMap<String, Vec<String>>,
 }
 
@@ -172,6 +178,10 @@ pub struct GateConfig {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GateRequirement {
     pub verification: String,
+
+    /// 詳細設計 v0.1 §2.2: "`require.approvals` は省略可能とし、省略は「要求
+    /// する承認ロールなし（空集合）」として受理する".
+    #[serde(default)]
     pub approvals: Vec<String>,
 }
 
@@ -217,64 +227,14 @@ impl ProjectConfig {
         }
     }
 
-    /// Serialize the project configuration in its canonical version 2 shape.
-    /// Always writes `version: 2`: 詳細設計 v0.1 §2.2 states the writer's
-    /// normal form is version 2 and that `vtest init` generates it.
+    /// Serializes the project configuration in its canonical version 2 shape
+    /// via `yaml_serde`, using `ProjectConfig`'s own `Serialize` derive.
+    /// Every in-memory `ProjectConfig` this crate constructs already carries
+    /// `version: 2` (`default_for`, `from_yaml_v1`, and `from_yaml_v2` all
+    /// guarantee it), matching 詳細設計 v0.1 §2.2's "writer の正規形は
+    /// version 2".
     pub fn to_yaml(&self) -> String {
-        let mut out = format!(
-            "version: 2\nproject:\n  name: {}\nadapters:\n",
-            yaml_scalar(&self.project.name)
-        );
-        for adapter in &self.adapters {
-            out.push_str(&format!(
-                "  - id: {}\n    roots: {}\n    scan:\n      include: {}\n      assertion_macros: {}\n    run:\n      coverage: {}\n",
-                yaml_scalar(&adapter.id),
-                bracket_list(adapter.roots.iter().map(String::as_str)),
-                bracket_list(adapter.scan.include.iter().map(String::as_str)),
-                bracket_list(adapter.scan.assertion_macros.iter().map(String::as_str)),
-                yaml_scalar(&adapter.run.coverage),
-            ));
-        }
-        out.push_str(&format!(
-            "doc:\n  roots: {}\n",
-            bracket_list(self.doc.roots.iter().map(DocumentId::as_str))
-        ));
-        out.push_str(&format!(
-            "verify:\n  full_scope: {}\n",
-            bracket_list(self.verify.full_scope.iter().map(String::as_str))
-        ));
-        if self.gates.is_empty() {
-            out.push_str("gates: []\n");
-        } else {
-            out.push_str("gates:\n");
-            for gate in &self.gates {
-                out.push_str(&format!(
-                    "  - name: {}\n    require: {{ verification: {}",
-                    yaml_scalar(&gate.name),
-                    yaml_scalar(&gate.require.verification),
-                ));
-                if !gate.require.approvals.is_empty() {
-                    out.push_str(&format!(
-                        ", approvals: {}",
-                        bracket_list(gate.require.approvals.iter().map(String::as_str))
-                    ));
-                }
-                out.push_str(" }\n");
-            }
-        }
-        if self.approval_roles.is_empty() {
-            out.push_str("approval_roles: {}\n");
-        } else {
-            out.push_str("approval_roles:\n");
-            for (role, members) in &self.approval_roles {
-                out.push_str(&format!(
-                    "  {}: {}\n",
-                    yaml_scalar(role),
-                    bracket_list(members.iter().map(String::as_str)),
-                ));
-            }
-        }
-        out
+        yaml_serde::to_string(self).expect("ProjectConfig always serializes to valid YAML")
     }
 
     /// Read a project configuration. Version 2 is parsed as written; an
@@ -289,114 +249,23 @@ impl ProjectConfig {
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         match detect_config_version(text)? {
             None | Some(1) => Self::from_yaml_v1(text, project_name),
-            Some(2) => Self::from_yaml_v2(text, project_name),
+            Some(2) => Self::from_yaml_v2(text),
             Some(other) => Err(StoreError::InvalidConfig(format!(
                 "unsupported config version {other}; only 1 (compatibility) and 2 (canonical) are recognized"
             ))),
         }
     }
 
-    fn from_yaml_v2(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
-        let lines: Vec<&str> = text.lines().collect();
-
-        // Canonical v2's required sections (詳細設計 v0.1 §2.2's example has
-        // all of these; only `gates`/`approval_roles` are shown empty-able).
-        // A section built by starting from `default_for()` and leaving an
-        // absent key untouched would silently keep the *default* project's
-        // adapter/full_scope content for a file that deleted its own section
-        // — so presence is checked before parsing, independent of whether
-        // the block that follows turns out to be empty.
-        for required in ["project", "adapters", "doc", "verify"] {
-            if !has_top_level_key(&lines, required) {
-                return Err(StoreError::InvalidConfig(format!(
-                    "canonical v2 config is missing required section `{required}`"
-                )));
-            }
-        }
-
-        let mut config = Self::default_for(project_name);
-        config.version = 2;
-
-        if let Some(name) = find_top_level_block(&lines, "project")
-            .as_deref()
-            .and_then(|block| scalar(&block.join("\n"), "name"))
-        {
-            config.project.name = name;
-        }
-
-        let mut adapters = Vec::new();
-        for item in list_items(&find_top_level_block(&lines, "adapters").unwrap_or_default()) {
-            let item_text = item.join("\n");
-            let id = scalar(&item_text, "id")
-                .ok_or_else(|| StoreError::InvalidConfig("adapter is missing id".to_owned()))?;
-            adapters.push(AdapterConfig {
-                id,
-                roots: list(&item_text, "roots"),
-                scan: ScanSection {
-                    include: list(&item_text, "include"),
-                    assertion_macros: list(&item_text, "assertion_macros"),
-                },
-                run: RunSection {
-                    coverage: scalar(&item_text, "coverage").unwrap_or_default(),
-                },
-            });
-        }
-        config.adapters = adapters;
-
-        config.doc.roots = list(
-            &find_top_level_block(&lines, "doc")
-                .unwrap_or_default()
-                .join("\n"),
-            "roots",
-        )
-        .into_iter()
-        .map(DocumentId::new)
-        .collect();
-
-        config.verify.full_scope = list(
-            &find_top_level_block(&lines, "verify")
-                .unwrap_or_default()
-                .join("\n"),
-            "full_scope",
-        );
-
-        if let Some(block) = find_top_level_block(&lines, "gates") {
-            let mut gates = Vec::new();
-            for item in list_items(&block) {
-                let item_text = item.join("\n");
-                let name = scalar(&item_text, "name")
-                    .ok_or_else(|| StoreError::InvalidConfig("gate is missing name".to_owned()))?;
-                let require = scalar(&item_text, "require").ok_or_else(|| {
-                    StoreError::InvalidConfig(format!("gate `{name}` is missing require"))
-                })?;
-                gates.push(GateConfig {
-                    name,
-                    require: parse_gate_requirement(&require)?,
-                });
-            }
-            config.gates = gates;
-        }
-
-        if let Some(block) = find_top_level_block(&lines, "approval_roles") {
-            let mut approval_roles = BTreeMap::new();
-            for raw in &block {
-                let trimmed = raw.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                let Some((role, members)) = trimmed.split_once(':') else {
-                    return Err(StoreError::InvalidConfig(format!(
-                        "invalid approval_roles entry `{trimmed}`"
-                    )));
-                };
-                approval_roles.insert(
-                    unquote_yaml_scalar(role.trim())?,
-                    parse_inline_list(members.trim())?,
-                );
-            }
-            config.approval_roles = approval_roles;
-        }
-
+    /// Parses a canonical version 2 configuration directly via `yaml_serde`,
+    /// using `ProjectConfig`'s own `Deserialize` derive. A missing
+    /// `project`/`adapters`/`doc`/`verify` section fails closed through the
+    /// derive's standard "missing field" behavior (none of the four carry
+    /// `#[serde(default)]`); `gates`/`approval_roles` default to empty,
+    /// matching 詳細設計 v0.1 §2.2's "`gates` field自体の欠落と空 list は
+    /// 「ゲート定義なし」として受理する".
+    fn from_yaml_v2(text: &str) -> Result<Self, StoreError> {
+        let config: Self = yaml_serde::from_str(text)
+            .map_err(|error| StoreError::InvalidConfig(format!("invalid v2 config: {error}")))?;
         validate_v2_config(&config)?;
         Ok(config)
     }
@@ -405,95 +274,25 @@ impl ProjectConfig {
     /// in-memory to the version 2 shape: a single implicit `rust-cargo`
     /// adapter, no doc roots, no gates, no approval roles.
     fn from_yaml_v1(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
-        let mut name = project_name.into();
-        let mut include = vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()];
-        let mut assertion_macros = Vec::new();
-        let mut full_scope: Vec<String> = FIXED_FULL_SCOPE
-            .iter()
-            .map(|item| (*item).to_owned())
-            .collect();
-        let mut coverage = "llvm-cov".to_owned();
+        let v1: V1Config = yaml_serde::from_str(text)
+            .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
 
-        let mut section = "";
-        let mut list_field = None;
-        let mut saw_include = false;
-        let mut saw_assertion_macros = false;
-        let mut saw_full_scope = false;
-        for raw in text.lines() {
-            let line = raw.trim_end();
-            if line.trim().is_empty() || line.trim_start().starts_with('#') {
-                continue;
-            }
-            if !line.starts_with(' ') && line.ends_with(':') {
-                section = line.trim_end_matches(':');
-                list_field = None;
-                continue;
-            }
-            let trimmed = line.trim();
-            if trimmed.starts_with('-') {
-                let value = trimmed.trim_start_matches('-').trim();
-                let value = unquote_yaml_scalar(value)?;
-                match list_field {
-                    Some(ConfigList::ScanInclude) => {
-                        if !saw_include {
-                            include.clear();
-                            saw_include = true;
-                        }
-                        include.push(value);
-                    }
-                    Some(ConfigList::AssertionMacros) => {
-                        if !saw_assertion_macros {
-                            assertion_macros.clear();
-                            saw_assertion_macros = true;
-                        }
-                        assertion_macros.push(value);
-                    }
-                    Some(ConfigList::VerifyFullScope) => {
-                        if !saw_full_scope {
-                            full_scope.clear();
-                            saw_full_scope = true;
-                        }
-                        full_scope.push(value);
-                    }
-                    None => {}
-                }
-                continue;
-            }
-            let Some((key, value)) = trimmed.split_once(':') else {
-                return Err(StoreError::InvalidConfig(line.to_owned()));
-            };
-            let value = value.trim();
-            list_field = None;
-            match (section, key.trim()) {
-                ("project", "name") => name = unquote_yaml_scalar(value)?,
-                ("run", "coverage") => coverage = unquote_yaml_scalar(value)?,
-                ("scan", "include") => {
-                    parse_list_value(value, &mut include, &mut saw_include)?;
-                    if value.is_empty() {
-                        list_field = Some(ConfigList::ScanInclude);
-                    }
-                }
-                ("scan", "assertion_macros") => {
-                    parse_list_value(value, &mut assertion_macros, &mut saw_assertion_macros)?;
-                    if value.is_empty() {
-                        list_field = Some(ConfigList::AssertionMacros);
-                    }
-                }
-                ("verify", "full_scope") => {
-                    parse_list_value(value, &mut full_scope, &mut saw_full_scope)?;
-                    if value.is_empty() {
-                        list_field = Some(ConfigList::VerifyFullScope);
-                    }
-                }
-                ("", "version") => {}
-                _ => {}
-            }
-        }
-        include.dedup();
+        let name = v1
+            .project
+            .and_then(|section| section.name)
+            .unwrap_or_else(|| project_name.into());
+
+        let include = v1
+            .scan
+            .as_ref()
+            .and_then(|scan| scan.include.clone())
+            .unwrap_or_else(|| vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()]);
+
+        let mut assertion_macros = v1
+            .scan
+            .and_then(|scan| scan.assertion_macros)
+            .unwrap_or_default();
         assertion_macros.dedup();
-        if saw_full_scope {
-            full_scope.dedup();
-        }
         for macro_name in &assertion_macros {
             if !is_rust_macro_path(macro_name) {
                 return Err(StoreError::InvalidConfig(format!(
@@ -501,16 +300,35 @@ impl ProjectConfig {
                 )));
             }
         }
+
+        let coverage = v1
+            .run
+            .and_then(|run| run.coverage)
+            .unwrap_or_else(|| "llvm-cov".to_owned());
         if !matches!(coverage.as_str(), "llvm-cov" | "off") {
             return Err(StoreError::InvalidConfig(format!(
                 "run.coverage must be `llvm-cov` or `off`, got `{coverage}`"
             )));
         }
-        if saw_full_scope {
-            validate_full_scope(&full_scope)?;
-        }
 
-        let config = Self {
+        // 詳細設計 v0.1 §2.2: "version 1 では field 欠落を固定4検査として
+        // 具体化し、重複または未知項目は E-CONFIG-001 で拒否する...
+        // in-memory 補完で受理しない". A *present* full_scope goes straight
+        // to validate_full_scope with no dedup step first — a prior version
+        // of this reader deduped before validating, which silently hid
+        // adjacent duplicates from the very check meant to reject them.
+        let full_scope = match v1.verify.and_then(|verify| verify.full_scope) {
+            Some(list) => {
+                validate_full_scope(&list)?;
+                list
+            }
+            None => FIXED_FULL_SCOPE
+                .iter()
+                .map(|item| (*item).to_owned())
+                .collect(),
+        };
+
+        Ok(Self {
             version: 2,
             project: ProjectSection { name },
             adapters: vec![AdapterConfig {
@@ -526,9 +344,46 @@ impl ProjectConfig {
             verify: VerifySection { full_scope },
             gates: Vec::new(),
             approval_roles: BTreeMap::new(),
-        };
-        Ok(config)
+        })
     }
+}
+
+/// Intermediate shape for parsing a version 1 (predecessor) `config.yaml` via
+/// `yaml_serde`: every field is `Option` so `from_yaml_v1` can tell "key
+/// absent" (apply the documented default) apart from "key present" (use it,
+/// after validation) — a distinction a plain default value would erase.
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct V1Config {
+    project: Option<V1Project>,
+    scan: Option<V1Scan>,
+    verify: Option<V1Verify>,
+    run: Option<V1Run>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct V1Project {
+    name: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct V1Scan {
+    include: Option<Vec<String>>,
+    assertion_macros: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct V1Verify {
+    full_scope: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct V1Run {
+    coverage: Option<String>,
 }
 
 /// Returns the config's declared version, or `None` if `version:` is absent
@@ -551,119 +406,6 @@ fn detect_config_version(text: &str) -> Result<Option<u32>, StoreError> {
         }
     }
     Ok(None)
-}
-
-/// Whether an unindented `key:` (optionally followed by an inline value,
-/// e.g. `key: []`) appears at all. Distinct from `find_top_level_block`,
-/// which returns `None` both when the key is genuinely absent and when it
-/// is present with an inline-empty value (`key: []`/`key: {}`) — callers
-/// that must reject "key deleted entirely" while still accepting "key
-/// present but empty" need this separate presence check.
-fn has_top_level_key(lines: &[&str], key: &str) -> bool {
-    lines.iter().any(|line| {
-        !line.starts_with(' ')
-            && line
-                .trim()
-                .split_once(':')
-                .is_some_and(|(candidate, _)| candidate.trim() == key)
-    })
-}
-
-/// Returns the indented lines immediately following an unindented `key:`
-/// line, or `None` if that top-level key is absent.
-fn find_top_level_block<'a>(lines: &[&'a str], key: &str) -> Option<Vec<&'a str>> {
-    let start = lines
-        .iter()
-        .position(|line| !line.starts_with(' ') && line.trim() == format!("{key}:"))?;
-    Some(
-        lines[start + 1..]
-            .iter()
-            .take_while(|line| line.starts_with(' ') || line.trim().is_empty())
-            .copied()
-            .collect(),
-    )
-}
-
-/// Splits a block into its `  - ` list items, each dedented by 2 spaces so
-/// the item's own lines (including any further-nested `key:` sub-blocks)
-/// can be searched flatly with `scalar`/`list` — every field name within one
-/// adapter or gate item is unique regardless of nesting depth.
-fn list_items(block: &[&str]) -> Vec<Vec<String>> {
-    let mut items: Vec<Vec<String>> = Vec::new();
-    for line in block {
-        if let Some(rest) = line.strip_prefix("  - ") {
-            items.push(vec![rest.to_owned()]);
-        } else if let Some(rest) = line.strip_prefix("    ") {
-            if let Some(current) = items.last_mut() {
-                current.push(rest.to_owned());
-            }
-        }
-    }
-    items
-}
-
-/// Parses a `require: { verification: X }` or
-/// `require: { verification: X, approvals: [a, b] }` inline flow mapping
-/// (詳細設計 v0.1 §2.2's own literal example uses this style).
-fn parse_gate_requirement(value: &str) -> Result<GateRequirement, StoreError> {
-    let inner = value
-        .trim()
-        .strip_prefix('{')
-        .and_then(|rest| rest.trim_end().strip_suffix('}'))
-        .ok_or_else(|| {
-            StoreError::InvalidConfig(format!(
-                "gate require must be a flow mapping, got `{value}`"
-            ))
-        })?;
-
-    let mut parts = Vec::new();
-    let mut depth = 0i32;
-    let mut current = String::new();
-    for ch in inner.chars() {
-        match ch {
-            '[' => {
-                depth += 1;
-                current.push(ch);
-            }
-            ']' => {
-                depth -= 1;
-                current.push(ch);
-            }
-            ',' if depth == 0 => {
-                parts.push(std::mem::take(&mut current));
-            }
-            _ => current.push(ch),
-        }
-    }
-    if !current.trim().is_empty() {
-        parts.push(current);
-    }
-
-    let mut verification = None;
-    let mut approvals = Vec::new();
-    for part in parts {
-        let Some((key, val)) = part.split_once(':') else {
-            return Err(StoreError::InvalidConfig(format!(
-                "invalid gate require entry `{part}`"
-            )));
-        };
-        match key.trim() {
-            "verification" => verification = Some(unquote_yaml_scalar(val.trim())?),
-            "approvals" => approvals = parse_inline_list(val.trim())?,
-            other => {
-                return Err(StoreError::InvalidConfig(format!(
-                    "unknown gate require field `{other}`"
-                )))
-            }
-        }
-    }
-    let verification = verification.ok_or_else(|| {
-        StoreError::InvalidConfig("gate require is missing verification".to_owned())
-    })?;
-    Ok(GateRequirement {
-        verification,
-        approvals,
-    })
 }
 
 fn validate_full_scope(full_scope: &[String]) -> Result<(), StoreError> {
@@ -754,85 +496,6 @@ fn validate_v2_config(config: &ProjectConfig) -> Result<(), StoreError> {
     Ok(())
 }
 
-#[derive(Clone, Copy)]
-enum ConfigList {
-    ScanInclude,
-    AssertionMacros,
-    VerifyFullScope,
-}
-
-fn parse_list_value(
-    value: &str,
-    target: &mut Vec<String>,
-    saw_list: &mut bool,
-) -> Result<(), StoreError> {
-    if !*saw_list {
-        target.clear();
-        *saw_list = true;
-    }
-    if value.is_empty() || value == "[]" {
-        return Ok(());
-    }
-    if !value.starts_with('[') || !value.ends_with(']') {
-        return Err(StoreError::InvalidConfig(format!(
-            "list value must be a block list or bracketed list, got `{value}`"
-        )));
-    }
-    target.extend(parse_inline_list(value)?);
-    Ok(())
-}
-
-fn parse_inline_list(value: &str) -> Result<Vec<String>, StoreError> {
-    let Some(body) = value
-        .strip_prefix('[')
-        .and_then(|body| body.strip_suffix(']'))
-    else {
-        return Err(StoreError::InvalidConfig(format!(
-            "invalid bracketed YAML list `{value}`"
-        )));
-    };
-    if body.trim().is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut values = Vec::new();
-    let mut current = String::new();
-    let mut quote = None;
-    let mut chars = body.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match quote {
-            Some(delimiter) => {
-                current.push(ch);
-                if ch == delimiter {
-                    if delimiter == '\'' && chars.peek() == Some(&'\'') {
-                        current.push(chars.next().expect("peeked quote must exist"));
-                    } else {
-                        quote = None;
-                    }
-                }
-            }
-            None => match ch {
-                '\'' | '"' => {
-                    quote = Some(ch);
-                    current.push(ch);
-                }
-                ',' => {
-                    values.push(unquote_yaml_scalar(current.trim())?);
-                    current.clear();
-                }
-                _ => current.push(ch),
-            },
-        }
-    }
-    if quote.is_some() {
-        return Err(StoreError::InvalidConfig(format!(
-            "unterminated quoted YAML list value `{value}`"
-        )));
-    }
-    values.push(unquote_yaml_scalar(current.trim())?);
-    Ok(values)
-}
-
 fn is_rust_macro_path(value: &str) -> bool {
     !value.is_empty() && value.split("::").all(is_rust_identifier)
 }
@@ -842,48 +505,6 @@ fn is_rust_identifier(segment: &str) -> bool {
     let mut chars = identifier.chars();
     matches!(chars.next(), Some(ch) if ch == '_' || ch.is_ascii_alphabetic())
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn yaml_scalar(value: &str) -> String {
-    if value
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || "._-/".contains(ch))
-    {
-        value.to_owned()
-    } else {
-        format!("'{}'", value.replace('\'', "''"))
-    }
-}
-
-/// Formats a list as an inline flow sequence (`[a, b]`), matching the style
-/// used throughout 詳細設計 v0.1 §2.2's own `config.yaml` example.
-fn bracket_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
-    let values = values.map(yaml_scalar).collect::<Vec<_>>();
-    format!("[{}]", values.join(", "))
-}
-
-fn unquote_yaml_scalar(value: &str) -> Result<String, StoreError> {
-    if value.is_empty() {
-        Err(StoreError::InvalidConfig("empty YAML scalar".to_owned()))
-    } else if value.starts_with('\'') || value.ends_with('\'') {
-        if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
-            Ok(value[1..value.len() - 1].replace("''", "'"))
-        } else {
-            Err(StoreError::InvalidConfig(format!(
-                "unterminated single-quoted YAML scalar `{value}`"
-            )))
-        }
-    } else if value.starts_with('"') || value.ends_with('"') {
-        if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
-            Ok(value[1..value.len() - 1].to_owned())
-        } else {
-            Err(StoreError::InvalidConfig(format!(
-                "unterminated double-quoted YAML scalar `{value}`"
-            )))
-        }
-    } else {
-        Ok(value.to_owned())
-    }
 }
 
 pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError> {
@@ -1196,17 +817,35 @@ mod tests {
     #[test]
     fn v2_config_missing_a_required_section_is_rejected() {
         let full = ProjectConfig::default_for("calc").to_yaml();
+        let lines: Vec<&str> = full.lines().collect();
         for section in ["project", "adapters", "doc", "verify"] {
-            let without_section = full
-                .lines()
-                .filter(|line| {
-                    *line != format!("{section}:") && !line.starts_with(&format!("{section}: "))
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            // The filter above only drops the section's own header line;
-            // its indented body lines remain but become unreachable without
-            // the header, which is exactly the "section deleted" case.
+            // Drops the section's header line *and* its indented body, so
+            // the result is valid YAML that genuinely lacks the section
+            // (not a header-only removal, which can fold an orphaned body
+            // line into a sibling scalar instead of representing "absent").
+            let mut without_section = Vec::new();
+            let mut skipping = false;
+            for line in &lines {
+                let is_header = !line.starts_with(' ')
+                    && (*line == format!("{section}:")
+                        || line.starts_with(&format!("{section}: ")));
+                if is_header {
+                    skipping = true;
+                    continue;
+                }
+                if skipping {
+                    // yaml_serde writes a top-level key's block sequence at
+                    // the *same* indentation as the key itself (`adapters:`
+                    // then `- id: ...` with no extra indent), so a
+                    // continuation line is either indented or a bare `-`.
+                    if line.starts_with(' ') || line.starts_with('-') {
+                        continue;
+                    }
+                    skipping = false;
+                }
+                without_section.push(*line);
+            }
+            let without_section = without_section.join("\n");
             let error = ProjectConfig::from_yaml(&without_section, "fallback").expect_err(
                 &format!("a v2 config missing the `{section}` section must fail closed"),
             );
@@ -1233,6 +872,21 @@ mod tests {
             "fallback",
         )
         .expect_err("the predecessor full_scope vocabulary must fail closed");
+        assert!(error.to_string().contains("full_scope"));
+    }
+
+    /// 詳細設計 v0.1 §2.2: "version 1 では...重複または未知項目は
+    /// E-CONFIG-001 で拒否する...in-memory 補完で受理しない". A prior
+    /// version of this reader ran `Vec::dedup()` (adjacent-only) on a
+    /// present v1 `full_scope` before validating it, which silently erased
+    /// exactly this shape of duplicate instead of rejecting it.
+    #[test]
+    fn v1_full_scope_with_an_adjacent_duplicate_is_rejected() {
+        let error = ProjectConfig::from_yaml(
+            "version: 1\nverify:\n  full_scope:\n    - chain_integrity\n    - chain_integrity\n    - orphan_detection\n    - target_binding\n    - oracle_presence\n",
+            "fallback",
+        )
+        .expect_err("an adjacent duplicate in v1 full_scope must fail closed, not be silently deduped");
         assert!(error.to_string().contains("full_scope"));
     }
 
