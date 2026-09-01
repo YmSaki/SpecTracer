@@ -112,9 +112,10 @@ impl VerifyLayout {
 }
 
 /// Canonical v0.1 project configuration (詳細設計 v0.1 §2.2). The writer's
-/// normal form is version 2; version 1 (or an absent/unrecognized version)
+/// normal form is version 2; an absent version (or an explicit `version: 1`)
 /// is read as a single implicit `rust-cargo` adapter and converted in-memory
-/// to this shape without rewriting the file (§2.4).
+/// to this shape without rewriting the file (§2.4). Any other version is
+/// rejected — see `ProjectConfig::from_yaml`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProjectConfig {
     pub version: u32,
@@ -276,60 +277,88 @@ impl ProjectConfig {
         out
     }
 
-    /// Read a project configuration. Version 2 is parsed as written; version
-    /// 1 (or an absent/unrecognized version) is parsed under the version 1
-    /// shape and converted in-memory to this (version 2) shape (§2.4: a read
-    /// never rewrites the canonical file).
+    /// Read a project configuration. Version 2 is parsed as written; an
+    /// absent version (or an explicit `version: 1`) is parsed under the
+    /// version 1 shape and converted in-memory to this (version 2) shape
+    /// (§2.4: a read never rewrites the canonical file). Any other version
+    /// — malformed, or a number this reader does not recognize — is
+    /// rejected: 詳細設計 v0.1 §17.1 lists `config version` itself among the
+    /// E-CONFIG-001 conditions, so guessing at an unknown schema version
+    /// would be exactly the silent-promotion this system's fail-closed
+    /// design forbids.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
-        if detect_config_version(text) >= 2 {
-            Self::from_yaml_v2(text, project_name)
-        } else {
-            Self::from_yaml_v1(text, project_name)
+        match detect_config_version(text)? {
+            None | Some(1) => Self::from_yaml_v1(text, project_name),
+            Some(2) => Self::from_yaml_v2(text, project_name),
+            Some(other) => Err(StoreError::InvalidConfig(format!(
+                "unsupported config version {other}; only 1 (compatibility) and 2 (canonical) are recognized"
+            ))),
         }
     }
 
     fn from_yaml_v2(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let lines: Vec<&str> = text.lines().collect();
+
+        // Canonical v2's required sections (詳細設計 v0.1 §2.2's example has
+        // all of these; only `gates`/`approval_roles` are shown empty-able).
+        // A section built by starting from `default_for()` and leaving an
+        // absent key untouched would silently keep the *default* project's
+        // adapter/full_scope content for a file that deleted its own section
+        // — so presence is checked before parsing, independent of whether
+        // the block that follows turns out to be empty.
+        for required in ["project", "adapters", "doc", "verify"] {
+            if !has_top_level_key(&lines, required) {
+                return Err(StoreError::InvalidConfig(format!(
+                    "canonical v2 config is missing required section `{required}`"
+                )));
+            }
+        }
+
         let mut config = Self::default_for(project_name);
         config.version = 2;
 
-        if let Some(block) = find_top_level_block(&lines, "project") {
-            if let Some(name) = scalar(&block.join("\n"), "name") {
-                config.project.name = name;
-            }
+        if let Some(name) = find_top_level_block(&lines, "project")
+            .as_deref()
+            .and_then(|block| scalar(&block.join("\n"), "name"))
+        {
+            config.project.name = name;
         }
 
-        if let Some(block) = find_top_level_block(&lines, "adapters") {
-            let mut adapters = Vec::new();
-            for item in list_items(&block) {
-                let item_text = item.join("\n");
-                let id = scalar(&item_text, "id")
-                    .ok_or_else(|| StoreError::InvalidConfig("adapter is missing id".to_owned()))?;
-                adapters.push(AdapterConfig {
-                    id,
-                    roots: list(&item_text, "roots"),
-                    scan: ScanSection {
-                        include: list(&item_text, "include"),
-                        assertion_macros: list(&item_text, "assertion_macros"),
-                    },
-                    run: RunSection {
-                        coverage: scalar(&item_text, "coverage").unwrap_or_default(),
-                    },
-                });
-            }
-            config.adapters = adapters;
+        let mut adapters = Vec::new();
+        for item in list_items(&find_top_level_block(&lines, "adapters").unwrap_or_default()) {
+            let item_text = item.join("\n");
+            let id = scalar(&item_text, "id")
+                .ok_or_else(|| StoreError::InvalidConfig("adapter is missing id".to_owned()))?;
+            adapters.push(AdapterConfig {
+                id,
+                roots: list(&item_text, "roots"),
+                scan: ScanSection {
+                    include: list(&item_text, "include"),
+                    assertion_macros: list(&item_text, "assertion_macros"),
+                },
+                run: RunSection {
+                    coverage: scalar(&item_text, "coverage").unwrap_or_default(),
+                },
+            });
         }
+        config.adapters = adapters;
 
-        if let Some(block) = find_top_level_block(&lines, "doc") {
-            config.doc.roots = list(&block.join("\n"), "roots")
-                .into_iter()
-                .map(DocumentId::new)
-                .collect();
-        }
+        config.doc.roots = list(
+            &find_top_level_block(&lines, "doc")
+                .unwrap_or_default()
+                .join("\n"),
+            "roots",
+        )
+        .into_iter()
+        .map(DocumentId::new)
+        .collect();
 
-        if let Some(block) = find_top_level_block(&lines, "verify") {
-            config.verify.full_scope = list(&block.join("\n"), "full_scope");
-        }
+        config.verify.full_scope = list(
+            &find_top_level_block(&lines, "verify")
+                .unwrap_or_default()
+                .join("\n"),
+            "full_scope",
+        );
 
         if let Some(block) = find_top_level_block(&lines, "gates") {
             let mut gates = Vec::new();
@@ -502,7 +531,11 @@ impl ProjectConfig {
     }
 }
 
-fn detect_config_version(text: &str) -> u32 {
+/// Returns the config's declared version, or `None` if `version:` is absent
+/// entirely (treated as version 1 for backward compatibility). A `version:`
+/// line that is present but does not parse as an integer is a malformed
+/// config, not an absent one, so it errors rather than defaulting.
+fn detect_config_version(text: &str) -> Result<Option<u32>, StoreError> {
     for raw in text.lines() {
         let line = raw.trim_end();
         if line.starts_with(' ') {
@@ -510,11 +543,30 @@ fn detect_config_version(text: &str) -> u32 {
         }
         if let Some((key, value)) = line.split_once(':') {
             if key.trim() == "version" {
-                return value.trim().parse().unwrap_or(1);
+                let value = value.trim();
+                return value.parse::<u32>().map(Some).map_err(|_| {
+                    StoreError::InvalidConfig(format!("invalid config version `{value}`"))
+                });
             }
         }
     }
-    1
+    Ok(None)
+}
+
+/// Whether an unindented `key:` (optionally followed by an inline value,
+/// e.g. `key: []`) appears at all. Distinct from `find_top_level_block`,
+/// which returns `None` both when the key is genuinely absent and when it
+/// is present with an inline-empty value (`key: []`/`key: {}`) — callers
+/// that must reject "key deleted entirely" while still accepting "key
+/// present but empty" need this separate presence check.
+fn has_top_level_key(lines: &[&str], key: &str) -> bool {
+    lines.iter().any(|line| {
+        !line.starts_with(' ')
+            && line
+                .trim()
+                .split_once(':')
+                .is_some_and(|(candidate, _)| candidate.trim() == key)
+    })
 }
 
 /// Returns the indented lines immediately following an unindented `key:`
@@ -1102,6 +1154,53 @@ mod tests {
             vec!["examples,with-comma", "tests"]
         );
         assert!(parsed.adapters[0].scan.assertion_macros.is_empty());
+    }
+
+    /// 詳細設計 v0.1 §17.1 lists `config version` among the E-CONFIG-001
+    /// conditions: an unrecognized version must fail closed, not be guessed
+    /// at as whichever schema is "closest".
+    #[test]
+    fn unrecognized_config_version_is_rejected() {
+        for text in [
+            "version: 3\nproject:\n  name: x\n",
+            "version: 0\nproject:\n  name: x\n",
+            "version: not-a-number\n",
+        ] {
+            let error = ProjectConfig::from_yaml(text, "fallback")
+                .expect_err("an unrecognized config version must fail closed");
+            assert!(error.to_string().contains("version"));
+        }
+    }
+
+    #[test]
+    fn v2_config_missing_a_required_section_is_rejected() {
+        let full = ProjectConfig::default_for("calc").to_yaml();
+        for section in ["project", "adapters", "doc", "verify"] {
+            let without_section = full
+                .lines()
+                .filter(|line| {
+                    *line != format!("{section}:") && !line.starts_with(&format!("{section}: "))
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            // The filter above only drops the section's own header line;
+            // its indented body lines remain but become unreachable without
+            // the header, which is exactly the "section deleted" case.
+            let error = ProjectConfig::from_yaml(&without_section, "fallback").expect_err(
+                &format!("a v2 config missing the `{section}` section must fail closed"),
+            );
+            assert!(error.to_string().contains(section));
+        }
+    }
+
+    #[test]
+    fn v2_config_with_explicitly_empty_adapters_parses_to_no_adapters() {
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
+        let parsed = ProjectConfig::from_yaml(yaml, "fallback").unwrap();
+        assert!(
+            parsed.adapters.is_empty(),
+            "an explicitly empty adapters: [] must not be silently backfilled with the default adapter"
+        );
     }
 
     /// 詳細設計 v0.1 §2.2: the old 12-item full_scope enumeration violates
