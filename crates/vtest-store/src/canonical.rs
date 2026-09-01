@@ -29,19 +29,34 @@ pub fn document_to_yaml(record: &DocumentRecord) -> String {
 }
 
 /// Parses a `DocumentRecord` from its canonical YAML representation.
+/// `id`/`path`/`content_hash`/`registered_at` are required (詳細設計 v0.1
+/// §3.1's example has no `?` marker on any of them); a missing field or an
+/// `id` that disagrees with the file name fails closed rather than
+/// synthesizing an empty-string or fallback-derived record, matching the
+/// strictness `RelationRecord`/`ApprovalRecord`/`AuditRecord` already apply.
 pub fn document_from_yaml(text: &str, fallback_id: &str) -> Result<DocumentRecord, StoreError> {
-    let id = scalar(text, "id").unwrap_or_else(|| fallback_id.to_owned());
+    let id = scalar(text, "id")
+        .ok_or_else(|| StoreError::InvalidConfig("document is missing id".to_owned()))?;
+    if id != fallback_id {
+        return Err(StoreError::InvalidConfig(format!(
+            "document id {id} does not match file name {fallback_id}"
+        )));
+    }
+    let path = scalar(text, "path")
+        .ok_or_else(|| StoreError::InvalidConfig("document is missing path".to_owned()))?;
     let content_hash: ContentHash = scalar(text, "content_hash")
         .ok_or_else(|| StoreError::InvalidConfig("document is missing content_hash".to_owned()))?
         .parse()
         .map_err(|error: String| StoreError::InvalidConfig(error))?;
+    let registered_at = scalar(text, "registered_at")
+        .ok_or_else(|| StoreError::InvalidConfig("document is missing registered_at".to_owned()))?;
     Ok(DocumentRecord {
         id: DocumentId::new(id),
-        path: scalar(text, "path").unwrap_or_default(),
+        path,
         content_hash,
         title: scalar(text, "title"),
         derives_from: parse_derives_from(text),
-        registered_at: scalar(text, "registered_at").unwrap_or_default(),
+        registered_at,
     })
 }
 
@@ -183,24 +198,46 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
     out
 }
 
-/// Parses a canonical `VoRecord` from its YAML representation. The `status`
-/// read-compat field (詳細設計 v0.1 §3.2) is intentionally ignored: canonical
-/// writers never persist it, and readers must not derive VO state from it.
+/// Parses a canonical `VoRecord` from its YAML representation. `id`/`claim`/
+/// `created`/`updated` are required, `id` must match the file name, and a
+/// `coverage_policy` value that is present but not one of the three known
+/// variants fails closed rather than silently collapsing to `None` (which
+/// would make it indistinguishable from an intentional `coverage_policy:
+/// null`). The `status` read-compat field (詳細設計 v0.1 §3.2) is parsed
+/// nowhere: canonical writers never persist it, and readers must not derive
+/// VO state from it.
 pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, StoreError> {
+    let id = scalar(text, "id")
+        .ok_or_else(|| StoreError::InvalidConfig("VO is missing id".to_owned()))?;
+    if id != fallback_id {
+        return Err(StoreError::InvalidConfig(format!(
+            "VO id {id} does not match file name {fallback_id}"
+        )));
+    }
+    let claim = scalar(text, "claim")
+        .ok_or_else(|| StoreError::InvalidConfig("VO is missing claim".to_owned()))?;
+    let coverage_policy = match scalar(text, "coverage_policy") {
+        None => None,
+        Some(value) => Some(coverage_policy_from_str(&value).ok_or_else(|| {
+            StoreError::InvalidConfig(format!("VO has an unrecognized coverage_policy `{value}`"))
+        })?),
+    };
+    let created = scalar(text, "created")
+        .ok_or_else(|| StoreError::InvalidConfig("VO is missing created".to_owned()))?;
+    let updated = scalar(text, "updated")
+        .ok_or_else(|| StoreError::InvalidConfig("VO is missing updated".to_owned()))?;
     Ok(VoRecord {
-        id: VoId::new(scalar(text, "id").unwrap_or_else(|| fallback_id.to_owned())),
+        id: VoId::new(id),
         parent: scalar(text, "parent")
             .and_then(|value| (!value.is_empty()).then_some(VoId::new(value))),
         derives_from: parse_derives_from(text),
-        claim: scalar(text, "claim").unwrap_or_default(),
+        claim,
         dimensions: parse_dimensions(text),
-        coverage_policy: scalar(text, "coverage_policy")
-            .filter(|value| value != "null")
-            .and_then(|value| coverage_policy_from_str(&value)),
+        coverage_policy,
         combinations: parse_combinations(text),
         representative_cases: list(text, "representative_cases"),
-        created: scalar(text, "created").unwrap_or_default(),
-        updated: scalar(text, "updated").unwrap_or_default(),
+        created,
+        updated,
     })
 }
 
@@ -304,6 +341,30 @@ mod tests {
     }
 
     #[test]
+    fn document_with_id_disagreeing_with_file_name_is_rejected() {
+        let yaml = document_to_yaml(&sample_document());
+        let error = document_from_yaml(&yaml, "DOC-OTHER-001")
+            .expect_err("a document id that disagrees with the file name must fail closed");
+        assert!(error.to_string().contains("does not match file name"));
+    }
+
+    #[test]
+    fn document_missing_a_required_field_is_rejected() {
+        let yaml = document_to_yaml(&sample_document());
+        for key in ["id", "path", "content_hash", "registered_at"] {
+            let without_field = yaml
+                .lines()
+                .filter(|line| !line.starts_with(&format!("{key}:")))
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                document_from_yaml(&without_field, "DOC-BASIC-001").is_err(),
+                "expected a document missing `{key}` to fail closed"
+            );
+        }
+    }
+
+    #[test]
     fn document_read_write_round_trips_through_disk() {
         let root = std::env::temp_dir().join(format!(
             "vtest-store-canonical-doc-{}",
@@ -379,6 +440,42 @@ mod tests {
             vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
             record
         );
+    }
+
+    #[test]
+    fn vo_record_with_id_disagreeing_with_file_name_is_rejected() {
+        let yaml = vo_record_to_yaml(&sample_vo());
+        let error = vo_record_from_yaml(&yaml, "VO-OTHER-001")
+            .expect_err("a VO id that disagrees with the file name must fail closed");
+        assert!(error.to_string().contains("does not match file name"));
+    }
+
+    #[test]
+    fn vo_record_missing_a_required_field_is_rejected() {
+        let yaml = vo_record_to_yaml(&sample_vo());
+        for key in ["id", "claim", "created", "updated"] {
+            let without_field = yaml
+                .lines()
+                .filter(|line| !line.starts_with(&format!("{key}:")))
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                vo_record_from_yaml(&without_field, "VO-PARSER-UTF8-003").is_err(),
+                "expected a VO missing `{key}` to fail closed"
+            );
+        }
+    }
+
+    #[test]
+    fn vo_record_with_unrecognized_coverage_policy_is_rejected() {
+        let yaml = vo_record_to_yaml(&sample_vo()).replace(
+            "coverage_policy: 'full-product'",
+            "coverage_policy: 'bogus'",
+        );
+        let error = vo_record_from_yaml(&yaml, "VO-PARSER-UTF8-003").expect_err(
+            "an unrecognized coverage_policy must fail closed, not silently become None",
+        );
+        assert!(error.to_string().contains("coverage_policy"));
     }
 
     #[test]
