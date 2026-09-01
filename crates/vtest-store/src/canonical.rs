@@ -10,7 +10,7 @@
 //! representation) instead.
 
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
-use vtest_model::{DerivesFrom, DocumentRecord, VoRecord};
+use vtest_model::{DerivesFrom, Diagnostic, DocumentRecord, VoRecord};
 
 /// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
 /// shape (詳細設計 v0.1 §3.1) via `yaml_serde`, using `DocumentRecord`'s own
@@ -64,17 +64,38 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
     yaml_serde::to_string(record).expect("VoRecord always serializes to valid YAML")
 }
 
-/// Parses a canonical `VoRecord` from its YAML representation.
-/// `yaml_serde::from_str` fails closed on a missing required field
-/// (`claim`/`created`/`updated`/etc.) or an unrecognized `coverage_policy`
-/// value via `VoRecord`'s `Deserialize` derive; this adds the id/file-name
-/// check the derive cannot express, plus the `derives_from` cardinality
-/// floor (詳細設計 v0.1 §3.2). The `status` read-compat field is
-/// accepted-and-ignored here (serde silently drops unknown fields) —
-/// notifying its mere presence is a separate diagnostic concern, not
-/// implemented by this function.
-pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, StoreError> {
-    let record: VoRecord = yaml_serde::from_str(text)
+/// Parses a canonical `VoRecord` from its YAML representation, returning any
+/// non-fatal diagnostics alongside it. `yaml_serde::from_value` fails closed
+/// on a missing required field (`claim`/`created`/`updated`/etc.) or an
+/// unrecognized `coverage_policy` value via `VoRecord`'s `Deserialize`
+/// derive; this adds the id/file-name check the derive cannot express, plus
+/// the `derives_from` cardinality floor (詳細設計 v0.1 §3.2).
+///
+/// The `status` read-compat field goes through an explicit two-stage parse
+/// (text → `Value` → presence check → `VoRecord`) because a direct
+/// `from_str::<VoRecord>` would silently drop an unrecognized key with no
+/// way to observe it happened: serde's derive ignores fields the target
+/// struct does not declare, and `VoRecord` deliberately has no `status`
+/// field (canonical writers never persist it — adding one to detect it
+/// would pollute the canonical model and change its JSON shape). 詳細設計
+/// v0.1 §3.2: "readerは読取り互換fieldとして`status`を受理するが、実効判定と
+/// VO subject hashでは無視し、存在自体をW-STORE-001として通知する".
+pub fn vo_record_from_yaml(
+    text: &str,
+    fallback_id: &str,
+) -> Result<(VoRecord, Vec<Diagnostic>), StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
+
+    let mut diagnostics = Vec::new();
+    if value.get("status").is_some() {
+        diagnostics.push(Diagnostic::warning(
+            "W-STORE-001",
+            "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
+        ));
+    }
+
+    let record: VoRecord = yaml_serde::from_value(value)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
     if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
@@ -83,11 +104,14 @@ pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, St
         )));
     }
     require_at_least_one_derives_from(&record.derives_from)?;
-    Ok(record)
+    Ok((record, diagnostics))
 }
 
 /// Reads the canonical VO record `<id>.yaml` from `.verify/vo/`.
-pub fn read_vo_record(layout: &VerifyLayout, id: &str) -> Result<VoRecord, StoreError> {
+pub fn read_vo_record(
+    layout: &VerifyLayout,
+    id: &str,
+) -> Result<(VoRecord, Vec<Diagnostic>), StoreError> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
     let text = read_text(&path)?;
     vo_record_from_yaml(&text, id)
@@ -264,10 +288,9 @@ registered_at: 2026-08-08T00:00:00Z
     fn vo_record_round_trips_through_canonical_yaml() {
         let record = sample_vo();
         let yaml = vo_record_to_yaml(&record);
-        assert_eq!(
-            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
-            record
-        );
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty());
     }
 
     /// `derives_from` itself is mandatory (詳細設計 v0.1 §3.2: "1 件以上");
@@ -292,7 +315,7 @@ registered_at: 2026-08-08T00:00:00Z
         };
         let yaml = vo_record_to_yaml(&record);
         assert_eq!(
-            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap().0,
             record
         );
     }
@@ -335,7 +358,7 @@ representative_cases: []        # 代表入力値（任意）
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let record = vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003").unwrap();
+        let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003").unwrap();
         assert_eq!(
             record.parent.as_ref().map(VoId::as_str),
             Some("VO-PARSER-UTF8")
@@ -343,9 +366,12 @@ updated: 2026-08-08
         assert_eq!(record.derives_from[0].doc.as_str(), "DOC-BASIC-001");
         assert_eq!(record.coverage_policy, None);
         assert!(record.combinations.is_empty());
+        assert!(diagnostics.is_empty());
         let roundtrip = vo_record_to_yaml(&record);
         assert_eq!(
-            vo_record_from_yaml(&roundtrip, "VO-PARSER-UTF8-003").unwrap(),
+            vo_record_from_yaml(&roundtrip, "VO-PARSER-UTF8-003")
+                .unwrap()
+                .0,
             record
         );
     }
@@ -374,7 +400,7 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let record = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
+        let (record, _diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
         assert_eq!(record.combinations.len(), 2);
         assert_eq!(
             record.combinations[0]
@@ -388,20 +414,32 @@ updated: 2026-08-08
         );
         let roundtrip = vo_record_to_yaml(&record);
         assert_eq!(
-            vo_record_from_yaml(&roundtrip, "VO-ARITH-001").unwrap(),
+            vo_record_from_yaml(&roundtrip, "VO-ARITH-001").unwrap().0,
             record
         );
     }
 
+    /// 詳細設計 v0.1 §3.2: the reader accepts `status` (does not reject the
+    /// record) but ignores its *value* and instead notifies W-STORE-001 on
+    /// the field's mere presence — this checks both halves.
     #[test]
-    fn vo_record_status_read_compat_field_is_ignored() {
+    fn vo_record_status_read_compat_field_value_is_ignored_but_presence_warns() {
         let record = sample_vo();
         let mut yaml = vo_record_to_yaml(&record);
         yaml.push_str("status: draft\n");
-        assert_eq!(
-            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
-            record
-        );
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-001");
+    }
+
+    #[test]
+    fn vo_record_without_status_field_reports_no_diagnostics() {
+        let record = sample_vo();
+        let yaml = vo_record_to_yaml(&record);
+        assert!(!yaml.contains("status"));
+        let (_, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -447,7 +485,10 @@ updated: 2026-08-08
         let record = sample_vo();
 
         write_vo_record(&layout, &record).unwrap();
-        assert_eq!(read_vo_record(&layout, record.id.as_str()).unwrap(), record);
+        assert_eq!(
+            read_vo_record(&layout, record.id.as_str()).unwrap().0,
+            record
+        );
     }
 
     #[test]
@@ -470,7 +511,7 @@ updated: 2026-08-08
         ])];
         let yaml = vo_record_to_yaml(&record);
         assert_eq!(
-            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap().0,
             record
         );
     }
