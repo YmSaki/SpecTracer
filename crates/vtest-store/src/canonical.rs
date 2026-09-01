@@ -10,7 +10,7 @@
 //! representation) instead.
 
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
-use vtest_model::{DocumentRecord, VoRecord};
+use vtest_model::{DerivesFrom, DocumentRecord, VoRecord};
 
 /// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
 /// shape (詳細設計 v0.1 §3.1) via `yaml_serde`, using `DocumentRecord`'s own
@@ -68,10 +68,11 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// `yaml_serde::from_str` fails closed on a missing required field
 /// (`claim`/`created`/`updated`/etc.) or an unrecognized `coverage_policy`
 /// value via `VoRecord`'s `Deserialize` derive; this adds the id/file-name
-/// check the derive cannot express. The `status` read-compat field (詳細設計
-/// v0.1 §3.2) is accepted-and-ignored here (serde silently drops unknown
-/// fields) — notifying its mere presence is a separate diagnostic concern,
-/// not implemented by this function.
+/// check the derive cannot express, plus the `derives_from` cardinality
+/// floor (詳細設計 v0.1 §3.2). The `status` read-compat field is
+/// accepted-and-ignored here (serde silently drops unknown fields) —
+/// notifying its mere presence is a separate diagnostic concern, not
+/// implemented by this function.
 pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, StoreError> {
     let record: VoRecord = yaml_serde::from_str(text)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
@@ -81,6 +82,7 @@ pub fn vo_record_from_yaml(text: &str, fallback_id: &str) -> Result<VoRecord, St
             record.id.as_str()
         )));
     }
+    require_at_least_one_derives_from(&record.derives_from)?;
     Ok(record)
 }
 
@@ -92,17 +94,37 @@ pub fn read_vo_record(layout: &VerifyLayout, id: &str) -> Result<VoRecord, Store
 }
 
 /// Writes (or overwrites) the canonical VO record to `.verify/vo/`. Mutable
-/// in place, for the same reason as `write_document` above.
+/// in place, for the same reason as `write_document` above. Enforces the
+/// same `derives_from` cardinality floor as the reader: a writer that
+/// skipped this check could produce a record `read_vo_record` would then
+/// reject, which fail-closed reading alone does not prevent.
 pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), StoreError> {
+    require_at_least_one_derives_from(&record.derives_from)?;
     let path = layout.vo_dir().join(format!("{}.yaml", record.id.as_str()));
     write_atomic(&path, &vo_record_to_yaml(record))
+}
+
+/// 詳細設計 v0.1 §3.2: "VO は 1 件以上の `document` から `derives_from` で
+/// 導出される" — unlike document's `derives_from` (0 or more, an empty list
+/// marks a root candidate), a VO's `derives_from` must be non-empty. This
+/// checks only cardinality: whether each entry's `doc` resolves to a document
+/// that actually exists is E-SCAN-012 (§3.2 L230), a chain_integrity/scan-time
+/// concern this record-level reader/writer does not have the document set to
+/// evaluate.
+fn require_at_least_one_derives_from(derives_from: &[DerivesFrom]) -> Result<(), StoreError> {
+    if derives_from.is_empty() {
+        return Err(StoreError::InvalidConfig(
+            "VO derives_from must have at least one entry".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
-    use vtest_model::{ContentHash, CoveragePolicy, DerivesFrom, Dimension, DocumentId, VoId};
+    use vtest_model::{ContentHash, CoveragePolicy, Dimension, DocumentId, VoId};
 
     fn sample_document() -> DocumentRecord {
         DocumentRecord {
@@ -248,12 +270,18 @@ registered_at: 2026-08-08T00:00:00Z
         );
     }
 
+    /// `derives_from` itself is mandatory (詳細設計 v0.1 §3.2: "1 件以上");
+    /// this exercises every *other* optional field being absent instead.
     #[test]
-    fn vo_record_without_parent_or_optional_fields_round_trips() {
+    fn vo_record_without_parent_or_other_optional_fields_round_trips() {
         let record = VoRecord {
             id: VoId::new("VO-ROOT-001"),
             parent: None,
-            derives_from: vec![],
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("DOC-BASIC-001"),
+                anchor: None,
+                note: None,
+            }],
             claim: "A root VO.".to_string(),
             dimensions: vec![],
             coverage_policy: None,
@@ -267,6 +295,25 @@ registered_at: 2026-08-08T00:00:00Z
             vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
             record
         );
+    }
+
+    #[test]
+    fn vo_record_with_empty_derives_from_is_rejected_on_read_and_write() {
+        let mut record = sample_vo();
+        record.derives_from = vec![];
+
+        let yaml = vo_record_to_yaml(&record);
+        vo_record_from_yaml(&yaml, record.id.as_str()).expect_err(
+            "a VO with zero derives_from entries must fail closed, not round-trip as a root",
+        );
+
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-vo-empty-derives-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        write_vo_record(&layout, &record)
+            .expect_err("the writer must refuse to persist a VO it could not itself read back");
     }
 
     /// 詳細設計 v0.1 §3.2's own example, verbatim (including its inline
