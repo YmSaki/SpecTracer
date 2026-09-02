@@ -952,6 +952,25 @@ mod tests {
             .expect_err("a duplicate top-level `version` key must fail closed");
     }
 
+    /// The same `yaml_serde::Value`-first parse that lets `from_yaml` inspect
+    /// `version` before dispatching also rejects a duplicate key *anywhere*
+    /// in the document, not only at the top level — round 2's PR description
+    /// stated this was "genuinely unenforced" for `approval_roles`, verified
+    /// against round 2's code, which parsed straight into `ProjectConfig`/
+    /// `V1Config` via `yaml_serde::from_str` (a plain `BTreeMap`'s own
+    /// `Deserialize` silently keeps the last of two duplicate keys — no
+    /// rejection). Once every config goes through a `Value` first, its
+    /// `Mapping` visitor's own duplicate-key check runs on every nested
+    /// mapping, `approval_roles` included, before `from_value` ever builds
+    /// the `BTreeMap`. This re-verifies that specifically, rather than
+    /// leaving the round 2 claim uncorrected.
+    #[test]
+    fn approval_roles_with_a_duplicate_key_is_rejected() {
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\napproval_roles:\n  reviewer: [a]\n  reviewer: [b]\n";
+        ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("a duplicate key inside approval_roles must fail closed");
+    }
+
     #[test]
     fn v2_config_missing_a_required_section_is_rejected() {
         let full = ProjectConfig::default_for("calc").to_yaml();

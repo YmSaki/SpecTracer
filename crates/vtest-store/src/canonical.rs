@@ -384,6 +384,22 @@ registered_at: 2026-08-08T00:00:00Z
         }
     }
 
+    /// The two-stage parse (text -> `Value` -> known-key scan -> typed
+    /// struct) `document_from_yaml` uses for the unknown-field warning also
+    /// rejects a duplicate top-level key outright, as a side effect: parsing
+    /// to `Value` first runs `yaml_serde::Mapping`'s own duplicate-key check
+    /// on the whole document before the typed struct is ever built.
+    #[test]
+    fn document_with_a_duplicate_top_level_key_is_rejected() {
+        let yaml = document_to_yaml(&sample_document());
+        let mut duplicated = yaml.clone();
+        duplicated.push_str(&yaml);
+        assert!(
+            document_from_yaml(&duplicated, "DOC-BASIC-001").is_err(),
+            "a document YAML with every top-level key duplicated must fail closed"
+        );
+    }
+
     #[test]
     fn document_read_write_round_trips_through_disk() {
         let root = std::env::temp_dir().join(format!(
