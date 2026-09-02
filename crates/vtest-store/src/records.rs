@@ -5,7 +5,7 @@
 //! small scalar/list subset emitted by vtest and preserves unknown fields by
 //! ignoring them (forward-compatible read behavior).
 
-use crate::{StoreError, VerifyLayout};
+use crate::{canonical::unknown_field_diagnostics, StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -16,8 +16,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision,
+    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -175,6 +175,11 @@ pub struct RelationRecord {
     pub note: Option<String>,
     pub created: String,
 }
+
+/// Known top-level keys for a canonical Relation record (詳細設計 v0.1
+/// §3.3). Kept in sync with `RelationRecord`'s own fields by
+/// `relation_known_keys_match_the_record_shape` (`#[cfg(test)]`, below).
+const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -731,12 +736,22 @@ impl RelationRecord {
         })
     }
 
-    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
-        let record: Self = yaml_serde::from_str(text).map_err(|error| {
+    /// Parses a `RelationRecord`, returning any non-fatal diagnostics
+    /// alongside it. Goes through the same text -> `Value` -> known-key scan
+    /// -> typed struct shape `document_from_yaml`/`vo_record_from_yaml`
+    /// (`canonical.rs`) use, so an unknown field here warns (W-STORE-007)
+    /// rather than being silently dropped — 詳細設計 v0.1 §3 header (L185)
+    /// applies to Relation the same as every other record type.
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<(Self, Vec<Diagnostic>), StoreError> {
+        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
+        let diagnostics = unknown_field_diagnostics(&value, RELATION_KEYS, "");
+        let record: Self = yaml_serde::from_value(value).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid relation record: {error}"))
         })?;
         record.validate(Some(filename_id))?;
-        Ok(record)
+        Ok((record, diagnostics))
     }
 
     fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
@@ -917,7 +932,7 @@ pub fn read_audit(path: &Path) -> Result<AuditRecord, StoreError> {
     AuditRecord::from_yaml(&text, fallback)
 }
 
-pub fn read_relation(path: &Path) -> Result<RelationRecord, StoreError> {
+pub fn read_relation(path: &Path) -> Result<(RelationRecord, Vec<Diagnostic>), StoreError> {
     let text = read_text(path)?;
     let fallback = path
         .file_stem()
@@ -2217,7 +2232,9 @@ mod tests {
             created: "2026-08-08T00:00:00Z".to_owned(),
         };
         let yaml = record.to_yaml().unwrap();
-        assert_eq!(RelationRecord::from_yaml(&yaml, &id).unwrap(), record);
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty());
 
         for malformed in [
             yaml.replacen("type: complements", "type: unknown", 1),
@@ -2236,7 +2253,9 @@ mod tests {
         };
         let prefixed_yaml = prefixed.to_yaml().unwrap();
         assert_eq!(
-            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id).unwrap(),
+            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id)
+                .unwrap()
+                .0,
             prefixed
         );
 
@@ -2247,7 +2266,7 @@ mod tests {
         assert!(invalid.to_yaml().is_err());
         let invalid = RelationRecord {
             from: String::new(),
-            ..RelationRecord::from_yaml(&yaml, &id).unwrap()
+            ..RelationRecord::from_yaml(&yaml, &id).unwrap().0
         };
         assert!(invalid.to_yaml().is_err());
     }
@@ -2274,6 +2293,56 @@ mod tests {
         );
 
         let path = layout.relation_dir().join(format!("{}.yaml", record.id));
-        assert_eq!(read_relation(&path).unwrap(), record);
+        assert_eq!(read_relation(&path).unwrap().0, record);
+    }
+
+    /// 詳細設計 v0.1 §3 header (L185): an unknown field warns, it does not
+    /// stop the record from being read — same rule `document_from_yaml`/
+    /// `vo_record_from_yaml` (`canonical.rs`) apply, exercised here for the
+    /// Relation reader that lives in this module instead.
+    #[test]
+    fn relation_with_unknown_top_level_field_warns_and_still_reads() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("owner: someone\n");
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
+    }
+
+    /// Guards `RELATION_KEYS` against drifting out of sync with
+    /// `RelationRecord`'s actual fields: `note` is populated (`Some`), so
+    /// its `skip_serializing_if` does not omit the key from the shape.
+    #[test]
+    fn relation_known_keys_match_the_record_shape() {
+        let record = RelationRecord {
+            id: new_record_id(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: Some("boundary cases overlap".to_owned()),
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let value = yaml_serde::to_value(&record).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        let mut expected = RELATION_KEYS.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
     }
 }

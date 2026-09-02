@@ -62,7 +62,12 @@ const DIMENSION_KEYS: &[&str] = &["name", "partitions"];
 /// reads distinctly from a top-level one. Returns nothing if `value` isn't
 /// a mapping — a type mismatch there is instead caught, fail-closed, by
 /// the `from_value` deserialize this always runs alongside.
-fn unknown_field_diagnostics(
+///
+/// `pub(crate)` (rather than private to this module) so `records.rs`'s
+/// `RelationRecord::from_yaml` — a §3.3 reader that lives outside this
+/// module for historical reasons (see that file's module doc comment) —
+/// can apply the same §3-header rule instead of re-implementing the scan.
+pub(crate) fn unknown_field_diagnostics(
     value: &yaml_serde::Value,
     known: &[&str],
     prefix: &str,
