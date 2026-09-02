@@ -12,6 +12,119 @@
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
 use vtest_model::{DerivesFrom, Diagnostic, DocumentRecord, VoRecord};
 
+/// Known top-level keys for a canonical document record (詳細設計 v0.1
+/// §3.1). Kept in sync with `DocumentRecord`'s own fields by
+/// `document_known_keys_match_the_record_shape` (below, in `#[cfg(test)]`):
+/// a field added to the struct without updating this list would otherwise
+/// go unwarned rather than loudly wrong.
+const DOCUMENT_KEYS: &[&str] = &[
+    "id",
+    "path",
+    "content_hash",
+    "title",
+    "derives_from",
+    "registered_at",
+];
+
+/// Known keys for one `derives_from[]` entry (詳細設計 v0.1 §3.1/§3.2),
+/// shared by document and VO records.
+const DERIVES_FROM_KEYS: &[&str] = &["doc", "anchor", "note"];
+
+/// Known top-level keys for a canonical VO record (詳細設計 v0.1 §3.2).
+/// `status` is listed as *known* here even though `VoRecord` has no such
+/// field: its presence already gets its own, more specific W-STORE-001
+/// diagnostic (詳細設計 v0.1 §3.2 L235-237); listing it here stops the same
+/// key from also being reported as a generic W-STORE-007.
+const VO_KEYS: &[&str] = &[
+    "id",
+    "parent",
+    "derives_from",
+    "claim",
+    "dimensions",
+    "coverage_policy",
+    "combinations",
+    "representative_cases",
+    "created",
+    "updated",
+    "status",
+];
+
+/// Known keys for one `dimensions[]` entry (詳細設計 v0.1 §3.2).
+const DIMENSION_KEYS: &[&str] = &["name", "partitions"];
+
+/// Scans a YAML mapping for keys outside `known`, returning one
+/// `W-STORE-007` diagnostic per unknown key, in YAML occurrence order
+/// (`yaml_serde::Mapping` preserves insertion order). 詳細設計 v0.1 §3
+/// header (L185): "すべてのレコードは YAML とし、未知フィールドはエラーで
+/// はなく警告とする" — the record is still read (this function never
+/// returns an `Err`), only warned about. `prefix` is prepended to each
+/// reported key so a nested unknown key (e.g. inside `derives_from[0]`)
+/// reads distinctly from a top-level one. Returns nothing if `value` isn't
+/// a mapping — a type mismatch there is instead caught, fail-closed, by
+/// the `from_value` deserialize this always runs alongside.
+fn unknown_field_diagnostics(
+    value: &yaml_serde::Value,
+    known: &[&str],
+    prefix: &str,
+) -> Vec<Diagnostic> {
+    let Some(mapping) = value.as_mapping() else {
+        return Vec::new();
+    };
+    mapping
+        .iter()
+        .filter_map(|(key, _)| key.as_str())
+        .filter(|key| !known.contains(key))
+        .map(|key| {
+            Diagnostic::warning(
+                "W-STORE-007",
+                format!("unknown field `{prefix}{key}` is not part of the §3 schema; its value is ignored"),
+            )
+        })
+        .collect()
+}
+
+/// Extends the unknown-field scan into each `derives_from[]` entry — the
+/// nested shape §3.1 (document) and §3.2 (VO) share.
+fn derives_from_diagnostics(value: &yaml_serde::Value) -> Vec<Diagnostic> {
+    let Some(sequence) = value
+        .get("derives_from")
+        .and_then(yaml_serde::Value::as_sequence)
+    else {
+        return Vec::new();
+    };
+    sequence
+        .iter()
+        .enumerate()
+        .flat_map(|(index, entry)| {
+            unknown_field_diagnostics(entry, DERIVES_FROM_KEYS, &format!("derives_from[{index}]."))
+        })
+        .collect()
+}
+
+/// Extends the unknown-field scan into each VO `dimensions[]` entry (詳細設計
+/// v0.1 §3.2). `combinations[]` is deliberately not scanned the same way:
+/// each entry's keys are the *dimension names themselves* (a dynamic,
+/// record-specific vocabulary), not a fixed schema — whether a combination
+/// covers exactly the declared dimensions is E-SCAN-017, a chain_integrity/
+/// scan-time concern this record-level reader does not have the dimension
+/// set resolved enough to evaluate (the same record-vs-scan layer split
+/// `require_at_least_one_derives_from` below documents for E-SCAN-012).
+fn dimensions_diagnostics(value: &yaml_serde::Value) -> Vec<Diagnostic> {
+    let Some(sequence) = value
+        .get("dimensions")
+        .and_then(yaml_serde::Value::as_sequence)
+    else {
+        return Vec::new();
+    };
+    sequence
+        .iter()
+        .enumerate()
+        .flat_map(|(index, entry)| {
+            unknown_field_diagnostics(entry, DIMENSION_KEYS, &format!("dimensions[{index}]."))
+        })
+        .collect()
+}
+
 /// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
 /// shape (詳細設計 v0.1 §3.1) via `yaml_serde`, using `DocumentRecord`'s own
 /// `Serialize` derive.
@@ -19,14 +132,24 @@ pub fn document_to_yaml(record: &DocumentRecord) -> String {
     yaml_serde::to_string(record).expect("DocumentRecord always serializes to valid YAML")
 }
 
-/// Parses a `DocumentRecord` from its canonical YAML representation.
-/// `yaml_serde::from_str` already fails closed on a missing required field
-/// or a malformed value via `DocumentRecord`'s `Deserialize` derive; this
-/// adds the one check the derive cannot express: the record's `id` must
-/// match the file name, matching the strictness `RelationRecord`/
-/// `ApprovalRecord`/`AuditRecord` already apply.
-pub fn document_from_yaml(text: &str, fallback_id: &str) -> Result<DocumentRecord, StoreError> {
-    let record: DocumentRecord = yaml_serde::from_str(text)
+/// Parses a `DocumentRecord` from its canonical YAML representation,
+/// returning any non-fatal diagnostics alongside it. `yaml_serde::from_value`
+/// already fails closed on a missing required field or a malformed value via
+/// `DocumentRecord`'s `Deserialize` derive; this adds the id/file-name check
+/// the derive cannot express (matching the strictness `RelationRecord`/
+/// `ApprovalRecord`/`AuditRecord` already apply), plus the unknown-field scan
+/// 詳細設計 v0.1 §3 header (L185) requires of every record type.
+pub fn document_from_yaml(
+    text: &str,
+    fallback_id: &str,
+) -> Result<(DocumentRecord, Vec<Diagnostic>), StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
+
+    let mut diagnostics = unknown_field_diagnostics(&value, DOCUMENT_KEYS, "");
+    diagnostics.extend(derives_from_diagnostics(&value));
+
+    let record: DocumentRecord = yaml_serde::from_value(value)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
     if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
@@ -34,11 +157,14 @@ pub fn document_from_yaml(text: &str, fallback_id: &str) -> Result<DocumentRecor
             record.id.as_str()
         )));
     }
-    Ok(record)
+    Ok((record, diagnostics))
 }
 
 /// Reads the canonical document record `<id>.yaml` from `.verify/doc/`.
-pub fn read_document(layout: &VerifyLayout, id: &str) -> Result<DocumentRecord, StoreError> {
+pub fn read_document(
+    layout: &VerifyLayout,
+    id: &str,
+) -> Result<(DocumentRecord, Vec<Diagnostic>), StoreError> {
     let path = layout.doc_dir().join(format!("{id}.yaml"));
     let text = read_text(&path)?;
     document_from_yaml(&text, id)
@@ -71,15 +197,17 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// derive; this adds the id/file-name check the derive cannot express, plus
 /// the `derives_from` cardinality floor (詳細設計 v0.1 §3.2).
 ///
-/// The `status` read-compat field goes through an explicit two-stage parse
-/// (text → `Value` → presence check → `VoRecord`) because a direct
-/// `from_str::<VoRecord>` would silently drop an unrecognized key with no
-/// way to observe it happened: serde's derive ignores fields the target
-/// struct does not declare, and `VoRecord` deliberately has no `status`
-/// field (canonical writers never persist it — adding one to detect it
-/// would pollute the canonical model and change its JSON shape). 詳細設計
-/// v0.1 §3.2: "readerは読取り互換fieldとして`status`を受理するが、実効判定と
-/// VO subject hashでは無視し、存在自体をW-STORE-001として通知する".
+/// This goes through an explicit two-stage parse (text → `Value` → known-key
+/// scan → `VoRecord`) because a direct `from_str::<VoRecord>` would silently
+/// drop an unrecognized key with no way to observe it happened: serde's
+/// derive ignores fields the target struct does not declare. Most unknown
+/// keys are reported generically as W-STORE-007 (詳細設計 v0.1 §3 header,
+/// L185); `status` gets its own more specific diagnostic instead, since
+/// `VoRecord` deliberately has no `status` field (canonical writers never
+/// persist it — adding one to detect it would pollute the canonical model
+/// and change its JSON shape) but 詳細設計 v0.1 §3.2 names the read-compat
+/// case explicitly: "readerは読取り互換fieldとして`status`を受理するが、実効
+/// 判定とVO subject hashでは無視し、存在自体をW-STORE-001として通知する".
 pub fn vo_record_from_yaml(
     text: &str,
     fallback_id: &str,
@@ -94,6 +222,9 @@ pub fn vo_record_from_yaml(
             "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
         ));
     }
+    diagnostics.extend(unknown_field_diagnostics(&value, VO_KEYS, ""));
+    diagnostics.extend(derives_from_diagnostics(&value));
+    diagnostics.extend(dimensions_diagnostics(&value));
 
     let record: VoRecord = yaml_serde::from_value(value)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
@@ -169,10 +300,9 @@ mod tests {
     fn document_round_trips_through_canonical_yaml() {
         let record = sample_document();
         let yaml = document_to_yaml(&record);
-        assert_eq!(
-            document_from_yaml(&yaml, record.id.as_str()).unwrap(),
-            record
-        );
+        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -187,7 +317,7 @@ mod tests {
         };
         let yaml = document_to_yaml(&record);
         assert_eq!(
-            document_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            document_from_yaml(&yaml, record.id.as_str()).unwrap().0,
             record
         );
     }
@@ -210,16 +340,17 @@ derives_from:                   # 上流 document への導出リンク（0件�
     note: \"\"                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
 registered_at: 2026-08-08T00:00:00Z
 ";
-        let record = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
+        let (record, diagnostics) = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
         assert_eq!(record.id.as_str(), "DOC-BASIC-001");
         assert_eq!(record.path, "docs/basic-spec.md");
         assert_eq!(record.title.as_deref(), Some("基本仕様書"));
         assert_eq!(record.derives_from[0].doc.as_str(), "DOC-REQ-001");
         assert_eq!(record.derives_from[0].anchor.as_deref(), Some("§12.3"));
         assert_eq!(record.derives_from[0].note.as_deref(), Some(""));
+        assert!(diagnostics.is_empty());
         let roundtrip = document_to_yaml(&record);
         assert_eq!(
-            document_from_yaml(&roundtrip, "DOC-BASIC-001").unwrap(),
+            document_from_yaml(&roundtrip, "DOC-BASIC-001").unwrap().0,
             record
         );
     }
@@ -258,7 +389,100 @@ registered_at: 2026-08-08T00:00:00Z
         let record = sample_document();
 
         write_document(&layout, &record).unwrap();
-        assert_eq!(read_document(&layout, record.id.as_str()).unwrap(), record);
+        assert_eq!(
+            read_document(&layout, record.id.as_str()).unwrap().0,
+            record
+        );
+    }
+
+    /// 詳細設計 v0.1 §3 header (L185): an unknown field warns, it does not
+    /// stop the record from being read.
+    #[test]
+    fn document_with_unknown_top_level_field_warns_and_still_reads() {
+        let record = sample_document();
+        let mut yaml = document_to_yaml(&record);
+        yaml.push_str("owner: someone\n");
+        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
+    }
+
+    #[test]
+    fn document_with_unknown_nested_derives_from_field_warns_with_path() {
+        let yaml = "\
+id: DOC-BASIC-001
+path: docs/basic-spec.md
+content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"
+derives_from:
+  - doc: DOC-REQ-001
+    foo: bar
+registered_at: 2026-08-08T00:00:00Z
+";
+        let (_record, diagnostics) = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("derives_from[0].foo"));
+    }
+
+    /// Two unknown keys appended out of alphabetical order — proves
+    /// diagnostics follow YAML occurrence order (the `Mapping`'s insertion
+    /// order), not e.g. a sorted-key iteration.
+    #[test]
+    fn document_with_multiple_unknown_fields_warns_in_yaml_order() {
+        let record = sample_document();
+        let mut yaml = document_to_yaml(&record);
+        yaml.push_str("zeta_unknown: 1\nalpha_unknown: 2\n");
+        let (_record, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics[0].message.contains("zeta_unknown"));
+        assert!(diagnostics[1].message.contains("alpha_unknown"));
+    }
+
+    /// Guards `DOCUMENT_KEYS`/`DERIVES_FROM_KEYS` against drifting out of
+    /// sync with `DocumentRecord`/`DerivesFrom`'s actual fields: every
+    /// optional field here is populated (`Some`, non-empty), so nothing is
+    /// omitted from the serialized shape by a `skip_serializing_if`.
+    #[test]
+    fn document_known_keys_match_the_record_shape() {
+        let record = DocumentRecord {
+            id: DocumentId::new("DOC-MAX-001"),
+            path: "docs/max.md".to_string(),
+            content_hash: ContentHash::from_text("max"),
+            title: Some("title".to_string()),
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("DOC-REQ-001"),
+                anchor: Some("anchor".to_string()),
+                note: Some("note".to_string()),
+            }],
+            registered_at: "2026-08-08T00:00:00Z".to_string(),
+        };
+        let value = yaml_serde::to_value(&record).unwrap();
+
+        let mut keys: Vec<&str> = value
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        let mut expected = DOCUMENT_KEYS.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
+
+        let mut derives_from_keys: Vec<&str> = value
+            .get("derives_from")
+            .and_then(|list| list.get(0))
+            .and_then(yaml_serde::Value::as_mapping)
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        derives_from_keys.sort_unstable();
+        let mut expected_derives_from = DERIVES_FROM_KEYS.to_vec();
+        expected_derives_from.sort_unstable();
+        assert_eq!(derives_from_keys, expected_derives_from);
     }
 
     fn sample_vo() -> VoRecord {
@@ -400,7 +624,7 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let (record, _diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
+        let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
         assert_eq!(record.combinations.len(), 2);
         assert_eq!(
             record.combinations[0]
@@ -412,6 +636,11 @@ updated: 2026-08-08
             record.combinations[0].get("operator").map(String::as_str),
             Some("div")
         );
+        // `combinations[]` entries are keyed by the record's own declared
+        // dimension names (a dynamic vocabulary), not a fixed schema — this
+        // locks in that the unknown-field scan does not walk into them and
+        // misreport every dimension name as an unknown key.
+        assert!(diagnostics.is_empty());
         let roundtrip = vo_record_to_yaml(&record);
         assert_eq!(
             vo_record_from_yaml(&roundtrip, "VO-ARITH-001").unwrap().0,
@@ -440,6 +669,124 @@ updated: 2026-08-08
         assert!(!yaml.contains("status"));
         let (_, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
         assert!(diagnostics.is_empty());
+    }
+
+    /// `status` keeps its own specific W-STORE-001 diagnostic even when a
+    /// second, genuinely unknown field is also present — the two do not
+    /// collapse into one, and `status` (checked first) is reported first.
+    #[test]
+    fn vo_record_with_status_and_another_unknown_field_reports_both() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("status: draft\nnickname: quick-vo\n");
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics[0].code, "W-STORE-001");
+        assert_eq!(diagnostics[1].code, "W-STORE-007");
+        assert!(diagnostics[1].message.contains("nickname"));
+    }
+
+    /// 詳細設計 v0.1 §3 header (L185): same generic warn-and-continue
+    /// behavior as document, for a field with no dedicated code.
+    #[test]
+    fn vo_record_with_unknown_top_level_field_warns_and_still_reads() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("owner: someone\n");
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
+    }
+
+    #[test]
+    fn vo_record_with_unknown_nested_derives_from_field_warns_with_path() {
+        let yaml = "\
+id: VO-PARSER-UTF8-003
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+    foo: bar
+claim: claim
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003").unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("derives_from[0].foo"));
+    }
+
+    #[test]
+    fn vo_record_with_unknown_nested_dimensions_field_warns_with_path() {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+    bar: baz
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("dimensions[0].bar"));
+    }
+
+    /// Guards `VO_KEYS`/`DIMENSION_KEYS` against drifting out of sync with
+    /// `VoRecord`/`Dimension`'s actual fields. `sample_vo()` already
+    /// populates every optional field (`parent`, `coverage_policy`), and no
+    /// `VoRecord` field carries `skip_serializing_if` other than
+    /// `derives_from` (always non-empty for a valid VO), so its serialized
+    /// shape already has every key present.
+    #[test]
+    fn vo_known_keys_match_the_record_shape() {
+        let value = yaml_serde::to_value(sample_vo()).unwrap();
+
+        let mut keys: Vec<&str> = value
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        let mut expected: Vec<&str> = VO_KEYS
+            .iter()
+            .copied()
+            .filter(|key| *key != "status")
+            .collect();
+        expected.sort_unstable();
+        assert_eq!(
+            keys, expected,
+            "VO_KEYS (minus the status read-compat key) must list exactly VoRecord's fields"
+        );
+
+        let mut dimension_keys: Vec<&str> = value
+            .get("dimensions")
+            .and_then(|list| list.get(0))
+            .and_then(yaml_serde::Value::as_mapping)
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        dimension_keys.sort_unstable();
+        let mut expected_dimension = DIMENSION_KEYS.to_vec();
+        expected_dimension.sort_unstable();
+        assert_eq!(dimension_keys, expected_dimension);
     }
 
     #[test]
