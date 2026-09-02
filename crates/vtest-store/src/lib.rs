@@ -112,11 +112,14 @@ impl VerifyLayout {
 }
 
 /// Canonical v0.1 project configuration (詳細設計 v0.1 §2.2). The writer's
-/// normal form is version 2; an absent version (or an explicit `version: 1`)
-/// is read as a single implicit `rust-cargo` adapter and converted in-memory
-/// to this shape without rewriting the file (§2.4). Any other version is
-/// rejected — see `ProjectConfig::from_yaml`.
+/// normal form is version 2; an explicit `version: 1` is read as a single
+/// implicit `rust-cargo` adapter and converted in-memory to this shape
+/// without rewriting the file (§2.4). `version` itself is required (別紙C
+/// §18.3.12: the reader accepts exactly versions 1 and 2 — never a config
+/// with no declared version), and every key must belong to the schema its
+/// declared version actually has — see `ProjectConfig::from_yaml`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectConfig {
     pub version: u32,
     pub project: ProjectSection,
@@ -134,11 +137,13 @@ pub struct ProjectConfig {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectSection {
     pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AdapterConfig {
     pub id: String,
     pub roots: Vec<String>,
@@ -146,12 +151,22 @@ pub struct AdapterConfig {
     pub run: RunSection,
 }
 
+/// Deliberately no `#[serde(deny_unknown_fields)]` here (unlike its sibling
+/// sections): 詳細設計 v0.1 §2.2 delegates adapter-payload validation to the
+/// registered adapter itself — "adapter固有設定の検証は登録adapterへ委譲し、
+/// coreは未知のnamespaceや値をRust設定として解釈しない". PR2 has no adapter
+/// registry yet, so this struct's fixed Rust-cargo-shaped fields are an
+/// existing constraint, not this invariant's concern; a registry PR replaces
+/// this direct-deserialize with delegated validation instead of tightening it
+/// here.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSection {
     pub include: Vec<String>,
     pub assertion_macros: Vec<String>,
 }
 
+/// See `ScanSection`'s doc comment: same adapter-delegated-validation reason
+/// for not denying unknown fields here.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunSection {
     pub coverage: String,
@@ -159,23 +174,27 @@ pub struct RunSection {
 
 /// Orphan-detection roots for the document layer (詳細設計 v0.1 §2.2, §5.6).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DocSection {
     pub roots: Vec<DocumentId>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct VerifySection {
     pub full_scope: Vec<String>,
 }
 
 /// One phase-gate definition (詳細設計 v0.1 §2.2, §11.5).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GateConfig {
     pub name: String,
     pub require: GateRequirement,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GateRequirement {
     pub verification: String,
 
@@ -237,20 +256,47 @@ impl ProjectConfig {
         yaml_serde::to_string(self).expect("ProjectConfig always serializes to valid YAML")
     }
 
-    /// Read a project configuration. Version 2 is parsed as written; an
-    /// absent version (or an explicit `version: 1`) is parsed under the
+    /// Read a project configuration. `version` is read through the YAML
+    /// model itself, not a hand-rolled text scan: a config that is not a
+    /// YAML mapping, or that has no `version` key, or whose `version` is not
+    /// an integer, fails closed rather than being guessed at (基本仕様 §2.4:
+    /// "reader は version 1 を...読み取る" and 別紙C §18.3.12: "config reader
+    /// はversion 1とversion 2を受理し" both only ever speak of a *declared*
+    /// version 1 or 2 — neither states or implies a third "absent" case).
+    /// `version: 2` is parsed as written; `version: 1` is parsed under the
     /// version 1 shape and converted in-memory to this (version 2) shape
     /// (§2.4: a read never rewrites the canonical file). Any other version
     /// — malformed, or a number this reader does not recognize — is
     /// rejected: 詳細設計 v0.1 §17.1 lists `config version` itself among the
     /// E-CONFIG-001 conditions, so guessing at an unknown schema version
     /// would be exactly the silent-promotion this system's fail-closed
-    /// design forbids.
+    /// design forbids. Every key must also belong to the schema its
+    /// declared version actually has (`#[serde(deny_unknown_fields)]` on
+    /// `ProjectConfig`/`V1Config` and their sub-sections) — the same
+    /// E-CONFIG-001 condition covers a declared version whose body does not
+    /// match it, e.g. a `version: 1` config carrying a v2-only `gates:` key.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
-        match detect_config_version(text)? {
-            None | Some(1) => Self::from_yaml_v1(text, project_name),
-            Some(2) => Self::from_yaml_v2(text),
-            Some(other) => Err(StoreError::InvalidConfig(format!(
+        let value: yaml_serde::Value = yaml_serde::from_str(text)
+            .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
+        let mapping = value.as_mapping().ok_or_else(|| {
+            StoreError::InvalidConfig("config.yaml must be a YAML mapping".to_owned())
+        })?;
+        let version =
+            match mapping.get("version") {
+                None => return Err(StoreError::InvalidConfig(
+                    "config is missing `version`; 1 (compatibility) or 2 (canonical) is required"
+                        .to_owned(),
+                )),
+                Some(version_value) => version_value.as_u64().ok_or_else(|| {
+                    StoreError::InvalidConfig(
+                        "config version must be a non-negative integer".to_owned(),
+                    )
+                })?,
+            };
+        match version {
+            1 => Self::from_yaml_v1(value, project_name),
+            2 => Self::from_yaml_v2(value),
+            other => Err(StoreError::InvalidConfig(format!(
                 "unsupported config version {other}; only 1 (compatibility) and 2 (canonical) are recognized"
             ))),
         }
@@ -263,18 +309,21 @@ impl ProjectConfig {
     /// `#[serde(default)]`); `gates`/`approval_roles` default to empty,
     /// matching 詳細設計 v0.1 §2.2's "`gates` field自体の欠落と空 list は
     /// 「ゲート定義なし」として受理する".
-    fn from_yaml_v2(text: &str) -> Result<Self, StoreError> {
-        let config: Self = yaml_serde::from_str(text)
+    fn from_yaml_v2(value: yaml_serde::Value) -> Result<Self, StoreError> {
+        let config: Self = yaml_serde::from_value(value)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid v2 config: {error}")))?;
         validate_v2_config(&config)?;
         Ok(config)
     }
 
-    /// Reads a version 1 (or unversioned) configuration and converts it
-    /// in-memory to the version 2 shape: a single implicit `rust-cargo`
-    /// adapter, no doc roots, no gates, no approval roles.
-    fn from_yaml_v1(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
-        let v1: V1Config = yaml_serde::from_str(text)
+    /// Reads a version 1 configuration and converts it in-memory to the
+    /// version 2 shape: a single implicit `rust-cargo` adapter, no doc
+    /// roots, no gates, no approval roles.
+    fn from_yaml_v1(
+        value: yaml_serde::Value,
+        project_name: impl Into<String>,
+    ) -> Result<Self, StoreError> {
+        let v1: V1Config = yaml_serde::from_value(value)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
 
         let name = v1
@@ -352,9 +401,14 @@ impl ProjectConfig {
 /// `yaml_serde`: every field is `Option` so `from_yaml_v1` can tell "key
 /// absent" (apply the documented default) apart from "key present" (use it,
 /// after validation) — a distinction a plain default value would erase.
+/// Carries `version` even though `from_yaml_v1`'s body never reads it
+/// (`ProjectConfig::from_yaml` already dispatched on it): without a field to
+/// receive it, `deny_unknown_fields` would reject every valid `version: 1`
+/// config for the very key that got it routed here.
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 struct V1Config {
+    version: Option<u64>,
     project: Option<V1Project>,
     scan: Option<V1Scan>,
     verify: Option<V1Verify>,
@@ -362,50 +416,28 @@ struct V1Config {
 }
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 struct V1Project {
     name: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 struct V1Scan {
     include: Option<Vec<String>>,
     assertion_macros: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 struct V1Verify {
     full_scope: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 struct V1Run {
     coverage: Option<String>,
-}
-
-/// Returns the config's declared version, or `None` if `version:` is absent
-/// entirely (treated as version 1 for backward compatibility). A `version:`
-/// line that is present but does not parse as an integer is a malformed
-/// config, not an absent one, so it errors rather than defaulting.
-fn detect_config_version(text: &str) -> Result<Option<u32>, StoreError> {
-    for raw in text.lines() {
-        let line = raw.trim_end();
-        if line.starts_with(' ') {
-            continue;
-        }
-        if let Some((key, value)) = line.split_once(':') {
-            if key.trim() == "version" {
-                let value = value.trim();
-                return value.parse::<u32>().map(Some).map_err(|_| {
-                    StoreError::InvalidConfig(format!("invalid config version `{value}`"))
-                });
-            }
-        }
-    }
-    Ok(None)
 }
 
 fn validate_full_scope(full_scope: &[String]) -> Result<(), StoreError> {
@@ -843,19 +875,20 @@ mod tests {
         assert!(parsed.gates.is_empty());
     }
 
+    /// 別紙C §18.3.12: the config reader accepts exactly version 1 and
+    /// version 2 — it never states or implies a third "no declared version"
+    /// case, and no writer in this codebase (nor its predecessor) has ever
+    /// emitted a config without a `version` key. Guessing "1" for an absent
+    /// version would be exactly the kind of silent-promotion this system's
+    /// fail-closed design forbids elsewhere.
     #[test]
-    fn unversioned_config_is_read_as_version_1() {
-        let parsed = ProjectConfig::from_yaml(
+    fn unversioned_config_is_rejected() {
+        let error = ProjectConfig::from_yaml(
             "scan:\n  include: [\"examples,with-comma\", tests]\n  assertion_macros: []\n",
             "fallback",
         )
-        .unwrap();
-
-        assert_eq!(
-            parsed.adapters[0].scan.include,
-            vec!["examples,with-comma", "tests"]
-        );
-        assert!(parsed.adapters[0].scan.assertion_macros.is_empty());
+        .expect_err("a config with no `version` key must fail closed");
+        assert!(error.to_string().contains("version"));
     }
 
     /// 詳細設計 v0.1 §17.1 lists `config version` among the E-CONFIG-001
@@ -872,6 +905,51 @@ mod tests {
                 .expect_err("an unrecognized config version must fail closed");
             assert!(error.to_string().contains("version"));
         }
+    }
+
+    /// `version` is read through the real YAML model, not a hand-rolled
+    /// text scan — this must therefore judge these three shapes purely on
+    /// YAML type, not on incidental text layout the old line-scanner was
+    /// sensitive to.
+    #[test]
+    fn non_integer_config_version_is_rejected() {
+        for text in [
+            "version: \"2\"\nproject:\n  name: x\n",
+            "version: 2.0\nproject:\n  name: x\n",
+            "version: [2]\nproject:\n  name: x\n",
+        ] {
+            let error = ProjectConfig::from_yaml(text, "fallback")
+                .expect_err("a non-integer config version must fail closed");
+            assert!(error.to_string().contains("version"));
+        }
+    }
+
+    /// A trailing inline comment on the `version:` line is ordinary YAML,
+    /// not a malformed version — the old line-scanning `detect_config_
+    /// version` misread `2  # canonical` as the unparseable literal
+    /// `2  # canonical` and rejected it; reading through the YAML model
+    /// does not have that failure mode.
+    #[test]
+    fn config_version_with_a_trailing_comment_is_accepted() {
+        let yaml = ProjectConfig::default_for("calc").to_yaml().replacen(
+            "version: 2",
+            "version: 2  # canonical",
+            1,
+        );
+        let parsed = ProjectConfig::from_yaml(&yaml, "fallback").unwrap();
+        assert_eq!(parsed.version, 2);
+    }
+
+    /// A prior version of this reader detected `version` by scanning text
+    /// line-by-line and stopping at the first match, so a duplicate
+    /// top-level `version:` key went unnoticed. Reading through the YAML
+    /// model instead means `yaml_serde` itself rejects the duplicate key
+    /// during parsing, before `ProjectConfig::from_yaml` ever inspects a
+    /// version value.
+    #[test]
+    fn duplicate_top_level_version_key_is_rejected() {
+        ProjectConfig::from_yaml("version: 1\nversion: 2\n", "fallback")
+            .expect_err("a duplicate top-level `version` key must fail closed");
     }
 
     #[test]
@@ -953,7 +1031,7 @@ mod tests {
     #[test]
     fn invalid_assertion_macro_path_is_rejected() {
         let error = ProjectConfig::from_yaml(
-            "scan:\n  assertion_macros:\n    - assert-valid\n",
+            "version: 1\nscan:\n  assertion_macros:\n    - assert-valid\n",
             "fallback",
         )
         .expect_err("macro names must be Rust identifiers or Rust paths");
@@ -962,9 +1040,64 @@ mod tests {
 
     #[test]
     fn unsupported_coverage_mode_is_rejected() {
-        let error = ProjectConfig::from_yaml("run:\n  coverage: guessed\n", "fallback")
+        let error = ProjectConfig::from_yaml("version: 1\nrun:\n  coverage: guessed\n", "fallback")
             .expect_err("unknown coverage mode must fail closed");
         assert!(error.to_string().contains("run.coverage"));
+    }
+
+    /// 詳細設計 v0.1 §17.1's E-CONFIG-001 covers a declared `version` whose
+    /// body does not match it — the fix here is a rewritten implementation
+    /// (`#[serde(deny_unknown_fields)]`), not a version-conditioned branch:
+    /// a `version: 1` config carrying the v2-only `gates:` key is simply an
+    /// invalid version-1 config, independent of any compatibility concern.
+    #[test]
+    fn v1_config_with_a_v2_only_key_is_rejected() {
+        let yaml =
+            "version: 1\ngates:\n  - name: release\n    require:\n      verification: PASS\n";
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("a stray v2-shaped `gates` key must fail closed under version 1");
+        assert!(error.to_string().contains("gates"));
+    }
+
+    #[test]
+    fn v2_config_with_a_v1_only_top_level_key_is_rejected() {
+        let mut yaml = ProjectConfig::default_for("calc").to_yaml();
+        yaml.push_str("scan:\n  include: [src]\n");
+        let error = ProjectConfig::from_yaml(&yaml, "fallback")
+            .expect_err("a stray v1-shaped top-level `scan` key must fail closed under version 2");
+        assert!(error.to_string().contains("scan"));
+    }
+
+    #[test]
+    fn v2_config_with_a_misspelled_top_level_key_is_rejected() {
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngate: []\n";
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("an unrecognized top-level config key must fail closed");
+        assert!(error.to_string().contains("gate"));
+    }
+
+    #[test]
+    fn v2_config_with_an_unknown_nested_project_key_is_rejected() {
+        let yaml = "version: 2\nproject: {name: x, foo: y}\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("an unknown key nested inside `project` must fail closed");
+        assert!(error.to_string().contains("foo"));
+    }
+
+    #[test]
+    fn v2_config_with_a_misspelled_nested_gate_requirement_key_is_rejected() {
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:\n  - name: release\n    require:\n      verification: PASS\n      approval: []\n";
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("an unknown key nested inside `gates[].require` must fail closed");
+        assert!(error.to_string().contains("approval"));
+    }
+
+    #[test]
+    fn v1_config_with_an_unknown_nested_scan_key_is_rejected() {
+        let yaml = "version: 1\nscan:\n  include: [src]\n  foo: 1\n";
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("an unknown key nested inside v1 `scan` must fail closed");
+        assert!(error.to_string().contains("foo"));
     }
 
     #[test]
