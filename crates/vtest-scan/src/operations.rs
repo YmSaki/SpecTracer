@@ -1486,6 +1486,24 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     )
 }
 
+// PR #26 review round 3 要確認C-1: この `read_dir`/`entries.flatten()` は
+// `d423f8a` が `vtest-scan::validate_relations`/`validate_approval_status`
+// で塞いだのと同じ形の I/O fail-open（ディレクトリが開けない、または列挙中
+// に個々の `DirEntry` が `Err` を返すと、そのディレクトリ／エントリを
+// 無診断でスキップする）だが、意図的に塞いでいない: 呼び出し元
+// `validate_enum_variant` は `type_name` の Rust 識別子としての妥当性
+// チェック（1445-1448行）や `syn::parse_file` の失敗（1469-1471行）も同じ
+// 「見つけられなければ検証をスキップし `Ok(())` を返す」扱いを既にしており
+// （1474行 `variants.is_empty()`）、これは `enum-variant-exists` Structured
+// Operation 入力検証のベストエフォート設計そのもの — I/O 失敗だけを
+// fail-closed にしても、識別子形式や parse 失敗という他の「見つからない」
+// 経路はそのまま素通りするので非対称は解消しない。影響範囲も、この関数の
+// 裁定（chain_integrity・検証状態）ではなく、`vtest scan enum-variant-exists`
+// 単体の Structured Operation 入力検証（本冊:1641、別紙A:539）に留まる:
+// I/O 失敗時に本来出すべき E-OP-001（不正な値）が見逃され得るが、それ以上
+// 状態が壊れることはない。塞ぐなら `validate_enum_variant` 全体の
+// 「見つからなければ受理する」設計を Owner 裁定で見直す必要があり、この
+// 箇所だけを個別に fail-closed にするのは非対称を悪化させるため見送った。
 fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = fs::read_dir(directory) else {
         return;

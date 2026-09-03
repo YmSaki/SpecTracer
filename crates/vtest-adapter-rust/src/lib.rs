@@ -17,7 +17,7 @@
 
 use std::{
     collections::BTreeSet,
-    fs,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -185,7 +185,7 @@ impl<'a> Scanner<'a> {
             .unwrap_or(path)
             .to_string_lossy()
             .replace('\\', "/");
-        let context = source_context(self.root, path, self.fallback_package);
+        let context = source_context(self.root, path, self.fallback_package)?;
         let line_offsets = line_offsets(&source);
         self.collect_items(
             &syntax.items,
@@ -821,7 +821,11 @@ fn cargo_manifest(root: &Path) -> Option<CargoManifest> {
     Some(manifest)
 }
 
-fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceContext {
+fn source_context(
+    root: &Path,
+    path: &Path,
+    fallback_package: &str,
+) -> Result<SourceContext, DiscoveryError> {
     let package_root = package_root_for_path(root, path).unwrap_or_else(|| root.to_owned());
     let manifest = cargo_manifest(&package_root);
     let package = manifest
@@ -832,7 +836,7 @@ fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceCon
 
     if let Some(manifest) = &manifest {
         let mut contexts = Vec::new();
-        for target_root in cargo_target_roots(&package_root, manifest) {
+        for target_root in cargo_target_roots(&package_root, manifest)? {
             for filter_prefix in module_prefixes_for_file(&target_root.path, path) {
                 let context = (target_root.target.clone(), filter_prefix);
                 if !contexts.contains(&context) {
@@ -842,23 +846,23 @@ fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceCon
         }
         if contexts.len() == 1 {
             let (test_target, filter_prefix) = contexts.pop().expect("one context exists");
-            return SourceContext {
+            return Ok(SourceContext {
                 package,
                 test_target,
                 filter_prefix,
-            };
+            });
         }
-        return SourceContext {
+        return Ok(SourceContext {
             package,
             test_target: TestTarget::Unknown,
             filter_prefix: String::new(),
-        };
+        });
     }
-    SourceContext {
+    Ok(SourceContext {
         package,
         test_target: TestTarget::Unknown,
         filter_prefix: String::new(),
-    }
+    })
 }
 
 fn cargo_target_name(target: &CargoTarget) -> Option<String> {
@@ -882,7 +886,10 @@ fn normalized_manifest_path(path: &str) -> String {
     path.trim_start_matches("./").replace('\\', "/")
 }
 
-fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<CargoTargetRoot> {
+fn cargo_target_roots(
+    package_root: &Path,
+    manifest: &CargoManifest,
+) -> Result<Vec<CargoTargetRoot>, DiscoveryError> {
     let mut roots = Vec::new();
     let lib_path = manifest
         .lib
@@ -933,7 +940,7 @@ fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<Carg
                 target: TestTarget::Bin(name),
             });
         }
-        for (path, name) in discovered_target_roots(&package_root.join("src/bin")) {
+        for (path, name) in discovered_target_roots(&package_root.join("src/bin"))? {
             if !contains_path(&explicit_bins, &path) {
                 roots.push(CargoTargetRoot {
                     path,
@@ -963,7 +970,7 @@ fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<Carg
         .and_then(|package| package.autotests)
         .unwrap_or(true);
     if autotests {
-        for (path, name) in discovered_target_roots(&package_root.join("tests")) {
+        for (path, name) in discovered_target_roots(&package_root.join("tests"))? {
             if !contains_path(&explicit_tests, &path) {
                 roots.push(CargoTargetRoot {
                     path,
@@ -972,7 +979,7 @@ fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<Carg
             }
         }
     }
-    roots
+    Ok(roots)
 }
 
 fn explicit_target_paths(
@@ -1002,17 +1009,40 @@ fn explicit_target_paths(
     }
 }
 
-fn discovered_target_roots(directory: &Path) -> Vec<(PathBuf, String)> {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return Vec::new();
+// PR #26 review round 3 要確認C-1: `entries.flatten()` silently dropped both
+// "directory doesn't exist" (the common, legitimate case — most packages
+// have no `src/bin` or `tests`) and "directory exists but a `DirEntry`
+// failed mid-enumeration" (an I/O error) into the same empty result. The
+// latter is the same fail-open class `d423f8a` closed for
+// `validate_relations`/`validate_approval_status` in `vtest-scan`: a root
+// that silently drops out here degrades `source_context`'s `TestTarget`/
+// `filter_prefix` attribution for files under it without any diagnostic.
+// Distinguish the two the same way: `NotFound` still reads as "no such
+// directory" (empty, not an error); every other `read_dir`/`DirEntry`
+// error now fails discovery closed via `DiscoveryError` (core turns this
+// into `ScanError::Discovery` / `E-ADAPTER-002`), instead of guessing.
+fn discovered_target_roots(directory: &Path) -> Result<Vec<(PathBuf, String)>, DiscoveryError> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(source) => {
+            return Err(DiscoveryError {
+                path: directory.to_owned(),
+                message: source.to_string(),
+            })
+        }
     };
-    let mut entries = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    entries.sort();
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|source| DiscoveryError {
+            path: directory.to_owned(),
+            message: source.to_string(),
+        })?;
+        paths.push(entry.path());
+    }
+    paths.sort();
     let mut roots = Vec::new();
-    for path in entries {
+    for path in paths {
         if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("rs") {
             if let Some(name) = path
                 .file_stem()
@@ -1034,7 +1064,7 @@ fn discovered_target_roots(directory: &Path) -> Vec<(PathBuf, String)> {
             }
         }
     }
-    roots
+    Ok(roots)
 }
 
 fn contains_path(paths: &[PathBuf], candidate: &Path) -> bool {
