@@ -508,16 +508,23 @@ impl<'a> Scanner<'a> {
                 } else if let Some(locator) = Locator::parse(target_value) {
                     TargetRef::Locator(locator)
                 } else {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-004",
-                            format!("test `{id}` has an invalid target locator `{target_value}`"),
-                        )
-                        .with_location(location.clone()),
-                    );
+                    // 本冊:955/959/961（§6.1）: Target Reference の解決
+                    // （0件／複数件／曖昧の判定と診断発行）はcoreの単一経路が
+                    // 所有し、adapterが独自に候補を選んで「解決済み」を
+                    // 偽装してはならない。以前はここで Test 自身を指す
+                    // locator（`path: relative, item_path: item_path`）を
+                    // 代わりに返していたが、その値はこの Test 自身の
+                    // SourceDraft と一致するため core の SRC 索引で
+                    // count 1 にヒットし、「解決済み」として通過してしまう
+                    // （fail-open）。構文解析できない `@vtest.target` 値は、
+                    // 実在する `(path, item_path)` の組と衝突しえない
+                    // sentinel Locator として返し、core の
+                    // `resolve_targets`（SRC索引で0件ヒット）に通常の
+                    // 「解決不能」経路（E-SCAN-004）で拒否させる。診断は
+                    // ここでは発行しない — coreの単一経路だけが発行する。
                     TargetRef::Locator(Locator {
                         path: relative.to_owned(),
-                        item_path: item_path.to_owned(),
+                        item_path: format!("<unresolvable @vtest.target `{target_value}`>"),
                     })
                 }
             })

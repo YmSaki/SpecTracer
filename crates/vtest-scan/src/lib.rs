@@ -1870,6 +1870,59 @@ fn aliased_target() {}
         );
     }
 
+    /// 本冊:955/959/961（§6.1）: 解決できない target は「対象なし」の
+    /// fail-closed 終端状態であり、後段が任意の候補で埋めて「解決済み」を
+    /// 偽装してはならない。`@vtest.target` に `path::item-path` へ構文解析
+    /// できない値（`::` を含まない自由記述）を与えると、この Test 自身の
+    /// locator（`tests/unresolvable_target.rs::declares_unparseable_target`）
+    /// で肩代わりして解決済みにする旧挙動があった（fail-open。BLOCKER 3）。
+    /// 現在は adapter が sentinel Locator を返し、core の `resolve_targets`
+    /// が通常の「0件ヒット」経路として E-SCAN-004 を発行することを断言する。
+    #[test]
+    fn unparseable_target_locator_is_not_silently_resolved_to_the_test_itself() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/unresolvable_target.rs"),
+            r#"
+/// @vtest.id TEST-UNRESOLVABLE-TARGET
+/// @vtest.covers VO-ADD
+/// @vtest.target this is not a locator
+/// @vtest.intent declares a target value that cannot be parsed as a locator
+#[test]
+fn declares_unparseable_target() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        let test = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-UNRESOLVABLE-TARGET")
+            .expect("the Test Entity is still materialized; only its target fails to resolve");
+        let TargetRef::Locator(locator) = &test.target else {
+            panic!("expected a Locator target, got {:?}", test.target);
+        };
+        assert_ne!(
+            (locator.path.as_str(), locator.item_path.as_str()),
+            (
+                "tests/unresolvable_target.rs",
+                "declares_unparseable_target"
+            ),
+            "an unresolvable target must not be silently filled in with the Test's own \
+             self-referencing locator: {locator:?}"
+        );
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-004"
+                    && diagnostic.location.as_ref().is_some_and(|location| {
+                        location.function == "declares_unparseable_target"
+                    })
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
     /// 本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
     /// 無視する」。
     #[test]
