@@ -1363,30 +1363,112 @@ impl<'a> Scanner<'a> {
 
     fn finish(self, files: usize) -> Result<ScanResult, ScanError> {
         let mut diagnostics = self.diagnostics;
+        // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
+        // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
         let mut locators = BTreeMap::<String, usize>::new();
-        let mut src_ids = BTreeMap::<String, usize>::new();
+        // 恒久SRC IDごとの宣言元canonical locator一覧。1件なら
+        // `SRC索引`（本冊:571・§6.1）を経て一意にcanonical locatorへ解決する。
+        // 2件以上は恒久SRC IDのrepository全体一意性違反であり、E-SCAN-011
+        // とする（基本仕様§9.2「同一SRC IDの複数宣言を曖昧参照として受理
+        // しない」、本冊§5.1手順5「adapter間を含む...SRC ID衝突...を検査
+        // する」）。この検査は当該SRC IDを参照するTestの有無に関わらず、
+        // 索引構築時点で行う。
+        let mut src_id_locators = BTreeMap::<String, Vec<String>>::new();
+        let mut src_id_first_location = BTreeMap::<String, SourceLocation>::new();
         for source in &self.sources {
             *locators.entry(source.locator.as_string()).or_default() += 1;
             if let Some(src_id) = &source.src_id {
-                *src_ids.entry(src_id.as_str().to_owned()).or_default() += 1;
+                src_id_locators
+                    .entry(src_id.as_str().to_owned())
+                    .or_default()
+                    .push(source.locator.as_string());
+                src_id_first_location
+                    .entry(src_id.as_str().to_owned())
+                    .or_insert_with(|| source.location.clone());
+            }
+        }
+        for (src_id, locs) in &src_id_locators {
+            if locs.len() > 1 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-011",
+                        format!(
+                            "permanent SRC ID `{src_id}` is declared by {} Source Targets",
+                            locs.len()
+                        ),
+                    )
+                    .with_location(src_id_first_location[src_id].clone()),
+                );
             }
         }
         for test in &self.tests {
+            // §6.1.1: `TestEntity.targets` に宣言された各 `TargetRef` を
+            // canonical Source Target（canonical locator）へ解決する。
+            // 解決できた宣言だけを (綴り, canonical locator) として集め、
+            // 綴りが異なっても同一canonical Source Targetへ到達する宣言が
+            // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
+            let mut resolved_canonical = Vec::<(&str, String)>::new();
             for target in std::iter::once(&test.target).chain(&test.additional_targets) {
-                let resolved = match target {
+                match target {
                     TargetRef::Locator(locator) => {
-                        locators.get(&locator.as_string()).copied() == Some(1)
+                        let key = locator.as_string();
+                        if locators.get(&key).copied() == Some(1) {
+                            resolved_canonical.push((locator.item_path.as_str(), key));
+                        } else {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-SCAN-004",
+                                    format!("test `{}` target cannot be resolved", test.id),
+                                )
+                                .with_location(test.location.clone()),
+                            );
+                        }
                     }
-                    TargetRef::SrcId(src_id) => src_ids.get(src_id.as_str()).copied() == Some(1),
-                };
-                if !resolved {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-004",
-                            format!("test `{}` target cannot be resolved", test.id),
-                        )
-                        .with_location(test.location.clone()),
-                    );
+                    TargetRef::SrcId(src_id) => {
+                        match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
+                            Some([single]) => {
+                                resolved_canonical.push((src_id.as_str(), single.clone()));
+                            }
+                            Some(_) => {
+                                // 恒久SRC IDが衝突している。E-SCAN-011は
+                                // 索引構築時に既に発行済みであり、いずれの
+                                // Source Targetも選択しない（本冊:901
+                                // 「E-SCAN-011があるSRC ID参照は曖昧なため、
+                                // 関係するtarget解決をMISMATCHとし、いずれの
+                                // Source Targetも選択しない」）。同じ衝突を
+                                // 二重にE-SCAN-004として報告しない。
+                            }
+                            None => {
+                                diagnostics.push(
+                                    Diagnostic::error(
+                                        "E-SCAN-004",
+                                        format!("test `{}` target cannot be resolved", test.id),
+                                    )
+                                    .with_location(test.location.clone()),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            let mut seen_canonical = BTreeMap::<String, &str>::new();
+            for (spelling, canonical) in resolved_canonical {
+                match seen_canonical.get(&canonical) {
+                    Some(previous_spelling) if *previous_spelling != spelling => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-SCAN-005",
+                                format!(
+                                    "test `{}` declares multiple targets (`{previous_spelling}`, `{spelling}`) that resolve to the same Source Target `{canonical}`",
+                                    test.id
+                                ),
+                            )
+                            .with_location(test.location.clone()),
+                        );
+                    }
+                    _ => {
+                        seen_canonical.insert(canonical, spelling);
+                    }
                 }
             }
         }
@@ -2647,6 +2729,77 @@ fn misplaced() {}
                 .as_ref()
                 .is_some_and(|location| location.function == "helper")
         }));
+    }
+
+    /// 本冊 §5.1手順5・基本仕様§9.2「恒久SRC IDを使用する場合、adapter境界を
+    /// 越えてrepository全体で一意でなければならない。同一SRC IDの複数宣言を
+    /// 曖昧参照として受理しない」。2件の異なるSource Targetが同じ恒久SRC ID
+    /// を宣言した場合はE-SCAN-011とし（本冊:877・901）、どのTestからも
+    /// 参照されていなくても索引構築時点で検出する。
+    #[test]
+    fn colliding_permanent_src_id_across_two_source_targets_is_rejected() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n\
+             /// @vtest.src-id SRC-SHARED\n\
+             pub fn helper_one() -> i32 { 0 }\n\n\
+             /// @vtest.src-id SRC-SHARED\n\
+             pub fn helper_two() -> i32 { 1 }\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-011"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 本冊 §6.1.1「Testの宣言target集合は解決後のcanonical Source Target
+    /// 単位で一意でなければならない。綴りの異なる複数の宣言が同一の
+    /// canonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005と
+    /// する」。locator形式の宣言と、同じSource Targetを指すSRC ID形式の
+    /// 宣言は綴りが異なるが、解決後は同一canonical Source Targetになる。
+    #[test]
+    fn locator_and_src_id_target_declarations_resolving_to_the_same_source_target_collide() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n\
+             /// @vtest.src-id SRC-HELPER\n\
+             pub fn helper() -> i32 { 0 }\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("tests/aliased_target.rs"),
+            r#"
+/// @vtest.id TEST-ALIASED-TARGET
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::helper
+/// @vtest.target SRC-HELPER
+/// @vtest.intent declares the same Source Target twice under different spellings
+/// @vtest.kind integration-normal
+#[test]
+fn aliased_target() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-005"
+                    && diagnostic
+                        .location
+                        .as_ref()
+                        .is_some_and(|location| location.function == "aliased_target")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
     }
 
     /// 本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
