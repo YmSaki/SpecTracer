@@ -390,14 +390,20 @@ impl ApprovalRecord {
                 "approval id must be a valid ULID".to_owned(),
             ));
         }
-        if !subject.starts_with("VO-")
-            || subject.len() <= "VO-".len()
-            || !subject.chars().all(|character| {
-                character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
-            })
-        {
+        // 基本仕様:130（§3.2）「文字集合は `[A-Z0-9-]`、接頭辞は種別ごとに
+        // 固定（`TEST-` 等）。推奨形式は…だが、ツールは形式を強制せず一意性
+        // のみを強制する」。以前はここで `VO-` 接頭辞・`[A-Z0-9-]` 文字集合を
+        // 拒否ゲートとして強制していた（BLOCKER 5、PR #26 review round 1）。
+        // scan 経路（`vtest-scan::validate_approval_status` → `read_approval`
+        // → ここ）から到達し、接頭辞を持たない VO の承認が E-SCAN-010 に
+        // なっていた一方、同じ PR が同時に `vtest-scan::operations.rs` から
+        // 全く同じ書式強制を除去し「Test の covers 先としては妥当」と固定
+        // していた（`vo_ref_field_does_not_enforce_an_id_prefix`）— 同じ
+        // scan 実行の中で正反対の規則が成立する非対称だった。書式ゲートは
+        // 除去し、書式ではない検査（空文字列の拒否）だけを残す。
+        if subject.trim().is_empty() {
             return Err(StoreError::InvalidConfig(
-                "approval subject must be a valid VO ID".to_owned(),
+                "approval subject must not be empty".to_owned(),
             ));
         }
         Ok(Self {
@@ -2006,6 +2012,62 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    /// 基本仕様:130（§3.2）「ツールは形式を強制せず一意性のみを強制する」。
+    /// 承認 subject に `VO-` 接頭辞を持たない ID を与えても拒否されない
+    /// （BLOCKER 5、PR #26 review round 1 — 旧版はここで `VO-` 接頭辞・
+    /// `[A-Z0-9-]` 文字集合を拒否ゲートとして強制していた。同じ scan 実行の
+    /// 中で「Test の covers 先としては妥当」（`vtest-scan::operations`の
+    /// `vo_ref_field_does_not_enforce_an_id_prefix`）「承認 subject として
+    /// は不正」という正反対の規則が同時に成立していた非対称を解消する）。
+    #[test]
+    fn approval_subject_does_not_enforce_a_vo_id_prefix() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("WIDGET-ADD"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![ApprovalBasis {
+                kind: "audit".to_owned(),
+                reference: new_record_id(),
+            }],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml();
+        assert_eq!(ApprovalRecord::from_yaml(&yaml, &id).unwrap(), record);
+    }
+
+    /// The one check that survives removing the format gate above: an empty
+    /// subject is not a format constraint (基本仕様:130 only bars enforcing
+    /// a character set or prefix), it is a basic validity check every other
+    /// required scalar on this record already gets via `required_top_level_
+    /// scalar`.
+    #[test]
+    fn approval_with_an_empty_subject_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml().replace("subject: 'VO-ONE'", "subject: ''");
+        assert!(
+            ApprovalRecord::from_yaml(&yaml, &id).is_err(),
+            "an empty approval subject must still be rejected"
+        );
     }
 
     #[test]
