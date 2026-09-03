@@ -488,9 +488,9 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
             .replace('\\', "/"),
         function: entity.to_owned(),
         start_line: 1,
-        end_line: text.lines().count().max(1),
+        end_line: text.lines().count().max(1) as u64,
         start_byte: 0,
-        end_byte: text.len(),
+        end_byte: text.len() as u64,
     }
 }
 
@@ -608,8 +608,8 @@ fn validate_relations(
                 continue;
             }
         };
-        let relation = match RelationRecord::from_yaml(&text, &file_id) {
-            Ok(relation) => relation,
+        let (relation, relation_diagnostics) = match RelationRecord::from_yaml(&text, &file_id) {
+            Ok(parsed) => parsed,
             Err(error) => {
                 diagnostics.push(
                     Diagnostic::error(
@@ -621,6 +621,7 @@ fn validate_relations(
                 continue;
             }
         };
+        diagnostics.extend(relation_diagnostics);
         for (field, value) in [("from", relation.from), ("to", relation.to)] {
             if !known_ids.contains(&value) {
                 diagnostics.push(
@@ -1102,7 +1103,16 @@ impl<'a> Scanner<'a> {
         _path: &Path,
     ) {
         let location = make_location(relative, item_path, span, source, line_offsets);
-        let content = source_slice(source, &location);
+        let content = source_slice(source, &location).unwrap_or_else(|| {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "E-CORE-001",
+                    format!("function `{item_path}` source range is out of bounds"),
+                )
+                .with_location(location.clone()),
+            );
+            ""
+        });
         let source_function = SourceFunction {
             locator: Locator {
                 path: relative.to_owned(),
@@ -1339,9 +1349,9 @@ impl<'a> Scanner<'a> {
         }
         Ok(ScanResult {
             summary: ScanSummary {
-                files,
-                tests: self.tests.len(),
-                sources: self.sources.len(),
+                files: files as u64,
+                tests: self.tests.len() as u64,
+                sources: self.sources.len() as u64,
             },
             tests: self.tests,
             sources: self.sources,
@@ -1849,17 +1859,17 @@ fn make_location(
     SourceLocation {
         file: relative.to_owned(),
         function: function.to_owned(),
-        start_line,
-        end_line,
-        start_byte,
-        end_byte: end_byte.min(source.len()),
+        start_line: start_line as u64,
+        end_line: end_line as u64,
+        start_byte: start_byte as u64,
+        end_byte: end_byte.min(source.len()) as u64,
     }
 }
 
-fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> &'a str {
-    source
-        .get(location.start_byte..location.end_byte)
-        .unwrap_or("")
+fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a str> {
+    let start: usize = location.start_byte.try_into().ok()?;
+    let end: usize = location.end_byte.try_into().ok()?;
+    source.get(start..end)
 }
 
 #[cfg(test)]

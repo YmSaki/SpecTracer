@@ -206,7 +206,19 @@ pub fn edit_test(
     let path = root.join(Path::new(&current.location.file));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let range = current.location.start_byte..current.location.end_byte;
+    let start_byte: usize = current.location.start_byte.try_into().map_err(|_| {
+        Diagnostic::error(
+            "E-OP-002",
+            format!("Test `{test_id}` start offset is out of range"),
+        )
+    })?;
+    let end_byte: usize = current.location.end_byte.try_into().map_err(|_| {
+        Diagnostic::error(
+            "E-OP-002",
+            format!("Test `{test_id}` end offset is out of range"),
+        )
+    })?;
+    let range = start_byte..end_byte;
     let current_slice = original.get(range.clone()).ok_or_else(|| {
         Diagnostic::error(
             "E-OP-002",
@@ -219,15 +231,15 @@ pub fn edit_test(
             format!("Test `{test_id}` changed before edit could be applied"),
         ));
     }
-    let indent = line_indent(&original, current.location.start_byte);
+    let indent = line_indent(&original, start_byte);
     let normalized_current = deindent(current_slice, &indent);
     let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
     let rendered = indent_multiline(&normalized_replacement, &indent);
     let prospective = format!(
         "{}{}{}",
-        &original[..current.location.start_byte],
+        &original[..start_byte],
         rendered,
-        &original[current.location.end_byte..]
+        &original[end_byte..]
     );
     syn::parse_file(&prospective).map_err(|error| {
         Diagnostic::error(
@@ -241,8 +253,8 @@ pub fn edit_test(
         file: current.location.file.clone(),
         dry_run,
         changed,
-        start_byte: current.location.start_byte,
-        end_byte: current.location.start_byte + rendered.len(),
+        start_byte,
+        end_byte: start_byte + rendered.len(),
         rendered,
     };
     if dry_run || !changed {
