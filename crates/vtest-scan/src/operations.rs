@@ -213,7 +213,7 @@ pub fn edit_test(
         let schema = load_form_schema(&layout, &supplied.form)
             .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
         let answers = validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id))?;
-        desired.apply_complete_answers(&schema, &answers)?;
+        desired.apply_complete_answers(&answers)?;
     } else {
         desired.apply_sets(set)?;
     }
@@ -337,7 +337,6 @@ impl DesiredTest {
 
     fn apply_complete_answers(
         &mut self,
-        schema: &FormSchema,
         answers: &BTreeMap<String, FormValue>,
     ) -> Result<(), Diagnostic> {
         self.covers = list_answer(answers, "covers")?;
@@ -355,14 +354,13 @@ impl DesiredTest {
         if let Some(file) = answers.get("file") {
             self.file = file.render().replace('\\', "/");
         }
+        // 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」
+        // （target→targets必須化とfileのrequired化の2点のみ）。§14.1の
+        // templateの `@vtest.kind unit-{test_kind}` 行はrust-integration
+        // Formにもそのまま引き継がれるため、生成schemaに関わらず常に
+        // `unit-{test_kind}` を生成する（pr3-ruling-spec.md §3.3）。
         let test_kind = answers.get("test_kind").map(FormValue::render);
-        self.kind = test_kind.map(|kind| {
-            if schema.kind == "rust-integration" {
-                format!("integration-{kind}")
-            } else {
-                format!("unit-{kind}")
-            }
-        });
+        self.kind = test_kind.map(|kind| format!("unit-{kind}"));
         Ok(())
     }
 
@@ -397,12 +395,11 @@ impl DesiredTest {
                 "expect" => self.expect = Some(value.render()),
                 "kind" => self.kind = Some(value.render()),
                 "test_kind" => {
-                    let prefix = if self.targets.len() > 1 {
-                        "integration"
-                    } else {
-                        "unit"
-                    };
-                    self.kind = Some(format!("{prefix}-{}", value.render()));
+                    // 別紙A §14.1/§14.3: built-in Formはtargets件数に
+                    // かかわらず常に `unit-{test_kind}` を生成する
+                    // （pr3-ruling-spec.md §3.3、Owner裁定3 — `@vtest.kind`
+                    // は意図ラベルであり実行形態のdiscriminatorではない）。
+                    self.kind = Some(format!("unit-{}", value.render()));
                 }
                 "case" => self.cases = value_strings(value),
                 "related" => self.related = value_strings(value),
