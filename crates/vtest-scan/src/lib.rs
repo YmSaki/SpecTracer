@@ -805,25 +805,14 @@ fn validate_vo_record(
 /// see `vtest_store::canonical::vo_record_combinations_missing_or_null_
 /// parses_as_empty_vec`).
 ///
-/// The "同じ dimension 名を2回以上持つ" half of the sixth bullet has no
-/// dedicated check of its own here either, but for a different reason than
-/// before: `combinations`' canonical shape is `Vec<BTreeMap<String, String>>`
-/// (`vtest_model::VoRecord`), which cannot represent a duplicate key inside
-/// one entry's YAML mapping at all — `yaml_serde::Value`'s own parse rejects
-/// it before any `VoRecord` could be built from it directly. Rather than
-/// letting that turn into a record-layer E-SCAN-010 that drops the VO
-/// outright (本冊:283 assigns this condition to E-SCAN-017, VO retained,
-/// exactly like the sixth bullet's first half), `vtest_store::canonical::
-/// vo_record_from_yaml` detects a duplicate confined to inside
-/// `combinations[]`, and substitutes a sentinel entry with zero declared
-/// dimensions in its place (see that function's doc comment). That sentinel
-/// is deliberately shaped to fall through to the length-mismatch branch
-/// below (this bullet's first half, "entry が宣言済み dimension を欠く") —
-/// so the "2回以上持つ" sub-case is checked here, just indirectly, via the
-/// same branch as "欠く" (empirically verified — see
-/// `vtest_store::canonical::vo_record_combination_entry_with_a_duplicate_
-/// dimension_key_reaches_scan_as_e_scan_017` and this crate's
-/// `e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected`).
+/// The "同じ dimension 名を2回以上持つ" half of the sixth bullet is not
+/// checked here: `combinations`' canonical shape is `Vec<BTreeMap<String,
+/// String>>` (`vtest_model::VoRecord`), and a duplicate key inside one
+/// entry's YAML mapping is rejected by `yaml_serde::Value`'s own parse
+/// before `VoRecord` is ever built (empirically verified, not just inferred
+/// from the `BTreeMap` type — see `vtest_store::canonical::vo_record_
+/// combination_entry_with_a_duplicate_dimension_key_is_rejected`), so that
+/// condition is structurally unreachable here rather than unchecked.
 fn invalid_vo_combinations(record: &VoRecord) -> Option<String> {
     if !matches!(record.coverage_policy, Some(CoveragePolicy::Explicit)) {
         if !record.combinations.is_empty() {
@@ -2000,10 +1989,9 @@ fn declares_unparseable_target() {}
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-004"
-                    && diagnostic
-                        .location
-                        .as_ref()
-                        .is_some_and(|location| location.function == "declares_unparseable_target")
+                    && diagnostic.location.as_ref().is_some_and(|location| {
+                        location.function == "declares_unparseable_target"
+                    })
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -2766,21 +2754,18 @@ registered_at: 2026-08-08T00:00:00Z
     }
 
     /// 別紙C:97-104 condition 6 (second half): entry が同じ dimension 名を
-    /// 2回以上持つ。本冊:283（§3.2.1）は前半「宣言済みdimensionを欠く」と
-    /// 後半「同じdimension名を2回以上持つ」を同一箇条で並列に扱い、いずれも
-    /// E-SCAN-017（VOを保持したまま`chain_integrity = MISMATCH`）に帰着する
-    /// （本冊:1625・別紙A:438）。record層（`vtest-store::vo_record_from_
-    /// yaml`）は重複が`combinations[]`の内側に閉じている場合、レコードを
-    /// 拒否せず「宣言済みdimensionを一切持たない1件のentry」を代わりに読み
-    /// 取る（BLOCKER 1、PR #26 review round 1 — 旧版のこのテストはE-SCAN-010
-    /// が出て`vos`マップからVOが丸ごと消える誤った挙動を固定していた）。
-    /// この scan 層のテストはその結果として E-SCAN-017 が `VO-ADD` の位置で
-    /// 発行され、record層のE-SCAN-010は発行されないことを断言する。
-    /// record層側の正確な変換規則は`vtest_store::canonical::
-    /// vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
-    /// scan_as_e_scan_017`が固定する。
+    /// 2回以上持つ。`invalid_vo_combinations`'s own doc comment explains why
+    /// this is not checked there — a duplicate key inside one `combinations[]`
+    /// entry's YAML mapping never survives to a `VoRecord` at all. This test
+    /// locks in that a VO record built this way is rejected fail-closed (as
+    /// E-SCAN-010, the record-layer parse failure) rather than silently
+    /// picking one of the duplicate values and passing — the record-layer
+    /// regression `vtest_store::canonical::vo_record_combination_entry_with_
+    /// a_duplicate_dimension_key_is_rejected` pins the exact parser-level
+    /// error; this pins the resulting scan-level diagnostic and its `VO-ADD`
+    /// location.
     #[test]
-    fn e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected() {
+    fn e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected_upstream() {
         let root = fixture();
         write_vo_add(
             &root,
@@ -2791,14 +2776,14 @@ registered_at: 2026-08-08T00:00:00Z
         );
         let result = scan_project(&root).unwrap();
         assert!(
-            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            has_diagnostic_for_vo_add(&result, "E-SCAN-010"),
             "diagnostics: {:?}",
             result.diagnostics
         );
         assert!(
-            !has_diagnostic_for_vo_add(&result, "E-SCAN-010"),
-            "a duplicate dimension key confined to inside one combinations[] entry must not \
-             make the record layer reject the whole VO (BLOCKER 1): {:?}",
+            !has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "a record the reader already rejected must not also reach \
+             invalid_vo_combinations: {:?}",
             result.diagnostics
         );
     }

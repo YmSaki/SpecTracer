@@ -217,9 +217,8 @@ pub fn vo_record_from_yaml(
     text: &str,
     fallback_id: &str,
 ) -> Result<(VoRecord, Vec<Diagnostic>), StoreError> {
-    let (value, combinations_entry_had_a_duplicate_key) =
-        parse_vo_value_tolerating_a_combinations_duplicate_key(text)
-            .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
 
     let mut diagnostics = Vec::new();
     if value.get("status").is_some() {
@@ -232,30 +231,8 @@ pub fn vo_record_from_yaml(
     diagnostics.extend(derives_from_diagnostics(&value));
     diagnostics.extend(dimensions_diagnostics(&value));
 
-    let mut record: VoRecord = yaml_serde::from_value(value)
+    let record: VoRecord = yaml_serde::from_value(value)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
-    if combinations_entry_had_a_duplicate_key {
-        // 本冊:283（§3.2.1 の受理条件、条件6後半）「entry が...同じdimension
-        // 名を2回以上持つ」は E-SCAN-017（`vtest-scan`の`invalid_vo_
-        // combinations`、VOを保持したまま`chain_integrity = MISMATCH`）が
-        // 扱う条件であり、record層のE-SCAN-010（VOが丸ごと`vos`マップから
-        // 消える）ではない（本冊:1625・別紙A:438）。しかし
-        // `combinations: Vec<BTreeMap<String, String>>`は重複キーを持つ
-        // entryをそもそも表現できない — 上の
-        // `parse_vo_value_tolerating_a_combinations_duplicate_key`が
-        // `combinations:`ブロック全体を`[]`へ置き換えて初めてパースが
-        // 成立している。ここでその置換を「宣言済みdimensionを一切持たない
-        // 1件のentry」（空map）で埋め直す。これは`invalid_vo_combinations`
-        // の既存の長さ不一致検査（条件6前半「entry が宣言済み dimension の
-        // いずれかを欠く」と同じ判定式。本冊:283 は前半・後半を同一箇条で
-        // 並列に扱っており、診断コード・chain_integrity・vo expand の帰結は
-        // 前半後半で区別されない）に自然に引っかかり、`coverage_policy`が
-        // `explicit`以外の場合も「combinations が空でないのに explicit
-        // 以外」（条件3）として同じくE-SCAN-017になる。重複していた具体的な
-        // dimension名・値はこの型では保持できない（BLOCKER 1 対応の報告
-        // 事項）。
-        record.combinations = single_combination_entry_with_no_declared_dimensions();
-    }
     if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
             "VO id {} does not match file name {fallback_id}",
@@ -264,91 +241,6 @@ pub fn vo_record_from_yaml(
     }
     require_at_least_one_derives_from(&record.derives_from)?;
     Ok((record, diagnostics))
-}
-
-fn single_combination_entry_with_no_declared_dimensions(
-) -> Vec<std::collections::BTreeMap<String, String>> {
-    vec![std::collections::BTreeMap::new()]
-}
-
-/// Parses `text` into a `yaml_serde::Value`, the way every other canonical
-/// record does — except that a duplicate key confined to inside one
-/// `combinations[]` entry's own mapping does not fail the parse the way a
-/// duplicate key anywhere else in the document still does.
-///
-/// `yaml_serde::Value`'s `Mapping` visitor rejects a duplicate key wherever
-/// it occurs in the document (`mapping.rs`'s `DuplicateKeyError`), before any
-/// typed struct is ever built. 詳細設計 v0.1 本冊:283（§3.2.1）makes "同じ
-/// dimension 名を2回以上持つ" one of the `combinations` conditions
-/// `E-SCAN-017`（`vtest-scan`, VO retained）owns, but everywhere else in a VO
-/// record a duplicate key is still exactly the record-layer schema violation
-/// PR2 established it to be (`document_with_a_duplicate_top_level_key_is_
-/// rejected`, `vo_record_combination_entry_with_a_duplicate_dimension_key_is_
-/// rejected` before this fix, `approval_roles_with_a_duplicate_key_is_
-/// rejected`) — this function must not weaken that anywhere except inside
-/// `combinations[]`.
-///
-/// Strategy: parse normally first. Only on a `"duplicate entry"` failure,
-/// retry with the entire top-level `combinations:` block replaced by
-/// `combinations: []` (`strip_combinations_block`). If that retry succeeds,
-/// the duplicate was confined to `combinations[]` — the second return value
-/// is `true`, and the caller substitutes a sentinel entry back in (see
-/// `vo_record_from_yaml`) so `invalid_vo_combinations` still reports
-/// E-SCAN-017 instead of silently accepting an empty `combinations`. If the
-/// retry still fails, the duplicate (or some other defect) exists outside
-/// `combinations[]` too, and the *original* error is what the caller must
-/// see — record-layer rejection stands, unchanged from before this fix.
-fn parse_vo_value_tolerating_a_combinations_duplicate_key(
-    text: &str,
-) -> yaml_serde::Result<(yaml_serde::Value, bool)> {
-    match yaml_serde::from_str(text) {
-        Ok(value) => Ok((value, false)),
-        Err(error) => {
-            if !error.to_string().contains("duplicate entry") {
-                return Err(error);
-            }
-            let Some(stripped) = strip_combinations_block(text) else {
-                return Err(error);
-            };
-            match yaml_serde::from_str(&stripped) {
-                Ok(value) => Ok((value, true)),
-                Err(_) => Err(error),
-            }
-        }
-    }
-}
-
-/// Replaces the top-level `combinations:` key and everything that belongs to
-/// it (its own line, plus every following more-indented line — the same
-/// block-boundary rule `records.rs`'s `nested_scalar` uses for its hand-rolled
-/// parsing) with a single `combinations: []` line. Returns `None` if `text`
-/// has no top-level `combinations:` key at all, so the caller can tell "there
-/// was nothing to strip" apart from "stripping produced this text".
-fn strip_combinations_block(text: &str) -> Option<String> {
-    let lines = text.lines().collect::<Vec<_>>();
-    let start = lines.iter().position(|raw| {
-        let line = raw.trim_end();
-        !line.starts_with(' ') && (line == "combinations:" || line.starts_with("combinations:"))
-    })?;
-    let end = lines[start + 1..]
-        .iter()
-        .position(|raw| {
-            let trimmed = raw.trim();
-            !trimmed.is_empty() && !raw.starts_with(' ') && !raw.starts_with('\t')
-        })
-        .map_or(lines.len(), |offset| start + 1 + offset);
-
-    let mut result = String::new();
-    for line in &lines[..start] {
-        result.push_str(line);
-        result.push('\n');
-    }
-    result.push_str("combinations: []\n");
-    for line in &lines[end..] {
-        result.push_str(line);
-        result.push('\n');
-    }
-    Some(result)
 }
 
 /// Reads the canonical VO record `<id>.yaml` from `.verify/vo/`.
@@ -811,26 +703,18 @@ updated: 2026-08-08
         assert_eq!(missing, null_record);
     }
 
-    /// 詳細設計 v0.1 本冊:283（§3.2.1 の受理条件、条件6後半）"entry が
-    /// 宣言済み dimension のいずれかを欠く、または同じ dimension 名を2回以上
-    /// 持つ" は E-SCAN-017（`vtest-scan`の`invalid_vo_combinations`が扱う、
-    /// VOを保持したまま`chain_integrity = MISMATCH`にする条件）であり、
-    /// record層のE-SCAN-010（VOが丸ごと`vos`マップから消える）ではない
-    /// （本冊:1625・別紙A:438）。
-    ///
-    /// `yaml_serde::Value`の`Mapping`visitorは重複キーをドキュメント中どこで
-    /// あれ拒否するため、`combinations[]`の1entry内の重複キーだけを特別扱い
-    /// せずに読むと、record層が先にVOレコードそのものを拒否してしまい
-    /// （BLOCKER 1、PR #26 review round 1 — 旧版のこのテストはその誤った
-    /// 挙動を固定していた）、条件1「欠落」で`vo.rs`の`#[serde(default)]`が
-    /// 直したのと同型の欠陥になる。`vo_record_from_yaml`は今、重複が
-    /// `combinations[]`の内側に閉じている場合に限りレコードを読み進め、
-    /// その`combinations`を「宣言済みdimensionを一切持たない1件のentry」へ
-    /// 置き換える（重複していた具体的な値は`Vec<BTreeMap<String, String>>`
-    /// では表現できない — 置き換え後も`invalid_vo_combinations`の長さ不一致
-    /// 検査に確実に引っかかり、E-SCAN-017が保証される）。
+    /// 詳細設計 v0.1 §3.2.1: "各 entry は dimension 名 → partition 値の map"
+    /// — the same duplicate-key rejection `document_with_a_duplicate_top_
+    /// level_key_is_rejected` (`lib.rs`) locks in for a record's top level
+    /// applies one level deeper too: `yaml_serde::Value`'s `Mapping` visitor
+    /// rejects a duplicate key inside a `combinations[]` entry's own nested
+    /// mapping before `from_value` ever builds a `VoRecord`. This is why
+    /// `vtest-scan`'s `invalid_vo_combinations` does not itself check for a
+    /// combination entry repeating one dimension name — condition 6's
+    /// "同じ dimension 名を2回以上持つ" half can never reach it as a parsed
+    /// `BTreeMap`, since a duplicate key never survives to that point.
     #[test]
-    fn vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_scan_as_e_scan_017() {
+    fn vo_record_combination_entry_with_a_duplicate_dimension_key_is_rejected() {
         let yaml = "\
 id: VO-COMBOS
 parent: null
@@ -851,79 +735,7 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-COMBOS")
-            .expect("a duplicate key confined to inside one combinations[] entry must not fail the whole VO record read (BLOCKER 1) — the defect belongs to the scan layer's E-SCAN-017, not a record-layer rejection");
-        assert_eq!(
-            record.combinations,
-            vec![std::collections::BTreeMap::new()],
-            "the unrepresentable duplicate-key entry must be replaced with a sentinel that \
-             still trips invalid_vo_combinations's declared-dimension-count check, not silently \
-             dropped to an empty combinations list"
-        );
-        assert!(diagnostics.is_empty());
-    }
-
-    /// The general duplicate-key rejection PR2 established for every VO
-    /// record field (`document_with_a_duplicate_top_level_key_is_rejected`'s
-    /// sibling case) must survive the `combinations[]`-specific carve-out
-    /// above unchanged: a duplicate key anywhere *other* than inside a
-    /// `combinations[]` entry — here, the top-level `claim` key — is still a
-    /// record-layer rejection.
-    #[test]
-    fn vo_record_with_a_duplicate_top_level_key_outside_combinations_is_still_rejected() {
-        let yaml = "\
-id: VO-DUP-TOP
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: first claim
-claim: second claim
-dimensions: []
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let error = vo_record_from_yaml(yaml, "VO-DUP-TOP")
-            .expect_err("a duplicate top-level key outside combinations[] must fail closed");
-        assert!(
-            error.to_string().contains("duplicate entry"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// A duplicate dimension key inside a `combinations[]` entry alongside a
-    /// *separate* duplicate elsewhere in the record (`derives_from[]` here)
-    /// must not have the `combinations[]` carve-out silently swallow the
-    /// second, unrelated defect: stripping `combinations:` alone does not
-    /// make the record parseable, so the original rejection must stand.
-    #[test]
-    fn vo_record_with_duplicates_both_inside_and_outside_combinations_is_rejected() {
-        let yaml = "\
-id: VO-DUP-BOTH
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-    doc: DOC-OTHER-001
-claim: claim
-dimensions:
-  - name: d1
-    partitions: [a, b]
-  - name: d2
-    partitions: [x, y]
-coverage_policy: explicit
-combinations:
-  - d1: a
-    d1: b
-    d2: x
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let error = vo_record_from_yaml(yaml, "VO-DUP-BOTH").expect_err(
-            "a duplicate outside combinations[] must still fail closed even when combinations[] also has one",
-        );
+        let error = vo_record_from_yaml(yaml, "VO-COMBOS").unwrap_err();
         assert!(
             error.to_string().contains("duplicate entry"),
             "expected a duplicate-key parse rejection, got: {error}"
