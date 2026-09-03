@@ -39,6 +39,19 @@ pub struct VoRecord {
     /// Each entry maps every declared `dimensions[].name` to one of its
     /// partitions (詳細設計 v0.1 §3.2.1: "各 entry は dimension 名 →
     /// partition 値の map とし...記述順・map key 順には依存しない").
+    ///
+    /// `#[serde(default)]` (unlike `dimensions`/`representative_cases`,
+    /// which stay required): 別紙C:97-104 lists `explicit` かつ
+    /// `combinations` **欠落**（missing key, distinct from `null` and empty
+    /// list — all three are named separately) as one of the E-SCAN-017
+    /// conditions the *scan* layer must report. Without a default, a
+    /// missing `combinations:` key instead fails `Deserialize` outright —
+    /// the record reader rejects it as a schema error (E-SCAN-010) before
+    /// `vtest-scan`'s `invalid_vo_combinations` (詳細設計 v0.1 §17.1) ever
+    /// sees the record, so the 欠落 sub-case could never surface as
+    /// E-SCAN-017. `null` already deserializes to `vec![]` here (verified
+    /// empirically), so only the missing-key sub-case needed this.
+    #[serde(default)]
     pub combinations: Vec<BTreeMap<String, String>>,
 
     pub representative_cases: Vec<String>,

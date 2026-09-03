@@ -669,6 +669,79 @@ updated: 2026-08-08
         );
     }
 
+    /// 別紙C:97-104's E-SCAN-017 condition 1 names three distinct `explicit`-
+    /// policy inputs — `combinations` **欠落**（missing key）, `null`, and an
+    /// empty list — as all requiring the same E-SCAN-017 diagnostic from the
+    /// scan layer (`vtest-scan`'s `invalid_vo_combinations`), not a record-
+    /// layer schema rejection. `null` and an omitted key must therefore both
+    /// reach the typed `VoRecord` as `combinations: vec![]`, exactly like an
+    /// explicit `combinations: []`, rather than failing `Deserialize`
+    /// outright — this locks in both empirically (`VoRecord.combinations`
+    /// carries `#[serde(default)]` for this reason).
+    #[test]
+    fn vo_record_combinations_missing_or_null_parses_as_empty_vec() {
+        let base = "\
+id: VO-COMBOS
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions: []
+coverage_policy: null
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let (missing, diagnostics) = vo_record_from_yaml(base, "VO-COMBOS").unwrap();
+        assert!(missing.combinations.is_empty());
+        assert!(diagnostics.is_empty());
+
+        let with_null = format!("{base}combinations: null\n");
+        let (null_record, diagnostics) = vo_record_from_yaml(&with_null, "VO-COMBOS").unwrap();
+        assert!(null_record.combinations.is_empty());
+        assert!(diagnostics.is_empty());
+        assert_eq!(missing, null_record);
+    }
+
+    /// 詳細設計 v0.1 §3.2.1: "各 entry は dimension 名 → partition 値の map"
+    /// — the same duplicate-key rejection `document_with_a_duplicate_top_
+    /// level_key_is_rejected` (`lib.rs`) locks in for a record's top level
+    /// applies one level deeper too: `yaml_serde::Value`'s `Mapping` visitor
+    /// rejects a duplicate key inside a `combinations[]` entry's own nested
+    /// mapping before `from_value` ever builds a `VoRecord`. This is why
+    /// `vtest-scan`'s `invalid_vo_combinations` does not itself check for a
+    /// combination entry repeating one dimension name — condition 6's
+    /// "同じ dimension 名を2回以上持つ" half can never reach it as a parsed
+    /// `BTreeMap`, since a duplicate key never survives to that point.
+    #[test]
+    fn vo_record_combination_entry_with_a_duplicate_dimension_key_is_rejected() {
+        let yaml = "\
+id: VO-COMBOS
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: d1
+    partitions: [a, b]
+  - name: d2
+    partitions: [x, y]
+coverage_policy: explicit
+combinations:
+  - d1: a
+    d1: b
+    d2: x
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let error = vo_record_from_yaml(yaml, "VO-COMBOS").unwrap_err();
+        assert!(
+            error.to_string().contains("duplicate entry"),
+            "expected a duplicate-key parse rejection, got: {error}"
+        );
+    }
+
     /// 詳細設計 v0.1 §3.2: the reader accepts `status` (does not reject the
     /// record) but ignores its *value* and instead notifies W-STORE-001 on
     /// the field's mere presence — this checks both halves.

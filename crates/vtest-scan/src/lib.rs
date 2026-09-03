@@ -233,13 +233,16 @@ fn record_diagnostics(
 /// fields, id/file-name match, unknown fields) to `vtest_store::read_document`
 /// — the record-layer reader — rather than re-checking them here (record vs.
 /// scan layer split; `pr3-spec-extract.md` §7, mirrors `validate_vo_record`
-/// below). This function adds the two checks that reader deliberately leaves
-/// to the scan layer:
-/// - the `DOC-<NAME>.yaml` file-name convention (本冊:113), same as
-///   `validate_vo_record`'s equivalent check;
-/// - `content_hash` staleness against the file at `path` (W-SCAN-104, 本冊:
-///   1626 §17.1) — the reader only sees the record text, never the working
-///   tree, so it cannot compare against the file `path` names.
+/// below). This function adds the one check that reader deliberately leaves
+/// to the scan layer: `content_hash` staleness against the file at `path`
+/// (W-SCAN-104, 本冊:1626 §17.1) — the reader only sees the record text,
+/// never the working tree, so it cannot compare against the file `path`
+/// names. It deliberately does not police the `DOC-<NAME>.yaml` id/file-name
+/// *shape*: 基本仕様:126-134 states the ID prefix/charset is a convention the
+/// tool must not enforce, only uniqueness (PM 裁定7); the reader's
+/// id-matches-file-name check above is a different, permitted rule (ファイル
+/// 名を ID とする, 本冊:644), not a format constraint on what that ID may
+/// contain.
 fn validate_document_record(
     layout: &VerifyLayout,
     id: &str,
@@ -247,15 +250,6 @@ fn validate_document_record(
 ) -> Option<DocumentRecord> {
     let path = layout.doc_dir().join(format!("{id}.yaml"));
     let location = record_location(&layout.root, &path, id);
-    if !is_valid_entity_id(id, "DOC-") {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("document id `{id}` has an invalid format"),
-            )
-            .with_location(location.clone()),
-        );
-    }
     let (record, record_diagnostics) = match read_document(layout, id) {
         Ok(result) => result,
         Err(error) => {
@@ -425,14 +419,16 @@ fn validate_vo_document_references(
 /// match, unknown fields) to `vtest_store::read_vo_record` — the record-layer
 /// reader implemented in PR2 — rather than re-checking them here (record vs.
 /// scan layer split; `pr3-spec-extract.md` §7). This function only adds the
-/// two checks that reader deliberately leaves to the scan layer:
-/// - the `VO-<NAME>.yaml` file-name convention (本冊:113), which the reader
-///   does not police (it only checks `record.id` against the file stem, not
-///   the stem's own shape);
-/// - `combinations` validity against the declared `dimensions` (E-SCAN-017,
-///   本冊:1625/別紙C:97-104) — combinations resolution needs the VO's own
-///   dimension set, which canonical.rs's own doc comment says is a
-///   scan-time concern, not the reader's.
+/// one check that reader deliberately leaves to the scan layer:
+/// `combinations` validity against the declared `dimensions` (E-SCAN-017,
+/// 本冊:1625/別紙C:97-104) — combinations resolution needs the VO's own
+/// dimension set, which canonical.rs's own doc comment says is a scan-time
+/// concern, not the reader's. It deliberately does not police the
+/// `VO-<NAME>.yaml` id/file-name *shape*: 基本仕様:126-134 states the ID
+/// prefix/charset is a convention the tool must not enforce, only uniqueness
+/// (PM 裁定7); the reader's id-matches-file-name check is a different,
+/// permitted rule (ファイル名を ID とする, 本冊:644), not a format constraint
+/// on what that ID may contain.
 fn validate_vo_record(
     layout: &VerifyLayout,
     id: &str,
@@ -440,12 +436,6 @@ fn validate_vo_record(
 ) -> Option<VoRecord> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
     let location = record_location(&layout.root, &path, id);
-    if !is_valid_entity_id(id, "VO-") {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-010", format!("VO id `{id}` has an invalid format"))
-                .with_location(location.clone()),
-        );
-    }
     let (record, record_diagnostics) = match read_vo_record(layout, id) {
         Ok(result) => result,
         Err(error) => {
@@ -493,11 +483,23 @@ fn validate_vo_record(
 /// - entry が宣言済み dimension を欠く、または同じ dimension 名を2回以上持つ。
 /// - 同一 tuple を持つ entry が2件以上（重複 tuple）。
 ///
-/// The "同じ dimension 名を2回以上持つ" half of that sixth bullet is not
+/// First bullet's three sub-cases (欠落・null・空 list) all reach this
+/// function as `record.combinations.is_empty()`: `null` deserializes to
+/// `vec![]` on its own, and a missing key now does too because
+/// `VoRecord.combinations` carries `#[serde(default)]` (empirically verified
+/// — without it, a missing key instead failed `Deserialize` before this ever
+/// ran, surfacing as the record layer's E-SCAN-010 rather than E-SCAN-017;
+/// see `vtest_store::canonical::vo_record_combinations_missing_or_null_
+/// parses_as_empty_vec`).
+///
+/// The "同じ dimension 名を2回以上持つ" half of the sixth bullet is not
 /// checked here: `combinations`' canonical shape is `Vec<BTreeMap<String,
-/// String>>` (`vtest_model::VoRecord`), and a `BTreeMap` cannot hold the same
-/// key twice by construction, so that condition is now structurally
-/// unreachable rather than unchecked.
+/// String>>` (`vtest_model::VoRecord`), and a duplicate key inside one
+/// entry's YAML mapping is rejected by `yaml_serde::Value`'s own parse
+/// before `VoRecord` is ever built (empirically verified, not just inferred
+/// from the `BTreeMap` type — see `vtest_store::canonical::vo_record_
+/// combination_entry_with_a_duplicate_dimension_key_is_rejected`), so that
+/// condition is structurally unreachable here rather than unchecked.
 fn invalid_vo_combinations(record: &VoRecord) -> Option<String> {
     if !matches!(record.coverage_policy, Some(CoveragePolicy::Explicit)) {
         if !record.combinations.is_empty() {
@@ -868,14 +870,6 @@ fn validate_approval_status(
             );
         }
     }
-}
-
-fn is_valid_entity_id(id: &str, prefix: &str) -> bool {
-    id.starts_with(prefix)
-        && id.len() > prefix.len()
-        && id.chars().all(|character| {
-            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
-        })
 }
 
 fn collect_rs_files(
@@ -2721,6 +2715,273 @@ registered_at: 2026-08-08T00:00:00Z
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "W-SCAN-104" && diagnostic.message.contains("DOC-BASIC-001")
             }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// Overwrites `.verify/vo/VO-ADD.yaml` (the VO `fixture()` already wires
+    /// `TEST-ADD` to `covers`) with a custom record, so each E-SCAN-017 test
+    /// below only has to vary the `combinations`/`dimensions`/
+    /// `coverage_policy` shape under test.
+    fn write_vo_add(root: &Path, yaml: &str) {
+        fs::write(root.join(".verify/vo/VO-ADD.yaml"), yaml).unwrap();
+    }
+
+    /// One diagnostic with `code` whose `message` names `VO-ADD`, i.e. the
+    /// diagnostic this test's own mutated record produced (not some other
+    /// VO's).
+    fn has_diagnostic_for_vo_add(result: &ScanResult, code: &str) -> bool {
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == code && diagnostic.message.contains("VO-ADD"))
+    }
+
+    /// Base for every E-SCAN-017 fixture below: `derives_from`/`claim`/
+    /// `created`/`updated` never vary across the 別紙C:97-104 conditions, so
+    /// each test only supplies the `dimensions:`/`coverage_policy:`/
+    /// `combinations:` block that condition exercises.
+    fn vo_add_header() -> &'static str {
+        "id: VO-ADD\nparent: null\nderives_from:\n  - doc: DOC-TEST\nclaim: claim\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
+    }
+
+    /// 別紙C:97-104 condition 1a: `explicit` かつ `combinations` 欠落
+    /// (missing key entirely, not `null` or `[]` — those are 1b/1c below).
+    #[test]
+    fn e_scan_017_condition_1a_missing_combinations_under_explicit_policy() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\ncoverage_policy: explicit\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 1b: `explicit` かつ `combinations` が `null`.
+    #[test]
+    fn e_scan_017_condition_1b_null_combinations_under_explicit_policy() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\ncoverage_policy: explicit\ncombinations: null\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 1c: `explicit` かつ `combinations` が空 list.
+    #[test]
+    fn e_scan_017_condition_1c_empty_combinations_under_explicit_policy() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\ncoverage_policy: explicit\ncombinations: []\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 2: `explicit` かつ `dimensions` が空.
+    #[test]
+    fn e_scan_017_condition_2_empty_dimensions_under_explicit_policy() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions: []\ncoverage_policy: explicit\ncombinations:\n  - d1: a\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 3: `combinations` が空でないのに
+    /// `coverage_policy` が `explicit` 以外（ここでは `independent-axes`）.
+    #[test]
+    fn e_scan_017_condition_3_nonempty_combinations_under_non_explicit_policy() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\ncoverage_policy: independent-axes\ncombinations:\n  - d1: a\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 4: entry が未宣言の dimension 名を含む. Two
+    /// dimensions are declared (`d1`/`d2`) so the entry's length matches
+    /// `dimensions.len()` and this exercises the undeclared-name check
+    /// specifically, not the length-mismatch branch condition 6 exercises.
+    #[test]
+    fn e_scan_017_condition_4_entry_references_an_undeclared_dimension() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\n  - name: d2\n    partitions: [x, y]\ncoverage_policy: explicit\ncombinations:\n  - d1: a\n    d3: x\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 5: entry の partition 値が当該 dimension の
+    /// `partitions` に無い.
+    #[test]
+    fn e_scan_017_condition_5_entry_uses_an_undeclared_partition_value() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\ncoverage_policy: explicit\ncombinations:\n  - d1: c\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 6 (first half): entry が宣言済み dimension を
+    /// 欠く（ここでは `d2` を欠いた1件だけの entry）.
+    #[test]
+    fn e_scan_017_condition_6_entry_is_missing_a_declared_dimension() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\n  - name: d2\n    partitions: [x, y]\ncoverage_policy: explicit\ncombinations:\n  - d1: a\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 6 (second half): entry が同じ dimension 名を
+    /// 2回以上持つ。`invalid_vo_combinations`'s own doc comment explains why
+    /// this is not checked there — a duplicate key inside one `combinations[]`
+    /// entry's YAML mapping never survives to a `VoRecord` at all. This test
+    /// locks in that a VO record built this way is rejected fail-closed (as
+    /// E-SCAN-010, the record-layer parse failure) rather than silently
+    /// picking one of the duplicate values and passing — the record-layer
+    /// regression `vtest_store::canonical::vo_record_combination_entry_with_
+    /// a_duplicate_dimension_key_is_rejected` pins the exact parser-level
+    /// error; this pins the resulting scan-level diagnostic and its `VO-ADD`
+    /// location.
+    #[test]
+    fn e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected_upstream() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\n  - name: d2\n    partitions: [x, y]\ncoverage_policy: explicit\ncombinations:\n  - d1: a\n    d1: b\n    d2: x\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-010"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            !has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "a record the reader already rejected must not also reach \
+             invalid_vo_combinations: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// 別紙C:97-104 condition 7: 同一の（dimension 名→partition 値）対応を
+    /// 持つ entry が2件以上（重複 tuple）。The two entries below both
+    /// resolve to the same tuple even though key order differs, matching
+    /// §3.2.1's "記述順・map key 順には依存しない" — `BTreeMap`'s `Eq`/`Ord`
+    /// already normalize key order, so no special-casing is needed to catch
+    /// this as a duplicate.
+    #[test]
+    fn e_scan_017_condition_7_duplicate_tuple() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: d1\n    partitions: [a, b]\n  - name: d2\n    partitions: [x, y]\ncoverage_policy: explicit\ncombinations:\n  - d1: a\n    d2: x\n  - d2: x\n    d1: a\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// Positive control: a well-formed `explicit`-policy VO (別紙C:97-104's
+    /// own literal example, id/derives_from swapped for this fixture) must
+    /// not raise E-SCAN-017. Without this, the eight tests above could all
+    /// be trivially satisfied by an `invalid_vo_combinations` that always
+    /// returns `Some(..)`.
+    #[test]
+    fn e_scan_017_well_formed_explicit_combinations_report_no_diagnostic() {
+        let root = fixture();
+        write_vo_add(
+            &root,
+            &format!(
+                "{}dimensions:\n  - name: operand-sign\n    partitions: [positive, negative]\n  - name: operator\n    partitions: [add, sub, mul, div]\ncoverage_policy: explicit\ncombinations:\n  - operand-sign: positive\n    operator: div\n  - operand-sign: negative\n    operator: div\n",
+                vo_add_header()
+            ),
+        );
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
             result.diagnostics
         );
