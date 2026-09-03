@@ -806,6 +806,14 @@ struct CargoTarget {
     path: Option<String>,
 }
 
+// レビュー round 2 項目【L】掃引: このサイトは PR3 round 2 の対象外だが、
+// 失われる情報を明記する — 二連の `.ok()?` は「`Cargo.toml` が存在しない
+// （package rootの外、または workspace root自体にpackageが無い正当な
+// ケース）」と「`Cargo.toml` は存在するが壊れている（TOML構文エラー・
+// `[package]` 欠落）」を区別しない。呼び出し元 `source_context` は
+// どちらの場合も同じ `None` を受け取り、`fallback_package` へ黙って
+// フォールバックする（package名・target種別 `TestTarget` の解決精度が
+// 静かに低下する。診断は一切出ない）。
 fn cargo_manifest(root: &Path) -> Option<CargoManifest> {
     let text = fs::read_to_string(root.join("Cargo.toml")).ok()?;
     let manifest = toml::from_str::<CargoManifest>(&text).ok()?;
@@ -1074,6 +1082,13 @@ fn visit_module_file(
     if !visiting.insert(identity.clone()) {
         return;
     }
+    // レビュー round 2 項目【L】掃引: このサイトは PR3 round 2 の対象外
+    // だが、失われる情報を明記する — read 失敗（権限エラー等）と構文
+    // エラーはどちらも `None` に潰れ、区別されない。結果として、この
+    // module ファイル配下の部分木がモジュールパス解決用の prefix 列挙
+    // （`prefixes`）から黙って欠落する。呼び出し元は「この module に
+    // `sought` は存在しない」と「この module は読めなかった／構文が
+    // 壊れている」を区別できない。
     let syntax = fs::read_to_string(file)
         .ok()
         .and_then(|source| syn::parse_file(&source).ok());
@@ -1199,6 +1214,12 @@ fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a st
 }
 
 fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
+    // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
+    // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
+    // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
+    // 診断に付く `SourceLocation.end_line` / `end_byte` が実ファイルの
+    // 実測値ではなく `1` / `0` へ退化し、read 失敗そのものは診断として
+    // 一切報告されない（`vtest-scan::record_location` の同型サイトと同じ）。
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
         file: path

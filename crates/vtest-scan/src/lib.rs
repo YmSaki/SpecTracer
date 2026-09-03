@@ -239,7 +239,7 @@ pub fn scan_project_with_config(
         &doc_roots,
         &result.tests,
         &result.sources,
-    ));
+    )?);
     Ok(result)
 }
 
@@ -510,7 +510,7 @@ fn record_diagnostics(
     doc_roots: &BTreeSet<String>,
     tests: &[TestEntity],
     sources: &[SourceFunction],
-) -> Vec<Diagnostic> {
+) -> Result<Vec<Diagnostic>, ScanError> {
     let layout = VerifyLayout::new(root);
     let mut diagnostics = Vec::new();
     let mut known_ids = BTreeSet::new();
@@ -561,10 +561,10 @@ fn record_diagnostics(
         .collect::<BTreeMap<_, _>>();
     validate_parent_graph(root, &layout.vo_dir(), &vo_parents, "VO", &mut diagnostics);
 
-    validate_relations(&layout, &known_ids, &mut diagnostics);
+    validate_relations(&layout, &known_ids, &mut diagnostics)?;
     validate_vo_warnings(&layout, &vos, tests, &mut diagnostics);
-    validate_approval_status(&layout, &vos, &mut diagnostics);
-    diagnostics
+    validate_approval_status(&layout, &vos, &mut diagnostics)?;
+    Ok(diagnostics)
 }
 
 /// Reads and validates the canonical document record `.verify/doc/<id>.yaml`
@@ -906,6 +906,12 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
 }
 
 fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
+    // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
+    // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
+    // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
+    // 診断（E-SCAN-008/009/010 等）に付く `SourceLocation.end_line` /
+    // `end_byte` が実ファイルの実測値ではなく `1` / `0` へ退化し、read
+    // 失敗そのものは診断として一切報告されない。
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
         file: path
@@ -985,14 +991,29 @@ fn validate_parent_graph(
     }
 }
 
+/// レビュー round 2 項目【L】: `layout.relation_dir()` が存在しないこと
+/// （まだ Relation レコードが1件も無い正常なリポジトリ）と、存在するが
+/// 読めないこと（権限エラー等）を区別する。前者は空の Relation 集合として
+/// 扱い（診断ゼロで正しい）、後者は Relation 検査全体が診断ゼロで黙って
+/// スキップされる fail-open を避けるため、`ScanError::Io` で scan 全体を
+/// fail-closed に中断する。E-SCAN-010（本冊:876「レコードのid / ファイル名
+/// / schema不一致」）はこの条件（ディレクトリを列挙できない）に適合しない
+/// ため、当てはめず既存の `ScanError` 経路を使う。
 fn validate_relations(
     layout: &VerifyLayout,
     known_ids: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
-) {
-    let entries = match fs::read_dir(layout.relation_dir()) {
+) -> Result<(), ScanError> {
+    let relation_dir = layout.relation_dir();
+    let entries = match fs::read_dir(&relation_dir) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(source) => {
+            return Err(ScanError::Io {
+                path: relation_dir,
+                source,
+            })
+        }
     };
     let mut paths = entries
         .flatten()
@@ -1061,6 +1082,7 @@ fn validate_relations(
             }
         }
     }
+    Ok(())
 }
 
 fn validate_vo_warnings(
@@ -1117,11 +1139,16 @@ fn validate_vo_warnings(
 /// condition — recomputing an approval-derived status here and diffing it
 /// against `status` would both duplicate that check and apply the wrong
 /// condition.
+/// レビュー round 2 項目【L】: `validate_relations` と同じ理由で
+/// `layout.approvals_dir()` が存在しないこと（承認レコードがまだ1件も無い
+/// 正常なリポジトリ）と、存在するが読めないこと（権限エラー等）を区別する。
+/// 前者は空の承認集合として扱い、後者は承認レコード検査全体が診断ゼロで
+/// 黙ってスキップされる fail-open を避けるため `ScanError::Io` で中断する。
 fn validate_approval_status(
     layout: &VerifyLayout,
     vos: &BTreeMap<String, VoRecord>,
     diagnostics: &mut Vec<Diagnostic>,
-) {
+) -> Result<(), ScanError> {
     let mut current_hashes = BTreeMap::new();
     for id in vos.keys() {
         let path = layout.vo_dir().join(format!("{id}.yaml"));
@@ -1129,9 +1156,16 @@ fn validate_approval_status(
             current_hashes.insert(id.clone(), ContentHash::from_text(&text));
         }
     }
-    let entries = match fs::read_dir(layout.approvals_dir()) {
+    let approvals_dir = layout.approvals_dir();
+    let entries = match fs::read_dir(&approvals_dir) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(source) => {
+            return Err(ScanError::Io {
+                path: approvals_dir,
+                source,
+            })
+        }
     };
     for entry in entries.flatten() {
         let path = entry.path();
@@ -1220,6 +1254,7 @@ fn validate_approval_status(
             );
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -2340,6 +2375,69 @@ fn covers_parent() {}
                 .all(|diagnostic| diagnostic.location.is_some()),
             "every scanner diagnostic must identify its canonical source: {:?}",
             result.diagnostics
+        );
+    }
+
+    // レビュー round 2 項目【L】の回帰テスト群。「存在しない」（正常な
+    // 空リポジトリ）と「存在するが読めない」（fail-closed で中断すべき）を
+    // 区別する。ディレクトリを通常ファイルへ差し替えることで、権限エラー
+    // と同じ `io::ErrorKind` 非 `NotFound` 経路を移植性のある形で再現する。
+
+    #[test]
+    fn missing_relation_dir_is_treated_as_no_relations() {
+        let root = fixture();
+        fs::remove_dir_all(root.join(".verify/rel")).unwrap();
+        let result = scan_project(&root).expect("a missing relation dir must not abort the scan");
+        assert!(
+            !result.diagnostics.iter().any(
+                |diagnostic| diagnostic.code == "E-SCAN-009" || diagnostic.code == "E-SCAN-010"
+            ),
+            "a missing relation dir must not itself produce relation diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn unreadable_relation_dir_aborts_scan_fail_closed() {
+        let root = fixture();
+        let relation_dir = root.join(".verify/rel");
+        fs::remove_dir_all(&relation_dir).unwrap();
+        fs::write(&relation_dir, b"not a directory").unwrap();
+        let error =
+            scan_project(&root).expect_err("an unreadable relation dir must abort the scan");
+        assert!(
+            matches!(error, ScanError::Io { .. }),
+            "expected ScanError::Io, got: {error:?}"
+        );
+    }
+
+    #[test]
+    fn missing_approvals_dir_is_treated_as_no_approvals() {
+        let root = fixture();
+        fs::remove_dir_all(root.join(".verify/approvals")).unwrap();
+        let result = scan_project(&root).expect("a missing approvals dir must not abort the scan");
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"
+                    && diagnostic.message.contains("approval")),
+            "a missing approvals dir must not itself produce approval diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn unreadable_approvals_dir_aborts_scan_fail_closed() {
+        let root = fixture();
+        let approvals_dir = root.join(".verify/approvals");
+        fs::remove_dir_all(&approvals_dir).unwrap();
+        fs::write(&approvals_dir, b"not a directory").unwrap();
+        let error =
+            scan_project(&root).expect_err("an unreadable approvals dir must abort the scan");
+        assert!(
+            matches!(error, ScanError::Io { .. }),
+            "expected ScanError::Io, got: {error:?}"
         );
     }
 
