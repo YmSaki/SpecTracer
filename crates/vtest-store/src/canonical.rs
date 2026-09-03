@@ -287,13 +287,26 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// Because this never fails on a duplicate key anywhere, `vo_record_from_
 /// yaml` below no longer needs to distinguish "the one tolerated shape" from
 /// "every other reason `Value` could fail to build" — there is no longer a
-/// second reason. Its own `yaml_serde::from_str::<LenientValue>(text)` call
-/// is `?`-propagated, not swallowed by an `if let Ok(...)`: if it ever did
-/// fail (it should not, for any text the primary `VoRecord` parse already
-/// accepted — the two parses see the same event stream, and this type
-/// handles every scalar/map/seq/tagged shape that stream can produce), the
-/// whole read now fails closed instead of silently returning zero
-/// diagnostics.
+/// second reason for a duplicate key. Its own `yaml_serde::from_str::
+/// <LenientValue>(text)` call is `?`-propagated, not swallowed by an
+/// `if let Ok(...)`: if it ever did fail, the whole read now fails closed
+/// instead of silently returning zero diagnostics.
+///
+/// **Known exception, not closed by this type: `yaml_serde`'s recursion
+/// guard.** Unlike the primary typed parse — whose derived `Deserialize`
+/// discards an unknown field with `IgnoredAny` without ever descending into
+/// its value — `LenientValue`'s own `visit_map`/`visit_seq` *do* descend, to
+/// answer the diagnostics scan's "what does this contain". A text whose
+/// primary parse accepts an unknown field nested 128 levels deep or more
+/// (measured: 127 still reads and warns, 128 fails) therefore still trips
+/// `yaml_serde`'s recursion limit here even though the primary `VoRecord`/
+/// `DocumentRecord`/`RelationRecord` parse of the same text does not. When
+/// that happens the whole record is rejected, not just the one field's
+/// diagnostic — an exception to 詳細設計 v0.1 本冊:185's "未知フィールドは
+/// エラーではなく警告とする" for this one pathological depth, not a defect
+/// introduced or fixed by this commit. See
+/// `document_with_unknown_field_nested_past_the_recursion_limit_fails_closed`
+/// (below) for the boundary pinned as a test.
 ///
 /// **Extended to document/Relation (PR #26 round 3).** `document_from_yaml`
 /// and `RelationRecord::from_yaml` had no `combinations[]`-shaped field that
@@ -1872,5 +1885,62 @@ updated: 2026-08-08
             assert_eq!(diagnostics.len(), 1, "Relation, row 6: {diagnostics:?}");
             assert_eq!(diagnostics[0].code, "W-STORE-007");
         }
+    }
+
+    /// Confirms, independently of `document_from_yaml`'s combined behavior
+    /// below, that the primary typed-struct parse alone tolerates the same
+    /// pathologically deep unknown-field value that trips the diagnostics
+    /// scan — i.e. that the failure this locks in belongs to
+    /// `LenientValue`, not to `DocumentRecord`'s own `Deserialize`.
+    #[test]
+    fn document_records_own_typed_parse_alone_reads_the_depth_that_fails_the_scan() {
+        let record = sample_document();
+        let mut yaml = document_to_yaml(&record);
+        let nest = "[".repeat(200) + &"]".repeat(200);
+        yaml.push_str(&format!("owner: {nest}\n"));
+        let parsed: DocumentRecord = yaml_serde::from_str(&yaml)
+            .expect("the primary parse discards an unknown field via IgnoredAny, which never descends into its value, so it does not hit yaml_serde's recursion guard");
+        assert_eq!(parsed, record);
+    }
+
+    /// **Known exception to 詳細設計 v0.1 本冊:185** ("未知フィールドは
+    /// エラーではなく警告とする"): `LenientValue` (see its doc comment above)
+    /// walks into every unknown field's value to scan it for W-STORE-007/
+    /// duplicate-key tolerance, which the primary typed parse's `IgnoredAny`
+    /// does not — so a value nested deep enough trips `yaml_serde`'s
+    /// recursion guard (measured here: 127 deep still reads and warns, 128
+    /// fails) even though the primary parse alone reads it fine (see
+    /// `document_records_own_typed_parse_alone_reads_the_depth_that_fails_
+    /// the_scan` above, and `LenientValue`'s doc comment). When this fires,
+    /// `document_from_yaml` fails closed on the *whole* record — this is not
+    /// a bug this commit introduces or fixes; it is `fd6715a`'s
+    /// `Value`-first parse boundary, now pinned to its exact depth so a
+    /// future change to `LenientValue` or `yaml_serde` cannot silently move
+    /// it. The input required to hit it (128 levels of nested flow sequence)
+    /// has no realistic §3 source; this is not a §3.2 shape limit.
+    #[test]
+    fn document_with_unknown_field_nested_past_the_recursion_limit_fails_closed() {
+        let record = sample_document();
+
+        let mut still_reads = document_to_yaml(&record);
+        let nest_127 = "[".repeat(127) + &"]".repeat(127);
+        still_reads.push_str(&format!("owner: {nest_127}\n"));
+        let (parsed, diagnostics) = document_from_yaml(&still_reads, record.id.as_str())
+            .expect("127 levels deep is still within yaml_serde's recursion guard");
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+
+        let mut fails_closed = document_to_yaml(&record);
+        let nest_128 = "[".repeat(128) + &"]".repeat(128);
+        fails_closed.push_str(&format!("owner: {nest_128}\n"));
+        let error = document_from_yaml(&fails_closed, record.id.as_str()).expect_err(
+            "128 levels deep exceeds yaml_serde's recursion guard, and LenientValue's own \
+             deserialization (unlike the primary typed parse's IgnoredAny) descends into it",
+        );
+        assert!(
+            error.to_string().contains("recursion limit exceeded"),
+            "{error}"
+        );
     }
 }
