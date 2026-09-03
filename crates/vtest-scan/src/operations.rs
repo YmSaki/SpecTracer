@@ -1710,6 +1710,107 @@ mod tests {
         assert_eq!(edit_distance("subtract", "add"), 7);
     }
 
+    fn sample_location(function: &str) -> SourceLocation {
+        SourceLocation {
+            file: "src/lib.rs".to_owned(),
+            function: function.to_owned(),
+            start_line: 1,
+            end_line: 1,
+            start_byte: 0,
+            end_byte: 1,
+        }
+    }
+
+    fn sample_test(id: &str, function: &str, hash_seed: &str) -> TestEntity {
+        TestEntity {
+            id: vtest_model::TestId::new(id),
+            covers: vec![vtest_model::VoId::new("VO-ADD")],
+            targets: Vec::new(),
+            intent: "intent".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: sample_location(function),
+            content_hash: ContentHash::from_text(hash_seed),
+            filter: function.to_owned(),
+            package: "pkg".to_owned(),
+            test_target: vtest_model::TestTarget::Lib,
+        }
+    }
+
+    fn sample_scan(tests: Vec<TestEntity>) -> ScanResult {
+        ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 0,
+                tests: tests.len() as u64,
+                sources: 0,
+            },
+            tests,
+            discovered: Vec::new(),
+            sources: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
+    /// を残して他を捨てることを禁止する」の post-write 検証版ロックイン。
+    /// `test_hashes` が Test ID をキーに単純な `BTreeMap<String,
+    /// ContentHash>` を作ると、衝突している ID の hash は後発 entity に
+    /// 上書きされて1件分消える。`TEST-OTHER` が2 construct から衝突して
+    /// 宣言されている状態で、そのうち検証対象外（`edited_id` に一致しない）
+    /// の1件（`collision_b`）だけが操作の外で変化した場合、
+    /// `verify_other_test_hashes` はこれを検出できなければならない —
+    /// 単純な `.find()`（衝突時は先に見つかった1件だけを比較する）ではこの
+    /// 変化を見逃す。
+    #[test]
+    fn test_hashes_preserves_colliding_ids_and_catches_a_change_outside_the_edit_boundary() {
+        let before = sample_scan(vec![
+            sample_test("TEST-EDITED", "edited", "edited-before"),
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        let hashes = test_hashes(&before);
+        let other = hashes
+            .get("TEST-OTHER")
+            .expect("colliding Test ID must still be present as a key");
+        assert_eq!(
+            other.len(),
+            2,
+            "both colliding constructs' hashes must be kept, not collapsed to one"
+        );
+
+        // `TEST-EDITED` changes inside its own edit boundary (excluded via
+        // `edited_id`); `collision_b`, part of the unrelated `TEST-OTHER`
+        // collision, changes outside any edit boundary.
+        let after = sample_scan(vec![
+            sample_test("TEST-EDITED", "edited", "edited-after"),
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b-changed"),
+        ]);
+        let result = verify_other_test_hashes(&after, &hashes, Some("TEST-EDITED"));
+        assert!(
+            result.is_err(),
+            "a hash change inside an unrelated colliding group must be caught, not hidden \
+             behind the collision"
+        );
+    }
+
+    #[test]
+    fn verify_other_test_hashes_accepts_an_unchanged_colliding_group() {
+        let before = sample_scan(vec![
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        let hashes = test_hashes(&before);
+        let after = sample_scan(vec![
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        assert!(verify_other_test_hashes(&after, &hashes, None).is_ok());
+    }
+
     fn field(name: &str, field_type: &str) -> vtest_store::FormField {
         vtest_store::FormField {
             name: name.to_owned(),
