@@ -419,7 +419,11 @@ fn validate_desired_test(
             "Structured Edit cannot move a Test to another file",
         ));
     }
-    if desired.covers.is_empty() || desired.covers.iter().any(|id| !id.starts_with("VO-")) {
+    // 基本仕様:126-134「文字集合は [A-Z0-9-]、接頭辞は種別ごとに固定
+    // (`TEST-` 等)。推奨形式は `TEST-<領域>-<連番>` だが、ツールは形式を
+    // 強制せず一意性のみを強制する」。ID の書式（接頭辞）は強制しない。
+    // 存在しない VO を参照した場合の解決可能性検査は直後で行う。
+    if desired.covers.is_empty() {
         return Err(Diagnostic::error(
             "E-OP-001",
             "covers must contain at least one VO ID",
@@ -1284,31 +1288,13 @@ fn validate_value_shape(
                 ));
             }
         }
-        "vo-ref" => {
-            let value = scalar(value, &field.name)?;
-            if !value.starts_with("VO-") {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must be a VO ID", field.name),
-                ));
-            }
-        }
-        "vo-ref-list" => {
-            if value.values().iter().any(|value| !value.starts_with("VO-")) {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must contain VO IDs", field.name),
-                ));
-            }
-        }
-        "test-ref" => {
-            let value = scalar(value, &field.name)?;
-            if !value.starts_with("TEST-") {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must be a Test ID", field.name),
-                ));
-            }
+        // 基本仕様:126-134「ツールは形式を強制せず一意性のみを強制する」。
+        // `vo-ref` / `vo-ref-list` / `test-ref` は ID の接頭辞書式を強制し
+        // ない。値の非空・list/scalar形状は上の共通チェックと `scalar()`
+        // が担う。参照先の解決可能性は `vo-exists` / `test-exists`
+        // validator（呼び出し元の `field.validate` ループ）が別途検査する。
+        "vo-ref" | "test-ref" => {
+            let _ = scalar(value, &field.name)?;
         }
         "enum" => {
             let value = scalar(value, &field.name)?;
@@ -1607,5 +1593,49 @@ mod tests {
         assert_eq!(edit_distance("parse", "prase"), 2);
         assert_eq!(edit_distance("add", "add"), 0);
         assert_eq!(edit_distance("subtract", "add"), 7);
+    }
+
+    fn field(name: &str, field_type: &str) -> vtest_store::FormField {
+        vtest_store::FormField {
+            name: name.to_owned(),
+            question: String::new(),
+            field_type: field_type.to_owned(),
+            required: false,
+            options: Vec::new(),
+            validate: Vec::new(),
+        }
+    }
+
+    // 基本仕様:126-134「文字集合は [A-Z0-9-]、接頭辞は種別ごとに固定
+    // (`TEST-` 等)。推奨形式は `TEST-<領域>-<連番>` だが、ツールは形式を
+    // 強制せず一意性のみを強制する」。`vo-ref` / `vo-ref-list` / `test-ref`
+    // は接頭辞書式を拒否理由にしない(PM 裁定・pr3-decisions.md 裁定7)。
+
+    #[test]
+    fn vo_ref_field_does_not_enforce_an_id_prefix() {
+        let field = field("covers", "vo-ref");
+        let value = FormValue::Scalar("WIDGET-ADD".to_owned());
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn vo_ref_list_field_does_not_enforce_an_id_prefix() {
+        let field = field("covers", "vo-ref-list");
+        let value = FormValue::List(vec!["WIDGET-ADD".to_owned(), "GADGET-ADD".to_owned()]);
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn test_ref_field_does_not_enforce_an_id_prefix() {
+        let field = field("related", "test-ref");
+        let value = FormValue::Scalar("WIDGET-CHECK".to_owned());
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn vo_ref_field_still_rejects_an_empty_scalar() {
+        let field = field("covers", "vo-ref");
+        let value = FormValue::Scalar(String::new());
+        assert!(validate_value_shape(&field, &value).is_err());
     }
 }

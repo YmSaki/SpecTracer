@@ -2026,7 +2026,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{DerivesFrom, DocumentId, DocumentRecord};
-    use vtest_store::{init_project, new_record_id, write_document};
+    use vtest_store::{init_project, new_record_id, write_document, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
@@ -2743,6 +2743,27 @@ fn no_covers() {}
                     .as_ref()
                     .is_some_and(|location| location.function == "no_covers")
         }));
+    }
+
+    /// 基本仕様:126-134「ツールは形式を強制せず一意性のみを強制する」。
+    /// `covers` に `VO-` 接頭辞を持たない ID を指定しても、その ID が実在
+    /// する VO を参照していれば拒否されない
+    /// （PM 裁定・pr3-decisions.md 裁定7）。
+    #[test]
+    fn edit_test_covers_does_not_enforce_a_vo_id_prefix() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/vo/WIDGET-ADD.yaml"),
+            valid_vo("WIDGET-ADD", "null"),
+        )
+        .unwrap();
+        let mut set = BTreeMap::new();
+        set.insert(
+            "covers".to_owned(),
+            FormValue::List(vec!["WIDGET-ADD".to_owned()]),
+        );
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true);
+        assert!(result.is_ok(), "unexpected error: {:?}", result.err());
     }
 
     #[test]
