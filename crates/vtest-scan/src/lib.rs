@@ -1,4 +1,15 @@
 //! Deterministic Rust source scanner for M1.
+//!
+//! 詳細設計 v0.1 §1.1（本冊:30-60）に従い、Rust 固有の source discovery
+//! （`syn` によるソース走査・`Cargo.toml` 解析・doc comment 宣言文法の解析・
+//! モジュールパス解決）は `vtest-adapter-rust` の `SourceDiscoveryAdapter`
+//! 実装（`RustCargoAdapter`）へ委譲する。この crate（core）は adapter が
+//! 返した discovery 結果の検証・統合、Test ID の大域的一意性検査
+//! （E-SCAN-002）、`covers` の VO 参照解決（E-SCAN-003）、Target Reference
+//! 解決（E-SCAN-004/005/011、§6.1）、record 層の参照整合性検査を所有する
+//! （本冊:571「VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが
+//! 検査する」、本冊 §5.1 手順3-7）。opaque locator の構文は解釈しない
+//! （本冊:521-522「coreはpath、module、symbol種別を分解しない」）。
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -6,19 +17,18 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use ignore::WalkBuilder;
-use serde::{Deserialize, Serialize};
-use syn::spanned::Spanned;
-use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
+use serde::Serialize;
 use thiserror::Error;
+use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
+use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    ContentHash, CoveragePolicy, Diagnostic, DocumentRecord, Locator, ScanSummary, SourceFunction,
-    SourceLocation, SrcId, TargetRef, TestEntity, TestId, TestTarget, VoId, VoRecord,
+    ContentHash, CoveragePolicy, Diagnostic, DocumentRecord, ScanSummary, SourceFunction,
+    SourceLocation, TargetRef, TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
-    read_vo_record, relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord,
-    StoreError, VerifyLayout,
+    read_vo_record, relation_ulid_payload, yaml_scalar_value, AdapterConfig, ProjectConfig,
+    RelationRecord, StoreError, VerifyLayout,
 };
 
 pub mod operations;
@@ -42,6 +52,15 @@ impl From<StoreError> for ScanError {
     }
 }
 
+impl From<vtest_adapter_api::DiscoveryError> for ScanError {
+    fn from(value: vtest_adapter_api::DiscoveryError) -> Self {
+        Self::Discovery {
+            path: value.path,
+            message: value.message,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ScanResult {
     pub summary: ScanSummary,
@@ -61,31 +80,80 @@ pub fn scan_project(root: &Path) -> Result<ScanResult, ScanError> {
     scan_project_with_config(root, &config)
 }
 
+/// registry に登録済みの adapter 一覧を返す（本冊 §5.1 手順1「registryと
+/// configの検証」）。v0.1 の唯一の production adapter は `rust-cargo`
+/// （基本仕様 §27「組込 production adapter は `rust-cargo` とし...`rust-cargo`
+/// 以外の production language adapter は v0.1 の提供範囲に含めない」）。
+fn adapter_registry() -> AdapterRegistry {
+    let mut registry = AdapterRegistry::new();
+    registry.register(Box::new(RustCargoAdapter::new()));
+    registry
+}
+
 pub fn scan_project_with_config(
     root: &Path,
     config: &ProjectConfig,
 ) -> Result<ScanResult, ScanError> {
     let entity_ids = read_entity_ids(root)?;
     let vo_ids = entity_ids[1].iter().cloned().collect::<BTreeSet<_>>();
-    let package = package_name(root).unwrap_or_else(|| config.project.name.clone());
-    let mut paths = Vec::new();
-    for include in adapter_scan_includes(config).map_err(ScanError::Config)? {
-        let include_path = root.join(&include);
-        collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
-            ScanError::Discovery {
-                path: include_path,
-                message: error.to_string(),
-            }
-        })?;
-    }
-    paths.sort();
-    paths.dedup();
+    // 空 adapters[] の fail-closed 拒否は既存挙動を保つ（`adapter_scan_
+    // includes`のドキュメント参照。PM 裁定3・pr3-decisions.md）。戻り値は
+    // このパスでは使わない — discovery は adapter 毎の `resolve_adapter_
+    // includes` を使う（下記）。
+    adapter_scan_includes(config).map_err(ScanError::Config)?;
 
-    let mut scanner = Scanner::new(root, &package, vo_ids);
-    for path in &paths {
-        scanner.scan_file(path)?;
+    let registry = adapter_registry();
+    let fallback_package = config.project.name.clone();
+    let mut files = 0usize;
+    let mut test_drafts = Vec::new();
+    let mut source_drafts = Vec::new();
+    let mut diagnostics = Vec::new();
+    for adapter_config in &config.adapters {
+        let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
+            // 未知 adapter ID の扱いは仕様が食い違う（§2.2 は E-CONFIG-001、
+            // §17.1 は E-ADAPTER-001）— Issue #24、Owner 裁定待ち。この分岐は
+            // 実装しない：登録されていない adapter エントリは discovery か
+            // ら単に除外する（診断もエラーも出さない）。既存コードも adapter
+            // ID を検証せずconfig全体のroots/scan.includeを一律scanしていた
+            // ため、config.adaptersが常に`rust-cargo`だけを持つ既存fixture
+            // に対しては本変更後も出力は同一である。
+            continue;
+        };
+        let scan_config = AdapterScanConfig {
+            include_paths: resolve_adapter_includes(adapter_config),
+        };
+        let outcome = adapter.discover(root, &fallback_package, &scan_config)?;
+        files += outcome.files_scanned;
+        diagnostics.extend(outcome.diagnostics);
+        test_drafts.extend(outcome.tests);
+        source_drafts.extend(outcome.sources);
     }
-    let mut result = scanner.finish(paths.len())?;
+
+    let sources = source_drafts
+        .into_iter()
+        .map(|draft| SourceFunction {
+            locator: draft.locator,
+            src_id: draft.src_id,
+            location: draft.location,
+            content_hash: ContentHash::from_text(&draft.construct_text),
+        })
+        .collect::<Vec<_>>();
+
+    let (tests, dedup_diagnostics) = materialize_tests(test_drafts);
+    diagnostics.extend(dedup_diagnostics);
+    diagnostics.extend(check_vo_references(&tests, &vo_ids));
+    diagnostics.extend(resolve_targets(&tests, &sources));
+
+    let mut result = ScanResult {
+        summary: ScanSummary {
+            files: files as u64,
+            tests: tests.len() as u64,
+            sources: sources.len() as u64,
+        },
+        tests,
+        sources,
+        diagnostics,
+    };
     let doc_roots = config
         .doc
         .roots
@@ -102,8 +170,181 @@ pub fn scan_project_with_config(
     Ok(result)
 }
 
-fn package_name(root: &Path) -> Option<String> {
-    cargo_manifest(root).and_then(|manifest| manifest.package.map(|package| package.name))
+/// 本冊:571「VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが
+/// 検査する」: adapter は同じ Test ID を宣言する複数 draft をそのまま返す
+/// ことがある。ここで発見順に先勝ちで採用し、以降の重複には E-SCAN-002 を
+/// 発行して当該 draft を落とす（後段の VO 参照解決・Target Reference 解決
+/// には先勝ちの entity だけを渡す）。
+fn materialize_tests(
+    drafts: Vec<vtest_adapter_api::TestDraft>,
+) -> (Vec<TestEntity>, Vec<Diagnostic>) {
+    let mut diagnostics = Vec::new();
+    let mut seen_ids = BTreeSet::new();
+    let mut tests = Vec::new();
+    for draft in drafts {
+        if !seen_ids.insert(draft.id.clone()) {
+            diagnostics.push(
+                Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{}`", draft.id))
+                    .with_location(draft.location.clone()),
+            );
+            continue;
+        }
+        let content_hash = ContentHash::from_text(&draft.construct_text);
+        tests.push(TestEntity {
+            id: draft.id,
+            covers: draft.covers,
+            target: draft.target,
+            additional_targets: draft.additional_targets,
+            intent: draft.intent,
+            input: draft.input,
+            expect: draft.expect,
+            kind: draft.kind,
+            cases: draft.cases,
+            related: draft.related,
+            location: draft.location,
+            content_hash,
+            filter: draft.filter,
+            package: draft.package,
+            test_target: draft.test_target,
+        });
+    }
+    (tests, diagnostics)
+}
+
+/// 本冊:571「VO参照の解決...はadapterではなくcoreが検査する」（E-SCAN-003）。
+fn check_vo_references(tests: &[TestEntity], vo_ids: &BTreeSet<String>) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for test in tests {
+        for vo_id in &test.covers {
+            if !vo_ids.contains(vo_id.as_str()) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-003",
+                        format!("test `{}` references missing VO `{vo_id}`", test.id),
+                    )
+                    .with_location(test.location.clone()),
+                );
+            }
+        }
+    }
+    diagnostics
+}
+
+/// Target Reference 解決（本冊 §6.1・§6.1.1、E-SCAN-004/005/011）。opaque
+/// locator の完全一致検索は adapter が構築した source index（`sources`）に
+/// 対して行うだけで、構文自体は解釈しない。この解決は core の単一経路が
+/// 所有する（本冊:990-1005 §6.3 冒頭「この解決はcoreの単一経路が所有し」）。
+fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
+    // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
+    let mut locators = BTreeMap::<String, usize>::new();
+    // 恒久SRC IDごとの宣言元canonical locator一覧。1件なら`SRC索引`
+    // （本冊:571・§6.1）を経て一意にcanonical locatorへ解決する。2件以上は
+    // 恒久SRC IDのrepository全体一意性違反であり、E-SCAN-011とする
+    // （基本仕様§9.2「同一SRC IDの複数宣言を曖昧参照として受理しない」、
+    // 本冊§5.1手順5「adapter間を含む...SRC ID衝突...を検査する」）。この
+    // 検査は当該SRC IDを参照するTestの有無に関わらず、索引構築時点で行う。
+    let mut src_id_locators = BTreeMap::<String, Vec<String>>::new();
+    let mut src_id_first_location = BTreeMap::<String, SourceLocation>::new();
+    for source in sources {
+        *locators.entry(source.locator.as_string()).or_default() += 1;
+        if let Some(src_id) = &source.src_id {
+            src_id_locators
+                .entry(src_id.as_str().to_owned())
+                .or_default()
+                .push(source.locator.as_string());
+            src_id_first_location
+                .entry(src_id.as_str().to_owned())
+                .or_insert_with(|| source.location.clone());
+        }
+    }
+    for (src_id, locs) in &src_id_locators {
+        if locs.len() > 1 {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-011",
+                    format!(
+                        "permanent SRC ID `{src_id}` is declared by {} Source Targets",
+                        locs.len()
+                    ),
+                )
+                .with_location(src_id_first_location[src_id].clone()),
+            );
+        }
+    }
+    for test in tests {
+        // §6.1.1: `TestEntity.targets` に宣言された各 `TargetRef` を
+        // canonical Source Target（canonical locator）へ解決する。
+        // 解決できた宣言だけを (綴り, canonical locator) として集め、
+        // 綴りが異なっても同一canonical Source Targetへ到達する宣言が
+        // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
+        let mut resolved_canonical = Vec::<(&str, String)>::new();
+        for target in std::iter::once(&test.target).chain(&test.additional_targets) {
+            match target {
+                TargetRef::Locator(locator) => {
+                    let key = locator.as_string();
+                    if locators.get(&key).copied() == Some(1) {
+                        resolved_canonical.push((locator.item_path.as_str(), key));
+                    } else {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-SCAN-004",
+                                format!("test `{}` target cannot be resolved", test.id),
+                            )
+                            .with_location(test.location.clone()),
+                        );
+                    }
+                }
+                TargetRef::SrcId(src_id) => {
+                    match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
+                        Some([single]) => {
+                            resolved_canonical.push((src_id.as_str(), single.clone()));
+                        }
+                        Some(_) => {
+                            // 恒久SRC IDが衝突している。E-SCAN-011は索引
+                            // 構築時に既に発行済みであり、いずれのSource
+                            // Targetも選択しない（本冊:901「E-SCAN-011が
+                            // あるSRC ID参照は曖昧なため、関係するtarget
+                            // 解決をMISMATCHとし、いずれのSource Targetも
+                            // 選択しない」）。同じ衝突を二重にE-SCAN-004
+                            // として報告しない。
+                        }
+                        None => {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-SCAN-004",
+                                    format!("test `{}` target cannot be resolved", test.id),
+                                )
+                                .with_location(test.location.clone()),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        let mut seen_canonical = BTreeMap::<String, &str>::new();
+        for (spelling, canonical) in resolved_canonical {
+            match seen_canonical.get(&canonical) {
+                Some(previous_spelling) if *previous_spelling != spelling => {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-SCAN-005",
+                            format!(
+                                "test `{}` declares multiple targets (`{previous_spelling}`, `{spelling}`) that resolve to the same Source Target `{canonical}`",
+                                test.id
+                            ),
+                        )
+                        .with_location(test.location.clone()),
+                    );
+                }
+                _ => {
+                    seen_canonical.insert(canonical, spelling);
+                }
+            }
+        }
+    }
+    diagnostics
 }
 
 /// Resolves every registered adapter's `scan.include` patterns to
@@ -114,10 +355,9 @@ fn package_name(root: &Path) -> Option<String> {
 /// polyglot repositoryのために許可し、統合したTest IDは全adapterでglobal
 /// uniquenessを検査する". 本冊 §5.1 confirms discovery iterates the full
 /// registry ("adapter ID順にSourceDiscoveryAdapterを呼び出す... 各adapterは
-/// DiscoveryBatchを返す"). `vtest-scan` has no adapter registry/dispatch yet
-/// (a later PR's concern — PR3 keeps this crate Rust-only), so this unions
-/// every adapter's `roots` × `scan.include` instead of guessing a single
-/// adapter to honor.
+/// DiscoveryBatchを返す"). This union is also used, unchanged, by
+/// `operations.rs` to scope non-scan operations (`E-CONFIG-001`) to the
+/// configured include paths.
 ///
 /// Neither 本冊 nor 基本仕様 states what scan should do when `adapters` is
 /// empty. `vtest-store`'s config parser deliberately accepts `adapters: []`
@@ -142,27 +382,40 @@ pub(crate) fn adapter_scan_includes(config: &ProjectConfig) -> Result<Vec<PathBu
                 .to_owned(),
         );
     }
+    Ok(config
+        .adapters
+        .iter()
+        .flat_map(resolve_adapter_includes)
+        .collect())
+}
+
+/// One `AdapterConfig` entry's `roots` × `scan.include`, resolved to
+/// project-relative paths. Pure path arithmetic — not Rust-specific — so it
+/// stays in core (本冊 §1.1 assigns only `syn`/Cargo-command ownership to
+/// `vtest-adapter-rust`, not general path joining). Used both by
+/// `adapter_scan_includes` (unioned across every configured adapter, for
+/// `operations.rs`) and by `scan_project_with_config`'s per-adapter discovery
+/// dispatch (only the matched adapter's own entry).
+fn resolve_adapter_includes(adapter: &AdapterConfig) -> Vec<PathBuf> {
     let mut includes = Vec::new();
-    for adapter in &config.adapters {
-        for adapter_root in &adapter.roots {
-            for include in &adapter.scan.include {
-                let joined = Path::new(adapter_root).join(include);
-                // A leading "." (from the common `roots: ["."]` default) is
-                // preserved as an explicit `CurDir` component by `Path`
-                // (docs: normalized away only when *not* the first
-                // component), which would make `Path::starts_with` fail
-                // against a bare relative path like "src/lib.rs". Strip it
-                // so callers can compare against project-relative paths
-                // directly.
-                let normalized: PathBuf = joined
-                    .components()
-                    .filter(|component| !matches!(component, Component::CurDir))
-                    .collect();
-                includes.push(normalized);
-            }
+    for adapter_root in &adapter.roots {
+        for include in &adapter.scan.include {
+            let joined = Path::new(adapter_root).join(include);
+            // A leading "." (from the common `roots: ["."]` default) is
+            // preserved as an explicit `CurDir` component by `Path`
+            // (docs: normalized away only when *not* the first
+            // component), which would make `Path::starts_with` fail
+            // against a bare relative path like "src/lib.rs". Strip it
+            // so callers can compare against project-relative paths
+            // directly.
+            let normalized: PathBuf = joined
+                .components()
+                .filter(|component| !matches!(component, Component::CurDir))
+                .collect();
+            includes.push(normalized);
         }
     }
-    Ok(includes)
+    includes
 }
 
 fn record_diagnostics(
@@ -872,1242 +1125,11 @@ fn validate_approval_status(
     }
 }
 
-fn collect_rs_files(
-    project_root: &Path,
-    path: &Path,
-    output: &mut Vec<PathBuf>,
-) -> Result<(), ignore::Error> {
-    if !path.exists() {
-        return Ok(());
-    }
-    if path.is_file() {
-        if path.extension().and_then(|v| v.to_str()) == Some("rs") {
-            output.push(path.to_owned());
-        }
-        return Ok(());
-    }
-    let include_root = path.to_owned();
-    let project_root = project_root.to_owned();
-    let mut builder = WalkBuilder::new(&project_root);
-    builder
-        .standard_filters(false)
-        .hidden(false)
-        .parents(false)
-        .ignore(false)
-        .git_ignore(true)
-        .git_global(false)
-        .git_exclude(false)
-        .require_git(false)
-        .follow_links(false)
-        .filter_entry(move |entry| {
-            entry.file_name().to_str() != Some("target")
-                && (include_root.starts_with(entry.path())
-                    || entry.path().starts_with(&include_root))
-        });
-    for entry in builder.build() {
-        let entry = entry?;
-        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
-            continue;
-        }
-        if entry.path().extension().and_then(|value| value.to_str()) == Some("rs") {
-            output.push(entry.into_path());
-        }
-    }
-    Ok(())
-}
-
-struct Scanner<'a> {
-    root: &'a Path,
-    fallback_package: &'a str,
-    vo_ids: BTreeSet<String>,
-    tests: Vec<TestEntity>,
-    sources: Vec<SourceFunction>,
-    diagnostics: Vec<Diagnostic>,
-    test_ids: BTreeSet<String>,
-}
-
-impl<'a> Scanner<'a> {
-    fn new(root: &'a Path, fallback_package: &'a str, vo_ids: BTreeSet<String>) -> Self {
-        Self {
-            root,
-            fallback_package,
-            vo_ids,
-            tests: Vec::new(),
-            sources: Vec::new(),
-            diagnostics: Vec::new(),
-            test_ids: BTreeSet::new(),
-        }
-    }
-
-    fn scan_file(&mut self, path: &Path) -> Result<(), ScanError> {
-        let file_name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
-        let file_location = record_location(self.root, path, file_name);
-        let source = match fs::read_to_string(path) {
-            Ok(source) => source,
-            Err(source) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-001",
-                        format!("failed to read {}: {source}", path.display()),
-                    )
-                    .with_location(file_location.clone()),
-                );
-                return Ok(());
-            }
-        };
-        let syntax = match syn::parse_file(&source) {
-            Ok(syntax) => syntax,
-            Err(error) => {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-001",
-                        format!("failed to parse {}: {error}", path.display()),
-                    )
-                    .with_location(file_location),
-                );
-                return Ok(());
-            }
-        };
-        let relative = path
-            .strip_prefix(self.root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/");
-        let context = source_context(self.root, path, self.fallback_package);
-        let line_offsets = line_offsets(&source);
-        self.collect_items(
-            &syntax.items,
-            &relative,
-            &context.test_target,
-            &context.package,
-            &context.filter_prefix,
-            &source,
-            &line_offsets,
-            "",
-            path,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn collect_items(
-        &mut self,
-        items: &[Item],
-        relative: &str,
-        test_target: &TestTarget,
-        package: &str,
-        filter_prefix: &str,
-        source: &str,
-        line_offsets: &[usize],
-        module: &str,
-        path: &Path,
-    ) -> Result<(), ScanError> {
-        for item in items {
-            match item {
-                Item::Fn(item_fn) => self.collect_fn(
-                    item_fn,
-                    relative,
-                    test_target,
-                    package,
-                    filter_prefix,
-                    source,
-                    line_offsets,
-                    module,
-                    path,
-                )?,
-                Item::Impl(item_impl) => self.collect_impl(
-                    item_impl,
-                    relative,
-                    test_target,
-                    package,
-                    filter_prefix,
-                    source,
-                    line_offsets,
-                    module,
-                    path,
-                )?,
-                Item::Mod(item_mod) => {
-                    if let Some((_, nested)) = &item_mod.content {
-                        let nested_module = if module.is_empty() {
-                            item_mod.ident.to_string()
-                        } else {
-                            format!("{module}::{}", item_mod.ident)
-                        };
-                        self.collect_items(
-                            nested,
-                            relative,
-                            test_target,
-                            package,
-                            filter_prefix,
-                            source,
-                            line_offsets,
-                            &nested_module,
-                            path,
-                        )?;
-                    }
-                }
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn collect_impl(
-        &mut self,
-        item_impl: &ItemImpl,
-        relative: &str,
-        test_target: &TestTarget,
-        package: &str,
-        filter_prefix: &str,
-        source: &str,
-        line_offsets: &[usize],
-        module: &str,
-        path: &Path,
-    ) -> Result<(), ScanError> {
-        let type_name = match item_impl.self_ty.as_ref() {
-            syn::Type::Path(value) => value.path.segments.last().map(|v| v.ident.to_string()),
-            _ => None,
-        };
-        let Some(type_name) = type_name else {
-            return Ok(());
-        };
-        for item in &item_impl.items {
-            let ImplItem::Fn(item_fn) = item else {
-                continue;
-            };
-            let item_path = if module.is_empty() {
-                format!("{type_name}::{}", item_fn.sig.ident)
-            } else {
-                format!("{module}::{type_name}::{}", item_fn.sig.ident)
-            };
-            self.collect_function_parts(
-                &item_fn.attrs,
-                &item_fn.sig.ident.to_string(),
-                &item_path,
-                item_fn.span(),
-                relative,
-                test_target,
-                package,
-                filter_prefix,
-                source,
-                line_offsets,
-                path,
-            )?;
-        }
-        Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn collect_fn(
-        &mut self,
-        item_fn: &ItemFn,
-        relative: &str,
-        test_target: &TestTarget,
-        package: &str,
-        filter_prefix: &str,
-        source: &str,
-        line_offsets: &[usize],
-        module: &str,
-        path: &Path,
-    ) -> Result<(), ScanError> {
-        let item_path = if module.is_empty() {
-            item_fn.sig.ident.to_string()
-        } else {
-            format!("{module}::{}", item_fn.sig.ident)
-        };
-        self.collect_function_parts(
-            &item_fn.attrs,
-            &item_fn.sig.ident.to_string(),
-            &item_path,
-            item_fn.span(),
-            relative,
-            test_target,
-            package,
-            filter_prefix,
-            source,
-            line_offsets,
-            path,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn collect_function_parts(
-        &mut self,
-        attrs: &[Attribute],
-        function_name: &str,
-        item_path: &str,
-        span: proc_macro2::Span,
-        relative: &str,
-        test_target: &TestTarget,
-        package: &str,
-        filter_prefix: &str,
-        source: &str,
-        line_offsets: &[usize],
-        path: &Path,
-    ) -> Result<(), ScanError> {
-        let location = make_location(relative, item_path, span, source, line_offsets);
-        // 詳細設計 v0.1 のどの診断コード表にも `E-CORE-001` は存在せず、コード
-        // 自体を実装が発明することは禁止（PM 裁定・pr3-decisions.md 裁定2）。
-        // byte range の out-of-bounds は「壊れた発見結果を診断として黙って
-        // 通す」ことになり fail-open なので、診断を出さず scan 全体の失敗
-        // （ScanError）として扱う。
-        let Some(content) = source_slice(source, &location) else {
-            return Err(ScanError::Discovery {
-                path: path.to_owned(),
-                message: format!("function `{item_path}` source range is out of bounds"),
-            });
-        };
-
-        // 本冊 §4.2: `@vtest.` 宣言は表面ごとに異なるキー集合を認識する。
-        // 表面1 = Test construct の doc comment（test-key）。
-        // 表面2 = Test construct ではない関数 item の doc comment
-        //         （source-target-key = `src-id`）。
-        let is_test = is_test_function(attrs);
-
-        // 本冊 §5.5 手順6: すべての fn / impl fn を SRC 候補として索引化する。
-        // ただし恒久 SRC ID（`@vtest.src-id`）の認識は非 Test construct の
-        // 宣言に限る（§4.2）。Test construct 自身の doc comment にある
-        // `src-id` は誤配置であり、表面1側で未知キーとして E-SCAN-006 になる
-        // （下の `parse_test_annotations` が処理する）。
-        let src_id = if is_test {
-            None
-        } else {
-            let outcome = parse_source_target_annotations(attrs);
-            for (code, message) in outcome.diagnostics {
-                let diagnostic = if code.starts_with('E') {
-                    Diagnostic::error(code, message)
-                } else {
-                    Diagnostic::warning(code, message)
-                };
-                self.diagnostics
-                    .push(diagnostic.with_location(location.clone()));
-            }
-            outcome.src_id
-        };
-        let source_function = SourceFunction {
-            locator: Locator {
-                path: relative.to_owned(),
-                item_path: item_path.to_owned(),
-            },
-            src_id,
-            location: location.clone(),
-            content_hash: ContentHash::from_text(content),
-        };
-        self.sources.push(source_function);
-
-        if !is_test {
-            return Ok(());
-        }
-        let Some(annotation) = parse_test_annotations(attrs) else {
-            self.diagnostics.push(
-                Diagnostic::warning(
-                    "W-SCAN-101",
-                    format!("test function `{function_name}` has no @vtest annotation"),
-                )
-                .with_location(location),
-            );
-            return Ok(());
-        };
-        if !annotation.diagnostics.is_empty() {
-            // 本冊 §4.4: adapter固有のsource declarationを構文解析できない
-            // 場合、adapterは当該Test constructを管理宣言欠落として扱い、
-            // Test Entityを具体化しない（診断だけを付与する）。
-            for (code, message) in annotation.diagnostics {
-                self.diagnostics
-                    .push(Diagnostic::error(code, message).with_location(location.clone()));
-            }
-            return Ok(());
-        }
-        let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{function_name}` is missing required @vtest.id"),
-                )
-                .with_location(location),
-            );
-            return Ok(());
-        };
-        let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{function_name}` is missing required @vtest.covers"),
-                )
-                .with_location(location),
-            );
-            return Ok(());
-        };
-        let target_values = annotation.targets;
-        if target_values.is_empty() || target_values.iter().any(|value| value.is_empty()) {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{function_name}` is missing required @vtest.target"),
-                )
-                .with_location(location),
-            );
-            return Ok(());
-        }
-        let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{function_name}` is missing required @vtest.intent"),
-                )
-                .with_location(location),
-            );
-            return Ok(());
-        };
-        let test_id = TestId::new(id.clone());
-        if !self.test_ids.insert(id.clone()) {
-            self.diagnostics.push(
-                Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{id}`"))
-                    .with_location(location.clone()),
-            );
-            return Ok(());
-        }
-        if matches!(test_target, TestTarget::Unknown) {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-004",
-                    format!("test `{id}` Cargo test target cannot be resolved"),
-                )
-                .with_location(location.clone()),
-            );
-        }
-        let covers = covers
-            .split(',')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(VoId::new)
-            .collect::<Vec<_>>();
-        if covers.is_empty() {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{id}` has no VO in @vtest.covers"),
-                )
-                .with_location(location.clone()),
-            );
-        }
-        for vo_id in &covers {
-            if !self.vo_ids.contains(vo_id.as_str()) {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-003",
-                        format!("test `{id}` references missing VO `{vo_id}`"),
-                    )
-                    .with_location(location.clone()),
-                );
-            }
-        }
-        let mut targets = target_values
-            .iter()
-            .map(|target_value| {
-                if let Some(src_id) = target_value.strip_prefix("SRC-") {
-                    TargetRef::SrcId(SrcId::new(format!("SRC-{src_id}")))
-                } else if let Some(locator) = Locator::parse(target_value) {
-                    TargetRef::Locator(locator)
-                } else {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-004",
-                            format!("test `{id}` has an invalid target locator `{target_value}`"),
-                        )
-                        .with_location(location.clone()),
-                    );
-                    TargetRef::Locator(Locator {
-                        path: relative.to_owned(),
-                        item_path: item_path.to_owned(),
-                    })
-                }
-            })
-            .collect::<Vec<_>>();
-        let target = targets.remove(0);
-        let source_hash = ContentHash::from_text(content);
-        let entity = TestEntity {
-            id: test_id,
-            covers,
-            target,
-            additional_targets: targets,
-            intent: intent.clone(),
-            input: annotation.input,
-            expect: annotation.expect,
-            kind: annotation.kind,
-            cases: annotation.cases,
-            related: annotation
-                .related
-                .into_iter()
-                .flat_map(|value| {
-                    value
-                        .split(',')
-                        .map(str::trim)
-                        .filter(|item| !item.is_empty())
-                        .map(TestId::new)
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
-            location,
-            content_hash: source_hash,
-            filter: join_module_path(filter_prefix, item_path),
-            package: package.to_owned(),
-            test_target: test_target.clone(),
-        };
-        self.tests.push(entity);
-        Ok(())
-    }
-
-    fn finish(self, files: usize) -> Result<ScanResult, ScanError> {
-        let mut diagnostics = self.diagnostics;
-        // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
-        // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
-        let mut locators = BTreeMap::<String, usize>::new();
-        // 恒久SRC IDごとの宣言元canonical locator一覧。1件なら
-        // `SRC索引`（本冊:571・§6.1）を経て一意にcanonical locatorへ解決する。
-        // 2件以上は恒久SRC IDのrepository全体一意性違反であり、E-SCAN-011
-        // とする（基本仕様§9.2「同一SRC IDの複数宣言を曖昧参照として受理
-        // しない」、本冊§5.1手順5「adapter間を含む...SRC ID衝突...を検査
-        // する」）。この検査は当該SRC IDを参照するTestの有無に関わらず、
-        // 索引構築時点で行う。
-        let mut src_id_locators = BTreeMap::<String, Vec<String>>::new();
-        let mut src_id_first_location = BTreeMap::<String, SourceLocation>::new();
-        for source in &self.sources {
-            *locators.entry(source.locator.as_string()).or_default() += 1;
-            if let Some(src_id) = &source.src_id {
-                src_id_locators
-                    .entry(src_id.as_str().to_owned())
-                    .or_default()
-                    .push(source.locator.as_string());
-                src_id_first_location
-                    .entry(src_id.as_str().to_owned())
-                    .or_insert_with(|| source.location.clone());
-            }
-        }
-        for (src_id, locs) in &src_id_locators {
-            if locs.len() > 1 {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-011",
-                        format!(
-                            "permanent SRC ID `{src_id}` is declared by {} Source Targets",
-                            locs.len()
-                        ),
-                    )
-                    .with_location(src_id_first_location[src_id].clone()),
-                );
-            }
-        }
-        for test in &self.tests {
-            // §6.1.1: `TestEntity.targets` に宣言された各 `TargetRef` を
-            // canonical Source Target（canonical locator）へ解決する。
-            // 解決できた宣言だけを (綴り, canonical locator) として集め、
-            // 綴りが異なっても同一canonical Source Targetへ到達する宣言が
-            // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
-            let mut resolved_canonical = Vec::<(&str, String)>::new();
-            for target in std::iter::once(&test.target).chain(&test.additional_targets) {
-                match target {
-                    TargetRef::Locator(locator) => {
-                        let key = locator.as_string();
-                        if locators.get(&key).copied() == Some(1) {
-                            resolved_canonical.push((locator.item_path.as_str(), key));
-                        } else {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    "E-SCAN-004",
-                                    format!("test `{}` target cannot be resolved", test.id),
-                                )
-                                .with_location(test.location.clone()),
-                            );
-                        }
-                    }
-                    TargetRef::SrcId(src_id) => {
-                        match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
-                            Some([single]) => {
-                                resolved_canonical.push((src_id.as_str(), single.clone()));
-                            }
-                            Some(_) => {
-                                // 恒久SRC IDが衝突している。E-SCAN-011は
-                                // 索引構築時に既に発行済みであり、いずれの
-                                // Source Targetも選択しない（本冊:901
-                                // 「E-SCAN-011があるSRC ID参照は曖昧なため、
-                                // 関係するtarget解決をMISMATCHとし、いずれの
-                                // Source Targetも選択しない」）。同じ衝突を
-                                // 二重にE-SCAN-004として報告しない。
-                            }
-                            None => {
-                                diagnostics.push(
-                                    Diagnostic::error(
-                                        "E-SCAN-004",
-                                        format!("test `{}` target cannot be resolved", test.id),
-                                    )
-                                    .with_location(test.location.clone()),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            let mut seen_canonical = BTreeMap::<String, &str>::new();
-            for (spelling, canonical) in resolved_canonical {
-                match seen_canonical.get(&canonical) {
-                    Some(previous_spelling) if *previous_spelling != spelling => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "E-SCAN-005",
-                                format!(
-                                    "test `{}` declares multiple targets (`{previous_spelling}`, `{spelling}`) that resolve to the same Source Target `{canonical}`",
-                                    test.id
-                                ),
-                            )
-                            .with_location(test.location.clone()),
-                        );
-                    }
-                    _ => {
-                        seen_canonical.insert(canonical, spelling);
-                    }
-                }
-            }
-        }
-        Ok(ScanResult {
-            summary: ScanSummary {
-                files: files as u64,
-                tests: self.tests.len() as u64,
-                sources: self.sources.len() as u64,
-            },
-            tests: self.tests,
-            sources: self.sources,
-            diagnostics,
-        })
-    }
-}
-
-/// 本冊 §4.2 test-annotation-line 文法が認識する test-key の全集合。
-const TEST_KEYS: &[&str] = &[
-    "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related",
-];
-
-/// Test construct（表面1）の doc comment を正規化した結果。
-///
-/// `diagnostics` が空でない場合、この宣言は構文上有効な Test Entity へ
-/// 正規化できない（本冊 §4.4）。呼び出し側は診断だけを記録し、
-/// Test Entity を具体化してはならない。
-struct TestAnnotationOutcome {
-    id: Option<String>,
-    covers: Option<String>,
-    targets: Vec<String>,
-    intent: Option<String>,
-    input: Option<String>,
-    expect: Option<String>,
-    kind: Option<String>,
-    cases: Vec<String>,
-    related: Vec<String>,
-    diagnostics: Vec<(String, String)>,
-}
-
-/// doc comment（`///` / `/** */`）から `@vtest.` 行を出現順に抽出する。
-/// キーの妥当性は判定しない — 表面1・表面2どちらの文法にも共通する
-/// 字句段階の処理であり、`@vtest.` を含まない行は自由記述として捨てる
-/// （本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
-/// 無視する」）。
-fn vtest_annotation_lines(attrs: &[Attribute]) -> Vec<(String, String)> {
-    let mut lines = Vec::new();
-    for attr in attrs {
-        if !attr.path().is_ident("doc") {
-            continue;
-        }
-        let Meta::NameValue(value) = &attr.meta else {
-            continue;
-        };
-        let Expr::Lit(ExprLit {
-            lit: Lit::Str(text),
-            ..
-        }) = &value.value
-        else {
-            continue;
-        };
-        lines.extend(text.value().lines().map(|line| line.trim().to_owned()));
-    }
-    lines
-        .into_iter()
-        .filter_map(|line| {
-            let annotation = line.strip_prefix("@vtest.")?;
-            let (key, value) = if let Some(separator) = annotation.find(char::is_whitespace) {
-                annotation.split_at(separator)
-            } else {
-                (annotation, "")
-            };
-            Some((key.trim().to_owned(), value.trim().to_owned()))
-        })
-        .collect()
-}
-
-/// 表面1（Test construct の doc comment）の `@vtest.` 宣言を本冊 §4.2 の
-/// test-annotation-line 文法で解析する。`@vtest.` 行が1件も無ければ
-/// `None`（呼び出し側は W-SCAN-101 の判定に使う）。
-fn parse_test_annotations(attrs: &[Attribute]) -> Option<TestAnnotationOutcome> {
-    let lines = vtest_annotation_lines(attrs);
-    if lines.is_empty() {
-        return None;
-    }
-    let mut diagnostics = Vec::new();
-    let mut single = BTreeMap::<String, String>::new();
-    let mut cases = Vec::new();
-    let mut related = Vec::new();
-    let mut targets = Vec::new();
-    for (key, value) in lines {
-        if !TEST_KEYS.contains(&key.as_str()) {
-            // 本冊 §4.2: 表面1で test-key を持たない行は未知キーとする
-            // （打鍵ミス検出を優先し、警告ではなくエラーとする）。
-            // source-target-key（`src-id`）の誤配置もここに含む。
-            diagnostics.push((
-                "E-SCAN-006".to_owned(),
-                format!("unrecognized @vtest key `{key}` on a Test construct"),
-            ));
-            continue;
-        }
-        match key.as_str() {
-            "case" => cases.push(value),
-            "related" => related.push(value),
-            "target" => targets.push(value),
-            _ => {
-                if single.insert(key.clone(), value).is_some() {
-                    diagnostics.push((
-                        "E-SCAN-005".to_owned(),
-                        format!("duplicate annotation key `{key}`"),
-                    ));
-                }
-            }
-        }
-    }
-    // 本冊 §4.2: `kind` が integration 系の Test に限り `target` の複数行を
-    // 許容する。それ以外のキーの重複は常にエラー。
-    let integration = single
-        .get("kind")
-        .is_some_and(|kind| kind.starts_with("integration"));
-    if targets.len() > 1 && !integration {
-        diagnostics.push((
-            "E-SCAN-005".to_owned(),
-            "duplicate annotation key `target`".to_owned(),
-        ));
-    } else if targets.len() > 1 {
-        // 許容された複数 `target` 内でも同じ値の重複は E-SCAN-005 とする。
-        // 綴りが異なるが解決後に同一 canonical Source Target へ到達する
-        // 場合の検出は core の Target Reference 解決（§6.1）が担い、この
-        // 段階（宣言表面の解析）では扱わない。
-        let mut seen = std::collections::BTreeSet::new();
-        for value in &targets {
-            if !seen.insert(value.as_str()) {
-                diagnostics.push((
-                    "E-SCAN-005".to_owned(),
-                    format!("duplicate target `{value}`"),
-                ));
-            }
-        }
-    }
-    Some(TestAnnotationOutcome {
-        id: single.remove("id"),
-        covers: single.remove("covers"),
-        targets,
-        intent: single.remove("intent"),
-        input: single.remove("input"),
-        expect: single.remove("expect"),
-        kind: single.remove("kind"),
-        cases,
-        related,
-        diagnostics,
-    })
-}
-
-fn is_test_function(attrs: &[Attribute]) -> bool {
-    attrs.iter().any(|attr| {
-        attr.path()
-            .segments
-            .last()
-            .is_some_and(|segment| segment.ident == "test")
-    })
-}
-
-/// 表面2（Test construct ではない関数 item の doc comment）の解析結果。
-struct SourceTargetAnnotationOutcome {
-    src_id: Option<SrcId>,
-    diagnostics: Vec<(String, String)>,
-}
-
-/// 表面2の `@vtest.` 宣言を本冊 §4.2 の source-target-annotation-line 文法
-/// で解析する。認識するキーは `src-id` のみ。
-fn parse_source_target_annotations(attrs: &[Attribute]) -> SourceTargetAnnotationOutcome {
-    let mut diagnostics = Vec::new();
-    let mut declared = Vec::new();
-    for (key, value) in vtest_annotation_lines(attrs) {
-        if key == "src-id" {
-            declared.push(value);
-            continue;
-        }
-        // 本冊 §4.2: 表面2で `@vtest.` 行が source-target-key を持たない
-        // （test-key を含む）場合は警告とする。表面2の宣言は Test metadata
-        // を破損させず採用値の曖昧さも生まないため、error ではなく
-        // warning とする。
-        diagnostics.push((
-            "W-SCAN-105".to_owned(),
-            format!("unrecognized @vtest key `{key}` on a non-test item"),
-        ));
-    }
-    let src_id = match declared.len() {
-        0 => None,
-        1 => declared.into_iter().next().map(SrcId::new),
-        _ => {
-            // 本冊 §4.2: `src-id` は表面2でも反復不可。同一関数 item での
-            // 重複は採用すべき ID を決定できないため、いずれの宣言値も
-            // 採用せず SRC ID は無しとして扱う（どちらかを推測で選ばない）。
-            diagnostics.push((
-                "E-SCAN-005".to_owned(),
-                "duplicate annotation key `src-id`".to_owned(),
-            ));
-            None
-        }
-    };
-    SourceTargetAnnotationOutcome {
-        src_id,
-        diagnostics,
-    }
-}
-
-struct SourceContext {
-    package: String,
-    test_target: TestTarget,
-    filter_prefix: String,
-}
-
-#[derive(Clone, Debug)]
-struct CargoTargetRoot {
-    path: PathBuf,
-    target: TestTarget,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoManifest {
-    package: Option<CargoPackage>,
-    lib: Option<CargoTarget>,
-    #[serde(default)]
-    bin: Vec<CargoTarget>,
-    #[serde(default)]
-    test: Vec<CargoTarget>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoPackage {
-    name: String,
-    autobins: Option<bool>,
-    autotests: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoTarget {
-    name: Option<String>,
-    path: Option<String>,
-}
-
-fn cargo_manifest(root: &Path) -> Option<CargoManifest> {
-    let text = fs::read_to_string(root.join("Cargo.toml")).ok()?;
-    let manifest = toml::from_str::<CargoManifest>(&text).ok()?;
-    manifest.package.as_ref()?;
-    Some(manifest)
-}
-
-fn source_context(root: &Path, path: &Path, fallback_package: &str) -> SourceContext {
-    let package_root = package_root_for_path(root, path).unwrap_or_else(|| root.to_owned());
-    let manifest = cargo_manifest(&package_root);
-    let package = manifest
-        .as_ref()
-        .and_then(|manifest| manifest.package.as_ref())
-        .map(|package| package.name.clone())
-        .unwrap_or_else(|| fallback_package.to_owned());
-
-    if let Some(manifest) = &manifest {
-        let mut contexts = Vec::new();
-        for target_root in cargo_target_roots(&package_root, manifest) {
-            for filter_prefix in module_prefixes_for_file(&target_root.path, path) {
-                let context = (target_root.target.clone(), filter_prefix);
-                if !contexts.contains(&context) {
-                    contexts.push(context);
-                }
-            }
-        }
-        if contexts.len() == 1 {
-            let (test_target, filter_prefix) = contexts.pop().expect("one context exists");
-            return SourceContext {
-                package,
-                test_target,
-                filter_prefix,
-            };
-        }
-        return SourceContext {
-            package,
-            test_target: TestTarget::Unknown,
-            filter_prefix: String::new(),
-        };
-    }
-    SourceContext {
-        package,
-        test_target: TestTarget::Unknown,
-        filter_prefix: String::new(),
-    }
-}
-
-fn cargo_target_name(target: &CargoTarget) -> Option<String> {
-    target
-        .name
-        .clone()
-        .or_else(|| target.path.as_deref().and_then(target_name_from_path))
-}
-
-fn target_name_from_path(path: &str) -> Option<String> {
-    let path = Path::new(path);
-    let stem = path.file_stem()?.to_str()?;
-    if matches!(stem, "main" | "mod") {
-        path.parent()?.file_name()?.to_str().map(str::to_owned)
-    } else {
-        Some(stem.to_owned())
-    }
-}
-
-fn normalized_manifest_path(path: &str) -> String {
-    path.trim_start_matches("./").replace('\\', "/")
-}
-
-fn cargo_target_roots(package_root: &Path, manifest: &CargoManifest) -> Vec<CargoTargetRoot> {
-    let mut roots = Vec::new();
-    let lib_path = manifest
-        .lib
-        .as_ref()
-        .map(|target| target.path.as_deref().unwrap_or("src/lib.rs"))
-        .or_else(|| {
-            package_root
-                .join("src/lib.rs")
-                .exists()
-                .then_some("src/lib.rs")
-        });
-    if let Some(path) = lib_path {
-        roots.push(CargoTargetRoot {
-            path: package_root.join(normalized_manifest_path(path)),
-            target: TestTarget::Lib,
-        });
-    }
-
-    let mut explicit_bins = Vec::new();
-    for binary in &manifest.bin {
-        let Some(name) = cargo_target_name(binary) else {
-            continue;
-        };
-        for path in explicit_target_paths(package_root, binary, "src/bin", &name, true) {
-            explicit_bins.push(path.clone());
-            roots.push(CargoTargetRoot {
-                path,
-                target: TestTarget::Bin(name.clone()),
-            });
-        }
-    }
-
-    let autobins = manifest
-        .package
-        .as_ref()
-        .and_then(|package| package.autobins)
-        .unwrap_or(true);
-    if autobins {
-        let main = package_root.join("src/main.rs");
-        if main.exists() && !contains_path(&explicit_bins, &main) {
-            let name = manifest
-                .package
-                .as_ref()
-                .map(|package| package.name.clone())
-                .unwrap_or_default();
-            roots.push(CargoTargetRoot {
-                path: main,
-                target: TestTarget::Bin(name),
-            });
-        }
-        for (path, name) in discovered_target_roots(&package_root.join("src/bin")) {
-            if !contains_path(&explicit_bins, &path) {
-                roots.push(CargoTargetRoot {
-                    path,
-                    target: TestTarget::Bin(name),
-                });
-            }
-        }
-    }
-
-    let mut explicit_tests = Vec::new();
-    for test in &manifest.test {
-        let Some(name) = cargo_target_name(test) else {
-            continue;
-        };
-        for path in explicit_target_paths(package_root, test, "tests", &name, true) {
-            explicit_tests.push(path.clone());
-            roots.push(CargoTargetRoot {
-                path,
-                target: TestTarget::IntegrationTest(name.clone()),
-            });
-        }
-    }
-
-    let autotests = manifest
-        .package
-        .as_ref()
-        .and_then(|package| package.autotests)
-        .unwrap_or(true);
-    if autotests {
-        for (path, name) in discovered_target_roots(&package_root.join("tests")) {
-            if !contains_path(&explicit_tests, &path) {
-                roots.push(CargoTargetRoot {
-                    path,
-                    target: TestTarget::IntegrationTest(name),
-                });
-            }
-        }
-    }
-    roots
-}
-
-fn explicit_target_paths(
-    package_root: &Path,
-    target: &CargoTarget,
-    default_directory: &str,
-    name: &str,
-    allow_directory_main: bool,
-) -> Vec<PathBuf> {
-    if let Some(path) = &target.path {
-        return vec![package_root.join(normalized_manifest_path(path))];
-    }
-    let mut candidates = vec![package_root.join(format!("{default_directory}/{name}.rs"))];
-    if allow_directory_main {
-        candidates.push(package_root.join(format!("{default_directory}/{name}/main.rs")));
-    }
-    let existing = candidates
-        .iter()
-        .filter(|path| path.exists())
-        .cloned()
-        .collect::<Vec<_>>();
-    if existing.is_empty() {
-        candidates.truncate(1);
-        candidates
-    } else {
-        existing
-    }
-}
-
-fn discovered_target_roots(directory: &Path) -> Vec<(PathBuf, String)> {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return Vec::new();
-    };
-    let mut entries = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    entries.sort();
-    let mut roots = Vec::new();
-    for path in entries {
-        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("rs") {
-            if let Some(name) = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .map(str::to_owned)
-            {
-                roots.push((path, name));
-            }
-        } else if path.is_dir() {
-            let main = path.join("main.rs");
-            if main.exists() {
-                if let Some(name) = path
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .map(str::to_owned)
-                {
-                    roots.push((main, name));
-                }
-            }
-        }
-    }
-    roots
-}
-
-fn contains_path(paths: &[PathBuf], candidate: &Path) -> bool {
-    paths.iter().any(|path| same_path(path, candidate))
-}
-
-fn same_path(left: &Path, right: &Path) -> bool {
-    match (fs::canonicalize(left), fs::canonicalize(right)) {
-        (Ok(left), Ok(right)) => left == right,
-        _ => left == right,
-    }
-}
-
-fn module_prefixes_for_file(target_root: &Path, sought: &Path) -> Vec<String> {
-    let Some(module_directory) = target_root.parent() else {
-        return Vec::new();
-    };
-    let mut prefixes = Vec::new();
-    let mut visiting = BTreeSet::new();
-    visit_module_file(
-        target_root,
-        module_directory,
-        "",
-        sought,
-        &mut visiting,
-        &mut prefixes,
-    );
-    prefixes.sort();
-    prefixes.dedup();
-    prefixes
-}
-
-fn visit_module_file(
-    file: &Path,
-    module_directory: &Path,
-    prefix: &str,
-    sought: &Path,
-    visiting: &mut BTreeSet<PathBuf>,
-    prefixes: &mut Vec<String>,
-) {
-    if same_path(file, sought) {
-        prefixes.push(prefix.to_owned());
-    }
-    let identity = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
-    if !visiting.insert(identity.clone()) {
-        return;
-    }
-    let syntax = fs::read_to_string(file)
-        .ok()
-        .and_then(|source| syn::parse_file(&source).ok());
-    if let Some(syntax) = syntax {
-        visit_module_items(
-            &syntax.items,
-            module_directory,
-            prefix,
-            sought,
-            visiting,
-            prefixes,
-        );
-    }
-    visiting.remove(&identity);
-}
-
-fn visit_module_items(
-    items: &[Item],
-    module_directory: &Path,
-    prefix: &str,
-    sought: &Path,
-    visiting: &mut BTreeSet<PathBuf>,
-    prefixes: &mut Vec<String>,
-) {
-    for item in items {
-        let Item::Mod(module) = item else {
-            continue;
-        };
-        let name = module.ident.to_string();
-        let child_prefix = join_module_path(prefix, &name);
-        let child_directory = module_directory.join(&name);
-        if let Some((_, items)) = &module.content {
-            visit_module_items(
-                items,
-                &child_directory,
-                &child_prefix,
-                sought,
-                visiting,
-                prefixes,
-            );
-            continue;
-        }
-        let candidates = [
-            module_directory.join(format!("{name}.rs")),
-            child_directory.join("mod.rs"),
-        ];
-        let existing = candidates
-            .iter()
-            .filter(|path| path.exists())
-            .collect::<Vec<_>>();
-        if existing.len() == 1 {
-            visit_module_file(
-                existing[0],
-                &child_directory,
-                &child_prefix,
-                sought,
-                visiting,
-                prefixes,
-            );
-        }
-    }
-}
-
-fn package_root_for_path(root: &Path, path: &Path) -> Option<PathBuf> {
-    let mut current = path.parent();
-    while let Some(directory) = current {
-        if directory.join("Cargo.toml").exists() {
-            return Some(directory.to_owned());
-        }
-        if directory == root {
-            break;
-        }
-        current = directory.parent();
-    }
-    None
-}
-
-fn join_module_path(prefix: &str, item_path: &str) -> String {
-    if prefix.is_empty() {
-        item_path.to_owned()
-    } else {
-        format!("{prefix}::{item_path}")
-    }
-}
-
-fn line_offsets(source: &str) -> Vec<usize> {
-    let mut offsets = vec![0];
-    for (index, byte) in source.as_bytes().iter().enumerate() {
-        if *byte == b'\n' {
-            offsets.push(index + 1);
-        }
-    }
-    offsets
-}
-
-fn make_location(
-    relative: &str,
-    function: &str,
-    span: proc_macro2::Span,
-    source: &str,
-    offsets: &[usize],
-) -> SourceLocation {
-    let start = span.start();
-    let end = span.end();
-    let start_line = start.line.max(1);
-    let end_line = end.line.max(start_line);
-    let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
-    let end_byte = offsets.get(end_line - 1).copied().unwrap_or(source.len()) + end.column;
-    SourceLocation {
-        file: relative.to_owned(),
-        function: function.to_owned(),
-        start_line: start_line as u64,
-        end_line: end_line as u64,
-        start_byte: start_byte as u64,
-        end_byte: end_byte.min(source.len()) as u64,
-    }
-}
-
-fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a str> {
-    let start: usize = location.start_byte.try_into().ok()?;
-    let end: usize = location.end_byte.try_into().ok()?;
-    source.get(start..end)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_model::{DerivesFrom, DocumentId, DocumentRecord};
+    use vtest_model::{DerivesFrom, DocumentId, DocumentRecord, SrcId, TestId, TestTarget, VoId};
     use vtest_store::{init_project, new_record_id, write_document, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
