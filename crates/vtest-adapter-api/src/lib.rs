@@ -89,11 +89,17 @@ pub struct DiscoveryOutcome {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// discovery を継続できない致命的な失敗（ファイル走査そのものの失敗等）。
-/// core はこれを scan 全体の失敗として扱う（`vtest-scan::ScanError::
-/// Discovery` へ変換する）。診断として記録して scan を継続させると、壊れた
-/// 発見結果を正常な結果として黙って通すことになり fail-open になる
-/// （`pr3-decisions.md` 裁定2 と同じ理由）。
+/// discovery を継続できない確定的な失敗（ファイル走査そのものの失敗、
+/// byte range 逸脱等。Evidence なし）。本冊:1645（§17.1）
+/// 「E-ADAPTER-002 | error | adapterのdiscoveryまたはrunnerが確定的に失敗
+/// （Evidenceなし）」が割り当てる条件そのものであり、core はこれを scan
+/// 全体の失敗として扱う（`vtest-scan::ScanError::Discovery` へ変換し、
+/// `.code()` は常に `"E-ADAPTER-002"` を返す。BLOCKER 4、PR #26 review
+/// round 1 — 以前はこの型もその変換先の`ScanError`もコードを一切持たず、
+/// 別紙C:96「`vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による操作
+/// 拒否をexit 2…にする」を満たせなかった）。診断として記録して scan を
+/// 継続させると、壊れた発見結果を正常な結果として黙って通すことになり
+/// fail-open になる（`pr3-decisions.md` 裁定2 と同じ理由）。
 #[derive(Debug)]
 pub struct DiscoveryError {
     pub path: PathBuf,

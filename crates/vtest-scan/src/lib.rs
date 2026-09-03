@@ -40,10 +40,45 @@ pub enum ScanError {
     Store(StoreError),
     #[error("I/O error at {path}: {source}")]
     Io { path: PathBuf, source: io::Error },
-    #[error("source discovery failed at {path}: {message}")]
+    /// adapterのdiscoveryが確定的に失敗した（Evidenceなし）。本冊:1645
+    /// （§17.1）「E-ADAPTER-002 \| error \| adapterのdiscoveryまたはrunnerが
+    /// 確定的に失敗（Evidenceなし）」。この variant を生成できる経路は
+    /// `vtest_adapter_api::DiscoveryError` からの変換（下記 `From` impl）
+    /// だけであり、discoveryの確定的失敗は常にこのコードへ写像されるため、
+    /// コードをここで固定する（BLOCKER 4、PR #26 review round 1 — 以前は
+    /// コードを一切持たない `ScanError::Discovery { path, message }` だった。
+    /// 別紙C:96「`vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による
+    /// 操作拒否をexit 2…にする」を満たすには、対応するコードが必要）。
+    #[error("[E-ADAPTER-002] source discovery failed at {path}: {message}")]
     Discovery { path: PathBuf, message: String },
+    /// adapter registry 関連の確定的失敗。本冊:1644（§17.1）「E-ADAPTER-001
+    /// \| error \| adapterが未登録、重複、またはregistryの宣言と実装が
+    /// 不一致」。config.yaml が登録されていない adapter ID を宣言している
+    /// 場合がこれに当たる（本冊:1639 の E-CONFIG-001 行は自らの適用範囲を
+    /// 括弧書きで明示的に除外している：「未知・重複adapter IDは
+    /// E-ADAPTER-001」。別紙C:319「registryは…未登録adapterを拒否する」。
+    /// BLOCKER 4、PR #26 review round 1 — 以前はコードを持たない
+    /// `ScanError::Config` だった）。
+    #[error("[E-ADAPTER-001] {message}")]
+    Adapter { message: String },
     #[error("config error: {0}")]
     Config(String),
+}
+
+impl ScanError {
+    /// The §17.1 diagnostic code this error carries, when construction sites
+    /// have committed to one. `Store`/`Io`/`Config` do not name a diagnostic
+    /// code of their own at this variant's construction sites (see each,
+    /// e.g. `adapter_scan_includes`'s empty-`adapters[]` rejection, which is
+    /// a separate, open question — `pr3-review-1.md` §F — not part of
+    /// BLOCKER 4's scope).
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            Self::Discovery { .. } => Some("E-ADAPTER-002"),
+            Self::Adapter { .. } => Some("E-ADAPTER-001"),
+            Self::Store(_) | Self::Io { .. } | Self::Config(_) => None,
+        }
+    }
 }
 
 impl From<StoreError> for ScanError {
@@ -110,28 +145,39 @@ pub fn scan_project_with_config(
     let mut diagnostics = Vec::new();
     for adapter_config in &config.adapters {
         let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
-            // 未知 adapter ID にどの診断コードを割り当てるかは仕様が食い違う
-            // （§2.2 は E-CONFIG-001、§17.1 は E-ADAPTER-001）— Issue #24、
-            // Owner 裁定待ち。ここではそのコード選択はしない（代替コードを
-            // 発明しない）が、黙って discovery から除外すること自体は
-            // fail-open であり許容できない: 走査対象が黙って減り、テスト0件
-            // の正常 scan として報告されうる（別紙C:86-87「adapter discovery
-            // の失敗をTest 0件の正常scanとして扱わない」、基本仕様:719-723
-            // 「adapterが未登録...の場合、検証結果を推測でPASSへ昇格しては
-            // ならない」）。「未登録」はこの逐語に明示的に含まれる。既存の
-            // 空 adapters[] 拒否（`adapter_scan_includes`、上記）と同じ
-            // `ScanError::Config` 経路で fail-closed に拒否する。
+            // BLOCKER 4（PR #26 review round 1）の再裁定: 未知 adapter ID の
+            // 診断コードは §2.2（本冊:158「未知adapter…はusage error
+            // （E-CONFIG-001）とする」）と §17.1 の間で「食い違っている」
+            // ように見えるが、§17.1 の E-CONFIG-001 の行自体（本冊:1639）が
+            // 括弧書きで自らの適用範囲からこの条件を明示的に除外している:
+            // 「config field型または登録adapterが検証する設定値が現在の
+            // config invariantに違反（未知・重複adapter IDはE-ADAPTER-001）」。
+            // §17.1 は診断コード表として §2.2 より後段にあり、各コードの
+            // 正確な適用範囲を確定する逐語である。E-ADAPTER-001 の行
+            // （本冊:1644「adapterが未登録、重複、またはregistryの宣言と
+            // 実装が不一致」）・別紙C:319「registryは…未登録adapterを
+            // 拒否する」もこの読みと一致する。したがって Issue #24 が
+            // 争っていたのはこの条件ではなく（#24 は別の争点だった）、
+            // 本冊内で既に自己解決している。E-ADAPTER-001 を用いる。
+            //
+            // 黙って discovery から除外すること自体が fail-open である点は
+            // 変わらない: 走査対象が黙って減り、テスト0件の正常 scan として
+            // 報告されうる（別紙C:86-87「adapter discoveryの失敗をTest 0件
+            // の正常scanとして扱わない」、基本仕様:719-723「adapterが
+            // 未登録...の場合、検証結果を推測でPASSへ昇格してはならない」）。
             let known_ids = registry.ids().collect::<BTreeSet<_>>();
             let known_list = if known_ids.is_empty() {
                 "(none registered)".to_owned()
             } else {
                 known_ids.into_iter().collect::<Vec<_>>().join(", ")
             };
-            return Err(ScanError::Config(format!(
-                "config.yaml declares adapter id `{}` which is not registered; \
-                 registered adapter id(s): {known_list}",
-                adapter_config.id
-            )));
+            return Err(ScanError::Adapter {
+                message: format!(
+                    "config.yaml declares adapter id `{}` which is not registered; \
+                     registered adapter id(s): {known_list}",
+                    adapter_config.id
+                ),
+            });
         };
         let scan_config = AdapterScanConfig {
             include_paths: resolve_adapter_includes(adapter_config),
@@ -1252,13 +1298,16 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
-    /// 未知 adapter ID の fail-closed 拒否（Issue #24 が裁定するのはどの
-    /// 診断コードを割り当てるかだけで、拒否すること自体は別紙C:86-87・
-    /// 基本仕様:719-723 により既に確定している）。config.yaml の唯一の
-    /// adapter エントリを未登録 ID へ書き換える
-    /// と、discovery からの黙った除外（旧挙動: テスト0件の正常 scan）では
-    /// なく `ScanError::Config` を返すこと、かつそのメッセージが未登録
-    /// だった ID と登録済み ID 一覧の両方を含むことを確認する。
+    /// 未知 adapter ID の fail-closed 拒否。拒否すること自体は別紙C:86-87・
+    /// 基本仕様:719-723 により確定しており、診断コードは本冊:1639 の
+    /// E-CONFIG-001 行が自らの適用範囲を括弧書きで除外した先の
+    /// E-ADAPTER-001（本冊:1644・別紙C:319）で確定する（BLOCKER 4、PR #26
+    /// review round 1 — 旧版はコードを持たない `ScanError::Config` を返し、
+    /// Issue #24 のコード選択を保留扱いにしていた）。config.yaml の唯一の
+    /// adapter エントリを未登録 ID へ書き換えると、discovery からの黙った
+    /// 除外（旧挙動: テスト0件の正常 scan）ではなく `ScanError::Adapter`
+    /// （`.code() == Some("E-ADAPTER-001")`）を返すこと、かつそのメッセージ
+    /// が未登録だった ID と登録済み ID 一覧の両方を含むことを確認する。
     #[test]
     fn unknown_adapter_id_is_rejected_fail_closed() {
         let root = fixture();
@@ -1269,9 +1318,12 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::write(layout.config(), config.to_yaml()).unwrap();
 
         let error = match scan_project(&root) {
-            Err(ScanError::Config(message)) => message,
+            Err(err @ ScanError::Adapter { .. }) => {
+                assert_eq!(err.code(), Some("E-ADAPTER-001"));
+                err.to_string()
+            }
             other => {
-                panic!("expected ScanError::Config for an unregistered adapter id, got {other:?}")
+                panic!("expected ScanError::Adapter for an unregistered adapter id, got {other:?}")
             }
         };
         assert!(
@@ -1281,6 +1333,29 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(
             error.contains("rust-cargo"),
             "error should list the registered id(s): {error}"
+        );
+    }
+
+    /// 本冊:1645（§17.1）「E-ADAPTER-002 \| error \| adapterのdiscoveryまたは
+    /// runnerが確定的に失敗（Evidenceなし）」。`vtest_adapter_api::
+    /// DiscoveryError` から変換された `ScanError::Discovery` は、adapter
+    /// discovery が確定的に失敗した経路（`vtest-adapter-rust`の
+    /// `collect_rs_files`失敗・byte range逸脱の2箇所。BLOCKER 4、PR #26
+    /// review round 1）のいずれからでも常にこのコードへ写像されることを、
+    /// 変換経路を単体で断言してロックインする（filesystem 権限操作に頼らず
+    /// 決定論的に検証するため、`scan_project`の全体経路ではなく`From`
+    /// 変換自体を対象にする）。
+    #[test]
+    fn discovery_error_conversion_carries_e_adapter_002() {
+        let error: ScanError = vtest_adapter_api::DiscoveryError {
+            path: PathBuf::from("src/lib.rs"),
+            message: "boom".to_owned(),
+        }
+        .into();
+        assert_eq!(error.code(), Some("E-ADAPTER-002"));
+        assert!(
+            error.to_string().starts_with("[E-ADAPTER-002]"),
+            "error: {error}"
         );
     }
 
