@@ -645,7 +645,7 @@ fn verify_edit(
     root: &Path,
     test_id: &str,
     desired: &DesiredTest,
-    before_hashes: &BTreeMap<String, ContentHash>,
+    before_hashes: &BTreeMap<String, Vec<ContentHash>>,
 ) -> Result<(), Diagnostic> {
     let after = crate::scan_project(root).map_err(|error| {
         Diagnostic::error(
@@ -653,6 +653,27 @@ fn verify_edit(
             format!("edited test could not be rescanned: {error}"),
         )
     })?;
+    // ここでの `.find()`（衝突していれば任意の1件を選ぶ）が Owner裁定1
+    // 「後段が代表1件を推測選択してはならない」に反しないのは、`test_id`
+    // がこの呼び出し時点で衝突しえないことが呼び出し元の不変条件から
+    // 導けるため（「たぶん到達しない」ではなく確認済み）。根拠:
+    // 1. `edit_test` は書き込み前に `scan.tests_by_id(test_id)` が
+    //    `Unique` であることを既に確認済み（`TestIdLookup::Collided` は
+    //    fail-closed でここへ到達する前に拒否される）。すなわち書き込み
+    //    直前の scan では `test_id` を宣言する construct はちょうど1件。
+    // 2. `validate_desired_test`（呼び出し元）が `desired.id !=
+    //    current.id` を拒否するため、Structured Edit は Test ID 自体を
+    //    変更できない — 編集は当該1件の doc comment 内の他 field だけを
+    //    書き換える。
+    // 3. 書き込みは対象 construct の byte range だけを差し替え、他の
+    //    ファイル・他の construct には触れない。
+    // したがって外部プロセスによる並行書き込み（別ファイルへ同じ Test ID
+    // を割り込ませる）を除けば、post-write rescan でも `test_id` を宣言
+    // する construct は1件のまま — この外部並行変更は `edit_test` 全体が
+    // 依拠する「編集対象ファイルの内容が書き込み直前と一致する」という
+    // 単一ファイル前提の外側にあり、他の post-write 検証にも共通する
+    // 一般的な TOCTOU の限界であって、Owner裁定1（衝突の保存）が対象と
+    // する「collision を後段が黙って握り潰す」経路ではない。
     let edited = after
         .tests
         .iter()
@@ -1173,7 +1194,7 @@ fn verify_create(
     root: &Path,
     test_id: &str,
     answers: &BTreeMap<String, FormValue>,
-    before_hashes: &BTreeMap<String, ContentHash>,
+    before_hashes: &BTreeMap<String, Vec<ContentHash>>,
 ) -> Result<(), Diagnostic> {
     let after = crate::scan_project(root).map_err(|error| {
         Diagnostic::error(
@@ -1181,6 +1202,15 @@ fn verify_create(
             format!("created test could not be rescanned: {error}"),
         )
     })?;
+    // `verify_edit` と同じ理由で `.find()` は Owner裁定1に反しない
+    // （確認済み、「たぶん到達しない」ではない）: `select_test_id` は
+    // 書き込み前に `test_id` が `scan.tests` のどの既存 entity とも
+    // 衝突しないことを既に確認済みであり（`explicit_id` 経路は
+    // `scan.tests.iter().any(...)` で拒否、生成経路も既存 ID と衝突しない
+    // 値を選ぶ。下記 `select_test_id` 参照）、この操作は新しい construct
+    // を1件追加するだけで既存の construct を一切変更しない。したがって
+    // 外部プロセスによる並行書き込みを除けば、post-write rescan でも
+    // `test_id` を宣言する construct は追加した1件のみ。
     let created = after
         .tests
         .iter()
@@ -1228,28 +1258,55 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     covers_match && behavior_match && targets_match
 }
 
-fn test_hashes(scan: &ScanResult) -> BTreeMap<String, ContentHash> {
-    scan.tests
-        .iter()
-        .map(|test| (test.id.as_str().to_owned(), test.content_hash.clone()))
-        .collect()
+/// Test ID をキーに、その ID を宣言する**全** Test Entity の `content_hash`
+/// を集める。Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、
+/// 先勝ちで1件を残して他を捨てることを禁止する」「後段が代表1件を推測
+/// 選択してはならない」の対象は編集操作本体だけでなく、この post-write
+/// 検証も含む — `scan.tests` は基本:412「M は…Test ID が衝突する entity
+/// も含む」の通り衝突した全 entity を保持しているため、ここで
+/// `BTreeMap<String, ContentHash>`（1 ID あたり1 hash）へ単純に collect
+/// すると、衝突している ID については後発の entity が先発を黙って上書き
+/// し、1 件分の hash が検証対象から消える。`Vec<ContentHash>`（ソート済み、
+/// 同じ ID を宣言する全 construct の hash の多重集合）を値にすることで、
+/// 衝突していても集合全体を保持する。
+fn test_hashes(scan: &ScanResult) -> BTreeMap<String, Vec<ContentHash>> {
+    let mut hashes: BTreeMap<String, Vec<ContentHash>> = BTreeMap::new();
+    for test in &scan.tests {
+        hashes
+            .entry(test.id.as_str().to_owned())
+            .or_default()
+            .push(test.content_hash.clone());
+    }
+    for group in hashes.values_mut() {
+        group.sort();
+    }
+    hashes
 }
 
+/// `test_hashes` の「前」スナップショットと突き合わせる。`edited_id` に
+/// 一致する ID は編集/作成の対象そのもの（呼び出し元が別途 `desired` と
+/// 突き合わせ済み）なので比較対象から除く。それ以外の ID は、衝突して
+/// いる場合でも構成する全 construct の hash 多重集合を比較する — 単純な
+/// `.find()`（衝突時は最初に見つかった1件だけを比較する）は、衝突した
+/// construct のうち検証対象外の1件だけが変化しても検出できない（上の
+/// `test_hashes` のdoc comment参照。同じ欠陥の post-write 版）。
 fn verify_other_test_hashes(
     after: &ScanResult,
-    before: &BTreeMap<String, ContentHash>,
+    before: &BTreeMap<String, Vec<ContentHash>>,
     edited_id: Option<&str>,
 ) -> Result<(), Diagnostic> {
     for (id, expected) in before {
         if edited_id == Some(id.as_str()) {
             continue;
         }
-        let actual = after
+        let mut actual: Vec<ContentHash> = after
             .tests
             .iter()
-            .find(|test| test.id.as_str() == id)
-            .map(|test| &test.content_hash);
-        if actual != Some(expected) {
+            .filter(|test| test.id.as_str() == id)
+            .map(|test| test.content_hash.clone())
+            .collect();
+        actual.sort();
+        if &actual != expected {
             return Err(Diagnostic::error(
                 "E-OP-003",
                 format!("operation changed Test `{id}` outside its edit boundary"),
