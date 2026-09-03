@@ -1,12 +1,219 @@
 use crate::{DerivesFrom, VoId};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use serde::de::{MapAccess, Visitor};
+use serde::ser::{Error as SerError, SerializeMap};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeSet;
+use std::fmt;
 
 /// Defines a verification dimension and its allowed partitions.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Dimension {
     pub name: String,
     pub partitions: Vec<String>,
+}
+
+/// One `combinations[]` entry (詳細設計 v0.1 §3.2.1): the declared
+/// (dimension name, partition value) pairs, in declaration order, verbatim.
+///
+/// Deliberately not a `BTreeMap<String, String>` (this type's predecessor
+/// here): a plain map cannot represent a YAML mapping that repeats one key
+/// — either the entry deserializing into it silently collapses to the last
+/// value for that key (a bare `serde` map `Deserialize`, e.g. `BTreeMap`'s,
+/// has no duplicate-key check of its own), or, when read via
+/// `yaml_serde::Value` first, the read fails outright before any `VoRecord`
+/// is built (`yaml_serde::Mapping`'s own `Deserialize` explicitly rejects a
+/// repeated key). 詳細設計 v0.1 本冊:283（§3.2.1 の受理条件、条件6）assigns
+/// "entry が宣言済み dimension のいずれかを欠く、**または同じ dimension
+/// 名を2回以上持つ**" to the *same* `E-SCAN-017` diagnostic
+/// (`vtest-scan`'s `invalid_vo_combinations`, VO retained with
+/// `chain_integrity = MISMATCH` — 本冊:1625・別紙A:438) — a scan-layer
+/// judgment, not a record-layer parse failure. This type exists so the
+/// record reader (`vtest-store::canonical::vo_record_from_yaml`) can hand a
+/// malformed entry to that scan-layer check losslessly, instead of the
+/// record layer pre-empting the judgment by rejecting or silently
+/// collapsing the entry first.
+///
+/// `Deserialize` therefore keeps every declared pair, including a repeated
+/// dimension name (see `deserialize` below) — this is the one place in
+/// `VoRecord`'s tree that tolerates a duplicate key. Every other field
+/// keeps rejecting one, and does not need this type's help to do so: a
+/// duplicate top-level key, or a duplicate key inside one `derives_from[]`/
+/// `dimensions[]` entry, is already rejected by `serde`'s own generated
+/// struct `Deserialize` for `VoRecord`/`DerivesFrom`/`Dimension` — a
+/// struct's `Deserialize` visitor tracks each declared field and errors
+/// with `duplicate_field` the second time it sees the same one, entirely
+/// independent of whichever format's `Deserializer` drives it (confirmed
+/// empirically against `yaml_serde` directly, bypassing
+/// `yaml_serde::Value`, for both a top-level and a `derives_from[]`/
+/// `dimensions[]`-nested duplicate). `combinations`'s element type was the
+/// only field in this tree that fell through that protection, because a
+/// bare map type (unlike a `#[derive(Deserialize)]` struct) has no
+/// equivalent check.
+///
+/// `Serialize` refuses (returns an error) to emit an entry that still
+/// contains a duplicate dimension name — the writer must not be able to
+/// persist a YAML mapping with a repeated key merely because the reader can
+/// tolerate reading one (`vtest-store::canonical::write_vo_record` checks
+/// this explicitly before ever reaching serialization, so that path returns
+/// a clean `StoreError` rather than reaching this panic-on-`expect`
+/// fallback).
+#[derive(Clone, Debug, Default)]
+pub struct CombinationEntry(Vec<(String, String)>);
+
+impl CombinationEntry {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The partition value declared for `dimension`, if present. If
+    /// `dimension` was declared more than once (see
+    /// `duplicate_dimension_names`), this returns the *first* declared
+    /// value — callers that need to detect the duplicate itself should call
+    /// `duplicate_dimension_names` explicitly rather than infer it from
+    /// `get`'s silence.
+    pub fn get(&self, dimension: &str) -> Option<&str> {
+        self.0
+            .iter()
+            .find(|(name, _)| name == dimension)
+            .map(|(_, value)| value.as_str())
+    }
+
+    /// The declared (dimension name, partition value) pairs, in declaration
+    /// order, including a repeated dimension name if the entry has one.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.0
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str()))
+    }
+
+    /// Dimension names this entry declares more than once (詳細設計 v0.1
+    /// 本冊:283, §3.2.1 condition 6's second half: "同じ dimension 名を2回
+    /// 以上持つ"). Empty when every declared name is unique — including
+    /// when the entry is empty. Each repeated name appears once, in the
+    /// order its *second* occurrence was declared.
+    pub fn duplicate_dimension_names(&self) -> Vec<&str> {
+        let mut seen = BTreeSet::new();
+        let mut duplicates = Vec::new();
+        for (name, _) in &self.0 {
+            if !seen.insert(name.as_str()) && !duplicates.contains(&name.as_str()) {
+                duplicates.push(name.as_str());
+            }
+        }
+        duplicates
+    }
+
+    /// A sorted, name-then-value view used for order-independent equality
+    /// and ordering (below) — 詳細設計 v0.1 §3.2.1: "記述順・map key 順には
+    /// 依存しない". A `BTreeMap`-backed entry got this for free from the
+    /// map's own `Eq`/`Ord`; this type recovers the same property
+    /// explicitly since it preserves declaration order instead.
+    fn canonical_pairs(&self) -> Vec<(&str, &str)> {
+        let mut pairs = self.iter().collect::<Vec<_>>();
+        pairs.sort_unstable();
+        pairs
+    }
+}
+
+impl<'a> IntoIterator for &'a CombinationEntry {
+    type Item = (&'a str, &'a str);
+    type IntoIter = std::iter::Map<
+        std::slice::Iter<'a, (String, String)>,
+        fn(&'a (String, String)) -> (&'a str, &'a str),
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str()))
+    }
+}
+
+impl FromIterator<(String, String)> for CombinationEntry {
+    fn from_iter<T: IntoIterator<Item = (String, String)>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl PartialEq for CombinationEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.canonical_pairs() == other.canonical_pairs()
+    }
+}
+
+impl Eq for CombinationEntry {}
+
+impl PartialOrd for CombinationEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CombinationEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.canonical_pairs().cmp(&other.canonical_pairs())
+    }
+}
+
+impl Serialize for CombinationEntry {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let duplicates = self.duplicate_dimension_names();
+        if !duplicates.is_empty() {
+            return Err(S::Error::custom(format!(
+                "combinations entry declares dimension `{}` more than once; \
+                 refusing to serialize a YAML mapping with a duplicate key",
+                duplicates.join("`, `")
+            )));
+        }
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (name, value) in &self.0 {
+            map.serialize_entry(name, value)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for CombinationEntry {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntryVisitor;
+
+        impl<'de> Visitor<'de> for EntryVisitor {
+            type Value = CombinationEntry;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a mapping of dimension name to partition value")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut pairs = Vec::new();
+                // Deliberately not `serde::__private::de::Content`/an
+                // `IndexMap`/a `BTreeMap` here — any of those would
+                // re-introduce the duplicate-collapsing or duplicate-
+                // rejecting behavior this type exists to avoid. Every
+                // `(key, value)` `next_entry` yields is kept, in order,
+                // even if a key repeats.
+                while let Some(pair) = map.next_entry::<String, String>()? {
+                    pairs.push(pair);
+                }
+                Ok(CombinationEntry(pairs))
+            }
+        }
+
+        deserializer.deserialize_map(EntryVisitor)
+    }
+}
+
+/// `VoRecord.combinations`'s `deserialize_with`: treats an explicit `null`
+/// the same as an empty list, matching an omitted key's `#[serde(default)]`
+/// (see that field's own doc comment for why all three — missing, `null`,
+/// `[]` — must reach `VoRecord` the same way).
+fn deserialize_combinations<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<CombinationEntry>, D::Error> {
+    Ok(Option::<Vec<CombinationEntry>>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// Defines how dimension coverage is evaluated for a verification objective.
@@ -38,21 +245,29 @@ pub struct VoRecord {
 
     /// Each entry maps every declared `dimensions[].name` to one of its
     /// partitions (詳細設計 v0.1 §3.2.1: "各 entry は dimension 名 →
-    /// partition 値の map とし...記述順・map key 順には依存しない").
+    /// partition 値の map とし...記述順・map key 順には依存しない"). See
+    /// `CombinationEntry`'s own doc comment for why the element type is not
+    /// a plain map.
     ///
-    /// `#[serde(default)]` (unlike `dimensions`/`representative_cases`,
-    /// which stay required): 別紙C:97-104 lists `explicit` かつ
-    /// `combinations` **欠落**（missing key, distinct from `null` and empty
-    /// list — all three are named separately) as one of the E-SCAN-017
-    /// conditions the *scan* layer must report. Without a default, a
-    /// missing `combinations:` key instead fails `Deserialize` outright —
-    /// the record reader rejects it as a schema error (E-SCAN-010) before
-    /// `vtest-scan`'s `invalid_vo_combinations` (詳細設計 v0.1 §17.1) ever
-    /// sees the record, so the 欠落 sub-case could never surface as
-    /// E-SCAN-017. `null` already deserializes to `vec![]` here (verified
-    /// empirically), so only the missing-key sub-case needed this.
-    #[serde(default)]
-    pub combinations: Vec<BTreeMap<String, String>>,
+    /// `#[serde(default, deserialize_with = "deserialize_combinations")]`
+    /// (unlike `dimensions`/`representative_cases`, which stay plain
+    /// required fields): 別紙C:97-104 lists `explicit` かつ `combinations`
+    /// **欠落**（missing key）、**null**、and an explicit **empty list** as
+    /// three distinct inputs that must all reach the *scan* layer as the
+    /// same E-SCAN-017 condition, not fail here as a record-layer schema
+    /// rejection (E-SCAN-010) before `vtest-scan`'s `invalid_vo_
+    /// combinations` (詳細設計 v0.1 §17.1) ever sees the record. `#[serde(
+    /// default)]` alone only covers a missing key — a *present* `null`
+    /// still fails a plain `Vec<T>` deserialize outright ("invalid type:
+    /// unit value, expected a sequence"; confirmed empirically once
+    /// `vo_record_from_yaml` started building `VoRecord` directly from text
+    /// instead of via `yaml_serde::Value` first — BLOCKER 1, PR #26 review
+    /// round 2 — `Value`'s own `null` → `Vec::default()` coercion no longer
+    /// applies). `deserialize_combinations` restores that behavior
+    /// explicitly, independent of whichever `Value`-based path was doing it
+    /// as an unlabeled side effect before.
+    #[serde(default, deserialize_with = "deserialize_combinations")]
+    pub combinations: Vec<CombinationEntry>,
 
     pub representative_cases: Vec<String>,
     pub created: String,
@@ -179,11 +394,11 @@ mod tests {
             ],
             coverage_policy: Some(CoveragePolicy::Explicit),
             combinations: vec![
-                BTreeMap::from([
+                CombinationEntry::from_iter([
                     ("operand-sign".to_string(), "positive".to_string()),
                     ("operator".to_string(), "div".to_string()),
                 ]),
-                BTreeMap::from([
+                CombinationEntry::from_iter([
                     ("operand-sign".to_string(), "negative".to_string()),
                     ("operator".to_string(), "div".to_string()),
                 ]),
@@ -196,5 +411,70 @@ mod tests {
         let json = serde_json::to_string(&vo_record).unwrap();
         assert_eq!(serde_json::from_str::<VoRecord>(&json).unwrap(), vo_record);
         assert!(json.contains(r#""combinations":[{"operand-sign":"positive","operator":"div"},"#));
+    }
+
+    /// `CombinationEntry`'s whole reason to exist: preserve a repeated
+    /// dimension name losslessly, in declaration order, rather than
+    /// collapsing or rejecting it (see the type's own doc comment).
+    #[test]
+    fn combination_entry_deserialize_preserves_a_duplicate_dimension_name() {
+        let entry: CombinationEntry =
+            serde_json::from_str(r#"{"d1":"a","d1":"b"}"#).expect("duplicate keys are tolerated");
+        assert_eq!(
+            entry.iter().collect::<Vec<_>>(),
+            vec![("d1", "a"), ("d1", "b")],
+            "both declared pairs must survive, in declaration order"
+        );
+        assert_eq!(entry.duplicate_dimension_names(), vec!["d1"]);
+        assert_eq!(entry.len(), 2);
+    }
+
+    /// A well-formed entry (no repeated dimension name) has no duplicates
+    /// to report and round-trips normally.
+    #[test]
+    fn combination_entry_without_a_duplicate_reports_none() {
+        let entry = CombinationEntry::from_iter([
+            ("d1".to_string(), "a".to_string()),
+            ("d2".to_string(), "x".to_string()),
+        ]);
+        assert!(entry.duplicate_dimension_names().is_empty());
+        assert_eq!(entry.get("d1"), Some("a"));
+        assert_eq!(entry.get("d2"), Some("x"));
+        assert_eq!(entry.get("d3"), None);
+    }
+
+    /// 詳細設計 v0.1 §3.2.1: "記述順・map key 順には依存しない" — two entries
+    /// with the same pairs in a different declaration order must still
+    /// compare equal, matching the order-independence a `BTreeMap`-backed
+    /// entry got for free from the map's own `Eq`/`Ord`.
+    #[test]
+    fn combination_entry_equality_is_order_independent() {
+        let first = CombinationEntry::from_iter([
+            ("d1".to_string(), "a".to_string()),
+            ("d2".to_string(), "x".to_string()),
+        ]);
+        let second = CombinationEntry::from_iter([
+            ("d2".to_string(), "x".to_string()),
+            ("d1".to_string(), "a".to_string()),
+        ]);
+        assert_eq!(first, second);
+    }
+
+    /// The writer-side counterpart to `combination_entry_deserialize_
+    /// preserves_a_duplicate_dimension_name`: an entry that still has a
+    /// duplicate dimension name must not be serializable — the type can
+    /// hold this state (so the reader can hand it to the scan layer
+    /// losslessly), but must refuse to re-emit it as YAML/JSON with a
+    /// repeated mapping key.
+    #[test]
+    fn combination_entry_with_a_duplicate_dimension_name_refuses_to_serialize() {
+        let entry = CombinationEntry::from_iter([
+            ("d1".to_string(), "a".to_string()),
+            ("d1".to_string(), "b".to_string()),
+        ]);
+        assert!(
+            serde_json::to_string(&entry).is_err(),
+            "serializing a combinations entry with a duplicate dimension name must fail closed"
+        );
     }
 }
