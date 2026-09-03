@@ -266,14 +266,23 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// reason), sequence, and "anything else" (a bare scalar, kept only far
 /// enough to distinguish it from a mapping/sequence) — built directly from
 /// `MapAccess`/`SeqAccess` rather than delegating to `yaml_serde::Mapping`/
-/// `Sequence`, so *no* level of the tree can fail on a duplicate key. This
-/// is not a general-purpose YAML value type (a tagged scalar, e.g.
-/// `!!binary ...`, falls back to `deserialize_any`'s default `visit_enum`
-/// error — nothing in §3.2's schema uses YAML tags, and failing closed on
-/// one is preferable to guessing at its shape) — it only needs to answer
-/// "is this a mapping/sequence, and what does it contain", which is all
+/// `Sequence`, so *no* level of the tree can fail on a duplicate key. This is
+/// not a general-purpose YAML value type — it only needs to answer "is this
+/// a mapping/sequence, and what does it contain", which is all
 /// `unknown_field_diagnostics`/`derives_from_diagnostics`/
-/// `dimensions_diagnostics` (via `DiagnosticValue`, above) ask of it.
+/// `dimensions_diagnostics` (via `DiagnosticValue`, above) ask of it — but
+/// its `Deserialize` impl still implements every `Visitor` method
+/// `yaml_serde`'s `deserialize_any` can invoke (PR #26 round 3 review found
+/// three missing: `visit_i128`/`visit_u128`, for an integer outside u64's
+/// range, and `visit_enum`, for a value carrying a local YAML tag like
+/// `!Foo`; §3's schema never assigns meaning to a tag or to an out-of-u64
+/// integer, so both are read through structurally — the tag is discarded and
+/// the tagged content is read as a plain `LenientValue`, the out-of-range
+/// integer becomes a `Scalar` — rather than rejected). A *standard*-tagged
+/// scalar (e.g. `!!binary ...`, resolving to `tag:yaml.org,2002:binary`)
+/// never reaches `visit_enum` in the first place: `yaml_serde` only routes a
+/// tag through the enum path when it doesn't recognize it as one of YAML's
+/// core tags, which a leading-`!!` shorthand always resolves to.
 ///
 /// Because this never fails on a duplicate key anywhere, `vo_record_from_
 /// yaml` below no longer needs to distinguish "the one tolerated shape" from
@@ -282,9 +291,9 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// is `?`-propagated, not swallowed by an `if let Ok(...)`: if it ever did
 /// fail (it should not, for any text the primary `VoRecord` parse already
 /// accepted — the two parses see the same event stream, and this type
-/// handles every scalar/map/seq shape that stream can produce except a
-/// tagged value), the whole read now fails closed instead of silently
-/// returning zero diagnostics.
+/// handles every scalar/map/seq/tagged shape that stream can produce), the
+/// whole read now fails closed instead of silently returning zero
+/// diagnostics.
 ///
 /// **Extended to document/Relation (PR #26 round 3).** `document_from_yaml`
 /// and `RelationRecord::from_yaml` had no `combinations[]`-shaped field that
@@ -378,6 +387,14 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
                 Ok(LenientValue::Scalar)
             }
 
+            fn visit_i128<E: serde::de::Error>(self, _value: i128) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_u128<E: serde::de::Error>(self, _value: u128) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<LenientValue, E> {
                 Ok(LenientValue::String(value.to_owned()))
             }
@@ -426,6 +443,27 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
                     pairs.push(pair);
                 }
                 Ok(LenientValue::Mapping(pairs))
+            }
+
+            fn visit_enum<A: serde::de::EnumAccess<'de>>(
+                self,
+                data: A,
+            ) -> Result<LenientValue, A::Error> {
+                // A locally-tagged value (`!Foo ...`) — `yaml_serde` routes
+                // any scalar/sequence/mapping carrying an unrecognized `!`
+                // tag through `deserialize_any`'s `visit_enum`, with the tag
+                // itself as the "variant name" (`de.rs` `enum_tag`/
+                // `EnumAccess`). §3's schema never assigns meaning to a tag,
+                // so the tag is discarded (`IgnoredAny`) and the content
+                // underneath it is read as a plain `LenientValue` via
+                // `newtype_variant` — same recursion `deserialize_any` uses
+                // for every other shape, just re-entered with the tag
+                // consumed so it isn't seen a second time. This is what lets
+                // the unknown-field scan warn-and-read a tagged value instead
+                // of failing the whole record closed on it.
+                use serde::de::VariantAccess;
+                let (_tag, variant): (serde::de::IgnoredAny, _) = data.variant()?;
+                variant.newtype_variant::<LenientValue>()
             }
         }
 
@@ -1605,7 +1643,20 @@ updated: 2026-08-08
     /// | unknown field's *value* has an internal duplicate   | warn, reads | warn, reads | warn, reads |
     /// | duplicate key on a field the schema *does* recognize | reject      | reject      | reject      |
     /// | an ordinary (non-duplicated) unknown top-level field | warn, reads | warn, reads | warn, reads |
+    /// | unknown field's value carries a local YAML tag (mapping) | warn, reads | warn, reads | warn, reads |
+    /// | unknown field's value carries a local YAML tag (scalar) | warn, reads | warn, reads | warn, reads |
+    /// | unknown field's value is an integer wider than u64  | warn, reads | warn, reads | warn, reads |
     ///
+    /// The last three rows pin PR #26 round 3 review's BLOCKER B-1: `?`-
+    /// propagating `LenientValue`'s deserialize (so a genuine parse failure
+    /// still fails the read closed, unlike round 1's `if let Ok(...)`
+    /// catch-all) requires `LenientVisitor` to actually implement every
+    /// `Visitor` method `yaml_serde`'s `deserialize_any` can invoke —
+    /// otherwise a shape it doesn't cover turns "warn and read" into "reject
+    /// the whole record", for the same reason a missing arm caused BLOCKER A.
+    /// `visit_enum` (a local `!Foo` tag) and `visit_i128`/`visit_u128` (an
+    /// integer outside u64's range) were the three gaps found; see
+    /// `LenientValue`'s own doc comment for the full visitor inventory.
     /// The individual per-reader tests above (`document_with_unknown_top_
     /// level_field_whose_value_has_a_duplicate_key_still_warns`,
     /// `vo_record_with_unknown_top_level_field_whose_value_has_a_duplicate_
@@ -1720,6 +1771,105 @@ updated: 2026-08-08
                 .expect("Relation, row 3: must read");
             assert_eq!(parsed, record);
             assert_eq!(diagnostics.len(), 1, "Relation, row 3: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+
+        // Row 4: an unknown field's value carries a local YAML tag
+        // (mapping shape) — exercises `LenientVisitor::visit_enum`.
+        {
+            let record = sample_document();
+            let mut yaml = document_to_yaml(&record);
+            yaml.push_str("owner: !Custom\n  a: 1\n");
+            let (parsed, diagnostics) =
+                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 4: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "document, row 4: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = sample_vo();
+            let mut yaml = vo_record_to_yaml(&record);
+            yaml.push_str("owner: !Custom\n  a: 1\n");
+            let (parsed, diagnostics) =
+                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 4: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "VO, row 4: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = relation_fixture();
+            let mut yaml = record.to_yaml().unwrap();
+            yaml.push_str("owner: !Custom\n  a: 1\n");
+            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
+                .expect("Relation, row 4: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "Relation, row 4: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+
+        // Row 5: an unknown field's value carries a local YAML tag
+        // (scalar shape) — same `visit_enum` path, different content shape.
+        {
+            let record = sample_document();
+            let mut yaml = document_to_yaml(&record);
+            yaml.push_str("owner: !Custom hello\n");
+            let (parsed, diagnostics) =
+                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 5: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "document, row 5: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = sample_vo();
+            let mut yaml = vo_record_to_yaml(&record);
+            yaml.push_str("owner: !Custom hello\n");
+            let (parsed, diagnostics) =
+                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 5: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "VO, row 5: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = relation_fixture();
+            let mut yaml = record.to_yaml().unwrap();
+            yaml.push_str("owner: !Custom hello\n");
+            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
+                .expect("Relation, row 5: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "Relation, row 5: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+
+        // Row 6: an unknown field's value is an integer wider than u64 —
+        // exercises `LenientVisitor::visit_i128`/`visit_u128`.
+        {
+            let record = sample_document();
+            let mut yaml = document_to_yaml(&record);
+            yaml.push_str("owner: 99999999999999999999999999\n");
+            let (parsed, diagnostics) =
+                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 6: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "document, row 6: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = sample_vo();
+            let mut yaml = vo_record_to_yaml(&record);
+            yaml.push_str("owner: 99999999999999999999999999\n");
+            let (parsed, diagnostics) =
+                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 6: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "VO, row 6: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = relation_fixture();
+            let mut yaml = record.to_yaml().unwrap();
+            yaml.push_str("owner: 99999999999999999999999999\n");
+            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
+                .expect("Relation, row 6: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "Relation, row 6: {diagnostics:?}");
             assert_eq!(diagnostics[0].code, "W-STORE-007");
         }
     }
