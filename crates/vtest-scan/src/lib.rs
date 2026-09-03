@@ -1964,13 +1964,27 @@ fn misplaced() {}
         )
         .unwrap();
         let result = scan_project(&root).unwrap();
+        // レビュー round 2 項目【K-1】: コードだけでなく、衝突している
+        // 恒久SRC ID自体（`SRC-SHARED`）と、診断が宣言側のSource Target
+        // （2件のうち索引構築順で先に見つかったもの）を指していることを
+        // 断言する。単に E-SCAN-011 が"どこかで"出たことだけでは、
+        // 別の恒久SRC IDや無関係な条件と取り違えていないことを保証しない。
+        let diagnostic = result
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-SCAN-011")
+            .unwrap_or_else(|| panic!("diagnostics: {:?}", result.diagnostics));
         assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "E-SCAN-011"),
-            "diagnostics: {:?}",
-            result.diagnostics
+            diagnostic.message.contains("SRC-SHARED"),
+            "diagnostic must name the colliding SRC ID: {diagnostic:?}"
+        );
+        assert_eq!(
+            diagnostic
+                .location
+                .as_ref()
+                .map(|location| location.function.as_str()),
+            Some("helper_one"),
+            "diagnostic must point at a declaring Source Target: {diagnostic:?}"
         );
     }
 
@@ -2463,11 +2477,16 @@ fn covers_parent() {}
         fs::write(root.join("docs/spec.md"), "changed\n").unwrap();
 
         let result = scan_project(&root).unwrap();
+        // レビュー round 2 項目【K-1】: コードだけでなく、staleness の対象
+        // ドキュメント（`DOC-ONE`）を診断が名指ししていることも断言する。
+        // コードだけの断言では、別の document へ誤って診断が付いていても
+        // 検出できない。
         assert!(
             result
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "W-SCAN-104"),
+                .any(|diagnostic| diagnostic.code == "W-SCAN-104"
+                    && diagnostic.message.contains("DOC-ONE")),
             "diagnostics: {:?}",
             result.diagnostics
         );
@@ -2951,18 +2970,29 @@ registered_at: 2026-08-08T00:00:00Z
         );
     }
 
-    /// Positive control: a well-formed `explicit`-policy VO (別紙C:97-104's
-    /// own literal example, id/derives_from swapped for this fixture) must
-    /// not raise E-SCAN-017. Without this, the eight tests above could all
-    /// be trivially satisfied by an `invalid_vo_combinations` that always
-    /// returns `Some(..)`.
+    /// Positive control: a well-formed `explicit`-policy VO (本冊:263-271
+    /// §3.2.1's own literal example, id/derives_from swapped for this
+    /// fixture; kept verbatim including its flow-style `combinations`
+    /// entries — レビュー round 2 項目【K-2】の訂正。旧コメントは出典を
+    /// 別紙C:97-104 としていたが、別紙C:97-104 は散文の箇条書きのみで
+    /// literal example を含まない。`operand-sign` / `operator` の例は
+    /// 本冊 §3.2.1 にあり、そこでは `combinations` の各 entry が flow
+    /// style（`- { operand-sign: positive, operator: div }`）で書かれて
+    /// いる。以前はこれを block style へ書き換えており verbatim ではな
+    /// かった) must not raise E-SCAN-017. Without this, the eight tests
+    /// above could all be trivially satisfied by an
+    /// `invalid_vo_combinations` that always returns `Some(..)`.
     #[test]
     fn e_scan_017_well_formed_explicit_combinations_report_no_diagnostic() {
         let root = fixture();
+        // `{{` / `}}` below are `format!`'s brace-escape for a literal `{`
+        // / `}` — the rendered YAML is the flow-style
+        // `{ operand-sign: positive, operator: div }` verbatim from
+        // 本冊:270-271, not doubled braces.
         write_vo_add(
             &root,
             &format!(
-                "{}dimensions:\n  - name: operand-sign\n    partitions: [positive, negative]\n  - name: operator\n    partitions: [add, sub, mul, div]\ncoverage_policy: explicit\ncombinations:\n  - operand-sign: positive\n    operator: div\n  - operand-sign: negative\n    operator: div\n",
+                "{}dimensions:\n  - name: operand-sign\n    partitions: [positive, negative]\n  - name: operator\n    partitions: [add, sub, mul, div]\ncoverage_policy: explicit\ncombinations:\n  - {{ operand-sign: positive, operator: div }}\n  - {{ operand-sign: negative, operator: div }}\n",
                 vo_add_header()
             ),
         );
