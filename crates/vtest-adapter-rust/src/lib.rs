@@ -504,7 +504,7 @@ impl<'a> Scanner<'a> {
         if !is_test {
             return Ok(());
         }
-        let Some(annotation) = parse_test_annotations(attrs) else {
+        let Some(annotation) = parse_test_annotations(attrs, test_target) else {
             self.diagnostics.push(
                 Diagnostic::warning(
                     "W-SCAN-101",
@@ -737,7 +737,18 @@ fn vtest_annotation_lines(attrs: &[Attribute]) -> Vec<(String, String)> {
 /// 表面1（Test construct の doc comment）の `@vtest.` 宣言を本冊 §4.2 の
 /// test-annotation-line 文法で解析する。`@vtest.` 行が1件も無ければ
 /// `None`（呼び出し側は W-SCAN-101 の判定に使う）。
-fn parse_test_annotations(attrs: &[Attribute]) -> Option<TestAnnotationOutcome> {
+///
+/// `test_target` は複数 `target` 行を許容するかどうかの判定に使う
+/// （本冊 §4.2・pr3-decisions.md Owner裁定3）。`@vtest.kind` の文字列では
+/// なく、`rust-cargo` が判定した実行形態（Cargo Integration Test か）で
+/// 決める — 別紙A §14.3 の組込 `rust-integration` Form 自身が
+/// `@vtest.kind unit-{test_kind}` を出力する（§14.1 との差分は `target`
+/// フィールドと `file` の2点のみ）ため、`@vtest.kind` の文字列プレフィックス
+/// では built-in Form 自身を判別できない。
+fn parse_test_annotations(
+    attrs: &[Attribute],
+    test_target: &TestTarget,
+) -> Option<TestAnnotationOutcome> {
     let lines = vtest_annotation_lines(attrs);
     if lines.is_empty() {
         return None;
@@ -772,12 +783,12 @@ fn parse_test_annotations(attrs: &[Attribute]) -> Option<TestAnnotationOutcome> 
             }
         }
     }
-    // 本冊 §4.2: `kind` が integration 系の Test に限り `target` の複数行を
-    // 許容する。それ以外のキーの重複は常にエラー。
-    let integration = single
-        .get("kind")
-        .is_some_and(|kind| kind.starts_with("integration"));
-    if targets.len() > 1 && !integration {
+    // 本冊 §4.2・pr3-decisions.md Owner裁定3: 実行形態が Cargo Integration
+    // Test の Test に限り `target` の複数行を許容する。判定根拠は
+    // `@vtest.kind` の文字列ではなく、`rust-cargo` が判定した実行形態
+    // （`TestTarget::IntegrationTest`）。それ以外のキーの重複は常にエラー。
+    let is_integration_test = matches!(test_target, TestTarget::IntegrationTest(_));
+    if targets.len() > 1 && !is_integration_test {
         diagnostics.push((
             "E-SCAN-005".to_owned(),
             "duplicate annotation key `target`".to_owned(),

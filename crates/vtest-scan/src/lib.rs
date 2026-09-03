@@ -2123,12 +2123,36 @@ fn missing_intent() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-007"));
     }
 
+    /// pr3-decisions.md Owner裁定3「複数targetを許可するかどうかは
+    /// `@vtest.kind`の文字列ではなく、`rust-cargo`が判定した実行形態が
+    /// Cargo Integration Testであるかによって決める」。別紙A §14.3の
+    /// built-in `rust-integration` Formは§14.1との差分が`targets`/`file`の
+    /// 2点だけであり、生成される`@vtest.kind`はunit-{test_kind}のまま
+    /// （`integration`という文字列を含まない）。このテストは両方向を断言
+    /// する — `@vtest.kind unit-normal`のTestがCargo integration test
+    /// （`tests/`配下）に物理的に置かれていれば複数targetを許容し、
+    /// `@vtest.kind`に`integration`という文字列を含めても物理的にlib
+    /// test（`src/`配下）であれば複数targetを許容しない。
     #[test]
     fn integration_tests_allow_multiple_targets_only() {
         let root = fixture();
         fs::write(
             root.join("src/lib.rs"),
-            "pub fn add(a: i32, b: i32) -> i32 { a + b }\npub fn subtract(a: i32, b: i32) -> i32 { a - b }\n",
+            r#"pub fn add(a: i32, b: i32) -> i32 { a + b }
+pub fn subtract(a: i32, b: i32) -> i32 { a - b }
+
+#[cfg(test)]
+mod tests {
+    /// @vtest.id TEST-FAKE-INTEGRATION-KIND
+    /// @vtest.covers VO-ADD
+    /// @vtest.target src/lib.rs::add
+    /// @vtest.target src/lib.rs::subtract
+    /// @vtest.intent an integration-looking kind does not unlock multiple targets for a lib test
+    /// @vtest.kind integration-normal
+    #[test]
+    fn duplicate_target() {}
+}
+"#,
         )
         .unwrap();
         fs::write(
@@ -2139,40 +2163,60 @@ fn missing_intent() {}
 /// @vtest.target src/lib.rs::add
 /// @vtest.target src/lib.rs::subtract
 /// @vtest.intent combines operations
-/// @vtest.kind integration-normal
-#[test]
-fn combines() {}
-
-/// @vtest.id TEST-UNIT-DUPLICATE
-/// @vtest.covers VO-ADD
-/// @vtest.target src/lib.rs::add
-/// @vtest.target src/lib.rs::subtract
-/// @vtest.intent invalid duplicate
 /// @vtest.kind unit-normal
 #[test]
-fn duplicate_target() {}
+fn combines() {}
 "#,
         )
         .unwrap();
         let result = scan_project(&root).unwrap();
+
         let integration = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-INTEGRATION")
             .unwrap();
         assert_eq!(integration.targets.len(), 2);
-        assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "E-SCAN-005"
-                && diagnostic
-                    .location
-                    .as_ref()
-                    .is_some_and(|location| location.function == "duplicate_target")
-        }));
+        assert_eq!(
+            integration.test_target,
+            TestTarget::IntegrationTest("multiple".to_owned())
+        );
+        assert!(
+            !result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-005"
+                    && diagnostic
+                        .location
+                        .as_ref()
+                        .is_some_and(|location| location.function == "combines")
+            }),
+            "a Cargo integration test declaring `@vtest.kind unit-normal` (the value the \
+             built-in §14.1/§14.3 Form actually outputs) must still be allowed multiple targets: {:?}",
+            result.diagnostics
+        );
+
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-005"
+                    && diagnostic
+                        .location
+                        .as_ref()
+                        .is_some_and(|location| location.function == "tests::duplicate_target")
+            }),
+            "a lib test declaring `@vtest.kind integration-normal` must not be allowed \
+             multiple targets merely because of the kind string: {:?}",
+            result.diagnostics
+        );
+        assert!(!result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-FAKE-INTEGRATION-KIND"));
     }
 
     /// 本冊 §4.2「許容された複数 `target` 内でも同じ TargetRef の重複は
-    /// E-SCAN-005 とする」— integration kind でも同一 target の重複宣言は
-    /// 許容しない。
+    /// E-SCAN-005 とする」— Cargo integration test（実行形態による許容）
+    /// でも同一 target の重複宣言は許容しない。`@vtest.kind` は
+    /// `unit-normal`（別紙A §14.1/§14.3 の built-in Form が実際に出力する
+    /// 値）とし、許容判定が kind の文字列に依存しないことを併せて示す。
     #[test]
     fn integration_test_duplicate_target_value_is_rejected() {
         let root = fixture();
@@ -2184,7 +2228,7 @@ fn duplicate_target() {}
 /// @vtest.target src/lib.rs::add
 /// @vtest.target src/lib.rs::add
 /// @vtest.intent rejects the same target declared twice
-/// @vtest.kind integration-normal
+/// @vtest.kind unit-normal
 #[test]
 fn same_target_twice() {}
 "#,
@@ -2473,7 +2517,7 @@ fn misplaced() {}
 /// @vtest.target src/lib.rs::helper
 /// @vtest.target SRC-HELPER
 /// @vtest.intent declares the same Source Target twice under different spellings
-/// @vtest.kind integration-normal
+/// @vtest.kind unit-normal
 #[test]
 fn aliased_target() {}
 "#,
