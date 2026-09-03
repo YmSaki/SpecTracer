@@ -1197,3 +1197,39 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
         end_byte: text.len() as u64,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vtest_adapter_api::AdapterRegistry;
+
+    /// `AdapterRegistry` は `vtest-adapter-api` が所有する契約だが、
+    /// registry の「登録済み ID は解決でき、未登録 ID は解決できない」動作
+    /// を production adapter の実 ID（`"rust-cargo"`）で確認するにはこの
+    /// crate が必要になる。`vtest-scan`（core）はこの解決結果を使って未知
+    /// adapter ID を fail-closed で拒否する（`vtest-scan::lib::tests::
+    /// unknown_adapter_id_is_rejected_fail_closed`）。
+    fn registry_with_rust_cargo() -> AdapterRegistry {
+        let mut registry = AdapterRegistry::new();
+        registry.register(Box::new(RustCargoAdapter::new()));
+        registry
+    }
+
+    #[test]
+    fn registered_adapter_id_resolves() {
+        let registry = registry_with_rust_cargo();
+        assert!(registry.get("rust-cargo").is_some());
+    }
+
+    #[test]
+    fn unregistered_adapter_id_does_not_resolve() {
+        let registry = registry_with_rust_cargo();
+        assert!(registry.get("unknown-lang").is_none());
+    }
+
+    #[test]
+    fn ids_lists_every_registered_adapter() {
+        let registry = registry_with_rust_cargo();
+        assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["rust-cargo"]);
+    }
+}

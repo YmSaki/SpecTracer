@@ -110,14 +110,28 @@ pub fn scan_project_with_config(
     let mut diagnostics = Vec::new();
     for adapter_config in &config.adapters {
         let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
-            // 未知 adapter ID の扱いは仕様が食い違う（§2.2 は E-CONFIG-001、
-            // §17.1 は E-ADAPTER-001）— Issue #24、Owner 裁定待ち。この分岐は
-            // 実装しない：登録されていない adapter エントリは discovery か
-            // ら単に除外する（診断もエラーも出さない）。既存コードも adapter
-            // ID を検証せずconfig全体のroots/scan.includeを一律scanしていた
-            // ため、config.adaptersが常に`rust-cargo`だけを持つ既存fixture
-            // に対しては本変更後も出力は同一である。
-            continue;
+            // 未知 adapter ID にどの診断コードを割り当てるかは仕様が食い違う
+            // （§2.2 は E-CONFIG-001、§17.1 は E-ADAPTER-001）— Issue #24、
+            // Owner 裁定待ち。ここではそのコード選択はしない（代替コードを
+            // 発明しない）が、黙って discovery から除外すること自体は
+            // fail-open であり許容できない: 走査対象が黙って減り、テスト0件
+            // の正常 scan として報告されうる（別紙C:86-87「adapter discovery
+            // の失敗をTest 0件の正常scanとして扱わない」、基本仕様:719-723
+            // 「adapterが未登録...の場合、検証結果を推測でPASSへ昇格しては
+            // ならない」）。「未登録」はこの逐語に明示的に含まれる。既存の
+            // 空 adapters[] 拒否（`adapter_scan_includes`、上記）と同じ
+            // `ScanError::Config` 経路で fail-closed に拒否する。
+            let known_ids = registry.ids().collect::<BTreeSet<_>>();
+            let known_list = if known_ids.is_empty() {
+                "(none registered)".to_owned()
+            } else {
+                known_ids.into_iter().collect::<Vec<_>>().join(", ")
+            };
+            return Err(ScanError::Config(format!(
+                "config.yaml declares adapter id `{}` which is not registered; \
+                 registered adapter id(s): {known_list}",
+                adapter_config.id
+            )));
         };
         let scan_config = AdapterScanConfig {
             include_paths: resolve_adapter_includes(adapter_config),
@@ -1224,6 +1238,38 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert_eq!(
             result.tests[0].test_target,
             TestTarget::IntegrationTest("calc".to_owned())
+        );
+    }
+
+    /// 未知 adapter ID の fail-closed 拒否（Issue #24 が裁定するのはどの
+    /// 診断コードを割り当てるかだけで、拒否すること自体は別紙C:86-87・
+    /// 基本仕様:719-723 により既に確定している）。config.yaml の唯一の
+    /// adapter エントリを未登録 ID へ書き換える
+    /// と、discovery からの黙った除外（旧挙動: テスト0件の正常 scan）では
+    /// なく `ScanError::Config` を返すこと、かつそのメッセージが未登録
+    /// だった ID と登録済み ID 一覧の両方を含むことを確認する。
+    #[test]
+    fn unknown_adapter_id_is_rejected_fail_closed() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let mut config = load_config(&root).unwrap();
+        assert_eq!(config.adapters.len(), 1, "fixture registers one adapter");
+        config.adapters[0].id = "unknown-lang".to_owned();
+        fs::write(layout.config(), config.to_yaml()).unwrap();
+
+        let error = match scan_project(&root) {
+            Err(ScanError::Config(message)) => message,
+            other => {
+                panic!("expected ScanError::Config for an unregistered adapter id, got {other:?}")
+            }
+        };
+        assert!(
+            error.contains("unknown-lang"),
+            "error should name the unregistered id: {error}"
+        );
+        assert!(
+            error.contains("rust-cargo"),
+            "error should list the registered id(s): {error}"
         );
     }
 

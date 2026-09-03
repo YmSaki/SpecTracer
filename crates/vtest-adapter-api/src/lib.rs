@@ -161,4 +161,13 @@ impl AdapterRegistry {
             .find(|adapter| adapter.id() == id)
             .map(std::convert::AsRef::as_ref)
     }
+
+    /// Registered adapter IDs, in registration order. Used by core to report
+    /// the known-adapter list when it rejects a `config.yaml` adapter ID that
+    /// `get` cannot resolve (fail-closed rejection of unregistered IDs; which
+    /// diagnostic code that rejection carries is Issue #24's Owner-decision
+    /// question, not this method's).
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.adapters.iter().map(|adapter| adapter.id())
+    }
 }
