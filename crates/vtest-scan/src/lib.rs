@@ -22,8 +22,8 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    ContentHash, CoveragePolicy, Diagnostic, DocumentRecord, ScanSummary, SourceFunction,
-    SourceLocation, TargetRef, TestEntity, VoRecord,
+    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DocumentRecord, ScanSummary,
+    SourceFunction, SourceLocation, TargetRef, TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -303,6 +303,37 @@ fn check_vo_references(tests: &[TestEntity], vo_ids: &BTreeSet<String>) -> Vec<D
     diagnostics
 }
 
+/// canonical locator の索引キー。`(adapter, opaque value)` の完全一致だけ
+/// で比較し、`value`の内部構文は解釈しない（本冊:522「coreがpath、module、
+/// symbol種別を分解しない」）。
+type LocatorKey = (AdapterId, String);
+
+fn locator_key(locator: &vtest_model::Locator) -> LocatorKey {
+    (locator.adapter.clone(), locator.value.clone())
+}
+
+/// 1件の宣言 `TargetRef` を canonical Source Target へ解決した結果。
+///
+/// 本冊 §6.1「解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別し、
+/// 曖昧はfail-closedな終端状態とする」の3語に対応する。本冊にはこの状態を
+/// 表すRust型定義そのものは無く（`pr3-ruling-spec.md` §2.4・2.7）、型の形は
+/// 実装裁量。ここでは仕様が定める3状態の意味だけを表し、それ以上の情報
+/// （候補一覧・canonical Source Targetの型など）は持ち込まない —
+/// `Ambiguous`・`NotFound`はどんな値も運ばず、`Resolved`が運ぶのは一致した
+/// 1件のcanonical locator keyだけである。この型を経由しない限り、呼び出し
+/// 側は「曖昧」「対象なし」の宣言から代表候補を取り出せない（本冊:959
+/// 「曖昧な解決から代表候補を選ばず…後段へ候補を1件も引き渡さない」を型で
+/// 強制する）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TargetResolution {
+    /// 解決済み。
+    Resolved(LocatorKey),
+    /// 対象なし（一致するSource Targetが0件）。
+    NotFound,
+    /// 曖昧（一致するSource Targetが2件以上）。fail-closedな終端状態。
+    Ambiguous,
+}
+
 /// Target Reference 解決（本冊 §6.1・§6.1.1、E-SCAN-004/005/011）。opaque
 /// locator の完全一致検索は adapter が構築した source index（`sources`）に
 /// 対して行うだけで、構文自体は解釈しない。この解決は core の単一経路が
@@ -311,22 +342,23 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
     let mut diagnostics = Vec::new();
     // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
     // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
-    let mut locators = BTreeMap::<String, usize>::new();
+    let mut locators = BTreeMap::<LocatorKey, usize>::new();
     // 恒久SRC IDごとの宣言元canonical locator一覧。1件なら`SRC索引`
     // （本冊:571・§6.1）を経て一意にcanonical locatorへ解決する。2件以上は
     // 恒久SRC IDのrepository全体一意性違反であり、E-SCAN-011とする
     // （基本仕様§9.2「同一SRC IDの複数宣言を曖昧参照として受理しない」、
     // 本冊§5.1手順5「adapter間を含む...SRC ID衝突...を検査する」）。この
     // 検査は当該SRC IDを参照するTestの有無に関わらず、索引構築時点で行う。
-    let mut src_id_locators = BTreeMap::<String, Vec<String>>::new();
+    let mut src_id_locators = BTreeMap::<String, Vec<LocatorKey>>::new();
     let mut src_id_first_location = BTreeMap::<String, SourceLocation>::new();
     for source in sources {
-        *locators.entry(source.locator.as_string()).or_default() += 1;
+        let key = locator_key(&source.locator);
+        *locators.entry(key.clone()).or_default() += 1;
         if let Some(src_id) = &source.src_id {
             src_id_locators
                 .entry(src_id.as_str().to_owned())
                 .or_default()
-                .push(source.locator.as_string());
+                .push(key);
             src_id_first_location
                 .entry(src_id.as_str().to_owned())
                 .or_insert_with(|| source.location.clone());
@@ -352,35 +384,54 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
         // 解決できた宣言だけを (綴り, canonical locator) として集め、
         // 綴りが異なっても同一canonical Source Targetへ到達する宣言が
         // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
-        let mut resolved_canonical = Vec::<(&str, String)>::new();
+        let mut resolved_canonical = Vec::<(String, LocatorKey)>::new();
         for target in std::iter::once(&test.target).chain(&test.additional_targets) {
             match target {
                 TargetRef::Locator(locator) => {
-                    let key = locator.as_string();
-                    if locators.get(&key).copied() == Some(1) {
-                        resolved_canonical.push((locator.item_path.as_str(), key));
-                    } else {
-                        // 要確認C（PR #26 review round 2）: メッセージに
-                        // 不正だった宣言値（`key`）自体を含める —
-                        // d4c1522でadapter側の発行をやめてcoreへ一本化した
-                        // 際、core側のメッセージから値が落ちていた。判定
-                        // ロジック（`resolved_canonical`への非採用）は
-                        // 変えない。
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "E-SCAN-004",
-                                format!("test `{}` target `{key}` cannot be resolved", test.id),
-                            )
-                            .with_location(test.location.clone()),
-                        );
+                    let key = locator_key(locator);
+                    let resolution = match locators.get(&key).copied().unwrap_or(0) {
+                        0 => TargetResolution::NotFound,
+                        1 => TargetResolution::Resolved(key),
+                        _ => TargetResolution::Ambiguous,
+                    };
+                    match resolution {
+                        TargetResolution::Resolved(canonical) => {
+                            resolved_canonical.push((locator.value.clone(), canonical));
+                        }
+                        TargetResolution::NotFound | TargetResolution::Ambiguous => {
+                            // 要確認C（PR #26 review round 2）: メッセージに
+                            // 不正だった宣言値（`locator.value`）自体を含め
+                            // る — d4c1522でadapter側の発行をやめてcoreへ
+                            // 一本化した際、core側のメッセージから値が落ち
+                            // ていた。判定ロジック（`resolved_canonical`へ
+                            // の非採用）は変えない。「対象なし」と「曖昧」
+                            // はどちらもE-SCAN-004（本冊:954-961「解決が
+                            // 0件または複数候補で一意に定まらない場合は
+                            // E-SCAN-004とし」）。
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-SCAN-004",
+                                    format!(
+                                        "test `{}` target `{}` cannot be resolved",
+                                        test.id, locator.value
+                                    ),
+                                )
+                                .with_location(test.location.clone()),
+                            );
+                        }
                     }
                 }
                 TargetRef::SrcId(src_id) => {
-                    match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
-                        Some([single]) => {
-                            resolved_canonical.push((src_id.as_str(), single.clone()));
+                    let resolution = match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
+                        Some([single]) => TargetResolution::Resolved(single.clone()),
+                        Some(_) => TargetResolution::Ambiguous,
+                        None => TargetResolution::NotFound,
+                    };
+                    match resolution {
+                        TargetResolution::Resolved(canonical) => {
+                            resolved_canonical.push((src_id.as_str().to_owned(), canonical));
                         }
-                        Some(_) => {
+                        TargetResolution::Ambiguous => {
                             // 恒久SRC IDが衝突している。E-SCAN-011は索引
                             // 構築時に既に発行済みであり、いずれのSource
                             // Targetも選択しない（本冊:901「E-SCAN-011が
@@ -389,7 +440,7 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                             // 選択しない」）。同じ衝突を二重にE-SCAN-004
                             // として報告しない。
                         }
-                        None => {
+                        TargetResolution::NotFound => {
                             // 要確認C: 同上、SRC ID参照側にも同じ修正を
                             // 揃える。
                             diagnostics.push(
@@ -408,7 +459,7 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                 }
             }
         }
-        let mut seen_canonical = BTreeMap::<String, &str>::new();
+        let mut seen_canonical = BTreeMap::<LocatorKey, String>::new();
         for (spelling, canonical) in resolved_canonical {
             match seen_canonical.get(&canonical) {
                 Some(previous_spelling) if *previous_spelling != spelling => {
@@ -416,8 +467,8 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                         Diagnostic::error(
                             "E-SCAN-005",
                             format!(
-                                "test `{}` declares multiple targets (`{previous_spelling}`, `{spelling}`) that resolve to the same Source Target `{canonical}`",
-                                test.id
+                                "test `{}` declares multiple targets (`{previous_spelling}`, `{spelling}`) that resolve to the same Source Target `{}::{}`",
+                                test.id, canonical.0, canonical.1
                             ),
                         )
                         .with_location(test.location.clone()),
@@ -531,7 +582,7 @@ fn record_diagnostics(
     }
     known_ids.extend(tests.iter().map(|test| test.id.as_str().to_owned()));
     for source in sources {
-        known_ids.insert(source.locator.as_string());
+        known_ids.insert(source.locator.value.clone());
         if let Some(src_id) = &source.src_id {
             known_ids.insert(src_id.as_str().to_owned());
         }
@@ -1951,7 +2002,7 @@ fn misplaced() {}
         let helper = result
             .sources
             .iter()
-            .find(|source| source.locator.item_path == "helper")
+            .find(|source| source.locator.value == "src/lib.rs::helper")
             .unwrap();
         assert!(helper.src_id.is_none());
     }
@@ -1972,7 +2023,7 @@ fn misplaced() {}
         let helper = result
             .sources
             .iter()
-            .find(|source| source.locator.item_path == "helper")
+            .find(|source| source.locator.value == "src/lib.rs::helper")
             .unwrap();
         assert_eq!(
             helper.src_id.as_ref().map(SrcId::as_str),
@@ -2071,14 +2122,19 @@ fn aliased_target() {}
         );
     }
 
-    /// 本冊:955/959/961（§6.1）: 解決できない target は「対象なし」の
-    /// fail-closed 終端状態であり、後段が任意の候補で埋めて「解決済み」を
-    /// 偽装してはならない。`@vtest.target` に `path::item-path` へ構文解析
-    /// できない値（`::` を含まない自由記述）を与えると、この Test 自身の
-    /// locator（`tests/unresolvable_target.rs::declares_unparseable_target`）
-    /// で肩代わりして解決済みにする旧挙動があった（fail-open。BLOCKER 3）。
-    /// 現在は adapter が sentinel Locator を返し、core の `resolve_targets`
-    /// が通常の「0件ヒット」経路として E-SCAN-004 を発行することを断言する。
+    /// 本冊:955/959/961（§6.1）・pr3-decisions.md Owner裁定2「架空locator
+    /// を作らない」: 解決できない target は「対象なし」の fail-closed 終端
+    /// 状態であり、後段が任意の候補で埋めて「解決済み」を偽装してはならな
+    /// い。`@vtest.target` に `path::item-path` へ構文解析できない値
+    /// （`::` を含まない自由記述）を与えると、この Test 自身の locator
+    /// （`tests/unresolvable_target.rs::declares_unparseable_target`）で
+    /// 肩代わりして解決済みにする旧挙動があった（fail-open。BLOCKER 3）。
+    /// その後、実在しない `<unresolvable @vtest.target ...>` という架空
+    /// locatorをcanonical modelに作る形で「直した」ものも Owner裁定2で
+    /// 否定された。現在は adapter が宣言値をそのまま opaque
+    /// `TargetRef::Locator.value` として運ぶだけであり（捏造なし）、core の
+    /// `resolve_targets` が実在するSource Targetとの完全一致を求める通常の
+    /// 「0件ヒット」経路として E-SCAN-004 を発行することを断言する。
     #[test]
     fn unparseable_target_locator_is_not_silently_resolved_to_the_test_itself() {
         let root = fixture();
@@ -2103,12 +2159,11 @@ fn declares_unparseable_target() {}
         let TargetRef::Locator(locator) = &test.target else {
             panic!("expected a Locator target, got {:?}", test.target);
         };
+        // adapterは捏造しない: opaque valueは宣言値そのもの、この Test 自身
+        // を指す自己参照locatorへ肩代わりされていない。
+        assert_eq!(locator.value, "this is not a locator");
         assert_ne!(
-            (locator.path.as_str(), locator.item_path.as_str()),
-            (
-                "tests/unresolvable_target.rs",
-                "declares_unparseable_target"
-            ),
+            locator.value, "tests/unresolvable_target.rs::declares_unparseable_target",
             "an unresolvable target must not be silently filled in with the Test's own \
              self-referencing locator: {locator:?}"
         );
@@ -2119,11 +2174,9 @@ fn declares_unparseable_target() {}
                         .location
                         .as_ref()
                         .is_some_and(|location| location.function == "declares_unparseable_target")
-                    // 要確認C（PR #26 review round 2）: sentinel locatorの
-                    // item_pathは元の宣言値をそのまま埋め込んで組み立てられる
-                    // （`vtest-adapter-rust`側）ため、coreのメッセージ修正後は
-                    // ここにも元の宣言値が残っていることを断言する — 利用者が
-                    // 「何が不正だったか」を診断から追える最も分かりやすい例。
+                    // 要確認C（PR #26 review round 2）: メッセージに元の
+                    // 宣言値が残っていることを断言する — 利用者が「何が
+                    // 不正だったか」を診断から追える最も分かりやすい例。
                     && diagnostic.message.contains("this is not a locator")
             }),
             "diagnostics: {:?}",

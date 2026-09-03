@@ -6,8 +6,9 @@ use std::{
 
 use serde::Serialize;
 use syn::spanned::Spanned;
+use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, Locator, SourceLocation, TargetRef, TestEntity, TestResult,
+    CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -460,7 +461,7 @@ fn validate_desired_test(
         ));
     }
     for target in &desired.targets {
-        let Some(locator) = Locator::parse(target) else {
+        let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{target}`"),
@@ -486,7 +487,8 @@ fn validate_desired_test(
     }
     if scan.sources.iter().any(|source| {
         source.location.file == desired.file
-            && source.locator.item_path == desired.fn_name
+            && RustLocator::parse(&source.locator.value)
+                .is_some_and(|parsed| parsed.item_path == desired.fn_name)
             && source.location != current.location
     }) {
         return Err(Diagnostic::error(
@@ -728,7 +730,7 @@ fn indent_multiline(source: &str, indent: &str) -> String {
 
 fn target_string(target: &TargetRef) -> String {
     match target {
-        TargetRef::Locator(locator) => locator.as_string(),
+        TargetRef::Locator(locator) => locator.value.clone(),
         TargetRef::SrcId(id) => id.as_str().to_owned(),
     }
 }
@@ -869,7 +871,7 @@ pub fn list_tests(
 }
 
 pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, Diagnostic> {
-    let Some(locator) = Locator::parse(source) else {
+    let Some(locator) = RustLocator::parse(source).map(|parsed| parsed.to_locator()) else {
         return Err(
             Diagnostic::error("E-OP-001", format!("invalid source locator `{source}`"))
                 .with_candidates(symbol_candidates(scan, source)),
@@ -999,7 +1001,8 @@ fn validate_form_answers_for(
                     };
                     if scan.sources.iter().any(|source| {
                         source.location.file == destination
-                            && source.locator.item_path == name
+                            && RustLocator::parse(&source.locator.value)
+                                .is_some_and(|parsed| parsed.item_path == name)
                             && edited_location != Some(&source.location)
                     }) {
                         return Err(Diagnostic::error(
@@ -1269,7 +1272,7 @@ fn validate_value_shape(
     }
     match field.field_type.as_str() {
         "symbol" => {
-            if Locator::parse(scalar(value, &field.name)?).is_none() {
+            if RustLocator::parse(scalar(value, &field.name)?).is_none() {
                 return Err(Diagnostic::error(
                     "E-OP-001",
                     format!("answer `{}` is not a source locator", field.name),
@@ -1280,7 +1283,7 @@ fn validate_value_shape(
             if value
                 .values()
                 .iter()
-                .any(|value| Locator::parse(value).is_none())
+                .any(|value| RustLocator::parse(value).is_none())
             {
                 return Err(Diagnostic::error(
                     "E-OP-001",
@@ -1336,7 +1339,7 @@ fn validate_symbols(
         ));
     }
     for symbol in value.values() {
-        let Some(locator) = Locator::parse(symbol) else {
+        let Some(locator) = RustLocator::parse(symbol).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{symbol}`"),
@@ -1369,7 +1372,7 @@ fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
         return scalar(value, "file").map(|value| value.replace('\\', "/"));
     }
     if let Some(value) = answers.answers.get("target") {
-        return Locator::parse(scalar(value, "target")?)
+        return RustLocator::parse(scalar(value, "target")?)
             .map(|locator| locator.path)
             .ok_or_else(|| Diagnostic::error("E-OP-001", "target is not a locator"));
     }
@@ -1545,18 +1548,24 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
         .map_or(requested, |(_, item)| item);
+    // `source.locator.value` は `rust-cargo` の場合 `<path>::<item_path>`
+    // で、`path` 自体は `::` を含まない（`RustLocator::parse`）ため、opaque
+    // な `value` 全体を末尾の `::` で分割しても `item_path` の末尾要素と
+    // 一致する。この関数は候補表示用のあいまい一致であり、value の内部
+    // 構文を core の判定条件として使ってはいない（PR3 canonical化の範囲外、
+    // `pr3-decisions.md`「保留中の論点」）。
     let mut exact_suffix = scan
         .sources
         .iter()
         .filter(|source| {
             source
                 .locator
-                .item_path
+                .value
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| candidate == item)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.locator.value.clone())
         .collect::<Vec<_>>();
     let mut near = scan
         .sources
@@ -1564,12 +1573,12 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
         .filter(|source| {
             source
                 .locator
-                .item_path
+                .value
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| edit_distance(candidate, item) <= 2)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.locator.value.clone())
         .collect::<Vec<_>>();
     exact_suffix.sort();
     exact_suffix.dedup();
