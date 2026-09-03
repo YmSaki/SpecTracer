@@ -335,11 +335,29 @@ fn target_execution_from_coverage(
     measured_target_execution(count)
 }
 
+/// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
+/// （`<path>.rs::<item_path>`）。この crate は adapter の内部構文を正式には
+/// 所有しないが（crate 冒頭コメント「`vtest-scan`、`vtest-audit`、
+/// `vtest-exec` はadapterを選択・委譲するorchestrationであり、rustc-demangle
+/// を直接所有しない」）、llvm-cov 出力との突き合わせに `path`/`item_path`
+/// の分解がすでに必要だった既存コードであり、PR3 の範囲（`TargetRef::
+/// Locator`のadapter-neutral化）はこの crate のRust結合自体の解消を含まな
+/// い。分解は最初の `::` で区切るだけで、`RustLocator::parse`の妥当性検査
+/// （`.rs`拡張子など）は行わない — この値は常にこの adapter 自身の
+/// scanner が構築したものであり、構文は保証されている。
+fn locator_parts(locator: &Locator) -> (&str, &str) {
+    locator
+        .value
+        .split_once("::")
+        .unwrap_or((locator.value.as_str(), ""))
+}
+
 fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
     let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
     let data = value.get("data")?.as_array()?;
     let mut total = 0_u64;
     let mut matched = false;
+    let (target_path, target_item_path) = locator_parts(target);
     for item in data {
         let Some(functions) = item.get("functions").and_then(serde_json::Value::as_array) else {
             continue;
@@ -348,8 +366,8 @@ fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
             let Some(name) = function.get("name").and_then(serde_json::Value::as_str) else {
                 continue;
             };
-            if !llvm_name_matches(name, &target.item_path)
-                || !llvm_filenames_match(function, &target.path)
+            if !llvm_name_matches(name, target_item_path)
+                || !llvm_filenames_match(function, target_path)
             {
                 continue;
             }
@@ -502,6 +520,14 @@ fn yaml_scalar(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_model::AdapterId;
+
+    fn rust_locator(path: &str, item_path: &str) -> Locator {
+        Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: format!("{path}::{item_path}"),
+        }
+    }
 
     #[test]
     fn parser_distinguishes_pass_fail_and_ignored() {
@@ -522,10 +548,7 @@ mod tests {
 
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
-        let target = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "add".to_owned(),
-        };
+        let target = rust_locator("src/lib.rs", "add");
         let output = r#"{
             "data": [{
                 "functions": [
@@ -549,19 +572,13 @@ mod tests {
         }"#;
         assert_eq!(llvm_cov_function_count(output, &target), Some(5));
 
-        let absent = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "subtract".to_owned(),
-        };
+        let absent = rust_locator("src/lib.rs", "subtract");
         assert_eq!(llvm_cov_function_count(output, &absent), None);
     }
 
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
-        let target = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "add".to_owned(),
-        };
+        let target = rust_locator("src/lib.rs", "add");
         let output = r#"{
             "data": [{
                 "functions": [{
