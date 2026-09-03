@@ -492,6 +492,14 @@ impl<'a> Scanner<'a> {
             .map(VoId::new)
             .collect::<Vec<_>>();
         if covers.is_empty() {
+            // 本冊:567（§4.4）「これらの必須metadata（core の `id` /
+            // `covers ≥ 1` / `intent`...）を欠く場合は E-SCAN-007 とし、
+            // `ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、
+            // 診断 `MISSING`）とする」。基本:412（§12）「構造上完全とは...
+            // 1 件以上の `covers`...を Test Entity として具体化できること」。
+            // `@vtest.covers ,` のように非空文字列だが実質0件の場合も同じ
+            // Missing 扱いとし、`TestDraft` を生成しない（他の必須
+            // metadata 欠落と同じ早期 return）。
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
@@ -499,6 +507,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
+            return Ok(());
         }
         let mut targets = target_values
             .iter()

@@ -2019,6 +2019,49 @@ fn no_covers() {}
         }));
     }
 
+    /// 本冊:567（§4.4）・基本:412（§12）・別紙C:81（§18.3.1）: `covers` を
+    /// 持たない（0 件の）Test は E-SCAN-007 とし `TestDraft` を生成しない
+    /// （BLOCKER 2、PR #26 review round 1）。`@vtest.covers` の値自体は
+    /// 非空文字列（`,`）だが、カンマ区切りで分割すると VO ID が1件も
+    /// 残らない — 旧挙動は E-SCAN-007 を出しつつ `covers: []` の
+    /// `TestEntity` を管理対象集合へ混入させていた（fail-open）。
+    #[test]
+    fn covers_that_reduces_to_zero_vo_ids_is_rejected_and_produces_no_test_entity() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/empty_covers.rs"),
+            r#"
+/// @vtest.id TEST-EMPTY-COVERS
+/// @vtest.covers ,
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent declares a covers value that is non-empty text but zero VO ids
+#[test]
+fn empty_covers() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-007"
+                    && diagnostic
+                        .location
+                        .as_ref()
+                        .is_some_and(|location| location.function == "empty_covers")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            !result
+                .tests
+                .iter()
+                .any(|test| test.id.as_str() == "TEST-EMPTY-COVERS"),
+            "a Test with 0 resolved covers VOs must not become a managed Test Entity: {:?}",
+            result.tests
+        );
+    }
+
     /// 基本仕様:126-134「ツールは形式を強制せず一意性のみを強制する」。
     /// `covers` に `VO-` 接頭辞を持たない ID を指定しても、その ID が実在
     /// する VO を参照していれば拒否されない
