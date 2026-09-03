@@ -360,10 +360,16 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                     if locators.get(&key).copied() == Some(1) {
                         resolved_canonical.push((locator.item_path.as_str(), key));
                     } else {
+                        // 要確認C（PR #26 review round 2）: メッセージに
+                        // 不正だった宣言値（`key`）自体を含める —
+                        // d4c1522でadapter側の発行をやめてcoreへ一本化した
+                        // 際、core側のメッセージから値が落ちていた。判定
+                        // ロジック（`resolved_canonical`への非採用）は
+                        // 変えない。
                         diagnostics.push(
                             Diagnostic::error(
                                 "E-SCAN-004",
-                                format!("test `{}` target cannot be resolved", test.id),
+                                format!("test `{}` target `{key}` cannot be resolved", test.id),
                             )
                             .with_location(test.location.clone()),
                         );
@@ -384,10 +390,16 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                             // として報告しない。
                         }
                         None => {
+                            // 要確認C: 同上、SRC ID参照側にも同じ修正を
+                            // 揃える。
                             diagnostics.push(
                                 Diagnostic::error(
                                     "E-SCAN-004",
-                                    format!("test `{}` target cannot be resolved", test.id),
+                                    format!(
+                                        "test `{}` target `{}` cannot be resolved",
+                                        test.id,
+                                        src_id.as_str()
+                                    ),
                                 )
                                 .with_location(test.location.clone()),
                             );
@@ -1625,6 +1637,12 @@ fn ambiguous() {}
                     .location
                     .as_ref()
                     .is_some_and(|location| location.function == "ambiguous")
+                // 要確認C（PR #26 review round 2）: d4c1522でadapter側の
+                // E-SCAN-004発行をやめてcoreの`resolve_targets`へ一本化した
+                // 際、coreのメッセージから不正だった宣言値が落ちていた
+                // （判定ロジックとは無関係の可読性の退行）。ここで宣言値が
+                // メッセージに含まれることを断言してロックインする。
+                && diagnostic.message.contains("src/ambiguous.rs::duplicate")
         }));
     }
 
@@ -2101,6 +2119,12 @@ fn declares_unparseable_target() {}
                         .location
                         .as_ref()
                         .is_some_and(|location| location.function == "declares_unparseable_target")
+                    // 要確認C（PR #26 review round 2）: sentinel locatorの
+                    // item_pathは元の宣言値をそのまま埋め込んで組み立てられる
+                    // （`vtest-adapter-rust`側）ため、coreのメッセージ修正後は
+                    // ここにも元の宣言値が残っていることを断言する — 利用者が
+                    // 「何が不正だったか」を診断から追える最も分かりやすい例。
+                    && diagnostic.message.contains("this is not a locator")
             }),
             "diagnostics: {:?}",
             result.diagnostics
