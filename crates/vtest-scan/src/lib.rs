@@ -12,13 +12,13 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use thiserror::Error;
 use vtest_model::{
-    ContentHash, Diagnostic, Locator, ScanSummary, SourceFunction, SourceLocation, SrcId,
-    TargetRef, TestEntity, TestId, TestTarget, VoId,
+    ContentHash, CoveragePolicy, Diagnostic, Locator, ScanSummary, SourceFunction, SourceLocation,
+    SrcId, TargetRef, TestEntity, TestId, TestTarget, VoId, VoRecord,
 };
 use vtest_store::{
-    is_valid_ulid, load_config, read_approval, read_entity_ids, read_text, read_vo,
+    is_valid_ulid, load_config, read_approval, read_entity_ids, read_text, read_vo_record,
     relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord, StoreError,
-    VerifyLayout, VoRecord,
+    VerifyLayout,
 };
 
 pub mod operations;
@@ -83,7 +83,7 @@ pub fn scan_project_with_config(
 
     let mut scanner = Scanner::new(root, &package, vo_ids);
     for path in &paths {
-        scanner.scan_file(path);
+        scanner.scan_file(path)?;
     }
     let mut result = scanner.finish(paths.len())?;
     result.diagnostics.extend(record_diagnostics(
@@ -220,6 +220,20 @@ fn record_diagnostics(
     diagnostics
 }
 
+/// Reads and validates the canonical VO record `.verify/vo/<id>.yaml` (詳細設計
+/// v0.1 §3.2), delegating every schema-intrinsic check (required fields,
+/// `derives_from` cardinality, `coverage_policy` value domain, id/file-name
+/// match, unknown fields) to `vtest_store::read_vo_record` — the record-layer
+/// reader implemented in PR2 — rather than re-checking them here (record vs.
+/// scan layer split; `pr3-spec-extract.md` §7). This function only adds the
+/// two checks that reader deliberately leaves to the scan layer:
+/// - the `VO-<NAME>.yaml` file-name convention (本冊:113), which the reader
+///   does not police (it only checks `record.id` against the file stem, not
+///   the stem's own shape);
+/// - `combinations` validity against the declared `dimensions` (E-SCAN-017,
+///   本冊:1625/別紙C:97-104) — combinations resolution needs the VO's own
+///   dimension set, which canonical.rs's own doc comment says is a
+///   scan-time concern, not the reader's.
 fn validate_vo_record(
     layout: &VerifyLayout,
     id: &str,
@@ -233,118 +247,96 @@ fn validate_vo_record(
                 .with_location(location.clone()),
         );
     }
-    let text = match read_text(&path) {
-        Ok(text) => text,
+    let (record, record_diagnostics) = match read_vo_record(layout, id) {
+        Ok(result) => result,
         Err(error) => {
+            // 本冊:876 E-SCAN-010「レコードのid / ファイル名 / schema不一致」
+            // covers every failure mode `read_vo_record` reports (invalid
+            // YAML, a missing required field, an out-of-domain
+            // `coverage_policy`, an empty `derives_from`, or id/file-name
+            // mismatch) — all are schema non-conformance. The one case that
+            // reads less like "schema" is a raw I/O failure surfaced through
+            // the same `StoreError`; the predecessor code already folded
+            // that into E-SCAN-010 too, so this keeps that precedent rather
+            // than inventing a new code.
             diagnostics.push(
-                Diagnostic::error("E-SCAN-010", format!("VO {id} cannot be read: {error}"))
-                    .with_location(location.clone()),
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("VO {id} has an invalid record: {error}"),
+                )
+                .with_location(location),
             );
             return None;
         }
     };
-    if let Some(missing) = missing_fields(&text, &["id", "claim", "status", "created", "updated"]) {
+    diagnostics.extend(
+        record_diagnostics
+            .into_iter()
+            .map(|diagnostic| diagnostic.with_location(location.clone())),
+    );
+    if let Some(message) = invalid_vo_combinations(&record) {
         diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO {id} is missing required fields: {missing}"),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    let record = read_vo(layout, id).ok()?;
-    if record.id.as_str() != id {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO file name {id} does not match record id {}", record.id),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    if !matches!(record.status.as_str(), "draft" | "approved") {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("VO {id} has invalid status {}", record.status),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    if let Some(policy) = &record.coverage_policy {
-        if !matches!(
-            policy.as_str(),
-            "independent-axes" | "full-product" | "explicit"
-        ) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("VO {id} has invalid coverage_policy {policy}"),
-                )
-                .with_location(location.clone()),
-            );
-        }
-    }
-    if let Some(message) = invalid_vo_dimensions(&record) {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-010", format!("VO {id} {message}")).with_location(location),
+            Diagnostic::error("E-SCAN-017", format!("VO {id} {message}")).with_location(location),
         );
     }
     Some(record)
 }
 
-fn invalid_vo_dimensions(record: &VoRecord) -> Option<String> {
-    let mut names = BTreeSet::new();
-    for dimension in &record.dimensions {
-        if dimension.name.trim().is_empty() || !names.insert(dimension.name.as_str()) {
-            return Some("has an empty or duplicate dimension name".to_owned());
+/// Checks `combinations` against the declared `dimensions` per the E-SCAN-017
+/// condition list (本冊:1625 §17.1, 別紙C:97-104 逐語). Both are copied here
+/// verbatim from the spec, in the same order:
+///
+/// - `coverage_policy: explicit` かつ `combinations` が欠落・null・空 list。
+/// - `coverage_policy: explicit` かつ `dimensions` が空。
+/// - `combinations` が空でないのに `coverage_policy` が `explicit` 以外。
+/// - entry が未宣言の dimension 名を含む。
+/// - entry の partition 値が当該 dimension の `partitions` にない。
+/// - entry が宣言済み dimension を欠く、または同じ dimension 名を2回以上持つ。
+/// - 同一 tuple を持つ entry が2件以上（重複 tuple）。
+///
+/// The "同じ dimension 名を2回以上持つ" half of that sixth bullet is not
+/// checked here: `combinations`' canonical shape is `Vec<BTreeMap<String,
+/// String>>` (`vtest_model::VoRecord`), and a `BTreeMap` cannot hold the same
+/// key twice by construction, so that condition is now structurally
+/// unreachable rather than unchecked.
+fn invalid_vo_combinations(record: &VoRecord) -> Option<String> {
+    if !matches!(record.coverage_policy, Some(CoveragePolicy::Explicit)) {
+        if !record.combinations.is_empty() {
+            return Some("has combinations but coverage_policy is not `explicit`".to_owned());
         }
-        let mut partitions = BTreeSet::new();
-        if dimension.partitions.is_empty()
-            || dimension
-                .partitions
-                .iter()
-                .any(|partition| partition.trim().is_empty() || !partitions.insert(partition))
-        {
-            return Some(format!(
-                "dimension {} has empty or duplicate partitions",
-                dimension.name
-            ));
-        }
+        return None;
     }
-
-    match record.coverage_policy.as_deref() {
-        None if !record.combinations.is_empty() => {
-            return Some("has combinations without a coverage_policy".to_owned());
+    if record.combinations.is_empty() {
+        return Some("explicit coverage_policy requires at least one combination".to_owned());
+    }
+    if record.dimensions.is_empty() {
+        return Some("explicit coverage_policy requires at least one dimension".to_owned());
+    }
+    let dimensions = record
+        .dimensions
+        .iter()
+        .map(|dimension| (dimension.name.as_str(), &dimension.partitions))
+        .collect::<BTreeMap<_, _>>();
+    let mut unique = BTreeSet::new();
+    for combination in &record.combinations {
+        if combination.len() != dimensions.len() {
+            return Some("has a combination missing a declared dimension".to_owned());
         }
-        Some("independent-axes" | "full-product" | "explicit") if record.dimensions.is_empty() => {
-            return Some("has a coverage_policy without dimensions".to_owned());
-        }
-        Some("explicit") => {
-            if record.combinations.is_empty() {
-                return Some("explicit coverage requires combinations".to_owned());
+        for (name, value) in combination {
+            let Some(partitions) = dimensions.get(name.as_str()) else {
+                return Some(format!(
+                    "has a combination with undeclared dimension `{name}`"
+                ));
+            };
+            if !partitions.iter().any(|partition| partition == value) {
+                return Some(format!(
+                    "has a combination with undeclared partition `{value}` for dimension `{name}`"
+                ));
             }
-            let mut unique = BTreeSet::new();
-            for combination in &record.combinations {
-                if combination.len() != record.dimensions.len()
-                    || !combination
-                        .iter()
-                        .zip(&record.dimensions)
-                        .all(|(partition, dimension)| dimension.partitions.contains(partition))
-                {
-                    return Some(
-                        "has an explicit combination outside the declared dimensions".to_owned(),
-                    );
-                }
-                if !unique.insert(combination) {
-                    return Some("has duplicate explicit combinations".to_owned());
-                }
-            }
         }
-        Some("independent-axes" | "full-product") if !record.combinations.is_empty() => {
-            return Some("stores combinations for a non-explicit policy".to_owned());
+        if !unique.insert(combination) {
+            return Some("has duplicate explicit combinations".to_owned());
         }
-        _ => {}
     }
     None
 }
@@ -564,6 +556,16 @@ fn validate_vo_warnings(
     }
 }
 
+/// Validates approval record schema (this record type is not yet migrated to
+/// a canonical `vtest-store` reader; out of this PR's scope). The VO layer's
+/// own `status`-vs-approval mismatch diagnostic (W-STORE-001) is no longer
+/// computed here: 詳細設計 v0.1 §3.2 defines W-STORE-001 as firing on the
+/// read-compat `status` field's mere *presence* ("存在自体をW-STORE-001として
+/// 通知する"), not on a mismatch against an approval-derived value, and
+/// `read_vo_record` (via `validate_vo_record`) already emits it on that
+/// condition — recomputing an approval-derived status here and diffing it
+/// against `status` would both duplicate that check and apply the wrong
+/// condition.
 fn validate_approval_status(
     layout: &VerifyLayout,
     vos: &BTreeMap<String, VoRecord>,
@@ -576,7 +578,6 @@ fn validate_approval_status(
             current_hashes.insert(id.clone(), ContentHash::from_text(&text));
         }
     }
-    let mut approved = BTreeSet::new();
     let entries = match fs::read_dir(layout.approvals_dir()) {
         Ok(entries) => entries,
         Err(_) => return,
@@ -658,37 +659,13 @@ fn validate_approval_status(
             continue;
         }
         let subject = approval.subject.as_str();
-        let Some(current_hash) = current_hashes.get(subject) else {
+        if !current_hashes.contains_key(subject) {
             diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-010",
                     format!("approval {file_id} references missing VO {subject}"),
                 )
                 .with_location(location),
-            );
-            continue;
-        };
-        if current_hash == &approval.subject_hash {
-            approved.insert(subject.to_owned());
-        }
-    }
-    for (id, vo) in vos {
-        let effective = approved.contains(id);
-        if (vo.status == "approved") != effective {
-            diagnostics.push(
-                Diagnostic::warning(
-                    "W-STORE-001",
-                    format!(
-                        "VO {id} status {} differs from approval-derived status {}",
-                        vo.status,
-                        if effective { "approved" } else { "draft" }
-                    ),
-                )
-                .with_location(record_location(
-                    &layout.root,
-                    &layout.vo_dir().join(format!("{id}.yaml")),
-                    id,
-                )),
             );
         }
     }
@@ -769,7 +746,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn scan_file(&mut self, path: &Path) {
+    fn scan_file(&mut self, path: &Path) -> Result<(), ScanError> {
         let file_name = path
             .file_name()
             .and_then(|value| value.to_str())
@@ -785,7 +762,7 @@ impl<'a> Scanner<'a> {
                     )
                     .with_location(file_location.clone()),
                 );
-                return;
+                return Ok(());
             }
         };
         let syntax = match syn::parse_file(&source) {
@@ -798,7 +775,7 @@ impl<'a> Scanner<'a> {
                     )
                     .with_location(file_location),
                 );
-                return;
+                return Ok(());
             }
         };
         let relative = path
@@ -818,7 +795,7 @@ impl<'a> Scanner<'a> {
             &line_offsets,
             "",
             path,
-        );
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -833,7 +810,7 @@ impl<'a> Scanner<'a> {
         line_offsets: &[usize],
         module: &str,
         path: &Path,
-    ) {
+    ) -> Result<(), ScanError> {
         for item in items {
             match item {
                 Item::Fn(item_fn) => self.collect_fn(
@@ -846,7 +823,7 @@ impl<'a> Scanner<'a> {
                     line_offsets,
                     module,
                     path,
-                ),
+                )?,
                 Item::Impl(item_impl) => self.collect_impl(
                     item_impl,
                     relative,
@@ -857,7 +834,7 @@ impl<'a> Scanner<'a> {
                     line_offsets,
                     module,
                     path,
-                ),
+                )?,
                 Item::Mod(item_mod) => {
                     if let Some((_, nested)) = &item_mod.content {
                         let nested_module = if module.is_empty() {
@@ -875,12 +852,13 @@ impl<'a> Scanner<'a> {
                             line_offsets,
                             &nested_module,
                             path,
-                        );
+                        )?;
                     }
                 }
                 _ => {}
             }
         }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -895,12 +873,14 @@ impl<'a> Scanner<'a> {
         line_offsets: &[usize],
         module: &str,
         path: &Path,
-    ) {
+    ) -> Result<(), ScanError> {
         let type_name = match item_impl.self_ty.as_ref() {
             syn::Type::Path(value) => value.path.segments.last().map(|v| v.ident.to_string()),
             _ => None,
         };
-        let Some(type_name) = type_name else { return };
+        let Some(type_name) = type_name else {
+            return Ok(());
+        };
         for item in &item_impl.items {
             let ImplItem::Fn(item_fn) = item else {
                 continue;
@@ -922,8 +902,9 @@ impl<'a> Scanner<'a> {
                 source,
                 line_offsets,
                 path,
-            );
+            )?;
         }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -938,7 +919,7 @@ impl<'a> Scanner<'a> {
         line_offsets: &[usize],
         module: &str,
         path: &Path,
-    ) {
+    ) -> Result<(), ScanError> {
         let item_path = if module.is_empty() {
             item_fn.sig.ident.to_string()
         } else {
@@ -956,7 +937,7 @@ impl<'a> Scanner<'a> {
             source,
             line_offsets,
             path,
-        );
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -972,19 +953,20 @@ impl<'a> Scanner<'a> {
         filter_prefix: &str,
         source: &str,
         line_offsets: &[usize],
-        _path: &Path,
-    ) {
+        path: &Path,
+    ) -> Result<(), ScanError> {
         let location = make_location(relative, item_path, span, source, line_offsets);
-        let content = source_slice(source, &location).unwrap_or_else(|| {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-CORE-001",
-                    format!("function `{item_path}` source range is out of bounds"),
-                )
-                .with_location(location.clone()),
-            );
-            ""
-        });
+        // 詳細設計 v0.1 のどの診断コード表にも `E-CORE-001` は存在せず、コード
+        // 自体を実装が発明することは禁止（PM 裁定・pr3-decisions.md 裁定2）。
+        // byte range の out-of-bounds は「壊れた発見結果を診断として黙って
+        // 通す」ことになり fail-open なので、診断を出さず scan 全体の失敗
+        // （ScanError）として扱う。
+        let Some(content) = source_slice(source, &location) else {
+            return Err(ScanError::Discovery {
+                path: path.to_owned(),
+                message: format!("function `{item_path}` source range is out of bounds"),
+            });
+        };
         let source_function = SourceFunction {
             locator: Locator {
                 path: relative.to_owned(),
@@ -997,7 +979,7 @@ impl<'a> Scanner<'a> {
         self.sources.push(source_function);
 
         if !is_test_function(attrs) {
-            return;
+            return Ok(());
         }
         let Some(annotation) = parse_annotations(attrs) else {
             self.diagnostics.push(
@@ -1007,7 +989,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location),
             );
-            return;
+            return Ok(());
         };
         if let Some(parse_error) = annotation.values.get("__parse_error__") {
             let (kind, key) = parse_error
@@ -1020,7 +1002,7 @@ impl<'a> Scanner<'a> {
             };
             self.diagnostics
                 .push(Diagnostic::error(code, message).with_location(location));
-            return;
+            return Ok(());
         }
         let Some(id) = annotation
             .values
@@ -1034,7 +1016,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location),
             );
-            return;
+            return Ok(());
         };
         let Some(covers) = annotation
             .values
@@ -1048,7 +1030,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location),
             );
-            return;
+            return Ok(());
         };
         let Some(target_values) = annotation
             .repeated
@@ -1062,7 +1044,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location),
             );
-            return;
+            return Ok(());
         };
         let integration = annotation
             .values
@@ -1073,7 +1055,7 @@ impl<'a> Scanner<'a> {
                 Diagnostic::error("E-SCAN-005", "duplicate annotation key `target`")
                     .with_location(location),
             );
-            return;
+            return Ok(());
         }
         let Some(intent) = annotation
             .values
@@ -1087,7 +1069,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location),
             );
-            return;
+            return Ok(());
         };
         let test_id = TestId::new(id);
         if !self.test_ids.insert(id.clone()) {
@@ -1095,7 +1077,7 @@ impl<'a> Scanner<'a> {
                 Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{id}`"))
                     .with_location(location.clone()),
             );
-            return;
+            return Ok(());
         }
         if matches!(test_target, TestTarget::Unknown) {
             self.diagnostics.push(
@@ -1188,6 +1170,7 @@ impl<'a> Scanner<'a> {
             test_target: test_target.clone(),
         };
         self.tests.push(entity);
+        Ok(())
     }
 
     fn finish(self, files: usize) -> Result<ScanResult, ScanError> {
@@ -1748,11 +1731,12 @@ fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a st
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_store::{init_project, new_record_id};
+    use vtest_model::{DocumentId, DocumentRecord};
+    use vtest_store::{init_project, new_record_id, write_document};
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
-            "id: {id}\nparent: {parent}\nrequirements: []\nspec_refs: []\nclaim: claim\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
+            "id: {id}\nparent: {parent}\nderives_from:\n  - doc: DOC-TEST\nclaim: claim\ndimensions: []\ncoverage_policy: null\ncombinations: []\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
         )
     }
 
@@ -1789,7 +1773,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         .unwrap();
         fs::write(
             root.join(".verify/vo/VO-ADD.yaml"),
-            "id: VO-ADD\nparent: null\nrequirements: []\nspec_refs: []\nclaim: adds values\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
+            valid_vo("VO-ADD", "null"),
         )
         .unwrap();
         root
@@ -2130,18 +2114,19 @@ fn duplicate_target() {}
     }
 
     #[test]
-    fn reports_record_integrity_and_staleness_diagnostics() {
+    fn reports_vo_and_relation_integrity_diagnostics() {
+        // 詳細設計 v0.1 §2.1 replaced the predecessor REQ/SPEC layers with
+        // canonical doc/VO (本冊:30-60); this test used to also exercise the
+        // predecessor SPEC-layer staleness check (`.verify/spec/`,
+        // W-SCAN-104) here. That subject survives canonically as DOC +
+        // `derives_from` (本冊:1626 §17.1), but no DOC-layer validator exists
+        // in this crate yet — its assertion moved, unweakened, to
+        // `reports_document_content_hash_staleness` below (`#[ignore]`d
+        // until that validator lands). What remains here is the VO-layer
+        // and Relation-layer integrity checks (E-SCAN-008/009/010,
+        // W-SCAN-102/103, W-STORE-001), which are unaffected by the doc/
+        // REQ/SPEC migration.
         let root = fixture();
-        fs::write(
-            root.join(".verify/req/REQ-A.yaml"),
-            "id: REQ-A\nparent: REQ-B\nsummary: A\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join(".verify/req/REQ-B.yaml"),
-            "id: REQ-B\nparent: REQ-A\nsummary: B\nstatus: active\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
-        )
-        .unwrap();
         fs::write(
             root.join(".verify/vo/VO-MISSING-PARENT.yaml"),
             valid_vo("VO-MISSING-PARENT", "VO-NOT-FOUND"),
@@ -2175,18 +2160,6 @@ fn covers_parent() {}
         )
         .unwrap();
 
-        fs::create_dir_all(root.join("docs")).unwrap();
-        fs::write(root.join("docs/spec.md"), "original\n").unwrap();
-        let spec_hash = ContentHash::from_text("original\n");
-        fs::write(
-            root.join(".verify/spec/SPEC-ONE.yaml"),
-            format!(
-                "id: SPEC-ONE\nkind: document\npath: docs/spec.md\nsha256: {spec_hash}\nregistered_at: '2026-01-01'\n"
-            ),
-        )
-        .unwrap();
-        fs::write(root.join("docs/spec.md"), "changed\n").unwrap();
-
         let relation_id = new_record_id();
         let relation = root.join(format!(".verify/rel/{relation_id}.yaml"));
         fs::write(
@@ -2197,8 +2170,15 @@ fn covers_parent() {}
         )
         .unwrap();
 
-        let vo_text = fs::read_to_string(root.join(".verify/vo/VO-ADD.yaml")).unwrap();
-        let vo_hash = ContentHash::from_text(&vo_text);
+        // 詳細設計 v0.1 §3.2: the read-compat `status` field triggers
+        // W-STORE-001 by its mere presence (regardless of value), so append
+        // it to VO-ADD directly rather than reconstructing approval-derived
+        // status comparison in the scanner (removed; see
+        // `validate_approval_status`'s doc comment).
+        let vo_add_path = root.join(".verify/vo/VO-ADD.yaml");
+        let vo_add_text = format!("{}status: draft\n", valid_vo("VO-ADD", "null"));
+        fs::write(&vo_add_path, &vo_add_text).unwrap();
+        let vo_hash = ContentHash::from_text(&vo_add_text);
         let approval_id = new_record_id();
         fs::write(
             root.join(format!(".verify/approvals/{approval_id}.yaml")),
@@ -2240,11 +2220,6 @@ fn covers_parent() {}
             result.diagnostics
         );
         assert!(
-            codes.contains("W-SCAN-104"),
-            "diagnostics: {:?}",
-            result.diagnostics
-        );
-        assert!(
             codes.contains("W-STORE-001"),
             "diagnostics: {:?}",
             result.diagnostics
@@ -2255,6 +2230,35 @@ fn covers_parent() {}
                 .iter()
                 .all(|diagnostic| diagnostic.location.is_some()),
             "every scanner diagnostic must identify its canonical source: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    #[ignore = "document 層バリデータ未実装のため、W-SCAN-104（document content_hash の staleness）はまだ scan 診断として観測できない。次の作業（document 層バリデータの実装）で有効化する。"]
+    fn reports_document_content_hash_staleness() {
+        let root = fixture();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join("docs/spec.md"), "original\n").unwrap();
+        let layout = VerifyLayout::new(&root);
+        let document = DocumentRecord {
+            id: DocumentId::new("DOC-ONE"),
+            path: "docs/spec.md".to_owned(),
+            content_hash: ContentHash::from_text("original\n"),
+            title: None,
+            derives_from: Vec::new(),
+            registered_at: "2026-01-01T00:00:00Z".to_owned(),
+        };
+        write_document(&layout, &document).unwrap();
+        fs::write(root.join("docs/spec.md"), "changed\n").unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "W-SCAN-104"),
+            "diagnostics: {:?}",
             result.diagnostics
         );
     }
