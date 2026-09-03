@@ -52,34 +52,69 @@ const VO_KEYS: &[&str] = &[
 /// Known keys for one `dimensions[]` entry (詳細設計 v0.1 §3.2).
 const DIMENSION_KEYS: &[&str] = &["name", "partitions"];
 
+/// Minimal shape a diagnostics-scan value must provide: its string-keyed
+/// mapping entries, its elements if it is a sequence, and lookup by key.
+/// Implemented by `yaml_serde::Value` (used by `document_from_yaml` and
+/// `RelationRecord::from_yaml`) and by `LenientValue` (used by
+/// `vo_record_from_yaml` — see that type's own doc comment, below, for why
+/// VO needs a second implementor here rather than reusing `yaml_serde::
+/// Value` for everything). Factoring the scan functions below over this
+/// trait, instead of duplicating each one per value type, keeps the W-
+/// STORE-007/derives_from[]/dimensions[] scan logic in one place — the
+/// diagnostic message text and traversal order only need to be right once.
+pub(crate) trait DiagnosticValue: Sized {
+    /// This value's string-keyed mapping entries, in occurrence order,
+    /// skipping any non-string key. Empty (not an error) if this value
+    /// isn't a mapping at all — a type mismatch there is instead caught,
+    /// fail-closed, by the typed struct deserialize each reader runs
+    /// alongside this scan.
+    fn mapping_entries(&self) -> Vec<(&str, &Self)>;
+    /// This value's elements, if it is a sequence.
+    fn as_sequence(&self) -> Option<&[Self]>;
+    /// The value under `key`, if this is a mapping containing it.
+    fn get(&self, key: &str) -> Option<&Self>;
+}
+
+impl DiagnosticValue for yaml_serde::Value {
+    fn mapping_entries(&self) -> Vec<(&str, &Self)> {
+        self.as_mapping()
+            .into_iter()
+            .flat_map(yaml_serde::Mapping::iter)
+            .filter_map(|(key, value)| key.as_str().map(|key| (key, value)))
+            .collect()
+    }
+
+    fn as_sequence(&self) -> Option<&[Self]> {
+        yaml_serde::Value::as_sequence(self).map(Vec::as_slice)
+    }
+
+    fn get(&self, key: &str) -> Option<&Self> {
+        yaml_serde::Value::get(self, key)
+    }
+}
+
 /// Scans a YAML mapping for keys outside `known`, returning one
-/// `W-STORE-007` diagnostic per unknown key, in YAML occurrence order
-/// (`yaml_serde::Mapping` preserves insertion order). 詳細設計 v0.1 §3
-/// header (L185): "すべてのレコードは YAML とし、未知フィールドはエラーで
-/// はなく警告とする" — the record is still read (this function never
-/// returns an `Err`), only warned about. `prefix` is prepended to each
-/// reported key so a nested unknown key (e.g. inside `derives_from[0]`)
-/// reads distinctly from a top-level one. Returns nothing if `value` isn't
-/// a mapping — a type mismatch there is instead caught, fail-closed, by
-/// the `from_value` deserialize this always runs alongside.
+/// `W-STORE-007` diagnostic per unknown key, in YAML occurrence order.
+/// 詳細設計 v0.1 §3 header (L185): "すべてのレコードは YAML とし、未知
+/// フィールドはエラーではなく警告とする" — the record is still read (this
+/// function never returns an `Err`), only warned about. `prefix` is
+/// prepended to each reported key so a nested unknown key (e.g. inside
+/// `derives_from[0]`) reads distinctly from a top-level one.
 ///
 /// `pub(crate)` (rather than private to this module) so `records.rs`'s
 /// `RelationRecord::from_yaml` — a §3.3 reader that lives outside this
 /// module for historical reasons (see that file's module doc comment) —
 /// can apply the same §3-header rule instead of re-implementing the scan.
-pub(crate) fn unknown_field_diagnostics(
-    value: &yaml_serde::Value,
+pub(crate) fn unknown_field_diagnostics<V: DiagnosticValue>(
+    value: &V,
     known: &[&str],
     prefix: &str,
 ) -> Vec<Diagnostic> {
-    let Some(mapping) = value.as_mapping() else {
-        return Vec::new();
-    };
-    mapping
-        .iter()
-        .filter_map(|(key, _)| key.as_str())
-        .filter(|key| !known.contains(key))
-        .map(|key| {
+    value
+        .mapping_entries()
+        .into_iter()
+        .filter(|(key, _)| !known.contains(key))
+        .map(|(key, _)| {
             Diagnostic::warning(
                 "W-STORE-007",
                 format!("unknown field `{prefix}{key}` is not part of the §3 schema; its value is ignored"),
@@ -90,11 +125,8 @@ pub(crate) fn unknown_field_diagnostics(
 
 /// Extends the unknown-field scan into each `derives_from[]` entry — the
 /// nested shape §3.1 (document) and §3.2 (VO) share.
-fn derives_from_diagnostics(value: &yaml_serde::Value) -> Vec<Diagnostic> {
-    let Some(sequence) = value
-        .get("derives_from")
-        .and_then(yaml_serde::Value::as_sequence)
-    else {
+fn derives_from_diagnostics<V: DiagnosticValue>(value: &V) -> Vec<Diagnostic> {
+    let Some(sequence) = value.get("derives_from").and_then(V::as_sequence) else {
         return Vec::new();
     };
     sequence
@@ -114,11 +146,8 @@ fn derives_from_diagnostics(value: &yaml_serde::Value) -> Vec<Diagnostic> {
 /// scan-time concern this record-level reader does not have the dimension
 /// set resolved enough to evaluate (the same record-vs-scan layer split
 /// `require_at_least_one_derives_from` below documents for E-SCAN-012).
-fn dimensions_diagnostics(value: &yaml_serde::Value) -> Vec<Diagnostic> {
-    let Some(sequence) = value
-        .get("dimensions")
-        .and_then(yaml_serde::Value::as_sequence)
-    else {
+fn dimensions_diagnostics<V: DiagnosticValue>(value: &V) -> Vec<Diagnostic> {
+    let Some(sequence) = value.get("dimensions").and_then(V::as_sequence) else {
         return Vec::new();
     };
     sequence
@@ -195,6 +224,187 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
     yaml_serde::to_string(record).expect("VoRecord always serializes to valid YAML")
 }
 
+/// A duplicate-tolerant mirror of `yaml_serde::Value`'s mapping/sequence
+/// shape, used only by `vo_record_from_yaml`'s diagnostics scan.
+///
+/// **Corrects `61ba379`** (PR #26 round 1's BLOCKER 1 fix): that commit's
+/// message claimed the diagnostics scan below could fail to run "only
+/// possible now when combinations\[\] has a duplicate key, since Value
+/// structurally cannot represent that". PR #26 round 2 review measured this
+/// empirically against a scratch harness calling `vo_record_from_yaml`
+/// directly and found it false: `yaml_serde::Value`'s own `Mapping`
+/// (`mapping.rs`) rejects *any* duplicate key it finds while deserializing,
+/// at *any* depth in the document tree — not only inside `combinations[]`.
+/// Building a `yaml_serde::Value` for the whole VO record text therefore
+/// failed not only for the one shape `VoRecord`'s own typed parse cannot
+/// itself reject (a repeated dimension name confined to one
+/// `combinations[]` entry — see `CombinationEntry`'s doc comment), but for a
+/// duplicate key *anywhere else* in the document too — including inside the
+/// value of a field the §3.2 schema does not even recognize (an unrelated
+/// unknown top-level key whose own value happens to be a YAML mapping with
+/// a repeated key, or the read-compat `status` field's value, or an unknown
+/// key nested inside a `dimensions[]` entry). Round 1's fix routed every one
+/// of those cases through the same `if let Ok(value) = ... else { skip }`,
+/// silently dropping W-STORE-007/W-STORE-001/the `derives_from[]`/
+/// `dimensions[]` nested scans for a record that otherwise reads (and
+/// should warn) fine — a broader loss than the round-1 commit message or
+/// the PR's "Known gaps" section described (詳細設計 v0.1 本冊:185, :890,
+/// :884, :237).
+///
+/// `LenientValue` mirrors just the shape the scan below needs — mapping (as
+/// ordered key/value pairs, keeping every occurrence instead of rejecting a
+/// repeat, the same technique `CombinationEntry` already uses for the same
+/// reason), sequence, and "anything else" (a bare scalar, kept only far
+/// enough to distinguish it from a mapping/sequence) — built directly from
+/// `MapAccess`/`SeqAccess` rather than delegating to `yaml_serde::Mapping`/
+/// `Sequence`, so *no* level of the tree can fail on a duplicate key. This
+/// is not a general-purpose YAML value type (a tagged scalar, e.g.
+/// `!!binary ...`, falls back to `deserialize_any`'s default `visit_enum`
+/// error — nothing in §3.2's schema uses YAML tags, and failing closed on
+/// one is preferable to guessing at its shape) — it only needs to answer
+/// "is this a mapping/sequence, and what does it contain", which is all
+/// `unknown_field_diagnostics`/`derives_from_diagnostics`/
+/// `dimensions_diagnostics` (via `DiagnosticValue`, above) ask of it.
+///
+/// Because this never fails on a duplicate key anywhere, `vo_record_from_
+/// yaml` below no longer needs to distinguish "the one tolerated shape" from
+/// "every other reason `Value` could fail to build" — there is no longer a
+/// second reason. Its own `yaml_serde::from_str::<LenientValue>(text)` call
+/// is `?`-propagated, not swallowed by an `if let Ok(...)`: if it ever did
+/// fail (it should not, for any text the primary `VoRecord` parse already
+/// accepted — the two parses see the same event stream, and this type
+/// handles every scalar/map/seq shape that stream can produce except a
+/// tagged value), the whole read now fails closed instead of silently
+/// returning zero diagnostics.
+enum LenientValue {
+    Mapping(Vec<(LenientValue, LenientValue)>),
+    Sequence(Vec<LenientValue>),
+    String(String),
+    Scalar,
+}
+
+impl LenientValue {
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            LenientValue::String(value) => Some(value.as_str()),
+            _ => None,
+        }
+    }
+
+    fn as_mapping(&self) -> Option<&[(LenientValue, LenientValue)]> {
+        match self {
+            LenientValue::Mapping(pairs) => Some(pairs.as_slice()),
+            _ => None,
+        }
+    }
+}
+
+impl DiagnosticValue for LenientValue {
+    fn mapping_entries(&self) -> Vec<(&str, &Self)> {
+        self.as_mapping()
+            .into_iter()
+            .flatten()
+            .filter_map(|(key, value)| key.as_str().map(|key| (key, value)))
+            .collect()
+    }
+
+    fn as_sequence(&self) -> Option<&[Self]> {
+        match self {
+            LenientValue::Sequence(items) => Some(items.as_slice()),
+            _ => None,
+        }
+    }
+
+    fn get(&self, key: &str) -> Option<&Self> {
+        self.as_mapping()?
+            .iter()
+            .find(|(candidate, _)| candidate.as_str() == Some(key))
+            .map(|(_, value)| value)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LenientValue {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct LenientVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for LenientVisitor {
+            type Value = LenientValue;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("any YAML value")
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, _value: bool) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, _value: i64) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, _value: u64) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_f64<E: serde::de::Error>(self, _value: f64) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<LenientValue, E> {
+                Ok(LenientValue::String(value.to_owned()))
+            }
+
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<LenientValue, E> {
+                Ok(LenientValue::String(value))
+            }
+
+            fn visit_unit<E: serde::de::Error>(self) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_none<E: serde::de::Error>(self) -> Result<LenientValue, E> {
+                Ok(LenientValue::Scalar)
+            }
+
+            fn visit_some<D2: serde::Deserializer<'de>>(
+                self,
+                deserializer: D2,
+            ) -> Result<LenientValue, D2::Error> {
+                serde::Deserialize::deserialize(deserializer)
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<LenientValue, A::Error> {
+                let mut items = Vec::new();
+                while let Some(item) = sequence.next_element::<LenientValue>()? {
+                    items.push(item);
+                }
+                Ok(LenientValue::Sequence(items))
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<LenientValue, A::Error> {
+                // Deliberately not `yaml_serde::Mapping::deserialize` here —
+                // see this type's own doc comment for why: every `(key,
+                // value)` `next_entry` yields is kept, in order, even if a
+                // key repeats, exactly like `CombinationEntry` does for the
+                // one field that needs it.
+                let mut pairs = Vec::new();
+                while let Some(pair) = map.next_entry::<LenientValue, LenientValue>()? {
+                    pairs.push(pair);
+                }
+                Ok(LenientValue::Mapping(pairs))
+            }
+        }
+
+        deserializer.deserialize_any(LenientVisitor)
+    }
+}
+
 /// Parses a canonical `VoRecord` from its YAML representation, returning any
 /// non-fatal diagnostics alongside it. `yaml_serde::from_str::<VoRecord>`
 /// fails closed on a missing required field (`claim`/`created`/`updated`/
@@ -240,23 +450,22 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// directly (bypassing `Value`) it used to silently keep only the last
 /// value for a repeated key.
 ///
-/// **What this costs**: the unknown-field diagnostics this function also
-/// returns (W-STORE-007, the `status` read-compat warning,
-/// `derives_from[]`/`dimensions[]` nested unknown-field scans) still need a
-/// `yaml_serde::Value` to run — that scan walks arbitrary keys `VoRecord`'s
-/// own fixed schema does not know about, which a typed struct parse alone
-/// cannot surface. Building that `Value` is attempted separately, after the
-/// record itself is already safely read; if a `combinations[]` entry has a
-/// duplicate key, building `Value` for *this* purpose fails the same way it
-/// always did (that limitation is `Value`'s own, not fixable from here),
-/// and this function skips just that diagnostics scan rather than failing
-/// the whole read — the record is already in hand from the direct parse
-/// above, so this is not fail-open: the substantive condition still reaches
-/// `vtest-scan` as E-SCAN-017 via the record it successfully read.
+/// **The unknown-field diagnostics this function also returns** (W-STORE-
+/// 007, the `status` read-compat warning, `derives_from[]`/`dimensions[]`
+/// nested unknown-field scans) run against `LenientValue` (above), not
+/// `yaml_serde::Value` — built from `text` independently of the primary
+/// parse, since that scan walks arbitrary keys `VoRecord`'s own fixed
+/// schema does not know about, which a typed struct parse alone cannot
+/// surface. Unlike PR #26 round 1's `yaml_serde::Value` attempt,
+/// `LenientValue` cannot itself fail to build on a duplicate key anywhere
+/// in the document (see its own doc comment for why, and for the round-1
+/// commit-message correction) — so this no longer costs anything: every
+/// case round 2 review measured empirically (an unrelated unknown top-level
+/// field, `status`, or an unknown nested `dimensions[]` key, each paired
+/// with a `combinations[]` duplicate or not) now reaches its diagnostic.
 /// `vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
-/// scan_as_e_scan_017` below locks this in explicitly, including the
-/// specific loss (an unrelated unknown top-level field on the same record
-/// does not get its usual W-STORE-007).
+/// scan_as_e_scan_017` and `vo_record_with_a_combinations_duplicate_and_an_
+/// unrelated_unknown_field_still_warns` below lock this in.
 pub fn vo_record_from_yaml(
     text: &str,
     fallback_id: &str,
@@ -271,18 +480,18 @@ pub fn vo_record_from_yaml(
     }
     require_at_least_one_derives_from(&record.derives_from)?;
 
+    let value: LenientValue = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
     let mut diagnostics = Vec::new();
-    if let Ok(value) = yaml_serde::from_str::<yaml_serde::Value>(text) {
-        if value.get("status").is_some() {
-            diagnostics.push(Diagnostic::warning(
-                "W-STORE-001",
-                "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
-            ));
-        }
-        diagnostics.extend(unknown_field_diagnostics(&value, VO_KEYS, ""));
-        diagnostics.extend(derives_from_diagnostics(&value));
-        diagnostics.extend(dimensions_diagnostics(&value));
+    if value.get("status").is_some() {
+        diagnostics.push(Diagnostic::warning(
+            "W-STORE-001",
+            "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
+        ));
     }
+    diagnostics.extend(unknown_field_diagnostics(&value, VO_KEYS, ""));
+    diagnostics.extend(derives_from_diagnostics(&value));
+    diagnostics.extend(dimensions_diagnostics(&value));
     Ok((record, diagnostics))
 }
 
@@ -821,28 +1030,37 @@ updated: 2026-08-08
             record.combinations[0].duplicate_dimension_names(),
             vec!["d1"]
         );
-        // 条件3（`pr3-review-1.md`のBLOCKER 1条件3）: `vo_record_from_yaml`の
-        // 未知フィールド走査（W-STORE-007等）は`yaml_serde::Value`を要するが、
-        // Valueはcombinations[]内の重複キーを表現できず、この記録に対しては
-        // Value構築自体が失敗する。したがってレコード本体は読めるが、
-        // 未知フィールド走査だけが失われる — 黙って落ちるのではなく、ここで
-        // 明示的にロックインする。
+        // BLOCKER A (PR #26 review round 2): this record has no other
+        // unknown field, so the empty result here is "nothing to warn
+        // about", not "the scan was skipped" — `vo_record_with_a_
+        // combinations_duplicate_and_an_unrelated_unknown_field_still_warns`
+        // (below) is the test that actually distinguishes the two, by
+        // adding an unrelated unknown field to the same combinations[]
+        // duplicate and asserting its W-STORE-007 still fires.
         assert!(
             diagnostics.is_empty(),
-            "the unknown-field diagnostics scan is skipped for a record whose combinations[] \
-             has a duplicate key (see vo_record_from_yaml's doc comment) — this must not be \
-             silently different from \"nothing to warn about\": {diagnostics:?}"
+            "no unrelated unknown field is present on this record, so there is nothing for the \
+             scan to warn about: {diagnostics:?}"
         );
     }
 
-    /// The specific loss `vo_record_combination_entry_with_a_duplicate_
-    /// dimension_key_reaches_scan_as_e_scan_017` documents, made concrete:
-    /// an unrelated unknown top-level field on the *same* record does not
-    /// get its usual W-STORE-007, because the diagnostics-only `Value`
-    /// parse fails for the same reason (the combinations[] duplicate),
-    /// while the record itself still reads fine via the direct parse.
+    /// BLOCKER A (PR #26 review round 2): round 1's fix
+    /// (`vo_record_combination_entry_with_a_duplicate_dimension_key_
+    /// reaches_scan_as_e_scan_017`, above) built its diagnostics-only value
+    /// with `yaml_serde::Value`, which — round 2 review measured — fails to
+    /// build for *any* duplicate key anywhere in the document, not only one
+    /// confined to `combinations[]`. Because the two failure reasons were
+    /// indistinguishable through an `if let Ok(value) = ... else { skip }`,
+    /// round 1 silently dropped every diagnostic on a record like this one
+    /// — an unrelated unknown top-level field, on a record that also has a
+    /// `combinations[]` duplicate — even though the record itself reads
+    /// fine and the unknown field has nothing to do with `combinations[]`.
+    /// This test used to lock that loss in as "a known, tested trade-off";
+    /// `vo_record_from_yaml` now scans with `LenientValue` (see its own doc
+    /// comment), which cannot fail to build on a duplicate key anywhere, so
+    /// the warning is no longer lost.
     #[test]
-    fn vo_record_with_a_combinations_duplicate_and_an_unrelated_unknown_field_loses_the_warning() {
+    fn vo_record_with_a_combinations_duplicate_and_an_unrelated_unknown_field_still_warns() {
         let yaml = "\
 id: VO-COMBOS
 parent: null
@@ -861,14 +1079,100 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let (_record, diagnostics) =
+        let (record, diagnostics) =
             vo_record_from_yaml(yaml, "VO-COMBOS").expect("the record itself still reads fine");
-        assert!(
-            diagnostics.is_empty(),
-            "unknown_field would normally warn as W-STORE-007, but the diagnostics-only Value \
-             parse fails for the same reason the record's own direct parse tolerates (the \
-             combinations[] duplicate) — this must stay a known, tested trade-off: {diagnostics:?}"
+        assert_eq!(
+            record.combinations[0].duplicate_dimension_names(),
+            vec!["d1"],
+            "the combinations[] duplicate must still reach the record, unaffected by the \
+             unrelated unknown field"
         );
+        assert_eq!(
+            diagnostics.len(),
+            1,
+            "unknown_field must still warn as W-STORE-007, even though the same record's \
+             combinations[] entry has an (unrelated) duplicate dimension key: {diagnostics:?}"
+        );
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("unknown_field"));
+    }
+
+    /// BLOCKER A (PR #26 review round 2), probe row 6: an unrelated unknown
+    /// top-level key whose *own value* is a mapping with an internally
+    /// duplicated key. Round 1's `yaml_serde::Value`-based scan failed to
+    /// build for this input too (the duplicate is not inside
+    /// `combinations[]`, but `Value`'s duplicate-key rejection applies
+    /// recursively to the whole document, not just the fields a schema
+    /// recognizes) — so `extra` itself went unwarned, silently. `VoRecord`'s
+    /// own typed parse never saw a problem here: `extra` is not one of its
+    /// fields, so serde's generated struct visitor discards its value via
+    /// `IgnoredAny` without ever checking that value's own keys for
+    /// duplicates.
+    #[test]
+    fn vo_record_with_unknown_top_level_field_whose_value_has_a_duplicate_key_still_warns() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("extra:\n  x: 1\n  x: 2\n");
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).expect(
+            "an unrelated unknown field's internally-duplicated value must not fail the read",
+        );
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("extra"));
+    }
+
+    /// BLOCKER A (PR #26 review round 2), probe row 8: `status`'s own value
+    /// is a mapping with an internally duplicated key (rather than the
+    /// ordinary scalar `status: draft`/`status: approved`). `status` is not
+    /// a `VoRecord` field either, so the same `IgnoredAny` reasoning as the
+    /// previous test applies to the primary parse; the presence check below
+    /// only needs to see the *key*, not validate its value.
+    #[test]
+    fn vo_record_with_status_field_whose_value_has_a_duplicate_key_still_warns() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("status:\n  x: 1\n  x: 2\n");
+        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str())
+            .expect("status's internally-duplicated value must not fail the read");
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, "W-STORE-001");
+    }
+
+    /// BLOCKER A (PR #26 review round 2), probe row 10: an unknown key
+    /// nested inside a `dimensions[]` entry, whose own value is a mapping
+    /// with an internally duplicated key. `Dimension`'s derived
+    /// `Deserialize` ignores `bar` the same way `VoRecord` ignores an
+    /// unrecognized top-level key (ミラー of the two tests above, one level
+    /// deeper — the same defect class, at the nesting the round-2 probe
+    /// found it missing from).
+    #[test]
+    fn vo_record_with_unknown_nested_dimensions_field_whose_value_has_a_duplicate_key_still_warns()
+    {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+    bar:
+      x: 1
+      x: 2
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001")
+            .expect("an unknown nested field's internally-duplicated value must not fail the read");
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("dimensions[0].bar"));
     }
 
     /// The general duplicate-key rejection PR2 established for every VO
