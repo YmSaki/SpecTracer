@@ -24,6 +24,16 @@
 //! `pr3-decisions.md`）は core materialization 後の型であり、adapter が
 //! 返す draft 側の型ではないため `vtest_model` 側に置く。この crate は
 //! 生成しない（core 側の `vtest-scan` が生成する）。
+//!
+//! `MissingTestConstruct`（下記）も同じ理由で `ManagedTestDraftLink` という
+//! 仕様の型名を導入しない。本冊:565（§4.4）「adapter固有のsource
+//! declarationを構文解析できない場合、adapterは該当Test constructを
+//! Discovered Testとして返し、対応を`ManagedTestLink::Missing`として診断を
+//! 付与する」が要求するのは、adapter が「観測した Test construct 集合
+//! `D`」（基本:408-427、§12）に、管理宣言または必須 metadata を欠く
+//! construct も含めて返すことだけである。`D` から `M`（構造上完全な
+//! managed Test Entity 集合）を導く判定・`ManagedTestLink` そのものの
+//! 組み立ては core（`vtest-scan::materialize_tests`）が行う。
 
 use std::path::{Path, PathBuf};
 
@@ -48,9 +58,11 @@ pub struct AdapterScanConfig {
 ///
 /// 必須 metadata（core 中立: id・`covers ≥ 1`・intent、および adapter 追加
 /// 必須: `targets ≥ 1`。本冊 §4.4）を具体化できないTest構文は、adapterが
-/// 診断（E-SCAN-005/006/007）だけを返し、`TestDraft` を生成しない
-/// （`ManagedTestDraftLink::Missing` 相当）。したがってこの型のフィールドは
-/// 必須 metadata について `Option` を持たない。
+/// 診断（W-SCAN-101/E-SCAN-005/006/007）を返した上で、`TestDraft` の代わりに
+/// `MissingTestConstruct`（下記）を返す（`ManagedTestDraftLink::Missing`
+/// 相当）。したがってこの型のフィールドは必須 metadata について `Option`
+/// を持たない — `Option` で表現される曖昧さは `TestDraft` を作らない
+/// （`MissingTestConstruct` 側へ回る）ことで型から追い出す。
 ///
 /// Test ID の大域的一意性（E-SCAN-002）と `covers` の VO 参照解決
 /// （E-SCAN-003）は、本冊:571「VO参照の解決とTest IDの大局的一意性は
@@ -84,12 +96,41 @@ pub struct SourceDraft {
     pub construct_text: String,
 }
 
+/// adapter が Test construct として認識したが、管理宣言または必須
+/// metadata の欠落により `TestDraft` へ具体化できなかった construct
+/// （本冊:565「adapter固有のsource declarationを構文解析できない場合、
+/// adapterは該当Test constructをDiscovered Testとして返し、対応を
+/// `ManagedTestLink::Missing`として診断を付与する」。Owner裁定1、
+/// `pr3-decisions.md`「scanner が観測した Test construct はすべて保持
+/// する」）。
+///
+/// 何が欠落していたか（`@vtest` annotation が無い・必須 metadata が無い・
+/// test-annotation-line 文法エラー等）は `DiscoveryOutcome.diagnostics`
+/// （W-SCAN-101 / E-SCAN-005/006/007 等）が既に運ぶ。この型はそれらの
+/// 診断内容を重複させず、core が `ManagedTestLink::Missing` を持つ
+/// `vtest_model::DiscoveredTest` を組み立てるための construct identity
+/// （`location` と、`content_hash` 計算用の normalization 済み construct
+/// bytes）だけを渡す。`TestDraft::location` / `construct_text` と同じ
+/// 意味を持つ2 fieldのみで、hash 未計算・adapter 名なし（core 側で
+/// discovery batch から adapter を束ねる。`vtest-scan::scan_project_with_
+/// config` の `test_drafts` 同様の扱い）である点も `TestDraft` と揃える。
+pub struct MissingTestConstruct {
+    pub location: SourceLocation,
+    pub construct_text: String,
+}
+
 /// 1 adapter の discovery 結果。Target Reference 解決（§6.1）、Test ID の
 /// 大域的一意性、VO 参照解決は含まない — これらは core が複数 adapter の
 /// 出力を統合してから行う（本冊 §5.1 手順4・5・7）。
 pub struct DiscoveryOutcome {
     pub files_scanned: usize,
     pub tests: Vec<TestDraft>,
+    /// 管理宣言または必須 metadata を欠くために `TestDraft` へ具体化
+    /// できなかった Test construct（上記 `MissingTestConstruct` 参照）。
+    /// `tests` と合わせて、この adapter が観測した Test construct 全体
+    /// （基本:408-427・§12 の集合 `D` の、この adapter に属する部分）を
+    /// 成す。
+    pub missing_tests: Vec<MissingTestConstruct>,
     pub sources: Vec<SourceDraft>,
     pub diagnostics: Vec<Diagnostic>,
 }

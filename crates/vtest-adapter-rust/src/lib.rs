@@ -26,8 +26,8 @@ use serde::Deserialize;
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use vtest_adapter_api::{
-    AdapterScanConfig, DiscoveryError, DiscoveryOutcome, SourceDiscoveryAdapter, SourceDraft,
-    TestDraft,
+    AdapterScanConfig, DiscoveryError, DiscoveryOutcome, MissingTestConstruct,
+    SourceDiscoveryAdapter, SourceDraft, TestDraft,
 };
 use vtest_model::{
     AdapterId, Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
@@ -207,6 +207,10 @@ struct Scanner<'a> {
     root: &'a Path,
     fallback_package: &'a str,
     tests: Vec<TestDraft>,
+    /// 管理宣言または必須 metadata を欠く Test construct（`MissingTestConstruct`
+    /// のdoc comment参照）。`tests` と合わせてこの adapter が観測した Test
+    /// construct 全体を成す。
+    missing_tests: Vec<MissingTestConstruct>,
     sources: Vec<SourceDraft>,
     diagnostics: Vec<Diagnostic>,
 }
@@ -217,9 +221,24 @@ impl<'a> Scanner<'a> {
             root,
             fallback_package,
             tests: Vec::new(),
+            missing_tests: Vec::new(),
             sources: Vec::new(),
             diagnostics: Vec::new(),
         }
+    }
+
+    /// この関数 item は Test construct（`is_test_function` 済み）だが、
+    /// 管理宣言または必須 metadata の欠落により `TestDraft` へ具体化
+    /// できなかった。呼び出し側は既に対応する診断（W-SCAN-101 /
+    /// E-SCAN-005/006/007）を発行済みであり、この呼び出しはそれを変えない
+    /// — この関数はそれとは独立に、`ManagedTestLink::Missing` を持つ
+    /// `DiscoveredTest` を core が組み立てるための construct identity
+    /// だけを積む。
+    fn push_missing_test(&mut self, location: SourceLocation, content: &str) {
+        self.missing_tests.push(MissingTestConstruct {
+            location,
+            construct_text: content.to_owned(),
+        });
     }
 
     fn scan_file(&mut self, path: &Path) -> Result<(), DiscoveryError> {
@@ -491,8 +510,9 @@ impl<'a> Scanner<'a> {
                     "W-SCAN-101",
                     format!("test function `{function_name}` has no @vtest annotation"),
                 )
-                .with_location(location),
+                .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         };
         if !annotation.diagnostics.is_empty() {
@@ -503,6 +523,7 @@ impl<'a> Scanner<'a> {
                 self.diagnostics
                     .push(Diagnostic::error(code, message).with_location(location.clone()));
             }
+            self.push_missing_test(location, content);
             return Ok(());
         }
         let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
@@ -511,8 +532,9 @@ impl<'a> Scanner<'a> {
                     "E-SCAN-007",
                     format!("test `{function_name}` is missing required @vtest.id"),
                 )
-                .with_location(location),
+                .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         };
         let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
@@ -521,8 +543,9 @@ impl<'a> Scanner<'a> {
                     "E-SCAN-007",
                     format!("test `{function_name}` is missing required @vtest.covers"),
                 )
-                .with_location(location),
+                .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         };
         let target_values = annotation.targets;
@@ -532,8 +555,9 @@ impl<'a> Scanner<'a> {
                     "E-SCAN-007",
                     format!("test `{function_name}` is missing required @vtest.target"),
                 )
-                .with_location(location),
+                .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         }
         let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
@@ -542,8 +566,9 @@ impl<'a> Scanner<'a> {
                     "E-SCAN-007",
                     format!("test `{function_name}` is missing required @vtest.intent"),
                 )
-                .with_location(location),
+                .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         };
         let test_id = TestId::new(id.clone());
@@ -582,6 +607,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
+            self.push_missing_test(location, content);
             return Ok(());
         }
         let targets = target_values
@@ -641,6 +667,7 @@ impl<'a> Scanner<'a> {
         DiscoveryOutcome {
             files_scanned: files,
             tests: self.tests,
+            missing_tests: self.missing_tests,
             sources: self.sources,
             diagnostics: self.diagnostics,
         }

@@ -102,33 +102,31 @@ impl From<vtest_adapter_api::DiscoveryError> for ScanError {
 pub struct ScanResult {
     pub summary: ScanSummary,
     pub tests: Vec<TestEntity>,
-    /// 発見された Test construct のうち、構文上完全な managed Test Entity
-    /// へ具体化できた分（基本仕様§12 の `D`・`M` の用語で言えば、`D` の
-    /// **`M` に属する部分**）。`tests` と 1 entity ずつ対応する — v0.1 の
-    /// 唯一の adapter（`rust-cargo`）は1関数itemから高々1件のdraftしか
-    /// 生成しないため、現時点では `tests.len() == discovered.len()` が
-    /// 常に成り立つ（`ManagedTestDraftLink::Multiple` を生成できるadapter
-    /// が増えれば崩れうる。`ManagedTestLink` のdoc comment参照）。
+    /// 発見された Test construct 集合 `D`（基本仕様§12、基本:408-427）
+    /// **全体**。登録 adapter が Test として認識した construct はすべて
+    /// ここへ現れる — 管理宣言自体を欠く construct（`rust-cargo` では
+    /// `@vtest` annotation を持たない `#[test]`。W-SCAN-101）や必須
+    /// metadata を欠く construct（E-SCAN-005/006/007）も、対応する
+    /// `DiscoveredTest.managed` が `ManagedTestLink::Missing` を持つ要素
+    /// として含まれる（本冊:565「adapter固有のsource declarationを構文
+    /// 解析できない場合、adapterは該当Test constructをDiscovered Testと
+    /// して返し、対応を`ManagedTestLink::Missing`として診断を付与する」。
+    /// Owner裁定1、`pr3-decisions.md`「scanner が観測した Test construct
+    /// はすべて保持する」）。
     ///
-    /// 注意（`D` そのものではない）: `ManagedTestLink::Missing`
-    /// （本冊:565「adapter固有のsource declarationを構文解析できない場合、
-    /// adapterは該当Test constructをDiscovered Testとして返し、対応を
-    /// `ManagedTestLink::Missing`として診断を付与する」）に対応する
-    /// construct は現状の `TestDraft`/`DiscoveryOutcome` 契約からは
-    /// 生成されない — `vtest-adapter-rust` は必須 metadata を欠く
-    /// construct について診断（E-SCAN-007等）だけを返し、draft 自体を
-    /// 返さない（`vtest-adapter-api::TestDraft` のdoc comment参照）。
-    /// したがってこの `discovered` は「発見された Test construct 集合
-    /// `D`」全体ではなく、その部分集合である。`D` 全体（`Missing` も含む）
-    /// を表現するには adapter 契約自体の変更が要る — 本 PR の範囲外
-    /// （Owner裁定1の「情報保存境界」はTest ID衝突時の保持を指し、
-    /// `Missing` construct の収集契約拡張までは含まない）。
+    /// `tests`（構造上完全な managed Test Entity 集合 `M`）との対応:
+    /// `discovered` の要素のうち `managed: ManagedTestLink::One(id)` を
+    /// 持つものが、`tests` の中の Test ID `id` を持つ Entity と1件ずつ
+    /// 対応する。基本:412「発見された Test 集合を `D`、構造上完全な
+    /// managed Test Entity 集合を `M` とする」の通り `M ⊆ D` であり、
+    /// `tests.len() <= discovered.len()` が成り立つ（`Missing` construct
+    /// の分だけ `discovered` が大きくなる）。
     ///
     /// Test ID の大域的一意性（E-SCAN-002）はこの対応数とは独立した
     /// 整合性条件であり（基本:412「Discovered Test と entity の対応数は
     /// 構造完全性に含めず、独立した整合性条件とする」）、`discovered` の
-    /// 各要素は衝突していても個別に `managed: ManagedTestLink::One(自分の
-    /// id)` を持つ。
+    /// `One` 要素は衝突していても個別に `managed: ManagedTestLink::
+    /// One(自分のid)` を持つ。
     pub discovered: Vec<DiscoveredTest>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
@@ -207,6 +205,8 @@ pub fn scan_project_with_config(
     let fallback_package = config.project.name.clone();
     let mut files = 0usize;
     let mut test_drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)> = Vec::new();
+    let mut missing_test_drafts: Vec<(AdapterId, vtest_adapter_api::MissingTestConstruct)> =
+        Vec::new();
     let mut source_drafts = Vec::new();
     let mut diagnostics = Vec::new();
     // レビュー round 2 項目【G】: 本冊:584（§5.1 手順2）「登録順ではなく
@@ -276,6 +276,16 @@ pub fn scan_project_with_config(
                 .into_iter()
                 .map(|draft| (adapter_id.clone(), draft)),
         );
+        // `DiscoveredTest.adapter` は `Missing` construct についても必須
+        // field（本冊:788-801）。理由は上と同じ — `MissingTestConstruct`
+        // 自体は adapter を名乗らない（`vtest-adapter-api` のdoc comment
+        // 参照）。
+        missing_test_drafts.extend(
+            outcome
+                .missing_tests
+                .into_iter()
+                .map(|draft| (adapter_id.clone(), draft)),
+        );
         source_drafts.extend(outcome.sources);
     }
 
@@ -289,7 +299,8 @@ pub fn scan_project_with_config(
         })
         .collect::<Vec<_>>();
 
-    let (tests, discovered, collision_diagnostics) = materialize_tests(test_drafts);
+    let (tests, discovered, collision_diagnostics) =
+        materialize_tests(test_drafts, missing_test_drafts);
     diagnostics.extend(collision_diagnostics);
     diagnostics.extend(check_vo_references(&tests, &vo_ids));
     diagnostics.extend(resolve_targets(&tests, &sources));
@@ -335,20 +346,30 @@ pub fn scan_project_with_config(
 /// fail-open だった。
 ///
 /// 同時に `DiscoveredTest`（本冊:788-801）を1 draft あたり1件生成する
-/// （`ScanResult::discovered`。`D` 全体ではなく`Missing`を含まない部分集合
-/// である旨は `discovered` のdoc comment参照）。各 `DiscoveredTest.managed`
-/// は衝突の有無に関わらず個別に
-/// `ManagedTestLink::One(自分のid)` を持つ（本冊:804「解決不能なcoversを
-/// 持つdraftもcore materialization後のmanaged entity集合に保持され、
-/// 対応するobservationはManagedTestLink::One(id)を持つ」と同じ理由 —
+/// （`ScanResult::discovered`。集合 `D` 全体になった旨は `discovered` の
+/// doc comment参照）。各 `DiscoveredTest.managed` は衝突の有無に関わらず
+/// 個別に `ManagedTestLink::One(自分のid)` を持つ（本冊:804「解決不能な
+/// coversを持つdraftもcore materialization後のmanaged entity集合に保持
+/// され、対応するobservationはManagedTestLink::One(id)を持つ」と同じ理由 —
 /// `ManagedTestLink::Multiple` は同一 construct から複数 draft が生じる
 /// 別の状態を表し、Test ID の大域的衝突を表す variant ではない。
 /// `ManagedTestLink` のdoc comment参照）。
+///
+/// `missing_drafts`（adapterが管理宣言または必須metadataの欠落により
+/// `TestDraft` へ具体化できなかったTest construct。`vtest_adapter_api::
+/// MissingTestConstruct` のdoc comment参照）は `TestEntity` を生成せず
+/// （`M` に属さない）、`ManagedTestLink::Missing` を持つ `DiscoveredTest`
+/// だけを生成する（本冊:565「adapter固有のsource declarationを構文解析
+/// できない場合、adapterは該当Test constructをDiscovered Testとして返し、
+/// 対応を`ManagedTestLink::Missing`として診断を付与する」）。診断そのもの
+/// （W-SCAN-101 / E-SCAN-005/006/007）は adapter が既に発行済みであり、
+/// ここでは追加の診断を発行しない — construct を `D` に反映するだけである。
 fn materialize_tests(
     drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)>,
+    missing_drafts: Vec<(AdapterId, vtest_adapter_api::MissingTestConstruct)>,
 ) -> (Vec<TestEntity>, Vec<DiscoveredTest>, Vec<Diagnostic>) {
     let mut tests = Vec::with_capacity(drafts.len());
-    let mut discovered = Vec::with_capacity(drafts.len());
+    let mut discovered = Vec::with_capacity(drafts.len() + missing_drafts.len());
     let mut locations_by_id: BTreeMap<String, Vec<SourceLocation>> = BTreeMap::new();
 
     for (adapter, draft) in drafts {
@@ -382,11 +403,22 @@ fn materialize_tests(
         });
     }
 
+    for (adapter, draft) in missing_drafts {
+        discovered.push(DiscoveredTest {
+            adapter,
+            location: draft.location,
+            content_hash: ContentHash::from_text(&draft.construct_text),
+            managed: ManagedTestLink::Missing,
+        });
+    }
+
     // Test ID の大域的一意性検査（E-SCAN-002）。基本:412「M は…Test ID が
     // 衝突する entity も含む」の通り、上のループで既に全 entity/discovered
     // を保持済み — ここでは診断を発行するだけで、集合には何も触れない。
     // 衝突した construct 全件（先発・後発の区別なく対称に）へ、その
-    // construct 自身の location で1件ずつ発行する。
+    // construct 自身の location で1件ずつ発行する。`Missing` construct は
+    // Test ID を持たない（管理宣言自体が欠落しているため）ので、この検査の
+    // 対象外である。
     let mut diagnostics = Vec::new();
     for (id, locations) in &locations_by_id {
         if locations.len() > 1 {
@@ -1827,6 +1859,39 @@ fn ambiguous() {}
         fs::write(root.join("tests/unregistered.rs"), "#[test]\nfn x() {}\n").unwrap();
         let result = scan_project(&root).unwrap();
         assert!(result.diagnostics.iter().any(|d| d.code == "W-SCAN-101"));
+    }
+
+    /// Owner裁定1（pr3-decisions.md）「scanner が観測した Test construct
+    /// はすべて保持する」の直接ロックイン: `@vtest` annotation を持たない
+    /// `#[test]` 関数（W-SCAN-101 の対象そのもの）が、`ScanResult.discovered`
+    /// （集合 `D`。doc comment参照）に `ManagedTestLink::Missing` を持つ
+    /// `DiscoveredTest` として**現れる**こと自体を断言する。以前は adapter
+    /// 契約（`TestDraft`/`DiscoveryOutcome`）がこの construct について診断
+    /// だけを返し、`vtest_adapter_api::MissingTestConstruct` に相当する
+    /// 型が無かったため、この construct はモデルへ一切現れなかった
+    /// （`result.tests` にも `result.discovered` にも痕跡が残らなかった）。
+    #[test]
+    fn undecorated_test_functions_appear_in_discovered_as_missing() {
+        let root = fixture();
+        fs::write(root.join("tests/unregistered.rs"), "#[test]\nfn x() {}\n").unwrap();
+        let result = scan_project(&root).unwrap();
+
+        let missing: Vec<&DiscoveredTest> = result
+            .discovered
+            .iter()
+            .filter(|entry| entry.location.function == "x")
+            .collect();
+        assert_eq!(missing.len(), 1, "expected exactly one D entry for `x`");
+        assert!(matches!(missing[0].managed, ManagedTestLink::Missing));
+        assert_eq!(missing[0].adapter.as_str(), "rust-cargo");
+
+        // `M`（構造上完全な managed Test Entity 集合）には現れない
+        // （基本:412「構造上完全とは…Test Entity として具体化できること
+        // をいう」— 管理宣言自体が無いため具体化できていない）。
+        assert!(!result
+            .tests
+            .iter()
+            .any(|test| test.location.function == "x"));
     }
 
     /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
