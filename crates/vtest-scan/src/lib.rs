@@ -2995,9 +2995,16 @@ registered_at: 2026-08-08T00:00:00Z
     /// 別紙C:97-104 condition 7: 同一の（dimension 名→partition 値）対応を
     /// 持つ entry が2件以上（重複 tuple）。The two entries below both
     /// resolve to the same tuple even though key order differs, matching
-    /// §3.2.1's "記述順・map key 順には依存しない" — `BTreeMap`'s `Eq`/`Ord`
-    /// already normalize key order, so no special-casing is needed to catch
-    /// this as a duplicate.
+    /// §3.2.1's "記述順・map key 順には依存しない" — 要確認I（PR #26 review
+    /// round 2）: `combinations[]`'s element type is `CombinationEntry`
+    /// (`vtest-model`, since `61ba379`), not `BTreeMap`; this comment used
+    /// to credit `BTreeMap`'s own `Eq`/`Ord` for the order-independence,
+    /// which stopped being true once that migration landed.
+    /// `CombinationEntry` recovers the same property explicitly — its
+    /// `PartialEq`/`Ord` compare a sorted (name, value) view
+    /// (`canonical_pairs`, `vtest-model/src/vo.rs`) instead of the
+    /// declaration-order `Vec` it stores — so no special-casing is needed
+    /// here to catch this as a duplicate.
     #[test]
     fn e_scan_017_condition_7_duplicate_tuple() {
         let root = fixture();
