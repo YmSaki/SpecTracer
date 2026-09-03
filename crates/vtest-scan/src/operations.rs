@@ -9,6 +9,7 @@ use syn::spanned::Spanned;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
+    TestTarget,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -458,15 +459,16 @@ fn validate_desired_test(
             "target must contain at least one source locator",
         ));
     }
-    if desired.targets.len() > 1
-        && !desired
-            .kind
-            .as_deref()
-            .is_some_and(|kind| kind.starts_with("integration"))
-    {
+    // 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数targetの許容は
+    // `@vtest.kind` の文字列ではなく、rust-cargoが判定した実行形態が
+    // Cargo Integration Testであるかどうかで決める。Structured Editは
+    // ファイル移動を禁じている（直前のE-OP-003検査）ため、editの前後で
+    // `current` の物理的な配置（したがって実行形態）は変わらず、
+    // `current.test_target` をそのまま判定材料にできる。
+    if desired.targets.len() > 1 && !matches!(current.test_target, TestTarget::IntegrationTest(_)) {
         return Err(Diagnostic::error(
             "E-OP-001",
-            "multiple targets are allowed only for integration tests",
+            "multiple targets are allowed only for Cargo integration tests",
         ));
     }
     for target in &desired.targets {

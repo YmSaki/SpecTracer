@@ -1520,7 +1520,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{DerivesFrom, DocumentId, DocumentRecord, SrcId, TestId, TestTarget, VoId};
-    use vtest_store::{init_project, new_record_id, write_document, FormValue};
+    use vtest_store::{init_project, new_record_id, write_document, FormAnswers, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
@@ -2794,6 +2794,207 @@ fn edit_collision_second() {}
             error.message.contains("2 Test constructs"),
             "error should surface how many constructs collide: {}",
             error.message
+        );
+    }
+
+    /// 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数target許容の判定は
+    /// `@vtest.kind`の文字列ではなく、rust-cargoが判定した実行形態
+    /// （Cargo Integration Test）で決める。`operations.rs`の
+    /// `validate_desired_test`はこの許容判定を`current.test_target`
+    /// （`TestTarget::IntegrationTest`）で行う — `fixture()`のTEST-ADDは
+    /// `tests/calc.rs`に置かれたCargo integration testであり、`kind`を
+    /// `integration`を含まない値へ`--set`しても複数targetへの編集が
+    /// 通ることを確認する。
+    #[test]
+    fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\npub fn subtract(a: i32, b: i32) -> i32 { a - b }\n",
+        )
+        .unwrap();
+        let mut set = BTreeMap::new();
+        set.insert(
+            "targets".to_owned(),
+            FormValue::List(vec![
+                "src/lib.rs::add".to_owned(),
+                "src/lib.rs::subtract".to_owned(),
+            ]),
+        );
+        set.insert(
+            "kind".to_owned(),
+            FormValue::Scalar("unit-normal".to_owned()),
+        );
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true);
+        assert!(
+            result.is_ok(),
+            "a Cargo integration test must accept multiple targets even when `kind` does not \
+             start with `integration`: {:?}",
+            result.err()
+        );
+    }
+
+    /// 上記の裏側: 実行形態が Cargo Integration Test ではない（lib test の）
+    /// Test は、`@vtest.kind`に`integration`という文字列を含めても複数
+    /// targetへの編集を拒否する。旧実装（`desired.kind.starts_with(
+    /// "integration")`）はこのケースを誤って許可していた —
+    /// 却下された判定基準（Owner裁定3）を repo 全体から掃引したことを
+    /// ロックインする回帰テスト。
+    #[test]
+    fn edit_test_rejects_multiple_targets_for_a_lib_test_even_with_an_integration_looking_kind() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            r#"pub fn add(a: i32, b: i32) -> i32 { a + b }
+pub fn subtract(a: i32, b: i32) -> i32 { a - b }
+
+#[cfg(test)]
+mod tests {
+    /// @vtest.id TEST-LIB-FAKE-INTEGRATION-KIND
+    /// @vtest.covers VO-ADD
+    /// @vtest.target src/lib.rs::add
+    /// @vtest.intent an integration-looking kind string must not unlock multiple targets for a lib test
+    /// @vtest.kind integration-normal
+    #[test]
+    fn lib_test() {}
+}
+"#,
+        )
+        .unwrap();
+        let mut set = BTreeMap::new();
+        set.insert(
+            "targets".to_owned(),
+            FormValue::List(vec![
+                "src/lib.rs::add".to_owned(),
+                "src/lib.rs::subtract".to_owned(),
+            ]),
+        );
+        let result = edit_test(
+            &root,
+            "TEST-LIB-FAKE-INTEGRATION-KIND",
+            None,
+            &set,
+            None,
+            true,
+        );
+        let error = result.expect_err(
+            "a lib test must not be allowed multiple targets merely because `kind` contains \
+             the string `integration`",
+        );
+        assert_eq!(error.code, "E-OP-001");
+    }
+
+    /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」: `--set
+    /// test_kind=...`経由のTest編集（`operations.rs`の`DesiredTest::
+    /// apply_sets`）は、targetsの件数にかかわらず常に`unit-{test_kind}`を
+    /// 生成しなければならない（前コミットで修正済み）。本テストは、その
+    /// 生成修正と本コミットの判定基準修正を組み合わせた edit_test
+    /// 経路全体で、複数targetを持つCargo integration testの編集が
+    /// 通り、かつ生成される`@vtest.kind`が仕様どおりであることを確認する。
+    #[test]
+    fn edit_test_set_test_kind_always_generates_the_unit_prefix_regardless_of_target_count() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\npub fn subtract(a: i32, b: i32) -> i32 { a - b }\n",
+        )
+        .unwrap();
+        let mut set = BTreeMap::new();
+        set.insert(
+            "targets".to_owned(),
+            FormValue::List(vec![
+                "src/lib.rs::add".to_owned(),
+                "src/lib.rs::subtract".to_owned(),
+            ]),
+        );
+        set.insert(
+            "test_kind".to_owned(),
+            FormValue::Scalar("normal".to_owned()),
+        );
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true)
+            .expect("editing an integration test's targets and test_kind together must succeed");
+        assert!(
+            result.rendered.contains("@vtest.kind unit-normal"),
+            "expected `unit-normal`, got rendered output: {}",
+            result.rendered
+        );
+        assert!(
+            !result.rendered.contains("@vtest.kind integration-"),
+            "must not generate an `integration-` prefix (rejected criterion, \
+             pr3-decisions.md Owner裁定3): {}",
+            result.rendered
+        );
+    }
+
+    /// 同上の`apply_complete_answers`（`--answers`経由の編集）版。
+    /// `rust-integration` built-in Formで編集しても、生成される
+    /// `@vtest.kind`は`rust-unit-function`と同じ`unit-{test_kind}`で
+    /// なければならない（別紙A §14.1/§14.3）。
+    #[test]
+    fn edit_test_with_rust_integration_answers_generates_the_unit_prefix() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\npub fn subtract(a: i32, b: i32) -> i32 { a - b }\n",
+        )
+        .unwrap();
+        let mut answers = BTreeMap::new();
+        answers.insert(
+            "targets".to_owned(),
+            FormValue::List(vec![
+                "src/lib.rs::add".to_owned(),
+                "src/lib.rs::subtract".to_owned(),
+            ]),
+        );
+        answers.insert(
+            "covers".to_owned(),
+            FormValue::List(vec!["VO-ADD".to_owned()]),
+        );
+        answers.insert(
+            "behavior".to_owned(),
+            FormValue::Scalar("combines calculator operations".to_owned()),
+        );
+        answers.insert(
+            "test_kind".to_owned(),
+            FormValue::Scalar("normal".to_owned()),
+        );
+        answers.insert(
+            "input".to_owned(),
+            FormValue::Scalar("two integers".to_owned()),
+        );
+        answers.insert(
+            "expect".to_owned(),
+            FormValue::Scalar("consistent arithmetic".to_owned()),
+        );
+        answers.insert("fn_name".to_owned(), FormValue::Scalar("adds".to_owned()));
+        answers.insert(
+            "file".to_owned(),
+            FormValue::Scalar("tests/calc.rs".to_owned()),
+        );
+        let supplied = FormAnswers {
+            form: "rust-integration".to_owned(),
+            answers,
+        };
+        let result = edit_test(
+            &root,
+            "TEST-ADD",
+            Some(&supplied),
+            &BTreeMap::new(),
+            None,
+            true,
+        )
+        .expect("editing via the rust-integration built-in Form must succeed");
+        assert!(
+            result.rendered.contains("@vtest.kind unit-normal"),
+            "expected `unit-normal` (the value the built-in §14.1/§14.3 Form template \
+             actually declares), got rendered output: {}",
+            result.rendered
+        );
+        assert!(
+            !result.rendered.contains("@vtest.kind integration-"),
+            "must not generate an `integration-` prefix (rejected criterion, \
+             pr3-decisions.md Owner裁定3): {}",
+            result.rendered
         );
     }
 
