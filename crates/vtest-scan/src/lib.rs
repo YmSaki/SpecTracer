@@ -3,7 +3,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs, io,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use ignore::WalkBuilder;
@@ -16,9 +16,9 @@ use vtest_model::{
     TargetRef, TestEntity, TestId, TestTarget, VoId,
 };
 use vtest_store::{
-    is_valid_ulid, load_config, read_approval, read_entity_ids, read_req, read_spec, read_text,
-    read_vo, relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord, ReqRecord,
-    StoreError, VerifyLayout, VoRecord,
+    is_valid_ulid, load_config, read_approval, read_entity_ids, read_text, read_vo,
+    relation_ulid_payload, yaml_scalar_value, ProjectConfig, RelationRecord, StoreError,
+    VerifyLayout, VoRecord,
 };
 
 pub mod operations;
@@ -32,6 +32,8 @@ pub enum ScanError {
     Io { path: PathBuf, source: io::Error },
     #[error("source discovery failed at {path}: {message}")]
     Discovery { path: PathBuf, message: String },
+    #[error("config error: {0}")]
+    Config(String),
 }
 
 impl From<StoreError> for ScanError {
@@ -64,11 +66,11 @@ pub fn scan_project_with_config(
     config: &ProjectConfig,
 ) -> Result<ScanResult, ScanError> {
     let entity_ids = read_entity_ids(root)?;
-    let vo_ids = entity_ids[2].iter().cloned().collect::<BTreeSet<_>>();
+    let vo_ids = entity_ids[1].iter().cloned().collect::<BTreeSet<_>>();
     let package = package_name(root).unwrap_or_else(|| config.project.name.clone());
     let mut paths = Vec::new();
-    for include in &config.scan.include {
-        let include_path = root.join(include);
+    for include in adapter_scan_includes(config).map_err(ScanError::Config)? {
+        let include_path = root.join(&include);
         collect_rs_files(root, &include_path, &mut paths).map_err(|error| {
             ScanError::Discovery {
                 path: include_path,
@@ -97,9 +99,68 @@ fn package_name(root: &Path) -> Option<String> {
     cargo_manifest(root).and_then(|manifest| manifest.package.map(|package| package.name))
 }
 
+/// Resolves every registered adapter's `scan.include` patterns to
+/// project-relative paths, unioned across all adapters.
+///
+/// 詳細設計 v0.1 §2.2 (本冊:158-161) requires `vtest-scan` to process every
+/// configured adapter, not pick one: "異なるadapterが同じrootを共有することは
+/// polyglot repositoryのために許可し、統合したTest IDは全adapterでglobal
+/// uniquenessを検査する". 本冊 §5.1 confirms discovery iterates the full
+/// registry ("adapter ID順にSourceDiscoveryAdapterを呼び出す... 各adapterは
+/// DiscoveryBatchを返す"). `vtest-scan` has no adapter registry/dispatch yet
+/// (a later PR's concern — PR3 keeps this crate Rust-only), so this unions
+/// every adapter's `roots` × `scan.include` instead of guessing a single
+/// adapter to honor.
+///
+/// Neither 本冊 nor 基本仕様 states what scan should do when `adapters` is
+/// empty. `vtest-store`'s config parser deliberately accepts `adapters: []`
+/// without backfilling a default (see
+/// `v2_config_with_explicitly_empty_adapters_parses_to_no_adapters` in
+/// `vtest-store/src/lib.rs`), but that only settles config *parsing*, not
+/// what scan does at runtime. 基本:719-723 requires that an unregistered/
+/// insufficient adapter never be promoted to a passing result ("adapterが
+/// 未登録・能力不足・解析不能の場合、検証結果を推測でPASSへ昇格してはならな
+/// い"), and 別紙C:86-87 forbids treating a failed/absent discovery as a
+/// trivially-passing zero-Test scan ("adapter discoveryの失敗をTest 0件の
+/// 正常scanとして扱わない"). Consistent with that fail-closed posture, and
+/// absent an explicit statement either way, an empty `adapters` list is
+/// rejected here as a config error (E-CONFIG-001 is 本冊:158's code family
+/// for adapter-configuration problems) rather than silently scanning zero
+/// files. This is an extrapolation, not a literal spec requirement — flagged
+/// for owner review.
+pub(crate) fn adapter_scan_includes(config: &ProjectConfig) -> Result<Vec<PathBuf>, String> {
+    if config.adapters.is_empty() {
+        return Err(
+            "no adapters are registered in config.yaml (adapters: []); scan has nothing to discover"
+                .to_owned(),
+        );
+    }
+    let mut includes = Vec::new();
+    for adapter in &config.adapters {
+        for adapter_root in &adapter.roots {
+            for include in &adapter.scan.include {
+                let joined = Path::new(adapter_root).join(include);
+                // A leading "." (from the common `roots: ["."]` default) is
+                // preserved as an explicit `CurDir` component by `Path`
+                // (docs: normalized away only when *not* the first
+                // component), which would make `Path::starts_with` fail
+                // against a bare relative path like "src/lib.rs". Strip it
+                // so callers can compare against project-relative paths
+                // directly.
+                let normalized: PathBuf = joined
+                    .components()
+                    .filter(|component| !matches!(component, Component::CurDir))
+                    .collect();
+                includes.push(normalized);
+            }
+        }
+    }
+    Ok(includes)
+}
+
 fn record_diagnostics(
     root: &Path,
-    entity_ids: &[Vec<String>; 3],
+    entity_ids: &[Vec<String>; 2],
     tests: &[TestEntity],
     sources: &[SourceFunction],
 ) -> Vec<Diagnostic> {
@@ -117,42 +178,28 @@ fn record_diagnostics(
         }
     }
 
-    for id in &entity_ids[0] {
-        validate_spec_record(root, &layout, id, &mut diagnostics);
-    }
-
-    let mut reqs = BTreeMap::new();
-    for id in &entity_ids[1] {
-        if let Some(record) = validate_req_record(&layout, id, &mut diagnostics) {
-            reqs.insert(id.clone(), record);
-        }
-    }
+    // 詳細設計 v0.1 §2.1 replaces the predecessor spec/req layers with doc/
+    // (本冊:30-60, vtest-store's `init_project` no longer creates
+    // `.verify/spec` or `.verify/req`). `entity_ids` therefore carries only
+    // [doc, vo] (`vtest_store::read_entity_ids`) — there is no third (REQ)
+    // slot to validate, and REQ has no canonical counterpart at all, so its
+    // validation is removed outright rather than repointed.
+    //
+    // The predecessor SPEC concept's *subject* (document content-hash
+    // staleness, W-SCAN-104) does survive canonically as DOC + derives_from
+    // (本冊:1626 §17.1), but no DOC-layer validator (schema check, W-SCAN-104
+    // staleness, E-SCAN-012 chain, E-SCAN-016 orphan) exists yet in this
+    // crate — `entity_ids[0]` (doc ids) currently only feeds `known_ids`
+    // above. That is a real functional gap versus the predecessor's SPEC
+    // staleness check, left for the canonical DOC-layer validator (out of
+    // this PR's mechanical-compile-fix scope) rather than invented here.
     let mut vos = BTreeMap::new();
-    for id in &entity_ids[2] {
+    for id in &entity_ids[1] {
         if let Some(record) = validate_vo_record(&layout, id, &mut diagnostics) {
             vos.insert(id.clone(), record);
         }
     }
 
-    let req_parents = reqs
-        .iter()
-        .map(|(id, record)| {
-            (
-                id.clone(),
-                record
-                    .parent
-                    .as_ref()
-                    .map(|parent| parent.as_str().to_owned()),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    validate_parent_graph(
-        root,
-        &layout.req_dir(),
-        &req_parents,
-        "REQ",
-        &mut diagnostics,
-    );
     let vo_parents = vos
         .iter()
         .map(|(id, record)| {
@@ -171,169 +218,6 @@ fn record_diagnostics(
     validate_vo_warnings(&layout, &vos, tests, &mut diagnostics);
     validate_approval_status(&layout, &vos, &mut diagnostics);
     diagnostics
-}
-
-fn validate_spec_record(
-    root: &Path,
-    layout: &VerifyLayout,
-    id: &str,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    let path = layout.spec_dir().join(format!("{id}.yaml"));
-    let location = record_location(root, &path, id);
-    if !is_valid_entity_id(id, "SPEC-") {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC id `{id}` has an invalid format"),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    let text = match read_text(&path) {
-        Ok(text) => text,
-        Err(error) => {
-            diagnostics.push(
-                Diagnostic::error("E-SCAN-010", format!("SPEC {id} cannot be read: {error}"))
-                    .with_location(location.clone()),
-            );
-            return;
-        }
-    };
-    if let Some(missing) = missing_fields(&text, &["id", "kind", "path", "sha256", "registered_at"])
-    {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC {id} is missing required fields: {missing}"),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    if !matches!(
-        yaml_scalar_value(&text, "kind").as_deref(),
-        Some("document" | "api-schema" | "type-spec" | "db-schema" | "other")
-    ) {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-010", format!("SPEC {id} has an invalid kind"))
-                .with_location(location.clone()),
-        );
-    }
-    let record = match read_spec(layout, id) {
-        Ok(record) => record,
-        Err(error) => {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("SPEC {id} has an invalid schema: {error}"),
-                )
-                .with_location(location.clone()),
-            );
-            return;
-        }
-    };
-    if record.id.as_str() != id {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC file name {id} does not match record id {}", record.id),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    let relative_path = Path::new(&record.path);
-    if !is_safe_relative_path(relative_path) {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("SPEC {id} path must be project-relative: {}", record.path),
-            )
-            .with_location(location.clone()),
-        );
-        return;
-    }
-    let source_path = root.join(relative_path);
-    let bytes = match fs::read(&source_path) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("SPEC {id} path {} cannot be read: {error}", record.path),
-                )
-                .with_location(location.clone()),
-            );
-            return;
-        }
-    };
-    let actual_hash = ContentHash::from_bytes(&bytes);
-    if actual_hash != record.sha256 {
-        diagnostics.push(
-            Diagnostic::warning(
-                "W-SCAN-104",
-                format!(
-                    "SPEC {id} hash is stale: recorded {}, actual {}",
-                    record.sha256, actual_hash
-                ),
-            )
-            .with_location(location),
-        );
-    }
-}
-
-fn validate_req_record(
-    layout: &VerifyLayout,
-    id: &str,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> Option<ReqRecord> {
-    let path = layout.req_dir().join(format!("{id}.yaml"));
-    let location = record_location(&layout.root, &path, id);
-    if !is_valid_entity_id(id, "REQ-") {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-010", format!("REQ id `{id}` has an invalid format"))
-                .with_location(location.clone()),
-        );
-    }
-    let text = match read_text(&path) {
-        Ok(text) => text,
-        Err(error) => {
-            diagnostics.push(
-                Diagnostic::error("E-SCAN-010", format!("REQ {id} cannot be read: {error}"))
-                    .with_location(location.clone()),
-            );
-            return None;
-        }
-    };
-    if let Some(missing) = missing_fields(&text, &["id", "summary", "status", "created", "updated"])
-    {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("REQ {id} is missing required fields: {missing}"),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    let record = read_req(layout, id).ok()?;
-    if record.id.as_str() != id {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("REQ file name {id} does not match record id {}", record.id),
-            )
-            .with_location(location.clone()),
-        );
-    }
-    if !matches!(record.status.as_str(), "active" | "withdrawn") {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-010",
-                format!("REQ {id} has invalid status {}", record.status),
-            )
-            .with_location(location),
-        );
-    }
-    Some(record)
 }
 
 fn validate_vo_record(
@@ -808,18 +692,6 @@ fn validate_approval_status(
             );
         }
     }
-}
-
-fn is_safe_relative_path(path: &Path) -> bool {
-    !path.is_absolute()
-        && path.components().all(|component| {
-            !matches!(
-                component,
-                std::path::Component::ParentDir
-                    | std::path::Component::RootDir
-                    | std::path::Component::Prefix(_)
-            )
-        })
 }
 
 fn is_valid_entity_id(id: &str, prefix: &str) -> bool {

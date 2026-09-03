@@ -14,7 +14,7 @@ use vtest_store::{
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::ScanResult;
+use crate::{adapter_scan_includes, ScanResult};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -429,10 +429,12 @@ fn validate_desired_test(
         Diagnostic::error("E-CORE-001", format!("could not read entity IDs: {error}"))
     })?;
     for id in &desired.covers {
-        if !entity_ids[2].iter().any(|candidate| candidate == id) {
+        // vtest_store::read_entity_ids returns [doc, vo] (canonical 2-slot
+        // layout); index 1 is the VO id list.
+        if !entity_ids[1].iter().any(|candidate| candidate == id) {
             return Err(
                 Diagnostic::error("E-OP-001", format!("VO `{id}` does not exist"))
-                    .with_candidates(id_candidates(&entity_ids[2], id)),
+                    .with_candidates(id_candidates(&entity_ids[1], id)),
             );
         }
     }
@@ -953,12 +955,15 @@ fn validate_form_answers_for(
                 }
                 "vo-exists" => {
                     for id in value.values() {
-                        if !entity_ids[2].iter().any(|candidate| candidate == id) {
+                        // vtest_store::read_entity_ids returns [doc, vo]
+                        // (canonical 2-slot layout); index 1 is the VO id
+                        // list.
+                        if !entity_ids[1].iter().any(|candidate| candidate == id) {
                             return Err(Diagnostic::error(
                                 "E-OP-001",
                                 format!("VO `{id}` does not exist"),
                             )
-                            .with_candidates(id_candidates(&entity_ids[2], id)));
+                            .with_candidates(id_candidates(&entity_ids[1], id)));
                         }
                     }
                 }
@@ -1413,15 +1418,15 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    if !config
-        .scan
-        .include
+    let includes =
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-CONFIG-001", error))?;
+    if !includes
         .iter()
-        .any(|include| relative_path.starts_with(Path::new(include)))
+        .any(|include| relative_path.starts_with(include))
     {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file is outside config.scan.include: `{relative}`"),
+            format!("Rust file is outside every registered adapter's scan.include: `{relative}`"),
         ));
     }
     let canonical_root = fs::canonicalize(root)
@@ -1449,8 +1454,10 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let includes =
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-CONFIG-001", error))?;
     let mut files = Vec::new();
-    for include in config.scan.include {
+    for include in includes {
         collect_rust_files(&root.join(include), &mut files);
     }
     files.sort();
