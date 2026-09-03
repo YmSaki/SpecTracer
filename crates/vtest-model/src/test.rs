@@ -56,15 +56,15 @@ pub struct TestRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Locator;
+    use crate::{AdapterId, Locator};
 
     fn populated_record() -> TestRecord {
         TestRecord {
             id: TestId::new("TEST-001"),
             covers: vec![VoId::new("VO-001")],
             targets: vec![TargetRef::Locator(Locator {
-                path: "src/lib.rs".to_string(),
-                item_path: "module::function".to_string(),
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/lib.rs::module::function".to_string(),
             })],
             intent: "The parser rejects an unknown key.".to_string(),
             input: Some("an unknown key".to_string()),

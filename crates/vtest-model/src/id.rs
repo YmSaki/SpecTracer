@@ -72,3 +72,12 @@ define_string_id_type!(
     /// Identifier of a canonical document record.
     DocumentId
 );
+
+define_string_id_type!(
+    /// Identifier of a registered `SourceDiscoveryAdapter` (詳細設計 v0.1
+    /// §5.2「各adapterは一意なID、languages、capabilities、config namespaceを
+    /// 宣言し」、§6.1「coreは`TargetRef::Locator.adapter`をregistryで解決
+    /// し」)。`config.yaml` の `adapters[].id` および `AdapterRegistry` の
+    /// キーと同じ文字列空間を指す。
+    AdapterId
+);
