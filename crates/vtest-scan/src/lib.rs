@@ -999,6 +999,13 @@ fn validate_parent_graph(
 /// fail-closed に中断する。E-SCAN-010（本冊:876「レコードのid / ファイル名
 /// / schema不一致」）はこの条件（ディレクトリを列挙できない）に適合しない
 /// ため、当てはめず既存の `ScanError` 経路を使う。
+///
+/// 要確認D（PR #26 review round 2）: ディレクトリ自体が開けても、列挙中に
+/// 個々の `DirEntry` が `Err` を返すこと（列挙中の I/O エラー等）はなお
+/// ありうる。`Iterator::flatten` で読み飛ばすと、その1レコードだけが
+/// 検査対象から静かに脱落する — ディレクトリ自体を区別した理由と同じ
+/// fail-open を、粒度を変えて再導入してしまう。ここでも同じ扱い
+/// （`ScanError::Io` で scan 全体を中断）に揃える。
 fn validate_relations(
     layout: &VerifyLayout,
     known_ids: &BTreeSet<String>,
@@ -1015,11 +1022,17 @@ fn validate_relations(
             })
         }
     };
-    let mut paths = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
-        .collect::<Vec<_>>();
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|source| ScanError::Io {
+            path: relation_dir.clone(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) == Some("yaml") {
+            paths.push(path);
+        }
+    }
     paths.sort();
     let mut relation_payloads = BTreeMap::<String, String>::new();
     for path in paths {
@@ -1144,6 +1157,11 @@ fn validate_vo_warnings(
 /// 正常なリポジトリ）と、存在するが読めないこと（権限エラー等）を区別する。
 /// 前者は空の承認集合として扱い、後者は承認レコード検査全体が診断ゼロで
 /// 黙ってスキップされる fail-open を避けるため `ScanError::Io` で中断する。
+///
+/// 要確認D（PR #26 review round 2）: `validate_relations` と同じ理由で、
+/// 列挙中の個々の `DirEntry` の `Err`（`Iterator::flatten` が読み飛ばして
+/// いた）もディレクトリ自体の `Err` と同じ扱い（`ScanError::Io` で中断）
+/// に揃える。
 fn validate_approval_status(
     layout: &VerifyLayout,
     vos: &BTreeMap<String, VoRecord>,
@@ -1167,7 +1185,11 @@ fn validate_approval_status(
             })
         }
     };
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = entry.map_err(|source| ScanError::Io {
+            path: approvals_dir.clone(),
+            source,
+        })?;
         let path = entry.path();
         if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
             continue;
