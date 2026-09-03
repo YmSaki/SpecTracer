@@ -137,13 +137,20 @@ impl ScanResult {
         self.diagnostics.iter().any(Diagnostic::is_error)
     }
 
-    /// Test ID で `tests` を引く。Owner裁定1（pr3-decisions.md）「後段が
-    /// 代表1件を推測選択してはならない」を型で強制する: この ID を宣言する
-    /// 構文上完全な Test Entity が複数件あれば（E-SCAN-002、Test ID衝突）
-    /// `Collided` として全件を返し、`Unique`（1件）と型として区別する。
-    /// `Option<&TestEntity>` を返す経路（1件だけ返して衝突を握り潰す）は
-    /// 提供しない — `TargetResolution`（`resolve_targets`）と同じ考え方
-    /// （曖昧な状態から代表候補を選ばず、型を経由しない限り取り出せない）。
+    /// Test ID で `tests` を引く API。Owner裁定1（pr3-decisions.md）「後段が
+    /// 代表1件を推測選択してはならない」を、このメソッドを経由する限り強制
+    /// する: この ID を宣言する構文上完全な Test Entity が複数件あれば
+    /// （E-SCAN-002、Test ID衝突）`Collided` として全件を返し、`Unique`
+    /// （1件）と型として区別する。`Option<&TestEntity>` を返す経路（1件
+    /// だけ返して衝突を握り潰す）は提供しない — `TargetResolution`
+    /// （`resolve_targets`）と同じ考え方（曖昧な状態から代表候補を選ばず、
+    /// この型を経由する限り代表を取り出せない）。
+    ///
+    /// この強制は API 契約であって型システムによる封じ込めではない:
+    /// `tests` フィールド自体は公開されており、呼び出し側が
+    /// `scan.tests.iter().find(|t| t.id == id)` のように直接舐めれば
+    /// `Collided` の場合でも代表1件を選べてしまう。後段は必ずこの
+    /// メソッド（または `TestIdLookup` を経由する同等の経路）を使うこと。
     pub fn tests_by_id<'a>(&'a self, id: &str) -> TestIdLookup<'a> {
         let mut matches = self.tests.iter().filter(|test| test.id.as_str() == id);
         let Some(first) = matches.next() else {
