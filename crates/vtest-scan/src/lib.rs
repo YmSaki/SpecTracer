@@ -1160,21 +1160,48 @@ impl<'a> Scanner<'a> {
                 message: format!("function `{item_path}` source range is out of bounds"),
             });
         };
+
+        // 本冊 §4.2: `@vtest.` 宣言は表面ごとに異なるキー集合を認識する。
+        // 表面1 = Test construct の doc comment（test-key）。
+        // 表面2 = Test construct ではない関数 item の doc comment
+        //         （source-target-key = `src-id`）。
+        let is_test = is_test_function(attrs);
+
+        // 本冊 §5.5 手順6: すべての fn / impl fn を SRC 候補として索引化する。
+        // ただし恒久 SRC ID（`@vtest.src-id`）の認識は非 Test construct の
+        // 宣言に限る（§4.2）。Test construct 自身の doc comment にある
+        // `src-id` は誤配置であり、表面1側で未知キーとして E-SCAN-006 になる
+        // （下の `parse_test_annotations` が処理する）。
+        let src_id = if is_test {
+            None
+        } else {
+            let outcome = parse_source_target_annotations(attrs);
+            for (code, message) in outcome.diagnostics {
+                let diagnostic = if code.starts_with('E') {
+                    Diagnostic::error(code, message)
+                } else {
+                    Diagnostic::warning(code, message)
+                };
+                self.diagnostics
+                    .push(diagnostic.with_location(location.clone()));
+            }
+            outcome.src_id
+        };
         let source_function = SourceFunction {
             locator: Locator {
                 path: relative.to_owned(),
                 item_path: item_path.to_owned(),
             },
-            src_id: parse_src_id(attrs),
+            src_id,
             location: location.clone(),
             content_hash: ContentHash::from_text(content),
         };
         self.sources.push(source_function);
 
-        if !is_test_function(attrs) {
+        if !is_test {
             return Ok(());
         }
-        let Some(annotation) = parse_annotations(attrs) else {
+        let Some(annotation) = parse_test_annotations(attrs) else {
             self.diagnostics.push(
                 Diagnostic::warning(
                     "W-SCAN-101",
@@ -1184,24 +1211,17 @@ impl<'a> Scanner<'a> {
             );
             return Ok(());
         };
-        if let Some(parse_error) = annotation.values.get("__parse_error__") {
-            let (kind, key) = parse_error
-                .split_once(':')
-                .unwrap_or(("unknown", parse_error));
-            let (code, message) = if kind == "duplicate" {
-                ("E-SCAN-005", format!("duplicate annotation key `{key}`"))
-            } else {
-                ("E-SCAN-006", format!("unknown @vtest key `{key}`"))
-            };
-            self.diagnostics
-                .push(Diagnostic::error(code, message).with_location(location));
+        if !annotation.diagnostics.is_empty() {
+            // 本冊 §4.4: adapter固有のsource declarationを構文解析できない
+            // 場合、adapterは当該Test constructを管理宣言欠落として扱い、
+            // Test Entityを具体化しない（診断だけを付与する）。
+            for (code, message) in annotation.diagnostics {
+                self.diagnostics
+                    .push(Diagnostic::error(code, message).with_location(location.clone()));
+            }
             return Ok(());
         }
-        let Some(id) = annotation
-            .values
-            .get("id")
-            .filter(|value| !value.is_empty())
-        else {
+        let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
@@ -1211,11 +1231,7 @@ impl<'a> Scanner<'a> {
             );
             return Ok(());
         };
-        let Some(covers) = annotation
-            .values
-            .get("covers")
-            .filter(|value| !value.is_empty())
-        else {
+        let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
@@ -1225,11 +1241,8 @@ impl<'a> Scanner<'a> {
             );
             return Ok(());
         };
-        let Some(target_values) = annotation
-            .repeated
-            .get("target")
-            .filter(|values| !values.is_empty() && values.iter().all(|value| !value.is_empty()))
-        else {
+        let target_values = annotation.targets;
+        if target_values.is_empty() || target_values.iter().any(|value| value.is_empty()) {
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
@@ -1238,23 +1251,8 @@ impl<'a> Scanner<'a> {
                 .with_location(location),
             );
             return Ok(());
-        };
-        let integration = annotation
-            .values
-            .get("kind")
-            .is_some_and(|kind| kind.starts_with("integration"));
-        if target_values.len() > 1 && !integration {
-            self.diagnostics.push(
-                Diagnostic::error("E-SCAN-005", "duplicate annotation key `target`")
-                    .with_location(location),
-            );
-            return Ok(());
         }
-        let Some(intent) = annotation
-            .values
-            .get("intent")
-            .filter(|value| !value.is_empty())
-        else {
+        let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
@@ -1264,7 +1262,7 @@ impl<'a> Scanner<'a> {
             );
             return Ok(());
         };
-        let test_id = TestId::new(id);
+        let test_id = TestId::new(id.clone());
         if !self.test_ids.insert(id.clone()) {
             self.diagnostics.push(
                 Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{id}`"))
@@ -1337,15 +1335,12 @@ impl<'a> Scanner<'a> {
             target,
             additional_targets: targets,
             intent: intent.clone(),
-            input: annotation.values.get("input").cloned(),
-            expect: annotation.values.get("expect").cloned(),
-            kind: annotation.values.get("kind").cloned(),
-            cases: annotation.repeated.get("case").cloned().unwrap_or_default(),
+            input: annotation.input,
+            expect: annotation.expect,
+            kind: annotation.kind,
+            cases: annotation.cases,
             related: annotation
-                .repeated
-                .get("related")
-                .cloned()
-                .unwrap_or_default()
+                .related
                 .into_iter()
                 .flat_map(|value| {
                     value
@@ -1408,12 +1403,35 @@ impl<'a> Scanner<'a> {
     }
 }
 
-struct ParsedAnnotations {
-    values: BTreeMap<String, String>,
-    repeated: BTreeMap<String, Vec<String>>,
+/// 本冊 §4.2 test-annotation-line 文法が認識する test-key の全集合。
+const TEST_KEYS: &[&str] = &[
+    "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related",
+];
+
+/// Test construct（表面1）の doc comment を正規化した結果。
+///
+/// `diagnostics` が空でない場合、この宣言は構文上有効な Test Entity へ
+/// 正規化できない（本冊 §4.4）。呼び出し側は診断だけを記録し、
+/// Test Entity を具体化してはならない。
+struct TestAnnotationOutcome {
+    id: Option<String>,
+    covers: Option<String>,
+    targets: Vec<String>,
+    intent: Option<String>,
+    input: Option<String>,
+    expect: Option<String>,
+    kind: Option<String>,
+    cases: Vec<String>,
+    related: Vec<String>,
+    diagnostics: Vec<(String, String)>,
 }
 
-fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations> {
+/// doc comment（`///` / `/** */`）から `@vtest.` 行を出現順に抽出する。
+/// キーの妥当性は判定しない — 表面1・表面2どちらの文法にも共通する
+/// 字句段階の処理であり、`@vtest.` を含まない行は自由記述として捨てる
+/// （本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
+/// 無視する」）。
+fn vtest_annotation_lines(attrs: &[Attribute]) -> Vec<(String, String)> {
     let mut lines = Vec::new();
     for attr in attrs {
         if !attr.path().is_ident("doc") {
@@ -1431,51 +1449,95 @@ fn parse_annotations(attrs: &[Attribute]) -> Option<ParsedAnnotations> {
         };
         lines.extend(text.value().lines().map(|line| line.trim().to_owned()));
     }
-    if !lines.iter().any(|line| line.contains("@vtest.")) {
+    lines
+        .into_iter()
+        .filter_map(|line| {
+            let annotation = line.strip_prefix("@vtest.")?;
+            let (key, value) = if let Some(separator) = annotation.find(char::is_whitespace) {
+                annotation.split_at(separator)
+            } else {
+                (annotation, "")
+            };
+            Some((key.trim().to_owned(), value.trim().to_owned()))
+        })
+        .collect()
+}
+
+/// 表面1（Test construct の doc comment）の `@vtest.` 宣言を本冊 §4.2 の
+/// test-annotation-line 文法で解析する。`@vtest.` 行が1件も無ければ
+/// `None`（呼び出し側は W-SCAN-101 の判定に使う）。
+fn parse_test_annotations(attrs: &[Attribute]) -> Option<TestAnnotationOutcome> {
+    let lines = vtest_annotation_lines(attrs);
+    if lines.is_empty() {
         return None;
     }
-    let mut values = BTreeMap::new();
-    let mut repeated = BTreeMap::<String, Vec<String>>::new();
-    const KNOWN: &[&str] = &[
-        "id", "covers", "target", "intent", "input", "expect", "kind", "case", "related", "src-id",
-    ];
-    let mut had_error = false;
-    for line in lines {
-        let Some(annotation) = line.strip_prefix("@vtest.") else {
-            continue;
-        };
-        let (key, value) = if let Some(separator) = annotation.find(char::is_whitespace) {
-            annotation.split_at(separator)
-        } else {
-            (annotation, "")
-        };
-        let key = key.trim().to_owned();
-        let value = value.trim().to_owned();
-        if !KNOWN.contains(&key.as_str()) {
-            // The caller cannot attach a parser diagnostic without losing the
-            // source location, so retain a sentinel that is handled below.
-            values.insert("__unknown_key__".to_owned(), key);
-            had_error = true;
+    let mut diagnostics = Vec::new();
+    let mut single = BTreeMap::<String, String>::new();
+    let mut cases = Vec::new();
+    let mut related = Vec::new();
+    let mut targets = Vec::new();
+    for (key, value) in lines {
+        if !TEST_KEYS.contains(&key.as_str()) {
+            // 本冊 §4.2: 表面1で test-key を持たない行は未知キーとする
+            // （打鍵ミス検出を優先し、警告ではなくエラーとする）。
+            // source-target-key（`src-id`）の誤配置もここに含む。
+            diagnostics.push((
+                "E-SCAN-006".to_owned(),
+                format!("unrecognized @vtest key `{key}` on a Test construct"),
+            ));
             continue;
         }
-        if matches!(key.as_str(), "case" | "related" | "target") {
-            repeated.entry(key).or_default().push(value);
-        } else if values.insert(key.clone(), value).is_some() {
-            values.insert("__duplicate_key__".to_owned(), key);
-            had_error = true;
+        match key.as_str() {
+            "case" => cases.push(value),
+            "related" => related.push(value),
+            "target" => targets.push(value),
+            _ => {
+                if single.insert(key.clone(), value).is_some() {
+                    diagnostics.push((
+                        "E-SCAN-005".to_owned(),
+                        format!("duplicate annotation key `{key}`"),
+                    ));
+                }
+            }
         }
     }
-    if had_error {
-        // Preserve parse information in a deterministic diagnostic channel.
-        // `parse_annotations` itself stays total and its caller emits the
-        // proper location-aware diagnostic.
-        if let Some(key) = values.remove("__unknown_key__") {
-            values.insert("__parse_error__".to_owned(), format!("unknown:{key}"));
-        } else if let Some(key) = values.remove("__duplicate_key__") {
-            values.insert("__parse_error__".to_owned(), format!("duplicate:{key}"));
+    // 本冊 §4.2: `kind` が integration 系の Test に限り `target` の複数行を
+    // 許容する。それ以外のキーの重複は常にエラー。
+    let integration = single
+        .get("kind")
+        .is_some_and(|kind| kind.starts_with("integration"));
+    if targets.len() > 1 && !integration {
+        diagnostics.push((
+            "E-SCAN-005".to_owned(),
+            "duplicate annotation key `target`".to_owned(),
+        ));
+    } else if targets.len() > 1 {
+        // 許容された複数 `target` 内でも同じ値の重複は E-SCAN-005 とする。
+        // 綴りが異なるが解決後に同一 canonical Source Target へ到達する
+        // 場合の検出は core の Target Reference 解決（§6.1）が担い、この
+        // 段階（宣言表面の解析）では扱わない。
+        let mut seen = std::collections::BTreeSet::new();
+        for value in &targets {
+            if !seen.insert(value.as_str()) {
+                diagnostics.push((
+                    "E-SCAN-005".to_owned(),
+                    format!("duplicate target `{value}`"),
+                ));
+            }
         }
     }
-    Some(ParsedAnnotations { values, repeated })
+    Some(TestAnnotationOutcome {
+        id: single.remove("id"),
+        covers: single.remove("covers"),
+        targets,
+        intent: single.remove("intent"),
+        input: single.remove("input"),
+        expect: single.remove("expect"),
+        kind: single.remove("kind"),
+        cases,
+        related,
+        diagnostics,
+    })
 }
 
 fn is_test_function(attrs: &[Attribute]) -> bool {
@@ -1487,10 +1549,49 @@ fn is_test_function(attrs: &[Attribute]) -> bool {
     })
 }
 
-fn parse_src_id(attrs: &[Attribute]) -> Option<SrcId> {
-    parse_annotations(attrs)
-        .and_then(|annotations| annotations.values.get("src-id").cloned())
-        .map(SrcId::new)
+/// 表面2（Test construct ではない関数 item の doc comment）の解析結果。
+struct SourceTargetAnnotationOutcome {
+    src_id: Option<SrcId>,
+    diagnostics: Vec<(String, String)>,
+}
+
+/// 表面2の `@vtest.` 宣言を本冊 §4.2 の source-target-annotation-line 文法
+/// で解析する。認識するキーは `src-id` のみ。
+fn parse_source_target_annotations(attrs: &[Attribute]) -> SourceTargetAnnotationOutcome {
+    let mut diagnostics = Vec::new();
+    let mut declared = Vec::new();
+    for (key, value) in vtest_annotation_lines(attrs) {
+        if key == "src-id" {
+            declared.push(value);
+            continue;
+        }
+        // 本冊 §4.2: 表面2で `@vtest.` 行が source-target-key を持たない
+        // （test-key を含む）場合は警告とする。表面2の宣言は Test metadata
+        // を破損させず採用値の曖昧さも生まないため、error ではなく
+        // warning とする。
+        diagnostics.push((
+            "W-SCAN-105".to_owned(),
+            format!("unrecognized @vtest key `{key}` on a non-test item"),
+        ));
+    }
+    let src_id = match declared.len() {
+        0 => None,
+        1 => declared.into_iter().next().map(SrcId::new),
+        _ => {
+            // 本冊 §4.2: `src-id` は表面2でも反復不可。同一関数 item での
+            // 重複は採用すべき ID を決定できないため、いずれの宣言値も
+            // 採用せず SRC ID は無しとして扱う（どちらかを推測で選ばない）。
+            diagnostics.push((
+                "E-SCAN-005".to_owned(),
+                "duplicate annotation key `src-id`".to_owned(),
+            ));
+            None
+        }
+    };
+    SourceTargetAnnotationOutcome {
+        src_id,
+        diagnostics,
+    }
 }
 
 struct SourceContext {
@@ -2307,6 +2408,340 @@ fn duplicate_target() {}
                     .location
                     .as_ref()
                     .is_some_and(|location| location.function == "duplicate_target")
+        }));
+    }
+
+    /// 本冊 §4.2「許容された複数 `target` 内でも同じ TargetRef の重複は
+    /// E-SCAN-005 とする」— integration kind でも同一 target の重複宣言は
+    /// 許容しない。
+    #[test]
+    fn integration_test_duplicate_target_value_is_rejected() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/multiple_same.rs"),
+            r#"
+/// @vtest.id TEST-INTEGRATION-DUPLICATE
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent rejects the same target declared twice
+/// @vtest.kind integration-normal
+#[test]
+fn same_target_twice() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-005"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "same_target_twice")
+        }));
+        assert!(!result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-INTEGRATION-DUPLICATE"));
+    }
+
+    /// 本冊 §4.2「1行1キー。`covers` と `related` の値はカンマ区切りで
+    /// 複数指定できる」。
+    #[test]
+    fn covers_and_related_accept_comma_separated_values() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/vo/VO-SECOND.yaml"),
+            valid_vo("VO-SECOND", "null"),
+        )
+        .unwrap();
+        fs::write(
+            root.join("tests/comma_separated.rs"),
+            r#"
+/// @vtest.id TEST-COMMA
+/// @vtest.covers VO-ADD, VO-SECOND
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent accepts a comma-separated covers and related list
+/// @vtest.related TEST-ADD, TEST-COMMA-OTHER
+#[test]
+fn comma_separated() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result.has_errors(),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        let test = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-COMMA")
+            .unwrap();
+        assert_eq!(
+            test.covers.iter().map(VoId::as_str).collect::<Vec<_>>(),
+            vec!["VO-ADD", "VO-SECOND"]
+        );
+        assert_eq!(
+            test.related.iter().map(TestId::as_str).collect::<Vec<_>>(),
+            vec!["TEST-ADD", "TEST-COMMA-OTHER"]
+        );
+    }
+
+    /// 本冊 §4.2「`case` と `related` はキー自体を複数行書ける」。
+    #[test]
+    fn case_and_related_allow_repeated_annotation_lines() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/repeated.rs"),
+            r#"
+/// @vtest.id TEST-REPEATED
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent allows case and related to repeat as separate lines
+/// @vtest.case zero
+/// @vtest.case negative
+/// @vtest.related TEST-ADD
+/// @vtest.related TEST-REPEATED-OTHER
+#[test]
+fn repeated() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result.has_errors(),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        let test = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-REPEATED")
+            .unwrap();
+        assert_eq!(test.cases, vec!["zero".to_owned(), "negative".to_owned()]);
+        assert_eq!(
+            test.related.iter().map(TestId::as_str).collect::<Vec<_>>(),
+            vec!["TEST-ADD", "TEST-REPEATED-OTHER"]
+        );
+    }
+
+    /// 本冊 §4.2「表面1で、`@vtest.` で始まるが test-key を持たない行は
+    /// エラー E-SCAN-006... 未知キーに加え、source-target-key（`src-id`）の
+    /// 誤配置も含む」。
+    #[test]
+    fn src_id_annotation_on_a_test_construct_is_rejected_as_an_unknown_key() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/misplaced_src_id.rs"),
+            r#"
+/// @vtest.id TEST-MISPLACED-SRC-ID
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent rejects a src-id declared on a Test construct
+/// @vtest.src-id SRC-MISPLACED
+#[test]
+fn misplaced() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-006"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "misplaced")
+        }));
+        assert!(!result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-MISPLACED-SRC-ID"));
+    }
+
+    /// 本冊 §4.2「表面2で、`@vtest.` で始まるが source-target-key を
+    /// 持たない行（test-key を含む）は警告 W-SCAN-105 とする」。
+    #[test]
+    fn non_test_item_with_a_test_key_annotation_only_warns() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n\
+             /// @vtest.id TEST-MISPLACED-ON-HELPER\n\
+             pub fn helper() -> i32 { 0 }\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-SCAN-105"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "helper")
+        }));
+        assert!(!result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "helper")
+        }));
+    }
+
+    /// 本冊 §4.2「`src-id` は表面2でも反復不可であり...このときいずれの
+    /// 宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う
+    /// （どちらかを推測で選ばない）」。
+    #[test]
+    fn duplicate_src_id_on_a_source_target_is_rejected_and_neither_value_is_adopted() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n\
+             /// @vtest.src-id SRC-FIRST\n\
+             /// @vtest.src-id SRC-SECOND\n\
+             pub fn helper() -> i32 { 0 }\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-005"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "helper")
+        }));
+        let helper = result
+            .sources
+            .iter()
+            .find(|source| source.locator.item_path == "helper")
+            .unwrap();
+        assert!(helper.src_id.is_none());
+    }
+
+    /// 表面2の正常経路: 反復のない単一の `@vtest.src-id` は認識され、
+    /// 診断を生じない。
+    #[test]
+    fn non_test_item_declares_a_permanent_src_id() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n\
+             /// @vtest.src-id SRC-HELPER\n\
+             pub fn helper() -> i32 { 0 }\n",
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        let helper = result
+            .sources
+            .iter()
+            .find(|source| source.locator.item_path == "helper")
+            .unwrap();
+        assert_eq!(
+            helper.src_id.as_ref().map(SrcId::as_str),
+            Some("SRC-HELPER")
+        );
+        assert!(!result.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .location
+                .as_ref()
+                .is_some_and(|location| location.function == "helper")
+        }));
+    }
+
+    /// 本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
+    /// 無視する」。
+    #[test]
+    fn free_text_lines_in_a_doc_comment_are_ignored() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/free_text.rs"),
+            r#"
+/// This test exercises addition end to end.
+/// @vtest.id TEST-FREE-TEXT
+/// @vtest.covers VO-ADD
+/// See also the design notes in docs/plans.
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent ignores free-form prose lines interleaved with declarations
+#[test]
+fn free_text() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result.has_errors(),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-FREE-TEXT"));
+    }
+
+    /// 本冊 §4.4 / §5.5: `rust-cargo` は追加必須 metadata として
+    /// `targets ≥ 1` を要求する。`@vtest.target` を1件も宣言しない Test は
+    /// E-SCAN-007 になる。
+    #[test]
+    fn missing_target_annotation_is_rejected() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/no_target.rs"),
+            r#"
+/// @vtest.id TEST-NO-TARGET
+/// @vtest.covers VO-ADD
+/// @vtest.intent requires at least one target
+#[test]
+fn no_target() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-007"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "no_target")
+        }));
+    }
+
+    /// 本冊 §4.4 / §11.1.1: core が中立に要求する必須 metadata（`id` /
+    /// `covers ≥ 1`）の欠落も E-SCAN-007 になる。
+    #[test]
+    fn missing_id_and_covers_annotations_are_rejected() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/no_id_or_covers.rs"),
+            r#"
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent requires an id
+#[test]
+fn no_id() {}
+
+/// @vtest.id TEST-NO-COVERS
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent requires at least one covers VO
+#[test]
+fn no_covers() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-007"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "no_id")
+        }));
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-007"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "no_covers")
         }));
     }
 
