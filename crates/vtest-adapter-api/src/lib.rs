@@ -13,13 +13,17 @@
 //! 実装の裁量であり、本 crate が PR3 の裁量で定義する。契約の中身（何を
 //! adapter の責務とし、何を core に残すか）は仕様が正典。
 //!
-//! この PR では `ManagedTestDraft` / `DiscoveredTestDraft` / `SourceTargetDraft`
-//! / `DiscoveryBatch` / `ManagedTestLink` / `DiscoveredTest` という仕様の型名を
-//! 導入しない（`ManagedTestLink` / `DiscoveredTest` の新設は Owner 裁定待ち。
-//! `pr3-decisions.md`「手を付けてはいけないもの」）。ここで定義する
-//! `TestDraft` / `SourceDraft` / `DiscoveryOutcome` は、既存の
+//! この crate では `ManagedTestDraft` / `DiscoveredTestDraft` /
+//! `SourceTargetDraft` / `DiscoveryBatch` という仕様の型名を導入しない。ここで
+//! 定義する `TestDraft` / `SourceDraft` / `DiscoveryOutcome` は、既存の
 //! `vtest_model::TestEntity` / `SourceFunction` 形状を踏襲した、より小さな
 //! 中間 DTO である。
+//!
+//! `ManagedTestLink` / `DiscoveredTest`（本冊:788-801、Test ID 衝突時に
+//! observation を保持したまま後段へ伝達する語彙。Owner 裁定1、
+//! `pr3-decisions.md`）は core materialization 後の型であり、adapter が
+//! 返す draft 側の型ではないため `vtest_model` 側に置く。この crate は
+//! 生成しない（core 側の `vtest-scan` が生成する）。
 
 use std::path::{Path, PathBuf};
 

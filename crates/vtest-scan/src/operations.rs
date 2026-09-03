@@ -665,12 +665,7 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test
-            .targets
-            .iter()
-            .map(target_string)
-            .collect::<Vec<_>>()
-            == desired.targets
+        && test.targets.iter().map(target_string).collect::<Vec<_>>() == desired.targets
         && test.intent == desired.intent
         && test.input == desired.input
         && test.expect == desired.expect

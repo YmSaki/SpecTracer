@@ -22,8 +22,8 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DocumentRecord, ScanSummary,
-    SourceFunction, SourceLocation, TargetRef, TestEntity, VoRecord,
+    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest, DocumentRecord,
+    ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef, TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -102,6 +102,18 @@ impl From<vtest_adapter_api::DiscoveryError> for ScanError {
 pub struct ScanResult {
     pub summary: ScanSummary,
     pub tests: Vec<TestEntity>,
+    /// 発見された Test construct 集合 `D`（基本仕様§12「発見された Test
+    /// 集合を `D`…とする」）。`tests`（構造上完全な managed Test Entity
+    /// 集合 `M`）と 1 entity ずつ対応する — v0.1 の唯一の adapter
+    /// （`rust-cargo`）は1関数itemから高々1件のdraftしか生成しないため、
+    /// 現時点では `tests.len() == discovered.len()` が常に成り立つ
+    /// （`ManagedTestDraftLink::Multiple` を生成できるadapterが増えれば
+    /// 崩れうる。`ManagedTestLink` のdoc comment参照）。Test ID の大域的
+    /// 一意性（E-SCAN-002）はこの対応数とは独立した整合性条件であり
+    /// （基本:412「Discovered Test と entity の対応数は構造完全性に含めず、
+    /// 独立した整合性条件とする」）、`discovered` の各要素は衝突していても
+    /// 個別に `managed: ManagedTestLink::One(自分のid)` を持つ。
+    pub discovered: Vec<DiscoveredTest>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -110,6 +122,42 @@ impl ScanResult {
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(Diagnostic::is_error)
     }
+
+    /// Test ID で `tests` を引く。Owner裁定1（pr3-decisions.md）「後段が
+    /// 代表1件を推測選択してはならない」を型で強制する: この ID を宣言する
+    /// 構文上完全な Test Entity が複数件あれば（E-SCAN-002、Test ID衝突）
+    /// `Collided` として全件を返し、`Unique`（1件）と型として区別する。
+    /// `Option<&TestEntity>` を返す経路（1件だけ返して衝突を握り潰す）は
+    /// 提供しない — `TargetResolution`（`resolve_targets`）と同じ考え方
+    /// （曖昧な状態から代表候補を選ばず、型を経由しない限り取り出せない）。
+    pub fn tests_by_id<'a>(&'a self, id: &str) -> TestIdLookup<'a> {
+        let mut matches = self.tests.iter().filter(|test| test.id.as_str() == id);
+        let Some(first) = matches.next() else {
+            return TestIdLookup::NotFound;
+        };
+        let rest: Vec<&TestEntity> = matches.collect();
+        if rest.is_empty() {
+            TestIdLookup::Unique(first)
+        } else {
+            let mut all = Vec::with_capacity(rest.len() + 1);
+            all.push(first);
+            all.extend(rest);
+            TestIdLookup::Collided(all)
+        }
+    }
+}
+
+/// [`ScanResult::tests_by_id`] の戻り値。
+#[derive(Clone, Debug)]
+pub enum TestIdLookup<'a> {
+    /// この Test ID に対応する構造上完全な Test Entity が存在しない。
+    NotFound,
+    /// この Test ID に対応する Test Entity がちょうど1件。
+    Unique(&'a TestEntity),
+    /// この Test ID が複数の Test construct から宣言されている
+    /// （E-SCAN-002、基本:412「Test ID が衝突する entity」）。衝突した
+    /// 全件を返す — どの1件を代表とするかはこの型を経由しても選べない。
+    Collided(Vec<&'a TestEntity>),
 }
 
 pub fn scan_project(root: &Path) -> Result<ScanResult, ScanError> {
@@ -142,7 +190,7 @@ pub fn scan_project_with_config(
     let registry = adapter_registry();
     let fallback_package = config.project.name.clone();
     let mut files = 0usize;
-    let mut test_drafts = Vec::new();
+    let mut test_drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)> = Vec::new();
     let mut source_drafts = Vec::new();
     let mut diagnostics = Vec::new();
     // レビュー round 2 項目【G】: 本冊:584（§5.1 手順2）「登録順ではなく
@@ -151,9 +199,11 @@ pub fn scan_project_with_config(
     // discovery を委譲する。config load 時点で adapter ID の重複は
     // 既に E-CONFIG-001 で拒否されている（`vtest-store`
     // `duplicate_adapter_id_is_rejected`）ため、ここでの並べ替えは
-    // 常に一意な全順序になる。この順序は `materialize_tests` の
-    // 先勝ち採用（Test ID 衝突時にどの draft が生き残るか）にも効くため、
-    // config.yaml の記述順に依存させないことは決定性の要件でもある。
+    // 常に一意な全順序になる。Test ID 衝突時も全 draft を保持する
+    // （Owner裁定1、pr3-decisions.md）ため「どの draft が生き残るか」は
+    // 問題にならないが、`tests` / `discovered` の出力順序自体が
+    // config.yaml の記述順に依存しないことは、それ自体が決定性の要件
+    // である。
     let mut sorted_adapters = config.adapters.iter().collect::<Vec<_>>();
     sorted_adapters.sort_by(|left, right| left.id.cmp(&right.id));
     for adapter_config in sorted_adapters {
@@ -198,7 +248,18 @@ pub fn scan_project_with_config(
         let outcome = adapter.discover(root, &fallback_package, &scan_config)?;
         files += outcome.files_scanned;
         diagnostics.extend(outcome.diagnostics);
-        test_drafts.extend(outcome.tests);
+        // `DiscoveredTest.adapter`（本冊:788-801）のために、この
+        // discovery batch がどの adapter から返ったかを draft へ束ねる。
+        // `TestDraft` 自体は adapter を名乗らない（`vtest-adapter-api`
+        // のdoc comment参照）ため、呼び出し元であるここが唯一の出所を
+        // 知っている。
+        let adapter_id = AdapterId::new(adapter_config.id.clone());
+        test_drafts.extend(
+            outcome
+                .tests
+                .into_iter()
+                .map(|draft| (adapter_id.clone(), draft)),
+        );
         source_drafts.extend(outcome.sources);
     }
 
@@ -212,8 +273,8 @@ pub fn scan_project_with_config(
         })
         .collect::<Vec<_>>();
 
-    let (tests, dedup_diagnostics) = materialize_tests(test_drafts);
-    diagnostics.extend(dedup_diagnostics);
+    let (tests, discovered, collision_diagnostics) = materialize_tests(test_drafts);
+    diagnostics.extend(collision_diagnostics);
     diagnostics.extend(check_vo_references(&tests, &vo_ids));
     diagnostics.extend(resolve_targets(&tests, &sources));
 
@@ -224,6 +285,7 @@ pub fn scan_project_with_config(
             sources: sources.len() as u64,
         },
         tests,
+        discovered,
         sources,
         diagnostics,
     };
@@ -245,24 +307,45 @@ pub fn scan_project_with_config(
 
 /// 本冊:571「VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが
 /// 検査する」: adapter は同じ Test ID を宣言する複数 draft をそのまま返す
-/// ことがある。ここで発見順に先勝ちで採用し、以降の重複には E-SCAN-002 を
-/// 発行して当該 draft を落とす（後段の VO 参照解決・Target Reference 解決
-/// には先勝ちの entity だけを渡す）。
+/// ことがある。
+///
+/// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件を
+/// 残して他を捨てることを禁止する」: scanner が観測した Test construct は
+/// すべて `TestEntity` へ具体化して保持する（基本:412「`M` は…Test ID が
+/// 衝突する entity も含む」）。Test ID 衝突は診断（E-SCAN-002）として
+/// **衝突した全 construct へ対称に**発行するだけで、entity 集合からは
+/// 何も落とさない — 以前の実装は2件目以降を `continue` で捨てており、
+/// `ScanResult.tests` / `summary.tests` が実際に発見した件数と一致しない
+/// fail-open だった。
+///
+/// 同時に `DiscoveredTest`（本冊:788-801、集合 `D`）を1 draft あたり1件
+/// 生成する。各 `DiscoveredTest.managed` は衝突の有無に関わらず個別に
+/// `ManagedTestLink::One(自分のid)` を持つ（本冊:804「解決不能なcoversを
+/// 持つdraftもcore materialization後のmanaged entity集合に保持され、
+/// 対応するobservationはManagedTestLink::One(id)を持つ」と同じ理由 —
+/// `ManagedTestLink::Multiple` は同一 construct から複数 draft が生じる
+/// 別の状態を表し、Test ID の大域的衝突を表す variant ではない。
+/// `ManagedTestLink` のdoc comment参照）。
 fn materialize_tests(
-    drafts: Vec<vtest_adapter_api::TestDraft>,
-) -> (Vec<TestEntity>, Vec<Diagnostic>) {
-    let mut diagnostics = Vec::new();
-    let mut seen_ids = BTreeSet::new();
-    let mut tests = Vec::new();
-    for draft in drafts {
-        if !seen_ids.insert(draft.id.clone()) {
-            diagnostics.push(
-                Diagnostic::error("E-SCAN-002", format!("duplicate Test ID `{}`", draft.id))
-                    .with_location(draft.location.clone()),
-            );
-            continue;
-        }
+    drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)>,
+) -> (Vec<TestEntity>, Vec<DiscoveredTest>, Vec<Diagnostic>) {
+    let mut tests = Vec::with_capacity(drafts.len());
+    let mut discovered = Vec::with_capacity(drafts.len());
+    let mut locations_by_id: BTreeMap<String, Vec<SourceLocation>> = BTreeMap::new();
+
+    for (adapter, draft) in drafts {
+        locations_by_id
+            .entry(draft.id.as_str().to_owned())
+            .or_default()
+            .push(draft.location.clone());
+
         let content_hash = ContentHash::from_text(&draft.construct_text);
+        discovered.push(DiscoveredTest {
+            adapter,
+            location: draft.location.clone(),
+            content_hash: content_hash.clone(),
+            managed: ManagedTestLink::One(draft.id.clone()),
+        });
         tests.push(TestEntity {
             id: draft.id,
             covers: draft.covers,
@@ -280,7 +363,31 @@ fn materialize_tests(
             test_target: draft.test_target,
         });
     }
-    (tests, diagnostics)
+
+    // Test ID の大域的一意性検査（E-SCAN-002）。基本:412「M は…Test ID が
+    // 衝突する entity も含む」の通り、上のループで既に全 entity/discovered
+    // を保持済み — ここでは診断を発行するだけで、集合には何も触れない。
+    // 衝突した construct 全件（先発・後発の区別なく対称に）へ、その
+    // construct 自身の location で1件ずつ発行する。
+    let mut diagnostics = Vec::new();
+    for (id, locations) in &locations_by_id {
+        if locations.len() > 1 {
+            for location in locations {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-002",
+                        format!(
+                            "Test ID `{id}` is declared by {} Test constructs",
+                            locations.len()
+                        ),
+                    )
+                    .with_location(location.clone()),
+                );
+            }
+        }
+    }
+
+    (tests, discovered, diagnostics)
 }
 
 /// 本冊:571「VO参照の解決...はadapterではなくcoreが検査する」（E-SCAN-003）。
@@ -1702,6 +1809,122 @@ fn ambiguous() {}
         fs::write(root.join("tests/unregistered.rs"), "#[test]\nfn x() {}\n").unwrap();
         let result = scan_project(&root).unwrap();
         assert!(result.diagnostics.iter().any(|d| d.code == "W-SCAN-101"));
+    }
+
+    /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
+    /// を残して他を捨てることを禁止する」のロックイン。以前の実装は
+    /// `materialize_tests` が2件目以降を `continue` で捨てていたため、
+    /// この fixture では `TEST-COLLISION` を宣言する2 construct のうち
+    /// `collision_second`（後発）が `result.tests` から消え、その
+    /// `@vtest.covers VO-MISSING`（存在しない VO）も検証されないまま
+    /// 素通りしていた。
+    #[test]
+    fn colliding_test_ids_are_all_preserved_and_reach_downstream_checks() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/collision.rs"),
+            r#"
+/// @vtest.id TEST-COLLISION
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent first construct declaring a colliding Test ID
+#[test]
+fn collision_first() {}
+
+/// @vtest.id TEST-COLLISION
+/// @vtest.covers VO-MISSING
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent second construct declaring the same colliding Test ID, with an unresolvable VO reference
+#[test]
+fn collision_second() {}
+"#,
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+
+        // 1. 衝突した両方の construct が Test Entity として保持されている
+        //    （先勝ちで2件目を落としていない）。
+        let colliding: Vec<&TestEntity> = result
+            .tests
+            .iter()
+            .filter(|test| test.id.as_str() == "TEST-COLLISION")
+            .collect();
+        assert_eq!(
+            colliding.len(),
+            2,
+            "both constructs declaring the colliding Test ID must be preserved, not just the first"
+        );
+        let functions: BTreeSet<&str> = colliding
+            .iter()
+            .map(|test| test.location.function.as_str())
+            .collect();
+        assert_eq!(
+            functions,
+            BTreeSet::from(["collision_first", "collision_second"])
+        );
+
+        // 2. summary.tests は実際に保持された件数と一致する（先勝ちで
+        //    落とされていた分だけ実数とずれていた回帰の防止）。
+        assert_eq!(result.summary.tests, result.tests.len() as u64);
+
+        // 3. E-SCAN-002 は衝突した construct 全件へ対称に発行される
+        //    （先発だけ／後発だけに偏らない）。
+        let scan_002_functions: BTreeSet<&str> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "E-SCAN-002")
+            .filter_map(|d| d.location.as_ref().map(|l| l.function.as_str()))
+            .collect();
+        assert_eq!(
+            scan_002_functions,
+            BTreeSet::from(["collision_first", "collision_second"]),
+            "E-SCAN-002 must be reported symmetrically for every colliding construct"
+        );
+
+        // 4. 後発 construct（collision_second）の不正な VO 参照
+        //    （E-SCAN-003）が後段検査に届いている。捨てられていれば
+        //    check_vo_references はこの construct を一切見ない。
+        assert!(result.diagnostics.iter().any(|d| {
+            d.code == "E-SCAN-003"
+                && d.location
+                    .as_ref()
+                    .is_some_and(|l| l.function == "collision_second")
+        }));
+
+        // 5. `tests_by_id` は代表1件を選ばず `Collided` を返す。
+        match result.tests_by_id("TEST-COLLISION") {
+            TestIdLookup::Collided(entities) => assert_eq!(entities.len(), 2),
+            other => panic!("expected Collided, got {other:?}"),
+        }
+
+        // 6. 衝突していない Test ID（fixture が最初から持つ TEST-ADD）は
+        //    `Unique` を返す — `tests_by_id` 自体が全件を衝突扱いにする
+        //    退化をしていないことの確認。
+        match result.tests_by_id("TEST-ADD") {
+            TestIdLookup::Unique(test) => assert_eq!(test.id.as_str(), "TEST-ADD"),
+            other => panic!("expected Unique, got {other:?}"),
+        }
+
+        // 7. `discovered`（集合 D）にも両 construct が1件ずつ現れ、それぞれ
+        //    個別に `ManagedTestLink::One(自分のid)` を持つ（本冊:804）。
+        //    Test ID の大域的衝突を `ManagedTestLink::Multiple` へ写像して
+        //    いない（`ManagedTestLink` のdoc comment参照）。
+        let discovered_for_collision: Vec<&DiscoveredTest> = result
+            .discovered
+            .iter()
+            .filter(|d| {
+                d.location.function == "collision_first"
+                    || d.location.function == "collision_second"
+            })
+            .collect();
+        assert_eq!(discovered_for_collision.len(), 2);
+        for entry in &discovered_for_collision {
+            assert!(matches!(
+                &entry.managed,
+                ManagedTestLink::One(id) if id.as_str() == "TEST-COLLISION"
+            ));
+        }
     }
 
     #[test]
