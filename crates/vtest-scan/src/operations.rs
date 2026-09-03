@@ -1651,4 +1651,18 @@ mod tests {
         let value = FormValue::Scalar(String::new());
         assert!(validate_value_shape(&field, &value).is_err());
     }
+
+    // レビュー round 2 項目【J】は "vo-ref-list" のアーム削除
+    // （PM 裁定7、`fc6e5de`）でこの型の list/scalar 形状検査が失われたと
+    // 指摘した。実際には形状検査は `validate_value_shape` 冒頭の共通
+    // `list_type` 判定（この関数の先頭、`"symbol-list" | "vo-ref-list"`）が
+    // マッチアームより前に行っており、削除されたのは接頭辞検査（基本:130
+    // により復活させてはならない）だけだった。この test は共通判定が
+    // "vo-ref-list" を対象に含んでいることを固定する回帰テスト。
+    #[test]
+    fn vo_ref_list_field_rejects_a_scalar() {
+        let field = field("covers", "vo-ref-list");
+        let value = FormValue::Scalar("WIDGET-ADD".to_owned());
+        assert!(validate_value_shape(&field, &value).is_err());
+    }
 }
