@@ -266,8 +266,7 @@ fn materialize_tests(
         tests.push(TestEntity {
             id: draft.id,
             covers: draft.covers,
-            target: draft.target,
-            additional_targets: draft.additional_targets,
+            targets: draft.targets,
             intent: draft.intent,
             input: draft.input,
             expect: draft.expect,
@@ -385,7 +384,7 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
         // 綴りが異なっても同一canonical Source Targetへ到達する宣言が
         // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
         let mut resolved_canonical = Vec::<(String, LocatorKey)>::new();
-        for target in std::iter::once(&test.target).chain(&test.additional_targets) {
+        for target in &test.targets {
             match target {
                 TargetRef::Locator(locator) => {
                     let key = locator_key(locator);
@@ -1789,7 +1788,7 @@ fn duplicate_target() {}
             .iter()
             .find(|test| test.id.as_str() == "TEST-INTEGRATION")
             .unwrap();
-        assert_eq!(integration.additional_targets.len(), 1);
+        assert_eq!(integration.targets.len(), 2);
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-005"
                 && diagnostic
@@ -2156,8 +2155,9 @@ fn declares_unparseable_target() {}
             .iter()
             .find(|test| test.id.as_str() == "TEST-UNRESOLVABLE-TARGET")
             .expect("the Test Entity is still materialized; only its target fails to resolve");
-        let TargetRef::Locator(locator) = &test.target else {
-            panic!("expected a Locator target, got {:?}", test.target);
+        assert_eq!(test.targets.len(), 1, "single-target declaration");
+        let TargetRef::Locator(locator) = &test.targets[0] else {
+            panic!("expected a Locator target, got {:?}", test.targets[0]);
         };
         // adapterは捏造しない: opaque valueは宣言値そのもの、この Test 自身
         // を指す自己参照locatorへ肩代わりされていない。

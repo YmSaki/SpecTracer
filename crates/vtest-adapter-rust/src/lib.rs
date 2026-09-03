@@ -584,7 +584,7 @@ impl<'a> Scanner<'a> {
             );
             return Ok(());
         }
-        let mut targets = target_values
+        let targets = target_values
             .iter()
             .map(|target_value| {
                 if let Some(src_id) = target_value.strip_prefix("SRC-") {
@@ -607,12 +607,10 @@ impl<'a> Scanner<'a> {
                 }
             })
             .collect::<Vec<_>>();
-        let target = targets.remove(0);
         self.tests.push(TestDraft {
             id: test_id,
             covers,
-            target,
-            additional_targets: targets,
+            targets,
             intent: intent.clone(),
             input: annotation.input,
             expect: annotation.expect,

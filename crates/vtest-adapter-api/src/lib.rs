@@ -55,8 +55,9 @@ pub struct AdapterScanConfig {
 pub struct TestDraft {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub target: TargetRef,
-    pub additional_targets: Vec<TargetRef>,
+    /// 基本仕様:143・本冊:619。`vtest_model::TestEntity::targets` と同じ
+    /// 単一 field 形状（代表 1 件へ縮約しない）。
+    pub targets: Vec<TargetRef>,
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,

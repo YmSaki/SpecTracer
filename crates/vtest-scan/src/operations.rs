@@ -296,10 +296,7 @@ struct DesiredTest {
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
-        let targets = std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
-            .collect();
+        let targets = test.targets.iter().map(target_string).collect();
         Self {
             id: test.id.as_str().to_owned(),
             covers: test
@@ -668,8 +665,9 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && std::iter::once(&test.target)
-            .chain(&test.additional_targets)
+        && test
+            .targets
+            .iter()
             .map(target_string)
             .collect::<Vec<_>>()
             == desired.targets
@@ -888,8 +886,8 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
         .tests
         .iter()
         .filter(|test| {
-            std::iter::once(&test.target)
-                .chain(&test.additional_targets)
+            test.targets
+                .iter()
                 .any(|target| matches!(target, TargetRef::Locator(target) if target == &locator))
         })
         .cloned()
@@ -1186,10 +1184,7 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     let behavior_match = answers
         .get("behavior")
         .is_none_or(|value| value.render() == test.intent);
-    let target_values = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(target_string)
-        .collect::<Vec<_>>();
+    let target_values = test.targets.iter().map(target_string).collect::<Vec<_>>();
     let targets_match = if let Some(value) = answers.get("target") {
         value
             .values()

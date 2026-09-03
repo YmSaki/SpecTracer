@@ -19,9 +19,12 @@ pub enum TestTarget {
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    pub target: TargetRef,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub additional_targets: Vec<TargetRef>,
+    /// 基本仕様:143「1 つの Test は 1 件以上の Source Target を持ち、各
+    /// target 参照を個別に保持する。代表 1 件へ縮約しない」。本冊:619 も
+    /// `pub targets: Vec<TargetRef>` という単一 field を定める。以前の
+    /// `target` + `additional_targets` という2 field 形状は代表 1 件を
+    /// 前面に押し出す構造であり、この規範と整合しなかった。
+    pub targets: Vec<TargetRef>,
     pub intent: String,
     pub input: Option<String>,
     pub expect: Option<String>,
