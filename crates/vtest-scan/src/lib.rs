@@ -416,9 +416,26 @@ fn materialize_tests(
     // 衝突する entity も含む」の通り、上のループで既に全 entity/discovered
     // を保持済み — ここでは診断を発行するだけで、集合には何も触れない。
     // 衝突した construct 全件（先発・後発の区別なく対称に）へ、その
-    // construct 自身の location で1件ずつ発行する。`Missing` construct は
-    // Test ID を持たない（管理宣言自体が欠落しているため）ので、この検査の
-    // 対象外である。
+    // construct 自身の location で1件ずつ発行する。`locations_by_id` は
+    // `drafts`（構文上有効な Test ID を持つ construct）だけから構築して
+    // おり、`missing_drafts` はここに加えない — `ManagedTestLink::Missing`
+    // は `Missing` variant 自体が `TestId` を運ばない型（本冊:796-800）
+    // であり、E-SCAN-007 の5経路（id・covers・target・intent 欠落、
+    // covers split後0件）のうち id 以外の4経路は構文上有効な `@vtest.id`
+    // を持つ construct でも起こりうる。したがって「`Missing` は Test ID
+    // を持たない」は誤りで、正しくは「`ManagedTestLink::Missing` という
+    // 型が Test ID を運ばないため、たとえ元の宣言に `@vtest.id` の文字列
+    // があっても core 側にはこの検査で比較できる `TestId` が存在しない」
+    // という型レベルの理由である。**注意（未検査のまま残る論点）**:
+    // `Missing` construct の宣言 `@vtest.id`（例えば covers 欠落で
+    // Missing になった construct の `@vtest.id TEST-X`）が、別の構造上
+    // 完全な construct が宣言する `TestId("TEST-X")` と衝突していても、
+    // この検査は検出しない — `Missing` は id 文字列を保持しない型なので
+    // 比較しようがない。仕様（基本:412 の `M`、本冊:898 の E-SCAN-002
+    // 列挙）はいずれも `M`（構造上完全な managed Test Entity 集合）内の
+    // 衝突を対象にしており、`M` に属さない `Missing` construct の宣言
+    // 文字列同士・`Missing` と `M` の間の衝突までは述べていない。仕様
+    // 沈黙であり、本 PR ではこの外挿を行わない。
     let mut diagnostics = Vec::new();
     for (id, locations) in &locations_by_id {
         if locations.len() > 1 {
@@ -1892,6 +1909,55 @@ fn ambiguous() {}
             .tests
             .iter()
             .any(|test| test.location.function == "x"));
+    }
+
+    /// 上のテストは「annotation が無い」経路（W-SCAN-101）だけを断言する。
+    /// この construct は `@vtest.id` を宣言しているのに `@vtest.covers` を
+    /// 欠く別経路（E-SCAN-007、`Scanner::collect_function_parts` の
+    /// `annotation.covers` 分岐）で、同じ `push_missing_test` 呼び出しが
+    /// 通ることを別途断言する — 既存の診断（E-SCAN-007 の発行条件・
+    /// メッセージ）が変わっていないことも同じテストで確認する。
+    #[test]
+    fn test_construct_missing_required_covers_appears_in_discovered_as_missing() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/missing_covers.rs"),
+            r#"
+/// @vtest.id TEST-MISSING-COVERS
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent declares no VO in covers
+#[test]
+fn missing_covers() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-SCAN-007"
+                && diagnostic
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.function == "missing_covers")
+                && diagnostic.message.contains("@vtest.covers")
+        }));
+
+        let missing: Vec<&DiscoveredTest> = result
+            .discovered
+            .iter()
+            .filter(|entry| entry.location.function == "missing_covers")
+            .collect();
+        assert_eq!(
+            missing.len(),
+            1,
+            "expected exactly one D entry for `missing_covers`"
+        );
+        assert!(matches!(missing[0].managed, ManagedTestLink::Missing));
+
+        assert!(!result
+            .tests
+            .iter()
+            .any(|test| test.location.function == "missing_covers"));
     }
 
     /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
