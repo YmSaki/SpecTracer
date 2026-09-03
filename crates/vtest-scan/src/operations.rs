@@ -1404,8 +1404,17 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    // レビュー round 2 項目【F】: `adapters: []` の拒否メッセージ自体には
+    // 仕様上の対応コードが無い（本冊:158「無効なadapter設定」は非空
+    // adapters list内の各entryの妥当性を指す並列項目であり、「listが
+    // 空である」ことの読みには当てはまらない — `adapter_scan_includes`
+    // のdoc commentを参照）。しかし `Diagnostic` はコードを必須とするため
+    // 「コードなし」は表現できない。ここは `validate_rust_file` という
+    // Structured Operation 候補検証の一部であり、この関数の他の全ての
+    // 拒否と同じくE-OP-001（本冊:1641「Structured Operationの入力検証
+    // 失敗」、別紙A:541「`rust-file` \| ... \| E-OP-001＋候補」）を使う。
     let includes =
-        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-CONFIG-001", error))?;
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-OP-001", error))?;
     if !includes
         .iter()
         .any(|include| relative_path.starts_with(include))
@@ -1440,8 +1449,12 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    // レビュー round 2 項目【F】: `validate_rust_file` と同じ理由（上記の
+    // doc comment を参照）。ここは `enum-variant-exists` 候補検証の一部
+    // であり、この関数の他の全ての拒否と同じくE-OP-001（本冊:1641、
+    // 別紙A:539「`enum-variant-exists` \| ... \| E-OP-001＋候補」）を使う。
     let includes =
-        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-CONFIG-001", error))?;
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-OP-001", error))?;
     let mut files = Vec::new();
     for include in includes {
         collect_rust_files(&root.join(include), &mut files);

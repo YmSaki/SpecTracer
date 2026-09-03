@@ -68,10 +68,12 @@ pub enum ScanError {
 impl ScanError {
     /// The §17.1 diagnostic code this error carries, when construction sites
     /// have committed to one. `Store`/`Io`/`Config` do not name a diagnostic
-    /// code of their own at this variant's construction sites (see each,
-    /// e.g. `adapter_scan_includes`'s empty-`adapters[]` rejection, which is
-    /// a separate, open question — `pr3-review-1.md` §F — not part of
-    /// BLOCKER 4's scope).
+    /// code of their own at this variant's construction sites. `Config` in
+    /// particular is `adapter_scan_includes`'s empty-`adapters[]` rejection —
+    /// レビュー round 2 項目【F】で裁定済み: 仕様上このケースに割り当てられる
+    /// コードは無いと判断し、意図的にコード無しのまま残す（`adapter_scan_
+    /// includes` のdoc commentを参照）。これは未決の空欄ではなく、根拠に
+    /// 基づく確定した設計である。
     pub fn code(&self) -> Option<&'static str> {
         match self {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
@@ -427,8 +429,8 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
 /// uniquenessを検査する". 本冊 §5.1 confirms discovery iterates the full
 /// registry ("adapter ID順にSourceDiscoveryAdapterを呼び出す... 各adapterは
 /// DiscoveryBatchを返す"). This union is also used, unchanged, by
-/// `operations.rs` to scope non-scan operations (`E-CONFIG-001`) to the
-/// configured include paths.
+/// `operations.rs` to scope non-scan operations to the configured include
+/// paths.
 ///
 /// Neither 本冊 nor 基本仕様 states what scan should do when `adapters` is
 /// empty. `vtest-store`'s config parser deliberately accepts `adapters: []`
@@ -442,10 +444,23 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
 /// trivially-passing zero-Test scan ("adapter discoveryの失敗をTest 0件の
 /// 正常scanとして扱わない"). Consistent with that fail-closed posture, and
 /// absent an explicit statement either way, an empty `adapters` list is
-/// rejected here as a config error (E-CONFIG-001 is 本冊:158's code family
-/// for adapter-configuration problems) rather than silently scanning zero
-/// files. This is an extrapolation, not a literal spec requirement — flagged
-/// for owner review.
+/// rejected here as a config error rather than silently scanning zero files.
+///
+/// レビュー round 2 項目【F】の裁定: この拒否自体に割り当てられる仕様上の
+/// 診断コードは無い。本冊:158「adapter IDの重複、同一adapter内のroot重複、
+/// 未知adapter、無効なadapter設定はusage error（E-CONFIG-001）とする」の
+/// 「無効なadapter設定」は、この一文の他3項目と同じく非空 `adapters` list
+/// 内の1 entryの妥当性を問う並列項目であり（重複・root重複・未知adapterは
+/// いずれも「listに何が入っているか」の話）、「listが空である」という
+/// list全体の不在は同じ読みに当てはまらない。したがってこの関数の戻り値
+/// （`Err(String)`）はどのコードにも割り当てず、呼び出し元に委ねる:
+/// `scan_project_with_config`（コードなしの `ScanError::Config`）と、
+/// `operations.rs` の `validate_rust_file` / `validate_enum_variant`
+/// （それぞれが属する Structured Operation 候補検証の失敗コード
+/// E-OP-001、本冊:1641・別紙A:539/541）。両者のコードの違いは呼び出し
+/// 文脈（scan全体の起動拒否 vs. Structured Operationの入力検証）が異なる
+/// ためであり、レビューが指摘した「同じ条件に不整合な2つのコード」では
+/// なくなった — 一方は意図的にコード無し、他方はその文脈の既存コード。
 pub(crate) fn adapter_scan_includes(config: &ProjectConfig) -> Result<Vec<PathBuf>, String> {
     if config.adapters.is_empty() {
         return Err(
