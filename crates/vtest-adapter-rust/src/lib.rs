@@ -30,8 +30,82 @@ use vtest_adapter_api::{
     TestDraft,
 };
 use vtest_model::{
-    Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
+    AdapterId, Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
 };
+
+/// 本冊 §4.3「`rust-cargo` adapterはこの値を`TargetRef::Locator { adapter:
+/// "rust-cargo", value: locator }`へ正規化する」。`config.yaml` の
+/// `adapters[].id`、`AdapterRegistry` のキー、`TargetRef::Locator.adapter`
+/// のいずれもこの文字列で揃える。
+pub const ADAPTER_ID: &str = "rust-cargo";
+
+/// `rust-cargo` が所有する opaque locator value の内部構文
+/// （`<project-relative path>.rs::<item path>`）。この構文の定義・
+/// parse・正規化は本冊:522「coreがpath、module、symbol種別を分解しない」
+/// により core（`vtest-model`・`vtest-scan`）に置かない。core が保持する
+/// のは常に `vtest_model::Locator { adapter, value }` の opaque な
+/// `value` 文字列だけであり、`RustLocator` はこの adapter とその呼び出し元
+/// （`vtest-scan::operations` の symbol 検証・編集操作。canonical化は
+/// PR3 の範囲外、`pr3-decisions.md`「保留中の論点」）だけが使う。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RustLocator {
+    pub path: String,
+    pub item_path: String,
+}
+
+impl RustLocator {
+    /// `<path>.rs::<item_path>` 形式として構文解析する。`path` は
+    /// project-relative で `.rs` へ末尾一致し、`item_path` は空でない
+    /// ことを要求する。この検証は adapter 自身の value 構文の妥当性
+    /// チェックであり、core の resolution（§6.1、`vtest-scan::
+    /// resolve_targets`）が行う「実在する Source Target と一致するか」
+    /// の判定とは別物 — parse に失敗した値も、そのまま opaque `value`
+    /// として core へ渡してよい（本冊:955/959「構文解析できない
+    /// `@vtest.target` 値を adapter が独自に埋め合わせてはならない」。
+    /// `pr3-decisions.md` Owner裁定2「架空locatorを作らない」）。
+    pub fn parse(value: &str) -> Option<Self> {
+        let separator = value.find("::")?;
+        let (path, item_path) = value.split_at(separator);
+        let item_path = item_path.strip_prefix("::")?;
+        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
+            return None;
+        }
+        Some(Self {
+            path: path.replace('\\', "/"),
+            item_path: item_path.to_owned(),
+        })
+    }
+
+    /// この adapter の正規化された opaque locator value（`path::item_path`,
+    /// path は forward slash 済み）。
+    pub fn to_value(&self) -> String {
+        format!("{}::{}", self.path, self.item_path)
+    }
+
+    /// この adapter が所有する `vtest_model::Locator` へ包む。
+    pub fn to_locator(&self) -> Locator {
+        Locator {
+            adapter: AdapterId::new(ADAPTER_ID),
+            value: self.to_value(),
+        }
+    }
+}
+
+/// `raw` を `rust-cargo` の locator 構文として解釈できれば正規化した
+/// `vtest_model::Locator` を返す。解釈できない場合は `raw` をそのまま
+/// opaque value として包む — 構文解析できないことは「解決できない」
+/// （core の §6.1 resolution が実在する Source Target と0件一致で
+/// 判定する）だけであり、adapter が代替値を捏造してはならない
+/// （`pr3-decisions.md` Owner裁定2）。
+pub fn locator_from_declared_value(raw: &str) -> Locator {
+    match RustLocator::parse(raw) {
+        Some(parsed) => parsed.to_locator(),
+        None => Locator {
+            adapter: AdapterId::new(ADAPTER_ID),
+            value: raw.to_owned(),
+        },
+    }
+}
 
 /// 本冊 §5.5 の `SourceDiscoveryAdapter` 実装。ID `"rust-cargo"` は
 /// `config.yaml` の `adapters[].id` および `TargetRef::Locator.adapter` と
@@ -48,7 +122,7 @@ impl RustCargoAdapter {
 
 impl SourceDiscoveryAdapter for RustCargoAdapter {
     fn id(&self) -> &'static str {
-        "rust-cargo"
+        ADAPTER_ID
     }
 
     fn discover(
@@ -398,10 +472,11 @@ impl<'a> Scanner<'a> {
             outcome.src_id
         };
         self.sources.push(SourceDraft {
-            locator: Locator {
+            locator: RustLocator {
                 path: relative.to_owned(),
                 item_path: item_path.to_owned(),
-            },
+            }
+            .to_locator(),
             src_id,
             location: location.clone(),
             construct_text: content.to_owned(),
@@ -514,27 +589,21 @@ impl<'a> Scanner<'a> {
             .map(|target_value| {
                 if let Some(src_id) = target_value.strip_prefix("SRC-") {
                     TargetRef::SrcId(SrcId::new(format!("SRC-{src_id}")))
-                } else if let Some(locator) = Locator::parse(target_value) {
-                    TargetRef::Locator(locator)
                 } else {
-                    // 本冊:955/959/961（§6.1）: Target Reference の解決
-                    // （0件／複数件／曖昧の判定と診断発行）はcoreの単一経路が
-                    // 所有し、adapterが独自に候補を選んで「解決済み」を
-                    // 偽装してはならない。以前はここで Test 自身を指す
-                    // locator（`path: relative, item_path: item_path`）を
-                    // 代わりに返していたが、その値はこの Test 自身の
-                    // SourceDraft と一致するため core の SRC 索引で
-                    // count 1 にヒットし、「解決済み」として通過してしまう
-                    // （fail-open）。構文解析できない `@vtest.target` 値は、
-                    // 実在する `(path, item_path)` の組と衝突しえない
-                    // sentinel Locator として返し、core の
-                    // `resolve_targets`（SRC索引で0件ヒット）に通常の
-                    // 「解決不能」経路（E-SCAN-004）で拒否させる。診断は
-                    // ここでは発行しない — coreの単一経路だけが発行する。
-                    TargetRef::Locator(Locator {
-                        path: relative.to_owned(),
-                        item_path: format!("<unresolvable @vtest.target `{target_value}`>"),
-                    })
+                    // 本冊:955/959/961（§6.1）・pr3-decisions.md Owner裁定2:
+                    // Target Reference の解決（0件／複数件／曖昧の判定と
+                    // 診断発行）はcoreの単一経路が所有し、adapterが独自に
+                    // 候補を選んで「解決済み」を偽装したり、解決できない
+                    // ことを表すために架空の locator を作ってはならない。
+                    // ここでは宣言された文字列をそのまま opaque
+                    // `TargetRef::Locator.value` として core へ渡すだけで
+                    // ある — `rust-cargo` の構文として解釈できればその
+                    // 正規化値（`RustLocator::to_value`）を、できなければ
+                    // 宣言値をそのまま使う。どちらの場合も捏造した値は
+                    // 含まない。実在する Source Target と一致するかどうか
+                    // は core の SRC 索引（`vtest-scan::resolve_targets`）
+                    // が完全一致で判定し、0件ヒットならE-SCAN-004とする。
+                    TargetRef::Locator(locator_from_declared_value(target_value))
                 }
             })
             .collect::<Vec<_>>();
@@ -1298,5 +1367,35 @@ mod tests {
     fn ids_lists_every_registered_adapter() {
         let registry = registry_with_rust_cargo();
         assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["rust-cargo"]);
+    }
+
+    #[test]
+    fn rust_locator_splits_at_the_first_separator() {
+        let locator = RustLocator::parse("src/lib.rs::module::function").expect("valid locator");
+        assert_eq!(locator.path, "src/lib.rs");
+        assert_eq!(locator.item_path, "module::function");
+    }
+
+    #[test]
+    fn rust_locator_rejects_values_without_an_rs_path() {
+        assert!(RustLocator::parse("not-a-path::item").is_none());
+        assert!(RustLocator::parse("src/lib.rs").is_none());
+    }
+
+    #[test]
+    fn locator_from_declared_value_normalizes_a_parseable_value() {
+        let locator = locator_from_declared_value(r"src\lib.rs::module::function");
+        assert_eq!(locator.adapter.as_str(), ADAPTER_ID);
+        assert_eq!(locator.value, "src/lib.rs::module::function");
+    }
+
+    /// pr3-decisions.md Owner裁定2「架空locatorを作らない」: 構文解析できな
+    /// い宣言値は、捏造した代替値ではなく宣言値そのものを opaque `value` と
+    /// して運ぶ。
+    #[test]
+    fn locator_from_declared_value_passes_through_an_unparseable_value_verbatim() {
+        let locator = locator_from_declared_value("this is not a locator");
+        assert_eq!(locator.adapter.as_str(), ADAPTER_ID);
+        assert_eq!(locator.value, "this is not a locator");
     }
 }
