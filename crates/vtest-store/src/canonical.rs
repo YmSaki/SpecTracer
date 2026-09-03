@@ -54,14 +54,16 @@ const DIMENSION_KEYS: &[&str] = &["name", "partitions"];
 
 /// Minimal shape a diagnostics-scan value must provide: its string-keyed
 /// mapping entries, its elements if it is a sequence, and lookup by key.
-/// Implemented by `yaml_serde::Value` (used by `document_from_yaml` and
-/// `RelationRecord::from_yaml`) and by `LenientValue` (used by
-/// `vo_record_from_yaml` — see that type's own doc comment, below, for why
-/// VO needs a second implementor here rather than reusing `yaml_serde::
-/// Value` for everything). Factoring the scan functions below over this
-/// trait, instead of duplicating each one per value type, keeps the W-
-/// STORE-007/derives_from[]/dimensions[] scan logic in one place — the
-/// diagnostic message text and traversal order only need to be right once.
+/// Implemented by `LenientValue` (below), which every §3 record reader
+/// (`document_from_yaml`, `vo_record_from_yaml`, `RelationRecord::from_yaml`)
+/// now scans through — see `LenientValue`'s own doc comment for why none of
+/// them use `yaml_serde::Value` for this anymore. Kept as a trait, rather
+/// than each scan function naming `LenientValue` directly, so a future value
+/// shape could plug into the same scan without duplicating it; factoring the
+/// scan functions below over this trait, instead of duplicating each one per
+/// value type, keeps the W-STORE-007/derives_from[]/dimensions[] scan logic
+/// in one place — the diagnostic message text and traversal order only need
+/// to be right once.
 pub(crate) trait DiagnosticValue: Sized {
     /// This value's string-keyed mapping entries, in occurrence order,
     /// skipping any non-string key. Empty (not an error) if this value
@@ -73,24 +75,6 @@ pub(crate) trait DiagnosticValue: Sized {
     fn as_sequence(&self) -> Option<&[Self]>;
     /// The value under `key`, if this is a mapping containing it.
     fn get(&self, key: &str) -> Option<&Self>;
-}
-
-impl DiagnosticValue for yaml_serde::Value {
-    fn mapping_entries(&self) -> Vec<(&str, &Self)> {
-        self.as_mapping()
-            .into_iter()
-            .flat_map(yaml_serde::Mapping::iter)
-            .filter_map(|(key, value)| key.as_str().map(|key| (key, value)))
-            .collect()
-    }
-
-    fn as_sequence(&self) -> Option<&[Self]> {
-        yaml_serde::Value::as_sequence(self).map(Vec::as_slice)
-    }
-
-    fn get(&self, key: &str) -> Option<&Self> {
-        yaml_serde::Value::get(self, key)
-    }
 }
 
 /// Scans a YAML mapping for keys outside `known`, returning one
@@ -167,23 +151,35 @@ pub fn document_to_yaml(record: &DocumentRecord) -> String {
 }
 
 /// Parses a `DocumentRecord` from its canonical YAML representation,
-/// returning any non-fatal diagnostics alongside it. `yaml_serde::from_value`
-/// already fails closed on a missing required field or a malformed value via
-/// `DocumentRecord`'s `Deserialize` derive; this adds the id/file-name check
-/// the derive cannot express (matching the strictness `RelationRecord`/
-/// `ApprovalRecord`/`AuditRecord` already apply), plus the unknown-field scan
-/// 詳細設計 v0.1 §3 header (L185) requires of every record type.
+/// returning any non-fatal diagnostics alongside it. `yaml_serde::from_str`
+/// already fails closed on a missing required field, a malformed value, or a
+/// duplicate key on one of `DocumentRecord`'s own (nested) fields, via its
+/// `Deserialize` derive; this adds the id/file-name check the derive cannot
+/// express (matching the strictness `RelationRecord`/`ApprovalRecord`/
+/// `AuditRecord` already apply), plus the unknown-field scan 詳細設計 v0.1
+/// §3 header (L185) requires of every record type.
+///
+/// **Parses straight from `text` into `DocumentRecord`, not through
+/// `yaml_serde::Value` first**, for the same reason `vo_record_from_yaml`
+/// does (see that function's own doc comment for the fuller rationale,
+/// established by BLOCKER A / PR #26 review round 2 for VO, then extended
+/// here to document/Relation by PR #26 round 3): `yaml_serde::Value`'s
+/// `Mapping` rejects a duplicate key *anywhere* in the document tree, not
+/// only inside a field this reader actually parses into typed structure. A
+/// duplicate key confined to the value of a field §3.1 does not recognize —
+/// which this reader would otherwise warn about (W-STORE-007) and still read
+/// — used to reject the whole record instead, the same fail-closed-too-far
+/// shape `vo_record_from_yaml` closed for `combinations[]`. The unknown-field
+/// diagnostics scan below runs against a separately-built `LenientValue`
+/// (`yaml_serde::from_str::<LenientValue>(text)`, `?`-propagated — not an
+/// `if let Ok(...)` catch-all, so an unexpected failure there still fails the
+/// whole read closed) instead, which cannot itself fail to build on a
+/// duplicate key anywhere.
 pub fn document_from_yaml(
     text: &str,
     fallback_id: &str,
 ) -> Result<(DocumentRecord, Vec<Diagnostic>), StoreError> {
-    let value: yaml_serde::Value = yaml_serde::from_str(text)
-        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
-
-    let mut diagnostics = unknown_field_diagnostics(&value, DOCUMENT_KEYS, "");
-    diagnostics.extend(derives_from_diagnostics(&value));
-
-    let record: DocumentRecord = yaml_serde::from_value(value)
+    let record: DocumentRecord = yaml_serde::from_str(text)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
     if record.id.as_str() != fallback_id {
         return Err(StoreError::InvalidConfig(format!(
@@ -191,6 +187,12 @@ pub fn document_from_yaml(
             record.id.as_str()
         )));
     }
+
+    let value: LenientValue = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
+    let mut diagnostics = unknown_field_diagnostics(&value, DOCUMENT_KEYS, "");
+    diagnostics.extend(derives_from_diagnostics(&value));
+
     Ok((record, diagnostics))
 }
 
@@ -225,7 +227,14 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 }
 
 /// A duplicate-tolerant mirror of `yaml_serde::Value`'s mapping/sequence
-/// shape, used only by `vo_record_from_yaml`'s diagnostics scan.
+/// shape, used by every §3 record reader's diagnostics scan —
+/// `vo_record_from_yaml` (below), `document_from_yaml`, and
+/// `RelationRecord::from_yaml` (`records.rs`) all build one from `text`
+/// independently of their primary typed-struct parse. Originally added for
+/// VO alone; PR #26 round 3 found the same asymmetry document/Relation had
+/// not yet closed (see the "Extended to document/Relation" note at the end
+/// of this comment) and switched all three readers to it, so they now agree
+/// on this input shape instead of only VO doing so.
 ///
 /// **Corrects `61ba379`** (PR #26 round 1's BLOCKER 1 fix): that commit's
 /// message claimed the diagnostics scan below could fail to run "only
@@ -276,7 +285,26 @@ pub fn vo_record_to_yaml(record: &VoRecord) -> String {
 /// handles every scalar/map/seq shape that stream can produce except a
 /// tagged value), the whole read now fails closed instead of silently
 /// returning zero diagnostics.
-enum LenientValue {
+///
+/// **Extended to document/Relation (PR #26 round 3).** `document_from_yaml`
+/// and `RelationRecord::from_yaml` had no `combinations[]`-shaped field that
+/// forced them off a `Value`-first parse the way VO's did, so round 1/2 left
+/// them on the original `text -> yaml_serde::Value -> known-key scan -> typed
+/// struct` shape (see each function's own doc comment history). But that
+/// shape has the exact defect this type was built to fix, independent of
+/// `combinations[]`: an unrelated *unknown* field's value containing a
+/// duplicate key made the whole `Value` build fail before `from_value` ever
+/// ran, rejecting a document/Relation record that would otherwise read fine
+/// and only warrant a W-STORE-007 for the unknown field itself — the same
+/// asymmetry `vo_record_from_yaml` no longer has, and every §3 record type
+/// is bound by the same §3 header rule (詳細設計 v0.1 本冊:185: "すべての
+/// レコードは...未知フィールドはエラーではなく警告とする", worded without a
+/// per-record-type carve-out). Both readers now parse straight from `text`
+/// into their typed struct first (so a duplicate key on a field they
+/// actually recognize still rejects, via that struct's own derived
+/// `Deserialize` — unchanged), then build a `LenientValue` independently for
+/// the diagnostics-only scan, exactly like `vo_record_from_yaml` below.
+pub(crate) enum LenientValue {
     Mapping(Vec<(LenientValue, LenientValue)>),
     Sequence(Vec<LenientValue>),
     String(String),
@@ -412,8 +440,12 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
 /// `Deserialize` derive; this adds the id/file-name check the derive cannot
 /// express, plus the `derives_from` cardinality floor (詳細設計 v0.1 §3.2).
 ///
-/// **Two independent parses, not one `Value`-first pass (as every other
-/// canonical record here still uses).** BLOCKER 1 (PR #26 review round 1):
+/// **Two independent parses, not one `Value`-first pass** (a shape every
+/// other canonical record reader also uses now — see `document_from_yaml`/
+/// `RelationRecord::from_yaml`'s own doc comments; VO moved off `Value`-first
+/// first, for the combinations[]-specific reason below, and PR #26 round 3
+/// then found document/Relation needed the same move for a more general
+/// reason). BLOCKER 1 (PR #26 review round 1):
 /// 詳細設計 v0.1 本冊:283（§3.2.1 の受理条件、条件6）"entry が宣言済み
 /// dimension のいずれかを欠く、または同じ dimension 名を2回以上持つ" is one
 /// `E-SCAN-017` condition (`vtest-scan`'s `invalid_vo_combinations`, VO
@@ -423,8 +455,7 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
 /// `yaml_serde::Value`'s own `Mapping` type structurally cannot hold — its
 /// `Deserialize` rejects *any* duplicate key anywhere in the document
 /// before a `VoRecord` (or anything else) is ever built from it. Routing
-/// every VO record through `Value` first — as this function used to, and as
-/// `document_from_yaml`/`RelationRecord::from_yaml` still correctly do —
+/// every VO record through `Value` first — as this function used to —
 /// would make that record-layer rejection (E-SCAN-010, the VO dropped from
 /// `vtest-scan`'s `vos` map entirely) pre-empt the scan-layer judgment the
 /// spec assigns this condition to, for a `combinations[]`-confined
@@ -672,20 +703,68 @@ registered_at: 2026-08-08T00:00:00Z
         }
     }
 
-    /// The two-stage parse (text -> `Value` -> known-key scan -> typed
-    /// struct) `document_from_yaml` uses for the unknown-field warning also
-    /// rejects a duplicate top-level key outright, as a side effect: parsing
-    /// to `Value` first runs `yaml_serde::Mapping`'s own duplicate-key check
-    /// on the whole document before the typed struct is ever built.
+    /// `document_from_yaml`'s primary parse builds `DocumentRecord` directly
+    /// from `text` (PR #26 round 3), not through `yaml_serde::Value` first —
+    /// but a duplicate top-level key (every key here is one `DocumentRecord`
+    /// actually has) is still rejected, via `DocumentRecord`'s own derived
+    /// `Deserialize`: a `struct` visitor tracks each field and errors the
+    /// second time it sees one, independent of `Value`.
     #[test]
     fn document_with_a_duplicate_top_level_key_is_rejected() {
         let yaml = document_to_yaml(&sample_document());
         let mut duplicated = yaml.clone();
         duplicated.push_str(&yaml);
+        let error = document_from_yaml(&duplicated, "DOC-BASIC-001")
+            .expect_err("a document YAML with every top-level key duplicated must fail closed");
         assert!(
-            document_from_yaml(&duplicated, "DOC-BASIC-001").is_err(),
-            "a document YAML with every top-level key duplicated must fail closed"
+            error.to_string().contains("duplicate field"),
+            "expected a duplicate-key parse rejection, got: {error}"
         );
+    }
+
+    /// Same carve-out boundary, one level deeper: a duplicate key inside a
+    /// `derives_from[]` entry (a nested `struct`, `DerivesFrom`) is also
+    /// still rejected, via that struct's own derived `Deserialize`.
+    #[test]
+    fn document_with_a_duplicate_key_in_a_derives_from_entry_is_rejected() {
+        let yaml = "\
+id: DOC-BASIC-001
+path: docs/basic-spec.md
+content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"
+derives_from:
+  - doc: DOC-REQ-001
+    doc: DOC-OTHER-001
+registered_at: 2026-08-08T00:00:00Z
+";
+        let error = document_from_yaml(yaml, "DOC-BASIC-001")
+            .expect_err("a duplicate key in a derives_from[] entry must fail closed");
+        assert!(
+            error.to_string().contains("duplicate field"),
+            "expected a duplicate-key parse rejection, got: {error}"
+        );
+    }
+
+    /// PR #26 round 3: the defect the earlier `Value`-first parse had for
+    /// `vo_record_from_yaml` (BLOCKER A, PR #26 review round 2) applied to
+    /// `document_from_yaml` too, for the same reason — an unrelated *unknown*
+    /// top-level key whose own value is a mapping with an internally
+    /// duplicated key used to reject the whole document, even though the
+    /// document itself (and `owner`'s presence) reads fine and should only
+    /// warn W-STORE-007. `document_from_yaml` now scans with `LenientValue`
+    /// (see its own doc comment), which cannot fail to build on a duplicate
+    /// key anywhere, so the warning is no longer lost.
+    #[test]
+    fn document_with_unknown_top_level_field_whose_value_has_a_duplicate_key_still_warns() {
+        let record = sample_document();
+        let mut yaml = document_to_yaml(&record);
+        yaml.push_str("owner:\n  x: 1\n  x: 2\n");
+        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).expect(
+            "an unrelated unknown field's internally-duplicated value must not fail the read",
+        );
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
     }
 
     #[test]
@@ -1512,5 +1591,136 @@ updated: 2026-08-08
                 .exists(),
             "the writer must refuse before touching disk"
         );
+    }
+
+    /// PR #26 round 3: the three §3 record readers used to disagree on a
+    /// record whose only defect was a duplicate key confined to the value of
+    /// a field none of them recognize — document/Relation rejected the whole
+    /// record, VO warned and read it. All three now agree on every row of
+    /// this table (each row exercised for document, then VO, then Relation,
+    /// in that order):
+    ///
+    /// | input shape                                       | document    | VO          | Relation    |
+    /// |----------------------------------------------------|-------------|-------------|-------------|
+    /// | unknown field's *value* has an internal duplicate   | warn, reads | warn, reads | warn, reads |
+    /// | duplicate key on a field the schema *does* recognize | reject      | reject      | reject      |
+    /// | an ordinary (non-duplicated) unknown top-level field | warn, reads | warn, reads | warn, reads |
+    ///
+    /// The individual per-reader tests above (`document_with_unknown_top_
+    /// level_field_whose_value_has_a_duplicate_key_still_warns`,
+    /// `vo_record_with_unknown_top_level_field_whose_value_has_a_duplicate_
+    /// key_still_warns`, and `records.rs`'s
+    /// `relation_with_unknown_top_level_field_whose_value_has_a_duplicate_
+    /// key_still_warns`/`relation_with_a_duplicate_top_level_key_is_still_
+    /// rejected`) already lock in each cell on its own; this test exists so
+    /// the three readers' agreement is visible in one place instead of
+    /// inferred by reading three files.
+    #[test]
+    fn document_vo_relation_readers_agree_on_the_same_three_input_shapes() {
+        fn relation_fixture() -> crate::RelationRecord {
+            crate::RelationRecord {
+                id: crate::new_record_id(),
+                relation_type: crate::RelationType::Complements,
+                from: "TEST-PARSER-044".to_owned(),
+                to: "TEST-PARSER-012".to_owned(),
+                note: None,
+                created: "2026-08-08T00:00:00Z".to_owned(),
+            }
+        }
+
+        // Row 1: an unknown field's value has an internally duplicated key.
+        {
+            let record = sample_document();
+            let mut yaml = document_to_yaml(&record);
+            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
+            let (parsed, diagnostics) =
+                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 1: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "document, row 1: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = sample_vo();
+            let mut yaml = vo_record_to_yaml(&record);
+            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
+            let (parsed, diagnostics) =
+                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 1: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "VO, row 1: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = relation_fixture();
+            let mut yaml = record.to_yaml().unwrap();
+            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
+            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
+                .expect("Relation, row 1: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "Relation, row 1: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+
+        // Row 2: a duplicate key on a field the schema does recognize.
+        {
+            let yaml = document_to_yaml(&sample_document());
+            let mut duplicated = yaml.clone();
+            duplicated.push_str(&yaml);
+            assert!(
+                document_from_yaml(&duplicated, "DOC-BASIC-001").is_err(),
+                "document, row 2: must reject"
+            );
+        }
+        {
+            let yaml = vo_record_to_yaml(&sample_vo());
+            let mut duplicated = yaml.clone();
+            duplicated.push_str(&yaml);
+            assert!(
+                vo_record_from_yaml(&duplicated, "VO-PARSER-UTF8-003").is_err(),
+                "VO, row 2: must reject"
+            );
+        }
+        {
+            let record = relation_fixture();
+            let yaml = record.to_yaml().unwrap();
+            let mut duplicated = yaml.clone();
+            duplicated.push_str(&yaml);
+            assert!(
+                crate::RelationRecord::from_yaml(&duplicated, &record.id).is_err(),
+                "Relation, row 2: must reject"
+            );
+        }
+
+        // Row 3: an ordinary unknown top-level field, with no duplicate
+        // anywhere.
+        {
+            let record = sample_document();
+            let mut yaml = document_to_yaml(&record);
+            yaml.push_str("nickname: quick-doc\n");
+            let (parsed, diagnostics) =
+                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 3: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "document, row 3: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = sample_vo();
+            let mut yaml = vo_record_to_yaml(&record);
+            yaml.push_str("nickname: quick-vo\n");
+            let (parsed, diagnostics) =
+                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 3: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "VO, row 3: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
+        {
+            let record = relation_fixture();
+            let mut yaml = record.to_yaml().unwrap();
+            yaml.push_str("nickname: quick-rel\n");
+            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
+                .expect("Relation, row 3: must read");
+            assert_eq!(parsed, record);
+            assert_eq!(diagnostics.len(), 1, "Relation, row 3: {diagnostics:?}");
+            assert_eq!(diagnostics[0].code, "W-STORE-007");
+        }
     }
 }
