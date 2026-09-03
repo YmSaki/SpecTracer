@@ -102,17 +102,33 @@ impl From<vtest_adapter_api::DiscoveryError> for ScanError {
 pub struct ScanResult {
     pub summary: ScanSummary,
     pub tests: Vec<TestEntity>,
-    /// 発見された Test construct 集合 `D`（基本仕様§12「発見された Test
-    /// 集合を `D`…とする」）。`tests`（構造上完全な managed Test Entity
-    /// 集合 `M`）と 1 entity ずつ対応する — v0.1 の唯一の adapter
-    /// （`rust-cargo`）は1関数itemから高々1件のdraftしか生成しないため、
-    /// 現時点では `tests.len() == discovered.len()` が常に成り立つ
-    /// （`ManagedTestDraftLink::Multiple` を生成できるadapterが増えれば
-    /// 崩れうる。`ManagedTestLink` のdoc comment参照）。Test ID の大域的
-    /// 一意性（E-SCAN-002）はこの対応数とは独立した整合性条件であり
-    /// （基本:412「Discovered Test と entity の対応数は構造完全性に含めず、
-    /// 独立した整合性条件とする」）、`discovered` の各要素は衝突していても
-    /// 個別に `managed: ManagedTestLink::One(自分のid)` を持つ。
+    /// 発見された Test construct のうち、構文上完全な managed Test Entity
+    /// へ具体化できた分（基本仕様§12 の `D`・`M` の用語で言えば、`D` の
+    /// **`M` に属する部分**）。`tests` と 1 entity ずつ対応する — v0.1 の
+    /// 唯一の adapter（`rust-cargo`）は1関数itemから高々1件のdraftしか
+    /// 生成しないため、現時点では `tests.len() == discovered.len()` が
+    /// 常に成り立つ（`ManagedTestDraftLink::Multiple` を生成できるadapter
+    /// が増えれば崩れうる。`ManagedTestLink` のdoc comment参照）。
+    ///
+    /// 注意（`D` そのものではない）: `ManagedTestLink::Missing`
+    /// （本冊:565「adapter固有のsource declarationを構文解析できない場合、
+    /// adapterは該当Test constructをDiscovered Testとして返し、対応を
+    /// `ManagedTestLink::Missing`として診断を付与する」）に対応する
+    /// construct は現状の `TestDraft`/`DiscoveryOutcome` 契約からは
+    /// 生成されない — `vtest-adapter-rust` は必須 metadata を欠く
+    /// construct について診断（E-SCAN-007等）だけを返し、draft 自体を
+    /// 返さない（`vtest-adapter-api::TestDraft` のdoc comment参照）。
+    /// したがってこの `discovered` は「発見された Test construct 集合
+    /// `D`」全体ではなく、その部分集合である。`D` 全体（`Missing` も含む）
+    /// を表現するには adapter 契約自体の変更が要る — 本 PR の範囲外
+    /// （Owner裁定1の「情報保存境界」はTest ID衝突時の保持を指し、
+    /// `Missing` construct の収集契約拡張までは含まない）。
+    ///
+    /// Test ID の大域的一意性（E-SCAN-002）はこの対応数とは独立した
+    /// 整合性条件であり（基本:412「Discovered Test と entity の対応数は
+    /// 構造完全性に含めず、独立した整合性条件とする」）、`discovered` の
+    /// 各要素は衝突していても個別に `managed: ManagedTestLink::One(自分の
+    /// id)` を持つ。
     pub discovered: Vec<DiscoveredTest>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
@@ -318,8 +334,10 @@ pub fn scan_project_with_config(
 /// `ScanResult.tests` / `summary.tests` が実際に発見した件数と一致しない
 /// fail-open だった。
 ///
-/// 同時に `DiscoveredTest`（本冊:788-801、集合 `D`）を1 draft あたり1件
-/// 生成する。各 `DiscoveredTest.managed` は衝突の有無に関わらず個別に
+/// 同時に `DiscoveredTest`（本冊:788-801）を1 draft あたり1件生成する
+/// （`ScanResult::discovered`。`D` 全体ではなく`Missing`を含まない部分集合
+/// である旨は `discovered` のdoc comment参照）。各 `DiscoveredTest.managed`
+/// は衝突の有無に関わらず個別に
 /// `ManagedTestLink::One(自分のid)` を持つ（本冊:804「解決不能なcoversを
 /// 持つdraftもcore materialization後のmanaged entity集合に保持され、
 /// 対応するobservationはManagedTestLink::One(id)を持つ」と同じ理由 —
@@ -2565,6 +2583,43 @@ fn empty_covers() {}
         );
         let result = edit_test(&root, "TEST-ADD", None, &set, None, true);
         assert!(result.is_ok(), "unexpected error: {:?}", result.err());
+    }
+
+    /// Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択しては
+    /// ならない」: Test ID が衝突している状態で `edit_test` を呼んでも、
+    /// 衝突した construct のどれかを黙って編集対象に選ばない。
+    #[test]
+    fn edit_test_rejects_a_colliding_test_id() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/collision_edit.rs"),
+            r#"
+/// @vtest.id TEST-EDIT-COLLISION
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent first construct declaring a colliding Test ID
+#[test]
+fn edit_collision_first() {}
+
+/// @vtest.id TEST-EDIT-COLLISION
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent second construct declaring the same colliding Test ID
+#[test]
+fn edit_collision_second() {}
+"#,
+        )
+        .unwrap();
+        let mut set = BTreeMap::new();
+        set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
+        let result = edit_test(&root, "TEST-EDIT-COLLISION", None, &set, None, true);
+        let error = result.expect_err("edit of a colliding Test ID must fail closed");
+        assert_eq!(error.code, "E-OP-002");
+        assert!(
+            error.message.contains("2 Test constructs"),
+            "error should surface how many constructs collide: {}",
+            error.message
+        );
     }
 
     #[test]

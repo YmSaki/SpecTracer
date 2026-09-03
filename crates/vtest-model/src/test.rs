@@ -19,8 +19,8 @@ pub enum TestTarget {
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    /// 基本仕様:143「1 つの Test は 1 件以上の Source Target を持ち、各
-    /// target 参照を個別に保持する。代表 1 件へ縮約しない」。本冊:619 も
+    /// 基本仕様:146「1 つの Test は 1 件以上の Source Target を持ち、各
+    /// target 参照を個別に保持する。代表 1 件へ縮約しない」。本冊:620 も
     /// `pub targets: Vec<TargetRef>` という単一 field を定める。以前の
     /// `target` + `additional_targets` という2 field 形状は代表 1 件を
     /// 前面に押し出す構造であり、この規範と整合しなかった。
@@ -41,7 +41,7 @@ pub struct TestEntity {
 /// 1 件の discovered Test construct（本冊:788-801 の `DiscoveredTest`）が、
 /// core materialization 後に管理対象 Test へどう対応したかを表す。
 ///
-/// variant は本冊が定める3つのみ（本冊:68-72、`pr3-ruling-spec.md` §1.1）:
+/// variant は本冊が定める3つのみ（本冊:796-800、`pr3-ruling-spec.md` §1.1）:
 /// - `Missing`：管理宣言または必須 metadata の欠落（本冊:805）。
 /// - `One(TestId)`：構文上完全な Test Entity へ正規化できた場合に設定する。
 ///   `covers` の VO 参照が解決できない場合でも、この対応する entity は
@@ -54,7 +54,7 @@ pub struct TestEntity {
 ///
 /// 注意（読み違えないこと）: この `Multiple` は Test ID の**大域的衝突**
 /// （異なる construct が同じ Test ID を宣言する状態）を表す variant では
-/// ない。それは本冊:412（基本仕様§12）が言う「`M` は…Test ID が衝突する
+/// ない。それは基本:412（基本仕様§12）が言う「`M` は…Test ID が衝突する
 /// entity も含む」という**別の**整合性条件であり、衝突した各 construct は
 /// それぞれ個別に自分自身の `One(自分のid)` を持つ（本冊:804 と同じ理由。
 /// `ManagedTestLink` は construct 単位の対応数を表し、Test ID の一意性は

@@ -15,7 +15,7 @@ use vtest_store::{
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::{adapter_scan_includes, ScanResult};
+use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -183,15 +183,30 @@ pub fn edit_test(
     }
     let scan = crate::scan_project(root)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let current = scan
-        .tests
-        .iter()
-        .find(|test| test.id.as_str() == test_id)
-        .cloned()
-        .ok_or_else(|| {
-            Diagnostic::error("E-OP-002", format!("Test `{test_id}` could not be located"))
-                .with_candidates(test_id_candidates(&scan, test_id))
-        })?;
+    // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
+    // `test_id` が衝突していれば、どれを編集対象にするかをここで黙って
+    // 選ばない。`tests_by_id` を経由し、`Collided` を明示的な失敗として
+    // 扱う（`Option<&TestEntity>` を返す `.find()` を残さない）。
+    let current = match scan.tests_by_id(test_id) {
+        TestIdLookup::Unique(test) => test.clone(),
+        TestIdLookup::NotFound => {
+            return Err(Diagnostic::error(
+                "E-OP-002",
+                format!("Test `{test_id}` could not be located"),
+            )
+            .with_candidates(test_id_candidates(&scan, test_id)))
+        }
+        TestIdLookup::Collided(entities) => {
+            return Err(Diagnostic::error(
+                "E-OP-002",
+                format!(
+                    "Test ID `{test_id}` is declared by {} Test constructs (E-SCAN-002); \
+                     edit cannot pick which one to change",
+                    entities.len()
+                ),
+            ))
+        }
+    };
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
         let layout = VerifyLayout::new(root);
@@ -759,15 +774,28 @@ fn scalar_answer(answers: &BTreeMap<String, FormValue>, name: &str) -> Result<St
 }
 
 pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, Diagnostic> {
-    let test = scan
-        .tests
-        .iter()
-        .find(|test| test.id.as_str() == id)
-        .cloned()
-        .ok_or_else(|| {
-            Diagnostic::error("E-OP-001", format!("Test `{id}` does not exist"))
-                .with_candidates(test_id_candidates(scan, id))
-        })?;
+    // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
+    // `id` が衝突していれば、どれを表示対象にするかをここで黙って選ばない
+    // （`edit_test` と同じ考え方）。
+    let test = match scan.tests_by_id(id) {
+        TestIdLookup::Unique(test) => test.clone(),
+        TestIdLookup::NotFound => {
+            return Err(
+                Diagnostic::error("E-OP-001", format!("Test `{id}` does not exist"))
+                    .with_candidates(test_id_candidates(scan, id)),
+            )
+        }
+        TestIdLookup::Collided(entities) => {
+            return Err(Diagnostic::error(
+                "E-OP-001",
+                format!(
+                    "Test ID `{id}` is declared by {} Test constructs (E-SCAN-002); \
+                     show cannot pick which one to display",
+                    entities.len()
+                ),
+            ))
+        }
+    };
     let layout = VerifyLayout::new(root);
     let mut audits = Vec::new();
     let audit_ids = read_record_ids(&layout.audits_dir())
