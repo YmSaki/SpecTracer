@@ -143,7 +143,18 @@ pub fn scan_project_with_config(
     let mut test_drafts = Vec::new();
     let mut source_drafts = Vec::new();
     let mut diagnostics = Vec::new();
-    for adapter_config in &config.adapters {
+    // レビュー round 2 項目【G】: 本冊:584（§5.1 手順2）「登録順ではなく
+    // adapter ID順にSourceDiscoveryAdapterを呼び出す」。`config.adapters`
+    // の記述順（config.yaml 上の順序）ではなく adapter ID の辞書順で
+    // discovery を委譲する。config load 時点で adapter ID の重複は
+    // 既に E-CONFIG-001 で拒否されている（`vtest-store`
+    // `duplicate_adapter_id_is_rejected`）ため、ここでの並べ替えは
+    // 常に一意な全順序になる。この順序は `materialize_tests` の
+    // 先勝ち採用（Test ID 衝突時にどの draft が生き残るか）にも効くため、
+    // config.yaml の記述順に依存させないことは決定性の要件でもある。
+    let mut sorted_adapters = config.adapters.iter().collect::<Vec<_>>();
+    sorted_adapters.sort_by(|left, right| left.id.cmp(&right.id));
+    for adapter_config in sorted_adapters {
         let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
             // BLOCKER 4（PR #26 review round 1）の再裁定: 未知 adapter ID の
             // 診断コードは §2.2（本冊:158「未知adapter…はusage error
