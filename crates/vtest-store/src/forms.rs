@@ -107,7 +107,7 @@ template: |
   /// @vtest.intent {behavior}
   /// @vtest.input {input}
   /// @vtest.expect {expect}
-  /// @vtest.kind integration-{test_kind}
+  /// @vtest.kind unit-{test_kind}
   #[test]
   fn {fn_name}() {
       todo!("implement test body")
@@ -550,6 +550,31 @@ mod tests {
         assert_eq!(form.kind, "rust-unit-function");
         assert_eq!(form.fields.len(), 8);
         assert!(form.template.contains("@vtest.target {target}"));
+    }
+
+    /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」（`target`→
+    /// `targets`必須化と`file`のrequired化の2点のみ）。`rust-integration`の
+    /// templateが出力する`@vtest.kind`行は`rust-unit-function`と同一の
+    /// `unit-{test_kind}`でなければならず、`integration-{test_kind}`を
+    /// 生成してはならない（pr3-decisions.md Owner裁定3）。
+    #[test]
+    fn built_in_integration_form_kind_line_matches_the_unit_form() {
+        let unit = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
+        let integration = parse_form_schema(RUST_INTEGRATION_FORM).unwrap();
+        assert_eq!(integration.kind, "rust-integration");
+        let kind_line = |template: &str| {
+            template
+                .lines()
+                .find(|line| line.contains("@vtest.kind"))
+                .unwrap()
+                .trim()
+                .to_owned()
+        };
+        assert_eq!(kind_line(&unit.template), kind_line(&integration.template));
+        assert!(integration
+            .template
+            .contains("@vtest.kind unit-{test_kind}"));
+        assert!(!integration.template.contains("@vtest.kind integration-"));
     }
 
     #[test]

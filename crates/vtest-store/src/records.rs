@@ -5,7 +5,10 @@
 //! small scalar/list subset emitted by vtest and preserves unknown fields by
 //! ignoring them (forward-compatible read behavior).
 
-use crate::{canonical::unknown_field_diagnostics, StoreError, VerifyLayout};
+use crate::{
+    canonical::{unknown_field_diagnostics, LenientValue},
+    StoreError, VerifyLayout,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -390,14 +393,20 @@ impl ApprovalRecord {
                 "approval id must be a valid ULID".to_owned(),
             ));
         }
-        if !subject.starts_with("VO-")
-            || subject.len() <= "VO-".len()
-            || !subject.chars().all(|character| {
-                character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
-            })
-        {
+        // 基本仕様:130（§3.2）「文字集合は `[A-Z0-9-]`、接頭辞は種別ごとに
+        // 固定（`TEST-` 等）。推奨形式は…だが、ツールは形式を強制せず一意性
+        // のみを強制する」。以前はここで `VO-` 接頭辞・`[A-Z0-9-]` 文字集合を
+        // 拒否ゲートとして強制していた（BLOCKER 5、PR #26 review round 1）。
+        // scan 経路（`vtest-scan::validate_approval_status` → `read_approval`
+        // → ここ）から到達し、接頭辞を持たない VO の承認が E-SCAN-010 に
+        // なっていた一方、同じ PR が同時に `vtest-scan::operations.rs` から
+        // 全く同じ書式強制を除去し「Test の covers 先としては妥当」と固定
+        // していた（`vo_ref_field_does_not_enforce_an_id_prefix`）— 同じ
+        // scan 実行の中で正反対の規則が成立する非対称だった。書式ゲートは
+        // 除去し、書式ではない検査（空文字列の拒否）だけを残す。
+        if subject.trim().is_empty() {
             return Err(StoreError::InvalidConfig(
-                "approval subject must be a valid VO ID".to_owned(),
+                "approval subject must not be empty".to_owned(),
             ));
         }
         Ok(Self {
@@ -737,20 +746,31 @@ impl RelationRecord {
     }
 
     /// Parses a `RelationRecord`, returning any non-fatal diagnostics
-    /// alongside it. Goes through the same text -> `Value` -> known-key scan
-    /// -> typed struct shape `document_from_yaml`/`vo_record_from_yaml`
-    /// (`canonical.rs`) use, so an unknown field here warns (W-STORE-007)
-    /// rather than being silently dropped — 詳細設計 v0.1 §3 header (L185)
-    /// applies to Relation the same as every other record type.
+    /// alongside it. Parses straight from `text` into `Self`, then builds a
+    /// `LenientValue` (`canonical.rs`) independently for the unknown-field
+    /// scan — the same two-parse shape `document_from_yaml`/
+    /// `vo_record_from_yaml` (`canonical.rs`) use, and for the same reason:
+    /// a `text -> yaml_serde::Value -> known-key scan -> typed struct` single
+    /// pass (what this function used to do) rejects the *whole* record on a
+    /// duplicate key found *anywhere* in the document — including inside the
+    /// value of a field §3.3 does not even recognize, which should only warn
+    /// (W-STORE-007) and still read. `Self`'s own derived `Deserialize` still
+    /// rejects a duplicate key on one of `RelationRecord`'s own fields (e.g.
+    /// two `id:` keys) directly, with no help from `Value` — see
+    /// `relation_with_a_duplicate_top_level_key_is_still_rejected`, below.
+    /// 詳細設計 v0.1 §3 header (L185) applies to Relation the same as every
+    /// other record type: an unknown field warns, it does not stop the
+    /// record from being read.
     pub fn from_yaml(text: &str, filename_id: &str) -> Result<(Self, Vec<Diagnostic>), StoreError> {
-        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
-            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
-        })?;
-        let diagnostics = unknown_field_diagnostics(&value, RELATION_KEYS, "");
-        let record: Self = yaml_serde::from_value(value).map_err(|error| {
+        let record: Self = yaml_serde::from_str(text).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid relation record: {error}"))
         })?;
         record.validate(Some(filename_id))?;
+
+        let value: LenientValue = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
+        let diagnostics = unknown_field_diagnostics(&value, RELATION_KEYS, "");
         Ok((record, diagnostics))
     }
 
@@ -2008,6 +2028,62 @@ mod tests {
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
     }
 
+    /// 基本仕様:130（§3.2）「ツールは形式を強制せず一意性のみを強制する」。
+    /// 承認 subject に `VO-` 接頭辞を持たない ID を与えても拒否されない
+    /// （BLOCKER 5、PR #26 review round 1 — 旧版はここで `VO-` 接頭辞・
+    /// `[A-Z0-9-]` 文字集合を拒否ゲートとして強制していた。同じ scan 実行の
+    /// 中で「Test の covers 先としては妥当」（`vtest-scan::operations`の
+    /// `vo_ref_field_does_not_enforce_an_id_prefix`）「承認 subject として
+    /// は不正」という正反対の規則が同時に成立していた非対称を解消する）。
+    #[test]
+    fn approval_subject_does_not_enforce_a_vo_id_prefix() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("WIDGET-ADD"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![ApprovalBasis {
+                kind: "audit".to_owned(),
+                reference: new_record_id(),
+            }],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml();
+        assert_eq!(ApprovalRecord::from_yaml(&yaml, &id).unwrap(), record);
+    }
+
+    /// The one check that survives removing the format gate above: an empty
+    /// subject is not a format constraint (基本仕様:130 only bars enforcing
+    /// a character set or prefix), it is a basic validity check every other
+    /// required scalar on this record already gets via `required_top_level_
+    /// scalar`.
+    #[test]
+    fn approval_with_an_empty_subject_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml().replace("subject: 'VO-ONE'", "subject: ''");
+        assert!(
+            ApprovalRecord::from_yaml(&yaml, &id).is_err(),
+            "an empty approval subject must still be rejected"
+        );
+    }
+
     #[test]
     fn audit_round_trip_binds_subjects_and_reads_from_a_ulid_file() {
         let id = new_record_id();
@@ -2316,6 +2392,65 @@ mod tests {
         let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
         assert_eq!(parsed, record);
         assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
+    }
+
+    /// `RelationRecord::from_yaml`'s primary parse builds `Self` directly
+    /// from `text` (PR #26 round 3), not through `yaml_serde::Value` first —
+    /// but a duplicate key on one of `RelationRecord`'s own fields is still
+    /// rejected, via its derived `Deserialize`: a `struct` visitor tracks
+    /// each field and errors the second time it sees one, independent of
+    /// `Value`.
+    #[test]
+    fn relation_with_a_duplicate_top_level_key_is_still_rejected() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let yaml = record.to_yaml().unwrap();
+        let mut duplicated = yaml.clone();
+        duplicated.push_str(&yaml);
+        let error = RelationRecord::from_yaml(&duplicated, &id)
+            .expect_err("a relation YAML with every top-level key duplicated must fail closed");
+        assert!(
+            error.to_string().contains("duplicate field"),
+            "expected a duplicate-key parse rejection, got: {error}"
+        );
+    }
+
+    /// PR #26 round 3: the defect the earlier `Value`-first parse had for
+    /// `vo_record_from_yaml` (BLOCKER A, PR #26 review round 2) applied to
+    /// `RelationRecord::from_yaml` too, for the same reason — an unrelated
+    /// *unknown* top-level key whose own value is a mapping with an
+    /// internally duplicated key used to reject the whole relation, even
+    /// though the relation itself (and `owner`'s presence) reads fine and
+    /// should only warn W-STORE-007. `RelationRecord::from_yaml` now scans
+    /// with `LenientValue`, which cannot fail to build on a duplicate key
+    /// anywhere, so the warning is no longer lost.
+    #[test]
+    fn relation_with_unknown_top_level_field_whose_value_has_a_duplicate_key_still_warns() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("owner:\n  x: 1\n  x: 2\n");
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).expect(
+            "an unrelated unknown field's internally-duplicated value must not fail the read",
+        );
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
         assert_eq!(diagnostics[0].code, "W-STORE-007");
         assert!(diagnostics[0].message.contains("owner"));
     }

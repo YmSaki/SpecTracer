@@ -6,15 +6,17 @@ use std::{
 
 use serde::Serialize;
 use syn::spanned::Spanned;
+use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, Locator, SourceLocation, TargetRef, TestEntity, TestResult,
+    CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
+    TestTarget,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
     yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
-use crate::ScanResult;
+use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TestSelection {
@@ -182,22 +184,37 @@ pub fn edit_test(
     }
     let scan = crate::scan_project(root)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let current = scan
-        .tests
-        .iter()
-        .find(|test| test.id.as_str() == test_id)
-        .cloned()
-        .ok_or_else(|| {
-            Diagnostic::error("E-OP-002", format!("Test `{test_id}` could not be located"))
-                .with_candidates(test_id_candidates(&scan, test_id))
-        })?;
+    // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
+    // `test_id` が衝突していれば、どれを編集対象にするかをここで黙って
+    // 選ばない。`tests_by_id` を経由し、`Collided` を明示的な失敗として
+    // 扱う（`Option<&TestEntity>` を返す `.find()` を残さない）。
+    let current = match scan.tests_by_id(test_id) {
+        TestIdLookup::Unique(test) => test.clone(),
+        TestIdLookup::NotFound => {
+            return Err(Diagnostic::error(
+                "E-OP-002",
+                format!("Test `{test_id}` could not be located"),
+            )
+            .with_candidates(test_id_candidates(&scan, test_id)))
+        }
+        TestIdLookup::Collided(entities) => {
+            return Err(Diagnostic::error(
+                "E-OP-002",
+                format!(
+                    "Test ID `{test_id}` is declared by {} Test constructs (E-SCAN-002); \
+                     edit cannot pick which one to change",
+                    entities.len()
+                ),
+            ))
+        }
+    };
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
         let layout = VerifyLayout::new(root);
         let schema = load_form_schema(&layout, &supplied.form)
             .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
         let answers = validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id))?;
-        desired.apply_complete_answers(&schema, &answers)?;
+        desired.apply_complete_answers(&answers)?;
     } else {
         desired.apply_sets(set)?;
     }
@@ -206,7 +223,19 @@ pub fn edit_test(
     let path = root.join(Path::new(&current.location.file));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let range = current.location.start_byte..current.location.end_byte;
+    let start_byte: usize = current.location.start_byte.try_into().map_err(|_| {
+        Diagnostic::error(
+            "E-OP-002",
+            format!("Test `{test_id}` start offset is out of range"),
+        )
+    })?;
+    let end_byte: usize = current.location.end_byte.try_into().map_err(|_| {
+        Diagnostic::error(
+            "E-OP-002",
+            format!("Test `{test_id}` end offset is out of range"),
+        )
+    })?;
+    let range = start_byte..end_byte;
     let current_slice = original.get(range.clone()).ok_or_else(|| {
         Diagnostic::error(
             "E-OP-002",
@@ -219,15 +248,15 @@ pub fn edit_test(
             format!("Test `{test_id}` changed before edit could be applied"),
         ));
     }
-    let indent = line_indent(&original, current.location.start_byte);
+    let indent = line_indent(&original, start_byte);
     let normalized_current = deindent(current_slice, &indent);
     let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
     let rendered = indent_multiline(&normalized_replacement, &indent);
     let prospective = format!(
         "{}{}{}",
-        &original[..current.location.start_byte],
+        &original[..start_byte],
         rendered,
-        &original[current.location.end_byte..]
+        &original[end_byte..]
     );
     syn::parse_file(&prospective).map_err(|error| {
         Diagnostic::error(
@@ -241,8 +270,8 @@ pub fn edit_test(
         file: current.location.file.clone(),
         dry_run,
         changed,
-        start_byte: current.location.start_byte,
-        end_byte: current.location.start_byte + rendered.len(),
+        start_byte,
+        end_byte: start_byte + rendered.len(),
         rendered,
     };
     if dry_run || !changed {
@@ -283,10 +312,7 @@ struct DesiredTest {
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
-        let targets = std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
-            .collect();
+        let targets = test.targets.iter().map(target_string).collect();
         Self {
             id: test.id.as_str().to_owned(),
             covers: test
@@ -312,7 +338,6 @@ impl DesiredTest {
 
     fn apply_complete_answers(
         &mut self,
-        schema: &FormSchema,
         answers: &BTreeMap<String, FormValue>,
     ) -> Result<(), Diagnostic> {
         self.covers = list_answer(answers, "covers")?;
@@ -330,14 +355,13 @@ impl DesiredTest {
         if let Some(file) = answers.get("file") {
             self.file = file.render().replace('\\', "/");
         }
+        // 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」
+        // （target→targets必須化とfileのrequired化の2点のみ）。§14.1の
+        // templateの `@vtest.kind unit-{test_kind}` 行はrust-integration
+        // Formにもそのまま引き継がれるため、生成schemaに関わらず常に
+        // `unit-{test_kind}` を生成する（pr3-ruling-spec.md §3.3）。
         let test_kind = answers.get("test_kind").map(FormValue::render);
-        self.kind = test_kind.map(|kind| {
-            if schema.kind == "rust-integration" {
-                format!("integration-{kind}")
-            } else {
-                format!("unit-{kind}")
-            }
-        });
+        self.kind = test_kind.map(|kind| format!("unit-{kind}"));
         Ok(())
     }
 
@@ -372,12 +396,11 @@ impl DesiredTest {
                 "expect" => self.expect = Some(value.render()),
                 "kind" => self.kind = Some(value.render()),
                 "test_kind" => {
-                    let prefix = if self.targets.len() > 1 {
-                        "integration"
-                    } else {
-                        "unit"
-                    };
-                    self.kind = Some(format!("{prefix}-{}", value.render()));
+                    // 別紙A §14.1/§14.3: built-in Formはtargets件数に
+                    // かかわらず常に `unit-{test_kind}` を生成する
+                    // （pr3-ruling-spec.md §3.3、Owner裁定3 — `@vtest.kind`
+                    // は意図ラベルであり実行形態のdiscriminatorではない）。
+                    self.kind = Some(format!("unit-{}", value.render()));
                 }
                 "case" => self.cases = value_strings(value),
                 "related" => self.related = value_strings(value),
@@ -407,7 +430,11 @@ fn validate_desired_test(
             "Structured Edit cannot move a Test to another file",
         ));
     }
-    if desired.covers.is_empty() || desired.covers.iter().any(|id| !id.starts_with("VO-")) {
+    // 基本仕様:126-134「文字集合は [A-Z0-9-]、接頭辞は種別ごとに固定
+    // (`TEST-` 等)。推奨形式は `TEST-<領域>-<連番>` だが、ツールは形式を
+    // 強制せず一意性のみを強制する」。ID の書式（接頭辞）は強制しない。
+    // 存在しない VO を参照した場合の解決可能性検査は直後で行う。
+    if desired.covers.is_empty() {
         return Err(Diagnostic::error(
             "E-OP-001",
             "covers must contain at least one VO ID",
@@ -417,10 +444,12 @@ fn validate_desired_test(
         Diagnostic::error("E-CORE-001", format!("could not read entity IDs: {error}"))
     })?;
     for id in &desired.covers {
-        if !entity_ids[2].iter().any(|candidate| candidate == id) {
+        // vtest_store::read_entity_ids returns [doc, vo] (canonical 2-slot
+        // layout); index 1 is the VO id list.
+        if !entity_ids[1].iter().any(|candidate| candidate == id) {
             return Err(
                 Diagnostic::error("E-OP-001", format!("VO `{id}` does not exist"))
-                    .with_candidates(id_candidates(&entity_ids[2], id)),
+                    .with_candidates(id_candidates(&entity_ids[1], id)),
             );
         }
     }
@@ -430,19 +459,20 @@ fn validate_desired_test(
             "target must contain at least one source locator",
         ));
     }
-    if desired.targets.len() > 1
-        && !desired
-            .kind
-            .as_deref()
-            .is_some_and(|kind| kind.starts_with("integration"))
-    {
+    // 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数targetの許容は
+    // `@vtest.kind` の文字列ではなく、rust-cargoが判定した実行形態が
+    // Cargo Integration Testであるかどうかで決める。Structured Editは
+    // ファイル移動を禁じている（直前のE-OP-003検査）ため、editの前後で
+    // `current` の物理的な配置（したがって実行形態）は変わらず、
+    // `current.test_target` をそのまま判定材料にできる。
+    if desired.targets.len() > 1 && !matches!(current.test_target, TestTarget::IntegrationTest(_)) {
         return Err(Diagnostic::error(
             "E-OP-001",
-            "multiple targets are allowed only for integration tests",
+            "multiple targets are allowed only for Cargo integration tests",
         ));
     }
     for target in &desired.targets {
-        let Some(locator) = Locator::parse(target) else {
+        let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{target}`"),
@@ -468,7 +498,8 @@ fn validate_desired_test(
     }
     if scan.sources.iter().any(|source| {
         source.location.file == desired.file
-            && source.locator.item_path == desired.fn_name
+            && RustLocator::parse(&source.locator.value)
+                .is_some_and(|parsed| parsed.item_path == desired.fn_name)
             && source.location != current.location
     }) {
         return Err(Diagnostic::error(
@@ -613,7 +644,7 @@ fn verify_edit(
     root: &Path,
     test_id: &str,
     desired: &DesiredTest,
-    before_hashes: &BTreeMap<String, ContentHash>,
+    before_hashes: &BTreeMap<String, Vec<ContentHash>>,
 ) -> Result<(), Diagnostic> {
     let after = crate::scan_project(root).map_err(|error| {
         Diagnostic::error(
@@ -621,6 +652,27 @@ fn verify_edit(
             format!("edited test could not be rescanned: {error}"),
         )
     })?;
+    // ここでの `.find()`（衝突していれば任意の1件を選ぶ）が Owner裁定1
+    // 「後段が代表1件を推測選択してはならない」に反しないのは、`test_id`
+    // がこの呼び出し時点で衝突しえないことが呼び出し元の不変条件から
+    // 導けるため（「たぶん到達しない」ではなく確認済み）。根拠:
+    // 1. `edit_test` は書き込み前に `scan.tests_by_id(test_id)` が
+    //    `Unique` であることを既に確認済み（`TestIdLookup::Collided` は
+    //    fail-closed でここへ到達する前に拒否される）。すなわち書き込み
+    //    直前の scan では `test_id` を宣言する construct はちょうど1件。
+    // 2. `validate_desired_test`（呼び出し元）が `desired.id !=
+    //    current.id` を拒否するため、Structured Edit は Test ID 自体を
+    //    変更できない — 編集は当該1件の doc comment 内の他 field だけを
+    //    書き換える。
+    // 3. 書き込みは対象 construct の byte range だけを差し替え、他の
+    //    ファイル・他の construct には触れない。
+    // したがって外部プロセスによる並行書き込み（別ファイルへ同じ Test ID
+    // を割り込ませる）を除けば、post-write rescan でも `test_id` を宣言
+    // する construct は1件のまま — この外部並行変更は `edit_test` 全体が
+    // 依拠する「編集対象ファイルの内容が書き込み直前と一致する」という
+    // 単一ファイル前提の外側にあり、他の post-write 検証にも共通する
+    // 一般的な TOCTOU の限界であって、Owner裁定1（衝突の保存）が対象と
+    // する「collision を後段が黙って握り潰す」経路ではない。
     let edited = after
         .tests
         .iter()
@@ -648,11 +700,7 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && std::iter::once(&test.target)
-            .chain(&test.additional_targets)
-            .map(target_string)
-            .collect::<Vec<_>>()
-            == desired.targets
+        && test.targets.iter().map(target_string).collect::<Vec<_>>() == desired.targets
         && test.intent == desired.intent
         && test.input == desired.input
         && test.expect == desired.expect
@@ -710,7 +758,7 @@ fn indent_multiline(source: &str, indent: &str) -> String {
 
 fn target_string(target: &TargetRef) -> String {
     match target {
-        TargetRef::Locator(locator) => locator.as_string(),
+        TargetRef::Locator(locator) => locator.value.clone(),
         TargetRef::SrcId(id) => id.as_str().to_owned(),
     }
 }
@@ -746,15 +794,28 @@ fn scalar_answer(answers: &BTreeMap<String, FormValue>, name: &str) -> Result<St
 }
 
 pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, Diagnostic> {
-    let test = scan
-        .tests
-        .iter()
-        .find(|test| test.id.as_str() == id)
-        .cloned()
-        .ok_or_else(|| {
-            Diagnostic::error("E-OP-001", format!("Test `{id}` does not exist"))
-                .with_candidates(test_id_candidates(scan, id))
-        })?;
+    // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
+    // `id` が衝突していれば、どれを表示対象にするかをここで黙って選ばない
+    // （`edit_test` と同じ考え方）。
+    let test = match scan.tests_by_id(id) {
+        TestIdLookup::Unique(test) => test.clone(),
+        TestIdLookup::NotFound => {
+            return Err(
+                Diagnostic::error("E-OP-001", format!("Test `{id}` does not exist"))
+                    .with_candidates(test_id_candidates(scan, id)),
+            )
+        }
+        TestIdLookup::Collided(entities) => {
+            return Err(Diagnostic::error(
+                "E-OP-001",
+                format!(
+                    "Test ID `{id}` is declared by {} Test constructs (E-SCAN-002); \
+                     show cannot pick which one to display",
+                    entities.len()
+                ),
+            ))
+        }
+    };
     let layout = VerifyLayout::new(root);
     let mut audits = Vec::new();
     let audit_ids = read_record_ids(&layout.audits_dir())
@@ -851,7 +912,7 @@ pub fn list_tests(
 }
 
 pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, Diagnostic> {
-    let Some(locator) = Locator::parse(source) else {
+    let Some(locator) = RustLocator::parse(source).map(|parsed| parsed.to_locator()) else {
         return Err(
             Diagnostic::error("E-OP-001", format!("invalid source locator `{source}`"))
                 .with_candidates(symbol_candidates(scan, source)),
@@ -868,8 +929,8 @@ pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, D
         .tests
         .iter()
         .filter(|test| {
-            std::iter::once(&test.target)
-                .chain(&test.additional_targets)
+            test.targets
+                .iter()
                 .any(|target| matches!(target, TargetRef::Locator(target) if target == &locator))
         })
         .cloned()
@@ -941,12 +1002,15 @@ fn validate_form_answers_for(
                 }
                 "vo-exists" => {
                     for id in value.values() {
-                        if !entity_ids[2].iter().any(|candidate| candidate == id) {
+                        // vtest_store::read_entity_ids returns [doc, vo]
+                        // (canonical 2-slot layout); index 1 is the VO id
+                        // list.
+                        if !entity_ids[1].iter().any(|candidate| candidate == id) {
                             return Err(Diagnostic::error(
                                 "E-OP-001",
                                 format!("VO `{id}` does not exist"),
                             )
-                            .with_candidates(id_candidates(&entity_ids[2], id)));
+                            .with_candidates(id_candidates(&entity_ids[1], id)));
                         }
                     }
                 }
@@ -978,7 +1042,8 @@ fn validate_form_answers_for(
                     };
                     if scan.sources.iter().any(|source| {
                         source.location.file == destination
-                            && source.locator.item_path == name
+                            && RustLocator::parse(&source.locator.value)
+                                .is_some_and(|parsed| parsed.item_path == name)
                             && edited_location != Some(&source.location)
                     }) {
                         return Err(Diagnostic::error(
@@ -1128,7 +1193,7 @@ fn verify_create(
     root: &Path,
     test_id: &str,
     answers: &BTreeMap<String, FormValue>,
-    before_hashes: &BTreeMap<String, ContentHash>,
+    before_hashes: &BTreeMap<String, Vec<ContentHash>>,
 ) -> Result<(), Diagnostic> {
     let after = crate::scan_project(root).map_err(|error| {
         Diagnostic::error(
@@ -1136,6 +1201,15 @@ fn verify_create(
             format!("created test could not be rescanned: {error}"),
         )
     })?;
+    // `verify_edit` と同じ理由で `.find()` は Owner裁定1に反しない
+    // （確認済み、「たぶん到達しない」ではない）: `select_test_id` は
+    // 書き込み前に `test_id` が `scan.tests` のどの既存 entity とも
+    // 衝突しないことを既に確認済みであり（`explicit_id` 経路は
+    // `scan.tests.iter().any(...)` で拒否、生成経路も既存 ID と衝突しない
+    // 値を選ぶ。下記 `select_test_id` 参照）、この操作は新しい construct
+    // を1件追加するだけで既存の construct を一切変更しない。したがって
+    // 外部プロセスによる並行書き込みを除けば、post-write rescan でも
+    // `test_id` を宣言する construct は追加した1件のみ。
     let created = after
         .tests
         .iter()
@@ -1162,10 +1236,7 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     let behavior_match = answers
         .get("behavior")
         .is_none_or(|value| value.render() == test.intent);
-    let target_values = std::iter::once(&test.target)
-        .chain(&test.additional_targets)
-        .map(target_string)
-        .collect::<Vec<_>>();
+    let target_values = test.targets.iter().map(target_string).collect::<Vec<_>>();
     let targets_match = if let Some(value) = answers.get("target") {
         value
             .values()
@@ -1186,28 +1257,55 @@ fn test_matches_answers(test: &TestEntity, answers: &BTreeMap<String, FormValue>
     covers_match && behavior_match && targets_match
 }
 
-fn test_hashes(scan: &ScanResult) -> BTreeMap<String, ContentHash> {
-    scan.tests
-        .iter()
-        .map(|test| (test.id.as_str().to_owned(), test.content_hash.clone()))
-        .collect()
+/// Test ID をキーに、その ID を宣言する**全** Test Entity の `content_hash`
+/// を集める。Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、
+/// 先勝ちで1件を残して他を捨てることを禁止する」「後段が代表1件を推測
+/// 選択してはならない」の対象は編集操作本体だけでなく、この post-write
+/// 検証も含む — `scan.tests` は基本:412「M は…Test ID が衝突する entity
+/// も含む」の通り衝突した全 entity を保持しているため、ここで
+/// `BTreeMap<String, ContentHash>`（1 ID あたり1 hash）へ単純に collect
+/// すると、衝突している ID については後発の entity が先発を黙って上書き
+/// し、1 件分の hash が検証対象から消える。`Vec<ContentHash>`（ソート済み、
+/// 同じ ID を宣言する全 construct の hash の多重集合）を値にすることで、
+/// 衝突していても集合全体を保持する。
+fn test_hashes(scan: &ScanResult) -> BTreeMap<String, Vec<ContentHash>> {
+    let mut hashes: BTreeMap<String, Vec<ContentHash>> = BTreeMap::new();
+    for test in &scan.tests {
+        hashes
+            .entry(test.id.as_str().to_owned())
+            .or_default()
+            .push(test.content_hash.clone());
+    }
+    for group in hashes.values_mut() {
+        group.sort();
+    }
+    hashes
 }
 
+/// `test_hashes` の「前」スナップショットと突き合わせる。`edited_id` に
+/// 一致する ID は編集/作成の対象そのもの（呼び出し元が別途 `desired` と
+/// 突き合わせ済み）なので比較対象から除く。それ以外の ID は、衝突して
+/// いる場合でも構成する全 construct の hash 多重集合を比較する — 単純な
+/// `.find()`（衝突時は最初に見つかった1件だけを比較する）は、衝突した
+/// construct のうち検証対象外の1件だけが変化しても検出できない（上の
+/// `test_hashes` のdoc comment参照。同じ欠陥の post-write 版）。
 fn verify_other_test_hashes(
     after: &ScanResult,
-    before: &BTreeMap<String, ContentHash>,
+    before: &BTreeMap<String, Vec<ContentHash>>,
     edited_id: Option<&str>,
 ) -> Result<(), Diagnostic> {
     for (id, expected) in before {
         if edited_id == Some(id.as_str()) {
             continue;
         }
-        let actual = after
+        let mut actual: Vec<ContentHash> = after
             .tests
             .iter()
-            .find(|test| test.id.as_str() == id)
-            .map(|test| &test.content_hash);
-        if actual != Some(expected) {
+            .filter(|test| test.id.as_str() == id)
+            .map(|test| test.content_hash.clone())
+            .collect();
+        actual.sort();
+        if &actual != expected {
             return Err(Diagnostic::error(
                 "E-OP-003",
                 format!("operation changed Test `{id}` outside its edit boundary"),
@@ -1248,7 +1346,7 @@ fn validate_value_shape(
     }
     match field.field_type.as_str() {
         "symbol" => {
-            if Locator::parse(scalar(value, &field.name)?).is_none() {
+            if RustLocator::parse(scalar(value, &field.name)?).is_none() {
                 return Err(Diagnostic::error(
                     "E-OP-001",
                     format!("answer `{}` is not a source locator", field.name),
@@ -1259,7 +1357,7 @@ fn validate_value_shape(
             if value
                 .values()
                 .iter()
-                .any(|value| Locator::parse(value).is_none())
+                .any(|value| RustLocator::parse(value).is_none())
             {
                 return Err(Diagnostic::error(
                     "E-OP-001",
@@ -1267,31 +1365,13 @@ fn validate_value_shape(
                 ));
             }
         }
-        "vo-ref" => {
-            let value = scalar(value, &field.name)?;
-            if !value.starts_with("VO-") {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must be a VO ID", field.name),
-                ));
-            }
-        }
-        "vo-ref-list" => {
-            if value.values().iter().any(|value| !value.starts_with("VO-")) {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must contain VO IDs", field.name),
-                ));
-            }
-        }
-        "test-ref" => {
-            let value = scalar(value, &field.name)?;
-            if !value.starts_with("TEST-") {
-                return Err(Diagnostic::error(
-                    "E-OP-001",
-                    format!("answer `{}` must be a Test ID", field.name),
-                ));
-            }
+        // 基本仕様:126-134「ツールは形式を強制せず一意性のみを強制する」。
+        // `vo-ref` / `vo-ref-list` / `test-ref` は ID の接頭辞書式を強制し
+        // ない。値の非空・list/scalar形状は上の共通チェックと `scalar()`
+        // が担う。参照先の解決可能性は `vo-exists` / `test-exists`
+        // validator（呼び出し元の `field.validate` ループ）が別途検査する。
+        "vo-ref" | "test-ref" => {
+            let _ = scalar(value, &field.name)?;
         }
         "enum" => {
             let value = scalar(value, &field.name)?;
@@ -1333,7 +1413,7 @@ fn validate_symbols(
         ));
     }
     for symbol in value.values() {
-        let Some(locator) = Locator::parse(symbol) else {
+        let Some(locator) = RustLocator::parse(symbol).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{symbol}`"),
@@ -1366,7 +1446,7 @@ fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
         return scalar(value, "file").map(|value| value.replace('\\', "/"));
     }
     if let Some(value) = answers.answers.get("target") {
-        return Locator::parse(scalar(value, "target")?)
+        return RustLocator::parse(scalar(value, "target")?)
             .map(|locator| locator.path)
             .ok_or_else(|| Diagnostic::error("E-OP-001", "target is not a locator"));
     }
@@ -1401,15 +1481,24 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    if !config
-        .scan
-        .include
+    // レビュー round 2 項目【F】: `adapters: []` の拒否メッセージ自体には
+    // 仕様上の対応コードが無い（本冊:158「無効なadapter設定」は非空
+    // adapters list内の各entryの妥当性を指す並列項目であり、「listが
+    // 空である」ことの読みには当てはまらない — `adapter_scan_includes`
+    // のdoc commentを参照）。しかし `Diagnostic` はコードを必須とするため
+    // 「コードなし」は表現できない。ここは `validate_rust_file` という
+    // Structured Operation 候補検証の一部であり、この関数の他の全ての
+    // 拒否と同じくE-OP-001（本冊:1641「Structured Operationの入力検証
+    // 失敗」、別紙A:541「`rust-file` \| ... \| E-OP-001＋候補」）を使う。
+    let includes =
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-OP-001", error))?;
+    if !includes
         .iter()
-        .any(|include| relative_path.starts_with(Path::new(include)))
+        .any(|include| relative_path.starts_with(include))
     {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file is outside config.scan.include: `{relative}`"),
+            format!("Rust file is outside every registered adapter's scan.include: `{relative}`"),
         ));
     }
     let canonical_root = fs::canonicalize(root)
@@ -1437,8 +1526,14 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     }
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    // レビュー round 2 項目【F】: `validate_rust_file` と同じ理由（上記の
+    // doc comment を参照）。ここは `enum-variant-exists` 候補検証の一部
+    // であり、この関数の他の全ての拒否と同じくE-OP-001（本冊:1641、
+    // 別紙A:539「`enum-variant-exists` \| ... \| E-OP-001＋候補」）を使う。
+    let includes =
+        adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-OP-001", error))?;
     let mut files = Vec::new();
-    for include in config.scan.include {
+    for include in includes {
         collect_rust_files(&root.join(include), &mut files);
     }
     files.sort();
@@ -1468,6 +1563,24 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     )
 }
 
+// PR #26 review round 3 要確認C-1: この `read_dir`/`entries.flatten()` は
+// `d423f8a` が `vtest-scan::validate_relations`/`validate_approval_status`
+// で塞いだのと同じ形の I/O fail-open（ディレクトリが開けない、または列挙中
+// に個々の `DirEntry` が `Err` を返すと、そのディレクトリ／エントリを
+// 無診断でスキップする）だが、意図的に塞いでいない: 呼び出し元
+// `validate_enum_variant` は `type_name` の Rust 識別子としての妥当性
+// チェック（1445-1448行）や `syn::parse_file` の失敗（1469-1471行）も同じ
+// 「見つけられなければ検証をスキップし `Ok(())` を返す」扱いを既にしており
+// （1474行 `variants.is_empty()`）、これは `enum-variant-exists` Structured
+// Operation 入力検証のベストエフォート設計そのもの — I/O 失敗だけを
+// fail-closed にしても、識別子形式や parse 失敗という他の「見つからない」
+// 経路はそのまま素通りするので非対称は解消しない。影響範囲も、この関数の
+// 裁定（chain_integrity・検証状態）ではなく、`vtest scan enum-variant-exists`
+// 単体の Structured Operation 入力検証（本冊:1641、別紙A:539）に留まる:
+// I/O 失敗時に本来出すべき E-OP-001（不正な値）が見逃され得るが、それ以上
+// 状態が壊れることはない。塞ぐなら `validate_enum_variant` 全体の
+// 「見つからなければ受理する」設計を Owner 裁定で見直す必要があり、この
+// 箇所だけを個別に fail-closed にするのは非対称を悪化させるため見送った。
 fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = fs::read_dir(directory) else {
         return;
@@ -1509,18 +1622,24 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
         .map_or(requested, |(_, item)| item);
+    // `source.locator.value` は `rust-cargo` の場合 `<path>::<item_path>`
+    // で、`path` 自体は `::` を含まない（`RustLocator::parse`）ため、opaque
+    // な `value` 全体を末尾の `::` で分割しても `item_path` の末尾要素と
+    // 一致する。この関数は候補表示用のあいまい一致であり、value の内部
+    // 構文を core の判定条件として使ってはいない（PR3 canonical化の範囲外、
+    // `pr3-decisions.md`「保留中の論点」）。
     let mut exact_suffix = scan
         .sources
         .iter()
         .filter(|source| {
             source
                 .locator
-                .item_path
+                .value
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| candidate == item)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.locator.value.clone())
         .collect::<Vec<_>>();
     let mut near = scan
         .sources
@@ -1528,12 +1647,12 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
         .filter(|source| {
             source
                 .locator
-                .item_path
+                .value
                 .rsplit("::")
                 .next()
                 .is_some_and(|candidate| edit_distance(candidate, item) <= 2)
         })
-        .map(|source| source.locator.as_string())
+        .map(|source| source.locator.value.clone())
         .collect::<Vec<_>>();
     exact_suffix.sort();
     exact_suffix.dedup();
@@ -1588,5 +1707,164 @@ mod tests {
         assert_eq!(edit_distance("parse", "prase"), 2);
         assert_eq!(edit_distance("add", "add"), 0);
         assert_eq!(edit_distance("subtract", "add"), 7);
+    }
+
+    fn sample_location(function: &str) -> SourceLocation {
+        SourceLocation {
+            file: "src/lib.rs".to_owned(),
+            function: function.to_owned(),
+            start_line: 1,
+            end_line: 1,
+            start_byte: 0,
+            end_byte: 1,
+        }
+    }
+
+    fn sample_test(id: &str, function: &str, hash_seed: &str) -> TestEntity {
+        TestEntity {
+            id: vtest_model::TestId::new(id),
+            covers: vec![vtest_model::VoId::new("VO-ADD")],
+            targets: Vec::new(),
+            intent: "intent".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: sample_location(function),
+            content_hash: ContentHash::from_text(hash_seed),
+            filter: function.to_owned(),
+            package: "pkg".to_owned(),
+            test_target: vtest_model::TestTarget::Lib,
+        }
+    }
+
+    fn sample_scan(tests: Vec<TestEntity>) -> ScanResult {
+        ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 0,
+                tests: tests.len() as u64,
+                sources: 0,
+            },
+            tests,
+            discovered: Vec::new(),
+            sources: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
+    /// を残して他を捨てることを禁止する」の post-write 検証版ロックイン。
+    /// `test_hashes` が Test ID をキーに単純な `BTreeMap<String,
+    /// ContentHash>` を作ると、衝突している ID の hash は後発 entity に
+    /// 上書きされて1件分消える。`TEST-OTHER` が2 construct から衝突して
+    /// 宣言されている状態で、そのうち検証対象外（`edited_id` に一致しない）
+    /// の1件（`collision_b`）だけが操作の外で変化した場合、
+    /// `verify_other_test_hashes` はこれを検出できなければならない —
+    /// 単純な `.find()`（衝突時は先に見つかった1件だけを比較する）ではこの
+    /// 変化を見逃す。
+    #[test]
+    fn test_hashes_preserves_colliding_ids_and_catches_a_change_outside_the_edit_boundary() {
+        let before = sample_scan(vec![
+            sample_test("TEST-EDITED", "edited", "edited-before"),
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        let hashes = test_hashes(&before);
+        let other = hashes
+            .get("TEST-OTHER")
+            .expect("colliding Test ID must still be present as a key");
+        assert_eq!(
+            other.len(),
+            2,
+            "both colliding constructs' hashes must be kept, not collapsed to one"
+        );
+
+        // `TEST-EDITED` changes inside its own edit boundary (excluded via
+        // `edited_id`); `collision_b`, part of the unrelated `TEST-OTHER`
+        // collision, changes outside any edit boundary.
+        let after = sample_scan(vec![
+            sample_test("TEST-EDITED", "edited", "edited-after"),
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b-changed"),
+        ]);
+        let result = verify_other_test_hashes(&after, &hashes, Some("TEST-EDITED"));
+        assert!(
+            result.is_err(),
+            "a hash change inside an unrelated colliding group must be caught, not hidden \
+             behind the collision"
+        );
+    }
+
+    #[test]
+    fn verify_other_test_hashes_accepts_an_unchanged_colliding_group() {
+        let before = sample_scan(vec![
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        let hashes = test_hashes(&before);
+        let after = sample_scan(vec![
+            sample_test("TEST-OTHER", "collision_a", "collision-a"),
+            sample_test("TEST-OTHER", "collision_b", "collision-b"),
+        ]);
+        assert!(verify_other_test_hashes(&after, &hashes, None).is_ok());
+    }
+
+    fn field(name: &str, field_type: &str) -> vtest_store::FormField {
+        vtest_store::FormField {
+            name: name.to_owned(),
+            question: String::new(),
+            field_type: field_type.to_owned(),
+            required: false,
+            options: Vec::new(),
+            validate: Vec::new(),
+        }
+    }
+
+    // 基本仕様:126-134「文字集合は [A-Z0-9-]、接頭辞は種別ごとに固定
+    // (`TEST-` 等)。推奨形式は `TEST-<領域>-<連番>` だが、ツールは形式を
+    // 強制せず一意性のみを強制する」。`vo-ref` / `vo-ref-list` / `test-ref`
+    // は接頭辞書式を拒否理由にしない(PM 裁定・pr3-decisions.md 裁定7)。
+
+    #[test]
+    fn vo_ref_field_does_not_enforce_an_id_prefix() {
+        let field = field("covers", "vo-ref");
+        let value = FormValue::Scalar("WIDGET-ADD".to_owned());
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn vo_ref_list_field_does_not_enforce_an_id_prefix() {
+        let field = field("covers", "vo-ref-list");
+        let value = FormValue::List(vec!["WIDGET-ADD".to_owned(), "GADGET-ADD".to_owned()]);
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn test_ref_field_does_not_enforce_an_id_prefix() {
+        let field = field("related", "test-ref");
+        let value = FormValue::Scalar("WIDGET-CHECK".to_owned());
+        assert!(validate_value_shape(&field, &value).is_ok());
+    }
+
+    #[test]
+    fn vo_ref_field_still_rejects_an_empty_scalar() {
+        let field = field("covers", "vo-ref");
+        let value = FormValue::Scalar(String::new());
+        assert!(validate_value_shape(&field, &value).is_err());
+    }
+
+    // レビュー round 2 項目【J】は "vo-ref-list" のアーム削除
+    // （PM 裁定7、`fc6e5de`）でこの型の list/scalar 形状検査が失われたと
+    // 指摘した。実際には形状検査は `validate_value_shape` 冒頭の共通
+    // `list_type` 判定（この関数の先頭、`"symbol-list" | "vo-ref-list"`）が
+    // マッチアームより前に行っており、削除されたのは接頭辞検査（基本:130
+    // により復活させてはならない）だけだった。この test は共通判定が
+    // "vo-ref-list" を対象に含んでいることを固定する回帰テスト。
+    #[test]
+    fn vo_ref_list_field_rejects_a_scalar() {
+        let field = field("covers", "vo-ref-list");
+        let value = FormValue::Scalar("WIDGET-ADD".to_owned());
+        assert!(validate_value_shape(&field, &value).is_err());
     }
 }
