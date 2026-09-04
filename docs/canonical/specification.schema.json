@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spectracer/specification.schema.json",
+  "title": "SpecTracer canonical specification (Issue #14)",
+  "description": "要求・要件定義・基本仕様・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。",
+  "type": "object",
+  "required": ["schema_version", "request", "require", "spec", "design"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "request": { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
+    "require": { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
+    "spec":    { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
+    "design":  { "type": "array", "items": { "$ref": "#/$defs/designArea" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$" },
+    "source": {
+      "description": "移行期間限定。元 md のどこから写したか。lines は statement と description の両方を含む行範囲（1 始まり、両端含む）。",
+      "type": "object",
+      "required": ["doc", "heading", "lines"],
+      "additionalProperties": false,
+      "properties": {
+        "doc":     { "type": "string", "minLength": 1 },
+        "heading": { "type": "string", "minLength": 1 },
+        "lines":   { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 }
+      }
+    },
+    "rootItem": {
+      "description": "要求。根なので derived_from を持たない。",
+      "type": "object",
+      "required": ["id", "statement", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "id":          { "$ref": "#/$defs/id" },
+        "statement":   { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "source":      { "$ref": "#/$defs/source" }
+      }
+    },
+    "derivedItem": {
+      "type": "object",
+      "required": ["id", "statement", "derived_from", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "id":           { "$ref": "#/$defs/id" },
+        "statement":    { "type": "string", "minLength": 1 },
+        "description":  { "type": "string" },
+        "derived_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "cites": {
+          "description": "移行期間限定。元 md に書かれていた上流引用の逐語（例: \"基本仕様 §3.2\", \"（R-1）\", \"要件定義 L324\"）。derived_from へ解決するのは別工程で、Owner の承認を経る。",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source":       { "$ref": "#/$defs/source" }
+      }
+    },
+    "designArea": {
+      "type": "object",
+      "required": ["id", "title", "items", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "id":          { "$ref": "#/$defs/id" },
+        "title":       { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "items":       { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
+        "source":      { "$ref": "#/$defs/source" }
+      }
+    }
+  }
+}
