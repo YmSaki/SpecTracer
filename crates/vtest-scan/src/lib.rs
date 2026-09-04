@@ -22,9 +22,9 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    source_target_subject_hash, AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest,
-    DocumentRecord, ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef,
-    TestEntity, VoRecord,
+    source_target_subject_hash, test_subject_hash, AdapterId, ContentHash, CoveragePolicy,
+    Diagnostic, DiscoveredTest, DocumentRecord, ManagedTestLink, ScanSummary, SourceFunction,
+    SourceLocation, TargetRef, TestEntity, TestRecord, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -393,11 +393,40 @@ fn materialize_tests(
             .or_default()
             .push(draft.location.clone());
 
-        let content_hash = ContentHash::from_text(&draft.construct_text);
+        // `DiscoveredTest.content_hash` stays a construct-only hash — it
+        // exists for every observed construct, including `missing_drafts`
+        // below (which have no `TestRecord`), so it cannot depend on
+        // metadata. Only `TestEntity.content_hash` is the Test subject hash
+        // (§1.3, 本冊:87): it binds adapter ID, canonical metadata, Source
+        // Location (excluding byte_range), ExecutionDescriptor, and the
+        // normalized construct bytes, so a metadata-only edit (e.g.
+        // `@vtest.covers`) changes it even though the construct bytes do
+        // not (別紙C:35).
+        let construct_hash = ContentHash::from_text(&draft.construct_text);
+
+        let metadata = TestRecord {
+            id: draft.id.clone(),
+            covers: draft.covers.clone(),
+            targets: draft.targets.clone(),
+            intent: draft.intent.clone(),
+            input: draft.input.clone(),
+            expect: draft.expect.clone(),
+            kind: draft.kind.clone(),
+            cases: draft.cases.clone(),
+            related: draft.related.clone(),
+        };
+        let subject_hash = test_subject_hash(
+            &adapter,
+            &metadata,
+            &draft.location,
+            &draft.execution,
+            &draft.construct_text,
+        );
+
         discovered.push(DiscoveredTest {
             adapter,
             location: draft.location.clone(),
-            content_hash: content_hash.clone(),
+            content_hash: construct_hash,
             managed: ManagedTestLink::One(draft.id.clone()),
         });
         tests.push(TestEntity {
@@ -411,7 +440,7 @@ fn materialize_tests(
             cases: draft.cases,
             related: draft.related,
             location: draft.location,
-            content_hash,
+            content_hash: subject_hash,
             execution: draft.execution,
         });
     }
@@ -1644,6 +1673,99 @@ fn adds() { assert_eq!(2, crate::missing()); }
             helper_a.content_hash, helper_b.content_hash,
             "two Source Targets with byte-identical construct bytes at different \
              canonical Locators must not collide (本冊:88, Issue #27)"
+        );
+    }
+
+    /// Locks in the `test_subject_hash` → `TestEntity.content_hash` wiring
+    /// in `materialize_tests`. §1.3 (本冊:87) makes the Test subject hash
+    /// bind canonical metadata (including `covers`) in addition to
+    /// construct bytes, and 別紙C:35 requires this specific consequence: a
+    /// metadata-only change must change `TestEntity.content_hash` even when
+    /// the Test construct bytes are byte-for-byte identical. Before this
+    /// wiring, `content_hash` was `ContentHash::from_text(&draft.
+    /// construct_text)` — construct bytes only — so a metadata-only change
+    /// would not have changed it.
+    ///
+    /// This drives `materialize_tests` directly with two hand-built
+    /// `TestDraft`s built from the exact same `construct_text` `String`
+    /// (cloned, never mutated between the two calls) and differing only in
+    /// `covers`, rather than going through `rust-cargo::discover` on a
+    /// `@vtest.covers` source edit: that adapter currently slices a Test
+    /// construct as the whole item span including its metadata doc comment
+    /// (`make_location` uses `item_fn.span()`, and `TestDraft.construct_text`
+    /// is that same slice) rather than excluding it as 本冊:99 requires
+    /// ("`rust-cargo` adapterはTest constructとしてmetadata doc commentを
+    /// 除き…関数itemのbytesを返す") — a pre-existing gap in the adapter,
+    /// unrelated to this wiring change, that would make a source-edit-based
+    /// version of this test change `construct_text` too and no longer
+    /// isolate a metadata-only change. Driving `materialize_tests` directly
+    /// sidesteps that gap and tests exactly the wiring this PR adds.
+    #[test]
+    fn materialize_tests_content_hash_changes_when_only_covers_metadata_changes() {
+        let construct_text = "fn adds() { assert_eq!(2, add(1, 1)); }".to_owned();
+        let location = SourceLocation {
+            adapter: AdapterId::new("rust-cargo"),
+            path: vtest_model::ProjectPath::new("tests/calc.rs"),
+            locator: "adds".to_owned(),
+            byte_range: vtest_model::SourceRange {
+                start: 0,
+                end: construct_text.len() as u64,
+            },
+        };
+        let execution = vtest_model::ExecutionDescriptor {
+            adapter: AdapterId::new("rust-cargo"),
+            project: Some("fixture".to_owned()),
+            suite: Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("calc".to_owned()),
+            }),
+            selector: "adds".to_owned(),
+        };
+        let draft_with_covers = |covers: Vec<vtest_model::VoId>| vtest_adapter_api::TestDraft {
+            id: vtest_model::TestId::new("TEST-ADD"),
+            covers,
+            targets: vec![TargetRef::Locator(vtest_model::Locator {
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/lib.rs::add".to_owned(),
+            })],
+            intent: "adds values".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: location.clone(),
+            construct_text: construct_text.clone(),
+            execution: execution.clone(),
+        };
+
+        let (before_tests, _, _) = materialize_tests(
+            vec![(
+                AdapterId::new("rust-cargo"),
+                draft_with_covers(vec![vtest_model::VoId::new("VO-ADD")]),
+            )],
+            Vec::new(),
+        );
+        let (after_tests, _, _) = materialize_tests(
+            vec![(
+                AdapterId::new("rust-cargo"),
+                draft_with_covers(vec![vtest_model::VoId::new("VO-ADD-2")]),
+            )],
+            Vec::new(),
+        );
+
+        assert_eq!(before_tests.len(), 1);
+        assert_eq!(after_tests.len(), 1);
+        assert_ne!(
+            before_tests[0].covers, after_tests[0].covers,
+            "the two drafts must actually declare different covers"
+        );
+
+        assert_ne!(
+            before_tests[0].content_hash, after_tests[0].content_hash,
+            "TestEntity.content_hash must change when only covers metadata \
+             changes, even though construct_text is byte-for-byte identical \
+             (別紙C:35)"
         );
     }
 

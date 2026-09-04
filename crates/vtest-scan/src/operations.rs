@@ -1,14 +1,16 @@
 use std::{
     collections::BTreeMap,
     fs,
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
 };
 
 use serde::Serialize;
 use syn::spanned::Spanned;
+use vtest_adapter_api::AdapterScanConfig;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
+    test_subject_hash, CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity,
+    TestRecord, TestResult,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -241,7 +243,19 @@ pub fn edit_test(
             format!("Test `{test_id}` source range is stale"),
         )
     })?;
-    if ContentHash::from_text(current_slice) != current.content_hash {
+    // `current.content_hash` is the Test subject hash (§1.3, 本冊:87), not a
+    // construct-only hash — it also binds canonical metadata, Source
+    // Location (excluding byte_range), and ExecutionDescriptor, so it cannot
+    // be compared against `ContentHash::from_text(current_slice)` (which
+    // would only ever re-hash construct bytes). Comparing those two would
+    // compare values from different hash domains and always disagree.
+    // Instead, re-parse only the target file (別紙A §15.1「編集直前に対象
+    // ファイルのみ再パースし、Test ID の位置を再確認する」) through the
+    // owning adapter and recompute the same Test subject hash, so both sides
+    // of the comparison are the same kind of value.
+    if rescan_current_test_subject_hash(root, &current.location, test_id)?.as_ref()
+        != Some(&current.content_hash)
+    {
         return Err(Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` changed before edit could be applied"),
@@ -292,6 +306,75 @@ pub fn edit_test(
         rollback(&path, &original, diagnostic)?;
     }
     Ok(result)
+}
+
+/// `edit_test`'s optimistic-concurrency check (別紙A §15.1「スキャン結果が
+/// 古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の
+/// 位置を再確認する」): re-runs discovery scoped to `location.path` only
+/// (via `AdapterScanConfig::include_paths`, not a full project scan), finds
+/// the draft that still declares `test_id`, and recomputes its Test subject
+/// hash (§1.3, 本冊:87) the same way `vtest_scan::materialize_tests` does —
+/// so the result is directly comparable to a `TestEntity.content_hash` from
+/// the original scan.
+///
+/// Returns `Ok(None)` when the file no longer yields a draft for `test_id`
+/// (the construct was deleted, its `@vtest.id` changed, or it lost required
+/// metadata and became `Missing`) — the caller treats that the same as a
+/// hash mismatch: something changed since the scan this edit is based on.
+fn rescan_current_test_subject_hash(
+    root: &Path,
+    location: &SourceLocation,
+    test_id: &str,
+) -> Result<Option<ContentHash>, Diagnostic> {
+    let config =
+        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let registry = crate::adapter_registry();
+    // Defensive only: `current` (the caller's already-scanned entity) came
+    // from a `scan_project` that already resolved `location.adapter` against
+    // this same registry (fail-closed E-ADAPTER-001 otherwise, per
+    // `ScanError::Adapter`), so this branch should be unreachable in
+    // practice. Kept fail-closed with the matching code rather than a panic
+    // or silent fallback.
+    let Some(adapter) = registry.get(location.adapter.as_str()) else {
+        return Err(Diagnostic::error(
+            "E-ADAPTER-001",
+            format!(
+                "Test `{test_id}` adapter `{}` is not registered",
+                location.adapter.as_str()
+            ),
+        ));
+    };
+    let scan_config = AdapterScanConfig {
+        include_paths: vec![PathBuf::from(location.path.as_str())],
+    };
+    let outcome = adapter
+        .discover(root, &config.project.name, &scan_config)
+        .map_err(|error| Diagnostic::error("E-ADAPTER-002", error.to_string()))?;
+    let Some(draft) = outcome
+        .tests
+        .into_iter()
+        .find(|draft| draft.id.as_str() == test_id)
+    else {
+        return Ok(None);
+    };
+    let metadata = TestRecord {
+        id: draft.id.clone(),
+        covers: draft.covers.clone(),
+        targets: draft.targets.clone(),
+        intent: draft.intent.clone(),
+        input: draft.input.clone(),
+        expect: draft.expect.clone(),
+        kind: draft.kind.clone(),
+        cases: draft.cases.clone(),
+        related: draft.related.clone(),
+    };
+    Ok(Some(test_subject_hash(
+        &location.adapter,
+        &metadata,
+        &draft.location,
+        &draft.execution,
+        &draft.construct_text,
+    )))
 }
 
 #[derive(Clone, Debug)]
