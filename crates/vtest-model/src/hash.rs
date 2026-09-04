@@ -163,14 +163,16 @@ pub enum FieldValue {
     /// May be empty.
     Ordered(Vec<Vec<u8>>),
     /// An element sequence treated as a set (e.g. `covers` / `targets` /
-    /// `related`). The builder sorts the elements ascending by byte value
-    /// before encoding, so the input order never affects the hash (本冊:85
-    /// "集合として扱う`covers`・`targets`・`related`は正規化値の昇順").
-    /// Each element must already be its subject-specific normalized-value
-    /// representation; this type only fixes the *order*, not the value
-    /// normalization itself. Duplicates are preserved as given — rejecting
-    /// duplicate entries is a record/scan-layer concern, not this encoder's.
-    /// May be empty.
+    /// `related`). "集合として扱う" (本冊:85) means duplicate elements do not
+    /// change the value being encoded — a set containing `X` twice is the
+    /// same set as one containing `X` once — so the builder deduplicates the
+    /// elements before encoding, in addition to sorting them ascending by
+    /// byte value so the input order never affects the hash (本冊:85 "集合と
+    /// して扱う`covers`・`targets`・`related`は正規化値の昇順"). Each element
+    /// must already be its subject-specific normalized-value representation;
+    /// deduplication and ordering here are purely structural (byte-equality
+    /// on that representation), not a second normalization pass. May be
+    /// empty.
     Set(Vec<Vec<u8>>),
     /// A key-sorted map (本冊:85 "mapはkey昇順"). Keys are ordered by
     /// `BTreeMap`'s `Ord for String`, which orders equivalently to raw UTF-8
@@ -266,11 +268,14 @@ fn encode_field_into(buf: &mut Vec<u8>, name: &str, value: FieldValue) {
                 push_len_prefixed(buf, &item);
             }
         }
-        FieldValue::Set(mut items) => {
-            items.sort();
+        FieldValue::Set(items) => {
+            // BTreeSet both deduplicates and sorts ascending by byte value
+            // in one step — Vec<u8>'s Ord is lexicographic byte order, which
+            // is what 本冊:85's "正規化値の昇順" requires.
+            let deduped: std::collections::BTreeSet<Vec<u8>> = items.into_iter().collect();
             buf.push(field_tag::SET);
-            push_count(buf, items.len());
-            for item in items {
+            push_count(buf, deduped.len());
+            for item in deduped {
                 push_len_prefixed(buf, &item);
             }
         }
@@ -494,6 +499,32 @@ mod tests {
             .field("covers", FieldValue::Set(shuffled))
             .finish();
         assert_eq!(hash_forward, hash_shuffled);
+    }
+
+    /// @vtest.id TEST-MODEL-CANONICAL-HASH-SET-FIELD-DEDUPLICATES
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.intent verifies a set-typed field with a repeated element hashes the same as the deduplicated set (本冊:85 "集合として扱うcovers・targets・related" — a set containing an element twice is the same set as containing it once)
+    #[test]
+    fn canonical_hash_set_field_deduplicates_repeated_elements() {
+        let with_duplicate = vec![b"VO-A".to_vec(), b"VO-B".to_vec(), b"VO-B".to_vec()];
+        let deduplicated = vec![b"VO-A".to_vec(), b"VO-B".to_vec()];
+
+        let hash_with_duplicate = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("covers", FieldValue::Set(with_duplicate))
+            .finish();
+        let hash_deduplicated = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("covers", FieldValue::Set(deduplicated))
+            .finish();
+        assert_eq!(hash_with_duplicate, hash_deduplicated);
+
+        // And it must not collapse to the same hash as a genuinely smaller
+        // set — dedup must land on {VO-A, VO-B}, not swallow VO-B entirely.
+        let smaller = vec![b"VO-A".to_vec()];
+        let hash_smaller = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("covers", FieldValue::Set(smaller))
+            .finish();
+        assert_ne!(hash_deduplicated, hash_smaller);
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-ORDERED-FIELD-ORDER-DEPENDENT
