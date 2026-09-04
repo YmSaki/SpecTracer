@@ -23,8 +23,8 @@ use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
     source_target_subject_hash, AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest,
-    DocumentRecord, ManagedTestLink, ProjectPath, ScanSummary, SourceFunction, SourceLocation,
-    SourceRange, TargetRef, TestEntity, VoRecord,
+    DocumentRecord, ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef,
+    TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -837,7 +837,7 @@ fn validate_document_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<DocumentRecord> {
     let path = layout.doc_dir().join(format!("{id}.yaml"));
-    let location = record_location(&layout.root, &path, id);
+    let record_path = record_relative_path(&layout.root, &path);
     let (record, record_diagnostics) = match read_document(layout, id) {
         Ok(result) => result,
         Err(error) => {
@@ -845,22 +845,20 @@ fn validate_document_record(
             // failure `read_document` reports (invalid YAML, a missing
             // required field, id/file-name mismatch, or a raw I/O failure) is
             // schema non-conformance for scan's purposes.
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("document {id} has an invalid record: {error}"),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("document {id} has an invalid record: {error} ({record_path})"),
+            ));
             return None;
         }
     };
+    let context = format!("document {id} ({record_path})");
     diagnostics.extend(
         record_diagnostics
             .into_iter()
-            .map(|diagnostic| diagnostic.with_location(location.clone())),
+            .map(|diagnostic| annotate_record_diagnostic(diagnostic, &context)),
     );
-    if let Some(diagnostic) = document_staleness_diagnostic(&layout.root, &record, &location) {
+    if let Some(diagnostic) = document_staleness_diagnostic(&layout.root, &record) {
         diagnostics.push(diagnostic);
     }
     Some(record)
@@ -875,39 +873,29 @@ fn validate_document_record(
 /// same as a mismatch: there is no way to confirm the record is still
 /// current, so this stays fail-closed rather than silently passing when the
 /// file is simply gone.
-fn document_staleness_diagnostic(
-    root: &Path,
-    record: &DocumentRecord,
-    location: &SourceLocation,
-) -> Option<Diagnostic> {
+fn document_staleness_diagnostic(root: &Path, record: &DocumentRecord) -> Option<Diagnostic> {
     let current = match fs::read_to_string(root.join(&record.path)) {
         Ok(text) => ContentHash::from_text(&text),
         Err(error) => {
-            return Some(
-                Diagnostic::warning(
-                    "W-SCAN-104",
-                    format!(
-                        "document {} content_hash cannot be verified: {} is unreadable ({error})",
-                        record.id, record.path
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            return Some(Diagnostic::warning(
+                "W-SCAN-104",
+                format!(
+                    "document {} content_hash cannot be verified: {} is unreadable ({error})",
+                    record.id, record.path
+                ),
+            ));
         }
     };
     if current == record.content_hash {
         return None;
     }
-    Some(
-        Diagnostic::warning(
-            "W-SCAN-104",
-            format!(
-                "document {} content_hash does not match {}",
-                record.id, record.path
-            ),
-        )
-        .with_location(location.clone()),
-    )
+    Some(Diagnostic::warning(
+        "W-SCAN-104",
+        format!(
+            "document {} content_hash does not match {}",
+            record.id, record.path
+        ),
+    ))
 }
 
 /// chain_integrity（文書層）と orphan_detection（別紙C §18.3.1 L76-95・§18.3.2
@@ -933,37 +921,28 @@ fn validate_document_graph(
         .collect::<BTreeSet<_>>();
 
     for (id, record) in docs {
-        let location = record_location(
-            &layout.root,
-            &layout.doc_dir().join(format!("{id}.yaml")),
-            id,
-        );
+        let record_path =
+            record_relative_path(&layout.root, &layout.doc_dir().join(format!("{id}.yaml")));
         for entry in &record.derives_from {
             let target = entry.doc.as_str();
             if !docs.contains_key(target) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-012",
-                        format!("document {id} derives_from missing document {target}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-012",
+                    format!("document {id} derives_from missing document {target} ({record_path})"),
+                ));
             }
         }
         if record.derives_from.is_empty()
             && !referenced.contains(id.as_str())
             && !doc_roots.contains(id.as_str())
         {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-016",
-                    format!(
-                        "document {id} is orphaned: empty derives_from, not referenced by \
-                         another document, and not listed in config.yaml's doc.roots"
-                    ),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-016",
+                format!(
+                    "document {id} is orphaned: empty derives_from, not referenced by \
+                     another document, and not listed in config.yaml's doc.roots ({record_path})"
+                ),
+            ));
         }
     }
 }
@@ -981,21 +960,15 @@ fn validate_vo_document_references(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for (id, record) in vos {
-        let location = record_location(
-            &layout.root,
-            &layout.vo_dir().join(format!("{id}.yaml")),
-            id,
-        );
+        let record_path =
+            record_relative_path(&layout.root, &layout.vo_dir().join(format!("{id}.yaml")));
         for entry in &record.derives_from {
             let target = entry.doc.as_str();
             if !docs.contains_key(target) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-012",
-                        format!("VO {id} derives_from missing document {target}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-012",
+                    format!("VO {id} derives_from missing document {target} ({record_path})"),
+                ));
             }
         }
     }
@@ -1023,7 +996,7 @@ fn validate_vo_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<VoRecord> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
-    let location = record_location(&layout.root, &path, id);
+    let record_path = record_relative_path(&layout.root, &path);
     let (record, record_diagnostics) = match read_vo_record(layout, id) {
         Ok(result) => result,
         Err(error) => {
@@ -1036,25 +1009,24 @@ fn validate_vo_record(
             // the same `StoreError`; the predecessor code already folded
             // that into E-SCAN-010 too, so this keeps that precedent rather
             // than inventing a new code.
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("VO {id} has an invalid record: {error}"),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("VO {id} has an invalid record: {error} ({record_path})"),
+            ));
             return None;
         }
     };
+    let context = format!("VO {id} ({record_path})");
     diagnostics.extend(
         record_diagnostics
             .into_iter()
-            .map(|diagnostic| diagnostic.with_location(location.clone())),
+            .map(|diagnostic| annotate_record_diagnostic(diagnostic, &context)),
     );
     if let Some(message) = invalid_vo_combinations(&record) {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-017", format!("VO {id} {message}")).with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-017",
+            format!("VO {id} {message} ({record_path})"),
+        ));
     }
     Some(record)
 }
@@ -1154,51 +1126,45 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
     (!missing.is_empty()).then(|| missing.join(", "))
 }
 
-/// document/VO/relation の record 層診断（`.verify/*.yaml`）に対する
-/// location を組み立てる。
+/// document/VO/relation/approval の record 層診断（`.verify/*.yaml`）が
+/// 対象ファイルを特定できるよう、リポジトリ相対パスの文字列を組み立てる。
 ///
-/// **重要（`SourceLocation` reshape で表面化した不一致、上流未報告）**:
+/// **経緯（`SourceLocation` reshape で表面化した不一致、上流未報告）**:
 /// 本冊:637-642 が定める `SourceLocation` は `adapter: AdapterId` を必須
 /// field とする — adapter が discovery した source construct（Test / Source
 /// Target）の location を表すための型である（本冊 §5.2）。この関数が
-/// location を組み立てる対象（document / VO / relation の canonical YAML
-/// レコード）は、どの `SourceDiscoveryAdapter` にも属さない — `vtest-store`
-/// が読む record ファイルであって、adapter が発見した source construct
-/// ではない。
+/// パスを組み立てる対象（document / VO / relation / approval の canonical
+/// YAML レコード）は、どの `SourceDiscoveryAdapter` にも属さない —
+/// `vtest-store` が読む record ファイルであって、adapter が発見した source
+/// construct ではない。
 ///
-/// `Diagnostic`（`location: Option<Box<SourceLocation>>`）自体は仕様の
-/// どこにも struct 定義が無く、この crate 独自の型であり、record 層診断の
-/// 場所情報を運ぶために便宜上 `SourceLocation` を再利用してきたのはこの
-/// crateの過去の実装判断であって、今回の reshape 対象（`SourceLocation`
-/// 自体の型）ではない。しかし reshape の結果、この呼び出し元に対応する
-/// `AdapterId` が存在しないという不整合が表面化した。暫定として sentinel
-/// `AdapterId::new("vtest-store")` を置く（record-layer診断は vtest-store
-/// が読むレコードファイルに属し、どの登録 adapter にも属さないことを
-/// 示す）。この sentinel は診断表示以外の用途に使われない — registry
-/// 解決や adapter 突合には使われない。CLAUDE.local.md の開示規律に従い、
-/// PR report で上流へ報告する。
-fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
-    // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
-    // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
-    // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
-    // 診断（E-SCAN-008/009/010 等）に付く `SourceLocation.byte_range.end`
-    // が実ファイルの実測値ではなく `0` へ退化し、read 失敗そのものは診断
-    // として一切報告されない。`SourceLocation` reshape で `end_line`
-    // （旧 field）は削除した — 新形状に行番号フィールドが無いため。
-    let text = fs::read_to_string(path).unwrap_or_default();
-    SourceLocation {
-        adapter: AdapterId::new("vtest-store"),
-        path: ProjectPath::new(
-            path.strip_prefix(root)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .replace('\\', "/"),
-        ),
-        locator: entity.to_owned(),
-        byte_range: SourceRange {
-            start: 0,
-            end: text.len() as u64,
-        },
+/// reshape 直後の実装は、型を満たすために実在しない adapter id
+/// （`AdapterId::new("vtest-store")`）を捏造して `SourceLocation` を組み
+/// 立てていた。Owner は同種の実装（解決不能な対象に架空の locator を入れる
+/// こと）を明示的に否定しているため、これを取りやめた。record 層の診断は
+/// そもそも adapter 起源ではないので `SourceLocation` を持たない
+/// （`Diagnostic.location` は `None` のまま）。失われる情報（対象ファイルの
+/// パス）は、この関数が返す文字列を呼び出し元がメッセージ本文へ埋め込むこと
+/// で補う。
+fn record_relative_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// `vtest-store` の record reader（`read_document` / `read_vo_record` /
+/// `RelationRecord::from_yaml` 等）が返す diagnostics（W-STORE-007 等）は、
+/// どの document/VO/relation/approval レコードから来たかを知らずに生成
+/// される — メッセージ本文に id もパスも含まない（`vtest-store` 側は
+/// `VerifyLayout`/ファイルパスの文脈を持たない）。呼び出し元（この crate）
+/// は id とパスを知っているので、`record_relative_path` で失われた
+/// `SourceLocation` の代わりに、対象を識別できる文脈をメッセージ先頭へ
+/// 前置する。
+fn annotate_record_diagnostic(diagnostic: Diagnostic, context: &str) -> Diagnostic {
+    Diagnostic {
+        message: format!("{context}: {}", diagnostic.message),
+        ..diagnostic
     }
 }
 
@@ -1212,17 +1178,11 @@ fn validate_parent_graph(
     for (id, parent) in parents {
         if let Some(parent) = parent {
             if !parents.contains_key(parent) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-008",
-                        format!("{kind} {id} references missing parent {parent}"),
-                    )
-                    .with_location(record_location(
-                        root,
-                        &directory.join(format!("{id}.yaml")),
-                        id,
-                    )),
-                );
+                let record_path = record_relative_path(root, &directory.join(format!("{id}.yaml")));
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-008",
+                    format!("{kind} {id} references missing parent {parent} ({record_path})"),
+                ));
             }
         }
     }
@@ -1239,17 +1199,15 @@ fn validate_parent_graph(
                 key_parts.sort();
                 let key = key_parts.join("|");
                 if reported.insert(key) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-008",
-                            format!("{kind} parent cycle: {}", cycle.join(" -> ")),
-                        )
-                        .with_location(record_location(
-                            root,
-                            &directory.join(format!("{current}.yaml")),
-                            &current,
-                        )),
-                    );
+                    let record_path =
+                        record_relative_path(root, &directory.join(format!("{current}.yaml")));
+                    diagnostics.push(Diagnostic::error(
+                        "E-SCAN-008",
+                        format!(
+                            "{kind} parent cycle: {} ({record_path})",
+                            cycle.join(" -> ")
+                        ),
+                    ));
                 }
                 break;
             }
@@ -1316,57 +1274,57 @@ fn validate_relations(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
-        let location = record_location(&layout.root, &path, &file_id);
+        let record_path = record_relative_path(&layout.root, &path);
         if let Some(payload) = relation_ulid_payload(&file_id) {
             if let Some(first) = relation_payloads.insert(payload.to_owned(), file_id.clone()) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!(
-                            "relation IDs {first} and {file_id} use the same ULID payload {payload}"
-                        ),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!(
+                        "relation IDs {first} and {file_id} use the same ULID payload {payload} \
+                         ({record_path})"
+                    ),
+                ));
                 continue;
             }
         }
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("relation {file_id} cannot be read: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation {file_id} cannot be read: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         let (relation, relation_diagnostics) = match RelationRecord::from_yaml(&text, &file_id) {
             Ok(parsed) => parsed,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("relation {file_id} has an invalid schema: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation {file_id} has an invalid schema: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
+        // NOTE (未報告の既存ギャップ、本 PR の対象外): `relation_diagnostics`
+        // （`RelationRecord::from_yaml` が返す W-STORE-007 等）はこの reshape
+        // 以前から location もメッセージ内の id/path も持たない —
+        // `vtest-store::unknown_field_diagnostics` のメッセージ自体に
+        // relation の識別情報が無いため。document/VO と揃えて
+        // `annotate_record_diagnostic` を通すべきだが、これは今回の sentinel
+        // 修正が生んだ欠陥ではなく独立の既存ギャップなので、ここでは直さず
+        // 報告のみに留める。
         diagnostics.extend(relation_diagnostics);
         for (field, value) in [("from", relation.from), ("to", relation.to)] {
             if !known_ids.contains(&value) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-009",
-                        format!("relation {file_id} {field} references missing entity {value}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-009",
+                    format!(
+                        "relation {file_id} {field} references missing entity {value} \
+                         ({record_path})"
+                    ),
+                ));
             }
         }
     }
@@ -1389,17 +1347,12 @@ fn validate_vo_warnings(
         .collect::<BTreeSet<_>>();
     for id in vos.keys() {
         if !child_ids.contains(id) && !covered_ids.contains(id) {
-            diagnostics.push(
-                Diagnostic::warning(
-                    "W-SCAN-102",
-                    format!("VO {id} is isolated and has no covering test"),
-                )
-                .with_location(record_location(
-                    &layout.root,
-                    &layout.vo_dir().join(format!("{id}.yaml")),
-                    id,
-                )),
-            );
+            let record_path =
+                record_relative_path(&layout.root, &layout.vo_dir().join(format!("{id}.yaml")));
+            diagnostics.push(Diagnostic::warning(
+                "W-SCAN-102",
+                format!("VO {id} is isolated and has no covering test ({record_path})"),
+            ));
         }
     }
     for test in tests {
@@ -1474,67 +1427,52 @@ fn validate_approval_status(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
-        let location = record_location(&layout.root, &path, &file_id);
+        let record_path = record_relative_path(&layout.root, &path);
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("approval {file_id} cannot be read: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} cannot be read: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         let mut invalid = false;
         if !is_valid_ulid(&file_id) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval file name {file_id} is not a valid ULID"),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval file name {file_id} is not a valid ULID ({record_path})"),
+            ));
             invalid = true;
         }
         if let Some(missing) =
             missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
         {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} is missing required fields: {missing}"),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval {file_id} is missing required fields: {missing} ({record_path})"),
+            ));
             invalid = true;
         }
         let approval = match read_approval(&path) {
             Ok(approval) => approval,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("approval {file_id} has an invalid schema: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} has an invalid schema: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         if approval.id != file_id {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!(
-                        "approval file name {file_id} does not match record id {}",
-                        approval.id
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!(
+                    "approval file name {file_id} does not match record id {} ({record_path})",
+                    approval.id
+                ),
+            ));
             invalid = true;
         }
         if invalid {
@@ -1542,13 +1480,10 @@ fn validate_approval_status(
         }
         let subject = approval.subject.as_str();
         if !current_hashes.contains_key(subject) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} references missing VO {subject}"),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval {file_id} references missing VO {subject} ({record_path})"),
+            ));
         }
     }
     Ok(())
@@ -3206,7 +3141,18 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(duplicates.len(), 1, "diagnostics: {:?}", result.diagnostics);
-        assert!(duplicates[0].location.is_some());
+        // record 層診断（document/VO/relation/approval）はどの adapter にも
+        // 属さないため `SourceLocation` を持たない（修正1、CLAUDE.local.md
+        // 「実在しない adapter id を捏造しない」原則）— `location` は
+        // `None` のままで、対象識別性はメッセージ本文（両方の relation id と
+        // レコードファイルの相対パス）で維持する。
+        assert!(duplicates[0].location.is_none());
+        assert!(
+            duplicates[0].message.contains(".verify/rel/")
+                && duplicates[0].message.contains(".yaml"),
+            "message should identify the record file: {}",
+            duplicates[0].message
+        );
     }
 
     #[test]
@@ -3320,12 +3266,22 @@ fn covers_parent() {}
             "diagnostics: {:?}",
             result.diagnostics
         );
+        // record 層診断（document/VO/relation/approval、E-SCAN-008/009/010,
+        // W-SCAN-102, W-STORE-001 等）はどの adapter にも属さないため
+        // `SourceLocation` を持たない（修正1、CLAUDE.local.md「実在しない
+        // adapter id を捏造しない」原則）。以前はここで全診断に
+        // `location.is_some()` を求めていたが、それは reshape 直後の実装が
+        // 架空の adapter id で `SourceLocation` を捏造していたことへの
+        // 誤った断言だった。対象識別性は維持されるべき性質なので、
+        // location か、メッセージへ埋め込まれた record ファイルパス
+        // （`.yaml`）のどちらかを持つことを断言する。
         assert!(
-            result
-                .diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.location.is_some()),
-            "every scanner diagnostic must identify its canonical source: {:?}",
+            result.diagnostics.iter().all(|diagnostic| {
+                diagnostic.location.is_some() || diagnostic.message.contains(".yaml")
+            }),
+            "every scanner diagnostic must identify its canonical source, either via \
+             `location` (adapter-discovered constructs) or an embedded record-file \
+             path in the message (record-layer diagnostics): {:?}",
             result.diagnostics
         );
     }
