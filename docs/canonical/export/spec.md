@@ -1384,15 +1384,15 @@ Testとして成立しているかの検査（§8）と、仕様適合性の証�
 
 ### SPEC-313
 
-検証成立性の条件として、Testは検証対象の振る舞いを反映した結果・状態・観測に基づいて適合と不適合を識別しなければならない。
+Testは検証対象の振る舞いを反映した結果・状態・観測に基づいて適合と不適合を識別しなければならない（検証成立性）。
 
 ### SPEC-314
 
-検証成立性の条件として、不適合がTestの非成功として反映されるものでなければならない。
+不適合がTestの非成功として反映されるものでなければならない（検証成立性）。
 
 ### SPEC-315
 
-依存要素の信頼性の条件として、Testの成否判定が他の構成要素の判定能力に依存する場合、その依存要素の正当性が確認されるか検証基盤として明示的に信頼されていなければ、当該Testの検証成立性を確認済みとして扱ってはならない。
+Testの成否判定が他の構成要素の判定能力に依存する場合、その依存要素の正当性が確認されるか検証基盤として明示的に信頼されていなければ、当該Testの検証成立性を確認済みとして扱ってはならない（依存要素の信頼性）。
 
 ### SPEC-316
 
@@ -1404,7 +1404,7 @@ Testとして成立しているかの検査（§8）と、仕様適合性の証�
 
 ### SPEC-318
 
-証明方法への非依存の条件として、成立条件の確認方法は検証対象・実行形態・観測方法に応じて異なってよい。
+成立条件の確認方法は検証対象・実行形態・観測方法に応じて異なってよい（証明方法への非依存）。
 
 ### SPEC-319
 
@@ -1416,7 +1416,7 @@ Testとして成立しているかの検査（§8）と、仕様適合性の証�
 
 ### SPEC-321
 
-未確認と違反の区別の条件として、成立条件を確認できないことと、成立条件に違反していることを区別する。
+成立条件を確認できないことと、成立条件に違反していることを区別する（未確認と違反の区別）。
 
 ### SPEC-322
 
@@ -2469,327 +2469,331 @@ Evidenceには `target_binding`（§5.3）のtarget別結果とfail-closed集約
 
 ### SPEC-553
 
-Evidenceの記録時のTest subject内容ハッシュが現在と一致する。
+Evidenceは、記録時のTest subject内容ハッシュの一致、target参照集合の一致、各target内容ハッシュの一致、adapter IDの一致、HEAD revisionの一致、およびExecution State subjectの一致をすべて満たす場合のみ有効とする。
 
 *引用: 要件定義 §6*
 
 ### SPEC-554
 
-Evidenceのtarget参照集合が、現在のTestの宣言targetを解決したcanonical Source Target集合と重複なく一致する。
+Evidenceの記録時のTest subject内容ハッシュが現在と一致する。
 
 ### SPEC-555
 
-Evidenceの記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する。
+Evidenceのtarget参照集合が、現在のTestの宣言targetを解決したcanonical Source Target集合と重複なく一致する。
 
 ### SPEC-556
 
-Evidenceのadapter IDが現在のTestのexecution adapterと一致する。
+Evidenceの記録時の各target内容ハッシュが、現在解決される各implementation constructの内容ハッシュと一致する。
 
 ### SPEC-557
 
-Evidenceの記録時のHEAD revisionが特定され、現在のHEAD revisionと一致する。
+Evidenceのadapter IDが現在のTestのexecution adapterと一致する。
 
 ### SPEC-558
 
-Execution State subjectが完全であり、現在再構築したExecution State subjectと一致する（dirty状態のsource、target外helper、build script、local dependency、runner / toolchain / 実行影響configの変更を含む）。
+Evidenceの記録時のHEAD revisionが特定され、現在のHEAD revisionと一致する。
 
 ### SPEC-559
 
-内容ハッシュ・Execution State subject・revision条件を満たさないEvidenceは `NO_EVIDENCE`（診断STALE）とする。
+Execution State subjectが完全であり、現在再構築したExecution State subjectと一致する（dirty状態のsource、target外helper、build script、local dependency、runner / toolchain / 実行影響configの変更を含む）。
 
 ### SPEC-560
 
-内容ハッシュ・Execution State subject・revision条件を満たさないEvidenceは有効な `PASS` として扱わない。
+内容ハッシュ・Execution State subject・revision条件を満たさないEvidenceは `NO_EVIDENCE`（診断STALE）とする。
 
 ### SPEC-561
 
-adapterが実行入力集合の完全性を証明できない場合は `UNKNOWN` とする。
+内容ハッシュ・Execution State subject・revision条件を満たさないEvidenceは有効な `PASS` として扱わない。
 
 ### SPEC-562
 
-部分的snapshotから現在実装への `PASS` を推測しない。
+adapterが実行入力集合の完全性を証明できない場合は `UNKNOWN` とする。
 
 ### SPEC-563
 
-Evidenceが存在しても鮮度が満たされないなら、そのEvidenceから実行関連の判定を `PASS`/`FAIL` として再利用しない。
+部分的snapshotから現在実装への `PASS` を推測しない。
 
 ### SPEC-564
 
-Evidenceが存在しても鮮度が満たされないなら、同じ鮮度・対応関係の非 `PASS` 値を保持する。
+Evidenceが存在しても鮮度が満たされないなら、そのEvidenceから実行関連の判定を `PASS`/`FAIL` として再利用しない。
 
 ### SPEC-565
 
-Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXECUTED）とする。
+Evidenceが存在しても鮮度が満たされないなら、同じ鮮度・対応関係の非 `PASS` 値を保持する。
 
 ### SPEC-566
 
-Evidence readerはadapter IDを欠く互換recordも履歴として読み取れる。
+Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXECUTED）とする。
 
 ### SPEC-567
 
-Evidence readerは、現在のTestが `rust-cargo` で互換runner情報と内容ハッシュからRust実行と一意に確認できる場合に限り評価する。
+Evidence readerはadapter IDを欠く互換recordも履歴として読み取れる。
 
 ### SPEC-568
 
-Evidence readerは、Rust実行と一意に確認できない場合は `UNKNOWN` とする。
+Evidence readerは、現在のTestが `rust-cargo` で互換runner情報と内容ハッシュからRust実行と一意に確認できる場合に限り評価する。
 
 ### SPEC-569
 
-完全検証におけるOKは、宣言鎖全体に対する検査（`chain_integrity` / `orphan_detection`）と、scopeに含まれる各「宣言＋コード＋証拠」の組に対する検査（`target_binding` / `oracle_presence`）がすべて `PASS` であり、テストランナーの結果を含む証拠が§6を満たす場合に限る。
+Evidence readerは、Rust実行と一意に確認できない場合は `UNKNOWN` とする。
 
 ### SPEC-570
+
+完全検証におけるOKは、宣言鎖全体に対する検査（`chain_integrity` / `orphan_detection`）と、scopeに含まれる各「宣言＋コード＋証拠」の組に対する検査（`target_binding` / `oracle_presence`）がすべて `PASS` であり、テストランナーの結果を含む証拠が§6を満たす場合に限る。
+
+### SPEC-571
 
 一項目でも `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` であればNGとする（fail-closed）。
 
 *引用: 要件定義 §26.1、P-002*
 
-### SPEC-571
+### SPEC-572
 
 利用者向け簡易出力は `OK` / `NG` の二値とする。
 
-### SPEC-572
+### SPEC-573
 
 完全検証の検査集合はこの4検査に固定する。
 
-### SPEC-573
+### SPEC-574
 
 完全検証の検査集合は設定によって追加・削除できない。
 
-### SPEC-574
+### SPEC-575
 
 検査の部分集合を指定した実行は限定scopeである。
 
-### SPEC-575
+### SPEC-576
 
 検査の部分集合を指定した実行は完全検証として表示・集約しない（§4.6）。
 
-### SPEC-576
+### SPEC-577
 
 Test単位の結果をVO・Feature・document単位へ集約可能とする。
 
-### SPEC-577
+### SPEC-578
 
 集約はfail-closedを基本とする。
 
-### SPEC-578
+### SPEC-579
 
 子に1つでも非 `PASS` があれば親は非 `PASS` とする。
 
 *引用: 要件定義 §26.3*
 
-### SPEC-579
+### SPEC-580
 
 集約時に複数の非 `PASS` 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とする。
 
-### SPEC-580
+### SPEC-581
 
 診断ラベルは代表値の順位に用いず、原因説明として併記する。
 
-### SPEC-581
+### SPEC-582
 
 詳細出力では子の個別値をすべて確認できる。
 
-### SPEC-582
+### SPEC-583
 
 NGの場合、どのエンティティの・どの検査が・どの状態で・どの診断ラベルとともに落ちたかを掘り下げ可能とする。
 
 *引用: 要件定義 §26.2、NFR-006*
 
-### SPEC-583
+### SPEC-584
 
 簡易出力は総合OK / NGとする。
 
-### SPEC-584
+### SPEC-585
 
 詳細出力は、任意ノードからの局所／経路／全体トレース（§19）に沿ったツリー表示とする。
 
-### SPEC-585
+### SPEC-586
 
 詳細出力では非 `PASS` の根拠（判断記録・Evidenceへの参照）を辿れる。
 
-### SPEC-586
+### SPEC-587
 
 `covers` を持つTestはVOの子として表示する。
 
-### SPEC-587
+### SPEC-588
 
 管理下にある事実と、いずれのVOへも寄与しない事実の双方を出力から確認できる状態にする。
 
-### SPEC-588
+### SPEC-589
 
 人間向けテキストと機械可読JSONの両方を出力できる。
 
 *引用: 要件定義 NFR-007 / NFR-008*
 
-### SPEC-589
+### SPEC-590
 
 adapter能力の欠落・失敗を `PASS` へ補完しない。
 
-### SPEC-590
+### SPEC-591
 
 static解析またはcoverage能力がなければ該当項目は `NO_EVIDENCE`（診断NOT_CHECKED）とする。
 
-### SPEC-591
+### SPEC-592
 
 runner能力がなければ実行関連は `NO_EVIDENCE`（診断NOT_EXECUTED）とする。
 
-### SPEC-592
+### SPEC-593
 
 解析限界は `UNKNOWN` とする。
 
-### SPEC-593
+### SPEC-594
 
 create / edit / audit / run等の明示的操作に必須の能力がなければ操作を失敗させる。
 
-### SPEC-594
+### SPEC-595
 
 create / edit / audit / run等の明示的操作に必須の能力がなければファイル・判断記録・Evidenceを生成しない。
 
 *引用: 要件定義 §21*
 
-### SPEC-595
+### SPEC-596
 
 `vtest scan` はregistryに登録された全source discovery adapterへ委譲する。
 
-### SPEC-596
+### SPEC-597
 
 `vtest scan` は統合したdiscovery結果と `.verify/` からエンティティと関係の全体グラフを再構築する。
 
-### SPEC-597
+### SPEC-598
 
 `vtest scan` はその過程で `chain_integrity` / `orphan_detection` を構成する整合性検査を行う。
 
 *引用: 要件定義 §13、§23*
 
-### SPEC-598
+### SPEC-599
 
 Test IDの重複（identity collision）は `MISMATCH` とする。
 
-### SPEC-599
+### SPEC-600
 
 `covers` が存在しないVOを参照する場合（dangling reference）は `MISMATCH` とする。
 
-### SPEC-600
+### SPEC-601
 
 Test IDを宣言するが `covers` をどのVOも参照しないTest（orphan test）は `MISMATCH` とする。
 
-### SPEC-601
+### SPEC-602
 
 すべての管理対象Testに `covers ≥ 1` を一律要求する（§12）。
 
-### SPEC-602
+### SPEC-603
 
 VOのparentが存在しない、または循環している場合は `MISMATCH` とする。
 
-### SPEC-603
+### SPEC-604
 
 VOの `derives_from`（document参照）が存在しないdocumentを参照する場合は `MISMATCH` とする。
 
-### SPEC-604
+### SPEC-605
 
 documentのderives_fromが存在しないdocumentを参照する場合（文書鎖のリンク切れ）は `MISMATCH` とする。
 
-### SPEC-605
+### SPEC-606
 
 根に指定されない孤児document（`orphan_detection`）は `MISMATCH` とする。
 
-### SPEC-606
+### SPEC-607
 
 Relationのfrom / toが存在しないエンティティを参照する場合は `MISMATCH` とする。
 
-### SPEC-607
+### SPEC-608
 
 恒久SRC IDがadapter境界を越えて重複する場合は `MISMATCH` とする。
 
-### SPEC-608
+### SPEC-609
 
 必須Test metadataの欠落は `MISMATCH` とする。
 
-### SPEC-609
+### SPEC-610
 
 adapterがTestとして発見したが管理宣言を持たないconstruct（unregistered test）は診断severityをwarningとする。
 
-### SPEC-610
+### SPEC-611
 
 managed Test Entityへ対応しない事実は `chain_integrity`（`MISMATCH`/MISSING）へ反映する（§12）。
 
-### SPEC-611
+### SPEC-612
 
 エラーは検証結果に反映され、該当エンティティの検査を非 `PASS` にする。
 
-### SPEC-612
+### SPEC-613
 
 診断severityと検証状態を混同しない。
 
-### SPEC-613
+### SPEC-614
 
 content_hash照合は決定論的に解決する。
 
-### SPEC-614
+### SPEC-615
 
 content_hash照合は任意形式の文書本文から参照位置の存在を構文的に推測しない。
 
-### SPEC-615
+### SPEC-616
 
 参照位置の意味的妥当性・取り込み完全性は検査対象としない。
 
-### SPEC-616
+### SPEC-617
 
 参照位置の意味的妥当性・取り込み完全性は必要ならエスカレーション（§11）で扱う。
 
-### SPEC-617
+### SPEC-618
 
 プロジェクトルート直下に `.verify/` を置く。
 
-### SPEC-618
+### SPEC-619
 
 `.verify/` にテストコード外の正典と事実レコードを保存する。
 
-### SPEC-619
+### SPEC-620
 
 `.verify/config.yaml` は設定（正典）である。
 
-### SPEC-620
+### SPEC-621
 
 `.verify/doc/` はdocumentレコード（正典）を格納する。
 
-### SPEC-621
+### SPEC-622
 
 `.verify/vo/` はVOレコード（正典）を格納する。
 
-### SPEC-622
+### SPEC-623
 
 `.verify/rel/` は外部Relationレコード（正典・不変）を格納する。
 
-### SPEC-623
+### SPEC-624
 
 `.verify/forms/` はForm Schema（正典）を格納する。
 
-### SPEC-624
+### SPEC-625
 
 `.verify/decisions/` は判断記録（事実・追記型）を格納する。
 
-### SPEC-625
+### SPEC-626
 
 `.verify/approvals/` は承認記録（事実・追記型）を格納する。
 
-### SPEC-626
+### SPEC-627
 
 `.verify/evidence/` は実行証拠レコード（事実・追記型）を格納する。
 
-### SPEC-627
+### SPEC-628
 
 `.verify/cache/` は派生情報（Git管理外）を格納する。
 
-### SPEC-628
+### SPEC-629
 
 ファイル形式はすべてYAMLとする。
 
-### SPEC-629
+### SPEC-630
 
 `cache/` 以外はGit管理対象とする。
 
-### SPEC-630
+### SPEC-631
 
 1レコード＝1ファイルとする。
 
@@ -2797,97 +2801,91 @@ content_hash照合は任意形式の文書本文から参照位置の存在を�
 
 *引用: 要件定義 §23*
 
-### SPEC-631
+### SPEC-632
 
 全員が編集する中央共有台帳を持たない。
 
-### SPEC-632
+### SPEC-633
 
 document / VOは1エンティティ1ファイルとする。
 
-### SPEC-633
+### SPEC-634
 
 document / VOのファイル名をIDとする。
 
-### SPEC-634
+### SPEC-635
 
 異なるエンティティへの並列変更は異なるファイルへの変更になる。
 
-### SPEC-635
+### SPEC-636
 
 Relation・判断・承認・Evidenceの各レコードはULIDをファイル名とする新規ファイル追加のみで作成する。
 
-### SPEC-636
+### SPEC-637
 
 Relation・判断・承認・Evidenceの各レコードの作成は既存ファイルの編集を伴わない。
 
-### SPEC-637
+### SPEC-638
 
 Relationレコードは不変とする。
 
-### SPEC-638
+### SPEC-639
 
 Relationレコードの変更は「旧削除＋新追加」で表現する。
 
-### SPEC-639
+### SPEC-640
 
 同一エンティティファイルへの並列変更が衝突した場合の解決はGitのマージに委ねる。
 
-### SPEC-640
+### SPEC-641
 
 マージ後の論理的不整合（ID衝突、dangling reference、承認の失効）はスキャンと整合性検査で検出する（§23）。
 
-### SPEC-641
+### SPEC-642
 
 record / エンティティファイルの書込みは原子的に公開する。
 
-### SPEC-642
+### SPEC-643
 
 record / エンティティファイルの書込みは読み手に書きかけの部分状態を観測させない。
 
-### SPEC-643
+### SPEC-644
 
 並列編集耐性は「公開されたファイルは常に完全である」ことを前提とする。
 
-### SPEC-644
+### SPEC-645
 
 並列編集耐性では部分書込みの検出・修復は行わない。
 
-### SPEC-645
+### SPEC-646
 
 Test ID衝突・dangling referenceの検出、派生indexの再構築、Testと関連情報の同期を人間/Agentの記憶だけに依存させないことは§23と§24.3で担保する。
 
-### SPEC-646
+### SPEC-647
 
 具体的な物理保存方式は詳細設計へ委譲する。
 
 *引用: 要件定義 §28*
 
-### SPEC-647
+### SPEC-648
 
 検証グラフ、逆引きインデックス、集約結果はすべて正典からの導出物である。
 
-### SPEC-648
+### SPEC-649
 
 検証グラフ、逆引きインデックス、集約結果は `vtest scan` によりいつでも再構築できる。
 
 *引用: 要件定義 NFR-004*
 
-### SPEC-649
+### SPEC-650
 
 `cache/` が破損・削除されても正典は影響を受けない。
 
-### SPEC-650
+### SPEC-651
 
 キャッシュ / indexの具体的データ形式は詳細設計へ委譲する。
 
 *引用: 要件定義 §28*
-
-### SPEC-651
-
-要件定義 §20 の利用者ごとに想定する主経路を示す。
-
-*引用: 要件定義 §20*
 
 ### SPEC-652
 
@@ -2900,6 +2898,8 @@ Test ID衝突・dangling referenceの検出、派生indexの再構築、Testと�
 ### SPEC-654
 
 Coder AIはMCP経由で、担当したVO / Testをscopeに指定して検証する。
+
+> 要件定義 §20 の利用者ごとに想定する主経路を示す。
 
 ### SPEC-655
 
@@ -3219,25 +3219,25 @@ NFR-008人間可読性への対応は、ツリー形式の詳細出力、IDの�
 
 ### SPEC-730
 
-OOS-001仕様書同士の品質監査について、文書層は§2.2の通りリンクとハッシュのみを扱う。
+文書層は§2.2の通りリンクとハッシュのみを扱う（OOS-001仕様書同士の品質監査）。
 
 ### SPEC-731
 
-OOS-001仕様書同士の品質監査について、文書内容の意味的良否を検証しない。
+文書内容の意味的良否を検証しない（OOS-001仕様書同士の品質監査）。
 
 ### SPEC-732
 
-OOS-002修正方針決定について、不一致はどれを正とするか決めず状態として提示する（§4）。
+不一致はどれを正とするか決めず状態として提示する（OOS-002修正方針決定。§4）。
 
 *引用: P-001*
 
 ### SPEC-733
 
-OOS-003通常ソースコード編集管理について、Test Edit対象外の一般編集を管理しない（§15.3）。
+Test Edit対象外の一般編集を管理しない（OOS-003通常ソースコード編集管理。§15.3）。
 
 ### SPEC-734
 
-OOS-004開発プロセス全体の管理について、フェーズのライフサイクル管理・工程遷移は責務外とする（§20）。
+フェーズのライフサイクル管理・工程遷移は責務外とする（OOS-004開発プロセス全体の管理。§20）。
 
 ### SPEC-735
 
@@ -3245,11 +3245,11 @@ OOS-004開発プロセス全体の管理について、フェーズのライフ�
 
 ### SPEC-736
 
-OOS-005宣言されていない実装について、v0.1は宣言された義務の裏付けのみ検証する。
+v0.1は宣言された義務の裏付けのみ検証する（OOS-005宣言されていない実装）。
 
 ### SPEC-737
 
-OOS-005宣言されていない実装について、v0.1は宣言されていない実装の存在を関知しない。
+v0.1は宣言されていない実装の存在を関知しない（OOS-005宣言されていない実装）。
 
 *引用: R-2*
 
@@ -3269,7 +3269,7 @@ READMEに非関知宣言を一行入れる。
 
 ### SPEC-741
 
-HOWは本書で確定しない。
+HOWは本書で発明しない。
 
 ### SPEC-742
 

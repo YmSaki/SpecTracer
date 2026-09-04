@@ -1276,6 +1276,21 @@
       },
       "items": [
         {
+          "statement": "基本仕様 §24.1 の layout をそのまま採用する。",
+          "derived_from": [],
+          "cites": [
+            "基本仕様 §24.1"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.1 `.verify/` レイアウト",
+            "lines": [
+              107,
+              107
+            ]
+          }
+        },
+        {
           "statement": "`.verify/` 直下に `config.yaml` を置く。",
           "derived_from": [],
           "source": {
@@ -1515,7 +1530,7 @@
           ]
         },
         {
-          "statement": "`config.yaml` の `adapters[].scan.include` はテストコード走査パスであり、省略時はワークスペース全体を対象とする。",
+          "statement": "`config.yaml` の各adapterの `scan` 設定の `include` はテストコード走査パスであり、省略時はワークスペース全体を対象とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1527,7 +1542,7 @@
           }
         },
         {
-          "statement": "`config.yaml` の `adapters[].scan.assertion_macros` は、追加でassert相当として扱うマクロ名を指定する。",
+          "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱うマクロ名を指定する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1539,7 +1554,7 @@
           }
         },
         {
-          "statement": "`config.yaml` の `adapters[].run.coverage` は `target_binding` の動的計測方式を指定し、値は `llvm-cov` または `off` である。",
+          "statement": "`config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、値は `llvm-cov` または `off` である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1785,7 +1800,7 @@
           }
         },
         {
-          "statement": "`gates[].require.verification` は必須とする。欠落はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`gates[].require` の `verification` は必須とする。欠落はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1812,7 +1827,7 @@
           ]
         },
         {
-          "statement": "診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・objectなどの非文字列値を `require.verification` に指定した場合はすべてE-CONFIG-001とする。",
+          "statement": "診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・objectなどの非文字列値を `require.verification` に指定した場合はすべてE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1848,7 +1863,7 @@
           }
         },
         {
-          "statement": "`require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名はE-CONFIG-001とする。",
+          "statement": "`require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1860,7 +1875,7 @@
           }
         },
         {
-          "statement": "`require.approvals` のロール名が `approval_roles` に解決できない場合もE-CONFIG-001とする。",
+          "statement": "`require.approvals` のロール名が `approval_roles` に解決できない場合もE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2053,7 +2068,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
             "lines": [
-              194,
+              193,
               201
             ]
           },
@@ -2348,7 +2363,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              216,
+              215,
               227
             ]
           },
@@ -2499,8 +2514,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              231,
-              231
+              232,
+              232
             ]
           }
         },
@@ -2511,8 +2526,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              231,
-              231
+              232,
+              232
             ]
           },
           "cites": [
@@ -2526,8 +2541,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              231,
-              231
+              232,
+              232
             ]
           }
         },
@@ -2538,8 +2553,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              231,
-              231
+              232,
+              232
             ]
           }
         },
@@ -2550,8 +2565,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              231,
-              231
+              232,
+              232
             ]
           },
           "cites": [
@@ -2565,37 +2580,13 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              232,
-              232
+              233,
+              233
             ]
           }
         },
         {
           "statement": "`anchor` だけの変更でVOの承認・判断記録は失効しない。",
-          "derived_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
-            "lines": [
-              232,
-              232
-            ]
-          }
-        },
-        {
-          "statement": "参照先document集合そのものの変更はVOの承認・判断記録を従来どおり失効させる。",
-          "derived_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
-            "lines": [
-              232,
-              232
-            ]
-          }
-        },
-        {
-          "statement": "VOの `status` は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2607,14 +2598,38 @@
           }
         },
         {
+          "statement": "参照先document集合そのものの変更はVOの承認・判断記録を従来どおり失効させる。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
+            "lines": [
+              233,
+              233
+            ]
+          }
+        },
+        {
+          "statement": "VOの `status` は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
+            "lines": [
+              235,
+              235
+            ]
+          }
+        },
+        {
           "statement": "readerは読取り互換fieldとして `status` を受理するが、実効判定とVO subject hashでは無視し、存在自体をW-STORE-001として通知する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              234,
-              235
+              236,
+              237
             ]
           }
         },
@@ -2625,8 +2640,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
             "lines": [
-              235,
-              235
+              237,
+              237
             ]
           }
         },
@@ -2814,7 +2829,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "#### 3.2.1 dimensions と組合せの実体化",
             "lines": [
-              278,
+              276,
               278
             ]
           }
@@ -2965,7 +2980,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`）",
             "lines": [
-              294,
+              293,
               300
             ]
           },
@@ -3138,7 +3153,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）",
             "lines": [
-              312,
+              311,
               336
             ]
           },
@@ -3217,7 +3232,7 @@
           }
         },
         {
-          "statement": "判断記録の `actor.kind` fieldの値域は `human` / `agent` である。",
+          "statement": "判断記録の `actor` の `kind` fieldの値域は `human` / `agent` である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3229,7 +3244,7 @@
           }
         },
         {
-          "statement": "判断記録の `actor.model` fieldはagentの場合任意とする。",
+          "statement": "判断記録の `actor` の `model` fieldはagentの場合任意とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3458,7 +3473,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
-              349,
+              348,
               367
             ]
           },
@@ -3525,7 +3540,7 @@
           }
         },
         {
-          "statement": "承認レコードの `approver.kind` fieldの値域は `human` / `agent` である。",
+          "statement": "承認レコードの `approver` の `kind` fieldの値域は `human` / `agent` である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3537,7 +3552,7 @@
           }
         },
         {
-          "statement": "承認レコードの `approver.model` fieldはagentの場合任意とする。",
+          "statement": "承認レコードの `approver` の `model` fieldはagentの場合任意とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3696,7 +3711,7 @@
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
               373,
-              373
+              379
             ]
           }
         },
@@ -3843,7 +3858,7 @@
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
               385,
-              385
+              391
             ]
           }
         },
@@ -3980,6 +3995,18 @@
           }
         },
         {
+          "statement": "承認レコード a が A(X) に属するのは、`a.approved_state` が値域内であること、a の対象指定が X と一致すること（X が VO / document のとき `a.subject == X`、X が判断記録のとき `a.judgment_ref == X` の ULID）、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致すること、`a.dependencies` が `a.subject` の現在の上流依存closureと entity・hash とも完全一致すること、`a.dependencies` の各 document が登録 content_hash と実ファイルの一致を満たすこと（§11.4）、および X が判断記録のとき当該判断記録が §8.5 の有効判断でありかつ §8.5 の実効集合 E に属すること、をすべて満たす場合だけとする。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
+            "lines": [
+              398,
+              412
+            ]
+          }
+        },
+        {
           "statement": "承認レコードaがA(X)に属するには、`a.approved_state` が値域内でなければならない。",
           "derived_from": [],
           "source": {
@@ -3987,7 +4014,7 @@
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
               398,
-              398
+              399
             ]
           }
         },
@@ -3998,25 +4025,13 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
-              399,
-              400
-            ]
-          }
-        },
-        {
-          "statement": "承認レコードaがA(X)に属するには、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致しなければならない。",
-          "derived_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
-            "lines": [
-              401,
+              400,
               401
             ]
           }
         },
         {
-          "statement": "承認レコードaがA(X)に属するには、`a.dependencies` が `a.subject` の現在の上流依存closureとentity・hashとも完全一致しなければならない。",
+          "statement": "承認レコードaがA(X)に属するには、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致しなければならない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4028,7 +4043,7 @@
           }
         },
         {
-          "statement": "承認レコードaがA(X)に属するには、`a.dependencies` の各documentが登録content_hashと実ファイルの一致を満たさなければならない（§11.4）。",
+          "statement": "承認レコードaがA(X)に属するには、`a.dependencies` が `a.subject` の現在の上流依存closureとentity・hashとも完全一致しなければならない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4040,14 +4055,26 @@
           }
         },
         {
-          "statement": "Xが判断記録のとき、承認レコードaがA(X)に属するには、さらに当該判断記録が §8.5 の有効判断であり、かつ §8.5 の実効集合Eに属さなければならない。",
+          "statement": "承認レコードaがA(X)に属するには、`a.dependencies` の各documentが登録content_hashと実ファイルの一致を満たさなければならない（§11.4）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
               404,
-              405
+              404
+            ]
+          }
+        },
+        {
+          "statement": "Xが判断記録のとき、承認レコードaがA(X)に属するには、さらに当該判断記録が §8.5 の有効判断であり、かつ §8.5 の実効集合Eに属さなければならない。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
+            "lines": [
+              405,
+              406
             ]
           }
         },
@@ -4058,8 +4085,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
-              406,
-              406
+              407,
+              407
             ]
           }
         },
@@ -4071,7 +4098,7 @@
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
               408,
-              408
+              409
             ]
           }
         },
@@ -4082,8 +4109,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
-              409,
-              410
+              410,
+              411
             ]
           }
         },
@@ -4094,8 +4121,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
             "lines": [
-              411,
-              411
+              412,
+              412
             ]
           }
         },
@@ -4366,14 +4393,14 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）",
             "lines": [
-              437,
+              434,
               467
             ]
           },
           "description": "id: 01J8XW1B...\ntest_id: TEST-PARSER-044\nadapter: rust-cargo\nresult: PASS                    # ランナーが報告した PASS | FAIL（判定権威 §7）\nexecuted_at: 2026-08-08T00:00:00Z\nrevision: { commit: \"abc123...\", dirty: false }\nexecution_state:\n  schema: rust-cargo-execution-state-v1\n  complete: true\n  hash: \"sha256:...\"             # complete: falseの場合だけnull\nhashes:\n  test_subject: \"sha256:...\"\n  targets:\n    - target: \"rust-cargo::src/parser.rs::Parser::parse\"\n      target_construct: \"sha256:...\"\n    - target: \"rust-cargo::src/lexer.rs::Lexer::next\"\n      target_construct: \"sha256:...\"\nrunner:\n  kind: cargo-test\n  command: \"cargo test -p parser --lib -- --exact parser::tests::rejects_invalid_utf8\"\n  exit_code: 0\ntarget_coverage:                # target_binding の動的計測結果（旧 target_execution field を改名）\n  checked: true                 # 計測を実施したか\n  method: llvm-cov\n  result: FAIL                  # target別結果の集約: PASS | FAIL | UNKNOWN\n  targets:\n    - target: \"rust-cargo::src/parser.rs::Parser::parse\"\n      result: PASS              # PASS | FAIL | UNKNOWN\n      count: 3                  # UNKNOWNではnull\n    - target: \"rust-cargo::src/lexer.rs::Lexer::next\"\n      result: FAIL\n      count: 0\nlog_ref: \"cache/logs/01J8XW1B.log\"   # Git管理外の生ログ"
         },
         {
-          "statement": "Evidenceレコードの `execution_state.hash` fieldは、`complete: false` の場合だけnullとする。",
+          "statement": "Evidenceレコードの `execution_state` の `hash` fieldは、`complete: false` の場合だけnullとする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4421,7 +4448,7 @@
           }
         },
         {
-          "statement": "Evidenceレコードの `target_coverage.targets[].result` fieldの値域は `PASS` / `FAIL` / `UNKNOWN` である。",
+          "statement": "Evidenceレコードの `target_coverage` の `targets` 配下の各entryの `result` fieldの値域は `PASS` / `FAIL` / `UNKNOWN` である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4433,7 +4460,7 @@
           }
         },
         {
-          "statement": "Evidenceレコードの `target_coverage.targets[].count` fieldは、`result` が `UNKNOWN` の場合nullとする。",
+          "statement": "Evidenceレコードの `target_coverage` の `targets` 配下の各entryの `count` fieldは、`result` が `UNKNOWN` の場合nullとする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5441,7 +5468,7 @@
             "heading": "### 4.3 `rust-cargo` locator構文",
             "lines": [
               551,
-              551
+              557
             ]
           },
           "description": "例：src/parser.rs::Parser::parse\n    src/lib.rs::validate_input"
@@ -6133,7 +6160,7 @@
             "heading": "### 5.2 エンティティモデル（vtest-model）",
             "lines": [
               656,
-              657
+              662
             ]
           },
           "cites": [
@@ -6273,7 +6300,7 @@
             "heading": "### 5.2 エンティティモデル（vtest-model）",
             "lines": [
               673,
-              674
+              678
             ]
           },
           "cites": [
@@ -6581,7 +6608,7 @@
             "heading": "### 5.2 エンティティモデル（vtest-model）",
             "lines": [
               704,
-              704
+              757
             ]
           }
         },
@@ -7181,7 +7208,7 @@
             "heading": "### 5.2 エンティティモデル（vtest-model）",
             "lines": [
               783,
-              784
+              789
             ]
           }
         },
@@ -7354,7 +7381,7 @@
           }
         },
         {
-          "statement": "`ManagedTestDraftLink::Multiple` は同一Test constructから複数draftが生じる状態を表す。",
+          "statement": "`ManagedTestDraftLink` の `Multiple` は同一Test constructから複数draftが生じる状態を表す。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -7469,7 +7496,7 @@
             "heading": "### 5.2 エンティティモデル（vtest-model）",
             "lines": [
               814,
-              814
+              834
             ]
           }
         },
@@ -7852,7 +7879,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 5.3 検証グラフ",
             "lines": [
-              852,
+              851,
               852
             ]
           }
@@ -8288,7 +8315,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 5.4 整合性診断",
             "lines": [
-              896,
+              894,
               896
             ]
           }

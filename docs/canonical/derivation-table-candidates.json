@@ -1,52 +1,62 @@
 [
   {
     "row_line": 626,
-    "target_section": null,
+    "target_section": "R-1",
     "target_ids": [
       "R-1"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F1 の直接写像（一次ユーザー・守る瞬間・防ぐ事故・帰結）",
+    "scribe": false,
     "note": "上流: #11 F1 / 下流: R-1 一次場面 / 理由: F1 の直接写像（一次ユーザー・守る瞬間・防ぐ事故・帰結）"
   },
   {
     "row_line": 627,
-    "target_section": null,
+    "target_section": "R-2",
     "target_ids": [
       "R-2"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F9 の直接写像 + v0.2 送り明文の転記",
+    "scribe": false,
     "note": "上流: #11 F9・v0.1 最終形 / 下流: R-2 スコープ防衛 / 理由: F9 の直接写像 + v0.2 送り明文の転記"
   },
   {
     "row_line": 628,
-    "target_section": null,
+    "target_section": "R-3",
     "target_ids": [
       "R-3"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "Owner 発言の直接転記",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-21 / 下流: R-3 言語・ツール非依存 / 理由: Owner 発言の直接転記"
   },
   {
     "row_line": 629,
-    "target_section": null,
+    "target_section": "R-4",
     "target_ids": [
       "R-4"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "複数人間 + 複数 AI Agent の並列開発でも成立（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（1） / 下流: R-4 対象環境（並列開発） / 理由: 複数人間 + 複数 AI Agent の並列開発でも成立（Owner 発言の転記）"
   },
   {
     "row_line": 630,
-    "target_section": null,
+    "target_section": "R-5",
     "target_ids": [
       "R-5"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "開始時導入を前提とせず既存/途中プロジェクトへ後から導入できる（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（2） / 下流: R-5 途中導入可能性 / 理由: 開始時導入を前提とせず既存/途中プロジェクトへ後から導入できる（Owner 発言の転記）"
   },
   {
@@ -67,6 +77,8 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "ランナーの合否を疑わない（F3）以上、嘘は緑と宣言の間にしかなく、機械で照合可能な差はこの4点に尽きる",
+    "scribe": false,
     "note": "上流: R-1・F3 / 下流: §1 4点分解（照合対象の画定） / 理由: ランナーの合否を疑わない（F3）以上、嘘は緑と宣言の間にしかなく、機械で照合可能な差はこの4点に尽きる"
   },
   {
@@ -87,31 +99,37 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "R-1 の目的ノードの再叙述（導出ではなく言い換え。目的定義ノードでは正しい関係）",
+    "scribe": false,
     "note": "上流: R-1 / 下流: §1 一文定義 / 理由: R-1 の目的ノードの再叙述（導出ではなく言い換え。目的定義ノードでは正しい関係）"
   },
   {
     "row_line": 638,
-    "target_section": null,
+    "target_section": "P-001",
     "target_ids": [
       "P-001"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "本体は修正先を決めず、現存トレース関係の提示とリンク到達可能性の確認に留まる（裁定8）。正とする成果物の選択は受領者に残す",
+    "scribe": false,
     "note": "上流: F4・F7・Owner 裁定 2026-08-23（8） / 下流: P-001 修正方針を決めない / 理由: 本体は修正先を決めず、現存トレース関係の提示とリンク到達可能性の確認に留まる（裁定8）。正とする成果物の選択は受領者に残す"
   },
   {
     "row_line": 639,
-    "target_section": null,
+    "target_section": "P-002",
     "target_ids": [
       "P-002"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "「証拠なし ≠ PASS が全ケースを拾う」（F5）の原則化。PASS 以外を合格にしない",
+    "scribe": false,
     "note": "上流: F5・F7 / 下流: P-002 fail-closed / 理由: 「証拠なし ≠ PASS が全ケースを拾う」（F5）の原則化。PASS 以外を合格にしない"
   },
   {
     "row_line": 640,
-    "target_section": null,
+    "target_section": "P-003",
     "target_ids": [
       "P-003"
     ],
@@ -119,11 +137,13 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "手動同期は宣言と実体の乖離＝嘘の PASS の温床。派生は再構築で正す",
+    "scribe": false,
     "note": "上流: R-1 / 下流: P-003 単一正典 / 理由: 手動同期は宣言と実体の乖離＝嘘の PASS の温床。派生は再構築で正す"
   },
   {
     "row_line": 641,
-    "target_section": null,
+    "target_section": "P-004",
     "target_ids": [
       "P-004"
     ],
@@ -131,16 +151,20 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "自由編集は宣言の破壊経路。既知手順は構造化して宣言の完全性を守る（§16 の親原則）",
+    "scribe": false,
     "note": "上流: R-1 / 下流: P-004 Agent Form Engineering / 理由: 自由編集は宣言の破壊経路。既知手順は構造化して宣言の完全性を守る（§16 の親原則）"
   },
   {
     "row_line": 642,
-    "target_section": null,
+    "target_section": "P-005",
     "target_ids": [
       "P-005"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "下流成果物を根拠に上流を自動書換えしない。逆方向は判断材料のフィードバック（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（7） / 下流: P-005 規範伝播は上流→下流・逆は feedback / 理由: 下流成果物を根拠に上流を自動書換えしない。逆方向は判断材料のフィードバック（Owner 発言の転記）"
   },
   {
@@ -153,6 +177,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "「何のため・何を検証・何が OK か」に答えを持たないテストは系に存在できない（裁定の転記）",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §3.1 判定の主語＝宣言+コード+証拠 / 理由: 「何のため・何を検証・何が OK か」に答えを持たないテストは系に存在できない（裁定の転記）"
   },
   {
@@ -172,6 +198,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "MISMATCH の行動指示「上流を直せ」の修正先をグラフが指せる必要がある（F11 の論拠）",
+    "scribe": false,
     "note": "上流: F11 / 下流: §3.2 総称 document + derives_from + hash / 理由: MISMATCH の行動指示「上流を直せ」の修正先をグラフが指せる必要がある（F11 の論拠）"
   },
   {
@@ -191,6 +219,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "裁定の転記（文書と VO の間に他のエンティティ層を置かない）",
+    "scribe": false,
     "note": "上流: U-02 裁定 / 下流: §3.2 文書→VO 直結 / 理由: 裁定の転記（文書と VO の間に他のエンティティ層を置かない）"
   },
   {
@@ -210,6 +240,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F8 の設計制約の転記",
+    "scribe": false,
     "note": "上流: F8 / 下流: §3.2 リンク追加でスキーマ不壊 / 理由: F8 の設計制約の転記"
   },
   {
@@ -229,6 +261,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "スコープ爆発の侵入経路の明示的拒否（F11）",
+    "scribe": false,
     "note": "上流: F11 / 下流: §3.2 内容非関知・専用スキーマ/リンク意味論/良否検証の拒否 / 理由: スコープ爆発の侵入経路の明示的拒否（F11）"
   },
   {
@@ -240,6 +274,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "検査増殖の原因は遷移ごと1検査の設計思想（F10 の診断）。全遷移の検査は同型",
+    "scribe": false,
     "note": "上流: F8・F10 / 下流: §3.3 検査は4本のみ、段はリンク / 理由: 検査増殖の原因は遷移ごと1検査の設計思想（F10 の診断）。全遷移の検査は同型"
   },
   {
@@ -263,6 +299,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "文書間 derives_from / VO→Test covers / Test↔実装 検証対象・traceability を区別してよい。横断トレース可能性が要件（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（10） / 下流: §3.4 関係型を単一へ潰さない / 理由: 文書間 derives_from / VO→Test covers / Test↔実装 検証対象・traceability を区別してよい。横断トレース可能性が要件（Owner 発言の転記）"
   },
   {
@@ -286,6 +324,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "契約上必須のリンクは必須、任意関係（§9.3 実装 traceability 等）は欠落可、説明文は任意で空でも chain_integrity 違反にしない（F11 最小形への追加要求）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（11） / 下流: §3.4 契約上必須リンクは必須・任意関係は欠落可・説明文は optional / 理由: 契約上必須のリンクは必須、任意関係（§9.3 実装 traceability 等）は欠落可、説明文は任意で空でも chain_integrity 違反にしない（F11 最小形への追加要求）"
   },
   {
@@ -309,6 +349,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "最小単位「上流→関係→下流」を任意ノードから取得し、連続遡行と全体構造取得も可能（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（9） / 下流: §3.4 任意ノードからの局所/経路/全体トレーサビリティ取得 / 理由: 最小単位「上流→関係→下流」を任意ノードから取得し、連続遡行と全体構造取得も可能（Owner 発言の転記）"
   },
   {
@@ -332,6 +374,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "同一トレース構造から役割/目的で参照対象・関係・集約粒度を変えた projection を提示。固定 enum/モードは下位仕様（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（12） / 下流: §3.4 役割別 projection / 理由: 同一トレース構造から役割/目的で参照対象・関係・集約粒度を変えた projection を提示。固定 enum/モードは下位仕様（Owner 発言の転記）"
   },
   {
@@ -376,6 +420,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "受け入れ条件が同じなら、形態・方法に依らず同じ答えが出なければならない",
+    "scribe": false,
     "note": "上流: U-04 裁定（条項3） / 下流: §4 冒頭 一つの問い・複数証拠源・答えは方法非依存 / 理由: 受け入れ条件が同じなら、形態・方法に依らず同じ答えが出なければならない"
   },
   {
@@ -392,6 +438,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "spec/vo_coverage・test_existence/test_traceability の統合先（F8）",
+    "scribe": false,
     "note": "上流: F8 / 下流: §4.1 chain_integrity / 理由: spec/vo_coverage・test_existence/test_traceability の統合先（F8）"
   },
   {
@@ -408,6 +456,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "role 機構を v0.1 から外す裁定。既定のみ残す",
+    "scribe": false,
     "note": "上流: U-05 裁定 / 下流: §4.1 covers ≥ 1 一律 / 理由: role 機構を v0.1 から外す裁定。既定のみ残す"
   },
   {
@@ -431,6 +481,8 @@
       "REQ-130"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "成立検査と算入判定の独立（§8.1）のリンク規則側への反映",
+    "scribe": false,
     "note": "上流: §8.1 / 下流: §4.1 管理/算入は別条件 / 理由: 成立検査と算入判定の独立（§8.1）のリンク規則側への反映"
   },
   {
@@ -445,6 +497,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "総称ノード世界の孤児検出は全層同型で、文書層は実質 null 判定なので v0.1 可・実装層は v0.2（F12）",
+    "scribe": false,
     "note": "上流: F12 / 下流: §4.2 orphan_detection（文書層のみ） / 理由: 総称ノード世界の孤児検出は全層同型で、文書層は実質 null 判定なので v0.1 可・実装層は v0.2（F12）"
   },
   {
@@ -459,6 +513,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "最上流文書は定義上親を持たないため、orphan_detection（F12）が根を常に孤児と誤報しないよう除外指定が要る",
+    "scribe": false,
     "note": "上流: F12 / 下流: §4.2 根の指定 / 理由: 最上流文書は定義上親を持たないため、orphan_detection（F12）が根を常に孤児と誤報しないよう除外指定が要る"
   },
   {
@@ -477,6 +533,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "静的/動的は同一の問いの2つの証拠源（F8）",
+    "scribe": false,
     "note": "上流: F8 / 下流: §4.3 target_binding の静的+動的2証拠源 / 理由: 静的/動的は同一の問いの2つの証拠源（F8）"
   },
   {
@@ -495,6 +553,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "状態割当の凍結の転記",
+    "scribe": false,
     "note": "上流: U-03 裁定 / 下流: §4.3 per-target 規則（実行 0 回 = FAIL） / 理由: 状態割当の凍結の転記"
   },
   {
@@ -513,6 +573,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "実行形態固有の確認方法を他形態へ一律要求しない",
+    "scribe": false,
     "note": "上流: U-04 裁定（条項3）・A′ 裁定 / 下流: §4.3 形態別確認方法は下位仕様 / 理由: 実行形態固有の確認方法を他形態へ一律要求しない"
   },
   {
@@ -533,6 +595,8 @@
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "scope 限定は P-002 が許容。省略項目は集約時に NO_EVIDENCE（診断 NOT_CHECKED）で PASS にしない",
+    "scribe": false,
     "note": "上流: P-002 / 下流: §4.3 完全検証で既定有効・限定 scope で省略可 / 理由: scope 限定は P-002 が許容。省略項目は集約時に NO_EVIDENCE（診断 NOT_CHECKED）で PASS にしない"
   },
   {
@@ -554,6 +618,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "不成立の構造的証明→FAIL / 存在確認→成立側 / 決定論の限界→UNKNOWN",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §4.4 oracle_presence の出力3値 / 理由: 不成立の構造的証明→FAIL / 存在確認→成立側 / 決定論の限界→UNKNOWN"
   },
   {
@@ -575,6 +641,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "証明の失敗は UNKNOWN の事由ではない",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §4.4 静的解析＝不成立の証明 / 理由: 証明の失敗は UNKNOWN の事由ではない"
   },
   {
@@ -596,6 +664,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "第3の検査は幻（F3）。意味判定の知能は載せない（F4）",
+    "scribe": false,
     "note": "上流: F3・F4 / 下流: §4.4 意味的一致は主張に含めない / 理由: 第3の検査は幻（F3）。意味判定の知能は載せない（F4）"
   },
   {
@@ -612,6 +682,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "状態の存在資格は「受け取った者の行動が変わるか」（F7 の転記）",
+    "scribe": false,
     "note": "上流: F7 / 下流: §5.1 5状態・行動指示・存在資格 / 理由: 状態の存在資格は「受け取った者の行動が変わるか」（F7 の転記）"
   },
   {
@@ -623,6 +695,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "STALE ほかの診断ラベルへの降格（F6/F7）",
+    "scribe": false,
     "note": "上流: F6・F7 / 下流: §5.2 診断ラベル / 理由: STALE ほかの診断ラベルへの降格（F6/F7）"
   },
   {
@@ -643,6 +717,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "凍結済み割当の転記",
+    "scribe": false,
     "note": "上流: U-03 裁定 / 下流: §5.3 状態の割当表 / 理由: 凍結済み割当の転記"
   },
   {
@@ -656,6 +732,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "UNKNOWN ≠ エラー。フォールバック使用は仕様違反（F7 の転記）",
+    "scribe": false,
     "note": "上流: F7 / 下流: §5.4 UNKNOWN の検疫 / 理由: UNKNOWN ≠ エラー。フォールバック使用は仕様違反（F7 の転記）"
   },
   {
@@ -671,6 +749,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F5 の転記",
+    "scribe": false,
     "note": "上流: F5 / 下流: §6 ハッシュ束縛・不一致は不存在・ストアキー必須 / 理由: F5 の転記"
   },
   {
@@ -686,6 +766,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "鮮度は独立検査でなく設計制約に吸収（F5）",
+    "scribe": false,
     "note": "上流: F5 / 下流: §6 判定入力の一致要求は設計制約として実現 / 理由: 鮮度は独立検査でなく設計制約に吸収（F5）"
   },
   {
@@ -701,6 +783,8 @@
       "R-3"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "合否権威の委譲（F3）を R-3 により adapter 一般形で記述（cargo は rust-cargo インスタンス）",
+    "scribe": false,
     "note": "上流: F3・R-3 / 下流: §7 判定権威＝当該 adapter のテストランナー / 理由: 合否権威の委譲（F3）を R-3 により adapter 一般形で記述（cargo は rust-cargo インスタンス）"
   },
   {
@@ -716,6 +800,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "検査の錨の必要条件側（U-04 裁定）",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §8.1 条項1 検証成立性（不成立が非成功として反映される） / 理由: 検査の錨の必要条件側（U-04 裁定）"
   },
   {
@@ -731,6 +817,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "判定委譲は信頼基盤で終端しないと成立が確認できない（U-04 裁定）",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §8.1 条項2 依存要素の信頼性（確認 or 明示信頼で終端） / 理由: 判定委譲は信頼基盤で終端しないと成立が確認できない（U-04 裁定）"
   },
   {
@@ -747,6 +835,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "答えは確認方法に依らず同一（U-04 裁定・条項3）",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §8.2 条項3 証明方法への非依存 / 理由: 答えは確認方法に依らず同一（U-04 裁定・条項3）"
   },
   {
@@ -763,6 +853,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "確認不能から違反も成立も推定しない（U-04 裁定・条項4）",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §8.2 条項4 未確認と違反の区別 / 理由: 確認不能から違反も成立も推定しない（U-04 裁定・条項4）"
   },
   {
@@ -778,6 +870,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "全 Test を管理する条件（chain_integrity = F8）と証拠に算入する条件（成立性 = U-04）は別系統ゆえ分離する",
+    "scribe": false,
     "note": "上流: F8・U-04 裁定 / 下流: §8.1 成立と算入の独立 / 理由: 全 Test を管理する条件（chain_integrity = F8）と証拠に算入する条件（成立性 = U-04）は別系統ゆえ分離する"
   },
   {
@@ -793,6 +887,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "無意味 assert = FAIL の裁定 + 例示は宣言付きで書く",
+    "scribe": false,
     "note": "上流: U-04 裁定 / 下流: §8.3 宣言付きの不成立例示 / 理由: 無意味 assert = FAIL の裁定 + 例示は宣言付きで書く"
   },
   {
@@ -807,6 +903,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "成立性の答えが形態非依存である以上、検証対象を実装 construct に限定できない",
+    "scribe": false,
     "note": "上流: A′ 裁定・U-04 裁定 / 下流: §9.1 検証対象の一般化 / 理由: 成立性の答えが形態非依存である以上、検証対象を実装 construct に限定できない"
   },
   {
@@ -826,6 +924,8 @@
       "R-3"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "共通契約が特定言語構造を要求しない",
+    "scribe": false,
     "note": "上流: R-3 / 下流: §9.2 Source Target 識別（言語構造非強制） / 理由: 共通契約が特定言語構造を要求しない"
   },
   {
@@ -840,6 +940,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "traceability は関連付けであって証明ではない",
+    "scribe": false,
     "note": "上流: A′ 裁定 / 下流: §9.3 traceability 分離・相互推定禁止 / 理由: traceability は関連付けであって証明ではない"
   },
   {
@@ -851,6 +953,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "宣言鎖の義務ノードには、テスト実装と独立に検証可否を判定できる命題単位が必要",
+    "scribe": false,
     "note": "上流: F8・F10 / 下流: §10.1 VO 定義（命題単位・構文非依存） / 理由: 宣言鎖の義務ノードには、テスト実装と独立に検証可否を判定できる命題単位が必要"
   },
   {
@@ -863,6 +967,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "発見を可能にするデータ形態までが責務（F4 の転記）",
+    "scribe": false,
     "note": "上流: F4 / 下流: §10.2 分解の表現能力（判定は外部） / 理由: 発見を可能にするデータ形態までが責務（F4 の転記）"
   },
   {
@@ -875,6 +981,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "外部の発見者が網羅を判断するための構造表現。既存資産は flat から始まるため階層を強制しない",
+    "scribe": false,
     "note": "上流: F4 / 下流: §10.3 階層・flat 許容・階層化操作 / 理由: 外部の発見者が網羅を判断するための構造表現。既存資産は flat から始まるため階層を強制しない"
   },
   {
@@ -891,6 +999,8 @@
       "REQ-163"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "命題単位とテスト実装単位は独立に決まるため、対応は多対多になる",
+    "scribe": false,
     "note": "上流: §10.1 / 下流: §10.4 VO:Test = N:M / 理由: 命題単位とテスト実装単位は独立に決まるため、対応は多対多になる"
   },
   {
@@ -906,6 +1016,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "網羅の判断材料を外部発見者へ渡すデータ形態（F4 の系）",
+    "scribe": false,
     "note": "上流: F4 / 下流: §11 partition・組合せ空間の表現 / 理由: 網羅の判断材料を外部発見者へ渡すデータ形態（F4 の系）"
   },
   {
@@ -923,6 +1035,8 @@
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "1 テストの存在から複数観点の独立証明を推定するのは fail-closed 違反",
+    "scribe": false,
     "note": "上流: P-002 / 下流: §11 同時確認からの独立証明の禁止 / 理由: 1 テストの存在から複数観点の独立証明を推定するのは fail-closed 違反"
   },
   {
@@ -945,6 +1059,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F4 の転記",
+    "scribe": false,
     "note": "上流: F4 / 下流: §12 発見知能の外部化・構造化出力 / 理由: F4 の転記"
   },
   {
@@ -967,6 +1083,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F7 の転記",
+    "scribe": false,
     "note": "上流: F7 / 下流: §12 UNKNOWN のエスカレーション / 理由: F7 の転記"
   },
   {
@@ -989,6 +1107,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "UNKNOWN は外部判断で解消。判断はその時点の成果物へ記録され、変更時は流用せず現在状態を再検証（結果は 5 状態のいずれか）。変更自体は UNKNOWN を生成しない",
+    "scribe": false,
     "note": "上流: F1・Owner 裁定 2026-08-23（6） / 下流: §12 判断による解消と再検証 / 理由: UNKNOWN は外部判断で解消。判断はその時点の成果物へ記録され、変更時は流用せず現在状態を再検証（結果は 5 状態のいずれか）。変更自体は UNKNOWN を生成しない"
   },
   {
@@ -1028,6 +1148,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "decision と approval は別概念・別 entity 可。判断は承認なしでも記録可、承認は判断/方針の正式採用（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（判断/承認分離） / 下流: §12/§19 判断と承認の分離（判断済み ≠ 承認済み） / 理由: decision と approval は別概念・別 entity 可。判断は承認なしでも記録可、承認は判断/方針の正式採用（Owner 発言の転記）"
   },
   {
@@ -1050,6 +1172,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "actor/subject/decision は必須で追跡可能（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（記録要件） / 下流: §12 判断記録の必須項目（誰が・何を・どう判断） / 理由: actor/subject/decision は必須で追跡可能（Owner 発言の転記）"
   },
   {
@@ -1072,6 +1196,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "理由・evidence は保存可能だが任意。空欄を根拠に無効・UNKNOWN・NO_EVIDENCE・MISMATCH としない（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（記録要件） / 下流: §12 判断記録の理由・根拠は optional / 理由: 理由・evidence は保存可能だが任意。空欄を根拠に無効・UNKNOWN・NO_EVIDENCE・MISMATCH としない（Owner 発言の転記）"
   },
   {
@@ -1091,6 +1217,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "宣言鎖の Test ノードを covers 参照で解決するには安定識別子が必要",
+    "scribe": false,
     "note": "上流: F8 / 下流: §13 安定 Test ID とハンドル検索 / 理由: 宣言鎖の Test ノードを covers 参照で解決するには安定識別子が必要"
   },
   {
@@ -1110,6 +1238,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "発見と宣言の対応規則（covers ≥ 1 一律は U-05 裁定）",
+    "scribe": false,
     "note": "上流: U-05 裁定 / 下流: §13 D/M 集合と完全検証条件 / 理由: 発見と宣言の対応規則（covers ≥ 1 一律は U-05 裁定）"
   },
   {
@@ -1129,6 +1259,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "割当表の転記",
+    "scribe": false,
     "note": "上流: U-03 裁定 / 下流: §13 違反時の状態 / 理由: 割当表の転記"
   },
   {
@@ -1141,6 +1273,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "鎖のノードにしない裁定の転記",
+    "scribe": false,
     "note": "上流: U-02 裁定 / 下流: §14 Test Intent は付随情報 / 理由: 鎖のノードにしない裁定の転記"
   },
   {
@@ -1157,6 +1291,8 @@
       "REQ-163"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "VO 粒度を構文で決めない原則の実行単位側への適用（case 分解を強制しない）",
+    "scribe": false,
     "note": "上流: §10.1 / 下流: §15 table-driven の許容 / 理由: VO 粒度を構文で決めない原則の実行単位側への適用（case 分解を強制しない）"
   },
   {
@@ -1174,6 +1310,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "MCP が本体＝エージェントが宣言を作るその場で嘘の混入を防ぐ側の装置も目的の内側（U-07）",
+    "scribe": false,
     "note": "上流: F1 / 下流: §16 構造化 Test 操作 / 理由: MCP が本体＝エージェントが宣言を作るその場で嘘の混入を防ぐ側の装置も目的の内側（U-07）"
   },
   {
@@ -1193,6 +1331,8 @@
       "P-004"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "AFE の適用（自由編集の事故低減、検証での検出可能性）",
+    "scribe": false,
     "note": "上流: P-004 / 下流: §16 1 操作 1 Test・その場検証・直接編集の非禁止 / 理由: AFE の適用（自由編集の事故低減、検証での検出可能性）"
   },
   {
@@ -1208,6 +1348,8 @@
       "R-5"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "途中導入（R-5）では既存の大量の Source/Test/文書を読み取り状態を可視化できる必要がある",
+    "scribe": false,
     "note": "上流: R-5 / 下流: §17.1 既存資産の可視化 / 理由: 途中導入（R-5）では既存の大量の Source/Test/文書を読み取り状態を可視化できる必要がある"
   },
   {
@@ -1221,6 +1363,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "決定論的作業は反復手入力を要さず、意味定義・対応決定はプロジェクト側。意味判断能力を検証成立条件にしない（F4 と同源）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（4）・F4 / 下流: §17.2 導入時の責務境界 / 理由: 決定論的作業は反復手入力を要さず、意味定義・対応決定はプロジェクト側。意味判断能力を検証成立条件にしない（F4 と同源）"
   },
   {
@@ -1232,6 +1376,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "未確定/不整合/未検証/確認済み事実/外部判断要事項を機械可読構造で保持・取得。表示形式は下位仕様（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（5） / 下流: §17.3 判断待ち情報の構造化 / 理由: 未確定/不整合/未検証/確認済み事実/外部判断要事項を機械可読構造で保持・取得。表示形式は下位仕様（Owner 発言の転記）"
   },
   {
@@ -1244,6 +1390,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "規模自体と別理由で導入難度が構造的に増大する設計を避ける。物量増による処理量増は許容（設計原則レベル）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-23（3） / 下流: §17.4 導入難度の規模非依存（設計原則） / 理由: 規模自体と別理由で導入難度が構造的に増大する設計を避ける。物量増による処理量増は許容（設計原則レベル）"
   },
   {
@@ -1256,6 +1404,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "文書層の実体化（F11）",
+    "scribe": false,
     "note": "上流: F11 / 下流: §18 上流成果物の document 登録 / 理由: 文書層の実体化（F11）"
   },
   {
@@ -1270,6 +1420,8 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "検証対象自身を自身の仕様根拠にすると照合が自明成立し、嘘を止められない（自己証明の循環排除）",
+    "scribe": false,
     "note": "上流: R-1 / 下流: §18 doc comment を唯一の仕様根拠にしない / 理由: 検証対象自身を自身の仕様根拠にすると照合が自明成立し、嘘を止められない（自己証明の循環排除）"
   },
   {
@@ -1296,6 +1448,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "変更された承認を現在の承認済みとして流用せず、現在状態を再検証してその結果に従う",
+    "scribe": false,
     "note": "上流: F5・Owner 裁定 2026-08-23（6） / 下流: §19 承認の依存 closure / hash 束縛 / 理由: 変更された承認を現在の承認済みとして流用せず、現在状態を再検証してその結果に従う"
   },
   {
@@ -1322,6 +1476,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "UNKNOWN の判断も承認対象になり得るが、判断できることと正式承認は別段階（判断 ≠ 承認）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（判断/承認分離） / 下流: §19 承認は判断・方針の正式採用 / 理由: UNKNOWN の判断も承認対象になり得るが、判断できることと正式承認は別段階（判断 ≠ 承認）"
   },
   {
@@ -1348,6 +1504,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "approver/subject または judgment reference/approved state は必須で追跡可能、根拠は optional。判断記録と同一 entity を要求しない",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（判断/承認分離・記録要件） / 下流: §19 承認記録の項目 / 理由: approver/subject または judgment reference/approved state は必須で追跡可能、根拠は optional。判断記録と同一 entity を要求しない"
   },
   {
@@ -1363,6 +1521,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "5状態は検証結果のみ。PASS でも未承認可、未承認で降格せず、承認で FAIL 系を昇格させない（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §5.5 検証状態と承認の分離 / 理由: 5状態は検証結果のみ。PASS でも未承認可、未承認で降格せず、承認で FAIL 系を昇格させない（Owner 発言の転記）"
   },
   {
@@ -1389,6 +1549,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "Agent も承認権限を持ち得るが、全 Agent 必須ではなく一般作業 Agent が持つべきとも要求しない（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §19 Agent の承認権限 / 理由: Agent も承認権限を持ち得るが、全 Agent 必須ではなく一般作業 Agent が持つべきとも要求しない（Owner 発言の転記）"
   },
   {
@@ -1415,6 +1577,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "誰がどの対象・範囲を承認できるかはプロジェクト側で定義。ロール・承認数・権限 schema は下位仕様（Owner 発言の転記）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §19 approval authority のプロジェクト定義 / 理由: 誰がどの対象・範囲を承認できるかはプロジェクト側で定義。ロール・承認数・権限 schema は下位仕様（Owner 発言の転記）"
   },
   {
@@ -1431,6 +1595,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "ゲート条件が現在の検証状態+承認で満たされるかを評価・提示できる（MUST）。ライフサイクル管理・自動遷移は本裁定が直接根拠で責務外（OOS-004 と整合）",
+    "scribe": false,
     "note": "上流: Owner 裁定 2026-08-24（ゲート正式要件化） / 下流: §26.4 フェーズゲート条件の評価・提示（正式要件） / 理由: ゲート条件が現在の検証状態+承認で満たされるかを評価・提示できる（MUST）。ライフサイクル管理・自動遷移は本裁定が直接根拠で責務外（OOS-004 と整合）"
   },
   {
@@ -1447,6 +1613,8 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "R-1 の転記",
+    "scribe": false,
     "note": "上流: R-1 / 下流: §20 一次ユーザー＝開発者（Coder AI / Developer） / 理由: R-1 の転記"
   },
   {
@@ -1463,6 +1631,8 @@
       "R-4"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "並列環境（R-4）に複数主体がいることは承認済みだが、具体 role taxonomy の固定は書記導出。裁定12が承認したのは「役割で projection が異なる」ことのみで、CI/Reviewer 等の必須利用者化ではない。固定 role/preset は下位仕様",
+    "scribe": true,
     "note": "上流: R-4 / 下流: §20 利用者群の広がり（CI / Reviewer / PM 等） / 理由: 並列環境（R-4）に複数主体がいることは承認済みだが、具体 role taxonomy の固定は書記導出。裁定12が承認したのは「役割で projection が異なる」ことのみで、CI/Reviewer 等の必須利用者化ではない。固定 role/preset は下位仕様"
   },
   {
@@ -1483,6 +1653,8 @@
       "R-3"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "「言語依存なし・ツール依存なし」の転記",
+    "scribe": false,
     "note": "上流: R-3 / 下流: §21-a 概念モデルの言語・ランナー非依存 / 理由: 「言語依存なし・ツール依存なし」の転記"
   },
   {
@@ -1503,6 +1675,8 @@
       "R-3"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "非依存を成立させるには依存知識を境界内に閉じ込めるしかない（転記でなく設計必然の含意）",
+    "scribe": false,
     "note": "上流: R-3 / 下流: §21-b 言語・ツール知識の adapter 隔離 / 理由: 非依存を成立させるには依存知識を境界内に閉じ込めるしかない（転記でなく設計必然の含意）"
   },
   {
@@ -1523,6 +1697,8 @@
       "R-3"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "「拡張可能」の転記（F8 のリンク追加と同型の設計制約）",
+    "scribe": false,
     "note": "上流: R-3 / 下流: §21-c core 不変の adapter 追加・スキーマ不壊 / 理由: 「拡張可能」の転記（F8 のリンク追加と同型の設計制約）"
   },
   {
@@ -1543,6 +1719,8 @@
       "R-2"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "完成の防衛（R-2）。R-3 は実現版を指定しない",
+    "scribe": false,
     "note": "上流: R-2 / 下流: §21-d v0.1 の production adapter は rust-cargo のみ / 理由: 完成の防衛（R-2）。R-3 は実現版を指定しない"
   },
   {
@@ -1563,6 +1741,8 @@
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "fail-closed の adapter 境界への適用。確認不能は違反でも成立でもない",
+    "scribe": false,
     "note": "上流: P-002・U-04 裁定（条項4） / 下流: §21-e 能力不足を PASS へ昇格しない / 理由: fail-closed の adapter 境界への適用。確認不能は違反でも成立でもない"
   },
   {
@@ -1576,6 +1756,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "F1 の帰結の転記（完了宣言を出す AI のループ内で止められなければ目的を達成できない）",
+    "scribe": false,
     "note": "上流: F1 / 下流: §22 MCP は本体 / 理由: F1 の帰結の転記（完了宣言を出す AI のループ内で止められなければ目的を達成できない）"
   },
   {
@@ -1591,6 +1773,8 @@
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "検証本体は一つで入口のみ複数。GUI は一次場面に登場しない",
+    "scribe": false,
     "note": "上流: R-1 / 下流: §22 CLI / CI は同一検証の別入口・GUI 不要 / 理由: 検証本体は一つで入口のみ複数。GUI は一次場面に登場しない"
   },
   {
@@ -1611,182 +1795,171 @@
       "R-4"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "並列性要求（NFR-001）は R-4 直系だが、個別手段には既存裁定がなく書記導出",
+    "scribe": true,
     "note": "上流: R-4 / 下流: §23 並列開発の具体手段群（単一台帳回避・波及防止・index 再構築等） / 理由: 並列性要求（NFR-001）は R-4 直系だが、個別手段には既存裁定がなく書記導出"
   },
   {
     "row_line": 724,
-    "target_section": null,
-    "target_ids": [
-      "REQ-280",
-      "SPEC-721"
-    ],
+    "target_section": "NFR-001",
+    "target_ids": [],
     "source_ids": [
       "R-4"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "複数主体の並列変更に耐える（R-4 直系）",
+    "scribe": false,
     "note": "上流: R-4 / 下流: NFR-001 並列性 / 理由: 複数主体の並列変更に耐える（R-4 直系）"
   },
   {
     "row_line": 725,
-    "target_section": null,
-    "target_ids": [
-      "REQ-281",
-      "SPEC-722"
-    ],
+    "target_section": "NFR-002",
+    "target_ids": [],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "ハッシュ束縛された証拠が意味を持つには、同一条件での再現が可能でなければならない",
+    "scribe": false,
     "note": "上流: F5 / 下流: NFR-002 再現性 / 理由: ハッシュ束縛された証拠が意味を持つには、同一条件での再現が可能でなければならない"
   },
   {
     "row_line": 726,
-    "target_section": null,
-    "target_ids": [
-      "REQ-282",
-      "SPEC-723"
-    ],
+    "target_section": "NFR-003",
+    "target_ids": [],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "任意ノードからの局所/経路/全体トレーサビリティ取得（§3.4）を非機能側で担保",
+    "scribe": false,
     "note": "上流: F8・Owner 裁定 2026-08-23（9） / 下流: NFR-003 追跡可能性 / 理由: 任意ノードからの局所/経路/全体トレーサビリティ取得（§3.4）を非機能側で担保"
   },
   {
     "row_line": 727,
-    "target_section": null,
-    "target_ids": [
-      "REQ-283",
-      "SPEC-724"
-    ],
+    "target_section": "NFR-004",
+    "target_ids": [],
     "source_ids": [
       "P-003"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "単一正典原則の系",
+    "scribe": false,
     "note": "上流: P-003 / 下流: NFR-004 再構築可能性 / 理由: 単一正典原則の系"
   },
   {
     "row_line": 728,
-    "target_section": null,
-    "target_ids": [
-      "REQ-284",
-      "SPEC-725"
-    ],
+    "target_section": "NFR-005",
+    "target_ids": [],
     "source_ids": [
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "F5 の転記",
+    "scribe": false,
     "note": "上流: F5・P-002 / 下流: NFR-005 fail-closed / 理由: F5 の転記"
   },
   {
     "row_line": 729,
-    "target_section": null,
-    "target_ids": [
-      "REQ-285",
-      "SPEC-726"
-    ],
+    "target_section": "NFR-006",
+    "target_ids": [],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "状態が行動を指示するには、どのリンク・証拠・診断で落ちたかが読める必要がある",
+    "scribe": false,
     "note": "上流: F7 / 下流: NFR-006 説明可能性 / 理由: 状態が行動を指示するには、どのリンク・証拠・診断で落ちたかが読める必要がある"
   },
   {
     "row_line": 730,
-    "target_section": null,
-    "target_ids": [
-      "REQ-286",
-      "SPEC-727"
-    ],
+    "target_section": "NFR-007",
+    "target_ids": [],
     "source_ids": [
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "完了宣言の受領時にループ内から非対話で呼ばれる（R-1 の系）",
+    "scribe": false,
     "note": "上流: R-1 / 下流: NFR-007 自動化適性 / 理由: 完了宣言の受領時にループ内から非対話で呼ばれる（R-1 の系）"
   },
   {
     "row_line": 731,
-    "target_section": null,
-    "target_ids": [
-      "REQ-287",
-      "SPEC-728"
-    ],
+    "target_section": "NFR-008",
+    "target_ids": [],
     "source_ids": [
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "開発者自身が NG 理由を読んで直す。R-4（PM 等）採用でさらに強まる",
+    "scribe": false,
     "note": "上流: R-1 / 下流: NFR-008 人間可読性 / 理由: 開発者自身が NG 理由を読んで直す。R-4（PM 等）採用でさらに強まる"
   },
   {
     "row_line": 732,
-    "target_section": null,
-    "target_ids": [
-      "REQ-288",
-      "SPEC-730",
-      "SPEC-731"
-    ],
+    "target_section": "OOS-001",
+    "target_ids": [],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "内容非関知（F11 の明示的拒否）",
+    "scribe": false,
     "note": "上流: F11 / 下流: OOS-001 仕様書品質監査の除外 / 理由: 内容非関知（F11 の明示的拒否）"
   },
   {
     "row_line": 733,
-    "target_section": null,
-    "target_ids": [
-      "REQ-289",
-      "SPEC-732"
-    ],
+    "target_section": "OOS-002",
+    "target_ids": [],
     "source_ids": [
       "P-001"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "意味裁定は載せない",
+    "scribe": false,
     "note": "上流: F4・P-001 / 下流: OOS-002 修正方針決定の除外 / 理由: 意味裁定は載せない"
   },
   {
     "row_line": 734,
-    "target_section": null,
-    "target_ids": [
-      "REQ-290",
-      "SPEC-733"
-    ],
+    "target_section": "OOS-003",
+    "target_ids": [],
     "source_ids": [
       "P-004"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "Test Edit の責務境界の裏面",
+    "scribe": false,
     "note": "上流: P-004 / 下流: OOS-003 通常編集管理の除外 / 理由: Test Edit の責務境界の裏面"
   },
   {
     "row_line": 735,
-    "target_section": null,
-    "target_ids": [
-      "REQ-291",
-      "SPEC-734"
-    ],
+    "target_section": "OOS-004",
+    "target_ids": [],
     "source_ids": [
       "R-1"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "Verification Infrastructure という役割画定。R-1 の場面外",
+    "scribe": false,
     "note": "上流: R-1 / 下流: OOS-004 開発プロセス管理の除外 / 理由: Verification Infrastructure という役割画定。R-1 の場面外"
   },
   {
     "row_line": 736,
-    "target_section": null,
+    "target_section": "OOS-005",
     "target_ids": [
-      "REQ-292",
-      "SPEC-736",
-      "SPEC-737"
+      "REQ-292"
     ],
     "source_ids": [
       "R-2"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "F9 の転記",
+    "scribe": false,
     "note": "上流: R-2・F9 / 下流: OOS-005 非関知宣言・v0.2 送り / 理由: F9 の転記"
   },
   {
     "row_line": 737,
-    "target_section": null,
+    "target_section": "R-2/OOS-005",
     "target_ids": [
       "R-2",
-      "REQ-292",
-      "SPEC-736",
-      "SPEC-737"
+      "REQ-292"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "過少実装と過実装は宣言量に対する過不足の両側で単一概念（F2）。v0.1 は F9 により順方向側のみ実装し逆方向は v0.2 だが、「同一概念」の決定を伝播させ、v0.2 過実装検出が別物でないことを将来復元可能にする",
+    "scribe": false,
     "note": "上流: F2 / 下流: R-2 / OOS-005 過少・過実装は同一差分の両側 / 理由: 過少実装と過実装は宣言量に対する過不足の両側で単一概念（F2）。v0.1 は F9 により順方向側のみ実装し逆方向は v0.2 だが、「同一概念」の決定を伝播させ、v0.2 過実装検出が別物でないことを将来復元可能にする"
   },
   {
@@ -1800,6 +1973,8 @@
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "4検査 × 5状態 × fail-closed の合成",
+    "scribe": false,
     "note": "上流: F8・F7・P-002 / 下流: §26.1 完全検証 OK・fail-closed 集約 / 理由: 4検査 × 5状態 × fail-closed の合成"
   },
   {
@@ -1809,13 +1984,10 @@
       "REQ-297",
       "REQ-298"
     ],
-    "source_ids": [
-      "REQ-285",
-      "SPEC-726",
-      "REQ-287",
-      "SPEC-728"
-    ],
+    "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "状態が行動を指示する（F7）には、どの検査・状態・診断で落ちたかを人間が辿れる必要がある",
+    "scribe": false,
     "note": "上流: NFR-006・NFR-008 / 下流: §26.2 OK/NG 簡易出力と NG の掘り下げ / 理由: 状態が行動を指示する（F7）には、どの検査・状態・診断で落ちたかを人間が辿れる必要がある"
   },
   {
@@ -1830,6 +2002,8 @@
       "P-002"
     ],
     "kind": "ACCEPTED",
+    "kind_text": "宣言鎖は端まで辿れ（F8）、集約は未検証を合格にしない（P-002）",
+    "scribe": false,
     "note": "上流: P-002・F8 / 下流: §26.3 上位単位への fail-closed 集約 / 理由: 宣言鎖は端まで辿れ（F8）、集約は未検証を合格にしない（P-002）"
   },
   {
@@ -1863,6 +2037,8 @@
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
+    "kind_text": "要求→要件→基本仕様→詳細設計の分層（F10）。詳細の決定は下位層の責務",
+    "scribe": false,
     "note": "上流: F10 / 下流: §28 下位仕様への委譲リスト / 理由: 要求→要件→基本仕様→詳細設計の分層（F10）。詳細の決定は下位層の責務"
   }
 ]

@@ -402,7 +402,7 @@
           }
         },
         {
-          "statement": "診断ラベルは状態に付随する原因説明であり、`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` の4種である。",
+          "statement": "診断ラベルは状態に付随する原因説明であり、`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -775,7 +775,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest init`",
             "lines": [
-              73,
+              69,
               74
             ]
           }
@@ -954,7 +954,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest scan`",
             "lines": [
-              89,
+              85,
               89
             ]
           }
@@ -1041,7 +1041,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
             "lines": [
-              107,
+              98,
               107
             ]
           }
@@ -1382,7 +1382,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest vo add / edit / list / show / expand / approve`",
             "lines": [
-              136,
+              118,
               136
             ]
           }
@@ -1749,7 +1749,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest approval create / withdraw / show`",
             "lines": [
-              161,
+              150,
               161
             ]
           }
@@ -1997,7 +1997,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest test create`",
             "lines": [
-              178,
+              173,
               195
             ]
           }
@@ -2040,7 +2040,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest test edit`",
             "lines": [
-              204,
+              199,
               204
             ]
           }
@@ -2072,6 +2072,7 @@
         {
           "statement": "Test implementation の書き換えは `--body-file <path>` で adapter へ全文を与える。",
           "derived_from": [],
+          "description": "編集の実装は §15 に定める。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest test edit`",
@@ -2089,7 +2090,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest test show / list / query`",
             "lines": [
-              216,
+              210,
               216
             ]
           }
@@ -2135,7 +2136,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest audit static`",
             "lines": [
-              224,
+              220,
               224
             ]
           }
@@ -2206,7 +2207,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest audit bundle / submit`（判断記録プロトコル）",
             "lines": [
-              235,
+              228,
               235
             ]
           },
@@ -2665,7 +2666,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest run`",
             "lines": [
-              252,
+              248,
               252
             ]
           }
@@ -2723,7 +2724,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest verify`",
             "lines": [
-              263,
+              257,
               263
             ]
           }
@@ -3152,7 +3153,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              310,
+              303,
               310
             ]
           }
@@ -3180,8 +3181,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3192,8 +3193,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3204,8 +3205,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3216,8 +3217,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3232,8 +3233,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3247,8 +3248,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              311,
-              311
+              312,
+              312
             ]
           }
         },
@@ -3263,8 +3264,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              312,
-              312
+              313,
+              313
             ]
           }
         },
@@ -3275,8 +3276,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              312,
-              312
+              313,
+              313
             ]
           }
         },
@@ -3287,8 +3288,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              312,
-              312
+              313,
+              313
             ]
           }
         },
@@ -3299,8 +3300,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              312,
-              312
+              313,
+              313
             ]
           }
         },
@@ -3315,8 +3316,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3327,8 +3328,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3339,8 +3340,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3351,8 +3352,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3363,8 +3364,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3375,8 +3376,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              313,
-              313
+              314,
+              314
             ]
           }
         },
@@ -3391,8 +3392,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              314,
-              314
+              315,
+              315
             ]
           }
         },
@@ -3406,8 +3407,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest report`",
             "lines": [
-              315,
-              315
+              316,
+              316
             ]
           }
         },
@@ -3419,7 +3420,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest mcp`",
             "lines": [
-              324,
+              320,
               324
             ]
           }
@@ -4437,7 +4438,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "13.2 ツール一覧",
             "lines": [
-              432,
+              431,
               432
             ]
           }
@@ -4664,7 +4665,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "13.3 エージェント向け利用フロー（参考）",
             "lines": [
-              463,
+              448,
               463
             ]
           }
@@ -4978,7 +4979,7 @@
           }
         },
         {
-          "statement": "`rust-integration` は `file` を `required: true` とする。",
+          "statement": "`rust-integration` は `file` を `required:true` とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -5044,7 +5045,7 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "14.3 組込フォーム",
             "lines": [
-              560,
+              559,
               560
             ]
           }

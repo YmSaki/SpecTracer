@@ -16,12 +16,15 @@ build
 
 coverage
     For every source doc referenced by the fragments, read the md file
-    and report which lines are NOT accounted for by an item/area source
-    range, a dropped-log range, or an auto-excluded line (blank line,
-    ATX heading, "---", code-fence delimiter). Also reports (report
-    only, does not affect exit code) overlaps between item-level source
-    ranges within the same doc; area/item overlap is expected and is
-    never reported. Exit 1 if any uncovered line exists.
+    and report which lines are NOT accounted for by an item source range,
+    a dropped-log range, or an auto-excluded line (blank line, ATX
+    heading, "---", code-fence delimiter). Per CONVERSION.md SS5 a design
+    area's own source.lines is not an item and earns no coverage credit --
+    a line that sits inside an area's range but outside every one of its
+    items and every dropped range is reported uncovered. Also reports
+    (report only, does not affect exit code) overlaps between item-level
+    source ranges within the same doc. Exit 1 if any uncovered line
+    exists.
 
 export
     Read specification.json and write docs/canonical/export/{request,
@@ -44,9 +47,14 @@ harvest-cites
     R-1..R-5, F<n>, OOS-00N, NFR-00N), and append any not already present
     to that item's "cites" list (surviving entries and their order are
     untouched; new ones are appended in order of first appearance; no
-    duplicates). A bare code matched at the very start of the statement
-    (e.g. "OOS-001仕様書同士の..." or "NFR-001並列性への対応は...") is the
-    statement naming itself and is never harvested. Also drops any
+    duplicates). A bare code is a self-citation -- never harvested -- in
+    either of two cases: it is matched at the very start of the statement
+    (e.g. "OOS-001仕様書同士の..." or "NFR-001並列性への対応は..."), or the
+    item's own source lines (read from --repo-root) open with that code
+    after stripping list markers/bold/whitespace -- e.g. a source line
+    "- **OOS-001** 仕様書同士の品質監査: ..." makes OOS-001 a self-citation
+    for that item even where the statement carries the code only as a
+    trailing parenthetical ("...（OOS-001 仕様書同士の品質監査）"). Also drops any
     existing "cites" entry that is a bare same-document section reference
     ("§N", "§N.N", or a joined list of them such as "§4.1・§4.4") per
     CONVERSION.md SS3 -- those stay inline in the statement and are not
@@ -66,34 +74,141 @@ derivation-candidates
     already be built) and, for the 付記 導出表 source, the md range named
     by the "keep_for_derivation": true entry in fragments/*.dropped.json
     (never hard-coded).
+    Before matching, a stored `cites` entry is normalised (normalize_cite_
+    tokens): surrounding full/half-width parens are stripped ("（R-3）" ->
+    "R-3"); a doc name immediately followed by a bare id or code drops the
+    doc name ("要件定義 R-2" -> "R-2"); a joined list splits into one
+    section per entry on "・"/"、"/"/"/"／"/"および" ("要件定義 §5.2、§28"
+    -> two entries), including a section immediately followed by a bare
+    code with no separator at all ("基本仕様 §29 OOS-005" -> two entries);
+    a cites entry that is nothing but one document name, with no section,
+    stays unresolved but is reported as resolution "doc-only" rather than
+    silently producing zero entries. This normalization only affects how
+    a `cites` string is read here -- it never rewrites the fragment.
     Writes three files under --root:
-      derivation-candidates.json -- one entry per (statement, cite) pair
-        for every statement carrying a non-empty "cites": {id, statement
-        (first 80 chars), cite, candidates:[{id, statement (first 60
-        chars)}], resolution}. resolution is "exact" (cite is an id that
-        exists, or a bare NFR/OOS/F code whose target statement names
-        itself and there is exactly one such statement), "section" (cite
+      derivation-candidates.json -- one entry per (statement, normalised
+        atomic cite) pair for every statement carrying a non-empty
+        "cites": {id, statement (first 80 chars), cite, candidates:[{id,
+        statement (first 60 chars)}], resolution, layer_relation}.
+        resolution is "exact" (cite is an id that exists, or a bare
+        NFR/OOS/F code whose target statement names itself and there is
+        exactly one such statement -- searched in request+require only,
+        since a spec-layer statement can restate the same code in its own
+        words without being a second definition of it), "section" (cite
         names a document + section/line and at least one statement in
-        that document's heading/line range matches), or "unresolved"
-        (cite recognised but zero matches, or not recognised at all).
+        that document's heading/line range matches), "doc-only" (cite is
+        a bare document name), or "unresolved" (cite recognised but zero
+        or ambiguous matches, or not recognised at all). layer_relation is
+        computed from (citing statement's layer, resolved target's layer)
+        over the fixed order request<require<spec<design (every design
+        area is layer "design" regardless of which of 本冊/別紙A/別紙C):
+        "adjacent-upstream" (target exactly one layer up), "skip-upstream"
+        (two or more layers up), "same-layer", "downstream" (target layer
+        later than source), or null when the target layer can't be
+        determined at all.
       derivation-table-candidates.json -- one entry per data row of the
         付記 導出表 (its two md tables: 第I部 根->要求, 第II部 要求->要件；
         header and separator rows skipped by shape, not by hard-coded
         line numbers): {row_line, target_section, target_ids, source_ids,
-        kind, note}. The table has no separate 区分 column (its columns
-        are 上流ノード/下流ノード/導出理由/状態); "kind" carries the 状態
-        column verbatim (always "ACCEPTED" in the current table) as the
-        closest analogue, and "note" carries all three text columns
-        verbatim so nothing is lost. Each of 上流ノード and 下流ノード is
-        split on "・"/"/" and every token is resolved the same way as a
-        cite (id / require-layer section / self-naming code); unresolved
-        tokens simply contribute no id (their text survives in "note").
+        kind, kind_text, scribe, note}. The table has no separate 区分
+        column (its columns are 上流ノード/下流ノード/導出理由/状態);
+        "kind" carries the 状態 column verbatim (always "ACCEPTED" in the
+        current table), "kind_text" carries 導出理由 verbatim, "scribe" is
+        true iff 導出理由 contains "書記", and "note" carries all three
+        text columns verbatim so nothing is lost regardless of what
+        resolved. Each of 上流ノード and 下流ノード is split on "・"/"/"
+        (both used as multi-reference separators in this table -- e.g.
+        "§12/§19", "R-2 / OOS-005 ...") and every token is resolved as an
+        id (R-N/P-00N), a require-layer section/sub-section (§N or §N.N,
+        matching the leading number token of a heading like "### 3.2 ...")
+        or a require-layer self-naming code (NFR-00N/OOS-00N); F<n> and
+        "#11"-style Issue references never resolve to an id and stay as
+        plain text in "note" only. "target_section" is set to whatever was
+        parsed from 下流ノード regardless of resolution success -- the
+        matched id(s), the matched "§N" text(s), or both joined with "/"
+        for a compound cell -- so it documents what the cell said even
+        when target_ids ends up empty; it is null only when 下流ノード
+        parsed as nothing recognisable at all. A large share of
+        "source_ids": [] rows are not a parsing failure: 上流ノード often
+        names an Issue #11 freeze item (F<n>), an Issue number, or an
+        "Owner 裁定"/"U-0N 裁定" label, none of which correspond to any
+        statement id in this corpus -- their text is preserved in "note".
       derivation-candidates.md -- human-readable: a summary (counts by
-        resolution, candidate-pair count, table-row counts by kind), then
-        per source document a bullet list of (statement, cite) pairs and
-        their candidates (top 5, "+k more" beyond that).
+        resolution including doc-only, by layer_relation, table-row counts
+        by kind, and a scribe-row count), then per source document a
+        bullet list of (statement, cite) pairs and their candidates (top
+        5, "+k more" beyond that) restricted to layer_relation =
+        adjacent-upstream (the actual approval list), a collapsed
+        skip-upstream section as an open question for the Owner, and
+        finally the distinct unresolved cite strings with their counts.
     Prints the same summary to stdout. Fully deterministic (iterates
     specification.json's own array order; table rows in line order).
+
+qualifier-check
+    A mechanical transcription-fidelity check, independent of derivation.
+    Operates on fragments directly (not specification.json), like coverage
+    and harvest-cites. For a fixed token set of limiting/qualifying words
+    (ただし, のみ, に限り, 限る, 必須, してはならない, しない, 任意, かつ,
+    または, すべて, 全て, "1 件以上", ちょうど, 禁止, 推測, §), compares per
+    **cluster**, not per line: an item's source.lines ranges are merged
+    into maximal runs wherever they overlap or touch (zero-line gap) --
+    design areas contribute nothing to this (an area is not an item, same
+    principle as the coverage command) and dropped-log ranges play no
+    part in cluster formation either. For each cluster, count each
+    token's occurrences in the concatenated source lines of the cluster
+    versus in the concatenation of statement+description of every item
+    whose range is part of that cluster -- except for "§" specifically,
+    where the transcribed side also includes each item's `cites` (joined),
+    since a dropped section reference legitimately moving into `cites` is
+    the whole point of harvest-cites, not a transcription defect. Before
+    counting, both sides are normalised: every ASCII/full-width space and
+    every Markdown "*" or "`" is stripped (this collapses "1 件以上" and
+    "1件以上" into the same string, so the token list is deduped after
+    normalisation rather than reporting the same match under two labels).
+    A cluster with no item at all (a line no item's range covers) simply
+    doesn't exist -- that's a coverage gap, not a transcription-fidelity
+    question; see the `coverage` command. Report every (cluster, token)
+    pair where the two counts differ, with the cluster's line range and
+    the first 100 (unnormalised) characters of its source. Comparing per
+    cluster instead of per line is what makes a single real occurrence
+    inside a multi-item span stop looking like a mismatch on every other
+    line of that span.
+    Writes docs/canonical/qualifier-check.md (grouped by doc, each row:
+    cluster line range, token, source count, transcribed count, source
+    excerpt, plus a per-doc total) and prints the same per-doc totals plus
+    the top 15 (token, direction) pairs to stdout, where direction is
+    "dropped" (source count > transcribed count) or "added" (the reverse).
+
+source-check
+    A mechanical, item-scoped range-sanity check, independent of the
+    token-count checks above. Operates on fragments directly (leaf items
+    only -- request/require/spec items and design nested items, not
+    design areas, since areas have no "statement"). For every item:
+      1. Range boundary check: the source md line at source.lines[0] (the
+         first line) or source.lines[1] (the last line) is blank, an ATX
+         heading, or a code-fence delimiter. A well-formed range should
+         start and end on actual content, so either boundary landing on a
+         non-content line usually means the range is off by one or
+         otherwise mis-scoped.
+      2. Backtick-token coverage: every `` `...` `` quoted token inside
+         the statement is looked for anywhere across the item's whole
+         source range (not just one line); if fewer than half of the
+         statement's backtick tokens appear anywhere in the range, flag
+         it (statements with no backtick tokens are not checked).
+      3. Six-character-substring overlap: strip spaces and backticks from
+         the statement and, separately, from each line of the item's
+         range; if the statement (once cleaned) is at least 6 characters
+         long and none of its 6-character substrings appears in any
+         cleaned range line, flag it -- this is a coarse "did this get
+         transcribed from the right place at all" signal. A statement
+         shorter than 6 characters after cleaning is not checked (nothing
+         to slide a 6-character window over).
+    Prints per-fragment-file counts (items scanned, and how many tripped
+    each of the three checks) and the offending items' location (heading
+    + line range -- fragments have no stamped id yet) and detail. Writes
+    docs/canonical/source-check.md with the same information. Exit 1 iff
+    check 1 or check 3 found anything (check 2 is reported but does not
+    gate the exit code).
 
 ID stamping (CONVERSION.md SS7)
 --------------------------------
@@ -387,16 +502,18 @@ def cmd_coverage(args) -> int:
     fragments = load_fragments(root)
     dropped = load_dropped(root)
 
-    # doc -> item-level ranges (for overlap check + coverage)
+    # doc -> item-level ranges (for overlap check + coverage). Per
+    # CONVERSION.md SS5, only an item's source.lines counts as covered --
+    # a design area's own source.lines is not an item and earns no
+    # coverage credit; it is tracked nowhere here on purpose (a line
+    # inside an area but outside every item and every dropped range must
+    # surface as uncovered).
     item_ranges: dict[str, list[tuple[int, int, str]]] = {}
-    # doc -> area ranges (coverage only, never overlap-checked)
-    area_ranges: dict[str, list[tuple[int, int]]] = {}
     docs_seen: list[str] = []
 
     def note_doc(doc: str) -> None:
         if doc not in item_ranges:
             item_ranges[doc] = []
-            area_ranges[doc] = []
             docs_seen.append(doc)
 
     for path, frag in fragments:
@@ -405,7 +522,6 @@ def cmd_coverage(args) -> int:
             for area in frag.get("areas", []):
                 asrc = area["source"]
                 note_doc(asrc["doc"])
-                area_ranges[asrc["doc"]].append((asrc["lines"][0], asrc["lines"][1]))
                 for it in area.get("items", []):
                     isrc = it["source"]
                     note_doc(isrc["doc"])
@@ -435,8 +551,6 @@ def cmd_coverage(args) -> int:
 
         covered: set[int] = set()
         for s, e, _label in item_ranges[doc]:
-            covered.update(range(s, e + 1))
-        for s, e in area_ranges[doc]:
             covered.update(range(s, e + 1))
         for s, e in dropped_ranges.get(doc, []):
             covered.update(range(s, e + 1))
@@ -679,22 +793,51 @@ def split_seclist(doc: str, seclist: str) -> list[str]:
     return out
 
 
-def extract_citations(statement: str) -> list[str]:
+# Self-citation rule 2: a bare code is also a self-citation when the
+# item's OWN source lines define it -- the code sits at the start of one
+# of those raw md lines, once list markers ("- ", "1. "), bold markers
+# ("**"), and whitespace are stripped. This catches the shape base.json
+# now uses, where the statement carries the code only as a trailing
+# parenthetical ("...（OOS-001 仕様書同士の品質監査）") while the source line
+# itself still opens with "OOS-001 ...".
+_LEADING_MARKUP_RE = re.compile(r"^\s*(?:[-*・•]\s+|[0-9]+[.)]\s+)?\*{0,2}")
+_HEAD_BARE_CODE_RE = re.compile(r"^(P-[0-9]{3}|R-[1-5]|F[0-9]+|OOS-[0-9]{3}|NFR-[0-9]{3})")
+
+
+def self_definition_codes_in_range(md_lines: list[str], s: int, e: int) -> frozenset:
+    """Bare codes that open (after markup-stripping) any line in [s, e]
+    of this item's own source doc -- i.e. codes this item's source range
+    itself defines."""
+    codes = set()
+    for ln in range(s, e + 1):
+        if not (1 <= ln <= len(md_lines)):
+            continue
+        line = md_lines[ln - 1]
+        m_lead = _LEADING_MARKUP_RE.match(line)
+        head = line[m_lead.end():] if m_lead else line
+        m_code = _HEAD_BARE_CODE_RE.match(head)
+        if m_code:
+            codes.add(m_code.group(1))
+    return frozenset(codes)
+
+
+def extract_citations(statement: str, self_definition_codes: frozenset = frozenset()) -> list[str]:
     """Citations found in `statement`, in order of appearance, not deduped.
 
-    A bare code (NFR-00N/OOS-00N/P-00N/R-N/F<n>) matched at the very start
-    of the statement (ignoring leading whitespace) is the statement naming
-    itself -- e.g. "OOS-001仕様書同士の品質監査について..." or "NFR-001並列性
-    への対応は..." -- and is not harvested as a citation of something else.
-    Whatever follows it (a separator like " ", ".", ":", "：", a full-width
-    space, straight into kanji, or nothing at all) does not change this;
-    only the position matters.
+    A bare code (NFR-00N/OOS-00N/P-00N/R-N/F<n>) is a self-citation --
+    not harvested as a citation of something else -- in either of two
+    cases: (1) it is matched at the very start of the statement (ignoring
+    leading whitespace) -- e.g. "OOS-001仕様書同士の品質監査について..." --
+    regardless of what follows it (a separator, straight into kanji, or
+    nothing at all; only the position matters); or (2) it is one of
+    `self_definition_codes` -- codes this item's own source lines define
+    -- regardless of where in the statement it sits, since a statement can
+    carry the same code only as a trailing parenthetical while still being
+    the code's own definition.
     """
     found = []
     lead = len(statement) - len(statement.lstrip())
     for m in CITATION_RE.finditer(statement):
-        if m.group("bare") and m.start() == lead:
-            continue
         if m.group("secdoc"):
             found.extend(split_seclist(m.group("secdoc"), m.group("seclist")))
         elif m.group("ldoc"):
@@ -702,7 +845,10 @@ def extract_citations(statement: str) -> list[str]:
         elif m.group("pdoc"):
             found.append(f"{m.group('pdoc')} {m.group('pnum')}")
         elif m.group("bare"):
-            found.append(m.group("bare"))
+            code = m.group("bare")
+            if m.start() == lead or code in self_definition_codes:
+                continue
+            found.append(code)
     return found
 
 
@@ -717,7 +863,7 @@ def is_bare_section_entry(cite: str) -> bool:
     return bool(_BARE_SECTION_ENTRY_RE.match(cite.strip()))
 
 
-def harvest_item(item: dict) -> tuple[list[str], int]:
+def harvest_item(item: dict, self_definition_codes: frozenset = frozenset()) -> tuple[list[str], int]:
     """Mutate item['cites'] in place: drop bare same-document section
     entries, then append newly-found citations from 'statement' (existing
     surviving entries and their order untouched; no duplicates). Deletes
@@ -727,7 +873,7 @@ def harvest_item(item: dict) -> tuple[list[str], int]:
     kept = [c for c in existing_list if not is_bare_section_entry(c)]
     removed = len(existing_list) - len(kept)
 
-    found = extract_citations(item.get("statement", ""))
+    found = extract_citations(item.get("statement", ""), self_definition_codes)
     seen = set(kept)
     added = []
     for c in found:
@@ -757,10 +903,21 @@ def iter_leaf_items(frag: dict):
 
 def cmd_harvest_cites(args) -> int:
     root = Path(args.root)
+    repo_root = Path(args.repo_root)
     files = list_fragment_files(root)
     if not files:
         print("harvest-cites: no fragments found")
         return 0
+
+    md_cache: dict = {}
+
+    def get_md_lines(doc: str) -> list[str]:
+        if doc not in md_cache:
+            try:
+                md_cache[doc] = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                md_cache[doc] = []
+        return md_cache[doc]
 
     for path in files:
         frag = read_json(path)
@@ -768,7 +925,9 @@ def cmd_harvest_cites(args) -> int:
         added_all: list[str] = []
         removed_total = 0
         for it in items:
-            added, removed = harvest_item(it)
+            s, e = it["source"]["lines"]
+            self_codes = self_definition_codes_in_range(get_md_lines(it["source"]["doc"]), s, e)
+            added, removed = harvest_item(it, self_codes)
             added_all.extend(added)
             removed_total += removed
 
@@ -870,17 +1029,95 @@ def line_candidates(spec: dict, scope: str, line_no: int) -> list:
 
 
 def self_naming_candidates(id_index: dict, code: str) -> list:
-    return [iid for iid, it in id_index.items() if it["statement"].startswith(code)]
+    """Statements whose own text starts with `code` (P-00N/R-N/NFR-00N/
+    OOS-00N/F<n> are all named -- defined -- in request or require layer
+    per CONVERSION.md SS1; a spec-layer statement can restate the same
+    code in its own words without being a second definition of it), so
+    the search is scoped to request+require to avoid a spurious
+    cross-layer ambiguity (e.g. 基本仕様 restating "OOS-005 ..." in its
+    own §25-equivalent text must not compete with the require-layer
+    statement that actually names OOS-005)."""
+    return [
+        iid for iid, it in id_index.items()
+        if it["layer"] in ("request", "require") and it["statement"].startswith(code)
+    ]
 
 
-# --- Output 1: resolve a stored `cites` string (already normalised by
-# harvest-cites into one of exactly four shapes) to candidate ids.
+# --- Output 1: resolve a stored `cites` string to candidate ids. Fragments
+# authored via harvest-cites already store one of four canonical shapes,
+# but cites entries can also come from manual/legacy authoring in other
+# shapes (parenthesised, doc+bare-id, an un-split joined list, a section
+# immediately followed by a bare code, or a bare document name with no
+# section at all) -- normalize_cite_tokens() below turns any of those into
+# zero or more atomic tokens before resolve_cite() ever sees them.
 
 _CITE_SECTION_RE = re.compile(r"^(要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*§\s*([0-9]+(?:\.[0-9]+)*)$")
 _CITE_LINE_RE = re.compile(r"^(要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*L\s*([0-9]+)$")
 _CITE_PDOC_RE = re.compile(r"^(要件定義|基本仕様)\s*(P-[0-9]{3})$")
 _CITE_ID_RE = re.compile(r"^(R-[1-5]|P-[0-9]{3})$")
 _CITE_SELFNAME_RE = re.compile(r"^(NFR-[0-9]{3}|OOS-[0-9]{3}|F[0-9]+)$")
+
+_CITE_PAREN_RE = re.compile(r"^[（(]\s*(.+?)\s*[）)]$")
+_CITE_DOC_ONLY_RE = re.compile(r"^(要件定義|基本仕様|詳細設計|本冊|別紙[ABC])$")
+_CITE_JOIN_SEP_RE = re.compile(r"\s*(?:[・、/／]|および)\s*")
+
+# A derivation-candidates-specific scanner, deliberately separate from
+# harvest-cites' module-level CITATION_RE: this one's seclist repeat group
+# also accepts "および" as a joining word (harvest-cites' own citation
+# grammar is unchanged; only cites-field normalization here is more
+# permissive), and it must NOT carry harvest-cites' start-of-statement
+# self-naming exclusion -- a stored cites entry that is just "R-3" is a
+# real citation of R-3, not a statement naming itself.
+_DERIV_SCAN_RE = re.compile(
+    r"(?P<secdoc>要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*"
+    r"(?P<seclist>§\s*[0-9]+(?:\.[0-9]+)*(?:\s*(?:[・、/／]|および)\s*§?\s*[0-9]+(?:\.[0-9]+)*)*)"
+    r"|(?P<ldoc>要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*L\s*(?P<lnum>[0-9]+)"
+    r"|(?P<pdoc>要件定義|基本仕様)\s*(?P<pnum>P-[0-9]{3})"
+    r"|(?<![A-Za-z0-9])(?P<bare>P-[0-9]{3}|R-[1-5]|F[0-9]+|OOS-[0-9]{3}|NFR-[0-9]{3})(?![A-Za-z0-9])"
+)
+
+
+def strip_cite_parens(s: str) -> str:
+    m = _CITE_PAREN_RE.match(s.strip())
+    return m.group(1).strip() if m else s.strip()
+
+
+def split_seclist_for_cite(doc: str, seclist: str) -> list:
+    """Same job as harvest-cites' split_seclist, but the separator set
+    also includes "および" (manually-authored cites use it too)."""
+    out = []
+    for part in _CITE_JOIN_SEP_RE.split(seclist):
+        part = part.strip()
+        if not part:
+            continue
+        if not part.startswith("§"):
+            part = "§" + part
+        out.append(f"{doc} §{part[1:].strip()}")
+    return out
+
+
+def normalize_cite_tokens(raw_cite: str) -> list:
+    """One stored `cites` entry -> [(atomic_cite, is_doc_only), ...]. A
+    joined list, a doc name immediately followed by a bare code, or a
+    doc-prefixed bare id all split into the atomic shapes harvest-cites
+    would have produced at the point of authoring. A cites entry that is
+    nothing but one document name (after stripping surrounding parens) is
+    reported as doc-only rather than run through the scanner (which would
+    silently find nothing for it)."""
+    s = strip_cite_parens(raw_cite)
+    if _CITE_DOC_ONLY_RE.match(s):
+        return [(s, True)]
+    out = []
+    for m in _DERIV_SCAN_RE.finditer(s):
+        if m.group("secdoc"):
+            out.extend((tok, False) for tok in split_seclist_for_cite(m.group("secdoc"), m.group("seclist")))
+        elif m.group("ldoc"):
+            out.append((f"{m.group('ldoc')} L{m.group('lnum')}", False))
+        elif m.group("pdoc"):
+            out.append((f"{m.group('pdoc')} {m.group('pnum')}", False))
+        elif m.group("bare"):
+            out.append((m.group("bare"), False))
+    return out
 
 
 def scope_to_layer(scope: str):
@@ -914,8 +1151,10 @@ def layer_relation(source_layer, target_layer):
 
 
 def resolve_cite(spec: dict, id_index: dict, cite: str):
-    """-> (candidate_ids: list[str], resolution: 'exact'|'section'|'unresolved',
-    target_layer: str|None)."""
+    """-> (candidate_ids: list[str], resolution: 'exact'|'section'|
+    'doc-only'|'unresolved', target_layer: str|None). Expects an already
+    atomic token from normalize_cite_tokens(); doc-only tokens are handled
+    by the caller before this is reached."""
     m = _CITE_SECTION_RE.match(cite)
     if m:
         scope = _DOC_TO_SCOPE.get(m.group(1))
@@ -964,16 +1203,22 @@ def build_derivation_candidates(spec: dict, id_index: dict) -> list:
     entries = []
     for it in iter_all_statements(spec):
         source_layer = id_index[it["id"]]["layer"]
-        for cite in it.get("cites") or []:
-            cands, resolution, target_layer = resolve_cite(spec, id_index, cite)
-            entries.append({
-                "id": it["id"],
-                "statement": it["statement"][:80],
-                "cite": cite,
-                "candidates": [{"id": cid, "statement": id_index[cid]["statement"][:60]} for cid in cands],
-                "resolution": resolution,
-                "layer_relation": layer_relation(source_layer, target_layer),
-            })
+        for raw_cite in it.get("cites") or []:
+            tokens = normalize_cite_tokens(raw_cite) or [(raw_cite, False)]
+            for atomic_cite, is_doc_only in tokens:
+                if is_doc_only:
+                    scope = _DOC_TO_SCOPE.get(atomic_cite)
+                    cands, resolution, target_layer = [], "doc-only", (scope_to_layer(scope) if scope else None)
+                else:
+                    cands, resolution, target_layer = resolve_cite(spec, id_index, atomic_cite)
+                entries.append({
+                    "id": it["id"],
+                    "statement": it["statement"][:80],
+                    "cite": atomic_cite,
+                    "candidates": [{"id": cid, "statement": id_index[cid]["statement"][:60]} for cid in cands],
+                    "resolution": resolution,
+                    "layer_relation": layer_relation(source_layer, target_layer),
+                })
     return entries
 
 
@@ -986,7 +1231,11 @@ _TABLE_TOKEN_SPLIT_RE = re.compile(r"[・/]")
 
 _TABLE_ID_RE = re.compile(r"^(R-[1-5]|P-[0-9]{3})(?![0-9A-Za-z])")
 _TABLE_SECTION_RE = re.compile(r"^§\s*([0-9]+(?:\.[0-9]+)*)(?:-[A-Za-z])?")
-_TABLE_SELFNAME_RE = re.compile(r"^(NFR-[0-9]{3}|OOS-[0-9]{3}|F[0-9]+)(?![0-9A-Za-z])")
+# F<n> (Issue #11 freeze items) and "#11" itself deliberately have no
+# pattern here: they name no statement in this corpus and stay as plain
+# text in `note`, never attempted as an id.
+_TABLE_SELFNAME_RE = re.compile(r"^(NFR-[0-9]{3}|OOS-[0-9]{3})(?![0-9A-Za-z])")
+_TABLE_SCRIBE_RE = re.compile("書記")
 
 
 def find_derivation_table_ranges(root: Path) -> list:
@@ -1019,39 +1268,54 @@ def parse_md_table_rows(md_lines: list, start: int, end: int) -> list:
 
 def classify_table_ref(token: str):
     """-> (kind, key, matched_text) for one token from a 上流ノード/下流ノード
-    cell. kind is 'id' | 'section' | 'selfname' | 'unknown'."""
+    cell. kind is 'id' | 'section' | 'selfname' | 'unknown'. matched_text
+    is the literal id ("R-1", "OOS-005") or the parsed section marker
+    ("§3.2") -- whichever the caller should surface as target_section."""
     token = token.strip()
     m = _TABLE_ID_RE.match(token)
     if m:
-        return "id", m.group(1), m.group(0)
+        return "id", m.group(1), m.group(1)
     m = _TABLE_SECTION_RE.match(token)
     if m:
         return "section", m.group(1), m.group(0)
     m = _TABLE_SELFNAME_RE.match(token)
     if m:
-        return "selfname", m.group(1), m.group(0)
+        return "selfname", m.group(1), m.group(1)
     return "unknown", None, None
 
 
+def self_naming_candidates_scoped(spec: dict, scope: str, code: str) -> list:
+    """Like self_naming_candidates, but scoped to one layer via `scope`
+    (scope_items' vocabulary) instead of the whole corpus -- this table's
+    上流ノード/下流ノード only ever name request/require statements, and a
+    global search would wrongly also catch a spec-layer statement merely
+    restating the same code in its own words (see self_naming_candidates)."""
+    return [it["id"] for it in scope_items(spec, scope) if it["statement"].startswith(code)]
+
+
 def resolve_table_ref(spec: dict, id_index: dict, token: str):
-    """-> (candidate_ids: list[str], matched_section_text: str|None)."""
+    """-> (candidate_ids: list[str], matched_text: str|None). matched_text
+    is returned whenever the token was recognised as id/section/selfname,
+    regardless of whether it actually resolved to any candidate -- it
+    documents what was parsed from the cell, not whether resolution
+    succeeded (that's what an empty candidate list already says)."""
     kind, key, matched = classify_table_ref(token)
     if kind == "id":
-        return ([key] if key in id_index else []), None
+        return ([key] if key in id_index else []), matched
     if kind == "section":
         return section_candidates(spec, "require", key), matched
     if kind == "selfname":
-        return self_naming_candidates(id_index, key), None
+        return self_naming_candidates_scoped(spec, "require", key), matched
     return [], None
 
 
 def resolve_table_cell(spec: dict, id_index: dict, cell: str):
     """Split a 上流ノード/下流ノード cell on ・ and / (both are used as
     multi-reference separators in this table) and resolve every token.
-    -> (ids: list[str] deduped in order, section_texts: list[str])."""
+    -> (ids: list[str] deduped in order, matched_markers: list[str])."""
     ids: list = []
     seen = set()
-    sections: list = []
+    markers: list = []
     for tok in _TABLE_TOKEN_SPLIT_RE.split(cell):
         tok = tok.strip()
         if not tok:
@@ -1062,8 +1326,8 @@ def resolve_table_cell(spec: dict, id_index: dict, cell: str):
                 seen.add(c)
                 ids.append(c)
         if matched:
-            sections.append(matched)
-    return ids, sections
+            markers.append(matched)
+    return ids, markers
 
 
 def build_derivation_table_candidates(spec: dict, id_index: dict, root: Path, repo_root: Path) -> list:
@@ -1079,18 +1343,22 @@ def build_derivation_table_candidates(spec: dict, id_index: dict, root: Path, re
                     "target_ids": [],
                     "source_ids": [],
                     "kind": None,
+                    "kind_text": None,
+                    "scribe": False,
                     "note": "列数が4でない行（そのまま記録）: " + " | ".join(cells),
                 })
                 continue
             upstream, downstream, reason, state = cells
-            target_ids, target_sections = resolve_table_cell(spec, id_index, downstream)
-            source_ids, _src_sections = resolve_table_cell(spec, id_index, upstream)
+            target_ids, target_markers = resolve_table_cell(spec, id_index, downstream)
+            source_ids, _src_markers = resolve_table_cell(spec, id_index, upstream)
             rows_out.append({
                 "row_line": line_no,
-                "target_section": "/".join(target_sections) if target_sections else None,
+                "target_section": "/".join(target_markers) if target_markers else None,
                 "target_ids": target_ids,
                 "source_ids": source_ids,
                 "kind": state,
+                "kind_text": reason,
+                "scribe": bool(_TABLE_SCRIBE_RE.search(reason)),
                 "note": f"上流: {upstream} / 下流: {downstream} / 理由: {reason}",
             })
     return rows_out
@@ -1114,25 +1382,53 @@ def doc_display_name(doc: str) -> str:
     return doc
 
 
+_RELATION_ORDER = ("adjacent-upstream", "skip-upstream", "same-layer", "downstream")
+_RESOLUTION_ORDER = ("exact", "section", "doc-only", "unresolved")
+
+
 def summarize_derivation(entries: list, table_rows: list) -> dict:
     resolution_counts = Counter(e["resolution"] for e in entries)
+    relation_counts = Counter(e["layer_relation"] for e in entries)
     kind_counts = Counter(r["kind"] for r in table_rows)
+    unresolved_cites = Counter(e["cite"] for e in entries if e["resolution"] == "unresolved")
+    scribe_rows = sum(1 for r in table_rows if r.get("scribe"))
     return {
         "resolution_counts": resolution_counts,
+        "relation_counts": relation_counts,
         "candidate_pairs": len(entries),
         "table_rows": len(table_rows),
         "kind_counts": kind_counts,
+        "unresolved_cites": unresolved_cites,
+        "scribe_rows": scribe_rows,
     }
 
 
 def print_derivation_summary(summary: dict) -> None:
     print("--- derivation-candidates summary ---")
-    for res in ("exact", "section", "unresolved"):
+    for res in _RESOLUTION_ORDER:
         print(f"  resolution {res}: {summary['resolution_counts'].get(res, 0)}")
+    for rel in _RELATION_ORDER:
+        print(f"  layer_relation {rel}: {summary['relation_counts'].get(rel, 0)}")
+    unknown_rel = summary["relation_counts"].get(None, 0)
+    if unknown_rel:
+        print(f"  layer_relation (undetermined): {unknown_rel}")
     print(f"  candidate pairs total: {summary['candidate_pairs']}")
+    print(f"  distinct unresolved cite strings: {len(summary['unresolved_cites'])}")
     print(f"  derivation-table rows total: {summary['table_rows']}")
     for kind, n in sorted(summary["kind_counts"].items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
         print(f"  table rows kind={kind!r}: {n}")
+    print(f"  table rows scribe=True: {summary['scribe_rows']}")
+
+
+def _format_entry_bullet(e: dict) -> str:
+    cands = e["candidates"]
+    shown = cands[:5]
+    cand_text = ", ".join(f"{c['id']} 「{c['statement']}」" for c in shown)
+    if len(cands) > 5:
+        cand_text += f" +{len(cands) - 5} more"
+    if not cands:
+        cand_text = "(候補なし)"
+    return f"- {e['id']} 「{e['statement'][:60]}」 ← {e['cite']} → {len(cands)}件: {cand_text}"
 
 
 def write_derivation_md(path: Path, entries: list, table_rows: list, summary: dict) -> None:
@@ -1142,35 +1438,73 @@ def write_derivation_md(path: Path, entries: list, table_rows: list, summary: di
         "# 導出候補（機械生成・Owner 未承認）",
         "",
         "CONVERSION.md SS6 の手順1-2の出力。推論・採点・選定は行っていない。承認して derived_from へ入れるかは Owner の判断。",
+        "承認リストに載るのは layer_relation = adjacent-upstream の候補のみ（既定）。skip-upstream は下の折りたたみで別掲（Owner への疑問）。"
+        " same-layer / downstream は集計のみで一覧化しない。JSON にはどちらも全件を relation 付きで保持する。",
         "",
         "## 集計",
         "",
         "| resolution | 件数 |",
         "|---|---|",
     ]
-    for res in ("exact", "section", "unresolved"):
+    for res in _RESOLUTION_ORDER:
         lines.append(f"| {res} | {summary['resolution_counts'].get(res, 0)} |")
     lines.append(f"| **候補ペア合計** | **{summary['candidate_pairs']}** |")
+
+    lines += ["", "| layer_relation | 件数 |", "|---|---|"]
+    for rel in _RELATION_ORDER:
+        lines.append(f"| {rel} | {summary['relation_counts'].get(rel, 0)} |")
+    unknown_rel = summary["relation_counts"].get(None, 0)
+    if unknown_rel:
+        lines.append(f"| (未確定) | {unknown_rel} |")
+
     lines += ["", "| 導出表 状態（kind） | 件数 |", "|---|---|"]
     for kind, n in sorted(summary["kind_counts"].items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
         lines.append(f"| {kind if kind is not None else '(列数異常)'} | {n} |")
     lines.append(f"| **導出表行合計** | **{summary['table_rows']}** |")
+    lines.append(f"| うち scribe（導出理由に「書記」を含む） | {summary['scribe_rows']} |")
 
     by_doc: dict = {}
     for e in entries:
-        by_doc.setdefault(e["_doc"], []).append(e)
+        if e["layer_relation"] == "adjacent-upstream":
+            by_doc.setdefault(e["_doc"], []).append(e)
 
     for doc in sorted(by_doc):
         lines += ["", f"## {doc_display_name(doc)}", ""]
         for e in by_doc[doc]:
-            cands = e["candidates"]
-            shown = cands[:5]
-            cand_text = ", ".join(f"{c['id']} 「{c['statement']}」" for c in shown)
-            if len(cands) > 5:
-                cand_text += f" +{len(cands) - 5} more"
-            if not cands:
-                cand_text = "(候補なし)"
-            lines.append(f"- {e['id']} 「{e['statement'][:60]}」 ← {e['cite']} → {len(cands)}件: {cand_text}")
+            lines.append(_format_entry_bullet(e))
+
+    skip_entries = [e for e in entries if e["layer_relation"] == "skip-upstream"]
+    if skip_entries:
+        skip_by_doc: dict = {}
+        for e in skip_entries:
+            skip_by_doc.setdefault(e["_doc"], []).append(e)
+        lines += [
+            "",
+            "## skip-upstream（Owner への疑問。1層より遠くへの飛び越え引用）",
+            "",
+            "<details>",
+            f"<summary>{len(skip_entries)} 件</summary>",
+            "",
+        ]
+        for doc in sorted(skip_by_doc):
+            lines += ["", f"### {doc_display_name(doc)}", ""]
+            for e in skip_by_doc[doc]:
+                lines.append(_format_entry_bullet(e))
+        lines += ["", "</details>"]
+
+    unresolved_cites = summary["unresolved_cites"]
+    if unresolved_cites:
+        lines += [
+            "",
+            "## 未解決の cite 文字列（異なり数・出現回数付き）",
+            "",
+            f"{len(unresolved_cites)} 種類、延べ {sum(unresolved_cites.values())} 件。",
+            "",
+            "| cite | 件数 |",
+            "|---|---|",
+        ]
+        for cite, n in sorted(unresolved_cites.items(), key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"| {cite} | {n} |")
 
     text = "\n".join(lines).rstrip("\n") + "\n"
     path.write_text(text, encoding="utf-8")
@@ -1206,6 +1540,341 @@ def cmd_derivation_candidates(args) -> int:
     print(f"wrote {root / 'derivation-table-candidates.json'}")
     print(f"wrote {root / 'derivation-candidates.md'}")
     return 0
+
+
+# -------------------------------------------------------- qualifier-check --
+
+_QUALIFIER_TOKENS = [
+    "ただし", "のみ", "に限り", "限る", "必須", "してはならない", "しない",
+    "任意", "かつ", "または", "すべて", "全て", "1 件以上", "1件以上",
+    "ちょうど", "禁止", "推測", "§",
+]
+
+# For "§" only: a dropped section reference legitimately moves from the
+# statement into the item's `cites` list (that is the whole point of
+# harvest-cites), so the transcribed side for this one token also counts
+# `cites` entries; every other token stays statement+description only.
+_QUALIFIER_CITES_TOKEN = "§"
+
+# Both sides are normalised before counting: every ASCII and full-width
+# space, and Markdown "*" emphasis and "`" backticks, are removed. This
+# collapses "1 件以上" and "1件以上" into the same string, so the token
+# list itself is deduped after normalisation (first spelling wins as the
+# label) rather than double-reporting the same match under two names.
+_QUALIFIER_NORMALIZE_RE = re.compile(r"[ 　*`]")
+
+
+def normalize_for_qualifier(text: str) -> str:
+    return _QUALIFIER_NORMALIZE_RE.sub("", text)
+
+
+_QUALIFIER_TOKENS_NORMALIZED = list(dict.fromkeys(normalize_for_qualifier(t) for t in _QUALIFIER_TOKENS))
+
+
+def gather_doc_items_and_dropped(root: Path):
+    """doc -> list of leaf items (statement/description/source, straight
+    from the fragments -- not specification.json), and doc -> list of
+    (start, end) dropped-log ranges."""
+    items_by_doc: dict = {}
+    for _path, frag in load_fragments(root):
+        for it in iter_leaf_items(frag):
+            items_by_doc.setdefault(it["source"]["doc"], []).append(it)
+    dropped_by_doc: dict = {}
+    for _path, entry in load_dropped(root):
+        dropped_by_doc.setdefault(entry["doc"], []).append((entry["lines"][0], entry["lines"][1]))
+    return items_by_doc, dropped_by_doc
+
+
+def build_clusters(items: list) -> list:
+    """[(cluster_start, cluster_end, [item, ...]), ...], sorted by start.
+    Built from item ranges only -- a design area contributes nothing (it
+    is not an item, same principle as the coverage fix). Two item ranges
+    join the same cluster when they overlap or touch (zero-line gap);
+    dropped-log ranges play no role in this at all. Comparison then runs
+    per cluster instead of per line, so a real occurrence that sits
+    anywhere in a multi-item cluster no longer looks like a mismatch on
+    every other line of that cluster."""
+    spans = sorted(
+        ((it["source"]["lines"][0], it["source"]["lines"][1], it) for it in items),
+        key=lambda t: (t[0], t[1]),
+    )
+    clusters: list = []
+    for s, e, it in spans:
+        if clusters and s <= clusters[-1][1] + 1:
+            cs, ce, citems = clusters[-1]
+            clusters[-1] = (cs, max(ce, e), citems + [it])
+        else:
+            clusters.append((s, e, [it]))
+    return clusters
+
+
+def compact_source_line(line: str) -> str:
+    return line if len(line) <= 100 else line[:100]
+
+
+def write_qualifier_report(path: Path, report_by_doc: dict) -> dict:
+    lines_out = [
+        "<!-- generated by build.py qualifier-check; do not edit -->",
+        "",
+        "# 限定語の転記照合（機械照合）",
+        "",
+        "item の source.lines を重なり・隣接（隙間0行）でまとめたクラスタ単位で比較する"
+        "（design の area は item ではないのでクラスタ形成に加わらない。dropped-log もクラスタ形成には関与しない）。"
+        "クラスタの生テキスト連結と、そのクラスタを構成する全 item の statement+description 連結とで、"
+        "固定トークン集合の出現回数を比較する。件数が一致しないクラスタ×トークンの組のみ列挙する。"
+        "比較前に両辺とも正規化する: 半角/全角スペース、Markdown 強調 `*`、バッククォート `` ` `` を除去"
+        "（この正規化により「1 件以上」と「1件以上」は同一文字列になるため、トークン集合側もこの2つを1件に統合済み）。"
+        "「§」だけは例外で、cites への移動が正当な転記経路（harvest-cites の目的そのもの）であるため、"
+        "転記側は statement+description+cites の連結で数える。"
+        "どの item にもカバーされていない行（被覆の欠落は `coverage` の領分）はクラスタに含まれない。",
+        "",
+    ]
+    totals: dict = {}
+    for doc in sorted(report_by_doc):
+        mismatches = report_by_doc[doc]
+        totals[doc] = len(mismatches)
+        lines_out += [
+            f"## {doc}",
+            "",
+            f"件数: {len(mismatches)}",
+            "",
+            "| クラスタ範囲 | トークン | source | 転記 | source 先頭100文字 |",
+            "|---|---|---|---|---|",
+        ]
+        for cs, ce, token, sc, tc, src in mismatches:
+            lines_out.append(f"| {cs}-{ce} | {token} | {sc} | {tc} | {src.replace('|', chr(92) + '|')} |")
+        lines_out.append("")
+    text = "\n".join(lines_out).rstrip("\n") + "\n"
+    path.write_text(text, encoding="utf-8")
+    return totals
+
+
+def cmd_qualifier_check(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    items_by_doc, _dropped_by_doc = gather_doc_items_and_dropped(root)
+
+    report_by_doc: dict = {}
+    for doc, items in items_by_doc.items():
+        md_path = repo_root / doc
+        try:
+            lines = md_path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            print(f"error: cannot read source doc {md_path}: {exc}", file=sys.stderr)
+            return 1
+
+        mismatches = []
+        for cs, ce, citems in build_clusters(items):
+            cluster_lines = lines[max(1, cs) - 1: min(ce, len(lines))]
+            source_text_raw = "\n".join(cluster_lines)
+            source_text = normalize_for_qualifier(source_text_raw)
+            transcribed_text = normalize_for_qualifier("\n".join(
+                it["statement"] + ("\n" + it["description"] if it.get("description") else "")
+                for it in citems
+            ))
+            transcribed_text_with_cites = normalize_for_qualifier("\n".join(
+                it["statement"]
+                + ("\n" + it["description"] if it.get("description") else "")
+                + ("\n" + "\n".join(it["cites"]) if it.get("cites") else "")
+                for it in citems
+            ))
+            for token in _QUALIFIER_TOKENS_NORMALIZED:
+                tc_text = transcribed_text_with_cites if token == _QUALIFIER_CITES_TOKEN else transcribed_text
+                sc = source_text.count(token)
+                tc = tc_text.count(token)
+                if sc != tc:
+                    mismatches.append((cs, ce, token, sc, tc, compact_source_line(source_text_raw)))
+        if mismatches:
+            report_by_doc[doc] = mismatches
+
+    out_path = root / "qualifier-check.md"
+    totals = write_qualifier_report(out_path, report_by_doc)
+
+    print("--- qualifier-check per-doc totals ---")
+    grand_total = 0
+    for doc in sorted(totals):
+        print(f"  {doc}: {totals[doc]}")
+        grand_total += totals[doc]
+    print(f"  TOTAL: {grand_total}")
+
+    direction_counts = Counter()
+    for mismatches in report_by_doc.values():
+        for _cs, _ce, token, sc, tc, _src in mismatches:
+            direction_counts[(token, "dropped" if sc > tc else "added")] += 1
+    print("--- top 15 (token, direction) pairs ---")
+    for (token, direction), n in direction_counts.most_common(15):
+        print(f"  {token!r} {direction}: {n}")
+
+    print(f"wrote {out_path}")
+    return 0
+
+
+# ------------------------------------------------------------- source-check --
+
+_FENCE_RE = re.compile(r"^\s*```")
+_BACKTICK_TOKEN_RE = re.compile(r"`([^`]+)`")
+_SPACE_BACKTICK_RE = re.compile(r"[ 　`]")
+
+
+def is_blank_heading_or_fence(line: str) -> bool:
+    stripped = line.strip()
+    if stripped == "":
+        return True
+    if HEADING_RE.match(line):
+        return True
+    if _FENCE_RE.match(line):
+        return True
+    return False
+
+
+def backtick_tokens(text: str) -> list:
+    return _BACKTICK_TOKEN_RE.findall(text)
+
+
+def strip_spaces_and_backticks(text: str) -> str:
+    return _SPACE_BACKTICK_RE.sub("", text)
+
+
+def six_char_substrings(s: str) -> set:
+    if len(s) < 6:
+        return set()
+    return {s[i:i + 6] for i in range(len(s) - 5)}
+
+
+def item_location(it: dict) -> str:
+    s, e = it["source"]["lines"]
+    return f"{it['source']['heading']} L{s}-{e}"
+
+
+def check_source_item(it: dict, md_lines: list) -> dict:
+    """-> {'check1': (first_bad_or_None, last_bad_or_None),
+           'check2': (total_tokens, present_count),
+           'check3': True} -- only for checks that actually tripped."""
+    s, e = it["source"]["lines"]
+    result: dict = {}
+
+    first_bad = md_lines[s - 1] if 1 <= s <= len(md_lines) and is_blank_heading_or_fence(md_lines[s - 1]) else None
+    last_bad = md_lines[e - 1] if 1 <= e <= len(md_lines) and is_blank_heading_or_fence(md_lines[e - 1]) else None
+    if first_bad is not None or last_bad is not None:
+        result["check1"] = (first_bad, last_bad)
+
+    range_lines = md_lines[max(1, s) - 1: min(e, len(md_lines))]
+    tokens = backtick_tokens(it["statement"])
+    if tokens:
+        range_text = "\n".join(range_lines)
+        present = sum(1 for t in tokens if t in range_text)
+        if present < len(tokens) / 2:
+            result["check2"] = (len(tokens), present)
+
+    stmt_subs = six_char_substrings(strip_spaces_and_backticks(it["statement"]))
+    if stmt_subs:
+        shared = any(stmt_subs & six_char_substrings(strip_spaces_and_backticks(line)) for line in range_lines)
+        if not shared:
+            result["check3"] = True
+
+    return result
+
+
+def write_source_check_report(path: Path, report: dict) -> None:
+    lines_out = [
+        "<!-- generated by build.py source-check; do not edit -->",
+        "",
+        "# ソース範囲の機械点検",
+        "",
+        "check1: 範囲の先頭または末尾行が空行・見出し・コードフェンス。"
+        " check2: statement 内のバッククォート付きトークンのうち、範囲内のどこにも現れないものが半数以上。"
+        " check3: statement と範囲内のどの行との間にも、空白・バッククォートを除いた6文字部分文字列の一致が無い"
+        "（statement が6文字未満になる場合は対象外）。"
+        " fragment はまだ id を付番されていないため、見出し+行範囲で位置を示す。",
+        "",
+    ]
+    for path_str in sorted(report):
+        n_items, violations = report[path_str]
+        lines_out += [
+            f"## {path_str}",
+            "",
+            f"items scanned: {n_items} / check1: {len(violations['check1'])} /"
+            f" check2: {len(violations['check2'])} / check3: {len(violations['check3'])}",
+            "",
+        ]
+        if violations["check1"]:
+            lines_out.append("check1 違反:")
+            for loc, (first_bad, last_bad) in violations["check1"]:
+                detail = []
+                if first_bad is not None:
+                    detail.append(f"先頭行={first_bad!r}")
+                if last_bad is not None:
+                    detail.append(f"末尾行={last_bad!r}")
+                lines_out.append(f"- {loc}: {', '.join(detail)}")
+            lines_out.append("")
+        if violations["check2"]:
+            lines_out.append("check2 違反:")
+            for loc, (total, present) in violations["check2"]:
+                lines_out.append(f"- {loc}: バッククォートトークン {total} 個中 {present} 個のみ範囲内に出現")
+            lines_out.append("")
+        if violations["check3"]:
+            lines_out.append("check3 違反:")
+            for loc in violations["check3"]:
+                lines_out.append(f"- {loc}")
+            lines_out.append("")
+
+    text = "\n".join(lines_out).rstrip("\n") + "\n"
+    path.write_text(text, encoding="utf-8")
+
+
+def cmd_source_check(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    md_cache: dict = {}
+
+    def get_md_lines(doc: str):
+        if doc not in md_cache:
+            md_path = repo_root / doc
+            try:
+                md_cache[doc] = md_path.read_text(encoding="utf-8").splitlines()
+            except OSError as exc:
+                print(f"error: cannot read source doc {md_path}: {exc}", file=sys.stderr)
+                md_cache[doc] = None
+        return md_cache[doc]
+
+    report: dict = {}
+    had_read_error = False
+    for path in list_fragment_files(root):
+        frag = read_json(path)
+        items = list(iter_leaf_items(frag))
+        violations = {"check1": [], "check2": [], "check3": []}
+        for it in items:
+            md_lines = get_md_lines(it["source"]["doc"])
+            if md_lines is None:
+                had_read_error = True
+                continue
+            res = check_source_item(it, md_lines)
+            loc = item_location(it)
+            if "check1" in res:
+                violations["check1"].append((loc, res["check1"]))
+            if "check2" in res:
+                violations["check2"].append((loc, res["check2"]))
+            if "check3" in res:
+                violations["check3"].append(loc)
+        if items:
+            report[str(path)] = (len(items), violations)
+
+    out_path = root / "source-check.md"
+    write_source_check_report(out_path, report)
+
+    print("--- source-check per-fragment summary ---")
+    gate_violation = False
+    for path_str in sorted(report):
+        n_items, violations = report[path_str]
+        c1, c2, c3 = len(violations["check1"]), len(violations["check2"]), len(violations["check3"])
+        print(f"  {path_str}: items={n_items} check1={c1} check2={c2} check3={c3}")
+        if c1 or c3:
+            gate_violation = True
+    print(f"wrote {out_path}")
+
+    if had_read_error:
+        return 1
+    return 1 if gate_violation else 0
 
 
 # ------------------------------------------------------------------ cli --
@@ -1254,6 +1923,7 @@ def main(argv=None) -> int:
 
     p_harvest = sub.add_parser("harvest-cites", help="scan item statements for citations and append them to cites")
     add_root_arg(p_harvest)
+    add_repo_root_arg(p_harvest)
     p_harvest.add_argument("--dry-run", action="store_true", help="print the report without writing any fragment file")
     p_harvest.set_defaults(func=cmd_harvest_cites)
 
@@ -1261,6 +1931,16 @@ def main(argv=None) -> int:
     add_root_arg(p_deriv)
     add_repo_root_arg(p_deriv)
     p_deriv.set_defaults(func=cmd_derivation_candidates)
+
+    p_qual = sub.add_parser("qualifier-check", help="mechanical transcription check for a fixed set of limiting/qualifying tokens")
+    add_root_arg(p_qual)
+    add_repo_root_arg(p_qual)
+    p_qual.set_defaults(func=cmd_qualifier_check)
+
+    p_src = sub.add_parser("source-check", help="item-scoped range-sanity checks (boundary, backtick coverage, substring overlap)")
+    add_root_arg(p_src)
+    add_repo_root_arg(p_src)
+    p_src.set_defaults(func=cmd_source_check)
 
     args = parser.parse_args(argv)
     return args.func(args)

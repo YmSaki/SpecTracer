@@ -984,7 +984,7 @@
           }
         },
         {
-          "statement": "DA-002（対象未呼出）はtarget_bindingへ供給する検査であり、宣言されたtargetシンボルを呼んでいないことを内容とし、関数本体および同一ファイル内の呼出先helper（1段）を探索して呼出が存在せず、かつ他ファイルへの呼出も存在しないことをFAIL条件とし、他ファイル・他クレートの関数呼出があり間接呼出の可能性を排除できない場合をUNKNOWNへ退避する例とする。",
+          "statement": "DA-002（対象未呼出）はtarget_bindingへ供給する検査であり、宣言されたtargetシンボルを呼んでいないことを内容とし、関数本体および同一ファイル内の呼出先helper（1段）を探索して呼出が存在しない、かつ他ファイルへの呼出も存在しないことをFAIL条件とし、他ファイル・他クレートの関数呼出があり間接呼出の可能性を排除できない場合をUNKNOWNへ退避する例とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -996,7 +996,7 @@
           }
         },
         {
-          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達せず、かつ`#[should_panic]`がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
+          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ`#[should_panic]`がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1128,7 +1128,7 @@
           }
         },
         {
-          "statement": "静的解析は再計算派生であるため、これらのtarget別verdictと規則単位verdictは検証のたびに現在sourceから計算し、正典レコードへ永続化しない。",
+          "statement": "静的解析は再計算派生であるため、これらのtarget別verdictと規則単位verdictは検証のたびに現在sourceから計算し、正典レコードへ永続化しない（§7.1）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1268,8 +1268,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2.1 照合の委譲先の終端（DA-003・DA-006）",
             "lines": [
-              1064,
-              1064
+              1062,
+              1062
             ]
           }
         },
@@ -1280,8 +1280,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2.1 照合の委譲先の終端（DA-003・DA-006）",
             "lines": [
-              1064,
-              1064
+              1062,
+              1062
             ]
           }
         },
@@ -1292,19 +1292,20 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2.1 照合の委譲先の終端（DA-003・DA-006）",
             "lines": [
-              1064,
-              1064
+              1062,
+              1062
             ]
           }
         },
         {
           "statement": "委譲先が無い（assert相当の構文だけで照合が完結する）場合、DA-003 / DA-006は従来どおり各ルールのFAIL条件で評価する。",
           "derived_from": [],
+          "description": "判定。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2.1 照合の委譲先の終端（DA-003・DA-006） / 判定表",
             "lines": [
-              1066,
+              1064,
               1068
             ]
           }
@@ -1383,7 +1384,7 @@
           }
         },
         {
-          "statement": "終端の判定は同一のscan結果から算出する。",
+          "statement": "終端の判定は同一のscan結果から算出する（§11.1の決定性）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1876,7 +1877,7 @@
           }
         },
         {
-          "statement": "DA-003は`oracle_presence`（照合装置の存在）へ寄与するstatic data-flow判定であり、targetの「結果検証」を問う。",
+          "statement": "DA-003は`oracle_presence`（照合装置の存在）へ寄与するstatic data-flow判定であり（§7.2）、targetの「結果検証」を問う。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2165,7 +2166,7 @@
           }
         },
         {
-          "statement": "判断型は判断対象を一意に区切るkeyであり、判断記録へ複製される。",
+          "statement": "判断型は判断対象を一意に区切るkeyであり（§3.4）、判断記録へ複製される。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2209,6 +2210,18 @@
             "lines": [
               1141,
               1144
+            ]
+          }
+        },
+        {
+          "statement": "`case-coverage`は、subjectの値域をTest IDまたはVO IDとする。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "8.1 バンドル生成",
+            "lines": [
+              1141,
+              1145
             ]
           }
         },
@@ -2702,7 +2715,7 @@
             "heading": "8.5 有効性と再判断",
             "lines": [
               1247,
-              1250
+              1252
             ]
           }
         },
@@ -2751,7 +2764,7 @@
             "heading": "8.5 有効性と再判断",
             "lines": [
               1259,
-              1259
+              1260
             ]
           }
         },
@@ -2804,7 +2817,7 @@
           }
         },
         {
-          "statement": "実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。",
+          "statement": "実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない（§8 冒頭）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3094,11 +3107,12 @@
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`project`をcargo package名として解釈する。",
           "derived_from": [],
+          "description": "`rust-cargo` adapterはTestEntity.executionを次のCargo実行座標として解釈する。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "9.2 `rust-cargo` TestRunnerAdapter",
             "lines": [
-              1307,
+              1305,
               1307
             ]
           }
@@ -3273,7 +3287,31 @@
           }
         },
         {
-          "statement": "`test <selector> ... ignored`という出力は実行されずを意味し、Evidenceは記録せず、target_bindingは診断NOT_EXECUTEDとする。",
+          "statement": "`test <selector> ... ignored`という出力は実行されずを意味する。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "9.3 `rust-cargo` 結果のパース",
+            "lines": [
+              1335,
+              1335
+            ]
+          }
+        },
+        {
+          "statement": "`test <selector> ... ignored`が実行されずの場合、Evidenceは記録しない。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "9.3 `rust-cargo` 結果のパース",
+            "lines": [
+              1335,
+              1335
+            ]
+          }
+        },
+        {
+          "statement": "`test <selector> ... ignored`が実行されずの場合、target_bindingは診断NOT_EXECUTEDとする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3932,11 +3970,15 @@
         {
           "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（document derives_from・content_hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoではtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
           "derived_from": [],
+          "cites": [
+            "基本仕様 §5"
+          ],
+          "description": "4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
             "lines": [
-              1418,
+              1414,
               1418
             ]
           }
@@ -4014,12 +4056,24 @@
           }
         },
         {
-          "statement": "4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）に限る。",
+          "statement": "4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）、および当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）に限る。",
           "derived_from": [],
           "cites": [
             "基本仕様 §11.1",
             "要件定義 §17.2"
           ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "11.1 検査の評価地点",
+            "lines": [
+              1423,
+              1423
+            ]
+          }
+        },
+        {
+          "statement": "4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）を含む。",
+          "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
@@ -4030,12 +4084,8 @@
           }
         },
         {
-          "statement": "4検査の評価入力は、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）に限る。",
+          "statement": "4検査の評価入力は、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）を含む。",
           "derived_from": [],
-          "cites": [
-            "基本仕様 §11.1",
-            "要件定義 §17.2"
-          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
@@ -4046,12 +4096,8 @@
           }
         },
         {
-          "statement": "4検査の評価入力は、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）に限る。",
+          "statement": "4検査の評価入力は、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）を含む。",
           "derived_from": [],
-          "cites": [
-            "基本仕様 §11.1",
-            "要件定義 §17.2"
-          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
@@ -4062,12 +4108,8 @@
           }
         },
         {
-          "statement": "4検査の評価入力は、当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）に限る。",
+          "statement": "4検査の評価入力は、当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）を含む。",
           "derived_from": [],
-          "cites": [
-            "基本仕様 §11.1",
-            "要件定義 §17.2"
-          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
@@ -4080,6 +4122,7 @@
         {
           "statement": "4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
           "derived_from": [],
+          "description": "次を、それ自体として検査入力にしてはならない。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.1 検査の評価地点",
@@ -4583,7 +4626,7 @@
           }
         },
         {
-          "statement": "evidence.hashes.test_subject == 現在のTest subject hashであり、かつevidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し各target_constructが現在のimplementation construct hashと一致し、かつevidence.revision.commitが非nullかつ現在のHEAD revisionと一致し、かつevidence.execution_state.complete == trueかつ同じschemaで現在再構築したExecution State subjectがcompleteでhashが一致し、かつevidence.adapterが現在のTest.execution.adapterと一致する場合、当該Evidenceは現在の証拠として有効とする（dirty: trueでもExecution State subject一致なら有効。実行入力manifestが実体を保証する）。",
+          "statement": "evidence.hashes.test_subject == 現在のTest subject hashであること、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し各target_constructが現在のimplementation construct hashと一致すること、evidence.revision.commitが非nullかつ現在のHEAD revisionと一致すること、evidence.execution_state.complete == trueかつ同じschemaで現在再構築したExecution State subjectがcompleteでhashが一致すること、およびevidence.adapterが現在のTest.execution.adapterと一致することのすべてが成立する場合、当該Evidenceは現在の証拠として有効とする（dirty: trueでもExecution State subject一致なら有効。実行入力manifestが実体を保証する）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5615,6 +5658,7 @@
         {
           "statement": "最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。",
           "derived_from": [],
+          "description": "任意ノードからの取得。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "11.6 役割別 projection",
@@ -6065,6 +6109,18 @@
       },
       "items": [
         {
+          "statement": "本冊の§12〜§15は別紙Aで定義する。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "16. 並列動作と整合性",
+            "lines": [
+              1588,
+              1588
+            ]
+          }
+        },
+        {
           "statement": "新規レコード追加（rel / decisions / approvals / evidence）はULIDファイル名の新規作成のみであり、並列生成は衝突しない。",
           "derived_from": [],
           "cites": [
@@ -6303,10 +6359,11 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "17.1 診断コード / 診断コード表",
             "lines": [
-              1624,
+              1622,
               1624
             ]
-          }
+          },
+          "description": "表: | コード | 種別 | 内容 |"
         },
         {
           "statement": "`W-SCAN-104`はwarningであり、documentレコードのcontent_hashと実ファイルの不一致である（依存判断・依存Approvalは無効、鎖はchain_integrity STALE）。",
@@ -6616,11 +6673,12 @@
         {
           "statement": "終了コード`0`は、要求scopeの検証結果がOK（操作コマンドでは成功）であることを意味する。",
           "derived_from": [],
+          "description": "表: | コード | 意味 |",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "17.2 終了コード",
             "lines": [
-              1656,
+              1654,
               1656
             ]
           }
@@ -6817,11 +6875,12 @@
         {
           "statement": "demangle実装（`rustc-demangle`）の適用範囲は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
           "derived_from": [],
+          "description": "次の事項は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "19. 実装選択と提供範囲",
             "lines": [
-              1674,
+              1672,
               1674
             ]
           }
@@ -6865,11 +6924,12 @@
         {
           "statement": "LSP / rust-analyzer連携によるシンボル解決は提供範囲外とする。",
           "derived_from": [],
+          "description": "次の事項は提供範囲外とする。",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "19. 実装選択と提供範囲",
             "lines": [
-              1681,
+              1679,
               1681
             ]
           }
