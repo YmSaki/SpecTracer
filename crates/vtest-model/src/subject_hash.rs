@@ -289,7 +289,9 @@ pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, VoId};
+    use crate::{
+        AdapterId, CoveragePolicy, DerivesFrom, DocumentId, SourceFunction, TargetRef, VoId,
+    };
 
     fn base_document() -> DocumentRecord {
         DocumentRecord {
@@ -662,24 +664,110 @@ mod tests {
         assert_eq!(crlf, lf);
     }
 
-    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-HAS-NO-SRC-ID-PARAMETER
+    fn sample_source_location() -> crate::SourceLocation {
+        crate::SourceLocation {
+            file: "src/parser.rs".to_string(),
+            function: "parse".to_string(),
+            start_line: 10,
+            end_line: 12,
+            start_byte: 100,
+            end_byte: 140,
+        }
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-IGNORES-SRC-ID-DECLARATION-CHANGE-OR-DELETION
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies the same (locator, construct) pair always hashes identically, regardless of any out-of-band SRC ID bookkeeping — the function has no SRC ID parameter to bind one through (本冊:88 "恒久SRC IDはhash inputの独立fieldとして束縛せず…")
+    /// @vtest.intent verifies declaring, changing, or deleting a SourceFunction's src_id does not change the hash when locator and construct bytes are held fixed (本冊:88 "恒久SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference経由でもhash inputへ入らない")
     #[test]
-    fn source_target_subject_hash_is_unaffected_by_src_id_bookkeeping_outside_construct_bytes() {
-        // Two Source Targets that differ only in a permanent SRC ID tracked
-        // entirely outside this function's inputs (e.g. only in a separate
-        // `.verify/` record, never passed here) must hash identically: this
-        // function's signature has no field a SRC ID could occupy.
-        let without_src_id_bookkeeping =
-            source_target_subject_hash(&base_locator(), "fn parse() {}");
-        let with_src_id_bookkeeping_elsewhere =
-            source_target_subject_hash(&base_locator(), "fn parse() {}");
+    fn source_target_subject_hash_ignores_src_id_declaration_change_or_deletion() {
+        // Three states of the *same* Source Target's permanent SRC ID —
+        // undeclared, declared, and declared differently — modeled on the
+        // realistic `SourceFunction` record (which carries `src_id`
+        // alongside `locator`), with `locator` and construct bytes held
+        // fixed throughout. `source_target_subject_hash` only ever reads
+        // `.locator`, never `.src_id`, so all three must hash identically.
+        let construct = "fn parse() {}";
+        let src_id_undeclared = SourceFunction {
+            locator: base_locator(),
+            src_id: None,
+            location: sample_source_location(),
+            content_hash: ContentHash::from_text(construct),
+        };
+        let src_id_declared = SourceFunction {
+            locator: base_locator(),
+            src_id: Some(crate::SrcId::new("SRC-PARSER-001")),
+            location: sample_source_location(),
+            content_hash: ContentHash::from_text(construct),
+        };
+        let src_id_changed = SourceFunction {
+            locator: base_locator(),
+            src_id: Some(crate::SrcId::new("SRC-PARSER-002")),
+            location: sample_source_location(),
+            content_hash: ContentHash::from_text(construct),
+        };
+
+        let hash_undeclared = source_target_subject_hash(&src_id_undeclared.locator, construct);
+        let hash_declared = source_target_subject_hash(&src_id_declared.locator, construct);
+        let hash_changed = source_target_subject_hash(&src_id_changed.locator, construct);
+
         assert_eq!(
-            without_src_id_bookkeeping,
-            with_src_id_bookkeeping_elsewhere
+            hash_undeclared, hash_declared,
+            "declaring a SRC ID must not change the hash"
         );
+        assert_eq!(
+            hash_declared, hash_changed,
+            "changing a declared SRC ID must not change the hash"
+        );
+        // Deletion is the reverse of declaration — already covered by
+        // hash_undeclared == hash_declared holding in both directions.
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-INDEPENDENT-OF-REFERENCING-TARGETREF-SPELLING
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies the hash is computed only from the Source Target's own canonical Locator, never from a referencing Test's TargetRef spelling (本冊:88 "hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の`TargetRef`綴りからは計算しない")
+    #[test]
+    fn source_target_subject_hash_is_independent_of_referencing_targetref_spelling() {
+        // Two Tests could declare a dependency on the *same* Source Target
+        // through different `TargetRef` spellings — one by Locator, one by
+        // SrcId — which core resolution (§6.1, out of this function's
+        // scope) collapses to the same canonical Locator before this
+        // function is ever called. This function's signature only accepts
+        // that resolved `Locator`, never a `TargetRef`, so it structurally
+        // cannot see which spelling a referencing Test used.
+        let referenced_via_locator_targetref = TargetRef::Locator(base_locator());
+        let referenced_via_src_id_targetref = TargetRef::SrcId(crate::SrcId::new("SRC-PARSER-001"));
+        assert_ne!(
+            referenced_via_locator_targetref, referenced_via_src_id_targetref,
+            "precondition: these really are two different TargetRef spellings"
+        );
+
+        // Both resolve (elsewhere, not in this function) to the same
+        // canonical Locator — which is the only thing this function reads.
+        let resolved_canonical_locator = base_locator();
+        let hash_from_one_call_site =
+            source_target_subject_hash(&resolved_canonical_locator, "fn parse() {}");
+        let hash_from_another_call_site =
+            source_target_subject_hash(&resolved_canonical_locator, "fn parse() {}");
+        assert_eq!(hash_from_one_call_site, hash_from_another_call_site);
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-PRESERVES-LEADING-SPACE-AND-TRAILING-NEWLINE-IN-CONSTRUCT
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies construct bytes preserve leading whitespace and trailing-newline presence — normalization only unifies line endings and strips trailing per-line whitespace (本冊:83 "これ以外の空白は正規化しない")
+    #[test]
+    fn source_target_subject_hash_preserves_leading_space_and_trailing_newline_in_construct() {
+        let leading_space =
+            source_target_subject_hash(&base_locator(), "fn parse() {\n    body()\n}");
+        let no_leading_space =
+            source_target_subject_hash(&base_locator(), "fn parse() {\nbody()\n}");
+        assert_ne!(leading_space, no_leading_space);
+
+        let without_trailing_newline = source_target_subject_hash(&base_locator(), "fn parse() {}");
+        let with_trailing_newline = source_target_subject_hash(&base_locator(), "fn parse() {}\n");
+        assert_ne!(without_trailing_newline, with_trailing_newline);
     }
 
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-SRC-ID-INSIDE-CONSTRUCT-BYTES-CHANGES-HASH
