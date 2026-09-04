@@ -224,7 +224,29 @@ pub fn edit_test(
     let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let start_byte: usize = current.location.byte_range.start.try_into().map_err(|_| {
+    // `current.location`（`TestEntity.location`）は Test construct の範囲
+    // （metadata doc commentを除く。本冊:99）であり、書き換え対象として
+    // 削るには狭すぎる — その doc comment（`@vtest.` 宣言そのもの）を
+    // 残したまま`rendered`側で新しい doc comment を作ると、ファイル上に
+    // 新旧2つの doc comment が並んでしまう。書き換えは常にSource Target側
+    // の範囲（属性とdoc commentを含む関数item全体。本冊:99）で行う必要が
+    // あるため、同一construct（`same_construct`）のSourceFunctionから
+    // 本来の開始byteを取る。終了byteはTest constructとSource Targetの両方
+    // でbodyの終わり＝同じ値になる（`make_location_range`はどちらも同じ
+    // item全体のspanをend_spanとして使う。`vtest-adapter-rust::
+    // collect_function_parts`参照）ため`current.location`から取ってよい。
+    let source_location = scan
+        .sources
+        .iter()
+        .map(|source| &source.location)
+        .find(|location| same_construct(location, &current.location))
+        .ok_or_else(|| {
+            Diagnostic::error(
+                "E-OP-002",
+                format!("Test `{test_id}` has no corresponding Source Target construct"),
+            )
+        })?;
+    let start_byte: usize = source_location.byte_range.start.try_into().map_err(|_| {
         Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` start offset is out of range"),
@@ -494,6 +516,21 @@ impl DesiredTest {
     }
 }
 
+/// `TestEntity.location`（Test construct: metadata doc commentを除く。
+/// 本冊:99）と、同じ関数を指す`SourceFunction.location`（Source Target:
+/// 属性とdoc commentを含む関数item全体。本冊:99）は、同一関数を指して
+/// いても`byte_range`が異なる — Testはmetadata doc commentの分だけ後ろ
+/// から始まる。したがって「この`SourceFunction`はTest自身に対応する
+/// construct（別の関数ではない）」の判定に`SourceLocation`の完全一致
+/// （`byte_range`込み）を使うと、Test自身のSource Targetエントリまで
+/// 「別の関数」と誤認し、`edit_test`が偽の重複関数名（E-OP-001）を報告
+/// する。`byte_range`を除いた`(adapter, path, locator)`が一致すれば同一
+/// constructとみなす（§1.3, 本冊:87「byte range自体は…hash inputに
+/// しない」と同じ理由でidentityにも使わない）。
+fn same_construct(a: &SourceLocation, b: &SourceLocation) -> bool {
+    a.adapter == b.adapter && a.path == b.path && a.locator == b.locator
+}
+
 fn validate_desired_test(
     root: &Path,
     scan: &ScanResult,
@@ -600,7 +637,7 @@ fn validate_desired_test(
         source.location.path.as_str() == desired.file
             && RustLocator::parse(&source.locator.value)
                 .is_some_and(|parsed| parsed.item_path == desired.fn_name)
-            && source.location != current.location
+            && !same_construct(&source.location, &current.location)
     }) {
         return Err(Diagnostic::error(
             "E-OP-001",
@@ -1145,7 +1182,8 @@ fn validate_form_answers_for(
                         source.location.path.as_str() == destination
                             && RustLocator::parse(&source.locator.value)
                                 .is_some_and(|parsed| parsed.item_path == name)
-                            && edited_location != Some(&source.location)
+                            && edited_location
+                                .is_none_or(|location| !same_construct(location, &source.location))
                     }) {
                         return Err(Diagnostic::error(
                             "E-OP-001",

@@ -1690,16 +1690,18 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// `TestDraft`s built from the exact same `construct_text` `String`
     /// (cloned, never mutated between the two calls) and differing only in
     /// `covers`, rather than going through `rust-cargo::discover` on a
-    /// `@vtest.covers` source edit: that adapter currently slices a Test
-    /// construct as the whole item span including its metadata doc comment
-    /// (`make_location` uses `item_fn.span()`, and `TestDraft.construct_text`
-    /// is that same slice) rather than excluding it as 本冊:99 requires
-    /// ("`rust-cargo` adapterはTest constructとしてmetadata doc commentを
-    /// 除き…関数itemのbytesを返す") — a pre-existing gap in the adapter,
-    /// unrelated to this wiring change, that would make a source-edit-based
-    /// version of this test change `construct_text` too and no longer
-    /// isolate a metadata-only change. Driving `materialize_tests` directly
-    /// sidesteps that gap and tests exactly the wiring this PR adds.
+    /// `@vtest.covers` source edit. At the time this test was written,
+    /// `rust-cargo` sliced a Test construct as the whole item span including
+    /// its metadata doc comment, so a source-edit-based version of this test
+    /// would have changed `construct_text` too and no longer isolated a
+    /// metadata-only change — driving `materialize_tests` directly sidestepped
+    /// that gap. That gap is now closed (`vtest_adapter_rust::
+    /// test_construct_start_span` excludes the leading metadata doc comment
+    /// per 本冊:99), and `scan_project_content_hash_changes_when_only_covers_
+    /// metadata_changes_via_source_edit` below covers the same property
+    /// through a real `@vtest.covers` source edit end-to-end. This test is
+    /// kept alongside it because it isolates the `materialize_tests` wiring
+    /// itself (independent of adapter discovery) with no other moving parts.
     #[test]
     fn materialize_tests_content_hash_changes_when_only_covers_metadata_changes() {
         let construct_text = "fn adds() { assert_eq!(2, add(1, 1)); }".to_owned();
@@ -1766,6 +1768,127 @@ fn adds() { assert_eq!(2, crate::missing()); }
             "TestEntity.content_hash must change when only covers metadata \
              changes, even though construct_text is byte-for-byte identical \
              (別紙C:35)"
+        );
+    }
+
+    /// 本冊:99「`rust-cargo` adapterはTest constructとしてmetadata doc
+    /// commentを除き、実行に影響する属性、signature、bodyを含む関数itemの
+    /// bytesを返す」を実ファイル経由で確認する。`@vtest.covers`はmetadata
+    /// doc commentの内側にあるため、その書き換えはTest construct bytes
+    /// （`DiscoveredTest.content_hash` — construct-onlyのhash。
+    /// `materialize_tests`のdoc comment参照）を変えないが、`TestEntity.
+    /// content_hash`（Test subject hash。§1.3, 本冊:87はcanonical metadata
+    /// も束縛する）は変える（別紙C:35）。上の
+    /// `materialize_tests_content_hash_changes_when_only_covers_metadata_
+    /// changes`が`materialize_tests`の配線だけを直接駆動して確認するのに
+    /// 対し、この版は`scan_project`を通してadapter discoveryから通し、
+    /// 「metadataだけ変えてconstructは不変」という状態が実ファイル編集
+    /// からも作れることそのものを確認する。
+    #[test]
+    fn scan_project_content_hash_changes_when_only_covers_metadata_changes_via_source_edit() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/vo/VO-ADD-2.yaml"),
+            valid_vo("VO-ADD-2", "null"),
+        )
+        .unwrap();
+
+        let before = scan_project(&root).unwrap();
+        assert!(
+            !before.has_errors(),
+            "diagnostics: {:?}",
+            before.diagnostics
+        );
+        let before_test = before
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture registers TEST-ADD");
+        let before_construct_hash = before
+            .discovered
+            .iter()
+            .find(|discovered| {
+                matches!(&discovered.managed, ManagedTestLink::One(id) if id.as_str() == "TEST-ADD")
+            })
+            .expect("TEST-ADD must have a DiscoveredTest observation")
+            .content_hash
+            .clone();
+        // `adds`自身もSource Target（属性とdoc commentを含む関数item全体。
+        // 本冊:99）として登録される（`collect_function_parts`は`is_test`
+        // 判定より前に無条件で`self.sources`へpushする）。この
+        // `SourceFunction.content_hash`はdoc commentを含む範囲から計算する
+        // ため、`@vtest.covers`の書き換えで変わるはずである — Test
+        // construct側が不変であることの非対称な裏付け（Source Targetの
+        // 範囲は変えていないことの実測）。
+        let before_source_hash = before
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "tests/calc.rs::adds")
+            .expect("fixture's own test function must be registered as a Source Target")
+            .content_hash
+            .clone();
+
+        // `@vtest.covers`だけを書き換える。属性・signature・bodyは不変。
+        fs::write(
+            root.join("tests/calc.rs"),
+            r#"
+/// @vtest.id TEST-ADD
+/// @vtest.covers VO-ADD-2
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent adds values
+#[test]
+fn adds() { assert_eq!(2, crate::missing()); }
+"#,
+        )
+        .unwrap();
+
+        let after = scan_project(&root).unwrap();
+        assert!(!after.has_errors(), "diagnostics: {:?}", after.diagnostics);
+        let after_test = after
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture registers TEST-ADD");
+        let after_construct_hash = after
+            .discovered
+            .iter()
+            .find(|discovered| {
+                matches!(&discovered.managed, ManagedTestLink::One(id) if id.as_str() == "TEST-ADD")
+            })
+            .expect("TEST-ADD must have a DiscoveredTest observation")
+            .content_hash
+            .clone();
+        let after_source_hash = after
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "tests/calc.rs::adds")
+            .expect("fixture's own test function must be registered as a Source Target")
+            .content_hash
+            .clone();
+
+        assert_ne!(
+            before_test.covers, after_test.covers,
+            "the source edit must actually declare different covers"
+        );
+        assert_eq!(
+            before_construct_hash, after_construct_hash,
+            "Test construct bytes (metadata doc comment excluded, 本冊:99) \
+             must stay unchanged when only @vtest.covers changes"
+        );
+        assert_ne!(
+            before_test.content_hash, after_test.content_hash,
+            "TestEntity.content_hash must change when only covers metadata \
+             changes, even though Test construct bytes are unchanged (別紙C:35)"
+        );
+        assert_ne!(
+            before_source_hash, after_source_hash,
+            "Source Target hash for `adds` itself must change — its \
+             construct bytes still include the metadata doc comment \
+             (本冊:99 \"Source Targetには属性とdoc commentを含む関数item \
+             全体を返す\"), so rewriting @vtest.covers changes those bytes \
+             even though it leaves the Test construct (attrs/signature/body \
+             only) unchanged. This is the asymmetry that proves the two \
+             ranges were actually split, not both silently narrowed."
         );
     }
 

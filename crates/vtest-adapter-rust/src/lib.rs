@@ -557,6 +557,27 @@ impl<'a> Scanner<'a> {
         if !is_test {
             return Ok(());
         }
+
+        // 本冊:99「`rust-cargo` adapterはTest constructとしてmetadata doc
+        // commentを除き、実行に影響する属性、signature、bodyを含む関数item
+        // のbytesを返す」。`location`/`content`（上）はSource Targetの
+        // 範囲（属性とdoc commentを含む関数item全体。本冊:99「Source Target
+        // には属性とdoc commentを含む関数item全体を返す」）であり、Test
+        // construct には使えない — 両方に同じ範囲を使うと、`@vtest.covers`
+        // 等のmetadata doc comment書き換えがTest construct bytesまで変えて
+        // しまい、metadata宣言だけを変えてconstructを不変に保つ経路が実
+        // ファイル側から作れなくなる。ここでTest construct専用の
+        // location/contentを別に計算する。
+        let test_start = test_construct_start_span(attrs, span);
+        let test_location =
+            make_location_range(relative, item_path, test_start, span, source, line_offsets);
+        let Some(test_content) = source_slice(source, &test_location) else {
+            return Err(DiscoveryError {
+                path: path.to_owned(),
+                message: format!("function `{item_path}` test construct range is out of bounds"),
+            });
+        };
+
         let Some(annotation) = parse_test_annotations(attrs, test_target) else {
             self.diagnostics.push(
                 Diagnostic::warning(
@@ -565,7 +586,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         if !annotation.diagnostics.is_empty() {
@@ -576,7 +597,7 @@ impl<'a> Scanner<'a> {
                 self.diagnostics
                     .push(Diagnostic::error(code, message).with_location(location.clone()));
             }
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
@@ -587,7 +608,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
@@ -598,7 +619,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let target_values = annotation.targets;
@@ -610,7 +631,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
@@ -621,7 +642,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let test_id = TestId::new(id.clone());
@@ -660,7 +681,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let targets = target_values
@@ -707,8 +728,8 @@ impl<'a> Scanner<'a> {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
-            location,
-            construct_text: content.to_owned(),
+            location: test_location,
+            construct_text: test_content.to_owned(),
             // 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次の
             // Cargo実行座標として解釈する」— このadapterが唯一この解釈を
             // 行う場所。`project`＝cargo package名、`suite`＝`TestTarget`を
@@ -1394,8 +1415,26 @@ fn make_location(
     source: &str,
     offsets: &[usize],
 ) -> SourceLocation {
-    let start = span.start();
-    let end = span.end();
+    make_location_range(relative, locator, span, span, source, offsets)
+}
+
+/// `make_location` の一般化版。開始位置と終了位置を別々の span から取る。
+/// Source Target（item全体。属性・doc commentを含む）とTest construct
+/// （metadata doc commentを除く。本冊:99）は同じ関数itemに対して異なる
+/// byte_rangeを持つため、`SourceDraft`（常に`item_span`を開始・終了双方に
+/// 使う＝`make_location`と同値）と`TestDraft`/`MissingTestConstruct`
+/// （`test_construct_start_span`が返す開始位置と`item_span`の終了位置を使う）
+/// とで別々にこの関数を呼ぶ（`collect_function_parts`参照）。
+fn make_location_range(
+    relative: &str,
+    locator: &str,
+    start_span: proc_macro2::Span,
+    end_span: proc_macro2::Span,
+    source: &str,
+    offsets: &[usize],
+) -> SourceLocation {
+    let start = start_span.start();
+    let end = end_span.end();
     let start_line = start.line.max(1);
     let end_line = end.line.max(start_line);
     let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
@@ -1409,6 +1448,35 @@ fn make_location(
             end: (end_byte.min(source.len())) as u64,
         },
     }
+}
+
+/// Test construct（本冊:99）の開始位置を求める。metadata doc comment
+/// （`///` / `/** */` → syn上は `#[doc = "..."]` 疑似 attribute。1行につき
+/// 1 attribute）を除外し、実行に影響する属性（`#[test]`等）・signature・
+/// bodyを含む範囲だけをTest constructとして返すための開始 span。
+///
+/// この adapter の全 fixture・`rust-cargo` の実運用コードの慣用（本冊:1173
+/// の例も同じ並び）どおり、Test construct の doc comment は item の先頭に
+/// 連続して置かれる。したがって「先頭から連続する doc attribute の並び」
+/// を除外区間とし、その直後（最初の非 doc attribute）を Test construct の
+/// 開始 span として返す。
+///
+/// 呼び出し元は `is_test_function(attrs)` が真の construct でのみこの
+/// 関数を呼ぶため、`#[test]`（またはそれに類する属性）が必ず1件以上
+/// 存在し、ループは非 doc attribute で必ず return する。`item_span`
+/// フォールバックは attrs が空、または全 attrs が doc の場合に限られ
+/// （このadapterの呼び出し経路では到達しない）、その場合は除外すべき
+/// 先頭 doc attribute が無い＝Source Targetと同じ開始位置を返す。
+fn test_construct_start_span(
+    attrs: &[Attribute],
+    item_span: proc_macro2::Span,
+) -> proc_macro2::Span {
+    for attr in attrs {
+        if !attr.path().is_ident("doc") {
+            return attr.span();
+        }
+    }
+    item_span
 }
 
 fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a str> {
