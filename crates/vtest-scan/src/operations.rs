@@ -1,15 +1,16 @@
 use std::{
     collections::BTreeMap,
     fs,
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
 };
 
 use serde::Serialize;
 use syn::spanned::Spanned;
+use vtest_adapter_api::AdapterScanConfig;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
-    TestTarget,
+    test_subject_hash, CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity,
+    TestRecord, TestResult,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -220,21 +221,73 @@ pub fn edit_test(
     }
     validate_desired_test(root, &scan, &current, &desired)?;
 
-    let path = root.join(Path::new(&current.location.file));
+    let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let start_byte: usize = current.location.start_byte.try_into().map_err(|_| {
-        Diagnostic::error(
+    // 別紙A §15.1「スキャン結果が古い可能性があるため、編集直前に対象
+    // ファイルのみ再パースし、Test ID の位置を再確認する。再確認で
+    // 見つからない場合はE-OP-002。」— `rescan_current_test` が対象
+    // ファイルだけを再 discovery し、Test subject hash（§1.3, 本冊:87）と
+    // 現在の byte 位置を両方返す。位置は必ずこの再 discovery の結果を使う
+    // （`scan`（呼び出し冒頭の全体スキャン）由来の位置は、この再
+    // discovery までの間に対象ファイルより前方で行が挿入／削除されて
+    // いれば古い — 使うと ずれた offset に対して置換することになる）。
+    let Some(rescanned) = rescan_current_test(root, &current.location, test_id)? else {
+        return Err(Diagnostic::error(
             "E-OP-002",
-            format!("Test `{test_id}` start offset is out of range"),
-        )
-    })?;
-    let end_byte: usize = current.location.end_byte.try_into().map_err(|_| {
-        Diagnostic::error(
+            format!(
+                "Test `{test_id}` could not be relocated in `{}`",
+                path.display()
+            ),
+        ));
+    };
+    // `current.content_hash` is the Test subject hash (§1.3, 本冊:87), not a
+    // construct-only hash — it also binds canonical metadata, Source
+    // Location (excluding byte_range), and ExecutionDescriptor. Comparing it
+    // against the freshly recomputed Test subject hash detects metadata /
+    // ExecutionDescriptor / location-identity drift since the original scan
+    // (this is in addition to, not instead of, the position reconfirmation
+    // above — both must hold before the edit proceeds).
+    if rescanned.subject_hash != current.content_hash {
+        return Err(Diagnostic::error(
             "E-OP-002",
-            format!("Test `{test_id}` end offset is out of range"),
-        )
-    })?;
+            format!("Test `{test_id}` changed before edit could be applied"),
+        ));
+    }
+    // `current.location`（`TestEntity.location`）は Test construct の範囲
+    // （metadata doc commentを除く。本冊:99）であり、書き換え対象として
+    // 削るには狭すぎる — その doc comment（`@vtest.` 宣言そのもの）を
+    // 残したまま`rendered`側で新しい doc comment を作ると、ファイル上に
+    // 新旧2つの doc comment が並んでしまう。書き換えは常にSource Target側
+    // の範囲（属性とdoc commentを含む関数item全体。本冊:99）で行う必要が
+    // あるため、`rescanned.source_location`（今回の再 discovery が返した
+    // 現在の Source Target 位置）から開始byteを取る。終了byteはTest
+    // constructとSource Targetの両方でbodyの終わり＝同じ値になる
+    // （`make_location_range`はどちらも同じitem全体のspanをend_spanとして
+    // 使う。`vtest-adapter-rust::collect_function_parts`参照）ため同じ
+    // `rescanned.source_location`から取ってよい。
+    let start_byte: usize = rescanned
+        .source_location
+        .byte_range
+        .start
+        .try_into()
+        .map_err(|_| {
+            Diagnostic::error(
+                "E-OP-002",
+                format!("Test `{test_id}` start offset is out of range"),
+            )
+        })?;
+    let end_byte: usize = rescanned
+        .source_location
+        .byte_range
+        .end
+        .try_into()
+        .map_err(|_| {
+            Diagnostic::error(
+                "E-OP-002",
+                format!("Test `{test_id}` end offset is out of range"),
+            )
+        })?;
     let range = start_byte..end_byte;
     let current_slice = original.get(range.clone()).ok_or_else(|| {
         Diagnostic::error(
@@ -242,12 +295,6 @@ pub fn edit_test(
             format!("Test `{test_id}` source range is stale"),
         )
     })?;
-    if ContentHash::from_text(current_slice) != current.content_hash {
-        return Err(Diagnostic::error(
-            "E-OP-002",
-            format!("Test `{test_id}` changed before edit could be applied"),
-        ));
-    }
     let indent = line_indent(&original, start_byte);
     let normalized_current = deindent(current_slice, &indent);
     let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
@@ -267,7 +314,7 @@ pub fn edit_test(
     let changed = prospective != original;
     let result = TestMutationResult {
         test_id: test_id.to_owned(),
-        file: current.location.file.clone(),
+        file: current.location.path.as_str().to_owned(),
         dry_run,
         changed,
         start_byte,
@@ -293,6 +340,107 @@ pub fn edit_test(
         rollback(&path, &original, diagnostic)?;
     }
     Ok(result)
+}
+
+/// Result of [`rescan_current_test`]: both halves of 別紙A §15.1's
+/// re-confirmation ("編集直前に対象ファイルのみ再パースし、Test ID の
+/// **位置**を再確認する") — the Test subject hash for detecting metadata /
+/// ExecutionDescriptor / location-identity drift, and the freshly
+/// rediscovered Source Target `SourceLocation` (the current `byte_range`)
+/// that `edit_test` must use for the actual replacement offsets.
+struct CurrentTestRescan {
+    subject_hash: ContentHash,
+    source_location: SourceLocation,
+}
+
+/// `edit_test`'s optimistic-concurrency check (別紙A §15.1「スキャン結果が
+/// 古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の
+/// 位置を再確認する」): re-runs discovery scoped to `location.path` only
+/// (via `AdapterScanConfig::include_paths`, not a full project scan), finds
+/// the draft that still declares `test_id`, and returns both its recomputed
+/// Test subject hash (§1.3, 本冊:87; directly comparable to a
+/// `TestEntity.content_hash` from the original scan, the same way
+/// `vtest_scan::materialize_tests` computes it) and the current Source
+/// Target `SourceLocation` for that same construct (matched via
+/// `same_construct` against the freshly discovered `draft.location`, from
+/// this same discovery pass — never from the caller's stale `scan`).
+///
+/// Returns `Ok(None)` when the file no longer yields a draft for `test_id`
+/// (the construct was deleted, its `@vtest.id` changed, or it lost required
+/// metadata and became `Missing`) or when that draft's Source Target
+/// construct cannot be relocated — either way, Test ID の位置 could not be
+/// re-confirmed, so the caller must reject with E-OP-002 (別紙A:593「再確認で
+/// 見つからない場合はE-OP-002」) rather than proceed with a stale offset.
+fn rescan_current_test(
+    root: &Path,
+    location: &SourceLocation,
+    test_id: &str,
+) -> Result<Option<CurrentTestRescan>, Diagnostic> {
+    let config =
+        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let registry = crate::adapter_registry();
+    // Defensive only: `current` (the caller's already-scanned entity) came
+    // from a `scan_project` that already resolved `location.adapter` against
+    // this same registry (fail-closed E-ADAPTER-001 otherwise, per
+    // `ScanError::Adapter`), so this branch should be unreachable in
+    // practice. Kept fail-closed with the matching code rather than a panic
+    // or silent fallback.
+    let Some(adapter) = registry.get(location.adapter.as_str()) else {
+        return Err(Diagnostic::error(
+            "E-ADAPTER-001",
+            format!(
+                "Test `{test_id}` adapter `{}` is not registered",
+                location.adapter.as_str()
+            ),
+        ));
+    };
+    let scan_config = AdapterScanConfig {
+        include_paths: vec![PathBuf::from(location.path.as_str())],
+    };
+    let outcome = adapter
+        .discover(root, &config.project.name, &scan_config)
+        .map_err(|error| Diagnostic::error("E-ADAPTER-002", error.to_string()))?;
+    let Some(draft) = outcome
+        .tests
+        .into_iter()
+        .find(|draft| draft.id.as_str() == test_id)
+    else {
+        return Ok(None);
+    };
+    // Same construct, same discovery pass: `outcome.sources` was produced by
+    // this same `adapter.discover` call, so its `SourceDraft.location` byte
+    // ranges are as current as `draft.location`'s — unlike the caller's
+    // `scan.sources`, which can be arbitrarily stale by the time `edit_test`
+    // reaches this point.
+    let Some(source) = outcome
+        .sources
+        .into_iter()
+        .find(|source| same_construct(&source.location, &draft.location))
+    else {
+        return Ok(None);
+    };
+    let metadata = TestRecord {
+        id: draft.id.clone(),
+        covers: draft.covers.clone(),
+        targets: draft.targets.clone(),
+        intent: draft.intent.clone(),
+        input: draft.input.clone(),
+        expect: draft.expect.clone(),
+        kind: draft.kind.clone(),
+        cases: draft.cases.clone(),
+        related: draft.related.clone(),
+    };
+    let subject_hash = test_subject_hash(
+        &location.adapter,
+        &metadata,
+        &draft.location,
+        &draft.execution,
+        &draft.construct_text,
+    );
+    Ok(Some(CurrentTestRescan {
+        subject_hash,
+        source_location: source.location,
+    }))
 }
 
 #[derive(Clone, Debug)]
@@ -331,8 +479,8 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.filter.clone(),
-            file: test.location.file.clone(),
+            fn_name: test.execution.selector.clone(),
+            file: test.location.path.as_str().to_owned(),
         }
     }
 
@@ -412,6 +560,21 @@ impl DesiredTest {
     }
 }
 
+/// `TestEntity.location`（Test construct: metadata doc commentを除く。
+/// 本冊:99）と、同じ関数を指す`SourceFunction.location`（Source Target:
+/// 属性とdoc commentを含む関数item全体。本冊:99）は、同一関数を指して
+/// いても`byte_range`が異なる — Testはmetadata doc commentの分だけ後ろ
+/// から始まる。したがって「この`SourceFunction`はTest自身に対応する
+/// construct（別の関数ではない）」の判定に`SourceLocation`の完全一致
+/// （`byte_range`込み）を使うと、Test自身のSource Targetエントリまで
+/// 「別の関数」と誤認し、`edit_test`が偽の重複関数名（E-OP-001）を報告
+/// する。`byte_range`を除いた`(adapter, path, locator)`が一致すれば同一
+/// constructとみなす（§1.3, 本冊:87「byte range自体は…hash inputに
+/// しない」と同じ理由でidentityにも使わない）。
+fn same_construct(a: &SourceLocation, b: &SourceLocation) -> bool {
+    a.adapter == b.adapter && a.path == b.path && a.locator == b.locator
+}
+
 fn validate_desired_test(
     root: &Path,
     scan: &ScanResult,
@@ -424,7 +587,7 @@ fn validate_desired_test(
             "Structured Edit cannot change a Test ID",
         ));
     }
-    if desired.file != current.location.file {
+    if desired.file != current.location.path.as_str() {
         return Err(Diagnostic::error(
             "E-OP-003",
             "Structured Edit cannot move a Test to another file",
@@ -459,18 +622,36 @@ fn validate_desired_test(
             "target must contain at least one source locator",
         ));
     }
-    // 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数targetの許容は
-    // `@vtest.kind` の文字列ではなく、rust-cargoが判定した実行形態が
-    // Cargo Integration Testであるかどうかで決める。Structured Editは
-    // ファイル移動を禁じている（直前のE-OP-003検査）ため、editの前後で
-    // `current` の物理的な配置（したがって実行形態）は変わらず、
-    // `current.test_target` をそのまま判定材料にできる。
-    if desired.targets.len() > 1 && !matches!(current.test_target, TestTarget::IntegrationTest(_)) {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            "multiple targets are allowed only for Cargo integration tests",
-        ));
-    }
+    // 失われた検査（`SourceLocation`/`ExecutionDescriptor` reshape、
+    // hash27-model-spec.md 対応 PR）: 本冊 §4.2改訂（Owner裁定3、
+    // pr3-decisions.md）により、複数targetの許容はrust-cargoが判定した
+    // 実行形態がCargo Integration Testであるかどうかで決まる
+    // （`@vtest.kind` の文字列では判定しない）。以前はここで
+    // `current.test_target`（`vtest_model::TestTarget` enum）を直接
+    // matches! していたが、`TestTarget` 型は本冊:685-703「`filter`、
+    // `package`、`test_target`および`TestTarget`型を`vtest-model`へ置か
+    // ない」により `vtest-model` から除去され、`TestEntity` は
+    // `execution: ExecutionDescriptor`（`suite.kind: String`、enum制約
+    // なし）だけを持つ。
+    //
+    // ここで代わりに `current.execution.suite.kind == "integration"` を
+    // 読んで判定を再現することはしない — 本冊:688「coreは `project`、
+    // `suite.kind`、`suite.name`、`selector` の文字列を解釈しない」が
+    // 明示的に禁じる。この判定（実行形態の判別）は adapter
+    // （`rust-cargo` の `TestRunnerAdapter`）の責務であり、core
+    // （`vtest-scan`）へ持ち込まない。
+    //
+    // したがってこの検査は削除した。**失われるもの**: Structured Edit
+    // （`vtest edit`）で `targets` を複数件に増やす場合、以前は
+    // 「対象 Test が Cargo Integration Test でなければ拒否」がここで
+    // fail-closed に効いていたが、今はこのcrateにその判定余地が無い。
+    // 複数 target 自体は許容されたまま通る（Cargo Integration Test か
+    // どうかを問わなくなる）。**ここで復旧しない理由**: 判定を adapter
+    // 側へ移すには、adapter が「この Test は複数 target を許容するか」を
+    // core へ返す新しい DTO と呼び出し順序が要るが、詳細設計にその
+    // 契約が無い（PR3の裁量で決めた `SourceDiscoveryAdapter` trait には
+    // この形の問い合わせが無い）。**復旧予定**: Issue #32（上流へ差し
+    // 戻し済み）。
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
@@ -497,10 +678,10 @@ fn validate_desired_test(
         ));
     }
     if scan.sources.iter().any(|source| {
-        source.location.file == desired.file
+        source.location.path.as_str() == desired.file
             && RustLocator::parse(&source.locator.value)
                 .is_some_and(|parsed| parsed.item_path == desired.fn_name)
-            && source.location != current.location
+            && !same_construct(&source.location, &current.location)
     }) {
         return Err(Diagnostic::error(
             "E-OP-001",
@@ -561,8 +742,8 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.filter {
-        let from = format!("fn {}", current.filter);
+    if desired.fn_name != current.execution.selector {
+        let from = format!("fn {}", current.execution.selector);
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -716,8 +897,8 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.filter == desired.fn_name
-        && test.location.file == desired.file
+        && test.execution.selector == desired.fn_name
+        && test.location.path.as_str() == desired.file
 }
 
 fn line_indent(source: &str, byte: usize) -> String {
@@ -903,8 +1084,9 @@ pub fn list_tests(
     } else {
         Vec::new()
     };
-    unregistered
-        .sort_by(|left, right| (&left.file, left.start_byte).cmp(&(&right.file, right.start_byte)));
+    unregistered.sort_by(|left, right| {
+        (&left.path, left.byte_range.start).cmp(&(&right.path, right.byte_range.start))
+    });
     TestSelection {
         tests,
         unregistered,
@@ -1036,15 +1218,16 @@ fn validate_form_answers_for(
                     let destination = if supplied.answers.contains_key("file") {
                         destination_file(supplied)?
                     } else if let Some(location) = edited_location {
-                        location.file.clone()
+                        location.path.as_str().to_owned()
                     } else {
                         destination_file(supplied)?
                     };
                     if scan.sources.iter().any(|source| {
-                        source.location.file == destination
+                        source.location.path.as_str() == destination
                             && RustLocator::parse(&source.locator.value)
                                 .is_some_and(|parsed| parsed.item_path == name)
-                            && edited_location != Some(&source.location)
+                            && edited_location
+                                .is_none_or(|location| !same_construct(location, &source.location))
                     }) {
                         return Err(Diagnostic::error(
                             "E-OP-001",
@@ -1711,12 +1894,10 @@ mod tests {
 
     fn sample_location(function: &str) -> SourceLocation {
         SourceLocation {
-            file: "src/lib.rs".to_owned(),
-            function: function.to_owned(),
-            start_line: 1,
-            end_line: 1,
-            start_byte: 0,
-            end_byte: 1,
+            adapter: vtest_model::AdapterId::new("rust-cargo"),
+            path: vtest_model::ProjectPath::new("src/lib.rs"),
+            locator: function.to_owned(),
+            byte_range: vtest_model::SourceRange { start: 0, end: 1 },
         }
     }
 
@@ -1733,9 +1914,15 @@ mod tests {
             related: Vec::new(),
             location: sample_location(function),
             content_hash: ContentHash::from_text(hash_seed),
-            filter: function.to_owned(),
-            package: "pkg".to_owned(),
-            test_target: vtest_model::TestTarget::Lib,
+            execution: vtest_model::ExecutionDescriptor {
+                adapter: vtest_model::AdapterId::new("rust-cargo"),
+                project: Some("pkg".to_owned()),
+                suite: Some(vtest_model::TestSuite {
+                    kind: "lib".to_owned(),
+                    name: None,
+                }),
+                selector: function.to_owned(),
+            },
         }
     }
 
@@ -1808,6 +1995,171 @@ mod tests {
             sample_test("TEST-OTHER", "collision_b", "collision-b"),
         ]);
         assert!(verify_other_test_hashes(&after, &hashes, None).is_ok());
+    }
+
+    /// Minimal `rust-cargo` project fixture for exercising
+    /// `rescan_current_test` directly — no VO/doc records, since
+    /// `rescan_current_test` never resolves `covers` (that happens in
+    /// `scan_project`/`materialize_tests`, not here).
+    fn rescan_fixture(calc_rs: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-scan-rescan-{suffix}"));
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("tests")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        vtest_store::init_project(&root, "fixture").unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: i32, b: i32) -> i32 { a + b }\n",
+        )
+        .unwrap();
+        fs::write(root.join("tests/calc.rs"), calc_rs).unwrap();
+        root
+    }
+
+    const RESCAN_FIXTURE_TEST: &str = r#"
+/// @vtest.id TEST-ADD
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent adds values
+#[test]
+fn adds() { assert_eq!(2, 1 + 1); }
+"#;
+
+    /// 別紙A §15.1「スキャン結果が古い可能性があるため、編集直前に対象
+    /// ファイルのみ再パースし、Test ID の位置を再確認する」の直接ロック
+    /// イン（B-1修正）。
+    ///
+    /// `edit_test`が呼ぶ`scan_project(root)`（旧scan、`scan.sources`/
+    /// `current.location`の由来）とその後の`rescan_current_test`呼び出しの
+    /// 間で対象ファイルより前方に行が挿入される、という別紙A:592が想定する
+    /// 競合状態を、両呼び出しを手動で分離することで決定的に再現する
+    /// （`edit_test`単体呼び出しは内部で両方を連続実行するため、この
+    /// 競合状態を外部から注入できない）。
+    ///
+    /// Test subject hash（§1.3, 本冊:87）は`byte_range`をhash inputに
+    /// 含まないため、位置だけがずれてもhashは変化しない —
+    /// hash比較だけでは検出できない。位置そのものを再パース結果から
+    /// 取ることが必須である、というのがこのテストの主張。
+    #[test]
+    fn rescan_current_test_relocates_to_the_current_position_after_a_leading_edit() {
+        let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+
+        // "the scan this edit is based on" (別紙A:592) — mirrors
+        // `edit_test`'s own internal `scan_project(root)` at its first line.
+        let scan = crate::scan_project(&root).unwrap();
+        let current = scan
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture must discover TEST-ADD")
+            .clone();
+        let stale_source_location = scan
+            .sources
+            .iter()
+            .map(|source| &source.location)
+            .find(|location| same_construct(location, &current.location))
+            .expect("fixture must discover TEST-ADD's Source Target")
+            .clone();
+
+        // Simulate a concurrent edit landing in the window 別紙A:592
+        // describes: two leading lines inserted before the target
+        // construct, shifting every later byte offset. Metadata,
+        // ExecutionDescriptor, and construct bytes are all unchanged.
+        let leading_insert = "// leading comment\n// another leading comment\n";
+        let shifted = format!("{leading_insert}{RESCAN_FIXTURE_TEST}");
+        fs::write(root.join("tests/calc.rs"), &shifted).unwrap();
+
+        // Position re-confirmation (別紙A §15.1), exactly as `edit_test`
+        // calls it right before computing the replacement byte range.
+        let rescanned = rescan_current_test(&root, &current.location, "TEST-ADD")
+            .unwrap()
+            .expect("TEST-ADD must still be relocatable after a pure position shift");
+
+        assert_eq!(
+            rescanned.subject_hash, current.content_hash,
+            "a position-only shift must not change the Test subject hash (本冊:87 excludes \
+             byte_range) — this is exactly why the hash check alone cannot stand in for \
+             位置の再確認"
+        );
+        assert_ne!(
+            rescanned.source_location.byte_range, stale_source_location.byte_range,
+            "rescan must report the CURRENT position, not the byte_range captured by the \
+             original scan (B-1: using the stale value here is the bug this test locks out)"
+        );
+        assert_eq!(
+            rescanned.source_location.byte_range.start,
+            stale_source_location.byte_range.start + leading_insert.len() as u64,
+            "the reconfirmed start byte must exactly track the inserted leading lines"
+        );
+        assert_eq!(
+            rescanned.source_location.byte_range.end,
+            stale_source_location.byte_range.end + leading_insert.len() as u64,
+            "the reconfirmed end byte must exactly track the inserted leading lines"
+        );
+    }
+
+    /// 別紙A:593「再確認で見つからない場合はE-OP-002」の`rescan_current_test`
+    /// 側ロックイン: 対象constructが再パース時点で見つからなければ`None`を
+    /// 返し、`edit_test`はこれをE-OP-002として扱う（適用前、ファイル書き込み
+    /// 前）。
+    #[test]
+    fn rescan_current_test_returns_none_when_the_construct_can_no_longer_be_relocated() {
+        let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+        let scan = crate::scan_project(&root).unwrap();
+        let current = scan
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture must discover TEST-ADD")
+            .clone();
+
+        // The construct is gone by the time position is reconfirmed (e.g.
+        // deleted, or its `@vtest.id` rewritten, between the original scan
+        // and the reconfirmation).
+        fs::write(root.join("tests/calc.rs"), "// test removed\n").unwrap();
+
+        let rescanned = rescan_current_test(&root, &current.location, "TEST-ADD").unwrap();
+        assert!(
+            rescanned.is_none(),
+            "must report None so the caller (edit_test) rejects with E-OP-002 instead of \
+             proceeding with a stale offset"
+        );
+    }
+
+    /// `edit_test`公開APIを通した端点確認: 呼び出し時点で対象constructが
+    /// 既に存在しない場合、E-OP-002で拒否され、ファイルは一切書き換わらない
+    /// （適用前の拒否）。この経路自体（`tests_by_id`のNotFound）はB-1修正の
+    /// 変更対象ではないが、「ファイルがscan後にずれていれば適用前に
+    /// E-OP-002で止まる」という契約を`edit_test`の外部から観測できる形で
+    /// 確認する。
+    #[test]
+    fn edit_test_rejects_with_e_op_002_before_writing_when_the_target_is_gone() {
+        let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+        // A caller believes TEST-ADD still exists (as it would from an
+        // earlier scan) and asks to edit it, but the file was rewritten
+        // (by another process/session) before this call reaches `edit_test`.
+        fs::write(root.join("tests/calc.rs"), "// test removed\n").unwrap();
+        let before = fs::read_to_string(root.join("tests/calc.rs")).unwrap();
+
+        let mut set = BTreeMap::new();
+        set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, false);
+
+        let error = result.expect_err("editing a Test ID that no longer exists must fail");
+        assert_eq!(error.code, "E-OP-002");
+        let after = fs::read_to_string(root.join("tests/calc.rs")).unwrap();
+        assert_eq!(
+            before, after,
+            "a rejected edit must not touch the file at all"
+        );
     }
 
     fn field(name: &str, field_type: &str) -> vtest_store::FormField {

@@ -30,8 +30,61 @@ use vtest_adapter_api::{
     SourceDiscoveryAdapter, SourceDraft, TestDraft,
 };
 use vtest_model::{
-    AdapterId, Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
+    AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
+    SrcId, TargetRef, TestId, TestSuite, VoId,
 };
+
+// TODO: Review fail-closed handling of `TestTarget::Unknown`. Execution
+// (`vtest-exec::cargo_command` 等) must not silently fall back to an
+// unscoped Cargo target when `ExecutionDescriptor.suite` is `None` — that
+// happens when this adapter cannot resolve a unique Cargo target root for a
+// file (`source_context` below returns `TestTarget::Unknown`). This TODO
+// moved here from `vtest_model::TestEntity` (旧 `test_target` field) when
+// `TestTarget` moved out of `vtest-model` into this crate — the underlying
+// concern (silent unscoped-target fallback) is unresolved either way.
+
+/// この adapter 内部だけが使う Cargo 実行形態の分類（本冊 §9.2 の
+/// `suite.kind`／`suite.name` を組み立てるための中間状態）。
+///
+/// 本冊:685-703「`filter`、`package`、`test_target`および`TestTarget`型を
+/// `vtest-model`へ置かない」により、この型は `vtest-model` から
+/// この crate（`rust-cargo` adapter）へ移した。`vtest-adapter-api` の
+/// contract 型（`TestDraft` 等）もこの型を経由しない —
+/// `vtest-adapter-api` は言語非依存でなければならず（crate冒頭コメント）、
+/// Rust/Cargo 固有のこの型に依存できない。この adapter は discovery の
+/// 過程でこの型を内部的に使い、最終的に `ExecutionDescriptor` へ解釈して
+/// から `TestDraft.execution` へ積む（本冊 §9.2）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TestTarget {
+    Lib,
+    Bin(String),
+    IntegrationTest(String),
+    Unknown,
+}
+
+/// `TestTarget` を本冊 §9.2 の `ExecutionDescriptor.suite` へ解釈する。
+/// `Unknown`（Cargo target rootを一意に解決できなかった）は `None` —
+/// 「suiteを解決できなかった」ことを型で表す。`suite.kind` の3値
+/// （`"lib"` / `"bin"` / `"integration"`）は本冊:1309 が定めるこの
+/// adapter自身の解釈規約であり、`vtest-model::TestSuite.kind` 自体は
+/// プレーンな `String`（enum制約なし）。
+fn suite_for(target: &TestTarget) -> Option<TestSuite> {
+    match target {
+        TestTarget::Lib => Some(TestSuite {
+            kind: "lib".to_owned(),
+            name: None,
+        }),
+        TestTarget::Bin(name) => Some(TestSuite {
+            kind: "bin".to_owned(),
+            name: Some(name.clone()),
+        }),
+        TestTarget::IntegrationTest(name) => Some(TestSuite {
+            kind: "integration".to_owned(),
+            name: Some(name.clone()),
+        }),
+        TestTarget::Unknown => None,
+    }
+}
 
 /// 本冊 §4.3「`rust-cargo` adapterはこの値を`TargetRef::Locator { adapter:
 /// "rust-cargo", value: locator }`へ正規化する」。`config.yaml` の
@@ -504,6 +557,27 @@ impl<'a> Scanner<'a> {
         if !is_test {
             return Ok(());
         }
+
+        // 本冊:99「`rust-cargo` adapterはTest constructとしてmetadata doc
+        // commentを除き、実行に影響する属性、signature、bodyを含む関数item
+        // のbytesを返す」。`location`/`content`（上）はSource Targetの
+        // 範囲（属性とdoc commentを含む関数item全体。本冊:99「Source Target
+        // には属性とdoc commentを含む関数item全体を返す」）であり、Test
+        // construct には使えない — 両方に同じ範囲を使うと、`@vtest.covers`
+        // 等のmetadata doc comment書き換えがTest construct bytesまで変えて
+        // しまい、metadata宣言だけを変えてconstructを不変に保つ経路が実
+        // ファイル側から作れなくなる。ここでTest construct専用の
+        // location/contentを別に計算する。
+        let test_start = test_construct_start_span(attrs, span);
+        let test_location =
+            make_location_range(relative, item_path, test_start, span, source, line_offsets);
+        let Some(test_content) = source_slice(source, &test_location) else {
+            return Err(DiscoveryError {
+                path: path.to_owned(),
+                message: format!("function `{item_path}` test construct range is out of bounds"),
+            });
+        };
+
         let Some(annotation) = parse_test_annotations(attrs, test_target) else {
             self.diagnostics.push(
                 Diagnostic::warning(
@@ -512,7 +586,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         if !annotation.diagnostics.is_empty() {
@@ -523,7 +597,7 @@ impl<'a> Scanner<'a> {
                 self.diagnostics
                     .push(Diagnostic::error(code, message).with_location(location.clone()));
             }
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
@@ -534,7 +608,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
@@ -545,7 +619,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let target_values = annotation.targets;
@@ -557,7 +631,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
@@ -568,7 +642,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         };
         let test_id = TestId::new(id.clone());
@@ -607,7 +681,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(location, content);
+            self.push_missing_test(test_location, test_content);
             return Ok(());
         }
         let targets = target_values
@@ -654,11 +728,20 @@ impl<'a> Scanner<'a> {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
-            location,
-            construct_text: content.to_owned(),
-            filter: join_module_path(filter_prefix, item_path),
-            package: package.to_owned(),
-            test_target: test_target.clone(),
+            location: test_location,
+            construct_text: test_content.to_owned(),
+            // 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次の
+            // Cargo実行座標として解釈する」— このadapterが唯一この解釈を
+            // 行う場所。`project`＝cargo package名、`suite`＝`TestTarget`を
+            // 本冊:1309 の3値へ写像したもの（`suite_for`）、`selector`＝
+            // test targetのrootからのmodule path＋function名（旧
+            // `filter` field と同じ計算）。
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new(ADAPTER_ID),
+                project: Some(package.to_owned()),
+                suite: suite_for(test_target),
+                selector: join_module_path(filter_prefix, item_path),
+            },
         });
         Ok(())
     }
@@ -1319,32 +1402,86 @@ fn line_offsets(source: &str) -> Vec<usize> {
     offsets
 }
 
+/// `locator` はこの construct の item path（module path + 関数名。例:
+/// `"module::function"`）— `SourceLocation.path` が既にファイルを運ぶため、
+/// `locator` はそれに対して opaque な construct 識別子だけを持つ（別紙C:313、
+/// `SourceLocation` reshape 時に旧 `function` field から改名。値は変えて
+/// いない）。行番号（旧 `start_line`/`end_line`）は本冊:637-642 の
+/// `SourceLocation` に無いため、`byte_range` だけを組み立てる。
 fn make_location(
     relative: &str,
-    function: &str,
+    locator: &str,
     span: proc_macro2::Span,
     source: &str,
     offsets: &[usize],
 ) -> SourceLocation {
-    let start = span.start();
-    let end = span.end();
+    make_location_range(relative, locator, span, span, source, offsets)
+}
+
+/// `make_location` の一般化版。開始位置と終了位置を別々の span から取る。
+/// Source Target（item全体。属性・doc commentを含む）とTest construct
+/// （metadata doc commentを除く。本冊:99）は同じ関数itemに対して異なる
+/// byte_rangeを持つため、`SourceDraft`（常に`item_span`を開始・終了双方に
+/// 使う＝`make_location`と同値）と`TestDraft`/`MissingTestConstruct`
+/// （`test_construct_start_span`が返す開始位置と`item_span`の終了位置を使う）
+/// とで別々にこの関数を呼ぶ（`collect_function_parts`参照）。
+fn make_location_range(
+    relative: &str,
+    locator: &str,
+    start_span: proc_macro2::Span,
+    end_span: proc_macro2::Span,
+    source: &str,
+    offsets: &[usize],
+) -> SourceLocation {
+    let start = start_span.start();
+    let end = end_span.end();
     let start_line = start.line.max(1);
     let end_line = end.line.max(start_line);
     let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
     let end_byte = offsets.get(end_line - 1).copied().unwrap_or(source.len()) + end.column;
     SourceLocation {
-        file: relative.to_owned(),
-        function: function.to_owned(),
-        start_line: start_line as u64,
-        end_line: end_line as u64,
-        start_byte: start_byte as u64,
-        end_byte: end_byte.min(source.len()) as u64,
+        adapter: AdapterId::new(ADAPTER_ID),
+        path: ProjectPath::new(relative),
+        locator: locator.to_owned(),
+        byte_range: SourceRange {
+            start: start_byte as u64,
+            end: (end_byte.min(source.len())) as u64,
+        },
     }
 }
 
+/// Test construct（本冊:99）の開始位置を求める。metadata doc comment
+/// （`///` / `/** */` → syn上は `#[doc = "..."]` 疑似 attribute。1行につき
+/// 1 attribute）を除外し、実行に影響する属性（`#[test]`等）・signature・
+/// bodyを含む範囲だけをTest constructとして返すための開始 span。
+///
+/// この adapter の全 fixture・`rust-cargo` の実運用コードの慣用（本冊:1173
+/// の例も同じ並び）どおり、Test construct の doc comment は item の先頭に
+/// 連続して置かれる。したがって「先頭から連続する doc attribute の並び」
+/// を除外区間とし、その直後（最初の非 doc attribute）を Test construct の
+/// 開始 span として返す。
+///
+/// 呼び出し元は `is_test_function(attrs)` が真の construct でのみこの
+/// 関数を呼ぶため、`#[test]`（またはそれに類する属性）が必ず1件以上
+/// 存在し、ループは非 doc attribute で必ず return する。`item_span`
+/// フォールバックは attrs が空、または全 attrs が doc の場合に限られ
+/// （このadapterの呼び出し経路では到達しない）、その場合は除外すべき
+/// 先頭 doc attribute が無い＝Source Targetと同じ開始位置を返す。
+fn test_construct_start_span(
+    attrs: &[Attribute],
+    item_span: proc_macro2::Span,
+) -> proc_macro2::Span {
+    for attr in attrs {
+        if !attr.path().is_ident("doc") {
+            return attr.span();
+        }
+    }
+    item_span
+}
+
 fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a str> {
-    let start: usize = location.start_byte.try_into().ok()?;
-    let end: usize = location.end_byte.try_into().ok()?;
+    let start: usize = location.byte_range.start.try_into().ok()?;
+    let end: usize = location.byte_range.end.try_into().ok()?;
     source.get(start..end)
 }
 
@@ -1352,21 +1489,31 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
     // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
     // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
     // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
-    // 診断に付く `SourceLocation.end_line` / `end_byte` が実ファイルの
-    // 実測値ではなく `1` / `0` へ退化し、read 失敗そのものは診断として
-    // 一切報告されない（`vtest-scan::record_location` の同型サイトと同じ）。
+    // 診断に付く `SourceLocation.byte_range.end` が実ファイルの実測値では
+    // なく `0` へ退化し、read 失敗そのものは診断として一切報告されない
+    // （`vtest-scan::record_location` の同型サイトと同じ）。
+    //
+    // `SourceLocation` reshape（本冊:637-642 の `{ adapter, path, locator,
+    // byte_range }` 形状への移行）で、以前ここにあった `end_line`
+    // （`text.lines().count()`）は削除した — 新しい形状に行番号フィールド
+    // が無いため。この呼び出し元（ファイル読み込み・構文解析失敗の
+    // E-SCAN-001 診断）は adapter 自身が走査中のファイルの location であり、
+    // `adapter: AdapterId::new(ADAPTER_ID)` は正当な値（この location は
+    // 実際にこの adapter が発見した source の一部）。
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
-        file: path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/"),
-        function: entity.to_owned(),
-        start_line: 1,
-        end_line: text.lines().count().max(1) as u64,
-        start_byte: 0,
-        end_byte: text.len() as u64,
+        adapter: AdapterId::new(ADAPTER_ID),
+        path: ProjectPath::new(
+            path.strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        ),
+        locator: entity.to_owned(),
+        byte_range: SourceRange {
+            start: 0,
+            end: text.len() as u64,
+        },
     }
 }
 

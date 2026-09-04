@@ -38,7 +38,7 @@
 use std::path::{Path, PathBuf};
 
 use vtest_model::{
-    Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
+    Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetRef, TestId, VoId,
 };
 
 /// core が `config.yaml` の1 adapter エントリ（`AdapterConfig`）から解決した、
@@ -52,9 +52,13 @@ pub struct AdapterScanConfig {
 /// hash 未計算の Test draft。本冊:93「adapterが最終的な`TestEntity.content_
 /// hash`または`SourceTarget.content_hash`を返して自己確定してはならない」に
 /// 従い、adapter は最終 hash を計算しない。`construct_text` は§1.3の
-/// normalization 済み construct bytes（この adapter では属性・doc comment を
-/// 含む関数item全体。本冊:99）であり、core が `ContentHash::from_text` で
-/// hash を計算する入力になる。
+/// normalization 済み construct bytes（本冊:99「Test constructとして
+/// metadata doc commentを除き、実行に影響する属性、signature、bodyを含む
+/// 関数itemのbytesを返す」— `rust-cargo` adapterではmetadata doc comment
+/// だけを除いた範囲であり、`SourceDraft::construct_text`（属性とdoc
+/// commentを含む関数item全体。本冊:99「Source Targetには属性とdoc comment
+/// を含む関数item全体を返す」）とは異なる範囲を指す）であり、core が
+/// `ContentHash::from_text` で hash を計算する入力になる。
 ///
 /// 必須 metadata（core 中立: id・`covers ≥ 1`・intent、および adapter 追加
 /// 必須: `targets ≥ 1`。本冊 §4.4）を具体化できないTest構文は、adapterが
@@ -82,9 +86,14 @@ pub struct TestDraft {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub construct_text: String,
-    pub filter: String,
-    pub package: String,
-    pub test_target: TestTarget,
+    /// 本冊:685-703「`TestEntity.execution` はadapter、project、suite、
+    /// opaque selectorからなる中立な実行座標である」「`filter`、
+    /// `package`、`test_target`および`TestTarget`型を`vtest-model`へ置か
+    /// ない」。この crate は core（`vtest-model`）と同じ中立形状を保つため、
+    /// Rust/Cargo 固有の `filter` / `package` / `test_target` フィールドを
+    /// 持たない — `rust-cargo` adapter（`vtest-adapter-rust`）がそれらを
+    /// `ExecutionDescriptor` へ解釈してから積む（本冊 §9.2）。
+    pub execution: ExecutionDescriptor,
 }
 
 /// hash 未計算の Source Target draft（本冊 §5.2 の `SourceTargetDraft` に
