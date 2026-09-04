@@ -22,8 +22,9 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest, DocumentRecord,
-    ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef, TestEntity, VoRecord,
+    source_target_subject_hash, AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest,
+    DocumentRecord, ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef,
+    TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -299,10 +300,17 @@ pub fn scan_project_with_config(
     let sources = source_drafts
         .into_iter()
         .map(|draft| SourceFunction {
+            // §1.3 Source Target hash（本冊:88）: canonical Target
+            // Reference（`draft.locator`）と construct bytes の両方を
+            // 束縛する。以前は construct bytes だけを hash していたため、
+            // 別の場所にある同一内容の関数が同一ハッシュになっていた
+            // （Issue #27）。`locator` を先に borrow してから同じ式内で
+            // move するため、struct literal の field 順は宣言順ではなく
+            // borrow が先に来る順にしている。
+            content_hash: source_target_subject_hash(&draft.locator, &draft.construct_text),
             locator: draft.locator,
             src_id: draft.src_id,
             location: draft.location,
-            content_hash: ContentHash::from_text(&draft.construct_text),
         })
         .collect::<Vec<_>>();
 
@@ -1624,6 +1632,56 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// §1.3 Source Target hash（本冊:88）は canonical Target Reference と
+    /// construct bytes の両方を束縛する。construct bytes だけを hash して
+    /// いた旧実装（Issue #27）では、byte列が同一の関数が別の場所にあると
+    /// 同一 hash になっていた。二つのファイルへ byte-identical な関数を
+    /// 置き、`content_hash` が異なることを確認する — この配線が固定する
+    /// まさにその性質。
+    ///
+    /// 最小構成の専用 fixture で配線箇所だけを狭く確認する版。既存の
+    /// `fixture()`（Test・VO・doc を含む現実的な構成）を通した確認は
+    /// `source_target_hash_differs_for_identical_construct_text_at_different_locations`
+    /// が別に持つ。両方に価値があるため両方残す。
+    #[test]
+    fn source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vtest-scan-dup-content-{suffix}"));
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        init_project(&root, "fixture").unwrap();
+        write_doc_test_fixture(&root);
+        fs::write(root.join("src/lib.rs"), "pub fn root_helper() {}\n").unwrap();
+        // Byte-identical construct text at two different paths.
+        fs::write(root.join("src/a.rs"), "pub fn helper() -> i32 { 42 }\n").unwrap();
+        fs::write(root.join("src/b.rs"), "pub fn helper() -> i32 { 42 }\n").unwrap();
+
+        let result = scan_project(&root).unwrap();
+        let helper_a = result
+            .sources
+            .iter()
+            .find(|source| source.locator.value.contains("a.rs"))
+            .expect("src/a.rs::helper must be discovered as a source");
+        let helper_b = result
+            .sources
+            .iter()
+            .find(|source| source.locator.value.contains("b.rs"))
+            .expect("src/b.rs::helper must be discovered as a source");
+
+        assert_ne!(
+            helper_a.content_hash, helper_b.content_hash,
+            "two Source Targets with byte-identical construct bytes at different \
+             canonical Locators must not collide (本冊:88, Issue #27)"
+        );
+    }
+
     /// 未知 adapter ID の fail-closed 拒否。拒否すること自体は別紙C:86-87・
     /// 基本仕様:719-723 により確定しており、診断コードは本冊:1639 の
     /// E-CONFIG-001 行が自らの適用範囲を括弧書きで除外した先の
@@ -2457,6 +2515,44 @@ fn misplaced() {}
                 .as_ref()
                 .is_some_and(|location| location.function == "helper")
         }));
+    }
+
+    /// §1.3 Source Target hash（本冊:88）は canonical Target Reference と
+    /// adapterが返すimplementation construct bytesの両方を束縛する。同一の
+    /// construct bytesを持つ2つのSource Targetが異なる場所（＝異なる
+    /// canonical Locator）にある場合、hashは異なる値になるべきである
+    /// （配線前はconstruct bytesのみをhashしていたため、同一内容・異なる
+    /// 場所の関数が同一ハッシュになっていた。Issue #27）。
+    ///
+    /// 既存の `fixture()`（Test・VO・doc 登録済みの現実的な構成、`pub mod`
+    /// によるモジュール分割）を通した確認版。最小構成での確認は
+    /// `source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes`
+    /// が別に持つ。両方に価値があるため両方残す。
+    #[test]
+    fn source_target_hash_differs_for_identical_construct_text_at_different_locations() {
+        let root = fixture();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub mod second;\n\npub fn helper() -> i32 { 0 }\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/second.rs"), "pub fn helper() -> i32 { 0 }\n").unwrap();
+        let result = scan_project(&root).unwrap();
+        let lib_helper = result
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "src/lib.rs::helper")
+            .unwrap();
+        let second_helper = result
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "src/second.rs::helper")
+            .unwrap();
+        assert_ne!(
+            lib_helper.content_hash, second_helper.content_hash,
+            "identical construct bytes at different canonical locators must hash \
+             differently once the canonical Target Reference is bound (本冊:88)"
+        );
     }
 
     /// 本冊 §5.1手順5・基本仕様§9.2「恒久SRC IDを使用する場合、adapter境界を
