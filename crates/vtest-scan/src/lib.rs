@@ -2909,6 +2909,14 @@ fn edit_collision_second() {}
     /// 理由: 判定復旧（Issue #32）が行われた時に、この意図（Owner裁定3の
     /// 挙動）を示す名前とロックイン対象がまだ要る。
     #[test]
+    #[ignore = "hollowed out by the SourceLocation/ExecutionDescriptor reshape \
+                (a530c6f): validate_desired_test no longer checks execution kind at all \
+                (current.test_target, which the Owner裁定3 check read, was removed from \
+                TestEntity per 本冊:685-703), so multiple targets are now unconditionally \
+                allowed and this test passes without exercising Owner裁定3 ('a Cargo \
+                integration test specifically is what unlocks multiple targets') at all. \
+                Re-enable once Issue #32 moves that judgment to the rust-cargo \
+                TestRunnerAdapter and wires its report back to core."]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
         let root = fixture();
         fs::write(
@@ -2961,6 +2969,17 @@ fn edit_collision_second() {}
     /// 上のテスト（`..._regardless_of_kind_string`）と同じ（Issue #32
     /// 復旧時の意図表示）。
     #[test]
+    #[ignore = "hollowed out by the SourceLocation/ExecutionDescriptor reshape (a530c6f), \
+                same cause as edit_test_allows_multiple_targets_..._regardless_of_kind_string \
+                above: validate_desired_test no longer checks execution kind at all, so \
+                Owner裁定3 is not enforced anywhere in this repo. This test still passes \
+                (green), but only by coincidence — its fixture's fn_name is \
+                \"tests::lib_test\" (module-qualified), which an unrelated, pre-existing \
+                check (syn::parse_str::<syn::Ident> — 'fn_name must be a single bare Rust \
+                identifier') rejects first, returning the same E-OP-001 code this test \
+                asserts on. It is NOT rejecting because the Test is a non-integration \
+                (lib) test with multiple targets; a passing run here is not evidence Owner \
+                裁定3 works. Re-enable once Issue #32 restores the real check."]
     fn edit_test_rejects_multiple_targets_for_a_lib_test_even_with_an_integration_looking_kind() {
         let root = fixture();
         fs::write(
