@@ -210,43 +210,66 @@ impl SubjectHashInput {
     /// Appends one named field: `field-name`, then its value, in that order
     /// (本冊:85).
     pub fn field(mut self, name: &str, value: FieldValue) -> Self {
-        push_len_prefixed(&mut self.buf, name.as_bytes());
-        match value {
-            FieldValue::Null => self.buf.push(field_tag::NULL),
-            FieldValue::Scalar(bytes) => {
-                self.buf.push(field_tag::SCALAR);
-                push_len_prefixed(&mut self.buf, &bytes);
-            }
-            FieldValue::Ordered(items) => {
-                self.buf.push(field_tag::SEQUENCE);
-                push_count(&mut self.buf, items.len());
-                for item in items {
-                    push_len_prefixed(&mut self.buf, &item);
-                }
-            }
-            FieldValue::Set(mut items) => {
-                items.sort();
-                self.buf.push(field_tag::SEQUENCE);
-                push_count(&mut self.buf, items.len());
-                for item in items {
-                    push_len_prefixed(&mut self.buf, &item);
-                }
-            }
-            FieldValue::Map(map) => {
-                self.buf.push(field_tag::MAP);
-                push_count(&mut self.buf, map.len());
-                for (key, value) in map {
-                    push_len_prefixed(&mut self.buf, key.as_bytes());
-                    push_len_prefixed(&mut self.buf, &value);
-                }
-            }
-        }
+        encode_field_into(&mut self.buf, name, value);
         self
     }
 
     /// Finalizes the accumulated hash input into a [`ContentHash`].
     pub fn finish(self) -> ContentHash {
         ContentHash::from_canonical_bytes(&self.buf)
+    }
+}
+
+/// Encodes a nested record's fields as an opaque byte string, for use as one
+/// element of a [`FieldValue::Ordered`]/[`FieldValue::Set`] list or a
+/// [`FieldValue::Map`] value, when a subject's canonical metadata contains a
+/// list of small structured entries (e.g. a document subject's
+/// `derives_from[]`, each a `{doc, anchor, note}` record).
+///
+/// Uses the exact same field-tag encoding as [`SubjectHashInput::field`],
+/// without a leading domain separator — a nested entry does not repeat the
+/// domain, since it is encoded once at the outer [`SubjectHashInput::new`].
+pub fn encode_nested_fields<'a>(
+    fields: impl IntoIterator<Item = (&'a str, FieldValue)>,
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+    for (name, value) in fields {
+        encode_field_into(&mut buf, name, value);
+    }
+    buf
+}
+
+fn encode_field_into(buf: &mut Vec<u8>, name: &str, value: FieldValue) {
+    push_len_prefixed(buf, name.as_bytes());
+    match value {
+        FieldValue::Null => buf.push(field_tag::NULL),
+        FieldValue::Scalar(bytes) => {
+            buf.push(field_tag::SCALAR);
+            push_len_prefixed(buf, &bytes);
+        }
+        FieldValue::Ordered(items) => {
+            buf.push(field_tag::SEQUENCE);
+            push_count(buf, items.len());
+            for item in items {
+                push_len_prefixed(buf, &item);
+            }
+        }
+        FieldValue::Set(mut items) => {
+            items.sort();
+            buf.push(field_tag::SEQUENCE);
+            push_count(buf, items.len());
+            for item in items {
+                push_len_prefixed(buf, &item);
+            }
+        }
+        FieldValue::Map(map) => {
+            buf.push(field_tag::MAP);
+            push_count(buf, map.len());
+            for (key, value) in map {
+                push_len_prefixed(buf, key.as_bytes());
+                push_len_prefixed(buf, &value);
+            }
+        }
     }
 }
 
