@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fmt, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    str::FromStr,
+};
 
 /// SHA-256 hash of a canonical source or record representation.
 ///
@@ -272,7 +276,7 @@ fn encode_field_into(buf: &mut Vec<u8>, name: &str, value: FieldValue) {
             // BTreeSet both deduplicates and sorts ascending by byte value
             // in one step — Vec<u8>'s Ord is lexicographic byte order, which
             // is what 本冊:85's "正規化値の昇順" requires.
-            let deduped: std::collections::BTreeSet<Vec<u8>> = items.into_iter().collect();
+            let deduped: BTreeSet<Vec<u8>> = items.into_iter().collect();
             buf.push(field_tag::SET);
             push_count(buf, deduped.len());
             for item in deduped {
