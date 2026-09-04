@@ -9,7 +9,6 @@ use syn::spanned::Spanned;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
-    TestTarget,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -220,16 +219,16 @@ pub fn edit_test(
     }
     validate_desired_test(root, &scan, &current, &desired)?;
 
-    let path = root.join(Path::new(&current.location.file));
+    let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let start_byte: usize = current.location.start_byte.try_into().map_err(|_| {
+    let start_byte: usize = current.location.byte_range.start.try_into().map_err(|_| {
         Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` start offset is out of range"),
         )
     })?;
-    let end_byte: usize = current.location.end_byte.try_into().map_err(|_| {
+    let end_byte: usize = current.location.byte_range.end.try_into().map_err(|_| {
         Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` end offset is out of range"),
@@ -267,7 +266,7 @@ pub fn edit_test(
     let changed = prospective != original;
     let result = TestMutationResult {
         test_id: test_id.to_owned(),
-        file: current.location.file.clone(),
+        file: current.location.path.as_str().to_owned(),
         dry_run,
         changed,
         start_byte,
@@ -331,8 +330,8 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.filter.clone(),
-            file: test.location.file.clone(),
+            fn_name: test.execution.selector.clone(),
+            file: test.location.path.as_str().to_owned(),
         }
     }
 
@@ -424,7 +423,7 @@ fn validate_desired_test(
             "Structured Edit cannot change a Test ID",
         ));
     }
-    if desired.file != current.location.file {
+    if desired.file != current.location.path.as_str() {
         return Err(Diagnostic::error(
             "E-OP-003",
             "Structured Edit cannot move a Test to another file",
@@ -459,18 +458,36 @@ fn validate_desired_test(
             "target must contain at least one source locator",
         ));
     }
-    // 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数targetの許容は
-    // `@vtest.kind` の文字列ではなく、rust-cargoが判定した実行形態が
-    // Cargo Integration Testであるかどうかで決める。Structured Editは
-    // ファイル移動を禁じている（直前のE-OP-003検査）ため、editの前後で
-    // `current` の物理的な配置（したがって実行形態）は変わらず、
-    // `current.test_target` をそのまま判定材料にできる。
-    if desired.targets.len() > 1 && !matches!(current.test_target, TestTarget::IntegrationTest(_)) {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            "multiple targets are allowed only for Cargo integration tests",
-        ));
-    }
+    // 失われた検査（`SourceLocation`/`ExecutionDescriptor` reshape、
+    // hash27-model-spec.md 対応 PR）: 本冊 §4.2改訂（Owner裁定3、
+    // pr3-decisions.md）により、複数targetの許容はrust-cargoが判定した
+    // 実行形態がCargo Integration Testであるかどうかで決まる
+    // （`@vtest.kind` の文字列では判定しない）。以前はここで
+    // `current.test_target`（`vtest_model::TestTarget` enum）を直接
+    // matches! していたが、`TestTarget` 型は本冊:685-703「`filter`、
+    // `package`、`test_target`および`TestTarget`型を`vtest-model`へ置か
+    // ない」により `vtest-model` から除去され、`TestEntity` は
+    // `execution: ExecutionDescriptor`（`suite.kind: String`、enum制約
+    // なし）だけを持つ。
+    //
+    // ここで代わりに `current.execution.suite.kind == "integration"` を
+    // 読んで判定を再現することはしない — 本冊:688「coreは `project`、
+    // `suite.kind`、`suite.name`、`selector` の文字列を解釈しない」が
+    // 明示的に禁じる。この判定（実行形態の判別）は adapter
+    // （`rust-cargo` の `TestRunnerAdapter`）の責務であり、core
+    // （`vtest-scan`）へ持ち込まない。
+    //
+    // したがってこの検査は削除した。**失われるもの**: Structured Edit
+    // （`vtest edit`）で `targets` を複数件に増やす場合、以前は
+    // 「対象 Test が Cargo Integration Test でなければ拒否」がここで
+    // fail-closed に効いていたが、今はこのcrateにその判定余地が無い。
+    // 複数 target 自体は許容されたまま通る（Cargo Integration Test か
+    // どうかを問わなくなる）。**ここで復旧しない理由**: 判定を adapter
+    // 側へ移すには、adapter が「この Test は複数 target を許容するか」を
+    // core へ返す新しい DTO と呼び出し順序が要るが、詳細設計にその
+    // 契約が無い（PR3の裁量で決めた `SourceDiscoveryAdapter` trait には
+    // この形の問い合わせが無い）。**復旧予定**: Issue #32（上流へ差し
+    // 戻し済み）。
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
@@ -497,7 +514,7 @@ fn validate_desired_test(
         ));
     }
     if scan.sources.iter().any(|source| {
-        source.location.file == desired.file
+        source.location.path.as_str() == desired.file
             && RustLocator::parse(&source.locator.value)
                 .is_some_and(|parsed| parsed.item_path == desired.fn_name)
             && source.location != current.location
@@ -561,8 +578,8 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.filter {
-        let from = format!("fn {}", current.filter);
+    if desired.fn_name != current.execution.selector {
+        let from = format!("fn {}", current.execution.selector);
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -716,8 +733,8 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.filter == desired.fn_name
-        && test.location.file == desired.file
+        && test.execution.selector == desired.fn_name
+        && test.location.path.as_str() == desired.file
 }
 
 fn line_indent(source: &str, byte: usize) -> String {
@@ -903,8 +920,9 @@ pub fn list_tests(
     } else {
         Vec::new()
     };
-    unregistered
-        .sort_by(|left, right| (&left.file, left.start_byte).cmp(&(&right.file, right.start_byte)));
+    unregistered.sort_by(|left, right| {
+        (&left.path, left.byte_range.start).cmp(&(&right.path, right.byte_range.start))
+    });
     TestSelection {
         tests,
         unregistered,
@@ -1036,12 +1054,12 @@ fn validate_form_answers_for(
                     let destination = if supplied.answers.contains_key("file") {
                         destination_file(supplied)?
                     } else if let Some(location) = edited_location {
-                        location.file.clone()
+                        location.path.as_str().to_owned()
                     } else {
                         destination_file(supplied)?
                     };
                     if scan.sources.iter().any(|source| {
-                        source.location.file == destination
+                        source.location.path.as_str() == destination
                             && RustLocator::parse(&source.locator.value)
                                 .is_some_and(|parsed| parsed.item_path == name)
                             && edited_location != Some(&source.location)
@@ -1711,12 +1729,10 @@ mod tests {
 
     fn sample_location(function: &str) -> SourceLocation {
         SourceLocation {
-            file: "src/lib.rs".to_owned(),
-            function: function.to_owned(),
-            start_line: 1,
-            end_line: 1,
-            start_byte: 0,
-            end_byte: 1,
+            adapter: vtest_model::AdapterId::new("rust-cargo"),
+            path: vtest_model::ProjectPath::new("src/lib.rs"),
+            locator: function.to_owned(),
+            byte_range: vtest_model::SourceRange { start: 0, end: 1 },
         }
     }
 
@@ -1733,9 +1749,15 @@ mod tests {
             related: Vec::new(),
             location: sample_location(function),
             content_hash: ContentHash::from_text(hash_seed),
-            filter: function.to_owned(),
-            package: "pkg".to_owned(),
-            test_target: vtest_model::TestTarget::Lib,
+            execution: vtest_model::ExecutionDescriptor {
+                adapter: vtest_model::AdapterId::new("rust-cargo"),
+                project: Some("pkg".to_owned()),
+                suite: Some(vtest_model::TestSuite {
+                    kind: "lib".to_owned(),
+                    name: None,
+                }),
+                selector: function.to_owned(),
+            },
         }
     }
 

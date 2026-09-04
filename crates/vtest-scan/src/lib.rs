@@ -23,8 +23,8 @@ use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
     source_target_subject_hash, AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest,
-    DocumentRecord, ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef,
-    TestEntity, VoRecord,
+    DocumentRecord, ManagedTestLink, ProjectPath, ScanSummary, SourceFunction, SourceLocation,
+    SourceRange, TargetRef, TestEntity, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
@@ -412,9 +412,7 @@ fn materialize_tests(
             related: draft.related,
             location: draft.location,
             content_hash,
-            filter: draft.filter,
-            package: draft.package,
-            test_target: draft.test_target,
+            execution: draft.execution,
         });
     }
 
@@ -1156,25 +1154,51 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
     (!missing.is_empty()).then(|| missing.join(", "))
 }
 
+/// document/VO/relation の record 層診断（`.verify/*.yaml`）に対する
+/// location を組み立てる。
+///
+/// **重要（`SourceLocation` reshape で表面化した不一致、上流未報告）**:
+/// 本冊:637-642 が定める `SourceLocation` は `adapter: AdapterId` を必須
+/// field とする — adapter が discovery した source construct（Test / Source
+/// Target）の location を表すための型である（本冊 §5.2）。この関数が
+/// location を組み立てる対象（document / VO / relation の canonical YAML
+/// レコード）は、どの `SourceDiscoveryAdapter` にも属さない — `vtest-store`
+/// が読む record ファイルであって、adapter が発見した source construct
+/// ではない。
+///
+/// `Diagnostic`（`location: Option<Box<SourceLocation>>`）自体は仕様の
+/// どこにも struct 定義が無く、この crate 独自の型であり、record 層診断の
+/// 場所情報を運ぶために便宜上 `SourceLocation` を再利用してきたのはこの
+/// crateの過去の実装判断であって、今回の reshape 対象（`SourceLocation`
+/// 自体の型）ではない。しかし reshape の結果、この呼び出し元に対応する
+/// `AdapterId` が存在しないという不整合が表面化した。暫定として sentinel
+/// `AdapterId::new("vtest-store")` を置く（record-layer診断は vtest-store
+/// が読むレコードファイルに属し、どの登録 adapter にも属さないことを
+/// 示す）。この sentinel は診断表示以外の用途に使われない — registry
+/// 解決や adapter 突合には使われない。CLAUDE.local.md の開示規律に従い、
+/// PR report で上流へ報告する。
 fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
     // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
     // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
     // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
-    // 診断（E-SCAN-008/009/010 等）に付く `SourceLocation.end_line` /
-    // `end_byte` が実ファイルの実測値ではなく `1` / `0` へ退化し、read
-    // 失敗そのものは診断として一切報告されない。
+    // 診断（E-SCAN-008/009/010 等）に付く `SourceLocation.byte_range.end`
+    // が実ファイルの実測値ではなく `0` へ退化し、read 失敗そのものは診断
+    // として一切報告されない。`SourceLocation` reshape で `end_line`
+    // （旧 field）は削除した — 新形状に行番号フィールドが無いため。
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
-        file: path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/"),
-        function: entity.to_owned(),
-        start_line: 1,
-        end_line: text.lines().count().max(1) as u64,
-        start_byte: 0,
-        end_byte: text.len() as u64,
+        adapter: AdapterId::new("vtest-store"),
+        path: ProjectPath::new(
+            path.strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        ),
+        locator: entity.to_owned(),
+        byte_range: SourceRange {
+            start: 0,
+            end: text.len() as u64,
+        },
     }
 }
 
@@ -1534,7 +1558,7 @@ fn validate_approval_status(
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_model::{DerivesFrom, DocumentId, DocumentRecord, SrcId, TestId, TestTarget, VoId};
+    use vtest_model::{DerivesFrom, DocumentId, DocumentRecord, SrcId, TestId, VoId};
     use vtest_store::{init_project, new_record_id, write_document, FormAnswers, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
@@ -1624,11 +1648,17 @@ fn adds() { assert_eq!(2, crate::missing()); }
             result.diagnostics
         );
         assert_eq!(result.tests[0].id.as_str(), "TEST-ADD");
-        assert_eq!(result.tests[0].filter, "adds");
-        assert_eq!(result.tests[0].package, "fixture");
+        assert_eq!(result.tests[0].execution.selector, "adds");
         assert_eq!(
-            result.tests[0].test_target,
-            TestTarget::IntegrationTest("calc".to_owned())
+            result.tests[0].execution.project.as_deref(),
+            Some("fixture")
+        );
+        assert_eq!(
+            result.tests[0].execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("calc".to_owned()),
+            })
         );
     }
 
@@ -1752,10 +1782,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(result.tests[0].execution.suite, None);
 
         let root = fixture();
         fs::remove_file(root.join("Cargo.toml")).unwrap();
@@ -1763,10 +1793,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(result.tests[0].execution.suite, None);
     }
 
     #[test]
@@ -1842,33 +1872,57 @@ fn parses_integration() { exercise(); }
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-MODULE")
             .unwrap();
-        assert_eq!(module_test.package, "parser-crate");
-        assert_eq!(module_test.test_target, TestTarget::Lib);
-        assert_eq!(module_test.filter, "parser::tests::parses_external_module");
+        assert_eq!(
+            module_test.execution.project.as_deref(),
+            Some("parser-crate")
+        );
+        assert_eq!(
+            module_test.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
+        assert_eq!(
+            module_test.execution.selector,
+            "parser::tests::parses_external_module"
+        );
 
         let integration = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-INTEGRATION")
             .unwrap();
-        assert_eq!(integration.package, "parser-crate");
         assert_eq!(
-            integration.test_target,
-            TestTarget::IntegrationTest("parser-suite".to_owned())
+            integration.execution.project.as_deref(),
+            Some("parser-crate")
         );
-        assert_eq!(integration.filter, "support::parses_integration");
+        assert_eq!(
+            integration.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("parser-suite".to_owned()),
+            })
+        );
+        assert_eq!(
+            integration.execution.selector,
+            "support::parses_integration"
+        );
 
         let binary = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-BIN")
             .unwrap();
-        assert_eq!(binary.package, "parser-crate");
+        assert_eq!(binary.execution.project.as_deref(), Some("parser-crate"));
         assert_eq!(
-            binary.test_target,
-            TestTarget::Bin("parser-check".to_owned())
+            binary.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "bin".to_owned(),
+                name: Some("parser-check".to_owned()),
+            })
         );
-        assert_eq!(binary.filter, "checks_binary");
+        assert_eq!(binary.execution.selector, "checks_binary");
     }
 
     #[test]
@@ -1886,11 +1940,11 @@ fn parses_integration() { exercise(); }
         assert!(!result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/ignored.rs"));
+            .any(|source| source.location.path.as_str() == "src/ignored.rs"));
         assert!(result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/kept.rs"));
+            .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
     #[test]
@@ -1925,7 +1979,7 @@ fn ambiguous() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "ambiguous")
+                    .is_some_and(|location| location.locator == "ambiguous")
                 // 要確認C（PR #26 review round 2）: d4c1522でadapter側の
                 // E-SCAN-004発行をやめてcoreの`resolve_targets`へ一本化した
                 // 際、coreのメッセージから不正だった宣言値が落ちていた
@@ -1961,7 +2015,7 @@ fn ambiguous() {}
         let missing: Vec<&DiscoveredTest> = result
             .discovered
             .iter()
-            .filter(|entry| entry.location.function == "x")
+            .filter(|entry| entry.location.locator == "x")
             .collect();
         assert_eq!(missing.len(), 1, "expected exactly one D entry for `x`");
         assert!(matches!(missing[0].managed, ManagedTestLink::Missing));
@@ -1970,10 +2024,7 @@ fn ambiguous() {}
         // `M`（構造上完全な managed Test Entity 集合）には現れない
         // （基本:412「構造上完全とは…Test Entity として具体化できること
         // をいう」— 管理宣言自体が無いため具体化できていない）。
-        assert!(!result
-            .tests
-            .iter()
-            .any(|test| test.location.function == "x"));
+        assert!(!result.tests.iter().any(|test| test.location.locator == "x"));
     }
 
     /// 上のテストは「annotation が無い」経路（W-SCAN-101）だけを断言する。
@@ -2003,14 +2054,14 @@ fn missing_covers() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "missing_covers")
+                    .is_some_and(|location| location.locator == "missing_covers")
                 && diagnostic.message.contains("@vtest.covers")
         }));
 
         let missing: Vec<&DiscoveredTest> = result
             .discovered
             .iter()
-            .filter(|entry| entry.location.function == "missing_covers")
+            .filter(|entry| entry.location.locator == "missing_covers")
             .collect();
         assert_eq!(
             missing.len(),
@@ -2022,7 +2073,7 @@ fn missing_covers() {}
         assert!(!result
             .tests
             .iter()
-            .any(|test| test.location.function == "missing_covers"));
+            .any(|test| test.location.locator == "missing_covers"));
     }
 
     /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
@@ -2071,7 +2122,7 @@ fn collision_second() {}
         );
         let functions: BTreeSet<&str> = colliding
             .iter()
-            .map(|test| test.location.function.as_str())
+            .map(|test| test.location.locator.as_str())
             .collect();
         assert_eq!(
             functions,
@@ -2088,7 +2139,7 @@ fn collision_second() {}
             .diagnostics
             .iter()
             .filter(|d| d.code == "E-SCAN-002")
-            .filter_map(|d| d.location.as_ref().map(|l| l.function.as_str()))
+            .filter_map(|d| d.location.as_ref().map(|l| l.locator.as_str()))
             .collect();
         assert_eq!(
             scan_002_functions,
@@ -2103,7 +2154,7 @@ fn collision_second() {}
             d.code == "E-SCAN-003"
                 && d.location
                     .as_ref()
-                    .is_some_and(|l| l.function == "collision_second")
+                    .is_some_and(|l| l.locator == "collision_second")
         }));
 
         // 5. `tests_by_id` は代表1件を選ばず `Collided` を返す。
@@ -2128,8 +2179,7 @@ fn collision_second() {}
             .discovered
             .iter()
             .filter(|d| {
-                d.location.function == "collision_first"
-                    || d.location.function == "collision_second"
+                d.location.locator == "collision_first" || d.location.locator == "collision_second"
             })
             .collect();
         assert_eq!(discovered_for_collision.len(), 2);
@@ -2243,8 +2293,11 @@ fn combines() {}
             .unwrap();
         assert_eq!(integration.targets.len(), 2);
         assert_eq!(
-            integration.test_target,
-            TestTarget::IntegrationTest("multiple".to_owned())
+            integration.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("multiple".to_owned()),
+            })
         );
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
@@ -2252,7 +2305,7 @@ fn combines() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "combines")
+                        .is_some_and(|location| location.locator == "combines")
             }),
             "a Cargo integration test declaring `@vtest.kind unit-normal` (the value the \
              built-in §14.1/§14.3 Form actually outputs) must still be allowed multiple targets: {:?}",
@@ -2265,7 +2318,7 @@ fn combines() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "tests::duplicate_target")
+                        .is_some_and(|location| location.locator == "tests::duplicate_target")
             }),
             "a lib test declaring `@vtest.kind integration-normal` must not be allowed \
              multiple targets merely because of the kind string: {:?}",
@@ -2305,7 +2358,7 @@ fn same_target_twice() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "same_target_twice")
+                    .is_some_and(|location| location.locator == "same_target_twice")
         }));
         assert!(!result
             .tests
@@ -2420,7 +2473,7 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "misplaced")
+                    .is_some_and(|location| location.locator == "misplaced")
         }));
         assert!(!result
             .tests
@@ -2446,14 +2499,14 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
         assert!(!result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
     }
 
@@ -2477,7 +2530,7 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
         let helper = result
             .sources
@@ -2513,7 +2566,7 @@ fn misplaced() {}
             diagnostic
                 .location
                 .as_ref()
-                .is_some_and(|location| location.function == "helper")
+                .is_some_and(|location| location.locator == "helper")
         }));
     }
 
@@ -2591,7 +2644,7 @@ fn misplaced() {}
             diagnostic
                 .location
                 .as_ref()
-                .map(|location| location.function.as_str()),
+                .map(|location| location.locator.as_str()),
             Some("helper_one"),
             "diagnostic must point at a declaring Source Target: {diagnostic:?}"
         );
@@ -2633,7 +2686,7 @@ fn aliased_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "aliased_target")
+                        .is_some_and(|location| location.locator == "aliased_target")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -2692,7 +2745,7 @@ fn declares_unparseable_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "declares_unparseable_target")
+                        .is_some_and(|location| location.locator == "declares_unparseable_target")
                     // 要確認C（PR #26 review round 2）: メッセージに元の
                     // 宣言値が残っていることを断言する — 利用者が「何が
                     // 不正だったか」を診断から追える最も分かりやすい例。
@@ -2757,7 +2810,7 @@ fn no_target() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "no_target")
+                    .is_some_and(|location| location.locator == "no_target")
         }));
     }
 
@@ -2788,14 +2841,14 @@ fn no_covers() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "no_id")
+                    .is_some_and(|location| location.locator == "no_id")
         }));
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-007"
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "no_covers")
+                    .is_some_and(|location| location.locator == "no_covers")
         }));
     }
 
@@ -2827,7 +2880,7 @@ fn empty_covers() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "empty_covers")
+                        .is_some_and(|location| location.locator == "empty_covers")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -2908,6 +2961,18 @@ fn edit_collision_second() {}
     /// `tests/calc.rs`に置かれたCargo integration testであり、`kind`を
     /// `integration`を含まない値へ`--set`しても複数targetへの編集が
     /// 通ることを確認する。
+    ///
+    /// **注意（`SourceLocation`/`ExecutionDescriptor` reshape 以降、この
+    /// テストは Owner裁定3 の判定を識別しない）**: `validate_desired_test`
+    /// が読んでいた `current.test_target` は本冊:685-703 により
+    /// `vtest-model` から除去され、この検査自体を削除した
+    /// （`validate_desired_test` 内のコメント参照、Issue #32）。この
+    /// テストは今、複数target自体が常に許容される（Cargo Integration Test
+    /// かどうかを一切区別しない）状態でも `Ok` を返すため、依然として
+    /// 緑のまま通る — しかし「Cargo Integration Test だから許容される」
+    /// ことはもう何も検証していない。この関数を削除・書き換えず残す
+    /// 理由: 判定復旧（Issue #32）が行われた時に、この意図（Owner裁定3の
+    /// 挙動）を示す名前とロックイン対象がまだ要る。
     #[test]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
         let root = fixture();
@@ -2943,6 +3008,23 @@ fn edit_collision_second() {}
     /// "integration")`）はこのケースを誤って許可していた —
     /// 却下された判定基準（Owner裁定3）を repo 全体から掃引したことを
     /// ロックインする回帰テスト。
+    ///
+    /// **重大な注意（`SourceLocation`/`ExecutionDescriptor` reshape で
+    /// この回帰テストは意図せず無力化された。緑のまま何も守っていない）**:
+    /// `validate_desired_test` から Owner裁定3 の判定（`current.
+    /// test_target` を読む検査）を削除した結果、この構文（`fn_name` が
+    /// `"tests::lib_test"` というモジュール修飾付き識別子）は**別の**
+    /// 既存検査（`syn::parse_str::<syn::Ident>(&desired.fn_name)` —
+    /// 「`fn_name` が単一の Rust 識別子か」）に **偶然** 先に引っかかり、
+    /// 同じ `E-OP-001` を返す。このテストは「Cargo Integration Test で
+    /// ないから複数targetを拒否した」ことを検証しているつもりで、実際には
+    /// 「`tests::lib_test` が妥当な識別子でないから拒否した」ことしか
+    /// 検証していない — Owner裁定3 の判定自体は今この repo のどこからも
+    /// 検証されていない。`error.message` を検証していれば
+    /// （`assert_eq!(error.code, ...)` だけでなく）この masking は
+    /// コンパイル時に発覚しなかった。この関数を削除・書き換えず残す理由は
+    /// 上のテスト（`..._regardless_of_kind_string`）と同じ（Issue #32
+    /// 復旧時の意図表示）。
     #[test]
     fn edit_test_rejects_multiple_targets_for_a_lib_test_even_with_an_integration_looking_kind() {
         let root = fixture();
