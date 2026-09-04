@@ -30,8 +30,61 @@ use vtest_adapter_api::{
     SourceDiscoveryAdapter, SourceDraft, TestDraft,
 };
 use vtest_model::{
-    AdapterId, Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
+    AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
+    SrcId, TargetRef, TestId, TestSuite, VoId,
 };
+
+// TODO: Review fail-closed handling of `TestTarget::Unknown`. Execution
+// (`vtest-exec::cargo_command` 等) must not silently fall back to an
+// unscoped Cargo target when `ExecutionDescriptor.suite` is `None` — that
+// happens when this adapter cannot resolve a unique Cargo target root for a
+// file (`source_context` below returns `TestTarget::Unknown`). This TODO
+// moved here from `vtest_model::TestEntity` (旧 `test_target` field) when
+// `TestTarget` moved out of `vtest-model` into this crate — the underlying
+// concern (silent unscoped-target fallback) is unresolved either way.
+
+/// この adapter 内部だけが使う Cargo 実行形態の分類（本冊 §9.2 の
+/// `suite.kind`／`suite.name` を組み立てるための中間状態）。
+///
+/// 本冊:685-703「`filter`、`package`、`test_target`および`TestTarget`型を
+/// `vtest-model`へ置かない」により、この型は `vtest-model` から
+/// この crate（`rust-cargo` adapter）へ移した。`vtest-adapter-api` の
+/// contract 型（`TestDraft` 等）もこの型を経由しない —
+/// `vtest-adapter-api` は言語非依存でなければならず（crate冒頭コメント）、
+/// Rust/Cargo 固有のこの型に依存できない。この adapter は discovery の
+/// 過程でこの型を内部的に使い、最終的に `ExecutionDescriptor` へ解釈して
+/// から `TestDraft.execution` へ積む（本冊 §9.2）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TestTarget {
+    Lib,
+    Bin(String),
+    IntegrationTest(String),
+    Unknown,
+}
+
+/// `TestTarget` を本冊 §9.2 の `ExecutionDescriptor.suite` へ解釈する。
+/// `Unknown`（Cargo target rootを一意に解決できなかった）は `None` —
+/// 「suiteを解決できなかった」ことを型で表す。`suite.kind` の3値
+/// （`"lib"` / `"bin"` / `"integration"`）は本冊:1309 が定めるこの
+/// adapter自身の解釈規約であり、`vtest-model::TestSuite.kind` 自体は
+/// プレーンな `String`（enum制約なし）。
+fn suite_for(target: &TestTarget) -> Option<TestSuite> {
+    match target {
+        TestTarget::Lib => Some(TestSuite {
+            kind: "lib".to_owned(),
+            name: None,
+        }),
+        TestTarget::Bin(name) => Some(TestSuite {
+            kind: "bin".to_owned(),
+            name: Some(name.clone()),
+        }),
+        TestTarget::IntegrationTest(name) => Some(TestSuite {
+            kind: "integration".to_owned(),
+            name: Some(name.clone()),
+        }),
+        TestTarget::Unknown => None,
+    }
+}
 
 /// 本冊 §4.3「`rust-cargo` adapterはこの値を`TargetRef::Locator { adapter:
 /// "rust-cargo", value: locator }`へ正規化する」。`config.yaml` の
@@ -656,9 +709,18 @@ impl<'a> Scanner<'a> {
                 .collect(),
             location,
             construct_text: content.to_owned(),
-            filter: join_module_path(filter_prefix, item_path),
-            package: package.to_owned(),
-            test_target: test_target.clone(),
+            // 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次の
+            // Cargo実行座標として解釈する」— このadapterが唯一この解釈を
+            // 行う場所。`project`＝cargo package名、`suite`＝`TestTarget`を
+            // 本冊:1309 の3値へ写像したもの（`suite_for`）、`selector`＝
+            // test targetのrootからのmodule path＋function名（旧
+            // `filter` field と同じ計算）。
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new(ADAPTER_ID),
+                project: Some(package.to_owned()),
+                suite: suite_for(test_target),
+                selector: join_module_path(filter_prefix, item_path),
+            },
         });
         Ok(())
     }
@@ -1319,9 +1381,15 @@ fn line_offsets(source: &str) -> Vec<usize> {
     offsets
 }
 
+/// `locator` はこの construct の item path（module path + 関数名。例:
+/// `"module::function"`）— `SourceLocation.path` が既にファイルを運ぶため、
+/// `locator` はそれに対して opaque な construct 識別子だけを持つ（別紙C:313、
+/// `SourceLocation` reshape 時に旧 `function` field から改名。値は変えて
+/// いない）。行番号（旧 `start_line`/`end_line`）は本冊:637-642 の
+/// `SourceLocation` に無いため、`byte_range` だけを組み立てる。
 fn make_location(
     relative: &str,
-    function: &str,
+    locator: &str,
     span: proc_macro2::Span,
     source: &str,
     offsets: &[usize],
@@ -1333,18 +1401,19 @@ fn make_location(
     let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
     let end_byte = offsets.get(end_line - 1).copied().unwrap_or(source.len()) + end.column;
     SourceLocation {
-        file: relative.to_owned(),
-        function: function.to_owned(),
-        start_line: start_line as u64,
-        end_line: end_line as u64,
-        start_byte: start_byte as u64,
-        end_byte: end_byte.min(source.len()) as u64,
+        adapter: AdapterId::new(ADAPTER_ID),
+        path: ProjectPath::new(relative),
+        locator: locator.to_owned(),
+        byte_range: SourceRange {
+            start: start_byte as u64,
+            end: (end_byte.min(source.len())) as u64,
+        },
     }
 }
 
 fn source_slice<'a>(source: &'a str, location: &SourceLocation) -> Option<&'a str> {
-    let start: usize = location.start_byte.try_into().ok()?;
-    let end: usize = location.end_byte.try_into().ok()?;
+    let start: usize = location.byte_range.start.try_into().ok()?;
+    let end: usize = location.byte_range.end.try_into().ok()?;
     source.get(start..end)
 }
 
@@ -1352,21 +1421,31 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
     // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
     // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
     // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
-    // 診断に付く `SourceLocation.end_line` / `end_byte` が実ファイルの
-    // 実測値ではなく `1` / `0` へ退化し、read 失敗そのものは診断として
-    // 一切報告されない（`vtest-scan::record_location` の同型サイトと同じ）。
+    // 診断に付く `SourceLocation.byte_range.end` が実ファイルの実測値では
+    // なく `0` へ退化し、read 失敗そのものは診断として一切報告されない
+    // （`vtest-scan::record_location` の同型サイトと同じ）。
+    //
+    // `SourceLocation` reshape（本冊:637-642 の `{ adapter, path, locator,
+    // byte_range }` 形状への移行）で、以前ここにあった `end_line`
+    // （`text.lines().count()`）は削除した — 新しい形状に行番号フィールド
+    // が無いため。この呼び出し元（ファイル読み込み・構文解析失敗の
+    // E-SCAN-001 診断）は adapter 自身が走査中のファイルの location であり、
+    // `adapter: AdapterId::new(ADAPTER_ID)` は正当な値（この location は
+    // 実際にこの adapter が発見した source の一部）。
     let text = fs::read_to_string(path).unwrap_or_default();
     SourceLocation {
-        file: path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/"),
-        function: entity.to_owned(),
-        start_line: 1,
-        end_line: text.lines().count().max(1) as u64,
-        start_byte: 0,
-        end_byte: text.len() as u64,
+        adapter: AdapterId::new(ADAPTER_ID),
+        path: ProjectPath::new(
+            path.strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        ),
+        locator: entity.to_owned(),
+        byte_range: SourceRange {
+            start: 0,
+            end: text.len() as u64,
+        },
     }
 }
 
