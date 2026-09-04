@@ -38,7 +38,7 @@
 use std::path::{Path, PathBuf};
 
 use vtest_model::{
-    Diagnostic, Locator, SourceLocation, SrcId, TargetRef, TestId, TestTarget, VoId,
+    Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetRef, TestId, VoId,
 };
 
 /// core が `config.yaml` の1 adapter エントリ（`AdapterConfig`）から解決した、
@@ -82,9 +82,14 @@ pub struct TestDraft {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub construct_text: String,
-    pub filter: String,
-    pub package: String,
-    pub test_target: TestTarget,
+    /// 本冊:685-703「`TestEntity.execution` はadapter、project、suite、
+    /// opaque selectorからなる中立な実行座標である」「`filter`、
+    /// `package`、`test_target`および`TestTarget`型を`vtest-model`へ置か
+    /// ない」。この crate は core（`vtest-model`）と同じ中立形状を保つため、
+    /// Rust/Cargo 固有の `filter` / `package` / `test_target` フィールドを
+    /// 持たない — `rust-cargo` adapter（`vtest-adapter-rust`）がそれらを
+    /// `ExecutionDescriptor` へ解釈してから積む（本冊 §9.2）。
+    pub execution: ExecutionDescriptor,
 }
 
 /// hash 未計算の Source Target draft（本冊 §5.2 の `SourceTargetDraft` に
