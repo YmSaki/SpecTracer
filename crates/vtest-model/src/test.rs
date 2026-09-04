@@ -1,20 +1,56 @@
 use crate::{AdapterId, ContentHash, SourceLocation, TargetRef, TestId, VoId};
 use serde::{Deserialize, Serialize};
 
-// TODO: Review fail-closed handling of `Unknown`.
-// Execution must not silently fall back to an unscoped Cargo target.
-
-/// Identifies the Rust/Cargo target that contains a test.
+/// Adapter-neutral, opaque execution coordinate for a test (詳細設計 v0.1
+/// 本冊:644-649、§5.2、逐語):
+///
+/// ```text
+/// pub struct ExecutionDescriptor {
+///     pub adapter: AdapterId,
+///     pub project: Option<String>,
+///     pub suite: Option<TestSuite>,
+///     pub selector: String,
+/// }
+/// ```
+///
+/// 本冊:688「coreは `project`、`suite.kind`、`suite.name`、`selector` の
+/// 文字列を解釈しない」— this struct's fields are opaque strings from
+/// `vtest-model`/`vtest-scan`'s point of view. Only the adapter named by
+/// `adapter` (via its `TestRunnerAdapter`, 本冊 §9.2) interprets them into
+/// an actual execution coordinate; `rust-cargo`'s interpretation is 本冊
+/// §9.2's `project` = cargo package名 / `suite.kind` ∈ `lib`/`bin`/
+/// `integration` / `suite.name` = bin または integration test target名 /
+/// `selector` = module path + function名.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "name", rename_all = "snake_case")]
-pub enum TestTarget {
-    Lib,
-    Bin(String),
-    IntegrationTest(String),
-    Unknown,
+pub struct ExecutionDescriptor {
+    pub adapter: AdapterId,
+    pub project: Option<String>,
+    pub suite: Option<TestSuite>,
+    pub selector: String,
 }
 
-// TODO: Split canonical test data from discovery and Rust/Cargo execution metadata.
+/// `ExecutionDescriptor.suite`'s referent (詳細設計 v0.1 本冊:651-654、
+/// §5.2、逐語):
+///
+/// ```text
+/// pub struct TestSuite {
+///     pub kind: String,
+///     pub name: Option<String>,
+/// }
+/// ```
+///
+/// `kind` is a plain `String`, not an enum — 本冊:653 defines no domain
+/// constraint on it. The three values `rust-cargo` assigns at interpretation
+/// time (本冊:1309 "`suite.kind`：`lib` / `bin` / `integration`") are that
+/// adapter's own convention, not a type-level enum this crate enforces (see
+/// `hash27-model-spec.md` §3, confirmed against 本冊 §9.2). Do not turn this
+/// back into an enum on `vtest-model`'s side.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TestSuite {
+    pub kind: String,
+    pub name: Option<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {
     pub id: TestId,
@@ -33,9 +69,16 @@ pub struct TestEntity {
     pub related: Vec<TestId>,
     pub location: SourceLocation,
     pub content_hash: ContentHash,
-    pub filter: String,
-    pub package: String,
-    pub test_target: TestTarget,
+    /// 本冊:617-630 の逐語形状。以前の `filter` / `package` / `test_target`
+    /// （Rust/Cargo 固有 field）と `TestTarget` 型は、本冊:685-703
+    /// 「`filter`、`package`、`test_target`および`TestTarget`型を
+    /// `vtest-model`へ置かない」により、この crate から除去した。
+    /// `TestTarget` は `rust-cargo` adapter 内部の分類 (`vtest-adapter-
+    /// rust::TestTarget`) へ移り、`rust-cargo` adapter がそれを
+    /// `ExecutionDescriptor` へ解釈してから core（`vtest-scan`）へ渡す
+    /// （本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次の
+    /// Cargo実行座標として解釈する」）。
+    pub execution: ExecutionDescriptor,
 }
 
 /// 1 件の discovered Test construct（本冊:788-801 の `DiscoveredTest`）が、

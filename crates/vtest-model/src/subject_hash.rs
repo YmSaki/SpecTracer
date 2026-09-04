@@ -25,28 +25,21 @@
 //!
 //! §1.3 (本冊:87) requires Test subject hash to bind an adapter ID and a
 //! Source Location built from `adapter` / project-relative `path` / opaque
-//! `locator`, plus an `ExecutionDescriptor` (本冊:629). The spec's own
-//! `struct SourceLocation` (本冊:637-642) is:
+//! `locator`, plus an `ExecutionDescriptor` (本冊:629).
 //!
-//! ```text
-//! pub struct SourceLocation {
-//!     pub adapter: AdapterId,
-//!     pub path: ProjectPath,
-//!     pub locator: String,            // adapter所有のopaque construct locator
-//!     pub byte_range: SourceRange,
-//! }
-//! ```
-//!
-//! This crate's actual [`crate::SourceLocation`] is `{ file, function,
-//! start_line, end_line, start_byte, end_byte }` — it has no `adapter` field
-//! and no opaque `locator` field at all. [`crate::TestEntity`] likewise has
-//! no top-level `adapter` field, and this crate has no `ExecutionDescriptor`
-//! type (本冊:644-649) yet. These are gaps between the model and the spec's
-//! own struct shapes, not inputs this function could source from something
-//! else already on `TestEntity` — `filter` / `package` / `test_target`
-//! (Rust/Cargo execution details this crate's `TestEntity` carries instead)
-//! are not substitutes for `ExecutionDescriptor` and are not used as one.
-//! See the PR report for the full gap analysis.
+//! As of the `vtest-model` reshape that added [`crate::ProjectPath`] /
+//! [`crate::SourceRange`] / [`crate::ExecutionDescriptor`] /
+//! [`crate::TestSuite`] and gave [`crate::SourceLocation`] the spec's own
+//! `{ adapter, path, locator, byte_range }` shape (本冊:637-642) and
+//! [`crate::TestEntity`] an `execution: ExecutionDescriptor` field
+//! (本冊:617-630), the struct-shape gap this module previously documented is
+//! closed — every input 本冊:87 names now has a matching field somewhere on
+//! `TestEntity`/`SourceLocation`/`ExecutionDescriptor`. Implementing the
+//! actual `test_subject_hash` composition function (wiring those fields
+//! through `SubjectHashInput`, matching the pattern `document_subject_hash`/
+//! `vo_subject_hash`/`source_target_subject_hash` below already establish)
+//! remains out of this reshape's scope — it is tracked as separate,
+//! follow-up work.
 
 use std::collections::BTreeSet;
 
