@@ -887,7 +887,6 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 | W-STORE-004 | warning | 同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存し、実効判断が未確定（§8.5） |
 | W-STORE-005 | warning | 判断記録または承認レコードの `supersedes` の参照先を解決できない、対象が一致しない、または supersede 関係が循環し、当該 record が実効集合へ寄与しない（§8.5・§3.5） |
 | W-STORE-006 | warning | 承認レコードの `approved_state` または `subject` の種別が値域外、あるいは `judgment_ref` の参照先が存在せず、実効承認を導出しない（§3.5） |
-| W-STORE-007 | warning | レコードに §3 のスキーマに無い未知フィールドが存在（値は無視して読み取る。VO の読取り互換 field `status` は W-STORE-001） |
 
 error は該当エンティティに関わる検査を非 `PASS` にする。
 warningは診断severityだけでは検証値を変更しないが、レポートに常に表示する。
