@@ -93,7 +93,7 @@ item の source.lines を重なり・隣接（隙間0行）でまとめたクラ
 
 ## docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md
 
-件数: 85
+件数: 83
 
 | クラスタ範囲 | トークン | source | 転記 | source 先頭100文字 |
 |---|---|---|---|---|
@@ -106,9 +106,6 @@ item の source.lines を重なり・隣接（隙間0行）でまとめたクラ
 | 107-107 | § | 1 | 2 | 基本仕様 §24.1 の layout をそのまま採用する。 |
 | 131-155 | または | 0 | 1 | `config.yaml` writer の正規形は version 2 とし、adapter ごとに root・scan・run 設定を namespace 化する。reader は version |
 | 163-163 | § | 3 | 4 | `verify.full_scope`は利用者が完全検証を縮小する設定ではなく、基本仕様 §5 の**固定4検査**（`chain_integrity` / `orphan_detection` /  |
-| 165-165 | しない | 1 | 0 | `gates` はフェーズゲートの進行条件定義を保持する（§11.5）。config 読込み時に次を検査し、いずれか違反があれば E-CONFIG-001（終了コード 2）として設定を受理せず、検証結 |
-| 167-171 | しない | 1 | 7 | - `gates` field 自体の欠落と空 list は「ゲート定義なし」として受理する（`--gate` を指定しない実行は影響を受けない。未定義名の指定は §11.5）。
-- `gates[] |
 | 167-171 | § | 5 | 6 | - `gates` field 自体の欠落と空 list は「ゲート定義なし」として受理する（`--gate` を指定しない実行は影響を受けない。未定義名の指定は §11.5）。
 - `gates[] |
 | 193-201 | しない | 0 | 2 | id: DOC-BASIC-001
@@ -210,10 +207,10 @@ TestEntity.targets  = 宣言されたTargetRef（Locator / SrcId）
 | 1139-1145 | § | 3 | 5 | **判断型（`judgment_kind`）。** バンドルは判断型をちょうど 1 件持ち、その値を `judgment_kind` として出力する。判断型は判断対象を一意に区切る key であり（§ |
 | 1147-1147 | § | 1 | 2 | `judgment_kind` と `subject` の種別の組合せがこの表にない要求ではバンドルを生成しない（別紙A §12.2 の usage error、終了コード 2）。 |
 | 1193-1193 | § | 2 | 4 | `vtest audit submit --file result.json` で提出する。判断は少なくとも actor / subject / decision を含み、理由・根拠は任意（optio |
-| 1218-1221 | § | 5 | 4 | - `decision` の値集合はツールが受理する判断値（`accepted` / `rejected` / `deferred` 等）とし、その妥当性を §8.4 で検証する。旧モデルの `ver |
 | 1241-1241 | 必須 | 1 | 2 | 受理された提出は判断記録（§3.4）として `.verify/decisions/` へ保存される。`subjects` に相当する対象集合はバンドル生成時の全対象の内容ハッシュを `subject_ |
 | 1241-1241 | § | 2 | 3 | 受理された提出は判断記録（§3.4）として `.verify/decisions/` へ保存される。`subjects` に相当する対象集合はバンドル生成時の全対象の内容ハッシュを `subject_ |
 | 1267-1274 | § | 10 | 12 | - 実効判断が「未確定（`UNKNOWN`）」であることは、当該対象が §11 のエスカレーション状態にとどまることを意味する。これは §4.1 の検証状態を変更せず（§8 冒頭）、`UNKNOWN` |
+| 1293-1293 | § | 2 | 3 | 判断の受理は検証状態を昇格させない。判断は `UNKNOWN` に対する外部判断の追跡であり、検査ゲートではない（§8 冒頭、基本仕様 §11.3）。 |
 | 1346-1350 | または | 1 | 2 | - `revision`：実行直前に `git rev-parse HEAD` と `git status --porcelain` で取得。取得失敗時は `commit: null` とし、この E |
 | 1358-1359 | しない | 1 | 2 | `rust-cargo` CoverageAdapterは`cargo-llvm-cov`を使用する（adapter configの`run.coverage: llvm-cov`）。
 起動時に `c |
@@ -246,7 +243,7 @@ TestEntity.targets  = 宣言されたTargetRef（Locator / SrcId）
   代表値は基本仕様 §22.2 の優先順位 FAIL |
 | 1524-1524 | § | 4 | 5 | **機能単位の集約（基本仕様 §22.2 の Feature 単位）。** 基本仕様 §22.2 が Test 単位の結果の集約先として挙げる「Feature 単位」は、**親 VO**（`paren |
 | 1526-1529 | § | 2 | 3 | - 親 VO の値は上記 step 6 の fail-closed 合成そのものであり、機能単位の表示のために別の合成規則・緩和規則を設けない。子に 1 つでも非 `PASS` があれば親 VO は非 |
-| 1542-1551 | § | 11 | 14 | - **ゲート定義**：`config.yaml` の `gates`（§2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approv |
+| 1542-1551 | § | 11 | 15 | - **ゲート定義**：`config.yaml` の `gates`（§2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approv |
 | 1557-1562 | § | 7 | 8 | - **任意ノードからの取得**：最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、 |
 | 1580-1582 | § | 2 | 4 |   この生成条件は `case-coverage` 型の項目にだけ適用する。検査に由来する `kind: unknown` の項目（DA 規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断 |
 | 1594-1596 | § | 0 | 3 | - **新規レコード追加**（rel / decisions / approvals / evidence）：ULID ファイル名の新規作成のみ。並列生成は衝突しない。

@@ -1728,6 +1728,18 @@
           }
         },
         {
+          "statement": "config読込み時に次を検査し、いずれか違反があればE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "derived_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.2 `config.yaml`",
+            "lines": [
+              165,
+              165
+            ]
+          }
+        },
+        {
           "statement": "`gates` field自体の欠落と空listは「ゲート定義なし」として受理する。",
           "derived_from": [],
           "source": {
@@ -1764,7 +1776,7 @@
           }
         },
         {
-          "statement": "`gates[].name` は非空文字列であり、大文字小文字を区別した完全一致で重複してはならない。重複した場合はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`gates[].name` は非空文字列であり、大文字小文字を区別した完全一致で重複してはならない。重複した場合はE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1788,7 +1800,7 @@
           }
         },
         {
-          "statement": "`gates[].require` は必須とする。欠落はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`gates[].require` は必須とする。欠落はE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1800,7 +1812,7 @@
           }
         },
         {
-          "statement": "`gates[].require` の `verification` は必須とする。欠落はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`gates[].require` の `verification` は必須とする。欠落はE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1827,7 +1839,7 @@
           ]
         },
         {
-          "statement": "診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・objectなどの非文字列値を `require.verification` に指定した場合はすべてE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・objectなどの非文字列値を `require.verification` に指定した場合はすべてE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1863,7 +1875,7 @@
           }
         },
         {
-          "statement": "`require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名はE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名はE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1875,7 +1887,7 @@
           }
         },
         {
-          "statement": "`require.approvals` のロール名が `approval_roles` に解決できない場合もE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。",
+          "statement": "`require.approvals` のロール名が `approval_roles` に解決できない場合もE-CONFIG-001（終了コード2）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
