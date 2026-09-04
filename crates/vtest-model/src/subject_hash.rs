@@ -10,11 +10,16 @@
 //! [`FieldValue::text_fragment`] (normalized), not
 //! [`FieldValue::exact_bytes`] — 本冊:83 makes normalization the default for
 //! any field a subject-specific rule does not explicitly require
-//! byte-exact, and the PM ruling on this PR confirmed that document/VO/
-//! Source-Target fields carry no such explicit requirement; only the
-//! Execution State manifest's file bytes do (本冊:91 "byte-exact file
-//! bytes"). See [`optional_text_fragment`]'s doc comment for the citation
-//! chain (本冊:83/88/99).
+//! byte-exact ("subject固有規則でbyte-exactを要求しないテキストfragmentは
+//! 改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しな
+//! い"). 本冊:91 ("byte-exact file bytes") is the only place §1.3 states a
+//! byte-exact requirement, and it names the Execution State manifest's file
+//! bytes; no document/VO/Source-Target field carries such a requirement.
+//! Source Target construct bytes are explicitly subject to the 本冊:83
+//! normalization: 本冊:99 "上記正規化後のsource bytesが変化した場合は安全
+//! 側でSTALEにする" — "上記正規化" refers back to 本冊:83 (the word
+//! 「正規化」 does not otherwise occur in 本冊:86-98). See
+//! [`optional_text_fragment`]'s doc comment for the same citation chain.
 //!
 //! # Test subject hash is not implemented here
 //!
@@ -58,10 +63,13 @@ use crate::{
 /// Every scalar text field in this module goes through
 /// [`FieldValue::text_fragment`], not [`FieldValue::exact_bytes`]: 本冊:83
 /// makes normalization the default for any field a subject-specific rule
-/// does not explicitly require byte-exact, and only the Execution State
-/// manifest's file bytes carry that explicit requirement (本冊:91
-/// "byte-exact file bytes") — document/VO/Source-Target fields do not (PM
-/// ruling; see this crate's PR report for the citation chain, 本冊:83/88/99).
+/// does not explicitly require byte-exact, and 本冊:91 ("byte-exact file
+/// bytes") is the only place §1.3 states a byte-exact requirement, naming
+/// the Execution State manifest's file bytes — document/VO/Source-Target
+/// fields carry no such requirement. Source Target construct bytes fall
+/// under the 本冊:83 default explicitly: 本冊:99 "上記正規化後のsource
+/// bytesが変化した場合は安全側でSTALEにする" ("上記正規化" refers to
+/// 本冊:83; 「正規化」 does not otherwise occur in 本冊:86-98).
 fn optional_text_fragment(value: Option<&str>) -> FieldValue {
     match value {
         None => FieldValue::Null,
@@ -263,8 +271,11 @@ fn encode_combination_entry(entry: &CombinationEntry) -> Vec<u8> {
 ///
 /// `construct_text` is the adapter-returned implementation construct bytes,
 /// decoded to text by the caller (`vtest-model` does no adapter I/O). It is
-/// bound as a normalized text fragment — see this module's header comment
-/// for the PM ruling that construct bytes are not byte-exact.
+/// bound as a normalized text fragment: 本冊:99 "上記正規化後のsource bytes
+/// が変化した場合は安全側でSTALEにする" states construct bytes are subject
+/// to the 本冊:83 normalization ("上記正規化"), and 本冊:91 is the only
+/// place §1.3 requires byte-exactness (the Execution State manifest's file
+/// bytes) — Source Target construct bytes carry no such requirement.
 ///
 /// The Source Target's permanent SRC ID is **not** a parameter of this
 /// function and so cannot be bound as an independent field (本冊:88 "恒久
@@ -405,7 +416,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
     /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies record scalar fields (title, id) are normalized text fragments, not byte-exact (PM ruling: 本冊:83 default applies; only Execution State manifest bytes are byte-exact, 本冊:91)
+    /// @vtest.intent verifies record scalar fields (title, id) are normalized text fragments, not byte-exact (本冊:83 makes normalization the default; 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes — document fields carry no such requirement)
     #[test]
     fn document_subject_hash_normalizes_record_text_fields() {
         let mut crlf_title = base_document();
@@ -589,7 +600,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies record scalar fields (claim) are normalized text fragments, not byte-exact (PM ruling: 本冊:83 default applies; VO subject hash — 本冊:90 — has no "byte-exact" language)
+    /// @vtest.intent verifies record scalar fields (claim) are normalized text fragments, not byte-exact (本冊:83 makes normalization the default; VO subject hash — 本冊:90 — states no byte-exact requirement, and 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes)
     #[test]
     fn vo_subject_hash_normalizes_record_text_fields() {
         let mut crlf_claim = base_vo();
@@ -655,7 +666,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-CONSTRUCT-IS-NORMALIZED
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies construct bytes are a normalized text fragment, not byte-exact (PM ruling on 本冊:83/88/99 — see module header)
+    /// @vtest.intent verifies construct bytes are a normalized text fragment, not byte-exact (本冊:99 "上記正規化後のsource bytesが変化した場合は安全側でSTALEにする" subjects construct bytes to the 本冊:83 normalization; 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes)
     #[test]
     fn source_target_subject_hash_normalizes_construct_text() {
         let crlf =
