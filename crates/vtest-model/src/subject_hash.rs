@@ -1,10 +1,20 @@
-//! §1.3 subject hash composition functions: document and VO.
+//! §1.3 subject hash composition functions: document, VO, and Source Target.
 //!
 //! These bind the canonical inputs each subject hash requires (詳細設計 v0.1
 //! §1.3, 本冊:83-91), using the encoding primitives in `hash.rs`
 //! (`SubjectHashInput` / `FieldValue` / `SubjectDomain` /
 //! `encode_nested_fields`). They only compute hash values — no existing
 //! `ContentHash::from_text` call site is rewired to use them here.
+//!
+//! Every scalar text field these functions bind uses
+//! [`FieldValue::text_fragment`] (normalized), not
+//! [`FieldValue::exact_bytes`] — 本冊:83 makes normalization the default for
+//! any field a subject-specific rule does not explicitly require
+//! byte-exact, and the PM ruling on this PR confirmed that document/VO/
+//! Source-Target fields carry no such explicit requirement; only the
+//! Execution State manifest's file bytes do (本冊:91 "byte-exact file
+//! bytes"). See [`optional_text_fragment`]'s doc comment for the citation
+//! chain (本冊:83/88/99).
 //!
 //! # Test subject hash is not implemented here
 //!
@@ -36,20 +46,26 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    encode_nested_fields, CombinationEntry, ContentHash, Dimension, DocumentRecord, FieldValue,
-    SubjectDomain, SubjectHashInput, VoRecord,
+    encode_nested_fields, normalize_hashed_text, CombinationEntry, ContentHash, Dimension,
+    DocumentRecord, FieldValue, Locator, SubjectDomain, SubjectHashInput, VoRecord,
 };
 
 /// A scalar field whose declaration may be entirely absent (`None`,
 /// encoded as [`FieldValue::Null`]) versus present-with-a-value (`Some`,
-/// encoded byte-exactly). Used for optional identifier/metadata fields
-/// (`title`, `parent`, `anchor`, `note`) — none of these are the kind of
-/// text fragment §1.3 (本冊:83) normalizes; they are treated byte-exactly
-/// when present.
-fn optional_exact(value: Option<&str>) -> FieldValue {
+/// encoded as a normalized text fragment). Used for optional
+/// identifier/metadata fields (`title`, `parent`, `anchor`, `note`).
+///
+/// Every scalar text field in this module goes through
+/// [`FieldValue::text_fragment`], not [`FieldValue::exact_bytes`]: 本冊:83
+/// makes normalization the default for any field a subject-specific rule
+/// does not explicitly require byte-exact, and only the Execution State
+/// manifest's file bytes carry that explicit requirement (本冊:91
+/// "byte-exact file bytes") — document/VO/Source-Target fields do not (PM
+/// ruling; see this crate's PR report for the citation chain, 本冊:83/88/99).
+fn optional_text_fragment(value: Option<&str>) -> FieldValue {
     match value {
         None => FieldValue::Null,
-        Some(text) => FieldValue::exact_bytes(text.as_bytes().to_vec()),
+        Some(text) => FieldValue::text_fragment(text),
     }
 }
 
@@ -72,19 +88,13 @@ fn optional_exact(value: Option<&str>) -> FieldValue {
 /// [`vo_subject_hash`]'s doc comment for that asymmetry.
 pub fn document_subject_hash(record: &DocumentRecord, source_text: &str) -> ContentHash {
     SubjectHashInput::new(SubjectDomain::DocumentSubject)
-        .field(
-            "id",
-            FieldValue::exact_bytes(record.id.as_str().as_bytes().to_vec()),
-        )
-        .field(
-            "path",
-            FieldValue::exact_bytes(record.path.as_bytes().to_vec()),
-        )
+        .field("id", FieldValue::text_fragment(record.id.as_str()))
+        .field("path", FieldValue::text_fragment(&record.path))
         .field(
             "content_hash",
-            FieldValue::exact_bytes(record.content_hash.as_str().as_bytes().to_vec()),
+            FieldValue::text_fragment(record.content_hash.as_str()),
         )
-        .field("title", optional_exact(record.title.as_deref()))
+        .field("title", optional_text_fragment(record.title.as_deref()))
         .field(
             "derives_from",
             FieldValue::Ordered(
@@ -93,12 +103,9 @@ pub fn document_subject_hash(record: &DocumentRecord, source_text: &str) -> Cont
                     .iter()
                     .map(|entry| {
                         encode_nested_fields([
-                            (
-                                "doc",
-                                FieldValue::exact_bytes(entry.doc.as_str().as_bytes().to_vec()),
-                            ),
-                            ("anchor", optional_exact(entry.anchor.as_deref())),
-                            ("note", optional_exact(entry.note.as_deref())),
+                            ("doc", FieldValue::text_fragment(entry.doc.as_str())),
+                            ("anchor", optional_text_fragment(entry.anchor.as_deref())),
+                            ("note", optional_text_fragment(entry.note.as_deref())),
                         ])
                     })
                     .collect(),
@@ -106,7 +113,7 @@ pub fn document_subject_hash(record: &DocumentRecord, source_text: &str) -> Cont
         )
         .field(
             "registered_at",
-            FieldValue::exact_bytes(record.registered_at.as_bytes().to_vec()),
+            FieldValue::text_fragment(&record.registered_at),
         )
         .field("source", FieldValue::text_fragment(source_text))
         .finish()
@@ -146,17 +153,14 @@ pub fn vo_subject_hash(record: &VoRecord) -> ContentHash {
     let referenced_documents: BTreeSet<Vec<u8>> = record
         .derives_from
         .iter()
-        .map(|entry| entry.doc.as_str().as_bytes().to_vec())
+        .map(|entry| normalize_hashed_text(entry.doc.as_str()).into_bytes())
         .collect();
 
     SubjectHashInput::new(SubjectDomain::RecordSubject)
-        .field(
-            "id",
-            FieldValue::exact_bytes(record.id.as_str().as_bytes().to_vec()),
-        )
+        .field("id", FieldValue::text_fragment(record.id.as_str()))
         .field(
             "parent",
-            optional_exact(record.parent.as_ref().map(|id| id.as_str())),
+            optional_text_fragment(record.parent.as_ref().map(|id| id.as_str())),
         )
         .field(
             "derives_from",
@@ -171,9 +175,7 @@ pub fn vo_subject_hash(record: &VoRecord) -> ContentHash {
             "coverage_policy",
             match record.coverage_policy {
                 None => FieldValue::Null,
-                Some(policy) => {
-                    FieldValue::exact_bytes(coverage_policy_str(policy).as_bytes().to_vec())
-                }
+                Some(policy) => FieldValue::text_fragment(coverage_policy_str(policy)),
             },
         )
         .field(
@@ -192,34 +194,25 @@ pub fn vo_subject_hash(record: &VoRecord) -> ContentHash {
                 record
                     .representative_cases
                     .iter()
-                    .map(|case| case.as_bytes().to_vec())
+                    .map(|case| normalize_hashed_text(case).into_bytes())
                     .collect(),
             ),
         )
-        .field(
-            "created",
-            FieldValue::exact_bytes(record.created.as_bytes().to_vec()),
-        )
-        .field(
-            "updated",
-            FieldValue::exact_bytes(record.updated.as_bytes().to_vec()),
-        )
+        .field("created", FieldValue::text_fragment(&record.created))
+        .field("updated", FieldValue::text_fragment(&record.updated))
         .finish()
 }
 
 fn encode_dimension(dimension: &Dimension) -> Vec<u8> {
     encode_nested_fields([
-        (
-            "name",
-            FieldValue::exact_bytes(dimension.name.as_bytes().to_vec()),
-        ),
+        ("name", FieldValue::text_fragment(&dimension.name)),
         (
             "partitions",
             FieldValue::Ordered(
                 dimension
                     .partitions
                     .iter()
-                    .map(|partition| partition.as_bytes().to_vec())
+                    .map(|partition| normalize_hashed_text(partition).into_bytes())
                     .collect(),
             ),
         ),
@@ -248,14 +241,55 @@ fn encode_combination_entry(entry: &CombinationEntry) -> Vec<u8> {
     encode_nested_fields(
         pairs
             .into_iter()
-            .map(|(name, value)| (name, FieldValue::exact_bytes(value.as_bytes().to_vec()))),
+            .map(|(name, value)| (name, FieldValue::text_fragment(value))),
     )
+}
+
+/// Source Target hash (詳細設計 v0.1 §1.3, domain `vtest:target-subject:v1`,
+/// 本冊:88): "canonical Target Referenceとadapterが返すimplementation
+/// construct bytesを束縛する".
+///
+/// `locator` is the Source Target's own **canonical Target Reference** —
+/// `本冊:88` requires this to always be a `TargetRef::Locator`, never a
+/// `TargetRef::SrcId` ("canonical Target Referenceは常に`TargetRef::Locator`
+/// …であり、`TargetRef::SrcId`をcanonical Target Referenceにしない"). Taking
+/// a plain [`Locator`] here (not a `TargetRef`) makes that structural: there
+/// is no `TargetRef::SrcId` value this parameter could hold. This also means
+/// the hash is computed only from the Source Target's own canonical Locator,
+/// never from a referencing Test's `TargetRef` spelling (本冊:88 "hashは
+/// Source Target自身のcanonical Locatorから一度だけ計算し、当該Source
+/// Targetを参照するTest側の`TargetRef`綴りからは計算しない") — this function
+/// has no parameter a Test's `TargetRef` could even be passed through.
+///
+/// `construct_text` is the adapter-returned implementation construct bytes,
+/// decoded to text by the caller (`vtest-model` does no adapter I/O). It is
+/// bound as a normalized text fragment — see this module's header comment
+/// for the PM ruling that construct bytes are not byte-exact.
+///
+/// The Source Target's permanent SRC ID is **not** a parameter of this
+/// function and so cannot be bound as an independent field (本冊:88 "恒久
+/// SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference
+/// 経由でもhash inputへ入らない"). Declaring, changing, or deleting a SRC ID
+/// therefore cannot change this hash by itself — except through
+/// `construct_text`, for an adapter (`rust-cargo`'s `@vtest.src-id` doc
+/// comment) that places the SRC ID declaration inside the construct bytes
+/// themselves; 本冊:88 states this construct-bytes-mediated change is
+/// correct behavior, not evidence that SRC ID is an independent hash field.
+pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> ContentHash {
+    SubjectHashInput::new(SubjectDomain::TargetSubject)
+        .field(
+            "adapter",
+            FieldValue::text_fragment(locator.adapter.as_str()),
+        )
+        .field("locator", FieldValue::text_fragment(&locator.value))
+        .field("construct", FieldValue::text_fragment(construct_text))
+        .finish()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CoveragePolicy, DerivesFrom, DocumentId, VoId};
+    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, VoId};
 
     fn base_document() -> DocumentRecord {
         DocumentRecord {
@@ -364,6 +398,23 @@ mod tests {
         let mut note_changed = base_document();
         note_changed.derives_from[0].note = Some("a reason".to_string());
         assert_ne!(base, document_subject_hash(&note_changed, "source"));
+    }
+
+    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
+    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
+    /// @vtest.intent verifies record scalar fields (title, id) are normalized text fragments, not byte-exact (PM ruling: 本冊:83 default applies; only Execution State manifest bytes are byte-exact, 本冊:91)
+    #[test]
+    fn document_subject_hash_normalizes_record_text_fields() {
+        let mut crlf_title = base_document();
+        crlf_title.title = Some("基本仕様書  \r\n".to_string());
+        let mut lf_title = base_document();
+        lf_title.title = Some("基本仕様書  \n".to_string());
+        assert_eq!(
+            document_subject_hash(&crlf_title, "source"),
+            document_subject_hash(&lf_title, "source"),
+            "title is a normalized text fragment, so CRLF vs LF must not change the hash"
+        );
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-TITLE-ABSENT-VS-EMPTY
@@ -533,6 +584,23 @@ mod tests {
         assert_ne!(base, vo_subject_hash(&updated_changed));
     }
 
+    /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
+    /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
+    /// @vtest.intent verifies record scalar fields (claim) are normalized text fragments, not byte-exact (PM ruling: 本冊:83 default applies; VO subject hash — 本冊:90 — has no "byte-exact" language)
+    #[test]
+    fn vo_subject_hash_normalizes_record_text_fields() {
+        let mut crlf_claim = base_vo();
+        crlf_claim.claim = "a claim with trailing space  \r\nsecond line  \r\n".to_string();
+        let mut lf_claim = base_vo();
+        lf_claim.claim = "a claim with trailing space\nsecond line\n".to_string();
+        assert_eq!(
+            vo_subject_hash(&crlf_claim),
+            vo_subject_hash(&lf_claim),
+            "claim is a normalized text fragment, so CRLF/trailing-space vs LF must not change the hash"
+        );
+    }
+
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-PARENT-ABSENT-VS-PRESENT
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
@@ -543,5 +611,92 @@ mod tests {
         no_parent.parent = None;
         let with_parent = base_vo();
         assert_ne!(vo_subject_hash(&no_parent), vo_subject_hash(&with_parent));
+    }
+
+    // ---- Source Target subject hash ----
+
+    fn base_locator() -> Locator {
+        Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::parse".to_string(),
+        }
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-LOCATOR-AND-CONSTRUCT-CHANGE-HASH
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies canonical Target Reference (adapter, locator value) and construct bytes are each bound (本冊:88 "canonical Target Referenceとadapterが返すimplementation construct bytesを束縛する")
+    #[test]
+    fn source_target_subject_hash_changes_when_locator_or_construct_changes() {
+        let base = source_target_subject_hash(&base_locator(), "fn parse() {}");
+
+        let mut adapter_changed = base_locator();
+        adapter_changed.adapter = AdapterId::new("other-lang");
+        assert_ne!(
+            base,
+            source_target_subject_hash(&adapter_changed, "fn parse() {}")
+        );
+
+        let mut value_changed = base_locator();
+        value_changed.value = "src/parser.rs::Parser::other".to_string();
+        assert_ne!(
+            base,
+            source_target_subject_hash(&value_changed, "fn parse() {}")
+        );
+
+        assert_ne!(
+            base,
+            source_target_subject_hash(&base_locator(), "fn parse_other() {}")
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-CONSTRUCT-IS-NORMALIZED
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies construct bytes are a normalized text fragment, not byte-exact (PM ruling on 本冊:83/88/99 — see module header)
+    #[test]
+    fn source_target_subject_hash_normalizes_construct_text() {
+        let crlf =
+            source_target_subject_hash(&base_locator(), "fn parse() {  \r\n    body()  \r\n}");
+        let lf = source_target_subject_hash(&base_locator(), "fn parse() {\n    body()\n}");
+        assert_eq!(crlf, lf);
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-HAS-NO-SRC-ID-PARAMETER
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies the same (locator, construct) pair always hashes identically, regardless of any out-of-band SRC ID bookkeeping — the function has no SRC ID parameter to bind one through (本冊:88 "恒久SRC IDはhash inputの独立fieldとして束縛せず…")
+    #[test]
+    fn source_target_subject_hash_is_unaffected_by_src_id_bookkeeping_outside_construct_bytes() {
+        // Two Source Targets that differ only in a permanent SRC ID tracked
+        // entirely outside this function's inputs (e.g. only in a separate
+        // `.verify/` record, never passed here) must hash identically: this
+        // function's signature has no field a SRC ID could occupy.
+        let without_src_id_bookkeeping =
+            source_target_subject_hash(&base_locator(), "fn parse() {}");
+        let with_src_id_bookkeeping_elsewhere =
+            source_target_subject_hash(&base_locator(), "fn parse() {}");
+        assert_eq!(
+            without_src_id_bookkeeping,
+            with_src_id_bookkeeping_elsewhere
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-SRC-ID-INSIDE-CONSTRUCT-BYTES-CHANGES-HASH
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
+    /// @vtest.intent verifies a SRC ID declaration placed inside construct bytes (rust-cargo's `@vtest.src-id` doc comment) changes the hash via construct_text, which 本冊:88 states is correct — distinct from binding SRC ID as an independent field
+    #[test]
+    fn source_target_subject_hash_changes_when_an_in_construct_src_id_comment_is_added() {
+        let without_src_id_comment = source_target_subject_hash(&base_locator(), "fn parse() {}");
+        let with_src_id_comment = source_target_subject_hash(
+            &base_locator(),
+            "/// @vtest.src-id SRC-PARSER-001\nfn parse() {}",
+        );
+        assert_ne!(
+            without_src_id_comment, with_src_id_comment,
+            "a SRC ID declared inside construct bytes changes the hash through construct_text, \
+             which 本冊:88 says is correct — it is not evidence of an independent SRC ID field"
+        );
     }
 }
