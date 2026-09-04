@@ -213,7 +213,7 @@ Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行
 
 ### DES-045
 
-この失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。
+`git` が利用できない場合の失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。
 
 ### DES-046
 
@@ -281,7 +281,7 @@ canonical metadataの `targets` は宣言された `TargetRef` の正規化値�
 
 ### DES-062
 
-これによりTestの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。
+canonical metadataの `targets` が宣言された `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しないことにより、Testの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。
 
 ### DES-063
 
@@ -331,7 +331,7 @@ canonical Target Referenceは常に `TargetRef::Locator`（adapter IDとadapter�
 
 ### DES-074
 
-これは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
+恒久SRC IDの宣言をSource Targetのconstruct bytesの内側へ置くadapterで、その宣言の追加・変更・削除がconstruct bytesを変化させ、construct bytes経由でSource Target hashが変化しうることは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
 
 ### DES-075
 
@@ -2013,7 +2013,7 @@ scannerは `@vtest.src-id` の指定値を認識するが、付与を必須と�
 
 ### DES-433
 
-この表面での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。
+表面2での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。
 
 ### DES-434
 
@@ -2062,7 +2062,7 @@ source declarationを構文上完全なTest Entityへ正規化できる条件は
 
 ### DES-444
 
-これらの必須metadata（coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1`）を欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。
+coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。
 
 ### DES-445
 
@@ -2582,7 +2582,7 @@ canonical Locatorは恒久SRC IDの増減で変化しないため、参照方法
 
 ### DES-571
 
-これはsourceが実際に変化したことの帰結であり、参照方法による分裂ではない。
+恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでSource Target hashが変化することは、sourceが実際に変化したことの帰結であり、参照方法による分裂ではない。
 
 ### DES-572
 
@@ -3016,7 +3016,7 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 ### DES-679
 
-この必須要件はadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。
+各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。
 
 ### DES-680
 
@@ -3052,7 +3052,7 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 ### DES-688
 
-このpassで非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。
+`rust-cargo` discoveryの第6段（Source Target抽出）で非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。
 
 ### DES-689
 
@@ -3182,7 +3182,7 @@ SRC ID参照は、同じSource Targetへのlocator参照と同一のcanonical So
 
 ### DES-718
 
-この禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。
+曖昧な解決について候補を後段へ1件も引き渡さないという禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。
 
 ### DES-719
 
@@ -3194,7 +3194,7 @@ SRC ID参照は、同じSource Targetへのlocator参照と同一のcanonical So
 
 ### DES-721
 
-この解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもその結果を消費する。
+Target Referenceの解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもTarget Referenceの解決の結果を消費する。
 
 ### DES-722
 
@@ -3368,7 +3368,7 @@ DA-002のtarget別verdictの`UNKNOWN`は「静的解析の到達判定境界の�
 
 ### DES-759
 
-この到達`UNKNOWN`は§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。
+DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。
 
 > 要件定義 §4.3の2証拠源モデルは`target_binding`に固有。
 
@@ -3498,7 +3498,7 @@ FAILがなく1件でもUNKNOWNがあればrule結果をUNKNOWNとする。
 
 ### DES-790
 
-この場合DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。
+宣言targetへの呼出がTest本体に静的に現れない場合、DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。
 
 ### DES-791
 
@@ -3506,7 +3506,7 @@ target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合（他フ
 
 ### DES-792
 
-この場合のtargetはDA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。
+target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合のtargetは、DA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。
 
 ### DES-793
 
@@ -3598,7 +3598,7 @@ assert相当の引数、または引数へ到達する束縛（§7.2のデータ
 
 ### DES-813
 
-この検査は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。
+`target_binding`は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。
 
 ### DES-814
 
@@ -3610,7 +3610,7 @@ Testがtargetを静的解析の追えない実行境界を越えて到達させ�
 
 ### DES-816
 
-これらの形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。
+Testがtargetを静的解析の追えない実行境界を越えて到達させる形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。
 
 ### DES-817
 
@@ -3700,7 +3700,7 @@ runtime到達とは、DA-002 verdict = UNKNOWNかつruntime証明成立である
 
 ### DES-838
 
-この関係はfail-closedを保つ。
+`target_binding`の到達要件が静的到達またはruntime到達の充足によってのみ`PASS`となる関係はfail-closedを保つ。
 
 ### DES-839
 
@@ -3720,7 +3720,7 @@ runtime証明は当該targetの`target_coverage` = PASSのときだけ成立す�
 
 ### DES-842
 
-この形態で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。
+検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。
 
 ### DES-843
 
@@ -3774,7 +3774,7 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 ### DES-854
 
-このプロトコルは検証状態のゲートではない。
+判断記録プロトコルは検証状態のゲートではない。
 
 ### DES-855
 
@@ -3882,7 +3882,7 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 ### DES-878
 
-その未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。
+`case-coverage`の未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。
 
 ### DES-879
 
@@ -4020,7 +4020,7 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 ### DES-910
 
-これらは要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。
+旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。
 
 *引用: 要件定義 §12*
 
@@ -4070,7 +4070,7 @@ V(subject, judgment_kind)は、「有効」を満たす判断記録の集合と�
 
 ### DES-921
 
-これは§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。
+実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。
 
 ### DES-922
 
@@ -4124,7 +4124,7 @@ Eから外れた判断記録への承認は`draft`相当とする。
 
 ### DES-934
 
-その結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。
+現在状態に対して通常の検証（§5の4検査）を再実施した結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。
 
 ### DES-935
 
@@ -4282,7 +4282,7 @@ Testごとに§3.6のレコードを1件生成する。
 
 ### DES-971
 
-この場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。
+全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。
 
 ### DES-972
 
@@ -4330,7 +4330,7 @@ subprocess内の実行を計測するには起動される実行体もinstrument
 
 ### DES-982
 
-これを提供できない構成では境界越しtargetをUNKNOWNとする。
+起動される実行体をinstrument対象とし子プロセスのprofileをmergeすることを提供できない構成では境界越しtargetをUNKNOWNとする。
 
 ### DES-983
 
@@ -4338,7 +4338,7 @@ subprocess内の実行を計測するには起動される実行体もinstrument
 
 ### DES-984
 
-この能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。
+Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられる能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。
 
 ### DES-985
 
@@ -4404,7 +4404,7 @@ target別entryの欠落、重複、余分なentry、または解決後のcanonic
 
 ### DES-1000
 
-この計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。
+Evidenceの`target_coverage`へ記録する計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。
 
 ### DES-1001
 
@@ -4424,11 +4424,11 @@ providerが境界越しの実行を帰属できない場合はそのtargetを`UN
 
 ### DES-1005
 
-いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。
+providerが境界越しの実行を帰属できない場合、または計測自体が不能な場合は、いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。
 
 ### DES-1006
 
-この帰属可否はadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。
+coverage providerが境界越しの実行を宣言targetへ帰属させられるかはadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。
 
 ### DES-1007
 
@@ -4500,7 +4500,7 @@ providerが境界越しの実行を帰属できない場合はそのtargetを`UN
 
 ### DES-1021
 
-この入力集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。
+4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。
 
 ### DES-1022
 
@@ -4520,7 +4520,7 @@ providerが境界越しの実行を帰属できない場合はそのtargetを`UN
 
 ### DES-1026
 
-その場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。
+Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲で環境の変化が結果へ影響する場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。
 
 ### DES-1027
 
@@ -5084,7 +5084,7 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 ### DES-1153
 
-これにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
+projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
 
 *引用: 基本仕様 §11.1*
 
@@ -5094,7 +5094,7 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 ### DES-1155
 
-この対応ペアの取得のために新規コマンド・ツールを設けない。
+「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアの取得のために新規コマンド・ツールを設けない。
 
 ### DES-1156
 
@@ -5148,15 +5148,15 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 ### DES-1168
 
-その条件は、`covers`が1件以上あることである。
+判断型に由来する項目の生成条件の1つは、`covers`が1件以上あることである。
 
 ### DES-1169
 
-その条件は、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。
+判断型に由来する項目の生成条件の1つは、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。
 
 ### DES-1170
 
-その条件は、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。
+判断型に由来する項目の生成条件の1つは、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。
 
 ### DES-1171
 
@@ -5164,7 +5164,7 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 ### DES-1172
 
-この生成条件は`case-coverage`型の項目にだけ適用する。
+判断型に由来する項目の生成条件は`case-coverage`型の項目にだけ適用する。
 
 ### DES-1173
 
@@ -5220,7 +5220,7 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 ### DES-1183
 
-この「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。
+「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。
 
 *引用: 基本仕様 §24.2*
 
@@ -6048,7 +6048,7 @@ VO の `status`（`draft` / `approved`）は正典 field ではなく承認レ�
 
 ### DES-1357
 
-この `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。
+`vo add` / `vo edit` の `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。
 
 ### DES-1358
 
@@ -6823,7 +6823,7 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 
 ### DES-1497
 
-これが要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。
+`report --from DOC-REQ-001 --direction down --format json` が返す対応ペア集合が要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。
 
 ### DES-1498
 
@@ -7578,7 +7578,7 @@ Form Schema の検証は単一 field の `required` と検証器だけで閉じ�
 
 ### DES-1638
 
-これらの Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。
+user-defined Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。
 
 *引用: 基本仕様 §15.4*
 
@@ -7732,11 +7732,11 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 ### DES-1673
 
-これにより、Structured Edit を繰り返しても差分が安定する。
+アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行を元の位置関係を保って温存することにより、Structured Edit を繰り返しても差分が安定する。
 
 ### DES-1674
 
-この再生成規則は Create が挿入する annotation block にも同一に適用する。
+アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成する規則は、Create が挿入する annotation block にも同一に適用する。
 
 ### DES-1675
 
@@ -7744,7 +7744,7 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 ### DES-1676
 
-このキー集合は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。
+アノテーションの再生成キー順（id, covers, target, intent, input, expect, kind, case, related）は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。
 
 *引用: 本冊 §4.2*
 
@@ -7884,7 +7884,7 @@ fixture は、複数 target を宣言し、target ごとに PASS / FAIL / UNKNOW
 
 ### DES-1707
 
-fixture は、**5 状態それぞれを生じる入力**（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を表現できる。
+fixture は、5 状態それぞれを生じる入力（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を表現できる。
 
 ### DES-1708
 
@@ -7894,7 +7894,7 @@ fixture は、**5 状態それぞれを生じる入力**（`PASS` / `FAIL` / `MI
 
 ### DES-1709
 
-fixture は、**4 診断ラベルそれぞれを生じる入力**（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）を表現できる。
+fixture は、4 診断ラベルそれぞれを生じる入力（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）を表現できる。
 
 ### DES-1710
 
@@ -8058,7 +8058,7 @@ Source Target hashは常にcanonical locatorとconstruct bytesから計算し、
 
 ### DES-1749
 
-これはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
+Source Target hashも変化することはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
 
 ### DES-1750
 
@@ -8078,7 +8078,7 @@ E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて
 
 ### DES-1754
 
-この禁止は解決に関するものであり、Source Targetの具体化を止めない。
+判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しないという禁止は解決に関するものであり、Source Targetの具体化を止めない。
 
 ### DES-1755
 
@@ -8090,7 +8090,7 @@ E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて
 
 ### DES-1757
 
-この解決はcoreの単一経路が所有する。
+Target Reference解決はcoreの単一経路が所有する。
 
 ### DES-1758
 
@@ -8102,7 +8102,7 @@ adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relati
 
 ### DES-1760
 
-**Test 層**：管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。
+Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。
 
 *引用: 本冊 §11.1.1, 基本仕様 §5.1*
 
@@ -8138,7 +8138,7 @@ adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relati
 
 ### DES-1768
 
-**VO 層**：各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。
+各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。
 
 ### DES-1769
 
@@ -8150,11 +8150,11 @@ VO parent の不在・循環は E-SCAN-008、`chain_integrity = MISMATCH`。
 
 ### DES-1771
 
-**文書層**：各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。
+各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。
 
 ### DES-1772
 
-**文書層**：各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。
+各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。
 
 ### DES-1773
 
@@ -8164,7 +8164,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 ### DES-1774
 
-**双方向完全性**：`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。
+`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。
 
 ### DES-1775
 
@@ -8306,7 +8306,7 @@ Approval作成時に対象または上流依存closureを完全・currentに解�
 
 ### DES-1809
 
-どちらも与えない `edit` は既存 `combinations` を保持する。
+`--combination`と`--clear-combinations`のどちらも与えない `edit` は既存 `combinations` を保持する。
 
 ### DES-1810
 
@@ -8374,7 +8374,7 @@ CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--deri
 
 ### DES-1824
 
-**根の除外**：`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。
+根の除外は、`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。
 
 ### DES-1825
 
@@ -8384,7 +8384,7 @@ CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--deri
 
 ### DES-1826
 
-**孤児判定**：`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。
+孤児判定は、`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。
 
 ### DES-1827
 
@@ -8416,17 +8416,17 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 ### DES-1833
 
-**oracle_presence への合成**：`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。
+`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。
 
 *引用: 本冊 §7.1, 基本仕様 §5.4*
 
 ### DES-1834
 
-**oracle_presence への合成**：1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。
+1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。
 
 ### DES-1835
 
-**oracle_presence への合成**：`FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。
+`FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。
 
 ### DES-1836
 
@@ -8434,7 +8434,7 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 ### DES-1837
 
-**照合の委譲先の終端**：Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。
+Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。
 
 *引用: 本冊 §7.2.1*
 
@@ -8468,13 +8468,13 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 ### DES-1845
 
-**target_binding 静的到達（DA-002）**：DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。
+DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。
 
 *引用: 本冊 §7.3*
 
 ### DES-1846
 
-このruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。
+DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足されるというruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。
 
 ### DES-1847
 
@@ -8506,7 +8506,7 @@ static audit adapterが判定へ使用したsource fragment集合の完全性を
 
 ### DES-1853
 
-この2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。
+DA-002とDA-003の2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。
 
 ### DES-1854
 
@@ -8536,7 +8536,7 @@ runtime証明に依存する`target_binding`の値は、§18.3.4の鮮度判定�
 
 ### DES-1860
 
-これにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。
+無効な最新Evidenceから古い有効Evidenceへフォールバックしないことにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。
 
 ### DES-1861
 
@@ -8610,7 +8610,7 @@ Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複
 
 ### DES-1878
 
-1件でも対象なしまたは曖昧なら**Evidenceを生成しない**。
+1件でも対象なしまたは曖昧ならEvidenceを生成しない。
 
 ### DES-1879
 
@@ -8618,7 +8618,7 @@ Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複
 
 ### DES-1880
 
-この場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。
+Evidenceを生成しない場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。
 
 ### DES-1881
 
@@ -8762,7 +8762,7 @@ Testが別プロセス（起動したsubprocess）・別スレッドでtargetを
 
 ### DES-1914
 
-その結果は本冊§7.3のruntime到達証明としても機能する。
+target別PASS（count > 0）という結果は本冊§7.3のruntime到達証明としても機能する。
 
 *引用: 本冊 §7.3*
 
@@ -8824,7 +8824,7 @@ submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind
 
 ### DES-1928
 
-**理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない**。
+理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない。
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
@@ -8838,11 +8838,11 @@ submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind
 
 ### DES-1931
 
-**判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。**
+判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。
 
 ### DES-1932
 
-このプロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
+判断記録プロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
 
 *引用: 本冊 §8, 基本仕様 §11.3*
 
@@ -8880,7 +8880,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1940
 
-**判断バンドルは Test が宣言した cases 集合を規範項目として含む。**
+判断バンドルは Test が宣言した cases 集合を規範項目として含む。
 
 ### DES-1941
 
@@ -8894,7 +8894,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1943
 
-**バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。**
+バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。
 
 ### DES-1944
 
@@ -8908,13 +8908,13 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1946
 
-**`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。**
+`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。
 
 *引用: 基本仕様 §5*
 
 ### DES-1947
 
-その未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。
+`case-coverage`の未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。
 
 *引用: 本冊 §11.3*
 
@@ -8926,7 +8926,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1949
 
-**`case-coverage` の判断待ち項目は決定論的に生成する。**
+`case-coverage` の判断待ち項目は決定論的に生成する。
 
 ### DES-1950
 
@@ -8938,13 +8938,13 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1952
 
-この消滅規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。
+実効判断が `accepted` の場合にだけ消滅するという規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。
 
 *引用: 本冊 §11.7*
 
 ### DES-1953
 
-**実効判断は `(subject, judgment_kind)` の組ごとに決まる。**
+実効判断は `(subject, judgment_kind)` の組ごとに決まる。
 
 ### DES-1954
 
@@ -8962,7 +8962,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1957
 
-**競合は `supersedes` による明示の置き換えでだけ解消する。**
+競合は `supersedes` による明示の置き換えでだけ解消する。
 
 ### DES-1958
 
@@ -8974,7 +8974,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1960
 
-**`supersedes` の検証**：提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。
+提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。
 
 *引用: 本冊 §8.4*
 
@@ -8984,7 +8984,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1962
 
-**`supersedes` の循環**：レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。
+レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。
 
 *引用: 本冊 §8.5*
 
@@ -8994,7 +8994,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1964
 
-**`judgment_kind` を欠くか値域外の判断記録**は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。
+`judgment_kind` を欠くか値域外の判断記録は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。
 
 *引用: 本冊 §3.4・§8.5*
 
@@ -9016,7 +9016,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1968
 
-その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。
+§5 の 4 検査を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。
 
 ### DES-1969
 
@@ -9034,7 +9034,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1972
 
-**判断済みと承認済みを区別する**（判断済み ≠ 承認済み）。
+判断済みと承認済みを区別する（判断済み ≠ 承認済み）。
 
 ### DES-1973
 
@@ -9048,7 +9048,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1975
 
-**承認は検証状態と独立の別軸である。**
+承認は検証状態と独立の別軸である。
 
 ### DES-1976
 
@@ -9062,7 +9062,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1978
 
-**`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。**
+`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。
 
 ### DES-1979
 
@@ -9076,7 +9076,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1981
 
-**実効承認の導出は `approved_state` を参照する。**
+実効承認の導出は `approved_state` を参照する。
 
 ### DES-1982
 
@@ -9090,7 +9090,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1984
 
-**承認取消・却下は実効承認を `draft` へ落とす。**
+承認取消・却下は実効承認を `draft` へ落とす。
 
 ### DES-1985
 
@@ -9102,7 +9102,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1987
 
-**取消・却下後の再承認は `supersedes` による。**
+取消・却下後の再承認は `supersedes` による。
 
 ### DES-1988
 
@@ -9120,7 +9120,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1991
 
-**承認対象の値域は VO ID と document ID である。**
+承認対象の値域は VO ID と document ID である。
 
 ### DES-1992
 
@@ -9134,7 +9134,7 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 ### DES-1994
 
-**判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。**
+判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。
 
 ### DES-1995
 
@@ -9144,7 +9144,7 @@ supersede された判断記録・競合により未確定となった判断記�
 
 ### DES-1996
 
-**承認レコード生成の正典面は対象種別を引数に取る単一の経路である。**
+承認レコード生成の正典面は対象種別を引数に取る単一の経路である。
 
 ### DES-1997
 
@@ -9166,7 +9166,7 @@ supersede された判断記録・競合により未確定となった判断記�
 
 ### DES-2001
 
-**方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。**
+方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。
 
 ### DES-2002
 
@@ -9190,7 +9190,7 @@ document 再登録（`--update`）で document subject hash が変化すると�
 
 ### DES-2006
 
-**実効承認は明示の `supersedes` 関係だけで決まる。**
+実効承認は明示の `supersedes` 関係だけで決まる。
 
 ### DES-2007
 
@@ -9268,7 +9268,7 @@ version 1 の重複・未知項目、version 2 の欠落・重複・未知・余
 
 ### DES-2022
 
-**scope は 2 軸で限定できる**。
+scope は 2 軸で限定できる。
 
 *引用: 基本仕様 §4.6, 要件定義 P-002*
 
@@ -9322,11 +9322,11 @@ version 1 の重複・未知項目、version 2 の欠落・重複・未知・余
 
 ### DES-2035
 
-**NO_EVIDENCE を生む入力**（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。
+NO_EVIDENCE を生む入力（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。
 
 ### DES-2036
 
-これらは `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。
+NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。
 
 *引用: 基本仕様 §4.3・§4.6*
 
@@ -9424,11 +9424,11 @@ toolchain identity・adapter config・入力 manifest を変える環境変更�
 
 ### DES-2057
 
-この対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。
+「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。
 
 ### DES-2058
 
-プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを**評価・提示できなければならない（MUST）**。
+プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを評価・提示できなければならない（MUST）。
 
 *引用: 本冊 §11.5, 基本仕様 §20, 要件定義 §26.4*
 
@@ -9532,7 +9532,7 @@ config の `gates` に定義の無いゲート名を `verify --gate` / `report -
 
 ### DES-2083
 
-**責務はゲート条件が現在満たされているかの評価・提示に限る。**
+責務はゲート条件が現在満たされているかの評価・提示に限る。
 
 ### DES-2084
 
@@ -9664,7 +9664,7 @@ MCP serverの長時間実行中もsource変更を再scanし、staleなPASSを保
 
 ### DES-2114
 
-どちらもRust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。
+`TargetRef::Locator`と`SourceLocation`のどちらもRust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。
 
 ### DES-2115
 

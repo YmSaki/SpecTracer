@@ -59,6 +59,42 @@ harvest-cites
     --dry-run to only print the report. Bare "§N"/"§N.N" without a
     preceding document name are never captured as new citations either.
 
+derivation-candidates
+    CONVERSION.md SS6 steps 1-2: produce the mechanical candidate list for
+    Owner approval. No inference, no scoring, no picking -- every rule
+    below is a fixed lookup, never a guess. Reads specification.json (must
+    already be built) and, for the 付記 導出表 source, the md range named
+    by the "keep_for_derivation": true entry in fragments/*.dropped.json
+    (never hard-coded).
+    Writes three files under --root:
+      derivation-candidates.json -- one entry per (statement, cite) pair
+        for every statement carrying a non-empty "cites": {id, statement
+        (first 80 chars), cite, candidates:[{id, statement (first 60
+        chars)}], resolution}. resolution is "exact" (cite is an id that
+        exists, or a bare NFR/OOS/F code whose target statement names
+        itself and there is exactly one such statement), "section" (cite
+        names a document + section/line and at least one statement in
+        that document's heading/line range matches), or "unresolved"
+        (cite recognised but zero matches, or not recognised at all).
+      derivation-table-candidates.json -- one entry per data row of the
+        付記 導出表 (its two md tables: 第I部 根->要求, 第II部 要求->要件；
+        header and separator rows skipped by shape, not by hard-coded
+        line numbers): {row_line, target_section, target_ids, source_ids,
+        kind, note}. The table has no separate 区分 column (its columns
+        are 上流ノード/下流ノード/導出理由/状態); "kind" carries the 状態
+        column verbatim (always "ACCEPTED" in the current table) as the
+        closest analogue, and "note" carries all three text columns
+        verbatim so nothing is lost. Each of 上流ノード and 下流ノード is
+        split on "・"/"/" and every token is resolved the same way as a
+        cite (id / require-layer section / self-naming code); unresolved
+        tokens simply contribute no id (their text survives in "note").
+      derivation-candidates.md -- human-readable: a summary (counts by
+        resolution, candidate-pair count, table-row counts by kind), then
+        per source document a bullet list of (statement, cite) pairs and
+        their candidates (top 5, "+k more" beyond that).
+    Prints the same summary to stdout. Fully deterministic (iterates
+    specification.json's own array order; table rows in line order).
+
 ID stamping (CONVERSION.md SS7)
 --------------------------------
 Items are sorted by (layer order request<require<spec<design, doc
@@ -753,6 +789,425 @@ def cmd_harvest_cites(args) -> int:
     return 0
 
 
+# ---------------------------------------------------- derivation-candidates --
+
+def build_id_index(spec: dict) -> dict:
+    """Every statement id (request/require/spec/design item) -> its record,
+    in specification.json's own deterministic order."""
+    idx: dict = {}
+    for it in spec["request"]:
+        idx[it["id"]] = dict(it, layer="request")
+    for it in spec["require"]:
+        idx[it["id"]] = dict(it, layer="require")
+    for it in spec["spec"]:
+        idx[it["id"]] = dict(it, layer="spec")
+    for area in spec["design"]:
+        for it in area["items"]:
+            idx[it["id"]] = dict(it, layer="design", area_id=area["id"], area_title=area["title"])
+    return idx
+
+
+def scope_items(spec: dict, scope: str) -> list:
+    """scope: 'require' | 'spec' | 'design:本冊' | 'design:別紙A' | 'design:別紙B' | 'design:別紙C'."""
+    if scope == "require":
+        return spec["require"]
+    if scope == "spec":
+        return spec["spec"]
+    if scope.startswith("design:"):
+        mark = scope.split(":", 1)[1]
+        out = []
+        for area in spec["design"]:
+            doc = area["source"]["doc"]
+            if mark == "本冊":
+                is_match = "別紙A" not in doc and "別紙B" not in doc and "別紙C" not in doc
+            else:
+                is_match = mark in doc
+            if is_match:
+                out.extend(area["items"])
+        return out
+    return []
+
+
+_DOC_TO_SCOPE = {
+    "要件定義": "require",
+    "基本仕様": "spec",
+    "本冊": "design:本冊",
+    "詳細設計": "design:本冊",
+    "別紙A": "design:別紙A",
+    "別紙B": "design:別紙B",
+    "別紙C": "design:別紙C",
+}
+
+_HEADING_NUM_RE = re.compile(r"^#{0,6}\s*([0-9]+(?:\.[0-9]+)*)")
+
+
+def heading_number_token(heading: str):
+    m = _HEADING_NUM_RE.match(heading.strip())
+    return m.group(1) if m else None
+
+
+def section_matches(query: str, token) -> bool:
+    if token is None:
+        return False
+    return token == query or token.startswith(query + ".")
+
+
+def section_candidates(spec: dict, scope: str, number: str) -> list:
+    return [
+        it["id"]
+        for it in scope_items(spec, scope)
+        if section_matches(number, heading_number_token(it["source"]["heading"]))
+    ]
+
+
+def line_candidates(spec: dict, scope: str, line_no: int) -> list:
+    out = []
+    for it in scope_items(spec, scope):
+        s, e = it["source"]["lines"]
+        if s <= line_no <= e:
+            out.append(it["id"])
+    return out
+
+
+def self_naming_candidates(id_index: dict, code: str) -> list:
+    return [iid for iid, it in id_index.items() if it["statement"].startswith(code)]
+
+
+# --- Output 1: resolve a stored `cites` string (already normalised by
+# harvest-cites into one of exactly four shapes) to candidate ids.
+
+_CITE_SECTION_RE = re.compile(r"^(要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*§\s*([0-9]+(?:\.[0-9]+)*)$")
+_CITE_LINE_RE = re.compile(r"^(要件定義|基本仕様|詳細設計|本冊|別紙[ABC])\s*L\s*([0-9]+)$")
+_CITE_PDOC_RE = re.compile(r"^(要件定義|基本仕様)\s*(P-[0-9]{3})$")
+_CITE_ID_RE = re.compile(r"^(R-[1-5]|P-[0-9]{3})$")
+_CITE_SELFNAME_RE = re.compile(r"^(NFR-[0-9]{3}|OOS-[0-9]{3}|F[0-9]+)$")
+
+
+def scope_to_layer(scope: str):
+    if scope == "require":
+        return "require"
+    if scope == "spec":
+        return "spec"
+    if scope and scope.startswith("design:"):
+        return "design"
+    return None
+
+
+_LAYER_RANK = {"request": 0, "require": 1, "spec": 2, "design": 3}
+
+
+def layer_relation(source_layer, target_layer):
+    """Fixed order request<require<spec<design (every design area, whichever
+    of 本冊/別紙A/別紙C, is layer 'design'). None when either layer is
+    undetermined (e.g. an unresolved cite whose ambiguous self-naming
+    candidates don't share one layer)."""
+    if source_layer is None or target_layer is None:
+        return None
+    s, t = _LAYER_RANK[source_layer], _LAYER_RANK[target_layer]
+    if t == s:
+        return "same-layer"
+    if t == s - 1:
+        return "adjacent-upstream"
+    if t < s - 1:
+        return "skip-upstream"
+    return "downstream"
+
+
+def resolve_cite(spec: dict, id_index: dict, cite: str):
+    """-> (candidate_ids: list[str], resolution: 'exact'|'section'|'unresolved',
+    target_layer: str|None)."""
+    m = _CITE_SECTION_RE.match(cite)
+    if m:
+        scope = _DOC_TO_SCOPE.get(m.group(1))
+        cands = section_candidates(spec, scope, m.group(2)) if scope else []
+        return cands, ("section" if cands else "unresolved"), scope_to_layer(scope)
+    m = _CITE_LINE_RE.match(cite)
+    if m:
+        scope = _DOC_TO_SCOPE.get(m.group(1))
+        cands = line_candidates(spec, scope, int(m.group(2))) if scope else []
+        return cands, ("section" if cands else "unresolved"), scope_to_layer(scope)
+    m = _CITE_PDOC_RE.match(cite)
+    if m:
+        pid = m.group(2)
+        if pid in id_index:
+            return [pid], "exact", id_index[pid]["layer"]
+        return [], "unresolved", None
+    m = _CITE_ID_RE.match(cite)
+    if m:
+        iid = m.group(1)
+        if iid in id_index:
+            return [iid], "exact", id_index[iid]["layer"]
+        return [], "unresolved", None
+    m = _CITE_SELFNAME_RE.match(cite)
+    if m:
+        cands = self_naming_candidates(id_index, m.group(1))
+        if len(cands) == 1:
+            return cands, "exact", id_index[cands[0]]["layer"]
+        layers = {id_index[c]["layer"] for c in cands}
+        return [], "unresolved", (layers.pop() if len(layers) == 1 else None)
+    return [], "unresolved", None
+
+
+def iter_all_statements(spec: dict):
+    for it in spec["request"]:
+        yield it
+    for it in spec["require"]:
+        yield it
+    for it in spec["spec"]:
+        yield it
+    for area in spec["design"]:
+        for it in area["items"]:
+            yield it
+
+
+def build_derivation_candidates(spec: dict, id_index: dict) -> list:
+    entries = []
+    for it in iter_all_statements(spec):
+        source_layer = id_index[it["id"]]["layer"]
+        for cite in it.get("cites") or []:
+            cands, resolution, target_layer = resolve_cite(spec, id_index, cite)
+            entries.append({
+                "id": it["id"],
+                "statement": it["statement"][:80],
+                "cite": cite,
+                "candidates": [{"id": cid, "statement": id_index[cid]["statement"][:60]} for cid in cands],
+                "resolution": resolution,
+                "layer_relation": layer_relation(source_layer, target_layer),
+            })
+    return entries
+
+
+# --- Output 2: parse the 付記 導出表 (要求・要件定義 v0.1.md, the md range
+# named by a "keep_for_derivation": true dropped-log entry) into candidates.
+
+_TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
+_TABLE_SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
+_TABLE_TOKEN_SPLIT_RE = re.compile(r"[・/]")
+
+_TABLE_ID_RE = re.compile(r"^(R-[1-5]|P-[0-9]{3})(?![0-9A-Za-z])")
+_TABLE_SECTION_RE = re.compile(r"^§\s*([0-9]+(?:\.[0-9]+)*)(?:-[A-Za-z])?")
+_TABLE_SELFNAME_RE = re.compile(r"^(NFR-[0-9]{3}|OOS-[0-9]{3}|F[0-9]+)(?![0-9A-Za-z])")
+
+
+def find_derivation_table_ranges(root: Path) -> list:
+    """[(doc, start_line, end_line), ...] from every dropped-log entry
+    marked keep_for_derivation: true. Never hard-coded."""
+    out = []
+    for _path, entry in load_dropped(root):
+        if entry.get("keep_for_derivation"):
+            out.append((entry["doc"], entry["lines"][0], entry["lines"][1]))
+    return out
+
+
+def parse_md_table_rows(md_lines: list, start: int, end: int) -> list:
+    """md_lines: 0-indexed full-file lines. start/end: 1-based inclusive.
+    -> [(line_no, [cell, ...]), ...] for data rows only (header/separator
+    rows are recognised by shape and skipped)."""
+    rows = []
+    for line_no in range(start, min(end, len(md_lines)) + 1):
+        m = _TABLE_ROW_RE.match(md_lines[line_no - 1].strip())
+        if not m:
+            continue
+        cells = [c.strip() for c in m.group(1).split("|")]
+        if all(_TABLE_SEP_CELL_RE.match(c) for c in cells if c):
+            continue  # separator row (e.g. |---|---|---|---|)
+        if cells and cells[0] == "上流ノード":
+            continue  # header row
+        rows.append((line_no, cells))
+    return rows
+
+
+def classify_table_ref(token: str):
+    """-> (kind, key, matched_text) for one token from a 上流ノード/下流ノード
+    cell. kind is 'id' | 'section' | 'selfname' | 'unknown'."""
+    token = token.strip()
+    m = _TABLE_ID_RE.match(token)
+    if m:
+        return "id", m.group(1), m.group(0)
+    m = _TABLE_SECTION_RE.match(token)
+    if m:
+        return "section", m.group(1), m.group(0)
+    m = _TABLE_SELFNAME_RE.match(token)
+    if m:
+        return "selfname", m.group(1), m.group(0)
+    return "unknown", None, None
+
+
+def resolve_table_ref(spec: dict, id_index: dict, token: str):
+    """-> (candidate_ids: list[str], matched_section_text: str|None)."""
+    kind, key, matched = classify_table_ref(token)
+    if kind == "id":
+        return ([key] if key in id_index else []), None
+    if kind == "section":
+        return section_candidates(spec, "require", key), matched
+    if kind == "selfname":
+        return self_naming_candidates(id_index, key), None
+    return [], None
+
+
+def resolve_table_cell(spec: dict, id_index: dict, cell: str):
+    """Split a 上流ノード/下流ノード cell on ・ and / (both are used as
+    multi-reference separators in this table) and resolve every token.
+    -> (ids: list[str] deduped in order, section_texts: list[str])."""
+    ids: list = []
+    seen = set()
+    sections: list = []
+    for tok in _TABLE_TOKEN_SPLIT_RE.split(cell):
+        tok = tok.strip()
+        if not tok:
+            continue
+        cands, matched = resolve_table_ref(spec, id_index, tok)
+        for c in cands:
+            if c not in seen:
+                seen.add(c)
+                ids.append(c)
+        if matched:
+            sections.append(matched)
+    return ids, sections
+
+
+def build_derivation_table_candidates(spec: dict, id_index: dict, root: Path, repo_root: Path) -> list:
+    rows_out = []
+    for doc, start, end in find_derivation_table_ranges(root):
+        md_path = repo_root / doc
+        md_lines = md_path.read_text(encoding="utf-8").splitlines()
+        for line_no, cells in parse_md_table_rows(md_lines, start, end):
+            if len(cells) != 4:
+                rows_out.append({
+                    "row_line": line_no,
+                    "target_section": None,
+                    "target_ids": [],
+                    "source_ids": [],
+                    "kind": None,
+                    "note": "列数が4でない行（そのまま記録）: " + " | ".join(cells),
+                })
+                continue
+            upstream, downstream, reason, state = cells
+            target_ids, target_sections = resolve_table_cell(spec, id_index, downstream)
+            source_ids, _src_sections = resolve_table_cell(spec, id_index, upstream)
+            rows_out.append({
+                "row_line": line_no,
+                "target_section": "/".join(target_sections) if target_sections else None,
+                "target_ids": target_ids,
+                "source_ids": source_ids,
+                "kind": state,
+                "note": f"上流: {upstream} / 下流: {downstream} / 理由: {reason}",
+            })
+    return rows_out
+
+
+# --- Output 3: human-readable summary.
+
+def doc_display_name(doc: str) -> str:
+    if "別紙A" in doc:
+        return "詳細設計 別紙A"
+    if "別紙B" in doc:
+        return "詳細設計 別紙B"
+    if "別紙C" in doc:
+        return "詳細設計 別紙C"
+    if "詳細設計" in doc:
+        return "詳細設計（本冊）"
+    if "基本仕様" in doc:
+        return "基本仕様"
+    if "要求" in doc or "要件定義" in doc:
+        return "要求・要件定義"
+    return doc
+
+
+def summarize_derivation(entries: list, table_rows: list) -> dict:
+    resolution_counts = Counter(e["resolution"] for e in entries)
+    kind_counts = Counter(r["kind"] for r in table_rows)
+    return {
+        "resolution_counts": resolution_counts,
+        "candidate_pairs": len(entries),
+        "table_rows": len(table_rows),
+        "kind_counts": kind_counts,
+    }
+
+
+def print_derivation_summary(summary: dict) -> None:
+    print("--- derivation-candidates summary ---")
+    for res in ("exact", "section", "unresolved"):
+        print(f"  resolution {res}: {summary['resolution_counts'].get(res, 0)}")
+    print(f"  candidate pairs total: {summary['candidate_pairs']}")
+    print(f"  derivation-table rows total: {summary['table_rows']}")
+    for kind, n in sorted(summary["kind_counts"].items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
+        print(f"  table rows kind={kind!r}: {n}")
+
+
+def write_derivation_md(path: Path, entries: list, table_rows: list, summary: dict) -> None:
+    lines = [
+        "<!-- generated from docs/canonical/specification.json and the 付記 導出表 by build.py derivation-candidates; do not edit -->",
+        "",
+        "# 導出候補（機械生成・Owner 未承認）",
+        "",
+        "CONVERSION.md SS6 の手順1-2の出力。推論・採点・選定は行っていない。承認して derived_from へ入れるかは Owner の判断。",
+        "",
+        "## 集計",
+        "",
+        "| resolution | 件数 |",
+        "|---|---|",
+    ]
+    for res in ("exact", "section", "unresolved"):
+        lines.append(f"| {res} | {summary['resolution_counts'].get(res, 0)} |")
+    lines.append(f"| **候補ペア合計** | **{summary['candidate_pairs']}** |")
+    lines += ["", "| 導出表 状態（kind） | 件数 |", "|---|---|"]
+    for kind, n in sorted(summary["kind_counts"].items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
+        lines.append(f"| {kind if kind is not None else '(列数異常)'} | {n} |")
+    lines.append(f"| **導出表行合計** | **{summary['table_rows']}** |")
+
+    by_doc: dict = {}
+    for e in entries:
+        by_doc.setdefault(e["_doc"], []).append(e)
+
+    for doc in sorted(by_doc):
+        lines += ["", f"## {doc_display_name(doc)}", ""]
+        for e in by_doc[doc]:
+            cands = e["candidates"]
+            shown = cands[:5]
+            cand_text = ", ".join(f"{c['id']} 「{c['statement']}」" for c in shown)
+            if len(cands) > 5:
+                cand_text += f" +{len(cands) - 5} more"
+            if not cands:
+                cand_text = "(候補なし)"
+            lines.append(f"- {e['id']} 「{e['statement'][:60]}」 ← {e['cite']} → {len(cands)}件: {cand_text}")
+
+    text = "\n".join(lines).rstrip("\n") + "\n"
+    path.write_text(text, encoding="utf-8")
+
+
+def cmd_derivation_candidates(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    spec = read_json(spec_json_path(root))
+    id_index = build_id_index(spec)
+
+    entries = build_derivation_candidates(spec, id_index)
+    # attach the owning statement's source doc for Output 3's per-document
+    # grouping only; not part of the written JSON.
+    doc_by_id = {it["id"]: it["source"]["doc"] for it in iter_all_statements(spec)}
+    for e in entries:
+        e["_doc"] = doc_by_id[e["id"]]
+
+    table_rows = build_derivation_table_candidates(spec, id_index, root, repo_root)
+
+    json_entries = [{k: v for k, v in e.items() if k != "_doc"} for e in entries]
+    (root / "derivation-candidates.json").write_text(
+        json.dumps(json_entries, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (root / "derivation-table-candidates.json").write_text(
+        json.dumps(table_rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    summary = summarize_derivation(entries, table_rows)
+    write_derivation_md(root / "derivation-candidates.md", entries, table_rows, summary)
+    print_derivation_summary(summary)
+    print(f"wrote {root / 'derivation-candidates.json'}")
+    print(f"wrote {root / 'derivation-table-candidates.json'}")
+    print(f"wrote {root / 'derivation-candidates.md'}")
+    return 0
+
+
 # ------------------------------------------------------------------ cli --
 
 def cmd_all(args) -> int:
@@ -801,6 +1256,11 @@ def main(argv=None) -> int:
     add_root_arg(p_harvest)
     p_harvest.add_argument("--dry-run", action="store_true", help="print the report without writing any fragment file")
     p_harvest.set_defaults(func=cmd_harvest_cites)
+
+    p_deriv = sub.add_parser("derivation-candidates", help="CONVERSION.md SS6 steps 1-2: mechanical derivation candidate list")
+    add_root_arg(p_deriv)
+    add_repo_root_arg(p_deriv)
+    p_deriv.set_defaults(func=cmd_derivation_candidates)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -570,7 +570,7 @@
           }
         },
         {
-          "statement": "この失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。",
+          "statement": "`git` が利用できない場合の失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -774,7 +774,7 @@
           }
         },
         {
-          "statement": "これによりTestの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。",
+          "statement": "canonical metadataの `targets` が宣言された `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しないことにより、Testの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -921,7 +921,7 @@
           }
         },
         {
-          "statement": "これは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
+          "statement": "恒久SRC IDの宣言をSource Targetのconstruct bytesの内側へ置くadapterで、その宣言の追加・変更・削除がconstruct bytesを変化させ、construct bytes経由でSource Target hashが変化しうることは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5422,7 +5422,7 @@
           }
         },
         {
-          "statement": "この表面での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。",
+          "statement": "表面2での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5558,7 +5558,7 @@
           ]
         },
         {
-          "statement": "これらの必須metadata（coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1`）を欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
+          "statement": "coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -7114,7 +7114,7 @@
           }
         },
         {
-          "statement": "これはsourceが実際に変化したことの帰結であり、参照方法による分裂ではない。",
+          "statement": "恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでSource Target hashが変化することは、sourceが実際に変化したことの帰結であり、参照方法による分裂ではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -8414,7 +8414,7 @@
           }
         },
         {
-          "statement": "この必須要件はadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
+          "statement": "各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -8522,7 +8522,7 @@
           }
         },
         {
-          "statement": "このpassで非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。",
+          "statement": "`rust-cargo` discoveryの第6段（Source Target抽出）で非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",

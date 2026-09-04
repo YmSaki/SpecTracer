@@ -42,8 +42,7 @@
       }
     },
     {
-      "statement": "そのテストは、宣言された義務（VO）と宣言鎖で繋がっているか",
-      "description": "本システムが照合するのは、その PASS と宣言の間にある次の 4 点である。",
+      "statement": "本システムが照合するのは、そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -55,7 +54,7 @@
       }
     },
     {
-      "statement": "そのテストは、宣言された検証対象の振る舞いを実際に生じさせたか",
+      "statement": "本システムが照合するのは、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -67,7 +66,7 @@
       }
     },
     {
-      "statement": "そのテストは、宣言された不成立を自身の非成功として反映する装置を持つか",
+      "statement": "本システムが照合するのは、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -79,7 +78,7 @@
       }
     },
     {
-      "statement": "その証拠は、現在のコードに対するものか",
+      "statement": "本システムが照合するのは、その証拠が現在のコードに対するものか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -91,7 +90,7 @@
       }
     },
     {
-      "statement": "この 4 点がすべて成立した場合のみ、完全検証においてその検証対象を OK とする。",
+      "statement": "そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、その証拠が現在のコードに対するものか、の 4 点がすべて成立した場合のみ、完全検証においてその検証対象を OK とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -251,7 +250,7 @@
       }
     },
     {
-      "statement": "この考え方を本プロジェクトでは Agent Form Engineering と呼称する。",
+      "statement": "既知の作業手順と既知の入力項目を持つ操作について、AI へ自然言語で自由に編集させる方式より、構造化された質問・入力・検証によって操作させる方式を優先するという考え方を、本プロジェクトでは Agent Form Engineering と呼称する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -685,7 +684,7 @@
       }
     },
     {
-      "statement": "問い: 宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するか。",
+      "statement": "`chain_integrity` の問いは、宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -697,7 +696,7 @@
       }
     },
     {
-      "statement": "文書層: 各 `document` の derives_from 参照先が存在し、content_hash が現物と一致すること。",
+      "statement": "文書層では、各 `document` の derives_from 参照先が存在し、content_hash が現物と一致することを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -709,7 +708,7 @@
       }
     },
     {
-      "statement": "VO 層: 各 VO が 1 件以上の `document` への解決可能な derives_from を持つこと。",
+      "statement": "VO 層では、各 VO が 1 件以上の `document` への解決可能な derives_from を持つことを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -721,7 +720,7 @@
       }
     },
     {
-      "statement": "Test 層: 発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・その他の必須 metadata）がちょうど 1 件存在し、`covers` の全 VO 参照を解決でき、Test ID が発見結果全体で一意であること。",
+      "statement": "Test 層では、発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・その他の必須 metadata）がちょうど 1 件存在し、`covers` の全 VO 参照を解決でき、Test ID が発見結果全体で一意であることを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -769,7 +768,7 @@
       }
     },
     {
-      "statement": "問い: 親を持たない `document` ノードが存在するか。",
+      "statement": "`orphan_detection` の問いは、親を持たない `document` ノードが存在するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -832,7 +831,7 @@
       }
     },
     {
-      "statement": "問い: その Test が検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか。",
+      "statement": "`target_binding` の問いは、その Test が検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -928,7 +927,7 @@
       }
     },
     {
-      "statement": "この検査は完全検証モードではデフォルトで有効とし、高速な限定 scope の検証では省略可能とする（省略時の扱いは §5.3）。",
+      "statement": "`target_binding` は完全検証モードではデフォルトで有効とし、高速な限定 scope の検証では省略可能とする（省略時の扱いは §5.3）。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -940,7 +939,7 @@
       }
     },
     {
-      "statement": "問い: 宣言された「何の時にどうなる」の不成立を、Test の非成功として反映する装置が存在するか。",
+      "statement": "`oracle_presence` の問いは、宣言された「何の時にどうなる」の不成立を、Test の非成功として反映する装置が存在するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1495,7 +1494,7 @@
       }
     },
     {
-      "statement": "この要求はハッシュ束縛によって設計制約として満たす。",
+      "statement": "Evidence の判定結果を変えうる Test の意味、実行条件、対象実装、および実行可能状態が現在状態と一致することを確認できなければその Evidence を現在の `PASS` として利用してはならないという要求は、ハッシュ束縛によって設計制約として満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1973,7 +1972,7 @@
       }
     },
     {
-      "statement": "この traceability は任意であり、影響分析・逆引き等に利用できるが、その存在自体を Test 成立性の条件としてはならない。",
+      "statement": "実装 traceability は任意であり、影響分析・逆引き等に利用できるが、その存在自体を Test 成立性の条件としてはならない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2334,7 +2333,7 @@
       }
     },
     {
-      "statement": "その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+      "statement": "現在状態に対する通常の検証の結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2857,7 +2856,7 @@
       }
     },
     {
-      "statement": "これは強い不変条件ではなく設計原則とする。",
+      "statement": "「プロジェクト規模が大きいこと自体とは別の理由によって、導入難度が構造的に増大する設計を避ける」ことは、強い不変条件ではなく設計原則とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3121,7 +3120,7 @@
       }
     },
     {
-      "statement": "Coder AI: 自身の変更が要求された検証を満たしたか確認する。",
+      "statement": "Coder AI は、自身の変更が要求された検証を満たしたか確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3133,7 +3132,7 @@
       }
     },
     {
-      "statement": "Developer: Test の作成・変更・検索・検証を行う。",
+      "statement": "Developer は、Test の作成・変更・検索・検証を行う。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3145,7 +3144,7 @@
       }
     },
     {
-      "statement": "CI: 同一条件で検証を再実行し、再現性を確認する。",
+      "statement": "CI は、同一条件で検証を再実行し、再現性を確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3157,7 +3156,7 @@
       }
     },
     {
-      "statement": "Reviewer AI: Coder の提出した Evidence と自身の再検証結果を照合する。",
+      "statement": "Reviewer AI は、Coder の提出した Evidence と自身の再検証結果を照合する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3169,7 +3168,7 @@
       }
     },
     {
-      "statement": "PM / PM Agent: 上位単位から、必要な VO・Test の存在と現在の NG 箇所を確認する。",
+      "statement": "PM / PM Agent は、上位単位から、必要な VO・Test の存在と現在の NG 箇所を確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3457,7 +3456,7 @@
       }
     },
     {
-      "statement": "NFR-001 並列性: 複数 AI Agent による並列変更に耐えられること。",
+      "statement": "NFR-001 並列性とは、複数 AI Agent による並列変更に耐えられることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3469,7 +3468,7 @@
       }
     },
     {
-      "statement": "NFR-002 再現性: CI 等により同一 revision・同一検証条件で結果を再現可能であること。",
+      "statement": "NFR-002 再現性とは、CI 等により同一 revision・同一検証条件で結果を再現可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3481,7 +3480,7 @@
       }
     },
     {
-      "statement": "NFR-003 追跡可能性: 文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であること（任意ノードからの取得・遡行・全体構造は §3.4）。",
+      "statement": "NFR-003 追跡可能性とは、文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であることをいう（任意ノードからの取得・遡行・全体構造は §3.4）。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3493,7 +3492,7 @@
       }
     },
     {
-      "statement": "NFR-004 再構築可能性: 検索 index 等の派生データを正典から再構築可能であること。",
+      "statement": "NFR-004 再構築可能性とは、検索 index 等の派生データを正典から再構築可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3505,7 +3504,7 @@
       }
     },
     {
-      "statement": "NFR-005 Fail Closed: 検証されていない事実を推測によって `PASS` としないこと。",
+      "statement": "NFR-005 Fail Closed とは、検証されていない事実を推測によって `PASS` としないことをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3517,7 +3516,7 @@
       }
     },
     {
-      "statement": "NFR-006 説明可能性: 検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であること。",
+      "statement": "NFR-006 説明可能性とは、検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3529,7 +3528,7 @@
       }
     },
     {
-      "statement": "NFR-007 自動化適性: AI Agent、CI、CLI 等から非対話的に利用可能であること。",
+      "statement": "NFR-007 自動化適性とは、AI Agent、CI、CLI 等から非対話的に利用可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3541,7 +3540,7 @@
       }
     },
     {
-      "statement": "NFR-008 人間可読性: 人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であること。",
+      "statement": "NFR-008 人間可読性とは、人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3553,7 +3552,7 @@
       }
     },
     {
-      "statement": "OOS-001 仕様書同士の品質監査: 複数仕様成果物同士の文章上・意味上の矛盾を発見すること。",
+      "statement": "OOS-001 仕様書同士の品質監査とは、複数仕様成果物同士の文章上・意味上の矛盾を発見することをいう。",
       "description": "文書層は §3.2 の通りリンクとハッシュのみを扱う。",
       "derived_from": [],
       "source": {
@@ -3566,7 +3565,7 @@
       }
     },
     {
-      "statement": "OOS-002 修正方針決定: 不一致の場合にどれを正としてどれを変更するべきか判断すること。",
+      "statement": "OOS-002 修正方針決定とは、不一致の場合にどれを正としてどれを変更するべきか判断することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3578,7 +3577,7 @@
       }
     },
     {
-      "statement": "OOS-003 通常ソースコード編集管理: Test Edit 対象外の一般的な編集そのものを管理すること。",
+      "statement": "OOS-003 通常ソースコード編集管理とは、Test Edit 対象外の一般的な編集そのものを管理することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3590,7 +3589,7 @@
       }
     },
     {
-      "statement": "OOS-004 開発プロセス全体の管理: PM、実装、レビュー等の開発工程自体を本システム内部で管理すること。",
+      "statement": "OOS-004 開発プロセス全体の管理とは、PM、実装、レビュー等の開発工程自体を本システム内部で管理することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",

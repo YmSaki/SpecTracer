@@ -1466,7 +1466,7 @@
           }
         },
         {
-          "statement": "この `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。",
+          "statement": "`vo add` / `vo edit` の `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -3357,7 +3357,7 @@
           }
         },
         {
-          "statement": "これが要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。",
+          "statement": "`report --from DOC-REQ-001 --direction down --format json` が返す対応ペア集合が要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -5196,7 +5196,7 @@
           }
         },
         {
-          "statement": "これらの Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。",
+          "statement": "user-defined Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。",
           "derived_from": [],
           "cites": [
             "基本仕様 §15.4"
@@ -5639,7 +5639,7 @@
           }
         },
         {
-          "statement": "これにより、Structured Edit を繰り返しても差分が安定する。",
+          "statement": "アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行を元の位置関係を保って温存することにより、Structured Edit を繰り返しても差分が安定する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -5651,7 +5651,7 @@
           }
         },
         {
-          "statement": "この再生成規則は Create が挿入する annotation block にも同一に適用する。",
+          "statement": "アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成する規則は、Create が挿入する annotation block にも同一に適用する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -5675,7 +5675,7 @@
           }
         },
         {
-          "statement": "このキー集合は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。",
+          "statement": "アノテーションの再生成キー順（id, covers, target, intent, input, expect, kind, case, related）は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",

@@ -3211,7 +3211,7 @@
       }
     },
     {
-      "statement": "この到達 `UNKNOWN` は、当該targetの動的計測が実行を証明した場合に限り到達要件を満たす。",
+      "statement": "静的解析の到達境界を越えてtargetを実行するTestの到達 `UNKNOWN` は、当該targetの動的計測が実行を証明した場合に限り到達要件を満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -3349,7 +3349,7 @@
       }
     },
     {
-      "statement": "どちらも決定論的に言えない（解析不能等）場合、oracle_presenceの出力は `UNKNOWN` とする。",
+      "statement": "不成立が構造から証明できることと照合装置の存在が決定論的に確認できることのどちらも決定論的に言えない（解析不能等）場合、oracle_presenceの出力は `UNKNOWN` とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -3667,7 +3667,7 @@
       }
     },
     {
-      "statement": "この要求はハッシュ束縛によって設計制約として満たす。",
+      "statement": "Evidenceの判定結果を変えうるTestの意味・実行条件・対象実装・実行可能状態が現在状態と一致することを確認できなければそのEvidenceを現在の `PASS` として利用してはならないという要求は、ハッシュ束縛によって設計制約として満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -4085,7 +4085,7 @@
       }
     },
     {
-      "statement": "いずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。",
+      "statement": "§8.2の成立条件を満たさないことを、宣言の中身に依らず決定論的に検出できる例はいずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。",
       "derived_from": [],
       "cites": [
         "要件定義 §8.3"
@@ -4400,7 +4400,7 @@
       }
     },
     {
-      "statement": "このtraceabilityは任意であり、影響分析・逆引きに利用できる。",
+      "statement": "Testまたは検証対象から関連するSource Targetへのtraceabilityは任意であり、影響分析・逆引きに利用できる。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -4994,7 +4994,7 @@
       }
     },
     {
-      "statement": "このプロトコルは検証状態のゲートではない。",
+      "statement": "判断記録の生成・保存の構造化プロトコルは検証状態のゲートではない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -5090,7 +5090,7 @@
       }
     },
     {
-      "statement": "その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+      "statement": "仕様・VO・Test等が変更された場合、現在状態に対して通常の検証を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -6486,7 +6486,7 @@
       }
     },
     {
-      "statement": "これは強い不変条件ではなく設計原則とする。",
+      "statement": "プロジェクト規模が大きいこと自体とは別の理由で導入難度が構造的に増大する設計を避けることは、強い不変条件ではなく設計原則とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -9543,7 +9543,7 @@
       }
     },
     {
-      "statement": "これらのHOWを本書で確定しない。",
+      "statement": "本書の要求・要件を基に詳細設計で決定するHOWを本書で確定しない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",

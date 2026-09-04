@@ -109,8 +109,7 @@
     },
     {
       "id": "REQ-004",
-      "statement": "そのテストは、宣言された義務（VO）と宣言鎖で繋がっているか",
-      "description": "本システムが照合するのは、その PASS と宣言の間にある次の 4 点である。",
+      "statement": "本システムが照合するのは、そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -123,7 +122,7 @@
     },
     {
       "id": "REQ-005",
-      "statement": "そのテストは、宣言された検証対象の振る舞いを実際に生じさせたか",
+      "statement": "本システムが照合するのは、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -136,7 +135,7 @@
     },
     {
       "id": "REQ-006",
-      "statement": "そのテストは、宣言された不成立を自身の非成功として反映する装置を持つか",
+      "statement": "本システムが照合するのは、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -149,7 +148,7 @@
     },
     {
       "id": "REQ-007",
-      "statement": "その証拠は、現在のコードに対するものか",
+      "statement": "本システムが照合するのは、その証拠が現在のコードに対するものか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -162,7 +161,7 @@
     },
     {
       "id": "REQ-008",
-      "statement": "この 4 点がすべて成立した場合のみ、完全検証においてその検証対象を OK とする。",
+      "statement": "そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、その証拠が現在のコードに対するものか、の 4 点がすべて成立した場合のみ、完全検証においてその検証対象を OK とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -331,7 +330,7 @@
     },
     {
       "id": "REQ-017",
-      "statement": "この考え方を本プロジェクトでは Agent Form Engineering と呼称する。",
+      "statement": "既知の作業手順と既知の入力項目を持つ操作について、AI へ自然言語で自由に編集させる方式より、構造化された質問・入力・検証によって操作させる方式を優先するという考え方を、本プロジェクトでは Agent Form Engineering と呼称する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -800,7 +799,7 @@
     },
     {
       "id": "REQ-052",
-      "statement": "問い: 宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するか。",
+      "statement": "`chain_integrity` の問いは、宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -813,7 +812,7 @@
     },
     {
       "id": "REQ-053",
-      "statement": "文書層: 各 `document` の derives_from 参照先が存在し、content_hash が現物と一致すること。",
+      "statement": "文書層では、各 `document` の derives_from 参照先が存在し、content_hash が現物と一致することを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -826,7 +825,7 @@
     },
     {
       "id": "REQ-054",
-      "statement": "VO 層: 各 VO が 1 件以上の `document` への解決可能な derives_from を持つこと。",
+      "statement": "VO 層では、各 VO が 1 件以上の `document` への解決可能な derives_from を持つことを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -839,7 +838,7 @@
     },
     {
       "id": "REQ-055",
-      "statement": "Test 層: 発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・その他の必須 metadata）がちょうど 1 件存在し、`covers` の全 VO 参照を解決でき、Test ID が発見結果全体で一意であること。",
+      "statement": "Test 層では、発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・その他の必須 metadata）がちょうど 1 件存在し、`covers` の全 VO 参照を解決でき、Test ID が発見結果全体で一意であることを要求する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -891,7 +890,7 @@
     },
     {
       "id": "REQ-059",
-      "statement": "問い: 親を持たない `document` ノードが存在するか。",
+      "statement": "`orphan_detection` の問いは、親を持たない `document` ノードが存在するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -959,7 +958,7 @@
     },
     {
       "id": "REQ-064",
-      "statement": "問い: その Test が検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか。",
+      "statement": "`target_binding` の問いは、その Test が検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1063,7 +1062,7 @@
     },
     {
       "id": "REQ-072",
-      "statement": "この検査は完全検証モードではデフォルトで有効とし、高速な限定 scope の検証では省略可能とする（省略時の扱いは §5.3）。",
+      "statement": "`target_binding` は完全検証モードではデフォルトで有効とし、高速な限定 scope の検証では省略可能とする（省略時の扱いは §5.3）。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1076,7 +1075,7 @@
     },
     {
       "id": "REQ-073",
-      "statement": "問い: 宣言された「何の時にどうなる」の不成立を、Test の非成功として反映する装置が存在するか。",
+      "statement": "`oracle_presence` の問いは、宣言された「何の時にどうなる」の不成立を、Test の非成功として反映する装置が存在するか、である。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1677,7 +1676,7 @@
     },
     {
       "id": "REQ-119",
-      "statement": "この要求はハッシュ束縛によって設計制約として満たす。",
+      "statement": "Evidence の判定結果を変えうる Test の意味、実行条件、対象実装、および実行可能状態が現在状態と一致することを確認できなければその Evidence を現在の `PASS` として利用してはならないという要求は、ハッシュ束縛によって設計制約として満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2194,7 +2193,7 @@
     },
     {
       "id": "REQ-158",
-      "statement": "この traceability は任意であり、影響分析・逆引き等に利用できるが、その存在自体を Test 成立性の条件としてはならない。",
+      "statement": "実装 traceability は任意であり、影響分析・逆引き等に利用できるが、その存在自体を Test 成立性の条件としてはならない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2585,7 +2584,7 @@
     },
     {
       "id": "REQ-188",
-      "statement": "その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+      "statement": "現在状態に対する通常の検証の結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3151,7 +3150,7 @@
     },
     {
       "id": "REQ-231",
-      "statement": "これは強い不変条件ではなく設計原則とする。",
+      "statement": "「プロジェクト規模が大きいこと自体とは別の理由によって、導入難度が構造的に増大する設計を避ける」ことは、強い不変条件ではなく設計原則とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3437,7 +3436,7 @@
     },
     {
       "id": "REQ-253",
-      "statement": "Coder AI: 自身の変更が要求された検証を満たしたか確認する。",
+      "statement": "Coder AI は、自身の変更が要求された検証を満たしたか確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3450,7 +3449,7 @@
     },
     {
       "id": "REQ-254",
-      "statement": "Developer: Test の作成・変更・検索・検証を行う。",
+      "statement": "Developer は、Test の作成・変更・検索・検証を行う。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3463,7 +3462,7 @@
     },
     {
       "id": "REQ-255",
-      "statement": "CI: 同一条件で検証を再実行し、再現性を確認する。",
+      "statement": "CI は、同一条件で検証を再実行し、再現性を確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3476,7 +3475,7 @@
     },
     {
       "id": "REQ-256",
-      "statement": "Reviewer AI: Coder の提出した Evidence と自身の再検証結果を照合する。",
+      "statement": "Reviewer AI は、Coder の提出した Evidence と自身の再検証結果を照合する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3489,7 +3488,7 @@
     },
     {
       "id": "REQ-257",
-      "statement": "PM / PM Agent: 上位単位から、必要な VO・Test の存在と現在の NG 箇所を確認する。",
+      "statement": "PM / PM Agent は、上位単位から、必要な VO・Test の存在と現在の NG 箇所を確認する。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3800,7 +3799,7 @@
     },
     {
       "id": "REQ-280",
-      "statement": "NFR-001 並列性: 複数 AI Agent による並列変更に耐えられること。",
+      "statement": "NFR-001 並列性とは、複数 AI Agent による並列変更に耐えられることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3813,7 +3812,7 @@
     },
     {
       "id": "REQ-281",
-      "statement": "NFR-002 再現性: CI 等により同一 revision・同一検証条件で結果を再現可能であること。",
+      "statement": "NFR-002 再現性とは、CI 等により同一 revision・同一検証条件で結果を再現可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3826,7 +3825,7 @@
     },
     {
       "id": "REQ-282",
-      "statement": "NFR-003 追跡可能性: 文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であること（任意ノードからの取得・遡行・全体構造は §3.4）。",
+      "statement": "NFR-003 追跡可能性とは、文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であることをいう（任意ノードからの取得・遡行・全体構造は §3.4）。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3839,7 +3838,7 @@
     },
     {
       "id": "REQ-283",
-      "statement": "NFR-004 再構築可能性: 検索 index 等の派生データを正典から再構築可能であること。",
+      "statement": "NFR-004 再構築可能性とは、検索 index 等の派生データを正典から再構築可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3852,7 +3851,7 @@
     },
     {
       "id": "REQ-284",
-      "statement": "NFR-005 Fail Closed: 検証されていない事実を推測によって `PASS` としないこと。",
+      "statement": "NFR-005 Fail Closed とは、検証されていない事実を推測によって `PASS` としないことをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3865,7 +3864,7 @@
     },
     {
       "id": "REQ-285",
-      "statement": "NFR-006 説明可能性: 検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であること。",
+      "statement": "NFR-006 説明可能性とは、検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3878,7 +3877,7 @@
     },
     {
       "id": "REQ-286",
-      "statement": "NFR-007 自動化適性: AI Agent、CI、CLI 等から非対話的に利用可能であること。",
+      "statement": "NFR-007 自動化適性とは、AI Agent、CI、CLI 等から非対話的に利用可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3891,7 +3890,7 @@
     },
     {
       "id": "REQ-287",
-      "statement": "NFR-008 人間可読性: 人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であること。",
+      "statement": "NFR-008 人間可読性とは、人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であることをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3904,7 +3903,7 @@
     },
     {
       "id": "REQ-288",
-      "statement": "OOS-001 仕様書同士の品質監査: 複数仕様成果物同士の文章上・意味上の矛盾を発見すること。",
+      "statement": "OOS-001 仕様書同士の品質監査とは、複数仕様成果物同士の文章上・意味上の矛盾を発見することをいう。",
       "description": "文書層は §3.2 の通りリンクとハッシュのみを扱う。",
       "derived_from": [],
       "source": {
@@ -3918,7 +3917,7 @@
     },
     {
       "id": "REQ-289",
-      "statement": "OOS-002 修正方針決定: 不一致の場合にどれを正としてどれを変更するべきか判断すること。",
+      "statement": "OOS-002 修正方針決定とは、不一致の場合にどれを正としてどれを変更するべきか判断することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3931,7 +3930,7 @@
     },
     {
       "id": "REQ-290",
-      "statement": "OOS-003 通常ソースコード編集管理: Test Edit 対象外の一般的な編集そのものを管理すること。",
+      "statement": "OOS-003 通常ソースコード編集管理とは、Test Edit 対象外の一般的な編集そのものを管理することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3944,7 +3943,7 @@
     },
     {
       "id": "REQ-291",
-      "statement": "OOS-004 開発プロセス全体の管理: PM、実装、レビュー等の開発工程自体を本システム内部で管理すること。",
+      "statement": "OOS-004 開発プロセス全体の管理とは、PM、実装、レビュー等の開発工程自体を本システム内部で管理することをいう。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -7961,7 +7960,7 @@
     },
     {
       "id": "SPEC-255",
-      "statement": "この到達 `UNKNOWN` は、当該targetの動的計測が実行を証明した場合に限り到達要件を満たす。",
+      "statement": "静的解析の到達境界を越えてtargetを実行するTestの到達 `UNKNOWN` は、当該targetの動的計測が実行を証明した場合に限り到達要件を満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -8110,7 +8109,7 @@
     },
     {
       "id": "SPEC-266",
-      "statement": "どちらも決定論的に言えない（解析不能等）場合、oracle_presenceの出力は `UNKNOWN` とする。",
+      "statement": "不成立が構造から証明できることと照合装置の存在が決定論的に確認できることのどちらも決定論的に言えない（解析不能等）場合、oracle_presenceの出力は `UNKNOWN` とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -8454,7 +8453,7 @@
     },
     {
       "id": "SPEC-292",
-      "statement": "この要求はハッシュ束縛によって設計制約として満たす。",
+      "statement": "Evidenceの判定結果を変えうるTestの意味・実行条件・対象実装・実行可能状態が現在状態と一致することを確認できなければそのEvidenceを現在の `PASS` として利用してはならないという要求は、ハッシュ束縛によって設計制約として満たす。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -8906,7 +8905,7 @@
     },
     {
       "id": "SPEC-326",
-      "statement": "いずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。",
+      "statement": "§8.2の成立条件を満たさないことを、宣言の中身に依らず決定論的に検出できる例はいずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。",
       "derived_from": [],
       "cites": [
         "要件定義 §8.3"
@@ -9246,7 +9245,7 @@
     },
     {
       "id": "SPEC-351",
-      "statement": "このtraceabilityは任意であり、影響分析・逆引きに利用できる。",
+      "statement": "Testまたは検証対象から関連するSource Targetへのtraceabilityは任意であり、影響分析・逆引きに利用できる。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -9887,7 +9886,7 @@
     },
     {
       "id": "SPEC-398",
-      "statement": "このプロトコルは検証状態のゲートではない。",
+      "statement": "判断記録の生成・保存の構造化プロトコルは検証状態のゲートではない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -9991,7 +9990,7 @@
     },
     {
       "id": "SPEC-406",
-      "statement": "その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+      "statement": "仕様・VO・Test等が変更された場合、現在状態に対して通常の検証を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -11499,7 +11498,7 @@
     },
     {
       "id": "SPEC-518",
-      "statement": "これは強い不変条件ではなく設計原則とする。",
+      "statement": "プロジェクト規模が大きいこと自体とは別の理由で導入難度が構造的に増大する設計を避けることは、強い不変条件ではなく設計原則とする。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -14803,7 +14802,7 @@
     },
     {
       "id": "SPEC-765",
-      "statement": "これらのHOWを本書で確定しない。",
+      "statement": "本書の要求・要件を基に詳細設計で決定するHOWを本書で確定しない。",
       "derived_from": [],
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -15423,7 +15422,7 @@
         },
         {
           "id": "DES-045",
-          "statement": "この失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。",
+          "statement": "`git` が利用できない場合の失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -15644,7 +15643,7 @@
         },
         {
           "id": "DES-062",
-          "statement": "これによりTestの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。",
+          "statement": "canonical metadataの `targets` が宣言された `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しないことにより、Testの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -15803,7 +15802,7 @@
         },
         {
           "id": "DES-074",
-          "statement": "これは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
+          "statement": "恒久SRC IDの宣言をSource Targetのconstruct bytesの内側へ置くadapterで、その宣言の追加・変更・削除がconstruct bytesを変化させ、construct bytes経由でSource Target hashが変化しうることは正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -20666,7 +20665,7 @@
         },
         {
           "id": "DES-433",
-          "statement": "この表面での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。",
+          "statement": "表面2での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -20813,7 +20812,7 @@
         },
         {
           "id": "DES-444",
-          "statement": "これらの必須metadata（coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1`）を欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
+          "statement": "coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22497,7 +22496,7 @@
         },
         {
           "id": "DES-571",
-          "statement": "これはsourceが実際に変化したことの帰結であり、参照方法による分裂ではない。",
+          "statement": "恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでSource Target hashが変化することは、sourceが実際に変化したことの帰結であり、参照方法による分裂ではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23905,7 +23904,7 @@
         },
         {
           "id": "DES-679",
-          "statement": "この必須要件はadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
+          "statement": "各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24022,7 +24021,7 @@
         },
         {
           "id": "DES-688",
-          "statement": "このpassで非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。",
+          "statement": "`rust-cargo` discoveryの第6段（Source Target抽出）で非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24441,7 +24440,7 @@
         },
         {
           "id": "DES-718",
-          "statement": "この禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。",
+          "statement": "曖昧な解決について候補を後段へ1件も引き渡さないという禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24480,7 +24479,7 @@
         },
         {
           "id": "DES-721",
-          "statement": "この解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもその結果を消費する。",
+          "statement": "Target Referenceの解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもTarget Referenceの解決の結果を消費する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25016,7 +25015,7 @@
         },
         {
           "id": "DES-759",
-          "statement": "この到達`UNKNOWN`は§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。",
+          "statement": "DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。",
           "description": "要件定義 §4.3の2証拠源モデルは`target_binding`に固有。",
           "derived_from": [],
           "cites": [
@@ -25424,7 +25423,7 @@
         },
         {
           "id": "DES-790",
-          "statement": "この場合DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。",
+          "statement": "宣言targetへの呼出がTest本体に静的に現れない場合、DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25450,7 +25449,7 @@
         },
         {
           "id": "DES-792",
-          "statement": "この場合のtargetはDA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。",
+          "statement": "target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合のtargetは、DA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25730,7 +25729,7 @@
         },
         {
           "id": "DES-813",
-          "statement": "この検査は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。",
+          "statement": "`target_binding`は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25769,7 +25768,7 @@
         },
         {
           "id": "DES-816",
-          "statement": "これらの形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。",
+          "statement": "Testがtargetを静的解析の追えない実行境界を越えて到達させる形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26056,7 +26055,7 @@
         },
         {
           "id": "DES-838",
-          "statement": "この関係はfail-closedを保つ。",
+          "statement": "`target_binding`の到達要件が静的到達またはruntime到達の充足によってのみ`PASS`となる関係はfail-closedを保つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26112,7 +26111,7 @@
         },
         {
           "id": "DES-842",
-          "statement": "この形態で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
+          "statement": "検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26290,7 +26289,7 @@
         },
         {
           "id": "DES-854",
-          "statement": "このプロトコルは検証状態のゲートではない。",
+          "statement": "判断記録プロトコルは検証状態のゲートではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26619,7 +26618,7 @@
         },
         {
           "id": "DES-878",
-          "statement": "その未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。",
+          "statement": "`case-coverage`の未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27048,7 +27047,7 @@
         },
         {
           "id": "DES-910",
-          "statement": "これらは要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。",
+          "statement": "旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。",
           "derived_from": [],
           "cites": [
             "要件定義 §12"
@@ -27196,7 +27195,7 @@
         },
         {
           "id": "DES-921",
-          "statement": "これは§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。",
+          "statement": "実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27369,7 +27368,7 @@
         },
         {
           "id": "DES-934",
-          "statement": "その結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
+          "statement": "現在状態に対して通常の検証（§5の4検査）を再実施した結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27872,7 +27871,7 @@
         },
         {
           "id": "DES-971",
-          "statement": "この場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
+          "statement": "全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28032,7 +28031,7 @@
         },
         {
           "id": "DES-982",
-          "statement": "これを提供できない構成では境界越しtargetをUNKNOWNとする。",
+          "statement": "起動される実行体をinstrument対象とし子プロセスのprofileをmergeすることを提供できない構成では境界越しtargetをUNKNOWNとする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28058,7 +28057,7 @@
         },
         {
           "id": "DES-984",
-          "statement": "この能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。",
+          "statement": "Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられる能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28269,7 +28268,7 @@
         },
         {
           "id": "DES-1000",
-          "statement": "この計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。",
+          "statement": "Evidenceの`target_coverage`へ記録する計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28334,7 +28333,7 @@
         },
         {
           "id": "DES-1005",
-          "statement": "いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。",
+          "statement": "providerが境界越しの実行を帰属できない場合、または計測自体が不能な場合は、いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28347,7 +28346,7 @@
         },
         {
           "id": "DES-1006",
-          "statement": "この帰属可否はadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。",
+          "statement": "coverage providerが境界越しの実行を宣言targetへ帰属させられるかはadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28573,7 +28572,7 @@
         },
         {
           "id": "DES-1021",
-          "statement": "この入力集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
+          "statement": "4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28638,7 +28637,7 @@
         },
         {
           "id": "DES-1026",
-          "statement": "その場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。",
+          "statement": "Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲で環境の変化が結果へ影響する場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30379,7 +30378,7 @@
         },
         {
           "id": "DES-1153",
-          "statement": "これにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
+          "statement": "projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
           "derived_from": [],
           "cites": [
             "基本仕様 §11.1"
@@ -30408,7 +30407,7 @@
         },
         {
           "id": "DES-1155",
-          "statement": "この対応ペアの取得のために新規コマンド・ツールを設けない。",
+          "statement": "「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアの取得のために新規コマンド・ツールを設けない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30581,7 +30580,7 @@
         },
         {
           "id": "DES-1168",
-          "statement": "その条件は、`covers`が1件以上あることである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、`covers`が1件以上あることである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30594,7 +30593,7 @@
         },
         {
           "id": "DES-1169",
-          "statement": "その条件は、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30607,7 +30606,7 @@
         },
         {
           "id": "DES-1170",
-          "statement": "その条件は、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30633,7 +30632,7 @@
         },
         {
           "id": "DES-1172",
-          "statement": "この生成条件は`case-coverage`型の項目にだけ適用する。",
+          "statement": "判断型に由来する項目の生成条件は`case-coverage`型の項目にだけ適用する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30807,7 +30806,7 @@
         },
         {
           "id": "DES-1183",
-          "statement": "この「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。",
+          "statement": "「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。",
           "derived_from": [],
           "cites": [
             "基本仕様 §24.2"
@@ -33247,7 +33246,7 @@
         },
         {
           "id": "DES-1357",
-          "statement": "この `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。",
+          "statement": "`vo add` / `vo edit` の `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -35278,7 +35277,7 @@
         },
         {
           "id": "DES-1497",
-          "statement": "これが要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。",
+          "statement": "`report --from DOC-REQ-001 --direction down --format json` が返す対応ペア集合が要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -37260,7 +37259,7 @@
         },
         {
           "id": "DES-1638",
-          "statement": "これらの Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。",
+          "statement": "user-defined Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。",
           "derived_from": [],
           "cites": [
             "基本仕様 §15.4"
@@ -37739,7 +37738,7 @@
         },
         {
           "id": "DES-1673",
-          "statement": "これにより、Structured Edit を繰り返しても差分が安定する。",
+          "statement": "アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成し、`@vtest.` を含まない自由記述の doc comment 行を元の位置関係を保って温存することにより、Structured Edit を繰り返しても差分が安定する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -37752,7 +37751,7 @@
         },
         {
           "id": "DES-1674",
-          "statement": "この再生成規則は Create が挿入する annotation block にも同一に適用する。",
+          "statement": "アノテーションを常にキー順（id, covers, target, intent, input, expect, kind, case, related）で再生成する規則は、Create が挿入する annotation block にも同一に適用する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -37778,7 +37777,7 @@
         },
         {
           "id": "DES-1676",
-          "statement": "このキー集合は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。",
+          "statement": "アノテーションの再生成キー順（id, covers, target, intent, input, expect, kind, case, related）は本冊 §4.2 の test-key（`id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related`）と一致する。",
           "derived_from": [],
           "cites": [
             "本冊 §4.2"
@@ -38217,7 +38216,7 @@
         },
         {
           "id": "DES-1707",
-          "statement": "fixture は、**5 状態それぞれを生じる入力**（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を表現できる。",
+          "statement": "fixture は、5 状態それぞれを生じる入力（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を表現できる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38246,7 +38245,7 @@
         },
         {
           "id": "DES-1709",
-          "statement": "fixture は、**4 診断ラベルそれぞれを生じる入力**（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）を表現できる。",
+          "statement": "fixture は、4 診断ラベルそれぞれを生じる入力（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）を表現できる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38772,7 +38771,7 @@
         },
         {
           "id": "DES-1749",
-          "statement": "これはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
+          "statement": "Source Target hashも変化することはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38837,7 +38836,7 @@
         },
         {
           "id": "DES-1754",
-          "statement": "この禁止は解決に関するものであり、Source Targetの具体化を止めない。",
+          "statement": "判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しないという禁止は解決に関するものであり、Source Targetの具体化を止めない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38876,7 +38875,7 @@
         },
         {
           "id": "DES-1757",
-          "statement": "この解決はcoreの単一経路が所有する。",
+          "statement": "Target Reference解決はcoreの単一経路が所有する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38915,7 +38914,7 @@
         },
         {
           "id": "DES-1760",
-          "statement": "**Test 層**：管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
+          "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
           "derived_from": [],
           "cites": [
             "本冊 §11.1.1",
@@ -39026,7 +39025,7 @@
         },
         {
           "id": "DES-1768",
-          "statement": "**VO 層**：各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。",
+          "statement": "各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39065,7 +39064,7 @@
         },
         {
           "id": "DES-1771",
-          "statement": "**文書層**：各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。",
+          "statement": "各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39078,7 +39077,7 @@
         },
         {
           "id": "DES-1772",
-          "statement": "**文書層**：各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。",
+          "statement": "各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39107,7 +39106,7 @@
         },
         {
           "id": "DES-1774",
-          "statement": "**双方向完全性**：`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。",
+          "statement": "`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39565,7 +39564,7 @@
         },
         {
           "id": "DES-1809",
-          "statement": "どちらも与えない `edit` は既存 `combinations` を保持する。",
+          "statement": "`--combination`と`--clear-combinations`のどちらも与えない `edit` は既存 `combinations` を保持する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39776,7 +39775,7 @@
         },
         {
           "id": "DES-1824",
-          "statement": "**根の除外**：`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。",
+          "statement": "根の除外は、`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39805,7 +39804,7 @@
         },
         {
           "id": "DES-1826",
-          "statement": "**孤児判定**：`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
+          "statement": "孤児判定は、`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39903,7 +39902,7 @@
         },
         {
           "id": "DES-1833",
-          "statement": "**oracle_presence への合成**：`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。",
+          "statement": "`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。",
           "derived_from": [],
           "cites": [
             "本冊 §7.1",
@@ -39920,7 +39919,7 @@
         },
         {
           "id": "DES-1834",
-          "statement": "**oracle_presence への合成**：1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。",
+          "statement": "1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39933,7 +39932,7 @@
         },
         {
           "id": "DES-1835",
-          "statement": "**oracle_presence への合成**：`FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。",
+          "statement": "`FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39959,7 +39958,7 @@
         },
         {
           "id": "DES-1837",
-          "statement": "**照合の委譲先の終端**：Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。",
+          "statement": "Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。",
           "derived_from": [],
           "cites": [
             "本冊 §7.2.1"
@@ -40066,7 +40065,7 @@
         },
         {
           "id": "DES-1845",
-          "statement": "**target_binding 静的到達（DA-002）**：DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。",
+          "statement": "DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。",
           "derived_from": [],
           "cites": [
             "本冊 §7.3"
@@ -40082,7 +40081,7 @@
         },
         {
           "id": "DES-1846",
-          "statement": "このruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。",
+          "statement": "DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足されるというruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40179,7 +40178,7 @@
         },
         {
           "id": "DES-1853",
-          "statement": "この2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。",
+          "statement": "DA-002とDA-003の2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40273,7 +40272,7 @@
         },
         {
           "id": "DES-1860",
-          "statement": "これにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。",
+          "statement": "無効な最新Evidenceから古い有効Evidenceへフォールバックしないことにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40510,7 +40509,7 @@
         },
         {
           "id": "DES-1878",
-          "statement": "1件でも対象なしまたは曖昧なら**Evidenceを生成しない**。",
+          "statement": "1件でも対象なしまたは曖昧ならEvidenceを生成しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40536,7 +40535,7 @@
         },
         {
           "id": "DES-1880",
-          "statement": "この場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。",
+          "statement": "Evidenceを生成しない場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40991,7 +40990,7 @@
         },
         {
           "id": "DES-1914",
-          "statement": "その結果は本冊§7.3のruntime到達証明としても機能する。",
+          "statement": "target別PASS（count > 0）という結果は本冊§7.3のruntime到達証明としても機能する。",
           "derived_from": [],
           "cites": [
             "本冊 §7.3"
@@ -41183,7 +41182,7 @@
         },
         {
           "id": "DES-1928",
-          "statement": "**理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない**。",
+          "statement": "理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない。",
           "derived_from": [],
           "cites": [
             "基本仕様 §11.3",
@@ -41226,7 +41225,7 @@
         },
         {
           "id": "DES-1931",
-          "statement": "**判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。**",
+          "statement": "判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41239,7 +41238,7 @@
         },
         {
           "id": "DES-1932",
-          "statement": "このプロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。",
+          "statement": "判断記録プロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。",
           "derived_from": [],
           "cites": [
             "本冊 §8",
@@ -41355,7 +41354,7 @@
         },
         {
           "id": "DES-1940",
-          "statement": "**判断バンドルは Test が宣言した cases 集合を規範項目として含む。**",
+          "statement": "判断バンドルは Test が宣言した cases 集合を規範項目として含む。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41398,7 +41397,7 @@
         },
         {
           "id": "DES-1943",
-          "statement": "**バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。**",
+          "statement": "バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41441,7 +41440,7 @@
         },
         {
           "id": "DES-1946",
-          "statement": "**`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。**",
+          "statement": "`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。",
           "derived_from": [],
           "cites": [
             "基本仕様 §5"
@@ -41457,7 +41456,7 @@
         },
         {
           "id": "DES-1947",
-          "statement": "その未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。",
+          "statement": "`case-coverage`の未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。",
           "derived_from": [],
           "cites": [
             "本冊 §11.3"
@@ -41489,7 +41488,7 @@
         },
         {
           "id": "DES-1949",
-          "statement": "**`case-coverage` の判断待ち項目は決定論的に生成する。**",
+          "statement": "`case-coverage` の判断待ち項目は決定論的に生成する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41528,7 +41527,7 @@
         },
         {
           "id": "DES-1952",
-          "statement": "この消滅規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。",
+          "statement": "実効判断が `accepted` の場合にだけ消滅するという規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。",
           "derived_from": [],
           "cites": [
             "本冊 §11.7"
@@ -41544,7 +41543,7 @@
         },
         {
           "id": "DES-1953",
-          "statement": "**実効判断は `(subject, judgment_kind)` の組ごとに決まる。**",
+          "statement": "実効判断は `(subject, judgment_kind)` の組ごとに決まる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41599,7 +41598,7 @@
         },
         {
           "id": "DES-1957",
-          "statement": "**競合は `supersedes` による明示の置き換えでだけ解消する。**",
+          "statement": "競合は `supersedes` による明示の置き換えでだけ解消する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41638,7 +41637,7 @@
         },
         {
           "id": "DES-1960",
-          "statement": "**`supersedes` の検証**：提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。",
+          "statement": "提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。",
           "derived_from": [],
           "cites": [
             "本冊 §8.4"
@@ -41667,7 +41666,7 @@
         },
         {
           "id": "DES-1962",
-          "statement": "**`supersedes` の循環**：レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。",
+          "statement": "レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。",
           "derived_from": [],
           "cites": [
             "本冊 §8.5"
@@ -41696,7 +41695,7 @@
         },
         {
           "id": "DES-1964",
-          "statement": "**`judgment_kind` を欠くか値域外の判断記録**は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。",
+          "statement": "`judgment_kind` を欠くか値域外の判断記録は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。",
           "derived_from": [],
           "cites": [
             "本冊 §3.4・§8.5"
@@ -41758,7 +41757,7 @@
         },
         {
           "id": "DES-1968",
-          "statement": "その結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+          "statement": "§5 の 4 検査を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41813,7 +41812,7 @@
         },
         {
           "id": "DES-1972",
-          "statement": "**判断済みと承認済みを区別する**（判断済み ≠ 承認済み）。",
+          "statement": "判断済みと承認済みを区別する（判断済み ≠ 承認済み）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41856,7 +41855,7 @@
         },
         {
           "id": "DES-1975",
-          "statement": "**承認は検証状態と独立の別軸である。**",
+          "statement": "承認は検証状態と独立の別軸である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41898,7 +41897,7 @@
         },
         {
           "id": "DES-1978",
-          "statement": "**`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。**",
+          "statement": "`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41940,7 +41939,7 @@
         },
         {
           "id": "DES-1981",
-          "statement": "**実効承認の導出は `approved_state` を参照する。**",
+          "statement": "実効承認の導出は `approved_state` を参照する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -41982,7 +41981,7 @@
         },
         {
           "id": "DES-1984",
-          "statement": "**承認取消・却下は実効承認を `draft` へ落とす。**",
+          "statement": "承認取消・却下は実効承認を `draft` へ落とす。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42021,7 +42020,7 @@
         },
         {
           "id": "DES-1987",
-          "statement": "**取消・却下後の再承認は `supersedes` による。**",
+          "statement": "取消・却下後の再承認は `supersedes` による。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42076,7 +42075,7 @@
         },
         {
           "id": "DES-1991",
-          "statement": "**承認対象の値域は VO ID と document ID である。**",
+          "statement": "承認対象の値域は VO ID と document ID である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42118,7 +42117,7 @@
         },
         {
           "id": "DES-1994",
-          "statement": "**判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。**",
+          "statement": "判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42147,7 +42146,7 @@
         },
         {
           "id": "DES-1996",
-          "statement": "**承認レコード生成の正典面は対象種別を引数に取る単一の経路である。**",
+          "statement": "承認レコード生成の正典面は対象種別を引数に取る単一の経路である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42216,7 +42215,7 @@
         },
         {
           "id": "DES-2001",
-          "statement": "**方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。**",
+          "statement": "方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42287,7 +42286,7 @@
         },
         {
           "id": "DES-2006",
-          "statement": "**実効承認は明示の `supersedes` 関係だけで決まる。**",
+          "statement": "実効承認は明示の `supersedes` 関係だけで決まる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42516,7 +42515,7 @@
         },
         {
           "id": "DES-2022",
-          "statement": "**scope は 2 軸で限定できる**。",
+          "statement": "scope は 2 軸で限定できる。",
           "derived_from": [],
           "cites": [
             "基本仕様 §4.6",
@@ -42689,7 +42688,7 @@
         },
         {
           "id": "DES-2035",
-          "statement": "**NO_EVIDENCE を生む入力**（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。",
+          "statement": "NO_EVIDENCE を生む入力（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -42702,7 +42701,7 @@
         },
         {
           "id": "DES-2036",
-          "statement": "これらは `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。",
+          "statement": "NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。",
           "derived_from": [],
           "cites": [
             "基本仕様 §4.3・§4.6"
@@ -42999,7 +42998,7 @@
         },
         {
           "id": "DES-2057",
-          "statement": "この対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。",
+          "statement": "「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -43012,7 +43011,7 @@
         },
         {
           "id": "DES-2058",
-          "statement": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを**評価・提示できなければならない（MUST）**。",
+          "statement": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを評価・提示できなければならない（MUST）。",
           "derived_from": [],
           "cites": [
             "本冊 §11.5",
@@ -43345,7 +43344,7 @@
         },
         {
           "id": "DES-2083",
-          "statement": "**責務はゲート条件が現在満たされているかの評価・提示に限る。**",
+          "statement": "責務はゲート条件が現在満たされているかの評価・提示に限る。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -43762,7 +43761,7 @@
         },
         {
           "id": "DES-2114",
-          "statement": "どちらもRust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。",
+          "statement": "`TargetRef::Locator`と`SourceLocation`のどちらもRust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",

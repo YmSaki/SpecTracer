@@ -254,7 +254,7 @@
           }
         },
         {
-          "statement": "この禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。",
+          "statement": "曖昧な解決について候補を後段へ1件も引き渡さないという禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -290,7 +290,7 @@
           }
         },
         {
-          "statement": "この解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもその結果を消費する。",
+          "statement": "Target Referenceの解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもTarget Referenceの解決の結果を消費する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -787,7 +787,7 @@
           }
         },
         {
-          "statement": "この到達`UNKNOWN`は§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。",
+          "statement": "DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。",
           "derived_from": [],
           "cites": [
             "要件定義 §4.3"
@@ -1164,7 +1164,7 @@
           }
         },
         {
-          "statement": "この場合DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。",
+          "statement": "宣言targetへの呼出がTest本体に静的に現れない場合、DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1188,7 +1188,7 @@
           }
         },
         {
-          "statement": "この場合のtargetはDA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。",
+          "statement": "target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合のtargetは、DA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1447,7 +1447,7 @@
           }
         },
         {
-          "statement": "この検査は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。",
+          "statement": "`target_binding`は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1483,7 +1483,7 @@
           }
         },
         {
-          "statement": "これらの形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。",
+          "statement": "Testがtargetを静的解析の追えない実行境界を越えて到達させる形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1748,7 +1748,7 @@
           }
         },
         {
-          "statement": "この関係はfail-closedを保つ。",
+          "statement": "`target_binding`の到達要件が静的到達またはruntime到達の充足によってのみ`PASS`となる関係はfail-closedを保つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1800,7 +1800,7 @@
           }
         },
         {
-          "statement": "この形態で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
+          "statement": "検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -1965,7 +1965,7 @@
           }
         },
         {
-          "statement": "このプロトコルは検証状態のゲートではない。",
+          "statement": "判断記録プロトコルは検証状態のゲートではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2270,7 +2270,7 @@
           }
         },
         {
-          "statement": "その未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。",
+          "statement": "`case-coverage`の未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2667,7 +2667,7 @@
           }
         },
         {
-          "statement": "これらは要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。",
+          "statement": "旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。",
           "derived_from": [],
           "cites": [
             "要件定義 §12"
@@ -2804,7 +2804,7 @@
           }
         },
         {
-          "statement": "これは§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。",
+          "statement": "実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2964,7 +2964,7 @@
           }
         },
         {
-          "statement": "その結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
+          "statement": "現在状態に対して通常の検証（§5の4検査）を再実施した結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3429,7 +3429,7 @@
           }
         },
         {
-          "statement": "この場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
+          "statement": "全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3577,7 +3577,7 @@
           }
         },
         {
-          "statement": "これを提供できない構成では境界越しtargetをUNKNOWNとする。",
+          "statement": "起動される実行体をinstrument対象とし子プロセスのprofileをmergeすることを提供できない構成では境界越しtargetをUNKNOWNとする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3601,7 +3601,7 @@
           }
         },
         {
-          "statement": "この能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。",
+          "statement": "Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられる能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3796,7 +3796,7 @@
           }
         },
         {
-          "statement": "この計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。",
+          "statement": "Evidenceの`target_coverage`へ記録する計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3856,7 +3856,7 @@
           }
         },
         {
-          "statement": "いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。",
+          "statement": "providerが境界越しの実行を帰属できない場合、または計測自体が不能な場合は、いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -3868,7 +3868,7 @@
           }
         },
         {
-          "statement": "この帰属可否はadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。",
+          "statement": "coverage providerが境界越しの実行を宣言targetへ帰属させられるかはadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4078,7 +4078,7 @@
           }
         },
         {
-          "statement": "この入力集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
+          "statement": "4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -4138,7 +4138,7 @@
           }
         },
         {
-          "statement": "その場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。",
+          "statement": "Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲で環境の変化が結果へ影響する場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5752,7 +5752,7 @@
           }
         },
         {
-          "statement": "これにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
+          "statement": "projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
           "derived_from": [],
           "cites": [
             "基本仕様 §11.1"
@@ -5779,7 +5779,7 @@
           }
         },
         {
-          "statement": "この対応ペアの取得のために新規コマンド・ツールを設けない。",
+          "statement": "「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアの取得のために新規コマンド・ツールを設けない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5939,7 +5939,7 @@
           }
         },
         {
-          "statement": "その条件は、`covers`が1件以上あることである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、`covers`が1件以上あることである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5951,7 +5951,7 @@
           }
         },
         {
-          "statement": "その条件は、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5963,7 +5963,7 @@
           }
         },
         {
-          "statement": "その条件は、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。",
+          "statement": "判断型に由来する項目の生成条件の1つは、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5987,7 +5987,7 @@
           }
         },
         {
-          "statement": "この生成条件は`case-coverage`型の項目にだけ適用する。",
+          "statement": "判断型に由来する項目の生成条件は`case-coverage`型の項目にだけ適用する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -6149,7 +6149,7 @@
           }
         },
         {
-          "statement": "この「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。",
+          "statement": "「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。",
           "derived_from": [],
           "cites": [
             "基本仕様 §24.2"
