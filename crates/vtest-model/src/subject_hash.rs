@@ -897,12 +897,23 @@ mod tests {
     /// @vtest.intent verifies covers/targets/related are order-independent, deduplicated sets, unlike cases (本冊:85 "集合として扱うcovers・targets・relatedは正規化値の昇順")
     #[test]
     fn test_subject_hash_covers_targets_related_are_order_independent_sets() {
+        let target_a = TargetRef::Locator(Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::a".to_string(),
+        });
+        let target_b = TargetRef::Locator(Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::b".to_string(),
+        });
+
         let mut forward = base_test_record();
         forward.covers = vec![VoId::new("VO-A"), VoId::new("VO-B")];
+        forward.targets = vec![target_a.clone(), target_b.clone()];
         forward.related = vec![TestId::new("TEST-A"), TestId::new("TEST-B")];
 
         let mut reversed = base_test_record();
         reversed.covers = vec![VoId::new("VO-B"), VoId::new("VO-A")];
+        reversed.targets = vec![target_b, target_a];
         reversed.related = vec![TestId::new("TEST-B"), TestId::new("TEST-A")];
 
         let hash_forward = test_subject_hash(
@@ -921,12 +932,26 @@ mod tests {
         );
         assert_eq!(hash_forward, hash_reversed);
 
-        // Duplicate covers entries must not change the hash relative to the
-        // deduplicated set.
+        // Duplicate covers/targets/related entries must not change the hash
+        // relative to the deduplicated set.
         let mut duplicated = base_test_record();
         duplicated.covers = vec![
             VoId::new("VO-PARSER-UTF8-003"),
             VoId::new("VO-PARSER-UTF8-003"),
+        ];
+        duplicated.targets = vec![
+            TargetRef::Locator(Locator {
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/parser.rs::Parser::parse".to_string(),
+            }),
+            TargetRef::Locator(Locator {
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/parser.rs::Parser::parse".to_string(),
+            }),
+        ];
+        duplicated.related = vec![
+            TestId::new("TEST-PARSER-UTF8-004"),
+            TestId::new("TEST-PARSER-UTF8-004"),
         ];
         let hash_duplicated = test_subject_hash(
             &AdapterId::new("rust-cargo"),
