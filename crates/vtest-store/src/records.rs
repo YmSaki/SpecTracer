@@ -5,7 +5,7 @@
 //! small scalar/list subset emitted by vtest and preserves unknown fields by
 //! ignoring them (forward-compatible read behavior).
 
-use crate::{StoreError, VerifyLayout};
+use crate::{canonical::unknown_field_diagnostics, StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -16,8 +16,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision,
+    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -164,33 +164,6 @@ pub enum RelationType {
     ConflictsWith,
 }
 
-impl RelationType {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::DependsOn => "depends-on",
-            Self::Supersedes => "supersedes",
-            Self::RegressionFor => "regression-for",
-            Self::DerivedFrom => "derived-from",
-            Self::SamePartition => "same-partition",
-            Self::Complements => "complements",
-            Self::ConflictsWith => "conflicts-with",
-        }
-    }
-
-    fn parse(value: &str) -> Option<Self> {
-        match value {
-            "depends-on" => Some(Self::DependsOn),
-            "supersedes" => Some(Self::Supersedes),
-            "regression-for" => Some(Self::RegressionFor),
-            "derived-from" => Some(Self::DerivedFrom),
-            "same-partition" => Some(Self::SamePartition),
-            "complements" => Some(Self::Complements),
-            "conflicts-with" => Some(Self::ConflictsWith),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RelationRecord {
     pub id: String,
@@ -198,9 +171,15 @@ pub struct RelationRecord {
     pub relation_type: RelationType,
     pub from: String,
     pub to: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     pub created: String,
 }
+
+/// Known top-level keys for a canonical Relation record (詳細設計 v0.1
+/// §3.3). Kept in sync with `RelationRecord`'s own fields by
+/// `relation_known_keys_match_the_record_shape` (`#[cfg(test)]`, below).
+const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -752,36 +731,27 @@ impl AuditRecord {
 impl RelationRecord {
     pub fn to_yaml(&self) -> Result<String, StoreError> {
         self.validate(None)?;
-        let mut out = format!(
-            "id: {}\ntype: {}\nfrom: {}\nto: {}\n",
-            yaml_scalar(&self.id),
-            yaml_scalar(self.relation_type.as_str()),
-            yaml_scalar(&self.from),
-            yaml_scalar(&self.to),
-        );
-        if let Some(note) = &self.note {
-            out.push_str(&format!("note: {}\n", yaml_scalar(note)));
-        }
-        out.push_str(&format!("created: {}\n", yaml_scalar(&self.created)));
-        Ok(out)
+        yaml_serde::to_string(self).map_err(|error| {
+            StoreError::InvalidConfig(format!("could not serialize relation: {error}"))
+        })
     }
 
-    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
-        let record = Self {
-            id: required_top_level_scalar(text, "id", "relation")?,
-            relation_type: required_top_level_scalar(text, "type", "relation")
-                .ok()
-                .and_then(|value| RelationType::parse(&value))
-                .ok_or_else(|| {
-                    StoreError::InvalidConfig("relation has an invalid type".to_owned())
-                })?,
-            from: required_top_level_scalar(text, "from", "relation")?,
-            to: required_top_level_scalar(text, "to", "relation")?,
-            note: top_level_scalar(text, "note"),
-            created: required_top_level_scalar(text, "created", "relation")?,
-        };
+    /// Parses a `RelationRecord`, returning any non-fatal diagnostics
+    /// alongside it. Goes through the same text -> `Value` -> known-key scan
+    /// -> typed struct shape `document_from_yaml`/`vo_record_from_yaml`
+    /// (`canonical.rs`) use, so an unknown field here warns (W-STORE-007)
+    /// rather than being silently dropped — 詳細設計 v0.1 §3 header (L185)
+    /// applies to Relation the same as every other record type.
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<(Self, Vec<Diagnostic>), StoreError> {
+        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
+        let diagnostics = unknown_field_diagnostics(&value, RELATION_KEYS, "");
+        let record: Self = yaml_serde::from_value(value).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
         record.validate(Some(filename_id))?;
-        Ok(record)
+        Ok((record, diagnostics))
     }
 
     fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
@@ -819,6 +789,24 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
+    // 詳細設計 v0.1 §3 header: "id とファイル名（拡張子除く）は一致しなければ
+    // ならない" applies schema-independently to every record type; 基本仕様
+    // §3.2: "判断・承認・Evidence の ID は bare ULID とする". A present-but-
+    // different `id` used to be silently accepted (only an *absent* id fell
+    // back to the file name), the same fail-open shape `read_approval`
+    // already closes for approvals.
+    let id = scalar(&text, "id")
+        .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing id".to_owned()))?;
+    if id != fallback {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} does not match file name {fallback}"
+        )));
+    }
+    if !is_valid_ulid(&id) {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} is not a valid ULID"
+        )));
+    }
     let test_hash = nested_scalar(&text, "hashes", "test_fn")
         .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing hashes.test_fn".to_owned()))?
         .parse()
@@ -874,7 +862,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         _ => CheckValue::Unknown,
     };
     Ok(EvidenceRecord {
-        id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
+        id,
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
@@ -942,6 +930,40 @@ pub fn read_audit(path: &Path) -> Result<AuditRecord, StoreError> {
         .and_then(|value| value.to_str())
         .unwrap_or_default();
     AuditRecord::from_yaml(&text, fallback)
+}
+
+pub fn read_relation(path: &Path) -> Result<(RelationRecord, Vec<Diagnostic>), StoreError> {
+    let text = read_text(path)?;
+    let fallback = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    RelationRecord::from_yaml(&text, fallback)
+}
+
+/// Creates a new canonical Relation record and writes it to `.verify/rel/`.
+/// The id is always generated here as `REL-<ULID>`: 詳細設計 v0.1 §3.3
+/// requires the writer to emit only that form, even though `is_valid_relation_id`
+/// still accepts a bare ULID for version 1 compatibility on read.
+pub fn write_relation(
+    layout: &VerifyLayout,
+    relation_type: RelationType,
+    from: impl Into<String>,
+    to: impl Into<String>,
+    note: Option<String>,
+    created: impl Into<String>,
+) -> Result<RelationRecord, StoreError> {
+    let record = RelationRecord {
+        id: format!("REL-{}", new_record_id()),
+        relation_type,
+        from: from.into(),
+        to: to.into(),
+        note,
+        created: created.into(),
+    };
+    let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+    write_new_record(&path, &record.to_yaml()?)?;
+    Ok(record)
 }
 
 pub fn read_text(path: &Path) -> Result<String, StoreError> {
@@ -1284,7 +1306,7 @@ fn parse_dimensions(text: &str) -> Vec<Dimension> {
     dimensions
 }
 
-fn parse_combinations(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse_combinations(text: &str) -> Vec<Vec<String>> {
     let lines = text.lines().collect::<Vec<_>>();
     let Some(start) = lines.iter().position(|line| {
         !line.starts_with([' ', '\t'])
@@ -1798,7 +1820,7 @@ fn top_level_scalar(text: &str, key: &str) -> Option<String> {
     })
 }
 
-fn scalar(text: &str, key: &str) -> Option<String> {
+pub(crate) fn scalar(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|raw| {
         let line = raw.trim();
         let (candidate, value) = line.split_once(':')?;
@@ -1839,7 +1861,7 @@ fn nested_scalar(text: &str, parent: &str, key: &str) -> Option<String> {
     None
 }
 
-fn list(text: &str, key: &str) -> Vec<String> {
+pub(crate) fn list(text: &str, key: &str) -> Vec<String> {
     let lines = text.lines().collect::<Vec<_>>();
     for (index, raw) in lines.iter().enumerate() {
         let line = raw.trim();
@@ -1864,7 +1886,7 @@ fn list(text: &str, key: &str) -> Vec<String> {
     Vec::new()
 }
 
-fn parse_inline_list(value: &str) -> Vec<String> {
+pub(crate) fn parse_inline_list(value: &str) -> Vec<String> {
     let value = value.trim();
     let value = value
         .strip_prefix('[')
@@ -1878,16 +1900,16 @@ fn parse_inline_list(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
+pub(crate) fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
     let values = values.map(yaml_scalar).collect::<Vec<_>>();
     format!("[{}]", values.join(", "))
 }
 
-fn yaml_scalar(value: &str) -> String {
+pub(crate) fn yaml_scalar(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn unquote(value: &str) -> String {
+pub(crate) fn unquote(value: &str) -> String {
     if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
         value[1..value.len() - 1].replace("''", "'")
     } else if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
@@ -2150,6 +2172,54 @@ mod tests {
         assert!(static_with_bundle.to_yaml().is_err());
     }
 
+    /// 詳細設計 v0.1 §3 header ("id とファイル名は一致しなければならない") and
+    /// 基本仕様 §3.2 ("Evidence の ID は bare ULID とする") both apply to
+    /// Evidence the same as any other record type; `read_evidence` used to
+    /// accept a present-but-different `id` silently (only an absent one fell
+    /// back to the file name).
+    #[test]
+    fn read_evidence_enforces_id_file_name_and_ulid_invariants() {
+        let root = temporary_directory("read-evidence");
+        let id = new_record_id();
+        let base = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+
+        let matching_path = root.join(format!("{id}.yaml"));
+        fs::write(&matching_path, &base).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_ok(),
+            "a well-formed Evidence record with a matching bare-ULID id must parse"
+        );
+
+        let mismatched_path = root.join(format!("{}.yaml", new_record_id()));
+        fs::write(&mismatched_path, &base).unwrap();
+        let error = read_evidence(&mismatched_path)
+            .expect_err("an Evidence id that disagrees with the file name must fail closed");
+        assert!(error.to_string().contains("does not match file name"));
+
+        let non_ulid_id = "not-a-ulid";
+        let non_ulid_yaml = base.replacen(&id, non_ulid_id, 1);
+        let non_ulid_path = root.join(format!("{non_ulid_id}.yaml"));
+        fs::write(&non_ulid_path, &non_ulid_yaml).unwrap();
+        let error = read_evidence(&non_ulid_path)
+            .expect_err("a non-ULID Evidence id must fail closed even if it matches the file name");
+        assert!(error.to_string().contains("not a valid ULID"));
+
+        let missing_id_yaml = base
+            .lines()
+            .filter(|line| !line.starts_with("id:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&matching_path, &missing_id_yaml).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_err(),
+            "an Evidence record missing id entirely must fail closed, not fall back to the file name"
+        );
+    }
+
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
         let id = new_record_id();
@@ -2162,13 +2232,15 @@ mod tests {
             created: "2026-08-08T00:00:00Z".to_owned(),
         };
         let yaml = record.to_yaml().unwrap();
-        assert_eq!(RelationRecord::from_yaml(&yaml, &id).unwrap(), record);
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty());
 
         for malformed in [
-            yaml.replacen("type: 'complements'", "type: 'unknown'", 1),
-            yaml.replacen("from: 'TEST-PARSER-044'", "from: ''", 1),
-            yaml.replacen("to: 'TEST-PARSER-012'", "to: ''", 1),
-            yaml.replacen("created: '2026-08-08T00:00:00Z'", "created: ''", 1),
+            yaml.replacen("type: complements", "type: unknown", 1),
+            yaml.replacen("from: TEST-PARSER-044", "from: ''", 1),
+            yaml.replacen("to: TEST-PARSER-012", "to: ''", 1),
+            yaml.replacen("created: 2026-08-08T00:00:00Z", "created: ''", 1),
         ] {
             assert!(RelationRecord::from_yaml(&malformed, &id).is_err());
         }
@@ -2181,7 +2253,9 @@ mod tests {
         };
         let prefixed_yaml = prefixed.to_yaml().unwrap();
         assert_eq!(
-            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id).unwrap(),
+            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id)
+                .unwrap()
+                .0,
             prefixed
         );
 
@@ -2192,8 +2266,83 @@ mod tests {
         assert!(invalid.to_yaml().is_err());
         let invalid = RelationRecord {
             from: String::new(),
-            ..RelationRecord::from_yaml(&yaml, &id).unwrap()
+            ..RelationRecord::from_yaml(&yaml, &id).unwrap().0
         };
         assert!(invalid.to_yaml().is_err());
+    }
+
+    #[test]
+    fn write_relation_always_generates_a_rel_prefixed_id() {
+        let root = temporary_directory("write-relation");
+        let layout = crate::init_project(&root, "example").unwrap();
+
+        let record = write_relation(
+            &layout,
+            RelationType::DependsOn,
+            "TEST-PARSER-044",
+            "TEST-PARSER-012",
+            None,
+            "2026-08-08T00:00:00Z",
+        )
+        .unwrap();
+
+        assert!(
+            record.id.starts_with("REL-"),
+            "expected a REL-prefixed id, got {}",
+            record.id
+        );
+
+        let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+        assert_eq!(read_relation(&path).unwrap().0, record);
+    }
+
+    /// 詳細設計 v0.1 §3 header (L185): an unknown field warns, it does not
+    /// stop the record from being read — same rule `document_from_yaml`/
+    /// `vo_record_from_yaml` (`canonical.rs`) apply, exercised here for the
+    /// Relation reader that lives in this module instead.
+    #[test]
+    fn relation_with_unknown_top_level_field_warns_and_still_reads() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("owner: someone\n");
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
+        assert_eq!(parsed, record);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "W-STORE-007");
+        assert!(diagnostics[0].message.contains("owner"));
+    }
+
+    /// Guards `RELATION_KEYS` against drifting out of sync with
+    /// `RelationRecord`'s actual fields: `note` is populated (`Some`), so
+    /// its `skip_serializing_if` does not omit the key from the shape.
+    #[test]
+    fn relation_known_keys_match_the_record_shape() {
+        let record = RelationRecord {
+            id: new_record_id(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: Some("boundary cases overlap".to_owned()),
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let value = yaml_serde::to_value(&record).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        let mut expected = RELATION_KEYS.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
     }
 }
