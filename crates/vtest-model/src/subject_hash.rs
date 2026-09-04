@@ -300,9 +300,7 @@ pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        AdapterId, CoveragePolicy, DerivesFrom, DocumentId, SourceFunction, TargetRef, VoId,
-    };
+    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, VoId};
 
     fn base_document() -> DocumentRecord {
         DocumentRecord {
@@ -675,94 +673,28 @@ mod tests {
         assert_eq!(crlf, lf);
     }
 
-    fn sample_source_location() -> crate::SourceLocation {
-        crate::SourceLocation {
-            file: "src/parser.rs".to_string(),
-            function: "parse".to_string(),
-            start_line: 10,
-            end_line: 12,
-            start_byte: 100,
-            end_byte: 140,
-        }
-    }
-
-    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-IGNORES-SRC-ID-DECLARATION-CHANGE-OR-DELETION
-    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies declaring, changing, or deleting a SourceFunction's src_id does not change the hash when locator and construct bytes are held fixed (本冊:88 "恒久SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference経由でもhash inputへ入らない")
-    #[test]
-    fn source_target_subject_hash_ignores_src_id_declaration_change_or_deletion() {
-        // Three states of the *same* Source Target's permanent SRC ID —
-        // undeclared, declared, and declared differently — modeled on the
-        // realistic `SourceFunction` record (which carries `src_id`
-        // alongside `locator`), with `locator` and construct bytes held
-        // fixed throughout. `source_target_subject_hash` only ever reads
-        // `.locator`, never `.src_id`, so all three must hash identically.
-        let construct = "fn parse() {}";
-        let src_id_undeclared = SourceFunction {
-            locator: base_locator(),
-            src_id: None,
-            location: sample_source_location(),
-            content_hash: ContentHash::from_text(construct),
-        };
-        let src_id_declared = SourceFunction {
-            locator: base_locator(),
-            src_id: Some(crate::SrcId::new("SRC-PARSER-001")),
-            location: sample_source_location(),
-            content_hash: ContentHash::from_text(construct),
-        };
-        let src_id_changed = SourceFunction {
-            locator: base_locator(),
-            src_id: Some(crate::SrcId::new("SRC-PARSER-002")),
-            location: sample_source_location(),
-            content_hash: ContentHash::from_text(construct),
-        };
-
-        let hash_undeclared = source_target_subject_hash(&src_id_undeclared.locator, construct);
-        let hash_declared = source_target_subject_hash(&src_id_declared.locator, construct);
-        let hash_changed = source_target_subject_hash(&src_id_changed.locator, construct);
-
-        assert_eq!(
-            hash_undeclared, hash_declared,
-            "declaring a SRC ID must not change the hash"
-        );
-        assert_eq!(
-            hash_declared, hash_changed,
-            "changing a declared SRC ID must not change the hash"
-        );
-        // Deletion is the reverse of declaration — already covered by
-        // hash_undeclared == hash_declared holding in both directions.
-    }
-
-    /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-INDEPENDENT-OF-REFERENCING-TARGETREF-SPELLING
-    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies the hash is computed only from the Source Target's own canonical Locator, never from a referencing Test's TargetRef spelling (本冊:88 "hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の`TargetRef`綴りからは計算しない")
-    #[test]
-    fn source_target_subject_hash_is_independent_of_referencing_targetref_spelling() {
-        // Two Tests could declare a dependency on the *same* Source Target
-        // through different `TargetRef` spellings — one by Locator, one by
-        // SrcId — which core resolution (§6.1, out of this function's
-        // scope) collapses to the same canonical Locator before this
-        // function is ever called. This function's signature only accepts
-        // that resolved `Locator`, never a `TargetRef`, so it structurally
-        // cannot see which spelling a referencing Test used.
-        let referenced_via_locator_targetref = TargetRef::Locator(base_locator());
-        let referenced_via_src_id_targetref = TargetRef::SrcId(crate::SrcId::new("SRC-PARSER-001"));
-        assert_ne!(
-            referenced_via_locator_targetref, referenced_via_src_id_targetref,
-            "precondition: these really are two different TargetRef spellings"
-        );
-
-        // Both resolve (elsewhere, not in this function) to the same
-        // canonical Locator — which is the only thing this function reads.
-        let resolved_canonical_locator = base_locator();
-        let hash_from_one_call_site =
-            source_target_subject_hash(&resolved_canonical_locator, "fn parse() {}");
-        let hash_from_another_call_site =
-            source_target_subject_hash(&resolved_canonical_locator, "fn parse() {}");
-        assert_eq!(hash_from_one_call_site, hash_from_another_call_site);
-    }
+    // No test exercises "changing/deleting a SourceFunction's src_id leaves
+    // the hash unchanged" or "the hash is independent of a referencing
+    // Test's TargetRef spelling" as a runtime assertion. Both were removed
+    // (previously `source_target_subject_hash_ignores_src_id_declaration_
+    // change_or_deletion` and
+    // `source_target_subject_hash_is_independent_of_referencing_targetref_
+    // spelling`): each called `source_target_subject_hash` with the *same*
+    // `&Locator` and construct text every time and asserted `assert_eq!` on
+    // the results, so they passed unconditionally regardless of what the
+    // function's implementation did — `SrcId` and `TargetRef` values were
+    // constructed in the test body but never reached the function under
+    // test. That is not a gap this encoder could regress into: its
+    // signature is `fn source_target_subject_hash(locator: &Locator,
+    // construct_text: &str)` — there is no parameter position a `SrcId` or a
+    // `TargetRef` could be passed through, so "ignores SRC ID" and
+    // "ignores TargetRef spelling" are guaranteed by the type signature
+    // itself, not by anything a unit test could falsify. The properties are
+    // documented at the definition site instead (see
+    // [`source_target_subject_hash`]'s doc comment, "The Source Target's
+    // permanent SRC ID is **not** a parameter of this function..." and
+    // "this function has no parameter a Test's `TargetRef` could even be
+    // passed through").
 
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-PRESERVES-LEADING-SPACE-AND-TRAILING-NEWLINE-IN-CONSTRUCT
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
