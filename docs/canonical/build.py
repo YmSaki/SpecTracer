@@ -36,6 +36,29 @@ check-fragment <path>
     key, source.lines is a valid [start, end] pair. Exit 1 on any
     problem.
 
+harvest-cites
+    Scan every item's "statement" (including design area items) for
+    citations that name a document (要件定義/基本仕様/詳細設計/本冊/別紙A/B/C
+    section refs, 別紙A/B/C included symmetrically; L-line refs likewise;
+    P-00N refs for 要件定義/基本仕様) or a bare cross-cutting code (P-00N,
+    R-1..R-5, F<n>, OOS-00N, NFR-00N), and append any not already present
+    to that item's "cites" list (surviving entries and their order are
+    untouched; new ones are appended in order of first appearance; no
+    duplicates). A bare code matched at the very start of the statement
+    (e.g. "OOS-001仕様書同士の..." or "NFR-001並列性への対応は...") is the
+    statement naming itself and is never harvested. Also drops any
+    existing "cites" entry that is a bare same-document section reference
+    ("§N", "§N.N", or a joined list of them such as "§4.1・§4.4") per
+    CONVERSION.md SS3 -- those stay inline in the statement and are not
+    citations; if "cites" would end up empty it is deleted. Never touches
+    "statement" or "derived_from". Prints, per fragment file, items
+    scanned, citations added, citations removed, and the 10 most common
+    newly-added citation strings. A fragment file is rewritten (same
+    formatting as the converters: UTF-8, ensure_ascii=False, indent 2,
+    trailing newline) whenever anything was added or removed; pass
+    --dry-run to only print the report. Bare "§N"/"§N.N" without a
+    preceding document name are never captured as new citations either.
+
 ID stamping (CONVERSION.md SS7)
 --------------------------------
 Items are sorted by (layer order request<require<spec<design, doc
@@ -69,6 +92,7 @@ import argparse
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 try:
@@ -584,6 +608,151 @@ def cmd_check_fragment(args) -> int:
     return 0
 
 
+# --------------------------------------------------------- harvest-cites --
+
+# Document-name alternations, one per pattern below. The section-list and
+# L-line patterns both recognise 別紙A/別紙B/別紙C symmetrically; the
+# P-code pattern is narrower by design (only 要件定義/基本仕様 carry P-00N
+# principles).
+_DOC_SECTION = "要件定義|基本仕様|詳細設計|本冊|別紙[ABC]"
+_DOC_LINE = "要件定義|基本仕様|詳細設計|本冊|別紙[ABC]"
+_DOC_P = "要件定義|基本仕様"
+
+_CITATION_SEP_RE = re.compile(r"\s*[・、/／]\s*")
+
+CITATION_RE = re.compile(
+    r"(?P<secdoc>" + _DOC_SECTION + r")\s*"
+    r"(?P<seclist>§\s*[0-9]+(?:\.[0-9]+)*(?:\s*[・、/／]\s*§?\s*[0-9]+(?:\.[0-9]+)*)*)"
+    r"|(?P<ldoc>" + _DOC_LINE + r")\s*L\s*(?P<lnum>[0-9]+)"
+    r"|(?P<pdoc>" + _DOC_P + r")\s*(?P<pnum>P-[0-9]{3})"
+    r"|(?<![A-Za-z0-9])(?P<bare>P-[0-9]{3}|R-[1-5]|F[0-9]+|OOS-[0-9]{3}|NFR-[0-9]{3})(?![A-Za-z0-9])"
+)
+
+
+def split_seclist(doc: str, seclist: str) -> list[str]:
+    """'§5.1・§23' (doc-prefixed) -> ['<doc> §5.1', '<doc> §23']."""
+    out = []
+    for part in _CITATION_SEP_RE.split(seclist):
+        part = part.strip()
+        if not part:
+            continue
+        if not part.startswith("§"):
+            part = "§" + part
+        num = part[1:].strip()
+        out.append(f"{doc} §{num}")
+    return out
+
+
+def extract_citations(statement: str) -> list[str]:
+    """Citations found in `statement`, in order of appearance, not deduped.
+
+    A bare code (NFR-00N/OOS-00N/P-00N/R-N/F<n>) matched at the very start
+    of the statement (ignoring leading whitespace) is the statement naming
+    itself -- e.g. "OOS-001仕様書同士の品質監査について..." or "NFR-001並列性
+    への対応は..." -- and is not harvested as a citation of something else.
+    Whatever follows it (a separator like " ", ".", ":", "：", a full-width
+    space, straight into kanji, or nothing at all) does not change this;
+    only the position matters.
+    """
+    found = []
+    lead = len(statement) - len(statement.lstrip())
+    for m in CITATION_RE.finditer(statement):
+        if m.group("bare") and m.start() == lead:
+            continue
+        if m.group("secdoc"):
+            found.extend(split_seclist(m.group("secdoc"), m.group("seclist")))
+        elif m.group("ldoc"):
+            found.append(f"{m.group('ldoc')} L{m.group('lnum')}")
+        elif m.group("pdoc"):
+            found.append(f"{m.group('pdoc')} {m.group('pnum')}")
+        elif m.group("bare"):
+            found.append(m.group("bare"))
+    return found
+
+
+# CONVERSION.md SS3: same-document references (no doc name) stay inline in
+# the statement and are not citations. A cites entry that is bare -- "§N",
+# "§N.N", or a joined list of them ("§4.1・§4.4", "§5.1、§23") -- starts
+# with "§" once stripped; a doc-named or R-/P-/F/OOS-/NFR- entry never does.
+_BARE_SECTION_ENTRY_RE = re.compile(r"^§")
+
+
+def is_bare_section_entry(cite: str) -> bool:
+    return bool(_BARE_SECTION_ENTRY_RE.match(cite.strip()))
+
+
+def harvest_item(item: dict) -> tuple[list[str], int]:
+    """Mutate item['cites'] in place: drop bare same-document section
+    entries, then append newly-found citations from 'statement' (existing
+    surviving entries and their order untouched; no duplicates). Deletes
+    'cites' entirely if it would end up empty. Never touches 'statement'
+    or 'derived_from'. Returns (added, removed_count)."""
+    existing_list = list(item["cites"]) if isinstance(item.get("cites"), list) else []
+    kept = [c for c in existing_list if not is_bare_section_entry(c)]
+    removed = len(existing_list) - len(kept)
+
+    found = extract_citations(item.get("statement", ""))
+    seen = set(kept)
+    added = []
+    for c in found:
+        if c in seen:
+            continue
+        seen.add(c)
+        added.append(c)
+
+    new_list = kept + added
+    if new_list:
+        item["cites"] = new_list
+    elif "cites" in item:
+        del item["cites"]
+
+    return added, removed
+
+
+def iter_leaf_items(frag: dict):
+    if frag.get("layer") == "design":
+        for area in frag.get("areas", []):
+            for it in area.get("items", []):
+                yield it
+    else:
+        for it in frag.get("items", []):
+            yield it
+
+
+def cmd_harvest_cites(args) -> int:
+    root = Path(args.root)
+    files = list_fragment_files(root)
+    if not files:
+        print("harvest-cites: no fragments found")
+        return 0
+
+    for path in files:
+        frag = read_json(path)
+        items = list(iter_leaf_items(frag))
+        added_all: list[str] = []
+        removed_total = 0
+        for it in items:
+            added, removed = harvest_item(it)
+            added_all.extend(added)
+            removed_total += removed
+
+        top = Counter(added_all).most_common(10)
+        print(f"--- {path} ---")
+        print(f"  items scanned: {len(items)}")
+        print(f"  citations added: {len(added_all)}")
+        print(f"  citations removed (bare same-document §): {removed_total}")
+        if top:
+            print("  top citations: " + ", ".join(f"{c!r} ({n})" for c, n in top))
+        else:
+            print("  top citations: (none)")
+
+        if (added_all or removed_total) and not args.dry_run:
+            text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
+            path.write_text(text, encoding="utf-8")
+
+    return 0
+
+
 # ------------------------------------------------------------------ cli --
 
 def cmd_all(args) -> int:
@@ -627,6 +796,11 @@ def main(argv=None) -> int:
     p_check = sub.add_parser("check-fragment", help="validate one fragment file's structural shape")
     p_check.add_argument("path", help="path to the fragment JSON file")
     p_check.set_defaults(func=cmd_check_fragment)
+
+    p_harvest = sub.add_parser("harvest-cites", help="scan item statements for citations and append them to cites")
+    add_root_arg(p_harvest)
+    p_harvest.add_argument("--dry-run", action="store_true", help="print the report without writing any fragment file")
+    p_harvest.set_defaults(func=cmd_harvest_cites)
 
     args = parser.parse_args(argv)
     return args.func(args)
