@@ -123,15 +123,27 @@ impl SubjectDomain {
 /// The literal `field-name` / `UTF-8 byte length` / `byte列` triple alone
 /// cannot satisfy this: a `null` field and an empty scalar would both encode
 /// as a zero-length byte run. A one-byte kind tag ahead of the
-/// length-and-bytes payload is the minimal addition that makes the four
-/// payload shapes (absent, scalar, sequence, map) mutually distinguishable
-/// regardless of length. This tag is an implementation necessity, not a
-/// literal spec quotation — see the PR report for this call-out.
+/// length-and-bytes payload is the minimal addition that makes the five
+/// payload shapes (absent, scalar, ordered sequence, set, map) mutually
+/// distinguishable regardless of length. This tag is an implementation
+/// necessity, not a literal spec quotation — see the PR report for this
+/// call-out.
+///
+/// `ORDERED` and `SET` are distinct tags even though both encode as a
+/// length-prefixed sequence of elements: 本冊:85 requires `cases`
+/// ("順序に意味があるcasesは宣言順とする") and `covers`/`targets`/`related`
+/// ("集合として扱う…は正規化値の昇順") to be encoded under different
+/// ordering rules, and both list kinds occur together within a single Test
+/// subject hash (本冊:87). Sharing one tag would make an `Ordered` list and a
+/// `Set` list with identical (sorted-equal) content collide under the same
+/// field name — a real risk once a subject binds both kinds, even though no
+/// such subject exists in this crate yet.
 mod field_tag {
     pub const NULL: u8 = 0;
     pub const SCALAR: u8 = 1;
-    pub const SEQUENCE: u8 = 2;
-    pub const MAP: u8 = 3;
+    pub const ORDERED: u8 = 2;
+    pub const SET: u8 = 3;
+    pub const MAP: u8 = 4;
 }
 
 /// One field's value in a canonical §1.3 hash input.
@@ -248,7 +260,7 @@ fn encode_field_into(buf: &mut Vec<u8>, name: &str, value: FieldValue) {
             push_len_prefixed(buf, &bytes);
         }
         FieldValue::Ordered(items) => {
-            buf.push(field_tag::SEQUENCE);
+            buf.push(field_tag::ORDERED);
             push_count(buf, items.len());
             for item in items {
                 push_len_prefixed(buf, &item);
@@ -256,7 +268,7 @@ fn encode_field_into(buf: &mut Vec<u8>, name: &str, value: FieldValue) {
         }
         FieldValue::Set(mut items) => {
             items.sort();
-            buf.push(field_tag::SEQUENCE);
+            buf.push(field_tag::SET);
             push_count(buf, items.len());
             for item in items {
                 push_len_prefixed(buf, &item);
@@ -368,6 +380,55 @@ mod tests {
         assert_ne!(null_hash, empty_string_hash);
         assert_ne!(null_hash, empty_list_hash);
         assert_ne!(empty_string_hash, empty_list_hash);
+    }
+
+    /// @vtest.id TEST-MODEL-CANONICAL-HASH-FIELD-KIND-TAGS-ARE-PAIRWISE-DISTINCT
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
+    /// @vtest.intent verifies Null/Scalar/Ordered/Set/Map each occupy a distinct tag byte, so a field's kind is bound alongside its content — 本冊:85 requires cases (順序に意味がある, Ordered) and covers/targets/related (集合として扱う, Set) to follow different ordering rules, which a shared tag would silently erase for same-content lists
+    #[test]
+    fn canonical_hash_field_kind_tags_are_pairwise_distinct() {
+        // "same" is chosen so that, absent a kind tag, Ordered([X]) and
+        // Set([X]) (a single-element list) would encode identically: same
+        // element bytes, same count, same sort order (a one-element list is
+        // trivially sorted). This isolates the tag byte as the only source
+        // of any difference below.
+        let same = b"X".to_vec();
+
+        let null_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("f", FieldValue::Null)
+            .finish();
+        let scalar_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("f", FieldValue::exact_bytes(same.clone()))
+            .finish();
+        let ordered_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("f", FieldValue::Ordered(vec![same.clone()]))
+            .finish();
+        let set_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("f", FieldValue::Set(vec![same.clone()]))
+            .finish();
+        let mut map = BTreeMap::new();
+        map.insert("f".to_string(), same.clone());
+        let map_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
+            .field("f", FieldValue::Map(map))
+            .finish();
+
+        let kinds = [
+            ("Null", null_hash),
+            ("Scalar", scalar_hash),
+            ("Ordered", ordered_hash),
+            ("Set", set_hash),
+            ("Map", map_hash),
+        ];
+        for i in 0..kinds.len() {
+            for j in (i + 1)..kinds.len() {
+                assert_ne!(
+                    kinds[i].1, kinds[j].1,
+                    "field kinds {} and {} collided",
+                    kinds[i].0, kinds[j].0
+                );
+            }
+        }
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-LENGTH-PREFIX-PREVENTS-COLLISION
