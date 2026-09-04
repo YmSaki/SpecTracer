@@ -21,31 +21,33 @@
 //! 「正規化」 does not otherwise occur in 本冊:86-98). See
 //! [`optional_text_fragment`]'s doc comment for the same citation chain.
 //!
-//! # Test subject hash is not implemented here
+//! # Execution State subject hash is not implemented here
 //!
-//! §1.3 (本冊:87) requires Test subject hash to bind an adapter ID and a
-//! Source Location built from `adapter` / project-relative `path` / opaque
-//! `locator`, plus an `ExecutionDescriptor` (本冊:629).
-//!
-//! As of the `vtest-model` reshape that added [`crate::ProjectPath`] /
-//! [`crate::SourceRange`] / [`crate::ExecutionDescriptor`] /
-//! [`crate::TestSuite`] and gave [`crate::SourceLocation`] the spec's own
-//! `{ adapter, path, locator, byte_range }` shape (本冊:637-642) and
-//! [`crate::TestEntity`] an `execution: ExecutionDescriptor` field
-//! (本冊:617-630), the struct-shape gap this module previously documented is
-//! closed — every input 本冊:87 names now has a matching field somewhere on
-//! `TestEntity`/`SourceLocation`/`ExecutionDescriptor`. Implementing the
-//! actual `test_subject_hash` composition function (wiring those fields
-//! through `SubjectHashInput`, matching the pattern `document_subject_hash`/
-//! `vo_subject_hash`/`source_target_subject_hash` below already establish)
-//! remains out of this reshape's scope — it is tracked as separate,
-//! follow-up work.
+//! §1.3 (本冊:91) requires Execution State subject hash to bind adapter ID,
+//! snapshot schema ID / version, HEAD revision, runner kind and its canonical
+//! invocation projection, toolchain identity, an adapter config projection,
+//! and a full manifest of repository / local dependency inputs (each entry:
+//! stable root identity, root-relative path, input kind, byte-exact file
+//! bytes). None of these has a matching type anywhere in `vtest-model` or
+//! `vtest-adapter-api` as of this module's writing (no `ExecutionState`,
+//! `Snapshot`, `Manifest`/`ManifestEntry`, `ToolchainIdentity`, or `Revision`
+//! type exists in either crate — confirmed by grep). Composing this hash
+//! would require inventing the DTO shapes those inputs would arrive in,
+//! which is not this module's place to do (this crate's own header: "この
+//! crate は…filesystem access and derived indexes intentionally live in…
+//! higher-level crates" — the same reasoning that keeps `document_subject_hash`
+//! and `source_target_subject_hash` taking pre-read `&str`/bytes instead of
+//! doing I/O applies more sharply here, where no receiving type exists at
+//! all yet). Implementing `execution_state_subject_hash` is out of scope
+//! until those upstream types exist; it is tracked as separate, follow-up
+//! work.
 
 use std::collections::BTreeSet;
 
 use crate::{
-    encode_nested_fields, normalize_hashed_text, CombinationEntry, ContentHash, Dimension,
-    DocumentRecord, FieldValue, Locator, SubjectDomain, SubjectHashInput, VoRecord,
+    encode_nested_fields, normalize_hashed_text, AdapterId, CombinationEntry, ContentHash,
+    Dimension, DocumentRecord, ExecutionDescriptor, FieldValue, Locator, SourceLocation,
+    SubjectDomain, SubjectHashInput, TargetRef, TestRecord, TestSuite, VoRecord,
 };
 
 /// A scalar field whose declaration may be entirely absent (`None`,
@@ -67,6 +69,166 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
     match value {
         None => FieldValue::Null,
         Some(text) => FieldValue::text_fragment(text),
+    }
+}
+
+/// Test subject hash (詳細設計 v0.1 §1.3, domain `vtest:test-subject:v1`,
+/// 本冊:87): "adapter ID、Test ID、全canonical metadata、Source Locationの
+/// adapter・project-relative path・opaque locator、ExecutionDescriptor、
+/// および正規化したTest construct bytesを束縛する。byte range自体は前方の
+/// 無関係な編集で変化するためhash inputにしない。"
+///
+/// # Inputs, matched against 本冊:87 one by one
+///
+/// - `adapter`: the discovering adapter's ID ("adapter ID"). This is a
+///   separate parameter from `location.adapter` because 本冊:87 lists them
+///   as two distinct bound items ("adapter ID、…、Source Locationのadapter
+///   …"); in every adapter this crate knows about the two values coincide,
+///   but the spec text binds both positions, so both are taken and both are
+///   encoded under distinct field names (`adapter` and inside `location`).
+/// - `metadata`: `id`/`covers`/`targets`/`intent`/`input`/`expect`/`kind`/
+///   `cases`/`related` — exactly 本冊:87's "canonical metadataは `id` /
+///   `covers` / `targets` / `intent` / `input` / `expect` / `kind` /
+///   `cases` / `related` からなる" list, which is also this function's only
+///   source for "Test ID" (`metadata.id` — the spec mentions "Test ID" and
+///   metadata's `id` field as the same field, not two).
+/// - `location`: only `adapter`/`path`/`locator` are read — `byte_range` is
+///   deliberately never touched by this function (there is no parameter
+///   position it could reach hash input through), which is what 本冊:87's
+///   "byte range自体は…hash inputにしない" requires.
+/// - `execution`: bound as a whole (adapter/project/suite/selector) — 本冊:87
+///   names `ExecutionDescriptor` as a single bound input.
+/// - `construct_text`: the normalized Test construct bytes ("正規化した
+///   Test construct bytes") — a normalized [`FieldValue::text_fragment`],
+///   not [`FieldValue::exact_bytes`], per the same 本冊:83-default reasoning
+///   this module's header documents (本冊:91's manifest file bytes are the
+///   only byte-exact requirement in §1.3).
+///
+/// `metadata.targets` binds the **declared** `TargetRef` values verbatim
+/// (via [`encode_target_ref`]), never a resolved canonical Source Target
+/// Locator — 本冊:87: "canonical metadataの`targets`は**宣言された**
+/// `TargetRef`の正規化値を束縛し、解決後のcanonical Locatorへ置換しない".
+/// This function has no parameter a *resolved* Source Target could reach —
+/// only the caller's own `metadata.targets: Vec<TargetRef>` — so a spelling
+/// change in a Test's declared target reference (e.g. rewriting a `Locator`
+/// reference to a `SrcId` reference for the same underlying Source Target)
+/// changes this hash, which is the effect 本冊:87 requires ("これにより
+/// Testの参照方法の変更…はTest subject hashで捕捉される").
+///
+/// `covers`/`targets`/`related` are bound as sets (normalized-value
+/// ascending, deduplicated — 本冊:85), `cases` as a declaration-ordered
+/// list (本冊:85), matching [`FieldValue::Set`]/[`FieldValue::Ordered`]
+/// respectively. `input`/`expect`/`kind` go through
+/// [`optional_text_fragment`] so an absent declaration (`None`) hashes
+/// differently from an explicit empty string (`Some(String::new())`) —
+/// 本冊:87 "宣言の不在と空値の明示は異なる値としてencodeする".
+pub fn test_subject_hash(
+    adapter: &AdapterId,
+    metadata: &TestRecord,
+    location: &SourceLocation,
+    execution: &ExecutionDescriptor,
+    construct_text: &str,
+) -> ContentHash {
+    let covers: BTreeSet<Vec<u8>> = metadata
+        .covers
+        .iter()
+        .map(|id| normalize_hashed_text(id.as_str()).into_bytes())
+        .collect();
+    let related: BTreeSet<Vec<u8>> = metadata
+        .related
+        .iter()
+        .map(|id| normalize_hashed_text(id.as_str()).into_bytes())
+        .collect();
+
+    SubjectHashInput::new(SubjectDomain::TestSubject)
+        .field("adapter", FieldValue::text_fragment(adapter.as_str()))
+        .field("id", FieldValue::text_fragment(metadata.id.as_str()))
+        .field("covers", FieldValue::Set(covers.into_iter().collect()))
+        .field(
+            "targets",
+            FieldValue::Set(metadata.targets.iter().map(encode_target_ref).collect()),
+        )
+        .field("intent", FieldValue::text_fragment(&metadata.intent))
+        .field("input", optional_text_fragment(metadata.input.as_deref()))
+        .field("expect", optional_text_fragment(metadata.expect.as_deref()))
+        .field("kind", optional_text_fragment(metadata.kind.as_deref()))
+        .field(
+            "cases",
+            FieldValue::Ordered(
+                metadata
+                    .cases
+                    .iter()
+                    .map(|case| normalize_hashed_text(case).into_bytes())
+                    .collect(),
+            ),
+        )
+        .field("related", FieldValue::Set(related.into_iter().collect()))
+        .field(
+            "location",
+            FieldValue::exact_bytes(encode_nested_fields([
+                (
+                    "adapter",
+                    FieldValue::text_fragment(location.adapter.as_str()),
+                ),
+                ("path", FieldValue::text_fragment(location.path.as_str())),
+                ("locator", FieldValue::text_fragment(&location.locator)),
+            ])),
+        )
+        .field(
+            "execution",
+            FieldValue::exact_bytes(encode_nested_fields([
+                (
+                    "adapter",
+                    FieldValue::text_fragment(execution.adapter.as_str()),
+                ),
+                (
+                    "project",
+                    optional_text_fragment(execution.project.as_deref()),
+                ),
+                ("suite", encode_optional_suite(execution.suite.as_ref())),
+                ("selector", FieldValue::text_fragment(&execution.selector)),
+            ])),
+        )
+        .field("construct", FieldValue::text_fragment(construct_text))
+        .finish()
+}
+
+/// Encodes one declared `TargetRef` losslessly as a set element for
+/// [`test_subject_hash`]'s `targets` field. Distinguishes the `Locator`
+/// and `SrcId` variants by an explicit `kind` field so a `Locator` and a
+/// `SrcId` that happen to carry the same text value never collide, and
+/// binds `Locator`'s `adapter`/`value` or `SrcId`'s identifier verbatim —
+/// this is the **declared** spelling, never resolved against a registry.
+fn encode_target_ref(target: &TargetRef) -> Vec<u8> {
+    match target {
+        TargetRef::Locator(locator) => encode_nested_fields([
+            ("kind", FieldValue::text_fragment("locator")),
+            (
+                "adapter",
+                FieldValue::text_fragment(locator.adapter.as_str()),
+            ),
+            ("value", FieldValue::text_fragment(&locator.value)),
+        ]),
+        TargetRef::SrcId(src_id) => encode_nested_fields([
+            ("kind", FieldValue::text_fragment("src-id")),
+            ("id", FieldValue::text_fragment(src_id.as_str())),
+        ]),
+    }
+}
+
+/// Encodes `ExecutionDescriptor.suite` for [`test_subject_hash`]. `None`
+/// (no suite declared) encodes as [`FieldValue::Null`]; `Some(suite)`
+/// encodes as a nested `kind`/`name` record — `kind` is a required
+/// (non-`Option`) `String`, so it is always a [`FieldValue::Scalar`] (even
+/// when empty) whenever `suite` is `Some`, which is what keeps
+/// `suite: None` from ever colliding with a present-but-degenerate `Some`.
+fn encode_optional_suite(suite: Option<&TestSuite>) -> FieldValue {
+    match suite {
+        None => FieldValue::Null,
+        Some(suite) => FieldValue::exact_bytes(encode_nested_fields([
+            ("kind", FieldValue::text_fragment(&suite.kind)),
+            ("name", optional_text_fragment(suite.name.as_deref())),
+        ])),
     }
 }
 
@@ -293,7 +455,488 @@ pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, VoId};
+    use crate::{
+        AdapterId, CoveragePolicy, DerivesFrom, DocumentId, ProjectPath, SourceRange, SrcId,
+        TestId, VoId,
+    };
+
+    // ---- Test subject hash fixtures ----
+
+    fn base_test_record() -> TestRecord {
+        TestRecord {
+            id: TestId::new("TEST-PARSER-UTF8-003"),
+            covers: vec![VoId::new("VO-PARSER-UTF8-003")],
+            targets: vec![TargetRef::Locator(Locator {
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/parser.rs::Parser::parse".to_string(),
+            })],
+            intent: "The parser rejects an invalid continuation byte.".to_string(),
+            input: Some("an invalid continuation byte".to_string()),
+            expect: Some("ParseError::InvalidUtf8".to_string()),
+            kind: Some("unit-error".to_string()),
+            cases: vec!["empty input".to_string(), "max length input".to_string()],
+            related: vec![TestId::new("TEST-PARSER-UTF8-004")],
+        }
+    }
+
+    fn base_test_location() -> SourceLocation {
+        SourceLocation {
+            adapter: AdapterId::new("rust-cargo"),
+            path: ProjectPath::new("src/parser.rs"),
+            locator: "Parser::parse".to_string(),
+            byte_range: SourceRange {
+                start: 100,
+                end: 240,
+            },
+        }
+    }
+
+    fn base_test_execution() -> ExecutionDescriptor {
+        ExecutionDescriptor {
+            adapter: AdapterId::new("rust-cargo"),
+            project: Some("my-pkg".to_string()),
+            suite: Some(TestSuite {
+                kind: "lib".to_string(),
+                name: None,
+            }),
+            selector: "parser::tests::rejects_invalid_utf8".to_string(),
+        }
+    }
+
+    fn base_test_construct() -> &'static str {
+        "fn rejects_invalid_utf8() { /* ... */ }"
+    }
+
+    fn base_test_hash() -> ContentHash {
+        test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        )
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-EACH-METADATA-FIELD-CHANGES-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies each canonical metadata field (id/covers/targets/intent/input/expect/kind/cases/related) changes the hash when changed individually (本冊:87 "全canonical metadataを束縛する…canonical metadataは id/covers/targets/intent/input/expect/kind/cases/related からなる")
+    #[test]
+    fn test_subject_hash_changes_when_any_metadata_field_changes() {
+        let base = base_test_hash();
+        let hash_of = |record: TestRecord| {
+            test_subject_hash(
+                &AdapterId::new("rust-cargo"),
+                &record,
+                &base_test_location(),
+                &base_test_execution(),
+                base_test_construct(),
+            )
+        };
+
+        let mut id_changed = base_test_record();
+        id_changed.id = TestId::new("TEST-OTHER-ID");
+        assert_ne!(base, hash_of(id_changed), "id");
+
+        let mut covers_changed = base_test_record();
+        covers_changed.covers.push(VoId::new("VO-OTHER"));
+        assert_ne!(base, hash_of(covers_changed), "covers");
+
+        let mut targets_changed = base_test_record();
+        targets_changed.targets.push(TargetRef::Locator(Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::other".to_string(),
+        }));
+        assert_ne!(base, hash_of(targets_changed), "targets");
+
+        let mut intent_changed = base_test_record();
+        intent_changed.intent = "a different intent".to_string();
+        assert_ne!(base, hash_of(intent_changed), "intent");
+
+        let mut input_changed = base_test_record();
+        input_changed.input = Some("a different input".to_string());
+        assert_ne!(base, hash_of(input_changed), "input");
+
+        let mut expect_changed = base_test_record();
+        expect_changed.expect = Some("a different expectation".to_string());
+        assert_ne!(base, hash_of(expect_changed), "expect");
+
+        let mut kind_changed = base_test_record();
+        kind_changed.kind = Some("unit-normal".to_string());
+        assert_ne!(base, hash_of(kind_changed), "kind");
+
+        let mut cases_changed = base_test_record();
+        cases_changed.cases.push("a new case".to_string());
+        assert_ne!(base, hash_of(cases_changed), "cases");
+
+        let mut related_changed = base_test_record();
+        related_changed.related.push(TestId::new("TEST-OTHER"));
+        assert_ne!(base, hash_of(related_changed), "related");
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-BYTE-RANGE-DOES-NOT-CHANGE-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies SourceLocation.byte_range is excluded from the hash input (本冊:87 "byte range自体は前方の無関係な編集で変化するためhash inputにしない")
+    #[test]
+    fn test_subject_hash_is_unchanged_when_only_byte_range_changes() {
+        let base = base_test_hash();
+
+        let mut moved = base_test_location();
+        moved.byte_range = SourceRange {
+            start: 9000,
+            end: 9140,
+        };
+        let moved_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &moved,
+            &base_test_execution(),
+            base_test_construct(),
+        );
+
+        assert_eq!(base, moved_hash);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-TARGETS-BIND-DECLARED-SPELLING-NOT-RESOLVED-LOCATOR
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies targets binds the declared TargetRef spelling — a Locator-vs-SrcId rewrite for the same underlying Source Target changes the hash, and it is never replaced with a resolved canonical Locator (本冊:87 "targetsは宣言されたTargetRefの正規化値を束縛し、解決後のcanonical Locatorへ置換しない")
+    #[test]
+    fn test_subject_hash_binds_declared_target_ref_spelling() {
+        let via_locator = base_test_record();
+        let base = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &via_locator,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+
+        let mut via_src_id = base_test_record();
+        via_src_id.targets = vec![TargetRef::SrcId(SrcId::new("SRC-PARSER-001"))];
+        let src_id_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &via_src_id,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+
+        assert_ne!(
+            base, src_id_hash,
+            "rewriting a Test's declared target reference (Locator -> SrcId for the \
+             same Source Target) must change the Test subject hash"
+        );
+
+        // Changing only the declared locator's spelling (not what it
+        // resolves to) must also change the hash — the function has no
+        // resolution step to consult in the first place.
+        let mut different_locator_spelling = base_test_record();
+        different_locator_spelling.targets = vec![TargetRef::Locator(Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::completely_different_symbol".to_string(),
+        })];
+        let different_spelling_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &different_locator_spelling,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+        assert_ne!(base, different_spelling_hash);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-LOCATION-FIELDS-CHANGE-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies SourceLocation's adapter/path/locator are each bound (本冊:87 "Source Locationのadapter・project-relative path・opaque locatorを束縛する")
+    #[test]
+    fn test_subject_hash_changes_when_location_adapter_path_or_locator_changes() {
+        let base = base_test_hash();
+        let hash_with_location = |location: SourceLocation| {
+            test_subject_hash(
+                &AdapterId::new("rust-cargo"),
+                &base_test_record(),
+                &location,
+                &base_test_execution(),
+                base_test_construct(),
+            )
+        };
+
+        let mut adapter_changed = base_test_location();
+        adapter_changed.adapter = AdapterId::new("other-lang");
+        assert_ne!(
+            base,
+            hash_with_location(adapter_changed),
+            "location.adapter"
+        );
+
+        let mut path_changed = base_test_location();
+        path_changed.path = ProjectPath::new("src/other.rs");
+        assert_ne!(base, hash_with_location(path_changed), "location.path");
+
+        let mut locator_changed = base_test_location();
+        locator_changed.locator = "Parser::other".to_string();
+        assert_ne!(
+            base,
+            hash_with_location(locator_changed),
+            "location.locator"
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-EXECUTION-DESCRIPTOR-FIELDS-CHANGE-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies each ExecutionDescriptor field (adapter/project/suite.kind/suite.name/selector) is bound (本冊:87 "ExecutionDescriptorを束縛する")
+    #[test]
+    fn test_subject_hash_changes_when_any_execution_descriptor_field_changes() {
+        let base = base_test_hash();
+        let hash_with_execution = |execution: ExecutionDescriptor| {
+            test_subject_hash(
+                &AdapterId::new("rust-cargo"),
+                &base_test_record(),
+                &base_test_location(),
+                &execution,
+                base_test_construct(),
+            )
+        };
+
+        let mut adapter_changed = base_test_execution();
+        adapter_changed.adapter = AdapterId::new("other-lang");
+        assert_ne!(
+            base,
+            hash_with_execution(adapter_changed),
+            "execution.adapter"
+        );
+
+        let mut project_changed = base_test_execution();
+        project_changed.project = Some("other-pkg".to_string());
+        assert_ne!(
+            base,
+            hash_with_execution(project_changed),
+            "execution.project"
+        );
+
+        let mut suite_kind_changed = base_test_execution();
+        suite_kind_changed.suite = Some(TestSuite {
+            kind: "integration".to_string(),
+            name: None,
+        });
+        assert_ne!(
+            base,
+            hash_with_execution(suite_kind_changed),
+            "execution.suite.kind"
+        );
+
+        let mut suite_name_changed = base_test_execution();
+        suite_name_changed.suite = Some(TestSuite {
+            kind: "lib".to_string(),
+            name: Some("some_integration_target".to_string()),
+        });
+        assert_ne!(
+            base,
+            hash_with_execution(suite_name_changed),
+            "execution.suite.name"
+        );
+
+        let mut selector_changed = base_test_execution();
+        selector_changed.selector = "parser::tests::other".to_string();
+        assert_ne!(
+            base,
+            hash_with_execution(selector_changed),
+            "execution.selector"
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-SUITE-ABSENT-VS-PRESENT
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies ExecutionDescriptor.suite being entirely absent (None) hashes differently from Some(suite) — a structural absent-vs-present distinction alongside 本冊:87's declaration-absence rule
+    #[test]
+    fn test_subject_hash_distinguishes_absent_suite_from_present_suite() {
+        let mut no_suite = base_test_execution();
+        no_suite.suite = None;
+        let with_suite = base_test_execution();
+
+        let no_suite_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &no_suite,
+            base_test_construct(),
+        );
+        let with_suite_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &with_suite,
+            base_test_construct(),
+        );
+        assert_ne!(no_suite_hash, with_suite_hash);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-CONSTRUCT-TEXT-CHANGES-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies normalized Test construct bytes are bound (本冊:87 "正規化したTest construct bytesを束縛する")
+    #[test]
+    fn test_subject_hash_changes_when_construct_text_changes() {
+        let base = base_test_hash();
+        let changed = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &base_test_execution(),
+            "fn a_completely_different_function() {}",
+        );
+        assert_ne!(base, changed);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-CONSTRUCT-TEXT-IS-NORMALIZED
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies construct bytes are a normalized text fragment (CRLF/trailing-space insensitive), not byte-exact (本冊:83 default; 本冊:91's manifest file bytes are the only byte-exact requirement in §1.3)
+    #[test]
+    fn test_subject_hash_normalizes_construct_text() {
+        let crlf = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &base_test_execution(),
+            "fn f() {  \r\n    body()  \r\n}",
+        );
+        let lf = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &base_test_record(),
+            &base_test_location(),
+            &base_test_execution(),
+            "fn f() {\n    body()\n}",
+        );
+        assert_eq!(crlf, lf);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-ADAPTER-ID-CHANGES-HASH
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies the top-level adapter ID parameter is bound (本冊:87 "adapter ID…を束縛する")
+    #[test]
+    fn test_subject_hash_changes_when_adapter_id_changes() {
+        let base = base_test_hash();
+        let changed = test_subject_hash(
+            &AdapterId::new("other-lang"),
+            &base_test_record(),
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+        assert_ne!(base, changed);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-INPUT-EXPECT-KIND-ABSENT-VS-EMPTY
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies input/expect/kind each distinguish an absent declaration (None) from an explicit empty value (Some("")) — 本冊:87 "宣言の不在と空値の明示は異なる値としてencodeする"
+    #[test]
+    fn test_subject_hash_distinguishes_absent_declaration_from_empty_value() {
+        let hash_of = |record: TestRecord| {
+            test_subject_hash(
+                &AdapterId::new("rust-cargo"),
+                &record,
+                &base_test_location(),
+                &base_test_execution(),
+                base_test_construct(),
+            )
+        };
+
+        let mut input_absent = base_test_record();
+        input_absent.input = None;
+        let mut input_empty = base_test_record();
+        input_empty.input = Some(String::new());
+        assert_ne!(hash_of(input_absent), hash_of(input_empty), "input");
+
+        let mut expect_absent = base_test_record();
+        expect_absent.expect = None;
+        let mut expect_empty = base_test_record();
+        expect_empty.expect = Some(String::new());
+        assert_ne!(hash_of(expect_absent), hash_of(expect_empty), "expect");
+
+        let mut kind_absent = base_test_record();
+        kind_absent.kind = None;
+        let mut kind_empty = base_test_record();
+        kind_empty.kind = Some(String::new());
+        assert_ne!(hash_of(kind_absent), hash_of(kind_empty), "kind");
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-CASES-IS-DECLARATION-ORDERED
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies cases order is significant (declaration order), unlike covers/targets/related (本冊:85 "順序に意味があるcasesは宣言順とする")
+    #[test]
+    fn test_subject_hash_cases_order_is_significant() {
+        let hash_of = |cases: Vec<String>| {
+            let mut record = base_test_record();
+            record.cases = cases;
+            test_subject_hash(
+                &AdapterId::new("rust-cargo"),
+                &record,
+                &base_test_location(),
+                &base_test_execution(),
+                base_test_construct(),
+            )
+        };
+
+        let forward = hash_of(vec!["case-a".to_string(), "case-b".to_string()]);
+        let reversed = hash_of(vec!["case-b".to_string(), "case-a".to_string()]);
+        assert_ne!(forward, reversed);
+    }
+
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-COVERS-TARGETS-RELATED-ARE-ORDER-INDEPENDENT-SETS
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies covers/targets/related are order-independent, deduplicated sets, unlike cases (本冊:85 "集合として扱うcovers・targets・relatedは正規化値の昇順")
+    #[test]
+    fn test_subject_hash_covers_targets_related_are_order_independent_sets() {
+        let mut forward = base_test_record();
+        forward.covers = vec![VoId::new("VO-A"), VoId::new("VO-B")];
+        forward.related = vec![TestId::new("TEST-A"), TestId::new("TEST-B")];
+
+        let mut reversed = base_test_record();
+        reversed.covers = vec![VoId::new("VO-B"), VoId::new("VO-A")];
+        reversed.related = vec![TestId::new("TEST-B"), TestId::new("TEST-A")];
+
+        let hash_forward = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &forward,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+        let hash_reversed = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &reversed,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+        assert_eq!(hash_forward, hash_reversed);
+
+        // Duplicate covers entries must not change the hash relative to the
+        // deduplicated set.
+        let mut duplicated = base_test_record();
+        duplicated.covers = vec![
+            VoId::new("VO-PARSER-UTF8-003"),
+            VoId::new("VO-PARSER-UTF8-003"),
+        ];
+        let hash_duplicated = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &duplicated,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+        assert_eq!(base_test_hash(), hash_duplicated);
+    }
 
     fn base_document() -> DocumentRecord {
         DocumentRecord {
