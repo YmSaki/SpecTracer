@@ -821,7 +821,7 @@
               67
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDの宣言・変更・削除でcanonical locatorは変化しない。",
@@ -1945,7 +1945,7 @@
               125
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。",
@@ -1961,7 +1961,7 @@
           "cites": [
             "本冊 §7"
           ],
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析は正典レコードを持たない再計算派生であり、検証のたびに現在のsource / configから再計算する。",
@@ -4803,7 +4803,7 @@
               245
             ]
           },
-          "layer": "basic_design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。",

@@ -913,7 +913,7 @@
           "cites": [
             "基本仕様 §9.1"
           ],
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "construct bytesへの束縛は当該実現形態（`rust-cargo` 等のSource Target形態）に対する規則であり、Source Targetを宣言しない検証対象形態へは適用しない。",
@@ -1390,7 +1390,7 @@
               107
             ]
           },
-          "layer": "spec"
+          "layer": "basic_design"
         },
         {
           "statement": "`.verify/` 直下に `config.yaml` を置く。",
@@ -1648,7 +1648,7 @@
           "cites": [
             "基本仕様 §2.4"
           ],
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "`config.yaml` の各adapterの `scan` 設定の `include` はテストコード走査パスであり、省略時はワークスペース全体を対象とする。",
@@ -3619,7 +3619,7 @@
               339
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind` は判断対象を一意に区切る第二のkeyである。",
@@ -3697,7 +3697,7 @@
               341
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`subject` の `target` 参照は §6.1 で解決したcanonical Source Targetのcanonical Locatorとし、解決できないtargetを任意の候補で埋めない（§6.1.1）。",
@@ -4167,7 +4167,7 @@
               383
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`approved_state` は `approved` / `rejected` / `withdrawn` の3値だけを受理する。",
@@ -4505,7 +4505,7 @@
               415
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "同一対象に `approved` と `rejected` の有効承認レコードが `supersedes` 関係なく併存する場合、機械はどちらも採らずfail-closedに `draft` とする。",
@@ -4674,7 +4674,7 @@
               425
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "依存entryを持たない互換Approvalは読取りと履歴表示だけを許可し、現在の `approved` を導出しない。W-STORE-002を出し、対象は `draft` 相当とする。",
@@ -5131,7 +5131,7 @@
               487
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのtarget listからedgeを生成しない。",
@@ -5467,7 +5467,7 @@
           "cites": [
             "基本仕様 §9.2"
           ],
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実現し `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
@@ -6995,7 +6995,7 @@
               691
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "codecはadapter固有のcompatibility propertyをJSON objectとしてencode / decodeできるが、core domain typeへadapter固有fieldを追加しない。",
@@ -7008,7 +7008,7 @@
               693
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` codecはversion 1互換の `filter`、`package`、`test_target` を所有する。",
@@ -8438,7 +8438,7 @@
               841
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`adapter` fieldを欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはcompatibility matcherのうちちょうど1件だけがschemaを受理する場合に限ってin-memoryでownerを補える。",
@@ -9170,7 +9170,7 @@
               904
             ]
           },
-          "layer": "basic_design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo` discoveryの第1段はファイル探索であり、adapter configのinclude配下の `*.rs` をignoreクレートで列挙する（`.gitignore` 準拠、`target/` は除外）。",
@@ -9222,7 +9222,7 @@
               920
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo` discoveryの第5段はmetadata宣言抽出であり、doc属性（`#[doc = \"...\"]`）を§4.2の文法でparseする（id / covers / target / intent / input / expect / kind / case / related）。",
@@ -9304,7 +9304,7 @@
               942
             ]
           },
-          "layer": "basic_design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "根指定は `.verify/` 設定として保持する。",

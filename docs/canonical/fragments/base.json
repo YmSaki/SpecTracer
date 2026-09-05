@@ -2236,7 +2236,7 @@
           134
         ]
       },
-      "layer": "spec"
+      "layer": "detailed_spec"
     },
     {
       "statement": "関係リンクの任意説明文・役割別projectionの保存形式・presetは詳細設計へ委譲する。",
@@ -4938,7 +4938,7 @@
           375
         ]
       },
-      "layer": "spec"
+      "layer": "detailed_spec"
     },
     {
       "statement": "flatなVO群と階層化VO群の双方を扱う。",
@@ -5901,7 +5901,7 @@
           444
         ]
       },
-      "layer": "basic_design"
+      "layer": "spec"
     },
     {
       "statement": "Create Testは、Form Schemaに基づく構造化入力をadapterへ渡し、Test constructと対応するmetadata宣言を生成する。",
@@ -5914,7 +5914,7 @@
           446
         ]
       },
-      "layer": "basic_design"
+      "layer": "spec"
     },
     {
       "statement": "Edit Testは、Test IDを編集ハンドルとして、adapterが識別する対象Testのmetadata宣言およびTest constructを更新する。",
@@ -5927,7 +5927,7 @@
           447
         ]
       },
-      "layer": "basic_design"
+      "layer": "spec"
     },
     {
       "statement": "Query Testは、Test ID・VO・Target Reference等からの検索と逆引きを行う。",
@@ -5940,7 +5940,7 @@
           448
         ]
       },
-      "layer": "basic_design"
+      "layer": "spec"
     },
     {
       "statement": "Audit（判断）Testは、§11の判断記録bundle生成と判断結果の提出を行う。",
@@ -5953,7 +5953,7 @@
           449
         ]
       },
-      "layer": "basic_design"
+      "layer": "spec"
     },
     {
       "statement": "Create / Editの入力は差分操作ではなくあるべき状態（desired state）とする。",
@@ -8770,7 +8770,7 @@
           653
         ]
       },
-      "layer": "spec"
+      "layer": "basic_design"
     },
     {
       "statement": "`cache/` が破損・削除されても正典は影響を受けない。",

@@ -5088,7 +5088,7 @@
               531
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "組込 Form は `role` を宣言しない。",

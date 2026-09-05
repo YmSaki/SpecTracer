@@ -603,7 +603,7 @@
               1010
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "spec"
         },
         {
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
@@ -616,7 +616,7 @@
               1010
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "spec"
         },
         {
           "statement": "決定論的解析結果は正典レコードを持たず、検証のたびに現在のsource / configから再計算する派生情報である。",
@@ -632,7 +632,7 @@
               1010
             ]
           },
-          "layer": "spec"
+          "layer": "basic_design"
         },
         {
           "statement": "`vtest audit static`は要求時に解析を起動し、結果をstdoutと`cache/`へ出力する。",
@@ -661,7 +661,7 @@
               1010
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "各ルールは`FAIL` / `UNKNOWN` / `PASS(違反なし)`のいずれかを返す。",
@@ -1227,7 +1227,7 @@
               1047
             ]
           },
-          "layer": "spec"
+          "layer": "basic_design"
         },
         {
           "statement": "宣言targetへの呼出がTest本体に静的に現れない場合（subprocessを起動して別プロセスでtargetを実行する等、target呼出がsource内に存在しない）、DA-003の当該target別verdictをUNKNOWNとする。",
@@ -1795,7 +1795,7 @@
               1100
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "static側は§7.2のDA-002を再計算し、runtime側は§11.2選択Evidenceを用いて、targetごとに実効到達状態を定める。",
@@ -2361,7 +2361,7 @@
               1145
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`test-semantic`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「テストコードは、covers先VOのclaimとTest Intentが宣言する振る舞いを実際に検証しているか」である。",
@@ -2653,7 +2653,7 @@
               1218
             ]
           },
-          "layer": "design"
+          "layer": "spec"
         },
         {
           "statement": "判断記録は検証状態を変更しない（§8 冒頭）。",
@@ -3211,7 +3211,7 @@
               1273
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "現在状態に対して通常の検証（§5の4検査）を再実施した結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
@@ -3345,7 +3345,7 @@
               1301
             ]
           },
-          "layer": "basic_design"
+          "layer": "spec"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`project`をcargo package名として解釈する。",
@@ -4013,7 +4013,7 @@
               1381
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。",
@@ -6250,7 +6250,7 @@
               1561
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
@@ -6322,7 +6322,7 @@
               1574
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`subject`は対象エンティティIDまたは解決済みcanonical Locatorとする。",
@@ -6374,7 +6374,7 @@
               1571
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`check`が`null`の項目は§11.3の集約へ寄与せず、いかなる検査の値も変更しない。",
@@ -6677,7 +6677,7 @@
               1598
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。",
@@ -7424,7 +7424,7 @@
               1674
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "`#[tokio::test]`等、属性末尾`test`以外のカスタムテスト属性への対応範囲は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -7437,7 +7437,7 @@
               1675
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "cargo workspace外の単一クレートプロジェクトでのパス解決の細部は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -7450,7 +7450,7 @@
               1676
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "レポートのツリー描画の細部（文字種、折返し）は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -7463,7 +7463,7 @@
               1677
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "LSP / rust-analyzer連携によるシンボル解決は提供範囲外とする。",

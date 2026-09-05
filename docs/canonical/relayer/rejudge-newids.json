@@ -1,0 +1,814 @@
+{
+ "SPEC-415": {
+  "layer": "spec",
+  "reason": "基本仕様: 該当する列挙項目なし（六層参照リストのいずれにも一致しない。文書メタ言明のため現状の層を維持）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "本書と基本仕様の間に矛盾がある場合、基本仕様を正とし、本書の"
+ },
+ "BD-154": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な技術選定",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "内容ハッシュはSHA-256を使用する。"
+ },
+ "DS-220": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "canonical metadataの `targets` "
+ },
+ "SPEC-434": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "検証対象は一般概念であり、このhashは検証対象をSourc"
+ },
+ "DES-046": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "coreはadapter出力と現在のsource bytes"
+ },
+ "BD-157": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "静的解析は正典レコードを持たず、検証のたびに現在のsourc"
+ },
+ "DS-572": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Evidenceの`target_coverage`へ記録す"
+ },
+ "DES-463": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "coverage providerは当該境界越しの実行を宣言"
+ },
+ "SPEC-435": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "基本仕様 §24.1 の layout をそのまま採用する。"
+ },
+ "DES-465": {
+  "layer": "design",
+  "reason": "詳細設計: 提供・依存するインターフェース",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "aggregateは、scanによりグラフ構築する（§5）。"
+ },
+ "DES-467": {
+  "layer": "design",
+  "reason": "詳細設計: 提供・依存するインターフェース",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "親VOを起点とする下流方向のprojectionが、§11."
+ },
+ "DES-471": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`anchor`を持たないentryでは当該fieldを省略"
+ },
+ "DES-472": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "判断待ち情報は構造化record（report JSON内の"
+ },
+ "DES-476": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "4検査のいずれにも由来しない項目（判断型に由来する項目・判断"
+ },
+ "BD-258": {
+  "layer": "design",
+  "reason": "詳細設計: 排他・並行処理上の制約",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "同時実行された`vtest`プロセス同士の調停は行わない。"
+ },
+ "BD-259": {
+  "layer": "basic_design",
+  "reason": "基本設計: 整合性境界",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 "
+ },
+ "BD-176": {
+  "layer": "design",
+  "reason": "詳細設計: 永続化ルール",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`config.yaml` readerはversion 1"
+ },
+ "DS-730": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: エラーの外部的意味",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`vtest scan` / `vtest doctor`で"
+ },
+ "SPEC-534": {
+  "layer": "design",
+  "reason": "詳細設計: 実装者に委ねてよい範囲",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "demangle実装（`rustc-demangle`）の適"
+ },
+ "SPEC-535": {
+  "layer": "design",
+  "reason": "詳細設計: 実装者に委ねてよい範囲",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`#[tokio::test]`等、属性末尾`test`以外"
+ },
+ "SPEC-536": {
+  "layer": "design",
+  "reason": "詳細設計: 実装者に委ねてよい範囲",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "cargo workspace外の単一クレートプロジェクトで"
+ },
+ "SPEC-537": {
+  "layer": "design",
+  "reason": "詳細設計: 実装者に委ねてよい範囲",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "レポートのツリー描画の細部（文字種、折返し）は、基本仕様と本"
+ },
+ "DS-238": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 例外条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`--gate` に未定義名を指定した場合の扱いは §11."
+ },
+ "SPEC-567": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "旧モデルの `spec-coverage`（SPEC 層依存"
+ },
+ "DES-055": {
+  "layer": "design",
+  "reason": "詳細設計: 保持する状態",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`doc.roots` は orphan_detection"
+ },
+ "DES-483": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "各ツール呼び出しの冒頭で mtime ベースの再スキャン判定"
+ },
+ "SPEC-578": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`test_kind` の `regression` は T"
+ },
+ "DES-484": {
+  "layer": "design",
+  "reason": "詳細設計: 構成要素ごとの責務",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Test ID から編集対象を特定する。"
+ },
+ "DES-488": {
+  "layer": "design",
+  "reason": "詳細設計: トランザクション境界",
+  "confidence": "high",
+  "code_like": true,
+  "statement_prefix": "変更を、対象テスト関数の拡張 range（doc comme"
+ },
+ "DES-489": {
+  "layer": "design",
+  "reason": "詳細設計: 入出力データの構造",
+  "confidence": "high",
+  "code_like": true,
+  "statement_prefix": "Form 回答（§14）から、あるべきアノテーションブロック"
+ },
+ "DES-492": {
+  "layer": "design",
+  "reason": "詳細設計: トランザクション境界",
+  "confidence": "high",
+  "code_like": true,
+  "statement_prefix": "生成した Test construct を挿入位置へ単一挿入"
+ },
+ "DS-1099": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "アノテーションは常にキー順（id, covers, targ"
+ },
+ "DS-1100": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`@vtest.` を含まない自由記述の doc comme"
+ },
+ "DS-1101": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "アノテーションを常にキー順（id, covers, targ"
+ },
+ "DS-1102": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "アノテーションを常にキー順（id, covers, targ"
+ },
+ "DS-1103": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "同一の desired state からは Create /"
+ },
+ "DS-1104": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "アノテーションの再生成キー順（id, covers, tar"
+ },
+ "DS-1106": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 入力値の範囲・形式・制約",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`@vtest.src-id` は Test constru"
+ },
+ "DES-502": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 例外条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`TargetRef::SrcId`をcanonical t"
+ },
+ "DS-1126": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Source Target hashも変化することはsour"
+ },
+ "SPEC-584": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "adapter所有のmetadata宣言、ID、target"
+ },
+ "SPEC-589": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "旧モデルの W-SCAN-102（孤立 VO）は VO 層の"
+ },
+ "SPEC-590": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: エラーの外部的意味",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "DA-001〜DA-006とW-DA-101は本冊§7の判定"
+ },
+ "BD-318": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "バンドルは派生情報であり Git 管理しない。"
+ },
+ "BD-193": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要なデータの流れ",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "「どの上流条項がどのVOへ対応するか」の対応ペアは、`anc"
+ },
+ "BD-326": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 受入条件・検証可能な期待結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "NO_EVIDENCE を生む入力（証拠が存在しない／証拠の"
+ },
+ "DS-1361": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "report は DOC → VO → Test の構造と、"
+ },
+ "DS-283": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "生成される子VOのIDは `VO-X-<PARTITION>"
+ },
+ "DS-284": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "子VO IDのsuffixはpartition値を大文字化し"
+ },
+ "DS-300": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての出力結果",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "canonical Relation IDは `REL-` "
+ },
+ "DES-078": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 競合する条件の優先順位",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "判断記録の有効性判定と実効判断の決定は §8.5 に従う。"
+ },
+ "DES-081": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`supersedes` はRelationとは独立であり、"
+ },
+ "DES-092": {
+  "layer": "design",
+  "reason": "詳細設計: 入出力データの構造",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "承認記録は判断記録と同一entityであることを要求しない（"
+ },
+ "DES-105": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "document dependencyはdocument s"
+ },
+ "DES-128": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 競合する条件の優先順位",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`approved_at` / ULIDの順序、レコードの新"
+ },
+ "DES-141": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "検証状態（§4.1の5状態）の変化、判断記録の追加そのもの、"
+ },
+ "BD-201": {
+  "layer": "basic_design",
+  "reason": "基本設計: データの所有主体",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "誰がどの対象・範囲を承認できるか（approval auth"
+ },
+ "BD-203": {
+  "layer": "design",
+  "reason": "詳細設計: 入出力データの構造",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Evidence内の `target` は実行時snapsh"
+ },
+ "BD-205": {
+  "layer": "basic_design",
+  "reason": "基本設計: システム全体の構成",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "検証対象を実装construct（Source Target"
+ },
+ "BD-206": {
+  "layer": "design",
+  "reason": "詳細設計: 入出力データの構造",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`targets[]` は検証対象をSource Targe"
+ },
+ "BD-207": {
+  "layer": "basic_design",
+  "reason": "基本設計: システム全体の構成",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "非sourceの境界形態（外部契約・境界上の振る舞い）の具体"
+ },
+ "DS-338": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての入力条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "scannerは `@vtest.src-id` の指定値を"
+ },
+ "DES-216": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "source declarationを構文上完全なTest "
+ },
+ "DES-230": {
+  "layer": "design",
+  "reason": "詳細設計: 構成要素ごとの責務",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "処理フロー第6段は、`.verify/` 読み込みであり、v"
+ },
+ "DS-342": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 競合する条件の優先順位",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "集約の代表値選択に診断ラベルを用いない（§11.3）。"
+ },
+ "BD-214": {
+  "layer": "design",
+  "reason": "詳細設計: 提供・依存するインターフェース",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`vtest-adapter-api` は言語非依存の `T"
+ },
+ "BD-215": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "codecはadapter固有のcompatibility "
+ },
+ "DES-372": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Test Runnerはcommand起動前に `Execu"
+ },
+ "DS-347": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Form `kind` はbuilt-inと `.verif"
+ },
+ "DES-379": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: エラーの外部的意味",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "重複kindまたは対応の不一致はE-ADAPTER-001、"
+ },
+ "BD-220": {
+  "layer": "basic_design",
+  "reason": "基本設計: システム全体の構成",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "上流文書はすべてDOCノードとし、文書間・VO→文書は `d"
+ },
+ "BD-223": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: すべての入力条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "したがって `rust-cargo` のTestは従来どおり"
+ },
+ "DES-398": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 入力値の範囲・形式・制約",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`rust-cargo` discoveryの第4段はTes"
+ },
+ "BD-224": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 例外条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`config.yaml` の `doc.roots` に列"
+ },
+ "DES-403": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "coreは、返却されたadapter IDとTarget R"
+ },
+ "DES-404": {
+  "layer": "design",
+  "reason": "詳細設計: 構成要素ごとの責務",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "coreは§1.3のSource Target hashを計"
+ },
+ "DES-405": {
+  "layer": "design",
+  "reason": "詳細設計: 入出力データの構造",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "SRC ID参照は対応するadapterのSource Lo"
+ },
+ "DS-408": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 例外条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`rust-cargo` adapterのenum vari"
+ },
+ "DS-410": {
+  "layer": "spec",
+  "reason": "基本仕様: 機能間の主要な関係",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "静的解析は`oracle_presence`（照合装置の存在"
+ },
+ "DS-411": {
+  "layer": "spec",
+  "reason": "基本仕様: 機能間の主要な関係",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "静的解析は`target_binding`の静的到達証明（D"
+ },
+ "SPEC-456": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "決定論的解析結果は正典レコードを持たず、検証のたびに現在のs"
+ },
+ "SPEC-457": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`vtest audit static`は判断記録（§8）と"
+ },
+ "SPEC-458": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "静的解析は再計算派生であるため、これらのtarget別ver"
+ },
+ "DS-456": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "終端の判定は covers / 宣言target のグラフの"
+ },
+ "DS-457": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "終端の判定について、信頼を宣言する専用の記録・注釈・設定項目"
+ },
+ "SPEC-459": {
+  "layer": "design",
+  "reason": "詳細設計: 永続化ルール",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`target_binding`項目値は検証時に算出する。"
+ },
+ "SPEC-468": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 入力値の範囲・形式・制約",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "本書が定義する判断型の値は`test-semantic` /"
+ },
+ "DES-436": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "旧モデルの`verdict → CheckValue`写像（"
+ },
+ "DS-515": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 入力値の範囲・形式・制約",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`basis.kind`は`document` / `vo`"
+ },
+ "SPEC-483": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "同一対象に有効な判断記録が複数あってよい（再判断・多重判断）"
+ },
+ "SPEC-485": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 状態遷移条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "仕様・VO・Test等が変更された場合、過去の判断を現在状態"
+ },
+ "BD-241": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "旧モデルの`--req`（REQ指定）はdocument層の"
+ },
+ "DS-542": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: エラーの外部的意味",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "orchestrationは`ExecutionDescri"
+ },
+ "DES-451": {
+  "layer": "design",
+  "reason": "詳細設計: 永続化ルール",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "stdout / stderrの全文は`cache/logs"
+ },
+ "DES-460": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "一致条件は、demangle済み関数名の末尾がlocator"
+ },
+ "BD-002": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な技術選定",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`vtest` 本体の実装言語はRustとする。"
+ },
+ "SPEC-112": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 仕様上の不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "ULID payloadにより並列生成時のファイル名衝突を実"
+ },
+ "DES-004": {
+  "layer": "design",
+  "reason": "詳細設計: 事前条件・事後条件・不変条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "coreが言語非依存の正規化規則でsubject hashを"
+ },
+ "SPEC-208": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "初回登録時の階層化を必須としない。"
+ },
+ "BD-048": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Test操作の公式経路として、Test IDまたはadapt"
+ },
+ "BD-049": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Create Testは、Form Schemaに基づく構造"
+ },
+ "BD-050": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Edit Testは、Test IDを編集ハンドルとして、a"
+ },
+ "BD-051": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Query Testは、Test ID・VO・Target "
+ },
+ "BD-052": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Audit（判断）Testは、§11の判断記録bundle生"
+ },
+ "SPEC-250": {
+  "layer": "spec",
+  "reason": "基本仕様: 外部から与えられる入力",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Create / Editの入力は差分操作ではなくあるべき状"
+ },
+ "SPEC-258": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "Rust関数単体Test用と小規模結合Test用の組込sch"
+ },
+ "SPEC-332": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "content_hash照合は決定論的に解決する。"
+ },
+ "SPEC-341": {
+  "layer": "basic_design",
+  "reason": "基本設計: 主要な永続化方式",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "検証グラフ、逆引きインデックス、集約結果は `vtest s"
+ },
+ "SPEC-349": {
+  "layer": "spec",
+  "reason": "基本仕様: 主要な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "CIはCLI（非対話）で `vtest verify` を同"
+ },
+ "SPEC-355": {
+  "layer": "spec",
+  "reason": "基本仕様: 該当する列挙項目なし（六層参照リストのいずれにも一致しない。文書メタ言明のため現状の層を維持）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "本書ではコマンド一覧と責務を確定する。"
+ },
+ "SPEC-357": {
+  "layer": "spec",
+  "reason": "基本仕様: 外部へ返される出力",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "出力では検証状態とゲート満否を別に提示する。"
+ },
+ "SPEC-362": {
+  "layer": "spec",
+  "reason": "基本仕様: 機能間の主要な関係",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "CLIとMCPは同じadapter registry com"
+ },
+ "SPEC-366": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`rust-cargo` はRust・Rust functi"
+ },
+ "SPEC-367": {
+  "layer": "spec",
+  "reason": "基本仕様: 提供する機能",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "`rust-cargo` 以外のproduction lan"
+ },
+ "SPEC-368": {
+  "layer": "spec",
+  "reason": "基本仕様: 異常時の外部的な振る舞い",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "能力不足で確認できない項目は§8条項4に従い扱う。"
+ },
+ "BD-132": {
+  "layer": "basic_design",
+  "reason": "基本設計: 該当する列挙項目なし（六層参照リストのいずれにも一致しない。文書メタ言明のため現状の層を維持）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "READMEに非関知宣言を一行入れる。"
+ }
+}
