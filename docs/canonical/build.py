@@ -3406,18 +3406,107 @@ def collect_section_ids_by_heading(output: dict) -> dict:
     return result
 
 
-def log_retired_ids(root: Path, retired: list) -> None:
+def log_retired_ids(root: Path, retired: list, reason: str = None) -> None:
     """Append (old_id, new_id) pairs to docs/canonical/relations/
     retired-ids.json (created if absent) -- a durable, cumulative ledger
     (not overwritten each run) so a reference to a retired id can still be
-    traced to what it became, across every fix-ids run, not just the
-    latest."""
+    traced to what it became, across every fix-ids/retire-id run, not
+    just the latest. `reason`, if given, is stamped on every entry this
+    call appends (retire-id's "manual retire"); omitted for fix-ids'
+    automatic layer-move retirements, matching their original shape."""
     log_path = root / "relations" / "retired-ids.json"
     existing = read_json(log_path) if log_path.exists() else []
     for old_id, new_id in retired:
-        existing.append({"old_id": old_id, "new_id": new_id})
+        entry = {"old_id": old_id, "new_id": new_id}
+        if reason:
+            entry["reason"] = reason
+        existing.append(entry)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+# --------------------------------------------------------------- retire-id --
+
+def next_fresh_id(layer: str, reserved_ids: set) -> str:
+    """The next unused statement id for `layer`, consulting reserved_ids
+    exactly like assign_ids does (2026-09-05) -- used by retire-id to mint
+    a replacement id outside the normal per-layer build pass, for a
+    statement id that must be force-retired even though it currently
+    matches its own layer's prefix (so id_belongs_to_layer would not have
+    flagged it on its own -- e.g. an id that was accidentally assigned
+    twice before the reserved-id fix landed)."""
+    prefix = LEAF_PREFIX[layer]
+    max_numbered = 0
+    for rid in reserved_ids:
+        if _prefix_matches(rid, prefix, layer):
+            m = _ID_NUM_TRAIL_RE.search(rid)
+            if m:
+                max_numbered = max(max_numbered, int(m.group(1)))
+    counter = max_numbered + 1
+    new_id = f"{prefix}-{counter:03d}"
+    while new_id in reserved_ids:
+        counter += 1
+        new_id = f"{prefix}-{counter:03d}"
+    return new_id
+
+
+def cmd_retire_id(args) -> int:
+    root = Path(args.root)
+    try:
+        _output, item_objects, dups, fragments, _retired = build_in_memory(root)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if dups:
+        for d in sorted(set(dups)):
+            print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
+        return 1
+
+    reserved_ids = build_reserved_ids(fragments, root)
+
+    item_to_path: dict = {}
+    for path, frag in fragments:
+        for it in iter_all_fragment_items(frag):
+            item_to_path[id(it)] = path
+
+    retired_pairs = []
+    touched_paths = set()
+    for old_id in args.id:
+        item_obj = item_objects.get(old_id)
+        if item_obj is None:
+            print(f"error: {old_id!r} is not a current statement id (fix-ids/build it first, or it's a section id -- retire-id only handles statement ids)", file=sys.stderr)
+            return 1
+        layer = None
+        for candidate_layer in LAYERS:
+            if id_belongs_to_layer(old_id, candidate_layer):
+                layer = candidate_layer
+                break
+        if layer is None:
+            print(f"error: {old_id!r} doesn't match any known layer's id prefix", file=sys.stderr)
+            return 1
+        new_id = next_fresh_id(layer, reserved_ids)
+        reserved_ids.add(new_id)
+        reserved_ids.add(old_id)
+        item_obj["id"] = new_id
+        item_obj.pop("_id", None)
+        item_obj.pop("_native_area", None)
+        item_obj.pop("keep_id", None)
+        retired_pairs.append((old_id, new_id))
+        touched_paths.add(item_to_path[id(item_obj)])
+
+    for path, frag in fragments:
+        if path in touched_paths:
+            text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
+            path.write_text(text, encoding="utf-8")
+
+    if retired_pairs:
+        log_retired_ids(root, retired_pairs, reason="manual retire")
+
+    print("--- retire-id ---")
+    for old_id, new_id in retired_pairs:
+        print(f"  {old_id} -> {new_id}")
+    print(f"  fragment files rewritten: {len(touched_paths)}")
+    return 0
 
 
 def cmd_fix_ids(args) -> int:
@@ -4181,6 +4270,11 @@ def main(argv=None) -> int:
     p_fix_ids = sub.add_parser("fix-ids", help="write item ids and heading section-id maps into fragments in place (2026-09-05, replaces the old `freeze` -- does not write derived_from)")
     add_root_arg(p_fix_ids)
     p_fix_ids.set_defaults(func=cmd_fix_ids)
+
+    p_retire = sub.add_parser("retire-id", help="force one or more currently-stored statement ids to a fresh id in the same layer, log the retirement, rewrite the fragment (2026-09-05)")
+    add_root_arg(p_retire)
+    p_retire.add_argument("id", nargs="+", help="statement id(s) currently stored in a fragment to force-retire")
+    p_retire.set_defaults(func=cmd_retire_id)
 
     p_relayer = sub.add_parser("relayer", help="apply or report per-item layer overrides (spec/basic_design/design split)")
     relayer_sub = p_relayer.add_subparsers(dest="relayer_command", required=True)
