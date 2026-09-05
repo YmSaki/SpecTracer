@@ -2364,7 +2364,7 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 承認レコードの `supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効承認の決定に用いない（§3.3）。
 
-### DS-1585
+### DS-1588
 
 A’(X) が空の場合、実効承認状態は `draft` とする。
 
@@ -6378,7 +6378,7 @@ Integration Test の配置先（test suite location）は Source Target の loca
 
 *導出元: SPEC-S039, SPEC-S040*
 
-### DS-1586
+### DS-1589
 
 回答自体の検証エラーは E-OP-001（候補付き）とする。
 

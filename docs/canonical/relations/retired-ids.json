@@ -30,5 +30,15 @@
   {
     "old_id": "DES-565",
     "new_id": "DS-1587"
+  },
+  {
+    "old_id": "DS-1585",
+    "new_id": "DS-1588",
+    "reason": "manual retire"
+  },
+  {
+    "old_id": "DS-1586",
+    "new_id": "DS-1589",
+    "reason": "manual retire"
   }
 ]

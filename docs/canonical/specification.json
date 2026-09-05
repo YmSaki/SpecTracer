@@ -23648,7 +23648,7 @@
               }
             },
             {
-              "id": "DS-1585",
+              "id": "DS-1588",
               "statement": "A’(X) が空の場合、実効承認状態は `draft` とする。",
               "derived_from": [],
               "source": {
@@ -36884,7 +36884,7 @@
           ],
           "items": [
             {
-              "id": "DS-1586",
+              "id": "DS-1589",
               "statement": "回答自体の検証エラーは E-OP-001（候補付き）とする。",
               "derived_from": [],
               "cites": [

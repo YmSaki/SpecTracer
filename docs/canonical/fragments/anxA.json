@@ -6267,7 +6267,7 @@
             ]
           },
           "layer": "detailed_spec",
-          "id": "DS-1586"
+          "id": "DS-1589"
         },
         {
           "statement": "挿入前の対象ファイルの内容を保持する。",

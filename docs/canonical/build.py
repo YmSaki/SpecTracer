@@ -3488,11 +3488,22 @@ def cmd_retire_id(args) -> int:
         reserved_ids.add(new_id)
         reserved_ids.add(old_id)
         item_obj["id"] = new_id
-        item_obj.pop("_id", None)
-        item_obj.pop("_native_area", None)
         item_obj.pop("keep_id", None)
         retired_pairs.append((old_id, new_id))
         touched_paths.add(item_to_path[id(item_obj)])
+
+    # 2026-09-05 (fixing a real crash): strip build_in_memory's transient
+    # bookkeeping from EVERY item build_in_memory touched, not just the
+    # ones retire-id itself changed -- an area-shaped fragment's OTHER
+    # items still carry a live "_native_area" back-pointer into the SAME
+    # area object this fragment is about to re-serialize (area["items"]
+    # includes them), so leaving those untouched items' "_native_area" in
+    # place makes the object graph genuinely circular the moment ANY item
+    # in that area gets written back, not just the retired one. The old
+    # per-item pop inside the loop above only ever cleaned the id(s)
+    # actually being retired, which is exactly why this only broke on a
+    # detailed_spec-family (area-shaped) fragment, not a flat one.
+    strip_build_bookkeeping(item_objects)
 
     for path, frag in fragments:
         if path in touched_paths:
@@ -3523,8 +3534,6 @@ def cmd_fix_ids(args) -> int:
 
     for item_obj in item_objects.values():
         item_obj["id"] = item_obj["_id"]
-        item_obj.pop("_id", None)
-        item_obj.pop("_native_area", None)
         item_obj.pop("keep_id", None)  # promoted into "id"; the old mechanism is now redundant
         # NOTE: an item's "layer" override (if any) is NOT removed here --
         # it is a permanent routing directive build_in_memory reads on
@@ -3533,6 +3542,15 @@ def cmd_fix_ids(args) -> int:
         # NOT written here (team-lead's spec) -- it stays apply-
         # derivation's job, computed fresh from cites/trace-tables.json,
         # never a stored fact in a fragment.
+    # 2026-09-05: explicit blanket strip (not just the two pops folded into
+    # the loop above) for every item build_in_memory touched, root included
+    # -- same guard retire-id needed after its circular-reference crash
+    # (an area-shaped fragment's untouched items still carry a live
+    # "_native_area" back-pointer into the area object being re-dumped).
+    # This loop already covered every item via item_objects, so it wasn't
+    # live here, but keeping one shared, obviously-complete call is safer
+    # than trusting two independent per-command pop lists to stay in sync.
+    strip_build_bookkeeping(item_objects)
 
     section_ids_by_heading = collect_section_ids_by_heading(output)
     stamped_headings = 0
