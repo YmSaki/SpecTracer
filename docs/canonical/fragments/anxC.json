@@ -3163,7 +3163,7 @@
               185
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "`vtest audit bundle` は判断対象ごとに、判断に必要な情報（対象 VO と claim、Test Intent、テストコード、対象実装、関連テスト、既知 partition、過去の判断、対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/` へ出力する。",
@@ -3206,7 +3206,7 @@
               190
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "submit は、bundle_id のバンドルが存在する（E-AUDIT-001）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3525,7 +3525,7 @@
               200
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "表にない組合せの要求ではバンドルを生成せず usage error（終了コード 2）とする。",
@@ -4012,7 +4012,7 @@
               216
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "値域外の値、および値域外の `subject` 種別（判断記録 ULID・Test ID 等）は書込み時に E-APPROVAL-002 で拒否し record を生成しない。",
@@ -4190,7 +4190,7 @@
               220
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録の承認は `judgment_ref` によってのみ表し、判断記録 ULID を `subject` に置かない。",
@@ -5170,7 +5170,7 @@
               270
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。",
@@ -5316,7 +5316,7 @@
               273
             ]
           },
-          "layer": "basic_design"
+          "layer": "design"
         },
         {
           "statement": "集約代表値は構造検査（`chain_integrity` / `orphan_detection`）を含む要求 scope 内の全評価値の fail-closed 合成であり、エンティティ軸の部分木が全 `PASS` でも構造検査が非 `PASS` なら代表値は非 `PASS` になる。",
@@ -5518,7 +5518,7 @@
               285
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "registryのkind owner、schemaのadapter、Structured Test capabilityが一意に一致する場合だけcreate / form_getを許可する。",
@@ -5665,7 +5665,7 @@
               296
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "edit と同じ確認項目を create でも実施し、create 経路にだけ検証を省く分岐を設けない。",
@@ -6162,7 +6162,7 @@
               331
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "synthetic adapterは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを、`vtest-model`、`vtest-scan`、`vtest-verify`の変更なしで登録・scan・verifyできる。",

@@ -1,0 +1,2630 @@
+{
+  "SPEC-539": {
+    "layer": "spec",
+    "list_item": "NONE",
+    "statement_prefix": "参照規則・診断コード・終了コードは本冊 §17 に従う。",
+    "code_like": false
+  },
+  "SPEC-540": {
+    "layer": "spec",
+    "list_item": "NONE",
+    "statement_prefix": "本別紙は基本仕様 §26.1（CLI コマンド一覧）・§26.2（MCP ツール",
+    "code_like": false
+  },
+  "SPEC-541": {
+    "layer": "spec",
+    "list_item": "NONE",
+    "statement_prefix": "本別紙は新規コマンド・ツールを増やさない。",
+    "code_like": false
+  },
+  "SPEC-542": {
+    "layer": "spec",
+    "list_item": "NONE",
+    "statement_prefix": "本別紙は、上流（要件定義＝WHY、基本仕様＝WHAT、詳細設計本冊＝HOW 中核",
+    "code_like": false
+  },
+  "SPEC-543": {
+    "layer": "spec",
+    "list_item": "NONE",
+    "statement_prefix": "終了コードは本冊 §17.2 に従う。",
+    "code_like": false
+  },
+  "SPEC-544": {
+    "layer": "spec",
+    "list_item": "基本仕様: 外部から観測可能な状態変化",
+    "statement_prefix": "検証状態は5値（`PASS` / `FAIL` / `MISMATCH` / `",
+    "code_like": false
+  },
+  "SPEC-545": {
+    "layer": "spec",
+    "list_item": "基本仕様: 外部から観測可能な状態変化",
+    "statement_prefix": "診断ラベルは状態に付随する原因説明であり、`MISSING` / `NOT_EX",
+    "code_like": false
+  },
+  "SPEC-546": {
+    "layer": "spec",
+    "list_item": "基本仕様: 外部から観測可能な状態変化",
+    "statement_prefix": "`NO_EVIDENCE` は状態であって診断ラベルではない。",
+    "code_like": false
+  },
+  "SPEC-547": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "診断ラベルを集約の代表値選択に用いず、原因説明として併記するだけとする。",
+    "code_like": false
+  },
+  "SPEC-548": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "本 version の Test metadata は存在理由分類（旧 `rol",
+    "code_like": false
+  },
+  "SPEC-549": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "本 version はすべての管理対象 Test に `covers ≥ 1` ",
+    "code_like": false
+  },
+  "SPEC-550": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出する。",
+    "code_like": false
+  },
+  "SPEC-551": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`doc` は上流文書を総称 `document` レコードとして管理する唯一の",
+    "code_like": false
+  },
+  "SPEC-552": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`doc` は文書種別（要件定義・基本仕様・詳細設計・API Schema 等）",
+    "code_like": false
+  },
+  "SPEC-553": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、種",
+    "code_like": false
+  },
+  "SPEC-554": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "旧モデルの `vtest spec` / `vtest req` は廃し、SPE",
+    "code_like": false
+  },
+  "SPEC-555": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "document の承認・却下・取消は `vtest approval` で行い",
+    "code_like": false
+  },
+  "SPEC-556": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "承認は特定のエンティティ型に従属しない独立の領域であり、対象種別を引数に取るこの",
+    "code_like": false
+  },
+  "SPEC-557": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "エンティティ側の `vo approve` / `vo_approve` はこの",
+    "code_like": false
+  },
+  "SPEC-558": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`audit bundle` / `submit` は本冊 §8 の判断記録プロ",
+    "code_like": false
+  },
+  "SPEC-559": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "本システムは宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを自ら発見・裁",
+    "code_like": false
+  },
+  "SPEC-560": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "本システムは機械が決定論で確定できない疑義を `UNKNOWN` として外部（人",
+    "code_like": false
+  },
+  "SPEC-561": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。",
+    "code_like": false
+  },
+  "SPEC-562": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。",
+    "code_like": false
+  },
+  "SPEC-563": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "判断記録（`.verify/decisions/` の actor / subj",
+    "code_like": false
+  },
+  "SPEC-564": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "判断済み ≠ 承認済みである。",
+    "code_like": false
+  },
+  "SPEC-565": {
+    "layer": "spec",
+    "list_item": "基本仕様: 主要な振る舞い",
+    "statement_prefix": "判断は承認なしでも記録でき、正式採用は承認の別段階である。",
+    "code_like": false
+  },
+  "SPEC-566": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "検査は基本仕様 §5 の固定4検査（`chain_integrity` / `o",
+    "code_like": false
+  },
+  "SPEC-567": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "旧モデルの12項目（`spec_coverage` / `vo_decompos",
+    "code_like": false
+  },
+  "SPEC-568": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "`verify` が判定用、`report` が閲覧・提出用という役割分担とする",
+    "code_like": false
+  },
+  "SPEC-569": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態",
+    "code_like": false
+  },
+  "SPEC-570": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "本システムの責務はゲート条件が現在満たされているかの評価・提示に限り、フェーズの",
+    "code_like": false
+  },
+  "SPEC-571": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "完了確認は `verify` の4検査で行う。",
+    "code_like": false
+  },
+  "DS-751": {
+    "layer": "spec",
+    "list_item": "基本仕様: 利用条件",
+    "statement_prefix": "すべてのコマンドは非対話で完結する。",
+    "code_like": false
+  },
+  "DS-752": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "確認プロンプトを出す場合は `--yes` で抑止できる。",
+    "code_like": false
+  },
+  "DS-753": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "出力は既定で人間向けテキスト、`--format json` で機械可読 JSO",
+    "code_like": false
+  },
+  "DS-754": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "JSON 出力は最上位に `{ \"ok\": bool, \"data\": ...,",
+    "code_like": false
+  },
+  "DS-755": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`diagnostics` の要素は `{ \"code\": \"E-SCAN-00",
+    "code_like": false
+  },
+  "DS-756": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "検証結果を返す `verify` / `report`（CLI の `--for",
+    "code_like": false
+  },
+  "DS-757": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "グローバルオプションは `--project <dir>`（プロジェクトルート。",
+    "code_like": false
+  },
+  "DS-758": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "グローバルオプションは `--format <text|json>` を持つ。",
+    "code_like": false
+  },
+  "DS-759": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "グローバルオプションは `--quiet` を持つ。",
+    "code_like": false
+  },
+  "DS-760": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "限定 scope の検証結果を完全検証と取り違えないため、`verify` / ",
+    "code_like": false
+  },
+  "DS-761": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "text 出力の冒頭表示（§12.2）と同じ内容を機械可読に表したものである。",
+    "code_like": false
+  },
+  "DS-762": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`scope.requested.items` は、この実行で評価した検査軸を本",
+    "code_like": false
+  },
+  "DS-763": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--items`（MCP は `items[]`）省略時は固定4検査を 4 件",
+    "code_like": false
+  },
+  "DS-764": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "列挙順は上記例の固定順（`chain_integrity` / `orphan_",
+    "code_like": false
+  },
+  "DS-765": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`scope.requested.entities` は、エンティティ軸で指定し",
+    "code_like": false
+  },
+  "DS-766": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--doc` / `--vo` / `--test` をいずれも指定しない実行",
+    "code_like": false
+  },
+  "DS-767": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`scope.unverified_outside_scope` は、`requ",
+    "code_like": false
+  },
+  "DS-768": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`true` は「要求 scope 外は未検証であり、`PASS` ではない」こ",
+    "code_like": false
+  },
+  "DS-769": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "scope 外・未実施の検査は集約ツリー内で `NO_EVIDENCE`（診断 ",
+    "code_like": false
+  },
+  "DS-770": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`verify` / `report` は `unverified_outsid",
+    "code_like": false
+  },
+  "DS-771": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`scope` を持たない出力は限定 scope と区別できないため、完全検証の",
+    "code_like": false
+  },
+  "DS-772": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`init` / `scan` / `doc *` / `vo *` / `te",
+    "code_like": false
+  },
+  "DS-773": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "検証結果を出力するすべてのコマンド（`verify` / `report` / ",
+    "code_like": false
+  },
+  "DS-774": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "JSON では検証状態を各検査ノードの `state` field へ入れる。",
+    "code_like": false
+  },
+  "DS-775": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "JSON では診断ラベルを各検査ノードの `diagnostic` field（",
+    "code_like": false
+  },
+  "DS-776": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "JSON envelope、adapter選択エラー、capability不足の",
+    "code_like": false
+  },
+  "DS-777": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "CLIだけがRust固有の既定値へフォールバックしてはならない。",
+    "code_like": false
+  },
+  "DS-778": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "Testを含むJSONは本冊 §5.2の `execution` を必ず返す。",
+    "code_like": false
+  },
+  "DS-779": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`rust-cargo` Testについてだけ、wire compatibili",
+    "code_like": false
+  },
+  "DS-780": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "非Rust TestではRust互換fieldを省略し、空値またはdummy値を",
+    "code_like": false
+  },
+  "DS-781": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "Test JSONは `targets` を常に list として返す。",
+    "code_like": false
+  },
+  "DS-782": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 入力値の範囲・形式・制約",
+    "statement_prefix": "`rust-cargo` は `targets ≥ 1` を必須とする。",
+    "code_like": false
+  },
+  "DS-783": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "targetが1件の場合だけ同値の単数互換field `target` を追加で",
+    "code_like": false
+  },
+  "DS-784": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "複数target Testでは単数fieldを省略し、先頭targetを代表値と",
+    "code_like": false
+  },
+  "DS-785": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "Test入力から `execution` を復元できるのは、`rust-carg",
+    "code_like": false
+  },
+  "DS-786": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`execution`と互換fieldが併存する場合は一致を必須とする。",
+    "code_like": false
+  },
+  "DS-787": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "したがって CLI・MCP の入出力に role / anchor の宣言逐語 ",
+    "code_like": false
+  },
+  "DS-788": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "明示操作に必須のadapter capabilityが未提供なら、`ok: fa",
+    "code_like": false
+  },
+  "DS-789": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "明示操作に必須のadapter capabilityが未提供なら、create ",
+    "code_like": false
+  },
+  "DS-790": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "明示操作に必須のadapter capabilityが未提供なら、auditでは",
+    "code_like": false
+  },
+  "DS-791": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "明示操作に必須のadapter capabilityが未提供なら、runではEv",
+    "code_like": false
+  },
+  "DS-792": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "検証・reportで能力不足を観測した場合はW-ADAPTER-101と能力別の",
+    "code_like": false
+  },
+  "DS-793": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest init` は `.verify/` 一式を生成する。",
+    "code_like": false
+  },
+  "DS-794": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`config.yaml` は本冊 §2.2 の version 2 で、組込 ",
+    "code_like": false
+  },
+  "DS-795": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vtest init` の生成物には `doc/` / `vo/` / `re",
+    "code_like": false
+  },
+  "DS-796": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "既存の `.verify/` があれば `vtest init` はエラー（終了",
+    "code_like": false
+  },
+  "DS-797": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` は `.verify/` を作成するだけであり、既存コ",
+    "code_like": false
+  },
+  "DS-798": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` が作成するファイル・ディレクトリは `.verify/",
+    "code_like": false
+  },
+  "DS-799": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` は、プロジェクトルート直下の `.gitignore`",
+    "code_like": false
+  },
+  "DS-800": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` は既存ソースコード・既存テストコードのバイト列を変更し",
+    "code_like": false
+  },
+  "DS-801": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` は Test metadata 宣言（`@vtest.",
+    "code_like": false
+  },
+  "DS-802": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "管理宣言の付与は `test create` / `test edit`（§15",
+    "code_like": false
+  },
+  "DS-803": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`vtest init` は既存の `.verify/` があるときは終了コード",
+    "code_like": false
+  },
+  "DS-804": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vtest init` は既存 `.verify/` の内容を上書き・マージ・",
+    "code_like": false
+  },
+  "DS-805": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "したがって `vtest init` の実行前後で、`.verify/` を除い",
+    "code_like": false
+  },
+  "DS-806": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "既存プロジェクトへの後からの導入が既存資産を書き換えないことは、この不変条件で保",
+    "code_like": false
+  },
+  "DS-807": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest scan` はスキャンと整合性検査を実行し、診断一覧とエンティティ",
+    "code_like": false
+  },
+  "DS-808": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "整合性検査は `chain_integrity`（文書鎖・VO derives_",
+    "code_like": false
+  },
+  "DS-809": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`vtest scan` は registry・config・adapter契約",
+    "code_like": false
+  },
+  "DS-810": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`vtest scan` は scan が完了し repository 整合性の",
+    "code_like": false
+  },
+  "DS-811": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest doctor` は `vtest scan` と同一処理の別名であ",
+    "code_like": false
+  },
+  "DS-812": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002",
+    "code_like": false
+  },
+  "DS-813": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`doc add` は `--path` の対象ファイルの sha256 を計算",
+    "code_like": false
+  },
+  "DS-814": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--derives-from` は上流 document への導出リンク（0件",
+    "code_like": false
+  },
+  "DS-815": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "各 `--derives-from` リンクに任意の `--note`（導出理由",
+    "code_like": false
+  },
+  "DS-816": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--anchor <text>` は直前の `--derives-from` ",
+    "code_like": false
+  },
+  "DS-817": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--anchor` は `--note` と同じ結合規則・同じ任意性であり、省",
+    "code_like": false
+  },
+  "DS-818": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--anchor` の値は不透明な文字列として保存し、文書内位置への解決・実在",
+    "code_like": false
+  },
+  "DS-819": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--derives-from` を伴わない `--anchor`、または 1 ",
+    "code_like": false
+  },
+  "DS-820": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`doc show` は各 `derives_from` entry の `an",
+    "code_like": false
+  },
+  "DS-821": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--root` / `--no-root` は当該 DOC を `orphan",
+    "code_like": false
+  },
+  "DS-822": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する。",
+    "code_like": false
+  },
+  "DS-823": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`doc edit` は設けない。",
+    "code_like": false
+  },
+  "DS-824": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "正典編集は `add --update` で行う。",
+    "code_like": false
+  },
+  "DS-825": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--update` は既存 DOC レコードの sha256 を現ファイルで再",
+    "code_like": false
+  },
+  "DS-826": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--update` は document subject hash が変化する",
+    "code_like": false
+  },
+  "DS-827": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--update` は `--root` / `--no-root` を併せて",
+    "code_like": false
+  },
+  "DS-828": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`doc list --tree` は `derives_from` の文書鎖を",
+    "code_like": false
+  },
+  "DS-829": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`doc list --roots` は現在の根集合を表示する。",
+    "code_like": false
+  },
+  "DS-830": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`doc show` は DOC の path・content_hash・der",
+    "code_like": false
+  },
+  "DS-831": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`derives_from` の参照先 document が存在しなければ文書鎖",
+    "code_like": false
+  },
+  "DS-832": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`path` の実ファイルが `content_hash` と一致しなくなれば ",
+    "code_like": false
+  },
+  "DS-833": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "根に指定されず親も持たない document は孤児として `orphan_de",
+    "code_like": false
+  },
+  "DS-834": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "VO は 1 件以上の `document` から `derives_from`",
+    "code_like": false
+  },
+  "DS-835": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "旧モデルの `--req`（REQ 参照）・`--spec` / `--sect",
+    "code_like": false
+  },
+  "DS-836": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "VO の `status`（`draft` / `approved`）は正典 f",
+    "code_like": false
+  },
+  "DS-837": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`status` が読取り互換 field として保存されていても値は無視し、存",
+    "code_like": false
+  },
+  "DS-838": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "旧 REQ の `active` / `withdrawn` 語彙は REQ 層",
+    "code_like": false
+  },
+  "DS-839": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--doc DOC-X` は当該 document を根とする下流 VO の絞",
+    "code_like": false
+  },
+  "DS-840": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo add` / `vo edit` の `--anchor <text>`",
+    "code_like": false
+  },
+  "DS-841": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo add` / `vo edit` の `--anchor` は `--n",
+    "code_like": false
+  },
+  "DS-842": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--derives-from` を伴わない `--anchor`、または 1 ",
+    "code_like": false
+  },
+  "DS-843": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vo show` は各 `derives_from` entry の `anc",
+    "code_like": false
+  },
+  "DS-844": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`anchor` は VO subject hash に入らないため、`anch",
+    "code_like": false
+  },
+  "DS-845": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--combination` は `coverage_policy: expl",
+    "code_like": false
+  },
+  "DS-846": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--combination` の1回の出現が1 tupleに対応し、`<dim",
+    "code_like": false
+  },
+  "DS-847": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "複数 tuple は `--combination` を繰り返して与える。",
+    "code_like": false
+  },
+  "DS-848": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo edit` の `--combination` は desired st",
+    "code_like": false
+  },
+  "DS-849": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--clear-combinations` は `combinations` ",
+    "code_like": false
+  },
+  "DS-850": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--combination` も `--clear-combinations`",
+    "code_like": false
+  },
+  "DS-851": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--combination` の値が本冊 §3.2.1 の受理条件（`expl",
+    "code_like": false
+  },
+  "DS-852": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vo add` はこの違反時に新規レコードを作成せず、`vo edit` は既",
+    "code_like": false
+  },
+  "DS-853": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`<dim>=<part>` の形をなさない値は引数不正として終了コード 2 で",
+    "code_like": false
+  },
+  "DS-854": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo expand` は本冊 §3.2.1 の実体化（`independent",
+    "code_like": false
+  },
+  "DS-855": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--dry-run` は生成予定の子 VO 一覧のみ表示する。",
+    "code_like": false
+  },
+  "DS-856": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`explicit` の VO は `combinations` の各 tupl",
+    "code_like": false
+  },
+  "DS-857": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`combinations` が本冊 §3.2.1 の受理条件に違反する VO ",
+    "code_like": false
+  },
+  "DS-858": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo approve VO-X <承認引数>` は `vtest approv",
+    "code_like": false
+  },
+  "DS-859": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "承認の意味論を重複して定義せず、正典は次項の `vtest approval` ",
+    "code_like": false
+  },
+  "DS-860": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`vo list --status` および `vo show` が表示する承認",
+    "code_like": false
+  },
+  "DS-861": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo edit` は実効承認が `approved` の VO に対して警告を",
+    "code_like": false
+  },
+  "DS-862": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--subject-type` と `--subject-id` は本冊 §3",
+    "code_like": false
+  },
+  "DS-863": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--subject-type vo` は `subject` に VO ID ",
+    "code_like": false
+  },
+  "DS-864": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--subject-type document` は `subject` に ",
+    "code_like": false
+  },
+  "DS-865": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--subject-type judgment` は `--subject-i",
+    "code_like": false
+  },
+  "DS-866": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "方針は総称 document として登録した文書で表現するため、方針の承認・却下",
+    "code_like": false
+  },
+  "DS-867": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--state` は必須で、本冊 §3.5 の `approved_state",
+    "code_like": false
+  },
+  "DS-868": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--basis` は根拠参照（任意）である。",
+    "code_like": false
+  },
+  "DS-869": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--supersedes` は明示に置き換える旧承認レコード ID（0件以上）",
+    "code_like": false
+  },
+  "DS-870": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "`withdraw <approval-id>` は `create --sub",
+    "code_like": false
+  },
+  "DS-871": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`show` は当該対象の承認レコード一覧（`approved_state`・`",
+    "code_like": false
+  },
+  "DS-872": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "対象、`--subject-type judgment` の参照先判断記録、また",
+    "code_like": false
+  },
+  "DS-873": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--state` が値域外、`--subject-type` と `--sub",
+    "code_like": false
+  },
+  "DS-874": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "実効承認は明示の `supersedes` 関係だけで決まる。",
+    "code_like": false
+  },
+  "DS-875": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`supersedes` 関係にない複数の有効承認レコードはすべて実効集合に属し",
+    "code_like": false
+  },
+  "DS-876": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "実効集合に `rejected` / `withdrawn` が 1 件でも残れ",
+    "code_like": false
+  },
+  "DS-877": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "取消・却下の後に再承認するには、当該レコード ID を `--supersede",
+    "code_like": false
+  },
+  "DS-878": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PAS",
+    "code_like": false
+  },
+  "DS-879": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest test create` は Form Schema（§14）に基",
+    "code_like": false
+  },
+  "DS-880": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--dry-run` は挿入内容と挿入位置のみを表示する。",
+    "code_like": false
+  },
+  "DS-881": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "回答の検証エラーは E-OP-001 として候補付きで報告する。",
+    "code_like": false
+  },
+  "DS-882": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest test edit` は desired state 方式である。",
+    "code_like": false
+  },
+  "DS-883": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--answers` は完全なあるべき状態を宣言する。",
+    "code_like": false
+  },
+  "DS-884": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--set` は指定フィールドのみのあるべき値を宣言する。",
+    "code_like": false
+  },
+  "DS-885": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "Test implementation の書き換えは `--body-file ",
+    "code_like": false
+  },
+  "DS-886": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`test show` は Test の intent・covers・targe",
+    "code_like": false
+  },
+  "DS-887": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`test show` は role / anchor の表示・`--role`",
+    "code_like": false
+  },
+  "DS-888": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`test query` の逆引きは §11.6 の役割別 projection",
+    "code_like": false
+  },
+  "DS-889": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest audit static` は決定論的な静的解析を要求時に起動し、",
+    "code_like": false
+  },
+  "DS-890": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "静的解析は正典レコードを持たない再計算派生であり、`audit static` ",
+    "code_like": false
+  },
+  "DS-891": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`audit static` は `oracle_presence` へ供給する",
+    "code_like": false
+  },
+  "DS-892": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "target-scoped な DA-002 / DA-003 は宣言 targ",
+    "code_like": false
+  },
+  "DS-893": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`audit static` は判断記録（§8）とは別機構であり、外部判断の記録",
+    "code_like": false
+  },
+  "DS-894": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`audit bundle` は判断対象（`--test` / `--vo`）ご",
+    "code_like": false
+  },
+  "DS-895": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`cases` は `@vtest.case` 宣言の正規化文字列を宣言順に並べ",
+    "code_like": false
+  },
+  "DS-896": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "バンドルは派生情報であり Git 管理しない。",
+    "code_like": false
+  },
+  "DS-897": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--kind` は判断させる UNKNOWN のエスカレーション質問のラベル（",
+    "code_like": false
+  },
+  "DS-898": {
+    "layer": "detailed_spec",
+    "list_item": "NONE",
+    "statement_prefix": "`--kind` の値と `subject` 値域は本冊 §8.1 の表に従う。",
+    "code_like": false
+  },
+  "DS-899": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`test-semantic` は「テストコードは VO の claim と T",
+    "code_like": false
+  },
+  "DS-900": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`impl-consistency` は「対象実装が宣言と一致するか」を意味し、",
+    "code_like": false
+  },
+  "DS-901": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`case-coverage` は「cases 集合が VO の要求入力空間を十",
+    "code_like": false
+  },
+  "DS-902": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--test` で `--kind` を省略した場合は `test-seman",
+    "code_like": false
+  },
+  "DS-903": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--vo` では `--kind case-coverage` を必須とし、`",
+    "code_like": false
+  },
+  "DS-904": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "バンドルは選ばれた判断型を `judgment_kind` として出力し、`au",
+    "code_like": false
+  },
+  "DS-905": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`case-coverage` は §11 の判断対象であって基本仕様 §5 の",
+    "code_like": false
+  },
+  "DS-906": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`case-coverage` の未判断・判断結果はいずれの検査の値にも写像せず",
+    "code_like": false
+  },
+  "DS-907": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`audit submit` は本冊 §8.4 の検証（bundle_id 存在",
+    "code_like": false
+  },
+  "DS-908": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "判断は少なくとも actor / subject / decision / ju",
+    "code_like": false
+  },
+  "DS-909": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "理由が空であることだけを根拠に判断を無効化しない。",
+    "code_like": false
+  },
+  "DS-910": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`decision` の受理値は `accepted` / `rejected`",
+    "code_like": false
+  },
+  "DS-911": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "競合の解消は `supersedes` だけによる。",
+    "code_like": false
+  },
+  "DS-912": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "同一 `(subject, judgment_kind)` に判断値の食い違う有",
+    "code_like": false
+  },
+  "DS-913": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "機械は新旧・decision 値・件数のいずれによっても採用記録を選ばない。",
+    "code_like": false
+  },
+  "DS-914": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "新しい判断記録が旧記録の ULID を `supersedes` で名指しした場",
+    "code_like": false
+  },
+  "DS-915": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "未確定の事実は `verify` / `report` の判断待ち sectio",
+    "code_like": false
+  },
+  "DS-916": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "判断記録の受理は当該対象の検証状態（5状態）を昇格させない。",
+    "code_like": false
+  },
+  "DS-917": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "旧モデルの `verdict → CheckValue` 写像・reasons ",
+    "code_like": false
+  },
+  "DS-918": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "判断記録・承認記録のいずれも検証状態を昇格・降格させない。",
+    "code_like": false
+  },
+  "DS-919": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest run` はテスト実行と Evidence 記録を行う。",
+    "code_like": false
+  },
+  "DS-920": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "旧モデルの `--req`（REQ 指定）は document 層の総称化により",
+    "code_like": false
+  },
+  "DS-921": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--fast` は cargo test のみで、`target_covera",
+    "code_like": false
+  },
+  "DS-922": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--fast` は `target_binding` の動的証拠を採らず、検証",
+    "code_like": false
+  },
+  "DS-923": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest verify` は集約を実行し、`OK` / `NG` を返す。",
+    "code_like": false
+  },
+  "DS-924": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "scope は2軸であり、`--items` が検査軸（4検査の部分集合）、`-",
+    "code_like": false
+  },
+  "DS-925": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "旧モデルの `--spec` / `--req` は廃止し、`--req` は除",
+    "code_like": false
+  },
+  "DS-926": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--items` 省略時は常に固定4検査による完全検証を行う。",
+    "code_like": false
+  },
+  "DS-927": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`config.yaml` の `verify.full_scope` は本冊 ",
+    "code_like": false
+  },
+  "DS-928": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "旧12項目の列挙は version を問わず E-CONFIG-001 とし、v",
+    "code_like": false
+  },
+  "DS-929": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`verify.full_scope` の in-memory の項目補完は行わ",
+    "code_like": false
+  },
+  "DS-930": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`--items` に4検査未満の明示的な集合を指定した場合だけ限定 scope",
+    "code_like": false
+  },
+  "DS-931": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "限定 scope の結果を完全検証 OK と表示しない。",
+    "code_like": false
+  },
+  "DS-932": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "いかなる設定値も完全検証を4本未満へ縮退させない。",
+    "code_like": false
+  },
+  "DS-933": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検",
+    "code_like": false
+  },
+  "DS-934": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`--format json` では同じ内容を最上位 field `scope`",
+    "code_like": false
+  },
+  "DS-935": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--gate <name>` はフェーズゲート評価（§12.3）である。",
+    "code_like": false
+  },
+  "DS-936": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "config の `gates` に同名の定義が無ければ E-CONFIG-00",
+    "code_like": false
+  },
+  "DS-937": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--summary` は総合 `OK` / `NG` と非 `PASS` 件数",
+    "code_like": false
+  },
+  "DS-938": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vtest verify` は状態列（`PASS` / `FAIL` / `M",
+    "code_like": false
+  },
+  "DS-939": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "診断ラベルは代表値の順位（基本仕様 §22.2 の `FAIL > MISMAT",
+    "code_like": false
+  },
+  "DS-940": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`target_binding` の非 `PASS` は根拠として用いた Evi",
+    "code_like": false
+  },
+  "DS-941": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`oracle_presence` の非 `PASS` は違反した DA rul",
+    "code_like": false
+  },
+  "DS-942": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "判断記録（§8）を引用する場合は decision ID を示す。",
+    "code_like": false
+  },
+  "DS-943": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "静的解析は正典レコードを持たないため監査レコード ID は引用しない。",
+    "code_like": false
+  },
+  "DS-944": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`chain_integrity` は repository-level の構造",
+    "code_like": false
+  },
+  "DS-945": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`chain_integrity` は発見された各 Test の管理宣言解決と ",
+    "code_like": false
+  },
+  "DS-946": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "covers する Test の無い leaf VO も `chain_inte",
+    "code_like": false
+  },
+  "DS-947": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "JSON でも同じ根拠一覧を返す。",
+    "code_like": false
+  },
+  "DS-948": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "Evidence が複数 target の計測結果を持つ場合、text repo",
+    "code_like": false
+  },
+  "DS-949": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "JSON は target 別 list を欠落なく返す。",
+    "code_like": false
+  },
+  "DS-950": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "各行の prefix は、その行の祖先に後続兄弟があれば `│  `、なければ空",
+    "code_like": false
+  },
+  "DS-951": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "最上位 node にも同じ途中・末尾 branch 規則を適用する。",
+    "code_like": false
+  },
+  "DS-952": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "祖先 node 自身の `├─ ` / `└─ ` を子孫行へ引き継がない。",
+    "code_like": false
+  },
+  "DS-953": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest report` は `verify` と同じ集約を実行し、根拠（判",
+    "code_like": false
+  },
+  "DS-954": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--from <node>` は任意ノード（DOC / VO / TEST /",
+    "code_like": false
+  },
+  "DS-955": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--direction` は上流／下流／双方である。",
+    "code_like": false
+  },
+  "DS-956": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--depth` は連続追跡の段数である。",
+    "code_like": false
+  },
+  "DS-957": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--view` は役割 preset（`pm`＝上位 document・VO ",
+    "code_like": false
+  },
+  "DS-958": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "役割を固定 enum として本冊は仕様化せず、preset・view 体系はここ",
+    "code_like": false
+  },
+  "DS-959": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要なデータの流れ",
+    "statement_prefix": "逆引きインデックス（VO → Tests、SRC → Tests、DOC → V",
+    "code_like": false
+  },
+  "DS-960": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "機能単位の集約は親 VO（子 VO を持つ VO）を単位とする。",
+    "code_like": false
+  },
+  "DS-961": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--vo <親VO>` または `--from <親VO> --directi",
+    "code_like": false
+  },
+  "DS-962": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "Feature を別エンティティとして出力せず、Feature 名・Featur",
+    "code_like": false
+  },
+  "DS-963": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "束ねの識別子は親 VO の ID とする。",
+    "code_like": false
+  },
+  "DS-964": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--format json` の trace 出力に含まれる `derives",
+    "code_like": false
+  },
+  "DS-965": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "エッジ要素は `{ \"from\": \"DOC-REQ-001\", \"relati",
+    "code_like": false
+  },
+  "DS-966": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`anchor` を持たない entry では `anchor` を省略または ",
+    "code_like": false
+  },
+  "DS-967": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`report --from DOC-REQ-001 --direction d",
+    "code_like": false
+  },
+  "DS-968": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "`report --from DOC-REQ-001 --direction d",
+    "code_like": false
+  },
+  "DS-969": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`anchor` は不透明な文字列として transport し、文書内位置への",
+    "code_like": false
+  },
+  "DS-970": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--format json` の出力へ、未確定・要判断事項を横断的に集約した ",
+    "code_like": false
+  },
+  "DS-971": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--gate <name>` は `verify` と同じ解決規則に従い、未定",
+    "code_like": false
+  },
+  "DS-972": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`vtest mcp` は stdio で MCP サーバを起動する（§13）。",
+    "code_like": false
+  },
+  "DS-973": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`config.yaml` の `gates` に、ゲート名と進行条件（`req",
+    "code_like": false
+  },
+  "DS-974": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`require.verification` は 5 状態語彙（`PASS` /",
+    "code_like": false
+  },
+  "DS-975": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`require.approvals` の省略は空集合として受理する。",
+    "code_like": false
+  },
+  "DS-976": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`--gate <name>`（MCP は `gate` 入力）は `gates",
+    "code_like": false
+  },
+  "DS-977": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "未定義名・`gates` が空の状態での指定は E-CONFIG-002、`ok",
+    "code_like": false
+  },
+  "DS-978": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "診断 message には指定名と定義済みゲート名の一覧を含め、MCP では §",
+    "code_like": false
+  },
+  "DS-979": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "検証条件は `require.verification` と要求 scope の",
+    "code_like": false
+  },
+  "DS-980": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "5 状態に順序を設けず、「要求値以上」の解釈を採らない。",
+    "code_like": false
+  },
+  "DS-981": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "したがって `require.verification: PASS` は代表値 ",
+    "code_like": false
+  },
+  "DS-982": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`--items` で検査軸を限定した実行では scope 外検査が `NO_E",
+    "code_like": false
+  },
+  "DS-983": {
+    "layer": "detailed_spec",
+    "list_item": "NONE",
+    "statement_prefix": "承認ロールの解決は本別紙が新設する最小規則である。",
+    "code_like": false
+  },
+  "DS-984": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "承認レコードは role field を持たないため、`config.yaml`",
+    "code_like": false
+  },
+  "DS-985": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "ロール `R` の承認が存在するとは、「本冊 §3.5 で有効な（subject",
+    "code_like": false
+  },
+  "DS-986": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`gates.require.approvals` が参照するロールが `app",
+    "code_like": false
+  },
+  "DS-987": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "ロール充足の判定対象は、当該 `verify` / `report` のエンティ",
+    "code_like": false
+  },
+  "DS-988": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "scope 内に複数の対象がある場合は各対象について当該ロールの有効承認を要求す",
+    "code_like": false
+  },
+  "DS-989": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "より細粒度の承認 authority・対象範囲はプロジェクト設定へ委譲する。",
+    "code_like": false
+  },
+  "DS-990": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vtest verify --gate <name>` は、指定ゲートの対象 ",
+    "code_like": false
+  },
+  "DS-991": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`report --gate` は同評価を JSON の `gate` sect",
+    "code_like": false
+  },
+  "DS-992": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "検証状態と承認は独立の軸であり、承認未充足は検証状態を降格させない。",
+    "code_like": false
+  },
+  "DS-993": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`--gate` を指定した `verify` / `report` の JSO",
+    "code_like": false
+  },
+  "DS-994": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`verification.required` は `require.verif",
+    "code_like": false
+  },
+  "DS-995": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`approvals[]` は `require.approvals` の各ロー",
+    "code_like": false
+  },
+  "DS-996": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`gate.satisfied` は `verification.satisfi",
+    "code_like": false
+  },
+  "DS-997": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "text 出力では同じ 3 項目（要求値・現在の代表値・満否）と未充足ロール・不",
+    "code_like": false
+  },
+  "DS-998": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--gate` を指定した実行では最上位 `ok` と終了コードをゲート充足で",
+    "code_like": false
+  },
+  "DS-999": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "要求 scope の総合 OK / NG は集約ツリーと `gate.verif",
+    "code_like": false
+  },
+  "DS-1000": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "ゲート充足は検証状態とは別軸の評価であり、検証状態を書き換えない。",
+    "code_like": false
+  },
+  "DS-1001": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "JSON では検証状態（集約ツリーと `gate.verification.ac",
+    "code_like": false
+  },
+  "DS-1002": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`--gate` 指定時の `ok: true`・終了コード 0 を検証状態 `",
+    "code_like": false
+  },
+  "DS-1003": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設",
+    "code_like": false
+  },
+  "DS-1004": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・",
+    "code_like": false
+  },
+  "DS-1005": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "新規コマンド・ツールを増やさず、既存出力の section として露出する。",
+    "code_like": false
+  },
+  "DS-1006": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`subject` は対象エンティティ ID または解決済み canonical",
+    "code_like": false
+  },
+  "DS-1007": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`kind` は `unknown`（`UNKNOWN` によるエスカレーション",
+    "code_like": false
+  },
+  "DS-1008": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`check` は関係する4検査のいずれかと現在の検証状態・診断ラベルである。",
+    "code_like": false
+  },
+  "DS-1009": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "4 検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では `ch",
+    "code_like": false
+  },
+  "DS-1010": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`check` が `null` の項目は集約へ寄与せず、いかなる検査の値も変更",
+    "code_like": false
+  },
+  "DS-1011": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`judgment_kind` は外部判断が必要な場合の判断型（`test-se",
+    "code_like": false
+  },
+  "DS-1012": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "不要な項目では `judgment_kind` を `null` とする。",
+    "code_like": false
+  },
+  "DS-1013": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`basis` は機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）へ",
+    "code_like": false
+  },
+  "DS-1014": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "判断競合の項目では `basis` に競合した全判断記録 ID を `kind:",
+    "code_like": false
+  },
+  "DS-1015": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`bundle_ref` は外部判断が必要な場合の判断バンドル（§8.1）への参",
+    "code_like": false
+  },
+  "DS-1016": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "`UNKNOWN` だけでなく、検証出力全体にわたる未確定・要判断事項を横断的に",
+    "code_like": false
+  },
+  "DS-1017": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "各ツールの結果は CLI の `--format json` と同一の JSON",
+    "code_like": false
+  },
+  "DS-1018": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "エラーは MCP のツールエラーとして返し、`{ \"code\": \"E-OP-0",
+    "code_like": false
+  },
+  "DS-1019": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "入力検証エラーには可能な限り `candidates` を含める。",
+    "code_like": false
+  },
+  "DS-1020": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`scan` は入力を取らず、診断一覧、エンティティ数サマリを出力する。",
+    "code_like": false
+  },
+  "DS-1021": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`doc_list` / `doc_get` は `id`（get のみ）、`t",
+    "code_like": false
+  },
+  "DS-1022": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`doc_upsert` は document フィールド一式（`path`、`",
+    "code_like": false
+  },
+  "DS-1023": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`approval_create` は `subject: { type: vo",
+    "code_like": false
+  },
+  "DS-1024": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "`approval_create` は承認レコード生成の唯一の正典面である。",
+    "code_like": false
+  },
+  "DS-1025": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`approval_withdraw` は `approval_id`、`app",
+    "code_like": false
+  },
+  "DS-1026": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "`approval_withdraw` は `approval_create` ",
+    "code_like": false
+  },
+  "DS-1027": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`approval_get` は `subject: { type, id }`",
+    "code_like": false
+  },
+  "DS-1028": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vo_list` / `vo_get` は `id`、`doc`、`statu",
+    "code_like": false
+  },
+  "DS-1029": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vo_upsert` は VO フィールド一式（`derives_from[]",
+    "code_like": false
+  },
+  "DS-1030": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vo_expand` は `id`、`dry_run: bool` を入力とし",
+    "code_like": false
+  },
+  "DS-1031": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`vo_approve` は `id`、`approver`、`state`（必",
+    "code_like": false
+  },
+  "DS-1032": {
+    "layer": "spec",
+    "list_item": "基本仕様: 機能間の主要な関係",
+    "statement_prefix": "`vo_approve` は `approval_create` に `subj",
+    "code_like": false
+  },
+  "DS-1033": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`test_query` は `vo` / `source` / `unregi",
+    "code_like": false
+  },
+  "DS-1034": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`test_get` は `id` を入力とし、Test 詳細（intent、c",
+    "code_like": false
+  },
+  "DS-1035": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`form_get` は大局的に一意な `kind` を入力とし、owner a",
+    "code_like": false
+  },
+  "DS-1036": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`test_create` は `form`、`answers`（オブジェクト）",
+    "code_like": false
+  },
+  "DS-1037": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`test_edit` は `id`、`answers` または `set`、`",
+    "code_like": false
+  },
+  "DS-1038": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`audit_static` は `test` または `all` を入力とし、",
+    "code_like": false
+  },
+  "DS-1039": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`audit_static` は正典レコードを生成しない。",
+    "code_like": false
+  },
+  "DS-1040": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`audit_bundle` は対象 ID（`test` / `vo`）、`ki",
+    "code_like": false
+  },
+  "DS-1041": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`audit_submit` は提出 JSON（`judgment_kind` ",
+    "code_like": false
+  },
+  "DS-1042": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`audit_submit` の受理は検証状態を昇格させない。",
+    "code_like": false
+  },
+  "DS-1043": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`run_tests` は `test` / `vo` / `all`、`fas",
+    "code_like": false
+  },
+  "DS-1044": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`verify` は optional `items[]`（4検査の部分集合）、",
+    "code_like": false
+  },
+  "DS-1045": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`report` は `verify` と同上の入力に `from` / `vi",
+    "code_like": false
+  },
+  "DS-1046": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`verify` / `report` の `gate` 入力は CLI の `",
+    "code_like": false
+  },
+  "DS-1047": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`gate` を指定した呼び出しの `ok` はゲート充足を表す（§12.3）。",
+    "code_like": false
+  },
+  "DS-1048": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`doc_upsert` / `vo_upsert` の `derives_fr",
+    "code_like": false
+  },
+  "DS-1049": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`anchor` は参照先 document 内の該当箇所を指す不透明な文字列で",
+    "code_like": false
+  },
+  "DS-1050": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`anchor` は CLI の `--anchor` と同じ値域・同じ扱いとし",
+    "code_like": false
+  },
+  "DS-1051": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`vo_upsert` の `combinations[]` は `combin",
+    "code_like": false
+  },
+  "DS-1052": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`combinations[]` の各要素は dimension 名 → par",
+    "code_like": false
+  },
+  "DS-1053": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`coverage_policy` が `explicit` のときは `com",
+    "code_like": false
+  },
+  "DS-1054": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "本冊 §3.2.1 の受理条件（`explicit` での欠落・空、`expli",
+    "code_like": false
+  },
+  "DS-1055": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`vo_upsert` で `combinations` を省略した更新は既存値",
+    "code_like": false
+  },
+  "DS-1056": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`vo_expand` は不正 `combinations` の VO に対して",
+    "code_like": false
+  },
+  "DS-1057": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての出力結果",
+    "statement_prefix": "`audit_static` は正典の監査レコード ID を返さない（再計算派生",
+    "code_like": false
+  },
+  "DS-1058": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`audit_submit` の受理結果は判断記録 ID であり、これは検証状態",
+    "code_like": false
+  },
+  "DS-1059": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "旧モデルの `spec_list` / `spec_get` / `req_li",
+    "code_like": false
+  },
+  "DS-1060": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "フォーム、監査、実行の入力に含まれる adapter namespace は o",
+    "code_like": false
+  },
+  "DS-1061": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`audit_submit` は `UNKNOWN` に対する外部判断を記録する",
+    "code_like": false
+  },
+  "DS-1062": {
+    "layer": "detailed_spec",
+    "list_item": "NONE",
+    "statement_prefix": "次は `rust-cargo` adapter が登録する Form Schem",
+    "code_like": false
+  },
+  "DS-1063": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "core は `fn_name`、`.rs`、Rust 構文を Form Sch",
+    "code_like": false
+  },
+  "DS-1064": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: すべての入力条件",
+    "statement_prefix": "`test_kind` の `regression` は Test の意図ラベル",
+    "code_like": false
+  },
+  "DS-1065": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "組込 Form は `role` を宣言しない。",
+    "code_like": false
+  },
+  "DS-1066": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "`kind` の値に regression を含む Test（`unit-reg",
+    "code_like": false
+  },
+  "DS-1067": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`symbol-exists` 検証器は Target Reference 解決",
+    "code_like": false
+  },
+  "DS-1068": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`vo-exists` / `test-exists` 検証器はエンティティ存在",
+    "code_like": false
+  },
+  "DS-1069": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`enum-variant-exists` 検証器は `rust-cargo` ",
+    "code_like": false
+  },
+  "DS-1070": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`unique-fn-name` 検証器は `rust-cargo` adapt",
+    "code_like": false
+  },
+  "DS-1071": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`rust-file` 検証器は `rust-cargo` adapter が ",
+    "code_like": false
+  },
+  "DS-1072": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`required` を欠く回答、未知のフィールド名は E-OP-001 とする",
+    "code_like": false
+  },
+  "DS-1073": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "Test ID は `--id` による明示指定がなければ、`TEST-<領域>",
+    "code_like": false
+  },
+  "DS-1074": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "registry は built-in と user-defined Form ",
+    "code_like": false
+  },
+  "DS-1075": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`adapter` を欠く読取り互換 Form は、登録済み adapter の",
+    "code_like": false
+  },
+  "DS-1076": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "matcher は schema 内容から決定論的に判定し、kind 名だけで ",
+    "code_like": false
+  },
+  "DS-1077": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "reader は互換解決だけで Form ファイルを書き換えない。",
+    "code_like": false
+  },
+  "DS-1078": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "コアはフォームの kind を Rust 固有と推測せず、schema の `a",
+    "code_like": false
+  },
+  "DS-1079": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "未提供の Structured Test capability は E-ADAP",
+    "code_like": false
+  },
+  "DS-1080": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "`rust-unit-function`（§14.1）は組込 Form の1つで",
+    "code_like": false
+  },
+  "DS-1081": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`rust-integration` は組込 Form であり、単一の `tar",
+    "code_like": false
+  },
+  "DS-1082": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`rust-integration` は `file` を `required:",
+    "code_like": false
+  },
+  "DS-1083": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "Integration Test の配置先（test suite locatio",
+    "code_like": false
+  },
+  "DS-1084": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "将来、Test Suite または同等の配置概念が第一級化され配置先を一意に導出",
+    "code_like": false
+  },
+  "DS-1085": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`rust-integration` の §14.1 との差分はこの2点であり、",
+    "code_like": false
+  },
+  "DS-1086": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`rust-integration` は `targets` の全要素を入力順に",
+    "code_like": false
+  },
+  "DS-1087": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: エラーの外部的意味",
+    "statement_prefix": "`rust-integration` は空 list と重複 target を ",
+    "code_like": false
+  },
+  "DS-1088": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "`target` キーは integration 種別に限り複数行を許容する。",
+    "code_like": false
+  },
+  "DS-1089": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "先頭以外の target を `@vtest.related` へ変換しない。",
+    "code_like": false
+  },
+  "DS-1090": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "`fields` の追加・変更で API Test・CLI Test 等の質問列",
+    "code_like": false
+  },
+  "DS-1091": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "partition・境界値を必須入力とする種別は、該当フィールドに `requi",
+    "code_like": false
+  },
+  "DS-1092": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "境界値・partition の必須入力化は組込 Form では設けず、user-",
+    "code_like": false
+  },
+  "DS-1093": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "他 field の回答値によって `required` が変わる cross-f",
+    "code_like": false
+  },
+  "DS-1094": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "Form Schema の検証は単一 field の `required` と検",
+    "code_like": false
+  },
+  "DS-1095": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 正常系・異常系・境界値・状態ごとの振る舞い",
+    "statement_prefix": "すべての管理対象 Test に `covers ≥ 1` を一律要求するため、u",
+    "code_like": false
+  },
+  "DS-1096": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "本 version は role / anchor / anchor_ratio",
+    "code_like": false
+  },
+  "DS-1097": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 仕様上の不変条件",
+    "statement_prefix": "本 version は `covers` 件数の可変制約も設けない。",
+    "code_like": false
+  },
+  "DS-1098": {
+    "layer": "design",
+    "list_item": "詳細設計: エラーの意味と伝播方針",
+    "statement_prefix": "再確認で見つからない場合は E-OP-002 とする。",
+    "code_like": false
+  },
+  "DS-1099": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、構文的に妥当であることを確認する。",
+    "code_like": false
+  },
+  "DS-1100": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、対象 Test のアノテーションが desir",
+    "code_like": false
+  },
+  "DS-1101": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、他の Test エンティティのソーステキストが",
+    "code_like": false
+  },
+  "DS-1102": {
+    "layer": "design",
+    "list_item": "詳細設計: エラーの意味と伝播方針",
+    "statement_prefix": "確認に失敗した場合はファイルを元へ戻し、E-OP-003 を返す。",
+    "code_like": false
+  },
+  "DS-1103": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "挿入後の再パース検証とロールバックは Edit と同一の規則で Create に",
+    "code_like": false
+  },
+  "DS-1104": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "Create 経路にだけ検証を省く分岐を設けない。",
+    "code_like": false
+  },
+  "DS-1105": {
+    "layer": "design",
+    "list_item": "詳細設計: エラーの意味と伝播方針",
+    "statement_prefix": "回答自体の検証エラーは E-OP-001（候補付き）とする。",
+    "code_like": false
+  },
+  "DS-1106": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、構文的に妥当であることを確認する。",
+    "code_like": false
+  },
+  "DS-1107": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、挿入した Test construct がちょ",
+    "code_like": false
+  },
+  "DS-1108": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、その Test のアノテーションが Form ",
+    "code_like": false
+  },
+  "DS-1109": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、挿入した Test 以外の Test エンティ",
+    "code_like": false
+  },
+  "DS-1110": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（he",
+    "code_like": false
+  },
+  "DS-1111": {
+    "layer": "design",
+    "list_item": "詳細設計: エラーの意味と伝播方針",
+    "statement_prefix": "確認のいずれかに失敗した場合は、適用前の状態へ復元し（挿入によりファイルが新規作",
+    "code_like": false
+  },
+  "DS-1112": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "ロールバック後は、当該操作より前と同じソーステキストが観測できなければならない。",
+    "code_like": false
+  },
+  "DS-1113": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "部分適用された挿入内容を残さない。",
+    "code_like": false
+  },
+  "DS-1114": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "`--dry-run` は、Form 回答（§14）から決定したあるべきアノテー",
+    "code_like": false
+  },
+  "DS-1115": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "Create / Edit いずれも、E-OP-003 で中止した操作は Tes",
+    "code_like": false
+  },
+  "DS-1116": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "ロールバック後の再スキャンで、当該操作が無かった場合と同一のエンティティ集合・内",
+    "code_like": false
+  },
+  "DS-1117": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "アノテーションは常にキー順（id, covers, target, intent",
+    "code_like": false
+  },
+  "DS-1118": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "`@vtest.` を含まない自由記述の doc comment 行は元の位置関",
+    "code_like": false
+  },
+  "DS-1119": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "アノテーションを常にキー順（id, covers, target, intent",
+    "code_like": false
+  },
+  "DS-1120": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "アノテーションを常にキー順（id, covers, target, intent",
+    "code_like": false
+  },
+  "DS-1121": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "同一の desired state からは Create / Edit のいずれ",
+    "code_like": false
+  },
+  "DS-1122": {
+    "layer": "design",
+    "list_item": "詳細設計: 他コンポーネントとの契約",
+    "statement_prefix": "アノテーションの再生成キー順（id, covers, target, inten",
+    "code_like": false
+  },
+  "DS-1123": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "本 version は存在理由分類（旧 `role` / `anchor` / ",
+    "code_like": false
+  },
+  "DS-1124": {
+    "layer": "design",
+    "list_item": "詳細設計: 入出力データの構造",
+    "statement_prefix": "`@vtest.src-id` は Test construct ではなく対象実",
+    "code_like": false
+  },
+  "DS-1125": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "`@vtest.src-id` は Test annotation block ",
+    "code_like": false
+  },
+  "DS-1126": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "`edit TEST-001` は他のTestへ影響しない。",
+    "code_like": false
+  },
+  "DS-1127": {
+    "layer": "spec",
+    "list_item": "基本仕様: 提供する機能",
+    "statement_prefix": "helper・fixture・通常ソースコードの編集手段は提供しない。",
+    "code_like": false
+  },
+  "DS-1128": {
+    "layer": "spec",
+    "list_item": "基本仕様: 利用条件",
+    "statement_prefix": "関数本体が helper を必要とする場合、helper の作成は通常のソース編",
+    "code_like": false
+  },
+  "BD-252": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な依存関係",
+    "statement_prefix": "CLIの操作は登録済みadapter registryを通じて実装を選択する。",
+    "code_like": false
+  },
+  "BD-253": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 各コンポーネントの責務",
+    "statement_prefix": "targetsの必須件数は adapter が定める。",
+    "code_like": false
+  },
+  "BD-254": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な通信方式",
+    "statement_prefix": "transport は stdio である。",
+    "code_like": false
+  },
+  "BD-255": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な技術選定",
+    "statement_prefix": "`rmcp` で実装する。",
+    "code_like": false
+  },
+  "BD-256": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "各操作は、CLIとMCPで同じadapter registryを解決する。",
+    "code_like": false
+  },
+  "BD-257": {
+    "layer": "detailed_spec",
+    "list_item": "詳細仕様: 入力値の範囲・形式・制約",
+    "statement_prefix": "`kind` は `[a-z0-9][a-z0-9-]*` の case-sen",
+    "code_like": false
+  },
+  "BD-258": {
+    "layer": "basic_design",
+    "list_item": "基本設計: データの所有主体",
+    "statement_prefix": "`adapter` はその Form を処理する Structured Test",
+    "code_like": false
+  },
+  "BD-259": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 各コンポーネントの責務",
+    "statement_prefix": "組込フォームは `rust-cargo` adapter が提供する。",
+    "code_like": false
+  },
+  "BD-260": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "Form Schema はユーザー定義可能とし、大局的に一意な `kind` と",
+    "code_like": false
+  },
+  "BD-261": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な外部インターフェース",
+    "statement_prefix": "user-defined Form も `kind` と owner `adap",
+    "code_like": false
+  },
+  "BD-262": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 各コンポーネントの責務",
+    "statement_prefix": "Structured Edit の構文解析・再生成・selector 解釈は対応",
+    "code_like": false
+  },
+  "BD-263": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 各コンポーネントの責務",
+    "statement_prefix": "orchestration は Test ID と adapter ID で対象",
+    "code_like": false
+  },
+  "BD-264": {
+    "layer": "basic_design",
+    "list_item": "基本設計: 主要な技術選定",
+    "statement_prefix": "production adapter として提供するのは `rust-cargo",
+    "code_like": false
+  },
+  "BD-265": {
+    "layer": "basic_design",
+    "list_item": "NONE",
+    "statement_prefix": "§15.1〜§15.4 は `rust-cargo` StructuredTes",
+    "code_like": false
+  },
+  "DES-480": {
+    "layer": "design",
+    "list_item": "詳細設計: 入出力データの構造",
+    "statement_prefix": "`filter`、`package`、`test_target` は `Test",
+    "code_like": false
+  },
+  "DES-481": {
+    "layer": "design",
+    "list_item": "詳細設計: 入出力データの構造",
+    "statement_prefix": "coreは `targets ≥ 1` を adapter 中立の必須件数にせず",
+    "code_like": false
+  },
+  "DES-482": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "各ツール呼び出しの冒頭で mtime ベースの再スキャン判定を行う。",
+    "code_like": false
+  },
+  "DES-483": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "Test ID から編集対象を特定する。",
+    "code_like": false
+  },
+  "DES-484": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Tes",
+    "code_like": true
+  },
+  "DES-485": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "desired state（answers / set / body）から、ある",
+    "code_like": true
+  },
+  "DES-486": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "現状とあるべき状態の diff を計算する。",
+    "code_like": true
+  },
+  "DES-487": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "変更を、対象テスト関数の拡張 range（doc comment 先頭〜関数末尾",
+    "code_like": true
+  },
+  "DES-488": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "Form 回答（§14）から、あるべきアノテーションブロックと関数シグネチャ・本",
+    "code_like": true
+  },
+  "DES-489": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "挿入前の対象ファイルの内容を保持する。",
+    "code_like": true
+  },
+  "DES-490": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "対象ファイルが存在しない場合は「不存在」を挿入前の状態として保持する。",
+    "code_like": true
+  },
+  "DES-491": {
+    "layer": "design",
+    "list_item": "詳細設計: 構成要素ごとの責務",
+    "statement_prefix": "生成した Test construct を挿入位置へ単一挿入として適用する。",
+    "code_like": true
+  },
+  "DES-492": {
+    "layer": "design",
+    "list_item": "詳細設計: 事前条件・事後条件・不変条件",
+    "statement_prefix": "置換範囲が単一のテスト関数の拡張 range に限られることを、適用前（範囲計算",
+    "code_like": true
+  }
+}

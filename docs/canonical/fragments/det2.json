@@ -648,7 +648,7 @@
               1010
             ]
           },
-          "layer": "basic_design"
+          "layer": "spec"
         },
         {
           "statement": "`vtest audit static`は判断記録（§8）とは別機構であり、外部判断の記録には転用しない。",
@@ -661,7 +661,7 @@
               1010
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "spec"
         },
         {
           "statement": "各ルールは`FAIL` / `UNKNOWN` / `PASS(違反なし)`のいずれかを返す。",
@@ -1318,7 +1318,7 @@
               1051
             ]
           },
-          "layer": "basic_design"
+          "layer": "spec"
         },
         {
           "statement": "Testの成否判定が、assert相当の構文でなく通常の関数へ委譲されている場合、その委譲先が検証閉包の中で終端しない限り、照合装置検査の成立側を確定しない。",
@@ -2119,7 +2119,7 @@
               1119
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録プロトコルは検証状態のゲートではない。",
@@ -2149,7 +2149,7 @@
               1119
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`vtest audit bundle`は判断対象ごとに、判断に必要な情報をJSONとして`cache/bundles/<ULID>.json`へ出力する。",
@@ -2374,7 +2374,7 @@
               1143
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`impl-consistency`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「対象実装は宣言と一致しているか」である。",
@@ -2387,7 +2387,7 @@
               1144
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case-coverage`は、subjectの値域をTest IDまたはVO IDとする。",
@@ -2400,7 +2400,7 @@
               1145
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case-coverage`は、subjectがTest IDのとき、外部へ引き渡す問いは「当該Testが宣言したcases集合は、covers先VOの要求入力空間を十分に代表・網羅しているか」である。",
@@ -2416,7 +2416,7 @@
               1145
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case-coverage`は、subjectがVO IDのとき、外部へ引き渡す問いは「当該VOをcoversするTest群のcases集合は、当該VOの要求入力空間を十分に代表・網羅しているか」である。",
@@ -2432,7 +2432,7 @@
               1145
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind`と`subject`の種別の組合せがこの表にない要求ではバンドルを生成しない（別紙A §12.2のusage error、終了コード2）。",
@@ -2474,7 +2474,7 @@
               1149
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "外部判断が必要な事実は§11.7の判断待ち情報として提示する。",
@@ -2653,7 +2653,7 @@
               1218
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "判断記録は検証状態を変更しない（§8 冒頭）。",
@@ -2666,7 +2666,7 @@
               1218
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind`は必須であり、`bundle_id`が指すバンドルの`judgment_kind`と一致しなければならない（§8.4）。",
@@ -2747,7 +2747,7 @@
               1221
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、検証に失敗した場合は§17のエラーコードで拒否する。",
@@ -2906,7 +2906,7 @@
               1241
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録の有効性は判定時に評価する。",
@@ -3290,7 +3290,7 @@
               1293
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断は`UNKNOWN`に対する外部判断の追跡であり、検査ゲートではない（§8 冒頭、基本仕様 §11.3）。",
@@ -3345,7 +3345,7 @@
               1301
             ]
           },
-          "layer": "spec"
+          "layer": "basic_design"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`project`をcargo package名として解釈する。",
@@ -3698,7 +3698,7 @@
               1347
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。",
@@ -3737,7 +3737,7 @@
               1348
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
@@ -4013,7 +4013,7 @@
               1381
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。",
@@ -5628,7 +5628,7 @@
               1527
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "親VOを持たないleaf VOは、それ自体が最上位の束ね単位となる。",
@@ -5719,7 +5719,7 @@
               1536
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "spec"
         },
         {
           "statement": "再登録でdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。",
@@ -5908,7 +5908,7 @@
               1547
             ]
           },
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "「要求値以上」「要求値より良い」といった比較解釈を採らず、`require.verification: UNKNOWN`は代表値が`UNKNOWN`のときだけ充足し、代表値が`PASS`でも充足しない。",
@@ -6413,7 +6413,7 @@
               1572
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`basis`は機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照とする。",
@@ -6677,7 +6677,7 @@
               1598
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。",
@@ -6719,7 +6719,7 @@
               1601
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "design"
         },
         {
           "statement": "テストコード編集は通常のソース編集と同じ扱いで本規定の対象外とする。",
@@ -6758,7 +6758,7 @@
               1606
             ]
           },
-          "layer": "basic_design"
+          "layer": "spec"
         },
         {
           "statement": "ID衝突はE-SCAN-002として検出する。",
@@ -7193,7 +7193,7 @@
               1650
             ]
           },
-          "layer": "spec"
+          "layer": "design"
         },
         {
           "statement": "終了コード`0`は、要求scopeの検証結果がOK（操作コマンドでは成功）であることを意味する。",

@@ -272,7 +272,7 @@
               24
             ]
           },
-          "layer": "spec"
+          "layer": "basic_design"
         },
         {
           "statement": "引数・入出力の完全schemaは別紙Aが定める。",
@@ -1215,7 +1215,7 @@
               93
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "adapterは、最終的な `TestEntity.content_hash` または `SourceTarget.content_hash` を返して自己確定してはならない。",
@@ -4102,7 +4102,7 @@
               381
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録ULIDを `subject` に持つ承認レコードは、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。",
@@ -4115,7 +4115,7 @@
               381
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "VO ID・document IDのいずれにも解決しない `subject`（Test ID、Source Target locator、Relation ID等）も、判断記録ULIDを `subject` に持つ承認レコードと同じ扱いとする。",
@@ -4128,7 +4128,7 @@
               381
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "いずれの種別でも対象自身は `subject_hash` で束縛するため `dependencies` へ重複して含めない。",
@@ -4193,7 +4193,7 @@
               385
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`approved_state` の値 `approved` は、この内容で進めることを認めたこと（承認）を意味する。",
@@ -4271,7 +4271,7 @@
               393
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "既存レコードとして読み取った場合、およびsupersede関係が循環する場合は、当該レコードを実効集合へ寄与させずW-STORE-005を出す。",
@@ -4284,7 +4284,7 @@
               393
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "承認レコードの `supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効承認の決定に用いない（§3.3）。",
@@ -4297,7 +4297,7 @@
               393
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効承認は対象X（VO ID、document ID、または `judgment_ref` が指す判断記録）に対して所定の順に評価して導出する。",
@@ -4687,7 +4687,7 @@
               427
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "承認記録は「誰が（approver）」「何を（subjectまたはjudgment reference）」「どの承認状態か（approved_state）」を必須項目として追跡可能とし、根拠は任意に記録できる。",
@@ -5001,7 +5001,7 @@
               479
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "writerは `hashes.test_subject` を必須とする。",
@@ -5131,7 +5131,7 @@
               487
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのtarget listからedgeを生成しない。",
@@ -5251,7 +5251,7 @@
               492
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidence readerは `execution_state` を欠く互換recordを履歴表示できるが、現在のEvidence freshnessを証明できないため `NO_EVIDENCE`（診断 `STALE`）とする。",
@@ -5264,7 +5264,7 @@
               494
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾はE-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。",
@@ -5277,7 +5277,7 @@
               497
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidence writerは `adapter` を必須で記録し、保存前にTestの `ExecutionDescriptor.adapter` およびrunner kindとの整合を検証する。",
@@ -5467,7 +5467,7 @@
           "cites": [
             "基本仕様 §9.2"
           ],
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実現し `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
@@ -5562,7 +5562,7 @@
               526
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test constructのdoc comment（`///` または `/** */`）は表面1であり、test-annotation-lineを認識する。",
@@ -5575,7 +5575,7 @@
               528
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test constructではない関数itemのdoc comment（対象実装側の関数等）は表面2であり、source-target-annotation-lineを認識する。",
@@ -5588,7 +5588,7 @@
               529
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "test-annotation-lineの文法は `\"@vtest.\" test-key SP value` である。",
@@ -5601,7 +5601,7 @@
               532
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "source-target-annotation-lineの文法は `\"@vtest.\" source-target-key SP value` である。",
@@ -5614,7 +5614,7 @@
               533
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "test-keyの値域は `id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related` である。",
@@ -5627,7 +5627,7 @@
               535
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "source-target-keyの値域は `src-id` である。",
@@ -5640,7 +5640,7 @@
               536
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "valueは行末までのテキストとし、前後空白は除去する。",
@@ -5653,7 +5653,7 @@
               537
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "annotation行は1行1キーとする。",
@@ -5666,7 +5666,7 @@
               540
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`covers` と `related` の値はカンマ区切りで複数指定できる。",
@@ -5679,7 +5679,7 @@
               540
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case` と `related` はキー自体を複数行書ける。",
@@ -5692,7 +5692,7 @@
               541
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case` と `related` 以外のキーの重複はエラーE-SCAN-005とする。",
@@ -5705,7 +5705,7 @@
               541
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "ただし `kind` がintegration系のTestに限り、`target` の複数行を許容する。",
@@ -5721,7 +5721,7 @@
           "cites": [
             "別紙A §14.3"
           ],
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "許容された複数 `target` 内でも同じTargetRefの重複はE-SCAN-005とする。",
@@ -5734,7 +5734,7 @@
               541
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。",
@@ -5747,7 +5747,7 @@
               541
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "表面1で、`@vtest.` で始まるがtest-keyを持たない行はエラーE-SCAN-006とする（打鍵ミスの検出を優先し、警告ではなくエラーとする）。",
@@ -5760,7 +5760,7 @@
               542
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "表面1のE-SCAN-006は、未知キーに加え、source-target-key（`src-id`）の誤配置も含む。`src-id` は対象実装側の関数に付与すべきキーであり、Test metadataへの取り込み先を持たない。",
@@ -5773,7 +5773,7 @@
               542
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "表面2で、`@vtest.` で始まるがsource-target-keyを持たない行（test-keyを含む）は警告W-SCAN-105とする（§5.4）。",
@@ -5786,7 +5786,7 @@
               543
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "打鍵ミス検出の目的は両表面に及ぶが、表面2の宣言はTest metadataを破損させず採用値の曖昧さも生まないため、errorではなくwarningとする。",
@@ -5812,7 +5812,7 @@
               544
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`src-id` 重複時はいずれの宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う（どちらかを推測で選ばない）。",
@@ -5825,7 +5825,7 @@
               544
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "doc comment 内の `@vtest.` を含まない行は自由記述として無視する。",
@@ -5838,7 +5838,7 @@
               545
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。",
@@ -5851,7 +5851,7 @@
               546
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "scannerは `@vtest.src-id` の指定値を認識するが、付与を必須としない。",
@@ -5906,7 +5906,7 @@
               546
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "locator文法は `locator = path \"::\" item-path` である。",
@@ -5920,7 +5920,7 @@
             ]
           },
           "description": "例：src/parser.rs::Parser::parse\n    src/lib.rs::validate_input",
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "pathはプロジェクトルートからの相対パス（\"/\" 区切り、\".rs\" で終わる）である。",
@@ -5933,7 +5933,7 @@
               552
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "item-pathはRustアイテムパス（\"::\" 区切り）であり、implブロック内の関数は\"型名::関数名\"とする。",
@@ -5946,7 +5946,7 @@
               554
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`path` は `.rs` で終わる最初の `::` で item-path と分離する。",
@@ -5985,7 +5985,7 @@
               561
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "adapter固有のsource declarationを構文解析できない場合、adapterは該当Test constructをDiscovered Testとして返し、対応を `ManagedTestLink::Missing` として診断を付与する。",
@@ -6011,7 +6011,7 @@
               565
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "source declarationを構文上完全なTest Entityへ正規化できる条件は、adapter中立coreが要求する必須metadata（構文上有効なTest ID・1件以上の `covers`・`intent`）に加え、当該adapterが必須とする追加metadataをTest Entityとして具体化できることをいう。",
@@ -6053,7 +6053,7 @@
               567
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は `rust-cargo` の必須metadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。",
@@ -6753,7 +6753,7 @@
             "基本仕様 §4.2",
             "要件定義 §5.2"
           ],
-          "layer": "spec"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`DiagnosticLabel` は `Missing` variantを持つ。",
@@ -6943,7 +6943,7 @@
               685
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`TestEntity.execution` はadapter、project、suite、opaque selectorからなる中立な実行座標である。",
@@ -6982,7 +6982,7 @@
               689
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "`vtest-adapter-api` は言語非依存の `TestWireCodec` capabilityを定義する。",
@@ -6995,7 +6995,7 @@
               691
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "codecはadapter固有のcompatibility propertyをJSON objectとしてencode / decodeできるが、core domain typeへadapter固有fieldを追加しない。",
@@ -7008,7 +7008,7 @@
               693
             ]
           },
-          "layer": "design"
+          "layer": "basic_design"
         },
         {
           "statement": "`rust-cargo` codecはversion 1互換の `filter`、`package`、`test_target` を所有する。",
@@ -7697,7 +7697,7 @@
               773
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "canonical Locatorは恒久SRC IDの増減で変化しないため、参照方法の違いによってSource Targetの件数、content / subject hash、Evidence上のtarget identityが分裂しない。",
@@ -7710,7 +7710,7 @@
               774
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでは、その宣言の追加・変更・削除がconstruct bytesを変え、Source Target hashを変化させうる（§1.3）。",
@@ -7723,7 +7723,7 @@
               776
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでSource Target hashが変化することは、sourceが実際に変化したことの帰結であり、参照方法による分裂ではない。",
@@ -7736,7 +7736,7 @@
               777
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "coreは統合済みSRC索引から、その恒久SRC IDを宣言した `SourceTargetDraft.target`（= canonical Locator）へ解決する。",
@@ -7762,7 +7762,7 @@
               779
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "adapterは `SourceFragment.bytes` が `location.byte_range` の現在bytesと一致する状態だけを返す。",
@@ -7788,7 +7788,7 @@
               783
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "coreはrange・bytes対応を検証し、§1.3でhashを計算してから `TestEntity`、`SourceTarget` および `DiscoveredTest` を具体化する。",
@@ -7827,7 +7827,7 @@
               786
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "`DiscoveredTest` の `adapter` fieldは `AdapterId` 型である。",
@@ -8061,7 +8061,7 @@
               811
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "検証集約では、static解析 / coverage欠落は `NO_EVIDENCE`（診断 `NOT_CHECKED`）とする。",
@@ -8373,7 +8373,7 @@
               839
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec"
         },
         {
           "statement": "有効性再評価では同じschemaを持つ現在DTOを再構築し、保存hashと比較する。",
