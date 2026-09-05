@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "spectracer/specification.schema.json",
   "title": "SpecTracer canonical specification (Issue #14)",
-  "description": "要求・要件定義・基本仕様・詳細仕様・基本設計・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。2026-09-05: 基本仕様と詳細設計の間に詳細仕様（detailed_spec, DS-）と基本設計（basic_design, BD-）を挿入（Owner の層分割）。同日: request 以外の全層（require/spec/detailed_spec/basic_design/design）を designArea から再帰的な section 木（見出し番号から機械的に構築）へ一般化。area 接頭辞 DA-/BDA-/DSA- は廃止し、節 id は <層接頭辞>-S### に統一。",
+  "description": "根（Issue #11 の凍結事項 F1-F12 と Owner 裁定）・要求・要件定義・基本仕様・詳細仕様・基本設計・詳細設計の正典。md/GitHub はここからの一方向エクスポート元。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。2026-09-05: 基本仕様と詳細設計の間に詳細仕様（detailed_spec, DS-）と基本設計（basic_design, BD-）を挿入（Owner の層分割）。同日: request 以外の全層（require/spec/detailed_spec/basic_design/design）を designArea から再帰的な section 木（見出し番号から機械的に構築）へ一般化。area 接頭辞 DA-/BDA-/DSA- は廃止し、節 id は <層接頭辞>-S### に統一。同日: 要件定義の導出表が自ら「第I部（根 → 要求）」と宣言しているため、根の層 root（ROOT-, Issue #11 の F1-F12 + Owner 裁定、derived_from を持たない唯一の層）を request のさらに上流に追加。request は rootItem から derivedItem へ移行し、root だけが根になる。",
   "type": "object",
-  "required": ["schema_version", "request", "require", "spec", "detailed_spec", "basic_design", "design"],
+  "required": ["schema_version", "root", "request", "require", "spec", "detailed_spec", "basic_design", "design"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "0.1" },
-    "request":        { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
+    "root":           { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
+    "request":        { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
     "require":        { "type": "array", "items": { "$ref": "#/$defs/section" } },
     "spec":           { "type": "array", "items": { "$ref": "#/$defs/section" } },
     "detailed_spec":  { "type": "array", "items": { "$ref": "#/$defs/section" } },
@@ -16,7 +17,7 @@
     "design":         { "type": "array", "items": { "$ref": "#/$defs/section" } }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}|DS-[0-9]{3,}|DS-S[0-9]{3,}|BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$" },
+    "id": { "type": "string", "pattern": "^(ROOT-[0-9]{3,}|R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}|DS-[0-9]{3,}|DS-S[0-9]{3,}|BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$" },
     "source": {
       "description": "移行期間限定。元 md のどこから写したか。lines は statement と description の両方を含む行範囲（1 始まり、両端含む）。",
       "type": "object",
@@ -29,7 +30,7 @@
       }
     },
     "rootItem": {
-      "description": "要求。根なので derived_from を持たない。",
+      "description": "root 層専用（2026-09-05）。Issue #11 の凍結事項 F1-F12、または要件定義の導出表に上流として現れる Owner 裁定など。系の根なので derived_from を持たない唯一の層。",
       "type": "object",
       "required": ["id", "statement", "source"],
       "additionalProperties": false,

@@ -856,16 +856,10 @@
     "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L681 | 上流: A′ 裁定 / 下流: §9.3 traceability 分離・相互推定禁止 / 理由: traceability は関連付けであって証明ではない"
   },
   {
-    "source": [
-      {
-        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "section": "§10.1"
-      },
-      {
-        "doc": null,
-        "section": "構文非依存）"
-      }
-    ],
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§10.1"
+    },
     "upstream": [
       {
         "doc": null,
@@ -1031,31 +1025,17 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（判断"
-      },
-      {
-        "doc": null,
-        "section": "承認分離）"
+        "section": "Owner 裁定 2026-08-24（判断/承認分離）"
       }
     ],
     "kind": "ACCEPTED",
     "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L691 | 上流: Owner 裁定 2026-08-24（判断/承認分離） / 下流: §12/§19 判断と承認の分離（判断済み ≠ 承認済み） / 理由: decision と approval は別概念・別 entity 可。判断は承認なしでも記録可、承認は判断/方針の正式採用（Owner 発言の転記）"
   },
   {
-    "source": [
-      {
-        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "section": "§12"
-      },
-      {
-        "doc": null,
-        "section": "何を"
-      },
-      {
-        "doc": null,
-        "section": "どう判断）"
-      }
-    ],
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§12"
+    },
     "upstream": [
       {
         "doc": null,
@@ -1325,11 +1305,7 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（判断"
-      },
-      {
-        "doc": null,
-        "section": "承認分離）"
+        "section": "Owner 裁定 2026-08-24（判断/承認分離）"
       }
     ],
     "kind": "ACCEPTED",
@@ -1343,15 +1319,7 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（判断"
-      },
-      {
-        "doc": null,
-        "section": "承認分離"
-      },
-      {
-        "doc": null,
-        "section": "記録要件）"
+        "section": "Owner 裁定 2026-08-24（判断/承認分離・記録要件）"
       }
     ],
     "kind": "ACCEPTED",
@@ -1365,15 +1333,7 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（状態"
-      },
-      {
-        "doc": null,
-        "section": "承認"
-      },
-      {
-        "doc": null,
-        "section": "ゲート）"
+        "section": "Owner 裁定 2026-08-24（状態/承認/ゲート）"
       }
     ],
     "kind": "ACCEPTED",
@@ -1387,15 +1347,7 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（状態"
-      },
-      {
-        "doc": null,
-        "section": "承認"
-      },
-      {
-        "doc": null,
-        "section": "ゲート）"
+        "section": "Owner 裁定 2026-08-24（状態/承認/ゲート）"
       }
     ],
     "kind": "ACCEPTED",
@@ -1409,15 +1361,7 @@
     "upstream": [
       {
         "doc": null,
-        "section": "Owner 裁定 2026-08-24（状態"
-      },
-      {
-        "doc": null,
-        "section": "承認"
-      },
-      {
-        "doc": null,
-        "section": "ゲート）"
+        "section": "Owner 裁定 2026-08-24（状態/承認/ゲート）"
       }
     ],
     "kind": "ACCEPTED",
@@ -1444,16 +1388,10 @@
     "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L713 | 上流: Owner 裁定 2026-08-24（ゲート正式要件化） / 下流: §26.4 フェーズゲート条件の評価・提示（正式要件） / 理由: ゲート条件が現在の検証状態+承認で満たされるかを評価・提示できる（MUST）。ライフサイクル管理・自動遷移は本裁定が直接根拠で責務外（OOS-004 と整合）"
   },
   {
-    "source": [
-      {
-        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "section": "§20"
-      },
-      {
-        "doc": null,
-        "section": "Developer）"
-      }
-    ],
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§20"
+    },
     "upstream": [
       {
         "doc": null,
@@ -1464,20 +1402,10 @@
     "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L714 | 上流: R-1 / 下流: §20 一次ユーザー＝開発者（Coder AI / Developer） / 理由: R-1 の転記"
   },
   {
-    "source": [
-      {
-        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "section": "§20"
-      },
-      {
-        "doc": null,
-        "section": "Reviewer"
-      },
-      {
-        "doc": null,
-        "section": "PM 等）"
-      }
-    ],
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§20"
+    },
     "upstream": [
       {
         "doc": null,
@@ -1618,20 +1546,10 @@
     "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L722 | 上流: R-1 / 下流: §22 CLI / CI は同一検証の別入口・GUI 不要 / 理由: 検証本体は一つで入口のみ複数。GUI は一次場面に登場しない"
   },
   {
-    "source": [
-      {
-        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "section": "§23"
-      },
-      {
-        "doc": null,
-        "section": "波及防止"
-      },
-      {
-        "doc": null,
-        "section": "index 再構築等）"
-      }
-    ],
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§23"
+    },
     "upstream": [
       {
         "doc": null,

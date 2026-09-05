@@ -414,6 +414,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -451,21 +452,29 @@ for _stream in (sys.stdout, sys.stderr):
 # Everything downstream is written to generalize over however many
 # area-layers / sectioned-layers there are, so adding a further one is
 # just adding it here.
-LAYER_ORDER = {"request": 0, "require": 1, "spec": 2, "detailed_spec": 3, "basic_design": 4, "design": 5}
+# 2026-09-05 (root layer): 要件定義's own derivation table declares itself
+# 「第I部（根 → 要求）」and names Issue #11's F1-F12 freeze items and Owner
+# rulings as its upstream column -- so those are nodes, and request (R-1..
+# R-5) has derived_from into them; request itself is not the root, #11 is
+# (see LAYERING.md SS1.1 "根の層"). root is flat like request always was
+# (no numbered-heading tree -- it's a short, hand-curated ledger, not a
+# document section structure) and is the only layer with no derived_from
+# (rootItem schema); request moved from rootItem to derivedItem to gain it.
+LAYER_ORDER = {"root": 0, "request": 1, "require": 2, "spec": 3, "detailed_spec": 4, "basic_design": 5, "design": 6}
 LAYERS = tuple(LAYER_ORDER)
-_FLAT_LAYERS = ("request", "require", "spec")            # fragment shape
+_FLAT_LAYERS = ("root", "request", "require", "spec")     # fragment shape
 _AREA_LAYERS = ("detailed_spec", "basic_design", "design")  # fragment shape
 _SECTIONED_LAYERS = ("require", "spec", "detailed_spec", "basic_design", "design")  # output shape
 # Valid targets for an item's "layer" override (relayer): spec, plus every
-# area-layer. request/require are never override targets.
+# area-layer. root/request/require are never override targets.
 _RELAYER_TARGET_LAYERS = ("spec",) + _AREA_LAYERS
-LEAF_PREFIX = {"request": "R", "require": "REQ", "spec": "SPEC", "detailed_spec": "DS", "basic_design": "BD", "design": "DES"}
+LEAF_PREFIX = {"root": "ROOT", "request": "R", "require": "REQ", "spec": "SPEC", "detailed_spec": "DS", "basic_design": "BD", "design": "DES"}
 # Section-node id infix (2026-09-05): <LEAF_PREFIX>-S### for every
 # sectioned layer, replacing the old per-layer area prefixes (DA-/BDA-/
 # DSA-) entirely -- a section is no longer a distinct id family, just the
 # leaf prefix with an "S" marker before the number.
 ID_PATTERN = re.compile(
-    r"^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}"
+    r"^(ROOT-[0-9]{3,}|R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}"
     r"|DS-[0-9]{3,}|DS-S[0-9]{3,}|BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$"
 )
 HEADING_RE = re.compile(r"^#{1,6} ")
@@ -625,10 +634,12 @@ def build_leaf_output(item: dict, layer: str) -> dict:
     out = {"id": item["_id"], "statement": item["statement"]}
     if item.get("description"):
         out["description"] = item["description"]
-    if layer != "request":
+    if layer != "root":
         # Stored derived_from passes through unchanged (2026-09-05 ID
         # freeze): build never computes it -- that is apply-derivation's
-        # job, run deliberately with --write, not on every build.
+        # job, run deliberately with --write, not on every build. root is
+        # the only layer without derived_from (2026-09-05 root layer) --
+        # request gained it when it moved from rootItem to derivedItem.
         out["derived_from"] = list(item.get("derived_from") or [])
         cites = item.get("cites")
         if cites:
@@ -933,11 +944,14 @@ def build_in_memory(root: Path):
     fragments = load_fragments(root)
     headings_by_doc = headings_by_doc_from_fragments(fragments)
 
+    root_items: list[dict] = []
     request_items: list[dict] = []
     sectioned_items: dict[str, list[dict]] = {layer: [] for layer in _SECTIONED_LAYERS}
 
     def route(it: dict, target: str) -> None:
-        if target == "request":
+        if target == "root":
+            root_items.append(it)
+        elif target == "request":
             request_items.append(it)
         else:
             sectioned_items[target].append(it)
@@ -959,6 +973,12 @@ def build_in_memory(root: Path):
     output = {"schema_version": SCHEMA_VERSION}
     all_dups: list[str] = []
     item_objects: dict[str, dict] = {}
+
+    root_items.sort(key=lambda it: item_sort_key("root", it))
+    all_dups.extend(assign_ids(root_items, LEAF_PREFIX["root"]))
+    output["root"] = [build_leaf_output(it, "root") for it in root_items]
+    for it in root_items:
+        item_objects[it["_id"]] = it
 
     request_items.sort(key=lambda it: item_sort_key("request", it))
     all_dups.extend(assign_ids(request_items, LEAF_PREFIX["request"]))
@@ -1013,7 +1033,8 @@ def cmd_build(args) -> int:
 
     stmt_counts = {layer: sum(1 for _ in iter_leaf_items_tree(output.get(layer, []))) for layer in _SECTIONED_LAYERS}
     sec_counts = {layer: count_sections(output.get(layer, [])) for layer in _SECTIONED_LAYERS}
-    print(f"build: wrote {spec_json_path(root)} ({len(output['request'])} request statements, "
+    print(f"build: wrote {spec_json_path(root)} ({len(output.get('root', []))} root statements, "
+          f"{len(output['request'])} request statements, "
           + ", ".join(
               f"{stmt_counts[layer]} {layer} statements in {sec_counts[layer]} sections"
               for layer in _SECTIONED_LAYERS
@@ -1073,6 +1094,14 @@ def cmd_coverage(args) -> int:
 
     for path, frag in fragments:
         layer = frag.get("layer")
+        if layer == "root":
+            # 2026-09-05 root layer: root.json's items come from Issue #11
+            # (github, not md) and from derivation-table row lines already
+            # inside a keep_for_derivation dropped range -- coverage's job
+            # is "did we transcribe every line of the 5 known documents",
+            # which root has nothing to do with; skip it entirely rather
+            # than trying to md-read a "github:..." doc path.
+            continue
         if layer in _AREA_LAYERS:
             for area in frag.get("areas", []):
                 asrc = area["source"]
@@ -1239,7 +1268,7 @@ def check_source(src, label: str, problems: list[str]) -> None:
         problems.append(f"{label}: source.lines={lines} is not a valid 1-based [start, end] with start<=end")
 
 
-def check_leaf_item(item, label: str, problems: list[str]) -> None:
+def check_leaf_item(item, label: str, problems: list[str], layer: str = None) -> None:
     if not isinstance(item, dict):
         problems.append(f"{label}: item must be an object")
         return
@@ -1252,7 +1281,14 @@ def check_leaf_item(item, label: str, problems: list[str]) -> None:
         iid = item["id"]
         if not isinstance(iid, str) or not ID_PATTERN.match(iid):
             problems.append(f"{label}: id={iid!r} does not match the id pattern")
-    if "derived_from" not in item:
+    if layer == "root":
+        # 2026-09-05 root layer: rootItem has no derived_from field at
+        # all (root is the system's own root, nothing to derive from) --
+        # unlike every other layer, fragments/root.json must NOT author
+        # one either.
+        if "derived_from" in item:
+            problems.append(f"{label}: root-layer item must not carry 'derived_from' (rootItem has no such field)")
+    elif "derived_from" not in item:
         problems.append(f"{label}: derived_from is required in fragments")
     else:
         derived = item["derived_from"]
@@ -1305,7 +1341,7 @@ def cmd_check_fragment(args) -> int:
             problems.append("items must be a list")
         else:
             for i, it in enumerate(items):
-                check_leaf_item(it, f"items[{i}]", problems)
+                check_leaf_item(it, f"items[{i}]", problems, layer)
     elif layer in _AREA_LAYERS:
         if "items" in frag:
             problems.append(f"layer {layer!r} must not carry top-level 'items' (use 'areas[].items')")
@@ -1483,7 +1519,14 @@ def harvest_item(item: dict, self_definition_codes: frozenset = frozenset()) -> 
 def iter_leaf_items(frag: dict):
     """Iterates a fragment's own declared structure (areas vs flat items) --
     NOT the effective/overridden layer of each item, which only matters at
-    build time. basic_design and design fragments are both area-shaped."""
+    build time. basic_design and design fragments are both area-shaped.
+    2026-09-05: root.json yields nothing here -- every caller of this
+    function (harvest-cites, qualifier-check, source-check, relayer
+    report/apply) is an md-based migration check or a relayer routing
+    tool, and root items are neither md-sourced (an F-item's doc is
+    github, not any of the 5 documents) nor ever relayer-eligible."""
+    if frag.get("layer") == "root":
+        return
     if frag.get("layer") in _AREA_LAYERS:
         for area in frag.get("areas", []):
             for it in area.get("items", []):
@@ -1656,6 +1699,8 @@ def build_id_index(spec: dict) -> dict:
     other job, self_naming_candidates' full-corpus scan, would otherwise
     have to guard against matching a section's title text."""
     idx: dict = {}
+    for it in spec.get("root", []):
+        idx[it["id"]] = dict(it, layer="root")
     for it in spec["request"]:
         idx[it["id"]] = dict(it, layer="request")
     for layer in _SECTIONED_LAYERS:
@@ -1983,6 +2028,8 @@ def resolve_cite(spec: dict, id_index: dict, cite: str):
 
 
 def iter_all_statements(spec: dict):
+    for it in spec.get("root", []):
+        yield it
     for it in spec["request"]:
         yield it
     for layer in _SECTIONED_LAYERS:
@@ -2018,6 +2065,35 @@ def build_derivation_candidates(spec: dict, id_index: dict) -> list:
 _TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 _TABLE_SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
 _TABLE_TOKEN_SPLIT_RE = re.compile(r"[・/]")
+
+
+def split_outside_parens(text: str, sep_chars: str = "・/") -> list:
+    """Split `text` on any char in `sep_chars`, but never inside a
+    parenthesised span (both full-width （） and half-width ()) -- e.g.
+    "F4・F7・Owner 裁定 2026-08-23（8）" -> 3 tokens (the ・ are real
+    separators), but "Owner 裁定 2026-08-24（判断/承認分離）" stays ONE
+    token (that "/" is a natural-language "and" inside the ruling's own
+    parenthetical label, not a second citation) -- found against the real
+    root-layer harvest, 2026-09-05: the plain _TABLE_TOKEN_SPLIT_RE.split
+    used here corrupted every such ruling into two or three garbage
+    tokens ("Owner 裁定 2026-08-24（判断", "承認分離）", ...)."""
+    parts = []
+    buf = []
+    depth = 0
+    for ch in text:
+        if ch in "（(":
+            depth += 1
+            buf.append(ch)
+        elif ch in "）)":
+            depth = max(0, depth - 1)
+            buf.append(ch)
+        elif ch in sep_chars and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
 
 _TABLE_ID_RE = re.compile(r"^(R-[1-5]|P-[0-9]{3})(?![0-9A-Za-z])")
 _TABLE_SECTION_RE = re.compile(r"^§\s*([0-9]+(?:\.[0-9]+)*)(?:-[A-Za-z])?")
@@ -2453,8 +2529,8 @@ def harvest_derivation_table_rows(root: Path, repo_root: Path) -> list:
                 })
                 continue
             upstream, downstream, reason, state = cells
-            source_refs = [token_to_trace_ref(t, doc) for t in _TABLE_TOKEN_SPLIT_RE.split(downstream) if t.strip()]
-            upstream_refs = [token_to_trace_ref(t, doc) for t in _TABLE_TOKEN_SPLIT_RE.split(upstream) if t.strip()]
+            source_refs = [token_to_trace_ref(t, doc) for t in split_outside_parens(downstream)]
+            upstream_refs = [token_to_trace_ref(t, doc) for t in split_outside_parens(upstream)]
             rows_out.append({
                 "source": source_refs[0] if len(source_refs) == 1 else source_refs,
                 "upstream": upstream_refs,
@@ -2554,12 +2630,37 @@ def cmd_harvest_trace_tables(args) -> int:
     return 0
 
 
-def resolve_trace_ref(ref, spec: dict, id_index: dict) -> list:
+_ROOT_ALIAS_RE = re.compile(r"^#11\s+(F[0-9]+)$")
+
+
+def normalize_root_token(token: str) -> str:
+    """Collapse an alternate way of citing an F-item (e.g. "#11 F1",
+    found verbatim in the derivation table) to its bare form ("F1") --
+    both name the same Issue #11 freeze item, so this must resolve (and,
+    at harvest time, count) as the SAME root item, not a second one. A
+    bare "#11" (no F-number) passes through unchanged -- CONVERSION.md/
+    the root-layer task says it maps to nothing, and it never appeared as
+    its own token in this corpus (checked: 0 occurrences) -- so nothing
+    else needs a special case here."""
+    m = _ROOT_ALIAS_RE.match(token.strip())
+    return m.group(1) if m else token.strip()
+
+
+def build_root_token_index(spec: dict) -> dict:
+    """token (verbatim, as it appears in a trace-table cell -- "F1",
+    "Owner 裁定 2026-08-21", ...) -> root item id. Built from each root
+    item's own source.heading, which harvest-root sets to exactly the
+    token that names it (an F-number for an F-item, the token text
+    itself otherwise) -- no separate stored field needed."""
+    return {it["source"]["heading"]: it["id"] for it in spec.get("root", [])}
+
+
+def resolve_trace_ref(ref, spec: dict, id_index: dict, root_index: dict) -> list:
     """One harvested {doc, section} ref (or None) -> resolved id(s),
-    against the CURRENT build (spec/id_index) -- ids are never baked into
-    trace-tables.json, only the doc+section/code data is, so this always
-    reflects whatever the corpus looks like right now, same as the old
-    md-parsing path did on every run."""
+    against the CURRENT build (spec/id_index/root_index) -- ids are never
+    baked into trace-tables.json, only the doc+section/code data is, so
+    this always reflects whatever the corpus looks like right now, same
+    as the old md-parsing path did on every run."""
     if not ref:
         return []
     section = ref.get("section")
@@ -2575,27 +2676,37 @@ def resolve_trace_ref(ref, spec: dict, id_index: dict) -> list:
         return [section] if section in id_index else []
     if re.match(r"^(NFR-[0-9]{3}|OOS-[0-9]{3})$", section):
         return self_naming_candidates(id_index, section)
-    return []  # unknown token (Issue/F-item/裁定 label) -- never resolves
+    # 2026-09-05 (root layer): an F-item or Owner-ruling token (including
+    # the "#11 F<n>" alias form) resolves to its root-layer item.
+    normalized = normalize_root_token(section)
+    if normalized in root_index:
+        return [root_index[normalized]]
+    return []  # unknown token (a bare "#11", or anything else unrecognised) -- never resolves
 
 
-def collect_edges_from_trace_tables(rows: list, spec: dict, id_index: dict) -> dict:
+def collect_edges_from_trace_tables(rows: list, spec: dict, id_index: dict, root_index: dict) -> dict:
     """target_id -> set(source_id), from every harvested row (要求→要件
     table + all 4 traceability appendices, uniformly -- see the
     trace-tables.json docstring above for why one mechanism suffices for
     both). Replaces the old rule-2 (table_candidates) and rule-3/Task A
-    (collect_traceability_table_edges) md-parsing paths."""
+    (collect_traceability_table_edges) md-parsing paths. root_index lets
+    an F-item/ruling upstream token resolve too (2026-09-05 root layer) --
+    this is also how request (R-N) gets derived_from into root, and how a
+    require SECTION gets an edge straight to a root item, both via the
+    exact same "source" (target) / "upstream" (source) resolution, no
+    separate code path per team-lead's task 2/3."""
     edges: dict = {}
     for row in rows:
         src = row.get("source")
         src_refs = src if isinstance(src, list) else ([src] if src else [])
         targets: list = []
         for ref in src_refs:
-            targets.extend(resolve_trace_ref(ref, spec, id_index))
+            targets.extend(resolve_trace_ref(ref, spec, id_index, root_index))
         if not targets:
             continue
         sources: list = []
         for ref in row.get("upstream", []):
-            sources.extend(resolve_trace_ref(ref, spec, id_index))
+            sources.extend(resolve_trace_ref(ref, spec, id_index, root_index))
         if not sources:
             continue
         for t in targets:
@@ -2784,7 +2895,8 @@ def collect_derivation_edges(spec: dict, id_index: dict, root: Path):
     (an absent file degrades to rule-1-only edges, not an error)."""
     edges = collect_cites_edges(spec, id_index)
     rows = read_json(trace_tables_path(root)) if trace_tables_path(root).exists() else []
-    trace_edges = collect_edges_from_trace_tables(rows, spec, id_index)
+    root_index = build_root_token_index(spec)
+    trace_edges = collect_edges_from_trace_tables(rows, spec, id_index, root_index)
     for t, srcs in trace_edges.items():
         edges.setdefault(t, set()).update(srcs)
     return edges, {"rows_loaded": len(rows)}
@@ -2823,7 +2935,7 @@ def summarize_edges(spec: dict, id_index: dict, edges: dict) -> dict:
     for it in iter_all_statements(spec):
         iid = it["id"]
         layer = id_index[iid]["layer"]
-        if layer == "request":
+        if layer == "root":  # 2026-09-05: root is the only layer with no derived_from field
             continue
         final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
         if final_list:
@@ -2872,7 +2984,8 @@ def cmd_apply_derivation(args) -> int:
 
     tt_path = trace_tables_path(root)
     trace_rows = read_json(tt_path) if tt_path.exists() else []
-    trace_edges = collect_edges_from_trace_tables(trace_rows, spec, id_index)
+    root_index = build_root_token_index(spec)
+    trace_edges = collect_edges_from_trace_tables(trace_rows, spec, id_index, root_index)
     edges_after = {k: set(v) for k, v in edges_before.items()}
     for t, srcs in trace_edges.items():
         edges_after.setdefault(t, set()).update(srcs)
@@ -2885,10 +2998,10 @@ def cmd_apply_derivation(args) -> int:
     print("--- apply-derivation: trace-tables.json (要求→要件 table + 4 traceability appendices) ---")
     print(f"  rows loaded: {len(trace_rows)}" + (f" (from {tt_path})" if tt_path.exists() else " (file absent -- ran with cites only)"))
     print("  statements with derived_from from cites alone (rule 1):")
-    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+    for layer in ("request", "require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"    {layer}: {stats_before.get(layer, 0)}")
     print("  statements with derived_from from cites + trace-tables.json (rules 1+2+3):")
-    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+    for layer in ("request", "require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"    {layer}: {stats_after.get(layer, 0)}")
     print(f"  edges added by trace-tables.json (raw candidate pairs, before rule 3): {edges_added_by_trace}")
 
@@ -2901,8 +3014,8 @@ def cmd_apply_derivation(args) -> int:
     for it in iter_all_statements(spec):
         iid = it["id"]
         layer = id_index[iid]["layer"]
-        if layer == "request":
-            continue  # rootItem schema has no derived_from field
+        if layer == "root":
+            continue  # rootItem schema has no derived_from field (2026-09-05: root, not request)
         final_list, dropped = finalize_derived_from(iid, edges_after.get(iid, ()), full_index)
         dropped_total += dropped
         recomputed[iid] = final_list
@@ -2986,7 +3099,7 @@ def cmd_apply_derivation(args) -> int:
         mean_size = (total_edges / len(sizes)) if sizes else 0.0
         max_size = max(sizes) if sizes else 0
         print("--- apply-derivation summary (statement edges) ---")
-        for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+        for layer in ("request", "require", "spec", "detailed_spec", "basic_design", "design"):
             print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
         print(f"  total edges: {total_edges}")
         print(f"  mean derived_from size (non-empty statements only): {mean_size:.2f}")
@@ -3046,7 +3159,7 @@ def cmd_apply_derivation(args) -> int:
     max_size = max(sizes) if sizes else 0
 
     print("--- apply-derivation summary (statement edges) ---")
-    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+    for layer in ("request", "require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
     print(f"  total edges: {total_edges}")
     print(f"  mean derived_from size (non-empty statements only): {mean_size:.2f}")
@@ -3097,7 +3210,7 @@ def cmd_freeze(args) -> int:
         # every run, independent of the assigned id; stripping it would
         # silently un-relayer the item on the next build.
         layer = id_index[iid]["layer"]
-        if layer != "request":
+        if layer != "root":  # 2026-09-05: root is the only layer with no derived_from field
             final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
             item_obj["derived_from"] = final_list
 
@@ -3611,6 +3724,134 @@ def cmd_source_check(args) -> int:
     return 1 if gate_violation else 0
 
 
+# --------------------------------------------------------- harvest-root --
+# 2026-09-05 (root layer): LAYERING.md SS1.1 "根の層" -- 要件定義's own
+# derivation table declares itself 「第I部（根 → 要求）」and names Issue
+# #11's F1-F12 freeze items and Owner rulings in its upstream column, so
+# those are nodes above request, not request itself. harvest-root reads
+# Issue #11's body (the freeze ledger) once via `gh issue view`, and the
+# derivation table's raw upstream cells once via md, and writes
+# fragments/root.json -- reproducible, like every other harvest command.
+
+_F_ITEM_HEADING_RE = re.compile(r"^###\s+(F([0-9]+))\.\s*(.+)$")
+
+
+def parse_f_items(issue_body: str) -> list:
+    """-> [{"n": int, "heading": "F<n>", "text": "<heading line>\\n<its
+    bullets>, verbatim"}, ...], one per "### F<n>. ..." section of Issue
+    #11's body, closed by the next "### F..." heading or any "## "/"---"
+    line (the ledger's own section breaks) -- never by a fixed line
+    count, since the ledger's prose is free-form between headings."""
+    items = []
+    current = None
+    for line in issue_body.splitlines():
+        m = _F_ITEM_HEADING_RE.match(line)
+        if m:
+            if current:
+                items.append(current)
+            current = {"n": int(m.group(2)), "heading": f"F{m.group(2)}", "lines": [line]}
+            continue
+        if current is not None:
+            if line.strip() == "---" or line.startswith("## "):
+                items.append(current)
+                current = None
+            else:
+                current["lines"].append(line)
+    if current:
+        items.append(current)
+    for it in items:
+        it["text"] = "\n".join(it["lines"]).rstrip()
+    return items
+
+
+def fetch_issue_11_body(issue_body_file) -> str:
+    """The freeze ledger's body text -- read from `issue_body_file` if
+    given (for synthetic testing, where there is no real Issue #11 to
+    query), else fetched live via `gh issue view 11 --json body`."""
+    if issue_body_file:
+        return Path(issue_body_file).read_text(encoding="utf-8")
+    result = subprocess.run(
+        ["gh", "issue", "view", "11", "--json", "body", "-q", ".body"],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    if result.returncode != 0:
+        print(f"error: `gh issue view 11` failed: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+    return result.stdout
+
+
+def collect_root_candidate_tokens(root: Path, repo_root: Path) -> tuple:
+    """-> (ruling_tokens: dict[normalized_token -> (doc, first_row_line)],
+    bare_11_count: int). Scans the same 要求→要件 derivation table rows
+    harvest_derivation_table_rows does (find_derivation_table_ranges,
+    keep_for_derivation), but only to find upstream tokens that are
+    neither an id/section/selfname reference (classify_table_ref's other
+    three kinds -- those are request/require statements or sections, not
+    root candidates) nor a bare F<n> (an alias for an Issue #11 item,
+    handled from the issue body itself, not duplicated here) nor a bare
+    "#11" (maps to nothing, per the task -- counted, not made into an
+    item). Each surviving token keeps only its FIRST row/line -- the same
+    ruling is commonly cited by many rows."""
+    ruling_first: dict = {}
+    bare_11 = 0
+    for doc, start, end in find_derivation_table_ranges(root):
+        md_lines = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+        for line_no, cells in parse_md_table_rows(md_lines, start, end):
+            if len(cells) != 4:
+                continue
+            upstream = cells[0]
+            for tok in split_outside_parens(upstream):
+                kind, _key, _matched = classify_table_ref(tok)
+                if kind != "unknown":
+                    continue
+                norm = normalize_root_token(tok)
+                if norm == "#11":
+                    bare_11 += 1
+                    continue
+                if re.fullmatch(r"F[0-9]+", norm):
+                    continue
+                ruling_first.setdefault(norm, (doc, line_no))
+    return ruling_first, bare_11
+
+
+def cmd_harvest_root(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+
+    issue_body = fetch_issue_11_body(getattr(args, "issue_body_file", None))
+    f_items = parse_f_items(issue_body)
+    if len(f_items) != 12:
+        print(f"warning: expected 12 F-items (F1-F12) in Issue #11's body, found {len(f_items)}", file=sys.stderr)
+
+    ruling_first, bare_11 = collect_root_candidate_tokens(root, repo_root)
+
+    items = []
+    for fi in sorted(f_items, key=lambda x: x["n"]):
+        items.append({
+            "statement": fi["text"],
+            "source": {"doc": "github:YmSaki/SpecTracer/issues/11", "heading": fi["heading"], "lines": [fi["n"], fi["n"]]},
+        })
+    for tok in sorted(ruling_first):
+        doc, line_no = ruling_first[tok]
+        items.append({
+            "statement": tok,
+            "source": {"doc": doc, "heading": tok, "lines": [line_no, line_no]},
+        })
+
+    frag = {"doc": "github:YmSaki/SpecTracer/issues/11", "layer": "root", "items": items}
+    out_path = fragments_dir(root) / "root.json"
+    out_path.write_text(json.dumps(frag, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    print("--- harvest-root ---")
+    print(f"  F-items: {len(f_items)}")
+    print(f"  distinct non-F upstream tokens (ruling/other): {len(ruling_first)}")
+    for tok in sorted(ruling_first):
+        print(f"    {tok!r}")
+    print(f"  bare \"#11\" occurrences (maps to nothing, not an item): {bare_11}")
+    print(f"  wrote {out_path} ({len(items)} root items)")
+    return 0
+
+
 # ------------------------------------------------------------------ cli --
 
 def cmd_all(args) -> int:
@@ -3681,6 +3922,12 @@ def main(argv=None) -> int:
     add_root_arg(p_htt)
     add_repo_root_arg(p_htt)
     p_htt.set_defaults(func=cmd_harvest_trace_tables)
+
+    p_hr = sub.add_parser("harvest-root", help="write fragments/root.json from Issue #11's freeze ledger (F1-F12) and the derivation table's non-F upstream tokens (Owner rulings)")
+    add_root_arg(p_hr)
+    add_repo_root_arg(p_hr)
+    p_hr.add_argument("--issue-body-file", help="read Issue #11's body from this file instead of `gh issue view 11` (for synthetic testing)")
+    p_hr.set_defaults(func=cmd_harvest_root)
 
     p_deriv = sub.add_parser("derivation-candidates", help="CONVERSION.md SS6 steps 1-2: mechanical derivation candidate list")
     add_root_arg(p_deriv)
