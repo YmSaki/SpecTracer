@@ -4893,8 +4893,8 @@
               417
             ]
           },
-          "layer": "design",
-          "id": "DES-174"
+          "layer": "detailed_spec",
+          "id": "DS-1585"
         },
         {
           "statement": "旧レコードを名指ししない `approved` の追加では `draft` のままとする。",

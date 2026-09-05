@@ -23661,6 +23661,19 @@
               }
             },
             {
+              "id": "DS-1585",
+              "statement": "取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。",
+              "derived_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
+                "lines": [
+                  417,
+                  417
+                ]
+              }
+            },
+            {
               "id": "DS-466",
               "statement": "検証状態（§4.1の5状態）の変化、判断記録の追加そのもの、`basis` の内容は、実効承認状態を変えない。",
               "derived_from": [],
@@ -36849,6 +36862,37 @@
                 "lines": [
                   593,
                   593
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "DS-S161",
+          "title": "15.2 `rust-cargo` 編集・挿入の適用",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "15.2 `rust-cargo` 編集・挿入の適用",
+            "lines": [
+              620,
+              620
+            ]
+          },
+          "derived_from": [
+            "SPEC-S039",
+            "SPEC-S040"
+          ],
+          "items": [
+            {
+              "id": "DS-1586",
+              "statement": "適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。",
+              "derived_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+                "heading": "15.2 `rust-cargo` 編集・挿入の適用",
+                "lines": [
+                  620,
+                  620
                 ]
               }
             }
@@ -51541,19 +51585,6 @@
               }
             },
             {
-              "id": "DES-174",
-              "statement": "取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
-                "lines": [
-                  417,
-                  417
-                ]
-              }
-            },
-            {
               "id": "DES-175",
               "statement": "旧レコードを名指ししない `approved` の追加では `draft` のままとする。",
               "derived_from": [],
@@ -57081,19 +57112,6 @@
                 "lines": [
                   619,
                   619
-                ]
-              }
-            },
-            {
-              "id": "DES-514",
-              "statement": "適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-                "heading": "15.2 `rust-cargo` 編集・挿入の適用",
-                "lines": [
-                  620,
-                  620
                 ]
               }
             },

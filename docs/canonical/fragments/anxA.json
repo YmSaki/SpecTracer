@@ -6378,8 +6378,8 @@
               620
             ]
           },
-          "layer": "design",
-          "id": "DES-514"
+          "layer": "detailed_spec",
+          "id": "DS-1586"
         },
         {
           "statement": "確認のいずれかに失敗した場合は、適用前の状態へ復元し（挿入によりファイルが新規作成された場合は不存在へ戻す）、E-OP-003 を返す。",
@@ -6846,6 +6846,7 @@
       "line": 595,
       "level": 3,
       "ids": {
+        "detailed_spec": "DS-S161",
         "design": "DES-S092"
       }
     },

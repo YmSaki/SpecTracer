@@ -953,10 +953,6 @@ A’(X) の全レコードが `approved_state == approved` の場合、実効承
 
 `approved` を否認するには `approved_state: rejected` の承認レコードを追加する。
 
-### DES-174
-
-取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。
-
 ### DES-175
 
 旧レコードを名指ししない `approved` の追加では `draft` のままとする。
@@ -2554,10 +2550,6 @@ Form 回答（§14）から、あるべきアノテーションブロックと�
 ### DES-513
 
 適用後の対象ファイルの再パースは、挿入した Test 以外の Test エンティティのソーステキストが変化していないことを確認する。
-
-### DES-514
-
-適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。
 
 ### DES-515
 

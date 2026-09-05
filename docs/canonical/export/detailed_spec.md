@@ -2368,6 +2368,10 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 `approved_at` / ULIDの順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。
 
+### DS-1585
+
+取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。
+
 ### DS-466
 
 検証状態（§4.1の5状態）の変化、判断記録の追加そのもの、`basis` の内容は、実効承認状態を変えない。
@@ -6369,6 +6373,14 @@ Integration Test の配置先（test suite location）は Source Target の loca
 ### DS-1253
 
 再確認で見つからない場合は E-OP-002 とする。
+
+### DS-S161 15.2 `rust-cargo` 編集・挿入の適用
+
+*導出元: SPEC-S039, SPEC-S040*
+
+### DS-1586
+
+適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。
 
 ## DS-S145 18. 受入契約
 

@@ -83,7 +83,7 @@ python docs/canonical/build.py all      # = build → apply-derivation --write �
 
 ## 7. ID の付番
 
-**節 id（`<層>-S###`）も見出し順の再計算で決まる。ID 固定は文の id と節の id の両方を対象にしなければならない**（節 id を fragments の `headings` に保存する）。半端に固定しない。
+**ID は 2026-09-05 に固定した**（`build.py fix-ids`）。文の `id` は各 fragment の item に、節の id は各 fragment の `headings[].ids`（層ごとの写像。1つの元節が複数の層に分かれていれば層ごとに1つ）に保存されている。以後 `build` は保存された id を使い、新しい文・見出しにだけ次番号を振る。番号は詰めない。`layer` を変えた文は新しい層で新 id を得て、旧 id は `relations/retired-ids.json` に退役として記録され再利用されない。
 
 初回変換ではエージェントは `id` を付けず、後処理が (層, 文書, `source.lines[0]`) 順に決定的に付番した。**ID 固定後（2026-09-05）は id が fragments に保存されており、既存の id は変えない。** 新しい文を足すときは id を書かずに置けば、`build` が次番号を振る。文を消しても番号は詰めない。
 
