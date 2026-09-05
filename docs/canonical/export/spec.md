@@ -28,6 +28,8 @@
 
 > 規範の伝播は上流→下流。
 
+*導出元: P-005*
+
 *引用: 要件定義 P-005*
 
 ### SPEC-007
@@ -42,11 +44,15 @@
 
 本書からの `要件定義 §n` 参照は、FROZEN 要件定義の連番（§1〜§28、および原則 P-001〜P-005、要求 R-1〜R-5）を指す。
 
+*導出元: R-1, R-5, P-001, P-005*
+
 *引用: P-001, P-005, R-1, R-5*
 
 ### SPEC-010
 
 ツール名は `vtest` とする（バイナリ名・ディレクトリ名に使用する）。
+
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §28*
 
@@ -66,11 +72,15 @@
 
 `rust-cargo` 以外の production language adapter はv0.1の提供範囲に含めない。
 
+*導出元: REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
+
 *引用: 要件定義 §21*
 
 ### SPEC-015
 
 インターフェースはCLIと、AI Agent向けMCPサーバとする。
+
+*導出元: REQ-267, REQ-268, REQ-269, REQ-270*
 
 *引用: 要件定義 §22*
 
@@ -90,6 +100,8 @@ MCPを本体とする。
 
 機械が決定論で確定できない疑義は `UNKNOWN` として外部の判断者へ引き渡す（§11）。
 
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
+
 *引用: 要件定義 §12*
 
 ### SPEC-020
@@ -103,6 +115,8 @@ CLI・MCP・検証coreはadapter registryを介して能力を選択する。
 ### SPEC-022
 
 coreの検証契約は言語・test runnerに依存しない。
+
+*導出元: REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
 
 *引用: 要件定義 §21*
 
@@ -122,11 +136,15 @@ documentは `id + path + content_hash + 上流参照（derives_from）` を持�
 
 文書種別ごとの専用スキーマは設けない。
 
+*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033*
+
 *引用: 要件定義 §3.2*
 
 ### SPEC-027
 
 対象ソースコード自身のdoc commentは、その対象実装の唯一の仕様根拠としては用いない。
+
+*導出元: REQ-233, REQ-234, REQ-235*
 
 *引用: 要件定義 §18*
 
@@ -142,11 +160,15 @@ derives_fromは上流documentから下流documentへの導出を表す。
 
 各derives_fromリンクは任意（optional）の説明文・導出理由を保持できる（§3.2）。
 
+*導出元: REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044, REQ-045, REQ-046, REQ-047, REQ-048, REQ-049*
+
 *引用: 要件定義 §3.4*
 
 ### SPEC-031
 
 Verification Obligation（VO）とは、独立して「この条件が成立するか」と検証可能な仕様上の命題である。
+
+*導出元: REQ-162, REQ-163*
 
 *引用: 要件定義 §10.1*
 
@@ -186,6 +208,8 @@ Test Intentとは、Testが「何を検証するか」を実装コードを読�
 
 Test Intentは宣言鎖のノードではない。
 
+*導出元: REQ-203, REQ-204, REQ-205*
+
 *引用: 要件定義 §14*
 
 ### SPEC-041
@@ -196,6 +220,8 @@ Test Intentは宣言鎖のノードではない。
 
 検証対象は実装constructに限定せず、外部から観測可能な契約・境界上の振る舞いも含む。
 
+*導出元: REQ-144, REQ-145, REQ-146, REQ-147, REQ-148*
+
 *引用: 要件定義 §9.1*
 
 ### SPEC-043
@@ -205,6 +231,8 @@ Source Target（SRC）とは、実装コード上の識別可能なimplementatio
 ### SPEC-044
 
 Source Targetは、adapter IDとadapter所有のopaque locatorからなるTarget Reference、または任意の恒久SRC IDで識別する。
+
+*導出元: REQ-149, REQ-150, REQ-151, REQ-152, REQ-153, REQ-154, REQ-155, REQ-156*
 
 *引用: 要件定義 §9.2*
 
@@ -219,6 +247,8 @@ Execution Evidenceは結果・実行時リポジトリ状態・解決後のcanon
 ### SPEC-047
 
 Execution Evidenceは検証対象の内容ハッシュに束縛される（§6）。
+
+*導出元: REQ-115, REQ-116, REQ-117, REQ-118, REQ-119, REQ-120*
 
 *引用: 要件定義 §6*
 
@@ -238,6 +268,8 @@ Execution Evidenceは検証対象の内容ハッシュに束縛される（§6�
 
 判断記録は依存closureのハッシュに束縛される（§11）。
 
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
+
 *引用: 要件定義 §12*
 
 ### SPEC-052
@@ -256,11 +288,15 @@ Execution Evidenceは検証対象の内容ハッシュに束縛される（§6�
 
 承認記録は判断記録とは別軸・別entityでありうる（§17）。
 
+*導出元: REQ-236, REQ-237, REQ-238, REQ-239, REQ-240, REQ-241, REQ-242, REQ-243, REQ-244, REQ-245, REQ-246, REQ-247, REQ-248, REQ-249, REQ-250, REQ-251, REQ-252*
+
 *引用: 要件定義 §19*
 
 ### SPEC-056
 
 検証状態は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` の5つとする（§4.1）。
+
+*導出元: REQ-085, REQ-086, REQ-087, REQ-088, REQ-089, REQ-090, REQ-091*
 
 *引用: 要件定義 §5.1*
 
@@ -271,6 +307,8 @@ Execution Evidenceは検証対象の内容ハッシュに束縛される（§6�
 ### SPEC-058
 
 検証状態に承認状態を混入させない。
+
+*導出元: REQ-109, REQ-110, REQ-111, REQ-112, REQ-113, REQ-114*
 
 *引用: 要件定義 §5.5*
 
@@ -286,11 +324,15 @@ Execution Evidenceは検証対象の内容ハッシュに束縛される（§6�
 
 診断ラベルの語彙は詳細設計で定める。
 
+*導出元: REQ-092, REQ-093, REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §5.2、§28*
 
 ### SPEC-062
 
 検査は `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の4本のみとする（§5）。
+
+*導出元: REQ-034, REQ-035, REQ-050, REQ-051, REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
 
 *引用: 要件定義 §3.3、§4*
 
@@ -302,6 +344,8 @@ Execution Evidenceは検証対象の内容ハッシュに束縛される（§6�
 
 完全検証は一項目でも非 `PASS` があればNGとする（fail-closed）。
 
+*導出元: REQ-295, REQ-296*
+
 *引用: 要件定義 §26.1*
 
 ### SPEC-065
@@ -311,6 +355,8 @@ scopeとは、利用者が限定する検査・エンティティの範囲であ
 ### SPEC-066
 
 scopeを狭めても対象外項目を `PASS` へ書き換えない。
+
+*導出元: P-002*
 
 *引用: 要件定義 §2/P-002*
 
@@ -322,11 +368,15 @@ scopeを狭めても対象外項目を `PASS` へ書き換えない。
 
 正典から導出できる情報は派生情報とし独立保存しない。
 
+*導出元: P-003*
+
 *引用: 要件定義 P-003*
 
 ### SPEC-069
 
 Agent Form Engineeringとは、既知の作業手順・入力項目を持つ操作を、自由編集ではなく構造化された質問・入力・検証で行わせる方式である。
+
+*導出元: P-004*
 
 *引用: 要件定義 P-004*
 
@@ -354,6 +404,8 @@ Agent Form Engineeringとは、既知の作業手順・入力項目を持つ操�
 
 派生情報はGit管理しない。
 
+*導出元: P-003*
+
 *引用: 要件定義 P-003 / NFR-004*
 
 ### SPEC-076
@@ -372,6 +424,8 @@ registryの重複ID、未登録adapter、adapter間のTest ID重複は操作エ�
 
 registryの重複ID、未登録adapter、adapter間のTest ID重複は空のscanとして成功扱いしない。
 
+*導出元: REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
+
 *引用: 要件定義 §21*
 
 ### SPEC-080
@@ -382,11 +436,15 @@ registryの重複ID、未登録adapter、adapter間のTest ID重複は空のscan
 
 どれかを正として他を修正させることはしない。
 
+*導出元: P-001*
+
 *引用: 要件定義 P-001*
 
 ### SPEC-082
 
 要件定義 §3.2 の宣言鎖をそのまま採用する。
+
+*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033*
 
 *引用: 要件定義 §3.2*
 
@@ -421,6 +479,8 @@ registryの重複ID、未登録adapter、adapter間のTest ID重複は空のscan
 
 段はリンクであって検査ではない。
 
+*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033, REQ-034, REQ-035*
+
 *引用: 要件定義 §3.2/§3.3*
 
 ### SPEC-088
@@ -439,6 +499,8 @@ VOとdocumentの間に他のエンティティ層を置かない。
 
 文書種別ごとの専用スキーマ・文書間リンク意味論の増殖・文書内容の良否検証を行わない。
 
+*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033, REQ-288, REQ-289, REQ-290, REQ-291, REQ-292, REQ-293, REQ-294*
+
 *引用: 要件定義 §3.2、§25 OOS-001*
 
 ### SPEC-092
@@ -448,6 +510,8 @@ VOとdocumentの間に他のエンティティ層を置かない。
 ### SPEC-093
 
 不一致は状態（§4）として提示する。
+
+*導出元: P-001*
 
 *引用: 要件定義 P-001*
 
@@ -478,6 +542,8 @@ Evidenceに含むtarget参照はTest→SRC関係の正典ではない。
 ### SPEC-100
 
 外部レコードとして保存するのは、どちらか一方のエンティティに自然に所属しない関係（VO間の依存、Test間の補完関係など）だけとする。
+
+*導出元: P-003*
 
 *引用: 要件定義 P-003*
 
@@ -522,6 +588,8 @@ adapter IDは設定内で一意でなければならない。
 ### SPEC-110
 
 未知のadapterやadapter固有設定の検証失敗時、利用可能な言語や能力を推測補完しない。
+
+*導出元: REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
 
 *引用: 要件定義 §21*
 
@@ -657,6 +725,8 @@ documentは単一の総称ノードであり、要件定義・基本仕様・詳
 
 段を増やしても種別を増やさない。
 
+*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033*
+
 *引用: 要件定義 §3.2*
 
 ### SPEC-144
@@ -703,6 +773,8 @@ ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする（§5.1、�
 
 恒久SRC IDの衝突時、どのSource Targetを指すか推測しない。
 
+*導出元: REQ-149, REQ-150, REQ-151, REQ-152, REQ-153, REQ-154, REQ-155, REQ-156*
+
 *引用: 要件定義 §9.2*
 
 ### SPEC-155
@@ -720,6 +792,8 @@ derives_from・covers・検証対象・実装traceabilityなど性質の異な�
 ### SPEC-158
 
 説明文が空であることを理由に `chain_integrity` 違反・`MISMATCH` としてはならない。
+
+*導出元: REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044, REQ-045, REQ-046, REQ-047, REQ-048, REQ-049*
 
 *引用: 要件定義 §3.4*
 
@@ -747,11 +821,15 @@ ULID payloadにより並列生成時のファイル名衝突を実用上排除�
 
 関係リンクの任意説明文・役割別projectionの保存形式・presetは詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-165
 
 ソースコードへ恒久IDを埋め込むことは必須としない。
+
+*導出元: REQ-149, REQ-150, REQ-151, REQ-152, REQ-153, REQ-154, REQ-155, REQ-156*
 
 *引用: 要件定義 §9.2*
 
@@ -774,6 +852,8 @@ opaque locatorの構文と恒久SRC IDの宣言方法はadapterが定める。
 
 共通契約がpath・module・function等の特定言語構造を必須としてはならない。
 
+*導出元: R-3, REQ-149, REQ-150, REQ-151, REQ-152, REQ-153, REQ-154, REQ-155, REQ-156*
+
 *引用: 要件定義 §9.2、R-3*
 
 ### SPEC-170
@@ -795,6 +875,8 @@ SRC→Testの逆引きはスキャン結果から提供する。
 ### SPEC-174
 
 検証状態は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` の5つのみとする。
+
+*導出元: REQ-085, REQ-086, REQ-087, REQ-088, REQ-089, REQ-090, REQ-091*
 
 *引用: 要件定義 §5.1*
 
@@ -858,6 +940,8 @@ SRC→Testの逆引きはスキャン結果から提供する。
 
 診断ラベルの語彙は詳細設計で定める。
 
+*導出元: REQ-092, REQ-093, REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §5.2、§28*
 
 ### SPEC-190
@@ -867,6 +951,8 @@ SRC→Testの逆引きはスキャン結果から提供する。
 ### SPEC-191
 
 要件定義 §5.3 の割当をそのまま採用する。
+
+*導出元: REQ-094, REQ-095, REQ-096, REQ-097, REQ-098, REQ-099, REQ-100, REQ-101, REQ-102, REQ-103, REQ-104*
 
 *引用: 要件定義 §5.3*
 
@@ -914,6 +1000,8 @@ discoveryが不完全、または解析不能の場合、状態は `UNKNOWN` と
 
 `UNKNOWN` をエラー処理のフォールバック先として使う実装は仕様違反とする。
 
+*導出元: REQ-105, REQ-106, REQ-107, REQ-108*
+
 *引用: 要件定義 §5.4*
 
 ### SPEC-203
@@ -927,6 +1015,8 @@ discoveryが不完全、または解析不能の場合、状態は `UNKNOWN` と
 ### SPEC-205
 
 承認（§17）は独立した別軸である。
+
+*導出元: REQ-109, REQ-110, REQ-111, REQ-112, REQ-113, REQ-114*
 
 *引用: 要件定義 §5.5*
 
@@ -949,6 +1039,8 @@ discoveryが不完全、または解析不能の場合、状態は `UNKNOWN` と
 ### SPEC-210
 
 検査軸は実施する検査（4本の部分集合）を指定する。
+
+*導出元: P-002*
 
 *引用: 要件定義 P-002*
 
@@ -984,6 +1076,8 @@ scope外・未実施の項目は `PASS` へ変換しない。
 
 鎖に段（リンク）が増えても検査は増えない。
 
+*導出元: REQ-034, REQ-035, REQ-050, REQ-051, REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
+
 *引用: 要件定義 §3.3、§4*
 
 ### SPEC-219
@@ -998,6 +1092,8 @@ scope外・未実施の項目は `PASS` へ変換しない。
 
 答えは検証方法・実行形態に依らず同一でなければならない。
 
+*導出元: REQ-050, REQ-051, REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
+
 *引用: 要件定義 §4 冒頭、§8 条項 3*
 
 ### SPEC-222
@@ -1007,6 +1103,8 @@ scope外・未実施の項目は `PASS` へ変換しない。
 ### SPEC-223
 
 網羅・意味の疑義はエスカレーション（§11）の領分である。
+
+*導出元: REQ-164, REQ-165, REQ-166, REQ-174, REQ-175, REQ-176, REQ-177, REQ-178, REQ-179, REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
 
 *引用: 要件定義 §10.2、§11、§12*
 
@@ -1070,6 +1168,8 @@ orphan_detectionの問いは、親を持たない `document` ノードが存在�
 
 根の指定の具体構文は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-239
@@ -1079,6 +1179,8 @@ orphan_detectionの問いは、親を持たない `document` ノードが存在�
 ### SPEC-240
 
 実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。
+
+*導出元: R-2, REQ-292*
 
 *引用: 要件定義 R-2、§25 OOS-005*
 
@@ -1154,6 +1256,8 @@ subprocessであること自体を欠陥としない。
 
 特定形態の確認方法を別形態のTestへ一律要求しない。
 
+*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-125, REQ-126, REQ-127, REQ-128, REQ-129, REQ-130, REQ-131, REQ-132, REQ-133, REQ-134, REQ-135, REQ-136, REQ-137, REQ-138, REQ-139, REQ-140, REQ-141, REQ-142, REQ-143*
+
 *引用: 要件定義 §4.3、§8 条項 3*
 
 ### SPEC-259
@@ -1179,6 +1283,8 @@ oracle_presenceの問いは、宣言された「何の時にどうなる」の�
 ### SPEC-264
 
 不成立が構造から証明できる（どんな宣言の下でも不成立を検出できない＝失敗し得ない、または失敗が検証対象の振る舞いに依存しないことが構造から証明できる）場合、oracle_presenceの出力は `FAIL` とする。
+
+*導出元: REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
 
 *引用: 要件定義 §4.4*
 
@@ -1270,11 +1376,15 @@ code fragmentの具体構文はadapterの言語・runnerに従う。
 
 共通契約がRust構文を要求しない。
 
+*導出元: R-3*
+
 *引用: 要件定義 R-3、§8.3*
 
 ### SPEC-287
 
 証拠は検証対象の内容ハッシュに束縛される。
+
+*導出元: REQ-115, REQ-116, REQ-117, REQ-118, REQ-119, REQ-120*
 
 *引用: 要件定義 §6*
 
@@ -1330,6 +1440,8 @@ adapterが最終内容ハッシュを自己確定してはならない。
 
 テスト合否の判定権威は、当該adapterのテストランナーにある。
 
+*導出元: REQ-121, REQ-122, REQ-123, REQ-124*
+
 *引用: 要件定義 §7*
 
 ### SPEC-301
@@ -1375,6 +1487,8 @@ adapterが最終内容ハッシュを自己確定してはならない。
 ### SPEC-311
 
 Testとして成立しているかの検査（§8）と、仕様適合性の証拠として算入するかの判定は独立である。
+
+*導出元: REQ-125, REQ-126, REQ-127, REQ-128, REQ-129, REQ-130*
 
 *引用: 要件定義 §8.1*
 
@@ -1430,6 +1544,8 @@ Testの成否判定が他の構成要素の判定能力に依存する場合、�
 
 `oracle_presence` の信頼基盤の具体的範囲（標準assert構文・framework failure semantics・設定による列挙）と委譲確認の方法は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-325
@@ -1473,6 +1589,8 @@ Testの成否判定が他の構成要素の判定能力に依存する場合、�
 
 §8.2の成立条件を満たさないことを、宣言の中身に依らず決定論的に検出できる例はいずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。
 
+*導出元: REQ-138, REQ-139, REQ-140, REQ-141, REQ-142, REQ-143*
+
 *引用: 要件定義 §8.3*
 
 ### SPEC-327
@@ -1482,6 +1600,8 @@ code fragmentはRustによる例示である。
 ### SPEC-328
 
 共通契約がRust構文を要求しない。
+
+*導出元: R-3*
 
 *引用: R-3*
 
@@ -1513,6 +1633,8 @@ code fragmentはRustによる例示である。
 
 外部から観測可能な契約・境界上の振る舞いも検証対象にできる。
 
+*導出元: REQ-144, REQ-145, REQ-146, REQ-147, REQ-148*
+
 *引用: 要件定義 §9.1*
 
 ### SPEC-336
@@ -1534,6 +1656,8 @@ code fragmentはRustによる例示である。
 ### SPEC-340
 
 実装コード上のimplementation constructをSource Targetとして識別可能でなければならない。
+
+*導出元: REQ-149, REQ-150, REQ-151, REQ-152, REQ-153, REQ-154, REQ-155, REQ-156*
 
 *引用: 要件定義 §9.2*
 
@@ -1564,6 +1688,8 @@ code fragmentはRustによる例示である。
 ### SPEC-347
 
 共通契約が特定言語構造を必須としない。
+
+*導出元: R-3*
 
 *引用: R-3*
 
@@ -1599,6 +1725,8 @@ traceabilityは関連付けであって実装対応の証明ではない。
 
 検証対象と実装traceabilityは、一方から他方を推定してはならない。
 
+*導出元: REQ-157, REQ-158, REQ-159, REQ-160, REQ-161*
+
 *引用: 要件定義 §9.3*
 
 ### SPEC-356
@@ -1617,6 +1745,8 @@ VOは独立して「この条件が成立するか」と検証可能な仕様上
 
 VOの粒度をassert文・test function・テストファイルなどのコード構文で決めない。
 
+*導出元: REQ-162, REQ-163*
+
 *引用: 要件定義 §10.1*
 
 ### SPEC-360
@@ -1630,6 +1760,8 @@ VOの粒度をassert文・test function・テストファイルなどのコー�
 ### SPEC-362
 
 分解が十分かの判定は本システムの検査ではなくエスカレーション（§11）の領分である。
+
+*導出元: REQ-164, REQ-165, REQ-166*
 
 *引用: 要件定義 §10.2*
 
@@ -1649,6 +1781,8 @@ flatなVO群と階層化VO群の双方を扱う。
 
 flatなVOを再帰分解・階層化する操作を提供する。
 
+*導出元: REQ-167, REQ-168, REQ-169*
+
 *引用: 要件定義 §10.3*
 
 ### SPEC-367
@@ -1658,6 +1792,8 @@ VOとTestの対応は1:1に限定せず `1:1` / `1:N` / `N:1` / `N:M` を許容�
 ### SPEC-368
 
 TestはVOの検証実装単位でありVOそのものではない。
+
+*導出元: REQ-170, REQ-171, REQ-172, REQ-173*
 
 *引用: 要件定義 §10.4*
 
@@ -1685,11 +1821,15 @@ VOには検証軸（dimension）と同値/境界値partitionを定義できる�
 
 各観点の独立検証、または必要と定義された組合せ空間の検証のいずれかを表現・確認できる。
 
+*導出元: REQ-174, REQ-175, REQ-176, REQ-177, REQ-178, REQ-179*
+
 *引用: 要件定義 §11*
 
 ### SPEC-375
 
 partition・組合せcoverage方針の具体的保存形式・語彙は詳細設計へ委譲する。
+
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §28*
 
@@ -1700,6 +1840,8 @@ partition・組合せcoverage方針の具体的保存形式・語彙は詳細設
 ### SPEC-377
 
 発見者・裁定者は外部（人間またはAgent）である。
+
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
 
 *引用: 要件定義 §12*
 
@@ -1718,6 +1860,8 @@ partition・組合せcoverage方針の具体的保存形式・語彙は詳細設
 ### SPEC-381
 
 `vtest` は意味判定・候補生成を検証成立条件にしない。
+
+*導出元: REQ-224, REQ-225, REQ-226, REQ-227*
 
 *引用: 要件定義 §17.2*
 
@@ -1768,6 +1912,8 @@ partition・組合せcoverage方針の具体的保存形式・語彙は詳細設
 ### SPEC-393
 
 理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない。
+
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
 
 *引用: 要件定義 §12*
 
@@ -1831,6 +1977,8 @@ partition・組合せcoverage方針の具体的保存形式・語彙は詳細設
 
 エスカレーション出力・判断記録の具体的schema、判断待ち情報（§18.3）の構造schemaと取得インターフェース、判断の多重度は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-409
@@ -1840,6 +1988,8 @@ partition・組合せcoverage方針の具体的保存形式・語彙は詳細設
 ### SPEC-410
 
 Test IDをハンドルとして、Test Intent・`covers`（VO参照）・検証対象・Source Target・Location・判断記録・Execution Evidenceを検索可能とする。
+
+*導出元: REQ-193, REQ-194, REQ-195, REQ-196, REQ-197, REQ-198, REQ-199, REQ-200, REQ-201, REQ-202*
 
 *引用: 要件定義 §13*
 
@@ -1905,6 +2055,8 @@ Testの存在理由による分類（role / anchor / anchor_rationale等）と�
 
 すべての管理対象Testに `covers ≥ 1` を一律に要求する。
 
+*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-193, REQ-194, REQ-195, REQ-196, REQ-197, REQ-198, REQ-199, REQ-200, REQ-201, REQ-202*
+
 *引用: 要件定義 §4.1、§13*
 
 ### SPEC-425
@@ -1918,6 +2070,8 @@ Testには、その実装コードだけを読まなくても、何を検証す�
 ### SPEC-427
 
 Test IntentはTest Entityの付随情報であり、宣言鎖のノードではない。
+
+*導出元: REQ-203, REQ-204, REQ-205*
 
 *引用: 要件定義 §14*
 
@@ -1949,11 +2103,15 @@ cases集合がVOに必要な入力空間を十分に代表・網羅している�
 
 code fragmentの具体構文はadapterの言語・runnerに従う。
 
+*導出元: R-3, REQ-206, REQ-207, REQ-208, REQ-209*
+
 *引用: 要件定義 §15、R-3*
 
 ### SPEC-435
 
 Test操作の公式経路として、Test IDまたはadapterが識別可能なTest constructを対象とした構造化操作を提供する。
+
+*導出元: P-004, REQ-210, REQ-211, REQ-212, REQ-213, REQ-214, REQ-215, REQ-216, REQ-217*
 
 *引用: 要件定義 §16、P-004*
 
@@ -2017,6 +2175,8 @@ Test外部の通常ソースコード・helper・fixtureの編集は責務外と
 
 Test外部の通常ソースコード・helper・fixtureの編集操作は提供しない。
 
+*導出元: REQ-210, REQ-211, REQ-212, REQ-213, REQ-214, REQ-215, REQ-216, REQ-217, REQ-288, REQ-289, REQ-290, REQ-291, REQ-292, REQ-293, REQ-294*
+
 *引用: 要件定義 §16、§25 OOS-003*
 
 ### SPEC-451
@@ -2034,6 +2194,8 @@ Test外部の通常ソースコード・helper・fixtureの編集操作は提供
 ### SPEC-454
 
 source declarationが正典であるため、`covers` / `targets` の「同期漏れ」は構造的に発生しない。
+
+*導出元: REQ-210, REQ-211, REQ-212, REQ-213, REQ-214, REQ-215, REQ-216, REQ-217*
 
 *引用: 要件定義 §16*
 
@@ -2081,6 +2243,8 @@ registryは重複・未知adapter・未対応capability・曖昧な対応を拒�
 
 境界値・partitionの必須入力化はuser-defined Form Schemaが指定できる。
 
+*導出元: REQ-174, REQ-175, REQ-176, REQ-177, REQ-178, REQ-179, REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28、§11*
 
 ### SPEC-466
@@ -2095,17 +2259,23 @@ registryは重複・未知adapter・未対応capability・曖昧な対応を拒�
 
 取り込まれた上流成果物はcontent_hashとderives_fromを持つ。
 
+*導出元: REQ-233, REQ-234, REQ-235*
+
 *引用: 要件定義 §18*
 
 ### SPEC-469
 
 対象ソースコード内のdoc commentを、その対象実装自身の正当性を証明する唯一の仕様根拠として使用しない。
 
+*導出元: REQ-233, REQ-234, REQ-235*
+
 *引用: 要件定義 §18*
 
 ### SPEC-470
 
 文書の具体的入力フォーマットと登録方式、根の指定方式は詳細設計へ委譲する。
+
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §28*
 
@@ -2120,6 +2290,8 @@ registryは重複・未知adapter・未対応capability・曖昧な対応を拒�
 ### SPEC-473
 
 未承認の判断は承認済みより弱い。
+
+*導出元: REQ-236, REQ-237, REQ-238, REQ-239, REQ-240, REQ-241, REQ-242, REQ-243, REQ-244, REQ-245, REQ-246, REQ-247, REQ-248, REQ-249, REQ-250, REQ-251, REQ-252*
 
 *引用: 要件定義 §19*
 
@@ -2219,6 +2391,8 @@ Agentも承認権限を持ち得る（Human / Verification Agent / Reviewer Agen
 
 具体的な承認ロール・必要承認数・権限schema・承認workflowの状態遷移は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-498
@@ -2228,6 +2402,8 @@ Agentも承認権限を持ち得る（Human / Verification Agent / Reviewer Agen
 ### SPEC-499
 
 開発途中または既存プロジェクトへ後から導入できる。
+
+*導出元: R-5*
 
 *引用: 要件定義 R-5、§17*
 
@@ -2291,6 +2467,8 @@ document / VO、Test metadata宣言、判断記録、Evidenceの一部が欠け�
 
 外部AI/Agentの能力を検証成立条件にしない。
 
+*導出元: REQ-224, REQ-225, REQ-226, REQ-227*
+
 *引用: 要件定義 §17.2*
 
 ### SPEC-515
@@ -2300,6 +2478,8 @@ document / VO、Test metadata宣言、判断記録、Evidenceの一部が欠け�
 ### SPEC-516
 
 表示形式（表・GUI等）は要件でなく詳細設計へ委譲する。
+
+*導出元: REQ-228, REQ-229, REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §17.3、§28*
 
@@ -2315,11 +2495,15 @@ document / VO、Test metadata宣言、判断記録、Evidenceの一部が欠け�
 
 物量増加に伴う処理量・作業量の増加は許容する。
 
+*導出元: REQ-230, REQ-231, REQ-232*
+
 *引用: 要件定義 §17.4*
 
 ### SPEC-520
 
 関係型を単一へ潰さず、横断してトレース可能にする。
+
+*導出元: REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044, REQ-045, REQ-046, REQ-047, REQ-048, REQ-049*
 
 *引用: 要件定義 §3.4、NFR-003*
 
@@ -2381,11 +2565,15 @@ document / VO、Test metadata宣言、判断記録、Evidenceの一部が欠け�
 
 preset・UI・モード体系は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-535
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4）と承認（§17）が通過条件を満たすかを評価・提示できなければならない（MUST）。
+
+*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308*
 
 *引用: 要件定義 §26.4*
 
@@ -2413,6 +2601,8 @@ preset・UI・モード体系は詳細設計へ委譲する。
 
 フェーズのライフサイクル管理・工程の自動遷移は責務外とする。
 
+*導出元: REQ-288, REQ-289, REQ-290, REQ-291, REQ-292, REQ-293, REQ-294, REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308*
+
 *引用: 要件定義 §26.4、§25 OOS-004*
 
 ### SPEC-541
@@ -2423,6 +2613,8 @@ preset・UI・モード体系は詳細設計へ委譲する。
 
 具体的なフェーズ名・承認ロール・必要承認数・権限schema・進行条件定義は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-543
@@ -2432,6 +2624,8 @@ preset・UI・モード体系は詳細設計へ委譲する。
 ### SPEC-544
 
 `vtest run` は判定権威（§7）であるランナーの結果をEvidenceとして記録する。
+
+*導出元: REQ-115, REQ-116, REQ-117, REQ-118, REQ-119, REQ-120, REQ-295, REQ-296*
 
 *引用: 要件定義 §6、§26.1*
 
@@ -2470,6 +2664,8 @@ Evidenceには `target_binding`（§5.3）のtarget別結果とfail-closed集約
 ### SPEC-553
 
 Evidenceは、記録時のTest subject内容ハッシュの一致、target参照集合の一致、各target内容ハッシュの一致、adapter IDの一致、HEAD revisionの一致、およびExecution State subjectの一致をすべて満たす場合のみ有効とする。
+
+*導出元: REQ-115, REQ-116, REQ-117, REQ-118, REQ-119, REQ-120*
 
 *引用: 要件定義 §6*
 
@@ -2545,6 +2741,8 @@ Evidence readerは、Rust実行と一意に確認できない場合は `UNKNOWN`
 
 一項目でも `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` であればNGとする（fail-closed）。
 
+*導出元: P-002, REQ-295, REQ-296*
+
 *引用: 要件定義 §26.1、P-002*
 
 ### SPEC-572
@@ -2579,6 +2777,8 @@ Test単位の結果をVO・Feature・document単位へ集約可能とする。
 
 子に1つでも非 `PASS` があれば親は非 `PASS` とする。
 
+*導出元: REQ-299, REQ-300, REQ-301*
+
 *引用: 要件定義 §26.3*
 
 ### SPEC-580
@@ -2596,6 +2796,8 @@ Test単位の結果をVO・Feature・document単位へ集約可能とする。
 ### SPEC-583
 
 NGの場合、どのエンティティの・どの検査が・どの状態で・どの診断ラベルとともに落ちたかを掘り下げ可能とする。
+
+*導出元: REQ-297, REQ-298*
 
 *引用: 要件定義 §26.2、NFR-006*
 
@@ -2649,6 +2851,8 @@ create / edit / audit / run等の明示的操作に必須の能力がなけれ�
 
 create / edit / audit / run等の明示的操作に必須の能力がなければファイル・判断記録・Evidenceを生成しない。
 
+*導出元: REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
+
 *引用: 要件定義 §21*
 
 ### SPEC-596
@@ -2662,6 +2866,8 @@ create / edit / audit / run等の明示的操作に必須の能力がなけれ�
 ### SPEC-598
 
 `vtest scan` はその過程で `chain_integrity` / `orphan_detection` を構成する整合性検査を行う。
+
+*導出元: REQ-193, REQ-194, REQ-195, REQ-196, REQ-197, REQ-198, REQ-199, REQ-200, REQ-201, REQ-202, REQ-271, REQ-272, REQ-273, REQ-274, REQ-275, REQ-276, REQ-277, REQ-278, REQ-279*
 
 *引用: 要件定義 §13、§23*
 
@@ -2799,6 +3005,8 @@ content_hash照合は任意形式の文書本文から参照位置の存在を�
 
 > 多数の AI Agent が並列で Test を追加・変更する前提。
 
+*導出元: REQ-271, REQ-272, REQ-273, REQ-274, REQ-275, REQ-276, REQ-277, REQ-278, REQ-279*
+
 *引用: 要件定義 §23*
 
 ### SPEC-632
@@ -2865,6 +3073,8 @@ Test ID衝突・dangling referenceの検出、派生indexの再構築、Testと�
 
 具体的な物理保存方式は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-648
@@ -2884,6 +3094,8 @@ Test ID衝突・dangling referenceの検出、派生indexの再構築、Testと�
 ### SPEC-651
 
 キャッシュ / indexの具体的データ形式は詳細設計へ委譲する。
+
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §28*
 
@@ -2940,6 +3152,8 @@ CLI・CIは同じ検証の別入口とする。
 ### SPEC-664
 
 GUIは必須要件としない。
+
+*導出元: REQ-267, REQ-268, REQ-269, REQ-270*
 
 *引用: 要件定義 §22*
 
@@ -3043,6 +3257,8 @@ CIはこの終了コードのみで判定できる。
 
 終了コード体系の詳細は詳細設計へ委譲する。
 
+*導出元: REQ-105, REQ-106, REQ-107, REQ-108, REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §5.4、§28*
 
 ### SPEC-690
@@ -3131,11 +3347,15 @@ MCPがCLIと異なるadapterを暗黙選択してはならない。
 
 CLI command体系・MCP tool体系の詳細は詳細設計へ委譲する。
 
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
+
 *引用: 要件定義 §28*
 
 ### SPEC-711
 
 検証契約・ID・ハッシュ・Evidence・状態・集約の概念モデルは、言語およびtest runnerに依存しない。
+
+*導出元: R-3, REQ-258, REQ-259, REQ-260, REQ-261, REQ-262, REQ-263, REQ-264, REQ-265, REQ-266*
 
 *引用: 要件定義 §21、R-3*
 
@@ -3167,6 +3387,8 @@ adapter追加によって共通契約・スキーマが壊れないことを設�
 
 `rust-cargo` 以外のproduction language adapterはv0.1の提供範囲に含めない。
 
+*導出元: R-2*
+
 *引用: 要件定義 R-2*
 
 ### SPEC-719
@@ -3180,6 +3402,8 @@ adapterが未登録・能力不足・解析不能の場合、検証結果を推�
 ### SPEC-721
 
 NFR-001並列性への対応は、1レコード1ファイル、ULIDファイル名、不変Relation、中央台帳の不在とする（§24.2）。
+
+*導出元: REQ-280, REQ-281, REQ-282, REQ-283, REQ-284, REQ-285, REQ-286, REQ-287*
 
 *引用: 要件定義 §24*
 
@@ -3215,6 +3439,8 @@ NFR-008人間可読性への対応は、ツリー形式の詳細出力、IDの�
 
 要件定義 §25 のスコープ外事項に対応する機能を本書では定義しない。
 
+*導出元: REQ-288, REQ-289, REQ-290, REQ-291, REQ-292, REQ-293, REQ-294*
+
 *引用: 要件定義 §25*
 
 ### SPEC-730
@@ -3228,6 +3454,8 @@ NFR-008人間可読性への対応は、ツリー形式の詳細出力、IDの�
 ### SPEC-732
 
 不一致はどれを正とするか決めず状態として提示する（OOS-002修正方針決定。§4）。
+
+*導出元: P-001*
 
 *引用: P-001*
 
@@ -3251,6 +3479,8 @@ v0.1は宣言された義務の裏付けのみ検証する（OOS-005宣言され
 
 v0.1は宣言されていない実装の存在を関知しない（OOS-005宣言されていない実装）。
 
+*導出元: R-2*
+
 *引用: R-2*
 
 ### SPEC-738
@@ -3264,6 +3494,8 @@ READMEに非関知宣言を一行入れる。
 ### SPEC-740
 
 以下は本書の要求・要件を基に詳細設計で決定する（要件定義 §28 の23項目に対応）。
+
+*導出元: REQ-309, REQ-310, REQ-311, REQ-312, REQ-313, REQ-314, REQ-315, REQ-316, REQ-317, REQ-318, REQ-319, REQ-320, REQ-321, REQ-322, REQ-323, REQ-324, REQ-325, REQ-326, REQ-327, REQ-328, REQ-329, REQ-330, REQ-331, REQ-332*
 
 *引用: 要件定義 §28*
 

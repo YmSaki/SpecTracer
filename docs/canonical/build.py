@@ -31,7 +31,9 @@ export
     require,spec,design}.md.
 
 all
-    build, then coverage, then export. Stops at the first failure.
+    build, then apply-derivation, then coverage, then export. Stops at
+    the first failure. (coverage's position relative to apply-derivation
+    doesn't matter -- coverage never reads specification.json.)
 
 check-fragment <path>
     Validate one fragment file's structural shape (not the final
@@ -143,6 +145,45 @@ derivation-candidates
         finally the distinct unresolved cite strings with their counts.
     Prints the same summary to stdout. Fully deterministic (iterates
     specification.json's own array order; table rows in line order).
+
+apply-derivation
+    CONVERSION.md SS6 (2026-09-05 revision): Owner decision that
+    derived_from is a reference, not a proof -- it is computed
+    mechanically, no pairwise approval. Runs after `build`, reads and
+    rewrites specification.json in place (fragments are never touched;
+    ids are not frozen yet, so derived_from is recomputed at build time
+    every run, not stored upstream). Reuses the exact same candidate
+    logic as `derivation-candidates` (build_derivation_candidates /
+    build_derivation_table_candidates) rather than a separate resolver.
+    Rule 1: for every statement with cites, every candidate whose
+    layer_relation is "adjacent-upstream" or "skip-upstream" is added to
+    that statement's derived_from; "same-layer", "downstream",
+    "unresolved" and "doc-only" candidates add nothing.
+    Rule 2: for every derivation-table row with both non-empty source_ids
+    and target_ids, every source_id is added to derived_from of every
+    target_id in that row; a row whose 上流 is only an Issue/F-item (no
+    ids) contributes nothing.
+    Rule 3 (applied to the union of both rules' contributions, per
+    statement): dedup; drop the statement's own id; drop any id whose
+    layer is the same as or later than (>=) the statement's own layer in
+    the fixed order request<require<spec<design (derived_from only ever
+    points strictly upstream) -- both kinds of drop are counted and
+    reported. What survives is sorted by (layer order, then the id's
+    trailing number).
+    Request-layer statements are skipped entirely (the rootItem schema
+    has no derived_from field).
+    After computing, verifies every remaining derived_from id actually
+    exists in specification.json (exit 1 otherwise, before writing) and
+    re-validates the whole document against specification.schema.json
+    (exit 1 on any schema error, before writing) -- only then writes.
+    Prints: statements with non-empty derived_from per layer (require/
+    spec/design), total edges, mean and max derived_from size (over
+    statements with a non-empty derived_from), the count of statements
+    that had cites but ended with an empty derived_from, and the count
+    dropped by rule 3.
+    Runs as its own subcommand, and as part of `all` (after build, before
+    export -- coverage's position relative to it does not matter, since
+    coverage never reads specification.json).
 
 qualifier-check
     A mechanical transcription-fidelity check, independent of derivation.
@@ -1542,6 +1583,127 @@ def cmd_derivation_candidates(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------- apply-derivation --
+
+_ID_TRAILING_NUM_RE = re.compile(r"([0-9]+)$")
+
+
+def id_sort_number(iid: str) -> int:
+    m = _ID_TRAILING_NUM_RE.search(iid)
+    return int(m.group(1)) if m else 0
+
+
+def collect_derivation_edges(spec: dict, id_index: dict, root: Path, repo_root: Path) -> dict:
+    """target_id -> set of candidate source ids, from both rules, before
+    rule 3 filtering/dedup/sort."""
+    edges: dict = {}
+
+    # Rule 1: reuse derivation-candidates' own cite resolution + layer_relation.
+    for e in build_derivation_candidates(spec, id_index):
+        if e["layer_relation"] in ("adjacent-upstream", "skip-upstream"):
+            edges.setdefault(e["id"], set()).update(c["id"] for c in e["candidates"])
+
+    # Rule 2: reuse the same table-row resolution.
+    for r in build_derivation_table_candidates(spec, id_index, root, repo_root):
+        if r["source_ids"] and r["target_ids"]:
+            for t in r["target_ids"]:
+                edges.setdefault(t, set()).update(r["source_ids"])
+
+    return edges
+
+
+def finalize_derived_from(target_id: str, candidate_ids, id_index: dict):
+    """Rule 3 -> (sorted deduped list, dropped_count). Dropped counts the
+    statement's own id and any candidate whose layer is the same as or
+    later than the target's own layer; a plain duplicate is silently
+    deduped and not counted as a drop."""
+    target_rank = _LAYER_RANK[id_index[target_id]["layer"]]
+    kept = []
+    seen = set()
+    dropped = 0
+    for cid in candidate_ids:
+        if cid == target_id:
+            dropped += 1
+            continue
+        cand = id_index.get(cid)
+        if cand is None or _LAYER_RANK[cand["layer"]] >= target_rank:
+            dropped += 1
+            continue
+        if cid in seen:
+            continue
+        seen.add(cid)
+        kept.append(cid)
+    kept.sort(key=lambda i: (_LAYER_RANK[id_index[i]["layer"]], id_sort_number(i)))
+    return kept, dropped
+
+
+def cmd_apply_derivation(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    spec = read_json(spec_json_path(root))
+    id_index = build_id_index(spec)
+
+    edges = collect_derivation_edges(spec, id_index, root, repo_root)
+    cited_ids = {it["id"] for it in iter_all_statements(spec) if it.get("cites")}
+
+    dropped_total = 0
+    stats_by_layer = Counter()
+    sizes = []
+    empty_after_cite = 0
+
+    for it in iter_all_statements(spec):
+        iid = it["id"]
+        layer = id_index[iid]["layer"]
+        if layer == "request":
+            continue  # rootItem schema has no derived_from field
+        final_list, dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
+        dropped_total += dropped
+        it["derived_from"] = final_list
+        if final_list:
+            stats_by_layer[layer] += 1
+            sizes.append(len(final_list))
+        elif iid in cited_ids:
+            empty_after_cite += 1
+
+    bad_refs = [
+        (it["id"], did)
+        for it in iter_all_statements(spec)
+        for did in it.get("derived_from", [])
+        if did not in id_index
+    ]
+    if bad_refs:
+        for sid, did in bad_refs:
+            print(f"error: {sid} derived_from references nonexistent id {did!r}", file=sys.stderr)
+        return 1
+
+    schema = read_json(schema_path(root))
+    validator = Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(spec), key=lambda e: list(e.absolute_path))
+    if errors:
+        for err in errors:
+            pointer = "/" + "/".join(str(p) for p in err.absolute_path)
+            print(f"SCHEMA ERROR {pointer}: {err.message}", file=sys.stderr)
+        return 1
+
+    text = json.dumps(spec, ensure_ascii=False, indent=2) + "\n"
+    spec_json_path(root).write_text(text, encoding="utf-8")
+
+    total_edges = sum(sizes)
+    mean_size = (total_edges / len(sizes)) if sizes else 0.0
+    max_size = max(sizes) if sizes else 0
+
+    print("--- apply-derivation summary ---")
+    for layer in ("require", "spec", "design"):
+        print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
+    print(f"  total edges: {total_edges}")
+    print(f"  mean derived_from size (non-empty statements only): {mean_size:.2f}")
+    print(f"  max derived_from size: {max_size}")
+    print(f"  statements with cites but empty derived_from (unresolved): {empty_after_cite}")
+    print(f"  dropped by rule 3 (self-id / same-or-later layer): {dropped_total}")
+    print(f"wrote {spec_json_path(root)} -- schema OK")
+    return 0
+
+
 # -------------------------------------------------------- qualifier-check --
 
 _QUALIFIER_TOKENS = [
@@ -1883,6 +2045,9 @@ def cmd_all(args) -> int:
     rc = cmd_build(args)
     if rc != 0:
         return rc
+    rc = cmd_apply_derivation(args)
+    if rc != 0:
+        return rc
     rc = cmd_coverage(args)
     if rc != 0:
         return rc
@@ -1912,7 +2077,7 @@ def main(argv=None) -> int:
     add_root_arg(p_exp)
     p_exp.set_defaults(func=cmd_export)
 
-    p_all = sub.add_parser("all", help="build, then coverage, then export; stop at first failure")
+    p_all = sub.add_parser("all", help="build, then apply-derivation, then coverage, then export; stop at first failure")
     add_root_arg(p_all)
     add_repo_root_arg(p_all)
     p_all.set_defaults(func=cmd_all)
@@ -1931,6 +2096,11 @@ def main(argv=None) -> int:
     add_root_arg(p_deriv)
     add_repo_root_arg(p_deriv)
     p_deriv.set_defaults(func=cmd_derivation_candidates)
+
+    p_applyderiv = sub.add_parser("apply-derivation", help="CONVERSION.md SS6: compute derived_from from cites/table and write it into specification.json")
+    add_root_arg(p_applyderiv)
+    add_repo_root_arg(p_applyderiv)
+    p_applyderiv.set_defaults(func=cmd_apply_derivation)
 
     p_qual = sub.add_parser("qualifier-check", help="mechanical transcription check for a fixed set of limiting/qualifying tokens")
     add_root_arg(p_qual)
