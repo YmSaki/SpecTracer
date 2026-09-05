@@ -1,0 +1,37 @@
+{
+ "DS-1585": {
+  "layer": "design",
+  "reason": "誤適用の復帰（敗北26再発）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "取消・却下の後に再承認するには、当該 `withdrawn`"
+ },
+ "DS-1063": {
+  "layer": "design",
+  "reason": "誤適用の復帰（敗北26再発）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "取消・却下の後に再承認するには、当該レコード ID を `-"
+ },
+ "DS-1586": {
+  "layer": "design",
+  "reason": "誤適用の復帰（敗北26再発）",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "適用後の対象ファイルの再パースは、挿入した Test 以外の"
+ },
+ "DES-166": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: 状態遷移条件",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "A’(X) が空の場合、実効承認状態は `draft` とす"
+ },
+ "DES-506": {
+  "layer": "detailed_spec",
+  "reason": "詳細仕様: エラーの外部的意味",
+  "confidence": "high",
+  "code_like": false,
+  "statement_prefix": "回答自体の検証エラーは E-OP-001（候補付き）とする。"
+ }
+}

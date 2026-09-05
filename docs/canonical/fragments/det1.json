@@ -4767,8 +4767,8 @@
               409
             ]
           },
-          "layer": "design",
-          "id": "DES-166"
+          "layer": "detailed_spec",
+          "id": "DS-1585"
         },
         {
           "statement": "A’(X) に `approved_state` が `rejected` または `withdrawn` のレコードが1件以上ある場合、実効承認状態は `draft` とする（fail-closed。機械はどちらかを選ばない）。",
@@ -4893,8 +4893,8 @@
               417
             ]
           },
-          "layer": "detailed_spec",
-          "id": "DS-1585"
+          "layer": "design",
+          "id": "DES-564"
         },
         {
           "statement": "旧レコードを名指ししない `approved` の追加では `draft` のままとする。",

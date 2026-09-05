@@ -23648,6 +23648,19 @@
               }
             },
             {
+              "id": "DS-1585",
+              "statement": "A’(X) が空の場合、実効承認状態は `draft` とする。",
+              "derived_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
+                "lines": [
+                  408,
+                  409
+                ]
+              }
+            },
+            {
               "id": "DS-465",
               "statement": "`approved_at` / ULIDの順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。",
               "derived_from": [],
@@ -23657,19 +23670,6 @@
                 "lines": [
                   415,
                   415
-                ]
-              }
-            },
-            {
-              "id": "DS-1585",
-              "statement": "取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
-                "lines": [
-                  417,
-                  417
                 ]
               }
             },
@@ -33579,7 +33579,7 @@
               }
             },
             {
-              "id": "DS-1063",
+              "id": "DS-1587",
               "statement": "取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する。",
               "derived_from": [],
               "cites": [
@@ -36874,8 +36874,8 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15.2 `rust-cargo` 編集・挿入の適用",
             "lines": [
-              620,
-              620
+              612,
+              612
             ]
           },
           "derived_from": [
@@ -36885,14 +36885,17 @@
           "items": [
             {
               "id": "DS-1586",
-              "statement": "適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。",
+              "statement": "回答自体の検証エラーは E-OP-001（候補付き）とする。",
               "derived_from": [],
+              "cites": [
+                "本冊 §6.3"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "15.2 `rust-cargo` 編集・挿入の適用",
                 "lines": [
-                  620,
-                  620
+                  612,
+                  612
                 ]
               }
             }
@@ -51481,19 +51484,6 @@
               }
             },
             {
-              "id": "DES-166",
-              "statement": "A’(X) が空の場合、実効承認状態は `draft` とする。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
-                "lines": [
-                  408,
-                  409
-                ]
-              }
-            },
-            {
               "id": "DES-167",
               "statement": "A’(X) に `approved_state` が `rejected` または `withdrawn` のレコードが1件以上ある場合、実効承認状態は `draft` とする（fail-closed。機械はどちらかを選ばない）。",
               "derived_from": [],
@@ -51574,6 +51564,19 @@
             {
               "id": "DES-173",
               "statement": "`approved` を否認するには `approved_state: rejected` の承認レコードを追加する。",
+              "derived_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）",
+                "lines": [
+                  417,
+                  417
+                ]
+              }
+            },
+            {
+              "id": "DES-564",
+              "statement": "取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -57009,22 +57012,6 @@
               }
             },
             {
-              "id": "DES-506",
-              "statement": "回答自体の検証エラーは E-OP-001（候補付き）とする。",
-              "derived_from": [],
-              "cites": [
-                "本冊 §6.3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-                "heading": "15.2 `rust-cargo` 編集・挿入の適用",
-                "lines": [
-                  612,
-                  612
-                ]
-              }
-            },
-            {
               "id": "DES-507",
               "statement": "挿入前の対象ファイルの内容を保持する。",
               "derived_from": [],
@@ -57112,6 +57099,19 @@
                 "lines": [
                   619,
                   619
+                ]
+              }
+            },
+            {
+              "id": "DES-566",
+              "statement": "適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。",
+              "derived_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+                "heading": "15.2 `rust-cargo` 編集・挿入の適用",
+                "lines": [
+                  620,
+                  620
                 ]
               }
             },

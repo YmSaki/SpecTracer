@@ -2364,13 +2364,13 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 承認レコードの `supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効承認の決定に用いない（§3.3）。
 
+### DS-1585
+
+A’(X) が空の場合、実効承認状態は `draft` とする。
+
 ### DS-465
 
 `approved_at` / ULIDの順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。
-
-### DS-1585
-
-取消・却下の後に再承認するには、当該 `withdrawn` / `rejected` レコードのULIDを `supersedes` に名指しした `approved_state: approved` のレコードを追加する。
 
 ### DS-466
 
@@ -5254,7 +5254,7 @@ VO の `status`（`draft` / `approved`）は正典 field ではなく承認レ�
 
 実効集合に `rejected` / `withdrawn` が 1 件でも残れば `draft` とする。
 
-### DS-1063
+### DS-1587
 
 取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する。
 
@@ -6380,7 +6380,9 @@ Integration Test の配置先（test suite location）は Source Target の loca
 
 ### DS-1586
 
-適用後の対象ファイルの再パースは、挿入した Test 以外のソーステキスト（helper・fixture・通常コード）が変化していないことを確認する。
+回答自体の検証エラーは E-OP-001（候補付き）とする。
+
+*引用: 本冊 §6.3*
 
 ## DS-S145 18. 受入契約
 

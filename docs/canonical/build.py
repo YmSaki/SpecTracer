@@ -593,7 +593,13 @@ def id_belongs_to_layer(candidate: str, layer: str) -> bool:
     return candidate.startswith(LEAF_PREFIX[layer] + "-")
 
 
-def assign_ids(items: list[dict], layer: str) -> tuple:
+def _prefix_matches(candidate: str, prefix: str, layer: str) -> bool:
+    if layer == "require" and re.fullmatch(r"P-[0-9]{3}", candidate):
+        return True
+    return candidate.startswith(prefix + "-")
+
+
+def assign_ids(items: list[dict], layer: str, reserved_ids: set) -> tuple:
     """Stamp item['_id'] in place, in the given (already sorted) order.
 
     An item with a stored 'id' (written by `fix-ids`) or a 'keep_id' (the
@@ -606,10 +612,25 @@ def assign_ids(items: list[dict], layer: str) -> tuple:
     and the item gets a fresh one for `layer`, exactly like an item that
     never had a stored id at all -- 2026-09-05 fix-ids, replacing the old
     freeze's assumption that a stored id is always still valid.
+
+    `reserved_ids` (2026-09-05, fixing a real bug found on the real run):
+    every id already known to exist ANYWHERE in the corpus for this run
+    (build_reserved_ids -- every fragment's stored ids, every headings[]
+    section id, both columns of retired-ids.json), MUTATED IN PLACE as
+    this call assigns/retires ids. Both the "highest number in use" scan
+    and the fresh-id search must consult it, not just this call's own
+    `items` -- an id that just left this layer (its item's "layer"
+    override moved it elsewhere in this same run) is invisible to
+    `items` (nothing in it claims that id any more), so scanning only
+    `items` let a brand-new arrival in the same layer get handed the
+    exact number that just left, in the same build. Reserving every id
+    ever seen, regardless of who currently claims it, closes that gap
+    regardless of which layer's assign_ids call happens to run first.
+
     Everything without a live stored id gets the next unused number for
     `layer`'s prefix, continuing after the highest number already in use
-    for it (stored or keep_id), so adding or removing un-fixed items
-    never shifts an already-fixed id.
+    for it (stored, keep_id, or merely reserved), so adding or removing
+    un-fixed items never shifts an already-fixed id.
     -> (dups: list[str] used by more than one item, retired: list[(old_id,
     new_id)] for every item whose stored id was discarded as stale) --
     the caller decides how to fail on dups and how/whether to log
@@ -617,20 +638,20 @@ def assign_ids(items: list[dict], layer: str) -> tuple:
     prefix = LEAF_PREFIX[layer]
     used: set[str] = set()
     dups: list[str] = []
-    stale_items: list[tuple] = []  # (item, old_id)
     max_numbered = 0
     for item in items:
         candidate = item.get("id") or item.get("keep_id")
         if not candidate:
             continue
         if not id_belongs_to_layer(candidate, layer):
-            stale_items.append((item, candidate))
             continue
         if candidate in used:
             dups.append(candidate)
         used.add(candidate)
-        if candidate.startswith(prefix + "-"):
-            m = _ID_NUM_TRAIL_RE.search(candidate)
+
+    for rid in used | reserved_ids:
+        if _prefix_matches(rid, prefix, layer):
+            m = _ID_NUM_TRAIL_RE.search(rid)
             if m:
                 max_numbered = max(max_numbered, int(m.group(1)))
 
@@ -642,18 +663,69 @@ def assign_ids(items: list[dict], layer: str) -> tuple:
             item["_id"] = candidate
             continue
         new_id = f"{prefix}-{counter:03d}"
-        while new_id in used:
+        while new_id in used or new_id in reserved_ids:
             counter += 1
             new_id = f"{prefix}-{counter:03d}"
         item["_id"] = new_id
         used.add(new_id)
+        reserved_ids.add(new_id)
         counter += 1
         if candidate:  # it had a stored id, just a stale one -- log the pair
             retired.append((candidate, new_id))
+            reserved_ids.add(candidate)
     return dups, retired
 
 
 # ------------------------------------------------------------- building --
+
+def iter_all_fragment_items(frag: dict):
+    """Like iter_leaf_items, but does NOT skip root fragments -- used only
+    by build_reserved_ids, which needs every id ever stored anywhere,
+    root included (root ids never collide with another layer's prefix,
+    but there's no reason to special-case excluding them from the
+    reservation registry)."""
+    if frag.get("layer") in _AREA_LAYERS:
+        for area in frag.get("areas", []):
+            for it in area.get("items", []):
+                yield it
+    else:
+        for it in frag.get("items", []):
+            yield it
+
+
+def build_reserved_ids(fragments: list, root: Path) -> set:
+    """Every id currently known to exist anywhere in the corpus, whether
+    or not it's live in THIS build's routing -- 2026-09-05, fixing a real
+    bug found on the real run: an id that just left a layer (a relayer
+    "layer" override moved its item elsewhere) is invisible to that
+    layer's OWN fresh-id counter (nothing in the layer's current item
+    list claims it any more), so the counter could hand the very same
+    number to a brand-new arrival in the same run -- observed for real:
+    DS-1585 retired to DES-564, then reissued to a different item moving
+    into detailed_spec in the same build. Reserving every id ever stored
+    anywhere (every fragment item's id/keep_id, every headings[] entry's
+    section id map values, and both columns of retired-ids.json) closes
+    the gap regardless of which layer's assign_ids call happens to run
+    first -- the set is then mutated in place by assign_ids as the run
+    proceeds, so a retirement in one layer is visible to every later
+    assign_ids call in the same run, including ones for other layers."""
+    reserved: set = set()
+    for _path, frag in fragments:
+        for it in iter_all_fragment_items(frag):
+            for key in ("id", "keep_id"):
+                v = it.get(key)
+                if v:
+                    reserved.add(v)
+        for h in frag.get("headings", []):
+            for v in (h.get("ids") or {}).values():
+                reserved.add(v)
+    log_path = root / "relations" / "retired-ids.json"
+    if log_path.exists():
+        for entry in read_json(log_path):
+            reserved.add(entry["old_id"])
+            reserved.add(entry["new_id"])
+    return reserved
+
 
 def build_source(src: dict) -> dict:
     return {"doc": src["doc"], "heading": src["heading"], "lines": [src["lines"][0], src["lines"][1]]}
@@ -808,7 +880,7 @@ def section_id_belongs_to_layer(candidate: str, layer: str) -> bool:
     return candidate.startswith(LEAF_PREFIX[layer] + "-S")
 
 
-def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc: dict) -> tuple:
+def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc: dict, reserved_ids: set) -> tuple:
     """-> (layer_out, item_objects, dups, retired). Builds the 文書 > 節 >
     小節 > 文 tree for one sectioned layer (2026-09-05 section-node
     model): items are grouped by doc (doc order = doc_key, uniform across
@@ -835,7 +907,7 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
     equivalent logic), for the caller to log."""
     all_items = list(items_for_layer)
     all_items.sort(key=lambda it: item_sort_key(layer, it))
-    dups, retired = assign_ids(all_items, layer)
+    dups, retired = assign_ids(all_items, layer, reserved_ids)
     item_objects = {it["_id"]: it for it in all_items}
 
     by_doc: dict[str, list] = {}
@@ -950,9 +1022,9 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
 
     all_keys = [k for doc in docs_sorted for k in preorder_keys(doc, top_tokens_by_doc[doc])]
 
+    section_prefix = LEAF_PREFIX[layer] + "-S"
     used_section_ids: set = set()
     max_numbered = 0
-    stale_keys: list = []
     for doc, tok in all_keys:
         heading_ids = None
         for h in headings_by_doc.get(doc, []):
@@ -963,12 +1035,20 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
         if stored is None:
             continue
         if not section_id_belongs_to_layer(stored, layer):
-            stale_keys.append((doc, tok, stored))
             continue
         used_section_ids.add(stored)
-        m = _ID_NUM_TRAIL_RE.search(stored)
-        if m:
-            max_numbered = max(max_numbered, int(m.group(1)))
+
+    # 2026-09-05 (fixing the same real-run bug as assign_ids' reserved_ids
+    # parameter): the highest-number scan must also cover every reserved
+    # section id with this layer's section prefix, not just ids still
+    # claimed by a node in THIS build -- a heading's section id can leave
+    # a layer (all its statements relayered elsewhere) while the id stays
+    # globally reserved.
+    for rid in used_section_ids | reserved_ids:
+        if rid.startswith(section_prefix):
+            m = _ID_NUM_TRAIL_RE.search(rid)
+            if m:
+                max_numbered = max(max_numbered, int(m.group(1)))
 
     section_id_by_key: dict = {}
     section_counter = max_numbered + 1
@@ -982,15 +1062,17 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
         if stored is not None and section_id_belongs_to_layer(stored, layer):
             section_id_by_key[(doc, tok)] = stored
             continue
-        new_id = f"{LEAF_PREFIX[layer]}-S{section_counter:03d}"
-        while new_id in used_section_ids:
+        new_id = f"{section_prefix}{section_counter:03d}"
+        while new_id in used_section_ids or new_id in reserved_ids:
             section_counter += 1
-            new_id = f"{LEAF_PREFIX[layer]}-S{section_counter:03d}"
+            new_id = f"{section_prefix}{section_counter:03d}"
         section_id_by_key[(doc, tok)] = new_id
         used_section_ids.add(new_id)
+        reserved_ids.add(new_id)
         section_counter += 1
         if stored is not None:  # it had a stored id, just a stale one
             retired.append((stored, new_id))
+            reserved_ids.add(stored)
 
     # Pass 3: serialize, using the ids assigned above.
     def serialize(doc, tok):
@@ -1051,6 +1133,7 @@ def build_in_memory(root: Path):
     Raises ValueError on an unknown/missing layer; does not touch disk."""
     fragments = load_fragments(root)
     headings_by_doc = headings_by_doc_from_fragments(fragments)
+    reserved_ids = build_reserved_ids(fragments, root)
 
     root_items: list[dict] = []
     request_items: list[dict] = []
@@ -1084,7 +1167,7 @@ def build_in_memory(root: Path):
     item_objects: dict[str, dict] = {}
 
     root_items.sort(key=lambda it: item_sort_key("root", it))
-    dups, retired = assign_ids(root_items, "root")
+    dups, retired = assign_ids(root_items, "root", reserved_ids)
     all_dups.extend(dups)
     all_retired.extend(retired)
     output["root"] = [build_leaf_output(it, "root") for it in root_items]
@@ -1092,7 +1175,7 @@ def build_in_memory(root: Path):
         item_objects[it["_id"]] = it
 
     request_items.sort(key=lambda it: item_sort_key("request", it))
-    dups, retired = assign_ids(request_items, "request")
+    dups, retired = assign_ids(request_items, "request", reserved_ids)
     all_dups.extend(dups)
     all_retired.extend(retired)
     output["request"] = [build_leaf_output(it, "request") for it in request_items]
@@ -1101,7 +1184,7 @@ def build_in_memory(root: Path):
 
     for layer in _SECTIONED_LAYERS:
         layer_out, layer_item_objects, dups, retired = build_layer_section_tree(
-            layer, sectioned_items[layer], headings_by_doc
+            layer, sectioned_items[layer], headings_by_doc, reserved_ids
         )
         output[layer] = layer_out
         item_objects.update(layer_item_objects)

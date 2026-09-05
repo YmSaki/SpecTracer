@@ -6,5 +6,29 @@
   {
     "old_id": "DES-514",
     "new_id": "DS-1586"
+  },
+  {
+    "old_id": "DES-166",
+    "new_id": "DS-1585"
+  },
+  {
+    "old_id": "DES-506",
+    "new_id": "DS-1586"
+  },
+  {
+    "old_id": "DS-1585",
+    "new_id": "DES-564"
+  },
+  {
+    "old_id": "DS-1063",
+    "new_id": "DES-565"
+  },
+  {
+    "old_id": "DS-1586",
+    "new_id": "DES-566"
+  },
+  {
+    "old_id": "DES-565",
+    "new_id": "DS-1587"
   }
 ]
