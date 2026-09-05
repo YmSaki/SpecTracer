@@ -1,5 +1,7 @@
 # md → JSON 変換規則（移行期間）
 
+> **状態（2026-09-06）**: 変換は完了した。正本は `specification.json`（schema は `specification.schema.json`）、生成物は `export/*.md`、id の履歴は `relations/retired-ids.json`。変換に使った足場（`build.py`、`fragments/`、`relayer*/`、`relations/trace-tables.json`、各検査レポート）は **Owner の指示で削除した**（「vtest がやるべきことを Python で先に作る分には構わないが、これを正としないために消す」）。同等の機能（id の付番、参照の辺、節の木、被覆・限定語の検査、md エクスポート）は vtest 側で実装する。足場の最終版は git 履歴 a2fa4aa にある。以下の本文は、その変換をどういう規則で行ったかの記録。
+
 Issue #14 の決定（JSON を正本、md は一方向エクスポート、`.verify/doc/` の文書モデルそのもの）に基づく変換の規則。
 schema は `specification.schema.json`。変換は**忠実な転記**であり、内容の修正はしない。
 

@@ -1,9 +1,0 @@
-{
- "DES-565": {
-  "layer": "detailed_spec",
-  "reason": "詳細仕様: 状態遷移条件（誤適用の復帰）",
-  "confidence": "high",
-  "code_like": false,
-  "statement_prefix": "取消・却下の後に再承認するには、当該レコード ID を `-"
- }
-}
