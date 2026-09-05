@@ -1,0 +1,3320 @@
+{
+ "DES-701": {
+  "layer": "basic_design",
+  "reason": "adapterのregistry解決という、adapter選択の構成メカニズムに関する構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-702": {
+  "layer": "basic_design",
+  "reason": "opaque locatorの解釈をadapterへ委譲するという、core/adapterの責務分界。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-703": {
+  "layer": "design",
+  "reason": "adapterが返す値の構成要素（型/フィールド相当）を列挙するインターフェース契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-704": {
+  "layer": "design",
+  "reason": "coreがadapterの返却値に対して行う整合性検証という、部品自身の事後条件契約。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-705": {
+  "layer": "design",
+  "reason": "core内でのhash計算というデータ所有権の記述で、adapter/core分界の主張ではない。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-706": {
+  "layer": "basic_design",
+  "reason": "coreがadapter固有値を解釈しないという、core/adapterの責務分界の明示（正典の分界例と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-707": {
+  "layer": "detailed_spec",
+  "reason": "0件/複数候補という条件に対するエラーコードの外部的意味を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-708": {
+  "layer": "detailed_spec",
+  "reason": "曖昧解決という条件下での推測禁止という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-709": {
+  "layer": "basic_design",
+  "reason": "統合済みSRC索引というインフラを介した一意性検査をcore側に割り当てる構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-710": {
+  "layer": "design",
+  "reason": "SRC ID解決がadapter側のSource Location/source rangeという既定フィールドを用いるデータフロー詳細。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-711": {
+  "layer": "detailed_spec",
+  "reason": "SRC ID参照の解決先という精密な意味論的帰結（約束）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-712": {
+  "layer": "detailed_spec",
+  "reason": "参照方法によらず同一identity・同一hashに到達するという外部観測可能な一貫性の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-713": {
+  "layer": "detailed_spec",
+  "reason": "identity一貫性を守るための分岐禁止という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-714": {
+  "layer": "detailed_spec",
+  "reason": "恒久SRC ID衝突という条件に対するエラーコードの外部的意味。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-715": {
+  "layer": "detailed_spec",
+  "reason": "衝突時に選択しないという精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-716": {
+  "layer": "spec",
+  "reason": "解決結果の3状態を区別するという語彙定義（状態の個数を定めるのみで基本仕様§4.1と同型の粒度）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-717": {
+  "layer": "detailed_spec",
+  "reason": "曖昧状態固有のfail-closed終端性という状態別の精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-718": {
+  "layer": "detailed_spec",
+  "reason": "曖昧状態下で代表候補を選ばないという精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-719": {
+  "layer": "detailed_spec",
+  "reason": "曖昧状態下で後段各消費者へ候補を渡さないという精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-720": {
+  "layer": "detailed_spec",
+  "reason": "候補の用途を診断表示に限定するという精密な制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-721": {
+  "layer": "detailed_spec",
+  "reason": "禁止規則の適用範囲を明確化する精密な意味論。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-722": {
+  "layer": "detailed_spec",
+  "reason": "SRC ID衝突下でもSource Target具体化自体は独立に成立するという条件付き精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-723": {
+  "layer": "detailed_spec",
+  "reason": "衝突の影響範囲を限定する精密な意味論。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-724": {
+  "layer": "basic_design",
+  "reason": "Target Reference解決をcoreの単一経路が所有し他部品は消費者とする、構造上の責務分界。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-725": {
+  "layer": "basic_design",
+  "reason": "各subsystemが独自解決経路を持つことを禁ずる、重複構造の禁止という構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-726": {
+  "layer": "detailed_spec",
+  "reason": "特定エラーコードで解決失敗したtargetの後段補完を禁ずる精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-727": {
+  "layer": "detailed_spec",
+  "reason": "target identityが一方向でのみ確定するという精密な不変条件（約束）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-728": {
+  "layer": "detailed_spec",
+  "reason": "Evidence等複数箇所がcanonical Locatorをidentityとして用いるという精密な規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-729": {
+  "layer": "detailed_spec",
+  "reason": "宣言側の綴りをidentityとして保存してはならないという精密な禁止。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-730": {
+  "layer": "detailed_spec",
+  "reason": "宣言変更がTest subject hashに捕捉されるという精密な帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-731": {
+  "layer": "detailed_spec",
+  "reason": "宣言表現保持がidentity分裂を招くという精密な説明的帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-732": {
+  "layer": "detailed_spec",
+  "reason": "canonical Source Target単位での一意性という精密な制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-733": {
+  "layer": "detailed_spec",
+  "reason": "重複解決という条件に対するエラーコードの外部的意味。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-734": {
+  "layer": "design",
+  "reason": "rust-cargo adapterのlocator解決方式（完全一致検索）というadapter固有の技術契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-735": {
+  "layer": "design",
+  "reason": "解決手順のステップ1を定めるもので、descriptionが1.2.3.と手順を番号付けしている。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-736": {
+  "layer": "design",
+  "reason": "同じ番号付き手順のステップ2。別の実装順・書き方をすれば偽になる手順記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-737": {
+  "layer": "design",
+  "reason": "同じ番号付き手順のステップ3（曖昧時の候補返却とE-SCAN-004）。手順の一部として記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-738": {
+  "layer": "detailed_spec",
+  "reason": "入力検証失敗という条件下での候補表示という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-739": {
+  "layer": "design",
+  "reason": "候補構築の優先順位（末尾セグメント一致が先）を定める、番号付き手順の一部。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-740": {
+  "layer": "design",
+  "reason": "候補構築の優先順位の2番目（編集距離2以内）を定める、同じ手順の一部。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-741": {
+  "layer": "design",
+  "reason": "enum variant検証にASTからの定義検索を用いるという、adapter固有の技術的契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-742": {
+  "layer": "detailed_spec",
+  "reason": "解決できる場合のみ検証するという条件付きの精密な振る舞い。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-743": {
+  "layer": "detailed_spec",
+  "reason": "解決不能な自由記述をbest effortで受理するという条件付きの精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-744": {
+  "layer": "detailed_spec",
+  "reason": "静的解析がoracle_presenceへ証拠を供給するという、証拠源から検査への精密な対応づけ（条件を伴わず主要振る舞いspecとも読める境界事例）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-745": {
+  "layer": "detailed_spec",
+  "reason": "静的解析がDA-002という具体ルールを介してtarget_bindingへ証拠を供給するという精密な対応づけ（744と同型の境界事例）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-746": {
+  "layer": "spec",
+  "reason": "決定論的解析結果は正典レコードを持たず毎回再計算するという一般的約束。判定1では別実装(キャッシュ)で偽になり得るため決定とも読めるが、base-report§24.3の同型記述の先例に倣いspecとした。LAYERING.md§2 L50の未解決の緊張に該当。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-747": {
+  "layer": "basic_design",
+  "reason": "`vtest audit static`の出力先を`cache/`という具体パスへ固定する永続化方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-748": {
+  "layer": "spec",
+  "reason": "静的解析出力と判断記録（§8）という別機構を混同しないという主要挙動の宣言。部品境界の記述(basic_design)とも読める。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-749": {
+  "layer": "detailed_spec",
+  "reason": "各ルールの返り値がFAIL/UNKNOWN/PASSの3値に限られるという精密な出力域の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-750": {
+  "layer": "detailed_spec",
+  "reason": "決定論的に確定できる違反のみFAILとするという、状態割当の精密な条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-751": {
+  "layer": "detailed_spec",
+  "reason": "解析限界で確定できない場合はUNKNOWNとするという精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-752": {
+  "layer": "detailed_spec",
+  "reason": "UNKNOWNの外部的意味（判断記録エスカレーションの領分である）を定める記述。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-753": {
+  "layer": "detailed_spec",
+  "reason": "752の一般則に対する優先順位付きの例外（DA-002 target到達UNKNOWNは§7.3で解決）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-754": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceがDA-001/003/004/005/006の合成であるという精密な構成定義（別実装でも観測可能な合成対象は不変）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-755": {
+  "layer": "detailed_spec",
+  "reason": "全ルール違反なしならPASSという精密な集約条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-756": {
+  "layer": "detailed_spec",
+  "reason": "1つでもFAILがあればFAILという精密な集約条件（優先順位）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-757": {
+  "layer": "detailed_spec",
+  "reason": "FAILがなくUNKNOWNがあればUNKNOWNという精密な集約条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-758": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceに動的昇格経路が無いという精密な不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-759": {
+  "layer": "detailed_spec",
+  "reason": "静的解析は不成立の証明でありruntime証拠で昇格しないという精密な不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-760": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの静的到達証明をDA-002が担うという精密な責務対応（検査条件レベル）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-761": {
+  "layer": "detailed_spec",
+  "reason": "DA-002のUNKNOWNの外部的意味（到達しないことを意味しない）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-762": {
+  "layer": "detailed_spec",
+  "reason": "DA-002 UNKNOWNがruntime計測実行証明時に限り充足されるという必要十分条件。descriptionの「2証拠源モデルはtarget_bindingに固有」はスコープ限定節でspec寄りだが、文自体は精密な充足条件のため層は変えない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-763": {
+  "layer": "design",
+  "reason": "vtest-auditがTestEntity.execution.adapterをregistry経由で解決するという、component自身の依存インターフェースの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-764": {
+  "layer": "design",
+  "reason": "vtest-auditがStaticAnalysisAdapterへ渡す入力データ（Test/Target Reference/source range/content hash/config）の型的契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-765": {
+  "layer": "design",
+  "reason": "adapterが返す出力データ（rule ID/verdict/根拠span/解析限界）の型的契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-766": {
+  "layer": "design",
+  "reason": "target-scoped結果を規則単位verdictへ畳み込む前の形で返すという、interfaceが運ぶデータの粒度契約（手順順序ではなくデータ形状の規定）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-767": {
+  "layer": "design",
+  "reason": "target-scoped結果集合を全宣言targetと1対1対応させるという、interfaceデータの完全性についての契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-768": {
+  "layer": "design",
+  "reason": "coreがadapter ID・source location対応・決定論的encodingを検証し§7.2規則で集約するという、core自身の処理契約。769（何を解釈しないかという境界の宣言）と異なり、こちらはcoreが能動的に行う検証・集約という自コンポーネントの契約であるためdesignとした。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-769": {
+  "layer": "basic_design",
+  "reason": "adapter固有のASTやassertion構文をcoreが解釈しないという、adapterとcoreの責務分界そのもの（LAYERING.md§2の基本設計の例示に合致）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-770": {
+  "layer": "detailed_spec",
+  "reason": "Static Analysis capabilityが無い場合はNO_EVIDENCE(診断NOT_CHECKED)という精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-771": {
+  "layer": "detailed_spec",
+  "reason": "adapterの不完全性・解析限界の報告時はUNKNOWNとし違反なしと推測しないというfail-closedな精密規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-772": {
+  "layer": "detailed_spec",
+  "reason": "「assert相当の構文」に含まれる具体的な構文分類（マクロ/属性/演算子/戻り値構造の4種）を精密に規定する、外部から検証可能な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-773": {
+  "layer": "detailed_spec",
+  "reason": "assert!/assert_eq!/assert_ne!/panic!および`assertion_macros`設定に列挙されたマクロを対象とする精密な分類規則。文中に設定フィールド名`assertion_macros`が埋め込まれており、そこだけ見るとdesign(型/設定項目)寄りの混在節。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-774": {
+  "layer": "detailed_spec",
+  "reason": "#[should_panic]属性を対象に含めるという精密な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-775": {
+  "layer": "detailed_spec",
+  "reason": ".unwrap()/.expect(..)/?演算子を対象に含めるという精密な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-776": {
+  "layer": "detailed_spec",
+  "reason": "Result/Errを返す関数構造を対象に含めるという精密な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-777": {
+  "layer": "detailed_spec",
+  "reason": "DA-001の内容・FAIL条件・UNKNOWN退避例を精密に規定する検査条件表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-778": {
+  "layer": "detailed_spec",
+  "reason": "DA-002の内容・FAIL条件（本体+同一ファイルhelper1段の探索で呼出なし）・UNKNOWN退避例を精密に規定。「1段」は解析対象コードの探索範囲という契約であり、2段にすればverdictが変わる境界値であって手順の実装順序ではないためcode_likeではない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-779": {
+  "layer": "detailed_spec",
+  "reason": "DA-003の内容・FAIL条件・UNKNOWN退避例を精密に規定する検査条件表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-780": {
+  "layer": "detailed_spec",
+  "reason": "DA-004の内容（aとbがトークン列として同一）・FAIL条件を精密に規定。「トークン列として同一」は比較の粒度そのものがトリガー条件であり、比較アルゴリズムの実装手順ではないためcode_likeではない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-781": {
+  "layer": "detailed_spec",
+  "reason": "DA-005の内容・FAIL条件を精密に規定する検査条件表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-782": {
+  "layer": "detailed_spec",
+  "reason": "DA-006の内容・FAIL条件・UNKNOWN退避例を精密に規定する検査条件表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-783": {
+  "layer": "detailed_spec",
+  "reason": "W-DA-101(ignored)の内容と、FAILにしない警告でありNOT_EXECUTED診断になるという精密な扱いを規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-784": {
+  "layer": "detailed_spec",
+  "reason": "データフロー解析の追跡範囲（let束縛・メソッドチェーン・フィールドアクセスまで）という精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-785": {
+  "layer": "detailed_spec",
+  "reason": "クロージャ内・マクロ展開内はUNKNOWNという精密な境界条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-786": {
+  "layer": "detailed_spec",
+  "reason": "複数target Testでは各targetへ個別適用するという精密な適用規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-787": {
+  "layer": "detailed_spec",
+  "reason": "target別結果に1件でもFAILがあればrule結果FAILという精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-788": {
+  "layer": "detailed_spec",
+  "reason": "FAILがなく1件でもUNKNOWNがあればrule結果UNKNOWNという精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-789": {
+  "layer": "detailed_spec",
+  "reason": "全target違反なしの場合のみPASSという精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-790": {
+  "layer": "spec",
+  "reason": "静的解析は再計算派生であり正典レコードへ永続化しないという一般約束（746と同型）。base-report§24.3の先例に倣いspecとしたが、判定1の決定/約束境界は未解決。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-791": {
+  "layer": "detailed_spec",
+  "reason": "targetへの呼出がTest本体に静的に現れない場合はDA-003当該targetをUNKNOWNとする精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-792": {
+  "layer": "detailed_spec",
+  "reason": "観測不能を空虚PASSにも空虚FAILにも判定しないというfail-closedな精密規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-793": {
+  "layer": "detailed_spec",
+  "reason": "呼出がTest本体に現れないTest類型はoracle_presence=PASSへ到達しないという精密な帰結（受入条件水準）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-794": {
+  "layer": "detailed_spec",
+  "reason": "DA-002がUNKNOWNでも結果がassert相当へ到達すればDA-003=PASSになりうるという精密な条件付き帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-795": {
+  "layer": "detailed_spec",
+  "reason": "DA-002をruntimeで救済すればtarget_binding=PASSに到達しうるという精密な条件付き帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-796": {
+  "layer": "detailed_spec",
+  "reason": "クロージャ・マクロ展開内側はDA-002/DA-003ともUNKNOWNという精密な境界再確認。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-797": {
+  "layer": "basic_design",
+  "reason": "判定結果と根拠を`cache/`の派生結果として提示するという、747と同型の具体的な出力先(永続化方式)決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-798": {
+  "layer": "detailed_spec",
+  "reason": "委譲先が検証閉包内で終端しない限り照合装置検査の成立側を確定しないという精密なfail-closed条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-799": {
+  "layer": "detailed_spec",
+  "reason": "assert相当の引数へ到達する束縛内の関数呼出を委譲先とするという精密な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-800": {
+  "layer": "detailed_spec",
+  "reason": "assert相当が皆無なTest本体中の関数呼出を委譲先とするという精密な分類規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-801": {
+  "layer": "detailed_spec",
+  "reason": "委譲先Hが終端する必要十分条件（H宣言Testが1件以上存在しかつ全oracle_presence=PASS）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-802": {
+  "layer": "detailed_spec",
+  "reason": "終端判定をcovers/宣言targetグラフの参照だけで行うという判定範囲の不変条件。判定1の約束/決定の境界が割れる（別データ源を使えば結果が変わりうる決定とも読めるが、外部から観測可能な判定範囲の宣言として約束寄りにも読める）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-803": {
+  "layer": "detailed_spec",
+  "reason": "終端判定について信頼を宣言する専用記録・注釈・設定を設けないという禁止の不変条件。802と同様に約束/決定の境界が割れる。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-804": {
+  "layer": "detailed_spec",
+  "reason": "委譲先が無い場合は各ルールのFAIL条件で評価するという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-805": {
+  "layer": "detailed_spec",
+  "reason": "委譲先が全て終端する場合は違反なしとするという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-806": {
+  "layer": "detailed_spec",
+  "reason": "委譲先を宣言targetとするTestが0件の場合はUNKNOWNとするという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-807": {
+  "layer": "detailed_spec",
+  "reason": "委譲先のTestのoracle_presenceがPASSでない場合はUNKNOWNとするという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-808": {
+  "layer": "detailed_spec",
+  "reason": "終端探索が循環する場合はUNKNOWNとするという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-809": {
+  "layer": "detailed_spec",
+  "reason": "委譲先を同定できない場合はUNKNOWNとするという判定表の一行。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-810": {
+  "layer": "detailed_spec",
+  "reason": "終端未確認の委譲先を違反なしともFAILとも扱わないというfail-closedな精密規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-811": {
+  "layer": "detailed_spec",
+  "reason": "終端判定は同一scan結果から算出するという決定性の不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-812": {
+  "layer": "detailed_spec",
+  "reason": "循環はUNKNOWNで閉じ評価順序で結果が変わらないという不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-813": {
+  "layer": "detailed_spec",
+  "reason": "委譲先の終端はoracle_presence昇格の根拠にならないという範囲限定の不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-814": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presence全体は§7.1の合成規則で決まるという、754と同型の精密な再確認。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-815": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingが問う内容（振る舞いが実際に生じ観測されたか）を精密に規定する検査定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-816": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingが静的/動的の2証拠源を持ち動的証拠で昇格しうるという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-817": {
+  "layer": "detailed_spec",
+  "reason": "DA-002の解析境界（本体+同一ファイルhelper1段、それ以外はUNKNOWN）を精密に再確認。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-818": {
+  "layer": "detailed_spec",
+  "reason": "静的解析の追えない実行境界越え到達はいずれもDA-002 UNKNOWNとして現れるという不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-819": {
+  "layer": "detailed_spec",
+  "reason": "実行境界越え到達はTestのkindでなくexecution topologyで決まるという精密な決定要因の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-820": {
+  "layer": "detailed_spec",
+  "reason": "追えない実行境界の一種（他ファイル・他クレート間接到達）を列挙する精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-821": {
+  "layer": "detailed_spec",
+  "reason": "追えない実行境界の一種（クロージャ・マクロ展開内）を列挙する精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-822": {
+  "layer": "detailed_spec",
+  "reason": "追えない実行境界の一種（別スレッド境界）を列挙する精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-823": {
+  "layer": "detailed_spec",
+  "reason": "追えない実行境界の一種（別プロセス境界）を列挙する精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-824": {
+  "layer": "detailed_spec",
+  "reason": "到達要件のうち静的証明側の充足条件（DA-002 verdict=PASS）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-825": {
+  "layer": "detailed_spec",
+  "reason": "到達要件のうちruntime証明側の充足条件（鮮度を満たすEvidenceのtarget_coverage=PASS）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-826": {
+  "layer": "detailed_spec",
+  "reason": "DA-002がUNKNOWNのtargetはruntime証明成立時に限り到達要件を満たすという必要十分条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-827": {
+  "layer": "detailed_spec",
+  "reason": "複数target Testではtargetごとに到達要件を適用するという精密な適用規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-828": {
+  "layer": "detailed_spec",
+  "reason": "target_binding到達は全宣言targetの到達要件充足時にのみ成立するという精密な集約条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-829": {
+  "layer": "detailed_spec",
+  "reason": "static側の到達判定に§7.2のDA-002 verdictをtargetごとに用いるという精密な証拠出所の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-830": {
+  "layer": "detailed_spec",
+  "reason": "DA-002 verdict=FAILはruntime証明で覆さないという精密な不変条件（優先順位）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-831": {
+  "layer": "detailed_spec",
+  "reason": "runtime側は§11.2が選択した最新Evidenceだけを用いるという精密な証拠範囲の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-832": {
+  "layer": "detailed_spec",
+  "reason": "最新Evidenceが鮮度を満たさなければ古いEvidenceへフォールバックしないというfail-closedな精密規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-833": {
+  "layer": "spec",
+  "reason": "target_binding項目値は検証時に算出するという一般的な再計算約束。746/790と同型でLAYERING.md§2の未解決の緊張に該当するが、base-report§24.3の先例に倣いspecとした。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-834": {
+  "layer": "detailed_spec",
+  "reason": "static側再計算とruntime側選択Evidenceからtargetごとの実効到達状態を定めるという精密な合成規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-835": {
+  "layer": "detailed_spec",
+  "reason": "「静的到達」の定義（DA-002 verdict=PASS）を精密な条件で与える。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-836": {
+  "layer": "detailed_spec",
+  "reason": "「runtime到達」の定義（DA-002 verdict=UNKNOWNかつruntime証明成立）を精密な条件で与える。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-837": {
+  "layer": "detailed_spec",
+  "reason": "「未充足」の定義（DA-002 verdict=FAIL、またはUNKNOWNでruntime証明不成立）を精密な条件で与える。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-838": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceのresult:FAILならtarget_binding=FAILという精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-839": {
+  "layer": "detailed_spec",
+  "reason": "全宣言targetの到達充足時はtarget_binding=PASSという精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-840": {
+  "layer": "detailed_spec",
+  "reason": "到達未充足targetがある場合の§11.2写像による非PASS状態の精密な割当表。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-841": {
+  "layer": "detailed_spec",
+  "reason": "到達要件充足のみでPASSとなる関係がfail-closedを保つという不変条件の主張。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-842": {
+  "layer": "detailed_spec",
+  "reason": "runtime証明はtarget_coverage=PASSのときだけ成立するという精密な必要条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-843": {
+  "layer": "detailed_spec",
+  "reason": "target_coverageがFAIL/UNKNOWN/NOT_CHECKEDのときは到達要件を満たさないという精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-844": {
+  "layer": "spec",
+  "reason": "本節の到達要件をSource Targetとして実現する形態(rust-cargo)に限定するという適用範囲の宣言。基本仕様§5.3を引用するスコープ限定であり、対応範囲宣言(base-report §27・§29相当)としてspecとした。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-845": {
+  "layer": "detailed_spec",
+  "reason": "宣言targetを実行しないTest類型は到達要件が未充足のままという精密な帰結（受入条件水準）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-846": {
+  "layer": "spec",
+  "reason": "Source Targetとして宣言しない他の実行形態の確認方法を下位仕様・後続版へ委譲するという範囲宣言（base-report §30「詳細設計へ委譲する事項」相当のspec）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-847": {
+  "layer": "spec",
+  "reason": "本節の到達規則を普遍規則として適用しないという適用範囲の宣言（844/846と同型のspec）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-848": {
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-007という診断コードの外部的意味（targets≥1欠落によりchain_integrity=MISMATCH）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-849": {
+  "layer": "detailed_spec",
+  "reason": "targetを持たないTestは本節の合成へ到達しないという精密な範囲限定の不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-850": {
+  "layer": "detailed_spec",
+  "reason": "DA-003をto-runtime joinに含めないという精密な範囲除外規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-851": {
+  "layer": "detailed_spec",
+  "reason": "DA-003が問う内容（targetの結果検証）を精密に規定する検査定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-852": {
+  "layer": "detailed_spec",
+  "reason": "runtime coverageはDA-003を代替しないという精密な不変条件とその理由。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-853": {
+  "layer": "detailed_spec",
+  "reason": "典型的subprocess E2EではDA-003がUNKNOWNのまま残りやすいという精密な具体事例の帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-854": {
+  "layer": "spec",
+  "reason": "本節はprocess boundaryによる恒久UNKNOWN問題だけを解消しboundary testを完全にPASS可能にするものではないという範囲宣言（844/846/847と同型のspec）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-855": {
+  "layer": "spec",
+  "reason": "実装によらず真であり続ける外部行動の約束（意味監査を自ら行わないというF4型の約束）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-856": {
+  "layer": "spec",
+  "reason": "UNKNOWNへの引き渡しと判断記録での追跡という主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-857": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルが検証状態のゲートでないという領域境界の約束（SPEC-398と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-858": {
+  "layer": "spec",
+  "reason": "判断記録の受理が検証状態を昇格させないという一般的な非promotion原則（上位不変条件の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-859": {
+  "layer": "basic_design",
+  "reason": "バンドル出力先パス（cache/bundles/<ULID>.json）という永続化方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-860": {
+  "layer": "basic_design",
+  "reason": "バンドルをGit管理しない（派生情報として扱う）という永続化方針の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-861": {
+  "layer": "basic_design",
+  "reason": "ハッシュが判断記録へ複製されるためバンドル自体の永続化が不要という永続化方針の帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-862": {
+  "layer": "design",
+  "reason": "バンドルが含むべき情報一式（基本仕様§11.3準拠）という成果物の内容構成の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-863": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（対象VOレコードとclaim）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-864": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（Test Intent）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-865": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（テストコード全文とmetadata宣言）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-866": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（cases集合）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-867": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（対象実装source全文）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-868": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（関連テスト）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-869": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（既知partition）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-870": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（過去の判断要約）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-871": {
+  "layer": "design",
+  "reason": "バンドルの構成要素（対象の内容ハッシュとリビジョン）というfield内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-872": {
+  "layer": "design",
+  "reason": "judgment_kindフィールドの多重度（ちょうど1件）という型の制約宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-873": {
+  "layer": "design",
+  "reason": "judgment_kindが判断記録へ複製されるというデータ所有・伝播の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-874": {
+  "layer": "spec",
+  "reason": "判断型は3種のみでそれ以外を生成しないという網羅的定義（「検証状態は5つのみ」型の約束と同型）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-875": {
+  "layer": "spec",
+  "reason": "test-semanticの問いの定義という主要な機能定義（chain_integrity等の「問い」定義と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-876": {
+  "layer": "spec",
+  "reason": "impl-consistencyの問いの定義という主要な機能定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-877": {
+  "layer": "spec",
+  "reason": "case-coverageのsubject値域の定義という主要な機能定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-878": {
+  "layer": "spec",
+  "reason": "case-coverage（Test ID時）の問いの定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-879": {
+  "layer": "spec",
+  "reason": "case-coverage（VO ID時）の問いの定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-880": {
+  "layer": "detailed_spec",
+  "reason": "無効な組合せ要求を別紙A §12.2のusage error・終了コード2という外部的意味へ精密に対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-881": {
+  "layer": "spec",
+  "reason": "case-coverageが§5の4検査ではないという領域境界の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-882": {
+  "layer": "spec",
+  "reason": "case-coverageの結果が4検査の値へ写像されないという領域境界の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-883": {
+  "layer": "spec",
+  "reason": "外部判断待ち事実の提示という主要な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-884": {
+  "layer": "design",
+  "reason": "impl-consistency用バンドルへ§3.5の依存規則で導出したdocument集合を加えるという成果物内容の追加宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-885": {
+  "layer": "design",
+  "reason": "case-coverage用バンドルへdimensions等を必須項目として含めるという成果物内容の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-886": {
+  "layer": "detailed_spec",
+  "reason": "target/document解決不能時にバンドルを生成せず候補を選択しないという境界条件の精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-887": {
+  "layer": "detailed_spec",
+  "reason": "対象不在（E-SCAN-004）をMISMATCH・診断MISSINGへ精密に対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-888": {
+  "layer": "detailed_spec",
+  "reason": "恒久SRC ID衝突（E-SCAN-011）をMISMATCHへ精密に対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-889": {
+  "layer": "design",
+  "reason": "バンドルJSONスキーマのfield列挙という型宣言（SourceLocation例と同型、指示に明記）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-890": {
+  "layer": "design",
+  "reason": "`vtest audit submit --file result.json`というサブコマンドのインターフェース契約（フラグ名の決定）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-891": {
+  "layer": "detailed_spec",
+  "reason": "提出の最小必須field（actor/subject/decision）という受理条件の精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-892": {
+  "layer": "detailed_spec",
+  "reason": "理由・根拠の任意性という受理条件に関わる精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-893": {
+  "layer": "design",
+  "reason": "提出スキーマのfield列挙という型宣言（指示によりSourceLocation例と同型に扱う）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-894": {
+  "layer": "detailed_spec",
+  "reason": "decision値域と§8.4での妥当性検証という入力値制約の精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-895": {
+  "layer": "design",
+  "reason": "旧verdict→CheckValue写像経路の撤去という、提出処理コンポーネント固有の挙動変更。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-896": {
+  "layer": "spec",
+  "reason": "判断記録が検証状態を変更しないという一般的な領域境界の約束（§8冒頭の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-897": {
+  "layer": "detailed_spec",
+  "reason": "judgment_kind必須かつバンドルと一致必須という精密な整合性条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-898": {
+  "layer": "detailed_spec",
+  "reason": "supersedes省略時は空listという任意性・既定値の精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-899": {
+  "layer": "detailed_spec",
+  "reason": "supersedes各ULIDが同一subject・judgment_kindを指す必須という精密な整合性条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-900": {
+  "layer": "detailed_spec",
+  "reason": "reason/exclusionsの任意性という受理条件に関わる精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-901": {
+  "layer": "detailed_spec",
+  "reason": "basis.kindの値域（4種のいずれか）という入力値制約の精密な規定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-902": {
+  "layer": "spec",
+  "reason": "理由が空であることを無効化根拠にしないという一般原則（基本仕様§11.3の直接引用）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-903": {
+  "layer": "basic_design",
+  "reason": "`audit submit`が検証失敗時に§17のエラーコードで拒否するという名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-904": {
+  "layer": "detailed_spec",
+  "reason": "バンドル存在検証（E-AUDIT-001）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-905": {
+  "layer": "detailed_spec",
+  "reason": "subject一致検証（E-AUDIT-003）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-906": {
+  "layer": "detailed_spec",
+  "reason": "judgment_kind一致・値域検証（E-AUDIT-003）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-907": {
+  "layer": "detailed_spec",
+  "reason": "内容ハッシュ一致検証（E-AUDIT-002）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-908": {
+  "layer": "detailed_spec",
+  "reason": "decision値域検証（E-AUDIT-004）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-909": {
+  "layer": "detailed_spec",
+  "reason": "supersedes整合性・自己参照禁止検証（E-AUDIT-008）という精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-910": {
+  "layer": "basic_design",
+  "reason": "受理済み提出の`.verify/decisions/`への永続化というディレクトリ・レコード構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-911": {
+  "layer": "detailed_spec",
+  "reason": "subject_hash・dependenciesの記録と依存closureへの束縛という精密なハッシュ束縛規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-912": {
+  "layer": "detailed_spec",
+  "reason": "理由の有無を受理条件にしないという精密な受理条件の否定規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-913": {
+  "layer": "design",
+  "reason": "旧E-AUDIT-005/006/007検査の撤去という、提出検証コンポーネント固有の契約変更。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-914": {
+  "layer": "spec",
+  "reason": "旧必須検査が要件定義§12と矛盾するため課さないという、上位引用に基づく一般的な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-915": {
+  "layer": "spec",
+  "reason": "判断記録の有効性は判定時に評価するという一般的な評価タイミングの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-916": {
+  "layer": "detailed_spec",
+  "reason": "有効性の定義（judgment_kind値域・subject一致・hash一致・依存closure完全一致）という精密な定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-917": {
+  "layer": "spec",
+  "reason": "対象は(subject, judgment_kind)の組で独立評価するという一般的な定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-918": {
+  "layer": "detailed_spec",
+  "reason": "判断値が食い違う有効記録併存時はどれも選ばないという精密な境界規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-919": {
+  "layer": "detailed_spec",
+  "reason": "V(subject, judgment_kind)の集合定義という精密な解決規則の一部。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-920": {
+  "layer": "detailed_spec",
+  "reason": "実効集合Eの導出規則（supersedesによる除外）という精密な定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-921": {
+  "layer": "detailed_spec",
+  "reason": "Eが空のときUNKNOWNとするという精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-922": {
+  "layer": "detailed_spec",
+  "reason": "Eが同一decisionのとき実効判断値とするという精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-923": {
+  "layer": "detailed_spec",
+  "reason": "Eに2種以上のdecisionがあるときUNKNOWN・W-STORE-004という精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-924": {
+  "layer": "detailed_spec",
+  "reason": "実効判断UNKNOWN時に§11エスカレーション状態にとどまるという精密な条件付き帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-925": {
+  "layer": "detailed_spec",
+  "reason": "UNKNOWN時に検証状態を変更せず診断ラベルも付与しないという精密な条件付き規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-926": {
+  "layer": "spec",
+  "reason": "未確定事実を§11.7の判断待ち情報として提示するという一般的な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-927": {
+  "layer": "detailed_spec",
+  "reason": "競合はsupersedesによる明示置換時にのみ解消するという精密な条件規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-928": {
+  "layer": "detailed_spec",
+  "reason": "新旧順・decision優先順位・件数を解消規則に用いてはならないという精密な禁止規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-929": {
+  "layer": "detailed_spec",
+  "reason": "supersedesの循環時はUNKNOWN・W-STORE-005という精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-930": {
+  "layer": "detailed_spec",
+  "reason": "循環時にいずれかのレコードを推測で残さないという、直前規定に付随する精密な禁止。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-931": {
+  "layer": "detailed_spec",
+  "reason": "judgment_kind欠落・値域外の記録はVに属さず実効判断へ寄与しないという精密な条件規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-932": {
+  "layer": "detailed_spec",
+  "reason": "judgment_kind欠落・値域外の記録は履歴表示のみ許可しW-STORE-003を出すという精密な条件規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-933": {
+  "layer": "detailed_spec",
+  "reason": "有効かつEに属する場合にのみ実効承認を導出するという精密な条件規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-934": {
+  "layer": "detailed_spec",
+  "reason": "Eから外れた記録への承認はdraft相当とするという精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-935": {
+  "layer": "spec",
+  "reason": "同一対象への複数有効判断記録（再判断・多重判断）を許容するという一般的な許容範囲。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-936": {
+  "layer": "spec",
+  "reason": "回数をツールとして制限しないという一般的な運用ポリシー。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-937": {
+  "layer": "spec",
+  "reason": "変更時は過去判断を流用せず現在状態を再検証するという一般原則（要件定義§12直接引用）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-938": {
+  "layer": "spec",
+  "reason": "再検証結果は5状態いずれにもなり得るという一般的な定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-939": {
+  "layer": "spec",
+  "reason": "変更そのものがUNKNOWNを生成するのではないという一般的な否定的明確化。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-940": {
+  "layer": "spec",
+  "reason": "判断済みと承認済みを区別するという一般的な定義（SPEC-400と同一文言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-941": {
+  "layer": "spec",
+  "reason": "判断は承認なしでも記録できるという一般的な約束（SPEC-401/402と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-942": {
+  "layer": "spec",
+  "reason": "判断エージェントのプロンプト構成はツール責務外という範囲宣言（参考情報の位置づけ）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-943": {
+  "layer": "spec",
+  "reason": "判断の受理が検証状態を昇格させないという一般的な非promotion原則（DES-858と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-944": {
+  "layer": "spec",
+  "reason": "判断はUNKNOWNへの外部判断追跡であり検査ゲートではないという領域境界の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-945": {
+  "layer": "detailed_spec",
+  "reason": "`--test`/`--vo`/`--all`各指定に対する展開方法という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-946": {
+  "layer": "basic_design",
+  "reason": "`--req`廃止とVO経由指定への置換という、CLIインターフェース構成の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-947": {
+  "layer": "design",
+  "reason": "TestEntity.executionの`project`フィールドをCargo package名と解釈する、adapter自身の解釈契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-948": {
+  "layer": "design",
+  "reason": "`suite.kind`の解釈という、adapter自身のフィールド解釈契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-949": {
+  "layer": "design",
+  "reason": "`suite.name`の解釈という、adapter自身のフィールド解釈契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-950": {
+  "layer": "design",
+  "reason": "`selector`の解釈という、adapter自身のフィールド解釈契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-951": {
+  "layer": "design",
+  "reason": "adapter内部でCargo launch coordinateを構築するというデータフロー。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-952": {
+  "layer": "design",
+  "reason": "TestEntityにCargo固有fieldを戻さないという、core型の境界を定める型契約（既出SPEC-112と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-953": {
+  "layer": "design",
+  "reason": "cargo testの具体的なコマンドライン（`-p` `--lib` `--exact` 等）を固定した記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-954": {
+  "layer": "basic_design",
+  "reason": "実行対象解釈とcommand生成をTestRunnerAdapterが所有するという責務分界。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-955": {
+  "layer": "detailed_spec",
+  "reason": "adapter不一致という条件に対するエラーコードE-ADAPTER-003の外部的意味。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-956": {
+  "layer": "detailed_spec",
+  "reason": "runner未提供という条件に対するエラーコード・検証状態・診断の精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-957": {
+  "layer": "design",
+  "reason": "`--exact`フラグの適用範囲という、adapter自身のフラグ解釈契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-958": {
+  "layer": "design",
+  "reason": "stdout解析がstable toolchain形式のみに依存するという、adapter自身のパース前提契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-959": {
+  "layer": "design",
+  "reason": "cargo test出力の特定文字列（`running N tests`）の意味付けで、出力形式が変われば偽になる。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-960": {
+  "layer": "design",
+  "reason": "特定出力文字列（`... ok`）をPASSと意味付ける、出力形式依存の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-961": {
+  "layer": "design",
+  "reason": "特定出力文字列（`... FAILED`）をFAILと意味付ける、出力形式依存の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-962": {
+  "layer": "design",
+  "reason": "特定出力文字列（`... ignored`）を未実行と意味付ける、出力形式依存の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-963": {
+  "layer": "detailed_spec",
+  "reason": "ignored（未実行）という条件下でEvidenceを記録しないという精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-964": {
+  "layer": "detailed_spec",
+  "reason": "ignoredという条件下でtarget_bindingを診断NOT_EXECUTEDとする精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-965": {
+  "layer": "detailed_spec",
+  "reason": "結果行欠落という条件に対するエラーコードE-EXEC-002の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-966": {
+  "layer": "detailed_spec",
+  "reason": "終了コードと集計の矛盾という条件に対するエラーコードE-EXEC-003の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-967": {
+  "layer": "design",
+  "reason": "log_refがcache/logs配下のログファイルを参照するという、Evidenceのデータ参照契約。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-968": {
+  "layer": "detailed_spec",
+  "reason": "Testごとに1件のEvidenceレコードという精密なカーディナリティ規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-969": {
+  "layer": "design",
+  "reason": "`git rev-parse HEAD`・`git status --porcelain`という具体コマンドを固定した記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-970": {
+  "layer": "detailed_spec",
+  "reason": "revision取得失敗という条件に対するnull値と鮮度不成立という精密な帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-971": {
+  "layer": "design",
+  "reason": "`hashes`フィールドの構成要素（Test subject hash・canonical Locator・construct hashの宣言順）を定める型定義相当の記述。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-972": {
+  "layer": "detailed_spec",
+  "reason": "hashesの欠落・重複禁止という外部から検証可能な精密な不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-973": {
+  "layer": "detailed_spec",
+  "reason": "宣言綴りでなくcanonical Locatorを記録するという精密な規則（§6.1.1系列と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-974": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成の前提条件（全target一意解決）という精密な事前条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-975": {
+  "layer": "detailed_spec",
+  "reason": "対象なし/曖昧という条件に対するEvidence非生成という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-976": {
+  "layer": "detailed_spec",
+  "reason": "部分的hashesを持つEvidenceを生成しない方式の否定という精密な設計上の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-977": {
+  "layer": "detailed_spec",
+  "reason": "対象なし/曖昧という条件に対するtarget_bindingの状態・診断の精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-978": {
+  "layer": "design",
+  "reason": "execution_state hashの入力源（snapshot schema・config・manifest）という型構成要素の定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-979": {
+  "layer": "detailed_spec",
+  "reason": "完全性を保証できない場合の`complete: false`という精密な条件付き値。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-980": {
+  "layer": "detailed_spec",
+  "reason": "ビルド失敗という条件に対するエラーコードE-EXEC-001の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-981": {
+  "layer": "detailed_spec",
+  "reason": "ビルド失敗時のtarget_binding状態・診断という精密な帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-982": {
+  "layer": "basic_design",
+  "reason": "CoverageAdapterが`cargo-llvm-cov`を用いるという技術選定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-983": {
+  "layer": "design",
+  "reason": "`cargo llvm-cov --version`という具体コマンドで可用性確認する手順を固定した記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-984": {
+  "layer": "detailed_spec",
+  "reason": "利用不能という条件に対するchecked値・検証状態・診断・警告コードの精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-985": {
+  "layer": "design",
+  "reason": "Test単位で1件ずつ実行するという、計測手法に関するadapter自身の技術的契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-986": {
+  "layer": "basic_design",
+  "reason": "境界越し実行の帰属能力をCoverageAdapterの能力として位置付ける、capability境界の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-987": {
+  "layer": "design",
+  "reason": "subprocess計測にはinstrument対象化とprofile mergeが必要という、capability実現手段の技術的説明。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-988": {
+  "layer": "detailed_spec",
+  "reason": "instrument/merge提供不可という条件に対するUNKNOWNという精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-989": {
+  "layer": "detailed_spec",
+  "reason": "計測不能という条件に対するchecked値・診断・捏造禁止の精密な規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-990": {
+  "layer": "detailed_spec",
+  "reason": "能力欠如時もfail-closed（UNKNOWN維持）という精密な帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-991": {
+  "layer": "design",
+  "reason": "`cargo llvm-cov test ...`という具体的なコマンドラインを固定した記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-992": {
+  "layer": "basic_design",
+  "reason": "coverageを独立したCoverageAdapter capabilityとして扱うという構造上の分離決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-993": {
+  "layer": "detailed_spec",
+  "reason": "capability未提供という条件に対するchecked値の精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-994": {
+  "layer": "detailed_spec",
+  "reason": "解析限界という条件に対するUNKNOWN割当という精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-995": {
+  "layer": "design",
+  "reason": "llvm-cov export JSONの`data[].functions[]`という具体スキーマ経路を固定した記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-996": {
+  "layer": "design",
+  "reason": "demangle済み関数名・filenameのsuffix一致という、adapter固有のマッチング基準（技術的契約）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-997": {
+  "layer": "design",
+  "reason": "ジェネリック関数の複数インスタンスに対するcount合算という、adapter固有の算出規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-998": {
+  "layer": "detailed_spec",
+  "reason": "count>0という条件に対するPASSの精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-999": {
+  "layer": "detailed_spec",
+  "reason": "count==0という条件に対するFAIL・診断の精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1000": {
+  "layer": "detailed_spec",
+  "reason": "関数不見当という条件に対するUNKNOWNの精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1001": {
+  "layer": "detailed_spec",
+  "reason": "Test単位集約におけるFAIL優先という精密な優先順位規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1002": {
+  "layer": "detailed_spec",
+  "reason": "FAILなし・UNKNOWN存在という条件下でのUNKNOWN集約という精密な優先順位規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1003": {
+  "layer": "detailed_spec",
+  "reason": "全targetPASSという条件下でのPASS集約という精密な優先順位規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1004": {
+  "layer": "design",
+  "reason": "target_coverageレコードの構成要素（Locator・result・count・集約結果）を定める型定義相当の記述。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1005": {
+  "layer": "detailed_spec",
+  "reason": "entryの欠落・重複・不一致をPASSとして保存しないという外部検証可能な精密な不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1006": {
+  "layer": "detailed_spec",
+  "reason": "target_coverageがtarget_binding検査の証拠源であり独立検査でないという、この評価固有の精密な位置付け。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1007": {
+  "layer": "detailed_spec",
+  "reason": "実行境界を越えた場合も判定は実行countに基づくという精密な振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1008": {
+  "layer": "design",
+  "reason": "境界越し実行を宣言targetへ帰属させる義務という、capability提供者自身の技術契約。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1009": {
+  "layer": "detailed_spec",
+  "reason": "帰属不能という条件に対するUNKNOWNの精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1010": {
+  "layer": "detailed_spec",
+  "reason": "計測不能という条件に対するchecked: falseの精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1011": {
+  "layer": "detailed_spec",
+  "reason": "帰属不能・計測不能のいずれの場合もUNKNOWNをPASSへ変換しないという精密な帰結。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1012": {
+  "layer": "basic_design",
+  "reason": "境界越し帰属能力がadapterのcoverage capabilityに属するという、capability境界の割当（DES-986と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1013": {
+  "layer": "spec",
+  "reason": "`vtest run`が2モードを持つという語彙・構成の宣言（詳細な条件付き振る舞いではない）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1014": {
+  "layer": "detailed_spec",
+  "reason": "`--fast`モードという条件下でのchecked値・検証状態・診断の精密な割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1015": {
+  "layer": "detailed_spec",
+  "reason": "既定モードという条件下での動的計測実行という精密なモード別振る舞い。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1016": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityのPASS条件をフィールド単位で精密に列挙する条件付き結果。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1017": {
+  "layer": "detailed_spec",
+  "reason": "orphan_detectionのPASS/MISMATCH条件を精密に規定する状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1018": {
+  "layer": "spec",
+  "reason": "評価地点をTESTとする主要な振る舞いの宣言で、詳細は§7.3へ委譲し条件自体は確定しない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1019": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの結果をEvidence resultと到達充足の条件で精密に確定する状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1020": {
+  "layer": "spec",
+  "reason": "未充足時の扱いを§11.2へ委譲する旨の記述で、条件自体はここで確定しない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1021": {
+  "layer": "spec",
+  "reason": "評価地点をTESTとする主要な振る舞いの宣言で、詳細は§7.1の合成へ委譲する。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1022": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3分岐（PASS/FAIL/UNKNOWN）を精密に規定する状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1023": {
+  "layer": "detailed_spec",
+  "reason": "検査入力として許容される範囲を漏れなく列挙する精密な制約（すべての入力条件に相当）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1024": {
+  "layer": "detailed_spec",
+  "reason": "検査入力の1区分（scan結果）を精密に列挙。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1025": {
+  "layer": "detailed_spec",
+  "reason": "検査入力の1区分（.verify/正典ファイル集合）を精密に列挙。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1026": {
+  "layer": "detailed_spec",
+  "reason": "検査入力の1区分（Execution State subject入力）を精密に列挙。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1027": {
+  "layer": "detailed_spec",
+  "reason": "検査入力の1区分（要求scope指定）を精密に列挙。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1028": {
+  "layer": "detailed_spec",
+  "reason": "評価入力が同一なら出力が同一という決定論性の不変条件を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1029": {
+  "layer": "detailed_spec",
+  "reason": "検査入力から除外される項目（時刻・乱数・PID）を精密に列挙する制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1030": {
+  "layer": "detailed_spec",
+  "reason": "検査入力から除外される項目（ロケール・環境変数等）を精密に列挙する制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1031": {
+  "layer": "detailed_spec",
+  "reason": "検査入力から除外される項目（ネットワーク・外部API応答）を精密に列挙する制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1032": {
+  "layer": "detailed_spec",
+  "reason": "環境変化が結果へ影響する範囲をExecution State subjectの入力に限定する精密な境界条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1033": {
+  "layer": "detailed_spec",
+  "reason": "環境変化の影響がEvidence鮮度喪失として現れるという精密な状態割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1034": {
+  "layer": "detailed_spec",
+  "reason": "ネットワーク・外部応答が例外なく検査入力にならないという精密な制約の再確認。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1035": {
+  "layer": "spec",
+  "reason": "意味判定を外部委ねるseamを持たないという主要な振る舞いの約束（機能の不在の宣言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1036": {
+  "layer": "spec",
+  "reason": "外部AI/Agentの関与経路を判断記録の著者に限るという主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1037": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理が検証状態を昇格させないという精密な遷移制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1038": {
+  "layer": "detailed_spec",
+  "reason": "将来seamを設ける場合に満たすべき受入条件を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1039": {
+  "layer": "spec",
+  "reason": "完全検証の検査集合が4つに固定されるという主要な振る舞いの約束（『検証状態は5つのみ』と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1040": {
+  "layer": "spec",
+  "reason": "旧12項目が検査として存在しないという主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1041": {
+  "layer": "spec",
+  "reason": "旧項目の統合先を述べる主要な振る舞いの約束（移行の記述）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1042": {
+  "layer": "spec",
+  "reason": "旧項目の分割先を述べる主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1043": {
+  "layer": "spec",
+  "reason": "旧項目の吸収先を述べる主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1044": {
+  "layer": "spec",
+  "reason": "旧項目の廃止と説明先を述べる主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1045": {
+  "layer": "spec",
+  "reason": "旧項目の除去とエスカレーションへの置換を述べる主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1046": {
+  "layer": "spec",
+  "reason": "chain_integrityが問う内容を述べる主要な振る舞いの約束（基本仕様の問いの記述と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1047": {
+  "layer": "detailed_spec",
+  "reason": "違反時の状態割当（MISMATCH）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1048": {
+  "layer": "detailed_spec",
+  "reason": "文書層の評価条件とエラーコード（E-SCAN-012）の対応を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1049": {
+  "layer": "detailed_spec",
+  "reason": "文書層のcontent_hash不一致時の診断ラベル（STALE）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1050": {
+  "layer": "detailed_spec",
+  "reason": "VO層の解決可能性条件とエラーコード（E-SCAN-012）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1051": {
+  "layer": "detailed_spec",
+  "reason": "VO parent不在・循環のエラーコード（E-SCAN-008）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1052": {
+  "layer": "detailed_spec",
+  "reason": "combinations受理条件違反のエラーコード（E-SCAN-017）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1053": {
+  "layer": "detailed_spec",
+  "reason": "Test層の管理宣言の必須条件とエラーコード（E-SCAN-007）・診断（MISSING）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1054": {
+  "layer": "detailed_spec",
+  "reason": "covers解決可能性条件とエラーコード（E-SCAN-003）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1055": {
+  "layer": "detailed_spec",
+  "reason": "Test ID一意性条件とエラーコード（E-SCAN-002）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1056": {
+  "layer": "detailed_spec",
+  "reason": "双方向完全性の成立条件（両方向のAND）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1057": {
+  "layer": "detailed_spec",
+  "reason": "coversの無いleaf VOの状態割当（MISMATCH・MISSING）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1058": {
+  "layer": "detailed_spec",
+  "reason": "Relation不在のエラーコード（E-SCAN-009）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1059": {
+  "layer": "detailed_spec",
+  "reason": "恒久SRC ID衝突のエラーコード（E-SCAN-011）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1060": {
+  "layer": "spec",
+  "reason": "管理対象とすることと証拠算入を別個の条件とする主要な振る舞いの約束（基本仕様の同型記述と一致）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1061": {
+  "layer": "detailed_spec",
+  "reason": "covers≥1を一律要求するという精密な数量制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1062": {
+  "layer": "detailed_spec",
+  "reason": "covers 0件時の状態割当（MISMATCH）と特別扱い不設置を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1063": {
+  "layer": "detailed_spec",
+  "reason": "Evidence鮮度判定の1条件（test_subjectハッシュ一致）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1064": {
+  "layer": "detailed_spec",
+  "reason": "Evidence鮮度判定の1条件（targetsハッシュ集合一致）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1065": {
+  "layer": "detailed_spec",
+  "reason": "Evidence鮮度判定の1条件（revision.commit一致）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1066": {
+  "layer": "detailed_spec",
+  "reason": "Evidence鮮度判定の1条件（execution_state完全性・ハッシュ一致）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1067": {
+  "layer": "detailed_spec",
+  "reason": "Evidence鮮度判定の1条件（adapter一致）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1068": {
+  "layer": "detailed_spec",
+  "reason": "上記全条件の連言が成立する場合に有効とする精密な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1069": {
+  "layer": "detailed_spec",
+  "reason": "test_subjectまたはtargets不一致時のNO_EVIDENCE（STALE）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1070": {
+  "layer": "detailed_spec",
+  "reason": "revision不一致時のNO_EVIDENCE（STALE）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1071": {
+  "layer": "detailed_spec",
+  "reason": "execution_state欠落・不一致時のNO_EVIDENCE（STALE）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1072": {
+  "layer": "detailed_spec",
+  "reason": "execution_state未完了・再構築不能時のUNKNOWNを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1073": {
+  "layer": "detailed_spec",
+  "reason": "adapter明示的不一致時のMISMATCHを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1074": {
+  "layer": "detailed_spec",
+  "reason": "adapter一致確認不能時のUNKNOWNを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1075": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceなし時のNO_EVIDENCE（NOT_EXECUTED）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1076": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成条件（全target一意解決時のみ）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1077": {
+  "layer": "detailed_spec",
+  "reason": "target解決不能時にtarget_bindingを有効なPASSにしないという精密な条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1078": {
+  "layer": "detailed_spec",
+  "reason": "target不在（E-SCAN-004）のMISMATCH（MISSING）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1079": {
+  "layer": "detailed_spec",
+  "reason": "target曖昧（E-SCAN-011）のMISMATCHを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1080": {
+  "layer": "detailed_spec",
+  "reason": "有効Evidence下でresult:FAIL時のFAILを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1081": {
+  "layer": "detailed_spec",
+  "reason": "有効Evidence下でresult:PASSかつ到達充足時のPASSを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1082": {
+  "layer": "detailed_spec",
+  "reason": "到達未充足時のtarget_coverage別3分岐（FAIL/NO_EVIDENCE/UNKNOWN）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1083": {
+  "layer": "detailed_spec",
+  "reason": "Evidence無効時に既存状態を保持するという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1084": {
+  "layer": "detailed_spec",
+  "reason": "Evidence無し時のNO_EVIDENCE（NOT_EXECUTED）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1085": {
+  "layer": "detailed_spec",
+  "reason": "複数非PASS時の代表値選定を基本仕様§22.2の優先順位で行うという精密な優先順位規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1086": {
+  "layer": "detailed_spec",
+  "reason": "scope省略時に固定4検査を選ぶという§4.6 scope相当の精密な既定値規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1087": {
+  "layer": "design",
+  "reason": "full_scopeがconfig読込み時に検証・正規化済みという、特定処理段階に紐づく内部前提条件（部品の契約）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1088": {
+  "layer": "detailed_spec",
+  "reason": "限定scopeの結果を完全検証として表示しないという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1089": {
+  "layer": "design",
+  "reason": "aggregateがscan結果からグラフを構築するという内部データ構造・処理経路の選択。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1090": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrity/orphan_detectionの評価対象構造を精密に規定（§11.1の評価地点記述と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1091": {
+  "layer": "detailed_spec",
+  "reason": "エンティティ軸によるDOC/VO/TEST部分木選択という§4.6 scope相当の精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1092": {
+  "layer": "detailed_spec",
+  "reason": "検査軸に含まれない検査のNO_EVIDENCE（NOT_CHECKED）扱いを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1093": {
+  "layer": "detailed_spec",
+  "reason": "leaf VOの値をcoversするTEST群のfail-closed合成と定義する精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1094": {
+  "layer": "detailed_spec",
+  "reason": "親VOの値を子VOと直接coversするTESTのfail-closed合成と定義する精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1095": {
+  "layer": "detailed_spec",
+  "reason": "DOCの値を下流VO部分木のfail-closed合成と定義する精密な集約規則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1096": {
+  "layer": "detailed_spec",
+  "reason": "総合OK/NGの成立条件（構造検査とentity treeが全てPASS）を精密に規定（基本仕様§22.1と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1097": {
+  "layer": "detailed_spec",
+  "reason": "fail-closed合成の定義（子に1つでも非PASSがあれば親は非PASS）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1098": {
+  "layer": "detailed_spec",
+  "reason": "fail-closed合成の代表値選定を基本仕様§22.2の優先順位で行うという精密な優先順位規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1099": {
+  "layer": "detailed_spec",
+  "reason": "診断ラベルを順位に用いないという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1100": {
+  "layer": "spec",
+  "reason": "利用者向け出力がOK/NGの二値であるという主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1101": {
+  "layer": "spec",
+  "reason": "詳細出力がツリー表示で根拠を辿れるという主要な振る舞いの約束（機能レベル）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1102": {
+  "layer": "spec",
+  "reason": "人間向けテキストと機械可読JSONの両方を出力できるという主要な振る舞いの約束（基本仕様§22.3と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1103": {
+  "layer": "detailed_spec",
+  "reason": "表示scopeと内部依存評価を分離するという精密な境界規定（後続DES-1104〜1106の前提）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1104": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingがEvidence鮮度とtarget_coverageへ依存するという精密な依存関係の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1105": {
+  "layer": "detailed_spec",
+  "reason": "表示scope外でも内部依存として評価するという精密な整合性の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1106": {
+  "layer": "detailed_spec",
+  "reason": "runtime証明依存時にEvidence IDとtarget_coverage結果を出力に含めるという精密な出力要件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1107": {
+  "layer": "detailed_spec",
+  "reason": "複数coversを持つTestが各VO合成へ独立に参加するという精密な集約トポロジー規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1108": {
+  "layer": "detailed_spec",
+  "reason": "複数VO検証の許容と、判定単位を実体化leaf VOとする精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1109": {
+  "layer": "design",
+  "reason": "基本仕様の抽象概念『Feature単位』を親VOという既存の型で実現するという、部品の型的対応付けの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1110": {
+  "layer": "basic_design",
+  "reason": "Feature用の新規エンティティ種別・ディレクトリを設けないという、正典データモデル構造の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1111": {
+  "layer": "detailed_spec",
+  "reason": "親VOの値が定義そのものであり緩和規則を設けないという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1112": {
+  "layer": "detailed_spec",
+  "reason": "子の非PASSで親が非PASSになる規則と代表値優先順位を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1113": {
+  "layer": "detailed_spec",
+  "reason": "Testの寄与経路を2つに限定するという精密な列挙規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1114": {
+  "layer": "spec",
+  "reason": "命名規約からの推定束ねを設けないという主要な振る舞いの約束（機能の不在の宣言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1115": {
+  "layer": "detailed_spec",
+  "reason": "親を持たないleaf VOが最上位束ね単位となるという精密なトポロジー規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1116": {
+  "layer": "detailed_spec",
+  "reason": "DOC単位集約と機能単位集約の位置関係を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1117": {
+  "layer": "basic_design",
+  "reason": "機能単位表示を新規コマンドを設けず既存projectionで露出するという、インターフェース面の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1118": {
+  "layer": "detailed_spec",
+  "reason": "content_hash不一致時の警告コード（W-SCAN-104）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1119": {
+  "layer": "detailed_spec",
+  "reason": "document不一致がchain_integrity=MISMATCH（STALE）へ波及するという精密な状態伝播規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1120": {
+  "layer": "detailed_spec",
+  "reason": "documentを依存に含む判断・承認記録が無効化されるという精密な失効規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1121": {
+  "layer": "detailed_spec",
+  "reason": "再登録により依存判断・承認の失効を利用者へ提示するという精密な振る舞い規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1122": {
+  "layer": "detailed_spec",
+  "reason": "再登録によるhash変化で旧dependency entryを流用しないという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1123": {
+  "layer": "spec",
+  "reason": "検証状態と承認がゲート通過条件を満たすかを評価・提示できるという主要な振る舞いの約束（MUST）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1124": {
+  "layer": "spec",
+  "reason": "検証状態と承認が独立の軸であるという基本原則の約束（基本仕様§4.5と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1125": {
+  "layer": "basic_design",
+  "reason": "ゲート定義をconfig.yamlのgatesに保持するという、外部設定ファイル構造の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1126": {
+  "layer": "detailed_spec",
+  "reason": "`--gate`が検証結果充足と承認ロール充足の2条件を評価するという精密な振る舞い規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1127": {
+  "layer": "detailed_spec",
+  "reason": "ゲート名解決を大文字小文字区別の完全一致に限るという精密な制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1128": {
+  "layer": "detailed_spec",
+  "reason": "前方一致・部分一致等を行わないという精密な否定制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1129": {
+  "layer": "detailed_spec",
+  "reason": "未定義ゲート指定時のエラーコード（E-CONFIG-002）・終了コードを精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1130": {
+  "layer": "detailed_spec",
+  "reason": "診断に含めるべき内容（指定名・定義済み一覧）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1131": {
+  "layer": "detailed_spec",
+  "reason": "検証条件充足を完全一致に限るという精密な制約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1132": {
+  "layer": "detailed_spec",
+  "reason": "集約代表値の定義（§11.3のfail-closed規則による1値）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1133": {
+  "layer": "detailed_spec",
+  "reason": "全PASS/非PASS混在時の代表値選定を基本仕様§22.2優先順位で行うという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1134": {
+  "layer": "detailed_spec",
+  "reason": "診断ラベルを充足判定に用いないという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1135": {
+  "layer": "spec",
+  "reason": "5状態に順序・優劣を設けないという基本原則の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1136": {
+  "layer": "detailed_spec",
+  "reason": "UNKNOWN要求時の充足条件（代表値がUNKNOWNのときのみ）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1137": {
+  "layer": "detailed_spec",
+  "reason": "PASS要求時の充足条件を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1138": {
+  "layer": "detailed_spec",
+  "reason": "--items限定時のscope外検査のNO_EVIDENCE（NOT_CHECKED）参加を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1139": {
+  "layer": "detailed_spec",
+  "reason": "限定scopeでのPASS要求ゲートが充足しないという精密な帰結規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1140": {
+  "layer": "detailed_spec",
+  "reason": "承認条件の独立評価とrequire.approvals省略時の既定充足を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1141": {
+  "layer": "detailed_spec",
+  "reason": "承認未充足が検証状態を降格させないという精密な独立性規定（基本仕様§4.5と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1142": {
+  "layer": "detailed_spec",
+  "reason": "ゲート充足が検証条件と承認条件の両方充足に限るという精密なAND条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1143": {
+  "layer": "spec",
+  "reason": "本システムの責務をゲート条件の評価・提示に限るという主要な振る舞いの約束（スコープ外宣言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1144": {
+  "layer": "spec",
+  "reason": "フェーズ自動遷移を責務外とする主要な振る舞いの約束（OOS-004参照）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1145": {
+  "layer": "spec",
+  "reason": "遷移させるのではなく条件充足を提示するという主要な振る舞いの約束（フレーミングの確認）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1146": {
+  "layer": "basic_design",
+  "reason": "新規CLI/MCPを増やさず既存の`--gate`引数・出力で露出するという、インターフェース面の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1147": {
+  "layer": "spec",
+  "reason": "フェーズ名・承認ロール等の具体を別紙Aへ委譲するという主要な振る舞いの約束（委譲宣言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1148": {
+  "layer": "spec",
+  "reason": "役割・利用目的に応じたprojectionを取得・提示できるという主要な振る舞いの約束（機能レベル）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1149": {
+  "layer": "spec",
+  "reason": "任意ノードからの最小単位取得と連続trace可能という主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1150": {
+  "layer": "spec",
+  "reason": "常に全チェーン表示を求めないという主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1151": {
+  "layer": "spec",
+  "reason": "役割別presetの提供という主要な振る舞いの約束（例示付き機能記述）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1152": {
+  "layer": "spec",
+  "reason": "役割を固定enum化せず別紙Aへ委譲するという主要な振る舞いの約束（委譲宣言）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1153": {
+  "layer": "design",
+  "reason": "親VO起点の下流projectionを機能単位集約の提示経路とする、既存機構への対応付けの決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1154": {
+  "layer": "detailed_spec",
+  "reason": "親VOの代表値と子VO・Test別内訳を同一出力から辿れるという精密な出力内容規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1155": {
+  "layer": "design",
+  "reason": "Feature名・ID用の別fieldを設けず親VO IDを識別子とするという、出力schemaのフィールド決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1156": {
+  "layer": "basic_design",
+  "reason": "新規コマンドを増やさず既存の`report`/`test query`で露出するという、インターフェース面の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1157": {
+  "layer": "design",
+  "reason": "逆引きインデックスをprojectionの基盤とするという、内部データ構造・処理経路の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1158": {
+  "layer": "design",
+  "reason": "derives_fromエッジに`anchor`を常に同伴させるという、出力エッジのフィールド構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1159": {
+  "layer": "design",
+  "reason": "`anchor`欠落時の表現規約（省略/null、空文字列不可）という、フィールド値表現の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1160": {
+  "layer": "spec",
+  "reason": "anchor同伴により外部発見者の裁定材料になるという、基本仕様§11.1の目的を再述する主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1161": {
+  "layer": "detailed_spec",
+  "reason": "anchorを不透明値として扱い解決・整合検査を行わないという精密な責務境界の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1162": {
+  "layer": "basic_design",
+  "reason": "対応ペア取得のための新規コマンドを設けないという、インターフェース面の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1163": {
+  "layer": "spec",
+  "reason": "未確定・不整合等を機械可読構造として保持・取得可能とするという主要な振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1164": {
+  "layer": "design",
+  "reason": "判断待ち情報をreport JSON内のsectionという構造化recordで提示するという、出力構造の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1165": {
+  "layer": "design",
+  "reason": "`subject`フィールドの型（エンティティIDまたはcanonical Locator）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1166": {
+  "layer": "design",
+  "reason": "`kind`フィールドの取りうる値（enum）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1167": {
+  "layer": "design",
+  "reason": "`check`フィールドの内容（検査種別・検証状態・診断ラベル）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1168": {
+  "layer": "design",
+  "reason": "4検査に由来しない項目で`check`をnullとするという、フィールド値表現の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1169": {
+  "layer": "detailed_spec",
+  "reason": "`check`がnullの項目が集約へ寄与しないという精密な振る舞い規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1170": {
+  "layer": "design",
+  "reason": "`judgment_kind`フィールドの値域（§8.1）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1171": {
+  "layer": "design",
+  "reason": "不要項目で`judgment_kind`をnullとするという、フィールド値表現の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1172": {
+  "layer": "design",
+  "reason": "`basis`フィールドの内容（機械的確認事実への参照）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1173": {
+  "layer": "design",
+  "reason": "`bundle_ref`フィールドの内容（判断バンドルへの任意参照）の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1174": {
+  "layer": "detailed_spec",
+  "reason": "case-coverage項目の生成数（対象Testごとにちょうど1件）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1175": {
+  "layer": "detailed_spec",
+  "reason": "生成条件の1つ（covers≥1）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1176": {
+  "layer": "detailed_spec",
+  "reason": "生成条件の1つ（cases≥1またはcovers先VOのdimensions≥1）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1177": {
+  "layer": "detailed_spec",
+  "reason": "生成条件の1つ（実効判断がaccepted以外）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1178": {
+  "layer": "detailed_spec",
+  "reason": "未確定・rejected・deferredいずれでも項目生成しbasisに記録IDを載せるという精密な規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1179": {
+  "layer": "detailed_spec",
+  "reason": "判断型由来の生成条件をcase-coverage型のみへ適用するという精密なスコープ規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1180": {
+  "layer": "detailed_spec",
+  "reason": "検査由来のunknown項目の生成・消滅が検査値のみで決まるという精密な独立性規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1181": {
+  "layer": "detailed_spec",
+  "reason": "競合未確定時の項目内容（kind/check/basisの構成）を精密に規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1182": {
+  "layer": "basic_design",
+  "reason": "新規コマンドを増やさず既存のverify/reportのJSON出力に含めるという、インターフェース面の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1183": {
+  "layer": "spec",
+  "reason": "UNKNOWNに限らず未確定・要判断事項を横断的に集約するという主要な振る舞いの約束（表示形式は別紙Aへ委譲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1184": {
+  "layer": "spec",
+  "reason": "§12〜§15を別紙Aで定義するというメタな委譲の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1185": {
+  "layer": "basic_design",
+  "reason": "書込み操作の分類によりファイルロックが不要という並行処理機構上の構造決定（基本仕様§24.2の具体化）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1186": {
+  "layer": "basic_design",
+  "reason": "新規レコード追加がULID新規ファイル作成のみで衝突しないという永続化機構の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1187": {
+  "layer": "basic_design",
+  "reason": "エンティティファイル編集が1エンティティ1ファイルでGitマージ衝突として顕在化するという永続化機構の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1188": {
+  "layer": "basic_design",
+  "reason": "テストコード編集を通常のソース編集と同じ扱いとする範囲分類の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1189": {
+  "layer": "basic_design",
+  "reason": "同時実行vtestプロセス間の調停を行わないという、プロセス間協調機構を持たない構造上の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1190": {
+  "layer": "spec",
+  "reason": "判定は常にその時点の正典読み取りに基づき、変更は次回scan/verifyに反映されるという外部から観測できる一般的な整合性の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1191": {
+  "layer": "basic_design",
+  "reason": "その時点の正典読み取りが書込みの原子的公開を前提とするという、永続化機構間の依存関係の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1192": {
+  "layer": "detailed_spec",
+  "reason": "原子的公開の対象範囲・可視化方式・部分状態非観測という精密な不変条件（SPEC-642/643と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1193": {
+  "layer": "basic_design",
+  "reason": "テストコード編集は本規定の対象外とする範囲分類の決定（DES-1188と同旨）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1194": {
+  "layer": "detailed_spec",
+  "reason": "解析不能な中間状態をE-SCAN-001/Incompleteとしてfail-closed検出するという精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1195": {
+  "layer": "basic_design",
+  "reason": "`vtest doctor`が論理的不整合を検出するという名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1196": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突をE-SCAN-002として検出するという精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1197": {
+  "layer": "detailed_spec",
+  "reason": "dangling referenceをE-SCAN-003/009/012として検出するという精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1198": {
+  "layer": "detailed_spec",
+  "reason": "孤児documentをE-SCAN-016として検出するという精密な条件→エラーコード対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1199": {
+  "layer": "detailed_spec",
+  "reason": "承認失効時にハッシュ束縛により自動的にdraftへ遷移するという精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1200": {
+  "layer": "detailed_spec",
+  "reason": "判断記録・Evidence失効時にハッシュ束縛により自動的に無効（診断STALE）へ遷移するという精密な条件→結果対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1201": {
+  "layer": "spec",
+  "reason": "診断コードの定義範囲（§5.4のスキャン診断に追加）を宣言するスコープ記述で、実装方法によらず真であり続ける約束のためspec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1202": {
+  "layer": "detailed_spec",
+  "reason": "`E-SCAN-017`が指すVO不正の条件と、それによるchain_integrity=MISMATCH・子VO非生成という結果を精密に対応付ける、コードの外部的意味。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1203": {
+  "layer": "detailed_spec",
+  "reason": "`W-SCAN-104`が指す条件（content_hash不一致）と依存判断・依存Approval無効化・STALEという結果を対応付ける、コードの外部的意味。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1204": {
+  "layer": "detailed_spec",
+  "reason": "`E-EXEC-001`の外部的意味（テストビルド失敗）を定める条件→結果の対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1205": {
+  "layer": "detailed_spec",
+  "reason": "`E-EXEC-002`の外部的意味（要求テストの結果行欠落）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1206": {
+  "layer": "detailed_spec",
+  "reason": "`E-EXEC-003`の外部的意味（終了コードと結果行集計の矛盾）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1207": {
+  "layer": "detailed_spec",
+  "reason": "`E-EXEC-004`の外部的意味（実行中のExecution State subject変化）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1208": {
+  "layer": "detailed_spec",
+  "reason": "`W-EXEC-101`の外部的意味（カバレッジツール利用不能）とtarget_coverageの結果（checked:false・NO_EVIDENCE/NOT_CHECKED）を対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1209": {
+  "layer": "detailed_spec",
+  "reason": "`E-AUDIT-001`の外部的意味（bundle_id不存在）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1210": {
+  "layer": "detailed_spec",
+  "reason": "`E-AUDIT-002`の外部的意味（記録時ハッシュと現在ハッシュの不一致）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1211": {
+  "layer": "detailed_spec",
+  "reason": "`E-AUDIT-003`の外部的意味（subject/judgment_kindの不一致・値域外・スキーマ違反）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1212": {
+  "layer": "detailed_spec",
+  "reason": "`E-AUDIT-004`の外部的意味（decisionが受理値でない）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1213": {
+  "layer": "detailed_spec",
+  "reason": "`E-AUDIT-008`の外部的意味（supersedes参照の不整合・自己参照）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1214": {
+  "layer": "detailed_spec",
+  "reason": "`E-APPROVAL-001`の外部的意味（Approval対象等の解決失敗によりrecord非生成）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1215": {
+  "layer": "detailed_spec",
+  "reason": "`E-APPROVAL-002`の外部的意味（approved_state等の値域外・supersedes不整合）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1216": {
+  "layer": "detailed_spec",
+  "reason": "`E-CONFIG-001`が示す条件群を列挙し、競合条件（未知・重複adapter IDはE-ADAPTER-001）の優先順位も含めて定める、外部的意味と優先順位の規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1217": {
+  "layer": "detailed_spec",
+  "reason": "`E-CONFIG-002`の外部的意味（未定義ゲート名参照時に検証・ゲート評価を実行しない）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1218": {
+  "layer": "detailed_spec",
+  "reason": "`E-OP-001`の外部的意味（Structured Operationの入力検証失敗、候補提示を伴う）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1219": {
+  "layer": "detailed_spec",
+  "reason": "`E-OP-002`の外部的意味（Edit対象Test特定失敗）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1220": {
+  "layer": "detailed_spec",
+  "reason": "`E-OP-003`の外部的意味（適用後検証失敗）とロールバック・操作中止という結果を対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1221": {
+  "layer": "detailed_spec",
+  "reason": "`E-ADAPTER-001`の外部的意味（adapter未登録・重複・宣言実装不一致）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1222": {
+  "layer": "detailed_spec",
+  "reason": "`E-ADAPTER-002`の外部的意味（discovery/runnerの確定的失敗）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1223": {
+  "layer": "detailed_spec",
+  "reason": "`E-ADAPTER-003`の外部的意味（execution descriptorとadapter不一致）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1224": {
+  "layer": "detailed_spec",
+  "reason": "`E-ADAPTER-004`の外部的意味（必須capability未提供）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1225": {
+  "layer": "detailed_spec",
+  "reason": "`W-ADAPTER-101`の外部的意味（検証対象capability未提供）とNO_EVIDENCE/NOT_CHECKED・NOT_EXECUTEDという結果を対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1226": {
+  "layer": "detailed_spec",
+  "reason": "`W-ADAPTER-102`の外部的意味（adapterの解析限界報告）とUNKNOWNという結果を対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1227": {
+  "layer": "spec",
+  "reason": "旧意味監査検査の撤去という、外部から観測可能なスコープ変更（該当コードが発生しなくなる）を述べる約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1228": {
+  "layer": "detailed_spec",
+  "reason": "終了コード`0`の外部的意味（要求scopeの検証結果OK/操作コマンド成功）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1229": {
+  "layer": "detailed_spec",
+  "reason": "終了コード`1`の外部的意味（検証結果NG）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1230": {
+  "layer": "detailed_spec",
+  "reason": "終了コード`2`の外部的意味（操作拒否）を、いずれも外部出力される診断コード群との対応で精密に定める。診断コードと終了コードは共に外部観測対象であり、両者の対応はdetailed_spec（propagationではない）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1231": {
+  "layer": "detailed_spec",
+  "reason": "終了コード`3`の外部的意味（内部エラー）を定める対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1232": {
+  "layer": "detailed_spec",
+  "reason": "`--gate`指定時に0/1をゲート充足で決めるという、フラグ条件→終了コード決定方式の精密な対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1233": {
+  "layer": "detailed_spec",
+  "reason": "ゲート充足/不充足という条件と0/1という結果を一意に対応付ける。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1234": {
+  "layer": "detailed_spec",
+  "reason": "PASS以外を要求するゲートでの充足実行が0になる条件と、総合NGが0を妨げないという競合条件の扱いを定める。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1235": {
+  "layer": "spec",
+  "reason": "総合OK/NGがJSON・text出力から読み取れるという、主要な出力の存在を述べる記述であり、条件→コードの精密な対応ではない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1236": {
+  "layer": "detailed_spec",
+  "reason": "ゲート名未定義時に`E-CONFIG-002`により終了コード`2`となり0/1を返さないという、外部出力される診断コードと終了コードの対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1237": {
+  "layer": "spec",
+  "reason": "終了コードが診断severityだけでなく操作段階でも決まるという一般原則の記述であり、特定条件と特定コードを一意に対応付けていない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1238": {
+  "layer": "detailed_spec",
+  "reason": "`vtest scan`/`vtest doctor`でのregistry・config・adapter契約検証や呼出し失敗が終了コード2になるという対応。ただし『registry・config・adapter契約の検証』が内部処理段階の言及とも読め、外部観測可能性の境界をLAYERING.mdの規則だけでは明確に決められない。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1239": {
+  "layer": "detailed_spec",
+  "reason": "scan完了後にE-SCAN-*（外部出力される診断コード）を報告した場合に終了コード1となるという対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1240": {
+  "layer": "detailed_spec",
+  "reason": "errorがなければ終了コード0とするという条件→結果の対応。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1241": {
+  "layer": "detailed_spec",
+  "reason": "複数候補が同時に成立する場合の終了コード優先順位（3>2>1>0）を定める、競合条件の優先順位の規定（LAYERING.md 1aの明示例）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1242": {
+  "layer": "spec",
+  "reason": "検証状態と内部エラーを終了コードで分離するという一般原則（基本仕様§4.4・§26.1の引用）であり、特定条件→特定コードの精密な対応ではない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1243": {
+  "layer": "spec",
+  "reason": "demangle実装の適用範囲は観測可能な契約を変更しない範囲で実装が選択できる、という委譲の記述。実装者がどの範囲を選んでも文自体は真であり続けるため約束寄りだが、LAYERING.mdの1aには『実装裁量の委譲』を明示する区分がなく、LAYERING-reference.mdは同種の記述を詳細設計側の『実装者に委ねてよい範囲』に置いており対応が割れる。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1244": {
+  "layer": "spec",
+  "reason": "カスタムテスト属性への対応範囲の実装裁量委譲。DES-1243と同型の委譲文で、spec/basic_designいずれとも解釈できる同じ曖昧さを持つ。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1245": {
+  "layer": "spec",
+  "reason": "パス解決細部の実装裁量委譲。DES-1243と同型で同じ曖昧さを持つ。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1246": {
+  "layer": "spec",
+  "reason": "ツリー描画細部の実装裁量委譲。DES-1243と同型で同じ曖昧さを持つ。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1247": {
+  "layer": "spec",
+  "reason": "LSP連携によるシンボル解決を提供範囲外とする、外部から観測可能な機能不在の約束（基本仕様§29『スコープ外』と同型）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1248": {
+  "layer": "spec",
+  "reason": "永続インデックスを提供範囲外とする、機能不在の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1249": {
+  "layer": "spec",
+  "reason": "Relationのtombstone方式を提供範囲外とする、機能不在の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1250": {
+  "layer": "spec",
+  "reason": "rust-cargo以外のproduction adapterを提供範囲外とする、機能不在の約束。括弧内『synthetic adapterは受入fixture専用』は補足のfixtureスコープ言及だが、主文の層（spec）は変えない。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1251": {
+  "layer": "spec",
+  "reason": "LLM API直接呼出しによる判断を提供範囲外とする、機能不在の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1252": {
+  "layer": "spec",
+  "reason": "rename追跡とSRC恒久ID自動昇格支援を提供範囲外とする、機能不在の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1253": {
+  "layer": "spec",
+  "reason": "cargo-nextest対応を提供範囲外とする、機能不在の約束。",
+  "confidence": "high",
+  "code_like": false
+ }
+}

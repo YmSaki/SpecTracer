@@ -1,0 +1,2780 @@
+{
+ "DES-1692": {
+  "layer": "design",
+  "reason": "受入スイート自身の再現方法・運用規律を述べており、vtest外部挙動の約束ではなく決定（設計）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1693": {
+  "layer": "design",
+  "reason": "受入テストの実行手段としてcargo test --workspaceを名指す、Rust/cargo固有の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-1694": {
+  "layer": "spec",
+  "reason": "fail-closedであるという、別の作り方でも真であり続ける粗粒度の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1695": {
+  "layer": "detailed_spec",
+  "reason": "scope内1件でも非PASSならNGという条件付き結果。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1696": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時にscope外値を昇格しないという条件付き不変条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1697": {
+  "layer": "basic_design",
+  "reason": "CLIとMCPが同一core・registry・envelope・診断codeを共有するという構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1698": {
+  "layer": "design",
+  "reason": "受入スイート自身の再現方法・運用規律を述べており、vtest外部挙動の約束ではなく決定（設計）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1699": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1700": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1701": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1702": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1703": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1704": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1705": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1706": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1707": {
+  "layer": "detailed_spec",
+  "reason": "coversを持たないTestの結果（E-SCAN-007・MISMATCH）という条件付き結果。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1708": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1709": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1710": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1711": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1712": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1713": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1714": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1715": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1716": {
+  "layer": "spec",
+  "reason": "状態は5つのみという粗粒度の一般原則（基本仕様で確立済みの再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1717": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1718": {
+  "layer": "spec",
+  "reason": "診断ラベルと検証状態の関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1719": {
+  "layer": "spec",
+  "reason": "診断ラベルは状態値でないという粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1720": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1721": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1722": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1723": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1724": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1725": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1726": {
+  "layer": "detailed_spec",
+  "reason": "特定fixture条件下でのDA-002/DA-003の値という条件付き結果。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1727": {
+  "layer": "detailed_spec",
+  "reason": "runtimeのtarget_coverageのみでDA-002到達が充足されるという条件付き結果。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1728": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1729": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1730": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1731": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1732": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1733": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1734": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1735": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1736": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1737": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1738": {
+  "layer": "spec",
+  "reason": "synthetic adapterの位置付けを述べる粗粒度のスコープ規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1739": {
+  "layer": "basic_design",
+  "reason": "fixtureが何を含むか（テスト対象repositoryの構成物）を定める構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1740": {
+  "layer": "design",
+  "reason": "adapter/core内部のDTO・型の契約であり、外部からは観測できない決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1741": {
+  "layer": "design",
+  "reason": "coreが検証→hash計算→具体化という処理順序で行うという内部手続き順の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-1742": {
+  "layer": "design",
+  "reason": "adapter/core内部のDTO・型の契約であり、外部からは観測できない決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1743": {
+  "layer": "design",
+  "reason": "adapter/core内部のDTO・型の契約であり、外部からは観測できない決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1744": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1745": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1746": {
+  "layer": "basic_design",
+  "reason": "Target Reference解決の方向・単一所有経路という構造・責務境界の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1747": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1748": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1749": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1750": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1751": {
+  "layer": "design",
+  "reason": "adapter/core内部のDTO・型の契約であり、外部からは観測できない決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1752": {
+  "layer": "design",
+  "reason": "adapter出力のmalformed判定という内部契約（design/detailed_spec境界が曖昧）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1753": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1754": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1755": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1756": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1757": {
+  "layer": "detailed_spec",
+  "reason": "hash変化の帰結を説明する補足文で、単独の受入条件としては論証的。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1758": {
+  "layer": "design",
+  "reason": "core内部のSRC索引という具体的な実現機構の記述。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1759": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1760": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1761": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1762": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1763": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1764": {
+  "layer": "detailed_spec",
+  "reason": "target identity解決・hash束縛について、条件が決まれば結果が一意に決まる検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1765": {
+  "layer": "basic_design",
+  "reason": "Target Reference解決の方向・単一所有経路という構造・責務境界の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1766": {
+  "layer": "basic_design",
+  "reason": "Target Reference解決の方向・単一所有経路という構造・責務境界の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1767": {
+  "layer": "spec",
+  "reason": "違反検出全般を述べる粗粒度の一般能力の約束。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1768": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1769": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1770": {
+  "layer": "spec",
+  "reason": "診断ラベル二重定義禁止／document種別を区別しない、という粗粒度の一般原則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1771": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1772": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1773": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1774": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1775": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1776": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1777": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1778": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1779": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1780": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1781": {
+  "layer": "spec",
+  "reason": "診断ラベル二重定義禁止／document種別を区別しない、という粗粒度の一般原則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1782": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1783": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1784": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1785": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1786": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1787": {
+  "layer": "design",
+  "reason": "Relation writer/readerのID生成・正規化という型・schemaレベルの内部契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1788": {
+  "layer": "design",
+  "reason": "Relation writer/readerのID生成・正規化という型・schemaレベルの内部契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1789": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1790": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1791": {
+  "layer": "design",
+  "reason": "VO writerがstatusを保存しないというwriterの内部契約（型・フィールドレベル）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1792": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1793": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1794": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1795": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1796": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1797": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1798": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1799": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1800": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1801": {
+  "layer": "detailed_spec",
+  "reason": "特定の入力条件に対しchain_integrity値・診断コードが一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1802": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1803": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1804": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1805": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1806": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1807": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1808": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1809": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1810": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1811": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1812": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1813": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1814": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1815": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1816": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1817": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1818": {
+  "layer": "detailed_spec",
+  "reason": "combinations入力の各パターンに対し子VO生成結果・E-SCAN-017等が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1819": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1820": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1821": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1822": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1823": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1824": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1825": {
+  "layer": "detailed_spec",
+  "reason": "anchorの有無・変更がhash・chain_integrity・承認失効へ与える影響が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1826": {
+  "layer": "detailed_spec",
+  "reason": "vtest init前後のファイル不変性という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1827": {
+  "layer": "detailed_spec",
+  "reason": "vtest init前後のファイル不変性という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1828": {
+  "layer": "detailed_spec",
+  "reason": "vtest init前後のファイル不変性という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1829": {
+  "layer": "detailed_spec",
+  "reason": "vtest init前後のファイル不変性という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1830": {
+  "layer": "spec",
+  "reason": "orphan_detectionの対象範囲を述べる粗粒度の定義（基本仕様の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1831": {
+  "layer": "spec",
+  "reason": "orphan_detectionの対象範囲を述べる粗粒度の定義（基本仕様の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1832": {
+  "layer": "detailed_spec",
+  "reason": "根指定の有無等の条件に対しorphan_detection値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1833": {
+  "layer": "basic_design",
+  "reason": "根指定の管理をvtest docコマンドに委ねるという構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1834": {
+  "layer": "detailed_spec",
+  "reason": "根指定の有無等の条件に対しorphan_detection値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1835": {
+  "layer": "detailed_spec",
+  "reason": "根指定の有無等の条件に対しorphan_detection値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1836": {
+  "layer": "spec",
+  "reason": "旧モデルとの関係を述べる粗粒度の整理。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1837": {
+  "layer": "spec",
+  "reason": "本冊§7への準拠を指し示す粗粒度の参照。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1838": {
+  "layer": "basic_design",
+  "reason": "静的解析結果を正典レコードとせず毎回再計算するという永続化方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1839": {
+  "layer": "spec",
+  "reason": "確定違反のみFAIL・解析限界はUNKNOWNという粗粒度の一般原則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1840": {
+  "layer": "design",
+  "reason": "受入fixtureと判定ruleの対応関係という受入スイート内部の構成の記述。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1841": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1842": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1843": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1844": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1845": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1846": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1847": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1848": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1849": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1850": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1851": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1852": {
+  "layer": "spec",
+  "reason": "信頼専用の注釈・レコードを新設しないという粗粒度の一般原則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1853": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1854": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1855": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1856": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1857": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1858": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1859": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1860": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1861": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1862": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1863": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1864": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1865": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1866": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1867": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1868": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1869": {
+  "layer": "basic_design",
+  "reason": "表示scopeと内部依存評価を分離するという責務境界の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1870": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1871": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1872": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1873": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1874": {
+  "layer": "detailed_spec",
+  "reason": "DA-00X各ルールについて、境界値・状態別の判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1875": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1876": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1877": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1878": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1879": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1880": {
+  "layer": "design",
+  "reason": "Evidence writerが出力するfield名（hashes.test_subject等）という型・schemaレベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1881": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1882": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1883": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1884": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1885": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1886": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1887": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1888": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1889": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1890": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1891": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1892": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1893": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1894": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1895": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1896": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1897": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1898": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1899": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1900": {
+  "layer": "spec",
+  "reason": "旧モデルの検査項目撤去という粗粒度の移行整理（基本仕様が定める4検査の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1901": {
+  "layer": "spec",
+  "reason": "旧モデルの検査項目撤去という粗粒度の移行整理（基本仕様が定める4検査の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1902": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1903": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1904": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1905": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1906": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1907": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1908": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1909": {
+  "layer": "detailed_spec",
+  "reason": "Evidence生成・鮮度・有効性の各条件に対しtarget_binding値が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1910": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1911": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1912": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1913": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1914": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1915": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1916": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1917": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1918": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1919": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1920": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1921": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1922": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1923": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1924": {
+  "layer": "detailed_spec",
+  "reason": "target別計測countの条件に対し集約結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1925": {
+  "layer": "spec",
+  "reason": "target_coverageが独立検査でないという粗粒度の一般原則（基本仕様4検査の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1926": {
+  "layer": "spec",
+  "reason": "target_coverageが独立検査でないという粗粒度の一般原則（基本仕様4検査の再掲）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1927": {
+  "layer": "basic_design",
+  "reason": "バンドルの出力先パス（cache/bundles/）という永続化方式の構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1928": {
+  "layer": "basic_design",
+  "reason": "バンドルを派生情報としてGit管理しないという永続化方針の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-1929": {
+  "layer": "design",
+  "reason": "submitの必須/任意fieldという型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1930": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1931": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1932": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1933": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1934": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1935": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1936": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1937": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1938": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1939": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1940": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1941": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1942": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1943": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1944": {
+  "layer": "basic_design",
+  "reason": "決定論的結果とagent/humanの判断結果を区別して保存・表示するという責務分離の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1945": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1946": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1947": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1948": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1949": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1950": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1951": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1952": {
+  "layer": "design",
+  "reason": "judgment_kind/subjectの値域という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1953": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1954": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1955": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1956": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1957": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1958": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1959": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1960": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1961": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1962": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1963": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1964": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1965": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1966": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1967": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1968": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1969": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1970": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1971": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1972": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1973": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1974": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1975": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1976": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1977": {
+  "layer": "spec",
+  "reason": "判断記録プロトコルの位置付け・旧モデルとの関係を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1978": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1979": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理・有効性・実効判断算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1980": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1981": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1982": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1983": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1984": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1985": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1986": {
+  "layer": "design",
+  "reason": "approved_state等の値域・承認主体の記録fieldという型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1987": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1988": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1989": {
+  "layer": "design",
+  "reason": "実効承認導出がapproved_state fieldを参照するという内部契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1990": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1991": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1992": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1993": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1994": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1995": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1996": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1997": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1998": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-1999": {
+  "layer": "design",
+  "reason": "approved_state等の値域・承認主体の記録fieldという型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2000": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2001": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2002": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2003": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2004": {
+  "layer": "basic_design",
+  "reason": "承認レコード生成・CLI/MCPコマンド体系（approval create/withdraw/show）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2005": {
+  "layer": "basic_design",
+  "reason": "承認レコード生成・CLI/MCPコマンド体系（approval create/withdraw/show）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2006": {
+  "layer": "basic_design",
+  "reason": "承認レコード生成・CLI/MCPコマンド体系（approval create/withdraw/show）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2007": {
+  "layer": "basic_design",
+  "reason": "承認レコード生成・CLI/MCPコマンド体系（approval create/withdraw/show）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2008": {
+  "layer": "basic_design",
+  "reason": "承認レコード生成・CLI/MCPコマンド体系（approval create/withdraw/show）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2009": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2010": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2011": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2012": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2013": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2014": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2015": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2016": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2017": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2018": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2019": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2020": {
+  "layer": "detailed_spec",
+  "reason": "承認レコードの有効性・実効承認算出の各条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2021": {
+  "layer": "design",
+  "reason": "approved_state等の値域・承認主体の記録fieldという型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2022": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2023": {
+  "layer": "spec",
+  "reason": "承認と判断記録の独立性という粗粒度の概念規定（4軸独立の再掲）または委譲先の指示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2024": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2025": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2026": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2027": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2028": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2029": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2030": {
+  "layer": "basic_design",
+  "reason": "scopeが検査軸・エンティティ軸の2軸で構成されるというデータモデル構造の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2031": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2032": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2033": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2034": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2035": {
+  "layer": "design",
+  "reason": "JSON出力のfield構成という型・schemaレベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2036": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2037": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2038": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2039": {
+  "layer": "spec",
+  "reason": "Featureを別エンティティとして設けない、旧構造をdocument化で再導出するという粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2040": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2041": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2042": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2043": {
+  "layer": "basic_design",
+  "reason": "NO_EVIDENCEを生む入力を受入fixtureで表現するという受入スイート構成の決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-2044": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2045": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2046": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2047": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2048": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2049": {
+  "layer": "detailed_spec",
+  "reason": "reportの出力内容（DOC→VO→Test構造と非PASS根拠）を述べるが、構造規定（basic_design）とも読める。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "DES-2050": {
+  "layer": "spec",
+  "reason": "Featureを別エンティティとして設けない、旧構造をdocument化で再導出するという粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2051": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2052": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2053": {
+  "layer": "detailed_spec",
+  "reason": "scope指定・集約条件に対し検証結果・JSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2054": {
+  "layer": "design",
+  "reason": "text tree描画記号という表示アルゴリズムレベルの具体的な記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-2055": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2056": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2057": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2058": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2059": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2060": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2061": {
+  "layer": "detailed_spec",
+  "reason": "同一入力に対する再実行結果の一致という検証可能な受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2062": {
+  "layer": "design",
+  "reason": "評価経路へseamを導入する変更時のstub注入確認という受入スイート自身の検証手続き。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2063": {
+  "layer": "detailed_spec",
+  "reason": "reportのJSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2064": {
+  "layer": "detailed_spec",
+  "reason": "reportのJSON出力内容が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2065": {
+  "layer": "spec",
+  "reason": "対応ペア取得に新規コマンドを用いないという粗粒度の一般原則。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2066": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2067": {
+  "layer": "design",
+  "reason": "config.yamlのgatesスキーマ／--gate指定時のJSON field構成という型・schemaレベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2068": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2069": {
+  "layer": "basic_design",
+  "reason": "満足・不足双方をfixtureで確認するという受入スイート構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2070": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2071": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2072": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2073": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2074": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2075": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2076": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2077": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2078": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2079": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2080": {
+  "layer": "basic_design",
+  "reason": "満足・不足双方をfixtureで確認するという受入スイート構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2081": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2082": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2083": {
+  "layer": "design",
+  "reason": "config.yamlのgatesスキーマ／--gate指定時のJSON field構成という型・schemaレベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2084": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2085": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2086": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2087": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2088": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2089": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2090": {
+  "layer": "detailed_spec",
+  "reason": "ゲート定義・充足条件に対し満否判定結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2091": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2092": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2093": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2094": {
+  "layer": "spec",
+  "reason": "ゲート機能の位置付け・責務範囲・委譲先を述べる粗粒度の概念規定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2095": {
+  "layer": "design",
+  "reason": "Form kindの文字列形式という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2096": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2097": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2098": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2099": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2100": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2101": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2102": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2103": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2104": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2105": {
+  "layer": "detailed_spec",
+  "reason": "create/edit操作の入力条件に対し受理・拒否・結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2106": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2107": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2108": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2109": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2110": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2111": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2112": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2113": {
+  "layer": "detailed_spec",
+  "reason": "挿入後検証失敗時のロールバック結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2114": {
+  "layer": "detailed_spec",
+  "reason": "MCP入力に対する応答内容・エラー形状が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2115": {
+  "layer": "detailed_spec",
+  "reason": "MCP入力に対する応答内容・エラー形状が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2116": {
+  "layer": "detailed_spec",
+  "reason": "MCP入力に対する応答内容・エラー形状が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2117": {
+  "layer": "detailed_spec",
+  "reason": "MCP入力に対する応答内容・エラー形状が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2118": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2119": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2120": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2121": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2122": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2123": {
+  "layer": "design",
+  "reason": "vtest-adapter-api / vtest-modelの型定義（フィールドと意味）という型レベルの契約。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2124": {
+  "layer": "detailed_spec",
+  "reason": "content_hashの束縛入力という、変更により外部観測可能なhash値の変化として検証できる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2125": {
+  "layer": "detailed_spec",
+  "reason": "content_hashの束縛入力という、変更により外部観測可能なhash値の変化として検証できる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2126": {
+  "layer": "design",
+  "reason": "coreがDTO検証・hash計算・domain entity具体化をこの順で行うという内部処理順の記述。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-2127": {
+  "layer": "basic_design",
+  "reason": "rust-cargo adapterの責務境界（何を所有するか）という構造上の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2128": {
+  "layer": "basic_design",
+  "reason": "vtest-scanがsyn::parse_file等のRust固有APIを所有しないという責務境界（言語固有の記述を含む）。",
+  "confidence": "high",
+  "code_like": true
+ },
+ "DES-2129": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2130": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2131": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2132": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2133": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2134": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2135": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2136": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2137": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2138": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2139": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2140": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2141": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2142": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2143": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2144": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2145": {
+  "layer": "detailed_spec",
+  "reason": "adapter出力・wire互換fieldの入力条件に対し結果が一意に決まる受入条件。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2146": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2147": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2148": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2149": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2150": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2151": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2152": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2153": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "DES-2154": {
+  "layer": "spec",
+  "reason": "別の実現方法でも真であり続ける粗粒度のスコープ除外の約束。",
+  "confidence": "high",
+  "code_like": false
+ }
+}

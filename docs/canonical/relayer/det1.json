@@ -1,0 +1,4202 @@
+{
+ "DES-001": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本書の目的・位置付けの宣言。基本仕様を実装可能な粒度へ具体化するという約束で、実装の作り方によらず真。"
+ },
+ "DES-002": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "基本仕様の外部挙動保証を変更しないという約束。"
+ },
+ "DES-003": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "spec",
+  "reason": "矛盾時の優先順位規則。文書間の権威関係の宣言でシステム構造の決定ではなく、層の当てはめが曖昧。"
+ },
+ "DES-004": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本書がHOWを定めるという、本書自身の性格づけの宣言。"
+ },
+ "DES-005": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "基本仕様に無い義務等を発明しないという約束。"
+ },
+ "DES-006": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "規範伝播の方向性という運用原則の宣言。"
+ },
+ "DES-007": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "矛盾発見時の上流フィードバック運用の宣言。"
+ },
+ "DES-008": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本書内の章節参照の指示対象を定める注記。"
+ },
+ "DES-009": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本書内の要件定義参照の指示対象を定める注記。"
+ },
+ "DES-010": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "詳細設計を3分冊とするという文書構成の宣言。"
+ },
+ "DES-011": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "節番号を通し連番とするという文書運用規則。"
+ },
+ "DES-012": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "別紙Bを非正規process文書として扱うという分類。"
+ },
+ "DES-013": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本冊の収録節範囲の宣言。"
+ },
+ "DES-014": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "別紙Aの収録節範囲の宣言。"
+ },
+ "DES-015": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "別紙Bが正規節番号を持たないという宣言。"
+ },
+ "DES-016": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "別紙Cの収録節範囲の宣言。"
+ },
+ "DES-017": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "新設サブ節の配置範囲の宣言。"
+ },
+ "DES-018": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "CLIコマンド一覧・MCPツール一覧を増やさないという外部から見える約束。"
+ },
+ "DES-019": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "新設機能は既存コマンドの引数・出力で露出するという外部挙動の約束。"
+ },
+ "DES-020": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "引数・入出力の完全schemaは別紙Aへ委譲するという記述。"
+ },
+ "DES-021": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "本書が意味論・schema・露出点のみを確定するという本書自身の範囲宣言。"
+ },
+ "DES-022": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "実装形態をCargo workspaceとする技術選定。"
+ },
+ "DES-023": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "単一バイナリ`vtest`を生成するという構成決定。"
+ },
+ "DES-024": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest-adapter-api`の依存先を`vtest-model`のみに限定する境界決定。"
+ },
+ "DES-025": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "scan/audit/execがadapterを選択・委譲するorchestrationであるという責務定義。"
+ },
+ "DES-026": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "scan/audit/execが`syn`等を直接所有しないという責務分界。"
+ },
+ "DES-027": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest-store`の提供範囲を限定する責務定義。"
+ },
+ "DES-028": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "組込Rust formの所有クレートを定める責務定義。"
+ },
+ "DES-029": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "クレート間の依存方向を定める構造決定。"
+ },
+ "DES-030": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "言語固有能力の依存方向を定める構造決定。"
+ },
+ "DES-031": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`adapter-rust→store`の利用範囲を限定する境界決定。"
+ },
+ "DES-032": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "Rust構文解析クレート`syn`とそのfeature選定という技術選定。"
+ },
+ "DES-033": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "スパン位置特定クレート`proc-macro2`の技術選定。"
+ },
+ "DES-034": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "CLIクレート`clap`の技術選定。"
+ },
+ "DES-035": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "シリアライズクレート`serde`系の技術選定。"
+ },
+ "DES-036": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "YAML処理クレート`serde_yaml`の技術選定。"
+ },
+ "DES-037": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "ID生成クレート`ulid`の技術選定。"
+ },
+ "DES-038": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "ハッシュ計算クレート`sha2`の技術選定。"
+ },
+ "DES-039": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "source走査クレート`ignore`の技術選定。"
+ },
+ "DES-040": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "エラー処理クレート（`thiserror`/`anyhow`）の使い分けという技術選定。"
+ },
+ "DES-041": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "MCP SDK`rmcp`とstdio transportという技術・通信方式選定。"
+ },
+ "DES-042": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "日時処理クレート`time`とRFC3339形式という技術選定。"
+ },
+ "DES-043": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`git rev-parse HEAD`・`git status --porcelain`という具体的コマンド文字列を規範として固定しており、別の取得手段（ライブラリ呼び出し等）を採ると文が偽になる。"
+ },
+ "DES-044": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "git不使用時にEvidenceがtarget_bindingの有効なPASS証拠にならないという精密な条件別結果の規定（fail-closed）。"
+ },
+ "DES-045": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "git不使用時の失効を独立検査でなく診断ラベルSTALEとして扱うという精密な割当規定。"
+ },
+ "DES-046": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "内容ハッシュのアルゴリズムをSHA-256とする技術選定。§1.2のsha2採用と同種の決定であり、型宣言（design）との境界が曖昧。"
+ },
+ "DES-047": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "内容ハッシュの記録形式（`sha256:<hex>`）というfield形式の型宣言。"
+ },
+ "DES-048": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "テキストfragment正規化規則（改行統一）という符号化の型契約。"
+ },
+ "DES-049": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "テキストfragment正規化規則（行末空白除去）という符号化の型契約。"
+ },
+ "DES-050": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "正規化範囲を限定する符号化上の不変条件。"
+ },
+ "DES-051": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash inputの構成（domain separator＋長さ付きfield）という型宣言。"
+ },
+ "DES-052": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash inputの各fieldのbyte-layout（名前・長さ・byte列の順）という符号化形式の型宣言。"
+ },
+ "DES-053": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "単純文字列連結を禁じる符号化上の不変条件。"
+ },
+ "DES-054": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "mapのkey昇順encodeという符号化規則。"
+ },
+ "DES-055": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "集合系fieldの正規化順encodeという符号化規則。"
+ },
+ "DES-056": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "順序意味を持つ`cases`の宣言順encodeという符号化規則。"
+ },
+ "DES-057": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "null/空文字/空listを区別してencodeするという符号化上の不変条件。"
+ },
+ "DES-058": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Test subject hashの束縛fieldを列挙する型宣言。"
+ },
+ "DES-059": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "byte range自体をhash inputから除外するという型宣言（不変条件）。"
+ },
+ "DES-060": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "非隣接metadataも同一subjectへ含めるという束縛規則。"
+ },
+ "DES-061": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`targets`は宣言値の正規化値を束縛し解決後Locatorへ置換しないという型契約。"
+ },
+ "DES-062": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "targetの参照方法変更がTest subject hashで捕捉されるという、外部から観測可能な精密な帰結の説明。"
+ },
+ "DES-063": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "canonical metadataの構成fieldを列挙する型宣言。"
+ },
+ "DES-064": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`role`/`anchor`等の分類fieldを持たないという型宣言（否定形）。"
+ },
+ "DES-065": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "宣言不在と空値明示を区別してencodeするという符号化上の不変条件。"
+ },
+ "DES-066": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Source Target hashの束縛fieldを列挙する型宣言。"
+ },
+ "DES-067": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "spec",
+  "reason": "検証対象は一般概念でありhashはSource Target実現形態への束縛に過ぎないという、基本仕様§9.1の概念範囲を確認するだけの記述。"
+ },
+ "DES-068": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "construct bytes束縛規則の適用範囲を限定する型契約。"
+ },
+ "DES-069": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "canonical Target Referenceは常に`TargetRef::Locator`であるという型宣言（不変条件）。"
+ },
+ "DES-070": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`TargetRef::SrcId`の意味論（参照側表現）を定める型宣言。"
+ },
+ "DES-071": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "恒久SRC IDをhash inputの独立fieldとしないという型宣言。"
+ },
+ "DES-072": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "恒久SRC IDの変更がcanonical Target Referenceを変えないという不変条件。"
+ },
+ "DES-073": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "特定adapterでの恒久SRC ID埋め込みがconstruct bytes経由でhashへ影響しうるという型契約上の帰結。"
+ },
+ "DES-074": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "前項の挙動が正しく、恒久SRC IDが独立hash fieldでないことを確認する型契約の補足。"
+ },
+ "DES-075": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Source Target hashの計算元を一箇所に限定するという型契約。"
+ },
+ "DES-076": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Evidence・検証がcanonical Source Targetへ束縛されaddressing modeで分岐しないという不変条件。"
+ },
+ "DES-077": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "document subject hashの束縛対象を列挙する型宣言。"
+ },
+ "DES-078": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "content_hashと実sourceの不一致時にchain_integrityの非PASS（MISMATCH・STALE）とするという精密な条件別状態割当。"
+ },
+ "DES-079": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "document subject hashが文書種別を区別しない総称subjectであるという型宣言。"
+ },
+ "DES-080": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "VO subject hashのdomainと符号化対象という型宣言。"
+ },
+ "DES-081": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`status`fieldを含めないという型宣言（除外規則）。"
+ },
+ "DES-082": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`derives_from`と`parent`を束縛するという型宣言。"
+ },
+ "DES-083": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`covers`を含めない理由付きの型宣言（除外規則）。"
+ },
+ "DES-084": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Execution State subject hashの束縛fieldを列挙する型宣言。"
+ },
+ "DES-085": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "manifest entryの構成fieldを定める型宣言。"
+ },
+ "DES-086": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "manifest entry集合の正規化順encodeという符号化規則。"
+ },
+ "DES-087": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "stable root identityの導出方法（絶対path不使用）という型契約上の不変条件。"
+ },
+ "DES-088": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterがhash未計算manifestを返しcoreが検証・hash化するというDTO受け渡しの型契約。"
+ },
+ "DES-089": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterがhash未計算discovery DTOとして返すfield構成の型契約。"
+ },
+ "DES-090": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "coreが対応検証・符号化・hash計算を経てからentityを具体化するという確定順序（データ流れ）の記述。"
+ },
+ "DES-091": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "adapterが最終content_hashを自己確定してはならないという、adapter/core責務分界の明示。"
+ },
+ "DES-092": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "coreがASTからrangeを再計算しないという、adapter固有情報を解釈しないadapter/core責務分界の明示。"
+ },
+ "DES-093": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Test Runner adapterがconfig/manifestをhash未計算DTOとして返すという型契約。"
+ },
+ "DES-094": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreが対応・重複・完全性・schema versionを検証してsubject hashを計算するという型契約。"
+ },
+ "DES-095": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "完全性未保証のDTOからPASS用subjectを具体化してはならないという事前条件。"
+ },
+ "DES-096": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "静的解析が正典レコードを持たず毎回再計算する派生情報であるという永続化方式の決定（§2.1のcache配置決定と同種）。"
+ },
+ "DES-097": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "静的解析専用のhash subjectを設けないというhash体系の型宣言。"
+ },
+ "DES-098": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`rust-cargo` adapterがTest constructとして返すbytesの構成という型契約。"
+ },
+ "DES-099": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "doc comment由来metadataを`metadata_sources`として別途返すという型契約。"
+ },
+ "DES-100": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`rust-cargo` adapterがSource Targetとして関数item全体を返すという型契約。"
+ },
+ "DES-101": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "正規化後source bytesが変化した場合に安全側でSTALEとするという精密な条件別診断割当。"
+ },
+ "DES-102": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "spec",
+  "reason": "基本仕様§24.1のlayoutをそのまま採用するという追認で、新たな構造決定を行わない委譲文。"
+ },
+ "DES-103": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/`直下に`config.yaml`を置くというディレクトリ構成決定。"
+ },
+ "DES-104": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/doc/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-105": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/vo/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-106": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/rel/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-107": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/forms/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-108": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/decisions/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-109": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/approvals/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-110": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/evidence/`のファイル形式・格納規則という構成決定。"
+ },
+ "DES-111": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/cache/`をGit管理外とする永続化構成決定。"
+ },
+ "DES-112": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/cache/bundles/`の格納内容という構成決定。"
+ },
+ "DES-113": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/cache/logs/`の格納内容という構成決定。"
+ },
+ "DES-114": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`.verify/cache/cov/`の格納内容という構成決定。"
+ },
+ "DES-115": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "文書種別ごとの専用ディレクトリを設けず総称documentレコードに統一するという構成決定。"
+ },
+ "DES-116": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "決定論的解析結果の正典ディレクトリを設けないという構成決定。"
+ },
+ "DES-117": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "静的解析結果をcache/にのみ置くという永続化方式決定。"
+ },
+ "DES-118": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "外部判断をdecisions/に保存するという構成決定。"
+ },
+ "DES-119": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest init`が生成する成果物という名指しコマンドの責務定義。"
+ },
+ "DES-120": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "config.yamlをversion 2・adapterごとnamespace化するという外部設定ファイル構成の決定。"
+ },
+ "DES-121": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "version 1のin-memory変換読み込みという互換readerの動作決定。"
+ },
+ "DES-122": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`include`の意味と省略時デフォルトという精密なfield仕様。"
+ },
+ "DES-123": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`assertion_macros`の効果という精密なfield仕様。"
+ },
+ "DES-124": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`coverage`の許容値（`llvm-cov`/`off`）という精密なfield制約。"
+ },
+ "DES-125": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "adapter設定の各種違反をE-CONFIG-001とする精密な拒否条件。"
+ },
+ "DES-126": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "異なるadapterによるroot共有を許可する精密な条件。"
+ },
+ "DES-127": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "統合Test IDのglobal uniquenessを検査するという主要な機能の約束。"
+ },
+ "DES-128": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "adapter固有設定検証を登録adapterへ委譲するという責務分界の明示。"
+ },
+ "DES-129": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "未知namespace・値をRust設定として解釈しないという精密な拒否・非推測規定。"
+ },
+ "DES-130": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest init`がversion 2を生成するという名指しコマンドの責務定義。"
+ },
+ "DES-131": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`verify.full_scope`が縮小設定でなく固定4検査のconfig invariantであるという精密な意味規定。"
+ },
+ "DES-132": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "version 2での`verify.full_scope`検証違反の拒否条件。"
+ },
+ "DES-133": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "version 1での`verify.full_scope`欠落時の具体化・違反拒否条件。"
+ },
+ "DES-134": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "旧12項目列挙を全versionで拒否するという精密な条件。"
+ },
+ "DES-135": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`--items`指定時のみ限定scopeとし、省略時は固定4検査を評価するという精密な規定。"
+ },
+ "DES-136": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "いかなる設定値も4検査未満へ縮退させないという精密な不変条件。"
+ },
+ "DES-137": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "`gates`が保持するデータ（フェーズゲート進行条件定義）という型・field宣言。"
+ },
+ "DES-138": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "config読込み時の検証違反をE-CONFIG-001とするという精密な受入条件の導入部。"
+ },
+ "DES-139": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`gates`欠落・空listを「ゲート定義なし」として受理するという精密な規定。"
+ },
+ "DES-140": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`--gate`未指定実行が`gates`欠落等の影響を受けないという精密な条件。"
+ },
+ "DES-141": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "`--gate`未定義名の扱いを§11.5へ委譲するという記述で、それ自体は結果を確定しない参照文。"
+ },
+ "DES-142": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`gates[].name`の一意性制約とE-CONFIG-001という精密な規定。"
+ },
+ "DES-143": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`--gate <name>`解決の完全一致規則という精密な規定。"
+ },
+ "DES-144": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`gates[].require`必須・欠落時E-CONFIG-001という精密な規定。"
+ },
+ "DES-145": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`gates[].require.verification`必須・欠落時E-CONFIG-001という精密な規定。"
+ },
+ "DES-146": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`require.verification`の値が5状態語彙と完全一致すべきという精密な制約。"
+ },
+ "DES-147": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "診断ラベル等の不正値をすべてE-CONFIG-001とする精密な拒否列挙。"
+ },
+ "DES-148": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "PASS以外を要求する定義自体は受理するという精密な受入条件。"
+ },
+ "DES-149": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`require.approvals`省略時のデフォルトという精密な規定。"
+ },
+ "DES-150": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "`require.approvals`の形式制約とE-CONFIG-001という精密な規定。"
+ },
+ "DES-151": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "ロール名解決失敗時E-CONFIG-001という精密な規定。"
+ },
+ "DES-152": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "`doc.roots`が保持するデータ（除外根のDOC ID集合）という型・field宣言。"
+ },
+ "DES-153": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`scan`/`run`をversion 1互換のwire値とするという外部フォーマット互換の決定。"
+ },
+ "DES-154": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "Rust固有制約をrust-cargo adapterに限定適用するという構成上の境界決定。"
+ },
+ "DES-155": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "非Rust namespaceの値をRust設定として推測・書換えしないという精密な非推測規定。"
+ },
+ "DES-156": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "検証グラフとindexを実行毎にインメモリ再構築するという永続化アーキテクチャ決定。"
+ },
+ "DES-157": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "永続cacheを正典・検証入力に使わないという永続化方針決定。"
+ },
+ "DES-158": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`cache/`が再生成可能な派生物のみを格納するという構成決定。"
+ },
+ "DES-159": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "「ツール呼び出しごとにmtimeを確認し、変化があれば再スキャンする」という具体的な検知アルゴリズム・手順を固定しており、別の鮮度検知方式を採ると文が偽になる。"
+ },
+ "DES-160": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "レコード保存形式をYAMLとする技術選定（構造決定）。"
+ },
+ "DES-161": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "未知フィールド発生時の外部的扱い（警告であり誤りでない）を精密に規定。"
+ },
+ "DES-162": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "idとファイル名の一致という入力形式制約を精密に規定。"
+ },
+ "DES-163": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "上流文書を単一総称ノード型で表現するという、文書種別ごとのスキーマを設けないデータモデル構造の決定。"
+ },
+ "DES-164": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "文書種別ごとの専用スキーマを持たないというデータモデル構造の決定（163と同一クラスタ）。"
+ },
+ "DES-165": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "pathフィールドの型・意味の宣言。"
+ },
+ "DES-166": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "content_hashフィールドの型・意味の宣言。"
+ },
+ "DES-167": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "titleフィールドの任意性という入力制約。"
+ },
+ "DES-168": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "derives_fromの0件許容という精密なカーディナリティ制約。"
+ },
+ "DES-169": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor空文字時にMISMATCHとしないという精密な境界規定。"
+ },
+ "DES-170": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "note空文字時にMISMATCHとしないという精密な境界規定。"
+ },
+ "DES-171": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "derives_fromを上流への唯一のリンク種別とする、関係型を増やさないモデル構造の決定。"
+ },
+ "DES-172": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "文書層の段が増えてもリンク種別を増やさないという拡張性に関するモデル構造の決定。"
+ },
+ "DES-173": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "リンク追加でスキーマが壊れないという、スキーマ設計上の構造的性質の決定。"
+ },
+ "DES-174": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "note空文字時のMISMATCH非該当を精密に規定（170と同一内容の再掲）。"
+ },
+ "DES-175": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "noteを付加・保存できるという構造上の能力の約束（実装によらず真）。"
+ },
+ "DES-176": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor欠落・空文字時のMISMATCH非該当を精密に規定。"
+ },
+ "DES-177": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchorを不透明文字列として保存・出力するのみで解決・検証しないという精密な非検証範囲の規定。"
+ },
+ "DES-178": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor内容不一致検出検査が存在しないという精密な検査範囲の規定。"
+ },
+ "DES-179": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "同一doc複数entryをanchor違いで重複としないという精密な受理規定。"
+ },
+ "DES-180": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "anchorフィールドがderives_from entryにのみ存在しTest metadataには無いという、フィールド所在の型宣言。"
+ },
+ "DES-181": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "anchorがdocument subject hashの入力に含まれるという、ハッシュ計算契約の宣言。"
+ },
+ "DES-182": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor変更がcontent_hashを変えずsubject hashを変えるため判断記録・承認が失効するという、精密な因果連鎖の規定。"
+ },
+ "DES-183": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "derives_from参照先document不在時にMISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-184": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "content_hash不一致時にMISMATCH（STALE）とするという精密な条件→状態の割当。"
+ },
+ "DES-185": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "derives_from空かつroots未列挙時に孤児としてMISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-186": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "仕様文書そのものを.verify/へ複製しないという永続化方式の決定。"
+ },
+ "DES-187": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "文書内容の意味的良否を検証しないという、基本仕様OOS-001を再掲する範囲の約束。"
+ },
+ "DES-188": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "parentフィールドの型（VO IDまたはnull）の宣言。"
+ },
+ "DES-189": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "derives_fromが1件以上という精密なカーディナリティ制約。"
+ },
+ "DES-190": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor空文字時にMISMATCH違反としないという精密な境界規定。"
+ },
+ "DES-191": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "note空文字時にMISMATCH違反としないという精密な境界規定。"
+ },
+ "DES-192": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "dimensionsフィールドの任意性という入力制約。"
+ },
+ "DES-193": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coverage_policyフィールドの値域（型）の宣言。"
+ },
+ "DES-194": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "combinationsフィールドの意味（explicit時に実体化する組合せ）の宣言。"
+ },
+ "DES-195": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "representative_casesフィールドの任意性という入力制約。"
+ },
+ "DES-196": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "VOがdocumentから1件以上導出されるという精密なカーディナリティ制約（189と同一クラスタ）。"
+ },
+ "DES-197": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "VOとdocumentの間に他エンティティ層を置かないという、エンティティ階層構造の決定。"
+ },
+ "DES-198": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "旧モデルのrequirements/spec_refsを廃しderives_fromへ一本化するという、参照スキーマ統合の構造決定。"
+ },
+ "DES-199": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "derives_from参照先document不在時にMISMATCH（dangling reference）とするという精密な条件→状態の割当。"
+ },
+ "DES-200": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "VOのderives_from entryのanchor・noteが共に任意であるという入力制約。"
+ },
+ "DES-201": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchor・note欠落・空文字時にMISMATCH違反としないという精密な境界規定。"
+ },
+ "DES-202": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "VOのanchorを解決・検証しないという精密な非検証範囲の規定。"
+ },
+ "DES-203": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "同一docの複数entryをanchor違いで重複としないという精密な受理規定。"
+ },
+ "DES-204": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "上流条項↔VO対応をanchor付きderives_fromエッジとして保持しprojection出力で露出するという、データの流れ・出力インターフェースに関する決定。"
+ },
+ "DES-205": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "anchor・noteがVO subject hashの入力に含まれないというハッシュ計算契約の宣言。"
+ },
+ "DES-206": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "anchorのみの変更ではVOの承認・判断記録が失効しないという精密な因果規定。"
+ },
+ "DES-207": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "参照先document集合の変更はVOの承認・判断記録を失効させるという精密な因果規定。"
+ },
+ "DES-208": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "VOのstatusが承認レコードからの導出表示値でありwriterが保存しないという、writerコンポーネントの契約宣言。"
+ },
+ "DES-209": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "readerがstatus互換fieldを受理しつつ無視しW-STORE-001を通知するという、条件に対する精密な診断コードの割当。"
+ },
+ "DES-210": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "互換field値と導出値が異なる場合に導出値のみを使うという、競合時の優先順位の精密な規定。"
+ },
+ "DES-211": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest vo expand`という名指しコマンドが子VOを実体化するという、入口コマンドの責務定義。"
+ },
+ "DES-212": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "independent-axesのpartitionごとに1子VOを生成するという、条件から結果件数への精密な割当。"
+ },
+ "DES-213": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "full-productの直積ごとに1子VOを生成するという、条件から結果件数への精密な割当。"
+ },
+ "DES-214": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "explicitがcombinationsに列挙された組合せのみ生成するという、条件から結果への精密な割当。"
+ },
+ "DES-215": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "生成子VO IDの既定書式を精密に規定する制約。"
+ },
+ "DES-216": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`--dry-run`による事前提示確認という、CLIインターフェース機能の決定。"
+ },
+ "DES-217": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "子VO ID suffixの大文字化・宣言順連結という、ID生成の精密な書式制約（連結順序を固定するため境界的）。"
+ },
+ "DES-218": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "子VO ID生成がentry記述順・map key順に依存しないという精密な不変条件。"
+ },
+ "DES-219": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "実体化後leaf VOのchain_integrity検査がcoversするTestの有無のみを見ればよいという、検査の精密な範囲規定。"
+ },
+ "DES-220": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "組合せ空間の十分性は本システムの検査でなくUNKNOWNのエスカレーション領分であるという、基本仕様を再掲するスコープの約束。"
+ },
+ "DES-221": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "combinationsフィールドの型（組合せtupleのlist）の宣言。"
+ },
+ "DES-222": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "combinationsの各entryが宣言済み全軸をちょうど1回ずつ持つという精密な構造制約。"
+ },
+ "DES-223": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "具体例におけるexplicit実体化結果（2件）という精密な期待結果。"
+ },
+ "DES-224": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "vo expandが部分生成を行わないという、精密な全か無かの不変条件。"
+ },
+ "DES-225": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "combinations欠落・null・空listをE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-226": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "dimensions空をE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-227": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "combinationsとcoverage_policyの不整合をE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-228": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "未宣言dimension名の混入をE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-229": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "未列挙partition値をE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-230": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "dimension欠落・重複をE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-231": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "重複tupleをE-SCAN-017・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-232": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "combinationsがVO subject hashに束縛されるというハッシュ計算契約の宣言。"
+ },
+ "DES-233": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "combinations変更が承認を失効させるという精密な因果規定。"
+ },
+ "DES-234": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "combinations値の十分性は検査でなくエスカレーション領分であるという、基本仕様を再掲するスコープの約束（220と同一クラスタ）。"
+ },
+ "DES-235": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "Relationがどちらにも自然に所属しない関係だけを保存するという、専用エンティティを設ける範囲のモデル構造決定。"
+ },
+ "DES-236": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "adapter宣言・document/VO recordから導出できる関係を外部Relationとして重複保存しないという、データ導出方式の構造決定。"
+ },
+ "DES-237": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "typeフィールドの値域（型）の宣言。"
+ },
+ "DES-238": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "fromフィールドの任意性という入力制約。"
+ },
+ "DES-239": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "noteフィールドの任意性という入力制約。"
+ },
+ "DES-240": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "canonical Relation IDの精密な書式（REL-+26文字ULID）の規定。"
+ },
+ "DES-241": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerがcanonical id形式のみを生成するという、writerコンポーネントの契約宣言。"
+ },
+ "DES-242": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerがversion1互換入力を受理し正規化するが書き換えないという、readerコンポーネントの契約宣言。"
+ },
+ "DES-243": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "prefixed/bare混在・payload不一致・重複recordをE-SCAN-010とし選択しないという精密な拒否規定。"
+ },
+ "DES-244": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Relationが不変であるという、エンティティの不変条件宣言。"
+ },
+ "DES-245": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Relationの変更を削除＋新規作成で表すという、状態遷移方式の宣言。"
+ },
+ "DES-246": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "from/to不在をE-SCAN-009・MISMATCHとするという精密な条件→状態の割当。"
+ },
+ "DES-247": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "判断記録がUNKNOWNに対する外部判断の記録であるという、基本仕様・要件定義を再掲する概念的定義の約束。"
+ },
+ "DES-248": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "actor/subject/decision/judgment_kindを必須項目とするという入力制約。"
+ },
+ "DES-249": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "理由・根拠の任意性という入力制約。"
+ },
+ "DES-250": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "判断記録が依存closureのハッシュに束縛されるという、エンティティの不変条件宣言。"
+ },
+ "DES-251": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subjectフィールドの型（エンティティIDまたはLocator）の宣言。"
+ },
+ "DES-252": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "judgment_kindを必須とするという入力制約。"
+ },
+ "DES-253": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "supersedesの既定値（空list）という精密な既定・カーディナリティ規定。"
+ },
+ "DES-254": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subject_hashフィールドの型・意味の宣言。"
+ },
+ "DES-255": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "dependenciesが完全一致を要求するという精密な検証制約。"
+ },
+ "DES-256": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "dependencies entryのhashフィールドの型・意味の宣言。"
+ },
+ "DES-257": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "actorを必須とするという入力制約。"
+ },
+ "DES-258": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "actor.kindフィールドの値域（型）の宣言。"
+ },
+ "DES-259": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "actor.modelがagent時に任意であるという入力制約。"
+ },
+ "DES-260": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "decisionを必須とするという入力制約。"
+ },
+ "DES-261": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "reasonが任意で空でも無効化しないという精密な境界規定。"
+ },
+ "DES-262": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "exclusionsの任意性という入力制約。"
+ },
+ "DES-263": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "理由空を根拠に無効・UNKNOWN等としてはならないという精密な境界規定。"
+ },
+ "DES-264": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "reason/exclusionsがoptionalであるという入力制約（261・262の再掲）。"
+ },
+ "DES-265": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "同一対象への複数判断記録許容という精密な多重度規定。"
+ },
+ "DES-266": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "有効性判定・実効判断決定が§8.5に従うという同一設計文書内の参照。"
+ },
+ "DES-267": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "judgment_kindが判断対象を区切る第二keyであるという、複合キー構造の宣言。"
+ },
+ "DES-268": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "実効判断が(subject, judgment_kind)ごとに独立決定され競合しないという精密な規定。"
+ },
+ "DES-269": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "judgment_kind欠落・値域外の判断記録を実効判断に寄与させずW-STORE-003を出すという精密な条件→結果の割当。"
+ },
+ "DES-270": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedesフィールドの型（旧判断記録ULIDのlist）の宣言。"
+ },
+ "DES-271": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "supersedes列挙ULIDが同一subject・judgment_kindを指さなければならないという精密な検証制約。"
+ },
+ "DES-272": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "supersedesがRelationとは独立でtype:supersedesのRelationを実効判断決定に用いないという、コンポーネント間の独立性の宣言。"
+ },
+ "DES-273": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "解決できないtargetを任意の候補で埋めないという、フェイルクローズドの精密な規定。"
+ },
+ "DES-274": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "判断記録の受理が検証状態を昇格させないという精密な境界規定。"
+ },
+ "DES-275": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "判断記録は検査ゲートでなくUNKNOWNへの外部判断追跡であるという、基本仕様相当の概念的定義の約束。"
+ },
+ "DES-276": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "判断済みと承認済みを区別するという、基本仕様SPEC-400相当の概念的約束。"
+ },
+ "DES-277": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subject fieldの型（VO ID/document ID）を定義する型宣言。"
+ },
+ "DES-278": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "judgment_ref fieldの型と任意性を定義する型宣言。"
+ },
+ "DES-279": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedes fieldの型・既定値を定義する型宣言。"
+ },
+ "DES-280": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subject_hash fieldの意味を定義する型宣言。"
+ },
+ "DES-281": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "dependencies fieldの内容と完全一致要求を定義する型宣言。"
+ },
+ "DES-282": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "dependencies entryのhash fieldの意味を定義する型宣言。"
+ },
+ "DES-283": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approver.kind fieldの値域を定義する型宣言。"
+ },
+ "DES-284": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approver.model fieldの任意性を定義する型宣言。"
+ },
+ "DES-285": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved_state fieldの必須性・値域を定義する型宣言。"
+ },
+ "DES-286": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "basis fieldの任意性を定義する型宣言。"
+ },
+ "DES-287": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "承認と検証状態は別軸という主要な約束の短い言い換え（基本仕様§4.5・§17、要件定義§5.5を直接引用）。別実装でも真であり続ける。"
+ },
+ "DES-288": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "承認済みでも非PASSをPASSへ昇格させない、fieldに縛られない精密な外部的約束（基本仕様相当のSPEC-495と同文）。"
+ },
+ "DES-289": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "未承認でもPASSを降格させない、精密な外部的約束（SPEC-496と同文）。"
+ },
+ "DES-290": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "判断記録と承認記録の同一entity性を要求しないという、entityモデリング上の構造決定。独立軸原則の言い換えとも読め判断が割れる。"
+ },
+ "DES-291": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subject/judgment_refという具体field名に紐づけて承認済み状態の帰属先を定める設計契約。"
+ },
+ "DES-292": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "承認は特定entity型に従属しない独立領域という一般的な軸の約束（287と同型、fieldに紐付かない）。"
+ },
+ "DES-293": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "承認規則を本節だけに一本化し種別ごとの規則を設けないという、コンポーネント境界の決定。"
+ },
+ "DES-294": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "承認入力経路を対象種別で分けず単一正典面に一本化するという、入口構造の決定。"
+ },
+ "DES-295": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "エンティティ側の承認操作は正典面への別名に過ぎないという入口構造の決定（vtest vo approveのalias原則）。"
+ },
+ "DES-296": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "承認対象3種とレコード上表現の対応という型宣言の導入部。"
+ },
+ "DES-297": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "vo種別のsubject表現と上流依存closureの構成を定義する型・データ構造の宣言。"
+ },
+ "DES-298": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "document種別のsubject表現と上流依存closureの構成を定義する型宣言。"
+ },
+ "DES-299": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "document種別を総称documentエンティティで表現し専用型を設けないという型宣言（§3.1参照）。"
+ },
+ "DES-300": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "judgment種別のsubject/judgment_ref表現と上流closureの定義という型宣言。"
+ },
+ "DES-301": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "判断記録ULIDをsubjectに置かずjudgment_refでのみ表すという、field使用規則。"
+ },
+ "DES-302": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "judgment_ref不整合時のE-APPROVAL-001拒否とW-STORE-006警告というエラー伝播契約。"
+ },
+ "DES-303": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "判断記録ULIDをsubjectに持つ場合のE-APPROVAL-002拒否というエラー伝播契約。"
+ },
+ "DES-304": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "VO/documentに解決しないsubjectを303と同じ扱いにするという、schema上の拡張規則。"
+ },
+ "DES-305": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "対象自身をdependenciesへ重複させないという、field間の整合規則。"
+ },
+ "DES-306": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "dependencies entryのsort順・欠落禁止という、正規形の構造規則。"
+ },
+ "DES-307": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "document subject hashという具体機構を用いるため承認が失効するという、機構に紐づく設計上の説明。"
+ },
+ "DES-308": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved_stateが3値のみを受理するという値域規則（285の再掲）。"
+ },
+ "DES-309": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved_state値域外時のE-APPROVAL-002拒否というエラー伝播契約。"
+ },
+ "DES-310": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "approved_state=approvedの外部的意味を定める、エラーの外部的意味に類する精密な定義。"
+ },
+ "DES-311": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "approved_state=rejectedの外部的意味を定める精密な定義。"
+ },
+ "DES-312": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "approved_state=withdrawnの外部的意味を定める精密な定義。"
+ },
+ "DES-313": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedesが旧承認レコードを名指しするlistであるという型宣言（279の再掲）。"
+ },
+ "DES-314": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedes列挙先が同一subjectの既存レコードでなければならないという整合規則。"
+ },
+ "DES-315": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "解決不能・不一致・自己参照するsupersedesをE-APPROVAL-002拒否とするエラー伝播契約。"
+ },
+ "DES-316": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "循環supersedeを実効集合から除外しW-STORE-005を出すという読取り時の扱い。"
+ },
+ "DES-317": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedesはRelationレコードと独立で実効承認導出に用いないという、導出アルゴリズムのデータ源規定。"
+ },
+ "DES-318": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "実効承認A(X)の形式的導出を定める設計内定式化の導入。"
+ },
+ "DES-319": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved_stateを参照せず承認済みを導出してはならないという、導出アルゴリズムの不変条件。"
+ },
+ "DES-320": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "承認レコードaがA(X)に属する条件を網羅的に定める形式的定義。"
+ },
+ "DES-321": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうちapproved_stateが値域内であることを定める部分条件。"
+ },
+ "DES-322": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうち対象指定の一致を定める部分条件。"
+ },
+ "DES-323": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうちsubject_hash一致を定める部分条件。"
+ },
+ "DES-324": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうちdependencies完全一致を定める部分条件。"
+ },
+ "DES-325": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうちdependencies documentのcontent_hash一致を定める部分条件。"
+ },
+ "DES-326": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A(X)所属条件のうち判断記録がXのとき有効判断・実効集合Eに属することを定める部分条件。"
+ },
+ "DES-327": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "実効集合A'(X)をA(X)からsupersedesされたものを除いて定義する導出規則。"
+ },
+ "DES-328": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A'(X)が空のとき実効承認状態draftとする状態導出規則。"
+ },
+ "DES-329": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A'(X)にrejected/withdrawnが残る場合draftとするfail-closed状態導出規則。"
+ },
+ "DES-330": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A'(X)全件approvedのとき実効承認状態approvedとする状態導出規則。"
+ },
+ "DES-331": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "A'(X)からの除外はsupersedesの明示名指しのみで起きるという導出アルゴリズムの不変条件。"
+ },
+ "DES-332": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "supersedes関係にない有効承認レコードは全てA'(X)に属するという導出規則。"
+ },
+ "DES-333": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "approved_at/ULID順序等をレコード選択規則に用いないという、導出アルゴリズムのtie-break禁止規則。一般的な決定性の約束とも読める。"
+ },
+ "DES-334": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approvedとrejectedの併存時にdraftへfail-closedするという具体シナリオの解決規則（329・330の適用例）。"
+ },
+ "DES-335": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approvedを取り消すにはwithdrawnレコードを追加するという状態遷移の実現手段。"
+ },
+ "DES-336": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approvedを否認するにはrejectedレコードを追加するという状態遷移の実現手段。"
+ },
+ "DES-337": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "取消・却下後の再承認にはsupersedesを伴うapprovedレコードが要るという状態遷移の実現手段。"
+ },
+ "DES-338": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "旧レコードを名指ししないapprovedの追加はdraftのままという状態遷移の否定規則。"
+ },
+ "DES-339": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "実効承認状態がdraft/approvedの2値であり所定入力でのみ遷移するという状態モデル定義。"
+ },
+ "DES-340": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "draft→approved遷移の発生条件を定める状態遷移規則。"
+ },
+ "DES-341": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved→draft遷移（reject/withdrawn追加による）を定める状態遷移規則。"
+ },
+ "DES-342": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved→draft遷移（全approvedがsupersedeされることによる）を定める状態遷移規則。"
+ },
+ "DES-343": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved→draft遷移（subject内容ハッシュ変化による）を定める状態遷移規則。"
+ },
+ "DES-344": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved→draft遷移（上流依存closure変化による）を定める状態遷移規則。"
+ },
+ "DES-345": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "approved→draft遷移（判断記録の有効性喪失による）を定める状態遷移規則。"
+ },
+ "DES-346": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "検証状態変化・判断記録追加・basis内容が実効承認状態を変えないという不変条件。独立軸原則の精密な言い換えとも読める。"
+ },
+ "DES-347": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "依存entryを持たない互換Approvalの扱い（W-STORE-002・draft相当）を定めるエラー伝播契約。"
+ },
+ "DES-348": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "承認記録の必須項目（誰が/何を/どの状態か）と根拠任意という精密な約束（基本仕様相当のSPEC-485/486と同文）。"
+ },
+ "DES-349": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "承認主体の種別・識別子記録という精密な約束（SPEC-492と同文）。"
+ },
+ "DES-350": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "承認権限・ロール・必要承認数の定義を別紙A/プロジェクト設定へ委譲するという構成上の境界決定。委譲宣言はspec的とも読める。"
+ },
+ "DES-351": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "承認レコードの入力経路を別紙A§12.2・§13.2に委ねるという入口構造の参照。"
+ },
+ "DES-352": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "result fieldの値域と報告主体を定義する型宣言。"
+ },
+ "DES-353": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "execution_state.hash fieldがcomplete:false時のみnullという型宣言。"
+ },
+ "DES-354": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage fieldの意味と旧field名からの改名を定義する型宣言。"
+ },
+ "DES-355": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage.checked fieldの意味を定義する型宣言。"
+ },
+ "DES-356": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage.result fieldの値域を定義する型宣言。"
+ },
+ "DES-357": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage.targets[].result fieldの値域を定義する型宣言。"
+ },
+ "DES-358": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "targets[].count fieldがUNKNOWN時nullという型宣言。"
+ },
+ "DES-359": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "log_ref fieldがGit管理外ログを指すという型宣言。"
+ },
+ "DES-360": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "resultはランナー報告をそのまま記録するという、field名に縛られない精密な外部的約束。"
+ },
+ "DES-361": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "合否を再判定せずtarget_bindingの証拠として消費するという、基本仕様§7を直接引く精密な約束。"
+ },
+ "DES-362": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "有効EvidenceのFAILがtarget_binding=FAILへ至るという、条件→結果の精密な対応。"
+ },
+ "DES-363": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "target_coverageは独立の検査項目ではないという、検査を増やさない主要な約束の短い言い換え。"
+ },
+ "DES-364": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "旧target_execution検査項目を撤去しtarget_coverage fieldへ吸収するという、field改廃の設計決定。"
+ },
+ "DES-365": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hashes.targetsの記録順・canonical Locator表現を定める型・データ構造の宣言。"
+ },
+ "DES-366": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TargetRefの綴りをtarget identityとして記録しないという、field内容の設計規則。"
+ },
+ "DES-367": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hashes.targetsが宣言target集合と1対1対応するという整合規則。"
+ },
+ "DES-368": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Evidence生成preconditionからhashes.targets件数が導かれるという論理的帰結。"
+ },
+ "DES-369": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage.targetsがhashes.targetsと同順・同集合対応するという整合規則。"
+ },
+ "DES-370": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "target_coverage.checked:false時のfield値とNO_EVIDENCE/NOT_CHECKED扱いを定める型・診断対応規則。"
+ },
+ "DES-371": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerがhashes.test_subjectを必須出力するという契約。"
+ },
+ "DES-372": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Test construct単体hashをfreshness keyとしないという出力契約。"
+ },
+ "DES-373": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "rust-cargo限定で互換fieldを読み取れるという、reader側の互換処理契約。"
+ },
+ "DES-374": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "互換Test hashをtest_subjectへ正規化できる証明条件という精密な機構規定。"
+ },
+ "DES-375": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "証明不能時はrecord保持するが有効PASS証拠にしないという契約。"
+ },
+ "DES-376": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "中立fieldと互換fieldの同値必須・非rust-cargoでの互換field非解釈という契約。"
+ },
+ "DES-377": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "単数互換形をlistへ正規化できる条件という機構規定。"
+ },
+ "DES-378": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "複数target Testに単数互換形を適用しないという制約。"
+ },
+ "DES-379": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerは常にlist形を出力するという出力契約。"
+ },
+ "DES-380": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "Evidence内targetは実行時snapshotのkeyでTEST→SRC edgeの正典でないという、正典と派生データの分離原則。fieldの意味説明とも読める。"
+ },
+ "DES-381": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "graphはadapter所有のTest metadata宣言からのみ構築しEvidenceからedgeを生成しないという、正典と派生データを分離するデータフロー構造の決定（基本仕様§2.3引用）。"
+ },
+ "DES-382": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "execution_stateが§1.3のExecution State subjectであるという型の相互参照。"
+ },
+ "DES-383": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerが実行直前にsnapshot DTOを取得しcore検証後の値を記録するという、事前条件を伴うデータフロー契約。"
+ },
+ "DES-384": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "complete:trueを許可する条件（影響config漏れなく列挙）という精密な機構規定。"
+ },
+ "DES-385": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "snapshot不完全時のcomplete:false/hash:null扱いという契約。"
+ },
+ "DES-386": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "rust-cargo-execution-state-v1のmanifest対象範囲を列挙するadapter所有のschema定義。"
+ },
+ "DES-387": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "実行入力から除外する生成物領域を列挙するadapter所有のschema定義。"
+ },
+ "DES-388": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "除外領域経由の読込みを排除できない場合completeと報告しないという精密な機構規定。"
+ },
+ "DES-389": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "repository内helper変更もmanifest hashを変化させるという、機構に紐づく帰結。"
+ },
+ "DES-390": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "execution_stateを欠く互換recordをNO_EVIDENCE（STALE）とする、field欠落時の扱い契約。"
+ },
+ "DES-391": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "schema違反等をE-SCAN-010として扱うエラー伝播契約。"
+ },
+ "DES-392": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerがadapterを必須記録し保存前に整合検証するという契約。"
+ },
+ "DES-393": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerがadapter欠落を限定条件下でのみ互換Evidenceとして扱うという契約。"
+ },
+ "DES-394": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "確認不能→UNKNOWN、明示不一致→MISMATCHでいずれもPASS非昇格という、field名に縛られない条件→結果の精密な対応。"
+ },
+ "DES-395": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceDiscoveryAdapterの正規化出力fieldを列挙する型・インターフェース宣言。"
+ },
+ "DES-396": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "存在理由分類（旧role/anchor）を論理fieldに持たないという、schemaからの除去決定。"
+ },
+ "DES-397": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "全管理対象Testにcovers≥1を要求するという、基本仕様§12・要件定義§4.1を直接引く境界値付きの精密な約束。"
+ },
+ "DES-398": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "VO寄与はcovers宣言と証拠十分性判定だけから導出するという、field名に縛られない排他的な精密な約束。"
+ },
+ "DES-399": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "各Testに1件以上の検証対象を要求するという、基本仕様§9.1・要件定義§9.1を直接引く境界値付きの約束。"
+ },
+ "DES-400": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "検証対象は実装constructに限定しないという、語彙の意味を精密化する定義的記述。"
+ },
+ "DES-401": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "検証対象をSource Targetとして実現するか外部契約として実現するかは実行形態が定めるという、adapter裁量への委譲構造。精密な約束とも読める。"
+ },
+ "DES-402": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "chain_integrityがtargets≥1をadapter中立の必須リンクとしないという、検査範囲を限定する精密な約束（検査を増やさない原則の具体化）。"
+ },
+ "DES-403": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "targets[]の要求件数をadapterが定めるという、adapter capability委譲の構造決定。field宣言とも読める。"
+ },
+ "DES-404": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "唯一のadapter rust-cargoがtargets≥1を必須とするという、境界値付きの精密な外部的事実。"
+ },
+ "DES-405": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "非source境界形態の具体表現を後続adapter/版へ委譲し新schemaを設けないという、構造上のスコープ非拡張決定。"
+ },
+ "DES-406": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "coreはsource declarationの構文・配置を解釈しないという、adapterとcoreの分界そのもの。"
+ },
+ "DES-407": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "coreがadapter返却物を検証・統合するという、主要なデータの流れ・責務分担の構造記述。"
+ },
+ "DES-408": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "locatorの型TargetRef::Locator{adapter, value}を定義する型宣言（LAYERING.mdのSourceLocation例と同型）。"
+ },
+ "DES-409": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "coreはpath/module/symbol種別を分解しないという、adapterとcoreの分界。"
+ },
+ "DES-410": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "rust-cargoの@vtest.宣言表面が2種であるという、adapter所有構文の構造宣言。"
+ },
+ "DES-411": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Test constructのdoc commentが表面1でtest-annotation-lineを認識するという構文事実。"
+ },
+ "DES-412": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "対象実装関数のdoc commentが表面2でsource-target-annotation-lineを認識するという構文事実。"
+ },
+ "DES-413": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "test-annotation-lineの文法を定める、adapter所有の文法宣言。"
+ },
+ "DES-414": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "source-target-annotation-lineの文法を定める、adapter所有の文法宣言。"
+ },
+ "DES-415": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "test-keyの値域を列挙する、adapter所有の語彙宣言。"
+ },
+ "DES-416": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "source-target-keyの値域を列挙する、adapter所有の語彙宣言。"
+ },
+ "DES-417": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "valueの前後空白除去という、adapter所有の字句規則。"
+ },
+ "DES-418": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "annotation行は1行1キーという文法制約。"
+ },
+ "DES-419": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "covers/relatedがカンマ区切り複数指定可という文法規則。"
+ },
+ "DES-420": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "case/relatedはキー自体を複数行書けるという文法規則。"
+ },
+ "DES-421": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "case/related以外のキー重複をE-SCAN-005とするエラー伝播契約。"
+ },
+ "DES-422": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "kindがintegration系のTestに限りtargetの複数行を許容するという、文法上の例外規則（別紙A§14.3引用）。"
+ },
+ "DES-423": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "許容された複数target内でのTargetRef重複もE-SCAN-005とするエラー伝播契約。"
+ },
+ "DES-424": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "解決後に同一canonical Source Targetへ到達する複数宣言もcore解決時にE-SCAN-005とするエラー伝播契約。"
+ },
+ "DES-425": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "表面1の未知キー行をE-SCAN-006（打鍵ミス優先のためerror）とするエラー伝播契約。"
+ },
+ "DES-426": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "E-SCAN-006がsrc-idの誤配置も含むという適用範囲の明確化。"
+ },
+ "DES-427": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "表面2のsource-target-key欠落行をW-SCAN-105（warning）とするエラー伝播契約。"
+ },
+ "DES-428": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "表面2をwarningとする根拠（metadata破損なし・曖昧さなし）という設計上の理由付け。"
+ },
+ "DES-429": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "src-idは表面2でも反復不可でありE-SCAN-005とするエラー伝播契約。"
+ },
+ "DES-430": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "src-id重複時はいずれの値も採用せずSRC ID無しとする、fail-closedな扱い規則。"
+ },
+ "DES-431": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "@vtest.を含まない行を自由記述として無視するという構文規則。"
+ },
+ "DES-432": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "@vtest.src-idは対象実装側関数に付与し恒久SRC IDを宣言するという意味規定。"
+ },
+ "DES-433": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "scannerがsrc-id指定値を認識するが付与を必須としないという、基本仕様§9.2を引く精密な任意性の約束。field認識契約とも読める。"
+ },
+ "DES-434": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "rust-cargoのSource Target constructの範囲（属性・doc comment込みの関数item全体）とsrc-id宣言行の内包関係を定める設計規定。"
+ },
+ "DES-435": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "src-idの付与・変更・削除がSource Target hashを変化させるという、機構に紐づく帰結。"
+ },
+ "DES-436": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "表面2の打鍵ミスをW-SCAN-105、src-id重複をE-SCAN-005で検出し無音無視しないという要約規定。"
+ },
+ "DES-437": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "locator文法（path::item-path）を定める、adapter所有の文法宣言。"
+ },
+ "DES-438": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "pathの形式（相対パス・\"/\"区切り・.rs終端）を定める文法宣言。"
+ },
+ "DES-439": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "item-pathの形式（\"::\"区切り、impl内は型名::関数名）を定める文法宣言。"
+ },
+ "DES-440": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "pathとitem-pathを『.rsで終わる最初の::』で分離するという、具体的な解析手順（分離アルゴリズム）を固定した記述。"
+ },
+ "DES-441": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "locator値をTargetRef::Locator{adapter,value}へ正規化するという型マッピング宣言。"
+ },
+ "DES-442": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "@vtest.targetの値がSRC-始まりならSRC ID参照として返すという、値パターンに基づく意味付与規則。"
+ },
+ "DES-443": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "構文解析不能時にDiscovered Test化しManagedTestLink::Missingとするという、adapter側のエラー伝播契約。"
+ },
+ "DES-444": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreがchain_integrity=MISMATCH（診断MISSING）とし推測でVO関連付けしないという、状態導出・不変条件。"
+ },
+ "DES-445": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "構文上完全なTest Entityへ正規化できる条件（core必須metadata+adapter追加必須metadata）を定める形式的定義。"
+ },
+ "DES-446": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "rust-cargoがtargets≥1を追加必須metadataとして要求するという境界値付きの精密な約束（404と同旨）。"
+ },
+ "DES-447": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "必須metadata欠如時にE-SCAN-007・ManagedTestLink::Missingとするエラー伝播契約。"
+ },
+ "DES-448": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "E-SCAN-007がadapter報告の構文・必須metadata診断でありcore中立必須リンクへ加えないという、検査範囲の明確化。"
+ },
+ "DES-449": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "covers件数の可変制約を設けず一律covers≥1を要求するという、基本仕様§12を引く精密な約束（397と同旨）。"
+ },
+ "DES-450": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "VO ID解決不能時にManagedTestLink::One(id)を保持するという状態保持規則。"
+ },
+ "DES-451": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "E-SCAN-003とchain_integrity=MISMATCHはcoreの参照整合性検査が生成するという生成主体の規定。"
+ },
+ "DES-452": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "E-SCAN-003発生時もTest EntityとManagedTestLink::Oneを除去しないというデータ保持契約。"
+ },
+ "DES-453": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "VO参照解決とTest ID大局的一意性はcoreが検査するという、adapterとcoreの分界そのもの。"
+ },
+ "DES-454": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterがTest構文違反をE-SCAN-005/006/007で報告するという、具体エラーコードに紐づく責務契約。"
+ },
+ "DES-455": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "VO解決・ID一意性・target解決はcoreが参照整合性検査で判定するという、adapterとcoreの分界。"
+ },
+ "DES-456": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第1段の検証項目（adapter ID/capability宣言/config namespace/root）を列挙する段の入出力契約であり手順順序の主張ではない"
+ },
+ "DES-457": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "登録順でなくadapter ID順に呼び出すという呼び出し順序を明示的に固定しており別実装なら偽になる"
+ },
+ "DES-458": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第3段で検証する項目群を列挙する段の入出力契約"
+ },
+ "DES-459": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "capability宣言と出力が矛盾するbatchを拒否するという段内の契約"
+ },
+ "DES-460": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash計算後に具体化するという段の入出力契約とcovers≥1の一律要求"
+ },
+ "DES-461": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapter ID・path・locator・Test IDの順に正規化すると多フィールドの順序を明示的に固定している"
+ },
+ "DES-462": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第5段で検査する衝突種別を列挙する段の入出力契約"
+ },
+ "DES-463": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "第6段でvtest-storeが全レコードを読み込みスキーマ検証するという段の入出力契約（LAYERING.md PM仮置きのrust-cargo/第6段例と同型）"
+ },
+ "DES-464": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第7段で解決する参照整合性項目を列挙する段の入出力契約"
+ },
+ "DES-465": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第8段の機能を名指し詳細を§5.3/5.4/5.6へ委譲する段の入出力契約"
+ },
+ "DES-466": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "解析不能・不完全なbatch時に検証をUNKNOWNとし0件discoveryと扱わないという条件別の検証状態割当"
+ },
+ "DES-467": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.idの型宣言"
+ },
+ "DES-468": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.coversの型宣言と最小件数の不変条件"
+ },
+ "DES-469": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.targetsの型宣言"
+ },
+ "DES-470": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "targets件数をadapterへ委譲するという型契約"
+ },
+ "DES-471": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreがtargets≥1を中立必須にせず空を許容するという型の不変条件"
+ },
+ "DES-472": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.intentの型宣言"
+ },
+ "DES-473": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.inputの型宣言"
+ },
+ "DES-474": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.expectの型宣言"
+ },
+ "DES-475": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.kindの型宣言"
+ },
+ "DES-476": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.casesの型宣言"
+ },
+ "DES-477": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.relatedの型宣言"
+ },
+ "DES-478": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.locationの型宣言"
+ },
+ "DES-479": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.content_hashの型宣言（§1.3のTest subject hash）"
+ },
+ "DES-480": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestEntity.executionの型宣言"
+ },
+ "DES-481": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TargetRef::Locatorのvariant宣言"
+ },
+ "DES-482": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TargetRef::SrcIdのvariant宣言"
+ },
+ "DES-483": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceLocation.adapterの型宣言"
+ },
+ "DES-484": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceLocation.pathの型宣言"
+ },
+ "DES-485": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceLocation.locatorの型宣言（opaque construct locator）"
+ },
+ "DES-486": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceLocation.byte_rangeの型宣言"
+ },
+ "DES-487": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionDescriptor.adapterの型宣言"
+ },
+ "DES-488": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionDescriptor.projectの型宣言"
+ },
+ "DES-489": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionDescriptor.suiteの型宣言"
+ },
+ "DES-490": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionDescriptor.selectorの型宣言"
+ },
+ "DES-491": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestSuite.kindの型宣言"
+ },
+ "DES-492": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "TestSuite.nameの型宣言"
+ },
+ "DES-493": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "検証状態が5つのみという外部から見た約束を基本仕様/要件定義から引用して再掲。LAYERING.md PM仮置き「検証状態は5つのみ→spec」と同型"
+ },
+ "DES-494": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue::Passのvariant宣言"
+ },
+ "DES-495": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue::Failのvariant宣言"
+ },
+ "DES-496": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue::Mismatchのvariant宣言"
+ },
+ "DES-497": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue::NoEvidenceのvariant宣言"
+ },
+ "DES-498": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue::Unknownのvariant宣言"
+ },
+ "DES-499": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "診断ラベルと検証状態が別軸という外部から見た約束を基本仕様/要件定義から引用して再掲"
+ },
+ "DES-500": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiagnosticLabel::Missingのvariant宣言"
+ },
+ "DES-501": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiagnosticLabel::NotExecutedのvariant宣言"
+ },
+ "DES-502": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiagnosticLabel::NotCheckedのvariant宣言"
+ },
+ "DES-503": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiagnosticLabel::Staleのvariant宣言"
+ },
+ "DES-504": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "検査が4本のみという外部から見た約束を基本仕様/要件定義から引用して再掲。5状態と同型のPM仮置き対象"
+ },
+ "DES-505": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckItem::ChainIntegrityのvariant宣言"
+ },
+ "DES-506": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckItem::OrphanDetectionのvariant宣言"
+ },
+ "DES-507": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckItem::TargetBindingのvariant宣言"
+ },
+ "DES-508": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckItem::OraclePresenceのvariant宣言"
+ },
+ "DES-509": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValueとDiagnosticLabelという具体型の役割分担を定める契約"
+ },
+ "DES-510": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "集約の代表値選択が診断ラベルに依存しないという検証可能な受入条件・不変条件"
+ },
+ "DES-511": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CheckValue型が持たないvariantを定める型宣言（旧8値排除）"
+ },
+ "DES-512": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "SRC IDのrepository全体一意性という精密な制約。base-reportのSPEC-152/348と同内容"
+ },
+ "DES-513": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "衝突時のエラーコード割当という構成要素の契約（エラーの伝播方針）"
+ },
+ "DES-514": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "executionフィールドの意味論的合成を説明する型記述"
+ },
+ "DES-515": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "coreがadapter固有文字列を解釈しないというadapter/core分界の明示。base-reportのSPEC-283と同型"
+ },
+ "DES-516": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "core型の境界を定める型宣言。base-reportのSPEC-112と同型"
+ },
+ "DES-517": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "capabilityをどのcrateが定義するかというコンポーネント配置の決定"
+ },
+ "DES-518": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "codecとcore型の間のadapter/core分界の明示"
+ },
+ "DES-519": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "rust-cargo codecへの互換field所有権割当。base-reportのSPEC-168と同型のadapter/core分界"
+ },
+ "DES-520": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "JSON writerという構成要素の出力契約"
+ },
+ "DES-521": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerの出力契約の続き（非Rust Testでの互換field省略）"
+ },
+ "DES-522": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerの検証契約（executionと互換fieldの一致検証）"
+ },
+ "DES-523": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerの導出条件契約"
+ },
+ "DES-524": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerの拒否条件という事前条件契約"
+ },
+ "DES-525": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerの出力契約（targetsは常に1件以上のlist）"
+ },
+ "DES-526": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "writerの出力契約（単数互換field追加条件）"
+ },
+ "DES-527": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerの正規化・検証契約"
+ },
+ "DES-528": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "readerの禁止事項という契約（代表値選択の禁止）"
+ },
+ "DES-529": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterインターフェースの戻り値契約。base-reportのSPEC-297と同型"
+ },
+ "DES-530": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceFragment.locationの型宣言"
+ },
+ "DES-531": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceFragment.bytesの型宣言"
+ },
+ "DES-532": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.idの型宣言"
+ },
+ "DES-533": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.coversの型宣言"
+ },
+ "DES-534": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.targetsの型宣言"
+ },
+ "DES-535": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.intentの型宣言"
+ },
+ "DES-536": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.inputの型宣言"
+ },
+ "DES-537": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.expectの型宣言"
+ },
+ "DES-538": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.kindの型宣言"
+ },
+ "DES-539": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.casesの型宣言"
+ },
+ "DES-540": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.relatedの型宣言"
+ },
+ "DES-541": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraft.executionの型宣言"
+ },
+ "DES-542": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTestDraft.adapterの型宣言"
+ },
+ "DES-543": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTestDraft.locationの型宣言"
+ },
+ "DES-544": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTestDraft.constructの型宣言"
+ },
+ "DES-545": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTestDraft.metadata_sourcesの型宣言"
+ },
+ "DES-546": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTestDraft.managedの型宣言"
+ },
+ "DES-547": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::Missingのvariant宣言"
+ },
+ "DES-548": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::One(ManagedTestDraft)のvariant宣言"
+ },
+ "DES-549": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::Multiple(Vec<ManagedTestDraft>)のvariant宣言"
+ },
+ "DES-550": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceTargetDraft.targetの型宣言"
+ },
+ "DES-551": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceTargetDraft.src_idの型宣言"
+ },
+ "DES-552": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceTargetDraft.locationの型宣言"
+ },
+ "DES-553": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceTargetDraft.constructの型宣言"
+ },
+ "DES-554": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatch.adapterの型宣言"
+ },
+ "DES-555": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatch.completenessの型宣言"
+ },
+ "DES-556": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatch.discovered_testsの型宣言"
+ },
+ "DES-557": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatch.source_targetsの型宣言"
+ },
+ "DES-558": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatch.diagnosticsの型宣言"
+ },
+ "DES-559": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryCompleteness::Completeのvariant宣言"
+ },
+ "DES-560": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryCompleteness::Incompleteのvariant宣言"
+ },
+ "DES-561": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Source Target entityの定義（locatorと恒久SRC IDを併有する単一entity）"
+ },
+ "DES-562": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "LocatorとSrcIdが同一entityへの2つのaddressing modeという型variant間の意味関係"
+ },
+ "DES-563": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "恒久SRC IDの型としての意味論（optional permanent identity）"
+ },
+ "DES-564": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterの戻り値契約（src_idの設定）"
+ },
+ "DES-565": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "draft生成の不変条件（同一constructの複製禁止）"
+ },
+ "DES-566": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "SourceTargetDraft.targetの値に関する不変条件（§1.3）"
+ },
+ "DES-567": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "canonical targetとしてSrcIdを返してはならないという不変条件"
+ },
+ "DES-568": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapter出力の拒否条件（malformed adapter output、エラー伝播方針）"
+ },
+ "DES-569": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "src_idとtargetのフィールド分離という不変条件"
+ },
+ "DES-570": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreの索引構築契約（統合済みSRC索引）"
+ },
+ "DES-571": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash計算の入力範囲を定める型契約"
+ },
+ "DES-572": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash安定性・分裂しないことの帰結を説明する不変条件"
+ },
+ "DES-573": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "construct bytes内側に恒久SRC ID宣言を置くadapterでのhash変化条件（§1.3）"
+ },
+ "DES-574": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "573の帰結説明（sourceの実際の変化でありhash分裂ではない）"
+ },
+ "DES-575": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreの解決契約（統合済みSRC索引からcanonical Locatorへ）"
+ },
+ "DES-576": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "恒久SRC IDを持つSource Targetのaddressability不変条件"
+ },
+ "DES-577": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapter戻り値の不変条件（bytesとbyte_rangeの一致）"
+ },
+ "DES-578": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "hash対象データの範囲を定める契約（canonical logical metadata）"
+ },
+ "DES-579": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "materializationの入出力契約。hash計算はfield充足に必要な自然な依存関係であり手順の恣意的固定ではない"
+ },
+ "DES-580": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "draftが1件以上のmetadata_sourcesを持たなければならないという不変条件"
+ },
+ "DES-581": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "provenance欠落時のエラーコード割当（エラー伝播方針）"
+ },
+ "DES-582": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTest.adapterの型宣言"
+ },
+ "DES-583": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTest.locationの型宣言"
+ },
+ "DES-584": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTest.content_hashの型宣言"
+ },
+ "DES-585": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveredTest.managedの型宣言"
+ },
+ "DES-586": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestLink::Missingのvariant宣言"
+ },
+ "DES-587": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestLink::One(TestId)のvariant宣言"
+ },
+ "DES-588": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestLink::Multiple(Vec<TestId>)のvariant宣言"
+ },
+ "DES-589": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterインターフェース契約（認識した全draftを返す）"
+ },
+ "DES-590": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::One設定条件という不変条件（§4.1・§4.4）"
+ },
+ "DES-591": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "VO参照解決とTest ID大局的一意性をcoreが検査しadapterは検査しないというadapter/core分界の明示。base-reportのSPEC-283/284クラスタと同型"
+ },
+ "DES-592": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "materialization後の状態を定める不変条件（解決不能covers）"
+ },
+ "DES-593": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::Missingのvariant意味定義"
+ },
+ "DES-594": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ManagedTestDraftLink::Multipleのvariant意味定義"
+ },
+ "DES-595": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "core materialization後の型間対応関係を定める契約"
+ },
+ "DES-596": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "adapter APIを6種のcapability traitへどう分割するかというシステム構造の決定"
+ },
+ "DES-597": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterが提供するインターフェース契約（ID・languages・capabilities・config namespaceの宣言義務）"
+ },
+ "DES-598": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "registryコンポーネントの検証契約（宣言と実装の不一致・重複ID拒否）"
+ },
+ "DES-599": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "必須capability欠如時のエラーコード割当契約"
+ },
+ "DES-600": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "static解析/coverage欠落という特定条件から検証状態NO_EVIDENCEへの精密な割当。base-reportのSPEC-151型と同型"
+ },
+ "DES-601": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "runner欠落という特定条件から検証状態NO_EVIDENCEへの精密な割当"
+ },
+ "DES-602": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "解析限界という特定条件から検証状態UNKNOWNへの精密な割当"
+ },
+ "DES-603": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterインターフェースの戻り値契約（hash未計算DTO）"
+ },
+ "DES-604": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "CanonicalProjection型の定義と不変条件"
+ },
+ "DES-605": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionInputDraft.root_identityの型宣言"
+ },
+ "DES-606": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionInputDraft.root_relative_pathの型宣言"
+ },
+ "DES-607": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionInputDraft.kindの型宣言"
+ },
+ "DES-608": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionInputDraft.bytesの型宣言"
+ },
+ "DES-609": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.schema_idの型宣言"
+ },
+ "DES-610": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.schema_versionの型宣言"
+ },
+ "DES-611": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.completeの型宣言"
+ },
+ "DES-612": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.head_revisionの型宣言"
+ },
+ "DES-613": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.runner_kindの型宣言"
+ },
+ "DES-614": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.invocationの型宣言"
+ },
+ "DES-615": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.toolchain_identityの型宣言"
+ },
+ "DES-616": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.effective_configの型宣言"
+ },
+ "DES-617": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "ExecutionStateDraft.inputsの型宣言"
+ },
+ "DES-618": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "StaticAnalysisAdapterの永続化ルール（正典レコードを持たず都度計算）という構成要素契約。LAYERING-referenceの詳細設計定義が永続化ルールを明示"
+ },
+ "DES-619": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "coreのfreshness subject永続化ルールという契約"
+ },
+ "DES-620": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "起動前構築は実際の呼出し設定を反映させるための事前条件でありコード手順の恣意的固定ではない"
+ },
+ "DES-621": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "invocationフィールドの正規化・分離という型契約"
+ },
+ "DES-622": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "Evidence記録の事前条件（実行前後でsubjectが不変であること）という不変条件"
+ },
+ "DES-623": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "subject変化時のエラーコード割当契約"
+ },
+ "DES-624": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "有効性再評価の機構（DTO再構築とhash比較）を定める契約"
+ },
+ "DES-625": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterインターフェース契約（built-in kind集合とcompatibility matcherの宣言義務）"
+ },
+ "DES-626": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "detailed_spec",
+  "reason": "Form kindのrepository全体一意性という識別子の精密な制約。SPEC-106型と同型だが直接引用がなく境界は曖昧"
+ },
+ "DES-627": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "kind→adapter確定条件という解決契約"
+ },
+ "DES-628": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "重複・不一致・未知kindへのエラーコード割当と推測禁止という契約（エラー伝播方針として一体で扱う）"
+ },
+ "DES-629": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "読取り互換Formのowner補完条件という解決契約"
+ },
+ "DES-630": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "0件・複数件時の拒否とファイル不変更という契約"
+ },
+ "DES-631": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "matcherの決定論性・fallback禁止という不変条件"
+ },
+ "DES-632": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "document/VO/Relation/判断記録/承認記録/Evidenceも§3スキーマ対応structを定義するという型定義の存在宣言"
+ },
+ "DES-633": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "検証グラフをインメモリ構築し正典化しないという永続化方式の決定（派生データを独立正典にしない）。"
+ },
+ "DES-634": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "検証グラフのノード種別(DOC/VO/TEST/SRC)を列挙する型宣言。"
+ },
+ "DES-635": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "エッジ型DOC→DOCの意味とデータ由来を定めるフィールド宣言。"
+ },
+ "DES-636": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "エッジ型VO→DOCの意味・多重度(1:N)を定めるフィールド宣言。"
+ },
+ "DES-637": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "エッジ型VO→VOの意味を定めるフィールド宣言。"
+ },
+ "DES-638": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "エッジ型TEST→VOの意味とデータ由来を定めるフィールド宣言。"
+ },
+ "DES-639": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "エッジ型TEST→SRCの意味・多重度を定めるフィールド宣言。"
+ },
+ "DES-640": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "rel/由来の外部Relationをエッジとして持つという型宣言。"
+ },
+ "DES-641": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "グラフが保持する逆引きインデックスという保持状態の宣言。"
+ },
+ "DES-642": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "旧モデルのノード/エッジ型を持たないという型からの除外宣言（TestEntityフィールド否定の例と同型）。"
+ },
+ "DES-643": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "上流文書をすべて単一DOCノード型で表現し文書型固有ノードを設けないという構造決定。約束(spec)か構造決定かの境界は曖昧。"
+ },
+ "DES-644": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "関係型を単一へ潰さず意味論的増殖もさせないという約束（基本仕様側の同内容の言明と同種）。"
+ },
+ "DES-645": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-001のseverityと外部的意味（構文解析失敗・Incomplete）を精密に定義。"
+ },
+ "DES-646": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-002のseverityと外部的意味（Test ID重複）を精密に定義。"
+ },
+ "DES-647": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-003のseverityと外部的意味（covers参照先VO不在）を精密に定義。"
+ },
+ "DES-648": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-004のseverityと外部的意味（target解決不能）を精密に定義。"
+ },
+ "DES-649": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-005のseverityと外部的意味（重複不可field重複・複数targetの同一解決）を精密に定義。"
+ },
+ "DES-650": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-006のseverityと外部的意味（未知field）を精密に定義。"
+ },
+ "DES-651": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-007のseverityと外部的意味（必須metadata欠落の範囲）を精密に定義。"
+ },
+ "DES-652": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-008のseverityと外部的意味（VO parent不在・循環）を精密に定義。"
+ },
+ "DES-653": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-009のseverityと外部的意味（Relation dangling）を精密に定義。"
+ },
+ "DES-654": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-010のseverityと外部的意味（id/schema不一致・logical ID重複）を精密に定義。"
+ },
+ "DES-655": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-011のseverityと外部的意味（恒久SRC ID衝突）を精密に定義。"
+ },
+ "DES-656": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-012のseverityと外部的意味（文書鎖リンク切れ）を精密に定義。"
+ },
+ "DES-657": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-016のseverityと外部的意味（孤児document）を精密に定義。"
+ },
+ "DES-658": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-SCAN-101のseverityと外部的意味（unregistered test）を精密に定義。"
+ },
+ "DES-659": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-SCAN-102のseverityと外部的意味（孤立VO）を精密に定義。"
+ },
+ "DES-660": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-SCAN-103のseverityと外部的意味（中間VO直接参照の許容と警告）を精密に定義。"
+ },
+ "DES-661": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-SCAN-105のseverityと外部的意味（未知キーの打鍵ミス検出）を精密に定義。"
+ },
+ "DES-662": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-001のseverityと外部的意味（非正典statusフィールド）を精密に定義。"
+ },
+ "DES-663": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-002のseverityと外部的意味（Approval依存closure不一致）を精密に定義。"
+ },
+ "DES-664": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-003のseverityと外部的意味（judgment_kind欠落）を精密に定義。"
+ },
+ "DES-665": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-004のseverityと外部的意味（有効判断記録の食い違い）を精密に定義。"
+ },
+ "DES-666": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-005のseverityと外部的意味（supersedes解決不能・循環）を精密に定義。"
+ },
+ "DES-667": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "W-STORE-006のseverityと外部的意味（承認レコード値域外）を精密に定義。"
+ },
+ "DES-668": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "errorが検査を非PASSにするという診断severityから検証状態への精密な効果規定。"
+ },
+ "DES-669": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "warningは単独では検証値を変更しないという精密な効果規定（668と対の境界条件）。"
+ },
+ "DES-670": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "warningを常にレポート表示するという主要な振る舞いの約束（条件分岐を伴わない一般的機能記述）。"
+ },
+ "DES-671": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "ManagedTestLink::MissingからMISMATCH(診断MISSING)への精密な写像。"
+ },
+ "DES-672": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "Multiple/E-SCAN-002/003からMISMATCHへの精密な写像。"
+ },
+ "DES-673": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-003発生時もTest Entity・ManagedTestLink::Oneを除去しないという境界条件の精密な規定。"
+ },
+ "DES-674": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-008/009/012からMISMATCHへの精密な写像。"
+ },
+ "DES-675": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-016からorphan_detection=MISMATCHへの精密な写像。"
+ },
+ "DES-676": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "E-SCAN-011時の曖昧参照をMISMATCHとし候補を選択しないという精密な条件規定。"
+ },
+ "DES-677": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "曖昧候補の1件を解決結果として永続化しないという精密な禁止規定。"
+ },
+ "DES-678": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "衝突する恒久SRC ID宣言下でも各Source Targetを独立に保持するという精密な境界条件。"
+ },
+ "DES-679": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterがDiscoveryBatchを構築するという段の出力契約（LAYERING例と同型）。"
+ },
+ "DES-680": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "vtest-scanがRust固有処理を実行しないというadapter/core責務分界の明示。"
+ },
+ "DES-681": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "adapterが満たすべきtargets≥1という契約上の不変条件。"
+ },
+ "DES-682": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "targets≥1要求はadapter層所属でcore中立必須リンクでないという層帰属・構造分界の明示。"
+ },
+ "DES-683": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "targets欠落という条件からE-SCAN-007への精密な写像。"
+ },
+ "DES-684": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "本改訂でrust-cargoの挙動・Eコード・fixtureが実効的に不変という継続性の注記で、六層のいずれにも収まりにくい。"
+ },
+ "DES-685": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第1段（ファイル探索）の入出力宣言だが、`ignore`クレート使用という言語固有の実装手段を固定しており別実装なら嘘になる。"
+ },
+ "DES-686": {
+  "code_like": true,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第2段（構文解析）の入出力宣言だが、`syn::parse_file`という具体API呼び出しを固定しており別実装なら嘘になる。"
+ },
+ "DES-687": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第3段（モジュールパス構築）のデータ由来（crateルート・mod宣言）と出力を宣言する段の入出力契約。"
+ },
+ "DES-688": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "design",
+  "reason": "属性pathの末尾segment一致という抽出判定規則。adapter契約(design)か手順固定(code_like)か境界が曖昧。"
+ },
+ "DES-689": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第5段（metadata抽出）の入出力契約（文法自体は§4.2へ委譲し手順は書いていない）。"
+ },
+ "DES-690": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "第6段（Source Target抽出）の入出力契約（LAYERING自身の例と同一の段）。"
+ },
+ "DES-691": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "非Test construct宣言の条件からW-SCAN-105/E-SCAN-005への精密な写像。"
+ },
+ "DES-692": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "design",
+  "reason": "DiscoveryBatchが保持するフィールド一覧というDTO型宣言（hash未計算のadapter出力例と同型）。"
+ },
+ "DES-693": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "orphan_detectionが問う内容を定義する主要な振る舞い（基本仕様の同一定義の反復）。"
+ },
+ "DES-694": {
+  "code_like": false,
+  "confidence": "low",
+  "layer": "basic_design",
+  "reason": "config.yamlのdoc.rootsという具体的な設定ファイル・fieldで根を指定する仕組みの決定。basic_designかdetailed_spec（除外条件そのもの）か境界が曖昧。"
+ },
+ "DES-695": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "根指定を.verify/設定として保持するという永続化方式の決定。"
+ },
+ "DES-696": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "basic_design",
+  "reason": "`vtest doc`コマンドが根指定の追加・削除を管理するという名指しコマンドの責務定義。"
+ },
+ "DES-697": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "孤児と判定する条件（derives_from空・非参照・非root）を漏れなく列挙しE-SCAN-016へ写像する精密な検出規則。"
+ },
+ "DES-698": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "orphan_detectionの対象が文書層のみで実装レイヤー孤児検出を行わないというスコープ外の明示（OOS-005を直接引用）。"
+ },
+ "DES-699": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "spec",
+  "reason": "W-SCAN-102（孤立VO）を文書層orphan_detectionと別物として存置するというスコープ境界の明示（698と同種）。"
+ },
+ "DES-700": {
+  "code_like": false,
+  "confidence": "high",
+  "layer": "detailed_spec",
+  "reason": "存在しない根DOC ID参照という条件からE-CONFIG-001への精密な写像。"
+ }
+}
