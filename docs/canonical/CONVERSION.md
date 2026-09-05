@@ -76,13 +76,10 @@ Owner 裁定（2026-09-05、Issue #14 コメント）: 「あくまで derived_f
 ## 6.1 ビルド手順（2026-09-05、節ノード版）
 
 ```
-python docs/canonical/build.py build --repo-root .              # 断片 → 木（文書>節>小節>文）+ id
-python docs/canonical/build.py apply-derivation --write --repo-root .   # 文の辺（cites）と節の辺（導出表・トレーサビリティ表）を計算して書く
-python docs/canonical/build.py coverage                         # 行被覆
-python docs/canonical/build.py export                           # 層ごとの md
+python docs/canonical/build.py all      # = build → apply-derivation --write → coverage → export
 ```
 
-`build` 単独では `derived_from` は断片の値（空）に戻る。この4手順の結果は byte 再現する。層の移動は `relayer apply <mapping...>`（複数ファイルを1回で、基準は適用前の断片。分割適用は id がずれるので禁止）。
+`build` は断片から木（文書>節>小節>文）と id を作る。`apply-derivation --write` が文の辺（`cites`）と節の辺（`relations/trace-tables.json` の 247 行 = 要求→要件の導出表 111 + トレーサビリティ表 136）を計算して書く。**元 md は読まない**（見出しは各断片の `headings`、表は `relations/trace-tables.json` に保存済み。2026-09-05 a0ba70d）。md を読むのは移行期間の検査（coverage / qualifier-check / source-check / derivation-candidates）だけ。`build` 単独では `derived_from` は断片の値（空）に戻る。`all` の結果は byte 再現する。層の移動は `relayer apply <mapping...>`（複数ファイルを1回で、基準は適用前の断片。分割適用は id がずれるので禁止）。
 
 ## 7. ID の付番
 
