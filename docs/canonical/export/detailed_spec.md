@@ -1474,17 +1474,21 @@ Evidenceが存在しても鮮度が満たされないなら、同じ鮮度・対
 
 Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXECUTED）とする。
 
+### DS-279
+
+Evidence readerは、Rust実行と一意に確認できない場合は `UNKNOWN` とする。
+
 ## DS-S052 22 完全検証・集約・報告
 
 *導出元: REQ-S053*
 
 ### DS-S053 22.1 完全検証 OK
 
-### DS-279
+### DS-280
 
 完全検証におけるOKは、宣言鎖全体に対する検査（`chain_integrity` / `orphan_detection`）と、scopeに含まれる各「宣言＋コード＋証拠」の組に対する検査（`target_binding` / `oracle_presence`）がすべて `PASS` であり、テストランナーの結果を含む証拠が§6を満たす場合に限る。
 
-### DS-280
+### DS-281
 
 一項目でも `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` であればNGとする（fail-closed）。
 
@@ -1492,29 +1496,29 @@ Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXE
 
 *引用: 要件定義 §26.1、P-002*
 
-### DS-281
+### DS-282
 
 利用者向け簡易出力は `OK` / `NG` の二値とする。
 
-### DS-282
+### DS-283
 
 完全検証の検査集合はこの4検査に固定する。
 
-### DS-283
+### DS-284
 
 完全検証の検査集合は設定によって追加・削除できない。
 
-### DS-284
+### DS-285
 
 検査の部分集合を指定した実行は完全検証として表示・集約しない（§4.6）。
 
 ### DS-S054 22.2 集約
 
-### DS-285
+### DS-286
 
 集約はfail-closedを基本とする。
 
-### DS-286
+### DS-287
 
 子に1つでも非 `PASS` があれば親は非 `PASS` とする。
 
@@ -1522,45 +1526,45 @@ Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXE
 
 *引用: 要件定義 §26.3*
 
-### DS-287
+### DS-288
 
 集約時に複数の非 `PASS` 値が混在する場合、上位に表示する代表値の優先順位は `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とする。
 
-### DS-288
+### DS-289
 
 診断ラベルは代表値の順位に用いず、原因説明として併記する。
 
 ### DS-S055 22.3 報告
 
-### DS-289
+### DS-290
 
 簡易出力は総合OK / NGとする。
 
-### DS-290
+### DS-291
 
 `covers` を持つTestはVOの子として表示する。
 
-### DS-291
+### DS-292
 
 adapter能力の欠落・失敗を `PASS` へ補完しない。
 
-### DS-292
+### DS-293
 
 static解析またはcoverage能力がなければ該当項目は `NO_EVIDENCE`（診断NOT_CHECKED）とする。
 
-### DS-293
+### DS-294
 
 runner能力がなければ実行関連は `NO_EVIDENCE`（診断NOT_EXECUTED）とする。
 
-### DS-294
+### DS-295
 
 解析限界は `UNKNOWN` とする。
 
-### DS-295
+### DS-296
 
 create / edit / audit / run等の明示的操作に必須の能力がなければ操作を失敗させる。
 
-### DS-296
+### DS-297
 
 create / edit / audit / run等の明示的操作に必須の能力がなければファイル・判断記録・Evidenceを生成しない。
 
@@ -1572,79 +1576,79 @@ create / edit / audit / run等の明示的操作に必須の能力がなけれ�
 
 *導出元: REQ-S036, REQ-S050*
 
-### DS-297
+### DS-298
 
 Test IDの重複（identity collision）は `MISMATCH` とする。
 
-### DS-298
+### DS-299
 
 `covers` が存在しないVOを参照する場合（dangling reference）は `MISMATCH` とする。
 
-### DS-299
+### DS-300
 
 Test IDを宣言するが `covers` をどのVOも参照しないTest（orphan test）は `MISMATCH` とする。
 
-### DS-300
+### DS-301
 
 すべての管理対象Testに `covers ≥ 1` を一律要求する（§12）。
 
-### DS-301
+### DS-302
 
 VOのparentが存在しない、または循環している場合は `MISMATCH` とする。
 
-### DS-302
+### DS-303
 
 VOの `derives_from`（document参照）が存在しないdocumentを参照する場合は `MISMATCH` とする。
 
-### DS-303
+### DS-304
 
 documentのderives_fromが存在しないdocumentを参照する場合（文書鎖のリンク切れ）は `MISMATCH` とする。
 
-### DS-304
+### DS-305
 
 根に指定されない孤児document（`orphan_detection`）は `MISMATCH` とする。
 
-### DS-305
+### DS-306
 
 Relationのfrom / toが存在しないエンティティを参照する場合は `MISMATCH` とする。
 
-### DS-306
+### DS-307
 
 恒久SRC IDがadapter境界を越えて重複する場合は `MISMATCH` とする。
 
-### DS-307
+### DS-308
 
 必須Test metadataの欠落は `MISMATCH` とする。
 
-### DS-308
+### DS-309
 
 adapterがTestとして発見したが管理宣言を持たないconstruct（unregistered test）は診断severityをwarningとする。
 
-### DS-309
+### DS-310
 
 managed Test Entityへ対応しない事実は `chain_integrity`（`MISMATCH`/MISSING）へ反映する（§12）。
 
-### DS-310
+### DS-311
 
 エラーは検証結果に反映され、該当エンティティの検査を非 `PASS` にする。
 
-### DS-311
+### DS-312
 
 診断severityと検証状態を混同しない。
 
-### DS-312
+### DS-313
 
 content_hash照合は決定論的に解決する。
 
-### DS-313
+### DS-314
 
 content_hash照合は任意形式の文書本文から参照位置の存在を構文的に推測しない。
 
-### DS-314
+### DS-315
 
 参照位置の意味的妥当性・取り込み完全性は検査対象としない。
 
-### DS-315
+### DS-316
 
 参照位置の意味的妥当性・取り込み完全性は必要ならエスカレーション（§11）で扱う。
 
@@ -1654,25 +1658,25 @@ content_hash照合は任意形式の文書本文から参照位置の存在を�
 
 ### DS-S058 24.2 並列編集耐性の設計原則
 
-### DS-316
+### DS-317
 
 Relationレコードは不変とする。
 
-### DS-317
+### DS-318
 
 record / エンティティファイルの書込みは読み手に書きかけの部分状態を観測させない。
 
-### DS-318
+### DS-319
 
 並列編集耐性は「公開されたファイルは常に完全である」ことを前提とする。
 
-### DS-319
+### DS-320
 
 並列編集耐性では部分書込みの検出・修復は行わない。
 
 ### DS-S059 24.3 派生情報の再構築
 
-### DS-320
+### DS-321
 
 検証グラフ、逆引きインデックス、集約結果はすべて正典からの導出物である。
 
@@ -1682,41 +1686,41 @@ record / エンティティファイルの書込みは読み手に書きかけ�
 
 ### DS-S061 26.1 CLI コマンド体系
 
-### DS-321
+### DS-322
 
 終了コードは `0`＝要求scopeがOK、`1`＝検証NG、`2`＝入力・adapter前提・capability等による操作拒否、`3`＝内部エラーとする。
 
-### DS-322
+### DS-323
 
 フェーズゲートを指定した実行（§20）では、`0` / `1` は当該ゲートの充足・不充足を表す。
 
-### DS-323
+### DS-324
 
 ゲート充足は検証状態とは別軸の評価である。
 
-### DS-324
+### DS-325
 
 ゲート充足は検証状態を書き換えない。
 
-### DS-325
+### DS-326
 
 出力では検証状態とゲート満否を別に提示する。
 
-### DS-326
+### DS-327
 
 ゲート指定時の `0` を検証状態 `PASS` と読ませない。
 
-### DS-327
+### DS-328
 
 検証状態と内部エラーは終了コードで分離する（§4.4）。
 
-### DS-328
+### DS-329
 
 CIはこの終了コードのみで判定できる。
 
 ### DS-S062 26.2 MCP ツール体系
 
-### DS-329
+### DS-330
 
 すべてのツールは非対話で完結する。
 
@@ -1726,7 +1730,7 @@ CIはこの終了コードのみで判定できる。
 
 *導出元: R-2, R-3, REQ-S048*
 
-### DS-330
+### DS-331
 
 検証契約・ID・ハッシュ・Evidence・状態・集約の概念モデルは、言語およびtest runnerに依存しない。
 
@@ -1734,11 +1738,11 @@ CIはこの終了コードのみで判定できる。
 
 *引用: 要件定義 §21、R-3*
 
-### DS-331
+### DS-332
 
 共通契約は特定言語の構文・構造を必須としない。
 
-### DS-332
+### DS-333
 
 adapterが未登録・能力不足・解析不能の場合、検証結果を推測で `PASS` へ昇格してはならない。
 
@@ -1746,15 +1750,15 @@ adapterが未登録・能力不足・解析不能の場合、検証結果を推�
 
 *導出元: REQ-S052*
 
-### DS-333
+### DS-334
 
 文書層は§2.2の通りリンクとハッシュのみを扱う（OOS-001仕様書同士の品質監査）。
 
-### DS-334
+### DS-335
 
 文書内容の意味的良否を検証しない（OOS-001仕様書同士の品質監査）。
 
-### DS-335
+### DS-336
 
 不一致はどれを正とするか決めず状態として提示する（OOS-002修正方針決定。§4）。
 
@@ -1762,11 +1766,11 @@ adapterが未登録・能力不足・解析不能の場合、検証結果を推�
 
 *引用: P-001*
 
-### DS-336
+### DS-337
 
 Test Edit対象外の一般編集を管理しない（OOS-003通常ソースコード編集管理。§15.3）。
 
-### DS-337
+### DS-338
 
 フェーズのライフサイクル管理・工程遷移は責務外とする（OOS-004開発プロセス全体の管理。§20）。
 
@@ -1776,11 +1780,11 @@ Test Edit対象外の一般編集を管理しない（OOS-003通常ソースコ�
 
 *導出元: SPEC-S063*
 
-### DS-338
+### DS-339
 
 `git` が利用できない場合、リビジョンは特定できず、当該 Evidence はハッシュ束縛（revision 一致）を満たさないため `target_binding` の証拠として有効な `PASS` にならない（fail-closed）（§6）。
 
-### DS-339
+### DS-340
 
 `git` が利用できない場合の失効は独立検査ではなく診断ラベル `STALE` として説明する（§11.2）。
 
@@ -1788,11 +1792,15 @@ Test Edit対象外の一般編集を管理しない（OOS-003通常ソースコ�
 
 *導出元: SPEC-S002, SPEC-S007, SPEC-S026, SPEC-S027, SPEC-S051*
 
-### DS-340
+### DS-341
+
+canonical metadataの `targets` は宣言された `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しない。
+
+### DS-342
 
 canonical metadataの `targets` が宣言された `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しないことにより、Testの参照方法の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）はTest subject hashで捕捉される（§6.1.1）。
 
-### DS-341
+### DS-343
 
 検証対象は一般概念であり、このhashは検証対象をSource Targetとして実現した形態のidentity束縛であって、coreが「検証対象とは何か」をSource Targetに限定して定義するものではない（§1.3・§4.1）。
 
@@ -1800,11 +1808,23 @@ canonical metadataの `targets` が宣言された `TargetRef` の正規化値�
 
 *引用: 基本仕様 §9.1*
 
-### DS-342
+### DS-344
+
+恒久SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference経由でもhash inputへ入らない。
+
+### DS-345
+
+Evidence、検証は解決後のcanonical Source Targetのcanonical Locatorとhashへ束縛し、addressing modeごとに別subjectを作らない（§6.1）。
+
+### DS-346
 
 document recordの `content_hash` と実sourceが不一致ならsubject hashは現在有効な値として成立せず、`chain_integrity` の非 `PASS`（`MISMATCH`、診断 `STALE`）とする（§11.4）。
 
-### DS-343
+### DS-347
+
+静的解析結果は内容ハッシュに束縛された永続subjectを持たず、hash体系に静的解析専用のsubjectを設けない。
+
+### DS-348
 
 format変更を構文上の意味だけから同値とみなさず、正規化後のsource bytesが変化した場合は安全側でSTALEにする。
 
@@ -1814,31 +1834,31 @@ format変更を構文上の意味だけから同値とみなさず、正規化�
 
 *導出元: SPEC-S012, SPEC-S019, SPEC-S050, SPEC-S053*
 
-### DS-344
+### DS-349
 
 `config.yaml` の各adapterの `scan` 設定の `include` はテストコード走査パスであり、省略時はワークスペース全体を対象とする。
 
-### DS-345
+### DS-350
 
 `config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱うマクロ名を指定する。
 
-### DS-346
+### DS-351
 
 `config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、値は `llvm-cov` または `off` である。
 
-### DS-347
+### DS-352
 
 adapter IDの重複、同一adapter内のroot重複、未知adapter、無効なadapter設定はusage error（E-CONFIG-001）とする。
 
-### DS-348
+### DS-353
 
 異なるadapterが同じrootを共有することはpolyglot repositoryのために許可する。
 
-### DS-349
+### DS-354
 
 coreは未知のnamespaceや値をRust設定として解釈しない。
 
-### DS-350
+### DS-355
 
 `verify.full_scope` は利用者が完全検証を縮小する設定ではなく、基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）を列挙するconfig invariantである。
 
@@ -1846,61 +1866,61 @@ coreは未知のnamespaceや値をRust設定として解釈しない。
 
 *引用: 基本仕様 §5*
 
-### DS-351
+### DS-356
 
 version 2では、`verify.full_scope` の重複・未知項目・欠落・余剰をE-CONFIG-001で拒否する。
 
-### DS-352
+### DS-357
 
 version 1では、`verify.full_scope` のfield欠落を固定4検査として具体化し、重複または未知項目はE-CONFIG-001で拒否する。
 
-### DS-353
+### DS-358
 
 旧12項目の列挙（`spec_coverage` / `test_existence` 等）は現行invariantに違反するため、versionを問わずE-CONFIG-001とし、in-memory補完で受理しない。
 
-### DS-354
+### DS-359
 
 `--items` による明示的な部分集合だけを限定scopeとして扱い、項目指定を省略したCLI / MCP検証は常に固定4検査を評価する。
 
-### DS-355
+### DS-360
 
 いかなる設定値も完全検証の検査を4本未満へ縮退させない（§22.1）。
 
 *引用: 基本仕様 §4.6*
 
-### DS-356
+### DS-361
 
 config読込み時に次を検査し、いずれか違反があればE-CONFIG-001（終了コード2）として設定を受理せず、検証結果を生成しない。
 
-### DS-357
+### DS-362
 
 `gates` field自体の欠落と空listは「ゲート定義なし」として受理する。
 
-### DS-358
+### DS-363
 
 `--gate` を指定しない実行は、`gates` field自体の欠落と空listの影響を受けない。
 
-### DS-359
+### DS-364
 
 `--gate` に未定義名を指定した場合の扱いは §11.5 で定める。
 
-### DS-360
+### DS-365
 
 `gates[].name` は非空文字列であり、大文字小文字を区別した完全一致で重複してはならない。重複した場合はE-CONFIG-001（終了コード2）とする。
 
-### DS-361
+### DS-366
 
 `--gate <name>` の解決は `gates[].name` と同じ大文字小文字を区別した完全一致で行う（§11.5）。
 
-### DS-362
+### DS-367
 
 `gates[].require` は必須とする。欠落はE-CONFIG-001（終了コード2）とする。
 
-### DS-363
+### DS-368
 
 `gates[].require` の `verification` は必須とする。欠落はE-CONFIG-001（終了コード2）とする。
 
-### DS-364
+### DS-369
 
 `require.verification` の値は、基本仕様 §4.1 の5状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）のいずれかと大文字小文字を区別して完全一致しなければならない。
 
@@ -1908,39 +1928,39 @@ config読込み時に次を検査し、いずれか違反があればE-CONFIG-00
 
 *引用: 基本仕様 §4.1*
 
-### DS-365
+### DS-370
 
 診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）、`OK` / `NG`、旧12項目名、5状態の小文字表記・別綴り、list・objectなどの非文字列値を `require.verification` に指定した場合はすべてE-CONFIG-001（終了コード2）とする。
 
-### DS-366
+### DS-371
 
 5状態のうち `PASS` 以外を要求する `require.verification` の定義自体は受理し、充足判定の意味は §11.5 で定める。
 
-### DS-367
+### DS-372
 
 `require.approvals` は省略可能とし、省略は「要求する承認ロールなし（空集合）」として受理する。
 
-### DS-368
+### DS-373
 
 `require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名はE-CONFIG-001（終了コード2）とする。
 
-### DS-369
+### DS-374
 
 `require.approvals` のロール名が `approval_roles` に解決できない場合もE-CONFIG-001（終了コード2）とする。
 
 *引用: 別紙A §12.3*
 
-### DS-370
+### DS-375
 
 非Rust namespaceの値をcoreがRust設定として推測・書換えしてはならない。
 
 ## DS-S070 3. レコードファイルスキーマ
 
-### DS-371
+### DS-376
 
 レコードの未知フィールドはエラーではなく警告とする。
 
-### DS-372
+### DS-377
 
 `id` とファイル名（拡張子除く）は一致しなければならない。
 
@@ -1948,19 +1968,19 @@ config読込み時に次を検査し、いずれか違反があればE-CONFIG-00
 
 *導出元: SPEC-S008, SPEC-S009, SPEC-S044*
 
-### DS-373
+### DS-378
 
 document レコードの `title` fieldは任意の表示名である。
 
-### DS-374
+### DS-379
 
 document レコードの `derives_from` fieldは上流documentへの導出リンクであり、0件も許容する（0件は根候補を意味する）。
 
-### DS-375
+### DS-380
 
 document レコードの `derives_from` entryの `anchor` fieldは任意の上流該当箇所（節番号等）であり、空も許容し、`chain_integrity` の `MISMATCH` としない。
 
-### DS-376
+### DS-381
 
 document レコードの `derives_from` entryの `note` fieldは任意の導出理由であり、空も許容し、`chain_integrity` の `MISMATCH` としない。
 
@@ -1968,7 +1988,7 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 *引用: 基本仕様 §3.4*
 
-### DS-377
+### DS-382
 
 各 `derives_from` entryの `note`（導出理由・説明文）は任意であり、空でも `chain_integrity` 違反・`MISMATCH` としてはならない（§19）。
 
@@ -1976,7 +1996,7 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 *引用: 基本仕様 §3.4*
 
-### DS-378
+### DS-383
 
 各 `derives_from` entryの `anchor`（参照先document内の該当箇所を指す文字列。節番号・条項番号・見出し等）は任意であり、欠落・空文字列を `chain_integrity` 違反・`MISMATCH` としてはならない（§19）。
 
@@ -1984,31 +2004,31 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 *引用: 基本仕様 §3.4*
 
-### DS-379
+### DS-384
 
 `anchor` の値は不透明な文字列として保存・出力するだけであり、本システムは `anchor` を `path` の実ファイル内位置へ解決せず、実在・一意性・書式を検証しない。
 
-### DS-380
+### DS-385
 
 `anchor` の内容不一致を検出する検査・診断コードは存在しない。
 
-### DS-381
+### DS-386
 
 同一 `doc` を指す複数entryを `anchor` 違いで持つことを許容し、重複としない。
 
-### DS-382
+### DS-387
 
 `anchor` だけの変更は `path` の実ファイルを変えないため `content_hash` を変化させないが、document subject hashを変化させるため、当該documentを上流依存closureに含む判断記録・承認は失効する（§3.5・§8.5）。
 
-### DS-383
+### DS-388
 
 `derives_from` の参照先documentが存在しない場合は、文書鎖のリンク切れとして `chain_integrity` の `MISMATCH` とする。
 
-### DS-384
+### DS-389
 
 `path` の実ファイルが `content_hash` と一致しなくなった場合は `chain_integrity` の `MISMATCH`（診断 `STALE`）とする（§11.4）。
 
-### DS-385
+### DS-390
 
 `derives_from` が空のdocumentは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。
 
@@ -2016,7 +2036,7 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 *導出元: SPEC-S009, SPEC-S030*
 
-### DS-386
+### DS-391
 
 VO レコードの `derives_from` fieldは1件以上のdocumentへの直結を表す。
 
@@ -2024,35 +2044,35 @@ VO レコードの `derives_from` fieldは1件以上のdocumentへの直結を�
 
 *引用: 基本仕様 §3.2*
 
-### DS-387
+### DS-392
 
 VO レコードの `derives_from` entryの `anchor` fieldは任意の上流該当箇所（節番号等）であり、空も許容し、`chain_integrity` 違反・`MISMATCH` としない。
 
-### DS-388
+### DS-393
 
 VO レコードの `derives_from` entryの `note` fieldは任意であり、空も許容し、`chain_integrity` 違反・`MISMATCH` としない。
 
-### DS-389
+### DS-394
 
 VO レコードの `dimensions` fieldは検証軸であり、任意である（§3.2.1）。
 
-### DS-390
+### DS-395
 
 VO レコードの `representative_cases` fieldは代表入力値であり、任意である。
 
-### DS-391
+### DS-396
 
 VOは1件以上の `document` から `derives_from` で導出される。
 
-### DS-392
+### DS-397
 
 `derives_from` の参照先documentが存在しなければ、`chain_integrity` の `MISMATCH`（dangling reference。E-SCAN-003相当はE-SCAN-012）とする（§5.4）。
 
-### DS-393
+### DS-398
 
 VOの `derives_from` entryもdocumentレコードと同じく任意の `anchor`（参照先document内の該当箇所を指す不透明な文字列。節番号・条項番号・見出し等）と任意の `note` を持つ。
 
-### DS-394
+### DS-399
 
 VOの `derives_from` entryの `anchor` / `note` の欠落・空文字列は `chain_integrity` 違反・`MISMATCH` としない（§19）。
 
@@ -2060,27 +2080,31 @@ VOの `derives_from` entryの `anchor` / `note` の欠落・空文字列は `cha
 
 *引用: 基本仕様 §3.4*
 
-### DS-395
+### DS-400
 
 本システムはVOの `anchor` を文書内位置へ解決せず、実在・一意性・書式を検証せず、内容不一致を検出する検査を持たない。
 
-### DS-396
+### DS-401
 
 同一 `doc` を `anchor` 違いで複数entryとして持つことを許容し、重複としない。
 
-### DS-397
+### DS-402
+
+`anchor` と `note` はVO subject hashの入力に含まれない（VO subject hashは `derives_from` の参照先document ID集合を束縛する）（§1.3）。
+
+### DS-403
 
 `anchor` だけの変更でVOの承認・判断記録は失効しない。
 
-### DS-398
+### DS-404
 
 参照先document集合そのものの変更はVOの承認・判断記録を従来どおり失効させる。
 
-### DS-399
+### DS-405
 
 readerは読取り互換fieldとして `status` を受理するが、実効判定とVO subject hashでは無視し、存在自体をW-STORE-001として通知する。
 
-### DS-400
+### DS-406
 
 互換field値と導出値が異なる場合も導出値だけを使用する。
 
@@ -2088,75 +2112,75 @@ readerは読取り互換fieldとして `status` を受理するが、実効判�
 
 *導出元: SPEC-S030*
 
-### DS-401
+### DS-407
 
 `independent-axes` はpartitionごとに1子VOを生成する（上例では2+4=6件）。
 
-### DS-402
+### DS-408
 
 `full-product` は直積ごとに1子VOを生成する（上例では8件）。
 
-### DS-403
+### DS-409
 
 `explicit` は `combinations` フィールドに列挙された組合せのみを生成する。
 
-### DS-404
+### DS-410
 
 生成される子VOのIDは `VO-X-<PARTITION>`（直積は `VO-X-<P1>-<P2>`）を既定とする。
 
-### DS-405
+### DS-411
 
 子VO IDのsuffixはpartition値を大文字化した文字列とし、複数軸のsuffixは `dimensions` の宣言順に連結する。
 
-### DS-406
+### DS-412
 
 子VO ID生成は `combinations` entry内の記述順・map key順には依存しない。
 
-### DS-407
+### DS-413
 
 実体化後は通常のVOとして扱われるため、`chain_integrity` のleaf VO → Test検査は「leaf VOにcoversするTestが存在するか」だけを見ればよい。
 
-### DS-408
+### DS-414
 
 `combinations` の各entryはdimension名→partition値のmapとし、`dimensions` に宣言された全軸をちょうど1回ずつ持つ。
 
-### DS-409
+### DS-415
 
 上例の `explicit` 実体化は `VO-X-POSITIVE-DIV` と `VO-X-NEGATIVE-DIV` の2件を生成する。
 
-### DS-410
+### DS-416
 
 `vo expand` は子VOを1件も生成せず、部分生成もしない。
 
-### DS-411
+### DS-417
 
 `coverage_policy: explicit` かつ `combinations` が欠落、`null`、または空listである場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-412
+### DS-418
 
 `coverage_policy: explicit` かつ `dimensions` が空である場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-413
+### DS-419
 
 `combinations` が空listでないのに `coverage_policy` が `explicit` 以外（`independent-axes` / `full-product` / `null`）である場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-414
+### DS-420
 
 entryが `dimensions` に宣言されていないdimension名を含む場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-415
+### DS-421
 
 entryのpartition値が当該dimensionの `partitions` に列挙されていない場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-416
+### DS-422
 
 entryが宣言済みdimensionのいずれかを欠く、または同じdimension名を2回以上持つ場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-417
+### DS-423
 
 同一の（dimension名→partition値）対応を持つentryが2件以上ある（重複tuple）場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。
 
-### DS-418
+### DS-424
 
 `combinations` の変更は当該VOの承認を失効させる（§3.5）。
 
@@ -2164,23 +2188,23 @@ entryが宣言済みdimensionのいずれかを欠く、または同じdimension
 
 *導出元: SPEC-S006, SPEC-S009*
 
-### DS-419
+### DS-425
 
 Relationレコードの `from` fieldは任意のエンティティIDである。
 
-### DS-420
+### DS-426
 
 Relationレコードの `note` fieldは任意の説明文である。
 
-### DS-421
+### DS-427
 
 canonical Relation IDは `REL-` と26文字のULID payloadからなる。
 
-### DS-422
+### DS-428
 
 prefixed / bareの混在、ファイル名と `id` のpayload不一致、または同じpayloadの複数recordはE-SCAN-010とし、いずれかを選ばない。
 
-### DS-423
+### DS-429
 
 `from` / `to` の存在はスキャン時に検査し、不在はE-SCAN-009、`chain_integrity` の `MISMATCH` とする。
 
@@ -2188,91 +2212,95 @@ prefixed / bareの混在、ファイル名と `id` のpayload不一致、また�
 
 *導出元: REQ-S035, SPEC-S034*
 
-### DS-424
+### DS-430
 
 判断記録は actor / subject / decision / judgment_kind を必須項目とする。
 
-### DS-425
+### DS-431
 
 判断記録の理由・根拠は任意とする。
 
-### DS-426
-
-判断記録の `judgment_kind` fieldは判断型であり、必須とする（§8.1）。
-
-### DS-427
-
-判断記録の `supersedes` fieldは明示に置き換える旧判断記録のULID listであり、既定は空listとする（§8.5）。
-
-### DS-428
-
-判断記録の `dependencies` fieldは判断時点の上流依存closureであり、完全一致を要求する。
-
-### DS-429
-
-判断記録の `actor` fieldは誰が判断したかを表し、必須とする。
-
-### DS-430
-
-判断記録の `actor` の `model` fieldはagentの場合任意とする。
-
-### DS-431
-
-判断記録の `decision` fieldはどう判断したかを表し、必須とする。値の妥当性は §8.4 で定める。
-
 ### DS-432
 
-判断記録の `reason` fieldは理由・根拠・evidence noteであり、任意とし、空でも無効化しない。
+判断記録は依存closureのハッシュに束縛される。
 
 ### DS-433
 
-判断記録の `exclusions` fieldは対象外とした範囲であり、任意とする。
+判断記録の `judgment_kind` fieldは判断型であり、必須とする（§8.1）。
 
 ### DS-434
 
-理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
-
-*引用: 基本仕様 §11.3, 要件定義 §12*
+判断記録の `supersedes` fieldは明示に置き換える旧判断記録のULID listであり、既定は空listとする（§8.5）。
 
 ### DS-435
 
-`reason` / `exclusions` はoptionalである。
+判断記録の `dependencies` fieldは判断時点の上流依存closureであり、完全一致を要求する。
 
 ### DS-436
 
-同一対象への判断記録は複数存在してよい（再判断・多重判断）。
+判断記録の `actor` fieldは誰が判断したかを表し、必須とする。
 
 ### DS-437
 
-判断記録の有効性判定と実効判断の決定は §8.5 に従う。
+判断記録の `actor` の `model` fieldはagentの場合任意とする。
 
 ### DS-438
 
-実効判断は `subject` 単独ではなく `(subject, judgment_kind)` の組ごとに独立に決まり、判断型の異なる判断記録どうしは競合しない（§8.5）。
+判断記録の `decision` fieldはどう判断したかを表し、必須とする。値の妥当性は §8.4 で定める。
 
 ### DS-439
 
-`judgment_kind` を欠くか §8.1 の値域外の判断記録は、履歴として保持するがいずれの `(subject, judgment_kind)` の実効判断へも寄与させず、W-STORE-003を出す。
+判断記録の `reason` fieldは理由・根拠・evidence noteであり、任意とし、空でも無効化しない。
 
 ### DS-440
 
-`supersedes` に列挙する各ULIDは、同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指さなければならない。提出時の検証は §8.4、読取り時の扱いは §8.5 に従う。
+判断記録の `exclusions` fieldは対象外とした範囲であり、任意とする。
 
 ### DS-441
 
-`supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効判断の決定に用いない（§3.3）。
+理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない。
+
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
+
+*引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DS-442
 
-`subject` の `target` 参照は §6.1 で解決したcanonical Source Targetのcanonical Locatorとし、解決できないtargetを任意の候補で埋めない（§6.1.1）。
+`reason` / `exclusions` はoptionalである。
 
 ### DS-443
 
+同一対象への判断記録は複数存在してよい（再判断・多重判断）。
+
+### DS-444
+
+判断記録の有効性判定と実効判断の決定は §8.5 に従う。
+
+### DS-445
+
+実効判断は `subject` 単独ではなく `(subject, judgment_kind)` の組ごとに独立に決まり、判断型の異なる判断記録どうしは競合しない（§8.5）。
+
+### DS-446
+
+`judgment_kind` を欠くか §8.1 の値域外の判断記録は、履歴として保持するがいずれの `(subject, judgment_kind)` の実効判断へも寄与させず、W-STORE-003を出す。
+
+### DS-447
+
+`supersedes` に列挙する各ULIDは、同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指さなければならない。提出時の検証は §8.4、読取り時の扱いは §8.5 に従う。
+
+### DS-448
+
+`supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効判断の決定に用いない（§3.3）。
+
+### DS-449
+
+`subject` の `target` 参照は §6.1 で解決したcanonical Source Targetのcanonical Locatorとし、解決できないtargetを任意の候補で埋めない（§6.1.1）。
+
+### DS-450
+
 判断記録の受理は当該対象の検証状態（§4.1の5状態）を昇格させない（§8.3）。
 
-*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 基本仕様 §11.3*
 
@@ -2280,75 +2308,79 @@ prefixed / bareの混在、ファイル名と `id` のpayload不一致、また�
 
 *導出元: REQ-S046, SPEC-S016, SPEC-S043, SPEC-S066*
 
-### DS-444
+### DS-451
 
 承認済みを理由に非 `PASS` を `PASS` へ昇格させない。
 
-### DS-445
+### DS-452
 
 未承認を理由に `PASS` を降格させない。
 
-### DS-446
+### DS-453
 
 `judgment_ref` が指す判断記録が存在しない場合は、書込み時にE-APPROVAL-001として拒否する。既存レコードとして読み取った場合は当該レコードからVO / documentの実効承認も判断記録の実効承認も導出しない（W-STORE-006）。
 
-### DS-447
+### DS-454
 
 判断記録ULIDを `subject` に持つ承認レコードは、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。
 
-### DS-448
+### DS-455
 
 VO ID・document IDのいずれにも解決しない `subject`（Test ID、Source Target locator、Relation ID等）も、判断記録ULIDを `subject` に持つ承認レコードと同じ扱いとする。
 
-### DS-449
-
-document dependencyはdocument subject hashを使用するため、document recordまたは参照先sourceの変更で承認が失効する（§1.3）。
-
-### DS-450
-
-`approved_state` が値域外の他の値の場合、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。
-
-### DS-451
-
-`approved_state` の値 `approved` は、この内容で進めることを認めたこと（承認）を意味する。
-
-### DS-452
-
-`approved_state` の値 `rejected` は、この内容で進めることを認めないこと（却下）を意味する。
-
-### DS-453
-
-`approved_state` の値 `withdrawn` は、先に与えた承認を取り消したこと（承認取消）を意味する。
-
-### DS-454
-
-参照先を解決できない、対象が一致しない、または自己参照する `supersedes` entryを含むレコードは、書込み時にE-APPROVAL-002として拒否する。
-
-### DS-455
-
-既存レコードとして読み取った場合、およびsupersede関係が循環する場合は、当該レコードを実効集合へ寄与させずW-STORE-005を出す。
-
 ### DS-456
 
-承認レコードの `supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効承認の決定に用いない（§3.3）。
+いずれの種別でも対象自身は `subject_hash` で束縛するため `dependencies` へ重複して含めない。
 
 ### DS-457
 
-`approved_at` / ULIDの順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。
+document dependencyはdocument subject hashを使用するため、document recordまたは参照先sourceの変更で承認が失効する（§1.3）。
 
 ### DS-458
 
-検証状態（§4.1の5状態）の変化、判断記録の追加そのもの、`basis` の内容は、実効承認状態を変えない。
+`approved_state` が値域外の他の値の場合、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。
 
 ### DS-459
 
-依存entryを持たない互換Approvalは読取りと履歴表示だけを許可し、現在の `approved` を導出しない。W-STORE-002を出し、対象は `draft` 相当とする。
+`approved_state` の値 `approved` は、この内容で進めることを認めたこと（承認）を意味する。
 
 ### DS-460
 
-承認記録は「誰が（approver）」「何を（subjectまたはjudgment reference）」「どの承認状態か（approved_state）」を必須項目として追跡可能とし、根拠は任意に記録できる。
+`approved_state` の値 `rejected` は、この内容で進めることを認めないこと（却下）を意味する。
 
 ### DS-461
+
+`approved_state` の値 `withdrawn` は、先に与えた承認を取り消したこと（承認取消）を意味する。
+
+### DS-462
+
+参照先を解決できない、対象が一致しない、または自己参照する `supersedes` entryを含むレコードは、書込み時にE-APPROVAL-002として拒否する。
+
+### DS-463
+
+既存レコードとして読み取った場合、およびsupersede関係が循環する場合は、当該レコードを実効集合へ寄与させずW-STORE-005を出す。
+
+### DS-464
+
+承認レコードの `supersedes` はRelationとは独立であり、`type: supersedes` のRelationレコードは実効承認の決定に用いない（§3.3）。
+
+### DS-465
+
+`approved_at` / ULIDの順序、レコードの新旧、件数の多寡のいずれも、採用する承認レコードを選ぶ規則に用いてはならない。
+
+### DS-466
+
+検証状態（§4.1の5状態）の変化、判断記録の追加そのもの、`basis` の内容は、実効承認状態を変えない。
+
+### DS-467
+
+依存entryを持たない互換Approvalは読取りと履歴表示だけを許可し、現在の `approved` を導出しない。W-STORE-002を出し、対象は `draft` 相当とする。
+
+### DS-468
+
+承認記録は「誰が（approver）」「何を（subjectまたはjudgment reference）」「どの承認状態か（approved_state）」を必須項目として追跡可能とし、根拠は任意に記録できる。
+
+### DS-469
 
 承認主体は種別（`human` / `agent`）と識別子を記録する。
 
@@ -2356,11 +2388,11 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 *導出元: SPEC-S022, SPEC-S051*
 
-### DS-462
+### DS-470
 
 `result` はテストランナー（判定権威）が報告した合否をそのまま記録する（§7）。
 
-### DS-463
+### DS-471
 
 本システムは合否を再判定せず、`result` を `target_binding` の証拠として消費する。
 
@@ -2368,7 +2400,7 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 *引用: 基本仕様 §7*
 
-### DS-464
+### DS-472
 
 有効なEvidenceの `result: FAIL` は `target_binding = FAIL`（テストランナーが失敗を報告）へ至る（§11.2）。
 
@@ -2376,23 +2408,23 @@ document dependencyはdocument subject hashを使用するため、document reco
 
 *引用: 要件定義 §5.3*
 
-### DS-465
+### DS-473
 
 `target_coverage.checked: false` では `method` と `result` をnull、`targets` を空listとし、`target_binding` の動的計測を `NO_EVIDENCE`（診断 `NOT_CHECKED`）として扱う（§11.2）。
 
-### DS-466
+### DS-474
 
 repository内helperだけの変更もmanifest hashを変化させる。
 
-### DS-467
+### DS-475
 
 Evidence readerは `execution_state` を欠く互換recordを履歴表示できるが、現在のEvidence freshnessを証明できないため `NO_EVIDENCE`（診断 `STALE`）とする。
 
-### DS-468
+### DS-476
 
 schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾はE-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。
 
-### DS-469
+### DS-477
 
 確認不能は `UNKNOWN`、明示adapterの不一致は `MISMATCH` とし、いずれも `PASS` へ昇格しない。
 
@@ -2402,19 +2434,19 @@ schema違反、target entryの欠落・重複・余剰、またはaggregate resu
 
 *導出元: REQ-S026, SPEC-S007, SPEC-S027, SPEC-S028, SPEC-S035*
 
-### DS-470
+### DS-478
 
 すべての管理対象Testに `covers ≥ 1` を一律に要求する。
 
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §12, 要件定義 §4.1*
 
-### DS-471
+### DS-479
 
 VOへの寄与は `covers` 宣言と証拠の十分性判定だけから導出する。
 
-### DS-472
+### DS-480
 
 検証対象は一般概念であり、adapter中立coreは各管理対象Testに1件以上の検証対象を要求する。
 
@@ -2422,19 +2454,19 @@ VOへの寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 *引用: 基本仕様 §9.1, 要件定義 §9.1*
 
-### DS-473
+### DS-481
 
 検証対象は「そのTestが検証成立性を証明しようとする対象＝宣言された『何の時にどうなる』の主語」であって、実装constructに限定しない。
 
-### DS-474
+### DS-482
 
 coreの `chain_integrity` は「検証対象をSource Targetとして実現し `targets ≥ 1` を宣言すること」をadapter中立の必須リンクとしない（coreのTest層必須はTest ID・`covers ≥ 1`・その他の必須metadata）（§11.1.1）。
 
-*導出元: SPEC-057, SPEC-058, SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: SPEC-057, SPEC-058, SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §5.1, 基本仕様 §12*
 
-### DS-475
+### DS-483
 
 v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実現し `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。
 
@@ -2442,97 +2474,97 @@ v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実
 
 *導出元: SPEC-S035, SPEC-S066*
 
-### DS-476
+### DS-484
 
 `rust-cargo` の `@vtest.` 宣言表面は2種であり、表面ごとに認識する行形式が異なる。
 
-### DS-477
+### DS-485
 
 Test constructのdoc comment（`///` または `/** */`）は表面1であり、test-annotation-lineを認識する。
 
-### DS-478
+### DS-486
 
 Test constructではない関数itemのdoc comment（対象実装側の関数等）は表面2であり、source-target-annotation-lineを認識する。
 
-### DS-479
+### DS-487
 
 test-annotation-lineの文法は `"@vtest." test-key SP value` である。
 
-### DS-480
+### DS-488
 
 source-target-annotation-lineの文法は `"@vtest." source-target-key SP value` である。
 
-### DS-481
+### DS-489
 
 test-keyの値域は `id` / `covers` / `target` / `intent` / `input` / `expect` / `kind` / `case` / `related` である。
 
-### DS-482
+### DS-490
 
 source-target-keyの値域は `src-id` である。
 
-### DS-483
+### DS-491
 
 valueは行末までのテキストとし、前後空白は除去する。
 
-### DS-484
+### DS-492
 
 annotation行は1行1キーとする。
 
-### DS-485
+### DS-493
 
 `covers` と `related` の値はカンマ区切りで複数指定できる。
 
-### DS-486
+### DS-494
 
 `case` と `related` はキー自体を複数行書ける。
 
-### DS-487
+### DS-495
 
 `case` と `related` 以外のキーの重複はエラーE-SCAN-005とする。
 
-### DS-488
+### DS-496
 
 ただし `kind` がintegration系のTestに限り、`target` の複数行を許容する。
 
 *引用: 別紙A §14.3*
 
-### DS-489
+### DS-497
 
 許容された複数 `target` 内でも同じTargetRefの重複はE-SCAN-005とする。
 
-### DS-490
+### DS-498
 
 綴りが異なっても解決後に同一canonical Source Targetへ到達する複数宣言（同じSource Targetへのlocator参照とSRC ID参照の併記等）も、coreが解決時にE-SCAN-005とする（§6.1.1）。
 
-### DS-491
+### DS-499
 
 表面1で、`@vtest.` で始まるがtest-keyを持たない行はエラーE-SCAN-006とする（打鍵ミスの検出を優先し、警告ではなくエラーとする）。
 
-### DS-492
+### DS-500
 
 表面1のE-SCAN-006は、未知キーに加え、source-target-key（`src-id`）の誤配置も含む。`src-id` は対象実装側の関数に付与すべきキーであり、Test metadataへの取り込み先を持たない。
 
-### DS-493
+### DS-501
 
 表面2で、`@vtest.` で始まるがsource-target-keyを持たない行（test-keyを含む）は警告W-SCAN-105とする（§5.4）。
 
-### DS-494
+### DS-502
 
 `src-id` は表面2でも反復不可であり、同一関数itemでの重複は採用すべきIDを決定できないためエラーE-SCAN-005とする。
 
-### DS-495
+### DS-503
 
 `src-id` 重複時はいずれの宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う（どちらかを推測で選ばない）。
 
-### DS-496
+### DS-504
 
 doc comment 内の `@vtest.` を含まない行は自由記述として無視する。
 
-### DS-497
+### DS-505
 
 `@vtest.src-id` はテストではなく対象実装側の関数に付与し、任意の恒久SRC IDを宣言する。
 
-### DS-498
+### DS-506
 
 scannerは `@vtest.src-id` の指定値を認識するが、付与を必須としない。
 
@@ -2540,7 +2572,7 @@ scannerは `@vtest.src-id` の指定値を認識するが、付与を必須と�
 
 *引用: 基本仕様 §9.2*
 
-### DS-499
+### DS-507
 
 表面2での打鍵ミス（`src_id` 等の未知キー）はW-SCAN-105、`src-id` の重複はE-SCAN-005で検出し、無音で無視しない（§4.2・§5.4）。
 
@@ -2548,22 +2580,22 @@ scannerは `@vtest.src-id` の指定値を認識するが、付与を必須と�
 
 *導出元: SPEC-S028, SPEC-S066*
 
-### DS-500
+### DS-508
 
 locator文法は `locator = path "::" item-path` である。
 
 > 例：src/parser.rs::Parser::parse
 >     src/lib.rs::validate_input
 
-### DS-501
+### DS-509
 
 pathはプロジェクトルートからの相対パス（"/" 区切り、".rs" で終わる）である。
 
-### DS-502
+### DS-510
 
 item-pathはRustアイテムパス（"::" 区切り）であり、implブロック内の関数は"型名::関数名"とする。
 
-### DS-503
+### DS-511
 
 `@vtest.target` の値が `SRC-` で始まる場合はSRC ID参照として返す。
 
@@ -2571,11 +2603,11 @@ item-pathはRustアイテムパス（"::" 区切り）であり、implブロッ�
 
 *導出元: SPEC-S018, SPEC-S028, SPEC-S035*
 
-### DS-504
+### DS-512
 
 coreは当該Testを管理宣言欠落として `chain_integrity` の `MISMATCH`（診断 `MISSING`）とし、対応VOを推測で寄与関係へ関連付けない。
 
-### DS-505
+### DS-513
 
 `rust-cargo` は検証対象をSource Targetとして実現する形態であり、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。
 
@@ -2583,15 +2615,15 @@ coreは当該Testを管理宣言欠落として `chain_integrity` の `MISMATCH`
 
 *引用: 基本仕様 §9.2*
 
-### DS-506
+### DS-514
 
 coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。
 
-### DS-507
+### DS-515
 
 `covers` 件数の可変制約（旧role/anchor由来）は設けず、すべての管理対象Testに `covers ≥ 1` を一律要求する。
 
-*導出元: SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §12*
 
@@ -2601,7 +2633,7 @@ coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets �
 
 *導出元: SPEC-S004*
 
-### DS-508
+### DS-516
 
 adapterが解析不能または不完全なbatchを返した場合、coreは対応する検証を `UNKNOWN` とし、Test 0件の完全なdiscoveryとして扱わない。
 
@@ -2609,7 +2641,7 @@ adapterが解析不能または不完全なbatchを返した場合、coreは対�
 
 *導出元: SPEC-S007, SPEC-S012, SPEC-S017*
 
-### DS-509
+### DS-517
 
 診断ラベルは検証状態と別軸である。
 
@@ -2617,7 +2649,7 @@ adapterが解析不能または不完全なbatchを返した場合、coreは対�
 
 *引用: 基本仕様 §4.2, 要件定義 §5.2*
 
-### DS-510
+### DS-518
 
 集約の代表値選択に診断ラベルを用いない（§11.3）。
 
@@ -2625,67 +2657,67 @@ adapterが解析不能または不完全なbatchを返した場合、coreは対�
 
 *引用: 基本仕様 §22.2*
 
-### DS-511
+### DS-519
 
 `TargetRef::SrcId` はadapter IDを含まないため、`SrcId` は全adapterを統合したrepositoryでglobal uniqueでなければならない。
 
-### DS-512
+### DS-520
 
 collision時はE-SCAN-011とし、TargetRefを解決しない。
 
-### DS-513
+### DS-521
 
 Source Target hashは常にcanonical Locatorとconstruct bytesから計算し、恒久SRC IDを独立したhash fieldとして含めない。
 
-### DS-514
+### DS-522
 
 canonical Locatorは恒久SRC IDの増減で変化しないため、参照方法の違いによってSource Targetの件数、content / subject hash、Evidence上のtarget identityが分裂しない。
 
-### DS-515
+### DS-523
 
 恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでは、その宣言の追加・変更・削除がconstruct bytesを変え、Source Target hashを変化させうる（§1.3）。
 
-### DS-516
+### DS-524
 
 恒久SRC IDの宣言をconstruct bytesの内側へ置くadapterでSource Target hashが変化することは、sourceが実際に変化したことの帰結であり、参照方法による分裂ではない。
 
-### DS-517
+### DS-525
 
 恒久SRC IDを持つSource Targetも引き続きcanonical locatorでaddressableでなければならない。
 
-### DS-518
+### DS-526
 
 manifest等にある非隣接metadataも `metadata_sources` へ列挙するが、hash inputはadapter構文のraw表現ではなく `ManagedTestDraft` のcanonical logical metadataである。
 
-### DS-519
+### DS-527
 
 provenance欠落はmalformed adapter outputとしてE-ADAPTER-002で拒否する。
 
-### DS-520
+### DS-528
 
 明示操作に必須のcapabilityがない場合はE-ADAPTER-004で操作を中止する。
 
-### DS-521
+### DS-529
 
 検証集約では、static解析 / coverage欠落は `NO_EVIDENCE`（診断 `NOT_CHECKED`）とする。
 
-### DS-522
+### DS-530
 
 検証集約では、runner欠落は `NO_EVIDENCE`（診断 `NOT_EXECUTED`）とする。
 
-### DS-523
+### DS-531
 
 検証集約では、解析限界は `UNKNOWN` とする。
 
-### DS-524
+### DS-532
 
 変化した場合はE-EXEC-004としてEvidenceを生成しない。
 
-### DS-525
+### DS-533
 
 Form `kind` はbuilt-inと `.verify/forms/` を統合したrepository全体で一意である。
 
-### DS-526
+### DS-534
 
 重複kindまたは対応の不一致はE-ADAPTER-001、未知kindはE-OP-001とし、coreが名前からRust adapterを推測しない。
 
@@ -2693,135 +2725,131 @@ Form `kind` はbuilt-inと `.verify/forms/` を統合したrepository全体で�
 
 *導出元: SPEC-S017, SPEC-S028*
 
-### DS-527
+### DS-535
 
 E-SCAN-001はerrorであり、adapterのsource構文解析失敗（DiscoveryBatchは `Incomplete`）を意味する。
 
-### DS-528
+### DS-536
 
 E-SCAN-002はerrorであり、Test ID重複（identity collision）を意味する。
 
-### DS-529
+### DS-537
 
 E-SCAN-003はerrorであり、`covers` の参照先VOが存在しない（dangling reference）ことを意味する。
 
-### DS-530
+### DS-538
 
 E-SCAN-004はerrorであり、`target` のロケータ／SRC IDを解決できないことを意味する。
 
-### DS-531
+### DS-539
 
 E-SCAN-005はerrorであり、adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数の `target` 宣言が同一canonical Source Targetへ解決することを意味する。
 
-### DS-532
+### DS-540
 
 E-SCAN-006はerrorであり、Test constructのadapter所有の宣言に未知fieldが存在することを意味する（非Test construct表面はW-SCAN-105）。
 
-### DS-533
+### DS-541
 
 E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata。`rust-cargo` では targets ≥ 1）の欠落を意味する。
 
-### DS-534
+### DS-542
 
 E-SCAN-008はerrorであり、VOのparent不在または循環を意味する。
 
-### DS-535
+### DS-543
 
 E-SCAN-009はerrorであり、Relationのfrom / toが不在であることを意味する。
 
-### DS-536
+### DS-544
 
 E-SCAN-010はerrorであり、レコードのid / ファイル名 / schema不一致、または互換正規化後のlogical record ID重複を意味する。
 
-### DS-537
+### DS-545
 
 E-SCAN-011はerrorであり、恒久SRC IDが複数adapterまたは複数Source Targetで衝突することを意味する。
 
-### DS-538
+### DS-546
 
 E-SCAN-012はerrorであり、VOの `derives_from` が存在しないdocumentを参照、またはdocumentの `derives_from` が存在しないdocumentを参照する（文書鎖のリンク切れ）ことを意味する。
 
-### DS-539
+### DS-547
 
 E-SCAN-016はerrorであり、根に指定されない孤児document（親documentを持たず `doc.roots` にも列挙されない）を意味する（§5.6）。
 
-### DS-540
+### DS-548
 
 W-SCAN-101はwarningであり、adapterが発見したが管理宣言に対応しないTest construct（unregistered test）を意味する。
 
-### DS-541
+### DS-549
 
 W-SCAN-102はwarningであり、どのVOからも参照されず、Testも参照しない孤立VOを意味する。
 
-### DS-542
+### DS-550
 
 W-SCAN-103はwarningであり、`covers` を持つが対応VOがleafでない（中間VO直接参照。許容するが警告）ことを意味する。
 
-### DS-543
+### DS-551
 
 W-SCAN-105はwarningであり、Test constructとして解析されない関数itemのdoc comment内の `@vtest.` 行に認識されないキーが存在することを意味する（打鍵ミス検出。`src-id` の重複はE-SCAN-005）（§4.2）。
 
-### DS-544
+### DS-552
 
 W-STORE-001はwarningであり、VO recordに非正典の読取り互換field `status` が存在することを意味する（値は無視し承認から導出）。
 
-### DS-545
+### DS-553
 
 W-STORE-002はwarningであり、Approvalが現在の上流依存closureを欠くか一致せず、承認として無効であることを意味する。
 
-### DS-546
+### DS-554
 
 W-STORE-003はwarningであり、判断記録が `judgment_kind` を欠くか値域外で、いずれの実効判断へも寄与しないことを意味する（§8.5）。
 
-### DS-547
+### DS-555
 
 W-STORE-004はwarningであり、同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存し、実効判断が未確定であることを意味する（§8.5）。
 
-### DS-548
+### DS-556
 
 W-STORE-005はwarningであり、判断記録または承認レコードの `supersedes` の参照先を解決できない、対象が一致しない、またはsupersede関係が循環し、当該recordが実効集合へ寄与しないことを意味する（§8.5・§3.5）。
 
-### DS-549
+### DS-557
 
 W-STORE-006はwarningであり、承認レコードの `approved_state` または `subject` の種別が値域外、あるいは `judgment_ref` の参照先が存在せず、実効承認を導出しないことを意味する（§3.5）。
 
-### DS-550
+### DS-558
 
 errorは該当エンティティに関わる検査を非 `PASS` にする。
 
-### DS-551
+### DS-559
 
 warningは診断severityだけでは検証値を変更しない。
 
-### DS-552
+### DS-560
 
 管理宣言の欠落・E-SCAN-007（必須metadata欠落）が示す `ManagedTestLink::Missing` は `chain_integrity = MISMATCH`（診断 `MISSING`）に写像する。
 
-### DS-553
+### DS-561
 
 `ManagedTestLink::Multiple`、E-SCAN-002（Test ID衝突）、E-SCAN-003（解決不能なVO参照）は `chain_integrity = MISMATCH` に写像する。
 
-### DS-554
-
-E-SCAN-003が発生しても対応するTest Entityと `ManagedTestLink::One` を除去しない。
-
-### DS-555
+### DS-562
 
 E-SCAN-008（VO parent不在・循環）、E-SCAN-009（Relation dangling）、E-SCAN-012（文書鎖・VO derives_fromのリンク切れ）は `chain_integrity = MISMATCH` に写像する。
 
-### DS-556
+### DS-563
 
 E-SCAN-016（孤児document）は `orphan_detection = MISMATCH` に写像する（§5.6）。
 
-### DS-557
+### DS-564
 
 E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を `MISMATCH` とし、いずれのSource Targetも選択しない。
 
-### DS-558
+### DS-565
 
 候補の1件を解決結果としてEvidence・検証へ永続化しない（§6.1）。
 
-### DS-559
+### DS-566
 
 衝突する恒久SRC IDを宣言した各Source Target自体は、canonical locatorで独立に具体化されたまま保持する。
 
@@ -2829,19 +2857,19 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 *導出元: SPEC-S063, SPEC-S066*
 
-### DS-560
+### DS-567
 
 欠落はE-SCAN-007として報告する（§4.4・§5.4）。
 
-### DS-561
+### DS-568
 
 したがって `rust-cargo` のTestは従来どおりSource Target宣言を要し、挙動・Eコード・fixtureは本改訂で実効的に変わらない。
 
-### DS-562
+### DS-569
 
 `rust-cargo` discoveryの第4段はTest construct抽出であり、属性pathの末尾segmentが"test"である関数（`#[test]`、`#[tokio::test]` 等）を抽出する。
 
-### DS-563
+### DS-570
 
 `rust-cargo` discoveryの第6段（Source Target抽出）で非Test constructのdoc comment内の `@vtest.` 行を検査し、認識されないキーからW-SCAN-105を、`src-id` の重複からE-SCAN-005を生成する（§4.2）。
 
@@ -2849,15 +2877,15 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 *導出元: REQ-S010, SPEC-S019*
 
-### DS-564
+### DS-571
 
 `config.yaml` の `doc.roots` に列挙されたDOC IDを根として扱い、`orphan_detection` の対象外とする（§2.2）。
 
-### DS-565
+### DS-572
 
 `derives_from` が空、かつ他のどのdocumentからも `derives_from` で参照されないdocumentのうち、`doc.roots` に列挙されないものを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。
 
-### DS-566
+### DS-573
 
 根に指定されたdocumentが存在しないDOC IDを参照する場合は、config invariant違反としてE-CONFIG-001とする。
 
@@ -2867,63 +2895,63 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 *導出元: SPEC-S010, SPEC-S028*
 
-### DS-567
+### DS-574
 
 解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とする。
 
-### DS-568
+### DS-575
 
 解決が0件または複数候補で一意に定まらない場合、推測で候補を選択しない。
 
-### DS-569
+### DS-576
 
 SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決する。
 
-### DS-570
+### DS-577
 
 SRC ID参照は、同じSource Targetへのlocator参照と同一のcanonical Source Target・同一のSource Target hashへ到達する。
 
-### DS-571
+### DS-578
 
 解決結果をlocator版とSrcId版の別entityへ分岐させない。
 
-### DS-572
+### DS-579
 
 恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とする。
 
-### DS-573
+### DS-580
 
 恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合、いずれのSource Targetも選択しない。
 
-### DS-574
+### DS-581
 
 曖昧はfail-closedな終端状態とする。
 
-### DS-575
+### DS-582
 
 曖昧な解決から代表候補を選ばない。
 
-### DS-576
+### DS-583
 
 曖昧な解決について、解決済みのcanonical Source Targetを要求する後段（静的解析、Evidence、`target_coverage`、鮮度判定）へ候補を1件も引き渡さない。
 
-### DS-577
+### DS-584
 
 候補は§6.3の診断表示にだけ用い、表示できることを選択の根拠にしない。
 
-### DS-578
+### DS-585
 
 曖昧な解決について候補を後段へ1件も引き渡さないという禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。
 
-### DS-579
+### DS-586
 
 各Source Targetは自身のcanonical locatorで独立に具体化され、恒久SRC IDが衝突していても`SourceTargetDraft`ごとに1件のSource Targetとして成立する。
 
-### DS-580
+### DS-587
 
 衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。
 
-### DS-581
+### DS-588
 
 E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任意の候補で埋めて記録・永続化することを禁ずる。
 
@@ -2931,89 +2959,97 @@ E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任
 
 *導出元: SPEC-S028*
 
-### DS-582
+### DS-589
 
 Source Target identityは「宣言されたTargetRef（Locator / SrcId）→ resolve（§6.1）→ canonical Locator」の一方向でだけ確定する。
 
 > TestEntity.targets = 宣言されたTargetRef（Locator / SrcId） / ↓ resolve（§6.1） / Canonical Source Target = canonical Locator / ↓ / Evidence / target_coverage / 検証 = canonical Locatorをidentityとして使用
 
-### DS-583
+### DS-590
 
 Evidence（§3.6、§9.4）、`target_coverage`（§10.2）、および鮮度判定（§11.2）は、解決後のcanonical Locatorをtarget identityとして記録・比較する。
 
-### DS-584
+### DS-591
 
 参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をこれらのidentityとして保存してはならない。
 
-### DS-585
+### DS-592
 
 Testがどう宣言したか（同じSource Targetに対するLocator参照からSRC ID参照への書き換え等）の変更は、`targets`をcanonical metadataとして束縛する§1.3のTest subject hashが捕捉する。
 
-### DS-586
+### DS-593
 
 Evidence側で宣言表現を保持する必要はなく、保持すれば同一Source Targetが参照方法ごとに別identityへ分裂する。
 
-### DS-587
+### DS-594
 
 Testの宣言target集合は解決後のcanonical Source Target単位で一意でなければならない。
 
-### DS-588
+### DS-595
 
 綴りの異なる複数の宣言が同一のcanonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005とする。
 
-### DS-S092 6.3 候補提示
+### DS-S092 6.2 `rust-cargo` locator解決
+
+*導出元: SPEC-S028*
+
+### DS-596
+
+`rust-cargo`のlocator解決で一意に決まらない場合（同名fnがcfg分岐で複数等）は、すべて候補として返し、解決失敗（E-SCAN-004）とする。
+
+### DS-S093 6.3 候補提示
 
 *導出元: SPEC-S038*
 
-### DS-589
+### DS-597
 
 Structured Operationの入力検証（別紙A §14、§15）で解決に失敗した場合、coreはadapterが返した候補を共通envelopeで表示する。
 
 *引用: 別紙A §14, 別紙A §15*
 
-### DS-590
+### DS-598
 
 `rust-cargo` adapterのenum variant検証は、解決できる場合のみ検証する。
 
-### DS-591
+### DS-599
 
 `rust-cargo` adapterのenum variant検証は、解決できない自由記述はそのまま受理する（best effort。拒否はしない）。
 
-## DS-S093 7. Static Analysis orchestrationと`rust-cargo`ルール
+## DS-S094 7. Static Analysis orchestrationと`rust-cargo`ルール
 
-### DS-S094 7.1 判定の原則
+### DS-S095 7.1 判定の原則
 
 *導出元: P-003, SPEC-S021, SPEC-S023*
 
-### DS-592
+### DS-600
 
 各ルールは`FAIL` / `UNKNOWN` / `PASS(違反なし)`のいずれかを返す。
 
-### DS-593
+### DS-601
 
 決定論的に確定できる違反のみFAILとする。
 
-### DS-594
+### DS-602
 
 解析の限界で確定できない場合はFAILではなくUNKNOWNとする。
 
-### DS-595
+### DS-603
 
 `UNKNOWN`は意味判定できる者への判断記録エスカレーション（§8）の領分である。
 
-*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350, SPEC-351*
+*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350*
 
 *引用: 基本仕様 §11*
 
-### DS-596
+### DS-604
 
 ただしDA-002のtarget到達UNKNOWNは§7.3のruntime到達証明で解決し、判断記録へは委ねない。
 
-### DS-597
+### DS-605
 
 `oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の合成とする。
 
-### DS-598
+### DS-606
 
 `oracle_presence`は、全ルールが違反なしなら`PASS`とする。
 
@@ -3021,7 +3057,7 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
-### DS-599
+### DS-607
 
 `oracle_presence`は、1つでも`FAIL`があれば`FAIL`とする。
 
@@ -3029,7 +3065,7 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
-### DS-600
+### DS-608
 
 `oracle_presence`は、`FAIL`がなく`UNKNOWN`があれば`UNKNOWN`とする。
 
@@ -3037,23 +3073,23 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
-### DS-601
+### DS-609
 
 `oracle_presence`に動的な昇格経路は無い。
 
-### DS-602
+### DS-610
 
 静的解析は不成立の証明であり、証明の失敗は`UNKNOWN`であって、runtime証拠で`PASS`へ昇格しない。
 
-### DS-603
+### DS-611
 
 `target_binding`の静的到達証明はDA-002が担う（§7.3）。
 
-### DS-604
+### DS-612
 
 DA-002のtarget別verdictの`UNKNOWN`は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。
 
-### DS-605
+### DS-613
 
 DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。
 
@@ -3063,199 +3099,199 @@ DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測
 
 *引用: 要件定義 §4.3*
 
-### DS-606
+### DS-614
 
 Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。
 
-### DS-607
+### DS-615
 
 adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。
 
-### DS-S095 7.2 `rust-cargo` ルール一覧
+### DS-S096 7.2 `rust-cargo` ルール一覧
 
 *導出元: SPEC-S021, SPEC-S025*
 
-### DS-608
+### DS-616
 
 `rust-cargo`のassert相当の構文はDA-001〜DA-006で共通に用いる。
 
 > assert!/assert_eq!/assert_ne!/panic! を含む標準マクロおよびconfigのassertion_macros列挙マクロ、#[should_panic]属性、.unwrap()/.expect(..)/?演算子（Result/Optionの成立検証として扱う）、Test関数がResultを返しErrを返しうる構造、の4分類の総称。
 
-### DS-609
+### DS-617
 
 `rust-cargo`のassert相当の構文は`assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロを含む。
 
-### DS-610
+### DS-618
 
 `rust-cargo`のassert相当の構文は`#[should_panic]`属性を含む。
 
-### DS-611
+### DS-619
 
 `rust-cargo`のassert相当の構文は`.unwrap()` / `.expect(..)` / `?`演算子（Result / Optionの成立検証として扱う）を含む。
 
-### DS-612
+### DS-620
 
 `rust-cargo`のassert相当の構文はTest関数が`Result`を返し`Err`を返しうる構造を含む。
 
-### DS-613
+### DS-621
 
 DA-001（定数アサーション）はoracle_presenceへ供給する検査であり、引数がすべてリテラル・定数式のassertを内容とし、関数内のassert相当がすべて定数アサーションであることをFAIL条件とし、定数性を確定できない式をUNKNOWNへ退避する例とする。
 
-### DS-614
+### DS-622
 
 DA-002（対象未呼出）はtarget_bindingへ供給する検査であり、宣言されたtargetシンボルを呼んでいないことを内容とし、関数本体および同一ファイル内の呼出先helper（1段）を探索して呼出が存在しない、かつ他ファイルへの呼出も存在しないことをFAIL条件とし、他ファイル・他クレートの関数呼出があり間接呼出の可能性を排除できない場合をUNKNOWNへ退避する例とする。
 
-### DS-615
+### DS-623
 
 DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ`#[should_panic]`がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。
 
-### DS-616
+### DS-624
 
 DA-004（自己比較）はoracle_presenceへ供給する検査であり、`assert_eq!(a, b)`でaとbがトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。
 
-### DS-617
+### DS-625
 
 DA-005（空テスト）はoracle_presenceへ供給する検査であり、関数本体に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。
 
-### DS-618
+### DS-626
 
 DA-006（検証構文なし）はoracle_presenceへ供給する検査であり、関数内にassert相当が1つも存在しないことを内容とし、関数内にassert相当が1つも存在せず、かつ§7.2.1の照合の委譲先も同定できないことをFAIL条件とし、委譲先を同定できるが終端を確認できない場合（§7.2.1）をUNKNOWNへ退避する例とする。
 
-### DS-619
+### DS-627
 
 W-DA-101（ignored）は`#[ignore]`属性を内容とし、FAILにしない警告のみであり、実行されなければ`target_binding`が診断NOT_EXECUTEDになる。
 
-### DS-620
+### DS-628
 
 DA-002 / DA-003のデータフロー解析は関数内のローカル束縛の追跡（let束縛、メソッドチェーン、フィールドアクセス）までとする。
 
-### DS-621
+### DS-629
 
 DA-002 / DA-003のデータフロー解析はクロージャ内・マクロ展開内はUNKNOWNとする。
 
-### DS-622
+### DS-630
 
 複数target TestではDA-002 / DA-003を各targetへ個別適用する。
 
-### DS-623
+### DS-631
 
 target別結果に1件でもFAILがあればrule結果をFAILとする。
 
-### DS-624
+### DS-632
 
 FAILがなく1件でもUNKNOWNがあればrule結果をUNKNOWNとする。
 
-### DS-625
+### DS-633
 
 全targetが違反なしの場合だけrule結果をPASSとする。
 
-### DS-626
+### DS-634
 
 宣言targetへの呼出がTest本体に静的に現れない場合（subprocessを起動して別プロセスでtargetを実行する等、target呼出がsource内に存在しない）、DA-003の当該target別verdictをUNKNOWNとする。
 
-### DS-627
+### DS-635
 
 呼出結果を観測できないことを「違反なし（空虚PASS）」とも「結果未到達（空虚FAIL）」とも判定しない。
 
-### DS-628
+### DS-636
 
 宣言targetへの呼出がTest本体に静的に現れない場合、DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。
 
-### DS-629
+### DS-637
 
 target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合（他ファイル・他クレートへの直接呼出で間接呼出の可能性を排除できない等）、その呼出結果がTest本体内でassert相当へ到達すればDA-003 = PASSになりうる。
 
-### DS-630
+### DS-638
 
 target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合のtargetは、DA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。
 
-### DS-631
+### DS-639
 
 クロージャ・マクロ展開の内側での到達は§7.2の一般則どおりDA-002 / DA-003ともUNKNOWNとする。
 
-#### DS-S096 7.2.1 照合の委譲先の終端（DA-003・DA-006）
+#### DS-S097 7.2.1 照合の委譲先の終端（DA-003・DA-006）
 
-### DS-632
+### DS-640
 
 Testの成否判定が、assert相当の構文でなく通常の関数へ委譲されている場合、その委譲先が検証閉包の中で終端しない限り、照合装置検査の成立側を確定しない。
 
-### DS-633
+### DS-641
 
 assert相当の引数、または引数へ到達する束縛（§7.2のデータフロー解析の範囲内）に現れる関数呼出は当該Testの照合の委譲先とする。
 
 > 呼出先はadapterが列挙するassert相当の構文に含まれないものに限る。
 
-### DS-634
+### DS-642
 
 関数内にassert相当が1つも存在しないTest本体に現れる関数呼出は当該Testの照合の委譲先とする。
 
 > 呼出先はadapterが列挙するassert相当の構文に含まれないものに限る。
 
-### DS-635
+### DS-643
 
 委譲先`H`は、`H`を宣言targetとするTestが1件以上存在し、それらすべての`oracle_presence`が`PASS`であるとき、かつそのときに限り終端する。
 
-### DS-636
+### DS-644
 
 終端の判定は covers / 宣言target のグラフの参照だけで行う。
 
-### DS-637
+### DS-645
 
 終端の判定について、信頼を宣言する専用の記録・注釈・設定項目は設けない。
 
-### DS-638
+### DS-646
 
 委譲先が無い（assert相当の構文だけで照合が完結する）場合、DA-003 / DA-006は従来どおり各ルールのFAIL条件で評価する。
 
 > 判定。
 
-### DS-639
+### DS-647
 
 委譲先がすべて終端する場合、DA-003 / DA-006は違反なしとする。
 
-### DS-640
+### DS-648
 
 委譲先を同定できるが、それを宣言targetとするTestが0件の場合、DA-003 / DA-006は`UNKNOWN`とする。
 
-### DS-641
+### DS-649
 
 委譲先を宣言targetとするTestが存在するが、その`oracle_presence`が`PASS`でない（`FAIL` / `UNKNOWN` / `NO_EVIDENCE`のいずれか）場合、DA-003 / DA-006は`UNKNOWN`とする。
 
-### DS-642
+### DS-650
 
 終端の探索が循環する（`H`を宣言targetとするTestの照合が`H`自身へ、または相互に委譲される）場合、DA-003 / DA-006は`UNKNOWN`とする。
 
-### DS-643
+### DS-651
 
 委譲先が他ファイル・他クレート・マクロ展開内にあり呼出先を同定できない場合、DA-003 / DA-006は`UNKNOWN`とする。
 
-### DS-644
+### DS-652
 
 終端を確認できない委譲先を、違反なし（成立側）としても`FAIL`としても扱わない。
 
 > 前者は未検証の照合装置を成立と読み替えることになり、後者は解析の限界を確定した違反と読み替えることになる（§7.1）。
 
-### DS-645
+### DS-653
 
 終端の判定は同一のscan結果から算出する（§11.1の決定性）。
 
-### DS-646
+### DS-654
 
 他Testの`oracle_presence`を参照するため、循環は上表のとおり`UNKNOWN`で閉じ、評価順序によって結果が変わる経路を作らない。
 
-### DS-647
+### DS-655
 
 委譲先が終端したことは当該Testの`oracle_presence`を昇格させる根拠にはならず、上表の枝が示すのはDA-003 / DA-006の値だけである。
 
-### DS-648
+### DS-656
 
 `oracle_presence`全体は§7.1の合成規則で決まる。
 
-### DS-S097 7.3 target 到達の静的証明と runtime 証明の関係（target_binding）
+### DS-S098 7.3 target 到達の静的証明と runtime 証明の関係（target_binding）
 
 *導出元: SPEC-S020, SPEC-S022, SPEC-S027*
 
-### DS-649
+### DS-657
 
 `target_binding`は「そのTestが検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか」を問う。
 
@@ -3263,305 +3299,305 @@ assert相当の引数、または引数へ到達する束縛（§7.2のデータ
 
 *引用: 基本仕様 §5.3, 要件定義 §4.3*
 
-### DS-650
+### DS-658
 
 `target_binding`は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。
 
-### DS-651
+### DS-659
 
 DA-002は§7.2の解析境界（関数本体および同一ファイル内helper1段。クロージャ内・マクロ展開内・他ファイル・他クレートへの呼出は§7.1 / §7.2に従いUNKNOWN）で行う静的なtarget到達証明である。
 
-### DS-652
+### DS-660
 
 Testがtargetを静的解析の追えない実行境界を越えて到達させる形態はいずれもDA-002のUNKNOWNとして現れる。
 
-### DS-653
+### DS-661
 
 Testがtargetを静的解析の追えない実行境界を越えて到達させる形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。
 
-### DS-654
+### DS-662
 
 静的解析の追えない実行境界は、他ファイル・他クレートへの呼出を介した間接到達を含む。
 
-### DS-655
+### DS-663
 
 静的解析の追えない実行境界は、クロージャ・マクロ展開内での到達を含む。
 
-### DS-656
+### DS-664
 
 静的解析の追えない実行境界は、生成した別スレッド（in-process, thread boundary）での到達を含む。
 
-### DS-657
+### DS-665
 
 静的解析の追えない実行境界は、別プロセス（subprocessを起動し、そのプロセス内でtargetを実行するprocess boundary）での到達を含む。
 
-### DS-658
+### DS-666
 
 到達要件は、targetごとに、静的証明：当該targetのDA-002 verdict = PASS（§7.2の解析境界内で呼出を確認）のいずれかで充足される。
 
-### DS-659
+### DS-667
 
 到達要件は、targetごとに、runtime証明：§11.2が選択した最新Evidenceが§6のハッシュ束縛（鮮度）を満たすとき、そのEvidenceの§10.2target別`target_coverage` result = PASS（`checked: true`かつ実行count > 0）のいずれかで充足される。
 
-### DS-660
+### DS-668
 
 DA-002 verdictがUNKNOWN（静的に証明できない）であるtargetは、runtime証明が成立するときに限り到達要件を満たす。
 
-### DS-661
+### DS-669
 
 複数target Testではtargetごとに到達要件を適用する。
 
-### DS-662
+### DS-670
 
 Testの`target_binding`到達は全宣言targetの到達要件が充足された場合にのみ成立する。
 
-### DS-663
+### DS-671
 
 static側は§7.2のDA-002 verdictをtargetごとに用いる。
 
-### DS-664
+### DS-672
 
 DA-002 verdict = FAIL（解析境界内で到達を静的に否定）はruntime証明で覆さない。
 
-### DS-665
+### DS-673
 
 runtime側は§11.2が選択した最新Evidenceだけを用いる。
 
-### DS-666
+### DS-674
 
 最新Evidenceが鮮度を満たさなければruntime証明は成立せず、古いEvidenceへフォールバックしない。
 
 > これにより同一検証内で計測が§11.2でSTALEの一方target_bindingが別EvidenceでPASSになる履歴不一致を防ぐ。
 
-### DS-667
+### DS-675
 
 static側は§7.2のDA-002を再計算し、runtime側は§11.2選択Evidenceを用いて、targetごとに実効到達状態を定める。
 
-### DS-668
+### DS-676
 
 静的到達とは、DA-002 verdict = PASSである状態をいう。
 
-### DS-669
+### DS-677
 
 runtime到達とは、DA-002 verdict = UNKNOWNかつruntime証明成立である状態をいう。
 
-### DS-670
+### DS-678
 
 未充足とは、DA-002 verdict = FAIL、またはUNKNOWNでruntime証明が成立しない状態をいう。
 
-### DS-671
+### DS-679
 
 `target_binding`は、Evidenceの`result: FAIL`（テストランナーが失敗を報告）なら`FAIL`とする。
 
-### DS-672
+### DS-680
 
 `target_binding`は、そうでなく全宣言targetの到達が静的到達またはruntime到達で充足されれば`PASS`とする。
 
-### DS-673
+### DS-681
 
 到達未充足のtargetがあれば§11.2の写像に従い非`PASS`（動的計測count 0は`FAIL`/診断NOT_EXECUTED、計測不能・未計測は`NO_EVIDENCE`、解析限界は`UNKNOWN`）とする。
 
-### DS-674
+### DS-682
 
 `target_binding`の到達要件が静的到達またはruntime到達の充足によってのみ`PASS`となる関係はfail-closedを保つ。
 
-### DS-675
+### DS-683
 
 runtime証明は当該targetの`target_coverage` = PASSのときだけ成立する。
 
-### DS-676
+### DS-684
 
 `target_coverage`がFAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage利用不能、未計測、`--fast`）のときは到達要件を満たさず、当該targetは未充足となり、`target_binding`を非`PASS`にする。
 
-### DS-677
+### DS-685
 
 検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。
 
-### DS-678
+### DS-686
 
 v0.1の唯一のadapter`rust-cargo`では検証対象をSource Targetとして宣言しないTestはE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になる。
 
-### DS-679
+### DS-687
 
 targetを持たないTestは本節の合成へ到達しない。
 
-### DS-680
+### DS-688
 
 DA-003はこのto-runtime joinに含めない。
 
-### DS-681
+### DS-689
 
 DA-003は`oracle_presence`（照合装置の存在）へ寄与するstatic data-flow判定であり（§7.2）、targetの「結果検証」を問う。
 
-### DS-682
+### DS-690
 
 runtime coverageはtargetの「実行」を証明するが「結果検証」を証明しないため、coverageはDA-003を代替せず、DA-003は§7.2の意味論のまま維持する。
 
-### DS-683
+### DS-691
 
 典型的なsubprocess E2E（targetの戻り値 → 子プロセスのstdout / exit code → 親プロセスのassert）では、このdata-flowはstatic analyzerから追えないためDA-003はUNKNOWNのまま残りやすい。
 
-## DS-S098 8. 判断記録プロトコル
+## DS-S099 8. 判断記録プロトコル
 
 *導出元: REQ-S035, SPEC-S031*
 
-### DS-684
+### DS-692
 
 機械が決定論で確定できない疑義は`UNKNOWN`として外部（人間または判断可能Agent）へ引き渡し、その判断を判断記録（§3.4）として追跡する。
 
-### DS-685
+### DS-693
 
 判断記録の受理は当該対象の検証状態を昇格させない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
-### DS-S099 8.1 バンドル生成
+### DS-S100 8.1 バンドル生成
 
-### DS-686
+### DS-694
 
 本書が定義する判断型の値は`test-semantic` / `impl-consistency` / `case-coverage`の3種であり、これ以外の値でバンドルを生成しない。
 
-### DS-687
+### DS-695
 
 `test-semantic`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「テストコードは、covers先VOのclaimとTest Intentが宣言する振る舞いを実際に検証しているか」である。
 
-### DS-688
+### DS-696
 
 `impl-consistency`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「対象実装は宣言と一致しているか」である。
 
-### DS-689
+### DS-697
 
 `case-coverage`は、subjectの値域をTest IDまたはVO IDとする。
 
-### DS-690
+### DS-698
 
 `case-coverage`は、subjectがTest IDのとき、外部へ引き渡す問いは「当該Testが宣言したcases集合は、covers先VOの要求入力空間を十分に代表・網羅しているか」である。
 
-*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350, SPEC-351*
+*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350*
 
 *引用: 基本仕様 §14、§11*
 
-### DS-691
+### DS-699
 
 `case-coverage`は、subjectがVO IDのとき、外部へ引き渡す問いは「当該VOをcoversするTest群のcases集合は、当該VOの要求入力空間を十分に代表・網羅しているか」である。
 
-*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350, SPEC-351*
+*導出元: SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339, SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349, SPEC-350*
 
 *引用: 基本仕様 §14、§11*
 
-### DS-692
+### DS-700
 
 `judgment_kind`と`subject`の種別の組合せがこの表にない要求ではバンドルを生成しない（別紙A §12.2のusage error、終了コード2）。
 
 *引用: 別紙A §12.2*
 
-### DS-693
+### DS-701
 
 `case-coverage`の未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。
 
-### DS-694
+### DS-702
 
 宣言targetのいずれか、または上流documentのいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。
 
-### DS-695
+### DS-703
 
 解決失敗の種別は対象不在（E-SCAN-004、document不在）を`MISMATCH`（診断`MISSING`）として当該対象の検証結果へ保持する。
 
-### DS-696
+### DS-704
 
 解決失敗の種別は恒久SRC ID衝突による曖昧（E-SCAN-011）を`MISMATCH`として当該対象の検証結果へ保持する。
 
-### DS-S100 8.3 提出スキーマ
-
-### DS-697
-
-判断は少なくともactor / subject / decisionを含む。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
-
-*引用: 基本仕様 §11.3, 要件定義 §12*
-
-### DS-698
-
-理由・根拠は任意（optional）とする。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
-
-*引用: 基本仕様 §11.3, 要件定義 §12*
-
-### DS-699
-
-`decision`の値集合はツールが受理する判断値（`accepted` / `rejected` / `deferred`等）とし、その妥当性を§8.4で検証する。
-
-### DS-700
-
-判断記録は検証状態を変更しない（§8 冒頭）。
-
-### DS-701
-
-`judgment_kind`は必須であり、`bundle_id`が指すバンドルの`judgment_kind`と一致しなければならない（§8.4）。
-
-### DS-702
-
-`supersedes`は任意であり、省略時は空listとして記録する。
-
-### DS-703
-
-`supersedes`に列挙する各ULIDは、同一`subject`かつ同一`judgment_kind`の既存判断記録を指さなければならない（§8.4）。
-
-### DS-704
-
-`reason` / `exclusions`は任意である。
+### DS-S101 8.3 提出スキーマ
 
 ### DS-705
 
-`basis.kind`は`document` / `vo` / `test-code` / `target-code`のいずれかとする。
+判断は少なくともactor / subject / decisionを含む。
+
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
+
+*引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DS-706
 
-理由が空であることだけを根拠に判断を無効化しない。
+理由・根拠は任意（optional）とする。
 
-*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
-*引用: 基本仕様 §11.3*
-
-### DS-S101 8.4 提出の検証
+*引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DS-707
 
-`audit submit`は、bundle_idのバンドルがcacheに存在することを検証する（E-AUDIT-001）。
+`decision`の値集合はツールが受理する判断値（`accepted` / `rejected` / `deferred`等）とし、その妥当性を§8.4で検証する。
 
 ### DS-708
 
-`audit submit`は、subjectがバンドルと一致することを検証する（E-AUDIT-003）。
+判断記録は検証状態を変更しない（§8 冒頭）。
 
 ### DS-709
 
-`audit submit`は、judgment_kindがバンドルと一致し、§8.1の値域内であることを検証する（E-AUDIT-003）。
+`judgment_kind`は必須であり、`bundle_id`が指すバンドルの`judgment_kind`と一致しなければならない（§8.4）。
 
 ### DS-710
 
-`audit submit`は、バンドル記録時の各対象の内容ハッシュが、現在のハッシュと一致することを検証する（対象が変更されていれば判断は無効。E-AUDIT-002）。
+`supersedes`は任意であり、省略時は空listとして記録する。
 
 ### DS-711
 
-`audit submit`は、decisionが受理する判断値であることを検証する（E-AUDIT-004）。
+`supersedes`に列挙する各ULIDは、同一`subject`かつ同一`judgment_kind`の既存判断記録を指さなければならない（§8.4）。
 
 ### DS-712
 
-`audit submit`は、supersedesの各ULIDが、同一subjectかつ同一judgment_kindの既存判断記録を指し、自己参照でないことを検証する（E-AUDIT-008）。
+`reason` / `exclusions`は任意である。
 
 ### DS-713
 
-`subjects`に相当する対象集合はバンドル生成時の全対象の内容ハッシュを`subject_hash`と`dependencies`として記録し、依存closureのハッシュに束縛する。
+`basis.kind`は`document` / `vo` / `test-code` / `target-code`のいずれかとする。
 
 ### DS-714
 
-理由（`reason` / `exclusions`）の有無を提出の受理条件にしない。
+理由が空であることだけを根拠に判断を無効化しない。
+
+*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
+
+*引用: 基本仕様 §11.3*
+
+### DS-S102 8.4 提出の検証
 
 ### DS-715
+
+`audit submit`は、bundle_idのバンドルがcacheに存在することを検証する（E-AUDIT-001）。
+
+### DS-716
+
+`audit submit`は、subjectがバンドルと一致することを検証する（E-AUDIT-003）。
+
+### DS-717
+
+`audit submit`は、judgment_kindがバンドルと一致し、§8.1の値域内であることを検証する（E-AUDIT-003）。
+
+### DS-718
+
+`audit submit`は、バンドル記録時の各対象の内容ハッシュが、現在のハッシュと一致することを検証する（対象が変更されていれば判断は無効。E-AUDIT-002）。
+
+### DS-719
+
+`audit submit`は、decisionが受理する判断値であることを検証する（E-AUDIT-004）。
+
+### DS-720
+
+`audit submit`は、supersedesの各ULIDが、同一subjectかつ同一judgment_kindの既存判断記録を指し、自己参照でないことを検証する（E-AUDIT-008）。
+
+### DS-721
+
+`subjects`に相当する対象集合はバンドル生成時の全対象の内容ハッシュを`subject_hash`と`dependencies`として記録し、依存closureのハッシュに束縛する。
+
+### DS-722
+
+理由（`reason` / `exclusions`）の有無を提出の受理条件にしない。
+
+### DS-723
 
 旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。
 
@@ -3569,177 +3605,181 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 *引用: 要件定義 §12*
 
-### DS-S102 8.5 有効性と再判断
+### DS-S103 8.5 有効性と再判断
 
-### DS-716
+### DS-724
 
 判断記録が有効であるとは、judgment_kindが§8.1の値域内であり、subjectが一致し、subject_hashが現在の内容ハッシュと一致し、dependenciesが現在の上流依存closureとentity・hashとも完全一致することをいう。
 
 > document は登録 content_hash と実ファイルの一致も要求。不一致の場合は当該 document を STALE とし、依存する判断記録も無効。
 
-### DS-717
+### DS-725
 
 判断値が食い違う有効判断記録が併存する場合、機械はどれも選ばない。
 
-### DS-718
+### DS-726
 
 V(subject, judgment_kind)は、「有効」を満たす判断記録の集合とする。
 
-### DS-719
+### DS-727
 
 実効集合Eは、Vから、V内の他レコードのsupersedesに名指しされたものを除いた集合とする。
 
 > supersede できるのは有効判断記録だけである。無効な判断記録の supersedes は何も除かない。
 
-### DS-720
+### DS-728
 
 実効判断は、Eが空のとき未確定（UNKNOWN）とする。
 
-### DS-721
+### DS-729
 
 実効判断は、Eの全レコードのdecisionが同一値であるとき、そのdecisionを実効判断値とする。
 
-### DS-722
+### DS-730
 
 実効判断は、Eに2種以上のdecision値がある（競合）とき未確定（UNKNOWN）とし、W-STORE-004を出す。
 
-### DS-723
+### DS-731
 
 実効判断が「未確定（`UNKNOWN`）」であることは、当該対象が§11のエスカレーション状態にとどまることを意味する。
 
-### DS-724
+### DS-732
 
 実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない（§8 冒頭）。
 
-### DS-725
+### DS-733
 
 競合は、新しい判断記録が旧判断記録を`supersedes`で明示に名指しして置き換えたときにだけ解消する。
 
-### DS-726
+### DS-734
 
 判断記録の新旧（`decided_at` / ULID順）、`decision`値の優先順位（`rejected`優先等）、記録件数の多寡のいずれも解消規則に用いてはならない。
 
-### DS-727
+### DS-735
 
 `supersedes`が循環する（レコード群が互いを名指ししてEが空になる）場合は未確定（`UNKNOWN`）とし、W-STORE-005を出す。
 
-### DS-728
+### DS-736
 
 いずれかのレコードを推測で残さない。
 
-### DS-729
+### DS-737
 
 `judgment_kind`を欠くか値域外の判断記録は、いずれの`(subject, judgment_kind)`のVにも属さず、実効判断へ寄与しない。
 
-### DS-730
+### DS-738
 
 `judgment_kind`を欠くか値域外の判断記録は、履歴表示だけを許可し、W-STORE-003を出す。
 
-### DS-731
+### DS-739
 
 判断記録を対象とする承認（§3.5の`judgment_ref`）は、当該判断記録が有効かつEに属する場合にだけ実効承認を導出する。
 
-### DS-732
+### DS-740
 
 Eから外れた判断記録への承認は`draft`相当とする。
 
-### DS-733
+### DS-741
 
 仕様・VO・Test等が変更された場合、過去の判断を現在状態へそのまま流用してはならず、現在状態に対して通常の検証（§5の4検査）を再実施する。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
-### DS-S103 8.6 参考プロンプト
-
-### DS-734
-
-判断の受理は検証状態を昇格させない。
-
-## DS-S104 9. テスト実行設計
-
-*導出元: SPEC-S022, SPEC-S051*
-
-### DS-S105 9.1 実行対象の解決
-
-### DS-735
-
-`vtest run`は`--test` / `--vo` / `--all`で対象を受け取り、検証グラフからTest集合へ展開する（VO指定は部分木のcoversを辿る）。
-
-### DS-S106 9.2 `rust-cargo` TestRunnerAdapter
-
-### DS-736
-
-orchestrationは`ExecutionDescriptor.adapter`をregistryで解決し、adapter不一致（E-ADAPTER-003）を拒否する。
-
-### DS-737
-
-明示的なrunでrunner未提供ならE-ADAPTER-004としてEvidenceを生成せず、検証集約の`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
-
-### DS-S107 9.3 `rust-cargo` 結果のパース
-
-### DS-738
-
-`test <selector> ... ignored`が実行されずの場合、Evidenceは記録しない。
-
-### DS-739
-
-`test <selector> ... ignored`が実行されずの場合、target_bindingは診断NOT_EXECUTEDとする。
-
-### DS-740
-
-要求した各フィルタについて結果行が得られなかった場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。
-
-### DS-741
-
-プロセス終了コードと結果行の集計が矛盾する場合もE-EXEC-003とする。
-
-### DS-S108 9.4 Evidence の記録
-
 ### DS-742
 
-Testごとに§3.6のレコードを1件生成する。
+変更そのものが`UNKNOWN`を生成するのではない。
+
+### DS-S104 8.6 参考プロンプト
 
 ### DS-743
 
-`revision`の取得失敗時は`commit: null`とし、このEvidenceは鮮度（§11.2）のrevision一致を満たさず`target_binding`の有効な`PASS`にならない。
+判断の受理は検証状態を昇格させない。
+
+## DS-S105 9. テスト実行設計
+
+*導出元: SPEC-S022, SPEC-S051*
+
+### DS-S106 9.1 実行対象の解決
 
 ### DS-744
 
-`hashes`は欠落・重複を許可しない。
+`vtest run`は`--test` / `--vo` / `--all`で対象を受け取り、検証グラフからTest集合へ展開する（VO指定は部分木のcoversを辿る）。
+
+### DS-S107 9.2 `rust-cargo` TestRunnerAdapter
 
 ### DS-745
 
-全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。
+orchestrationは`ExecutionDescriptor.adapter`をregistryで解決し、adapter不一致（E-ADAPTER-003）を拒否する。
 
 ### DS-746
 
-1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）ならEvidenceを生成しない。
+明示的なrunでrunner未提供ならE-ADAPTER-004としてEvidenceを生成せず、検証集約の`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
+
+### DS-S108 9.3 `rust-cargo` 結果のパース
 
 ### DS-747
 
-全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。
+`test <selector> ... ignored`が実行されずの場合、Evidenceは記録しない。
 
 ### DS-748
 
-完全性を保証できない場合は`complete: false`とし、後続の鮮度を`PASS`にしない。
+`test <selector> ... ignored`が実行されずの場合、target_bindingは診断NOT_EXECUTEDとする。
 
 ### DS-749
 
-ビルド失敗（コンパイルエラー）の場合、対象Test群のEvidenceは記録せずE-EXEC-001を報告する。
+要求した各フィルタについて結果行が得られなかった場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。
 
 ### DS-750
 
+プロセス終了コードと結果行の集計が矛盾する場合もE-EXEC-003とする。
+
+### DS-S109 9.4 Evidence の記録
+
+### DS-751
+
+Testごとに§3.6のレコードを1件生成する。
+
+### DS-752
+
+`revision`の取得失敗時は`commit: null`とし、このEvidenceは鮮度（§11.2）のrevision一致を満たさず`target_binding`の有効な`PASS`にならない。
+
+### DS-753
+
+`hashes`は欠落・重複を許可しない。
+
+### DS-754
+
+全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。
+
+### DS-755
+
+1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）ならEvidenceを生成しない。
+
+### DS-756
+
+全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。
+
+### DS-757
+
+完全性を保証できない場合は`complete: false`とし、後続の鮮度を`PASS`にしない。
+
+### DS-758
+
+ビルド失敗（コンパイルエラー）の場合、対象Test群のEvidenceは記録せずE-EXEC-001を報告する。
+
+### DS-759
+
 `target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。
 
-## DS-S109 10. `rust-cargo` Target Binding 動的計測
+## DS-S110 10. `rust-cargo` Target Binding 動的計測
 
 *導出元: SPEC-S020, SPEC-S051*
 
-### DS-S110 10.1 計測方式
+### DS-S111 10.1 計測方式
 
-### DS-751
+### DS-760
 
 利用不能な場合、Evidenceの`target_coverage`を`checked: false`（検証時`NO_EVIDENCE`、診断`NOT_CHECKED`）とし診断W-EXEC-101を出す（`PASS`へ変換しない）。
 
@@ -3747,33 +3787,33 @@ Testごとに§3.6のレコードを1件生成する。
 
 *引用: 基本仕様 §5.3*
 
-### DS-752
+### DS-761
 
 起動される実行体をinstrument対象とし子プロセスのprofileをmergeすることを提供できない構成では境界越しtargetをUNKNOWNとする。
 
-### DS-753
+### DS-762
 
 計測不能なら`target_coverage.checked: false`（`NO_EVIDENCE`/`NOT_CHECKED`）とし、能力の有無で計測結果を捏造しない。
 
-### DS-754
+### DS-763
 
 Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられる能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。
 
-### DS-755
+### DS-764
 
 提供されない場合は`target_coverage.checked: false`（`NO_EVIDENCE`/`NOT_CHECKED`）とする。
 
-### DS-756
+### DS-765
 
 解析限界は`UNKNOWN`とし、測定済み`PASS`を推測しない。
 
-### DS-S111 10.2 判定
+### DS-S112 10.2 判定
 
-### DS-757
+### DS-766
 
 target別判定は、count > 0なら`PASS`とする。
 
-### DS-758
+### DS-767
 
 target別判定は、count == 0なら`FAIL`（診断NOT_EXECUTED）とする。
 
@@ -3781,65 +3821,65 @@ target別判定は、count == 0なら`FAIL`（診断NOT_EXECUTED）とする。
 
 *引用: 基本仕様 §4.3*
 
-### DS-759
+### DS-768
 
 target別判定は、関数が見つからなければ`UNKNOWN`（インライン化・cfg除外等の可能性）とする。
 
-### DS-760
+### DS-769
 
 Test単位集約は、FAILが1件以上あれば`FAIL`とする。
 
-### DS-761
+### DS-770
 
 Test単位集約は、FAILなし、UNKNOWNが1件以上あれば`UNKNOWN`とする。
 
-### DS-762
+### DS-771
 
 Test単位集約は、1件以上の全宣言targetがPASSなら`PASS`とする。
 
-### DS-763
+### DS-772
 
 target別entryの欠落、重複、余分なentry、または解決後のcanonical Source Target集合との不一致を`PASS`として保存しない。
 
-### DS-764
+### DS-773
 
 Evidenceの`target_coverage`へ記録する計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。
 
-### DS-765
+### DS-774
 
 Testが別プロセス（起動したsubprocess内）・別スレッド等の実行境界越しにtargetを到達させる場合も、判定は実行countに基づく。
 
-### DS-766
+### DS-775
 
 providerが境界越しの実行を帰属できない場合はそのtargetを`UNKNOWN`（関数不見当扱い）とする。
 
-### DS-767
+### DS-776
 
 計測自体が不能なら`target_coverage.checked: false`とする。
 
-### DS-768
+### DS-777
 
 providerが境界越しの実行を帰属できない場合、または計測自体が不能な場合は、いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。
 
-### DS-S112 10.3 実行モードの整理
+### DS-S113 10.3 実行モードの整理
 
-### DS-769
+### DS-778
 
 `--fast`モードはcargo testのみとし、`target_coverage.checked: false`で記録し、検証時は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。
 
-### DS-770
+### DS-779
 
 既定モード（完全検証向け）はcargo-llvm-covによるTest単位実行とする。
 
 > 実行時間と引き換えに `target_binding` の動的証拠を得る。
 
-## DS-S113 11. 鮮度検証と集約
+## DS-S114 11. 鮮度検証と集約
 
-### DS-S114 11.1 検査の評価地点
+### DS-S115 11.1 検査の評価地点
 
 *導出元: SPEC-S017, SPEC-S052*
 
-### DS-771
+### DS-780
 
 `chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（document derives_from・content_hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoではtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。
 
@@ -3849,109 +3889,109 @@ providerが境界越しの実行を帰属できない場合、または計測自
 
 *引用: 基本仕様 §5*
 
-### DS-772
+### DS-781
 
 `orphan_detection`は評価地点をDOCとし、親を持たず`doc.roots`にも列挙されないdocumentが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。
 
-### DS-773
+### DS-782
 
 `target_binding`は、Evidence result FAILは`FAIL`、全宣言targetの到達が静的到達またはruntime到達で充足されれば`PASS`とする。
 
-### DS-774
+### DS-783
 
 `oracle_presence`は、全PASSで`PASS`、1つでもFAILで`FAIL`、FAILなくUNKNOWNで`UNKNOWN`とする。
 
-### DS-775
+### DS-784
 
 4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）、および当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）に限る。
 
-*導出元: REQ-224, REQ-225, REQ-226, REQ-227, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333*
+*導出元: REQ-224, REQ-225, REQ-226, REQ-227, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332*
 
 *引用: 基本仕様 §11.1, 要件定義 §17.2*
 
-### DS-776
+### DS-785
 
 4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）を含む。
 
-### DS-777
+### DS-786
 
 4検査の評価入力は、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）を含む。
 
-### DS-778
+### DS-787
 
 4検査の評価入力は、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）を含む。
 
-### DS-779
+### DS-788
 
 4検査の評価入力は、当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）を含む。
 
-### DS-780
+### DS-789
 
 4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。
 
 > 次を、それ自体として検査入力にしてはならない。
 
-### DS-781
+### DS-790
 
 実行時の現在時刻・経過時間・乱数・プロセスIDを、それ自体として検査入力にしてはならない。
 
-### DS-782
+### DS-791
 
 ロケール・タイムゾーン・環境変数・呼出し元の作業ディレクトリ（`--project`で解決したプロジェクトルート自体は入力に含む）を、それ自体として検査入力にしてはならない。
 
-### DS-783
+### DS-792
 
 ネットワーク応答、およびLLM APIを含む外部サービスの応答を、それ自体として検査入力にしてはならない。
 
-### DS-784
+### DS-793
 
 環境の変化が結果へ影響しうるのは、Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲に限る。
 
-### DS-785
+### DS-794
 
 Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲で環境の変化が結果へ影響する場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。
 
-### DS-786
+### DS-795
 
 ネットワーク応答と外部サービス応答はExecution State subjectの入力に含まれないため、例外なく検査入力にならない。
 
-### DS-787
+### DS-796
 
 判断記録の受理は検証状態を昇格させない（§8.3）。
 
-### DS-788
+### DS-797
 
 将来そのようなseamを評価経路へ設ける場合は、任意の判定を返す実装（正反対の判定を返す実装を含む）を差し替えても4検査の結果が変化しないことを満たさなければならない。
 
-#### DS-S115 11.1.1 `chain_integrity` の評価
+#### DS-S116 11.1.1 `chain_integrity` の評価
 
 *導出元: SPEC-S018, SPEC-S027, SPEC-S035*
 
-### DS-789
+### DS-798
 
 いずれか違反があれば`MISMATCH`（切れた箇所を診断ラベルで示す）とする。
 
-### DS-790
+### DS-799
 
 文書層は、各`document`の`derives_from`参照先が存在すること（E-SCAN-012）を評価する。
 
-### DS-791
+### DS-800
 
 文書層は、`content_hash`が現物と一致すること（不一致は診断`STALE`。§11.4）を評価する。
 
-### DS-792
+### DS-801
 
 VO層は、各VOが1件以上の`document`への解決可能な`derives_from`を持つこと（不在・解決不能はE-SCAN-012）を評価する。
 
-### DS-793
+### DS-802
 
 VO層は、VO parentの不在・循環をE-SCAN-008とする。
 
-### DS-794
+### DS-803
 
 VO層は、`combinations`が§3.2.1の受理条件を満たすこと（違反はE-SCAN-017）を評価する。
 
-### DS-795
+### DS-804
 
 Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。
 
@@ -3959,117 +3999,117 @@ Test層は、発見された各Testに対応する管理宣言（構文上有効
 
 *引用: 基本仕様 §5.1・§9.1, 基本仕様 §5.1, 基本仕様 §9.1*
 
-### DS-796
+### DS-805
 
 Test層は、`covers`の全VO参照を解決できること（E-SCAN-003）を評価する。
 
-### DS-797
+### DS-806
 
 Test層は、Test IDが発見結果全体で一意であること（衝突はE-SCAN-002）を評価する。
 
-### DS-798
+### DS-807
 
 双方向完全性は、leaf VO → Test（検証実装の存在。coversするTestが1件以上）と、発見されたTest → 宣言（管理宣言の解決）の両方向が成立して初めて成立する。
 
-### DS-799
+### DS-808
 
 coversするTestの無いleaf VOは`MISMATCH`（診断`MISSING`）とする。
 
-### DS-800
+### DS-809
 
 Relationのfrom / to不在はE-SCAN-009とする。
 
-### DS-801
+### DS-810
 
 恒久SRC IDのadapter越え衝突はE-SCAN-011とする。
 
-### DS-802
+### DS-811
 
 旧モデルの`role`に基づく`covers`可変制約・適用項目集合は設けず、すべての管理対象Testに`covers ≥ 1`を一律要求する。
 
-*導出元: SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §12*
 
-### DS-803
+### DS-812
 
 `covers`を持たない（0件の）Testは管理宣言不整合として`chain_integrity = MISMATCH`であり、特別扱いの分岐を設けない。
 
-### DS-S116 11.2 Evidence 鮮度判定（target_binding の証拠有効性）
+### DS-S117 11.2 Evidence 鮮度判定（target_binding の証拠有効性）
 
 *導出元: SPEC-S020*
 
-### DS-804
+### DS-813
 
 対象Testの Evidenceのうち最新のものについて、evidence.hashes.test_subject == 現在のTest subject hashを検査する。
 
-### DS-805
+### DS-814
 
 対象TestのEvidenceのうち最新のものについて、evidence.hashes.targetsの参照集合が、現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し、各target_constructが現在のimplementation construct hashと一致することを検査する。
 
-### DS-806
+### DS-815
 
 対象TestのEvidenceのうち最新のものについて、evidence.revision.commitが非nullかつ現在のHEAD revisionと一致することを検査する。
 
-### DS-807
+### DS-816
 
 対象TestのEvidenceのうち最新のものについて、evidence.execution_state.complete == trueかつ、同じschemaで現在再構築したExecution State subjectがcompleteで、hashが一致することを検査する。
 
-### DS-808
+### DS-817
 
 対象TestのEvidenceのうち最新のものについて、evidence.adapterが現在のTest.execution.adapterと一致することを検査する。
 
 > adapter欠落形は§3.6の互換条件で一意に確認できる。
 
-### DS-809
+### DS-818
 
 evidence.hashes.test_subject == 現在のTest subject hashであること、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し各target_constructが現在のimplementation construct hashと一致すること、evidence.revision.commitが非nullかつ現在のHEAD revisionと一致すること、evidence.execution_state.complete == trueかつ同じschemaで現在再構築したExecution State subjectがcompleteでhashが一致すること、およびevidence.adapterが現在のTest.execution.adapterと一致することのすべてが成立する場合、当該Evidenceは現在の証拠として有効とする（dirty: trueでもExecution State subject一致なら有効。実行入力manifestが実体を保証する）。
 
-### DS-810
+### DS-819
 
 evidence.hashes.test_subjectが現在のTest subject hashと一致しない場合、または、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致しない場合（各target_constructが現在のimplementation construct hashと一致しない場合を含む）、`NO_EVIDENCE`（診断STALE）とする。
 
-### DS-811
+### DS-820
 
 evidence.revision.commitが非nullでない、または現在のHEAD revisionと一致しない場合、`NO_EVIDENCE`（診断STALE。現在revisionに対する実行ではない）とする。
 
-### DS-812
+### DS-821
 
 evidence.execution_stateのrecordが欠落している場合、またはhashが一致しない場合、`NO_EVIDENCE`（診断STALE）とする。
 
-### DS-813
+### DS-822
 
 evidence.execution_state.completeがtrueでない、または現在再構築したExecution State subjectを完全に構築不能の場合、`UNKNOWN`とする。
 
-### DS-814
+### DS-823
 
 Evidenceのadapterが現在のTestのexecution.adapterと明示的に不一致の場合、`MISMATCH`とする。
 
-### DS-815
+### DS-824
 
 Evidenceのadapterが現在のTestのexecution.adapterと一致するかを確認不能の場合、`UNKNOWN`とする。
 
-### DS-816
+### DS-825
 
 Evidenceなしの場合、`NO_EVIDENCE`（診断NOT_EXECUTED）とする。
 
-### DS-817
+### DS-826
 
 Evidenceは全宣言targetが一意に解決できる場合だけ生成される（§9.4）。
 
-### DS-818
+### DS-827
 
 現在の宣言targetのうち1件でもcanonical Source Targetへ一意に解決できなくなった場合、記録済み参照集合は現在のcanonical集合と一致しないため、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致するという条件は成立せず、`target_binding`を有効な`PASS`にしない。
 
-### DS-819
+### DS-828
 
 対象が存在せずE-SCAN-004となるtargetは`MISMATCH`（診断`MISSING`）として保持する（§5.4）。
 
-### DS-820
+### DS-829
 
 複数候補により曖昧でE-SCAN-011となるtargetは`MISMATCH`として保持する（§5.4）。
 
-### DS-821
+### DS-830
 
 有効なEvidenceが得られたとき、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`とする。
 
@@ -4077,23 +4117,23 @@ Evidenceは全宣言targetが一意に解決できる場合だけ生成される
 
 *引用: 要件定義 §5.3*
 
-### DS-822
+### DS-831
 
 有効なEvidenceが得られたとき、`result: PASS`かつ全宣言targetの到達要件が§7.3で充足（静的到達またはruntime到達）されれば`target_binding`は`PASS`とする。
 
-### DS-823
+### DS-832
 
 有効なEvidenceが得られたとき、`result: PASS`だが到達未充足のtargetがある場合、当該targetの`target_coverage`に従い、count 0は`FAIL`（診断NOT_EXECUTED）、計測不能・未計測（`checked: false`）は`NO_EVIDENCE`（診断NOT_CHECKED）、関数不見当は`UNKNOWN`とする。
 
-### DS-824
+### DS-833
 
 Evidenceが存在するが有効でない場合、`target_binding`はEvidenceを再利用せず、上表の`MISMATCH` / `NO_EVIDENCE`（STALE）/ `UNKNOWN`を保持する。
 
-### DS-825
+### DS-834
 
 Evidenceが無ければ`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
 
-### DS-826
+### DS-835
 
 複数条件が非`PASS`なら根拠をすべて保持し、表示代表値は基本仕様 §22.2の優先順位で選ぶ（診断ラベルは順位に用いず併記する）。
 
@@ -4101,11 +4141,11 @@ Evidenceが無ければ`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
 
 *引用: 基本仕様 §22.2*
 
-### DS-S117 11.3 集約アルゴリズム
+### DS-S118 11.3 集約アルゴリズム
 
 *導出元: SPEC-S052*
 
-### DS-827
+### DS-836
 
 項目scopeが省略された場合、aggregatorはconfig値から部分集合を組み立てず、基本仕様 §5の固定4検査を選択する。
 
@@ -4113,43 +4153,43 @@ Evidenceが無ければ`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
 
 *引用: 基本仕様 §5*
 
-### DS-828
+### DS-837
 
 明示的な部分集合だけを限定scopeとし、その結果を完全検証として表示しない。
 
-### DS-829
+### DS-838
 
 aggregateは、chain_integrity / orphan_detectionをrepository / DOC / VO / TEST構造に対して評価する。
 
-### DS-830
+### DS-839
 
 aggregateは、scopeのエンティティ軸でDOC/VO/TEST部分木を選択する。
 
-### DS-831
+### DS-840
 
 aggregateは、各TESTについて、scopeの検査軸に含まれるtarget_binding / oracle_presenceを評価する（含まれない検査はNO_EVIDENCE、診断NOT_CHECKED）。
 
-### DS-832
+### DS-841
 
 aggregateは、各leaf VOについてcoversするTEST群の結果をfail-closedで合成する。
 
-### DS-833
+### DS-842
 
 aggregateは、子VOを持つVO（親VO）について、子VOの値と、当該親VOを直接coversするTESTの値を合わせてfail-closedで合成する（直接coversするTESTが無ければ子VOの値だけを合成する）。
 
-### DS-834
+### DS-843
 
 aggregateは、DOCについて下流VO部分木の合成（fail-closed）を行う。
 
-### DS-835
+### DS-844
 
 総合判定は、構造検査（chain_integrity / orphan_detection）とentity treeのscope内評価がすべてPASSならOK、それ以外ならNGとする。
 
-### DS-836
+### DS-845
 
 fail-closed合成は、子にFAIL/MISMATCH/NO_EVIDENCE/UNKNOWNが1つでもあれば親を非PASSとする。
 
-### DS-837
+### DS-846
 
 fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATCH > NO_EVIDENCE > UNKNOWNで選ぶ。
 
@@ -4157,43 +4197,43 @@ fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATC
 
 *引用: 基本仕様 §22.2*
 
-### DS-838
+### DS-847
 
 診断ラベル（MISSING / NOT_EXECUTED / NOT_CHECKED / STALE）は順位に用いず併記する。
 
-### DS-839
+### DS-848
 
 検査の表示scopeと、検査導出に必要な内部依存の評価は分離する。
 
-### DS-840
+### DS-849
 
 §7.3により`target_binding`は当該TestのEvidence鮮度（§11.2）とtarget別`target_coverage`へ依存する。
 
-### DS-841
+### DS-850
 
 `target_binding`が項目scopeに含まれる場合、aggregatorは§7.3のruntime到達証明の判定に必要な範囲でこれらを内部依存として評価する。
 
-### DS-842
+### DS-851
 
 runtime証明に依存する`target_binding`の値は、根拠として用いたEvidence IDと当該targetの`target_coverage`結果をreportで引用し、原因を辿れる状態にする。
 
-### DS-843
+### DS-852
 
 `covers`を持つTestはcovers先それぞれのVOの合成に独立に参加する。
 
-### DS-844
+### DS-853
 
 「1つのTestが複数VOを検証していること」自体は許容し、各leaf VOの充足と組合せは§3.2.1の実体化されたleaf VO単位で判定する。
 
-*導出元: SPEC-092, SPEC-093, SPEC-094, SPEC-095, SPEC-096, SPEC-097, SPEC-098, SPEC-099, SPEC-100, SPEC-101, SPEC-102, SPEC-103, SPEC-104, SPEC-105, SPEC-190, SPEC-191, SPEC-319*
+*導出元: SPEC-092, SPEC-093, SPEC-094, SPEC-095, SPEC-096, SPEC-097, SPEC-098, SPEC-099, SPEC-100, SPEC-101, SPEC-102, SPEC-103, SPEC-104, SPEC-105, SPEC-190, SPEC-191, SPEC-318*
 
 *引用: 基本仕様 §10、§22.2*
 
-### DS-845
+### DS-854
 
 親VOの値は、子VOの値と当該親VOを直接coversするTESTの値を合わせたfail-closed合成そのものであり、機能単位の表示のために別の合成規則・緩和規則を設けない。
 
-### DS-846
+### DS-855
 
 子に1つでも非`PASS`があれば親VOは非`PASS`であり、代表値の優先順位も基本仕様 §22.2と同一とする。
 
@@ -4201,73 +4241,73 @@ runtime証明に依存する`target_binding`の値は、根拠として用いた
 
 *引用: 基本仕様 §22.2*
 
-### DS-847
+### DS-856
 
 Testの結果が親VOへ寄与する経路は、(a) coversするleaf VO経由の伝播と、(b) 当該親VOを直接coversするTestの直接参加の2つに限る。
 
-### DS-848
+### DS-857
 
 covers宣言を経由しない「機能名による束ね」（ファイルパス・モジュール名・命名規約からの推定束ね）を設けない。
 
-### DS-849
+### DS-858
 
 親VOを持たないleaf VOは、それ自体が最上位の束ね単位となる。
 
-### DS-850
+### DS-859
 
 DOC単位の集約は下流VO部分木の合成であり、機能単位の集約はその中間段に位置する。
 
-### DS-S118 11.4 document 鮮度
-
-### DS-851
-
-スキャン時にdocumentレコードの`content_hash`と実ファイル（`path`）を比較し、不一致ならW-SCAN-104を出す。
-
-### DS-852
-
-当該documentを`derives_from`で参照するVO / 上位documentの鎖は、content_hash不一致として`chain_integrity = MISMATCH`（診断`STALE`）となる（§11.1.1）。
-
-### DS-853
-
-当該document subjectをdependencyに含む判断記録（§8.5）・承認記録（§3.5）も無効となる。
-
-### DS-854
-
-再登録でdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。
-
-### DS-S119 11.5 フェーズゲート評価
-
-*導出元: REQ-S057, SPEC-S050*
-
-### DS-855
-
-`vtest verify --gate <name>`は、指定ゲートの対象scopeについて検証を実行し、(1) 検証結果が`require.verification`を満たすか、(2) `require.approvals`の各ロールについて対象の実効承認状態（§3.5）が`approved`であるか、を評価して満否と根拠（不足している非`PASS`検査・未充足の承認ロール）を提示する。
-
-### DS-856
-
-`--gate <name>`は`gates[].name`との大文字小文字を区別した完全一致で解決する。
-
-### DS-857
-
-`--gate <name>`の解決は前方一致・部分一致・近似一致・既定ゲートへの代替は行わない。
-
-### DS-858
-
-一致するゲート定義が無い場合（`gates`が空、または未定義名の指定）はusage errorとしてE-CONFIG-002（終了コード2）で拒否し、スキャン・検証・ゲート評価のいずれも実行せず、検証結果・部分結果を生成しない。
-
-### DS-859
-
-診断には指定名と定義済みゲート名の一覧を含める。
+### DS-S119 11.4 document 鮮度
 
 ### DS-860
 
-検証条件の充足判定は、`require.verification`の値と、要求scopeの集約代表値との完全一致でのみ充足する。
+スキャン時にdocumentレコードの`content_hash`と実ファイル（`path`）を比較し、不一致ならW-SCAN-104を出す。
 
 ### DS-861
 
-集約代表値は、要求scope内で評価した全値（構造検査`chain_integrity` / `orphan_detection`と、エンティティ軸の部分木で評価した各Test / VO / DOCの検査値）を§11.3のfail-closed規則で合成した1値とする。
+当該documentを`derives_from`で参照するVO / 上位documentの鎖は、content_hash不一致として`chain_integrity = MISMATCH`（診断`STALE`）となる（§11.1.1）。
 
 ### DS-862
+
+当該document subjectをdependencyに含む判断記録（§8.5）・承認記録（§3.5）も無効となる。
+
+### DS-863
+
+再登録でdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。
+
+### DS-S120 11.5 フェーズゲート評価
+
+*導出元: REQ-S057, SPEC-S050*
+
+### DS-864
+
+`vtest verify --gate <name>`は、指定ゲートの対象scopeについて検証を実行し、(1) 検証結果が`require.verification`を満たすか、(2) `require.approvals`の各ロールについて対象の実効承認状態（§3.5）が`approved`であるか、を評価して満否と根拠（不足している非`PASS`検査・未充足の承認ロール）を提示する。
+
+### DS-865
+
+`--gate <name>`は`gates[].name`との大文字小文字を区別した完全一致で解決する。
+
+### DS-866
+
+`--gate <name>`の解決は前方一致・部分一致・近似一致・既定ゲートへの代替は行わない。
+
+### DS-867
+
+一致するゲート定義が無い場合（`gates`が空、または未定義名の指定）はusage errorとしてE-CONFIG-002（終了コード2）で拒否し、スキャン・検証・ゲート評価のいずれも実行せず、検証結果・部分結果を生成しない。
+
+### DS-868
+
+診断には指定名と定義済みゲート名の一覧を含める。
+
+### DS-869
+
+検証条件の充足判定は、`require.verification`の値と、要求scopeの集約代表値との完全一致でのみ充足する。
+
+### DS-870
+
+集約代表値は、要求scope内で評価した全値（構造検査`chain_integrity` / `orphan_detection`と、エンティティ軸の部分木で評価した各Test / VO / DOCの検査値）を§11.3のfail-closed規則で合成した1値とする。
+
+### DS-871
 
 全値が`PASS`なら代表値は`PASS`（総合OKと同値）、非`PASS`が混在する場合は基本仕様 §22.2の優先順位`FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`で選ぶ。
 
@@ -4275,37 +4315,37 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 *引用: 基本仕様 §22.2*
 
-### DS-863
+### DS-872
 
 診断ラベルは充足判定に用いない。
 
-### DS-864
+### DS-873
 
 5状態に順序・優劣・包含関係を設けない。
 
-### DS-865
+### DS-874
 
 「要求値以上」「要求値より良い」といった比較解釈を採らず、`require.verification: UNKNOWN`は代表値が`UNKNOWN`のときだけ充足し、代表値が`PASS`でも充足しない。
 
-### DS-866
+### DS-875
 
 同様に`require.verification: PASS`は代表値が`PASS`のときだけ充足する。
 
-### DS-867
+### DS-876
 
 `--items`で検査軸を限定した実行では、scope外の検査が`NO_EVIDENCE`（診断`NOT_CHECKED`）として代表値の合成に参加する（§11.3、基本仕様 §4.6）。
 
 *引用: 基本仕様 §4.6*
 
-### DS-868
+### DS-877
 
 したがって限定scopeでの`require.verification: PASS`は充足せず、限定scopeの結果でゲートを充足させることはできない。
 
-### DS-869
+### DS-878
 
 承認条件は検証条件と独立に評価し、`require.approvals`が空集合（省略）なら承認条件は充足とする。
 
-### DS-870
+### DS-879
 
 承認未充足は検証状態を降格させず、検証の非`PASS`は承認の充足有無を変えない（基本仕様 §4.5）。
 
@@ -4313,315 +4353,315 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 *引用: 基本仕様 §4.5*
 
-### DS-871
+### DS-880
 
 ゲート全体の充足は検証条件と承認条件の両方が充足した場合に限る。
 
-### DS-S120 11.6 役割別 projection
+### DS-S121 11.6 役割別 projection
 
 *導出元: REQ-S007, SPEC-S049, SPEC-S054*
 
-### DS-872
+### DS-881
 
 当該親VOの代表値と、その配下の子VOごと・Testごとの内訳を同じ出力から辿れる。
 
-### DS-873
+### DS-882
 
 `anchor`を持たないentryでは当該fieldを省略または`null`とし、空文字列で埋めない。
 
-### DS-874
+### DS-883
 
 `anchor`の値は不透明な文字列として transport するだけで、projectionは文書内位置への解決・整合検査を行わない。
 
-### DS-S121 11.7 判断待ち情報の構造
+### DS-S122 11.7 判断待ち情報の構造
 
 *導出元: SPEC-S047, SPEC-S066*
 
-### DS-875
+### DS-884
 
 判断待ち情報は構造化record（report JSON内のsection）として提示する。
 
-### DS-876
+### DS-885
 
 4検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では`check`を`null`とする。
 
-### DS-877
+### DS-886
 
 `check`が`null`の項目は§11.3の集約へ寄与せず、いかなる検査の値も変更しない。
 
-### DS-878
+### DS-887
 
 不要な項目では`judgment_kind`を`null`とする。
 
-### DS-879
+### DS-888
 
 `judgment_kind: case-coverage`の項目（`kind: unknown`、`check: null`、`subject`＝対象Test ID）は、条件をすべて満たす管理対象Testごとにちょうど1件生成する。
 
-### DS-880
+### DS-889
 
 判断型に由来する項目の生成条件の1つは、`covers`が1件以上あることである。
 
-### DS-881
+### DS-890
 
 判断型に由来する項目の生成条件の1つは、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。
 
-### DS-882
+### DS-891
 
 判断型に由来する項目の生成条件の1つは、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。
 
-### DS-883
+### DS-892
 
 実効判断が未確定・`rejected`・`deferred`のいずれの場合も項目を生成し、参照した判断記録IDを`basis`に載せる。
 
-### DS-884
+### DS-893
 
 判断型に由来する項目の生成条件は`case-coverage`型の項目にだけ適用する。
 
-### DS-885
+### DS-894
 
 検査に由来する`kind: unknown`の項目（DA規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断記録の有無で変わらない。
 
-### DS-886
+### DS-895
 
 §8.5の実効判断が競合により未確定となった`(subject, judgment_kind)`は、`kind: unknown`、`check: null`、当該`judgment_kind`、および競合した全判断記録IDを`basis`（`kind: decision`）に持つ項目として提示する。
 
-## DS-S122 16. 並列動作と整合性
+## DS-S123 16. 並列動作と整合性
 
-### DS-S123 16.1 ロック不要の根拠
+### DS-S124 16.1 ロック不要の根拠
 
 *導出元: SPEC-S057*
 
-### DS-887
+### DS-896
 
 解析不能な中間状態はadapter discoveryのE-SCAN-001 / Incompleteとしてfail-closedに検出される（§5.1）。
 
-### DS-S124 16.2 意味的衝突検出
+### DS-S125 16.2 意味的衝突検出
 
 *導出元: SPEC-S057*
 
-### DS-888
+### DS-897
 
 ID衝突はE-SCAN-002として検出する。
 
-### DS-889
+### DS-898
 
 dangling referenceはE-SCAN-003 / E-SCAN-009 / E-SCAN-012として検出する。
 
-### DS-890
+### DS-899
 
 孤児documentはE-SCAN-016として検出する。
 
-### DS-891
+### DS-900
 
 承認の失効は§3.5のハッシュ束縛により自動的にdraftへ遷移する。
 
-### DS-892
+### DS-901
 
 判断記録・Evidenceの失効は§8.5 / §11.2のハッシュ束縛により自動的に無効（診断STALE）へ遷移する。
 
-## DS-S125 17. 診断・終了コード体系
+## DS-S126 17. 診断・終了コード体系
 
-### DS-S126 17.1 診断コード / 診断コード表
+### DS-S127 17.1 診断コード / 診断コード表
 
 *導出元: SPEC-S013, SPEC-S066*
 
-### DS-893
+### DS-902
 
 `E-SCAN-017`はerrorであり、VOの`combinations`が不正（`coverage_policy: explicit`で欠落・空、`explicit`以外で非空、未宣言dimension・未列挙partitionの参照、宣言dimensionの欠落・重複、重複tuple。§3.2.1）である。当該VOの`chain_integrity`を`MISMATCH`とし、`vo expand`は子VOを生成しない。
 
 > 表: | コード | 種別 | 内容 |
 
-### DS-894
+### DS-903
 
 `W-SCAN-104`はwarningであり、documentレコードのcontent_hashと実ファイルの不一致である（依存判断・依存Approvalは無効、鎖はchain_integrity STALE）。
 
-### DS-895
+### DS-904
 
 `E-EXEC-001`はerrorであり、テストビルド失敗である。
 
-### DS-896
+### DS-905
 
 `E-EXEC-002`はerrorであり、要求したテストの結果行が得られないことである。
 
-### DS-897
+### DS-906
 
 `E-EXEC-003`はerrorであり、終了コードと結果行集計の矛盾である。
 
-### DS-898
+### DS-907
 
 `E-EXEC-004`はerrorであり、実行中にExecution State subjectが変化することである。
 
-### DS-899
+### DS-908
 
 `W-EXEC-101`はwarningであり、カバレッジツール利用不能である（target_coverageはchecked: false、検証時NO_EVIDENCE/NOT_CHECKED）。
 
-### DS-900
+### DS-909
 
 `E-AUDIT-001`はerrorであり、提出されたbundle_idが存在しないことである。
 
-### DS-901
+### DS-910
 
 `E-AUDIT-002`はerrorであり、バンドル記録時のハッシュと現在のハッシュの不一致（対象が変更済）である。
 
-### DS-902
+### DS-911
 
 `E-AUDIT-003`はerrorであり、subjectまたはjudgment_kindの不一致・値域外・スキーマ違反である。
 
-### DS-903
+### DS-912
 
 `E-AUDIT-004`はerrorであり、decisionが受理する判断値でないことである。
 
-### DS-904
+### DS-913
 
 `E-AUDIT-008`はerrorであり、supersedesの参照先が存在しない、subjectまたはjudgment_kindが一致しない、または自己参照であることである（§8.4）。
 
-### DS-905
+### DS-914
 
 `E-APPROVAL-001`はerrorであり、Approval対象、`judgment_ref`の参照先、または上流依存closureを完全・currentに解決できず、recordを生成しないことである。
 
-### DS-906
+### DS-915
 
 `E-APPROVAL-002`はerrorであり、`approved_state`が値域外、`subject`の種別が値域外（判断記録ULID・Test ID等）、または`supersedes`の参照先が存在しない・対象が一致しない・自己参照であることである（§3.5。recordを生成しない）。
 
-### DS-907
+### DS-916
 
 `E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（未知・重複adapter IDはE-ADAPTER-001）。
 
-### DS-908
+### DS-917
 
 `E-CONFIG-002`はerrorであり、呼出しがconfigに定義の無いゲート名を参照することである（`--gate` / MCPの`gate`入力。config内容自体はinvariantを満たす。検証・ゲート評価を実行せず結果を生成しない。§11.5）。
 
-### DS-909
+### DS-918
 
 `E-OP-001`はerrorであり、Structured Operationの入力検証失敗（候補提示を伴う。§6.3）である。
 
-### DS-910
+### DS-919
 
 `E-OP-002`はerrorであり、Edit対象Testの特定失敗である。
 
-### DS-911
+### DS-920
 
 `E-OP-003`はerrorであり、Create / Editの適用後検証に失敗（再パース不能、生成された宣言がdesired stateと不一致、変更が1 Testの範囲を超える）することである。適用前の状態へロールバックし操作を中止する（別紙A §15.2・§15.4）。
 
 *引用: 別紙A §15.2・§15.4, 別紙A §15.2, 別紙A §15.4*
 
-### DS-912
+### DS-921
 
 `E-ADAPTER-001`はerrorであり、adapterが未登録、重複、またはregistryの宣言と実装が不一致であることである。
 
-### DS-913
+### DS-922
 
 `E-ADAPTER-002`はerrorであり、adapterのdiscoveryまたはrunnerが確定的に失敗（Evidenceなし）することである。
 
-### DS-914
+### DS-923
 
 `E-ADAPTER-003`はerrorであり、Testのexecution descriptorと選択adapterが不一致であることである。
 
-### DS-915
+### DS-924
 
 `E-ADAPTER-004`はerrorであり、明示操作に必須のadapter capabilityが未提供（変更・判断・Evidenceなし）であることである。
 
-### DS-916
+### DS-925
 
 `W-ADAPTER-101`はwarningであり、検証対象のadapter capabilityが未提供であることである（能力に応じNO_EVIDENCE/NOT_CHECKEDまたはNOT_EXECUTED）。
 
-### DS-917
+### DS-926
 
 `W-ADAPTER-102`はwarningであり、adapterが解析限界を報告することである（該当検査はUNKNOWN）。
 
-### DS-S127 17.2 終了コード
+### DS-S128 17.2 終了コード
 
 *導出元: SPEC-S015, SPEC-S061, SPEC-S066*
 
-### DS-918
+### DS-927
 
 終了コード`0`は、要求scopeの検証結果がOK（操作コマンドでは成功）であることを意味する。
 
 > 表: | コード | 意味 |
 
-### DS-919
+### DS-928
 
 終了コード`1`は、検証結果がNGであることを意味する。
 
-### DS-920
+### DS-929
 
 終了コード`2`は、操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-* / E-CONFIG-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない）であることを意味する。
 
-### DS-921
+### DS-930
 
 終了コード`3`は、内部エラー（ツール自体の異常）であることを意味する。
 
-### DS-922
+### DS-931
 
 `--gate <name>`を指定した`vtest verify` / `vtest report`では、0と1をゲート充足で決める。
 
-### DS-923
+### DS-932
 
 ゲート全体が充足（§11.5の検証条件と承認条件の両方が充足）なら0、いずれかが不充足なら1とする。
 
-### DS-924
+### DS-933
 
 `require.verification`に`PASS`以外を定義したゲートでは、集約代表値が要求値と一致して充足した実行が0になり、この場合に総合がNGであることは0を妨げない。
 
-### DS-925
+### DS-934
 
 ゲート名が未定義の場合はE-CONFIG-002で2とし、0 / 1を返さない。
 
-### DS-926
+### DS-935
 
 `vtest scan` / `vtest doctor`では、registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする。
 
-### DS-927
+### DS-936
 
 `vtest scan` / `vtest doctor`では、scanが完了してrepository整合性のE-SCAN-*を報告した場合は1とする。
 
-### DS-928
+### DS-937
 
 `vtest scan` / `vtest doctor`では、errorがなければ0とする。
 
-### DS-929
+### DS-938
 
 同一実行に複数候補がある場合は内部エラー3、操作拒否2、検証NG1、成功0の順で優先する。
 
-## DS-S128 12. CLI 詳細仕様
+## DS-S129 12. CLI 詳細仕様
 
-### DS-S129 12.1 共通仕様
+### DS-S130 12.1 共通仕様
 
 *導出元: REQ-S009, SPEC-S012, SPEC-S013, SPEC-S055, SPEC-S078, SPEC-S096, SPEC-S106*
 
-### DS-930
+### DS-939
 
 確認プロンプトを出す場合は `--yes` で抑止できる。
 
-### DS-931
+### DS-940
 
 出力は既定で人間向けテキスト、`--format json` で機械可読 JSON。
 
-### DS-932
+### DS-941
 
 JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` を持つ。
 
-### DS-933
+### DS-942
 
 `diagnostics` の要素は `{ "code": "E-SCAN-002", "severity": "error", "message": "...", "location": ... }` である。
 
-### DS-934
+### DS-943
 
 検証結果を返す `verify` / `report`（CLI の `--format json` と同名 MCP ツール）は、これに加えて最上位に `scope` を持つ（下記要求 scope の最上位表現）。
 
-### DS-935
+### DS-944
 
 グローバルオプションは `--project <dir>`（プロジェクトルート。既定はカレントから `.verify/` を上方探索）を持つ。
 
-### DS-936
+### DS-945
 
 グローバルオプションは `--format <text|json>` を持つ。
 
-### DS-937
+### DS-946
 
 グローバルオプションは `--quiet` を持つ。
 
-### DS-938
+### DS-947
 
 限定 scope の検証結果を完全検証と取り違えないため、`verify` / `report` の JSON は要求 scope と「scope 外は未検証」の旨を最上位 field `scope` として返す。
 
@@ -4642,59 +4682,59 @@ JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` �
 
 *引用: 本冊 §11.3, 基本仕様 §4.6*
 
-### DS-939
+### DS-948
 
 text 出力の冒頭表示（§12.2）と同じ内容を機械可読に表したものである。
 
-### DS-940
+### DS-949
 
 `scope.requested.items` は、この実行で評価した検査軸を本冊 §11.1 の検査名で列挙する。
 
 *引用: 本冊 §11.1*
 
-### DS-941
+### DS-950
 
 `--items`（MCP は `items[]`）省略時は固定4検査を 4 件すべて列挙し、空 list にしない。
 
-### DS-942
+### DS-951
 
 列挙順は上記例の固定順（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）とする。
 
-### DS-943
+### DS-952
 
 `scope.requested.entities` は、エンティティ軸で指定した対象を `{ "kind": "doc" | "vo" | "test", "id": ... }` の list として返す。
 
-### DS-944
+### DS-953
 
 `--doc` / `--vo` / `--test` をいずれも指定しない実行では `scope.requested.entities` は空 list とし、暗黙の根エンティティで埋めない。
 
-### DS-945
+### DS-954
 
 `scope.unverified_outside_scope` は、`requested.items` が 4 件未満、または `requested.entities` が空でない場合に `true`、それ以外（固定4検査 × エンティティ軸無指定）は `false` とする。
 
-### DS-946
+### DS-955
 
 `true` は「要求 scope 外は未検証であり、`PASS` ではない」ことを表す。
 
-### DS-947
+### DS-956
 
 scope 外・未実施の検査は集約ツリー内で `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持する。
 
 *引用: 本冊 §11.3*
 
-### DS-948
+### DS-957
 
 `verify` / `report` は `unverified_outside_scope: false` の完全検証でも `scope` を省略しない。
 
-### DS-949
+### DS-958
 
 `scope` を持たない出力は限定 scope と区別できないため、完全検証の根拠として扱わない。
 
-### DS-950
+### DS-959
 
 `init` / `scan` / `doc *` / `vo *` / `test *` / `audit *` / `run` など検証結果を返さないコマンドは `scope` を持たない。
 
-### DS-951
+### DS-960
 
 検証結果を出力するすべてのコマンド（`verify` / `report` / `scan` の集約表示等）は、検証状態と診断ラベルを常に別軸の2列として提示する。
 
@@ -4702,15 +4742,15 @@ scope 外・未実施の検査は集約ツリー内で `NO_EVIDENCE`（診断 `N
 
 *引用: 本冊 §5.2, 基本仕様 §4.1・§4.2*
 
-### DS-952
+### DS-961
 
 JSON では検証状態を各検査ノードの `state` field へ入れる。
 
-### DS-953
+### DS-962
 
 JSON では診断ラベルを各検査ノードの `diagnostic` field（0件以上）へ入れ、`state` の値には決して用いない。
 
-### DS-954
+### DS-963
 
 診断ラベルを集約の代表値選択に用いず、原因説明として併記するだけとする。
 
@@ -4718,97 +4758,97 @@ JSON では診断ラベルを各検査ノードの `diagnostic` field（0件以�
 
 *引用: 本冊 §11.3, 基本仕様 §22.2*
 
-### DS-955
+### DS-964
 
 JSON envelope、adapter選択エラー、capability不足の非PASS扱いはMCPと共通である。
 
-### DS-956
+### DS-965
 
 CLIだけがRust固有の既定値へフォールバックしてはならない。
 
-### DS-957
+### DS-966
 
 Testを含むJSONは本冊 §5.2の `execution` を必ず返す。
 
 *引用: 本冊 §5.2*
 
-### DS-958
+### DS-967
 
 `rust-cargo` Testについてだけ、wire compatibility layerが `filter`、`package`、`test_target` を追加できる。
 
-### DS-959
+### DS-968
 
 非Rust TestではRust互換fieldを省略し、空値またはdummy値を返さない。
 
-### DS-960
+### DS-969
 
 Test JSONは `targets` を常に list として返す。
 
 *引用: 本冊 §5.2*
 
-### DS-961
+### DS-970
 
 `rust-cargo` は `targets ≥ 1` を必須とする。
 
 *引用: 本冊 §4.1・§4.4*
 
-### DS-962
+### DS-971
 
 targetが1件の場合だけ同値の単数互換field `target` を追加できる。
 
-### DS-963
+### DS-972
 
 複数target Testでは単数fieldを省略し、先頭targetを代表値として返さない。
 
-### DS-964
+### DS-973
 
 Test入力から `execution` を復元できるのは、`rust-cargo` codecに完全で相互整合するRust互換実行座標が与えられた場合だけである。
 
-### DS-965
+### DS-974
 
 `execution`と互換fieldが併存する場合は一致を必須とする。
 
-### DS-966
+### DS-975
 
 本 version の Test metadata は存在理由分類（旧 `role` / `anchor` / `anchor_rationale`）を持たない。
 
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 本冊 §4.1, 基本仕様 §12, 要件定義 §4.1*
 
-### DS-967
+### DS-976
 
 本 version はすべての管理対象 Test に `covers ≥ 1` を一律に要求する。
 
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 本冊 §4.1, 基本仕様 §12, 要件定義 §4.1*
 
-### DS-968
+### DS-977
 
 したがって CLI・MCP の入出力に role / anchor の宣言逐語 field・実効 field・既定値埋めは存在しない。
 
-### DS-969
+### DS-978
 
 VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出する。
 
-### DS-970
+### DS-979
 
 明示操作に必須のadapter capabilityが未提供なら、`ok: false`、E-ADAPTER-004、終了コード2を返す。
 
-### DS-971
+### DS-980
 
 明示操作に必須のadapter capabilityが未提供なら、create / editではファイルを変更しない。
 
-### DS-972
+### DS-981
 
 明示操作に必須のadapter capabilityが未提供なら、auditでは判断記録を生成しない。
 
-### DS-973
+### DS-982
 
 明示操作に必須のadapter capabilityが未提供なら、runではEvidenceを生成しない。
 
-### DS-974
+### DS-983
 
 検証・reportで能力不足を観測した場合はW-ADAPTER-101と能力別の非PASS値（static / coverage 欠落は `NO_EVIDENCE`／診断 `NOT_CHECKED`、runner 欠落は `NO_EVIDENCE`／診断 `NOT_EXECUTED`、解析限界は `UNKNOWN`）を返す。
 
@@ -4816,107 +4856,101 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 *引用: 本冊 §5.2 末尾, 基本仕様 §22.3*
 
-### DS-S130 12.2 `vtest init`
+### DS-S131 12.2 `vtest init`
 
 *導出元: SPEC-S008, SPEC-S009, SPEC-S017, SPEC-S021, SPEC-S030, SPEC-S031, SPEC-S034, SPEC-S035, SPEC-S038, SPEC-S039, SPEC-S042, SPEC-S043, SPEC-S049, SPEC-S051, SPEC-S053, SPEC-S055, SPEC-S061, SPEC-S062, SPEC-S066, SPEC-S069, SPEC-S071, SPEC-S072, SPEC-S073, SPEC-S074, SPEC-S075, SPEC-S076, SPEC-S077, SPEC-S079, SPEC-S081, SPEC-S084, SPEC-S085, SPEC-S087, SPEC-S088, SPEC-S090, SPEC-S092, SPEC-S094, SPEC-S096, SPEC-S097, SPEC-S098, SPEC-S099, SPEC-S100, SPEC-S103*
 
-### DS-975
+### DS-984
 
 `config.yaml` は本冊 §2.2 の version 2 で、組込 `rust-cargo` adapter namespace を含む。
 
 *引用: 本冊 §2.2*
 
-### DS-976
+### DS-985
 
 `vtest init` の生成物には `doc/` / `vo/` / `rel/` / `forms/` / `decisions/` / `approvals/` / `evidence/` / `cache/` と `.verify/.gitignore`、組込 Form Schema（§14）を含む。
 
-### DS-977
+### DS-986
 
 既存の `.verify/` があれば `vtest init` はエラー（終了コード 2）とする。
 
-### DS-978
+### DS-987
 
 `vtest init` は `.verify/` を作成するだけであり、既存コードを変更しない。
 
-*導出元: R-5, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-415*
+*導出元: R-5, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-414*
 
 *引用: 基本仕様 §18.1, 要件定義 R-5*
 
-### DS-979
+### DS-988
 
 `vtest init` が作成するファイル・ディレクトリは `.verify/` とその配下に限る。
 
-### DS-980
+### DS-989
 
 `vtest init` は、プロジェクトルート直下の `.gitignore`・ビルド設定（`Cargo.toml` 等）・CI 設定を含め、`.verify/` の外にあるいかなるファイルも新規作成・変更・削除しない。
 
-### DS-981
+### DS-990
 
 `vtest init` は既存ソースコード・既存テストコードのバイト列を変更しない。
 
-### DS-982
+### DS-991
 
 `vtest init` は Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を既存ソースへ挿入しない。
 
-### DS-983
+### DS-992
 
 管理宣言の付与は `test create` / `test edit`（§15）と利用者自身の編集だけが行い、`vtest init` は行わない。
 
-### DS-984
+### DS-993
 
 `vtest init` は既存の `.verify/` があるときは終了コード 2 で中止し、その実行でファイル・ディレクトリを 1 件も作成・変更・削除しない。
 
-### DS-985
+### DS-994
 
 `vtest init` は既存 `.verify/` の内容を上書き・マージ・移動しない。
 
-### DS-986
+### DS-995
 
 したがって `vtest init` の実行前後で、`.verify/` を除いた作業ツリーの内容は同一である。
 
-### DS-987
+### DS-996
 
 既存プロジェクトへの後からの導入が既存資産を書き換えないことは、この不変条件で保証する。
 
-### DS-988
+### DS-997
 
 整合性検査は `chain_integrity`（文書鎖・VO derives_from・Test 管理宣言）と `orphan_detection`（文書層孤児）を構成する。
 
 *引用: 本冊 §5.6, 基本仕様 §23*
 
-### DS-989
+### DS-998
 
 `vtest scan` は registry・config・adapter契約の検証または adapter 呼出しが E-ADAPTER-* / E-CONFIG-* で拒否された場合は終了コード2とし、scan結果を生成しない。
 
-### DS-990
+### DS-999
 
 `vtest scan` は scan が完了し repository 整合性の E-SCAN-* 診断がある場合は終了コード1、error 診断がなければ0とする。
 
 *引用: 本冊 §17.2*
 
-### DS-991
+### DS-1000
 
 `doc` は文書種別（要件定義・基本仕様・詳細設計・API Schema 等）を区別しない。
 
-### DS-992
+### DS-1001
 
 段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、種別を増やさない。
 
-### DS-993
+### DS-1002
 
 旧モデルの `vtest spec` / `vtest req` は廃し、SPEC / REQ 実体層は持たない。
 
-### DS-994
-
-`doc add` は `--path` の対象ファイルの sha256 を計算して document subject へ束縛した DOC レコードを作成する。
-
-*引用: 本冊 §1.3*
-
-### DS-995
+### DS-1003
 
 `--derives-from` は上流 document への導出リンク（0件可＝根候補）である。
 
-### DS-996
+### DS-1004
 
 各 `--derives-from` リンクに任意の `--note`（導出理由・空可・非 `MISMATCH`）を付けられる。
 
@@ -4924,83 +4958,83 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 *引用: 基本仕様 §3.4*
 
-### DS-997
+### DS-1005
 
 `--anchor <text>` は直前の `--derives-from` に束縛し、参照先 document 内の該当箇所（節番号・条項番号・見出し等）を記録する。
 
 *引用: 本冊 §3.1*
 
-### DS-998
+### DS-1006
 
 `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならない。
 
-### DS-999
+### DS-1007
 
 `--anchor` の値は不透明な文字列として保存し、文書内位置への解決・実在確認・書式検証を行わない。
 
-### DS-1000
+### DS-1008
 
 `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。
 
-### DS-1001
+### DS-1009
 
 `doc show` は各 `derives_from` entry の `anchor` を表示する。
 
-### DS-1002
+### DS-1010
 
 `--root` / `--no-root` は当該 DOC を `orphan_detection` の除外根（`config.yaml` の `doc.roots`）へ追加／除外する。
 
 *引用: 本冊 §2.2・§5.6*
 
-### DS-1003
+### DS-1011
 
 根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する。
 
-### DS-1004
+### DS-1012
 
 `--update` は既存 DOC レコードの sha256 を現ファイルで再計算して更新する。
 
-### DS-1005
+### DS-1013
 
 `--update` は document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する。
 
 *引用: 本冊 §3.5・§8.5・§11.4*
 
-### DS-1006
+### DS-1014
 
 `--update` は `--root` / `--no-root` を併せて根指定も更新できる。
 
-### DS-1007
+### DS-1015
 
 `doc list --tree` は `derives_from` の文書鎖を木として表示する。
 
-### DS-1008
+### DS-1016
 
 `doc list --roots` は現在の根集合を表示する。
 
-### DS-1009
+### DS-1017
 
 `doc show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態を表示する。
 
 *引用: 本冊 §3.5*
 
-### DS-1010
+### DS-1018
 
 `derives_from` の参照先 document が存在しなければ文書鎖のリンク切れとして `chain_integrity = MISMATCH`（E-SCAN-012）とする。
 
-### DS-1011
+### DS-1019
 
 `path` の実ファイルが `content_hash` と一致しなくなれば `chain_integrity = MISMATCH`（診断 `STALE`）とする。
 
 *引用: 本冊 §11.4*
 
-### DS-1012
+### DS-1020
 
 根に指定されず親も持たない document は孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。
 
 *引用: 本冊 §5.6*
 
-### DS-1013
+### DS-1021
 
 VO は 1 件以上の `document` から `derives_from` で直結して導出される。
 
@@ -5026,235 +5060,235 @@ VO は 1 件以上の `document` から `derives_from` で直結して導出さ�
 
 *引用: 本冊 §3.2, 基本仕様 §3.2*
 
-### DS-1014
+### DS-1022
 
 旧モデルの `--req`（REQ 参照）・`--spec` / `--section`（SPEC + 節参照）は廃し、上流参照は `--derives-from DOC-*`（任意の `--note`）へ一本化する。
 
-### DS-1015
+### DS-1023
 
 VO の `status`（`draft` / `approved`）は正典 field ではなく承認レコードから導出する表示値である。
 
 *引用: 本冊 §3.2・§3.5*
 
-### DS-1016
+### DS-1024
 
 `status` が読取り互換 field として保存されていても値は無視し、存在自体は W-STORE-001 とする。
 
-### DS-1017
+### DS-1025
 
 旧 REQ の `active` / `withdrawn` 語彙は REQ 層とともに廃止する。
 
-### DS-1018
+### DS-1026
 
 `--doc DOC-X` は当該 document を根とする下流 VO の絞り込みである。
 
-### DS-1019
+### DS-1027
 
 `vo add` / `vo edit` の `--anchor <text>` は直前の `--derives-from` に束縛し、参照先 document 内の該当箇所（節番号・条項番号・見出し等）を記録する。
 
 *引用: 本冊 §3.2*
 
-### DS-1020
+### DS-1028
 
 `vo add` / `vo edit` の `--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならず、値は不透明な文字列として保存する。
 
-### DS-1021
+### DS-1029
 
 `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。
 
-### DS-1022
+### DS-1030
 
 `vo show` は各 `derives_from` entry の `anchor` を表示する。
 
-### DS-1023
+### DS-1031
 
 `anchor` は VO subject hash に入らないため、`anchor` だけを変更した `edit` は承認を失効させない。
 
 *引用: 本冊 §3.2*
 
-### DS-1024
+### DS-1032
 
 `--combination` は `coverage_policy: explicit` のときに実体化する組合せ（`combinations`）を入力する。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1025
+### DS-1033
 
 `--combination` の1回の出現が1 tupleに対応し、`<dim>=<part>` をカンマ区切りで並べて全軸の値を与える（例：`--combination operand-sign=positive,operator=div`）。
 
-### DS-1026
+### DS-1034
 
 複数 tuple は `--combination` を繰り返して与える。
 
-### DS-1027
+### DS-1035
 
 `vo edit` の `--combination` は desired state であり、1 回以上与えたときは既存 `combinations` を与えた集合で置換する（追記しない）。
 
-### DS-1028
+### DS-1036
 
 `--clear-combinations` は `combinations` を空にする。
 
-### DS-1029
+### DS-1037
 
 `--combination` も `--clear-combinations` も与えない `vo edit` は既存 `combinations` を保持する。
 
-### DS-1030
+### DS-1038
 
 `--combination` の値が本冊 §3.2.1 の受理条件（`explicit` 以外での指定、未宣言 dimension、未列挙 partition、宣言 dimension の欠落・重複、重複 tuple、`explicit` かつ tuple 0 件）に違反する場合は E-SCAN-017、終了コード 2 で拒否し、レコードを書かない。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1031
+### DS-1039
 
 `vo add` はこの違反時に新規レコードを作成せず、`vo edit` は既存レコードを変更しない。
 
-### DS-1032
+### DS-1040
 
 `<dim>=<part>` の形をなさない値は引数不正として終了コード 2 で拒否する。
 
-### DS-1033
+### DS-1041
 
 `vo expand` は本冊 §3.2.1 の実体化（`independent-axes` / `full-product` / `explicit`）である。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1034
+### DS-1042
 
 `--dry-run` は生成予定の子 VO 一覧のみ表示する。
 
-### DS-1035
+### DS-1043
 
 `explicit` の VO は `combinations` の各 tuple につき 1 件の子 VO を、`dimensions` の宣言順に連結した suffix（`VO-X-<P1>-<P2>`）で生成する。
 
-### DS-1036
+### DS-1044
 
 `combinations` が本冊 §3.2.1 の受理条件に違反する VO に対しては E-SCAN-017、終了コード 2 とし、子 VO を 1 件も生成しない（部分生成しない）。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1037
+### DS-1045
 
 `vo approve VO-X <承認引数>` は `vtest approval create --subject-type vo --subject-id VO-X <承認引数>` の別名であり、引数・拒否条件・生成されるレコードは同一である。
 
-### DS-1038
+### DS-1046
 
 承認の意味論を重複して定義せず、正典は次項の `vtest approval` と本冊 §3.5 とする。
 
 *引用: 本冊 §3.5*
 
-### DS-1039
+### DS-1047
 
 `vo list --status` および `vo show` が表示する承認状態は、本冊 §3.5 の実効承認導出（`approved_state` を参照し、実効集合に `rejected` / `withdrawn` が1件でも残れば `draft`）の結果であり、承認レコードの件数・新旧からは導出しない。
 
 *引用: 本冊 §3.5*
 
-### DS-1040
+### DS-1048
 
 `vo edit` は実効承認が `approved` の VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。
 
-### DS-1041
+### DS-1049
 
 `--subject-type` と `--subject-id` は本冊 §3.5 の承認対象の値域に対応する。
 
 *引用: 本冊 §3.5*
 
-### DS-1042
+### DS-1050
 
 `--subject-type vo` は `subject` に VO ID を書き込む。
 
-### DS-1043
+### DS-1051
 
 `--subject-type document` は `subject` に document ID を書き込む。
 
-### DS-1044
+### DS-1052
 
 `--subject-type judgment` は `--subject-id` に判断記録 ULID を取り、`judgment_ref` へ書き込んだうえで `subject` に当該判断記録の `subject` を、`subject_hash` / `dependencies` にその対象の現在値を記録する。
 
-### DS-1045
+### DS-1053
 
 方針は総称 document として登録した文書で表現するため、方針の承認・却下・取消は `--subject-type document` で記録する。
 
 *引用: 本冊 §3.1・§3.5*
 
-### DS-1046
+### DS-1054
 
 `--state` は必須で、本冊 §3.5 の `approved_state`（`approved` / `rejected` / `withdrawn`）を与える。
 
 *引用: 本冊 §3.5*
 
-### DS-1047
+### DS-1055
 
 `--basis` は根拠参照（任意）である。
 
-### DS-1048
+### DS-1056
 
 `--supersedes` は明示に置き換える旧承認レコード ID（0件以上）である。
 
-### DS-1049
+### DS-1057
 
 `show` は当該対象の承認レコード一覧（`approved_state`・`supersedes`・有効性）と、本冊 §3.5 の実効承認状態（`draft` / `approved`）を返す。
 
 *引用: 本冊 §3.5*
 
-### DS-1050
+### DS-1058
 
 対象、`--subject-type judgment` の参照先判断記録、またはいずれかの依存 entity / document source を完全・current に解決できない場合は E-APPROVAL-001、終了コード 2 として record を追加しない。
 
-### DS-1051
+### DS-1059
 
 `--state` が値域外、`--subject-type` と `--subject-id` の種別が一致しない、`--supersedes` の参照先が存在しない・対象が一致しない・自己参照のいずれかであれば E-APPROVAL-002、終了コード 2 として record を追加しない。
 
-### DS-1052
+### DS-1060
 
 実効承認は明示の `supersedes` 関係だけで決まる。
 
-### DS-1053
+### DS-1061
 
 `supersedes` 関係にない複数の有効承認レコードはすべて実効集合に属し、`approved_at` / ULID の順序でどれかを「現在の承認」に選ぶことはしない。
 
-### DS-1054
+### DS-1062
 
 実効集合に `rejected` / `withdrawn` が 1 件でも残れば `draft` とする。
 
-### DS-1055
+### DS-1063
 
 取消・却下の後に再承認するには、当該レコード ID を `--supersedes` で名指しした `--state approved` を追加する。
 
 *引用: 本冊 §3.5*
 
-### DS-1056
+### DS-1064
 
 承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない。
 
-*導出元: SPEC-051, SPEC-052, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-355, SPEC-356, SPEC-357, SPEC-358*
+*導出元: SPEC-051, SPEC-052, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-354, SPEC-355, SPEC-356, SPEC-357*
 
 *引用: 本冊 §3.5, 基本仕様 §4.5・§17*
 
-### DS-1057
+### DS-1065
 
 `--dry-run` は挿入内容と挿入位置のみを表示する。
 
-### DS-1058
+### DS-1066
 
 回答の検証エラーは E-OP-001 として候補付きで報告する。
 
 *引用: 本冊 §6.3*
 
-### DS-1059
+### DS-1067
 
 `--answers` は完全なあるべき状態を宣言する。
 
-### DS-1060
+### DS-1068
 
 `--set` は指定フィールドのみのあるべき値を宣言する。
 
-### DS-1061
+### DS-1069
 
 Test implementation の書き換えは `--body-file <path>` で adapter へ全文を与える。
 
 > 編集の実装は §15 に定める。
 
-### DS-1062
+### DS-1070
 
 `test show` は Test の intent・covers・targets（宣言 target 集合）・Source Location・判断記録（§8）・Evidence（§9）の状態を表示する。
 
@@ -5264,19 +5298,19 @@ Test implementation の書き換えは `--body-file <path>` で adapter へ全�
 > vtest test query --source rust-cargo::src/parser.rs::Parser::parse   # SRC からの逆引き
 > ```
 
-### DS-1063
+### DS-1071
 
 `test show` は role / anchor の表示・`--role` フィルタを持たない。
 
 *引用: 本冊 §4.1*
 
-### DS-1064
+### DS-1072
 
 `test query` の逆引きは §11.6 の役割別 projection の基盤（VO → Tests、SRC → Tests）としても用いる。
 
 *引用: 本冊 §5.3*
 
-### DS-1065
+### DS-1073
 
 静的解析は正典レコードを持たない再計算派生であり、`audit static` は正典の監査レコードを生成しない。
 
@@ -5284,53 +5318,53 @@ Test implementation の書き換えは `--body-file <path>` で adapter へ全�
 
 *引用: 本冊 §7.1, 基本仕様 P-003*
 
-### DS-1066
+### DS-1074
 
 `audit static` は `oracle_presence` へ供給する DA-001 / DA-003 / DA-004 / DA-005 / DA-006 と、`target_binding` の静的到達（DA-002）を評価する。
 
-### DS-1067
+### DS-1075
 
 target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則単位 verdict と併せて提示する。
 
 *引用: 本冊 §3.6・§7.2*
 
-### DS-1068
+### DS-1076
 
 `audit static` は判断記録（§8）とは別機構であり、外部判断の記録には転用しない。
 
 *引用: 本冊 §7*
 
-### DS-1069
+### DS-1077
 
 `cases` は `@vtest.case` 宣言の正規化文字列を宣言順に並べた list であり、宣言が無い Test でも空 list を明示して項目を省略しない。
 
-### DS-1070
+### DS-1078
 
 バンドルは派生情報であり Git 管理しない。
 
-### DS-1071
+### DS-1079
 
 `--kind` は判断させる UNKNOWN のエスカレーション質問のラベル（本冊 §8.1 の判断型）であって検査項目ではない。
 
 *引用: 本冊 §8.1*
 
-### DS-1072
+### DS-1080
 
 `--kind` の値と `subject` 値域は本冊 §8.1 の表に従う。
 
 *引用: 本冊 §8.1*
 
-### DS-1073
+### DS-1081
 
 `test-semantic` は「テストコードは VO の claim と Test Intent が宣言する振る舞いを実際に検証しているか」を意味し、`--test` のみに使う。
 
 *引用: 本冊 §8.6*
 
-### DS-1074
+### DS-1082
 
 `impl-consistency` は「対象実装が宣言と一致するか」を意味し、`--test` のみに使い、上流 document を要するため §3.5 と同じ上流依存規則で document 完全集合を同梱する。
 
-### DS-1075
+### DS-1083
 
 `case-coverage` は「cases 集合が VO の要求入力空間を十分に代表・網羅しているか」を意味し、`--test` / `--vo` の双方に使う。
 
@@ -5338,19 +5372,19 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 *引用: 本冊 §8.1, 基本仕様 §14*
 
-### DS-1076
+### DS-1084
 
 `--test` で `--kind` を省略した場合は `test-semantic` とする。
 
-### DS-1077
+### DS-1085
 
 `--vo` では `--kind case-coverage` を必須とし、`--kind` 省略および `--vo` と `test-semantic` / `impl-consistency` の組合せは usage error（終了コード 2）としてバンドルを生成しない。
 
-### DS-1078
+### DS-1086
 
 バンドルは選ばれた判断型を `judgment_kind` として出力し、`audit submit` はこれを判断記録へ複製する。
 
-### DS-1079
+### DS-1087
 
 `case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。
 
@@ -5358,131 +5392,131 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 *引用: 基本仕様 §5*
 
-### DS-1080
+### DS-1088
 
 `case-coverage` の未判断・判断結果はいずれの検査の値にも写像せず集約へ寄与しない。
 
 *引用: 本冊 §8.1・§11.3*
 
-### DS-1081
+### DS-1089
 
 `audit submit` は本冊 §8.4 の検証（bundle_id 存在＝E-AUDIT-001、subject 一致＝E-AUDIT-003、judgment_kind 一致・値域＝E-AUDIT-003、記録時ハッシュと現在ハッシュの一致＝E-AUDIT-002、decision が受理値＝E-AUDIT-004、supersedes の参照先が同一 subject・同一 judgment_kind の既存判断記録で自己参照でない＝E-AUDIT-008）を行い、受理時に判断記録 ID（`.verify/decisions/` の ULID）を出力する。
 
 *引用: 本冊 §8.4*
 
-### DS-1082
+### DS-1090
 
 判断は少なくとも actor / subject / decision / judgment_kind を含み、理由・根拠（`reason` / `exclusions`）と `supersedes` は任意である。
 
-### DS-1083
+### DS-1091
 
 理由が空であることだけを根拠に判断を無効化しない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 本冊 §8.3, 基本仕様 §11.3, 要件定義 §12*
 
-### DS-1084
+### DS-1092
 
 `decision` の受理値は `accepted` / `rejected` / `deferred` 等である。
 
 *引用: 本冊 §8.3*
 
-### DS-1085
+### DS-1093
 
 競合の解消は `supersedes` だけによる。
 
-### DS-1086
+### DS-1094
 
 同一 `(subject, judgment_kind)` に判断値の食い違う有効判断記録が併存する場合、実効判断は未確定（`UNKNOWN`）とし、W-STORE-004 を出す。
 
-### DS-1087
+### DS-1095
 
 機械は新旧・decision 値・件数のいずれによっても採用記録を選ばない。
 
-### DS-1088
+### DS-1096
 
 新しい判断記録が旧記録の ULID を `supersedes` で名指しした場合にだけ解消する。
 
 *引用: 本冊 §8.5*
 
-### DS-1089
+### DS-1097
 
 未確定の事実は `verify` / `report` の判断待ち section（§12.4）へ載せる。
 
-### DS-1090
+### DS-1098
 
 判断記録の受理は当該対象の検証状態（5状態）を昇格させない。
 
-*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 本冊 §8.3・§3.4, 基本仕様 §11.3*
 
-### DS-1091
+### DS-1099
 
 旧モデルの `verdict → CheckValue` 写像・reasons / basis 必須検査（E-AUDIT-005〜007）は撤去する。
 
 *引用: 本冊 §8.4*
 
-### DS-1092
+### DS-1100
 
 判断記録・承認記録のいずれも検証状態を昇格・降格させない。
 
-### DS-1093
+### DS-1101
 
 旧モデルの `--req`（REQ 指定）は document 層の総称化により廃止し、document scope が必要な場合は VO 部分木経由で指定する。
 
 *引用: 本冊 §9.1*
 
-### DS-1094
+### DS-1102
 
 `--fast` は cargo test のみで、`target_coverage` を `checked: false` として記録する。
 
-### DS-1095
+### DS-1103
 
 `--fast` は `target_binding` の動的証拠を採らず、検証時 `NO_EVIDENCE`／診断 `NOT_CHECKED` とする。
 
 *引用: 本冊 §10.3*
 
-### DS-1096
+### DS-1104
 
 scope は2軸であり、`--items` が検査軸（4検査の部分集合）、`--doc` / `--vo` / `--test` がエンティティ軸（部分木）である。
 
 *引用: 基本仕様 §4.6, 本冊 §11.3*
 
-### DS-1097
+### DS-1105
 
 旧モデルの `--spec` / `--req` は廃止し、`--req` は除去する。
 
-### DS-1098
+### DS-1106
 
 `--items` 省略時は常に固定4検査による完全検証を行う。
 
-### DS-1099
+### DS-1107
 
 `config.yaml` の `verify.full_scope` は本冊 §2.2 の invariant として事前に検証・正規化し、項目選択 knob として使用しない。
 
 *引用: 本冊 §2.2*
 
-### DS-1100
+### DS-1108
 
 旧12項目の列挙は version を問わず E-CONFIG-001 とし、version 1 の field 欠落だけを固定4検査へ具体化する。
 
-### DS-1101
+### DS-1109
 
 `verify.full_scope` の in-memory の項目補完は行わない。
 
 *引用: 本冊 §2.2*
 
-### DS-1102
+### DS-1110
 
 `--items` に4検査未満の明示的な集合を指定した場合だけ限定 scope とし、scope 外・未実施の検査は `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持し、`PASS` へ変換しない。
 
-### DS-1103
+### DS-1111
 
 限定 scope の結果を完全検証 OK と表示しない。
 
-### DS-1104
+### DS-1112
 
 いかなる設定値も完全検証を4本未満へ縮退させない。
 
@@ -5490,29 +5524,29 @@ scope は2軸であり、`--items` が検査軸（4検査の部分集合）、`-
 
 *引用: 基本仕様 §4.6・§22.1*
 
-### DS-1105
+### DS-1113
 
 scope を限定した場合、出力冒頭に要求 scope と「scope 外は未検証」の旨を必ず表示する。
 
-### DS-1106
+### DS-1114
 
 `--format json` では同じ内容を最上位 field `scope`（§12.1）として返し、完全検証の場合も省略しない。
 
-### DS-1107
+### DS-1115
 
 `--gate <name>` はフェーズゲート評価（§12.3）である。
 
-### DS-1108
+### DS-1116
 
 config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コード 2 で拒否し、検証を実行しない。
 
 *引用: 本冊 §11.5・§17.1*
 
-### DS-1109
+### DS-1117
 
 `--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する。
 
-### DS-1110
+### DS-1118
 
 `vtest verify` は状態列（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）と診断ラベル列（`[MISSING]` / `[NOT_EXECUTED]` / `[NOT_CHECKED]` / `[STALE]`）を分離して表示する。
 
@@ -5537,7 +5571,7 @@ config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コー
 > Result: NG
 > ```
 
-### DS-1111
+### DS-1119
 
 診断ラベルは代表値の順位（基本仕様 §22.2 の `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`）に用いず、原因説明として併記する。
 
@@ -5545,91 +5579,91 @@ config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コー
 
 *引用: 基本仕様 §22.2*
 
-### DS-1112
+### DS-1120
 
 `target_binding` の非 `PASS` は根拠として用いた Evidence ID と当該 target の `target_coverage` 結果を引用する。
 
 *引用: 本冊 §11.3*
 
-### DS-1113
+### DS-1121
 
 `oracle_presence` の非 `PASS` は違反した DA rule と根拠 span を引用する。
 
 *引用: 本冊 §11.3*
 
-### DS-1114
+### DS-1122
 
 判断記録（§8）を引用する場合は decision ID を示す。
 
-### DS-1115
+### DS-1123
 
 静的解析は正典レコードを持たないため監査レコード ID は引用しない。
 
 *引用: 本冊 §7.1*
 
-### DS-1116
+### DS-1124
 
 `chain_integrity` は repository-level の構造検査であり、`Structural checks` 配下に表示する。
 
-### DS-1117
+### DS-1125
 
 `chain_integrity` は発見された各 Test の管理宣言解決と Test ID 大局的一意性をすべて評価し、未登録または不正対応の各 Test について adapter ID・source location・diagnostic code・判定値を `chain_integrity` 配下に列挙する（`MISMATCH`／診断 `MISSING`）。
 
 *引用: 本冊 §11.1.1*
 
-### DS-1118
+### DS-1126
 
 covers する Test の無い leaf VO も `chain_integrity = MISMATCH`（診断 `MISSING`）として entity tree 上に示す。
 
-### DS-1119
+### DS-1127
 
 JSON でも同じ根拠一覧を返す。
 
-### DS-1120
+### DS-1128
 
 Evidence が複数 target の計測結果を持つ場合、text report は Test 単位の集約値に加えて各 target の canonical Locator・result・count を子要素として表示する。
 
 *引用: 本冊 §6.1.1*
 
-### DS-1121
+### DS-1129
 
 JSON は target 別 list を欠落なく返す。
 
 *引用: 本冊 §3.6*
 
-### DS-1122
+### DS-1130
 
 各行の prefix は、その行の祖先に後続兄弟があれば `│  `、なければ空白3文字を階層ごとに連結し、現在 node が途中の兄弟なら `├─ `、最後の兄弟なら `└─ ` を付けて構成する。
 
-### DS-1123
+### DS-1131
 
 最上位 node にも同じ途中・末尾 branch 規則を適用する。
 
-### DS-1124
+### DS-1132
 
 祖先 node 自身の `├─ ` / `└─ ` を子孫行へ引き継がない。
 
-### DS-1125
+### DS-1133
 
 `--from <node>` は任意ノード（DOC / VO / TEST / SRC）からの局所トレースの起点である。
 
-*導出元: SPEC-172, SPEC-173, SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364, SPEC-365*
+*導出元: SPEC-172, SPEC-173, SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-358, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364*
 
 *引用: 本冊 §11.6, 基本仕様 §19*
 
-### DS-1126
+### DS-1134
 
 `--direction` は上流／下流／双方である。
 
-### DS-1127
+### DS-1135
 
 `--depth` は連続追跡の段数である。
 
-### DS-1128
+### DS-1136
 
 `--view` は役割 preset（`pm`＝上位 document・VO の状態と未確定/NG、`tester`＝VO・Test・検証対象・Evidence・未実施/失敗理由、`coder`＝実装から関連 Test・VO・上流 document へのトレース）である。
 
-### DS-1129
+### DS-1137
 
 役割を固定 enum として本冊は仕様化せず、preset・view 体系はここに委譲される。
 
@@ -5637,7 +5671,7 @@ JSON は target 別 list を欠落なく返す。
 
 *引用: 本冊 §11.6, 基本仕様 §30 item21*
 
-### DS-1130
+### DS-1138
 
 機能単位の集約は親 VO（子 VO を持つ VO）を単位とする。
 
@@ -5645,115 +5679,115 @@ JSON は target 別 list を欠落なく返す。
 
 *引用: 本冊 §11.3・§11.6, 基本仕様 §22.2*
 
-### DS-1131
+### DS-1139
 
 `--vo <親VO>` または `--from <親VO> --direction down` は、当該親 VO の代表値（fail-closed 合成）と、その配下の子 VO ごと・Test ごとの内訳を同じツリーに返す。
 
-### DS-1132
+### DS-1140
 
 Feature を別エンティティとして出力せず、Feature 名・Feature ID の field を設けない。
 
-### DS-1133
+### DS-1141
 
 束ねの識別子は親 VO の ID とする。
 
-### DS-1134
+### DS-1142
 
 `--format json` の trace 出力に含まれる `derives_from` エッジ（DOC → DOC、DOC → VO）は、`anchor` と `note` を同伴する。
 
-*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333*
+*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332*
 
 *引用: 本冊 §11.6・§3.1・§3.2, 基本仕様 §11.1*
 
-### DS-1135
+### DS-1143
 
 エッジ要素は `{ "from": "DOC-REQ-001", "relation": "derives_from", "anchor": "§12.3", "note": "", "to": "VO-PARSER-UTF8-003" }` の形とする。
 
-### DS-1136
+### DS-1144
 
 `anchor` を持たない entry では `anchor` を省略または `null` とし空文字列で埋めない。
 
-### DS-1137
+### DS-1145
 
 `report --from DOC-REQ-001 --direction down --format json` は、この形式で「どの上流条項がどの概念（VO）へ対応するか」の対応ペア集合を返す。
 
-### DS-1138
+### DS-1146
 
 `anchor` は不透明な文字列として transport し、文書内位置への解決・整合検査を行わない。
 
-### DS-1139
+### DS-1147
 
 `--format json` の出力へ、未確定・要判断事項を横断的に集約した `pending` section を含める（§12.4）。
 
-*導出元: SPEC-167, SPEC-168, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425, SPEC-426, SPEC-427, SPEC-428, SPEC-429, SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434, SPEC-435, SPEC-436, SPEC-437, SPEC-438, SPEC-439, SPEC-440, SPEC-441, SPEC-442, SPEC-443, SPEC-444, SPEC-445, SPEC-446, SPEC-447, SPEC-448, SPEC-449, SPEC-450, SPEC-451, SPEC-452, SPEC-453*
+*導出元: SPEC-167, SPEC-168, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425, SPEC-426, SPEC-427, SPEC-428, SPEC-429, SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434, SPEC-435, SPEC-436, SPEC-437, SPEC-438, SPEC-439, SPEC-440, SPEC-441, SPEC-442, SPEC-443, SPEC-444, SPEC-445, SPEC-446, SPEC-447, SPEC-448, SPEC-449, SPEC-450, SPEC-451, SPEC-452*
 
 *引用: 本冊 §11.7, 基本仕様 §18.3*
 
-### DS-1140
+### DS-1148
 
 `--gate <name>` は `verify` と同じ解決規則に従い、未定義名は E-CONFIG-002・終了コード 2 で拒否する。
 
 *引用: 本冊 §11.5*
 
-### DS-S131 12.3 フェーズゲート評価（`verify --gate` / `report --gate`）
+### DS-S132 12.3 フェーズゲート評価（`verify --gate` / `report --gate`）
 
 *導出元: REQ-S057, SPEC-S043, SPEC-S050, SPEC-S066, SPEC-S069, SPEC-S075, SPEC-S098*
 
-### DS-1141
+### DS-1149
 
 `config.yaml` の `gates` に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。
 
 *引用: 本冊 §2.2*
 
-### DS-1142
+### DS-1150
 
 `require.verification` は 5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）のいずれかとの完全一致でなければならず、違反は config 受理時に E-CONFIG-001（終了コード 2）とする。
 
-### DS-1143
+### DS-1151
 
 `require.approvals` の省略は空集合として受理する。
 
 *引用: 本冊 §2.2*
 
-### DS-1144
+### DS-1152
 
 `--gate <name>`（MCP は `gate` 入力）は `gates[].name` との大文字小文字を区別した完全一致でだけ解決する。
 
-### DS-1145
+### DS-1153
 
 未定義名・`gates` が空の状態での指定は E-CONFIG-002、`ok: false`、終了コード 2 とし、検証もゲート評価も実行せず、`data` に部分結果を返さない。
 
-### DS-1146
+### DS-1154
 
 診断 message には指定名と定義済みゲート名の一覧を含め、MCP では §13.1 の `candidates` に定義済みゲート名を入れる。
 
-### DS-1147
+### DS-1155
 
 検証条件は `require.verification` と要求 scope の集約代表値との完全一致でのみ充足する。
 
 *引用: 本冊 §11.5*
 
-### DS-1148
+### DS-1156
 
 5 状態に順序を設けず、「要求値以上」の解釈を採らない。
 
-### DS-1149
+### DS-1157
 
 したがって `require.verification: PASS` は代表値 `PASS` のときだけ、`require.verification: UNKNOWN` は代表値 `UNKNOWN` のときだけ充足する。
 
-### DS-1150
+### DS-1158
 
 `--items` で検査軸を限定した実行では scope 外検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値に参加するため、`require.verification: PASS` のゲートは限定 scope では充足しない。
 
-### DS-1151
+### DS-1159
 
 承認ロールの解決は本別紙が新設する最小規則である。
 
-*導出元: SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-355, SPEC-356, SPEC-357, SPEC-358*
+*導出元: SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-354, SPEC-355, SPEC-356, SPEC-357*
 
 *引用: 基本仕様 §17・§30 item22*
 
-### DS-1152
+### DS-1160
 
 承認レコードは role field を持たないため、`config.yaml` に承認ロール → approver id 集合の対応を project 定義可能とする。
 
@@ -5765,41 +5799,41 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 
 *引用: 本冊 §3.5*
 
-### DS-1153
+### DS-1161
 
 ロール `R` の承認が存在するとは、「本冊 §3.5 で有効な（subject_hash・依存 closure が現在一致する）対象の承認レコードのうち、`approver.id` が `approval_roles[R]` に属するものが1件以上存在する」ことをいう。
 
 *引用: 本冊 §3.5*
 
-### DS-1154
+### DS-1162
 
 `gates.require.approvals` が参照するロールが `approval_roles` に無い場合は config invariant 違反として E-CONFIG-001 とする。
 
-### DS-1155
+### DS-1163
 
 ロール充足の判定対象は、当該 `verify` / `report` のエンティティ軸で指定した対象（`--doc` / `--vo` / `--test`。省略時は評価 scope の根エンティティ）に束縛された有効承認とする。
 
-### DS-1156
+### DS-1164
 
 scope 内に複数の対象がある場合は各対象について当該ロールの有効承認を要求する（fail-closed）。
 
-### DS-1157
+### DS-1165
 
 より細粒度の承認 authority・対象範囲はプロジェクト設定へ委譲する。
 
-*導出元: SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-355, SPEC-356, SPEC-357, SPEC-358*
+*導出元: SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-354, SPEC-355, SPEC-356, SPEC-357*
 
 *引用: 基本仕様 §17・§30 item22*
 
-### DS-1158
+### DS-1166
 
 `vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification`（例 `PASS`）を満たすか、(2) `require.approvals` の各ロールについて上記解決規則で有効な承認が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。
 
-### DS-1159
+### DS-1167
 
 `report --gate` は同評価を JSON の `gate` section で返す。
 
-### DS-1160
+### DS-1168
 
 検証状態と承認は独立の軸であり、承認未充足は検証状態を降格させない。
 
@@ -5807,7 +5841,7 @@ scope 内に複数の対象がある場合は各対象について当該ロー�
 
 *引用: 本冊 §3.5, 基本仕様 §4.5*
 
-### DS-1161
+### DS-1169
 
 `--gate` を指定した `verify` / `report` の JSON は `data.gate` を返す。
 
@@ -5822,45 +5856,45 @@ scope 内に複数の対象がある場合は各対象について当該ロー�
 > }
 > ```
 
-### DS-1162
+### DS-1170
 
 `verification.required` は `require.verification` の値、`verification.actual` は要求 scope の集約代表値（5 状態のいずれか）、`verification.satisfied` は両者の完全一致である。
 
-### DS-1163
+### DS-1171
 
 `approvals[]` は `require.approvals` の各ロールについて充足有無と未充足の対象を返し、`require.approvals` が空集合なら空 list とする。
 
-### DS-1164
+### DS-1172
 
 `gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積とする。
 
-### DS-1165
+### DS-1173
 
 text 出力では同じ 3 項目（要求値・現在の代表値・満否）と未充足ロール・不足している非 `PASS` 検査を提示する。
 
-### DS-1166
+### DS-1174
 
 `--gate` を指定した実行では最上位 `ok` と終了コードをゲート充足で決める（充足 → `ok: true`・0、不充足 → `ok: false`・1、未定義ゲート名 → `ok: false`・2）。
 
-### DS-1167
+### DS-1175
 
 要求 scope の総合 OK / NG は集約ツリーと `gate.verification.actual` から読み取る。
 
 *引用: 本冊 §17.2*
 
-### DS-1168
+### DS-1176
 
 ゲート充足は検証状態とは別軸の評価であり、検証状態を書き換えない。
 
-### DS-1169
+### DS-1177
 
 JSON では検証状態（集約ツリーと `gate.verification.actual`）と `gate.satisfied` を別 field として常に併記し、text 出力でも検証状態の行とゲート満否の行を分けて表示する。
 
-### DS-1170
+### DS-1178
 
 `--gate` 指定時の `ok: true`・終了コード 0 を検証状態 `PASS` と読ませる表示（例：検証状態の行を省略する、`PASS` の語をゲート満否に流用する）はしない。
 
-### DS-1171
+### DS-1179
 
 具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設定（`config.yaml`）へ委譲する。
 
@@ -5868,11 +5902,11 @@ JSON では検証状態（集約ツリーと `gate.verification.actual`）と `g
 
 *引用: 基本仕様 §30 items 22-23*
 
-### DS-S132 12.4 判断待ち情報 section（`verify` / `report` JSON）
+### DS-S133 12.4 判断待ち情報 section（`verify` / `report` JSON）
 
 *導出元: REQ-S043, SPEC-S047, SPEC-S066, SPEC-S100*
 
-### DS-1172
+### DS-1180
 
 `subject` は対象エンティティ ID または解決済み canonical Locator である。
 
@@ -5897,245 +5931,245 @@ JSON では検証状態（集約ツリーと `gate.verification.actual`）と `g
 > ]
 > ```
 
-### DS-1173
+### DS-1181
 
 `kind` は `unknown`（`UNKNOWN` によるエスカレーション）/ `unregistered`（管理宣言欠落）/ `unresolved`（参照解決不能）/ `undecided`（VO 未確定）/ `pending_approval`（承認待ち）のいずれかである。
 
-### DS-1174
+### DS-1182
 
 `check` は関係する4検査のいずれかと現在の検証状態・診断ラベルである。
 
-### DS-1175
+### DS-1183
 
 4 検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では `check` を `null` とする。
 
-### DS-1176
+### DS-1184
 
 `check` が `null` の項目は集約へ寄与せず、いかなる検査の値も変更しない。
 
 *引用: 本冊 §11.3*
 
-### DS-1177
+### DS-1185
 
 `judgment_kind` は外部判断が必要な場合の判断型（`test-semantic` / `impl-consistency` / `case-coverage`）である。
 
 *引用: 本冊 §8.1*
 
-### DS-1178
+### DS-1186
 
 不要な項目では `judgment_kind` を `null` とする。
 
-### DS-1179
+### DS-1187
 
 `basis` は機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照である。
 
-### DS-1180
+### DS-1188
 
 判断競合の項目では `basis` に競合した全判断記録 ID を `kind: decision` として列挙する。
 
-### DS-1181
+### DS-1189
 
 `bundle_ref` は外部判断が必要な場合の判断バンドル（§8.1）への参照であり、任意である。
 
-## DS-S133 13. MCP ツール詳細仕様
+## DS-S134 13. MCP ツール詳細仕様
 
-### DS-S134 13.1 共通仕様
+### DS-S135 13.1 共通仕様
 
 *導出元: SPEC-S062*
 
-### DS-1182
+### DS-1190
 
 各ツールの結果は CLI の `--format json` と同一の JSON 構造とする（検証状態 `state` と診断ラベル `diagnostic` の2軸を含む。§12.1）。
 
-### DS-1183
+### DS-1191
 
 エラーは MCP のツールエラーとして返し、`{ "code": "E-OP-001", "message": "...", "candidates": [...] }` の構造を含める。
 
-### DS-1184
+### DS-1192
 
 入力検証エラーには可能な限り `candidates` を含める。
 
 *引用: 本冊 §6.3*
 
-### DS-S135 13.2 ツール一覧
+### DS-S136 13.2 ツール一覧
 
 *導出元: SPEC-S062, SPEC-S075, SPEC-S087, SPEC-S094*
 
-### DS-1185
+### DS-1193
 
 `scan` は入力を取らず、診断一覧、エンティティ数サマリを出力する。
 
-### DS-1186
+### DS-1194
 
 `doc_list` / `doc_get` は `id`（get のみ）、`tree: bool`、`roots: bool` を入力とし、document レコード（木・根集合・鮮度）を出力する。
 
-### DS-1187
+### DS-1195
 
 `doc_upsert` は document フィールド一式（`path`、`derives_from[]`（`doc` + 任意 `anchor` + 任意 `note`）、`root: bool`、`update: bool`）を入力とし、作成・更新結果（依存判断・承認の失効警告を含む）を出力する。
 
-### DS-1188
+### DS-1196
 
 `approval_create` は `subject: { type: vo | document | judgment, id }`、`approver`、`state`（`approved` / `rejected` / `withdrawn`）、`basis[]`（任意）、`supersedes[]`（任意）を入力とし、承認レコード ID を出力する。
 
-### DS-1189
+### DS-1197
 
 `approval_withdraw` は `approval_id`、`approver`、`basis[]`（任意）を入力とし、承認レコード ID を出力する。
 
-### DS-1190
+### DS-1198
 
 `approval_get` は `subject: { type, id }` を入力とし、承認レコード一覧（`approved_state` / `supersedes` / 有効性）と実効承認状態（`draft` / `approved`）を出力する。
 
-### DS-1191
+### DS-1199
 
 `vo_list` / `vo_get` は `id`、`doc`、`status` を入力とし、VO レコード、derives_from（`doc` + 任意 `anchor` + 任意 `note`）、covers 状況、承認状態を出力する。
 
-### DS-1192
+### DS-1200
 
 `vo_upsert` は VO フィールド一式（`derives_from[]` 必須1件以上（`doc` + 任意 `anchor` + 任意 `note`）、`dimensions[]`、`coverage_policy`、`combinations[]`（`explicit` のとき必須1件以上。各要素は dimension 名 → partition 値の map））を入力とし、作成・更新結果（承認失効の警告含む）を出力する。
 
-### DS-1193
+### DS-1201
 
 `vo_expand` は `id`、`dry_run: bool` を入力とし、生成される子 VO 一覧を出力する。
 
-### DS-1194
+### DS-1202
 
 `vo_approve` は `id`、`approver`、`state`（必須）、`basis[]`（任意）、`supersedes[]`（任意）を入力とし、承認レコード ID を出力する。
 
-### DS-1195
+### DS-1203
 
 `test_query` は `vo` / `source` / `unregistered` のいずれかを入力とし、Test 一覧を出力する。
 
-### DS-1196
+### DS-1204
 
 `test_get` は `id` を入力とし、Test 詳細（intent、covers、targets、位置、判断記録・Evidence 状態）を出力する。
 
-### DS-1197
+### DS-1205
 
 `form_get` は大局的に一意な `kind` を入力とし、owner adapter を明示した Form Schema（§14）を出力する。
 
-### DS-1198
+### DS-1206
 
 `test_create` は `form`、`answers`（オブジェクト）、`dry_run` を入力とし、生成された Test ID、挿入位置、diff を出力する。
 
-### DS-1199
+### DS-1207
 
 `test_edit` は `id`、`answers` または `set`、`body`、`dry_run` を入力とし、更新結果、diff を出力する。
 
-### DS-1200
+### DS-1208
 
 `audit_static` は `test` または `all` を入力とし、rule 別 verdict（target-scoped な DA-002 / DA-003 は target 別 verdict を含む）と根拠 span を出力する。
 
 *引用: 本冊 §3.6・§7.2*
 
-### DS-1201
+### DS-1209
 
 `audit_static` は正典レコードを生成しない。
 
 *引用: 本冊 §7.1*
 
-### DS-1202
+### DS-1210
 
 `audit_bundle` は対象 ID（`test` / `vo`）、`kind`（`test-semantic` / `impl-consistency` / `case-coverage`。`test` では省略時 `test-semantic`、`vo` では `case-coverage` を必須）を入力とし、bundle_id と `judgment_kind` を含むバンドル本体（JSON）を出力する。
 
-### DS-1203
+### DS-1211
 
 `audit_submit` は提出 JSON（`judgment_kind` 必須、`supersedes[]` 任意）を入力とし、受理結果、判断記録 ID（`.verify/decisions/`）を出力する。
 
 *引用: 本冊 §8.3*
 
-### DS-1204
+### DS-1212
 
 `audit_submit` の受理は検証状態を昇格させない。
 
-### DS-1205
+### DS-1213
 
 `run_tests` は `test` / `vo` / `all`、`fast: bool` を入力とし、Test ごとの結果と Evidence ID を出力する。
 
-### DS-1206
+### DS-1214
 
 `verify` は optional `items[]`（4検査の部分集合）、`doc` / `vo` / `test`、`gate`（任意）を入力とし（`items` 省略は固定4検査）、最上位 `scope`（§12.1）、総合 OK / NG、集約ツリー、`pending` section、`data.gate` 評価（指定時）を出力する。
 
-### DS-1207
+### DS-1215
 
 `report` は `verify` と同上の入力に `from` / `view` / `depth` / `direction` を加えて受け取り（`items` 省略は固定4検査）、最上位 `scope`（§12.1）、根拠付き完全レポート、projection（親 VO 起点の機能単位の束ねを含む）、`pending` section を出力する。
 
-### DS-1208
+### DS-1216
 
 `verify` / `report` の `gate` 入力は CLI の `--gate` と同じ解決規則に従い、config に定義の無いゲート名は E-CONFIG-002 の tool error（`candidates` に定義済みゲート名）とし、検証結果・部分結果を返さない。
 
 *引用: 本冊 §11.5・§17.1*
 
-### DS-1209
+### DS-1217
 
 `gate` を指定した呼び出しの `ok` はゲート充足を表す（§12.3）。
 
-### DS-1210
+### DS-1218
 
 `doc_upsert` / `vo_upsert` の `derives_from[]` 各要素は `doc`（必須）、`anchor`（任意）、`note`（任意）からなる。
 
-### DS-1211
+### DS-1219
 
 `anchor` は参照先 document 内の該当箇所を指す不透明な文字列であり、省略・空文字列を許容し `chain_integrity` 違反にしない。
 
 *引用: 本冊 §3.1・§3.2*
 
-### DS-1212
+### DS-1220
 
 `anchor` は CLI の `--anchor` と同じ値域・同じ扱いとし、文書内位置への解決・実在確認を行わない。
 
-### DS-1213
+### DS-1221
 
 `vo_upsert` の `combinations[]` は `combinations` を desired state として与える。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1214
+### DS-1222
 
 `combinations[]` の各要素は dimension 名 → partition 値の map（例 `{"operand-sign": "positive", "operator": "div"}`）で、`dimensions` に宣言された全軸をちょうど 1 回ずつ持つ。
 
-### DS-1215
+### DS-1223
 
 `coverage_policy` が `explicit` のときは `combinations[]` は 1 件以上を必須とし、`explicit` 以外のときは省略または空 list でなければならない。
 
-### DS-1216
+### DS-1224
 
 本冊 §3.2.1 の受理条件（`explicit` での欠落・空、`explicit` 以外での非空、未宣言 dimension、未列挙 partition、宣言 dimension の欠落・重複、重複 tuple、`dimensions` 空での `explicit`）に違反する入力は、`ok: false` と `{ "code": "E-SCAN-017", ... }` の tool error で拒否し、レコードを作成・更新しない。
 
 *引用: 本冊 §3.2.1*
 
-### DS-1217
+### DS-1225
 
 `vo_upsert` で `combinations` を省略した更新は既存値を保持し、空 list を明示した更新は既存値を空にする。
 
-### DS-1218
+### DS-1226
 
 `vo_expand` は不正 `combinations` の VO に対して同じ E-SCAN-017 で拒否し、子 VO を 1 件も生成しない。
 
-### DS-1219
+### DS-1227
 
 `audit_static` は正典の監査レコード ID を返さない（再計算派生）。
 
 *引用: 本冊 §7.1*
 
-### DS-1220
+### DS-1228
 
 `audit_submit` の受理結果は判断記録 ID であり、これは検証状態を変えない。
 
 *引用: 本冊 §8.3*
 
-### DS-1221
+### DS-1229
 
 旧モデルの `spec_list` / `spec_get` / `req_list` / `req_get` / `req_upsert` は廃止し、`doc_*` へ統合した。
 
-### DS-S136 13.3 エージェント向け利用フロー（参考）
+### DS-S137 13.3 エージェント向け利用フロー（参考）
 
 *導出元: SPEC-S031, SPEC-S059, SPEC-S087*
 
-### DS-1222
+### DS-1230
 
 フォーム、監査、実行の入力に含まれる adapter namespace は opaque 値として扱い、未登録 adapter や未提供 capability を Rust 用の既定値へ暗黙変換しない。
 
-### DS-1223
+### DS-1231
 
 `audit_submit` は `UNKNOWN` に対する外部判断を記録するだけで、`oracle_presence` 等の検証状態を `PASS` へ昇格させない。
 
@@ -6154,17 +6188,17 @@ JSON では検証状態（集約ツリーと `gate.verification.actual`）と `g
 >   → verify(test)                          # 自タスクの完了確認
 > ```
 
-*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 本冊 §8, 基本仕様 §11.3*
 
-## DS-S137 14. Form Schema 設計
+## DS-S138 14. Form Schema 設計
 
-### DS-S138 14.1 スキーマ形式（`.verify/forms/<kind>.yaml`）
+### DS-S139 14.1 スキーマ形式（`.verify/forms/<kind>.yaml`）
 
 *導出元: SPEC-S041, SPEC-S066*
 
-### DS-1224
+### DS-1232
 
 次は `rust-cargo` adapter が登録する Form Schema である。
 
@@ -6226,219 +6260,229 @@ JSON では検証状態（集約ツリーと `gate.verification.actual`）と `g
 >   }
 > ```
 
-### DS-1225
+### DS-1233
 
 core は `fn_name`、`.rs`、Rust 構文を Form Schema の共通 field として要求しない。
 
-### DS-1226
+### DS-1234
 
 `test_kind` の `regression` は Test の意図ラベル（`@vtest.kind` の値）であり、廃止された存在理由分類（role / anchor）とは別概念である。
 
 *引用: 本冊 §4.1・§4.2*
 
-### DS-1227
+### DS-1235
 
 組込 Form は `role` を宣言しない。
 
-### DS-1228
+### DS-1236
 
 `kind` の値に regression を含む Test（`unit-regression` 等）も `kind` から存在理由分類を導出しない。
 
-### DS-S139 14.2 検証器
+### DS-S140 14.2 検証器
 
 *導出元: SPEC-S041, SPEC-S078, SPEC-S083*
 
-### DS-1229
+### DS-1237
 
 `required` を欠く回答、未知のフィールド名は E-OP-001 とする。
 
-### DS-1230
+### DS-1238
 
 Test ID は `--id` による明示指定がなければ、`TEST-<領域>-<連番>`（領域は covers 先 VO の ID から継承、連番は既存最大＋1）で自動採番し、結果に含めて返す。
 
-### DS-1231
+### DS-1239
 
 `kind` は `[a-z0-9][a-z0-9-]*` の case-sensitive 文字列で、`.verify/forms/<kind>.yaml` のファイル名と一致する repository-global な Form ID である。
 
-### DS-S140 14.3 組込フォーム
+### DS-S141 14.3 組込フォーム
 
 *導出元: SPEC-S041, SPEC-S063*
 
-### DS-1232
+### DS-1240
 
 未提供の Structured Test capability は E-ADAPTER-004 として作成・編集を中止し、ファイルを変更しない。
 
-### DS-1233
+### DS-1241
 
 `rust-integration` は組込 Form であり、単一の `target` field に代えて、1件以上のロケータを持つ `targets` を必須入力として受け取る。
 
-### DS-1234
+### DS-1242
 
 `rust-integration` は `file` を `required:true` とする。
 
-### DS-1235
+### DS-1243
 
 Integration Test の配置先（test suite location）は Source Target の location とは別概念であり、targets から一意に導出できないためである。
 
-### DS-1236
+### DS-1244
 
 将来、Test Suite または同等の配置概念が第一級化され配置先を一意に導出できる規則が導入された場合にのみ、省略可能性を再検討する。
 
-### DS-1237
+### DS-1245
 
 `rust-integration` の §14.1 との差分はこの2点であり、他は同一。
 
-### DS-1238
+### DS-1246
 
 `rust-integration` は `targets` の全要素を入力順に個別の `@vtest.target` 行として出力する。
 
-### DS-1239
+### DS-1247
 
 `rust-integration` は空 list と重複 target を E-OP-001 で拒否する。
 
-### DS-1240
+### DS-1248
 
 `target` キーは integration 種別に限り複数行を許容する。
 
 *引用: 本冊 §4.2の例外*
 
-### DS-1241
+### DS-1249
 
 先頭以外の target を `@vtest.related` へ変換しない。
 
-### DS-S141 14.4 テスト種別ごとのフォーム拡張
+### DS-S142 14.4 テスト種別ごとのフォーム拡張
 
 *導出元: SPEC-S035, SPEC-S041, SPEC-S078*
 
-### DS-1242
+### DS-1250
 
 すべての管理対象 Test に `covers ≥ 1` を一律要求するため、user-defined Form も `covers` を `required: true` の `vo-ref-list` として持つ。
 
-*導出元: SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 本冊 §4.1, 基本仕様 §12*
 
-### DS-1243
+### DS-1251
 
 本 version は role / anchor / anchor_rationale による存在理由分類・固定 Form 群を持たない。
 
-### DS-1244
+### DS-1252
 
 本 version は `covers` 件数の可変制約も設けない。
 
-## DS-S142 18. 受入契約
+## DS-S143 15. Structured Test Operation adapter contract
 
-### DS-S143 18.1 共通条件
+### DS-S144 15.1 `rust-cargo` 対象の特定
 
-*導出元: SPEC-S053, SPEC-S056*
-
-### DS-1245
-
-要求scopeに1件でも非PASSがあれば総合結果はNGになる。
-
-### DS-1246
-
-scopeを限定してもscope外の値をPASSへ変更しない。
-
-### DS-S144 18.2 共通fixture
-
-*導出元: SPEC-S008, SPEC-S012, SPEC-S013, SPEC-S014, SPEC-S019, SPEC-S035, SPEC-S081, SPEC-S086*
-
-### DS-1247
-
-すべての管理対象 Test に `covers ≥ 1` を一律要求するため、`covers` を宣言しない Test は E-SCAN-007 と `chain_integrity = MISMATCH`（診断`MISSING`）になる。
-
-*導出元: SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
-*引用: 本冊 §11.1.1, 基本仕様 §12*
-
-### DS-1248
-
-DA-002 / DA-003がtarget別UNKNOWNになる。
-
-### DS-1249
-
-runtimeの`target_coverage`のみでDA-002到達が充足される。
-
-### DS-S145 18.3 機能別受入条件
-
-#### DS-S146 18.3.1 discovery・record・graph と chain_integrity
-
-*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S077, SPEC-S083, SPEC-S095*
-
-### DS-1250
-
-恒久SRC IDを持つSource Targetはcanonical locatorでもaddressableであり、locator参照とSRC ID参照は同一のcanonical Source Targetへ解決する。
-
-### DS-1251
-
-両addressing modeで同一のSource Target hashに到達し、Source Targetの件数、content / subject hash、Evidenceおよび判断記録上のtarget identityが参照方法によって分裂しない。
-
-### DS-1252
-
-Evidence、判断記録、`target_binding` の証拠、鮮度判定は解決後のcanonical Locatorをidentityとして記録・比較し、参照側Testが宣言した綴り（SRC ID参照を含む）を保存しない。
+*導出元: SPEC-S040*
 
 ### DS-1253
 
-同一のSource Targetをlocator参照するTestとSRC ID参照するTestは、Evidence上で同一のtarget identityを持つ。
+再確認で見つからない場合は E-OP-002 とする。
+
+## DS-S145 18. 受入契約
+
+### DS-S146 18.1 共通条件
+
+*導出元: SPEC-S053, SPEC-S056*
 
 ### DS-1254
 
-Testがどう宣言したかの変更（同一Source Targetに対するlocator参照からSRC ID参照への書き換え等）はTest subject hashの変化として捕捉され、Evidence側のtarget identityを変化させない。
+要求scopeに1件でも非PASSがあれば総合結果はNGになる。
 
 ### DS-1255
 
-綴りの異なる複数の`target`宣言が同一のcanonical Source Targetへ解決する場合はE-SCAN-005とする。
+scopeを限定してもscope外の値をPASSへ変更しない。
+
+### DS-S147 18.2 共通fixture
+
+*導出元: SPEC-S008, SPEC-S012, SPEC-S013, SPEC-S014, SPEC-S019, SPEC-S035, SPEC-S081, SPEC-S086*
 
 ### DS-1256
 
-`TargetRef::SrcId`をcanonical targetとして返したadapter出力はmalformed adapter outputとして拒否する。
+すべての管理対象 Test に `covers ≥ 1` を一律要求するため、`covers` を宣言しない Test は E-SCAN-007 と `chain_integrity = MISMATCH`（診断`MISSING`）になる。
+
+*導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
+
+*引用: 本冊 §11.1.1, 基本仕様 §12*
 
 ### DS-1257
 
-恒久SRC IDの宣言・変更・削除でcanonical locatorは変化しない。
+DA-002 / DA-003がtarget別UNKNOWNになる。
 
 ### DS-1258
 
-Source Target hashは常にcanonical locatorとconstruct bytesから計算し、参照側Testの`TargetRef`綴りからは計算しない。
+runtimeの`target_coverage`のみでDA-002到達が充足される。
+
+### DS-S148 18.3 機能別受入条件
+
+#### DS-S149 18.3.1 discovery・record・graph と chain_integrity
+
+*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S077, SPEC-S083, SPEC-S095*
 
 ### DS-1259
 
-恒久SRC IDを独立したhash fieldとしてSource Target hashのinputに含めない。
+恒久SRC IDを持つSource Targetはcanonical locatorでもaddressableであり、locator参照とSRC ID参照は同一のcanonical Source Targetへ解決する。
 
 ### DS-1260
 
-恒久SRC IDの宣言をSource Target constructの内側へ置くadapter（`rust-cargo`の`@vtest.src-id` doc comment等）では、その宣言の付与・変更・削除がconstruct bytesを変えるため、Source Target hashも変化する。
+両addressing modeで同一のSource Target hashに到達し、Source Targetの件数、content / subject hash、Evidenceおよび判断記録上のtarget identityが参照方法によって分裂しない。
 
 ### DS-1261
 
-Source Target hashも変化することはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
+Evidence、判断記録、`target_binding` の証拠、鮮度判定は解決後のcanonical Locatorをidentityとして記録・比較し、参照側Testが宣言した綴り（SRC ID参照を含む）を保存しない。
 
 ### DS-1262
 
-Target Reference解決は解決済み / 対象なし / 曖昧を区別し、曖昧はfail-closedな終端状態とする。
+同一のSource Targetをlocator参照するTestとSRC ID参照するTestは、Evidence上で同一のtarget identityを持つ。
 
 ### DS-1263
 
-E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて、判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しない。
+Testがどう宣言したかの変更（同一Source Targetに対するlocator参照からSRC ID参照への書き換え等）はTest subject hashの変化として捕捉され、Evidence側のtarget identityを変化させない。
 
 ### DS-1264
 
-候補は診断表示にだけ用いる。
+綴りの異なる複数の`target`宣言が同一のcanonical Source Targetへ解決する場合はE-SCAN-005とする。
 
 ### DS-1265
 
-判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しないという禁止は解決に関するものであり、Source Targetの具体化を止めない。
+`TargetRef::SrcId`をcanonical targetとして返したadapter出力はmalformed adapter outputとして拒否する。
 
 ### DS-1266
 
-恒久SRC IDが衝突していても、各Source Targetは自身のcanonical locatorで独立したentityとして具体化され、Source Targetの件数と各content / subject hashは衝突の有無で変化しない。
+恒久SRC IDの宣言・変更・削除でcanonical locatorは変化しない。
 
 ### DS-1267
 
-衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。
+Source Target hashは常にcanonical locatorとconstruct bytesから計算し、参照側Testの`TargetRef`綴りからは計算しない。
 
 ### DS-1268
+
+恒久SRC IDを独立したhash fieldとしてSource Target hashのinputに含めない。
+
+### DS-1269
+
+恒久SRC IDの宣言をSource Target constructの内側へ置くadapter（`rust-cargo`の`@vtest.src-id` doc comment等）では、その宣言の付与・変更・削除がconstruct bytesを変えるため、Source Target hashも変化する。
+
+### DS-1270
+
+Source Target hashも変化することはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。
+
+### DS-1271
+
+Target Reference解決は解決済み / 対象なし / 曖昧を区別し、曖昧はfail-closedな終端状態とする。
+
+### DS-1272
+
+E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて、判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しない。
+
+### DS-1273
+
+候補は診断表示にだけ用いる。
+
+### DS-1274
+
+判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しないという禁止は解決に関するものであり、Source Targetの具体化を止めない。
+
+### DS-1275
+
+恒久SRC IDが衝突していても、各Source Targetは自身のcanonical locatorで独立したentityとして具体化され、Source Targetの件数と各content / subject hashは衝突の有無で変化しない。
+
+### DS-1276
+
+衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。
+
+### DS-1277
 
 Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。
 
@@ -6446,273 +6490,277 @@ Test 層は、管理宣言または必須metadata（core 中立の Test ID・`co
 
 *引用: 本冊 §11.1.1, 基本仕様 §5.1*
 
-### DS-1269
+### DS-1278
 
 存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`chain_integrity = MISMATCH`を導出する。
 
-### DS-1270
+### DS-1279
 
 `ManagedTestLink::Multiple`またはTest ID衝突（E-SCAN-002）は`chain_integrity = MISMATCH`になる。
 
-### DS-1271
+### DS-1280
 
 `covers` を持たない（0 件の）Testは管理宣言不整合として`chain_integrity = MISMATCH`（診断 `MISSING`）になる。
 
-### DS-1272
+### DS-1281
 
 役割による`covers`可変制約・特別扱いの分岐を設けず、すべての管理対象 Test に`covers ≥ 1`を一律要求する。
 
-*導出元: SPEC-123, SPEC-124, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
+*導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §12*
 
-### DS-1273
+### DS-1282
 
 既定を緩和して0件を受理しない。
 
-### DS-1274
+### DS-1283
 
 全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、各entityが`covers ≥ 1`を満たし、かつ全VO参照を解決できる場合だけTest層の`chain_integrity`が成立する。
 
-### DS-1275
+### DS-1284
 
 各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。
 
-### DS-1276
+### DS-1285
 
 参照先 document が存在しない、または解決不能な場合は E-SCAN-012、`chain_integrity = MISMATCH`。
 
-### DS-1277
+### DS-1286
 
 VO parent の不在・循環は E-SCAN-008、`chain_integrity = MISMATCH`。
 
-### DS-1278
+### DS-1287
 
 各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。
 
-### DS-1279
+### DS-1288
 
 各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。
 
-### DS-1280
+### DS-1289
 
 `covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。
 
-### DS-1281
+### DS-1290
 
 発見された Test → 管理宣言の解決と、leaf VO → Test の両方向が成立して初めて `chain_integrity` が成立する。
 
-### DS-1282
+### DS-1291
 
 W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。
 
-### DS-1283
+### DS-1292
 
 adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
 
-### DS-1284
+### DS-1293
 
 解析不能・不完全なbatchは対応する検証を`UNKNOWN`とする。
 
-### DS-1285
+### DS-1294
 
 同じpayloadのbare / prefixed重複、混在形、ファイル名とIDの不一致はE-SCAN-010になる。
 
-### DS-1286
+### DS-1295
 
 Relation の from / to 不在は E-SCAN-009、`chain_integrity = MISMATCH`。
 
-### DS-1287
+### DS-1296
 
 読取り互換field `status`は警告（W-STORE-001）して無視する。
 
-### DS-1288
+### DS-1297
 
 VOの承認はVO内容hashと現在の上流依存closureへ束縛され、`document` / parent VO の内容または集合が不一致の承認を有効として扱わない。
 
-### DS-1289
+### DS-1298
 
 Approval作成時に対象または上流依存closureを完全・currentに解決できなければE-APPROVAL-001で拒否し、recordを生成しない。
 
-### DS-1290
+### DS-1299
 
 上流依存closureまたはハッシュを欠く互換Approvalを現在のapprovedへ昇格しない（W-STORE-002、VOは`draft`相当）。
 
-### DS-1291
+### DS-1300
 
 恒久SRC IDは全adapter統合後にrepository全体で一意である。
 
-### DS-1292
+### DS-1301
 
 恒久SRC IDの衝突をE-SCAN-011として拒否する。
 
-### DS-1293
+### DS-1302
 
 `vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による操作拒否をexit 2にする。
 
-### DS-1294
+### DS-1303
 
 `vtest scan` / `doctor`は完了したscanのE-SCAN-*をexit 1にする。
 
-### DS-1295
+### DS-1304
 
 `vtest scan` / `doctor`はerrorなしをexit 0にする。
 
-### DS-1296
+### DS-1305
 
 `full-product` VOは宣言partitionの直積を決定論的に実体化する。
 
-### DS-1297
+### DS-1306
 
 `coverage_policy: explicit`と妥当な`combinations`を持つVOは、列挙されたtupleごとにちょうど1件の子VOを生成する。
 
 *引用: 本冊 §3.2.1・§17.1*
 
-### DS-1298
+### DS-1307
 
 子VO IDのsuffixは`dimensions`の宣言順で連結される。
 
-### DS-1299
+### DS-1308
 
 同じtuple集合を記述順・map key順を変えて与えても、生成される子VO集合とIDは同一になる。
 
-### DS-1300
+### DS-1309
 
 `explicit`かつ`combinations`欠落を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1301
+### DS-1310
 
 `explicit`かつ`combinations`空listを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1302
+### DS-1311
 
 `explicit`かつ`dimensions`空を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1303
+### DS-1312
 
 `independent-axes` / `full-product` / `null`かつ`combinations`非空を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1304
+### DS-1313
 
 未宣言dimension名を含むtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1305
+### DS-1314
 
 当該dimensionの`partitions`に無いpartition値を含むtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1306
+### DS-1315
 
 宣言済みdimensionを欠くtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1307
+### DS-1316
 
 同一dimension名を2回持つtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1308
+### DS-1317
 
 重複tupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。
 
-### DS-1309
+### DS-1318
 
 `vo add` / `vo edit` / MCP `vo_upsert` は上記の各入力を受理時に E-SCAN-017・終了コード 2 で拒否し、レコードを作成・更新しない（拒否後に scan したエンティティ集合は操作前と同一）。
 
-### DS-1310
+### DS-1319
 
 `vo edit --combination` は desired state として既存 `combinations` を置換し、追記しない。
 
-### DS-1311
+### DS-1320
 
 `--clear-combinations` は空にする。
 
-### DS-1312
+### DS-1321
 
 `--combination`と`--clear-combinations`のどちらも与えない `edit` は既存 `combinations` を保持する。
 
-### DS-1313
+### DS-1322
 
 `combinations` だけを変更した `edit` は VO subject hash を変化させ、当該 VO の承認を失効させる。
 
-### DS-1314
+### DS-1323
 
 document / VO の `derives_from` entry に `anchor` を持つ状態と持たない状態の双方を読み取り、いずれも `chain_integrity` に影響しない（`anchor` の欠落・空文字列で `MISMATCH` にならない）。
 
 *引用: 本冊 §3.1・§3.2*
 
-### DS-1315
+### DS-1324
 
 `anchor` の値を文書内位置へ解決せず、実在しない節番号を書いても診断を出さない。
 
-### DS-1316
+### DS-1325
 
 同一 `doc` を指す複数 `derives_from` entry を `anchor` 違いで保持でき、重複として拒否しない。
 
-### DS-1317
+### DS-1326
 
 `anchor`だけを変更したdocumentは`content_hash`（`path`の実ファイルのハッシュ）が不変のままdocument subject hashが変化する。
 
-### DS-1318
+### DS-1327
 
 `anchor`だけを変更したdocumentは、当該documentを上流依存closureに含む承認・判断記録を失効させる。
 
-### DS-1319
+### DS-1328
 
 `anchor` だけを変更した VO は VO subject hash が変化せず、当該 VO の承認が失効しない。
 
-### DS-1320
+### DS-1329
 
 CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に 2 個目の `--anchor` を与えた場合は終了コード 2 で拒否し、レコードを書かない。
 
-### DS-1321
+### DS-1330
 
 既存ソース・既存テストを含む fixture project で `vtest init` を実行した前後で、`.verify/` を除いた作業ツリーの全ファイルのバイト列が同一である。
 
-*導出元: SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-415*
+*導出元: SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-414*
 
 *引用: 別紙A §12.2, 基本仕様 §18.1*
 
-### DS-1322
+### DS-1331
 
 `.verify/` 外のファイルの新規作成・変更・削除が 1 件も観測されない。
 
-### DS-1323
+### DS-1332
 
 `init` は既存ソースへ Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を挿入しない。
 
-### DS-1324
+### DS-1333
 
 既存 `.verify/` があるプロジェクトでの `init` は終了コード 2 で中止し、その実行でファイル・ディレクトリを 1 件も作成・変更・削除しない（既存 `.verify/` の内容も不変）。
 
-#### DS-S147 18.3.2 orphan_detection（文書層の孤児検出）
+#### DS-S150 18.3.2 orphan_detection（文書層の孤児検出）
 
 *導出元: REQ-S010, SPEC-S019, SPEC-S081*
 
-### DS-1325
+### DS-1334
 
 根の除外は、`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。
 
-### DS-1326
+### DS-1335
 
 孤児判定は、`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。
 
-### DS-1327
+### DS-1336
 
 `doc.roots` が存在しない DOC ID を参照する場合は config invariant 違反として E-CONFIG-001 とする。
 
-### DS-1328
+### DS-1337
 
 旧モデルの W-SCAN-102（孤立 VO）は VO 層の警告であり、文書層 `orphan_detection` とは別物として存置する。
 
-#### DS-S148 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
+#### DS-S151 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
 
 *導出元: SPEC-S021, SPEC-S025, SPEC-S085, SPEC-S086*
 
-### DS-1329
+### DS-1338
 
 DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 *引用: 本冊 §7*
 
-### DS-1330
+### DS-1339
+
+正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。
+
+### DS-1340
 
 `oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。
 
@@ -6720,255 +6768,255 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 *引用: 本冊 §7.1, 基本仕様 §5.4*
 
-### DS-1331
+### DS-1341
 
 1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。
 
-### DS-1332
+### DS-1342
 
 `FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。
 
-### DS-1333
+### DS-1343
 
 `oracle_presence` に動的な昇格経路は無く、runtime 証拠で `PASS` へ昇格しない。
 
-### DS-1334
+### DS-1344
 
 Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。
 
 *引用: 本冊 §7.2.1*
 
-### DS-1335
+### DS-1345
 
 委譲先のassert相当が委譲先側にしか無いことだけを理由に`FAIL`としない。
 
-### DS-1336
+### DS-1346
 
 委譲先を宣言targetとするTestが0件のTestは、DA-003 / DA-006が`UNKNOWN`となる。
 
-### DS-1337
+### DS-1347
 
 常に真を返す照合ヘルパを呼ぶだけのTestが`oracle_presence` = `PASS`にならない。
 
-### DS-1338
+### DS-1348
 
 委譲先を宣言targetとするTestは存在するが、その`oracle_presence`が`PASS`でないTestは、DA-003 / DA-006が`UNKNOWN`となる。
 
-### DS-1339
+### DS-1349
 
 委譲先の終端が循環する（相互に照合を委譲し合う）2 Testは、いずれもDA-003 / DA-006が`UNKNOWN`となり、評価順序を変えても同じ値になる。
 
-### DS-1340
+### DS-1350
 
 委譲先が他ファイル・他クレート・マクロ展開内で同定できないTestは、DA-003 / DA-006が`UNKNOWN`となる。
 
-### DS-1341
+### DS-1351
 
 DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。
 
 *引用: 本冊 §7.3*
 
-### DS-1342
+### DS-1352
 
 DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足されるというruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。
 
-### DS-1343
+### DS-1353
 
 static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。
 
-### DS-1344
+### DS-1354
 
 別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。
 
 *引用: 本冊 §7.3*
 
-### DS-1345
+### DS-1355
 
 当該targetのruntime`target_coverage`がPASS（checked: true・count > 0）ならDA-002到達要件は充足され、検証時にそのtarget別DA-002はUNKNOWN扱いにならない。
 
-### DS-1346
+### DS-1356
 
 呼出自体を静的に確認できないtarget（subprocess spawn等）は、DA-002だけでなくDA-003のtarget別verdictもUNKNOWNになる（空虚PASS / FAILとしない）。
 
 *引用: 本冊 §7.3*
 
-### DS-1347
+### DS-1357
 
 呼出自体を静的に確認できないtargetについて、DA-003はruntimeで救済されない。
 
-### DS-1348
+### DS-1358
 
 したがってexit code / stdoutだけをassertするsubprocess E2Eは、当該targetのDA-002がruntimeで充足されて`target_binding = PASS`に到達しうる一方で、DA-003がUNKNOWNのまま残り`oracle_presence = UNKNOWN`となる。
 
-### DS-1349
+### DS-1359
 
 DA-002とDA-003の2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。
 
-### DS-1350
+### DS-1360
 
 他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTestは、DA-002 UNKNOWN・DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。
 
-### DS-1351
+### DS-1361
 
 複数targetを宣言するTestで、target Aは静的（DA-002 = PASS）、target Bはruntime（Bのtarget別`target_coverage` = PASS）でDA-002到達を充足する場合、BもTest本体内で結果をassertしDA-003 = PASSなら`oracle_presence = PASS`かつBの`target_binding`到達も充足する。
 
-### DS-1352
+### DS-1362
 
 Bが呼出不可視（subprocess）でDA-003 UNKNOWNなら`oracle_presence = UNKNOWN`となる。
 
-### DS-1353
+### DS-1363
 
 到達判定はtarget別に行い、AとBのstatic verdictを取り違えない。
 
-### DS-1354
+### DS-1364
 
 DA-002 verdict = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆らない。
 
-### DS-1355
+### DS-1365
 
 runtime証明に依存する`target_binding`の値は、§18.3.4の鮮度判定が選択した最新Evidenceが鮮度を満たすときだけ用い、無効な最新Evidenceから古い有効Evidenceへフォールバックしない。
 
 *引用: 本冊 §11.2*
 
-### DS-1356
+### DS-1366
 
 無効な最新Evidenceから古い有効Evidenceへフォールバックしないことにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。
 
-### DS-1357
+### DS-1367
 
 `vtest verify --items oracle_presence` / `--items target_binding` のような限定scopeでも、aggregatorは本冊§7.3のruntime到達判定に必要なEvidence鮮度・target別`target_coverage`を内部依存として評価するが、scope外の項目自体のreport valueは`NO_EVIDENCE`（診断`NOT_CHECKED`）のまま保持する。
 
 *引用: 本冊 §7.3*
 
-### DS-1358
+### DS-1368
 
 同じ到達UNKNOWNのTestでも、当該targetの`target_coverage`がFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、当該targetのDA-002 UNKNOWNは`target_binding`の非PASS要因として残る。
 
-### DS-1359
+### DS-1369
 
 runtime coverageはDA-003を代替しない。
 
-### DS-1360
+### DS-1370
 
 結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのまま`oracle_presence`へ寄与する。
 
-### DS-1361
+### DS-1371
 
 宣言targetをどのtopologyでも実行しない構造・契約のみのTestは、静的にもruntimeにも到達を確立できず`target_binding`の到達要件は未充足のままになる。
 
-#### DS-S149 18.3.4 execution・Evidence（target_binding の証拠）
+#### DS-S152 18.3.4 execution・Evidence（target_binding の証拠）
 
 *導出元: SPEC-S051, SPEC-S076*
 
-### DS-1362
+### DS-1372
 
 選択した登録Testだけをrunnerのexact selectorで実行する。
 
-### DS-1363
+### DS-1373
 
 Testごとの結果、revision、hash、adapter ID、runner情報、およびExecution State subjectをEvidenceへ記録する。
 
-### DS-1364
+### DS-1374
 
 build failure、runner failure、必須runner capabilityの欠落、および宣言targetの解決失敗ではEvidenceを生成しない。
 
-### DS-1365
+### DS-1375
 
 実行前後でExecution State subjectが変化した場合はE-EXEC-004となり、Evidenceを生成しない。
 
-### DS-1366
+### DS-1376
 
 Evidence writerはadapter IDを必ず記録する。
 
-### DS-1367
+### DS-1377
 
 `test_fn` / `test_construct` / `target_fn`の互換入力は`rust-cargo` Evidenceで全canonical metadataを含むsource rangeと現在値の同一性を証明できる場合だけ受理する。
 
-### DS-1368
+### DS-1378
 
 Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。
 
-### DS-1369
+### DS-1379
 
 Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複なく保持し、参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をtarget identityとして保存しない。
 
-### DS-1370
+### DS-1380
 
 同一Source Targetをlocator参照するTestとSRC ID参照するTestのEvidenceは、同じtarget identityと同じtarget内容hashを持つ。
 
-### DS-1371
+### DS-1381
 
 全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成のpreconditionとする。
 
-### DS-1372
+### DS-1382
 
 1件でも対象なしまたは曖昧ならEvidenceを生成しない。
 
-### DS-1373
+### DS-1383
 
 部分的な`hashes.targets`を持つEvidenceを生成しない。
 
-### DS-1374
+### DS-1384
 
 Evidenceを生成しない場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。
 
-### DS-1375
+### DS-1385
 
 Evidence記録後に宣言targetのいずれかが一意に解決できなくなった場合、記録済み参照集合が現在のcanonical集合と一致しないため`NO_EVIDENCE`（診断`STALE`）になり、`target_binding`をPASSにしない。
 
-### DS-1376
+### DS-1386
 
 解決できなくなったtargetは、対象が存在しない場合（E-SCAN-004）は`MISMATCH`（診断`MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`として保持する。
 
-### DS-1377
+### DS-1387
 
 両者を一括して同一の状態値にしない。
 
-### DS-1378
+### DS-1388
 
 canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALE（`NO_EVIDENCE`、診断`STALE`）になる。
 
-### DS-1379
+### DS-1389
 
 `revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceは`NO_EVIDENCE`（診断`STALE`）になり、FAILまたは有効なPASSとして扱わない。
 
-### DS-1380
+### DS-1390
 
 Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。
 
-### DS-1381
+### DS-1391
 
 Testと宣言targetを変更せずtarget外helperだけを変更しても既存Evidenceは`NO_EVIDENCE`（診断`STALE`）になる。
 
-### DS-1382
+### DS-1392
 
 EvidenceがExecution State subjectを欠く互換recordなら`NO_EVIDENCE`（診断`STALE`）になり、PASSにならない。
 
-### DS-1383
+### DS-1393
 
 recordのsnapshotまたは現在snapshotの完全性を証明できなければ`UNKNOWN`となり、PASSにならない。
 
-### DS-1384
+### DS-1394
 
 Evidenceが無効（STALE / MISMATCH / UNKNOWN）なら`target_binding`へ同じ非PASSを伝播し、無効Evidenceのresultまたはcoverageを再利用しない。
 
-### DS-1385
+### DS-1395
 
 Evidenceなしでは`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）になる。
 
-### DS-1386
+### DS-1396
 
 単数互換形のEvidenceは、現在のTestがtargetをちょうど1件持つ場合だけ有効性を評価できる。
 
-### DS-1387
+### DS-1397
 
 複数target Testでは有効なPASSにしない。
 
-### DS-1388
+### DS-1398
 
 Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。
 
-### DS-1389
+### DS-1399
 
 有効なEvidenceについて、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`になる。
 
@@ -6976,157 +7024,157 @@ Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHに�
 
 *引用: 本冊 §11.2, 要件定義 §5.3*
 
-### DS-1390
+### DS-1400
 
 有効なEvidenceについて、`result: PASS`かつ全宣言targetの到達要件が§18.3.3 / §18.3.5で充足されれば`target_binding`は`PASS`になる。
 
-### DS-1391
+### DS-1401
 
 有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの`target_coverage`のcount 0は`target_binding`を`FAIL`（診断`NOT_EXECUTED`）にする。
 
-### DS-1392
+### DS-1402
 
 有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの`target_coverage`が計測不能・未計測（`checked: false`）は`target_binding`を`NO_EVIDENCE`（診断`NOT_CHECKED`）にする。
 
-### DS-1393
+### DS-1403
 
 有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの関数不見当は`target_binding`を`UNKNOWN`にする。
 
-#### DS-S150 18.3.5 target_binding 動的計測（per-target）
+#### DS-S153 18.3.5 target_binding 動的計測（per-target）
 
 *導出元: SPEC-S020, SPEC-S051, SPEC-S086*
 
-### DS-1394
+### DS-1404
 
 各宣言targetについて、計測countが1以上ならtarget別PASSになる。
 
-### DS-1395
+### DS-1405
 
 各宣言targetについて、計測countが0ならtarget別FAILになる。
 
-### DS-1396
+### DS-1406
 
 各宣言targetについて、確実に同定または計測できなければtarget別UNKNOWNになる。
 
-### DS-1397
+### DS-1407
 
 複数target Testの集約値は、1件でもtarget別FAILがあればFAILになる。
 
-### DS-1398
+### DS-1408
 
 複数target Testの集約値は、FAILがなく1件でもUNKNOWNがあればUNKNOWNになる。
 
-### DS-1399
+### DS-1409
 
 複数target Testの集約値は、1件以上の全宣言targetがPASSの場合だけPASSになる。
 
-### DS-1400
+### DS-1410
 
 target AがPASSでもtarget BがFAILまたはUNKNOWNなら、Test単位の`target_binding`をPASSにしない。
 
-### DS-1401
+### DS-1411
 
 `target_coverage.checked: true`のEvidenceでtarget別entryが欠落、重複、または解決後のcanonical Source Target集合と不一致ならPASSにしない。
 
-### DS-1402
+### DS-1412
 
 target別entryは解決後のcanonical Locatorをidentityとし、宣言側の綴りを用いない。
 
 *引用: 本冊 §6.1.1*
 
-### DS-1403
+### DS-1413
 
 coverage capabilityまたは計測toolが利用できない場合は`NO_EVIDENCE`（診断`NOT_CHECKED`）となり、PASSにならない。
 
-### DS-1404
+### DS-1414
 
 coverage解析限界は`UNKNOWN`となり、PASSにならない。
 
-### DS-1405
+### DS-1415
 
 Testが別プロセス（起動したsubprocess）・別スレッドでtargetを実行する場合、coverage計測が当該境界越しの実行を宣言targetへ帰属できればtarget別PASS（count > 0）になる。
 
-### DS-1406
+### DS-1416
 
 target別PASS（count > 0）という結果は本冊§7.3のruntime到達証明としても機能する。
 
 *引用: 本冊 §7.3*
 
-### DS-1407
+### DS-1417
 
 providerが境界越しの実行を帰属できなければtarget別UNKNOWNとなり、PASSにならない。
 
-### DS-1408
+### DS-1418
 
 計測不能ならTestの`target_coverage`を`checked: false`（`NO_EVIDENCE`、診断`NOT_CHECKED`）とし、PASSにならない。
 
-#### DS-S151 18.3.6 判断記録プロトコル（非ゲート）
+#### DS-S154 18.3.6 判断記録プロトコル（非ゲート）
 
 *導出元: REQ-S035, SPEC-S031, SPEC-S034, SPEC-S087*
 
-### DS-1409
+### DS-1419
 
 `vtest audit submit` の判断は少なくとも actor / subject / decision / judgment_kind を含み、理由・根拠（`reason` / `exclusions`）と `supersedes` は任意（optional）とする。
 
-### DS-1410
+### DS-1420
 
 submit は、bundle_id のバンドルが存在する（E-AUDIT-001）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1411
+### DS-1421
 
 submit は、subject がバンドルと一致する（E-AUDIT-003）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1412
+### DS-1422
 
 submit は、judgment_kind がバンドルと一致し値域内である（E-AUDIT-003）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1413
+### DS-1423
 
 submit は、バンドル記録時の各対象の内容ハッシュが現在と一致する（E-AUDIT-002）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1414
+### DS-1424
 
 submit は、decision が受理する判断値である（E-AUDIT-004）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1415
+### DS-1425
 
 submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind の既存判断記録を指し自己参照でない（E-AUDIT-008）ことを順に検証し、失敗は§17のエラーコードで拒否する。
 
-### DS-1416
+### DS-1426
 
 理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
-### DS-1417
+### DS-1427
 
 受理された提出は判断記録として `.verify/decisions/` へ保存され、バンドル生成時の全対象の内容ハッシュを `subject_hash` と `dependencies` として記録し、依存 closure のハッシュへ束縛する。
 
-### DS-1418
+### DS-1428
 
 判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。
 
-### DS-1419
+### DS-1429
 
 判断記録の有効性は判定時に評価し、subject が一致し `subject_hash` が現在の内容ハッシュと一致し、`dependencies` が現在の上流依存closureとentity・hashとも完全一致する場合だけ有効とする。
 
-### DS-1420
+### DS-1430
 
 document は登録 content_hash と実ファイルの一致も要求し、不一致の document を STALE とし、依存する判断記録も無効とする。
 
 *引用: 本冊 §8.5・§11.4*
 
-### DS-1421
+### DS-1431
 
 同一対象に有効な判断記録が複数あってよい（再判断・多重判断）。
 
-### DS-1422
+### DS-1432
 
 判断バンドルは Test が宣言した cases 集合を規範項目として含む。
 
-### DS-1423
+### DS-1433
 
 `@vtest.case` 宣言の正規化文字列を宣言順に並べた list として出力する。
 
@@ -7134,291 +7182,291 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 *引用: 本冊 §8.1・§8.2, 基本仕様 §14*
 
-### DS-1424
+### DS-1434
 
 `@vtest.case` を持たない Test でも空 list を明示して項目を省略しない。
 
-### DS-1425
+### DS-1435
 
 バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。
 
-### DS-1426
+### DS-1436
 
 値域は `test-semantic` / `impl-consistency` / `case-coverage` であり、`subject` の値域は前 2 者が Test ID、`case-coverage` が Test ID または VO ID である。
 
-### DS-1427
+### DS-1437
 
 表にない組合せの要求ではバンドルを生成せず usage error（終了コード 2）とする。
 
 *引用: 本冊 §8.1, 別紙A §12.2*
 
-### DS-1428
+### DS-1438
 
 `case-coverage`の未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。
 
 *引用: 本冊 §11.3*
 
-### DS-1429
+### DS-1439
 
 外部判断が必要な事実は判断待ち section（`check: null`、`judgment_kind: case-coverage`）としてだけ提示する。
 
 *引用: 本冊 §8.1・§11.7*
 
-### DS-1430
+### DS-1440
 
 `case-coverage` の判断待ち項目は決定論的に生成する。
 
-### DS-1431
+### DS-1441
 
 `covers ≥ 1` かつ（`cases ≥ 1` または解決済みの covers 先 VO（レコードが存在する VO。E-SCAN-003 の dangling 参照を除く）のいずれかが `dimensions ≥ 1`）を満たす管理対象 Test ごとにちょうど 1 件生成し、`(当該 Test, case-coverage)` の実効判断が `accepted` の場合にだけ消滅する。
 
-### DS-1432
+### DS-1442
 
 実効判断が未確定・`rejected`・`deferred` のいずれでも項目は生成され、参照した判断記録 ID を `basis` に載せる。
 
-### DS-1433
+### DS-1443
 
 実効判断が `accepted` の場合にだけ消滅するという規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。
 
 *引用: 本冊 §11.7*
 
-### DS-1434
+### DS-1444
 
 実効判断は `(subject, judgment_kind)` の組ごとに決まる。
 
-### DS-1435
+### DS-1445
 
 有効判断記録集合から、他の有効判断記録の `supersedes` に名指しされたものを除いた実効集合 E について、E が空なら未確定（`UNKNOWN`）とする。
 
-### DS-1436
+### DS-1446
 
 実効集合 E の decision 値が全て同一ならその値とする。
 
-### DS-1437
+### DS-1447
 
 実効集合 E に 2 種以上の decision 値があれば未確定（`UNKNOWN`）かつ W-STORE-004 とする。
 
 *引用: 本冊 §8.5*
 
-### DS-1438
+### DS-1448
 
 競合は `supersedes` による明示の置き換えでだけ解消する。
 
-### DS-1439
+### DS-1449
 
 判断記録の新旧（`decided_at` / ULID 順）、`decision` 値の優先順位、記録件数の多寡のいずれも採用規則に用いない。
 
-### DS-1440
+### DS-1450
 
 競合中の対象について機械がいずれかの判断記録を採用した結果を出力しない。
 
-### DS-1441
+### DS-1451
 
 提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。
 
 *引用: 本冊 §8.4*
 
-### DS-1442
+### DS-1452
 
 `judgment_kind` がバンドルと不一致または値域外の提出は E-AUDIT-003 で拒否する。
 
-### DS-1443
+### DS-1453
 
 レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。
 
 *引用: 本冊 §8.5*
 
-### DS-1444
+### DS-1454
 
 いずれかのレコードを推測で残さない。
 
-### DS-1445
+### DS-1455
 
 `judgment_kind` を欠くか値域外の判断記録は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。
 
 *引用: 本冊 §3.4・§8.5*
 
-### DS-1446
+### DS-1456
 
 実効判断が未確定であることは検証状態（§4.1 の 5 状態）を変更せず、`UNKNOWN` に §4.2 の診断ラベルを付与しない。
 
-### DS-1447
+### DS-1457
 
 未確定の事実は判断待ち section としてだけ提示する。
 
 *引用: 本冊 §8.5・§11.7*
 
-### DS-1448
+### DS-1458
 
 仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用せず、現在状態に対して §5 の 4 検査を再実施する。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-334, SPEC-335, SPEC-336*
+*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120, SPEC-121, SPEC-122, SPEC-333, SPEC-334, SPEC-335*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
-### DS-1449
+### DS-1459
 
 判断対象の target を一意に解決できない場合はバンドルを生成せず、候補のいずれも選択しない。
 
 *引用: 本冊 §8.1*
 
-### DS-1450
+### DS-1460
 
 対象が存在しない場合（E-SCAN-004）は `MISMATCH`（診断 `MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は `MISMATCH` とし、両者を一括して同一の状態値にしない。
 
-#### DS-S152 18.3.7 承認と判断記録の分離
+#### DS-S155 18.3.7 承認と判断記録の分離
 
 *導出元: SPEC-S016, SPEC-S034, SPEC-S043, SPEC-S074, SPEC-S075*
 
-### DS-1451
+### DS-1461
 
 承認済みを理由に非`PASS`（`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を`PASS`へ昇格させず、未承認を理由に`PASS`を降格させない。
 
-*導出元: SPEC-051, SPEC-052, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-355, SPEC-356, SPEC-357, SPEC-358*
+*導出元: SPEC-051, SPEC-052, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-354, SPEC-355, SPEC-356, SPEC-357*
 
 *引用: 基本仕様 §4.5・§17*
 
-### DS-1452
+### DS-1462
 
 判断受理も承認も、いずれも検証状態を昇格させない。
 
-### DS-1453
+### DS-1463
 
 `approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。
 
-### DS-1454
+### DS-1464
 
 値域外の値、および値域外の `subject` 種別（判断記録 ULID・Test ID 等）は書込み時に E-APPROVAL-002 で拒否し record を生成しない。
 
-### DS-1455
+### DS-1465
 
 既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず W-STORE-006 を出す。
 
 *引用: 本冊 §3.5*
 
-### DS-1456
+### DS-1466
 
 有効承認レコード集合から、他の有効承認レコードの `supersedes` に名指しされたものを除いた実効集合について、集合が空なら `draft`、`rejected` または `withdrawn` が 1 件以上残るなら `draft`、全件が `approved` なら `approved` とする。
 
-### DS-1457
+### DS-1467
 
 有効の条件は `approved_state` が値域内であること、対象指定が一致すること、`subject_hash` が現在の内容ハッシュと一致すること、`dependencies` が現在の上流依存closureと entity・hash とも完全一致することである。
 
 *引用: 本冊 §3.5*
 
-### DS-1458
+### DS-1468
 
 承認取消・却下は実効承認を `draft` へ落とす。
 
-### DS-1459
+### DS-1469
 
 `approved` の承認レコードが存在しても、後から `withdrawn` または `rejected` の有効承認レコードを追加すると実効承認は `draft` になる。
 
-### DS-1460
+### DS-1470
 
 機械は `approved` と `rejected` / `withdrawn` のどちらかを新旧・件数で選ばない。
 
-### DS-1461
+### DS-1471
 
 取消・却下後の再承認は `supersedes` による。
 
-### DS-1462
+### DS-1472
 
 当該 `withdrawn` / `rejected` レコードの ULID を `supersedes` に名指しした `approved` レコードを追加した場合にだけ `approved` へ戻る。
 
-### DS-1463
+### DS-1473
 
 名指ししない `approved` の追加では `draft` のままとする。
 
-### DS-1464
+### DS-1474
 
 `supersedes` の参照先が存在しない・対象が一致しない・自己参照は E-APPROVAL-002、循環は W-STORE-005 とする。
 
 *引用: 本冊 §3.5*
 
-### DS-1465
+### DS-1475
 
 承認対象の値域は VO ID と document ID である。
 
-### DS-1466
+### DS-1476
 
 判断記録の承認は `judgment_ref` によってのみ表し、判断記録 ULID を `subject` に置かない。
 
-### DS-1467
+### DS-1477
 
 `judgment_ref` の参照先が存在しない場合は書込み時に E-APPROVAL-001、読取り時は当該レコードから VO / document の実効承認も判断記録の実効承認も導出せず W-STORE-006 とする。
 
 *引用: 本冊 §3.5*
 
-### DS-1468
+### DS-1478
 
 判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。
 
-### DS-1469
+### DS-1479
 
 supersede された判断記録・競合により未確定となった判断記録への承認は `draft` 相当とする。
 
 *引用: 本冊 §3.5・§8.5*
 
-### DS-1470
+### DS-1480
 
 document を対象とする承認の上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）からなり、`--subject-type document` で記録する。
 
-### DS-1471
+### DS-1481
 
 document 再登録（`--update`）で document subject hash が変化すると当該承認は失効する。
 
 *引用: 本冊 §3.1・§3.5・§11.4*
 
-### DS-1472
+### DS-1482
 
 判断記録を対象とする承認は `--subject-type judgment` で記録し、`judgment_ref` へ判断記録 ULID を、`subject` へ当該判断記録の `subject` を書き込む。
 
 *引用: 本冊 §3.5*
 
-### DS-1473
+### DS-1483
 
 判断記録 ULID を `subject` に置くレコードは生成しない。
 
-### DS-1474
+### DS-1484
 
 実効承認は明示の `supersedes` 関係だけで決まる。
 
-### DS-1475
+### DS-1485
 
 `supersedes` 関係にない複数の有効承認レコードはすべて実効集合に属し、`approved_at` / ULID の順序・レコードの新旧・件数の多寡のいずれも採用規則に用いない。
 
-### DS-1476
+### DS-1486
 
 `approved` と `rejected` が `supersedes` 関係なく併存する対象について、機械がどちらかに確定した結果を出力せず fail-closed に `draft` とする。
 
 *引用: 本冊 §3.5*
 
-### DS-1477
+### DS-1487
 
 VO を対象とする承認の上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document からなる。
 
-### DS-1478
+### DS-1488
 
 document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する。
 
 *引用: 本冊 §3.5・§11.4*
 
-### DS-1479
+### DS-1489
 
 実効承認状態の遷移は `draft` と `approved` の 2 値の間でだけ起き、検証状態（§4.1 の 5 状態）の変化・判断記録の追加そのもの・`basis` の内容によっては遷移しない。
 
 *引用: 本冊 §3.5*
 
-### DS-1480
+### DS-1490
 
 上流依存closureまたはハッシュを欠く互換 Approval は読取りと履歴表示だけを許可し、現在の `approved` を導出しない（W-STORE-002、VO は `draft` 相当）。
 
-#### DS-S153 18.3.8 verify・report と scope
+#### DS-S156 18.3.8 verify・report と scope
 
 *導出元: SPEC-S017, SPEC-S053, SPEC-S054, SPEC-S055, SPEC-S069, SPEC-S094, SPEC-S096*
 
-### DS-1481
+### DS-1491
 
 完全検証は基本仕様 §5 の 4 検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）をすべて評価し、各検査の非PASSを総合NGへ反映する。
 
@@ -7426,73 +7474,73 @@ document dependency は §1.3 の document subject hash を使用するため、
 
 *引用: 基本仕様 §5*
 
-### DS-1482
+### DS-1492
 
 完全検証は、各検査の評価地点（DOC / VO / TEST / repository）で評価した全値がPASSの場合だけOKとする。
 
-### DS-1483
+### DS-1493
 
 `--items`を省略したCLI / MCP検証は常に固定4検査を評価する。
 
-### DS-1484
+### DS-1494
 
 version 1 configの`full_scope`欠落は固定4検査へ具体化し、version 1 / version 2 いずれでも旧12項目の列挙（`spec_coverage` / `test_existence` 等）は E-CONFIG-001 で拒否し、in-memory 補完で受理しない。
 
 *引用: 本冊 §2.2*
 
-### DS-1485
+### DS-1495
 
 version 1 の重複・未知項目、version 2 の欠落・重複・未知・余剰項目も E-CONFIG-001 とし、検証結果を生成しない。
 
-### DS-1486
+### DS-1496
 
 4検査未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。
 
-### DS-1487
+### DS-1497
 
 検査軸（4 本の部分集合）とエンティティ軸（対象とする document / VO / Test の部分木）を指定でき、限定scopeのOKは「要求scope内のOK」に限られる。
 
-### DS-1488
+### DS-1498
 
 いかなる設定値も完全検証の検査を 4 本未満へ縮退させない。
 
-### DS-1489
+### DS-1499
 
 限定scopeは要求項目だけを集約し、scope外・未実施の項目を `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持・併記する。
 
-### DS-1490
+### DS-1500
 
 出力には要求 scope と scope 外項目が未検証である旨を必ず併記する。
 
-### DS-1491
+### DS-1501
 
 完全検証でも `scope` を省略しない。
 
-### DS-1492
+### DS-1502
 
 検証結果を返さないコマンド（`init` / `scan` / `doc *` / `vo *` / `test *` / `audit *` / `run`）の JSON は `scope` を持たない。
 
-### DS-1493
+### DS-1503
 
 限定 scope の JSON 出力だけから、要求 scope と「scope 外は未検証」の旨を判定できる（`scope.unverified_outside_scope` が `true` で、scope 外検査ノードが `NO_EVIDENCE`／診断 `NOT_CHECKED`）。
 
-### DS-1494
+### DS-1504
 
 親 VO の値は子 VO の値と当該親 VO を直接 covers する Test の値の fail-closed 合成であり、いずれかに非 `PASS` が 1 件でもあれば親 VO は非 `PASS` になる。
 
-### DS-1495
+### DS-1505
 
 `--vo <親VO>` および `--from <親VO> --direction down` が親 VO の代表値と配下の子 VO・Test の内訳を同一出力で返し、出力に Feature 名・Feature ID の field を含めない。
 
-### DS-1496
+### DS-1506
 
 要求scope内の `FAIL`・`MISMATCH`・`NO_EVIDENCE`・`UNKNOWN` のいずれも総合PASSへ昇格しない。
 
-### DS-1497
+### DS-1507
 
 NO_EVIDENCE を生む入力（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。
 
-### DS-1498
+### DS-1508
 
 NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。
 
@@ -7500,19 +7548,19 @@ NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / 
 
 *引用: 基本仕様 §4.3・§4.6*
 
-### DS-1499
+### DS-1509
 
 完全検証fixtureで4検査のそれぞれを単独で非PASSにすると総合NGになる。
 
-### DS-1500
+### DS-1510
 
 管理済みgraph側の他検査がすべてPASSでも、未登録Testが1件あれば`chain_integrity`により総合NGになる。
 
-### DS-1501
+### DS-1511
 
 集約は fail-closed とし、子に 1 つでも非 `PASS` があれば親は非 `PASS`。
 
-### DS-1502
+### DS-1512
 
 代表値の優先順位は `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とし、診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）は代表値の順位に用いず原因説明として併記する。
 
@@ -7520,15 +7568,15 @@ NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / 
 
 *引用: 基本仕様 §22.2, 本冊 §11.3*
 
-### DS-1503
+### DS-1513
 
 report は DOC → VO → Test の構造と、各非PASSの根拠（判断記録・Evidence への参照）を text / JSON で返す。
 
-### DS-1504
+### DS-1514
 
 `covers` を持つ Test は covers 先 VO の子ノードとして表示する。
 
-### DS-1505
+### DS-1515
 
 管理下にある事実と、いずれの VO へも寄与しない事実の双方を出力から確認できる。
 
@@ -7536,310 +7584,310 @@ report は DOC → VO → Test の構造と、各非PASSの根拠（判断記録
 
 *引用: 基本仕様 §22.3*
 
-### DS-1506
+### DS-1516
 
 `covers` を持たない Test は §18.3.1 の `chain_integrity = MISMATCH` として扱い、役割別表示を設けない。
 
-### DS-1507
+### DS-1517
 
 同一 revision・同一 `.verify/` ファイル集合（`config.yaml`・document / VO / Relation レコード・判断記録・承認・Evidence）・同一 scope 指定に対して `verify` を繰り返し実行すると、4 検査の検証状態・診断ラベル・診断コード集合・集約結果・`pending` section・終了コードが毎回一致する。
 
-*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333*
+*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332*
 
 *引用: 本冊 §11.1, 基本仕様 §11.1*
 
-### DS-1508
+### DS-1518
 
 実行時刻・ロケール・タイムゾーン・呼出し元の作業ディレクトリを変えても、また Execution State subject の入力に影響しない環境変数を変えても、上記の出力が変化しない。
 
 *引用: 本冊 §1.3*
 
-### DS-1509
+### DS-1519
 
 ネットワークを遮断した環境でも同一の出力を返す。
 
-### DS-1510
+### DS-1520
 
 toolchain identity・adapter config・入力 manifest を変える環境変更（`RUSTUP_TOOLCHAIN` の切替等）の影響は Evidence の鮮度喪失（`NO_EVIDENCE`、診断 `STALE`。本冊 §11.2）としてのみ現れ、環境そのものを判定条件として読む経路を持たない。
 
 *引用: 本冊 §11.2*
 
-### DS-1511
+### DS-1521
 
 `vtest` は 4 検査の評価中に LLM API を含む外部サービスへ要求を出さない。
 
-### DS-1512
+### DS-1522
 
 外部 AI／Agent の関与は `.verify/decisions/` の判断記録ファイル経由に限られ、判断記録の受理は検証状態を昇格させない。
 
-### DS-1513
+### DS-1523
 
 4 検査の評価経路に、実行時に差し替え可能な意味判定 seam を持たない。
 
-### DS-1514
+### DS-1524
 
 `report --from DOC-X --direction down --format json` は、`derives_from` エッジごとに `from` / `relation` / `to` と当該 entry の `anchor`・`note` を返し、「どの上流条項がどの VO へ対応するか」の対応ペア集合として読める。
 
-*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333*
+*導出元: SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-319, SPEC-320, SPEC-321, SPEC-322, SPEC-323, SPEC-324, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332*
 
 *引用: 本冊 §11.6・§3.1・§3.2, 基本仕様 §11.1*
 
-### DS-1515
+### DS-1525
 
 `anchor` を持たない entry では `anchor` を省略または `null` とし、空文字列で埋めない。
 
-#### DS-S154 18.3.9 フェーズゲート評価
+#### DS-S157 18.3.9 フェーズゲート評価
 
 *導出元: REQ-S057, SPEC-S012, SPEC-S016, SPEC-S050, SPEC-S069, SPEC-S098, SPEC-S105, SPEC-S106*
 
-### DS-1516
+### DS-1526
 
 `vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の有効な承認が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。
 
-### DS-1517
+### DS-1527
 
 承認済みを理由に検証状態を昇格させない。
 
-### DS-1518
+### DS-1528
 
 `require.verification` の値域を config 受理時に検査する。
 
-### DS-1519
+### DS-1529
 
 5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）との完全一致は受理する。
 
-### DS-1520
+### DS-1530
 
 診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）・`OK` / `NG`・小文字表記・旧12項目名・非文字列値は E-CONFIG-001・終了コード 2 で拒否して検証結果を生成しない。
 
-### DS-1521
+### DS-1531
 
 `require` および `require.verification` の欠落、`gates[].name` の重複も E-CONFIG-001 とする。
 
 *引用: 本冊 §2.2*
 
-### DS-1522
+### DS-1532
 
 `require.approvals` の省略と `gates` field 自体の欠落・空 list は受理する。
 
-### DS-1523
+### DS-1533
 
 ゲートの検証条件は `require.verification` と要求 scope の集約代表値の完全一致でのみ充足する。
 
-### DS-1524
+### DS-1534
 
 `require.verification` に `PASS` 以外（例 `UNKNOWN`）を定義したゲートは、代表値が同じ値のときだけ充足し、代表値が `PASS` のときは充足しない。
 
-### DS-1525
+### DS-1535
 
 逆に `require.verification: PASS` のゲートは代表値が非 `PASS` のとき充足しない。
 
-### DS-1526
+### DS-1536
 
 集約代表値は構造検査（`chain_integrity` / `orphan_detection`）を含む要求 scope 内の全評価値の fail-closed 合成であり、エンティティ軸の部分木が全 `PASS` でも構造検査が非 `PASS` なら代表値は非 `PASS` になる。
 
-### DS-1527
+### DS-1537
 
 `--items` で検査軸を限定した実行では scope 外検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値に参加するため、`require.verification: PASS` のゲートは限定 scope で充足しない。
 
-### DS-1528
+### DS-1538
 
 `require.approvals` が空集合なら `approvals` は空 list、`gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積になる。
 
-### DS-1529
+### DS-1539
 
 `--gate` 指定時の最上位 `ok` と終了コードはゲート充足で決まる（充足 → `ok: true`・0、不充足 → `ok: false`・1）。
 
-### DS-1530
+### DS-1540
 
 `require.verification` に `PASS` 以外を定義したゲートが充足した実行は、総合が NG でも終了コード 0 になる。
 
-### DS-1531
+### DS-1541
 
 config の `gates` に定義の無いゲート名を `verify --gate` / `report --gate` / MCP の `gate` 入力へ指定すると、E-CONFIG-002・`ok: false`・終了コード 2 で拒否し、検証もゲート評価も実行せず部分結果を返さない。
 
-### DS-1532
+### DS-1542
 
 診断には指定名と定義済みゲート名の一覧を含み、MCP tool error は `candidates` に定義済みゲート名を持つ。
 
-### DS-1533
+### DS-1543
 
 `gates` が空・未定義の状態での指定も同じ扱いとする。
 
-### DS-1534
+### DS-1544
 
 ゲート名の解決は大文字小文字を区別した完全一致だけで行い、前方一致・部分一致・近似一致・既定ゲートへの代替で受理しない。
 
-#### DS-S155 18.3.10 Structured Test Operation
+#### DS-S158 18.3.10 Structured Test Operation
 
 *導出元: SPEC-S038, SPEC-S078*
 
-### DS-1535
+### DS-1545
 
 Form `kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、built-inとuser-defined schemaを通してrepository全体で一意であり、schemaはowner `adapter` IDを別fieldで宣言する。
 
-### DS-1536
+### DS-1546
 
 registryのkind owner、schemaのadapter、Structured Test capabilityが一意に一致する場合だけcreate / form_getを許可する。
 
-### DS-1537
+### DS-1547
 
 同じkindを複数adapterが宣言する、schemaとregistry ownerが不一致、adapterが未知、またはcapabilityがない場合は操作を拒否し、ファイルを変更しない。
 
-### DS-1538
+### DS-1548
 
 `adapter`を欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはschema compatibility matcherのうちちょうど1件だけがschemaを受理する場合に限って解決し、曖昧またはowner不在なら拒否する。
 
-### DS-1539
+### DS-1549
 
 matcherはschema内容から決定論的に判定し、coreは未知kindを`rust-cargo`へfallbackしない。
 
-### DS-1540
+### DS-1550
 
 Form Schemaの必須値と未知fieldを常に検証する。
 
-### DS-1541
+### DS-1551
 
 symbol、VO / Test参照、identifier、pathは選択したFormが該当fieldとvalidatorを宣言した場合だけ検証し、すべてのadapterへ一律に要求しない。
 
-### DS-1542
+### DS-1552
 
 create結果はscanで同じTest ID・intent・covers・targetsとして認識される。
 
-### DS-1543
+### DS-1553
 
 editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。
 
-### DS-1544
+### DS-1554
 
 同じdesired stateの再適用は冪等になる。
 
-### DS-1545
+### DS-1555
 
 Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004となり、ファイルを変更しない。
 
-### DS-1546
+### DS-1556
 
 edit と同じ確認項目を create でも実施し、create 経路にだけ検証を省く分岐を設けない。
 
-### DS-1547
+### DS-1557
 
 挿入後の再パースが構文エラーになる fixture、挿入結果の annotation が desired state と一致しない fixture、挿入が他の Test 範囲へ及ぶ fixture のそれぞれで、create は E-OP-003・終了コード 2 になり、対象ファイルが挿入前のバイト列へ復元される。
 
-### DS-1548
+### DS-1558
 
 挿入によりファイルが新規作成されていた場合は不存在へ戻る。
 
-### DS-1549
+### DS-1559
 
 ロールバック後に scan すると、当該 create 操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。
 
-### DS-1550
+### DS-1560
 
 部分適用された挿入内容・採番された Test ID・Evidence・判断記録がいずれも残らない。
 
-### DS-1551
+### DS-1561
 
 `create --dry-run` は挿入内容と挿入位置を提示し、ファイルを変更しない。
 
-### DS-1552
+### DS-1562
 
 同一 desired state からの create と、その直後の同一 desired state による edit は差分を生じない（annotation block の再生成規則が create / edit で同一。別紙A §15.3）。
 
 *引用: 別紙A §15.3*
 
-#### DS-S156 18.3.11 MCP interface
+#### DS-S159 18.3.11 MCP interface
 
 *導出元: SPEC-S062, SPEC-S101*
 
-### DS-1553
+### DS-1563
 
 別紙A（§12〜§15）が定める全 MCP tool が同じ入力に対するCLI JSONと同じdata / diagnosticsを返す。
 
-### DS-1554
+### DS-1564
 
 不正入力はcode / message / candidatesを持つtool errorになる。
 
-### DS-1555
+### DS-1565
 
 request、notification、batch、malformed transportの各入力をJSON-RPC contractどおりに処理する。
 
-### DS-1556
+### DS-1566
 
 MCP serverの長時間実行中もsource変更を再scanし、staleなPASSを保持しない。
 
-#### DS-S157 18.3.12 adapter contract
+#### DS-S160 18.3.12 adapter contract
 
 *導出元: SPEC-S063, SPEC-S078, SPEC-S105*
 
-### DS-1557
+### DS-1567
 
 `TestEntity.content_hash`はTest constructだけでなくcanonical metadata、locationのadapter・path・opaque locator、ExecutionDescriptorを含むTest subjectへ束縛される。
 
-### DS-1558
+### DS-1568
 
 byte range自体は含めず、非隣接metadataだけの意味変更でもhashが変化する。
 
-### DS-1559
+### DS-1569
 
 registryはadapter IDの重複、宣言capabilityと実装の不一致、未登録adapterを拒否する。
 
-### DS-1560
+### DS-1570
 
 異なるadapterが同じrootを共有でき、同一adapter内のroot重複は拒否される。
 
-### DS-1561
+### DS-1571
 
 全adapterのmerge結果でTest IDのglobal uniquenessを検査する。
 
-### DS-1562
+### DS-1572
 
 config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。
 
-### DS-1563
+### DS-1573
 
 config writerと`vtest init`はversion 2のadapter namespaceを出力する。
 
-### DS-1564
+### DS-1574
 
 Test JSON writerは`execution`を常に出力し、`rust-cargo` Testについてだけwire codecが互換field `filter` / `package` / `test_target`を追加する。
 
-### DS-1565
+### DS-1575
 
 Test JSON writerは1件以上の`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。
 
-### DS-1566
+### DS-1576
 
 複数targetを単数fieldへ縮約しない。
 
-### DS-1567
+### DS-1577
 
 synthetic TestのJSONはRust互換fieldを省略し、空値またはdummy値を出力しない。
 
-### DS-1568
+### DS-1578
 
 `execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。
 
-### DS-1569
+### DS-1579
 
 `execution`とRust互換fieldが矛盾する入力を拒否する。
 
-### DS-1570
+### DS-1580
 
 明示操作に必須のcapabilityがなければE-ADAPTER-004となり、変更・判断記録・Evidenceを生成しない。
 
-### DS-1571
+### DS-1581
 
 検証時のstatic audit / coverage capability欠落は`NO_EVIDENCE`（診断`NOT_CHECKED`）になる。
 
-### DS-1572
+### DS-1582
 
 検証時のrunner欠落は`NO_EVIDENCE`（診断`NOT_EXECUTED`）になる。
 
-### DS-1573
+### DS-1583
 
 検証時の解析限界は`UNKNOWN`になる。
 
-### DS-1574
+### DS-1584
 
 synthetic adapterは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを、`vtest-model`、`vtest-scan`、`vtest-verify`の変更なしで登録・scan・verifyできる。

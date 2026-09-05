@@ -24,7 +24,8 @@
               13
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-532"
         },
         {
           "statement": "Rust workspaceの受入テストは`cargo test --workspace`で実行できる。",
@@ -37,7 +38,8 @@
               14
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-533"
         },
         {
           "statement": "検証結果はfail-closedである。",
@@ -50,7 +52,8 @@
               15
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-414"
         },
         {
           "statement": "要求scopeに1件でも非PASSがあれば総合結果はNGになる。",
@@ -63,7 +66,8 @@
               15
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1254"
         },
         {
           "statement": "scopeを限定してもscope外の値をPASSへ変更しない。",
@@ -76,7 +80,8 @@
               16
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1255"
         },
         {
           "statement": "CLIとMCPは同じcore処理、adapter registry、JSON envelope、診断codeを使用する。",
@@ -89,7 +94,8 @@
               17
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-260"
         },
         {
           "statement": "canonical record、承認記録、判断記録、Evidence、内容hashの不変条件をfixtureの都合で緩和しない。",
@@ -102,7 +108,8 @@
               18
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-534"
         },
         {
           "statement": "Rustの受入fixtureは、総称document、VO、登録Test、Source Target、承認記録、判断記録、Evidenceを含む小規模projectとする。",
@@ -115,7 +122,8 @@
               23
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-261"
         },
         {
           "statement": "fixture は、正しい annotation を持つ Test を表現できる。",
@@ -128,7 +136,8 @@
               25
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-262"
         },
         {
           "statement": "fixture は、`assert!(true)` だけの Test を表現できる。",
@@ -141,7 +150,8 @@
               26
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-263"
         },
         {
           "statement": "fixture は、宣言 target を呼ばない Test を表現できる。",
@@ -154,7 +164,8 @@
               27
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-264"
         },
         {
           "statement": "fixture は、結果を検証しない Test を表現できる。",
@@ -167,7 +178,8 @@
               28
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-265"
         },
         {
           "statement": "fixture は、自己比較を行う Test を表現できる。",
@@ -180,7 +192,8 @@
               29
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-266"
         },
         {
           "statement": "fixture は、annotation を持たない test function（W-SCAN-101、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
@@ -193,7 +206,8 @@
               30
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-267"
         },
         {
           "statement": "fixture は、`covers` を宣言しない Test（`covers` 0）を表現できる。",
@@ -206,7 +220,8 @@
               31
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-268"
         },
         {
           "statement": "すべての管理対象 Test に `covers ≥ 1` を一律要求するため、`covers` を宣言しない Test は E-SCAN-007 と `chain_integrity = MISMATCH`（診断`MISSING`）になる。",
@@ -223,7 +238,8 @@
               31
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1256"
         },
         {
           "statement": "fixture は、`rust-cargo` で `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
@@ -240,7 +256,8 @@
               32
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-269"
         },
         {
           "statement": "fixture は、存在しない VO を参照する Test（E-SCAN-003、`chain_integrity = MISMATCH`）を表現できる。",
@@ -253,7 +270,8 @@
               33
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-270"
         },
         {
           "statement": "fixture は、Test ID が衝突する Test（E-SCAN-002、`chain_integrity = MISMATCH`）を表現できる。",
@@ -266,7 +284,8 @@
               34
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-271"
         },
         {
           "statement": "fixture は、Test construct と非隣接の metadata 宣言だけを変更した状態（Test subject hash が変化する）を表現できる。",
@@ -279,7 +298,8 @@
               35
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-272"
         },
         {
           "statement": "fixture は、Test / 宣言 target を変更せず、実行結果を変えうる target 外 helper または local dependency だけを変更した状態（Execution State subject が変化し Evidence が STALE 化）を表現できる。",
@@ -292,7 +312,8 @@
               36
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-273"
         },
         {
           "statement": "fixture は、`@vtest.case` を持つ table-driven Test を表現できる。",
@@ -305,7 +326,8 @@
               37
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-274"
         },
         {
           "statement": "fixture は、複数 target を宣言し、target ごとに PASS / FAIL / UNKNOWN が異なる integration Test を表現できる。",
@@ -318,7 +340,8 @@
               38
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-275"
         },
         {
           "statement": "fixture は、5 状態それぞれを生じる入力（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を表現できる。",
@@ -331,7 +354,8 @@
               39
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-276"
         },
         {
           "statement": "状態は5つのみとする。",
@@ -347,7 +371,8 @@
               39
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-415"
         },
         {
           "statement": "fixture は、4 診断ラベルそれぞれを生じる入力（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）を表現できる。",
@@ -360,7 +385,8 @@
               40
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-277"
         },
         {
           "statement": "診断ラベルは検証状態と別軸の原因説明である。",
@@ -376,7 +402,8 @@
               40
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-416"
         },
         {
           "statement": "診断ラベルは状態値ではない。",
@@ -392,7 +419,8 @@
               40
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-417"
         },
         {
           "statement": "fixture は、Test または target の hash 変更によって無効になる判断記録 / Evidence を表現できる。",
@@ -405,7 +433,8 @@
               41
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-278"
         },
         {
           "statement": "fixture は、複数 adapter が同じ恒久 SRC ID を宣言する状態（E-SCAN-011）を表現できる。",
@@ -418,7 +447,8 @@
               42
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-279"
         },
         {
           "statement": "fixture は、同一の Source Target を、一方の Test が locator で、他方の Test が恒久 SRC ID で宣言する状態を表現できる。",
@@ -431,7 +461,8 @@
               43
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-280"
         },
         {
           "statement": "fixture は、同一の Test が同一 Source Target を locator と恒久 SRC ID の両方で宣言する状態（E-SCAN-005）を表現できる。",
@@ -444,7 +475,8 @@
               44
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-281"
         },
         {
           "statement": "fixture は、Source Target construct の内側にある `@vtest.src-id` 宣言だけを付与・変更・削除した状態（construct bytes が変化し Source Target hash も変化する）を表現できる。",
@@ -457,7 +489,8 @@
               45
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-282"
         },
         {
           "statement": "fixture は、呼出を静的に確認できない到達境界を越えて target を実行する Test（subprocess spawn型・spawn thread型）を表現できる。",
@@ -470,7 +503,8 @@
               46
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-283"
         },
         {
           "statement": "DA-002 / DA-003がtarget別UNKNOWNになる。",
@@ -483,7 +517,8 @@
               46
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1257"
         },
         {
           "statement": "runtimeの`target_coverage`のみでDA-002到達が充足される。",
@@ -496,7 +531,8 @@
               46
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1258"
         },
         {
           "statement": "fixture は、他ファイル・他クレートへ呼び出すが戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
@@ -509,7 +545,8 @@
               47
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-284"
         },
         {
           "statement": "fixture は、文書鎖の状態として `doc.roots` に列挙された根 document を表現できる。",
@@ -522,7 +559,8 @@
               48
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-285"
         },
         {
           "statement": "fixture は、文書鎖の状態として `derives_from` が空かつ根に列挙されない孤児 document（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
@@ -535,7 +573,8 @@
               48
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-286"
         },
         {
           "statement": "fixture は、文書鎖の状態として `derives_from` の参照先が存在しない document / VO（E-SCAN-012、`chain_integrity = MISMATCH`）を表現できる。",
@@ -548,7 +587,8 @@
               48
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-287"
         },
         {
           "statement": "fixture は、文書鎖の状態として `content_hash` と実ファイルが一致しない document（W-SCAN-104、`chain_integrity = MISMATCH`、診断 `STALE`）を表現できる。",
@@ -561,7 +601,8 @@
               48
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-288"
         },
         {
           "statement": "fixture は、文書鎖の状態として document 再登録で失効する判断記録・承認記録を表現できる。",
@@ -574,7 +615,8 @@
               48
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-289"
         },
         {
           "statement": "fixture は、判断記録を受理しても対象の検証状態が昇格しない状態（判断受理前後で `UNKNOWN` が `PASS` へ変わらない）を表現できる。",
@@ -587,7 +629,8 @@
               49
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-290"
         },
         {
           "statement": "fixture は、上流依存 closure またはハッシュを欠く互換 Approval（W-STORE-002、VO は `draft` 相当）を表現できる。",
@@ -600,7 +643,8 @@
               50
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-291"
         },
         {
           "statement": "fixture は、フェーズゲート定義（`config.yaml` の `gates`）を持ち、`vtest verify --gate <name>` が条件充足・不足の両方を提示する状態を表現できる。",
@@ -613,7 +657,8 @@
               51
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-292"
         },
         {
           "statement": "adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-process synthetic adapterを使用できる。",
@@ -626,7 +671,8 @@
               54
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-293"
         },
         {
           "statement": "synthetic adapterは配布対象のproduction language adapterではない。",
@@ -639,7 +685,8 @@
               54
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-418"
         },
         {
           "statement": "synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを使用する。",
@@ -652,7 +699,8 @@
               55
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-294"
         },
         {
           "statement": "source discovery adapterは全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、source range、current bytes、logical metadata、宣言された恒久SRC ID、Test execution descriptorをhash未計算で返す。",
@@ -665,7 +713,8 @@
               61
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-535"
         },
         {
           "statement": "coreは出力を検証してTest subject / Source Target hashを計算してからManaged Test Entity、ManagedTestLink、Source Targetを具体化する。",
@@ -678,7 +727,8 @@
               61
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-536"
         },
         {
           "statement": "Source Targetはcanonical locatorと任意の恒久SRC IDを併有する単一のentityである。",
@@ -691,7 +741,8 @@
               62
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-537"
         },
         {
           "statement": "adapterは同一constructをlocator版とSrcId版の2 draftへ複製せず、恒久SRC IDを`SourceTargetDraft.src_id`として返す。",
@@ -704,7 +755,8 @@
               62
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-538"
         },
         {
           "statement": "恒久SRC IDを持つSource Targetはcanonical locatorでもaddressableであり、locator参照とSRC ID参照は同一のcanonical Source Targetへ解決する。",
@@ -717,7 +769,8 @@
               63
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1259"
         },
         {
           "statement": "両addressing modeで同一のSource Target hashに到達し、Source Targetの件数、content / subject hash、Evidenceおよび判断記録上のtarget identityが参照方法によって分裂しない。",
@@ -730,7 +783,8 @@
               63
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1260"
         },
         {
           "statement": "Source Target identityは「宣言された`TargetRef` → 解決 → canonical Locator」の一方向で確定する。",
@@ -743,7 +797,8 @@
               64
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-295"
         },
         {
           "statement": "Evidence、判断記録、`target_binding` の証拠、鮮度判定は解決後のcanonical Locatorをidentityとして記録・比較し、参照側Testが宣言した綴り（SRC ID参照を含む）を保存しない。",
@@ -756,7 +811,8 @@
               64
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1261"
         },
         {
           "statement": "同一のSource Targetをlocator参照するTestとSRC ID参照するTestは、Evidence上で同一のtarget identityを持つ。",
@@ -769,7 +825,8 @@
               64
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1262"
         },
         {
           "statement": "Testがどう宣言したかの変更（同一Source Targetに対するlocator参照からSRC ID参照への書き換え等）はTest subject hashの変化として捕捉され、Evidence側のtarget identityを変化させない。",
@@ -782,7 +839,8 @@
               65
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1263"
         },
         {
           "statement": "綴りの異なる複数の`target`宣言が同一のcanonical Source Targetへ解決する場合はE-SCAN-005とする。",
@@ -795,7 +853,8 @@
               66
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1264"
         },
         {
           "statement": "`SourceTargetDraft.target`は必ず`TargetRef::Locator`である。",
@@ -808,7 +867,8 @@
               67
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-539"
         },
         {
           "statement": "`TargetRef::SrcId`をcanonical targetとして返したadapter出力はmalformed adapter outputとして拒否する。",
@@ -821,7 +881,8 @@
               67
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1265"
         },
         {
           "statement": "恒久SRC IDの宣言・変更・削除でcanonical locatorは変化しない。",
@@ -834,7 +895,8 @@
               67
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1266"
         },
         {
           "statement": "Source Target hashは常にcanonical locatorとconstruct bytesから計算し、参照側Testの`TargetRef`綴りからは計算しない。",
@@ -847,7 +909,8 @@
               68
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1267"
         },
         {
           "statement": "恒久SRC IDを独立したhash fieldとしてSource Target hashのinputに含めない。",
@@ -860,7 +923,8 @@
               68
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1268"
         },
         {
           "statement": "恒久SRC IDの宣言をSource Target constructの内側へ置くadapter（`rust-cargo`の`@vtest.src-id` doc comment等）では、その宣言の付与・変更・削除がconstruct bytesを変えるため、Source Target hashも変化する。",
@@ -873,7 +937,8 @@
               69
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1269"
         },
         {
           "statement": "Source Target hashも変化することはsourceが実際に変化したことの帰結として正しい挙動であり、恒久SRC IDが独立したhash fieldであることを意味しない。",
@@ -886,7 +951,8 @@
               69
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1270"
         },
         {
           "statement": "SRC ID参照はcoreの統合済みSRC索引から、その恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決する。",
@@ -899,7 +965,8 @@
               70
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-540"
         },
         {
           "statement": "Target Reference解決は解決済み / 対象なし / 曖昧を区別し、曖昧はfail-closedな終端状態とする。",
@@ -912,7 +979,8 @@
               71
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1271"
         },
         {
           "statement": "E-SCAN-004またはE-SCAN-011で曖昧・未解決となったtargetについて、判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しない。",
@@ -925,7 +993,8 @@
               71
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1272"
         },
         {
           "statement": "候補は診断表示にだけ用いる。",
@@ -938,7 +1007,8 @@
               71
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1273"
         },
         {
           "statement": "判断記録subject、Evidence、`target_binding` の証拠のいずれも候補の1件を解決結果として記録しないという禁止は解決に関するものであり、Source Targetの具体化を止めない。",
@@ -951,7 +1021,8 @@
               72
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1274"
         },
         {
           "statement": "恒久SRC IDが衝突していても、各Source Targetは自身のcanonical locatorで独立したentityとして具体化され、Source Targetの件数と各content / subject hashは衝突の有無で変化しない。",
@@ -964,7 +1035,8 @@
               72
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1275"
         },
         {
           "statement": "衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。",
@@ -977,7 +1049,8 @@
               72
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1276"
         },
         {
           "statement": "Target Reference解決はcoreの単一経路が所有する。",
@@ -990,7 +1063,8 @@
               73
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-296"
         },
         {
           "statement": "discovery、静的解析、実行、Evidence writer、検証集約が独自にcandidate列を走査して1件を選ぶ経路を持たない。",
@@ -1003,7 +1077,8 @@
               73
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-297"
         },
         {
           "statement": "adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。",
@@ -1016,7 +1091,8 @@
               74
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-419"
         },
         {
           "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
@@ -1033,7 +1109,8 @@
               78
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1277"
         },
         {
           "statement": "存在しないVOを`covers`するTestは構造上完全なManaged Test Entityと`ManagedTestLink::One`のまま保持し、E-SCAN-003と`chain_integrity = MISMATCH`を導出する。",
@@ -1046,7 +1123,8 @@
               79
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1278"
         },
         {
           "statement": "診断ラベルを二重定義しない。",
@@ -1059,7 +1137,8 @@
               79
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-420"
         },
         {
           "statement": "`ManagedTestLink::Multiple`またはTest ID衝突（E-SCAN-002）は`chain_integrity = MISMATCH`になる。",
@@ -1072,7 +1151,8 @@
               80
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1279"
         },
         {
           "statement": "`covers` を持たない（0 件の）Testは管理宣言不整合として`chain_integrity = MISMATCH`（診断 `MISSING`）になる。",
@@ -1085,7 +1165,8 @@
               81
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1280"
         },
         {
           "statement": "役割による`covers`可変制約・特別扱いの分岐を設けず、すべての管理対象 Test に`covers ≥ 1`を一律要求する。",
@@ -1101,7 +1182,8 @@
               81
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1281"
         },
         {
           "statement": "既定を緩和して0件を受理しない。",
@@ -1114,7 +1196,8 @@
               81
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1282"
         },
         {
           "statement": "全Discovered Testが`ManagedTestLink::One`で構造上完全なentityへ1対1で対応し、Test IDが一意、各entityが`covers ≥ 1`を満たし、かつ全VO参照を解決できる場合だけTest層の`chain_integrity`が成立する。",
@@ -1127,7 +1210,8 @@
               82
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1283"
         },
         {
           "statement": "各 VO は 1 件以上の `document` への解決可能な `derives_from` を持つ。",
@@ -1140,7 +1224,8 @@
               83
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1284"
         },
         {
           "statement": "参照先 document が存在しない、または解決不能な場合は E-SCAN-012、`chain_integrity = MISMATCH`。",
@@ -1153,7 +1238,8 @@
               83
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1285"
         },
         {
           "statement": "VO parent の不在・循環は E-SCAN-008、`chain_integrity = MISMATCH`。",
@@ -1166,7 +1252,8 @@
               83
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1286"
         },
         {
           "statement": "各`document`の`derives_from`参照先が存在することを要求する（不在はE-SCAN-012、`chain_integrity = MISMATCH`）。",
@@ -1179,7 +1266,8 @@
               84
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1287"
         },
         {
           "statement": "各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。",
@@ -1192,7 +1280,8 @@
               84
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1288"
         },
         {
           "statement": "document 種別を区別せず、要件定義・基本仕様・詳細設計・API Schema 等をすべて総称 document として同一に扱う。",
@@ -1208,7 +1297,8 @@
               84
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-421"
         },
         {
           "statement": "`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。",
@@ -1221,7 +1311,8 @@
               85
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1289"
         },
         {
           "statement": "発見された Test → 管理宣言の解決と、leaf VO → Test の両方向が成立して初めて `chain_integrity` が成立する。",
@@ -1234,7 +1325,8 @@
               85
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1290"
         },
         {
           "statement": "W-SCAN-101のwarning severityだけを理由に検証値を変更せず、Discovered Testとmanaged entityの対応事実から判定する。",
@@ -1247,7 +1339,8 @@
               86
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1291"
         },
         {
           "statement": "adapter discoveryの失敗をTest 0件の正常scanとして扱わない。",
@@ -1260,7 +1353,8 @@
               87
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1292"
         },
         {
           "statement": "解析不能・不完全なbatchは対応する検証を`UNKNOWN`とする。",
@@ -1273,7 +1367,8 @@
               87
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1293"
         },
         {
           "statement": "Relation writerは`REL-<ULID>`だけを生成する。",
@@ -1286,7 +1381,8 @@
               88
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-541"
         },
         {
           "statement": "readerはファイル名とrecord IDが同じbare ULIDのversion 1互換Relationを読み取り、in-memoryで`REL-<ULID>`へ正規化するが、ファイルを書き換えない。",
@@ -1299,7 +1395,8 @@
               88
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-542"
         },
         {
           "statement": "同じpayloadのbare / prefixed重複、混在形、ファイル名とIDの不一致はE-SCAN-010になる。",
@@ -1312,7 +1409,8 @@
               88
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1294"
         },
         {
           "statement": "Relation の from / to 不在は E-SCAN-009、`chain_integrity = MISMATCH`。",
@@ -1325,7 +1423,8 @@
               88
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1295"
         },
         {
           "statement": "VO writerは`status`を保存せず、実効値をApprovalから導出する。",
@@ -1338,7 +1437,8 @@
               89
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-543"
         },
         {
           "statement": "読取り互換field `status`は警告（W-STORE-001）して無視する。",
@@ -1351,7 +1451,8 @@
               89
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1296"
         },
         {
           "statement": "VOの承認はVO内容hashと現在の上流依存closureへ束縛され、`document` / parent VO の内容または集合が不一致の承認を有効として扱わない。",
@@ -1364,7 +1465,8 @@
               90
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1297"
         },
         {
           "statement": "Approval作成時に対象または上流依存closureを完全・currentに解決できなければE-APPROVAL-001で拒否し、recordを生成しない。",
@@ -1377,7 +1479,8 @@
               91
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1298"
         },
         {
           "statement": "上流依存closureまたはハッシュを欠く互換Approvalを現在のapprovedへ昇格しない（W-STORE-002、VOは`draft`相当）。",
@@ -1390,7 +1493,8 @@
               92
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1299"
         },
         {
           "statement": "恒久SRC IDは全adapter統合後にrepository全体で一意である。",
@@ -1403,7 +1507,8 @@
               93
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1300"
         },
         {
           "statement": "恒久SRC IDの衝突をE-SCAN-011として拒否する。",
@@ -1416,7 +1521,8 @@
               93
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1301"
         },
         {
           "statement": "`vtest scan` / `doctor`はE-ADAPTER-* / E-CONFIG-*による操作拒否をexit 2にする。",
@@ -1429,7 +1535,8 @@
               94
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1302"
         },
         {
           "statement": "`vtest scan` / `doctor`は完了したscanのE-SCAN-*をexit 1にする。",
@@ -1442,7 +1549,8 @@
               94
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1303"
         },
         {
           "statement": "`vtest scan` / `doctor`はerrorなしをexit 0にする。",
@@ -1455,7 +1563,8 @@
               94
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1304"
         },
         {
           "statement": "`full-product` VOは宣言partitionの直積を決定論的に実体化する。",
@@ -1468,7 +1577,8 @@
               95
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1305"
         },
         {
           "statement": "`coverage_policy: explicit`と妥当な`combinations`を持つVOは、列挙されたtupleごとにちょうど1件の子VOを生成する。",
@@ -1484,7 +1594,8 @@
               99
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1306"
         },
         {
           "statement": "子VO IDのsuffixは`dimensions`の宣言順で連結される。",
@@ -1497,7 +1608,8 @@
               99
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1307"
         },
         {
           "statement": "同じtuple集合を記述順・map key順を変えて与えても、生成される子VO集合とIDは同一になる。",
@@ -1510,7 +1622,8 @@
               99
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1308"
         },
         {
           "statement": "`explicit`かつ`combinations`欠落を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1523,7 +1636,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1309"
         },
         {
           "statement": "`explicit`かつ`combinations`空listを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1536,7 +1650,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1310"
         },
         {
           "statement": "`explicit`かつ`dimensions`空を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1549,7 +1664,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1311"
         },
         {
           "statement": "`independent-axes` / `full-product` / `null`かつ`combinations`非空を持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1562,7 +1678,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1312"
         },
         {
           "statement": "未宣言dimension名を含むtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1575,7 +1692,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1313"
         },
         {
           "statement": "当該dimensionの`partitions`に無いpartition値を含むtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1588,7 +1706,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1314"
         },
         {
           "statement": "宣言済みdimensionを欠くtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1601,7 +1720,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1315"
         },
         {
           "statement": "同一dimension名を2回持つtupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1614,7 +1734,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1316"
         },
         {
           "statement": "重複tupleを持つVOレコードはE-SCAN-017と`chain_integrity = MISMATCH`になり、`vo expand`は子VOを1件も生成しない（部分生成しない）。",
@@ -1627,7 +1748,8 @@
               100
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1317"
         },
         {
           "statement": "`vo add` / `vo edit` / MCP `vo_upsert` は上記の各入力を受理時に E-SCAN-017・終了コード 2 で拒否し、レコードを作成・更新しない（拒否後に scan したエンティティ集合は操作前と同一）。",
@@ -1640,7 +1762,8 @@
               101
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1318"
         },
         {
           "statement": "`vo edit --combination` は desired state として既存 `combinations` を置換し、追記しない。",
@@ -1653,7 +1776,8 @@
               102
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1319"
         },
         {
           "statement": "`--clear-combinations` は空にする。",
@@ -1666,7 +1790,8 @@
               102
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1320"
         },
         {
           "statement": "`--combination`と`--clear-combinations`のどちらも与えない `edit` は既存 `combinations` を保持する。",
@@ -1679,7 +1804,8 @@
               102
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1321"
         },
         {
           "statement": "`combinations` だけを変更した `edit` は VO subject hash を変化させ、当該 VO の承認を失効させる。",
@@ -1692,7 +1818,8 @@
               103
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1322"
         },
         {
           "statement": "document / VO の `derives_from` entry に `anchor` を持つ状態と持たない状態の双方を読み取り、いずれも `chain_integrity` に影響しない（`anchor` の欠落・空文字列で `MISMATCH` にならない）。",
@@ -1708,7 +1835,8 @@
               107
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1323"
         },
         {
           "statement": "`anchor` の値を文書内位置へ解決せず、実在しない節番号を書いても診断を出さない。",
@@ -1721,7 +1849,8 @@
               107
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1324"
         },
         {
           "statement": "同一 `doc` を指す複数 `derives_from` entry を `anchor` 違いで保持でき、重複として拒否しない。",
@@ -1734,7 +1863,8 @@
               108
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1325"
         },
         {
           "statement": "`anchor`だけを変更したdocumentは`content_hash`（`path`の実ファイルのハッシュ）が不変のままdocument subject hashが変化する。",
@@ -1747,7 +1877,8 @@
               109
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1326"
         },
         {
           "statement": "`anchor`だけを変更したdocumentは、当該documentを上流依存closureに含む承認・判断記録を失効させる。",
@@ -1760,7 +1891,8 @@
               109
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1327"
         },
         {
           "statement": "`anchor` だけを変更した VO は VO subject hash が変化せず、当該 VO の承認が失効しない。",
@@ -1773,7 +1905,8 @@
               110
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1328"
         },
         {
           "statement": "CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に 2 個目の `--anchor` を与えた場合は終了コード 2 で拒否し、レコードを書かない。",
@@ -1786,7 +1919,8 @@
               111
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1329"
         },
         {
           "statement": "既存ソース・既存テストを含む fixture project で `vtest init` を実行した前後で、`.verify/` を除いた作業ツリーの全ファイルのバイト列が同一である。",
@@ -1803,7 +1937,8 @@
               115
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1330"
         },
         {
           "statement": "`.verify/` 外のファイルの新規作成・変更・削除が 1 件も観測されない。",
@@ -1816,7 +1951,8 @@
               115
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1331"
         },
         {
           "statement": "`init` は既存ソースへ Test metadata 宣言（`@vtest.` 行）・annotation・doc comment を挿入しない。",
@@ -1829,7 +1965,8 @@
               116
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1332"
         },
         {
           "statement": "既存 `.verify/` があるプロジェクトでの `init` は終了コード 2 で中止し、その実行でファイル・ディレクトリを 1 件も作成・変更・削除しない（既存 `.verify/` の内容も不変）。",
@@ -1842,7 +1979,8 @@
               117
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1333"
         },
         {
           "statement": "`orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う。",
@@ -1860,7 +1998,8 @@
               121
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-422"
         },
         {
           "statement": "実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。",
@@ -1877,7 +2016,8 @@
               121
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-423"
         },
         {
           "statement": "根の除外は、`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。",
@@ -1890,7 +2030,8 @@
               122
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1334"
         },
         {
           "statement": "根指定の追加・削除は `vtest doc` コマンドの引数で管理する。",
@@ -1906,7 +2047,8 @@
               122
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-298"
         },
         {
           "statement": "孤児判定は、`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
@@ -1919,7 +2061,8 @@
               123
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1335"
         },
         {
           "statement": "`doc.roots` が存在しない DOC ID を参照する場合は config invariant 違反として E-CONFIG-001 とする。",
@@ -1932,7 +2075,8 @@
               124
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1336"
         },
         {
           "statement": "旧モデルの W-SCAN-102（孤立 VO）は VO 層の警告であり、文書層 `orphan_detection` とは別物として存置する。",
@@ -1945,7 +2089,8 @@
               125
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1337"
         },
         {
           "statement": "DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。",
@@ -1961,7 +2106,8 @@
           "cites": [
             "本冊 §7"
           ],
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1338"
         },
         {
           "statement": "静的解析は正典レコードを持たない再計算派生であり、検証のたびに現在のsource / configから再計算する。",
@@ -1978,7 +2124,8 @@
               129
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-299"
         },
         {
           "statement": "確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。",
@@ -1991,7 +2138,8 @@
               130
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-424"
         },
         {
           "statement": "正常Testは違反なしとなり、各違反fixtureは対応ruleで非PASSになる。",
@@ -2004,7 +2152,8 @@
               131
             ]
           },
-          "layer": "design"
+          "layer": "detailed_spec",
+          "id": "DS-1339"
         },
         {
           "statement": "`oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。",
@@ -2021,7 +2170,8 @@
               132
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1340"
         },
         {
           "statement": "1つでも `FAIL` があれば `oracle_presence` は `FAIL` になる。",
@@ -2034,7 +2184,8 @@
               132
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1341"
         },
         {
           "statement": "`FAIL` がなく `UNKNOWN` があれば `oracle_presence` は `UNKNOWN` になる。",
@@ -2047,7 +2198,8 @@
               132
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1342"
         },
         {
           "statement": "`oracle_presence` に動的な昇格経路は無く、runtime 証拠で `PASS` へ昇格しない。",
@@ -2060,7 +2212,8 @@
               132
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1343"
         },
         {
           "statement": "Test の成否判定が assert 相当の構文でなく通常の関数へ委譲されている場合において、委譲先を宣言targetとするTestが存在し、その`oracle_presence`がすべて`PASS`であるTestは、DA-003 / DA-006が違反なしとなる。",
@@ -2076,7 +2229,8 @@
               134
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1344"
         },
         {
           "statement": "委譲先のassert相当が委譲先側にしか無いことだけを理由に`FAIL`としない。",
@@ -2089,7 +2243,8 @@
               134
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1345"
         },
         {
           "statement": "委譲先を宣言targetとするTestが0件のTestは、DA-003 / DA-006が`UNKNOWN`となる。",
@@ -2102,7 +2257,8 @@
               135
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1346"
         },
         {
           "statement": "常に真を返す照合ヘルパを呼ぶだけのTestが`oracle_presence` = `PASS`にならない。",
@@ -2115,7 +2271,8 @@
               135
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1347"
         },
         {
           "statement": "委譲先を宣言targetとするTestは存在するが、その`oracle_presence`が`PASS`でないTestは、DA-003 / DA-006が`UNKNOWN`となる。",
@@ -2128,7 +2285,8 @@
               136
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1348"
         },
         {
           "statement": "委譲先の終端が循環する（相互に照合を委譲し合う）2 Testは、いずれもDA-003 / DA-006が`UNKNOWN`となり、評価順序を変えても同じ値になる。",
@@ -2141,7 +2299,8 @@
               137
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1349"
         },
         {
           "statement": "委譲先が他ファイル・他クレート・マクロ展開内で同定できないTestは、DA-003 / DA-006が`UNKNOWN`となる。",
@@ -2154,7 +2313,8 @@
               138
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1350"
         },
         {
           "statement": "信頼を宣言する専用の注釈・設定項目・レコードを新設せず、covers / 宣言targetのグラフだけで上記の各値が決まる。",
@@ -2167,7 +2327,8 @@
               139
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-425"
         },
         {
           "statement": "DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足される。",
@@ -2183,7 +2344,8 @@
               140
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1351"
         },
         {
           "statement": "DA-002の target別verdictが`UNKNOWN`のとき、当該targetのruntime計測（§18.3.5）が実行を証明した場合に限り到達要件が充足されるというruntime救済は`target_binding`に固有であり、`oracle_presence`には及ばない。",
@@ -2196,7 +2358,8 @@
               140
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1352"
         },
         {
           "statement": "static audit adapterが判定へ使用したsource fragment集合の完全性を保証できない場合、当該判定はUNKNOWNとなりPASSにならない。",
@@ -2209,7 +2372,8 @@
               141
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1353"
         },
         {
           "statement": "別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。",
@@ -2225,7 +2389,8 @@
               142
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1354"
         },
         {
           "statement": "当該targetのruntime`target_coverage`がPASS（checked: true・count > 0）ならDA-002到達要件は充足され、検証時にそのtarget別DA-002はUNKNOWN扱いにならない。",
@@ -2238,7 +2403,8 @@
               142
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1355"
         },
         {
           "statement": "呼出自体を静的に確認できないtarget（subprocess spawn等）は、DA-002だけでなくDA-003のtarget別verdictもUNKNOWNになる（空虚PASS / FAILとしない）。",
@@ -2254,7 +2420,8 @@
               143
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1356"
         },
         {
           "statement": "呼出自体を静的に確認できないtargetについて、DA-003はruntimeで救済されない。",
@@ -2267,7 +2434,8 @@
               143
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1357"
         },
         {
           "statement": "したがってexit code / stdoutだけをassertするsubprocess E2Eは、当該targetのDA-002がruntimeで充足されて`target_binding = PASS`に到達しうる一方で、DA-003がUNKNOWNのまま残り`oracle_presence = UNKNOWN`となる。",
@@ -2280,7 +2448,8 @@
               143
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1358"
         },
         {
           "statement": "DA-002とDA-003の2検査が別々の値をとる場合が新モデルの識別fixtureであり、総合判定はNGになる。",
@@ -2293,7 +2462,8 @@
               143
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1359"
         },
         {
           "statement": "他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTestは、DA-002 UNKNOWN・DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。",
@@ -2306,7 +2476,8 @@
               144
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1360"
         },
         {
           "statement": "複数targetを宣言するTestで、target Aは静的（DA-002 = PASS）、target Bはruntime（Bのtarget別`target_coverage` = PASS）でDA-002到達を充足する場合、BもTest本体内で結果をassertしDA-003 = PASSなら`oracle_presence = PASS`かつBの`target_binding`到達も充足する。",
@@ -2319,7 +2490,8 @@
               145
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1361"
         },
         {
           "statement": "Bが呼出不可視（subprocess）でDA-003 UNKNOWNなら`oracle_presence = UNKNOWN`となる。",
@@ -2332,7 +2504,8 @@
               145
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1362"
         },
         {
           "statement": "到達判定はtarget別に行い、AとBのstatic verdictを取り違えない。",
@@ -2345,7 +2518,8 @@
               145
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1363"
         },
         {
           "statement": "DA-002 verdict = FAIL（解析境界内で到達を静的に否定）は runtime 証明で覆らない。",
@@ -2358,7 +2532,8 @@
               146
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1364"
         },
         {
           "statement": "runtime証明に依存する`target_binding`の値は、§18.3.4の鮮度判定が選択した最新Evidenceが鮮度を満たすときだけ用い、無効な最新Evidenceから古い有効Evidenceへフォールバックしない。",
@@ -2374,7 +2549,8 @@
               147
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1365"
         },
         {
           "statement": "無効な最新Evidenceから古い有効Evidenceへフォールバックしないことにより同一検証内で計測がSTALEの一方`target_binding`が別Evidenceで PASSになる履歴不一致を生じない。",
@@ -2387,7 +2563,8 @@
               147
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1366"
         },
         {
           "statement": "表示scopeと内部依存評価を分離する。",
@@ -2400,7 +2577,8 @@
               148
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-300"
         },
         {
           "statement": "`vtest verify --items oracle_presence` / `--items target_binding` のような限定scopeでも、aggregatorは本冊§7.3のruntime到達判定に必要なEvidence鮮度・target別`target_coverage`を内部依存として評価するが、scope外の項目自体のreport valueは`NO_EVIDENCE`（診断`NOT_CHECKED`）のまま保持する。",
@@ -2416,7 +2594,8 @@
               148
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1367"
         },
         {
           "statement": "同じ到達UNKNOWNのTestでも、当該targetの`target_coverage`がFAIL・UNKNOWN・NOT_CHECKED（coverage利用不能・未計測・`--fast`）なら到達要件は未充足で、当該targetのDA-002 UNKNOWNは`target_binding`の非PASS要因として残る。",
@@ -2429,7 +2608,8 @@
               149
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1368"
         },
         {
           "statement": "runtime coverageはDA-003を代替しない。",
@@ -2442,7 +2622,8 @@
               150
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1369"
         },
         {
           "statement": "結果検証はDA-003の静的判定（結果がassert相当へ到達）のまま評価し、到達がruntimeで充足されてもDA-003 UNKNOWN / FAILはそのまま`oracle_presence`へ寄与する。",
@@ -2455,7 +2636,8 @@
               150
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1370"
         },
         {
           "statement": "宣言targetをどのtopologyでも実行しない構造・契約のみのTestは、静的にもruntimeにも到達を確立できず`target_binding`の到達要件は未充足のままになる。",
@@ -2468,7 +2650,8 @@
               151
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1371"
         },
         {
           "statement": "選択した登録Testだけをrunnerのexact selectorで実行する。",
@@ -2481,7 +2664,8 @@
               155
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1372"
         },
         {
           "statement": "Testごとの結果、revision、hash、adapter ID、runner情報、およびExecution State subjectをEvidenceへ記録する。",
@@ -2494,7 +2678,8 @@
               156
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1373"
         },
         {
           "statement": "build failure、runner failure、必須runner capabilityの欠落、および宣言targetの解決失敗ではEvidenceを生成しない。",
@@ -2507,7 +2692,8 @@
               157
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1374"
         },
         {
           "statement": "実行前後でExecution State subjectが変化した場合はE-EXEC-004となり、Evidenceを生成しない。",
@@ -2520,7 +2706,8 @@
               158
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1375"
         },
         {
           "statement": "Evidence writerはadapter IDを必ず記録する。",
@@ -2533,7 +2720,8 @@
               159
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1376"
         },
         {
           "statement": "Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target_construct`を出力する。",
@@ -2546,7 +2734,8 @@
               160
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-544"
         },
         {
           "statement": "`test_fn` / `test_construct` / `target_fn`の互換入力は`rust-cargo` Evidenceで全canonical metadataを含むsource rangeと現在値の同一性を証明できる場合だけ受理する。",
@@ -2559,7 +2748,8 @@
               160
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1377"
         },
         {
           "statement": "Evidence readerはadapter IDを欠くrecordについて、現在のTestが `rust-cargo` で、runner kindと内容hashからRust実行を一意に確認できる場合だけ互換Evidenceとして扱う。",
@@ -2572,7 +2762,8 @@
               161
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1378"
         },
         {
           "statement": "Evidenceは全宣言targetを解決したcanonical Locatorと内容hashを重複なく保持し、参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をtarget identityとして保存しない。",
@@ -2585,7 +2776,8 @@
               162
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1379"
         },
         {
           "statement": "同一Source Targetをlocator参照するTestとSRC ID参照するTestのEvidenceは、同じtarget identityと同じtarget内容hashを持つ。",
@@ -2598,7 +2790,8 @@
               162
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1380"
         },
         {
           "statement": "全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成のpreconditionとする。",
@@ -2611,7 +2804,8 @@
               163
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1381"
         },
         {
           "statement": "1件でも対象なしまたは曖昧ならEvidenceを生成しない。",
@@ -2624,7 +2818,8 @@
               163
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1382"
         },
         {
           "statement": "部分的な`hashes.targets`を持つEvidenceを生成しない。",
@@ -2637,7 +2832,8 @@
               163
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1383"
         },
         {
           "statement": "Evidenceを生成しない場合`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。",
@@ -2650,7 +2846,8 @@
               163
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1384"
         },
         {
           "statement": "Evidence記録後に宣言targetのいずれかが一意に解決できなくなった場合、記録済み参照集合が現在のcanonical集合と一致しないため`NO_EVIDENCE`（診断`STALE`）になり、`target_binding`をPASSにしない。",
@@ -2663,7 +2860,8 @@
               164
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1385"
         },
         {
           "statement": "解決できなくなったtargetは、対象が存在しない場合（E-SCAN-004）は`MISMATCH`（診断`MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`として保持する。",
@@ -2676,7 +2874,8 @@
               165
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1386"
         },
         {
           "statement": "両者を一括して同一の状態値にしない。",
@@ -2689,7 +2888,8 @@
               165
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1387"
         },
         {
           "statement": "canonical Test metadata、ExecutionDescriptor、Test construct、宣言target集合、いずれかのtarget内容hash、HEAD revision、またはExecution State subjectがEvidenceと異なる場合はSTALE（`NO_EVIDENCE`、診断`STALE`）になる。",
@@ -2702,7 +2902,8 @@
               166
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1388"
         },
         {
           "statement": "`revision.commit`を特定できないEvidence、および現在のHEAD revisionと一致しないEvidenceは`NO_EVIDENCE`（診断`STALE`）になり、FAILまたは有効なPASSとして扱わない。",
@@ -2715,7 +2916,8 @@
               167
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1389"
         },
         {
           "statement": "Execution State subjectはrunner / toolchain / 実行影響configと、実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。",
@@ -2728,7 +2930,8 @@
               168
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1390"
         },
         {
           "statement": "Testと宣言targetを変更せずtarget外helperだけを変更しても既存Evidenceは`NO_EVIDENCE`（診断`STALE`）になる。",
@@ -2741,7 +2944,8 @@
               168
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1391"
         },
         {
           "statement": "EvidenceがExecution State subjectを欠く互換recordなら`NO_EVIDENCE`（診断`STALE`）になり、PASSにならない。",
@@ -2754,7 +2958,8 @@
               169
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1392"
         },
         {
           "statement": "recordのsnapshotまたは現在snapshotの完全性を証明できなければ`UNKNOWN`となり、PASSにならない。",
@@ -2767,7 +2972,8 @@
               169
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1393"
         },
         {
           "statement": "Evidenceが無効（STALE / MISMATCH / UNKNOWN）なら`target_binding`へ同じ非PASSを伝播し、無効Evidenceのresultまたはcoverageを再利用しない。",
@@ -2780,7 +2986,8 @@
               170
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1394"
         },
         {
           "statement": "Evidenceなしでは`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）になる。",
@@ -2793,7 +3000,8 @@
               170
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1395"
         },
         {
           "statement": "旧モデルの`test_execution` / `runtime_result` / `target_execution`の3独立項目は撤去し、`target_binding`単一検査の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収する。",
@@ -2809,7 +3017,8 @@
               170
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-426"
         },
         {
           "statement": "鮮度喪失の独立検査（旧`evidence_validity`）は設けず、鮮度は基本仕様§6のハッシュ束縛により満たし、喪失を診断ラベル`STALE`として説明する。",
@@ -2825,7 +3034,8 @@
               170
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-427"
         },
         {
           "statement": "単数互換形のEvidenceは、現在のTestがtargetをちょうど1件持つ場合だけ有効性を評価できる。",
@@ -2838,7 +3048,8 @@
               171
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1396"
         },
         {
           "statement": "複数target Testでは有効なPASSにしない。",
@@ -2851,7 +3062,8 @@
               171
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1397"
         },
         {
           "statement": "Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。",
@@ -2864,7 +3076,8 @@
               172
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1398"
         },
         {
           "statement": "有効なEvidenceについて、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`になる。",
@@ -2881,7 +3094,8 @@
               173
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1399"
         },
         {
           "statement": "有効なEvidenceについて、`result: PASS`かつ全宣言targetの到達要件が§18.3.3 / §18.3.5で充足されれば`target_binding`は`PASS`になる。",
@@ -2894,7 +3108,8 @@
               173
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1400"
         },
         {
           "statement": "有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの`target_coverage`のcount 0は`target_binding`を`FAIL`（診断`NOT_EXECUTED`）にする。",
@@ -2907,7 +3122,8 @@
               173
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1401"
         },
         {
           "statement": "有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの`target_coverage`が計測不能・未計測（`checked: false`）は`target_binding`を`NO_EVIDENCE`（診断`NOT_CHECKED`）にする。",
@@ -2920,7 +3136,8 @@
               173
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1402"
         },
         {
           "statement": "有効なEvidenceについて、`result: PASS`だが到達未充足targetがあれば、当該targetの関数不見当は`target_binding`を`UNKNOWN`にする。",
@@ -2933,7 +3150,8 @@
               173
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1403"
         },
         {
           "statement": "各宣言targetについて、計測countが1以上ならtarget別PASSになる。",
@@ -2946,7 +3164,8 @@
               177
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1404"
         },
         {
           "statement": "各宣言targetについて、計測countが0ならtarget別FAILになる。",
@@ -2959,7 +3178,8 @@
               177
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1405"
         },
         {
           "statement": "各宣言targetについて、確実に同定または計測できなければtarget別UNKNOWNになる。",
@@ -2972,7 +3192,8 @@
               177
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1406"
         },
         {
           "statement": "複数target Testの集約値は、1件でもtarget別FAILがあればFAILになる。",
@@ -2985,7 +3206,8 @@
               178
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1407"
         },
         {
           "statement": "複数target Testの集約値は、FAILがなく1件でもUNKNOWNがあればUNKNOWNになる。",
@@ -2998,7 +3220,8 @@
               178
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1408"
         },
         {
           "statement": "複数target Testの集約値は、1件以上の全宣言targetがPASSの場合だけPASSになる。",
@@ -3011,7 +3234,8 @@
               178
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1409"
         },
         {
           "statement": "target AがPASSでもtarget BがFAILまたはUNKNOWNなら、Test単位の`target_binding`をPASSにしない。",
@@ -3024,7 +3248,8 @@
               179
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1410"
         },
         {
           "statement": "`target_coverage.checked: true`のEvidenceでtarget別entryが欠落、重複、または解決後のcanonical Source Target集合と不一致ならPASSにしない。",
@@ -3037,7 +3262,8 @@
               180
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1411"
         },
         {
           "statement": "target別entryは解決後のcanonical Locatorをidentityとし、宣言側の綴りを用いない。",
@@ -3053,7 +3279,8 @@
               181
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1412"
         },
         {
           "statement": "coverage capabilityまたは計測toolが利用できない場合は`NO_EVIDENCE`（診断`NOT_CHECKED`）となり、PASSにならない。",
@@ -3066,7 +3293,8 @@
               182
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1413"
         },
         {
           "statement": "coverage解析限界は`UNKNOWN`となり、PASSにならない。",
@@ -3079,7 +3307,8 @@
               183
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1414"
         },
         {
           "statement": "Testが別プロセス（起動したsubprocess）・別スレッドでtargetを実行する場合、coverage計測が当該境界越しの実行を宣言targetへ帰属できればtarget別PASS（count > 0）になる。",
@@ -3092,7 +3321,8 @@
               184
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1415"
         },
         {
           "statement": "target別PASS（count > 0）という結果は本冊§7.3のruntime到達証明としても機能する。",
@@ -3108,7 +3338,8 @@
               184
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1416"
         },
         {
           "statement": "providerが境界越しの実行を帰属できなければtarget別UNKNOWNとなり、PASSにならない。",
@@ -3121,7 +3352,8 @@
               184
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1417"
         },
         {
           "statement": "計測不能ならTestの`target_coverage`を`checked: false`（`NO_EVIDENCE`、診断`NOT_CHECKED`）とし、PASSにならない。",
@@ -3134,7 +3366,8 @@
               184
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1418"
         },
         {
           "statement": "`target_coverage` は `target_binding` の動的計測結果であり独立の検査項目ではない。",
@@ -3147,7 +3380,8 @@
               185
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-428"
         },
         {
           "statement": "旧モデルの`target_execution`検査項目は撤去し、計測事実だけをEvidenceの`target_coverage` fieldとして保持して`target_binding`の証拠源へ吸収する。",
@@ -3163,7 +3397,8 @@
               185
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-545"
         },
         {
           "statement": "`vtest audit bundle` は判断対象ごとに、判断に必要な情報（対象 VO と claim、Test Intent、テストコード、対象実装、関連テスト、既知 partition、過去の判断、対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/` へ出力する。",
@@ -3176,7 +3411,8 @@
               189
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-301"
         },
         {
           "statement": "バンドルは派生情報であり Git 管理しない。",
@@ -3193,7 +3429,8 @@
               189
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-302"
         },
         {
           "statement": "`vtest audit submit` の判断は少なくとも actor / subject / decision / judgment_kind を含み、理由・根拠（`reason` / `exclusions`）と `supersedes` は任意（optional）とする。",
@@ -3206,7 +3443,8 @@
               190
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1419"
         },
         {
           "statement": "submit は、bundle_id のバンドルが存在する（E-AUDIT-001）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3219,7 +3457,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1420"
         },
         {
           "statement": "submit は、subject がバンドルと一致する（E-AUDIT-003）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3232,7 +3471,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1421"
         },
         {
           "statement": "submit は、judgment_kind がバンドルと一致し値域内である（E-AUDIT-003）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3245,7 +3485,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1422"
         },
         {
           "statement": "submit は、バンドル記録時の各対象の内容ハッシュが現在と一致する（E-AUDIT-002）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3258,7 +3499,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1423"
         },
         {
           "statement": "submit は、decision が受理する判断値である（E-AUDIT-004）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3271,7 +3513,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1424"
         },
         {
           "statement": "submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind の既存判断記録を指し自己参照でない（E-AUDIT-008）ことを順に検証し、失敗は§17のエラーコードで拒否する。",
@@ -3284,7 +3527,8 @@
               191
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1425"
         },
         {
           "statement": "理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない。",
@@ -3301,7 +3545,8 @@
               192
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1426"
         },
         {
           "statement": "旧モデルの reasons / claim / basis 必須検査（E-AUDIT-005）、decomposition-viewpoint 検査（E-AUDIT-006）、spec / req basis 検査（E-AUDIT-007）は撤去し、判断記録層で課さない。",
@@ -3314,7 +3559,8 @@
               192
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-429"
         },
         {
           "statement": "受理された提出は判断記録として `.verify/decisions/` へ保存され、バンドル生成時の全対象の内容ハッシュを `subject_hash` と `dependencies` として記録し、依存 closure のハッシュへ束縛する。",
@@ -3327,7 +3573,8 @@
               193
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1427"
         },
         {
           "statement": "判断記録の受理は当該対象の検証状態（§4.1 の 5 状態）を昇格させない。",
@@ -3340,7 +3587,8 @@
               194
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1428"
         },
         {
           "statement": "判断記録プロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。",
@@ -3357,7 +3605,8 @@
               194
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-430"
         },
         {
           "statement": "旧モデルの `verdict → CheckValue` 写像（`impl_consistency = MISMATCH` を含む検証状態への変換経路）は撤去する。",
@@ -3370,7 +3619,8 @@
               194
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-431"
         },
         {
           "statement": "旧モデルの意味監査 bundle 種別（spec-coverage / test-semantic / vo-coverage / impl-consistency）を検査として扱わず、網羅・意味の疑義は `UNKNOWN` として本プロトコルへエスカレーションする。",
@@ -3388,7 +3638,8 @@
               195
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-432"
         },
         {
           "statement": "`spec_coverage` / `vo_decomposition` / `vo_coverage` / `impl_consistency` は検証項目として存在しない。",
@@ -3401,7 +3652,8 @@
               195
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-433"
         },
         {
           "statement": "deterministic 結果（§18.3.3 の静的解析）と agent / human の判断結果を区別して保存・表示する。",
@@ -3414,7 +3666,8 @@
               196
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-303"
         },
         {
           "statement": "判断記録の有効性は判定時に評価し、subject が一致し `subject_hash` が現在の内容ハッシュと一致し、`dependencies` が現在の上流依存closureとentity・hashとも完全一致する場合だけ有効とする。",
@@ -3427,7 +3680,8 @@
               197
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1429"
         },
         {
           "statement": "document は登録 content_hash と実ファイルの一致も要求し、不一致の document を STALE とし、依存する判断記録も無効とする。",
@@ -3443,7 +3697,8 @@
               197
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1430"
         },
         {
           "statement": "同一対象に有効な判断記録が複数あってよい（再判断・多重判断）。",
@@ -3456,7 +3711,8 @@
               198
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1431"
         },
         {
           "statement": "判断バンドルは Test が宣言した cases 集合を規範項目として含む。",
@@ -3469,7 +3725,8 @@
               199
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1432"
         },
         {
           "statement": "`@vtest.case` 宣言の正規化文字列を宣言順に並べた list として出力する。",
@@ -3486,7 +3743,8 @@
               199
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1433"
         },
         {
           "statement": "`@vtest.case` を持たない Test でも空 list を明示して項目を省略しない。",
@@ -3499,7 +3757,8 @@
               199
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1434"
         },
         {
           "statement": "バンドルと判断記録は判断型 `judgment_kind` をちょうど 1 件持つ。",
@@ -3512,7 +3771,8 @@
               200
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1435"
         },
         {
           "statement": "値域は `test-semantic` / `impl-consistency` / `case-coverage` であり、`subject` の値域は前 2 者が Test ID、`case-coverage` が Test ID または VO ID である。",
@@ -3525,7 +3785,8 @@
               200
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1436"
         },
         {
           "statement": "表にない組合せの要求ではバンドルを生成せず usage error（終了コード 2）とする。",
@@ -3542,7 +3803,8 @@
               200
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1437"
         },
         {
           "statement": "`case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。",
@@ -3558,7 +3820,8 @@
           "cites": [
             "基本仕様 §5"
           ],
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-434"
         },
         {
           "statement": "`case-coverage`の未判断・判断結果はいずれの検査の値へも写像せず、集約へ寄与しない。",
@@ -3574,7 +3837,8 @@
               201
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1438"
         },
         {
           "statement": "外部判断が必要な事実は判断待ち section（`check: null`、`judgment_kind: case-coverage`）としてだけ提示する。",
@@ -3590,7 +3854,8 @@
               201
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1439"
         },
         {
           "statement": "`case-coverage` の判断待ち項目は決定論的に生成する。",
@@ -3603,7 +3868,8 @@
               202
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1440"
         },
         {
           "statement": "`covers ≥ 1` かつ（`cases ≥ 1` または解決済みの covers 先 VO（レコードが存在する VO。E-SCAN-003 の dangling 参照を除く）のいずれかが `dimensions ≥ 1`）を満たす管理対象 Test ごとにちょうど 1 件生成し、`(当該 Test, case-coverage)` の実効判断が `accepted` の場合にだけ消滅する。",
@@ -3616,7 +3882,8 @@
               202
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1441"
         },
         {
           "statement": "実効判断が未確定・`rejected`・`deferred` のいずれでも項目は生成され、参照した判断記録 ID を `basis` に載せる。",
@@ -3629,7 +3896,8 @@
               202
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1442"
         },
         {
           "statement": "実効判断が `accepted` の場合にだけ消滅するという規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。",
@@ -3645,7 +3913,8 @@
               202
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1443"
         },
         {
           "statement": "実効判断は `(subject, judgment_kind)` の組ごとに決まる。",
@@ -3658,7 +3927,8 @@
               203
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1444"
         },
         {
           "statement": "有効判断記録集合から、他の有効判断記録の `supersedes` に名指しされたものを除いた実効集合 E について、E が空なら未確定（`UNKNOWN`）とする。",
@@ -3671,7 +3941,8 @@
               203
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1445"
         },
         {
           "statement": "実効集合 E の decision 値が全て同一ならその値とする。",
@@ -3684,7 +3955,8 @@
               203
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1446"
         },
         {
           "statement": "実効集合 E に 2 種以上の decision 値があれば未確定（`UNKNOWN`）かつ W-STORE-004 とする。",
@@ -3700,7 +3972,8 @@
               203
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1447"
         },
         {
           "statement": "競合は `supersedes` による明示の置き換えでだけ解消する。",
@@ -3713,7 +3986,8 @@
               204
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1448"
         },
         {
           "statement": "判断記録の新旧（`decided_at` / ULID 順）、`decision` 値の優先順位、記録件数の多寡のいずれも採用規則に用いない。",
@@ -3726,7 +4000,8 @@
               204
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1449"
         },
         {
           "statement": "競合中の対象について機械がいずれかの判断記録を採用した結果を出力しない。",
@@ -3739,7 +4014,8 @@
               204
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1450"
         },
         {
           "statement": "提出時、`supersedes` の各 ULID が同一 `subject` かつ同一 `judgment_kind` の既存判断記録を指し自己参照でないことを検証し、違反を E-AUDIT-008 で拒否する。",
@@ -3755,7 +4031,8 @@
               205
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1451"
         },
         {
           "statement": "`judgment_kind` がバンドルと不一致または値域外の提出は E-AUDIT-003 で拒否する。",
@@ -3768,7 +4045,8 @@
               205
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1452"
         },
         {
           "statement": "レコード群が互いを名指しして実効集合 E が空になる場合は未確定（`UNKNOWN`）とし W-STORE-005 を出す。",
@@ -3784,7 +4062,8 @@
               206
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1453"
         },
         {
           "statement": "いずれかのレコードを推測で残さない。",
@@ -3797,7 +4076,8 @@
               206
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1454"
         },
         {
           "statement": "`judgment_kind` を欠くか値域外の判断記録は履歴表示だけを許可し、いずれの実効判断へも寄与させず W-STORE-003 を出す。",
@@ -3813,7 +4093,8 @@
               207
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1455"
         },
         {
           "statement": "実効判断が未確定であることは検証状態（§4.1 の 5 状態）を変更せず、`UNKNOWN` に §4.2 の診断ラベルを付与しない。",
@@ -3826,7 +4107,8 @@
               208
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1456"
         },
         {
           "statement": "未確定の事実は判断待ち section としてだけ提示する。",
@@ -3842,7 +4124,8 @@
               208
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1457"
         },
         {
           "statement": "仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用せず、現在状態に対して §5 の 4 検査を再実施する。",
@@ -3859,7 +4142,8 @@
               209
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1458"
         },
         {
           "statement": "§5 の 4 検査を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
@@ -3872,7 +4156,8 @@
               209
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-435"
         },
         {
           "statement": "変更そのものが `UNKNOWN` を生成するのではない。",
@@ -3885,7 +4170,8 @@
               209
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-436"
         },
         {
           "statement": "判断対象の target を一意に解決できない場合はバンドルを生成せず、候補のいずれも選択しない。",
@@ -3901,7 +4187,8 @@
               210
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1459"
         },
         {
           "statement": "対象が存在しない場合（E-SCAN-004）は `MISMATCH`（診断 `MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は `MISMATCH` とし、両者を一括して同一の状態値にしない。",
@@ -3914,7 +4201,8 @@
               210
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1460"
         },
         {
           "statement": "判断済みと承認済みを区別する（判断済み ≠ 承認済み）。",
@@ -3927,7 +4215,8 @@
               214
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-437"
         },
         {
           "statement": "判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる。",
@@ -3944,7 +4233,8 @@
               214
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-438"
         },
         {
           "statement": "判断は承認なしでも記録でき、正式採用は承認の別段階である。",
@@ -3957,7 +4247,8 @@
               214
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-439"
         },
         {
           "statement": "承認は検証状態と独立の別軸である。",
@@ -3970,7 +4261,8 @@
               215
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-440"
         },
         {
           "statement": "承認済みを理由に非`PASS`（`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を`PASS`へ昇格させず、未承認を理由に`PASS`を降格させない。",
@@ -3986,7 +4278,8 @@
               215
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1461"
         },
         {
           "statement": "判断受理も承認も、いずれも検証状態を昇格させない。",
@@ -3999,7 +4292,8 @@
               215
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1462"
         },
         {
           "statement": "`approved_state` の値域は `approved` / `rejected` / `withdrawn` の 3 値である。",
@@ -4012,7 +4306,8 @@
               216
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1463"
         },
         {
           "statement": "値域外の値、および値域外の `subject` 種別（判断記録 ULID・Test ID 等）は書込み時に E-APPROVAL-002 で拒否し record を生成しない。",
@@ -4025,7 +4320,8 @@
               216
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1464"
         },
         {
           "statement": "既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず W-STORE-006 を出す。",
@@ -4041,7 +4337,8 @@
               216
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1465"
         },
         {
           "statement": "実効承認の導出は `approved_state` を参照する。",
@@ -4054,7 +4351,8 @@
               217
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-546"
         },
         {
           "statement": "有効承認レコード集合から、他の有効承認レコードの `supersedes` に名指しされたものを除いた実効集合について、集合が空なら `draft`、`rejected` または `withdrawn` が 1 件以上残るなら `draft`、全件が `approved` なら `approved` とする。",
@@ -4067,7 +4365,8 @@
               217
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1466"
         },
         {
           "statement": "有効の条件は `approved_state` が値域内であること、対象指定が一致すること、`subject_hash` が現在の内容ハッシュと一致すること、`dependencies` が現在の上流依存closureと entity・hash とも完全一致することである。",
@@ -4083,7 +4382,8 @@
               217
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1467"
         },
         {
           "statement": "承認取消・却下は実効承認を `draft` へ落とす。",
@@ -4096,7 +4396,8 @@
               218
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1468"
         },
         {
           "statement": "`approved` の承認レコードが存在しても、後から `withdrawn` または `rejected` の有効承認レコードを追加すると実効承認は `draft` になる。",
@@ -4109,7 +4410,8 @@
               218
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1469"
         },
         {
           "statement": "機械は `approved` と `rejected` / `withdrawn` のどちらかを新旧・件数で選ばない。",
@@ -4122,7 +4424,8 @@
               218
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1470"
         },
         {
           "statement": "取消・却下後の再承認は `supersedes` による。",
@@ -4135,7 +4438,8 @@
               219
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1471"
         },
         {
           "statement": "当該 `withdrawn` / `rejected` レコードの ULID を `supersedes` に名指しした `approved` レコードを追加した場合にだけ `approved` へ戻る。",
@@ -4148,7 +4452,8 @@
               219
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1472"
         },
         {
           "statement": "名指ししない `approved` の追加では `draft` のままとする。",
@@ -4161,7 +4466,8 @@
               219
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1473"
         },
         {
           "statement": "`supersedes` の参照先が存在しない・対象が一致しない・自己参照は E-APPROVAL-002、循環は W-STORE-005 とする。",
@@ -4177,7 +4483,8 @@
               219
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1474"
         },
         {
           "statement": "承認対象の値域は VO ID と document ID である。",
@@ -4190,7 +4497,8 @@
               220
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1475"
         },
         {
           "statement": "判断記録の承認は `judgment_ref` によってのみ表し、判断記録 ULID を `subject` に置かない。",
@@ -4203,7 +4511,8 @@
               220
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1476"
         },
         {
           "statement": "`judgment_ref` の参照先が存在しない場合は書込み時に E-APPROVAL-001、読取り時は当該レコードから VO / document の実効承認も判断記録の実効承認も導出せず W-STORE-006 とする。",
@@ -4219,7 +4528,8 @@
               220
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1477"
         },
         {
           "statement": "判断記録を対象とする実効承認は、当該判断記録が §8.5 の有効判断でありかつ実効集合 E に属する場合にだけ導出する。",
@@ -4232,7 +4542,8 @@
               221
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1478"
         },
         {
           "statement": "supersede された判断記録・競合により未確定となった判断記録への承認は `draft` 相当とする。",
@@ -4248,7 +4559,8 @@
               221
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1479"
         },
         {
           "statement": "承認レコード生成の正典面は対象種別を引数に取る単一の経路である。",
@@ -4261,7 +4573,8 @@
               222
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-304"
         },
         {
           "statement": "`vtest approval create --subject-type <vo|document|judgment> --subject-id <id>` および `approval_create`（`subject: { type, id }`）だけが承認レコードを生成し、`vtest vo approve` / `vo_approve` は同経路への別名として同一のレコード・同一の拒否条件を持つ。",
@@ -4274,7 +4587,8 @@
               222
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-305"
         },
         {
           "statement": "対象種別ごとに別の承認規則・別の承認コマンドを設けない。",
@@ -4291,7 +4605,8 @@
               222
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-306"
         },
         {
           "statement": "`vtest approval withdraw <approval-id>` / `approval_withdraw` は `state: withdrawn` かつ `supersedes: [approval-id]` の `create` と同一のレコードを生成する。",
@@ -4304,7 +4619,8 @@
               223
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-307"
         },
         {
           "statement": "`vtest approval show` / `approval_get` は当該対象の承認レコード一覧と実効承認状態（`draft` / `approved`）を返す。",
@@ -4317,7 +4633,8 @@
               223
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-308"
         },
         {
           "statement": "方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。",
@@ -4330,7 +4647,8 @@
               224
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-441"
         },
         {
           "statement": "document を対象とする承認の上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）からなり、`--subject-type document` で記録する。",
@@ -4343,7 +4661,8 @@
               224
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1480"
         },
         {
           "statement": "document 再登録（`--update`）で document subject hash が変化すると当該承認は失効する。",
@@ -4359,7 +4678,8 @@
               224
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1481"
         },
         {
           "statement": "判断記録を対象とする承認は `--subject-type judgment` で記録し、`judgment_ref` へ判断記録 ULID を、`subject` へ当該判断記録の `subject` を書き込む。",
@@ -4375,7 +4695,8 @@
               225
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1482"
         },
         {
           "statement": "判断記録 ULID を `subject` に置くレコードは生成しない。",
@@ -4388,7 +4709,8 @@
               225
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1483"
         },
         {
           "statement": "実効承認は明示の `supersedes` 関係だけで決まる。",
@@ -4401,7 +4723,8 @@
               226
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1484"
         },
         {
           "statement": "`supersedes` 関係にない複数の有効承認レコードはすべて実効集合に属し、`approved_at` / ULID の順序・レコードの新旧・件数の多寡のいずれも採用規則に用いない。",
@@ -4414,7 +4737,8 @@
               226
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1485"
         },
         {
           "statement": "`approved` と `rejected` が `supersedes` 関係なく併存する対象について、機械がどちらかに確定した結果を出力せず fail-closed に `draft` とする。",
@@ -4430,7 +4754,8 @@
               226
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1486"
         },
         {
           "statement": "VO を対象とする承認の上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document からなる。",
@@ -4443,7 +4768,8 @@
               227
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1487"
         },
         {
           "statement": "document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する。",
@@ -4459,7 +4785,8 @@
               227
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1488"
         },
         {
           "statement": "実効承認状態の遷移は `draft` と `approved` の 2 値の間でだけ起き、検証状態（§4.1 の 5 状態）の変化・判断記録の追加そのもの・`basis` の内容によっては遷移しない。",
@@ -4475,7 +4802,8 @@
               228
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1489"
         },
         {
           "statement": "上流依存closureまたはハッシュを欠く互換 Approval は読取りと履歴表示だけを許可し、現在の `approved` を導出しない（W-STORE-002、VO は `draft` 相当）。",
@@ -4488,7 +4816,8 @@
               229
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1490"
         },
         {
           "statement": "承認主体は種別（`human` / `agent`）と識別子を記録する。",
@@ -4501,7 +4830,8 @@
               230
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-547"
         },
         {
           "statement": "承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する。",
@@ -4517,7 +4847,8 @@
               230
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-442"
         },
         {
           "statement": "承認 workflow の状態遷移と `approved_state` の値域は本冊 §3.5 に定める。",
@@ -4533,7 +4864,8 @@
           "cites": [
             "本冊 §3.5"
           ],
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-443"
         },
         {
           "statement": "完全検証は基本仕様 §5 の 4 検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）をすべて評価し、各検査の非PASSを総合NGへ反映する。",
@@ -4549,7 +4881,8 @@
           "cites": [
             "基本仕様 §5"
           ],
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1491"
         },
         {
           "statement": "完全検証は、各検査の評価地点（DOC / VO / TEST / repository）で評価した全値がPASSの場合だけOKとする。",
@@ -4562,7 +4895,8 @@
               235
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1492"
         },
         {
           "statement": "`--items`を省略したCLI / MCP検証は常に固定4検査を評価する。",
@@ -4575,7 +4909,8 @@
               236
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1493"
         },
         {
           "statement": "version 1 configの`full_scope`欠落は固定4検査へ具体化し、version 1 / version 2 いずれでも旧12項目の列挙（`spec_coverage` / `test_existence` 等）は E-CONFIG-001 で拒否し、in-memory 補完で受理しない。",
@@ -4591,7 +4926,8 @@
               236
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1494"
         },
         {
           "statement": "version 1 の重複・未知項目、version 2 の欠落・重複・未知・余剰項目も E-CONFIG-001 とし、検証結果を生成しない。",
@@ -4604,7 +4940,8 @@
               236
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1495"
         },
         {
           "statement": "4検査未満を明示した`--items`だけを限定scopeとして扱い、「完全検証」と表示しない。",
@@ -4617,7 +4954,8 @@
               237
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1496"
         },
         {
           "statement": "scope は 2 軸で限定できる。",
@@ -4634,7 +4972,8 @@
               238
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-309"
         },
         {
           "statement": "検査軸（4 本の部分集合）とエンティティ軸（対象とする document / VO / Test の部分木）を指定でき、限定scopeのOKは「要求scope内のOK」に限られる。",
@@ -4647,7 +4986,8 @@
               238
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1497"
         },
         {
           "statement": "いかなる設定値も完全検証の検査を 4 本未満へ縮退させない。",
@@ -4660,7 +5000,8 @@
               238
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1498"
         },
         {
           "statement": "限定scopeは要求項目だけを集約し、scope外・未実施の項目を `NO_EVIDENCE`（診断 `NOT_CHECKED`）として保持・併記する。",
@@ -4673,7 +5014,8 @@
               239
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1499"
         },
         {
           "statement": "出力には要求 scope と scope 外項目が未検証である旨を必ず併記する。",
@@ -4686,7 +5028,8 @@
               239
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1500"
         },
         {
           "statement": "`verify` / `report` の JSON（CLI・MCP）は最上位に `scope` を返し、`scope.requested.items`（`--items` 省略時は固定4検査を4件すべて列挙）、`scope.requested.entities`（エンティティ軸無指定は空 list）、`scope.unverified_outside_scope`（検査軸4件未満またはエンティティ軸指定ありで `true`、完全検証で `false`）を持つ。",
@@ -4699,7 +5042,8 @@
               240
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-548"
         },
         {
           "statement": "完全検証でも `scope` を省略しない。",
@@ -4712,7 +5056,8 @@
               240
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1501"
         },
         {
           "statement": "検証結果を返さないコマンド（`init` / `scan` / `doc *` / `vo *` / `test *` / `audit *` / `run`）の JSON は `scope` を持たない。",
@@ -4725,7 +5070,8 @@
               241
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1502"
         },
         {
           "statement": "限定 scope の JSON 出力だけから、要求 scope と「scope 外は未検証」の旨を判定できる（`scope.unverified_outside_scope` が `true` で、scope 外検査ノードが `NO_EVIDENCE`／診断 `NOT_CHECKED`）。",
@@ -4738,7 +5084,8 @@
               242
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1503"
         },
         {
           "statement": "機能単位の集約は親 VO（子 VO を持つ VO）を単位とし、Feature を別エンティティ・別レコード・別 ID として設けない。",
@@ -4751,7 +5098,8 @@
               243
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-444"
         },
         {
           "statement": "親 VO の値は子 VO の値と当該親 VO を直接 covers する Test の値の fail-closed 合成であり、いずれかに非 `PASS` が 1 件でもあれば親 VO は非 `PASS` になる。",
@@ -4764,7 +5112,8 @@
               243
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1504"
         },
         {
           "statement": "`--vo <親VO>` および `--from <親VO> --direction down` が親 VO の代表値と配下の子 VO・Test の内訳を同一出力で返し、出力に Feature 名・Feature ID の field を含めない。",
@@ -4777,7 +5126,8 @@
               243
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1505"
         },
         {
           "statement": "要求scope内の `FAIL`・`MISMATCH`・`NO_EVIDENCE`・`UNKNOWN` のいずれも総合PASSへ昇格しない。",
@@ -4790,7 +5140,8 @@
               244
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1506"
         },
         {
           "statement": "NO_EVIDENCE を生む入力（証拠が存在しない／証拠のハッシュが現在の対象と不一致／scope 限定により検査を実施しなかった項目）を受入で表現する。",
@@ -4803,7 +5154,8 @@
               245
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1507"
         },
         {
           "statement": "NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。",
@@ -4819,7 +5171,8 @@
               245
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1508"
         },
         {
           "statement": "完全検証fixtureで4検査のそれぞれを単独で非PASSにすると総合NGになる。",
@@ -4832,7 +5185,8 @@
               246
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1509"
         },
         {
           "statement": "管理済みgraph側の他検査がすべてPASSでも、未登録Testが1件あれば`chain_integrity`により総合NGになる。",
@@ -4845,7 +5199,8 @@
               247
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1510"
         },
         {
           "statement": "集約は fail-closed とし、子に 1 つでも非 `PASS` があれば親は非 `PASS`。",
@@ -4858,7 +5213,8 @@
               248
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1511"
         },
         {
           "statement": "代表値の優先順位は `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とし、診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）は代表値の順位に用いず原因説明として併記する。",
@@ -4875,7 +5231,8 @@
               248
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1512"
         },
         {
           "statement": "report は DOC → VO → Test の構造と、各非PASSの根拠（判断記録・Evidence への参照）を text / JSON で返す。",
@@ -4888,7 +5245,8 @@
               249
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1513"
         },
         {
           "statement": "旧モデルの SPEC → REQ → VO → Test 構造は総称 document 化により DOC → VO → Test へ再導出する。",
@@ -4901,7 +5259,8 @@
               249
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-445"
         },
         {
           "statement": "`covers` を持つ Test は covers 先 VO の子ノードとして表示する。",
@@ -4914,7 +5273,8 @@
               250
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1514"
         },
         {
           "statement": "管理下にある事実と、いずれの VO へも寄与しない事実の双方を出力から確認できる。",
@@ -4930,7 +5290,8 @@
               250
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1515"
         },
         {
           "statement": "`covers` を持たない Test は §18.3.1 の `chain_integrity = MISMATCH` として扱い、役割別表示を設けない。",
@@ -4943,7 +5304,8 @@
               250
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1516"
         },
         {
           "statement": "text treeのancestor continuation、middle child、last childを一意なbranch記号で描画する。",
@@ -4956,7 +5318,8 @@
               251
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-549"
         },
         {
           "statement": "同一 revision・同一 `.verify/` ファイル集合（`config.yaml`・document / VO / Relation レコード・判断記録・承認・Evidence）・同一 scope 指定に対して `verify` を繰り返し実行すると、4 検査の検証状態・診断ラベル・診断コード集合・集約結果・`pending` section・終了コードが毎回一致する。",
@@ -4973,7 +5336,8 @@
               255
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1517"
         },
         {
           "statement": "実行時刻・ロケール・タイムゾーン・呼出し元の作業ディレクトリを変えても、また Execution State subject の入力に影響しない環境変数を変えても、上記の出力が変化しない。",
@@ -4989,7 +5353,8 @@
               256
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1518"
         },
         {
           "statement": "ネットワークを遮断した環境でも同一の出力を返す。",
@@ -5002,7 +5367,8 @@
               256
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1519"
         },
         {
           "statement": "toolchain identity・adapter config・入力 manifest を変える環境変更（`RUSTUP_TOOLCHAIN` の切替等）の影響は Evidence の鮮度喪失（`NO_EVIDENCE`、診断 `STALE`。本冊 §11.2）としてのみ現れ、環境そのものを判定条件として読む経路を持たない。",
@@ -5018,7 +5384,8 @@
           "cites": [
             "本冊 §11.2"
           ],
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1520"
         },
         {
           "statement": "`vtest` は 4 検査の評価中に LLM API を含む外部サービスへ要求を出さない。",
@@ -5031,7 +5398,8 @@
               258
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1521"
         },
         {
           "statement": "外部 AI／Agent の関与は `.verify/decisions/` の判断記録ファイル経由に限られ、判断記録の受理は検証状態を昇格させない。",
@@ -5044,7 +5412,8 @@
               258
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1522"
         },
         {
           "statement": "4 検査の評価経路に、実行時に差し替え可能な意味判定 seam を持たない。",
@@ -5057,7 +5426,8 @@
               259
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1523"
         },
         {
           "statement": "評価経路へそのような seam を導入する変更を行う場合は、正反対の判定を返す stub を注入しても 4 検査の結果が変化しないことを受入で確認する。",
@@ -5070,7 +5440,8 @@
               259
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-550"
         },
         {
           "statement": "`report --from DOC-X --direction down --format json` は、`derives_from` エッジごとに `from` / `relation` / `to` と当該 entry の `anchor`・`note` を返し、「どの上流条項がどの VO へ対応するか」の対応ペア集合として読める。",
@@ -5087,7 +5458,8 @@
               263
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1524"
         },
         {
           "statement": "`anchor` を持たない entry では `anchor` を省略または `null` とし、空文字列で埋めない。",
@@ -5100,7 +5472,8 @@
               263
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1525"
         },
         {
           "statement": "「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。",
@@ -5113,7 +5486,8 @@
               264
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-446"
         },
         {
           "statement": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを評価・提示できなければならない（MUST）。",
@@ -5131,7 +5505,8 @@
               268
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-447"
         },
         {
           "statement": "ゲート定義は `config.yaml` の `gates` に、ゲート名と進行条件（`require.verification` ＝要求する検証結果、`require.approvals` ＝要求する承認ロール集合）として保持する。",
@@ -5144,7 +5519,8 @@
               269
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-551"
         },
         {
           "statement": "`vtest verify --gate <name>` は、指定ゲートの対象 scope について検証を実行し、(1) 検証結果が `require.verification` を満たすか、(2) `require.approvals` の各ロールについて対象の有効な承認が存在するか、を評価して満否と根拠（不足している非 `PASS` 検査・未充足の承認ロール）を提示する。",
@@ -5157,7 +5533,8 @@
               270
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1526"
         },
         {
           "statement": "条件充足・不足の両方を fixture で確認する。",
@@ -5170,7 +5547,8 @@
               270
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-552"
         },
         {
           "statement": "検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。",
@@ -5183,7 +5561,8 @@
               271
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-448"
         },
         {
           "statement": "承認済みを理由に検証状態を昇格させない。",
@@ -5196,7 +5575,8 @@
               271
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1527"
         },
         {
           "statement": "`require.verification` の値域を config 受理時に検査する。",
@@ -5209,7 +5589,8 @@
               272
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1528"
         },
         {
           "statement": "5 状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）との完全一致は受理する。",
@@ -5222,7 +5603,8 @@
               272
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1529"
         },
         {
           "statement": "診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）・`OK` / `NG`・小文字表記・旧12項目名・非文字列値は E-CONFIG-001・終了コード 2 で拒否して検証結果を生成しない。",
@@ -5235,7 +5617,8 @@
               272
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1530"
         },
         {
           "statement": "`require` および `require.verification` の欠落、`gates[].name` の重複も E-CONFIG-001 とする。",
@@ -5251,7 +5634,8 @@
               272
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1531"
         },
         {
           "statement": "`require.approvals` の省略と `gates` field 自体の欠落・空 list は受理する。",
@@ -5264,7 +5648,8 @@
               272
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1532"
         },
         {
           "statement": "ゲートの検証条件は `require.verification` と要求 scope の集約代表値の完全一致でのみ充足する。",
@@ -5277,7 +5662,8 @@
               273
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1533"
         },
         {
           "statement": "`require.verification` に `PASS` 以外（例 `UNKNOWN`）を定義したゲートは、代表値が同じ値のときだけ充足し、代表値が `PASS` のときは充足しない。",
@@ -5290,7 +5676,8 @@
               273
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1534"
         },
         {
           "statement": "逆に `require.verification: PASS` のゲートは代表値が非 `PASS` のとき充足しない。",
@@ -5303,7 +5690,8 @@
               273
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1535"
         },
         {
           "statement": "順序・包含解釈による充足を認めない fixture を持つ。",
@@ -5316,7 +5704,8 @@
               273
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-553"
         },
         {
           "statement": "集約代表値は構造検査（`chain_integrity` / `orphan_detection`）を含む要求 scope 内の全評価値の fail-closed 合成であり、エンティティ軸の部分木が全 `PASS` でも構造検査が非 `PASS` なら代表値は非 `PASS` になる。",
@@ -5329,7 +5718,8 @@
               274
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1536"
         },
         {
           "statement": "`--items` で検査軸を限定した実行では scope 外検査が `NO_EVIDENCE`（診断 `NOT_CHECKED`）として代表値に参加するため、`require.verification: PASS` のゲートは限定 scope で充足しない。",
@@ -5342,7 +5732,8 @@
               275
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1537"
         },
         {
           "statement": "`--gate` を指定した `verify` / `report` の JSON は `data.gate` に `name`・`verification.{required, actual, satisfied}`・`approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す。",
@@ -5355,7 +5746,8 @@
               276
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-554"
         },
         {
           "statement": "`require.approvals` が空集合なら `approvals` は空 list、`gate.satisfied` は `verification.satisfied` と全 `approvals[].satisfied` の論理積になる。",
@@ -5368,7 +5760,8 @@
               276
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1538"
         },
         {
           "statement": "`--gate` 指定時の最上位 `ok` と終了コードはゲート充足で決まる（充足 → `ok: true`・0、不充足 → `ok: false`・1）。",
@@ -5381,7 +5774,8 @@
               277
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1539"
         },
         {
           "statement": "`require.verification` に `PASS` 以外を定義したゲートが充足した実行は、総合が NG でも終了コード 0 になる。",
@@ -5394,7 +5788,8 @@
               277
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1540"
         },
         {
           "statement": "config の `gates` に定義の無いゲート名を `verify --gate` / `report --gate` / MCP の `gate` 入力へ指定すると、E-CONFIG-002・`ok: false`・終了コード 2 で拒否し、検証もゲート評価も実行せず部分結果を返さない。",
@@ -5407,7 +5802,8 @@
               278
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1541"
         },
         {
           "statement": "診断には指定名と定義済みゲート名の一覧を含み、MCP tool error は `candidates` に定義済みゲート名を持つ。",
@@ -5420,7 +5816,8 @@
               278
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1542"
         },
         {
           "statement": "`gates` が空・未定義の状態での指定も同じ扱いとする。",
@@ -5433,7 +5830,8 @@
               278
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1543"
         },
         {
           "statement": "ゲート名の解決は大文字小文字を区別した完全一致だけで行い、前方一致・部分一致・近似一致・既定ゲートへの代替で受理しない。",
@@ -5446,7 +5844,8 @@
               279
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1544"
         },
         {
           "statement": "責務はゲート条件が現在満たされているかの評価・提示に限る。",
@@ -5459,7 +5858,8 @@
               280
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-449"
         },
         {
           "statement": "フェーズのライフサイクル管理・工程の自動遷移は責務外とする。",
@@ -5476,7 +5876,8 @@
               280
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-450"
         },
         {
           "statement": "新規 CLI コマンド・MCP ツールを増やさず、既存の `vtest verify` の `--gate` 引数と出力、および `report` の JSON でゲート評価を露出する。",
@@ -5489,7 +5890,8 @@
               281
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-451"
         },
         {
           "statement": "具体的なフェーズ名・承認ロール・必要承認数はプロジェクト設定と別紙A へ委譲する。",
@@ -5505,7 +5907,8 @@
               281
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-452"
         },
         {
           "statement": "Form `kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、built-inとuser-defined schemaを通してrepository全体で一意であり、schemaはowner `adapter` IDを別fieldで宣言する。",
@@ -5518,7 +5921,8 @@
               285
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1545"
         },
         {
           "statement": "registryのkind owner、schemaのadapter、Structured Test capabilityが一意に一致する場合だけcreate / form_getを許可する。",
@@ -5531,7 +5935,8 @@
               285
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1546"
         },
         {
           "statement": "同じkindを複数adapterが宣言する、schemaとregistry ownerが不一致、adapterが未知、またはcapabilityがない場合は操作を拒否し、ファイルを変更しない。",
@@ -5544,7 +5949,8 @@
               286
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1547"
         },
         {
           "statement": "`adapter`を欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはschema compatibility matcherのうちちょうど1件だけがschemaを受理する場合に限って解決し、曖昧またはowner不在なら拒否する。",
@@ -5557,7 +5963,8 @@
               287
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1548"
         },
         {
           "statement": "matcherはschema内容から決定論的に判定し、coreは未知kindを`rust-cargo`へfallbackしない。",
@@ -5570,7 +5977,8 @@
               287
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1549"
         },
         {
           "statement": "Form Schemaの必須値と未知fieldを常に検証する。",
@@ -5583,7 +5991,8 @@
               288
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1550"
         },
         {
           "statement": "symbol、VO / Test参照、identifier、pathは選択したFormが該当fieldとvalidatorを宣言した場合だけ検証し、すべてのadapterへ一律に要求しない。",
@@ -5596,7 +6005,8 @@
               288
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1551"
         },
         {
           "statement": "create結果はscanで同じTest ID・intent・covers・targetsとして認識される。",
@@ -5609,7 +6019,8 @@
               289
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1552"
         },
         {
           "statement": "editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。",
@@ -5622,7 +6033,8 @@
               290
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1553"
         },
         {
           "statement": "同じdesired stateの再適用は冪等になる。",
@@ -5635,7 +6047,8 @@
               291
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1554"
         },
         {
           "statement": "Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004となり、ファイルを変更しない。",
@@ -5648,7 +6061,8 @@
               292
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1555"
         },
         {
           "statement": "create は挿入後に対象ファイルを再パースし、構文妥当性・挿入分がちょうど 1 Test として認識されること・その Test ID と annotation が desired state と一致すること・他の Test と通常 source が不変であることを確認する。",
@@ -5665,7 +6079,8 @@
               296
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-555"
         },
         {
           "statement": "edit と同じ確認項目を create でも実施し、create 経路にだけ検証を省く分岐を設けない。",
@@ -5678,7 +6093,8 @@
               296
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1556"
         },
         {
           "statement": "挿入後の再パースが構文エラーになる fixture、挿入結果の annotation が desired state と一致しない fixture、挿入が他の Test 範囲へ及ぶ fixture のそれぞれで、create は E-OP-003・終了コード 2 になり、対象ファイルが挿入前のバイト列へ復元される。",
@@ -5691,7 +6107,8 @@
               297
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1557"
         },
         {
           "statement": "挿入によりファイルが新規作成されていた場合は不存在へ戻る。",
@@ -5704,7 +6121,8 @@
               297
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1558"
         },
         {
           "statement": "ロールバック後に scan すると、当該 create 操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。",
@@ -5717,7 +6135,8 @@
               298
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1559"
         },
         {
           "statement": "部分適用された挿入内容・採番された Test ID・Evidence・判断記録がいずれも残らない。",
@@ -5730,7 +6149,8 @@
               298
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1560"
         },
         {
           "statement": "`create --dry-run` は挿入内容と挿入位置を提示し、ファイルを変更しない。",
@@ -5743,7 +6163,8 @@
               299
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1561"
         },
         {
           "statement": "同一 desired state からの create と、その直後の同一 desired state による edit は差分を生じない（annotation block の再生成規則が create / edit で同一。別紙A §15.3）。",
@@ -5759,7 +6180,8 @@
           "cites": [
             "別紙A §15.3"
           ],
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1562"
         },
         {
           "statement": "別紙A（§12〜§15）が定める全 MCP tool が同じ入力に対するCLI JSONと同じdata / diagnosticsを返す。",
@@ -5772,7 +6194,8 @@
               304
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1563"
         },
         {
           "statement": "不正入力はcode / message / candidatesを持つtool errorになる。",
@@ -5785,7 +6208,8 @@
               305
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1564"
         },
         {
           "statement": "request、notification、batch、malformed transportの各入力をJSON-RPC contractどおりに処理する。",
@@ -5798,7 +6222,8 @@
               306
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1565"
         },
         {
           "statement": "MCP serverの長時間実行中もsource変更を再scanし、staleなPASSを保持しない。",
@@ -5811,7 +6236,8 @@
               307
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1566"
         },
         {
           "statement": "`vtest-adapter-api`は言語・runner非依存であり、Cargo、Rust parser、llvm-cov固有型を公開しない。",
@@ -5824,7 +6250,8 @@
               311
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-556"
         },
         {
           "statement": "`vtest-model::TestEntity`はTestを関数として表現せず、adapter所有のTest constructを論理metadata、Source Location、content hash、ExecutionDescriptorで表現する。",
@@ -5837,7 +6264,8 @@
               312
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-557"
         },
         {
           "statement": "`TargetRef::Locator`はadapter IDとadapter所有のopaque locatorを保持する。",
@@ -5850,7 +6278,8 @@
               313
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-558"
         },
         {
           "statement": "`SourceLocation`はadapter ID、project-relative path、opaque locator、source rangeを保持する。",
@@ -5863,7 +6292,8 @@
               313
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-559"
         },
         {
           "statement": "`TargetRef::Locator`と`SourceLocation`のどちらもRust module path、関数名、`.rs`拡張子をcoreの不変条件にしない。",
@@ -5876,7 +6306,8 @@
               313
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-560"
         },
         {
           "statement": "`vtest-model::TestEntity`は`ExecutionDescriptor`だけを実行座標として持ち、`filter`、`package`、`test_target`、`TestTarget`を含まない。",
@@ -5889,7 +6320,8 @@
               314
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-561"
         },
         {
           "statement": "`TestEntity.content_hash`はTest constructだけでなくcanonical metadata、locationのadapter・path・opaque locator、ExecutionDescriptorを含むTest subjectへ束縛される。",
@@ -5902,7 +6334,8 @@
               315
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1567"
         },
         {
           "statement": "byte range自体は含めず、非隣接metadataだけの意味変更でもhashが変化する。",
@@ -5915,7 +6348,8 @@
               315
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1568"
         },
         {
           "statement": "`SourceDiscoveryAdapter`はhash未計算DTOを返し、coreがDTO検証・hash計算・domain entity具体化をこの順で行う。",
@@ -5928,7 +6362,8 @@
               316
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-562"
         },
         {
           "statement": "`rust-cargo` adapterはRust discovery、static audit、Structured Test Operation、runner、coverageを所有する。",
@@ -5941,7 +6376,8 @@
               317
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-310"
         },
         {
           "statement": "`vtest-scan`はadapter discoveryの委譲・出力検証・決定論的統合・core record整合性を所有し、`*.rs`列挙、`syn::parse_file`、`#[test]`抽出、doc comment parseを所有しない。",
@@ -5954,7 +6390,8 @@
               318
             ]
           },
-          "layer": "basic_design"
+          "layer": "basic_design",
+          "id": "BD-311"
         },
         {
           "statement": "registryはadapter IDの重複、宣言capabilityと実装の不一致、未登録adapterを拒否する。",
@@ -5967,7 +6404,8 @@
               319
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1569"
         },
         {
           "statement": "異なるadapterが同じrootを共有でき、同一adapter内のroot重複は拒否される。",
@@ -5980,7 +6418,8 @@
               320
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1570"
         },
         {
           "statement": "全adapterのmerge結果でTest IDのglobal uniquenessを検査する。",
@@ -5993,7 +6432,8 @@
               321
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1571"
         },
         {
           "statement": "config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない。",
@@ -6006,7 +6446,8 @@
               322
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1572"
         },
         {
           "statement": "config writerと`vtest init`はversion 2のadapter namespaceを出力する。",
@@ -6019,7 +6460,8 @@
               323
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1573"
         },
         {
           "statement": "Test JSON writerは`execution`を常に出力し、`rust-cargo` Testについてだけwire codecが互換field `filter` / `package` / `test_target`を追加する。",
@@ -6032,7 +6474,8 @@
               324
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1574"
         },
         {
           "statement": "Test JSON writerは1件以上の`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。",
@@ -6045,7 +6488,8 @@
               325
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1575"
         },
         {
           "statement": "複数targetを単数fieldへ縮約しない。",
@@ -6058,7 +6502,8 @@
               325
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1576"
         },
         {
           "statement": "synthetic TestのJSONはRust互換fieldを省略し、空値またはdummy値を出力しない。",
@@ -6071,7 +6516,8 @@
               326
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1577"
         },
         {
           "statement": "`execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。",
@@ -6084,7 +6530,8 @@
               327
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1578"
         },
         {
           "statement": "`execution`とRust互換fieldが矛盾する入力を拒否する。",
@@ -6097,7 +6544,8 @@
               328
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1579"
         },
         {
           "statement": "明示操作に必須のcapabilityがなければE-ADAPTER-004となり、変更・判断記録・Evidenceを生成しない。",
@@ -6110,7 +6558,8 @@
               329
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1580"
         },
         {
           "statement": "検証時のstatic audit / coverage capability欠落は`NO_EVIDENCE`（診断`NOT_CHECKED`）になる。",
@@ -6123,7 +6572,8 @@
               330
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1581"
         },
         {
           "statement": "検証時のrunner欠落は`NO_EVIDENCE`（診断`NOT_EXECUTED`）になる。",
@@ -6136,7 +6586,8 @@
               330
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1582"
         },
         {
           "statement": "検証時の解析限界は`UNKNOWN`になる。",
@@ -6149,7 +6600,8 @@
               330
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1583"
         },
         {
           "statement": "Rustとsyntheticの結果をadapter ID、path、Test IDで決定論的に統合する。",
@@ -6162,7 +6614,8 @@
               331
             ]
           },
-          "layer": "design"
+          "layer": "design",
+          "id": "DES-563"
         },
         {
           "statement": "synthetic adapterは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを、`vtest-model`、`vtest-scan`、`vtest-verify`の変更なしで登録・scan・verifyできる。",
@@ -6175,7 +6628,8 @@
               332
             ]
           },
-          "layer": "detailed_spec"
+          "layer": "detailed_spec",
+          "id": "DS-1584"
         },
         {
           "statement": "GUI は提供範囲外である。",
@@ -6188,7 +6642,8 @@
               336
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-453"
         },
         {
           "statement": "仕様書同士の矛盾判定は提供範囲外である。",
@@ -6201,7 +6656,8 @@
               337
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-454"
         },
         {
           "statement": "仕様・Test・実装のどれを変更すべきかという修正方針の決定は提供範囲外である。",
@@ -6214,7 +6670,8 @@
               338
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-455"
         },
         {
           "statement": "helper、fixture、通常sourceの編集管理は提供範囲外である。",
@@ -6227,7 +6684,8 @@
               339
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-456"
         },
         {
           "statement": "開発process管理は提供範囲外である。",
@@ -6240,7 +6698,8 @@
               340
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-457"
         },
         {
           "statement": "`rust-cargo`以外のproduction language adapterは提供範囲外である。",
@@ -6253,7 +6712,8 @@
               341
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-458"
         },
         {
           "statement": "third-party plugin ABIは提供範囲外である。",
@@ -6266,7 +6726,8 @@
               342
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-459"
         },
         {
           "statement": "LSP統合は提供範囲外である。",
@@ -6279,7 +6740,8 @@
               343
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-460"
         },
         {
           "statement": "runner / coverage providerの自動選択または推測fallbackは提供範囲外である。",
@@ -6292,7 +6754,8 @@
               344
             ]
           },
-          "layer": "spec"
+          "layer": "spec",
+          "id": "SPEC-461"
         }
       ]
     }
@@ -6302,103 +6765,189 @@
       "number": "18",
       "title": "受入契約",
       "line": 9,
-      "level": 2
+      "level": 2,
+      "ids": {
+        "spec": "SPEC-S119",
+        "detailed_spec": "DS-S145",
+        "basic_design": "BD-S089",
+        "design": "DES-S095"
+      }
     },
     {
       "number": "18.1",
       "title": "共通条件",
       "line": 11,
-      "level": 3
+      "level": 3,
+      "ids": {
+        "spec": "SPEC-S120",
+        "detailed_spec": "DS-S146",
+        "basic_design": "BD-S090",
+        "design": "DES-S096"
+      }
     },
     {
       "number": "18.2",
       "title": "共通fixture",
       "line": 20,
-      "level": 3
+      "level": 3,
+      "ids": {
+        "spec": "SPEC-S121",
+        "detailed_spec": "DS-S147",
+        "basic_design": "BD-S091"
+      }
     },
     {
       "number": "18.3",
       "title": "機能別受入条件",
       "line": 57,
-      "level": 3
+      "level": 3,
+      "ids": {
+        "spec": "SPEC-S122",
+        "detailed_spec": "DS-S148",
+        "basic_design": "BD-S092",
+        "design": "DES-S097"
+      }
     },
     {
       "number": "18.3.1",
       "title": "discovery・record・graph と chain_integrity",
       "line": 59,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S123",
+        "detailed_spec": "DS-S149",
+        "basic_design": "BD-S093",
+        "design": "DES-S098"
+      }
     },
     {
       "number": "18.3.2",
       "title": "orphan_detection（文書層の孤児検出）",
       "line": 119,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S124",
+        "detailed_spec": "DS-S150",
+        "basic_design": "BD-S094"
+      }
     },
     {
       "number": "18.3.3",
       "title": "決定論的静的解析（oracle_presence・target_binding 静的到達）",
       "line": 127,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S125",
+        "detailed_spec": "DS-S151",
+        "basic_design": "BD-S095"
+      }
     },
     {
       "number": "18.3.4",
       "title": "execution・Evidence（target_binding の証拠）",
       "line": 153,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S126",
+        "detailed_spec": "DS-S152",
+        "design": "DES-S099"
+      }
     },
     {
       "number": "18.3.5",
       "title": "target_binding 動的計測（per-target）",
       "line": 175,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S127",
+        "detailed_spec": "DS-S153",
+        "design": "DES-S100"
+      }
     },
     {
       "number": "18.3.6",
       "title": "判断記録プロトコル（非ゲート）",
       "line": 187,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S128",
+        "detailed_spec": "DS-S154",
+        "basic_design": "BD-S096"
+      }
     },
     {
       "number": "18.3.7",
       "title": "承認と判断記録の分離",
       "line": 212,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S129",
+        "detailed_spec": "DS-S155",
+        "basic_design": "BD-S097",
+        "design": "DES-S101"
+      }
     },
     {
       "number": "18.3.8",
       "title": "verify・report と scope",
       "line": 232,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S130",
+        "detailed_spec": "DS-S156",
+        "basic_design": "BD-S098",
+        "design": "DES-S102"
+      }
     },
     {
       "number": "18.3.9",
       "title": "フェーズゲート評価",
       "line": 266,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "spec": "SPEC-S131",
+        "detailed_spec": "DS-S157",
+        "design": "DES-S103"
+      }
     },
     {
       "number": "18.3.10",
       "title": "Structured Test Operation",
       "line": 283,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "detailed_spec": "DS-S158",
+        "design": "DES-S104"
+      }
     },
     {
       "number": "18.3.11",
       "title": "MCP interface",
       "line": 302,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "detailed_spec": "DS-S159"
+      }
     },
     {
       "number": "18.3.12",
       "title": "adapter contract",
       "line": 309,
-      "level": 4
+      "level": 4,
+      "ids": {
+        "detailed_spec": "DS-S160",
+        "basic_design": "BD-S099",
+        "design": "DES-S105"
+      }
     },
     {
       "number": "18.4",
       "title": "提供範囲外",
       "line": 334,
-      "level": 3
+      "level": 3,
+      "ids": {
+        "spec": "SPEC-S132"
+      }
     }
   ]
 }

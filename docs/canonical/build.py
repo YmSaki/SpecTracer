@@ -581,24 +581,50 @@ def item_sort_key(layer: str, item: dict):
 _ID_NUM_TRAIL_RE = re.compile(r"([0-9]+)$")
 
 
-def assign_ids(items: list[dict], prefix: str) -> list[str]:
+def id_belongs_to_layer(candidate: str, layer: str) -> bool:
+    """Whether a stored id's own prefix matches `layer`'s id family --
+    used (2026-09-05 fix-ids) to detect a STALE id: one that was assigned
+    while the item lived in a different layer, before a later `layer`
+    override (relayer) moved it here. P-00N is the one standing exception
+    (require's alternate id family, CONVERSION.md SS1) -- never treated
+    as stale within require even though it doesn't start with "REQ-"."""
+    if layer == "require" and re.fullmatch(r"P-[0-9]{3}", candidate):
+        return True
+    return candidate.startswith(LEAF_PREFIX[layer] + "-")
+
+
+def assign_ids(items: list[dict], layer: str) -> tuple:
     """Stamp item['_id'] in place, in the given (already sorted) order.
 
-    Since the 2026-09-05 ID freeze: an item with a stored 'id' (frozen by
-    `freeze`) or a 'keep_id' (the pre-freeze literal-name mechanism, still
-    honoured for an item that has not been frozen yet) keeps that value
-    verbatim -- ids are never renumbered. Everything else gets the next
-    unused number for `prefix`, continuing after the highest number
-    already in use for it (stored or keep_id), so adding or removing
-    unfrozen items never shifts an already-frozen id.
-    Returns the list of ids used by more than one item (empty if none);
-    the caller decides how to fail on that."""
+    An item with a stored 'id' (written by `fix-ids`) or a 'keep_id' (the
+    pre-fix-ids literal-name mechanism, still honoured for an item that
+    hasn't been fixed yet) keeps that value verbatim -- ids are never
+    renumbered -- UNLESS that stored id's own prefix no longer matches
+    `layer` (id_belongs_to_layer): a relayer "layer" override moved the
+    item to a different layer after its id was fixed, so the old id is
+    STALE for its new home. A stale id is discarded here (never reused)
+    and the item gets a fresh one for `layer`, exactly like an item that
+    never had a stored id at all -- 2026-09-05 fix-ids, replacing the old
+    freeze's assumption that a stored id is always still valid.
+    Everything without a live stored id gets the next unused number for
+    `layer`'s prefix, continuing after the highest number already in use
+    for it (stored or keep_id), so adding or removing un-fixed items
+    never shifts an already-fixed id.
+    -> (dups: list[str] used by more than one item, retired: list[(old_id,
+    new_id)] for every item whose stored id was discarded as stale) --
+    the caller decides how to fail on dups and how/whether to log
+    retired."""
+    prefix = LEAF_PREFIX[layer]
     used: set[str] = set()
     dups: list[str] = []
+    stale_items: list[tuple] = []  # (item, old_id)
     max_numbered = 0
     for item in items:
         candidate = item.get("id") or item.get("keep_id")
         if not candidate:
+            continue
+        if not id_belongs_to_layer(candidate, layer):
+            stale_items.append((item, candidate))
             continue
         if candidate in used:
             dups.append(candidate)
@@ -609,9 +635,10 @@ def assign_ids(items: list[dict], prefix: str) -> list[str]:
                 max_numbered = max(max_numbered, int(m.group(1)))
 
     counter = max_numbered + 1
+    retired: list[tuple] = []
     for item in items:
         candidate = item.get("id") or item.get("keep_id")
-        if candidate:
+        if candidate and id_belongs_to_layer(candidate, layer):
             item["_id"] = candidate
             continue
         new_id = f"{prefix}-{counter:03d}"
@@ -621,7 +648,9 @@ def assign_ids(items: list[dict], prefix: str) -> list[str]:
         item["_id"] = new_id
         used.add(new_id)
         counter += 1
-    return dups
+        if candidate:  # it had a stored id, just a stale one -- log the pair
+            retired.append((candidate, new_id))
+    return dups, retired
 
 
 # ------------------------------------------------------------- building --
@@ -772,26 +801,41 @@ def find_heading_in_headings(headings_by_doc: dict, doc: str, token: str):
     return None, None
 
 
+def section_id_belongs_to_layer(candidate: str, layer: str) -> bool:
+    """Section-id analogue of id_belongs_to_layer (2026-09-05 fix-ids) --
+    a stored section id is only still valid for `layer` if its prefix is
+    that layer's own LEAF_PREFIX + "-S..."."""
+    return candidate.startswith(LEAF_PREFIX[layer] + "-S")
+
+
 def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc: dict) -> tuple:
-    """-> (layer_out: list[section dict, schema-shaped], item_objects: dict).
-    Builds the 文書 > 節 > 小節 > 文 tree for one sectioned layer (2026-09-05
-    section-node model): items are grouped by doc (doc order = doc_key,
-    uniform across every sectioned layer since any of them can now draw
-    from more than one document via relayer); within a doc, a section node
-    exists for every number token any item resolves to (effective_number_
-    resolver) plus every ancestor of that token (ancestor_tokens) -- so a
-    heading with only numbered children and no item of its own still gets
-    a node (docstring requirement: "sections with no statements of their
-    own but with children still exist"). Item ids are assigned exactly as
-    before this model (item_sort_key, one flat counter per layer, global
-    across all docs/sections of the layer) -- the tree only changes how
-    items nest in the output, never their id. Section ids are freshly
-    assigned every build (LEAF_PREFIX-S###, pre-order, doc order then
-    numeric token order) -- no stored-id passthrough for sections yet
-    (freeze does not persist them; see build.py's freeze docstring)."""
+    """-> (layer_out, item_objects, dups, retired). Builds the 文書 > 節 >
+    小節 > 文 tree for one sectioned layer (2026-09-05 section-node
+    model): items are grouped by doc (doc order = doc_key, uniform across
+    every sectioned layer since any of them can now draw from more than
+    one document via relayer); within a doc, a section node exists for
+    every number token any item resolves to (effective_number_resolver)
+    plus every ancestor of that token (ancestor_tokens) -- so a heading
+    with only numbered children and no item of its own still gets a node
+    (docstring requirement: "sections with no statements of their own but
+    with children still exist"). Item ids are assigned exactly as before
+    this model (item_sort_key, one flat counter per layer, global across
+    all docs/sections of the layer) -- the tree only changes how items
+    nest in the output, never their id.
+    2026-09-05 fix-ids: a section's id is looked up from the matching
+    headings[] entry's "ids" map (heading number -> {layer: section id},
+    written by `fix-ids`) FIRST; only a heading/layer combination with no
+    stored id there gets a freshly assigned one, in one global counter per
+    layer across every doc, pre-order (doc order, then numeric token
+    order within each doc) -- exactly mirroring assign_ids' item-id
+    contract, including retiring a stale stored id (wrong layer prefix,
+    e.g. a heading that no longer produces a node in a layer it once did)
+    rather than reusing it. `retired` is [(old_id, new_id), ...] for
+    both items (from assign_ids) and sections (from this function's own
+    equivalent logic), for the caller to log."""
     all_items = list(items_for_layer)
     all_items.sort(key=lambda it: item_sort_key(layer, it))
-    dups = assign_ids(all_items, LEAF_PREFIX[layer])
+    dups, retired = assign_ids(all_items, layer)
     item_objects = {it["_id"]: it for it in all_items}
 
     by_doc: dict[str, list] = {}
@@ -799,8 +843,12 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
         by_doc.setdefault(it["source"]["doc"], []).append(it)
     docs_sorted = sorted(by_doc, key=lambda d: doc_key(layer, d))
 
-    layer_out = []
-    section_counter = 1
+    # Pass 1: build every doc's node tree (title/heading/lines/children/
+    # items), WITHOUT assigning any section id yet -- id assignment needs
+    # to see every doc's preorder token list first (it's one counter
+    # shared across the whole layer, not reset per doc).
+    nodes_by_doc: dict = {}
+    top_tokens_by_doc: dict = {}
 
     for doc in docs_sorted:
         items_in_doc = by_doc[doc]
@@ -887,27 +935,82 @@ def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc:
             if nodes[tok]["lines"] is None:
                 nodes[tok]["lines"] = list(subtree_bounds(tok))
 
-        def serialize(tok):
-            node = nodes[tok]
-            nonlocal section_counter
-            out = {"id": f"{LEAF_PREFIX[layer]}-S{section_counter:03d}", "title": node["title"]}
+        nodes_by_doc[doc] = nodes
+        top_tokens_by_doc[doc] = sorted((t for t in tokens_sorted if parent_token(t) is None), key=token_parts)
+
+    # Pass 2: assign section ids -- global preorder across every doc (doc
+    # order, then each doc's own top-down, numeric-token-order DFS),
+    # mirroring assign_ids' stored-id-first / stale-id-retired / fresh-
+    # for-the-rest contract.
+    def preorder_keys(doc, toks):
+        for tok in toks:
+            yield (doc, tok)
+            child_toks = sorted(nodes_by_doc[doc][tok]["children"], key=token_parts)
+            yield from preorder_keys(doc, child_toks)
+
+    all_keys = [k for doc in docs_sorted for k in preorder_keys(doc, top_tokens_by_doc[doc])]
+
+    used_section_ids: set = set()
+    max_numbered = 0
+    stale_keys: list = []
+    for doc, tok in all_keys:
+        heading_ids = None
+        for h in headings_by_doc.get(doc, []):
+            if h["number"] == tok:
+                heading_ids = h.get("ids")
+                break
+        stored = heading_ids.get(layer) if heading_ids else None
+        if stored is None:
+            continue
+        if not section_id_belongs_to_layer(stored, layer):
+            stale_keys.append((doc, tok, stored))
+            continue
+        used_section_ids.add(stored)
+        m = _ID_NUM_TRAIL_RE.search(stored)
+        if m:
+            max_numbered = max(max_numbered, int(m.group(1)))
+
+    section_id_by_key: dict = {}
+    section_counter = max_numbered + 1
+    for doc, tok in all_keys:
+        heading_ids = None
+        for h in headings_by_doc.get(doc, []):
+            if h["number"] == tok:
+                heading_ids = h.get("ids")
+                break
+        stored = heading_ids.get(layer) if heading_ids else None
+        if stored is not None and section_id_belongs_to_layer(stored, layer):
+            section_id_by_key[(doc, tok)] = stored
+            continue
+        new_id = f"{LEAF_PREFIX[layer]}-S{section_counter:03d}"
+        while new_id in used_section_ids:
             section_counter += 1
-            if node.get("description"):
-                out["description"] = node["description"]
-            out["source"] = {"doc": doc, "heading": node["heading"], "lines": node["lines"]}
-            out["derived_from"] = []
-            child_toks = sorted(node["children"], key=token_parts)
-            if child_toks:
-                out["sections"] = [serialize(c) for c in child_toks]
-            own = sorted(node["items"], key=lambda it: item_sort_key(layer, it))
-            if own:
-                out["items"] = [build_leaf_output(it, layer) for it in own]
-            return out
+            new_id = f"{LEAF_PREFIX[layer]}-S{section_counter:03d}"
+        section_id_by_key[(doc, tok)] = new_id
+        used_section_ids.add(new_id)
+        section_counter += 1
+        if stored is not None:  # it had a stored id, just a stale one
+            retired.append((stored, new_id))
 
-        top_tokens = sorted((t for t in tokens_sorted if parent_token(t) is None), key=token_parts)
-        layer_out.extend(serialize(t) for t in top_tokens)
+    # Pass 3: serialize, using the ids assigned above.
+    def serialize(doc, tok):
+        node = nodes_by_doc[doc][tok]
+        out = {"id": section_id_by_key[(doc, tok)], "title": node["title"]}
+        if node.get("description"):
+            out["description"] = node["description"]
+        out["source"] = {"doc": doc, "heading": node["heading"], "lines": node["lines"]}
+        out["derived_from"] = []
+        child_toks = sorted(node["children"], key=token_parts)
+        if child_toks:
+            out["sections"] = [serialize(doc, c) for c in child_toks]
+        own = sorted(node["items"], key=lambda it: item_sort_key(layer, it))
+        if own:
+            out["items"] = [build_leaf_output(it, layer) for it in own]
+        return out
 
-    return layer_out, item_objects, dups
+    layer_out = [serialize(doc, tok) for doc in docs_sorted for tok in top_tokens_by_doc[doc]]
+
+    return layer_out, item_objects, dups, retired
 
 
 def build_in_memory(root: Path):
@@ -939,7 +1042,12 @@ def build_in_memory(root: Path):
     back to a bare-number placeholder.
 
     -> (output, item_objects: dict[id, dict], dup_ids: list[str],
-        fragments: list[(Path, dict)])
+        fragments: list[(Path, dict)], retired: list[(old_id, new_id)])
+    retired (2026-09-05 fix-ids) is every item/section whose stored id no
+    longer matches its current layer (a relayer "layer" override moved it
+    since ids were last fixed) -- the caller decides whether/how to log it
+    (fix-ids does; a plain `build` still needs the fresh ids to build
+    correctly even if nobody's watching the retirement).
     Raises ValueError on an unknown/missing layer; does not touch disk."""
     fragments = load_fragments(root)
     headings_by_doc = headings_by_doc_from_fragments(fragments)
@@ -972,29 +1080,35 @@ def build_in_memory(root: Path):
 
     output = {"schema_version": SCHEMA_VERSION}
     all_dups: list[str] = []
+    all_retired: list[tuple] = []
     item_objects: dict[str, dict] = {}
 
     root_items.sort(key=lambda it: item_sort_key("root", it))
-    all_dups.extend(assign_ids(root_items, LEAF_PREFIX["root"]))
+    dups, retired = assign_ids(root_items, "root")
+    all_dups.extend(dups)
+    all_retired.extend(retired)
     output["root"] = [build_leaf_output(it, "root") for it in root_items]
     for it in root_items:
         item_objects[it["_id"]] = it
 
     request_items.sort(key=lambda it: item_sort_key("request", it))
-    all_dups.extend(assign_ids(request_items, LEAF_PREFIX["request"]))
+    dups, retired = assign_ids(request_items, "request")
+    all_dups.extend(dups)
+    all_retired.extend(retired)
     output["request"] = [build_leaf_output(it, "request") for it in request_items]
     for it in request_items:
         item_objects[it["_id"]] = it
 
     for layer in _SECTIONED_LAYERS:
-        layer_out, layer_item_objects, dups = build_layer_section_tree(
+        layer_out, layer_item_objects, dups, retired = build_layer_section_tree(
             layer, sectioned_items[layer], headings_by_doc
         )
         output[layer] = layer_out
         item_objects.update(layer_item_objects)
         all_dups.extend(dups)
+        all_retired.extend(retired)
 
-    return output, item_objects, all_dups, fragments
+    return output, item_objects, all_dups, fragments, all_retired
 
 
 def count_sections(nodes: list) -> int:
@@ -1009,7 +1123,7 @@ def cmd_build(args) -> int:
     # is still accepted on this subparser (harmless, ignored) so existing
     # invocations/scripts don't need to change.
     try:
-        output, _item_objects, dups, _fragments = build_in_memory(root)
+        output, _item_objects, dups, _fragments, retired = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1017,6 +1131,15 @@ def cmd_build(args) -> int:
         for d in sorted(set(dups)):
             print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
         return 1
+    if retired:
+        # 2026-09-05 fix-ids: a stored id whose layer override moved it
+        # since ids were last fixed gets a fresh id here, every build,
+        # whether or not fix-ids runs again -- report it every time,
+        # since only `fix-ids` persists the new id (and the retirement)
+        # back into fragments/retired-ids.json.
+        print(f"note: {len(retired)} stale id(s) retired this build (stored id no longer matches its layer):")
+        for old_id, new_id in retired:
+            print(f"  {old_id} -> {new_id}")
 
     text = json.dumps(output, ensure_ascii=False, indent=2) + "\n"
     spec_json_path(root).write_text(text, encoding="utf-8")
@@ -3170,15 +3293,54 @@ def cmd_apply_derivation(args) -> int:
     return 0
 
 
-# ------------------------------------------------------------------ freeze --
+# ----------------------------------------------------------------- fix-ids --
+# 2026-09-05 (section-node model): replaces the old `freeze`. Persists ids
+# only -- both statement ids (as before) AND, new here, section ids (one
+# per heading per layer it produces a node in, since a document section
+# can now be split across layers by a relayer "layer" override).
+# derived_from is deliberately NOT written here (team-lead's spec): it
+# keeps being computed by `apply-derivation` from cites/trace-tables.json
+# and only ever lands in specification.json, never in a fragment -- a
+# fragment's job is identity (id), not derivation (that stays a
+# recomputed-every-time report/write, not a stored fact about the source).
 
-def cmd_freeze(args) -> int:
+def collect_section_ids_by_heading(output: dict) -> dict:
+    """(doc, heading number) -> {layer: section_id}, from every section
+    node in a freshly built `output` -- one entry per (doc, number) that
+    produced a node in one or more layers this build. Used by fix-ids to
+    write each heading's id(s) back into its fragment's headings[]
+    entry -- a heading whose number is split across layers (its
+    statements now live in more than one) gets more than one key in its
+    map, e.g. {"spec": "SPEC-S001", "detailed_spec": "DS-S010"}."""
+    result: dict = {}
+    for layer in _SECTIONED_LAYERS:
+        for sec in iter_all_sections(output.get(layer, [])):
+            doc = sec["source"]["doc"]
+            num = heading_number_token(sec["source"]["heading"])
+            if num is None:
+                continue
+            result.setdefault((doc, num), {})[layer] = sec["id"]
+    return result
+
+
+def log_retired_ids(root: Path, retired: list) -> None:
+    """Append (old_id, new_id) pairs to docs/canonical/relations/
+    retired-ids.json (created if absent) -- a durable, cumulative ledger
+    (not overwritten each run) so a reference to a retired id can still be
+    traced to what it became, across every fix-ids run, not just the
+    latest."""
+    log_path = root / "relations" / "retired-ids.json"
+    existing = read_json(log_path) if log_path.exists() else []
+    for old_id, new_id in retired:
+        existing.append({"old_id": old_id, "new_id": new_id})
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def cmd_fix_ids(args) -> int:
     root = Path(args.root)
-    # 2026-09-05 (md-independence): no repo_root -- build_in_memory reads
-    # fragments' own headings[], and collect_derivation_edges reads
-    # trace-tables.json, neither touches md any more.
     try:
-        output, item_objects, dups, fragments = build_in_memory(root)
+        output, item_objects, dups, fragments, retired = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -3187,53 +3349,46 @@ def cmd_freeze(args) -> int:
             print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
         return 1
 
-    # 2026-09-05 section-node model: id_index/finalize_derived_from cover
-    # both statement ids and section ids (build_full_index) since Task A /
-    # rule 2's own-section and §-target resolution now lands on section
-    # nodes, not just statements. NOTE: this only computes and writes
-    # STATEMENT derived_from into fragments, exactly as before -- fragments
-    # have no field to persist a SECTION's derived_from yet (sections are
-    # not stored, only derived at build time), so a section edge is not
-    # frozen anywhere by this command. That gap is unresolved and explicitly
-    # not addressed by the section-node-model pass (freeze itself is on
-    # hold); revisit once/if sections need their own persisted identity.
-    id_index = build_full_index(output)
-    edges, _stats = collect_derivation_edges(output, id_index, root)
-
-    for iid, item_obj in item_objects.items():
-        item_obj["id"] = iid
+    for item_obj in item_objects.values():
+        item_obj["id"] = item_obj["_id"]
         item_obj.pop("_id", None)
         item_obj.pop("_native_area", None)
         item_obj.pop("keep_id", None)  # promoted into "id"; the old mechanism is now redundant
         # NOTE: an item's "layer" override (if any) is NOT removed here --
         # it is a permanent routing directive build_in_memory reads on
         # every run, independent of the assigned id; stripping it would
-        # silently un-relayer the item on the next build.
-        layer = id_index[iid]["layer"]
-        if layer != "root":  # 2026-09-05: root is the only layer with no derived_from field
-            final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
-            item_obj["derived_from"] = final_list
+        # silently un-relayer the item on the next build. derived_from is
+        # NOT written here (team-lead's spec) -- it stays apply-
+        # derivation's job, computed fresh from cites/trace-tables.json,
+        # never a stored fact in a fragment.
 
-    stamped_by_file: dict = {}
-    for path, frag in fragments:
-        n = 0
-        if frag.get("layer") in _AREA_LAYERS:
-            for area in frag.get("areas", []):
-                n += 1
-                n += len(area.get("items", []))
-        else:
-            n += len(frag.get("items", []))
-        stamped_by_file[str(path)] = n
+    section_ids_by_heading = collect_section_ids_by_heading(output)
+    stamped_headings = 0
+    for _path, frag in fragments:
+        doc = frag.get("doc")
+        for h in frag.get("headings", []):
+            ids = section_ids_by_heading.get((doc, h["number"]))
+            if ids:
+                h["ids"] = ids
+                stamped_headings += 1
 
     for path, frag in fragments:
         text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
         path.write_text(text, encoding="utf-8")
 
-    print("--- freeze summary ---")
-    for path_str in sorted(stamped_by_file):
-        print(f"  {path_str}: {stamped_by_file[path_str]} stamped")
-    print(f"  total items+areas stamped: {sum(stamped_by_file.values())}")
+    if retired:
+        log_retired_ids(root, retired)
+
+    print("--- fix-ids ---")
+    print(f"  items stamped: {len(item_objects)}")
+    print(f"  heading entries stamped with a section id map: {stamped_headings}")
     print(f"  fragment files rewritten: {len(fragments)}")
+    if retired:
+        print(f"  stale ids retired (logged to {root / 'relations' / 'retired-ids.json'}):")
+        for old_id, new_id in retired:
+            print(f"    {old_id} -> {new_id}")
+    else:
+        print("  stale ids retired: 0")
     return 0
 
 
@@ -3285,7 +3440,7 @@ def cmd_relayer_apply(args) -> int:
         return 1
 
     try:
-        _output, item_objects, dups, fragments = build_in_memory(root)
+        _output, item_objects, dups, fragments, _retired = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -3940,10 +4095,9 @@ def main(argv=None) -> int:
     p_applyderiv.add_argument("--write", action="store_true", help="overwrite specification.json's derived_from with the recomputed set (default: report only)")
     p_applyderiv.set_defaults(func=cmd_apply_derivation)
 
-    p_freeze = sub.add_parser("freeze", help="write id and computed derived_from into fragments in place (2026-09-05 ID freeze)")
-    add_root_arg(p_freeze)
-    add_repo_root_arg(p_freeze)
-    p_freeze.set_defaults(func=cmd_freeze)
+    p_fix_ids = sub.add_parser("fix-ids", help="write item ids and heading section-id maps into fragments in place (2026-09-05, replaces the old `freeze` -- does not write derived_from)")
+    add_root_arg(p_fix_ids)
+    p_fix_ids.set_defaults(func=cmd_fix_ids)
 
     p_relayer = sub.add_parser("relayer", help="apply or report per-item layer overrides (spec/basic_design/design split)")
     relayer_sub = p_relayer.add_subparsers(dest="relayer_command", required=True)

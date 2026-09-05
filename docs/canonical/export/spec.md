@@ -1849,25 +1849,21 @@ warningはレポートに常に表示する。
 
 ### SPEC-314
 
-変更そのものが`UNKNOWN`を生成するのではない。
-
-### SPEC-315
-
 判断済みと承認済みは区別する（判断済み≠承認済み）。
 
-### SPEC-316
+### SPEC-315
 
 判断は承認なしでも記録でき、正式採用は§3.5の承認の別段階である。
 
 ### SPEC-S090 8.6 参考プロンプト
 
-### SPEC-317
+### SPEC-316
 
 判断エージェントのプロンプト・スキル構成はツールの責務外だが、参考として骨子を示す。
 
 > あなたは検証対象の意味判定者である。添付のバンドルについて、以下だけを判定せよ。修正方針の提案はしない。判定事項：テストコードは、VOのclaimとTest Intentが宣言する振る舞いを実際に検証しているか。判定はaccepted / rejected / deferredのいずれかとし、判定ごとにclaim（何を確認したか）とbasis（根拠にしたバンドル内の情報への参照）を任意で列挙してよい。
 
-### SPEC-318
+### SPEC-317
 
 判断は`UNKNOWN`に対する外部判断の追跡であり、検査ゲートではない（§8 冒頭、基本仕様 §11.3）。
 
@@ -1877,7 +1873,7 @@ warningはレポートに常に表示する。
 
 ### SPEC-S092 10.3 実行モードの整理
 
-### SPEC-319
+### SPEC-318
 
 `vtest run`は2モードを持つ。
 
@@ -1885,55 +1881,55 @@ warningはレポートに常に表示する。
 
 ### SPEC-S094 11.1 検査の評価地点
 
-### SPEC-320
+### SPEC-319
 
 `target_binding`は評価地点をTESTとし、§7.3の合成による。
 
-### SPEC-321
+### SPEC-320
 
 `target_binding`の未充足は§11.2の写像に従う。
 
-### SPEC-322
+### SPEC-321
 
 `oracle_presence`は評価地点をTESTとし、§7.1の合成（DA-001 / DA-003 / DA-004 / DA-005 / DA-006）による。
 
-### SPEC-323
+### SPEC-322
 
 本システムは意味判定・候補生成を外部の判定器へ委ねるseam（実行時に差し替え可能な意味判定・意味生成の呼出し点）を4検査の評価経路に持たない。
 
-### SPEC-324
+### SPEC-323
 
 外部AI／Agentは判断記録（§8）の著者として`.verify/decisions/`へ記録を残す経路でのみ関与し、その記録は入力集合の一部としてファイル経由で読まれる。
 
-### SPEC-325
+### SPEC-324
 
 完全検証の検査集合はこの4検査に固定し、設定で追加・削除できない（§2.2、基本仕様 §22.1）。
 
 *引用: 基本仕様 §22.1*
 
-### SPEC-326
+### SPEC-325
 
 旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。
 
-### SPEC-327
+### SPEC-326
 
 `test_existence` / `test_traceability`は`chain_integrity`へ統合した。
 
-### SPEC-328
+### SPEC-327
 
 `static_audit`は`oracle_presence`（DA-001/003/004/005/006）と`target_binding`の静的到達（DA-002）へ分割した。
 
-### SPEC-329
+### SPEC-328
 
 `test_execution` / `target_execution` / `runtime_result`は`target_binding`の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収した。
 
-### SPEC-330
+### SPEC-329
 
 `evidence_validity`は独立検査を廃し、鮮度喪失を診断ラベル`STALE`として§11.2で説明した（基本仕様 §6）。
 
 *引用: 基本仕様 §6*
 
-### SPEC-331
+### SPEC-330
 
 `spec_coverage` / `vo_coverage` / `vo_decomposition` / `semantic_audit` / `impl_consistency`は検査から除去し、網羅・意味の疑義は`UNKNOWN`として判断記録エスカレーションとした（§8、基本仕様 §11、要件定義 §12）。
 
@@ -1943,13 +1939,13 @@ warningはレポートに常に表示する。
 
 #### SPEC-S095 11.1.1 `chain_integrity` の評価
 
-### SPEC-332
+### SPEC-331
 
 `chain_integrity`は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う。
 
 *引用: 基本仕様 §5.1*
 
-### SPEC-333
+### SPEC-332
 
 すべてのTestを管理対象とすることと、当該Testを証拠として算入すること（§7 / §10のtarget_binding / oracle_presence）は別個の条件とする。
 
@@ -1957,17 +1953,17 @@ warningはレポートに常に表示する。
 
 ### SPEC-S096 11.3 集約アルゴリズム
 
-### SPEC-334
+### SPEC-333
 
 利用者向け簡易出力は`OK` / `NG`の二値とする。
 
 *引用: 基本仕様 §22.1*
 
-### SPEC-335
+### SPEC-334
 
 詳細出力は任意ノードからの局所／経路／全体トレース（§11.6）に沿ったツリー表示とし、非`PASS`の根拠（判断記録・Evidenceへの参照）を辿れる。
 
-### SPEC-336
+### SPEC-335
 
 人間向けテキストと機械可読JSONの両方を出力できる。
 
@@ -1975,7 +1971,7 @@ warningはレポートに常に表示する。
 
 ### SPEC-S097 11.4 document 鮮度
 
-### SPEC-337
+### SPEC-336
 
 仕様文書の更新は`vtest doc add --update`による再登録で反映し、依存する判断・承認が失効することを利用者へ提示する。
 
@@ -1983,7 +1979,7 @@ warningはレポートに常に表示する。
 
 *導出元: REQ-S057*
 
-### SPEC-338
+### SPEC-337
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1の5状態）と承認（§3.5）が通過条件を満たすかを評価・提示できなければならない（MUST）。
 
@@ -1991,15 +1987,15 @@ warningはレポートに常に表示する。
 
 *引用: 基本仕様 §20, 要件定義 §26.4*
 
-### SPEC-339
+### SPEC-338
 
 検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。
 
-### SPEC-340
+### SPEC-339
 
 本システムの責務はゲート条件が現在満たされているかの評価・提示に限る。
 
-### SPEC-341
+### SPEC-340
 
 フェーズのライフサイクル管理・工程の自動遷移は責務外とする（§29 OOS-004）。
 
@@ -2007,11 +2003,11 @@ warningはレポートに常に表示する。
 
 *引用: 基本仕様 §20, 要件定義 §26.4, OOS-004*
 
-### SPEC-342
+### SPEC-341
 
 「Releaseフェーズへ遷移させる」のではなく「Release gateの条件を現在満たしている」を提示する。
 
-### SPEC-343
+### SPEC-342
 
 具体的なフェーズ名・承認ロール・必要承認数・権限schemaはプロジェクト設定と別紙Aへ委譲する（基本仕様 §30）。
 
@@ -2021,7 +2017,7 @@ warningはレポートに常に表示する。
 
 *導出元: REQ-S007*
 
-### SPEC-344
+### SPEC-343
 
 同一のトレーサビリティ構造から、利用者の役割または利用目的に応じて参照対象・関係・集約粒度を変えたprojectionを取得・提示できる。
 
@@ -2029,27 +2025,27 @@ warningはレポートに常に表示する。
 
 *引用: 基本仕様 §19, 要件定義 §3.4*
 
-### SPEC-345
+### SPEC-344
 
 最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。
 
 > 任意ノードからの取得。
 
-### SPEC-346
+### SPEC-345
 
 常に全チェーンを表示することは求めない。
 
-### SPEC-347
+### SPEC-346
 
 役割または利用目的に応じた参照観点をpresetとして提供する（例：PMは上位のdocument・VOの状態と未確定/NG、Testerは VO・Test・検証対象・Evidence・未実施/失敗理由、Coderは実装から関連Test・VO・上流documentへのトレース）。
 
-### SPEC-348
+### SPEC-347
 
 役割を固定enumやモード名として本冊で仕様化せず、preset・UI・モード体系は別紙Aへ委譲する（基本仕様 §30）。
 
 *引用: 別紙A, 基本仕様 §30*
 
-### SPEC-349
+### SPEC-348
 
 projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
 
@@ -2057,7 +2053,7 @@ projectionが出力する`derives_from`エッジに当該entryの`anchor`を常�
 
 ### SPEC-S100 11.7 判断待ち情報の構造
 
-### SPEC-350
+### SPEC-349
 
 導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として保持・取得可能とする。
 
@@ -2065,7 +2061,7 @@ projectionが出力する`derives_from`エッジに当該entryの`anchor`を常�
 
 *引用: 基本仕様 §18.3, 要件定義 §17.3*
 
-### SPEC-351
+### SPEC-350
 
 UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。
 
@@ -2073,19 +2069,19 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 ## SPEC-S101 16. 並列動作と整合性
 
-### SPEC-352
+### SPEC-351
 
 本冊の§12〜§15は別紙Aで定義する。
 
 ### SPEC-S102 16.1 ロック不要の根拠
 
-### SPEC-353
+### SPEC-352
 
 すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。
 
 ### SPEC-S103 16.2 意味的衝突検出
 
-### SPEC-354
+### SPEC-353
 
 `vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。
 
@@ -2093,23 +2089,23 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 ### SPEC-S105 17.1 診断コード
 
-### SPEC-355
+### SPEC-354
 
 診断コードは§5.4のスキャン診断に加えて定義する。
 
 ### SPEC-S106 17.2 終了コード
 
-### SPEC-356
+### SPEC-355
 
 要求scopeの総合OK / NGはJSONとtextの集約出力から読み取れる（別紙A §12.1・§12.3）。
 
 *引用: 別紙A §12.1・§12.3, 別紙A §12.1, 別紙A §12.3*
 
-### SPEC-357
+### SPEC-356
 
 終了コードは診断severityだけでなく操作段階で決める。
 
-### SPEC-358
+### SPEC-357
 
 検証状態と内部エラーは終了コードで分離する。
 
@@ -2119,57 +2115,57 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 *導出元: R-2, R-3*
 
-### SPEC-359
+### SPEC-358
 
 LSP / rust-analyzer連携によるシンボル解決は提供範囲外とする。
 
 > 次の事項は提供範囲外とする。
 
-### SPEC-360
+### SPEC-359
 
 永続インデックス（`cache/`の活用）は提供範囲外とする。
 
-### SPEC-361
+### SPEC-360
 
 Relationのtombstone方式は提供範囲外とする。
 
-### SPEC-362
+### SPEC-361
 
 `rust-cargo`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。
 
-### SPEC-363
+### SPEC-362
 
 LLM API直接呼び出しによる判断は提供範囲外とする。
 
-### SPEC-364
+### SPEC-363
 
 rename追跡とSRC恒久IDの自動昇格支援は提供範囲外とする。
 
-### SPEC-365
+### SPEC-364
 
 cargo-nextest対応は提供範囲外とする。
 
-## SPEC-S108 0
+## SPEC-S133 0
 
-### SPEC-366
+### SPEC-365
 
 参照規則・診断コード・終了コードは本冊 §17 に従う。
 
 *引用: 本冊 §17*
 
-### SPEC-367
+### SPEC-366
 
 本別紙は基本仕様 §26.1（CLI コマンド一覧）・§26.2（MCP ツール一覧）が確定したコマンド・ツールの引数と入出力 schema を具体化する HOW である。
 
 *引用: 本冊 §0, 基本仕様 §26.1*
 
-### SPEC-368
+### SPEC-367
 
 本別紙は新規コマンド・ツールを増やさない。
 
 *引用: 本冊 §0*
 
-### SPEC-369
+### SPEC-368
 
 本別紙は、上流（要件定義＝WHY、基本仕様＝WHAT、詳細設計本冊＝HOW 中核）に無い義務・検査・状態・文書種別・関係型を発明しない。
 
@@ -2179,31 +2175,31 @@ cargo-nextest対応は提供範囲外とする。
 
 *導出元: REQ-S009*
 
-### SPEC-370
+### SPEC-369
 
 すべてのコマンドは非対話で完結する。
 
-### SPEC-371
+### SPEC-370
 
 終了コードは本冊 §17.2 に従う。
 
 *引用: 本冊 §17.2*
 
-### SPEC-372
+### SPEC-371
 
 検証状態は5値（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）である。
 
-### SPEC-373
+### SPEC-372
 
 診断ラベルは状態に付随する原因説明であり、`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` である。
 
-### SPEC-374
+### SPEC-373
 
 `NO_EVIDENCE` は状態であって診断ラベルではない。
 
 ### SPEC-S111 12.2 `vtest init`
 
-### SPEC-375
+### SPEC-374
 
 `vtest init` は `.verify/` 一式を生成する。
 
@@ -2213,7 +2209,7 @@ cargo-nextest対応は提供範囲外とする。
 
 *引用: 本冊 §2.1*
 
-### SPEC-376
+### SPEC-375
 
 `vtest scan` はスキャンと整合性検査を実行し、診断一覧とエンティティ数のサマリを出力する。
 
@@ -2223,17 +2219,17 @@ cargo-nextest対応は提供範囲外とする。
 
 *引用: 本冊 §5*
 
-### SPEC-377
+### SPEC-376
 
 `vtest doctor` は `vtest scan` と同一処理の別名であり、自動化環境の整合性検査に使用する。
 
 *引用: 本冊 §16.2*
 
-### SPEC-378
+### SPEC-377
 
 `vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、孤児 document（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。
 
-### SPEC-379
+### SPEC-378
 
 `doc` は上流文書を総称 `document` レコードとして管理する唯一のコマンドである。
 
@@ -2248,19 +2244,19 @@ cargo-nextest対応は提供範囲外とする。
 
 *引用: 本冊 §3.1, 基本仕様 §3.1・§3.2*
 
-### SPEC-380
+### SPEC-379
 
 `doc edit` は設けない。
 
-### SPEC-381
+### SPEC-380
 
 正典編集は `add --update` で行う。
 
-### SPEC-382
+### SPEC-381
 
 document の承認・却下・取消は `vtest approval` で行い、`doc` 側に承認操作を置かない。
 
-### SPEC-383
+### SPEC-382
 
 承認は特定のエンティティ型に従属しない独立の領域であり、対象種別を引数に取るこの経路が承認レコード生成の唯一の正典面である。
 
@@ -2277,15 +2273,15 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §3.5*
 
-### SPEC-384
+### SPEC-383
 
 エンティティ側の `vo approve` / `vo_approve` はこの経路への別名にすぎず、追加・相異する規則を持たない。
 
-### SPEC-385
+### SPEC-384
 
 `withdraw <approval-id>` は `create --subject-type <当該レコードの対象種別> --subject-id <当該レコードの対象> --state withdrawn --supersedes <approval-id>` と同一のレコードを生成する短縮形であり、追加の意味論を持たない。
 
-### SPEC-386
+### SPEC-385
 
 `vtest test create` は Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえ対応 adapter が Test construct と metadata 宣言を生成して挿入する。
 
@@ -2309,7 +2305,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 >   file: tests/parser_test.rs        # 省略時は target と同居する tests モジュール
 > ```
 
-### SPEC-387
+### SPEC-386
 
 `vtest test edit` は desired state 方式である。
 
@@ -2320,7 +2316,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 基本仕様 §15.1*
 
-### SPEC-388
+### SPEC-387
 
 `vtest audit static` は決定論的な静的解析を要求時に起動し、rule 別 verdict（`FAIL` / `UNKNOWN` / 違反なし）と根拠 span を stdout と `cache/` へ出力する。
 
@@ -2330,7 +2326,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §7*
 
-### SPEC-389
+### SPEC-388
 
 `audit bundle` / `submit` は本冊 §8 の判断記録プロトコルであり、意味検査ではない。
 
@@ -2343,11 +2339,11 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §8*
 
-### SPEC-390
+### SPEC-389
 
 本システムは宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを自ら発見・裁定しない。
 
-### SPEC-391
+### SPEC-390
 
 本システムは機械が決定論で確定できない疑義を `UNKNOWN` として外部（人間または判断可能 Agent）へ引き渡し、その判断を判断記録（`.verify/decisions/`）として追跡する。
 
@@ -2355,37 +2351,37 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §8 冒頭, 基本仕様 §11, 要件定義 §12*
 
-### SPEC-392
+### SPEC-391
 
 `audit bundle` は判断対象（`--test` / `--vo`）ごとに、判断に必要な情報一式（対象 VO と claim・Test Intent・テストコード全文・Test が宣言した cases 集合・対象実装全文・関連テスト・既知 partition・過去の判断・対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/<ULID>.json` へ出力し、パスと `bundle_id` を返す。
 
 *引用: 本冊 §8.1*
 
-### SPEC-393
+### SPEC-392
 
 旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。
 
-### SPEC-394
+### SPEC-393
 
 判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
 
-### SPEC-395
+### SPEC-394
 
 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state、`vtest approval create` で生成）は別軸・別 entity である。
 
 *引用: 本冊 §3.4, 本冊 §3.5*
 
-### SPEC-396
+### SPEC-395
 
 判断済み ≠ 承認済みである。
 
 *引用: 本冊 §8.5, 基本仕様 §17*
 
-### SPEC-397
+### SPEC-396
 
 判断は承認なしでも記録でき、正式採用は承認の別段階である。
 
-### SPEC-398
+### SPEC-397
 
 `vtest run` はテスト実行と Evidence 記録を行う。
 
@@ -2395,7 +2391,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §9、§10*
 
-### SPEC-399
+### SPEC-398
 
 `vtest verify` は集約を実行し、`OK` / `NG` を返す。
 
@@ -2407,19 +2403,19 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §11.3*
 
-### SPEC-400
+### SPEC-399
 
 検査は基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）のみである。
 
 *引用: 基本仕様 §5*
 
-### SPEC-401
+### SPEC-400
 
 旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。
 
 *引用: 本冊 §11.1*
 
-### SPEC-402
+### SPEC-401
 
 `vtest report` は `verify` と同じ集約を実行し、根拠（判断記録 ID・Evidence ID・DA rule 診断）を含む完全な詳細を出力する。
 
@@ -2430,11 +2426,11 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 >              [--direction up|down|both] [--format json]
 > ```
 
-### SPEC-403
+### SPEC-402
 
 `verify` が判定用、`report` が閲覧・提出用という役割分担とする。
 
-### SPEC-404
+### SPEC-403
 
 `vtest mcp` は stdio で MCP サーバを起動する（§13）。
 
@@ -2446,7 +2442,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *導出元: REQ-S057*
 
-### SPEC-405
+### SPEC-404
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（5状態）と承認（§3.5）が通過条件を満たすかを評価・提示できなければならない（MUST）。
 
@@ -2454,7 +2450,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §11.5, 基本仕様 §20, 要件定義 §26.4*
 
-### SPEC-406
+### SPEC-405
 
 本システムの責務はゲート条件が現在満たされているかの評価・提示に限り、フェーズのライフサイクル管理・工程の自動遷移は責務外とする（「Release フェーズへ遷移させる」ではなく「Release gate の条件を現在満たしている」を提示する）。
 
@@ -2462,7 +2458,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *導出元: REQ-S043*
 
-### SPEC-407
+### SPEC-406
 
 導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として `verify` / `report` の JSON 出力へ含める。
 
@@ -2470,7 +2466,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *引用: 本冊 §11.7, 基本仕様 §18.3, 要件定義 §17.3*
 
-### SPEC-408
+### SPEC-407
 
 `UNKNOWN` だけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する。
 
@@ -2480,23 +2476,23 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 ### SPEC-S115 13.2 ツール一覧
 
-### SPEC-409
+### SPEC-408
 
 `approval_create` は承認レコード生成の唯一の正典面である。
 
 *引用: 本冊 §3.5*
 
-### SPEC-410
+### SPEC-409
 
 `approval_withdraw` は `approval_create` の `state: withdrawn` ＋ `supersedes: [approval_id]` と同一である。
 
-### SPEC-411
+### SPEC-410
 
 `vo_approve` は `approval_create` に `subject: { type: vo, id }` を与えた場合の別名であり、独自の意味論を持たない。
 
 ### SPEC-S116 13.3 エージェント向け利用フロー（参考）
 
-### SPEC-412
+### SPEC-411
 
 完了確認は `verify` の4検査で行う。
 
@@ -2506,13 +2502,13 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 *導出元: REQ-S039*
 
-### SPEC-413
+### SPEC-412
 
 helper・fixture・通常ソースコードの編集手段は提供しない。
 
 *引用: 要件定義 OOS-003, 基本仕様 §15.3*
 
-### SPEC-414
+### SPEC-413
 
 関数本体が helper を必要とする場合、helper の作成は通常のソース編集として利用者（人間・AI）が行う。
 
@@ -2520,31 +2516,31 @@ helper・fixture・通常ソースコードの編集手段は提供しない。
 
 ### SPEC-S120 18.1 共通条件
 
-### SPEC-415
+### SPEC-414
 
 検証結果はfail-closedである。
 
 ### SPEC-S121 18.2 共通fixture
 
-### SPEC-416
+### SPEC-415
 
 状態は5つのみとする。
 
 *引用: 基本仕様 §4.1*
 
-### SPEC-417
+### SPEC-416
 
 診断ラベルは検証状態と別軸の原因説明である。
 
 *引用: 基本仕様 §4.2*
 
-### SPEC-418
+### SPEC-417
 
 診断ラベルは状態値ではない。
 
 *引用: 基本仕様 §4.2*
 
-### SPEC-419
+### SPEC-418
 
 synthetic adapterは配布対象のproduction language adapterではない。
 
@@ -2552,15 +2548,15 @@ synthetic adapterは配布対象のproduction language adapterではない。
 
 #### SPEC-S123 18.3.1 discovery・record・graph と chain_integrity
 
-### SPEC-420
+### SPEC-419
 
 adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
 
-### SPEC-421
+### SPEC-420
 
 診断ラベルを二重定義しない。
 
-### SPEC-422
+### SPEC-421
 
 document 種別を区別せず、要件定義・基本仕様・詳細設計・API Schema 等をすべて総称 document として同一に扱う。
 
@@ -2570,7 +2566,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *導出元: REQ-S010*
 
-### SPEC-423
+### SPEC-422
 
 `orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う。
 
@@ -2578,7 +2574,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 本冊 §5.6, 基本仕様 §5.2, 要件定義 §4.2*
 
-### SPEC-424
+### SPEC-423
 
 実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。
 
@@ -2588,23 +2584,23 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 #### SPEC-S125 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
 
-### SPEC-425
+### SPEC-424
 
 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 
-### SPEC-426
+### SPEC-425
 
 信頼を宣言する専用の注釈・設定項目・レコードを新設せず、covers / 宣言targetのグラフだけで上記の各値が決まる。
 
 #### SPEC-S126 18.3.4 execution・Evidence（target_binding の証拠）
 
-### SPEC-427
+### SPEC-426
 
 旧モデルの`test_execution` / `runtime_result` / `target_execution`の3独立項目は撤去し、`target_binding`単一検査の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収する。
 
 *引用: 本冊 §11.1*
 
-### SPEC-428
+### SPEC-427
 
 鮮度喪失の独立検査（旧`evidence_validity`）は設けず、鮮度は基本仕様§6のハッシュ束縛により満たし、喪失を診断ラベル`STALE`として説明する。
 
@@ -2612,7 +2608,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 #### SPEC-S127 18.3.5 target_binding 動的計測（per-target）
 
-### SPEC-429
+### SPEC-428
 
 `target_coverage` は `target_binding` の動的計測結果であり独立の検査項目ではない。
 
@@ -2620,21 +2616,21 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *導出元: REQ-S035*
 
-### SPEC-430
+### SPEC-429
 
 旧モデルの reasons / claim / basis 必須検査（E-AUDIT-005）、decomposition-viewpoint 検査（E-AUDIT-006）、spec / req basis 検査（E-AUDIT-007）は撤去し、判断記録層で課さない。
 
-### SPEC-431
+### SPEC-430
 
 判断記録プロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
 
 *引用: 本冊 §8, 基本仕様 §11.3*
 
-### SPEC-432
+### SPEC-431
 
 旧モデルの `verdict → CheckValue` 写像（`impl_consistency = MISMATCH` を含む検証状態への変換経路）は撤去する。
 
-### SPEC-433
+### SPEC-432
 
 旧モデルの意味監査 bundle 種別（spec-coverage / test-semantic / vo-coverage / impl-consistency）を検査として扱わず、網羅・意味の疑義は `UNKNOWN` として本プロトコルへエスカレーションする。
 
@@ -2642,55 +2638,55 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 本冊 §7.1・§8, 基本仕様 §5・§11, 要件定義 §12*
 
-### SPEC-434
+### SPEC-433
 
 `spec_coverage` / `vo_decomposition` / `vo_coverage` / `impl_consistency` は検証項目として存在しない。
 
-### SPEC-435
+### SPEC-434
 
 `case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。
 
 *引用: 基本仕様 §5*
 
-### SPEC-436
+### SPEC-435
 
 §5 の 4 検査を再実施した結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。
 
-### SPEC-437
+### SPEC-436
 
 変更そのものが `UNKNOWN` を生成するのではない。
 
 #### SPEC-S129 18.3.7 承認と判断記録の分離
 
-### SPEC-438
+### SPEC-437
 
 判断済みと承認済みを区別する（判断済み ≠ 承認済み）。
 
-### SPEC-439
+### SPEC-438
 
 判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる。
 
 *引用: 本冊 §3.4・§3.5, 基本仕様 §11.3・§17*
 
-### SPEC-440
+### SPEC-439
 
 判断は承認なしでも記録でき、正式採用は承認の別段階である。
 
-### SPEC-441
+### SPEC-440
 
 承認は検証状態と独立の別軸である。
 
-### SPEC-442
+### SPEC-441
 
 方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。
 
-### SPEC-443
+### SPEC-442
 
 承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する。
 
 *引用: 基本仕様 §17・§30*
 
-### SPEC-444
+### SPEC-443
 
 承認 workflow の状態遷移と `approved_state` の値域は本冊 §3.5 に定める。
 
@@ -2698,15 +2694,15 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 #### SPEC-S130 18.3.8 verify・report と scope
 
-### SPEC-445
+### SPEC-444
 
 機能単位の集約は親 VO（子 VO を持つ VO）を単位とし、Feature を別エンティティ・別レコード・別 ID として設けない。
 
-### SPEC-446
+### SPEC-445
 
 旧モデルの SPEC → REQ → VO → Test 構造は総称 document 化により DOC → VO → Test へ再導出する。
 
-### SPEC-447
+### SPEC-446
 
 「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。
 
@@ -2714,7 +2710,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *導出元: REQ-S057*
 
-### SPEC-448
+### SPEC-447
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを評価・提示できなければならない（MUST）。
 
@@ -2722,15 +2718,15 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 本冊 §11.5, 基本仕様 §20, 要件定義 §26.4*
 
-### SPEC-449
+### SPEC-448
 
 検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。
 
-### SPEC-450
+### SPEC-449
 
 責務はゲート条件が現在満たされているかの評価・提示に限る。
 
-### SPEC-451
+### SPEC-450
 
 フェーズのライフサイクル管理・工程の自動遷移は責務外とする。
 
@@ -2738,11 +2734,11 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 基本仕様 §20・§29 OOS-004, 要件定義 §26.4*
 
-### SPEC-452
+### SPEC-451
 
 新規 CLI コマンド・MCP ツールを増やさず、既存の `vtest verify` の `--gate` 引数と出力、および `report` の JSON でゲート評価を露出する。
 
-### SPEC-453
+### SPEC-452
 
 具体的なフェーズ名・承認ロール・必要承認数はプロジェクト設定と別紙A へ委譲する。
 
@@ -2752,38 +2748,38 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *導出元: R-2, R-3*
 
-### SPEC-454
+### SPEC-453
 
 GUI は提供範囲外である。
 
-### SPEC-455
+### SPEC-454
 
 仕様書同士の矛盾判定は提供範囲外である。
 
-### SPEC-456
+### SPEC-455
 
 仕様・Test・実装のどれを変更すべきかという修正方針の決定は提供範囲外である。
 
-### SPEC-457
+### SPEC-456
 
 helper、fixture、通常sourceの編集管理は提供範囲外である。
 
-### SPEC-458
+### SPEC-457
 
 開発process管理は提供範囲外である。
 
-### SPEC-459
+### SPEC-458
 
 `rust-cargo`以外のproduction language adapterは提供範囲外である。
 
-### SPEC-460
+### SPEC-459
 
 third-party plugin ABIは提供範囲外である。
 
-### SPEC-461
+### SPEC-460
 
 LSP統合は提供範囲外である。
 
-### SPEC-462
+### SPEC-461
 
 runner / coverage providerの自動選択または推測fallbackは提供範囲外である。

@@ -1,0 +1,191 @@
+{
+  "DES-011": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Evidenceに含むtarget参照は、target別"
+  },
+  "DES-036": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Testの内容ハッシュは Test construct"
+  },
+  "DES-058": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Evidenceには実行時HEAD revision"
+  },
+  "DES-063": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 状態遷移条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Evidence readerは、Rust実行と一意"
+  },
+  "DES-078": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Test subject hashはdomain `vtest:"
+  },
+  "DES-081": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "canonical metadataの `targets` は"
+  },
+  "DES-085": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Source Target hashはdomain `vtes"
+  },
+  "DES-086": {
+    "layer": "design",
+    "reason": "詳細設計: 事前条件・事後条件・不変条件",
+    "confidence": "low",
+    "code_like": false,
+    "statement_prefix": "construct bytesへの束縛は当該実現"
+  },
+  "DES-089": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "恒久SRC IDはhash inputの独立fiel"
+  },
+  "DES-094": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Evidence、検証は解決後のcanonic"
+  },
+  "DES-095": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "document subject hashはdomain `v"
+  },
+  "DES-099": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "VO subject hashは `derives_from`"
+  },
+  "DES-101": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "Execution State subject hashはdo"
+  },
+  "DES-110": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "静的解析結果は内容ハッシュに束縛"
+  },
+  "DES-125": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "`anchor` と `note` はVO subject "
+  },
+  "DES-128": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "low",
+    "code_like": false,
+    "statement_prefix": "`combinations` はcanonical VO re"
+  },
+  "DES-134": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "判断記録は依存closureのハッシュ"
+  },
+  "DES-159": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "いずれの種別でも対象自身は `sub"
+  },
+  "DES-174": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 状態遷移条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "A'(X) が空の場合、実効承認状態"
+  },
+  "DES-399": {
+    "layer": "design",
+    "reason": "詳細設計: 事前条件・事後条件・不変条件（syn::parse_file名指しで言語固有・code_like、E-SCAN-001部分は同一文中のため分離せず設計に留め置き）",
+    "confidence": "low",
+    "code_like": true,
+    "statement_prefix": "`rust-cargo` discoveryの第2段は"
+  },
+  "DES-411": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: エラーの外部的意味",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "`rust-cargo`のlocator解決で一意"
+  },
+  "DES-503": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: エラーの外部的意味",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "再確認で見つからない場合は E-O"
+  },
+  "DES-514": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: エラーの外部的意味",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "回答自体の検証エラーはE-OP-00"
+  },
+  "DES-552": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 受入条件・検証可能な期待結果（LAYERING.md L57の未解決の緊張＝別紙C受入条件はspec仮置きとの対立あり、reference一覧を優先）",
+    "confidence": "low",
+    "code_like": false,
+    "statement_prefix": "正常Testは違反なしとなり、各違"
+  },
+  "DS-554": {
+    "layer": "design",
+    "reason": "詳細設計: 事前条件・事後条件・不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "E-SCAN-003が発生しても対応する"
+  },
+  "DS-994": {
+    "layer": "design",
+    "reason": "詳細設計: 入出力データの構造",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "`doc add` は `--path` の対象ファ"
+  },
+  "SPEC-314": {
+    "layer": "detailed_spec",
+    "reason": "詳細仕様: 仕様上の不変条件",
+    "confidence": "high",
+    "code_like": false,
+    "statement_prefix": "変更そのものが`UNKNOWN`を生成"
+  }
+}
