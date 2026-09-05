@@ -9397,5 +9397,433 @@
         }
       ]
     }
+  ],
+  "headings": [
+    {
+      "number": "0",
+      "title": "本書の位置付け",
+      "line": 3,
+      "level": 2
+    },
+    {
+      "number": "1",
+      "title": "実装構成",
+      "line": 28,
+      "level": 2
+    },
+    {
+      "number": "1.1",
+      "title": "ワークスペース構成",
+      "line": 30,
+      "level": 3
+    },
+    {
+      "number": "1.2",
+      "title": "主要依存クレート",
+      "line": 62,
+      "level": 3
+    },
+    {
+      "number": "1.3",
+      "title": "内容ハッシュの定義",
+      "line": 81,
+      "level": 3
+    },
+    {
+      "number": "2",
+      "title": "データディレクトリと設定",
+      "line": 103,
+      "level": 2
+    },
+    {
+      "number": "2.1",
+      "title": "`.verify/` レイアウト",
+      "line": 105,
+      "level": 3
+    },
+    {
+      "number": "2.2",
+      "title": "`config.yaml`",
+      "line": 129,
+      "level": 3
+    },
+    {
+      "number": "2.3",
+      "title": "派生情報",
+      "line": 175,
+      "level": 3
+    },
+    {
+      "number": "3",
+      "title": "レコードファイルスキーマ",
+      "line": 183,
+      "level": 2
+    },
+    {
+      "number": "3.1",
+      "title": "document レコード（`.verify/doc/DOC-*.yaml`）",
+      "line": 188,
+      "level": 3
+    },
+    {
+      "number": "3.2",
+      "title": "VO レコード（`.verify/vo/VO-*.yaml`）",
+      "line": 212,
+      "level": 3
+    },
+    {
+      "number": "3.2.1",
+      "title": "dimensions と組合せの実体化",
+      "line": 239,
+      "level": 4
+    },
+    {
+      "number": "3.3",
+      "title": "Relation レコード（`.verify/rel/REL-<ULID>.yaml`）",
+      "line": 288,
+      "level": 3
+    },
+    {
+      "number": "3.4",
+      "title": "判断記録レコード（`.verify/decisions/<ULID>.yaml`）",
+      "line": 306,
+      "level": 3
+    },
+    {
+      "number": "3.5",
+      "title": "承認レコード（`.verify/approvals/<ULID>.yaml`）",
+      "line": 345,
+      "level": 3
+    },
+    {
+      "number": "3.6",
+      "title": "Evidence レコード（`.verify/evidence/<ULID>.yaml`）",
+      "line": 431,
+      "level": 3
+    },
+    {
+      "number": "4",
+      "title": "Test metadata宣言contract",
+      "line": 507,
+      "level": 2
+    },
+    {
+      "number": "4.1",
+      "title": "adapter-neutralな正規化",
+      "line": 509,
+      "level": 3
+    },
+    {
+      "number": "4.2",
+      "title": "`rust-cargo` annotation文法",
+      "line": 524,
+      "level": 3
+    },
+    {
+      "number": "4.3",
+      "title": "`rust-cargo` locator構文",
+      "line": 548,
+      "level": 3
+    },
+    {
+      "number": "4.4",
+      "title": "宣言エラーの扱い",
+      "line": 563,
+      "level": 3
+    },
+    {
+      "number": "5",
+      "title": "Discovery orchestration設計",
+      "line": 575,
+      "level": 2
+    },
+    {
+      "number": "5.1",
+      "title": "処理フロー",
+      "line": 577,
+      "level": 3
+    },
+    {
+      "number": "5.2",
+      "title": "エンティティモデル（vtest-model）",
+      "line": 614,
+      "level": 3
+    },
+    {
+      "number": "5.3",
+      "title": "検証グラフ",
+      "line": 845,
+      "level": 3
+    },
+    {
+      "number": "5.4",
+      "title": "整合性診断",
+      "line": 863,
+      "level": 3
+    },
+    {
+      "number": "5.5",
+      "title": "`rust-cargo` SourceDiscoveryAdapter",
+      "line": 902,
+      "level": 3
+    },
+    {
+      "number": "5.6",
+      "title": "文書層 orphan_detection",
+      "line": 938,
+      "level": 3
+    },
+    {
+      "number": "6",
+      "title": "Target Reference解決",
+      "line": 949,
+      "level": 2
+    },
+    {
+      "number": "6.1",
+      "title": "adapter-neutral解決contract",
+      "line": 951,
+      "level": 3
+    },
+    {
+      "number": "6.1.1",
+      "title": "target identityの一方向確定",
+      "line": 962,
+      "level": 4
+    },
+    {
+      "number": "6.2",
+      "title": "`rust-cargo` locator解決",
+      "line": 978,
+      "level": 3
+    },
+    {
+      "number": "6.3",
+      "title": "候補提示",
+      "line": 989,
+      "level": 3
+    },
+    {
+      "number": "7",
+      "title": "Static Analysis orchestrationと`rust-cargo`ルール",
+      "line": 1008,
+      "level": 2
+    },
+    {
+      "number": "7.1",
+      "title": "判定の原則",
+      "line": 1012,
+      "level": 3
+    },
+    {
+      "number": "7.2",
+      "title": "`rust-cargo` ルール一覧",
+      "line": 1026,
+      "level": 3
+    },
+    {
+      "number": "7.2.1",
+      "title": "照合の委譲先の終端（DA-003・DA-006）",
+      "line": 1053,
+      "level": 3
+    },
+    {
+      "number": "7.3",
+      "title": "target 到達の静的証明と runtime 証明の関係（target_binding）",
+      "line": 1079,
+      "level": 3
+    },
+    {
+      "number": "8",
+      "title": "判断記録プロトコル",
+      "line": 1117,
+      "level": 2
+    },
+    {
+      "number": "8.1",
+      "title": "バンドル生成",
+      "line": 1121,
+      "level": 3
+    },
+    {
+      "number": "8.2",
+      "title": "バンドル JSON スキーマ（例）",
+      "line": 1153,
+      "level": 3
+    },
+    {
+      "number": "8.3",
+      "title": "提出スキーマ",
+      "line": 1191,
+      "level": 3
+    },
+    {
+      "number": "8.4",
+      "title": "提出の検証",
+      "line": 1223,
+      "level": 3
+    },
+    {
+      "number": "8.5",
+      "title": "有効性と再判断",
+      "line": 1243,
+      "level": 3
+    },
+    {
+      "number": "8.6",
+      "title": "参考プロンプト",
+      "line": 1276,
+      "level": 3
+    },
+    {
+      "number": "9",
+      "title": "テスト実行設計",
+      "line": 1297,
+      "level": 2
+    },
+    {
+      "number": "9.1",
+      "title": "実行対象の解決",
+      "line": 1299,
+      "level": 3
+    },
+    {
+      "number": "9.2",
+      "title": "`rust-cargo` TestRunnerAdapter",
+      "line": 1303,
+      "level": 3
+    },
+    {
+      "number": "9.3",
+      "title": "`rust-cargo` 結果のパース",
+      "line": 1327,
+      "level": 3
+    },
+    {
+      "number": "9.4",
+      "title": "Evidence の記録",
+      "line": 1342,
+      "level": 3
+    },
+    {
+      "number": "10",
+      "title": "`rust-cargo` Target Binding 動的計測",
+      "line": 1354,
+      "level": 2
+    },
+    {
+      "number": "10.1",
+      "title": "計測方式",
+      "line": 1356,
+      "level": 3
+    },
+    {
+      "number": "10.2",
+      "title": "判定",
+      "line": 1374,
+      "level": 3
+    },
+    {
+      "number": "10.3",
+      "title": "実行モードの整理",
+      "line": 1401,
+      "level": 3
+    },
+    {
+      "number": "11",
+      "title": "鮮度検証と集約",
+      "line": 1410,
+      "level": 2
+    },
+    {
+      "number": "11.1",
+      "title": "検査の評価地点",
+      "line": 1412,
+      "level": 3
+    },
+    {
+      "number": "11.1.1",
+      "title": "`chain_integrity` の評価",
+      "line": 1448,
+      "level": 4
+    },
+    {
+      "number": "11.2",
+      "title": "Evidence 鮮度判定（target_binding の証拠有効性）",
+      "line": 1460,
+      "level": 3
+    },
+    {
+      "number": "11.3",
+      "title": "集約アルゴリズム",
+      "line": 1494,
+      "level": 3
+    },
+    {
+      "number": "11.4",
+      "title": "document 鮮度",
+      "line": 1531,
+      "level": 3
+    },
+    {
+      "number": "11.5",
+      "title": "フェーズゲート評価",
+      "line": 1538,
+      "level": 3
+    },
+    {
+      "number": "11.6",
+      "title": "役割別 projection",
+      "line": 1553,
+      "level": 3
+    },
+    {
+      "number": "11.7",
+      "title": "判断待ち情報の構造",
+      "line": 1564,
+      "level": 3
+    },
+    {
+      "number": "16",
+      "title": "並列動作と整合性",
+      "line": 1586,
+      "level": 2
+    },
+    {
+      "number": "16.1",
+      "title": "ロック不要の根拠",
+      "line": 1590,
+      "level": 3
+    },
+    {
+      "number": "16.2",
+      "title": "意味的衝突検出",
+      "line": 1603,
+      "level": 3
+    },
+    {
+      "number": "17",
+      "title": "診断・終了コード体系",
+      "line": 1616,
+      "level": 2
+    },
+    {
+      "number": "17.1",
+      "title": "診断コード",
+      "line": 1618,
+      "level": 3
+    },
+    {
+      "number": "17.2",
+      "title": "終了コード",
+      "line": 1652,
+      "level": 3
+    },
+    {
+      "number": "19",
+      "title": "実装選択と提供範囲",
+      "line": 1670,
+      "level": 2
+    }
   ]
 }

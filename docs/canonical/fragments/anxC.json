@@ -6296,5 +6296,109 @@
         }
       ]
     }
+  ],
+  "headings": [
+    {
+      "number": "18",
+      "title": "受入契約",
+      "line": 9,
+      "level": 2
+    },
+    {
+      "number": "18.1",
+      "title": "共通条件",
+      "line": 11,
+      "level": 3
+    },
+    {
+      "number": "18.2",
+      "title": "共通fixture",
+      "line": 20,
+      "level": 3
+    },
+    {
+      "number": "18.3",
+      "title": "機能別受入条件",
+      "line": 57,
+      "level": 3
+    },
+    {
+      "number": "18.3.1",
+      "title": "discovery・record・graph と chain_integrity",
+      "line": 59,
+      "level": 4
+    },
+    {
+      "number": "18.3.2",
+      "title": "orphan_detection（文書層の孤児検出）",
+      "line": 119,
+      "level": 4
+    },
+    {
+      "number": "18.3.3",
+      "title": "決定論的静的解析（oracle_presence・target_binding 静的到達）",
+      "line": 127,
+      "level": 4
+    },
+    {
+      "number": "18.3.4",
+      "title": "execution・Evidence（target_binding の証拠）",
+      "line": 153,
+      "level": 4
+    },
+    {
+      "number": "18.3.5",
+      "title": "target_binding 動的計測（per-target）",
+      "line": 175,
+      "level": 4
+    },
+    {
+      "number": "18.3.6",
+      "title": "判断記録プロトコル（非ゲート）",
+      "line": 187,
+      "level": 4
+    },
+    {
+      "number": "18.3.7",
+      "title": "承認と判断記録の分離",
+      "line": 212,
+      "level": 4
+    },
+    {
+      "number": "18.3.8",
+      "title": "verify・report と scope",
+      "line": 232,
+      "level": 4
+    },
+    {
+      "number": "18.3.9",
+      "title": "フェーズゲート評価",
+      "line": 266,
+      "level": 4
+    },
+    {
+      "number": "18.3.10",
+      "title": "Structured Test Operation",
+      "line": 283,
+      "level": 4
+    },
+    {
+      "number": "18.3.11",
+      "title": "MCP interface",
+      "line": 302,
+      "level": 4
+    },
+    {
+      "number": "18.3.12",
+      "title": "adapter contract",
+      "line": 309,
+      "level": 4
+    },
+    {
+      "number": "18.4",
+      "title": "提供範囲外",
+      "line": 334,
+      "level": 3
+    }
   ]
 }

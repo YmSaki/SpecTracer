@@ -4099,5 +4099,421 @@
         ]
       }
     }
+  ],
+  "headings": [
+    {
+      "number": "R-1",
+      "title": "一次場面",
+      "line": 11,
+      "level": 2
+    },
+    {
+      "number": "R-2",
+      "title": "スコープ防衛",
+      "line": 18,
+      "level": 2
+    },
+    {
+      "number": "R-3",
+      "title": "言語・ツール非依存と拡張性",
+      "line": 25,
+      "level": 2
+    },
+    {
+      "number": "R-4",
+      "title": "対象環境（並列開発）",
+      "line": 32,
+      "level": 2
+    },
+    {
+      "number": "R-5",
+      "title": "途中導入可能性",
+      "line": 37,
+      "level": 2
+    },
+    {
+      "number": "1",
+      "title": "目的",
+      "line": 46,
+      "level": 2
+    },
+    {
+      "number": "2",
+      "title": "基本原則",
+      "line": 67,
+      "level": 2
+    },
+    {
+      "number": "P-001",
+      "title": "検証機であり修正方針決定機ではない",
+      "line": 69,
+      "level": 3
+    },
+    {
+      "number": "P-002",
+      "title": "Fail Closed",
+      "line": 75,
+      "level": 3
+    },
+    {
+      "number": "P-003",
+      "title": "単一の正典を重複して持たない",
+      "line": 81,
+      "level": 3
+    },
+    {
+      "number": "P-004",
+      "title": "AI の自由度を必要以上に与えない",
+      "line": 85,
+      "level": 3
+    },
+    {
+      "number": "P-005",
+      "title": "規範の伝播は上流→下流、逆はフィードバック",
+      "line": 89,
+      "level": 3
+    },
+    {
+      "number": "3",
+      "title": "検証モデル",
+      "line": 95,
+      "level": 2
+    },
+    {
+      "number": "3.1",
+      "title": "Test 判定の主語",
+      "line": 97,
+      "level": 3
+    },
+    {
+      "number": "3.2",
+      "title": "宣言鎖",
+      "line": 101,
+      "level": 3
+    },
+    {
+      "number": "3.3",
+      "title": "検査",
+      "line": 123,
+      "level": 3
+    },
+    {
+      "number": "3.4",
+      "title": "関係型とトレーサビリティ",
+      "line": 127,
+      "level": 3
+    },
+    {
+      "number": "4",
+      "title": "検査",
+      "line": 136,
+      "level": 2
+    },
+    {
+      "number": "4.1",
+      "title": "chain_integrity — 宣言鎖の完全性",
+      "line": 140,
+      "level": 3
+    },
+    {
+      "number": "4.2",
+      "title": "orphan_detection — 文書層の孤児検出",
+      "line": 152,
+      "level": 3
+    },
+    {
+      "number": "4.3",
+      "title": "target_binding — 宣言対象の振る舞いの実現",
+      "line": 159,
+      "level": 3
+    },
+    {
+      "number": "4.4",
+      "title": "oracle_presence — 照合装置の存在",
+      "line": 169,
+      "level": 3
+    },
+    {
+      "number": "5",
+      "title": "検証状態",
+      "line": 185,
+      "level": 2
+    },
+    {
+      "number": "5.1",
+      "title": "状態は 5 つ",
+      "line": 187,
+      "level": 3
+    },
+    {
+      "number": "5.2",
+      "title": "診断ラベル",
+      "line": 199,
+      "level": 3
+    },
+    {
+      "number": "5.3",
+      "title": "状態の割当",
+      "line": 203,
+      "level": 3
+    },
+    {
+      "number": "5.4",
+      "title": "UNKNOWN の検疫",
+      "line": 216,
+      "level": 3
+    },
+    {
+      "number": "5.5",
+      "title": "検証状態と承認の分離",
+      "line": 220,
+      "level": 3
+    },
+    {
+      "number": "6",
+      "title": "証拠",
+      "line": 232,
+      "level": 2
+    },
+    {
+      "number": "7",
+      "title": "判定権威",
+      "line": 240,
+      "level": 2
+    },
+    {
+      "number": "8",
+      "title": "Test の検証成立性",
+      "line": 246,
+      "level": 2
+    },
+    {
+      "number": "8.1",
+      "title": "Test の成立と証拠への算入",
+      "line": 248,
+      "level": 3
+    },
+    {
+      "number": "8.2",
+      "title": "成立性確認の原則",
+      "line": 259,
+      "level": 3
+    },
+    {
+      "number": "8.3",
+      "title": "決定論的に検出可能な不成立構造",
+      "line": 266,
+      "level": 3
+    },
+    {
+      "number": "9",
+      "title": "検証対象と Source Target",
+      "line": 312,
+      "level": 2
+    },
+    {
+      "number": "9.1",
+      "title": "検証対象",
+      "line": 314,
+      "level": 3
+    },
+    {
+      "number": "9.2",
+      "title": "Source Target の識別",
+      "line": 320,
+      "level": 3
+    },
+    {
+      "number": "9.3",
+      "title": "実装 traceability",
+      "line": 328,
+      "level": 3
+    },
+    {
+      "number": "10",
+      "title": "Verification Obligation",
+      "line": 336,
+      "level": 2
+    },
+    {
+      "number": "10.1",
+      "title": "定義",
+      "line": 338,
+      "level": 3
+    },
+    {
+      "number": "10.2",
+      "title": "VO 分解",
+      "line": 346,
+      "level": 3
+    },
+    {
+      "number": "10.3",
+      "title": "VO 階層",
+      "line": 350,
+      "level": 3
+    },
+    {
+      "number": "10.4",
+      "title": "VO と Test の対応",
+      "line": 354,
+      "level": 3
+    },
+    {
+      "number": "11",
+      "title": "検証空間の表現",
+      "line": 360,
+      "level": 2
+    },
+    {
+      "number": "12",
+      "title": "発見・意味判定のエスカレーション",
+      "line": 368,
+      "level": 2
+    },
+    {
+      "number": "13",
+      "title": "Test Registry",
+      "line": 382,
+      "level": 2
+    },
+    {
+      "number": "14",
+      "title": "Test Intent",
+      "line": 402,
+      "level": 2
+    },
+    {
+      "number": "15",
+      "title": "Parameterized / Table-Driven Test",
+      "line": 408,
+      "level": 2
+    },
+    {
+      "number": "16",
+      "title": "Structured Test Operation",
+      "line": 414,
+      "level": 2
+    },
+    {
+      "number": "17",
+      "title": "途中導入と既存プロジェクト対応",
+      "line": 423,
+      "level": 2
+    },
+    {
+      "number": "17.1",
+      "title": "既存資産の可視化",
+      "line": 427,
+      "level": 3
+    },
+    {
+      "number": "17.2",
+      "title": "導入時の責務境界",
+      "line": 431,
+      "level": 3
+    },
+    {
+      "number": "17.3",
+      "title": "判断待ち情報の構造化",
+      "line": 435,
+      "level": 3
+    },
+    {
+      "number": "17.4",
+      "title": "導入難度の規模非依存（設計原則）",
+      "line": 439,
+      "level": 3
+    },
+    {
+      "number": "18",
+      "title": "仕様入力（文書層）",
+      "line": 445,
+      "level": 2
+    },
+    {
+      "number": "19",
+      "title": "承認",
+      "line": 453,
+      "level": 2
+    },
+    {
+      "number": "20",
+      "title": "利用者",
+      "line": 465,
+      "level": 2
+    },
+    {
+      "number": "21",
+      "title": "対応範囲と adapter 境界",
+      "line": 475,
+      "level": 2
+    },
+    {
+      "number": "22",
+      "title": "インターフェース",
+      "line": 485,
+      "level": 2
+    },
+    {
+      "number": "23",
+      "title": "並列 AI 開発への要求",
+      "line": 491,
+      "level": 2
+    },
+    {
+      "number": "24",
+      "title": "非機能要求",
+      "line": 497,
+      "level": 2
+    },
+    {
+      "number": "25",
+      "title": "スコープ外",
+      "line": 510,
+      "level": 2
+    },
+    {
+      "number": "26",
+      "title": "完全検証と報告",
+      "line": 522,
+      "level": 2
+    },
+    {
+      "number": "26.1",
+      "title": "完全検証 OK",
+      "line": 524,
+      "level": 3
+    },
+    {
+      "number": "26.2",
+      "title": "簡易出力と詳細出力",
+      "line": 528,
+      "level": 3
+    },
+    {
+      "number": "26.3",
+      "title": "集約",
+      "line": 532,
+      "level": 3
+    },
+    {
+      "number": "26.4",
+      "title": "フェーズゲートと進行条件",
+      "line": 536,
+      "level": 3
+    },
+    {
+      "number": "27",
+      "title": "要件分解",
+      "line": 552,
+      "level": 2
+    },
+    {
+      "number": "28",
+      "title": "下位仕様へ委譲する設計事項",
+      "line": 582,
+      "level": 2
+    }
   ]
 }

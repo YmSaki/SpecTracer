@@ -677,7 +677,7 @@ def ancestor_tokens(token: str) -> list:
     return [".".join(parts[:i]) for i in range(1, len(parts))]
 
 
-def effective_number_resolver(items_in_doc: list, doc: str, get_md_lines):
+def effective_number_resolver(items_in_doc: list, doc: str, headings_by_doc: dict):
     """-> function(item) -> number token, for one (layer, doc) group.
 
     An item's own heading usually carries a numeric token (heading_
@@ -687,25 +687,29 @@ def effective_number_resolver(items_in_doc: list, doc: str, get_md_lines):
     nothing about these, so the rule here is the smallest one that stays
     inside "derive from source.heading": such an item belongs to the
     nearest PRECEDING numbered heading in the same doc (by line position).
-    That "nearest preceding heading" set must come from the real md text
-    (get_md_lines), not just from headings some item happens to own
-    verbatim -- "## 2. 基本原則" in 要求・要件定義 has no item of its own (its
-    first content is "### P-001 ..."), so if "known" were built only from
-    items'/areas' own tokens, every one of section 2's fallback items
-    would silently walk past it and attach to section 1 instead (a real
-    bug caught against the live corpus, not a hypothetical). When
-    get_md_lines is unavailable (no --repo-root given), this falls back to
+    That "nearest preceding heading" set comes from the fragments' own
+    harvested headings[] (headings_by_doc, 2026-09-05 md-independence --
+    formerly a live md scan under --repo-root, now `harvest-headings`'
+    output, read the same way every other build-time datum is), filtered
+    to the digit-dot subset (is_numeric_token) -- a P-00N/R-N entry must
+    NOT enter this "known" set, or every item after it would resolve to
+    "P-001" instead of "2" and the whole cluster would wrongly become its
+    own top-level section (this is exactly the shape of the bug this
+    function was written to fix in the first place: "## 2. 基本原則" in
+    要求・要件定義 has no item of its own -- its first content is "### P-001
+    ..." -- so if "known" were built only from items'/areas' own tokens,
+    every one of section 2's fallback items would silently walk past it
+    and attach to section 1 instead). When headings_by_doc has nothing for
+    this doc (harvest-headings hasn't run for it), this falls back to
     items'/areas' own tokens only -- coarser, but never worse than before
-    repo_root support existed. An item with nothing preceding it at all
+    md-based lookup existed. An item with nothing preceding it at all
     (true document-start preamble) gets the sentinel token "0" -- already
     a real convention in this corpus (詳細設計 本冊 "0. 本書の位置付け")."""
-    known = []
-    if get_md_lines is not None:
-        for i, line in enumerate(get_md_lines(doc), start=1):
-            if HEADING_RE.match(line):
-                tok = heading_number_token(line)
-                if tok is not None:
-                    known.append((i, tok))
+    known = [
+        (h["line"], h["number"])
+        for h in headings_by_doc.get(doc, [])
+        if is_numeric_token(h["number"])
+    ]
     if not known:
         seen_area_ids = set()
         for it in items_in_doc:
@@ -736,20 +740,28 @@ def effective_number_resolver(items_in_doc: list, doc: str, get_md_lines):
     return resolve
 
 
-def find_heading_in_md(get_md_lines, doc: str, token: str):
-    """-> (heading_line_text, line_no) for the ATX heading in `doc` whose
-    own number token exactly equals `token`, or (None, None) if `doc`
-    couldn't be read or no such heading exists. Used only for a node that
-    has no item and no native area at its own number (an "implied parent"
-    -- a heading that groups sub-numbered content but was never itself
+def find_heading_in_headings(headings_by_doc: dict, doc: str, token: str):
+    """-> (reconstructed_heading_text, line_no) for the harvested heading
+    in `doc` whose own number exactly equals `token`, or (None, None) if
+    there's no harvested data for `doc` or no such heading. Reconstructs
+    an ATX-style string ("#"*level + number + title) from the harvested
+    fields so downstream code (heading_number_token, strip_heading_markup)
+    keeps working on it exactly as it would on a raw md line -- 2026-09-05
+    md-independence replacement for find_heading_in_md; the reconstruction
+    drops whatever separator (". " vs " ") the original line used between
+    number and title, since harvest-headings' {number, title, line, level}
+    shape has nowhere to keep it -- a disclosed, cosmetic-only difference
+    for an implied-parent node's title text. Used only for a node that has
+    no item and no native area at its own number (an "implied parent" --
+    a heading that groups sub-numbered content but was never itself
     transcribed as/near a statement)."""
-    for i, line in enumerate(get_md_lines(doc), start=1):
-        if HEADING_RE.match(line) and heading_number_token(line) == token:
-            return line.strip(), i
+    for h in headings_by_doc.get(doc, []):
+        if h["number"] == token:
+            return f"{'#' * h['level']} {h['number']} {h['title']}", h["line"]
     return None, None
 
 
-def build_layer_section_tree(layer: str, items_for_layer: list, get_md_lines) -> tuple:
+def build_layer_section_tree(layer: str, items_for_layer: list, headings_by_doc: dict) -> tuple:
     """-> (layer_out: list[section dict, schema-shaped], item_objects: dict).
     Builds the 文書 > 節 > 小節 > 文 tree for one sectioned layer (2026-09-05
     section-node model): items are grouped by doc (doc order = doc_key,
@@ -781,7 +793,7 @@ def build_layer_section_tree(layer: str, items_for_layer: list, get_md_lines) ->
 
     for doc in docs_sorted:
         items_in_doc = by_doc[doc]
-        resolve = effective_number_resolver(items_in_doc, doc, get_md_lines)
+        resolve = effective_number_resolver(items_in_doc, doc, headings_by_doc)
 
         all_tokens: set = set()
         item_tok: dict = {}
@@ -831,7 +843,7 @@ def build_layer_section_tree(layer: str, items_for_layer: list, get_md_lines) ->
                 node["lines"] = list(area["source"]["lines"])
                 node["title_source"] = "area"
             else:
-                heading_text, line_no = find_heading_in_md(get_md_lines, doc, tok) if get_md_lines else (None, None)
+                heading_text, line_no = find_heading_in_headings(headings_by_doc, doc, tok)
                 if heading_text is not None:
                     node["heading"] = heading_text
                     node["lines"] = [line_no, line_no]
@@ -887,7 +899,7 @@ def build_layer_section_tree(layer: str, items_for_layer: list, get_md_lines) ->
     return layer_out, item_objects, dups
 
 
-def build_in_memory(root: Path, repo_root: Path = None):
+def build_in_memory(root: Path):
     """Core of `build`, factored out so `freeze`/`relayer` can reuse it:
     routes every fragment item to its effective layer (request/require/
     spec/detailed_spec/basic_design/design -- see effective_layer), builds
@@ -907,16 +919,19 @@ def build_in_memory(root: Path, repo_root: Path = None):
     still redirect it to a different layer at build time without touching
     the fragment's shape (the relayer mechanism).
 
-    repo_root, if given, lets a section node with no item and no native
-    area of its own number (an "implied parent" heading) read its real
-    title from the source md instead of falling back to a bare-number
-    placeholder (see find_heading_in_md); omit it (None) to skip that
-    lookup entirely and always use the placeholder for such nodes.
+    A section node with no item and no native area of its own number (an
+    "implied parent" heading) gets its real title from the fragments' own
+    harvested headings[] (headings_by_doc_from_fragments -- see
+    find_heading_in_headings), not from md -- 2026-09-05 md-independence:
+    build no longer touches --repo-root at all; run `harvest-headings`
+    first if a doc's headings[] isn't populated yet, or such a node falls
+    back to a bare-number placeholder.
 
     -> (output, item_objects: dict[id, dict], dup_ids: list[str],
         fragments: list[(Path, dict)])
     Raises ValueError on an unknown/missing layer; does not touch disk."""
     fragments = load_fragments(root)
+    headings_by_doc = headings_by_doc_from_fragments(fragments)
 
     request_items: list[dict] = []
     sectioned_items: dict[str, list[dict]] = {layer: [] for layer in _SECTIONED_LAYERS}
@@ -951,21 +966,9 @@ def build_in_memory(root: Path, repo_root: Path = None):
     for it in request_items:
         item_objects[it["_id"]] = it
 
-    md_cache: dict = {}
-
-    def get_md_lines(doc: str):
-        if repo_root is None:
-            return []
-        if doc not in md_cache:
-            try:
-                md_cache[doc] = (repo_root / doc).read_text(encoding="utf-8").splitlines()
-            except OSError:
-                md_cache[doc] = []
-        return md_cache[doc]
-
     for layer in _SECTIONED_LAYERS:
         layer_out, layer_item_objects, dups = build_layer_section_tree(
-            layer, sectioned_items[layer], get_md_lines if repo_root is not None else None
+            layer, sectioned_items[layer], headings_by_doc
         )
         output[layer] = layer_out
         item_objects.update(layer_item_objects)
@@ -980,9 +983,13 @@ def count_sections(nodes: list) -> int:
 
 def cmd_build(args) -> int:
     root = Path(args.root)
-    repo_root = Path(args.repo_root) if getattr(args, "repo_root", None) else None
+    # 2026-09-05 (md-independence): build no longer reads md at all -- an
+    # implied-parent section's title comes from the fragments' own
+    # harvested headings[] (harvest-headings), not --repo-root. The flag
+    # is still accepted on this subparser (harmless, ignored) so existing
+    # invocations/scripts don't need to change.
     try:
-        output, _item_objects, dups, _fragments = build_in_memory(root, repo_root)
+        output, _item_objects, dups, _fragments = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -1484,6 +1491,95 @@ def iter_leaf_items(frag: dict):
     else:
         for it in frag.get("items", []):
             yield it
+
+
+# ------------------------------------------------------- harvest-headings --
+# 2026-09-05 (md-independence): build's section tree used to read the real
+# md text (via --repo-root) to find the true title of an "implied parent"
+# node -- a heading with numbered children but no item of its own. Once md
+# retires, that data must live in fragments instead. harvest-headings reads
+# each fragment's own "doc" once and writes every numbered ATX heading of
+# that document, in order, into a new top-level "headings" array -- build
+# then reads THAT instead of md (see headings_by_doc/build_layer_section_
+# tree). "Numbered" mirrors what heading_number_token already recognises
+# (digit-dot) plus the P-00N/R-N patterns cites/self-naming resolution
+# already special-cases -- harvested for completeness even though build's
+# own fallback-resolution only consumes the digit-dot subset (a P-00N/R-N
+# heading is still reachable by an item's own heading text, never needs
+# the "nearest preceding numbered heading" fallback).
+_HEADING_HARVEST_RE = re.compile(r"^(#{1,6}) ((?:[0-9]+(?:\.[0-9]+)*)|P-[0-9]{3}|R-[0-9]+)\.?\s*(.*)$")
+
+
+def is_numeric_token(token: str) -> bool:
+    """Whether a harvested heading's "number" is the digit-dot shape
+    build's section tree actually nests by (as opposed to a harvested but
+    non-nesting P-00N/R-N heading)."""
+    return bool(re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", token))
+
+
+def cmd_harvest_headings(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    files = list_fragment_files(root)
+    if not files:
+        print("harvest-headings: no fragments found")
+        return 0
+
+    md_cache: dict = {}
+
+    def get_md_lines(doc: str) -> list[str]:
+        if doc not in md_cache:
+            md_cache[doc] = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+        return md_cache[doc]
+
+    counts: dict = {}
+    for path in files:
+        frag = read_json(path)
+        doc = frag.get("doc")
+        headings = []
+        for i, line in enumerate(get_md_lines(doc), start=1):
+            m = _HEADING_HARVEST_RE.match(line)
+            if m:
+                headings.append({
+                    "number": m.group(2),
+                    "title": m.group(3).strip(),
+                    "line": i,
+                    "level": len(m.group(1)),
+                })
+        frag["headings"] = headings
+        counts[str(path)] = len(headings)
+        text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
+        path.write_text(text, encoding="utf-8")
+
+    print("--- harvest-headings ---")
+    for p in sorted(counts):
+        print(f"  {p}: {counts[p]} headings")
+    print(f"  total: {sum(counts.values())}")
+    return 0
+
+
+def headings_by_doc_from_fragments(fragments: list) -> dict:
+    """doc -> [{"number","title","line","level"}, ...] sorted by line,
+    deduped by line (two fragments sharing a doc -- e.g. det1/det2 both
+    from 詳細設計 v0.1.md -- harvest the identical full-document heading
+    list into each, so this must not double-count). `fragments` is a
+    load_fragments-shaped list of (path, frag dict)."""
+    by_doc: dict = {}
+    seen: dict = {}
+    for _path, frag in fragments:
+        doc = frag.get("doc")
+        if doc is None:
+            continue
+        bucket = by_doc.setdefault(doc, [])
+        seen_lines = seen.setdefault(doc, set())
+        for h in frag.get("headings", []):
+            if h["line"] in seen_lines:
+                continue
+            seen_lines.add(h["line"])
+            bucket.append(h)
+    for doc in by_doc:
+        by_doc[doc].sort(key=lambda h: h["line"])
+    return by_doc
 
 
 def cmd_harvest_cites(args) -> int:
@@ -2249,23 +2345,261 @@ def id_sort_number(iid: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def collect_rules_1_2_edges(spec: dict, id_index: dict, root: Path, repo_root: Path) -> dict:
-    """target_id -> set of candidate source ids, from cites (rule 1) and
-    the 要求-要件 derivation table (rule 2) only, before rule 3
-    filtering/dedup/sort."""
+def collect_cites_edges(spec: dict, id_index: dict) -> dict:
+    """target_id -> set of candidate source ids, from cites (rule 1) only,
+    before rule 3 filtering/dedup/sort. 2026-09-05 (md-independence):
+    formerly also did rule 2 (要求→要件 table) here by re-parsing md; that
+    row-based resolution now lives in trace-tables.json (harvest-trace-
+    tables) and is merged in by collect_derivation_edges via
+    collect_edges_from_trace_tables, uniformly with Task A -- once a row
+    is loaded from JSON, "which of the 5 source tables it came from" no
+    longer matters to edge-building (see that function's docstring)."""
     edges: dict = {}
-
-    # Rule 1: reuse derivation-candidates' own cite resolution + layer_relation.
     for e in build_derivation_candidates(spec, id_index):
         if e["layer_relation"] in ("adjacent-upstream", "skip-upstream"):
             edges.setdefault(e["id"], set()).update(c["id"] for c in e["candidates"])
+    return edges
 
-    # Rule 2: reuse the same table-row resolution.
-    for r in build_derivation_table_candidates(spec, id_index, root, repo_root):
-        if r["source_ids"] and r["target_ids"]:
-            for t in r["target_ids"]:
-                edges.setdefault(t, set()).update(r["source_ids"])
 
+# ---------------------------------------------------- trace-tables.json --
+# 2026-09-05 (md-independence): harvest-trace-tables reads md ONE LAST TIME
+# (the 要求→要件 derivation table, kept_for_derivation-marked, and the 4
+# document-trailing traceability appendices, reason-marked) and writes
+# every row into docs/canonical/relations/trace-tables.json in one uniform
+# shape: {"source": ref|[ref,...], "upstream": [ref, ...], "kind", "note"}
+# where a ref is {"doc": <fragment-doc-path>|null, "section": "§N"|
+# "<bare id/code/unknown token, verbatim>"}. "source" is always the row's
+# own/downstream reference (the 要求→要件 table's 下流ノード column, or an
+# appendix's own-section column); "upstream" is always its cited upstream
+# reference(s) -- this direction is uniform across all 5 source tables, so
+# apply-derivation's edge-building (collect_edges_from_trace_tables) needs
+# no per-table branching once the JSON exists: "source" resolves to the
+# edge's target id(s), each "upstream" entry resolves to a source id. A
+# §-ref's doc is resolved to a real fragment doc path AT HARVEST TIME
+# (doc_path_for_mark) -- not a layer or a mark -- so the id resolution that
+# actually turns (doc, §N) into a section id (section_id_candidates_cross_
+# layer) still runs fresh against the CURRENT build every time apply-
+# derivation runs (ids are never baked into this file). A bare id/self-
+# naming code has "doc": null (it resolves by id, not by doc); an
+# unrecognised token (Issue/F-item/裁定 label) is ALSO kept, doc: null,
+# section: the token verbatim -- zero loss, even though it will never
+# resolve to an edge (classify_table_ref already calls this "unknown").
+
+def doc_path_for_mark(mark: str, all_docs) -> str:
+    """The one fragment-declared doc path matching a document mark
+    (本冊/基本仕様/要件定義/別紙A/別紙B/別紙C), or None if no fragment names
+    that document (shouldn't happen in this corpus, but harvesting must
+    not crash on it)."""
+    for doc in all_docs:
+        if doc_matches_mark(doc, mark):
+            return doc
+    return None
+
+
+def doc_mark_for_path(doc: str):
+    """Reverse of doc_path_for_mark -- the document mark a fragment's own
+    doc path belongs to, for resolve_trace_ref's cross-layer section
+    lookup (section_id_candidates_cross_layer takes a mark, not a path)."""
+    if doc is None:
+        return None
+    for mark in ("別紙A", "別紙B", "別紙C", "基本仕様", "要件定義", "本冊"):
+        if doc_matches_mark(doc, mark):
+            return mark
+    return None
+
+
+def token_to_trace_ref(token: str, doc_for_section) -> dict:
+    """One 上流ノード/下流ノード/appendix-cell token -> a trace-tables.json
+    ref, reusing classify_table_ref's exact classification (id/section/
+    selfname/unknown) so harvesting and the pre-existing derivation-
+    candidates command never disagree about what a token means.
+    `doc_for_section` is the doc path to attach when the token classifies
+    as a section reference (the table's own document for a bare §, or
+    whatever a doc-abbreviated §-group resolved to -- see the two harvest
+    functions below, which call this differently per case). Uses `key`
+    (the bare digit-dot number), not `matched`, for a section reference --
+    matched keeps a compound target's item-suffix verbatim (e.g. "§21-a"),
+    which resolve_trace_ref's consumer-side lookup (an exact match against
+    heading_number_token, always suffix-free) would then never find,
+    silently losing every §21-a/-b/-c/-d-style row (caught against the
+    real corpus: REQ-S048's derived_from went from [R-2, R-3] to [] before
+    this fix, exactly the §21-a..d cluster)."""
+    kind, key, matched = classify_table_ref(token)
+    if kind == "section":
+        return {"doc": doc_for_section, "section": f"§{key}"}
+    if kind in ("id", "selfname"):
+        return {"doc": None, "section": key}
+    return {"doc": None, "section": token.strip()}
+
+
+def harvest_derivation_table_rows(root: Path, repo_root: Path) -> list:
+    """The 要求→要件 derivation table's rows (every dropped-log entry
+    marked keep_for_derivation -- CONVERSION.md SS4/SS6 -- which in this
+    corpus is 第I部 根→要求 and 第II部 要求→要件 both, since both are marked
+    the same way; harvested as-is, not filtered to "just 要求→要件" since
+    there is no data-level way to tell them apart here). 下流ノード ->
+    "source" (may be a list when the cell is compound, e.g. "§12/§19");
+    上流ノード -> "upstream". Both this table's node types share ONE
+    document (要求・要件定義), so every section-kind token here uses that
+    doc regardless of which column it came from."""
+    rows_out = []
+    for doc, start, end in find_derivation_table_ranges(root):
+        md_lines = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+        for line_no, cells in parse_md_table_rows(md_lines, start, end):
+            if len(cells) != 4:
+                rows_out.append({
+                    "source": None, "upstream": [], "kind": None,
+                    "note": f"{doc} L{line_no} 列数が4でない行（そのまま記録）: " + " | ".join(cells),
+                })
+                continue
+            upstream, downstream, reason, state = cells
+            source_refs = [token_to_trace_ref(t, doc) for t in _TABLE_TOKEN_SPLIT_RE.split(downstream) if t.strip()]
+            upstream_refs = [token_to_trace_ref(t, doc) for t in _TABLE_TOKEN_SPLIT_RE.split(upstream) if t.strip()]
+            rows_out.append({
+                "source": source_refs[0] if len(source_refs) == 1 else source_refs,
+                "upstream": upstream_refs,
+                "kind": state,
+                "note": f"{doc} L{line_no} | 上流: {upstream} / 下流: {downstream} / 理由: {reason}",
+            })
+    return rows_out
+
+
+def harvest_traceability_appendix_rows(root: Path, repo_root: Path, all_docs) -> tuple:
+    """-> (rows, by_table Counter, unparseable_count). The 4 document-
+    trailing traceability appendices (found via dropped-log reason text
+    containing トレーサビリティ表): own-section column -> "source" (always
+    this table's own doc); upstream column -> "upstream", each §-group's
+    doc resolved via its abbreviation (本冊/基本/要件) or, absent one, the
+    table's one fixed default (basic_design's own default is 要件定義,
+    本冊's is 基本仕様, 別紙A/別紙C have none) -- an unresolvable bare
+    §-group (no abbreviation, no default) makes the whole row unparseable,
+    same as the pre-harvest md-parsing path did."""
+    rows_out = []
+    by_table = Counter()
+    unparseable = 0
+    for doc, start, end in find_traceability_table_ranges(root):
+        profile = _trace_table_profile(doc)
+        if profile is None:
+            continue
+        table_name, _source_doc_mark, default_bare_doc_mark = profile
+        default_bare_doc = doc_path_for_mark(default_bare_doc_mark, all_docs) if default_bare_doc_mark else None
+        md_lines = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+        for line_no, cells in parse_generic_table_rows(md_lines, start, end):
+            if len(cells) != 3:
+                rows_out.append({"source": None, "upstream": [], "kind": None, "note": f"{doc} L{line_no} 列数が3でない行: " + " | ".join(cells)})
+                unparseable += 1
+                continue
+            own_cell, upstream_cell, kind_cell = cells
+            m = _TRACE_OWN_SECTION_RE.match(own_cell)
+            if not m:
+                rows_out.append({"source": None, "upstream": [], "kind": kind_cell, "note": f"{doc} L{line_no} own-section 解析不能: {own_cell}"})
+                unparseable += 1
+                continue
+            source_ref = {"doc": doc, "section": f"§{m.group(1)}"}
+            upstream_refs = []
+            had_problem = False
+            for mm in _TRACE_SCAN_RE.finditer(upstream_cell):
+                if mm.group("secdoc"):
+                    mark = _TRACE_DOC_ABBR_TO_DOCMARK[mm.group("secdoc")]
+                    ref_doc = doc_path_for_mark(mark, all_docs)
+                    for num in split_trace_seclist(mm.group("seclist")):
+                        upstream_refs.append({"doc": ref_doc, "section": f"§{num}"})
+                elif mm.group("bareseclist"):
+                    if default_bare_doc is None:
+                        had_problem = True
+                        continue
+                    for num in split_trace_seclist(mm.group("bareseclist")):
+                        upstream_refs.append({"doc": default_bare_doc, "section": f"§{num}"})
+                elif mm.group("bare"):
+                    upstream_refs.append({"doc": None, "section": mm.group("bare")})
+            if had_problem:
+                rows_out.append({"source": source_ref, "upstream": upstream_refs, "kind": kind_cell, "note": f"{doc} L{line_no} 未解決の裸§グループを含む: {upstream_cell}"})
+                unparseable += 1
+                continue
+            rows_out.append({
+                "source": source_ref,
+                "upstream": upstream_refs,
+                "kind": kind_cell,
+                "note": f"{doc} L{line_no} | 本節: {own_cell} / 上流: {upstream_cell} / 理由: {kind_cell}",
+            })
+            by_table[table_name] += 1
+    return rows_out, by_table, unparseable
+
+
+def trace_tables_path(root: Path) -> Path:
+    return root / "relations" / "trace-tables.json"
+
+
+def cmd_harvest_trace_tables(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+    all_docs = {frag.get("doc") for _path, frag in load_fragments(root) if frag.get("doc")}
+
+    deriv_rows = harvest_derivation_table_rows(root, repo_root)
+    appendix_rows, by_table, unparseable = harvest_traceability_appendix_rows(root, repo_root, all_docs)
+
+    all_rows = deriv_rows + appendix_rows
+    out_path = trace_tables_path(root)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(all_rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    print("--- harvest-trace-tables ---")
+    print(f"  要求→要件 derivation table rows (keep_for_derivation, 第I部+第II部 combined -- see docstring): {len(deriv_rows)}")
+    print("  traceability appendix rows, by document:")
+    for table_name in ("基本仕様", "本冊", "別紙A", "別紙C"):
+        print(f"    {table_name}: {by_table.get(table_name, 0)}")
+    print(f"  appendix rows total: {sum(by_table.values())}")
+    print(f"  appendix rows unparseable: {unparseable}")
+    print(f"  wrote {out_path} ({len(all_rows)} rows total)")
+    return 0
+
+
+def resolve_trace_ref(ref, spec: dict, id_index: dict) -> list:
+    """One harvested {doc, section} ref (or None) -> resolved id(s),
+    against the CURRENT build (spec/id_index) -- ids are never baked into
+    trace-tables.json, only the doc+section/code data is, so this always
+    reflects whatever the corpus looks like right now, same as the old
+    md-parsing path did on every run."""
+    if not ref:
+        return []
+    section = ref.get("section")
+    if not section:
+        return []
+    if section.startswith("§"):
+        doc = ref.get("doc")
+        mark = doc_mark_for_path(doc) if doc else None
+        if mark is None:
+            return []
+        return section_id_candidates_cross_layer(spec, mark, section[1:])
+    if re.match(r"^(R-[1-5]|P-[0-9]{3})$", section):
+        return [section] if section in id_index else []
+    if re.match(r"^(NFR-[0-9]{3}|OOS-[0-9]{3})$", section):
+        return self_naming_candidates(id_index, section)
+    return []  # unknown token (Issue/F-item/裁定 label) -- never resolves
+
+
+def collect_edges_from_trace_tables(rows: list, spec: dict, id_index: dict) -> dict:
+    """target_id -> set(source_id), from every harvested row (要求→要件
+    table + all 4 traceability appendices, uniformly -- see the
+    trace-tables.json docstring above for why one mechanism suffices for
+    both). Replaces the old rule-2 (table_candidates) and rule-3/Task A
+    (collect_traceability_table_edges) md-parsing paths."""
+    edges: dict = {}
+    for row in rows:
+        src = row.get("source")
+        src_refs = src if isinstance(src, list) else ([src] if src else [])
+        targets: list = []
+        for ref in src_refs:
+            targets.extend(resolve_trace_ref(ref, spec, id_index))
+        if not targets:
+            continue
+        sources: list = []
+        for ref in row.get("upstream", []):
+            sources.extend(resolve_trace_ref(ref, spec, id_index))
+        if not sources:
+            continue
+        for t in targets:
+            edges.setdefault(t, set()).update(sources)
     return edges
 
 
@@ -2440,15 +2774,20 @@ def collect_traceability_table_edges(spec: dict, id_index: dict, root: Path, rep
     return edges, {"rows_parsed": rows_parsed, "unparseable": unparseable, "by_table": by_table}
 
 
-def collect_derivation_edges(spec: dict, id_index: dict, root: Path, repo_root: Path):
-    """-> (edges, trace_stats). edges is target_id -> set of candidate
-    source ids, merged from all three rules, before rule 3
-    filtering/dedup/sort."""
-    edges = collect_rules_1_2_edges(spec, id_index, root, repo_root)
-    trace_edges, trace_stats = collect_traceability_table_edges(spec, id_index, root, repo_root)
+def collect_derivation_edges(spec: dict, id_index: dict, root: Path):
+    """-> (edges, stats). edges is target_id -> set of candidate source
+    ids, merged from cites (rule 1) and every harvested trace-table row
+    (rules 2+3, collect_edges_from_trace_tables), before rule 3
+    filtering/dedup/sort. 2026-09-05 (md-independence): no repo_root --
+    reads docs/canonical/relations/trace-tables.json (harvest-trace-
+    tables' output), not md; run that command first if it's stale/absent
+    (an absent file degrades to rule-1-only edges, not an error)."""
+    edges = collect_cites_edges(spec, id_index)
+    rows = read_json(trace_tables_path(root)) if trace_tables_path(root).exists() else []
+    trace_edges = collect_edges_from_trace_tables(rows, spec, id_index)
     for t, srcs in trace_edges.items():
         edges.setdefault(t, set()).update(srcs)
-    return edges, trace_stats
+    return edges, {"rows_loaded": len(rows)}
 
 
 def finalize_derived_from(target_id: str, candidate_ids, id_index: dict):
@@ -2512,23 +2851,28 @@ def build_ancestor_section_map(spec: dict, layer: str) -> dict:
 
 def cmd_apply_derivation(args) -> int:
     root = Path(args.root)
-    repo_root = Path(args.repo_root)
     spec = read_json(spec_json_path(root))
-    # id_index (statement ids only) feeds collect_rules_1_2_edges /
-    # collect_traceability_table_edges -- both call self_naming_candidates,
-    # which needs every id_index entry to have a "statement" key, so a
-    # section entry (title only) must never be in it. full_index adds
-    # section ids on top, for finalize_derived_from/summarize_edges: rule
-    # 2's §-targets and every Task A §-reference now key edges by section
-    # id (2026-09-05 section-node model), and the rank check needs a
-    # section id's layer too.
+    # id_index (statement ids only) feeds collect_cites_edges, which calls
+    # self_naming_candidates -- every id_index entry must have a
+    # "statement" key, so a section entry (title only) must never be in
+    # it. full_index adds section ids on top, for finalize_derived_from/
+    # summarize_edges: a trace-table row's §-target now keys edges by
+    # section id (2026-09-05 section-node model), and the rank check needs
+    # a section id's layer too.
     id_index = build_id_index(spec)
     full_index = build_full_index(spec)
 
-    edges_before = collect_rules_1_2_edges(spec, id_index, root, repo_root)
+    # 2026-09-05 (md-independence): reads docs/canonical/relations/
+    # trace-tables.json (harvest-trace-tables' output), not md -- no
+    # --repo-root anywhere in this command any more. Run harvest-headings
+    # and harvest-trace-tables first if either is stale; an absent
+    # trace-tables.json degrades to cites-only edges rather than erroring.
+    edges_before = collect_cites_edges(spec, id_index)
     stats_before = summarize_edges(spec, full_index, edges_before)
 
-    trace_edges, trace_stats = collect_traceability_table_edges(spec, id_index, root, repo_root)
+    tt_path = trace_tables_path(root)
+    trace_rows = read_json(tt_path) if tt_path.exists() else []
+    trace_edges = collect_edges_from_trace_tables(trace_rows, spec, id_index)
     edges_after = {k: set(v) for k, v in edges_before.items()}
     for t, srcs in trace_edges.items():
         edges_after.setdefault(t, set()).update(srcs)
@@ -2538,20 +2882,15 @@ def cmd_apply_derivation(args) -> int:
         len(srcs - edges_before.get(t, set())) for t, srcs in trace_edges.items()
     )
 
-    print("--- apply-derivation: Task A (traceability tables) ---")
-    print(f"  rows parsed: {trace_stats['rows_parsed']}")
-    for table_name in ("基本仕様", "本冊", "別紙A", "別紙C"):
-        print(f"    {table_name}: {trace_stats['by_table'].get(table_name, 0)}")
-    print(f"  rows unparseable: {len(trace_stats['unparseable'])}")
-    for table_name, line_no, cells in trace_stats["unparseable"]:
-        print(f"    {table_name} L{line_no}: {cells!r}")
-    print("  statements with derived_from BEFORE Task A (rules 1+2 only):")
+    print("--- apply-derivation: trace-tables.json (要求→要件 table + 4 traceability appendices) ---")
+    print(f"  rows loaded: {len(trace_rows)}" + (f" (from {tt_path})" if tt_path.exists() else " (file absent -- ran with cites only)"))
+    print("  statements with derived_from from cites alone (rule 1):")
     for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"    {layer}: {stats_before.get(layer, 0)}")
-    print("  statements with derived_from AFTER Task A (rules 1+2+3):")
+    print("  statements with derived_from from cites + trace-tables.json (rules 1+2+3):")
     for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"    {layer}: {stats_after.get(layer, 0)}")
-    print(f"  edges added by Task A (raw candidate pairs, before rule 3): {edges_added_by_trace}")
+    print(f"  edges added by trace-tables.json (raw candidate pairs, before rule 3): {edges_added_by_trace}")
 
     cited_ids = {it["id"] for it in iter_all_statements(spec) if it.get("cites")}
 
@@ -2722,10 +3061,11 @@ def cmd_apply_derivation(args) -> int:
 
 def cmd_freeze(args) -> int:
     root = Path(args.root)
-    repo_root = Path(args.repo_root)
-
+    # 2026-09-05 (md-independence): no repo_root -- build_in_memory reads
+    # fragments' own headings[], and collect_derivation_edges reads
+    # trace-tables.json, neither touches md any more.
     try:
-        output, item_objects, dups, fragments = build_in_memory(root, repo_root)
+        output, item_objects, dups, fragments = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -2745,7 +3085,7 @@ def cmd_freeze(args) -> int:
     # not addressed by the section-node-model pass (freeze itself is on
     # hold); revisit once/if sections need their own persisted identity.
     id_index = build_full_index(output)
-    edges, _trace_stats = collect_derivation_edges(output, id_index, root, repo_root)
+    edges, _stats = collect_derivation_edges(output, id_index, root)
 
     for iid, item_obj in item_objects.items():
         item_obj["id"] = iid
@@ -3274,7 +3614,17 @@ def cmd_source_check(args) -> int:
 # ------------------------------------------------------------------ cli --
 
 def cmd_all(args) -> int:
+    """build -> apply-derivation --write -> coverage -> export, stopping
+    at the first failure. 2026-09-05: a bare `all` used to leave every
+    derived_from empty (build never computes it; apply-derivation wasn't
+    part of the chain) -- that silent gap is now closed. `build` alone is
+    unchanged (still just structure + ids, no edges) for anyone who wants
+    that without also recomputing/writing derived_from."""
     rc = cmd_build(args)
+    if rc != 0:
+        return rc
+    args.write = True
+    rc = cmd_apply_derivation(args)
     if rc != 0:
         return rc
     rc = cmd_coverage(args)
@@ -3321,6 +3671,16 @@ def main(argv=None) -> int:
     add_repo_root_arg(p_harvest)
     p_harvest.add_argument("--dry-run", action="store_true", help="print the report without writing any fragment file")
     p_harvest.set_defaults(func=cmd_harvest_cites)
+
+    p_hh = sub.add_parser("harvest-headings", help="write every fragment's numbered-heading list into its 'headings' field, from md (run once; build then never touches md)")
+    add_root_arg(p_hh)
+    add_repo_root_arg(p_hh)
+    p_hh.set_defaults(func=cmd_harvest_headings)
+
+    p_htt = sub.add_parser("harvest-trace-tables", help="parse the 要求→要件 table and the 4 traceability appendices from md into docs/canonical/relations/trace-tables.json (run once; apply-derivation then never touches md)")
+    add_root_arg(p_htt)
+    add_repo_root_arg(p_htt)
+    p_htt.set_defaults(func=cmd_harvest_trace_tables)
 
     p_deriv = sub.add_parser("derivation-candidates", help="CONVERSION.md SS6 steps 1-2: mechanical derivation candidate list")
     add_root_arg(p_deriv)

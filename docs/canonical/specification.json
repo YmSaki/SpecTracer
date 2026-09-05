@@ -205,10 +205,10 @@
     },
     {
       "id": "REQ-S002",
-      "title": "2. 基本原則",
+      "title": "2 基本原則",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 2. 基本原則",
+        "heading": "## 2 基本原則",
         "lines": [
           67,
           67
@@ -432,10 +432,10 @@
     },
     {
       "id": "REQ-S003",
-      "title": "3. 検証モデル",
+      "title": "3 検証モデル",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 3. 検証モデル",
+        "heading": "## 3 検証モデル",
         "lines": [
           95,
           95
@@ -1423,10 +1423,10 @@
     },
     {
       "id": "REQ-S013",
-      "title": "5. 検証状態",
+      "title": "5 検証状態",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 5. 検証状態",
+        "heading": "## 5 検証状態",
         "lines": [
           185,
           185
@@ -2067,10 +2067,10 @@
     },
     {
       "id": "REQ-S021",
-      "title": "8. Test の検証成立性",
+      "title": "8 Test の検証成立性",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 8. Test の検証成立性",
+        "heading": "## 8 Test の検証成立性",
         "lines": [
           246,
           246
@@ -2383,10 +2383,10 @@
     },
     {
       "id": "REQ-S025",
-      "title": "9. 検証対象と Source Target",
+      "title": "9 検証対象と Source Target",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 9. 検証対象と Source Target",
+        "heading": "## 9 検証対象と Source Target",
         "lines": [
           312,
           312
@@ -2684,10 +2684,10 @@
     },
     {
       "id": "REQ-S029",
-      "title": "10. Verification Obligation",
+      "title": "10 Verification Obligation",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 10. Verification Obligation",
+        "heading": "## 10 Verification Obligation",
         "lines": [
           336,
           336
@@ -4827,10 +4827,10 @@
     },
     {
       "id": "REQ-S053",
-      "title": "26. 完全検証と報告",
+      "title": "26 完全検証と報告",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-        "heading": "## 26. 完全検証と報告",
+        "heading": "## 26 完全検証と報告",
         "lines": [
           522,
           522
@@ -6562,10 +6562,10 @@
     },
     {
       "id": "SPEC-S003",
-      "title": "2. 全体像",
+      "title": "2 全体像",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2. 全体像",
+        "heading": "## 2 全体像",
         "lines": [
           45,
           45
@@ -7112,10 +7112,10 @@
     },
     {
       "id": "SPEC-S008",
-      "title": "3. エンティティと ID 体系",
+      "title": "3 エンティティと ID 体系",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3. エンティティと ID 体系",
+        "heading": "## 3 エンティティと ID 体系",
         "lines": [
           109,
           109
@@ -7618,10 +7618,10 @@
     },
     {
       "id": "SPEC-S012",
-      "title": "4. 検証状態と診断ラベル",
+      "title": "4 検証状態と診断ラベル",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 4. 検証状態と診断ラベル",
+        "heading": "## 4 検証状態と診断ラベル",
         "lines": [
           150,
           150
@@ -8861,10 +8861,10 @@
     },
     {
       "id": "SPEC-S027",
-      "title": "8. Test の検証成立性",
+      "title": "8 Test の検証成立性",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 8. Test の検証成立性",
+        "heading": "## 8 Test の検証成立性",
         "lines": [
           293,
           293
@@ -9098,10 +9098,10 @@
     },
     {
       "id": "SPEC-S031",
-      "title": "9. 検証対象と Source Target",
+      "title": "9 検証対象と Source Target",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 9. 検証対象と Source Target",
+        "heading": "## 9 検証対象と Source Target",
         "lines": [
           349,
           349
@@ -10256,10 +10256,10 @@
     },
     {
       "id": "SPEC-S043",
-      "title": "15. Structured Test Operation",
+      "title": "15 Structured Test Operation",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 15. Structured Test Operation",
+        "heading": "## 15 Structured Test Operation",
         "lines": [
           442,
           442
@@ -11650,10 +11650,10 @@
     },
     {
       "id": "SPEC-S056",
-      "title": "21. テスト実行と Execution Evidence",
+      "title": "21 テスト実行と Execution Evidence",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 21. テスト実行と Execution Evidence",
+        "heading": "## 21 テスト実行と Execution Evidence",
         "lines": [
           546,
           546
@@ -11696,10 +11696,10 @@
     },
     {
       "id": "SPEC-S058",
-      "title": "22. 完全検証・集約・報告",
+      "title": "22 完全検証・集約・報告",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 22. 完全検証・集約・報告",
+        "heading": "## 22 完全検証・集約・報告",
         "lines": [
           573,
           573
@@ -12006,10 +12006,10 @@
     },
     {
       "id": "SPEC-S063",
-      "title": "24. データ保存の基本方針",
+      "title": "24 データ保存の基本方針",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 24. データ保存の基本方針",
+        "heading": "## 24 データ保存の基本方針",
         "lines": [
           618,
           618
@@ -17861,10 +17861,10 @@
   "detailed_spec": [
     {
       "id": "DS-S001",
-      "title": "2. 全体像",
+      "title": "2 全体像",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2. 全体像",
+        "heading": "## 2 全体像",
         "lines": [
           45,
           45
@@ -18012,10 +18012,10 @@
     },
     {
       "id": "DS-S003",
-      "title": "3. エンティティと ID 体系",
+      "title": "3 エンティティと ID 体系",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3. エンティティと ID 体系",
+        "heading": "## 3 エンティティと ID 体系",
         "lines": [
           109,
           109
@@ -18154,10 +18154,10 @@
     },
     {
       "id": "DS-S005",
-      "title": "4. 検証状態と診断ラベル",
+      "title": "4 検証状態と診断ラベル",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 4. 検証状態と診断ラベル",
+        "heading": "## 4 検証状態と診断ラベル",
         "lines": [
           150,
           150
@@ -19319,10 +19319,10 @@
     },
     {
       "id": "DS-S017",
-      "title": "8. Test の検証成立性",
+      "title": "8 Test の検証成立性",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 8. Test の検証成立性",
+        "heading": "## 8 Test の検証成立性",
         "lines": [
           293,
           293
@@ -19548,10 +19548,10 @@
     },
     {
       "id": "DS-S021",
-      "title": "9. 検証対象と Source Target",
+      "title": "9 検証対象と Source Target",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 9. 検証対象と Source Target",
+        "heading": "## 9 検証対象と Source Target",
         "lines": [
           349,
           349
@@ -19831,10 +19831,10 @@
     },
     {
       "id": "DS-S026",
-      "title": "11. 発見・意味判定のエスカレーションと判断記録",
+      "title": "11 発見・意味判定のエスカレーションと判断記録",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 11. 発見・意味判定のエスカレーションと判断記録",
+        "heading": "## 11 発見・意味判定のエスカレーションと判断記録",
         "lines": [
           383,
           383
@@ -20246,10 +20246,10 @@
     },
     {
       "id": "DS-S029",
-      "title": "15. Structured Test Operation",
+      "title": "15 Structured Test Operation",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 15. Structured Test Operation",
+        "heading": "## 15 Structured Test Operation",
         "lines": [
           442,
           442
@@ -20628,10 +20628,10 @@
     },
     {
       "id": "DS-S035",
-      "title": "18. 途中導入と既存プロジェクト対応",
+      "title": "18 途中導入と既存プロジェクト対応",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 18. 途中導入と既存プロジェクト対応",
+        "heading": "## 18 途中導入と既存プロジェクト対応",
         "lines": [
           494,
           494
@@ -21061,10 +21061,10 @@
     },
     {
       "id": "DS-S040",
-      "title": "22. 完全検証・集約・報告",
+      "title": "22 完全検証・集約・報告",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 22. 完全検証・集約・報告",
+        "heading": "## 22 完全検証・集約・報告",
         "lines": [
           573,
           573
@@ -21532,10 +21532,10 @@
     },
     {
       "id": "DS-S045",
-      "title": "24. データ保存の基本方針",
+      "title": "24 データ保存の基本方針",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 24. データ保存の基本方針",
+        "heading": "## 24 データ保存の基本方針",
         "lines": [
           618,
           618
@@ -21632,10 +21632,10 @@
     },
     {
       "id": "DS-S048",
-      "title": "26. インターフェース概要",
+      "title": "26 インターフェース概要",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 26. インターフェース概要",
+        "heading": "## 26 インターフェース概要",
         "lines": [
           669,
           669
@@ -41700,10 +41700,10 @@
     },
     {
       "id": "BD-S002",
-      "title": "2. 全体像",
+      "title": "2 全体像",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2. 全体像",
+        "heading": "## 2 全体像",
         "lines": [
           45,
           45
@@ -41909,10 +41909,10 @@
     },
     {
       "id": "BD-S005",
-      "title": "3. エンティティと ID 体系",
+      "title": "3 エンティティと ID 体系",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3. エンティティと ID 体系",
+        "heading": "## 3 エンティティと ID 体系",
         "lines": [
           109,
           109
@@ -42230,10 +42230,10 @@
     },
     {
       "id": "BD-S009",
-      "title": "5. 検査",
+      "title": "5 検査",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 5. 検査",
+        "heading": "## 5 検査",
         "lines": [
           208,
           208
@@ -42392,10 +42392,10 @@
     },
     {
       "id": "BD-S014",
-      "title": "8. Test の検証成立性",
+      "title": "8 Test の検証成立性",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 8. Test の検証成立性",
+        "heading": "## 8 Test の検証成立性",
         "lines": [
           293,
           293
@@ -42438,10 +42438,10 @@
     },
     {
       "id": "BD-S016",
-      "title": "9. 検証対象と Source Target",
+      "title": "9 検証対象と Source Target",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 9. 検証対象と Source Target",
+        "heading": "## 9 検証対象と Source Target",
         "lines": [
           349,
           349
@@ -42688,10 +42688,10 @@
     },
     {
       "id": "BD-S021",
-      "title": "18. 途中導入と既存プロジェクト対応",
+      "title": "18 途中導入と既存プロジェクト対応",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 18. 途中導入と既存プロジェクト対応",
+        "heading": "## 18 途中導入と既存プロジェクト対応",
         "lines": [
           494,
           494
@@ -42978,10 +42978,10 @@
     },
     {
       "id": "BD-S026",
-      "title": "24. データ保存の基本方針",
+      "title": "24 データ保存の基本方針",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 24. データ保存の基本方針",
+        "heading": "## 24 データ保存の基本方針",
         "lines": [
           618,
           618
@@ -48345,10 +48345,10 @@
   "design": [
     {
       "id": "DES-S001",
-      "title": "2. 全体像",
+      "title": "2 全体像",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2. 全体像",
+        "heading": "## 2 全体像",
         "lines": [
           45,
           45

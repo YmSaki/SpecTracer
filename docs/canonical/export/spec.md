@@ -352,7 +352,7 @@ Agent Form Engineeringとは、既知の作業手順・入力項目を持つ操�
 
 *引用: 要件定義 P-004*
 
-## SPEC-S003 2. 全体像
+## SPEC-S003 2 全体像
 
 ### SPEC-S004 2.1 正典の三層構造
 
@@ -529,7 +529,7 @@ Evidenceに含むtarget参照はTest→SRC関係の正典ではない。
 
 readerは読み取りだけで正典を書き換えない。
 
-## SPEC-S008 3. エンティティと ID 体系
+## SPEC-S008 3 エンティティと ID 体系
 
 ### SPEC-S009 3.1 エンティティ種別
 
@@ -674,7 +674,7 @@ Target Referenceは、adapter IDとadapter所有のopaque locatorの組、また
 
 Source Targetは代表1件へ縮約しない。
 
-## SPEC-S012 4. 検証状態と診断ラベル
+## SPEC-S012 4 検証状態と診断ラベル
 
 ### SPEC-S013 4.1 状態は 5 つ
 
@@ -1014,7 +1014,7 @@ oracle_presenceの問いは、宣言された「何の時にどうなる」の�
 
 `target_binding`（§5.3）はランナーの `PASS` を前提に、その `PASS` が検証対象の実行を伴ったかを問う独立の照合である。
 
-## SPEC-S027 8. Test の検証成立性
+## SPEC-S027 8 Test の検証成立性
 
 *導出元: REQ-S021, REQ-S025*
 
@@ -1109,7 +1109,7 @@ code fragmentはRustによる例示である。
 
 `static_audit` に相当する判定は独立した検査項目を新設しない。
 
-## SPEC-S031 9. 検証対象と Source Target
+## SPEC-S031 9 検証対象と Source Target
 
 *導出元: REQ-S025*
 
@@ -1445,7 +1445,7 @@ adapterが識別したtable-driven test construct全体を一つのTestとして
 
 cases集合がVOに必要な入力空間を十分に代表・網羅しているかは§11の発見・判定の対象とする。
 
-## SPEC-S043 15. Structured Test Operation
+## SPEC-S043 15 Structured Test Operation
 
 *導出元: P-004, REQ-S039*
 
@@ -1825,7 +1825,7 @@ preset・UI・モード体系は詳細設計へ委譲する。
 
 *引用: 要件定義 §28*
 
-## SPEC-S056 21. テスト実行と Execution Evidence
+## SPEC-S056 21 テスト実行と Execution Evidence
 
 *導出元: REQ-S019, REQ-S054*
 
@@ -1835,7 +1835,7 @@ preset・UI・モード体系は詳細設計へ委譲する。
 
 鮮度は独立検査ではなく§6のハッシュ束縛により満たす。
 
-## SPEC-S058 22. 完全検証・集約・報告
+## SPEC-S058 22 完全検証・集約・報告
 
 *導出元: REQ-S053*
 
@@ -1923,7 +1923,7 @@ content_hash照合は決定論的に解決する。
 
 参照位置の意味的妥当性・取り込み完全性は必要ならエスカレーション（§11）で扱う。
 
-## SPEC-S063 24. データ保存の基本方針
+## SPEC-S063 24 データ保存の基本方針
 
 *導出元: REQ-S050, REQ-S058*
 

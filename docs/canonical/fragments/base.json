@@ -10317,5 +10317,457 @@
       },
       "layer": "spec"
     }
+  ],
+  "headings": [
+    {
+      "number": "0",
+      "title": "本書の位置付け",
+      "line": 3,
+      "level": 2
+    },
+    {
+      "number": "1",
+      "title": "用語定義",
+      "line": 23,
+      "level": 2
+    },
+    {
+      "number": "2",
+      "title": "全体像",
+      "line": 45,
+      "level": 2
+    },
+    {
+      "number": "2.1",
+      "title": "正典の三層構造",
+      "line": 47,
+      "level": 3
+    },
+    {
+      "number": "2.2",
+      "title": "宣言鎖と照合",
+      "line": 71,
+      "level": 3
+    },
+    {
+      "number": "2.3",
+      "title": "導出できる関係は保存しない",
+      "line": 93,
+      "level": 3
+    },
+    {
+      "number": "2.4",
+      "title": "adapter 設定と wire 互換",
+      "line": 99,
+      "level": 3
+    },
+    {
+      "number": "3",
+      "title": "エンティティと ID 体系",
+      "line": 109,
+      "level": 2
+    },
+    {
+      "number": "3.1",
+      "title": "エンティティ種別",
+      "line": 111,
+      "level": 3
+    },
+    {
+      "number": "3.2",
+      "title": "ID 規則と関係リンク",
+      "line": 126,
+      "level": 3
+    },
+    {
+      "number": "3.3",
+      "title": "Source Target の識別",
+      "line": 137,
+      "level": 3
+    },
+    {
+      "number": "4",
+      "title": "検証状態と診断ラベル",
+      "line": 150,
+      "level": 2
+    },
+    {
+      "number": "4.1",
+      "title": "状態は 5 つ",
+      "line": 152,
+      "level": 3
+    },
+    {
+      "number": "4.2",
+      "title": "診断ラベル",
+      "line": 164,
+      "level": 3
+    },
+    {
+      "number": "4.3",
+      "title": "状態の割当",
+      "line": 168,
+      "level": 3
+    },
+    {
+      "number": "4.4",
+      "title": "UNKNOWN の検疫",
+      "line": 183,
+      "level": 3
+    },
+    {
+      "number": "4.5",
+      "title": "検証状態と承認の分離",
+      "line": 187,
+      "level": 3
+    },
+    {
+      "number": "4.6",
+      "title": "scope",
+      "line": 197,
+      "level": 3
+    },
+    {
+      "number": "5",
+      "title": "検査",
+      "line": 208,
+      "level": 2
+    },
+    {
+      "number": "5.1",
+      "title": "chain_integrity — 宣言鎖の完全性",
+      "line": 214,
+      "level": 3
+    },
+    {
+      "number": "5.2",
+      "title": "orphan_detection — 文書層の孤児検出",
+      "line": 226,
+      "level": 3
+    },
+    {
+      "number": "5.3",
+      "title": "target_binding — 宣言対象の振る舞いの実現",
+      "line": 234,
+      "level": 3
+    },
+    {
+      "number": "5.4",
+      "title": "oracle_presence — 照合装置の存在",
+      "line": 245,
+      "level": 3
+    },
+    {
+      "number": "5.5",
+      "title": "決定論的に検出可能な不成立構造",
+      "line": 259,
+      "level": 3
+    },
+    {
+      "number": "6",
+      "title": "証拠",
+      "line": 272,
+      "level": 2
+    },
+    {
+      "number": "7",
+      "title": "判定権威",
+      "line": 285,
+      "level": 2
+    },
+    {
+      "number": "8",
+      "title": "Test の検証成立性",
+      "line": 293,
+      "level": 2
+    },
+    {
+      "number": "8.1",
+      "title": "成立と算入の独立",
+      "line": 295,
+      "level": 3
+    },
+    {
+      "number": "8.2",
+      "title": "成立性の必要条件",
+      "line": 299,
+      "level": 3
+    },
+    {
+      "number": "8.3",
+      "title": "決定論的に検出可能な不成立構造",
+      "line": 308,
+      "level": 3
+    },
+    {
+      "number": "9",
+      "title": "検証対象と Source Target",
+      "line": 349,
+      "level": 2
+    },
+    {
+      "number": "9.1",
+      "title": "検証対象",
+      "line": 351,
+      "level": 3
+    },
+    {
+      "number": "9.2",
+      "title": "Source Target の識別",
+      "line": 357,
+      "level": 3
+    },
+    {
+      "number": "9.3",
+      "title": "実装 traceability",
+      "line": 365,
+      "level": 3
+    },
+    {
+      "number": "10",
+      "title": "Verification Obligation",
+      "line": 371,
+      "level": 2
+    },
+    {
+      "number": "11",
+      "title": "発見・意味判定のエスカレーションと判断記録",
+      "line": 383,
+      "level": 2
+    },
+    {
+      "number": "11.1",
+      "title": "データ形態の提供",
+      "line": 387,
+      "level": 3
+    },
+    {
+      "number": "11.2",
+      "title": "エスカレーション",
+      "line": 391,
+      "level": 3
+    },
+    {
+      "number": "11.3",
+      "title": "判断の記録と再検証",
+      "line": 395,
+      "level": 3
+    },
+    {
+      "number": "12",
+      "title": "Test Registry",
+      "line": 408,
+      "level": 2
+    },
+    {
+      "number": "13",
+      "title": "Test Intent",
+      "line": 430,
+      "level": 2
+    },
+    {
+      "number": "14",
+      "title": "Parameterized / Table-Driven Test",
+      "line": 436,
+      "level": 2
+    },
+    {
+      "number": "15",
+      "title": "Structured Test Operation",
+      "line": 442,
+      "level": 2
+    },
+    {
+      "number": "15.1",
+      "title": "desired state 方式",
+      "line": 451,
+      "level": 3
+    },
+    {
+      "number": "15.2",
+      "title": "入力検証",
+      "line": 455,
+      "level": 3
+    },
+    {
+      "number": "15.3",
+      "title": "編集境界",
+      "line": 459,
+      "level": 3
+    },
+    {
+      "number": "15.4",
+      "title": "Form Schema",
+      "line": 466,
+      "level": 3
+    },
+    {
+      "number": "16",
+      "title": "仕様入力（文書層）",
+      "line": 472,
+      "level": 2
+    },
+    {
+      "number": "17",
+      "title": "承認",
+      "line": 480,
+      "level": 2
+    },
+    {
+      "number": "18",
+      "title": "途中導入と既存プロジェクト対応",
+      "line": 494,
+      "level": 2
+    },
+    {
+      "number": "18.1",
+      "title": "既存資産の可視化",
+      "line": 498,
+      "level": 3
+    },
+    {
+      "number": "18.2",
+      "title": "導入時の責務境界",
+      "line": 507,
+      "level": 3
+    },
+    {
+      "number": "18.3",
+      "title": "判断待ち情報の構造化",
+      "line": 511,
+      "level": 3
+    },
+    {
+      "number": "18.4",
+      "title": "導入難度の規模非依存",
+      "line": 515,
+      "level": 3
+    },
+    {
+      "number": "19",
+      "title": "トレーサビリティと役割別 projection",
+      "line": 521,
+      "level": 2
+    },
+    {
+      "number": "20",
+      "title": "フェーズゲートと進行条件",
+      "line": 532,
+      "level": 2
+    },
+    {
+      "number": "21",
+      "title": "テスト実行と Execution Evidence",
+      "line": 546,
+      "level": 2
+    },
+    {
+      "number": "21.1",
+      "title": "Evidence の鮮度（ハッシュ束縛による設計制約）",
+      "line": 558,
+      "level": 3
+    },
+    {
+      "number": "22",
+      "title": "完全検証・集約・報告",
+      "line": 573,
+      "level": 2
+    },
+    {
+      "number": "22.1",
+      "title": "完全検証 OK",
+      "line": 575,
+      "level": 3
+    },
+    {
+      "number": "22.2",
+      "title": "集約",
+      "line": 581,
+      "level": 3
+    },
+    {
+      "number": "22.3",
+      "title": "報告",
+      "line": 585,
+      "level": 3
+    },
+    {
+      "number": "23",
+      "title": "スキャンと整合性検査",
+      "line": 598,
+      "level": 2
+    },
+    {
+      "number": "24",
+      "title": "データ保存の基本方針",
+      "line": 618,
+      "level": 2
+    },
+    {
+      "number": "24.1",
+      "title": "`.verify/` ディレクトリ",
+      "line": 620,
+      "level": 3
+    },
+    {
+      "number": "24.2",
+      "title": "並列編集耐性の設計原則",
+      "line": 639,
+      "level": 3
+    },
+    {
+      "number": "24.3",
+      "title": "派生情報の再構築",
+      "line": 651,
+      "level": 3
+    },
+    {
+      "number": "25",
+      "title": "利用者別ユースケース",
+      "line": 657,
+      "level": 2
+    },
+    {
+      "number": "26",
+      "title": "インターフェース概要",
+      "line": 669,
+      "level": 2
+    },
+    {
+      "number": "26.1",
+      "title": "CLI コマンド体系",
+      "line": 673,
+      "level": 3
+    },
+    {
+      "number": "26.2",
+      "title": "MCP ツール体系",
+      "line": 694,
+      "level": 3
+    },
+    {
+      "number": "27",
+      "title": "対応範囲と adapter 境界",
+      "line": 717,
+      "level": 2
+    },
+    {
+      "number": "28",
+      "title": "非機能要求への対応方針",
+      "line": 727,
+      "level": 2
+    },
+    {
+      "number": "29",
+      "title": "スコープ外",
+      "line": 742,
+      "level": 2
+    },
+    {
+      "number": "30",
+      "title": "詳細設計へ委譲する事項",
+      "line": 754,
+      "level": 2
+    }
   ]
 }

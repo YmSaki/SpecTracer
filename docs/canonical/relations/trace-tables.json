@@ -1,0 +1,4996 @@
+[
+  {
+    "source": {
+      "doc": null,
+      "section": "R-1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "#11 F1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L626 | 上流: #11 F1 / 下流: R-1 一次場面 / 理由: F1 の直接写像（一次ユーザー・守る瞬間・防ぐ事故・帰結）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "R-2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "#11 F9"
+      },
+      {
+        "doc": null,
+        "section": "v0.1 最終形"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L627 | 上流: #11 F9・v0.1 最終形 / 下流: R-2 スコープ防衛 / 理由: F9 の直接写像 + v0.2 送り明文の転記"
+  },
+  {
+    "source": [
+      {
+        "doc": null,
+        "section": "R-3"
+      },
+      {
+        "doc": null,
+        "section": "ツール非依存"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-21"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L628 | 上流: Owner 裁定 2026-08-21 / 下流: R-3 言語・ツール非依存 / 理由: Owner 発言の直接転記"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "R-4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（1）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L629 | 上流: Owner 裁定 2026-08-23（1） / 下流: R-4 対象環境（並列開発） / 理由: 複数人間 + 複数 AI Agent の並列開発でも成立（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "R-5"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（2）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L630 | 上流: Owner 裁定 2026-08-23（2） / 下流: R-5 途中導入可能性 / 理由: 開始時導入を前提とせず既存/途中プロジェクトへ後から導入できる（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      },
+      {
+        "doc": null,
+        "section": "F3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L636 | 上流: R-1・F3 / 下流: §1 4点分解（照合対象の画定） / 理由: ランナーの合否を疑わない（F3）以上、嘘は緑と宣言の間にしかなく、機械で照合可能な差はこの4点に尽きる"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L637 | 上流: R-1 / 下流: §1 一文定義 / 理由: R-1 の目的ノードの再叙述（導出ではなく言い換え。目的定義ノードでは正しい関係）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "P-001"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      },
+      {
+        "doc": null,
+        "section": "F7"
+      },
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（8）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L638 | 上流: F4・F7・Owner 裁定 2026-08-23（8） / 下流: P-001 修正方針を決めない / 理由: 本体は修正先を決めず、現存トレース関係の提示とリンク到達可能性の確認に留まる（裁定8）。正とする成果物の選択は受領者に残す"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "P-002"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      },
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L639 | 上流: F5・F7 / 下流: P-002 fail-closed / 理由: 「証拠なし ≠ PASS が全ケースを拾う」（F5）の原則化。PASS 以外を合格にしない"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "P-003"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L640 | 上流: R-1 / 下流: P-003 単一正典 / 理由: 手動同期は宣言と実体の乖離＝嘘の PASS の温床。派生は再構築で正す"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "P-004"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L641 | 上流: R-1 / 下流: P-004 Agent Form Engineering / 理由: 自由編集は宣言の破壊経路。既知手順は構造化して宣言の完全性を守る（§16 の親原則）"
+  },
+  {
+    "source": [
+      {
+        "doc": null,
+        "section": "P-005"
+      },
+      {
+        "doc": null,
+        "section": "逆は feedback"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（7）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L642 | 上流: Owner 裁定 2026-08-23（7） / 下流: P-005 規範伝播は上流→下流・逆は feedback / 理由: 下流成果物を根拠に上流を自動書換えしない。逆方向は判断材料のフィードバック（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L643 | 上流: U-04 裁定 / 下流: §3.1 判定の主語＝宣言+コード+証拠 / 理由: 「何のため・何を検証・何が OK か」に答えを持たないテストは系に存在できない（裁定の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F11"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L644 | 上流: F11 / 下流: §3.2 総称 document + derives_from + hash / 理由: MISMATCH の行動指示「上流を直せ」の修正先をグラフが指せる必要がある（F11 の論拠）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-02 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L645 | 上流: U-02 裁定 / 下流: §3.2 文書→VO 直結 / 理由: 裁定の転記（文書と VO の間に他のエンティティ層を置かない）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L646 | 上流: F8 / 下流: §3.2 リンク追加でスキーマ不壊 / 理由: F8 の設計制約の転記"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": null,
+        "section": "専用スキーマ"
+      },
+      {
+        "doc": null,
+        "section": "リンク意味論"
+      },
+      {
+        "doc": null,
+        "section": "良否検証の拒否"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F11"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L647 | 上流: F11 / 下流: §3.2 内容非関知・専用スキーマ/リンク意味論/良否検証の拒否 / 理由: スコープ爆発の侵入経路の明示的拒否（F11）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      },
+      {
+        "doc": null,
+        "section": "F10"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L648 | 上流: F8・F10 / 下流: §3.3 検査は4本のみ、段はリンク / 理由: 検査増殖の原因は遷移ごと1検査の設計思想（F10 の診断）。全遷移の検査は同型"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（10）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L649 | 上流: Owner 裁定 2026-08-23（10） / 下流: §3.4 関係型を単一へ潰さない / 理由: 文書間 derives_from / VO→Test covers / Test↔実装 検証対象・traceability を区別してよい。横断トレース可能性が要件（Owner 発言の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": null,
+        "section": "任意関係は欠落可"
+      },
+      {
+        "doc": null,
+        "section": "説明文は optional"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（11）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L650 | 上流: Owner 裁定 2026-08-23（11） / 下流: §3.4 契約上必須リンクは必須・任意関係は欠落可・説明文は optional / 理由: 契約上必須のリンクは必須、任意関係（§9.3 実装 traceability 等）は欠落可、説明文は任意で空でも chain_integrity 違反にしない（F11 最小形への追加要求）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": null,
+        "section": "経路"
+      },
+      {
+        "doc": null,
+        "section": "全体トレーサビリティ取得"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（9）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L651 | 上流: Owner 裁定 2026-08-23（9） / 下流: §3.4 任意ノードからの局所/経路/全体トレーサビリティ取得 / 理由: 最小単位「上流→関係→下流」を任意ノードから取得し、連続遡行と全体構造取得も可能（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§3.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（12）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L652 | 上流: Owner 裁定 2026-08-23（12） / 下流: §3.4 役割別 projection / 理由: 同一トレース構造から役割/目的で参照対象・関係・集約粒度を変えた projection を提示。固定 enum/モードは下位仕様（Owner 発言の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4"
+      },
+      {
+        "doc": null,
+        "section": "複数証拠源"
+      },
+      {
+        "doc": null,
+        "section": "答えは方法非依存"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定（条項3）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L653 | 上流: U-04 裁定（条項3） / 下流: §4 冒頭 一つの問い・複数証拠源・答えは方法非依存 / 理由: 受け入れ条件が同じなら、形態・方法に依らず同じ答えが出なければならない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L654 | 上流: F8 / 下流: §4.1 chain_integrity / 理由: spec/vo_coverage・test_existence/test_traceability の統合先（F8）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-05 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L655 | 上流: U-05 裁定 / 下流: §4.1 covers ≥ 1 一律 / 理由: role 機構を v0.1 から外す裁定。既定のみ残す"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": null,
+        "section": "算入は別条件"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§8.1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L656 | 上流: §8.1 / 下流: §4.1 管理/算入は別条件 / 理由: 成立検査と算入判定の独立（§8.1）のリンク規則側への反映"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F12"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L657 | 上流: F12 / 下流: §4.2 orphan_detection（文書層のみ） / 理由: 総称ノード世界の孤児検出は全層同型で、文書層は実質 null 判定なので v0.1 可・実装層は v0.2（F12）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F12"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L658 | 上流: F12 / 下流: §4.2 根の指定 / 理由: 最上流文書は定義上親を持たないため、orphan_detection（F12）が根を常に孤児と誤報しないよう除外指定が要る"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L659 | 上流: F8 / 下流: §4.3 target_binding の静的+動的2証拠源 / 理由: 静的/動的は同一の問いの2つの証拠源（F8）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-03 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L660 | 上流: U-03 裁定 / 下流: §4.3 per-target 規則（実行 0 回 = FAIL） / 理由: 状態割当の凍結の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定（条項3）"
+      },
+      {
+        "doc": null,
+        "section": "A′ 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L661 | 上流: U-04 裁定（条項3）・A′ 裁定 / 下流: §4.3 形態別確認方法は下位仕様 / 理由: 実行形態固有の確認方法を他形態へ一律要求しない"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.3"
+      },
+      {
+        "doc": null,
+        "section": "限定 scope で省略可"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-002"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L662 | 上流: P-002 / 下流: §4.3 完全検証で既定有効・限定 scope で省略可 / 理由: scope 限定は P-002 が許容。省略項目は集約時に NO_EVIDENCE（診断 NOT_CHECKED）で PASS にしない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L663 | 上流: U-04 裁定 / 下流: §4.4 oracle_presence の出力3値 / 理由: 不成立の構造的証明→FAIL / 存在確認→成立側 / 決定論の限界→UNKNOWN"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L664 | 上流: U-04 裁定 / 下流: §4.4 静的解析＝不成立の証明 / 理由: 証明の失敗は UNKNOWN の事由ではない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§4.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F3"
+      },
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L665 | 上流: F3・F4 / 下流: §4.4 意味的一致は主張に含めない / 理由: 第3の検査は幻（F3）。意味判定の知能は載せない（F4）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.1"
+      },
+      {
+        "doc": null,
+        "section": "行動指示"
+      },
+      {
+        "doc": null,
+        "section": "存在資格"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L666 | 上流: F7 / 下流: §5.1 5状態・行動指示・存在資格 / 理由: 状態の存在資格は「受け取った者の行動が変わるか」（F7 の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§5.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F6"
+      },
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L667 | 上流: F6・F7 / 下流: §5.2 診断ラベル / 理由: STALE ほかの診断ラベルへの降格（F6/F7）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§5.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-03 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L668 | 上流: U-03 裁定 / 下流: §5.3 状態の割当表 / 理由: 凍結済み割当の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§5.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L669 | 上流: F7 / 下流: §5.4 UNKNOWN の検疫 / 理由: UNKNOWN ≠ エラー。フォールバック使用は仕様違反（F7 の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": null,
+        "section": "不一致は不存在"
+      },
+      {
+        "doc": null,
+        "section": "ストアキー必須"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L670 | 上流: F5 / 下流: §6 ハッシュ束縛・不一致は不存在・ストアキー必須 / 理由: F5 の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§6"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L671 | 上流: F5 / 下流: §6 判定入力の一致要求は設計制約として実現 / 理由: 鮮度は独立検査でなく設計制約に吸収（F5）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§7"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F3"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L672 | 上流: F3・R-3 / 下流: §7 判定権威＝当該 adapter のテストランナー / 理由: 合否権威の委譲（F3）を R-3 により adapter 一般形で記述（cargo は rust-cargo インスタンス）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L673 | 上流: U-04 裁定 / 下流: §8.1 条項1 検証成立性（不成立が非成功として反映される） / 理由: 検査の錨の必要条件側（U-04 裁定）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L674 | 上流: U-04 裁定 / 下流: §8.1 条項2 依存要素の信頼性（確認 or 明示信頼で終端） / 理由: 判定委譲は信頼基盤で終端しないと成立が確認できない（U-04 裁定）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L675 | 上流: U-04 裁定 / 下流: §8.2 条項3 証明方法への非依存 / 理由: 答えは確認方法に依らず同一（U-04 裁定・条項3）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L676 | 上流: U-04 裁定 / 下流: §8.2 条項4 未確認と違反の区別 / 理由: 確認不能から違反も成立も推定しない（U-04 裁定・条項4）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      },
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L677 | 上流: F8・U-04 裁定 / 下流: §8.1 成立と算入の独立 / 理由: 全 Test を管理する条件（chain_integrity = F8）と証拠に算入する条件（成立性 = U-04）は別系統ゆえ分離する"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§8.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L678 | 上流: U-04 裁定 / 下流: §8.3 宣言付きの不成立例示 / 理由: 無意味 assert = FAIL の裁定 + 例示は宣言付きで書く"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§9.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "A′ 裁定"
+      },
+      {
+        "doc": null,
+        "section": "U-04 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L679 | 上流: A′ 裁定・U-04 裁定 / 下流: §9.1 検証対象の一般化 / 理由: 成立性の答えが形態非依存である以上、検証対象を実装 construct に限定できない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§9.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L680 | 上流: R-3 / 下流: §9.2 Source Target 識別（言語構造非強制） / 理由: 共通契約が特定言語構造を要求しない"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9.3"
+      },
+      {
+        "doc": null,
+        "section": "相互推定禁止"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "A′ 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L681 | 上流: A′ 裁定 / 下流: §9.3 traceability 分離・相互推定禁止 / 理由: traceability は関連付けであって証明ではない"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10.1"
+      },
+      {
+        "doc": null,
+        "section": "構文非依存）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      },
+      {
+        "doc": null,
+        "section": "F10"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L682 | 上流: F8・F10 / 下流: §10.1 VO 定義（命題単位・構文非依存） / 理由: 宣言鎖の義務ノードには、テスト実装と独立に検証可否を判定できる命題単位が必要"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§10.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L683 | 上流: F4 / 下流: §10.2 分解の表現能力（判定は外部） / 理由: 発見を可能にするデータ形態までが責務（F4 の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10.3"
+      },
+      {
+        "doc": null,
+        "section": "flat 許容"
+      },
+      {
+        "doc": null,
+        "section": "階層化操作"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L684 | 上流: F4 / 下流: §10.3 階層・flat 許容・階層化操作 / 理由: 外部の発見者が網羅を判断するための構造表現。既存資産は flat から始まるため階層を強制しない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§10.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10.1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L685 | 上流: §10.1 / 下流: §10.4 VO:Test = N:M / 理由: 命題単位とテスト実装単位は独立に決まるため、対応は多対多になる"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§11"
+      },
+      {
+        "doc": null,
+        "section": "組合せ空間の表現"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L686 | 上流: F4 / 下流: §11 partition・組合せ空間の表現 / 理由: 網羅の判断材料を外部発見者へ渡すデータ形態（F4 の系）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§11"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-002"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L687 | 上流: P-002 / 下流: §11 同時確認からの独立証明の禁止 / 理由: 1 テストの存在から複数観点の独立証明を推定するのは fail-closed 違反"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": null,
+        "section": "構造化出力"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L688 | 上流: F4 / 下流: §12 発見知能の外部化・構造化出力 / 理由: F4 の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§12"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L689 | 上流: F7 / 下流: §12 UNKNOWN のエスカレーション / 理由: F7 の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§12"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F1"
+      },
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（6）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L690 | 上流: F1・Owner 裁定 2026-08-23（6） / 下流: §12 判断による解消と再検証 / 理由: UNKNOWN は外部判断で解消。判断はその時点の成果物へ記録され、変更時は流用せず現在状態を再検証（結果は 5 状態のいずれか）。変更自体は UNKNOWN を生成しない"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（判断"
+      },
+      {
+        "doc": null,
+        "section": "承認分離）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L691 | 上流: Owner 裁定 2026-08-24（判断/承認分離） / 下流: §12/§19 判断と承認の分離（判断済み ≠ 承認済み） / 理由: decision と approval は別概念・別 entity 可。判断は承認なしでも記録可、承認は判断/方針の正式採用（Owner 発言の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": null,
+        "section": "何を"
+      },
+      {
+        "doc": null,
+        "section": "どう判断）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（記録要件）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L692 | 上流: Owner 裁定 2026-08-24（記録要件） / 下流: §12 判断記録の必須項目（誰が・何を・どう判断） / 理由: actor/subject/decision は必須で追跡可能（Owner 発言の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": null,
+        "section": "根拠は optional"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（記録要件）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L693 | 上流: Owner 裁定 2026-08-24（記録要件） / 下流: §12 判断記録の理由・根拠は optional / 理由: 理由・evidence は保存可能だが任意。空欄を根拠に無効・UNKNOWN・NO_EVIDENCE・MISMATCH としない（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§13"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L694 | 上流: F8 / 下流: §13 安定 Test ID とハンドル検索 / 理由: 宣言鎖の Test ノードを covers 参照で解決するには安定識別子が必要"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": null,
+        "section": "M 集合と完全検証条件"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-05 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L695 | 上流: U-05 裁定 / 下流: §13 D/M 集合と完全検証条件 / 理由: 発見と宣言の対応規則（covers ≥ 1 一律は U-05 裁定）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§13"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-03 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L696 | 上流: U-03 裁定 / 下流: §13 違反時の状態 / 理由: 割当表の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§14"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "U-02 裁定"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L697 | 上流: U-02 裁定 / 下流: §14 Test Intent は付随情報 / 理由: 鎖のノードにしない裁定の転記"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§15"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10.1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L698 | 上流: §10.1 / 下流: §15 table-driven の許容 / 理由: VO 粒度を構文で決めない原則の実行単位側への適用（case 分解を強制しない）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§16"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L699 | 上流: F1 / 下流: §16 構造化 Test 操作 / 理由: MCP が本体＝エージェントが宣言を作るその場で嘘の混入を防ぐ側の装置も目的の内側（U-07）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§16"
+      },
+      {
+        "doc": null,
+        "section": "その場検証"
+      },
+      {
+        "doc": null,
+        "section": "直接編集の非禁止"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-004"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L700 | 上流: P-004 / 下流: §16 1 操作 1 Test・その場検証・直接編集の非禁止 / 理由: AFE の適用（自由編集の事故低減、検証での検出可能性）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§17.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-5"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L701 | 上流: R-5 / 下流: §17.1 既存資産の可視化 / 理由: 途中導入（R-5）では既存の大量の Source/Test/文書を読み取り状態を可視化できる必要がある"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§17.2"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（4）"
+      },
+      {
+        "doc": null,
+        "section": "F4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L702 | 上流: Owner 裁定 2026-08-23（4）・F4 / 下流: §17.2 導入時の責務境界 / 理由: 決定論的作業は反復手入力を要さず、意味定義・対応決定はプロジェクト側。意味判断能力を検証成立条件にしない（F4 と同源）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§17.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（5）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L703 | 上流: Owner 裁定 2026-08-23（5） / 下流: §17.3 判断待ち情報の構造化 / 理由: 未確定/不整合/未検証/確認済み事実/外部判断要事項を機械可読構造で保持・取得。表示形式は下位仕様（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§17.4"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（3）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L704 | 上流: Owner 裁定 2026-08-23（3） / 下流: §17.4 導入難度の規模非依存（設計原則） / 理由: 規模自体と別理由で導入難度が構造的に増大する設計を避ける。物量増による処理量増は許容（設計原則レベル）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§18"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F11"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L705 | 上流: F11 / 下流: §18 上流成果物の document 登録 / 理由: 文書層の実体化（F11）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§18"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L706 | 上流: R-1 / 下流: §18 doc comment を唯一の仕様根拠にしない / 理由: 検証対象自身を自身の仕様根拠にすると照合が自明成立し、嘘を止められない（自己証明の循環排除）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": null,
+        "section": "hash 束縛"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      },
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（6）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L707 | 上流: F5・Owner 裁定 2026-08-23（6） / 下流: §19 承認の依存 closure / hash 束縛 / 理由: 変更された承認を現在の承認済みとして流用せず、現在状態を再検証してその結果に従う"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": null,
+        "section": "方針の正式採用"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（判断"
+      },
+      {
+        "doc": null,
+        "section": "承認分離）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L708 | 上流: Owner 裁定 2026-08-24（判断/承認分離） / 下流: §19 承認は判断・方針の正式採用 / 理由: UNKNOWN の判断も承認対象になり得るが、判断できることと正式承認は別段階（判断 ≠ 承認）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§19"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（判断"
+      },
+      {
+        "doc": null,
+        "section": "承認分離"
+      },
+      {
+        "doc": null,
+        "section": "記録要件）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L709 | 上流: Owner 裁定 2026-08-24（判断/承認分離・記録要件） / 下流: §19 承認記録の項目 / 理由: approver/subject または judgment reference/approved state は必須で追跡可能、根拠は optional。判断記録と同一 entity を要求しない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§5.5"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（状態"
+      },
+      {
+        "doc": null,
+        "section": "承認"
+      },
+      {
+        "doc": null,
+        "section": "ゲート）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L710 | 上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §5.5 検証状態と承認の分離 / 理由: 5状態は検証結果のみ。PASS でも未承認可、未承認で降格せず、承認で FAIL 系を昇格させない（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§19"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（状態"
+      },
+      {
+        "doc": null,
+        "section": "承認"
+      },
+      {
+        "doc": null,
+        "section": "ゲート）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L711 | 上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §19 Agent の承認権限 / 理由: Agent も承認権限を持ち得るが、全 Agent 必須ではなく一般作業 Agent が持つべきとも要求しない（Owner 発言の転記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§19"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（状態"
+      },
+      {
+        "doc": null,
+        "section": "承認"
+      },
+      {
+        "doc": null,
+        "section": "ゲート）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L712 | 上流: Owner 裁定 2026-08-24（状態/承認/ゲート） / 下流: §19 approval authority のプロジェクト定義 / 理由: 誰がどの対象・範囲を承認できるかはプロジェクト側で定義。ロール・承認数・権限 schema は下位仕様（Owner 発言の転記）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.4"
+      },
+      {
+        "doc": null,
+        "section": "提示（正式要件）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-24（ゲート正式要件化）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L713 | 上流: Owner 裁定 2026-08-24（ゲート正式要件化） / 下流: §26.4 フェーズゲート条件の評価・提示（正式要件） / 理由: ゲート条件が現在の検証状態+承認で満たされるかを評価・提示できる（MUST）。ライフサイクル管理・自動遷移は本裁定が直接根拠で責務外（OOS-004 と整合）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": null,
+        "section": "Developer）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L714 | 上流: R-1 / 下流: §20 一次ユーザー＝開発者（Coder AI / Developer） / 理由: R-1 の転記"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": null,
+        "section": "Reviewer"
+      },
+      {
+        "doc": null,
+        "section": "PM 等）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L715 | 上流: R-4 / 下流: §20 利用者群の広がり（CI / Reviewer / PM 等） / 理由: 並列環境（R-4）に複数主体がいることは承認済みだが、具体 role taxonomy の固定は書記導出。裁定12が承認したのは「役割で projection が異なる」ことのみで、CI/Reviewer 等の必須利用者化ではない。固定 role/preset は下位仕様"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": null,
+        "section": "ランナー非依存"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L716 | 上流: R-3 / 下流: §21-a 概念モデルの言語・ランナー非依存 / 理由: 「言語依存なし・ツール依存なし」の転記"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": null,
+        "section": "ツール知識の adapter 隔離"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L717 | 上流: R-3 / 下流: §21-b 言語・ツール知識の adapter 隔離 / 理由: 非依存を成立させるには依存知識を境界内に閉じ込めるしかない（転記でなく設計必然の含意）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": null,
+        "section": "スキーマ不壊"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L718 | 上流: R-3 / 下流: §21-c core 不変の adapter 追加・スキーマ不壊 / 理由: 「拡張可能」の転記（F8 のリンク追加と同型の設計制約）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§21"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-2"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L719 | 上流: R-2 / 下流: §21-d v0.1 の production adapter は rust-cargo のみ / 理由: 完成の防衛（R-2）。R-3 は実現版を指定しない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§21"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-002"
+      },
+      {
+        "doc": null,
+        "section": "U-04 裁定（条項4）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L720 | 上流: P-002・U-04 裁定（条項4） / 下流: §21-e 能力不足を PASS へ昇格しない / 理由: fail-closed の adapter 境界への適用。確認不能は違反でも成立でもない"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§22"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L721 | 上流: F1 / 下流: §22 MCP は本体 / 理由: F1 の帰結の転記（完了宣言を出す AI のループ内で止められなければ目的を達成できない）"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§22"
+      },
+      {
+        "doc": null,
+        "section": "CI は同一検証の別入口"
+      },
+      {
+        "doc": null,
+        "section": "GUI 不要"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L722 | 上流: R-1 / 下流: §22 CLI / CI は同一検証の別入口・GUI 不要 / 理由: 検証本体は一つで入口のみ複数。GUI は一次場面に登場しない"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": null,
+        "section": "波及防止"
+      },
+      {
+        "doc": null,
+        "section": "index 再構築等）"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L723 | 上流: R-4 / 下流: §23 並列開発の具体手段群（単一台帳回避・波及防止・index 再構築等） / 理由: 並列性要求（NFR-001）は R-4 直系だが、個別手段には既存裁定がなく書記導出"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-001"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-4"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L724 | 上流: R-4 / 下流: NFR-001 並列性 / 理由: 複数主体の並列変更に耐える（R-4 直系）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-002"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L725 | 上流: F5 / 下流: NFR-002 再現性 / 理由: ハッシュ束縛された証拠が意味を持つには、同一条件での再現が可能でなければならない"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-003"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      },
+      {
+        "doc": null,
+        "section": "Owner 裁定 2026-08-23（9）"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L726 | 上流: F8・Owner 裁定 2026-08-23（9） / 下流: NFR-003 追跡可能性 / 理由: 任意ノードからの局所/経路/全体トレーサビリティ取得（§3.4）を非機能側で担保"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-004"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-003"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L727 | 上流: P-003 / 下流: NFR-004 再構築可能性 / 理由: 単一正典原則の系"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-005"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F5"
+      },
+      {
+        "doc": null,
+        "section": "P-002"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L728 | 上流: F5・P-002 / 下流: NFR-005 fail-closed / 理由: F5 の転記"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-006"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F7"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L729 | 上流: F7 / 下流: NFR-006 説明可能性 / 理由: 状態が行動を指示するには、どのリンク・証拠・診断で落ちたかが読める必要がある"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-007"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L730 | 上流: R-1 / 下流: NFR-007 自動化適性 / 理由: 完了宣言の受領時にループ内から非対話で呼ばれる（R-1 の系）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "NFR-008"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L731 | 上流: R-1 / 下流: NFR-008 人間可読性 / 理由: 開発者自身が NG 理由を読んで直す。R-4（PM 等）採用でさらに強まる"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "OOS-001"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F11"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L732 | 上流: F11 / 下流: OOS-001 仕様書品質監査の除外 / 理由: 内容非関知（F11 の明示的拒否）"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "OOS-002"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F4"
+      },
+      {
+        "doc": null,
+        "section": "P-001"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L733 | 上流: F4・P-001 / 下流: OOS-002 修正方針決定の除外 / 理由: 意味裁定は載せない"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "OOS-003"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-004"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L734 | 上流: P-004 / 下流: OOS-003 通常編集管理の除外 / 理由: Test Edit の責務境界の裏面"
+  },
+  {
+    "source": {
+      "doc": null,
+      "section": "OOS-004"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-1"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L735 | 上流: R-1 / 下流: OOS-004 開発プロセス管理の除外 / 理由: Verification Infrastructure という役割画定。R-1 の場面外"
+  },
+  {
+    "source": [
+      {
+        "doc": null,
+        "section": "OOS-005"
+      },
+      {
+        "doc": null,
+        "section": "v0.2 送り"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "R-2"
+      },
+      {
+        "doc": null,
+        "section": "F9"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L736 | 上流: R-2・F9 / 下流: OOS-005 非関知宣言・v0.2 送り / 理由: F9 の転記"
+  },
+  {
+    "source": [
+      {
+        "doc": null,
+        "section": "R-2"
+      },
+      {
+        "doc": null,
+        "section": "OOS-005"
+      },
+      {
+        "doc": null,
+        "section": "過実装は同一差分の両側"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F2"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L737 | 上流: F2 / 下流: R-2 / OOS-005 過少・過実装は同一差分の両側 / 理由: 過少実装と過実装は宣言量に対する過不足の両側で単一概念（F2）。v0.1 は F9 により順方向側のみ実装し逆方向は v0.2 だが、「同一概念」の決定を伝播させ、v0.2 過実装検出が別物でないことを将来復元可能にする"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.1"
+      },
+      {
+        "doc": null,
+        "section": "fail-closed 集約"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F8"
+      },
+      {
+        "doc": null,
+        "section": "F7"
+      },
+      {
+        "doc": null,
+        "section": "P-002"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L738 | 上流: F8・F7・P-002 / 下流: §26.1 完全検証 OK・fail-closed 集約 / 理由: 4検査 × 5状態 × fail-closed の合成"
+  },
+  {
+    "source": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.2"
+      },
+      {
+        "doc": null,
+        "section": "NG 簡易出力と NG の掘り下げ"
+      }
+    ],
+    "upstream": [
+      {
+        "doc": null,
+        "section": "NFR-006"
+      },
+      {
+        "doc": null,
+        "section": "NFR-008"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L739 | 上流: NFR-006・NFR-008 / 下流: §26.2 OK/NG 簡易出力と NG の掘り下げ / 理由: 状態が行動を指示する（F7）には、どの検査・状態・診断で落ちたかを人間が辿れる必要がある"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§26.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-002"
+      },
+      {
+        "doc": null,
+        "section": "F8"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L740 | 上流: P-002・F8 / 下流: §26.3 上位単位への fail-closed 集約 / 理由: 宣言鎖は端まで辿れ（F8）、集約は未検証を合格にしない（P-002）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+      "section": "§28"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "F10"
+      }
+    ],
+    "kind": "ACCEPTED",
+    "note": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md L741 | 上流: F10 / 下流: §28 下位仕様への委譲リスト / 理由: 要求→要件→基本仕様→詳細設計の分層（F10）。詳細の決定は下位層の責務"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§17.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.1"
+      }
+    ],
+    "kind": "再導出（role/anchor 宣言逐語・実効 field 段落を除去、targets≥1 を adapter 層件数へ、状態5＋診断ラベル4の2列を明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L648 | 本節: §12.1 共通仕様 / 上流: 本冊§17.2・§5.2・§4.1・§11.3／基本§4.1・§4.2・§4.6・§22.3／要件§4.1 / 理由: 再導出（role/anchor 宣言逐語・実効 field 段落を除去、targets≥1 を adapter 層件数へ、状態5＋診断ラベル4の2列を明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（生成物に doc/・decisions/ を反映）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L649 | 本節: §12.2 `vtest init` / 上流: 本冊§2.1・§2.2／基本§26.1 / 理由: CONFORM（生成物に doc/・decisions/ を反映）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（整合性検査を chain_integrity/orphan_detection へ言換え）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L650 | 本節: §12.2 `vtest scan` / 上流: 本冊§5・§5.6／基本§23・§26.1 / 理由: CONFORM（整合性検査を chain_integrity/orphan_detection へ言換え）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§16.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（失効を判断記録・承認のハッシュ束縛 STALE へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L651 | 本節: §12.2 `vtest doctor` / 上流: 本冊§16.2／基本§26.1 / 理由: CONFORM（失効を判断記録・承認のハッシュ束縛 STALE へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§16"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "新設（spec/req コマンドを廃し doc へ統合、derives_from・根指定フラグ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L652 | 本節: §12.2 `vtest doc add/list/show` / 上流: 本冊§3.1・§5.6・§11.4／基本§3.1・§3.2・§16・§26.1・§30 item1-2 / 理由: 新設（spec/req コマンドを廃し doc へ統合、derives_from・根指定フラグ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.2.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§10"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（--req/--spec/--section→--derives-from、`vo approve` は `approval create` の別名）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L653 | 本節: §12.2 `vtest vo …` / 上流: 本冊§3.2・§3.2.1・§3.5／基本§10・§17・§26.1 / 理由: 再導出（--req/--spec/--section→--derives-from、`vo approve` は `approval create` の別名）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "新設（対象種別を引数に取る承認の唯一の正典面。create / withdraw / show）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L654 | 本節: §12.2 `vtest approval …` / 上流: 本冊§3.5／基本§17・§30 item18 / 理由: 新設（対象種別を引数に取る承認の唯一の正典面。create / withdraw / show）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§6.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（回答例の role 不在）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L655 | 本節: §12.2 `vtest test create` / 上流: 本冊§4.2・§6.3／基本§15・§26.1 / 理由: CONFORM（回答例の role 不在）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（desired state 参照を基本§15.1 へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L656 | 本節: §12.2 `vtest test edit` / 上流: 本冊§15／基本§15.1・§26.1 / 理由: CONFORM（desired state 参照を基本§15.1 へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（show の role 除去、covers/targets 表示、逆引きを projection 基盤へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L657 | 本節: §12.2 `vtest test show/list/query` / 上流: 本冊§4.1・§5.3・§11.6／基本§12・§26.1 / 理由: 再導出（show の role 除去、covers/targets 表示、逆引きを projection 基盤へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（正典監査レコード廃止＝再計算派生、stdout/cache のみ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L658 | 本節: §12.2 `vtest audit static` / 上流: 本冊§7・§7.1・§7.2・§3.6／基本§5.4・§5.5・§26.1 / 理由: 再導出（正典監査レコード廃止＝再計算派生、stdout/cache のみ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（意味検査→判断記録、kind を UNKNOWN 質問ラベルへ、非昇格明記、判断/承認面分離）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L659 | 本節: §12.2 `vtest audit bundle/submit` / 上流: 本冊§8・§3.4・§8.1・§8.3・§8.4・§8.6／基本§11・§11.3・§26.1 / 理由: 再導出（意味検査→判断記録、kind を UNKNOWN 質問ラベルへ、非昇格明記、判断/承認面分離）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§9"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§9.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§10.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（--req 除去、--fast を target_coverage 非計測へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L660 | 本節: §12.2 `vtest run` / 上流: 本冊§9・§9.1・§10.3／基本§21・§26.1 / 理由: CONFORM（--req 除去、--fast を target_coverage 非計測へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（12項目→4検査、--req 除去、--doc/--gate、full_scope invariant、状態5＋診断ラベルのツリー）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L661 | 本節: §12.2 `vtest verify` / 上流: 本冊§11.1・§11.3・§2.2・§11.5・§11.7／基本§5・§4.6・§22.1・§26.1 / 理由: 再導出（12項目→4検査、--req 除去、--doc/--gate、full_scope invariant、状態5＋診断ラベルのツリー）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "再導出（4検査、projection view/from、pending section）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L662 | 本節: §12.2 `vtest report` / 上流: 本冊§11.3・§11.6・§11.7／基本§19・§22.3・§26.1・§30 item21 / 理由: 再導出（4検査、projection view/from、pending section）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.2"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L663 | 本節: §12.2 `vtest mcp` / 上流: 本冊§13／基本§26.2 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.4"
+      }
+    ],
+    "kind": "新設（MUST、承認ロール解決規則 approval_roles を新設、評価/提示のみ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L664 | 本節: §12.3 フェーズゲート評価 / 上流: 本冊§11.5・§2.2・§3.5／基本§20・§17・§30 item22-23／要件§26.4 / 理由: 新設（MUST、承認ロール解決規則 approval_roles を新設、評価/提示のみ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§12.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§18.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§17.3"
+      }
+    ],
+    "kind": "新設（verify/report JSON の pending section）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L665 | 本節: §12.4 判断待ち情報 section / 上流: 本冊§11.7／基本§18.3・§30 item19／要件§17.3 / 理由: 新設（verify/report JSON の pending section）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§13.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.2"
+      }
+    ],
+    "kind": "CONFORM（状態/診断2軸を反映）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L666 | 本節: §13.1 MCP 共通仕様 / 上流: 本冊§13／基本§26.2 / 理由: CONFORM（状態/診断2軸を反映）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§13.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.2"
+      }
+    ],
+    "kind": "再導出（spec_/req_→doc_、verify/report 固定4検査、audit_static はレコードID返さず、audit_submit は非昇格、承認は subject 汎用の `approval_*` へ一本化し `vo_approve` は別名）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L667 | 本節: §13.2 ツール一覧 / 上流: 本冊§8・§7.1・§11.1・§3.5／基本§26.2 / 理由: 再導出（spec_/req_→doc_、verify/report 固定4検査、audit_static はレコードID返さず、audit_submit は非昇格、承認は subject 汎用の `approval_*` へ一本化し `vo_approve` は別名）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§13.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§25"
+      }
+    ],
+    "kind": "CONFORM（doc/判断記録・非昇格を明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L668 | 本節: §13.3 エージェント向けフロー / 上流: 本冊§8／基本§11・§25 / 理由: CONFORM（doc/判断記録・非昇格を明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§14.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§6.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "CONFORM（test_kind regression を意図ラベルとして明示、role 不在）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L669 | 本節: §14.1 スキーマ形式 / 上流: 本冊§4.1・§4.2・§6.3／基本§15.4・§30 item4 / 理由: CONFORM（test_kind regression を意図ラベルとして明示、role 不在）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§14.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§6.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§6.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.4"
+      }
+    ],
+    "kind": "CONFORM（Form owner 解決参照を基本§15.4 へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L670 | 本節: §14.2 検証器 / 上流: 本冊§6.1・§6.3・§5.2／基本§15.4 / 理由: CONFORM（Form owner 解決参照を基本§15.4 へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§14.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L671 | 本節: §14.3 組込フォーム / 上流: 本冊§4.2・§4.3／基本§15.4・§27 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§14.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      }
+    ],
+    "kind": "再導出（role/anchor 固定 Form 群を全廃し、user-defined Form・partition required・cross-field 禁止・covers≥1 のみ残置）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L672 | 本節: §14.4 テスト種別ごとの拡張 / 上流: 本冊§4.1・§5.2／基本§15.4・§12 / 理由: 再導出（role/anchor 固定 Form 群を全廃し、user-defined Form・partition required・cross-field 禁止・covers≥1 のみ残置）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§15.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L673 | 本節: §15.1 対象の特定 / 上流: 本冊§15／基本§15.3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§15.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L674 | 本節: §15.2 編集の適用 / 上流: 本冊§15／基本§15.1・§15.3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§15.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.3"
+      }
+    ],
+    "kind": "再導出（キー順から role/anchor/anchor-rationale を除去、本冊 §4.2 test-key と一致）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L675 | 本節: §15.3 annotation 再生成 / 上流: 本冊§4.2／基本§15.3 / 理由: 再導出（キー順から role/anchor/anchor-rationale を除去、本冊 §4.2 test-key と一致）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+      "section": "§15.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§16"
+      },
+      {
+        "doc": null,
+        "section": "OOS-003"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15.3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md L676 | 本節: §15.4 1 Test 境界の保証 / 上流: 要件§16・OOS-003／基本§15.3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§24"
+      }
+    ],
+    "kind": "CONFORM（Approval/Audit→承認記録/判断記録へ用語修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L354 | 本節: §18.1 共通条件 / 上流: 基本§22.1・§4.6・§6・§24 / 理由: CONFORM（Approval/Audit→承認記録/判断記録へ用語修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§4.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.3"
+      }
+    ],
+    "kind": "再導出（SPEC/REQ→document、role/anchor/characterization fixture 除去、8状態列挙→5状態＋4診断ラベル別記、静的監査 record fixture 除去、文書鎖・判断非昇格・gates fixture 追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L355 | 本節: §18.2 共通fixture / 上流: 基本§3.1・§4.1・§4.2・§4.3・§5.2・§12・本冊§4.4・§5.6・§7.3 / 理由: 再導出（SPEC/REQ→document、role/anchor/characterization fixture 除去、8状態列挙→5状態＋4診断ラベル別記、静的監査 record fixture 除去、文書鎖・判断非昇格・gates fixture 追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§6.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.1.1"
+      }
+    ],
+    "kind": "再導出＋新設（test_traceability→chain_integrity、role materialization/E-SCAN-013-015 除去、active REQ 束縛除去、covers≥1 一律、document derives_from・content_hash 照合の chain_integrity 受入を新設）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L356 | 本節: §18.3.1 discovery・record・graph と chain_integrity / 上流: 基本§5.1・§9.2・§3.2・§17・§23・本冊§5・§6.1・§11.1.1 / 理由: 再導出＋新設（test_traceability→chain_integrity、role materialization/E-SCAN-013-015 除去、active REQ 束縛除去、covers≥1 一律、document derives_from・content_hash 照合の chain_integrity 受入を新設）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.6"
+      }
+    ],
+    "kind": "新設（文書層孤児・根除外・E-SCAN-016）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L357 | 本節: §18.3.2 orphan_detection / 上流: 基本§5.2・要件§4.2・本冊§5.6 / 理由: 新設（文書層孤児・根除外・E-SCAN-016）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§8.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.3"
+      }
+    ],
+    "kind": "再導出（static/semantic→oracle_presence、DA-002→target_binding 静的到達、Static Audit Record 永続・STALE・実効監査選択を撤去、subprocess E2E の2検査分裂を明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L358 | 本節: §18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達） / 上流: 基本§5.4・§5.5・§8.3・本冊§7.1・§7.2・§7.3 / 理由: 再導出（static/semantic→oracle_presence、DA-002→target_binding 静的到達、Static Audit Record 永続・STALE・実効監査選択を撤去、subprocess E2E の2検査分裂を明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§9"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.2"
+      }
+    ],
+    "kind": "再導出（test_execution/runtime_result/target_execution→target_binding 単一検査、evidence_validity→§6 ハッシュ束縛、target_coverage 改名、8→5状態写像）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L359 | 本節: §18.3.4 execution・Evidence（target_binding の証拠） / 上流: 基本§6・§21・§21.1・本冊§3.6・§9・§11.2 / 理由: 再導出（test_execution/runtime_result/target_execution→target_binding 単一検査、evidence_validity→§6 ハッシュ束縛、target_coverage 改名、8→5状態写像）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§7.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§10.2"
+      }
+    ],
+    "kind": "再導出（target_execution 検査→target_binding 証拠、count0→FAIL/NOT_EXECUTED、per-target 生存）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L360 | 本節: §18.3.5 target_binding 動的計測（per-target） / 上流: 基本§5.3・§21・本冊§7.3・§10.2 / 理由: 再導出（target_execution 検査→target_binding 証拠、count0→FAIL/NOT_EXECUTED、per-target 生存）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.6"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§8"
+      }
+    ],
+    "kind": "再導出（意味監査 bundle 4種別・検査扱い廃止、impl_consistency=MISMATCH 写像削除、E-AUDIT-005-007 撤去、bundle/submit を非昇格の判断記録へ、理由 optional）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L361 | 本節: §18.3.6 判断記録プロトコル（非ゲート） / 上流: 基本§11・§11.3・要件§12・本冊§8 / 理由: 再導出（意味監査 bundle 4種別・検査扱い廃止、impl_consistency=MISMATCH 写像削除、E-AUDIT-005-007 撤去、bundle/submit を非昇格の判断記録へ、理由 optional）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.7"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§3.5"
+      }
+    ],
+    "kind": "新設（判断≠承認・別 entity、承認は独立軸で非昇格、依存 closure hash 束縛、W-STORE-002）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L362 | 本節: §18.3.7 承認と判断記録の分離 / 上流: 基本§4.5・§11.3・§17・本冊§3.4・§3.5 / 理由: 新設（判断≠承認・別 entity、承認は独立軸で非昇格、依存 closure hash 束縛、W-STORE-002）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.8"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.3"
+      }
+    ],
+    "kind": "再導出（12項目→4検査、旧項目列挙→E-CONFIG-001 拒否、role別表示除去、SPEC/REQ→DOC ツリー、scope 2軸・NO_EVIDENCE を生む入力・§22.2 優先順位を明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L363 | 本節: §18.3.8 verify・report と scope / 上流: 基本§4.6・§5・§22.1・§22.2・§22.3・本冊§2.2・§11.1・§11.3 / 理由: 再導出（12項目→4検査、旧項目列挙→E-CONFIG-001 拒否、role別表示除去、SPEC/REQ→DOC ツリー、scope 2軸・NO_EVIDENCE を生む入力・§22.2 優先順位を明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.9"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§11.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§2.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§17.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§17.2"
+      }
+    ],
+    "kind": "新設（MUST・評価/提示のみ、自動遷移は責務外、既存 verify --gate 露出）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L364 | 本節: §18.3.9 フェーズゲート評価 / 上流: 基本§20・§4.1・§4.5・要件§26.4・本冊§11.5・§2.2・§17.1・§17.2 / 理由: 新設（MUST・評価/提示のみ、自動遷移は責務外、既存 verify --gate 露出）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.10"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.2"
+      }
+    ],
+    "kind": "CONFORM（項目名整合のみ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L365 | 本節: §18.3.10 Structured Test Operation / 上流: 基本§15・本冊§5.2 / 理由: CONFORM（項目名整合のみ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.11"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§16"
+      }
+    ],
+    "kind": "CONFORM（別紙A 参照を収録節範囲へ修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L366 | 本節: §18.3.11 MCP interface / 上流: 基本§26.2・本冊§16 / 理由: CONFORM（別紙A 参照を収録節範囲へ修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.3.12"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§2.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+        "section": "§17.1"
+      }
+    ],
+    "kind": "CONFORM（NOT_CHECKED/NOT_EXECUTED を NO_EVIDENCE 診断へ、判断記録へ用語修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L367 | 本節: §18.3.12 adapter contract / 上流: 基本§27・§2.4・本冊§5.2・§17.1 / 理由: CONFORM（NOT_CHECKED/NOT_EXECUTED を NO_EVIDENCE 診断へ、判断記録へ用語修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
+      "section": "§18.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§29"
+      },
+      {
+        "doc": null,
+        "section": "R-2"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md L368 | 本節: §18.4 提供範囲外 / 上流: 基本§29・要件R-2・R-3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§0"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§0"
+      },
+      {
+        "doc": null,
+        "section": "P-005"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§22"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "再導出（分冊構造・委譲参照の凍結連番化、AI 監査前提の除去）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L792 | 本節: §0 本書の位置付け / 上流: §0 前文・P-005・§22・§28 / 理由: 再導出（分冊構造・委譲参照の凍結連番化、AI 監査前提の除去）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§14"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      }
+    ],
+    "kind": "再導出（SPEC/REQ 型・role 語彙・12 項目/8 値の除去、総称 document・判断記録の導入）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L793 | 本節: §1 用語定義 / 上流: §1・§3・§5・§7・§9・§10・§12・§13・§14・§19 / 理由: 再導出（SPEC/REQ 型・role 語彙・12 項目/8 値の除去、総称 document・判断記録の導入）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§2.1"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-003"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": null,
+        "section": "NFR-004"
+      }
+    ],
+    "kind": "CONFORM（事実層に判断記録を追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L794 | 本節: §2.1 正典の三層構造 / 上流: P-003・§6・§12・§19・NFR-004 / 理由: CONFORM（事実層に判断記録を追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§2.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.2"
+      }
+    ],
+    "kind": "再導出（Specification→Requirement→…→Execution 鎖を document→document→VO→Test へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L795 | 本節: §2.2 宣言鎖と照合 / 上流: §3.1・§3.2 / 理由: 再導出（Specification→Requirement→…→Execution 鎖を document→document→VO→Test へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§2.3"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-003"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L796 | 本節: §2.3 導出できる関係は保存しない / 上流: P-003 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§2.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L797 | 本節: §2.4 adapter 設定と wire 互換 / 上流: §21・§28 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§3.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      }
+    ],
+    "kind": "再導出（SPEC-/REQ- 廃止、DOC-・判断記録の新設）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L798 | 本節: §3.1 エンティティ種別 / 上流: §3.2・§9・§12・§17・§19・§13 / 理由: 再導出（SPEC-/REQ- 廃止、DOC-・判断記録の新設）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§3.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "再導出（関係リンクの任意説明を追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L799 | 本節: §3.2 ID 規則と関係リンク / 上流: §3.4・§9.2・§28 / 理由: 再導出（関係リンクの任意説明を追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§3.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L800 | 本節: §3.3 Source Target の識別 / 上流: §9.2・R-3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.1"
+      }
+    ],
+    "kind": "再導出（8 値 → 5 状態、NO_EVIDENCE 新規）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L801 | 本節: §4.1 状態は 5 つ / 上流: §5.1 / 理由: 再導出（8 値 → 5 状態、NO_EVIDENCE 新規）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "新設（状態と別軸の診断ラベルを分離）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L802 | 本節: §4.2 診断ラベル / 上流: §5.2・§28 / 理由: 新設（状態と別軸の診断ラベルを分離）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.3"
+      }
+    ],
+    "kind": "再導出（凍結割当表の採用）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L803 | 本節: §4.3 状態の割当 / 上流: §5.3 / 理由: 再導出（凍結割当表の採用）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.4"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L804 | 本節: §4.4 UNKNOWN の検疫 / 上流: §5.4 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.5"
+      }
+    ],
+    "kind": "新設（承認前提を検証状態から分離）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L805 | 本節: §4.5 検証状態と承認の分離 / 上流: §5.5 / 理由: 新設（承認前提を検証状態から分離）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§4.6"
+    },
+    "upstream": [
+      {
+        "doc": null,
+        "section": "P-002"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.3"
+      }
+    ],
+    "kind": "再導出（scope 外を NOT_CHECKED から NO_EVIDENCE/NOT_CHECKED へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L806 | 本節: §4.6 scope / 上流: P-002・§5.3 / 理由: 再導出（scope 外を NOT_CHECKED から NO_EVIDENCE/NOT_CHECKED へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§5.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      }
+    ],
+    "kind": "再導出（複数検査項目の統合）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L807 | 本節: §5.1 chain_integrity / 上流: §4.1・§13 / 理由: 再導出（複数検査項目の統合）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§5.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.2"
+      }
+    ],
+    "kind": "新設（文書層孤児検出＋根指定）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L808 | 本節: §5.2 orphan_detection / 上流: §4.2 / 理由: 新設（文書層孤児検出＋根指定）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§5.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "再導出（runtime_result を証拠側へ吸収、per-target 規則）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L809 | 本節: §5.3 target_binding / 上流: §4.3・§7・§26.1 / 理由: 再導出（runtime_result を証拠側へ吸収、per-target 規則）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§5.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§8"
+      }
+    ],
+    "kind": "再導出（semantic_audit を排し不成立証明の 3 値へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L810 | 本節: §5.4 oracle_presence / 上流: §4.4・§8 / 理由: 再導出（semantic_audit を排し不成立証明の 3 値へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§5.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§8.3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L811 | 本節: §5.5 決定論的に検出可能な不成立構造 / 上流: §8.3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§6"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§6"
+      }
+    ],
+    "kind": "再導出（evidence_validity 検査を廃しハッシュ束縛の設計制約へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L812 | 本節: §6 証拠 / 上流: §6 / 理由: 再導出（evidence_validity 検査を廃しハッシュ束縛の設計制約へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§7"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（明示宣言を追記）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L813 | 本節: §7 判定権威 / 上流: §7・§26.1 / 理由: CONFORM（明示宣言を追記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§8"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§8"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9"
+      }
+    ],
+    "kind": "CONFORM（引用修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L814 | 本節: §8 Test の検証成立性 / 上流: §8・§9 / 理由: CONFORM（引用修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§9"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9"
+      }
+    ],
+    "kind": "再導出（検証対象の一般化、traceability 分離）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L815 | 本節: §9 検証対象と Source Target / 上流: §9 / 理由: 再導出（検証対象の一般化、traceability 分離）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§10"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§10"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§11"
+      }
+    ],
+    "kind": "再導出（vo_decomposition 検査を排し表現能力のみへ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L816 | 本節: §10 Verification Obligation / 上流: §10・§11 / 理由: 再導出（vo_decomposition 検査を排し表現能力のみへ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§11"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      }
+    ],
+    "kind": "新設＋再導出（bundle/submit を検証ゲートから切離し判断記録へ転用）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L817 | 本節: §11 発見・意味判定のエスカレーションと判断記録 / 上流: §12・§19 / 理由: 新設＋再導出（bundle/submit を検証ゲートから切離し判断記録へ転用）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§12"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.1"
+      }
+    ],
+    "kind": "再導出（role/anchor 機構を廃し covers ≥ 1 一律へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L818 | 本節: §12 Test Registry / 上流: §13・§4.1 / 理由: 再導出（role/anchor 機構を廃し covers ≥ 1 一律へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§13"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§14"
+      }
+    ],
+    "kind": "再導出（宣言鎖ノードから付随情報へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L819 | 本節: §13 Test Intent / 上流: §14 / 理由: 再導出（宣言鎖ノードから付随情報へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§14"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§15"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L820 | 本節: §14 Parameterized / Table-Driven Test / 上流: §15・R-3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§15"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§16"
+      },
+      {
+        "doc": null,
+        "section": "P-004"
+      }
+    ],
+    "kind": "CONFORM（意味監査 → 判断記録へ用語修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L821 | 本節: §15 Structured Test Operation / 上流: §16・P-004 / 理由: CONFORM（意味監査 → 判断記録へ用語修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§16"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§18"
+      }
+    ],
+    "kind": "CONFORM（総称 document へ用語修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L822 | 本節: §16 仕様入力（文書層） / 上流: §18 / 理由: CONFORM（総称 document へ用語修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§17"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§5.5"
+      }
+    ],
+    "kind": "再導出（承認前提の分離、judgment reference・approval authority を明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L823 | 本節: §17 承認 / 上流: §19・§5.5 / 理由: 再導出（承認前提の分離、judgment reference・approval authority を明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§18"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": null,
+        "section": "R-5"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L824 | 本節: §18 途中導入と既存プロジェクト対応 / 上流: §17・R-5 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§19"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": null,
+        "section": "NFR-003"
+      }
+    ],
+    "kind": "新設（任意説明・任意ノード取得・役割別 projection）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L825 | 本節: §19 トレーサビリティと役割別 projection / 上流: §3.4・NFR-003 / 理由: 新設（任意説明・任意ノード取得・役割別 projection）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§20"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.4"
+      }
+    ],
+    "kind": "新設（評価・提示のみ、自動遷移は責務外）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L826 | 本節: §20 フェーズゲートと進行条件 / 上流: §26.4 / 理由: 新設（評価・提示のみ、自動遷移は責務外）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§21"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.1"
+      }
+    ],
+    "kind": "CONFORM（鮮度をハッシュ束縛制約として再叙述）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L827 | 本節: §21 テスト実行と Execution Evidence / 上流: §6・§26.1 / 理由: CONFORM（鮮度をハッシュ束縛制約として再叙述）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§22"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26"
+      }
+    ],
+    "kind": "再導出（4 検査 × 5 状態 × fail-closed、集約優先順位の診断ラベル混在解消）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L828 | 本節: §22 完全検証・集約・報告 / 上流: §26 / 理由: 再導出（4 検査 × 5 状態 × fail-closed、集約優先順位の診断ラベル混在解消）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§23"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§13"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§23"
+      }
+    ],
+    "kind": "再導出（role/anchor 検査を除去、文書鎖・孤児検査を追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L829 | 本節: §23 スキャンと整合性検査 / 上流: §13・§23 / 理由: 再導出（role/anchor 検査を除去、文書鎖・孤児検査を追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§24"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "CONFORM（.verify レイアウトを DOC-・判断記録へ更新）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L830 | 本節: §24 データ保存の基本方針 / 上流: §23・§28 / 理由: CONFORM（.verify レイアウトを DOC-・判断記録へ更新）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§25"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§20"
+      }
+    ],
+    "kind": "CONFORM（固定 role taxonomy を projection へ委譲）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L831 | 本節: §25 利用者別ユースケース / 上流: §20 / 理由: CONFORM（固定 role taxonomy を projection へ委譲）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§26"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§22"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "CONFORM（SPEC/REQ ツールを doc へ、意味監査を判断記録へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L832 | 本節: §26 インターフェース概要 / 上流: §22・§28 / 理由: CONFORM（SPEC/REQ ツールを doc へ、意味監査を判断記録へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§27"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": null,
+        "section": "R-2"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L833 | 本節: §27 対応範囲と adapter 境界 / 上流: §21・R-2・R-3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§28"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§24"
+      }
+    ],
+    "kind": "CONFORM（引用修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L834 | 本節: §28 非機能要求への対応方針 / 上流: §24 / 理由: CONFORM（引用修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§29"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§25"
+      }
+    ],
+    "kind": "CONFORM（引用修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L835 | 本節: §29 スコープ外 / 上流: §25 / 理由: CONFORM（引用修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+      "section": "§30"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§28"
+      }
+    ],
+    "kind": "再導出（18 項目 → 23 項目へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md L836 | 本節: §30 詳細設計へ委譲する事項 / 上流: §28 / 理由: 再導出（18 項目 → 23 項目へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§0"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§0"
+      },
+      {
+        "doc": null,
+        "section": "P-005"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "CONFORM（分冊構造・委譲参照の連番修復、新設サブ節の収録範囲明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1697 | 本節: §0 本書の位置付け / 上流: 基本§0・P-005・§26・§30 / 理由: CONFORM（分冊構造・委譲参照の連番修復、新設サブ節の収録範囲明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§1.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "CONFORM（audit crate 責務を判断記録＋静的解析へ読替）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1698 | 本節: §1.1 ワークスペース構成 / 上流: 基本§27・§30 / 理由: CONFORM（audit crate 責務を判断記録＋静的解析へ読替）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§1.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      }
+    ],
+    "kind": "CONFORM（evidence_validity 参照を鮮度 STALE へ修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1699 | 本節: §1.2 主要依存クレート / 上流: 基本§27 / 理由: CONFORM（evidence_validity 参照を鮮度 STALE へ修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§1.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      }
+    ],
+    "kind": "再導出（role/anchor 束縛除去、SPEC/REQ hash→総称 document hash、静的 subject 廃止、Source Target hash を検証対象の Source Target 実現形態束縛として form-scope）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1700 | 本節: §1.3 内容ハッシュの定義 / 上流: 基本§1・§6・§3・§9・§9.1・§21 / 理由: 再導出（role/anchor 束縛除去、SPEC/REQ hash→総称 document hash、静的 subject 廃止、Source Target hash を検証対象の Source Target 実現形態束縛として form-scope）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§2.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§24.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.1"
+      }
+    ],
+    "kind": "再導出（spec/+req/→doc/、audits/ 廃止、decisions/ 追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1701 | 本節: §2.1 `.verify/` レイアウト / 上流: 基本§24.1・§3.1 / 理由: 再導出（spec/+req/→doc/、audits/ 廃止、decisions/ 追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§2.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§2.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.1"
+      }
+    ],
+    "kind": "再導出（full_scope 12→4検査 invariant、doc.roots・gates 追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1702 | 本節: §2.2 `config.yaml` / 上流: 基本§2.4・§4.1・§4.6・§5.2・§20・§22.1 / 理由: 再導出（full_scope 12→4検査 invariant、doc.roots・gates 追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§2.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§24.3"
+      },
+      {
+        "doc": null,
+        "section": "P-003"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1703 | 本節: §2.3 派生情報 / 上流: 基本§24.3・P-003 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§18"
+      }
+    ],
+    "kind": "再導出（SPEC/REQ→総称 document、derives_from＋任意 note〔M-6〕）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1704 | 本節: §3.1 document レコード / 上流: 基本§3.1・§3.2・§3.4・§18 / 理由: 再導出（SPEC/REQ→総称 document、derives_from＋任意 note〔M-6〕）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§10"
+      }
+    ],
+    "kind": "再導出（requirements/spec_refs→derives_from:[DOC-]、section 廃止）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1705 | 本節: §3.2 VO レコード / 上流: 基本§3.2・§10 / 理由: 再導出（requirements/spec_refs→derives_from:[DOC-]、section 廃止）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.2.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§10"
+      }
+    ],
+    "kind": "CONFORM（vo-coverage 監査参照を UNKNOWN エスカレーションへ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1706 | 本節: §3.2.1 dimensions / 上流: 基本§10 / 理由: CONFORM（vo-coverage 監査参照を UNKNOWN エスカレーションへ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§2.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.2"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1707 | 本節: §3.3 Relation レコード / 上流: 基本§2.3・§3.2 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      }
+    ],
+    "kind": "新設（M-2。actor/subject/decision/judgment_kind 必須・理由 optional、supersedes による多重度解消）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1708 | 本節: §3.4 判断記録レコード / 上流: 基本§11.3・要件§12 / 理由: 新設（M-2。actor/subject/decision/judgment_kind 必須・理由 optional、supersedes による多重度解消）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§17"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§19"
+      }
+    ],
+    "kind": "再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰、approved_state 値域と workflow 状態遷移、承認対象値域 vo/document/judgment、対象種別非従属の単一正典面）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1709 | 本節: §3.5 承認レコード / 上流: 基本§17・§4.5・§30 item18・要件§19 / 理由: 再導出（承認前提の分離、closure kind vo/document＋上位 document 再帰、approved_state 値域と workflow 状態遷移、承認対象値域 vo/document/judgment、対象種別非従属の単一正典面）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§3.6"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§7"
+      }
+    ],
+    "kind": "再導出（target_execution field→target_coverage 改名、runtime_result 吸収）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1710 | 本節: §3.6 Evidence レコード / 上流: 基本§21・§6・§7 / 理由: 再導出（target_execution field→target_coverage 改名、runtime_result 吸収）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§4.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§9.1"
+      }
+    ],
+    "kind": "再導出（role/anchor/characterization 除去、covers≥1 一律、検証対象を core で一般化＝Source Target 実現は adapter 層／rust-cargo が targets≥1）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1711 | 本節: §4.1 adapter-neutral 正規化 / 上流: 基本§3・§9.1・§9.2・§12・要件§9.1 / 理由: 再導出（role/anchor/characterization 除去、covers≥1 一律、検証対象を core で一般化＝Source Target 実現は adapter 層／rust-cargo が targets≥1）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§4.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      }
+    ],
+    "kind": "再導出（role/anchor キー・語彙撤去、src-id 存続）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1712 | 本節: §4.2 rust-cargo annotation 文法 / 上流: 基本§30 item4・§12 / 理由: 再導出（role/anchor キー・語彙撤去、src-id 存続）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§4.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1713 | 本節: §4.3 rust-cargo locator 構文 / 上流: 基本§9.2・§30 item7 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§4.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      }
+    ],
+    "kind": "再導出（role materialization/E-SCAN-013-015 撤去、core 必須 id/covers≥1/intent 欠落→MISMATCH。targets≥1 は rust-cargo adapter の必須 metadata として E-SCAN-007 で検出＝再キー）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1714 | 本節: §4.4 宣言エラーの扱い / 上流: 基本§12・§5.1・§9.2 / 理由: 再導出（role materialization/E-SCAN-013-015 撤去、core 必須 id/covers≥1/intent 欠落→MISMATCH。targets≥1 は rust-cargo adapter の必須 metadata として E-SCAN-007 で検出＝再キー）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§2.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§23"
+      }
+    ],
+    "kind": "再導出（step4 の role 確定除去）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1715 | 本節: §5.1 処理フロー / 上流: 基本§2.1・§23 / 理由: 再導出（step4 の role 確定除去）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3"
+      }
+    ],
+    "kind": "再導出（CheckValue 8→5＋診断ラベル、CheckItem 12→4、TestRole/TestAnchor 除去）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1716 | 本節: §5.2 エンティティモデル / 上流: 基本§4.1・§5・§3 / 理由: 再導出（CheckValue 8→5＋診断ラベル、CheckItem 12→4、TestRole/TestAnchor 除去）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§19"
+      }
+    ],
+    "kind": "再導出（SPEC/REQ ノード除去、DOC/derives_from へ）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1717 | 本節: §5.3 検証グラフ / 上流: 基本§3.1・§19 / 理由: 再導出（SPEC/REQ ノード除去、DOC/derives_from へ）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      }
+    ],
+    "kind": "再導出（E-SCAN-013-015 除去、E-SCAN-012 を document 参照へ、E-SCAN-016 追加、E-SCAN-007 の targets≥1 を rust-cargo adapter 必須 metadata へ再キー）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1718 | 本節: §5.4 整合性診断 / 上流: 基本§23・§5・§9.2 / 理由: 再導出（E-SCAN-013-015 除去、E-SCAN-012 を document 参照へ、E-SCAN-016 追加、E-SCAN-007 の targets≥1 を rust-cargo adapter 必須 metadata へ再キー）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "再導出（role/anchor 抽出除去）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1719 | 本節: §5.5 rust-cargo SourceDiscoveryAdapter / 上流: 基本§27・§30 / 理由: 再導出（role/anchor 抽出除去）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§5.6"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§4.2"
+      }
+    ],
+    "kind": "新設（M-1。根指定＋孤児検出）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1720 | 本節: §5.6 文書層 orphan_detection / 上流: 基本§5.2・要件§4.2 / 理由: 新設（M-1。根指定＋孤児検出）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§6.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§3.3"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1721 | 本節: §6.1 adapter-neutral 解決 / 上流: 基本§9.2・§3.3 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§6.1.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1722 | 本節: §6.1.1 target identity の一方向確定 / 上流: 基本§9.2・§6 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§6.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.2"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1723 | 本節: §6.2 rust-cargo locator 解決 / 上流: 基本§9.2 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§6.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§15"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1724 | 本節: §6.3 候補提示 / 上流: 基本§15 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§7.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§8"
+      },
+      {
+        "doc": null,
+        "section": "P-003"
+      }
+    ],
+    "kind": "再導出（意味監査委譲→判断記録エスカレーション、UNKNOWN 昇格経路を target_binding 限定）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1725 | 本節: §7.1 静的解析判定の原則 / 上流: 基本§5.4・§8・P-003 / 理由: 再導出（意味監査委譲→判断記録エスカレーション、UNKNOWN 昇格経路を target_binding 限定）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§7.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§8.3"
+      }
+    ],
+    "kind": "再導出（DA-001/003-006→oracle_presence、DA-002→target_binding、静的レコード永続化廃止）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1726 | 本節: §7.2 rust-cargo ルール一覧 / 上流: 基本§5.4・§5.5・§8.3 / 理由: 再導出（DA-001/003-006→oracle_presence、DA-002→target_binding、静的レコード永続化廃止）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§7.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§7"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.1"
+      }
+    ],
+    "kind": "再導出（static_audit→target_binding、DA-003 を join 外へ、DA-002 再マップ、target 実行到達規則を Source Target 実現形態へ form-scope）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1727 | 本節: §7.3 target 到達の静的/runtime 証明 / 上流: 基本§5.3・§7・§9.1 / 理由: 再導出（static_audit→target_binding、DA-003 を join 外へ、DA-002 再マップ、target 実行到達規則を Source Target 実現形態へ form-scope）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§8"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§12"
+      }
+    ],
+    "kind": "再導出（bundle/submit を検証ゲートから切離し判断記録へ転用、verdict 写像廃止、M-2/M-5 基盤）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1728 | 本節: §8 判断記録プロトコル / 上流: 基本§11・要件§12 / 理由: 再導出（bundle/submit を検証ゲートから切離し判断記録へ転用、verdict 写像廃止、M-2/M-5 基盤）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§9"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§7"
+      }
+    ],
+    "kind": "CONFORM（--req 除去、NOT_EXECUTED 診断へ修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1729 | 本節: §9 テスト実行設計 / 上流: 基本§21・§7 / 理由: CONFORM（--req 除去、NOT_EXECUTED 診断へ修復）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§10"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21"
+      }
+    ],
+    "kind": "再導出（target_execution 検査→target_binding 証拠、count0→FAIL/NOT_EXECUTED）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1730 | 本節: §10 rust-cargo Target Binding 動的計測 / 上流: 基本§5.3・§21 / 理由: 再導出（target_execution 検査→target_binding 証拠、count0→FAIL/NOT_EXECUTED）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22"
+      }
+    ],
+    "kind": "再導出（12項目表→4検査、旧項目の吸収・撤去明示）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1731 | 本節: §11.1 検査の評価地点 / 上流: 基本§5・§22 / 理由: 再導出（12項目表→4検査、旧項目の吸収・撤去明示）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.1.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§9.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§12"
+      }
+    ],
+    "kind": "再導出（test_existence/test_traceability 統合、covers≥1 一律、Test 層 core 必須から targets≥1 を除外＝Source Target 実現は adapter 層）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1732 | 本節: §11.1.1 chain_integrity の評価 / 上流: 基本§5.1・§9.1・§12 / 理由: 再導出（test_existence/test_traceability 統合、covers≥1 一律、Test 層 core 必須から targets≥1 を除外＝Source Target 実現は adapter 層）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§21.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§5.3"
+      }
+    ],
+    "kind": "再導出（evidence_validity/runtime_result→target_binding 証拠、8→5状態写像）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1733 | 本節: §11.2 Evidence 鮮度判定 / 上流: 基本§6・§21.1・§5.3 / 理由: 再導出（evidence_validity/runtime_result→target_binding 証拠、8→5状態写像）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.3"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22"
+      }
+    ],
+    "kind": "再導出（4検査×5状態×fail-closed、§22.2 優先順位、診断ラベル併記）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1734 | 本節: §11.3 集約アルゴリズム / 上流: 基本§22 / 理由: 再導出（4検査×5状態×fail-closed、§22.2 優先順位、診断ラベル併記）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.4"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§6"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§11.4"
+      }
+    ],
+    "kind": "再導出（SPEC 鮮度→document 鮮度、chain_integrity STALE）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1735 | 本節: §11.4 document 鮮度 / 上流: 基本§6・§11.4 / 理由: 再導出（SPEC 鮮度→document 鮮度、chain_integrity STALE）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.5"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§20"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§26.4"
+      }
+    ],
+    "kind": "新設（M-3。MUST・評価/提示のみ、自動遷移は責務外）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1736 | 本節: §11.5 フェーズゲート評価 / 上流: 基本§20・要件§26.4 / 理由: 新設（M-3。MUST・評価/提示のみ、自動遷移は責務外）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.6"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§19"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§22.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "section": "§3.4"
+      }
+    ],
+    "kind": "新設（M-4。任意ノード取得・役割別 projection）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1737 | 本節: §11.6 役割別 projection / 上流: 基本§19・§22.2・要件§3.4 / 理由: 新設（M-4。任意ノード取得・役割別 projection）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§11.7"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§18.3"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "新設（M-5。機械可読な判断待ち構造）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1738 | 本節: §11.7 判断待ち情報の構造 / 上流: 基本§18.3・§30 item19 / 理由: 新設（M-5。機械可読な判断待ち構造）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§16.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§24.2"
+      }
+    ],
+    "kind": "CONFORM（decisions/ を追加、SPEC→document）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1739 | 本節: §16.1 ロック不要の根拠 / 上流: 基本§24.2 / 理由: CONFORM（decisions/ を追加、SPEC→document）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§16.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§23"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§24.2"
+      }
+    ],
+    "kind": "再導出（監査失効→判断記録失効、孤児 document 追加）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1740 | 本節: §16.2 意味的衝突検出 / 上流: 基本§23・§24.2 / 理由: 再導出（監査失効→判断記録失効、孤児 document 追加）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§17.1"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.2"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "再導出（E-AUDIT-005-007 撤去、E-AUDIT-004→decision 値、SPEC→document）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1741 | 本節: §17.1 診断コード / 上流: 基本§4.2・§30 item11-12 / 理由: 再導出（E-AUDIT-005-007 撤去、E-AUDIT-004→decision 値、SPEC→document）"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§17.2"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§4.4"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§26.1"
+      },
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§30"
+      }
+    ],
+    "kind": "CONFORM",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1742 | 本節: §17.2 終了コード / 上流: 基本§4.4・§26.1・§30 item12 / 理由: CONFORM"
+  },
+  {
+    "source": {
+      "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+      "section": "§19"
+    },
+    "upstream": [
+      {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "section": "§27"
+      },
+      {
+        "doc": null,
+        "section": "R-2"
+      },
+      {
+        "doc": null,
+        "section": "R-3"
+      }
+    ],
+    "kind": "CONFORM（監査→判断へ用語修復）",
+    "note": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md L1743 | 本節: §19 実装選択と提供範囲 / 上流: 基本§27・R-2・R-3 / 理由: CONFORM（監査→判断へ用語修復）"
+  }
+]

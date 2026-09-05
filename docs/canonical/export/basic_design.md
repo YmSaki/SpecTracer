@@ -42,7 +42,7 @@ Rust固有処理は組込 `rust-cargo` adapter が所有する。
 
 CLI・MCP・検証coreはadapter registryを介して能力を選択する。
 
-## BD-S002 2. 全体像
+## BD-S002 2 全体像
 
 ### BD-S003 2.1 正典の三層構造
 
@@ -100,7 +100,7 @@ Test JSONのwire compatibility layerは `rust-cargo` Testについてだけversi
 
 単数互換field `target` はtarget 1件のときだけ追加出力する。
 
-## BD-S005 3. エンティティと ID 体系
+## BD-S005 3 エンティティと ID 体系
 
 ### BD-S006 3.1 エンティティ種別
 
@@ -190,7 +190,7 @@ Test→SRCの対応はadapter所有のTest metadata宣言から提供する。
 
 SRC→Testの逆引きはスキャン結果から提供する。
 
-## BD-S009 5. 検査
+## BD-S009 5 検査
 
 ### BD-S010 5.2 orphan_detection — 文書層の孤児検出
 
@@ -232,7 +232,7 @@ adapterが最終内容ハッシュを自己確定してはならない。
 
 `rust-cargo` adapterにおける判定権威は `cargo test` である。
 
-## BD-S014 8. Test の検証成立性
+## BD-S014 8 Test の検証成立性
 
 *導出元: REQ-S021, REQ-S025*
 
@@ -242,7 +242,7 @@ adapterが最終内容ハッシュを自己確定してはならない。
 
 各adapterは対応する言語・runnerの構造に対して決定論的に判定できる範囲を提供する。
 
-## BD-S016 9. 検証対象と Source Target
+## BD-S016 9 検証対象と Source Target
 
 *導出元: REQ-S025*
 
@@ -310,7 +310,7 @@ Form Schemaの `kind` はrepository内で大局的に一意なForm IDとする�
 
 schemaはそれを処理するadapter IDを別fieldで宣言する。
 
-## BD-S021 18. 途中導入と既存プロジェクト対応
+## BD-S021 18 途中導入と既存プロジェクト対応
 
 *導出元: R-5, REQ-S040*
 
@@ -386,7 +386,7 @@ Evidence readerは、Rust実行と一意に確認できない場合は `UNKNOWN`
 
 *引用: 要件定義 §13、§23*
 
-## BD-S026 24. データ保存の基本方針
+## BD-S026 24 データ保存の基本方針
 
 *導出元: REQ-S050, REQ-S058*
 

@@ -6225,5 +6225,121 @@
         }
       ]
     }
+  ],
+  "headings": [
+    {
+      "number": "12",
+      "title": "CLI 詳細仕様",
+      "line": 8,
+      "level": 2
+    },
+    {
+      "number": "12.1",
+      "title": "共通仕様",
+      "line": 10,
+      "level": 3
+    },
+    {
+      "number": "12.2",
+      "title": "コマンド仕様",
+      "line": 65,
+      "level": 3
+    },
+    {
+      "number": "12.3",
+      "title": "フェーズゲート評価（`verify --gate` / `report --gate`）",
+      "line": 326,
+      "level": 3
+    },
+    {
+      "number": "12.4",
+      "title": "判断待ち情報 section（`verify` / `report` JSON）",
+      "line": 361,
+      "level": 3
+    },
+    {
+      "number": "13",
+      "title": "MCP ツール詳細仕様",
+      "line": 399,
+      "level": 2
+    },
+    {
+      "number": "13.1",
+      "title": "共通仕様",
+      "line": 401,
+      "level": 3
+    },
+    {
+      "number": "13.2",
+      "title": "ツール一覧",
+      "line": 408,
+      "level": 3
+    },
+    {
+      "number": "13.3",
+      "title": "エージェント向け利用フロー（参考）",
+      "line": 442,
+      "level": 3
+    },
+    {
+      "number": "14",
+      "title": "Form Schema 設計",
+      "line": 467,
+      "level": 2
+    },
+    {
+      "number": "14.1",
+      "title": "スキーマ形式（`.verify/forms/<kind>.yaml`）",
+      "line": 469,
+      "level": 3
+    },
+    {
+      "number": "14.2",
+      "title": "検証器",
+      "line": 533,
+      "level": 3
+    },
+    {
+      "number": "14.3",
+      "title": "組込フォーム",
+      "line": 548,
+      "level": 3
+    },
+    {
+      "number": "14.4",
+      "title": "テスト種別ごとのフォーム拡張",
+      "line": 563,
+      "level": 3
+    },
+    {
+      "number": "15",
+      "title": "Structured Test Operation adapter contract",
+      "line": 575,
+      "level": 2
+    },
+    {
+      "number": "15.1",
+      "title": "`rust-cargo` 対象の特定",
+      "line": 582,
+      "level": 3
+    },
+    {
+      "number": "15.2",
+      "title": "`rust-cargo` 編集・挿入の適用",
+      "line": 595,
+      "level": 3
+    },
+    {
+      "number": "15.3",
+      "title": "`rust-cargo` annotation blockの再生成",
+      "line": 626,
+      "level": 3
+    },
+    {
+      "number": "15.4",
+      "title": "`rust-cargo` 1 Test境界の保証",
+      "line": 632,
+      "level": 3
+    }
   ]
 }
