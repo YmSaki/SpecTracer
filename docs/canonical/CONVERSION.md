@@ -73,6 +73,17 @@ Owner 裁定（2026-09-05、Issue #14 コメント）: 「あくまで derived_f
 4. 解決できない引用は空のまま残し、一覧に出す（`derivation-candidates.md`）。
 5. **ID 固定（2026-09-05）**: `build.py freeze` が id と `derived_from` を fragments に書き戻す。以後 `build` は保存された id をそのまま使い、id の無い新規 item にだけ次番号を振る。番号の付け直しはしない。`apply-derivation` は保存値と再計算の差分を報告する道具になり、`--write` を付けたときだけ上書きする。
 
+## 6.1 ビルド手順（2026-09-05、節ノード版）
+
+```
+python docs/canonical/build.py build --repo-root .              # 断片 → 木（文書>節>小節>文）+ id
+python docs/canonical/build.py apply-derivation --write --repo-root .   # 文の辺（cites）と節の辺（導出表・トレーサビリティ表）を計算して書く
+python docs/canonical/build.py coverage                         # 行被覆
+python docs/canonical/build.py export                           # 層ごとの md
+```
+
+`build` 単独では `derived_from` は断片の値（空）に戻る。この4手順の結果は byte 再現する。層の移動は `relayer apply <mapping...>`（複数ファイルを1回で、基準は適用前の断片。分割適用は id がずれるので禁止）。
+
 ## 7. ID の付番
 
 初回変換ではエージェントは `id` を付けず、後処理が (層, 文書, `source.lines[0]`) 順に決定的に付番した。**ID 固定後（2026-09-05）は id が fragments に保存されており、既存の id は変えない。** 新しい文を足すときは id を書かずに置けば、`build` が次番号を振る。文を消しても番号は詰めない。
