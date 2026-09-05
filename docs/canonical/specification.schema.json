@@ -2,19 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "spectracer/specification.schema.json",
   "title": "SpecTracer canonical specification (Issue #14)",
-  "description": "要求・要件定義・基本仕様・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。",
+  "description": "要求・要件定義・基本仕様・詳細仕様・基本設計・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。2026-09-05: 基本仕様と詳細設計の間に詳細仕様（detailed_spec, DS-/area DSA-）と基本設計（basic_design, BD-/area BDA-）を挿入（Owner の層分割）。",
   "type": "object",
-  "required": ["schema_version", "request", "require", "spec", "design"],
+  "required": ["schema_version", "request", "require", "spec", "detailed_spec", "basic_design", "design"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "0.1" },
-    "request": { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
-    "require": { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
-    "spec":    { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
-    "design":  { "type": "array", "items": { "$ref": "#/$defs/designArea" } }
+    "request":        { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
+    "require":        { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
+    "spec":           { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
+    "detailed_spec":  { "type": "array", "items": { "$ref": "#/$defs/designArea" } },
+    "basic_design":   { "type": "array", "items": { "$ref": "#/$defs/designArea" } },
+    "design":         { "type": "array", "items": { "$ref": "#/$defs/designArea" } }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$" },
+    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DS-[0-9]{3,}|DSA-[0-9]{3,}|BD-[0-9]{3,}|BDA-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$" },
     "source": {
       "description": "移行期間限定。元 md のどこから写したか。lines は statement と description の両方を含む行範囲（1 始まり、両端含む）。",
       "type": "object",

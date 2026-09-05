@@ -1,0 +1,4592 @@
+{
+ "SPEC-001": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-002": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-003": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-004": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-005": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-006": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-007": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-008": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-009": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-010": {
+  "layer": "basic_design",
+  "reason": "ツール名（バイナリ名・ディレクトリ名）は外部から見える命名決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-011": {
+  "layer": "basic_design",
+  "reason": "実装言語の選択は外部から見える構成要素選択（採用ツールチェーン）。別実装なら偽になる決定。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-012": {
+  "layer": "basic_design",
+  "reason": "組込production adapterをrust-cargoとする構成要素選択（adapter/core分界に関わる決定）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-013": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-014": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-015": {
+  "layer": "basic_design",
+  "reason": "インターフェースをCLIとMCPの2種とする、入口の種類の宣言（LAYERING.md PM仮置き例）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-016": {
+  "layer": "basic_design",
+  "reason": "MCPを本体とするという入口の主従関係の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-017": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-018": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-019": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-020": {
+  "layer": "basic_design",
+  "reason": "Rust固有処理をrust-cargo adapterが所有するという、adapterとcoreの責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-021": {
+  "layer": "basic_design",
+  "reason": "CLI・MCP・検証coreがadapter registryを介して能力選択するという、adapter/core分界とcomposition構造の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-022": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-023": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-024": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-025": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-026": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-027": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-028": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-029": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-030": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-031": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-032": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-033": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-034": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-035": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-036": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-037": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-038": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-039": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-040": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-041": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-042": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-043": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-044": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-045": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-046": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-047": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-048": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-049": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-050": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-051": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-052": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-053": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-054": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-055": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-056": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-057": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-058": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-059": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-060": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-061": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-062": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-063": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-064": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-065": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-066": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-067": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-068": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-069": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-070": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-071": {
+  "layer": "basic_design",
+  "reason": "宣言層の正典が`.verify/`配下のどのレコードから成るかというディレクトリ/レコード構成の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-072": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-073": {
+  "layer": "basic_design",
+  "reason": "事実層の正典が`.verify/`配下のどのレコードから成るかというディレクトリ/レコード構成の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-074": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-075": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-076": {
+  "layer": "basic_design",
+  "reason": "discovery/解析/実行起動等をadapter capabilityとして提供するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-077": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-078": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-079": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-080": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-081": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-082": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-083": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-084": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-085": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-086": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-087": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-088": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-089": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-090": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-091": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-092": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-093": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-094": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-095": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-096": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-097": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-098": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-099": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-100": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-101": {
+  "layer": "basic_design",
+  "reason": "config.yaml writerの正規形バージョンという、外部設定ファイル形式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-102": {
+  "layer": "basic_design",
+  "reason": "config.yamlのadapter別namespace構造という、外部設定ファイル形式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-103": {
+  "layer": "basic_design",
+  "reason": "version 1設定の互換読み込みという、外部フォーマット互換reader動作の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-104": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-105": {
+  "layer": "basic_design",
+  "reason": "`vtest init`が生成する設定バージョンという、名指しコマンドの責務＋ファイル形式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-106": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-107": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-108": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-109": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-110": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-111": {
+  "layer": "design",
+  "reason": "core domainの`TestEntity`が持つfield（execution）の宣言。PMの`SourceLocation`型宣言例と同型の内部型フィールド。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-112": {
+  "layer": "design",
+  "reason": "`TestEntity`のfieldでないものの宣言。内部型のフィールド境界を定義する型宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-113": {
+  "layer": "basic_design",
+  "reason": "Test JSON wire互換layerの出力仕様という、adapter作者から見えるwire契約の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-114": {
+  "layer": "basic_design",
+  "reason": "rust-cargo Testに限定したversion 1互換field出力という、wire契約の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-115": {
+  "layer": "basic_design",
+  "reason": "非Rust Testでのversion 1互換field省略という、wire契約の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-116": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-117": {
+  "layer": "basic_design",
+  "reason": "`targets` listを常に出力するという、wire契約（外部フィールド）の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-118": {
+  "layer": "basic_design",
+  "reason": "単数互換field `target` の出力条件という、wire契約の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-119": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-120": {
+  "layer": "detailed_spec",
+  "reason": "adapter設定の入力値制約・拒否条件を精密に規定（一意性・重複可否・未知adapter時の扱い等）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-121": {
+  "layer": "basic_design",
+  "reason": "documentのIDプレフィックスと正典格納パスの割当（レコードの種類）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-122": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-123": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-124": {
+  "layer": "basic_design",
+  "reason": "VOのIDプレフィックスと正典格納パスの割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-125": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-126": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-127": {
+  "layer": "basic_design",
+  "reason": "TestのIDプレフィックスと正典所在の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-128": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-129": {
+  "layer": "basic_design",
+  "reason": "Source TargetのID方式（SRC-接頭辞・adapter ID+opaque locator）の割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-130": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-131": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-132": {
+  "layer": "basic_design",
+  "reason": "RelationのIDプレフィックス（REL-/ULID）と正典格納パスの割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-133": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-134": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-135": {
+  "layer": "basic_design",
+  "reason": "判断記録のID方式（ULID）と正典格納パスの割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-136": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-137": {
+  "layer": "basic_design",
+  "reason": "承認記録のID方式（ULID）と正典格納パスの割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-138": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-139": {
+  "layer": "basic_design",
+  "reason": "Execution EvidenceのID方式（ULID）と正典格納パスの割当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-140": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-141": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-142": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-143": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-144": {
+  "layer": "basic_design",
+  "reason": "IDが人間可読な形式であるべきという、外部から見える命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-145": {
+  "layer": "basic_design",
+  "reason": "IDを利用者が命名するという、外部から見えるワークフロー上の役割決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-146": {
+  "layer": "basic_design",
+  "reason": "IDの文字集合`[A-Z0-9-]`という具体的な命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-147": {
+  "layer": "basic_design",
+  "reason": "IDの接頭辞を種別ごとに固定するという命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-148": {
+  "layer": "basic_design",
+  "reason": "IDの推奨形式（`TEST-<領域>-<連番>`）という命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-149": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-150": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-151": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-152": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-153": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-154": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-155": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-156": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-157": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-158": {
+  "layer": "detailed_spec",
+  "reason": "ID衝突・空の説明文などの個別事例に対する精密な扱い（状態割当・受理可否）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-159": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-160": {
+  "layer": "basic_design",
+  "reason": "Relation writerのファイル名規約（`REL-<ULID>`）という外部から見えるレコード形式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-161": {
+  "layer": "basic_design",
+  "reason": "bare ULID互換入力の正規化という、外部フォーマット互換readerの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-162": {
+  "layer": "basic_design",
+  "reason": "判断・承認・EvidenceのID方式（bare ULID）という命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-163": {
+  "layer": "spec",
+  "reason": "ULIDのpayload特性による衝突回避という説明。ID方式決定（basic_design寄り）か、性質の約束（spec）か境界が曖昧。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-164": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-165": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-166": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-167": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-168": {
+  "layer": "basic_design",
+  "reason": "opaque locator構文と恒久SRC ID宣言方法をadapterが定めるという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-169": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-170": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-171": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-172": {
+  "layer": "basic_design",
+  "reason": "Test→SRC対応をadapter所有のTest metadata宣言から提供するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-173": {
+  "layer": "basic_design",
+  "reason": "SRC→Testの逆引きをスキャン結果（core側）から提供するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-174": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-175": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-176": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-177": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-178": {
+  "layer": "detailed_spec",
+  "reason": "5状態それぞれについて「完全検証でOKか」を精密に定める受入条件（§22.1の集約OK条件そのもの）。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-179": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-180": {
+  "layer": "detailed_spec",
+  "reason": "5状態それぞれについて「完全検証でOKか」を精密に定める受入条件（§22.1の集約OK条件そのもの）。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-181": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-182": {
+  "layer": "detailed_spec",
+  "reason": "5状態それぞれについて「完全検証でOKか」を精密に定める受入条件（§22.1の集約OK条件そのもの）。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-183": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-184": {
+  "layer": "detailed_spec",
+  "reason": "5状態それぞれについて「完全検証でOKか」を精密に定める受入条件（§22.1の集約OK条件そのもの）。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-185": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-186": {
+  "layer": "detailed_spec",
+  "reason": "5状態それぞれについて「完全検証でOKか」を精密に定める受入条件（§22.1の集約OK条件そのもの）。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-187": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-188": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-189": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-190": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-191": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-192": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-193": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-194": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-195": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-196": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-197": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-198": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-199": {
+  "layer": "detailed_spec",
+  "reason": "条件→状態→診断ラベルの精密な割当表そのもの。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-200": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-201": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-202": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-203": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-204": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-205": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-206": {
+  "layer": "detailed_spec",
+  "reason": "承認と検証状態の間で許される/禁じられる遷移を精密に規定する境界条件。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-207": {
+  "layer": "detailed_spec",
+  "reason": "承認と検証状態の間で許される/禁じられる遷移を精密に規定する境界条件。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-208": {
+  "layer": "detailed_spec",
+  "reason": "承認と検証状態の間で許される/禁じられる遷移を精密に規定する境界条件。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-209": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-210": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-211": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-212": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時の受入条件・出力要件・不変条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-213": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時の受入条件・出力要件・不変条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-214": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時の受入条件・出力要件・不変条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-215": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時の受入条件・出力要件・不変条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-216": {
+  "layer": "detailed_spec",
+  "reason": "scope限定時の受入条件・出力要件・不変条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-217": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-218": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-219": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-220": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-221": {
+  "layer": "detailed_spec",
+  "reason": "検査結果が証拠源・実行形態に依らず同一であるべきという精密な不変条件。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-222": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-223": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-224": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-225": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-226": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-227": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-228": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-229": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-230": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-231": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-232": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-233": {
+  "layer": "detailed_spec",
+  "reason": "chain_integrityが問う各層の条件を、層ごとに漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-234": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-235": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-236": {
+  "layer": "detailed_spec",
+  "reason": "orphan_detectionの対象範囲と違反時の状態を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-237": {
+  "layer": "basic_design",
+  "reason": "根の指定方式を`.verify/`設定に保持するという、外部設定ファイル構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-238": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-239": {
+  "layer": "detailed_spec",
+  "reason": "orphan_detectionの対象範囲と違反時の状態を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-240": {
+  "layer": "detailed_spec",
+  "reason": "orphan_detectionの対象範囲と違反時の状態を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-241": {
+  "layer": "detailed_spec",
+  "reason": "orphan_detectionの対象範囲と違反時の状態を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-242": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-243": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-244": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-245": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-246": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-247": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-248": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-249": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-250": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-251": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-252": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-253": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-254": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-255": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-256": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-257": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-258": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-259": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-260": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-261": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-262": {
+  "layer": "detailed_spec",
+  "reason": "target_bindingの複数target集約規則・境界条件（0件実行・解析不能・subprocess等）ごとの結果を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-263": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-264": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-265": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-266": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-267": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-268": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-269": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-270": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-271": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-272": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-273": {
+  "layer": "detailed_spec",
+  "reason": "oracle_presenceの3値分岐（FAIL/成立/UNKNOWN）と境界条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-274": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-275": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-276": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-277": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-278": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-279": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-280": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-281": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-282": {
+  "layer": "detailed_spec",
+  "reason": "Static Auditが検出する4パターンと確定/UNKNOWNの精密な条件。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-283": {
+  "layer": "basic_design",
+  "reason": "coreがadapter固有のAST・assertion構文・call graphを解釈しないという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-284": {
+  "layer": "basic_design",
+  "reason": "coreが正規化されたルール結果のみを検証・集約するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-285": {
+  "layer": "basic_design",
+  "reason": "code fragmentの具体構文はadapterの言語・runnerに従うという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-286": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-287": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-288": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-289": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-290": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-291": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-292": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-293": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-294": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-295": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-296": {
+  "layer": "detailed_spec",
+  "reason": "証拠の有効性判定に用いるハッシュ束縛対象・鮮度喪失時の状態を精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-297": {
+  "layer": "design",
+  "reason": "adapterが返す discovery DTO（hash未計算）という内部データ受け渡しの型宣言。rule2のDTOに直接該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-298": {
+  "layer": "design",
+  "reason": "coreがsubject hashを計算してからTest Entityを具体化するという、内部処理の確定順序（データ流れ）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-299": {
+  "layer": "basic_design",
+  "reason": "adapterが最終内容ハッシュを自己確定してはならないという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-300": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-301": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-302": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-303": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-304": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-305": {
+  "layer": "basic_design",
+  "reason": "rust-cargo adapterにおける判定権威を`cargo test`とする、外部ツール（構成要素）の採用決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-306": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-307": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-308": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-309": {
+  "layer": "detailed_spec",
+  "reason": "管理対象Test・証拠算入Testそれぞれの必要条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-310": {
+  "layer": "detailed_spec",
+  "reason": "管理対象Test・証拠算入Testそれぞれの必要条件を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-311": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-312": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-313": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-314": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-315": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-316": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-317": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-318": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-319": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-320": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-321": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-322": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-323": {
+  "layer": "detailed_spec",
+  "reason": "検証成立性の必要条件・未確認と違反の区別を精密に規定する§8.2そのもの。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-324": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-325": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-326": {
+  "layer": "detailed_spec",
+  "reason": "§8.2の不成立検出例に共通する構造的性質を精密に特徴づける。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-327": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-328": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-329": {
+  "layer": "basic_design",
+  "reason": "各adapterが対応言語・runnerの構造に対する決定論的判定範囲を提供するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-330": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-331": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-332": {
+  "layer": "detailed_spec",
+  "reason": "実行形態ごとに検証対象の宣言方法・必須条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-333": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-334": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-335": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-336": {
+  "layer": "detailed_spec",
+  "reason": "実行形態ごとに検証対象の宣言方法・必須条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-337": {
+  "layer": "detailed_spec",
+  "reason": "実行形態ごとに検証対象の宣言方法・必須条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-338": {
+  "layer": "detailed_spec",
+  "reason": "実行形態ごとに検証対象の宣言方法・必須条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-339": {
+  "layer": "detailed_spec",
+  "reason": "実行形態ごとに検証対象の宣言方法・必須条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-340": {
+  "layer": "detailed_spec",
+  "reason": "Source Target識別の精密な制約（一意性・複数target時の扱い）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-341": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-342": {
+  "layer": "detailed_spec",
+  "reason": "Source Target識別の精密な制約（一意性・複数target時の扱い）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-343": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-344": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-345": {
+  "layer": "basic_design",
+  "reason": "各adapterがSource Target解決・正規化を提供するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-346": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-347": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-348": {
+  "layer": "detailed_spec",
+  "reason": "Source Target識別の精密な制約（一意性・複数target時の扱い）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-349": {
+  "layer": "detailed_spec",
+  "reason": "Source Target識別の精密な制約（一意性・複数target時の扱い）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-350": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-351": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-352": {
+  "layer": "detailed_spec",
+  "reason": "traceabilityがTest成立性の条件にならないことを精密に規定する境界条件。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-353": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-354": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-355": {
+  "layer": "detailed_spec",
+  "reason": "traceabilityがTest成立性の条件にならないことを精密に規定する境界条件。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-356": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-357": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-358": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-359": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-360": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-361": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-362": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-363": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-364": {
+  "layer": "spec",
+  "reason": "初回登録時の階層化を必須としないという規定。基本の許容範囲か詳細な条件かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-365": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-366": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-367": {
+  "layer": "detailed_spec",
+  "reason": "許容されるVO-Test対応・組合せcoverage方針を漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-368": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-369": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-370": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-371": {
+  "layer": "detailed_spec",
+  "reason": "許容されるVO-Test対応・組合せcoverage方針を漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-372": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-373": {
+  "layer": "detailed_spec",
+  "reason": "許容されるVO-Test対応・組合せcoverage方針を漏れなく列挙。 許容される組合せ・分類を漏れなく列挙。詳細仕様の「すべての条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-374": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-375": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-376": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-377": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-378": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-379": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-380": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-381": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-382": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-383": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-384": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-385": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-386": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-387": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-388": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-389": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-390": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-391": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-392": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-393": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-394": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-395": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-396": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-397": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-398": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-399": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-400": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-401": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-402": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-403": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-404": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-405": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-406": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-407": {
+  "layer": "detailed_spec",
+  "reason": "判断記録の必須項目・bundle内容・受理検証・再検証時の精密な規定（§11.3の中核）。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-408": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-409": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-410": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-411": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-412": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-413": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-414": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-415": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-416": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-417": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-418": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-419": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-420": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-421": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-422": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-423": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-424": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-425": {
+  "layer": "detailed_spec",
+  "reason": "Test Registryの構造完全性（集合D/M）を形式的に定義し、違反時の状態を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-426": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-427": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-428": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-429": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-430": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-431": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-432": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-433": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-434": {
+  "layer": "basic_design",
+  "reason": "code fragmentの具体構文はadapterの言語・runnerに従うという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-435": {
+  "layer": "basic_design",
+  "reason": "Create/Edit/Query/Auditという公式操作の分類確立。境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-436": {
+  "layer": "basic_design",
+  "reason": "Create/Edit/Query/Auditという公式操作の分類確立。境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-437": {
+  "layer": "basic_design",
+  "reason": "Create/Edit/Query/Auditという公式操作の分類確立。境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-438": {
+  "layer": "basic_design",
+  "reason": "Create/Edit/Query/Auditという公式操作の分類確立。境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-439": {
+  "layer": "basic_design",
+  "reason": "Create/Edit/Query/Auditという公式操作の分類確立。境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-440": {
+  "layer": "spec",
+  "reason": "desired state方式という入力モデルの規定。主要な利用条件（spec）か精密な内部確定順序（detailed_spec）かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-441": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-442": {
+  "layer": "detailed_spec",
+  "reason": "Create/Edit時のdiff計算・再スキャン検証という精密な内部確定手順。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-443": {
+  "layer": "detailed_spec",
+  "reason": "Create/Edit時のdiff計算・再スキャン検証という精密な内部確定手順。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-444": {
+  "layer": "detailed_spec",
+  "reason": "入力検証の対象・失敗時の候補提示という精密な条件別規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-445": {
+  "layer": "detailed_spec",
+  "reason": "入力検証の対象・失敗時の候補提示という精密な条件別規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-446": {
+  "layer": "detailed_spec",
+  "reason": "公式Edit操作の対象範囲を精密に限定する制約。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-447": {
+  "layer": "detailed_spec",
+  "reason": "公式Edit操作の対象範囲を精密に限定する制約。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-448": {
+  "layer": "detailed_spec",
+  "reason": "公式Edit操作の対象範囲を精密に限定する制約。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-449": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-450": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-451": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-452": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-453": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-454": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-455": {
+  "layer": "basic_design",
+  "reason": "Form Schemaの格納先（`.verify/forms/`）というディレクトリ構成の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-456": {
+  "layer": "spec",
+  "reason": "組込schemaが同梱されるという内容の約束（格納先・命名の決定ではない）。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-457": {
+  "layer": "basic_design",
+  "reason": "rust-cargo adapterが組込schemaを登録するという、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-458": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-459": {
+  "layer": "basic_design",
+  "reason": "Form Schemaの`kind`をrepository大局一意なForm IDとする、外部から見える命名規則の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-460": {
+  "layer": "basic_design",
+  "reason": "schemaがadapter IDを別fieldで宣言するという、Form Schema（外部artifact）の構造決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-461": {
+  "layer": "detailed_spec",
+  "reason": "Form Schema解決・拒否条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-462": {
+  "layer": "detailed_spec",
+  "reason": "Form Schema解決・拒否条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-463": {
+  "layer": "detailed_spec",
+  "reason": "Form Schema解決・拒否条件を精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-464": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-465": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-466": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-467": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-468": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-469": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-470": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-471": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-472": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-473": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-474": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-475": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-476": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-477": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-478": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-479": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-480": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-481": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-482": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-483": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-484": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-485": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-486": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-487": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-488": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-489": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-490": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-491": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-492": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-493": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-494": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-495": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-496": {
+  "layer": "detailed_spec",
+  "reason": "承認の依存closure構成・必須項目・失効時の再検証・PASS昇格禁止を精密に規定（§17の中核）。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-497": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-498": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-499": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-500": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-501": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-502": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-503": {
+  "layer": "detailed_spec",
+  "reason": "未登録/欠落/未確定/未実施のいずれも検証済み扱いしないという精密な否定規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-504": {
+  "layer": "basic_design",
+  "reason": "`vtest init`が`.verify/`を作成するという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-505": {
+  "layer": "basic_design",
+  "reason": "`vtest init`が既存コードを変更しないという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-506": {
+  "layer": "basic_design",
+  "reason": "`vtest scan`の報告内容という、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-507": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-508": {
+  "layer": "basic_design",
+  "reason": "`vtest verify`の表示内容という、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-509": {
+  "layer": "basic_design",
+  "reason": "`vtest verify`が部分状態を総合OKとしないという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-510": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-511": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-512": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-513": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-514": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-515": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-516": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-517": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-518": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-519": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-520": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-521": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-522": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-523": {
+  "layer": "detailed_spec",
+  "reason": "必須/任意リンクの区別と説明文欠落時の扱いを精密に規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-524": {
+  "layer": "detailed_spec",
+  "reason": "必須/任意リンクの区別と説明文欠落時の扱いを精密に規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-525": {
+  "layer": "detailed_spec",
+  "reason": "必須/任意リンクの区別と説明文欠落時の扱いを精密に規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-526": {
+  "layer": "detailed_spec",
+  "reason": "必須/任意リンクの区別と説明文欠落時の扱いを精密に規定。 入力値・必須項目・許容範囲についての精密な制約。詳細仕様の「入力値の範囲・形式・制約」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-527": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-528": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-529": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-530": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-531": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-532": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-533": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-534": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-535": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-536": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-537": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-538": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-539": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-540": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-541": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-542": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-543": {
+  "layer": "basic_design",
+  "reason": "`vtest run`がテストを実行するという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-544": {
+  "layer": "basic_design",
+  "reason": "`vtest run`がEvidenceを記録するという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-545": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-546": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-547": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-548": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-549": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-550": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-551": {
+  "layer": "detailed_spec",
+  "reason": "Evidenceが含むべきフィールドを一つずつ漏れなく列挙する精密な仕様。 Evidenceが含むべき項目の精密な列挙（フィールド単位）。§1の概念定義（要約）とは異なり網羅的。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-552": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-553": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-554": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-555": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-556": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-557": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-558": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-559": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-560": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-561": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-562": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-563": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-564": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-565": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-566": {
+  "layer": "detailed_spec",
+  "reason": "Evidence有効性の一致条件（hash・target集合・adapter ID・revision等）を項目ごとに精密に規定。 ハッシュ束縛で一致を要求する項目の精密な列挙。詳細仕様の「すべての入力条件」に相当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-567": {
+  "layer": "basic_design",
+  "reason": "Evidence readerのレガシー互換読み込み動作という、外部フォーマット互換readerの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-568": {
+  "layer": "basic_design",
+  "reason": "Evidence readerのrust-cargo限定評価条件という、外部フォーマット互換readerの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-569": {
+  "layer": "basic_design",
+  "reason": "Evidence readerが一意確認できない場合の扱いという、互換reader動作の一部（567/568と同一クラスタ）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-570": {
+  "layer": "detailed_spec",
+  "reason": "完全検証OKの受入条件とfail-closed規定を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-571": {
+  "layer": "detailed_spec",
+  "reason": "完全検証OKの受入条件とfail-closed規定を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-572": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-573": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-574": {
+  "layer": "detailed_spec",
+  "reason": "完全検証OKの受入条件とfail-closed規定を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-575": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-576": {
+  "layer": "detailed_spec",
+  "reason": "完全検証OKの受入条件とfail-closed規定を精密に規定。 検証成立性・受入の必要条件を精密に列挙。詳細仕様の「受入条件・検証可能な期待結果」に該当。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-577": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-578": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-579": {
+  "layer": "detailed_spec",
+  "reason": "集約時の非PASS優先順位を精密に規定。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-580": {
+  "layer": "detailed_spec",
+  "reason": "集約時の非PASS優先順位を精密に規定。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-581": {
+  "layer": "detailed_spec",
+  "reason": "集約時の非PASS優先順位を精密に規定。 競合する条件間の優先順位・境界条件の精密な規定。詳細仕様の該当項目そのもの。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-582": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-583": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-584": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-585": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-586": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-587": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-588": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-589": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-590": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-591": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-592": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-593": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-594": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-595": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力欠落時の状態・診断ラベル・操作失敗の扱いを精密に規定。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-596": {
+  "layer": "basic_design",
+  "reason": "`vtest scan`がregistry委譲するという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-597": {
+  "layer": "basic_design",
+  "reason": "`vtest scan`が`.verify/`とdiscovery結果からグラフを再構築するという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-598": {
+  "layer": "basic_design",
+  "reason": "`vtest scan`が整合性検査を行うという、名指しコマンドの責務定義。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-599": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-600": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-601": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-602": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-603": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-604": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-605": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-606": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-607": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-608": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-609": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-610": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-611": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-612": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-613": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-614": {
+  "layer": "spec",
+  "reason": "content_hash照合が決定論的に解決するという性質。基本仕様の主要振る舞いか精密な不変条件かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-615": {
+  "layer": "detailed_spec",
+  "reason": "整合性検査の各違反条件からMISMATCH等への精密な割当表（§23の中核）。 特定条件から特定の状態/結果への精密な割当。「入力・状態・条件が決まれば結果が一意に決まる」水準のためdetailed_spec。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-616": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-617": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-618": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-619": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-620": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-621": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-622": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-623": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-624": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-625": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-626": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-627": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-628": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-629": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-630": {
+  "layer": "basic_design",
+  "reason": "`.verify/` 配下のディレクトリ構成そのもの。rule2のディレクトリ構成の典型例。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-631": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-632": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-633": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-634": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-635": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-636": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-637": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-638": {
+  "layer": "spec",
+  "reason": "Relationレコードが不変であるという定義（§3.2 SPEC-133と同旨の約束、物理格納方式そのものではない）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-639": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-640": {
+  "layer": "basic_design",
+  "reason": "1レコード1ファイル・ファイル名規約・追記専用という正典の物理格納方式の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-641": {
+  "layer": "spec",
+  "reason": "マージ後の論理的不整合がスキャンで検出されるという振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-642": {
+  "layer": "detailed_spec",
+  "reason": "書込みの原子性・部分状態非観測という精密な技術的不変条件。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-643": {
+  "layer": "detailed_spec",
+  "reason": "書込みの原子性・部分状態非観測という精密な技術的不変条件。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-644": {
+  "layer": "detailed_spec",
+  "reason": "書込みの原子性・部分状態非観測という精密な技術的不変条件。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-645": {
+  "layer": "spec",
+  "reason": "部分書込みの検出・修復を行わないという範囲の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-646": {
+  "layer": "spec",
+  "reason": "検出・再構築・同期が記憶に依存しないことを保証するという約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-647": {
+  "layer": "spec",
+  "reason": "物理保存方式の詳細を詳細設計へ委譲するというメタな約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-648": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-649": {
+  "layer": "spec",
+  "reason": "`vtest scan`を名指しするが、文の主眼は再構築可能性という約束（§24.3全体はspec）。名指しコマンド則との整合は要検討。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-650": {
+  "layer": "detailed_spec",
+  "reason": "cache破損・削除という境界条件下でも正典が影響されないという精密な保証。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-651": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-652": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-653": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-654": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-655": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-656": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-657": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-658": {
+  "layer": "spec",
+  "reason": "`vtest verify`を名指しするが、文脈は利用者別ユースケースの例示であり、コマンド責務定義そのものではない。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-659": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-660": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-661": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-662": {
+  "layer": "basic_design",
+  "reason": "MCPを本体とするという入口の主従関係の宣言（SPEC-016と同旨）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-663": {
+  "layer": "basic_design",
+  "reason": "CLI・CIを同じ検証の別入口とするという、入口の種類の宣言。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-664": {
+  "layer": "spec",
+  "reason": "GUIを必須要件としないという、範囲を限定するだけの約束（新たな入口を宣言するものではない）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-665": {
+  "layer": "spec",
+  "reason": "コマンドの完全仕様は詳細設計で定めるというメタな委譲の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-666": {
+  "layer": "spec",
+  "reason": "本書がコマンド一覧と責務を確定するという、文書の権限範囲に関するメタな宣言。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-667": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-668": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-669": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-670": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-671": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-672": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-673": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-674": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-675": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-676": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-677": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-678": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-679": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-680": {
+  "layer": "basic_design",
+  "reason": "`vtest`の各コマンドの責務定義という、外部から見えるコマンド体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-681": {
+  "layer": "basic_design",
+  "reason": "終了コードの割当・意味という、外部から見えるcode systemの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-682": {
+  "layer": "basic_design",
+  "reason": "終了コードの割当・意味という、外部から見えるcode systemの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-683": {
+  "layer": "spec",
+  "reason": "ゲート充足が検証状態と別軸であるという不変条件（exit code体系そのものではない）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-684": {
+  "layer": "detailed_spec",
+  "reason": "ゲート充足が検証状態を書き換えないという精密な不変条件。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-685": {
+  "layer": "spec",
+  "reason": "出力で検証状態とゲート満否を分けて提示するという規定。主要な出力記述か精密な出力要件かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-686": {
+  "layer": "basic_design",
+  "reason": "終了コードの割当・意味という、外部から見えるcode systemの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-687": {
+  "layer": "basic_design",
+  "reason": "終了コードの割当・意味という、外部から見えるcode systemの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-688": {
+  "layer": "basic_design",
+  "reason": "終了コードの割当・意味という、外部から見えるcode systemの決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-689": {
+  "layer": "spec",
+  "reason": "終了コード体系の詳細を詳細設計へ委譲するというメタな約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-690": {
+  "layer": "basic_design",
+  "reason": "MCPサーバの起動コマンドという、外部から見える入口の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-691": {
+  "layer": "spec",
+  "reason": "MCPがCLIと同一のコア機能を呼ぶという、入口間の振る舞い一貫性の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-692": {
+  "layer": "spec",
+  "reason": "入出力スキーマの詳細を詳細設計で定めるというメタな委譲の約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-693": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-694": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-695": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-696": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-697": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-698": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-699": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-700": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-701": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-702": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-703": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-704": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-705": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-706": {
+  "layer": "basic_design",
+  "reason": "MCPの各ツールの対応機能という、外部から見えるツール体系の決定。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-707": {
+  "layer": "spec",
+  "reason": "すべてのツールが非対話で完結するという振る舞いの約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-708": {
+  "layer": "spec",
+  "reason": "CLIとMCPが同じregistry composition等を利用するという一貫性規定。主要な関係記述か精密な技術要件かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-709": {
+  "layer": "detailed_spec",
+  "reason": "MCPがCLIと異なるadapterを暗黙選択してはならないという精密な否定規定。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-710": {
+  "layer": "spec",
+  "reason": "CLI/MCP体系の詳細を詳細設計へ委譲するというメタな約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-711": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-712": {
+  "layer": "basic_design",
+  "reason": "discovery/解析/実行/coverage計測をadapter能力として提供するという、adapter/core責務分界の明示（SPEC-076と同旨）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-713": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-714": {
+  "layer": "basic_design",
+  "reason": "core verifierを変更せずに別adapterを登録できる境界の要求という、adapter/core責務分界の明示。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-715": {
+  "layer": "basic_design",
+  "reason": "adapter追加で共通契約・スキーマが壊れないという設計制約（adapter/core境界の性質）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-716": {
+  "layer": "basic_design",
+  "reason": "組込production adapterをrust-cargoとする構成要素選択（SPEC-012と同旨）。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-717": {
+  "layer": "spec",
+  "reason": "rust-cargoの対象範囲記述。基本仕様のスコープ記述か詳細な入力制約かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-718": {
+  "layer": "spec",
+  "reason": "rust-cargo以外を含めないというスコープ記述。同上の理由で低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-719": {
+  "layer": "detailed_spec",
+  "reason": "adapter能力不足時にPASSへ推測昇格してはならないという精密なfail-closed規定。 個別事例・境界条件にまで踏み込んだ不変条件。基本仕様の主要振る舞い記述を超える精度。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-720": {
+  "layer": "spec",
+  "reason": "能力不足時の扱いを§8条項4へ委ねる記述。委譲文か精密規定かの境界は低確信。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-721": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-722": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-723": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-724": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-725": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-726": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-727": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-728": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-729": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-730": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-731": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-732": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-733": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-734": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-735": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-736": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-737": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-738": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-739": {
+  "layer": "basic_design",
+  "reason": "READMEへの一行追記という、具体的な外部成果物（ドキュメント）の要求。基本仕様としては異例に具体的で要再検討。",
+  "confidence": "low",
+  "code_like": false
+ },
+ "SPEC-740": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-741": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-742": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-743": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-744": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-745": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-746": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-747": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-748": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-749": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-750": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-751": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-752": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-753": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-754": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-755": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-756": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-757": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-758": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-759": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-760": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-761": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-762": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-763": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-764": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ },
+ "SPEC-765": {
+  "layer": "spec",
+  "reason": "外から使うとどう振る舞うかという主要な機能・定義・スコープ・委譲の記述。実装方法によらず真であり続ける約束。",
+  "confidence": "high",
+  "code_like": false
+ }
+}

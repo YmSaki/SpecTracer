@@ -28,8 +28,6 @@
 
 規範の伝播は上流から下流である。
 
-*導出元: P-005*
-
 *引用: 要件定義 P-005*
 
 ### DES-007
@@ -43,8 +41,6 @@
 ### DES-009
 
 本書からの `要件定義 §n` 参照は、凍結要件定義 v0.1 の連番（§1〜§28・P-001〜P-005・R-1〜R-5）を指す。
-
-*導出元: R-1, R-5, P-001, P-005*
 
 *引用: P-001, P-005, R-1, R-5*
 
@@ -90,8 +86,6 @@
 ### DES-018
 
 本書は、基本仕様が固定するCLIコマンド一覧・MCPツール一覧を増やさない。
-
-*導出元: SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689, SPEC-690, SPEC-691, SPEC-692, SPEC-693, SPEC-694, SPEC-695, SPEC-696, SPEC-697, SPEC-698, SPEC-699, SPEC-700, SPEC-701, SPEC-702, SPEC-703, SPEC-704, SPEC-705, SPEC-706, SPEC-707, SPEC-708, SPEC-709, SPEC-710*
 
 *引用: 基本仕様 §26.1, 基本仕様 §26.2*
 
@@ -309,8 +303,6 @@ Source Target hashはdomain `vtest:target-subject:v1` を用い、canonical Targ
 
 検証対象は一般概念であり、このhashは検証対象をSource Targetとして実現した形態のidentity束縛であって、coreが「検証対象とは何か」をSource Targetに限定して定義するものではない（§1.3・§4.1）。
 
-*導出元: SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339*
-
 *引用: 基本仕様 §9.1*
 
 ### DES-068
@@ -360,8 +352,6 @@ document recordの `content_hash` と実sourceが不一致ならsubject hashは�
 ### DES-079
 
 document subject hashは、要件定義・基本仕様・詳細設計・API Schema等を種別で区別せず、すべて同一の総称document subjectとして計算する（§3.1）。
-
-*導出元: SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
 
 *引用: 基本仕様 §3.2*
 
@@ -433,8 +423,6 @@ adapterは、完全性を保証できないDTOから `PASS` 用subjectを具体�
 
 静的解析は正典レコードを持たず、検証のたびに現在のsource / configから再計算する派生情報である（§7・§7.1）。
 
-*導出元: P-003*
-
 *引用: 基本仕様 P-003*
 
 ### DES-097
@@ -462,8 +450,6 @@ format変更を構文上の意味だけから同値とみなさず、正規化�
 ### DES-102
 
 基本仕様 §24.1 の layout をそのまま採用する。
-
-*導出元: SPEC-618, SPEC-619, SPEC-620, SPEC-621, SPEC-622, SPEC-623, SPEC-624, SPEC-625, SPEC-626, SPEC-627, SPEC-628, SPEC-629, SPEC-630*
 
 *引用: 基本仕様 §24.1*
 
@@ -519,8 +505,6 @@ format変更を構文上の意味だけから同値とみなさず、正規化�
 
 文書種別ごとの専用ディレクトリ（旧 `spec/` / `req/`）を設けず、上流文書はすべて `doc/` の総称documentレコード1種で表現する。
 
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143, SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
-
 *引用: 基本仕様 §3.1, 基本仕様 §3.2*
 
 ### DES-116
@@ -572,8 +556,6 @@ format変更を構文上の意味だけから同値とみなさず、正規化�
 
 `config.yaml` readerはversion 1を単一の `rust-cargo` adapter設定としてin-memory変換して読み取るが、読み取りだけで正典を書き換えない。
 
-*導出元: SPEC-101, SPEC-102, SPEC-103, SPEC-104, SPEC-105, SPEC-106, SPEC-107, SPEC-108, SPEC-109, SPEC-110, SPEC-111, SPEC-112, SPEC-113, SPEC-114, SPEC-115, SPEC-116, SPEC-117, SPEC-118, SPEC-119, SPEC-120*
-
 *引用: 基本仕様 §2.4*
 
 ### DES-122
@@ -616,8 +598,6 @@ coreは未知のnamespaceや値をRust設定として解釈しない。
 
 `verify.full_scope` は利用者が完全検証を縮小する設定ではなく、基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）を列挙するconfig invariantである。
 
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
-
 *引用: 基本仕様 §5*
 
 ### DES-132
@@ -639,8 +619,6 @@ version 1では、`verify.full_scope` のfield欠落を固定4検査として具
 ### DES-136
 
 いかなる設定値も完全検証の検査を4本未満へ縮退させない（§22.1）。
-
-*導出元: SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
 
 *引用: 基本仕様 §4.6*
 
@@ -683,8 +661,6 @@ config読込み時に次を検査し、いずれか違反があればE-CONFIG-00
 ### DES-146
 
 `require.verification` の値は、基本仕様 §4.1 の5状態語彙（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）のいずれかと大文字小文字を区別して完全一致しなければならない。
-
-*導出元: SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-183, SPEC-184, SPEC-185, SPEC-186*
 
 *引用: 基本仕様 §4.1*
 
@@ -760,8 +736,6 @@ MCPサーバは長時間動作するため、ツール呼び出しごとに対�
 
 上流文書はすべて単一の総称ノード型 `document` で表現する。
 
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143*
-
 *引用: 基本仕様 §3.1*
 
 ### DES-164
@@ -808,8 +782,6 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 `derives_from` は上流documentへの唯一のリンク種別である。
 
-*導出元: SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
-
 *引用: 基本仕様 §3.2*
 
 ### DES-172
@@ -852,8 +824,6 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 `anchor` は `derives_from` entryのfieldであり、Test metadataには存在しない（§4.1）。
 
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 基本仕様 §12*
 
 ### DES-181
@@ -884,8 +854,6 @@ document レコードの `derives_from` entryの `note` fieldは任意の導出�
 
 本システムは文書内容の意味的良否を検証しない。
 
-*導出元: SPEC-729, SPEC-730, SPEC-731, SPEC-732, SPEC-733, SPEC-734, SPEC-735, SPEC-736, SPEC-737, SPEC-738, SPEC-739*
-
 *引用: 基本仕様 §29 OOS-001*
 
 ### DES-188
@@ -909,8 +877,6 @@ VO レコードの `parent` fieldはVO IDまたはnull（階層化）である�
 ### DES-189
 
 VO レコードの `derives_from` fieldは1件以上のdocumentへの直結を表す。
-
-*導出元: SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
 
 *引用: 基本仕様 §3.2*
 
@@ -946,8 +912,6 @@ VOは1件以上の `document` から `derives_from` で導出される。
 
 VOとdocumentの間に他のエンティティ層を置かない（§3.2）。
 
-*導出元: SPEC-023, SPEC-024, SPEC-025, SPEC-026, SPEC-027, SPEC-028, SPEC-029, SPEC-030, SPEC-031, SPEC-032, SPEC-033, SPEC-034, SPEC-035, SPEC-036, SPEC-037, SPEC-038, SPEC-039, SPEC-040, SPEC-041, SPEC-042, SPEC-043, SPEC-044, SPEC-045, SPEC-046, SPEC-047, SPEC-048, SPEC-049, SPEC-050, SPEC-051, SPEC-052, SPEC-053, SPEC-054, SPEC-055, SPEC-056, SPEC-057, SPEC-058, SPEC-059, SPEC-060, SPEC-061, SPEC-062, SPEC-063, SPEC-064, SPEC-065, SPEC-066, SPEC-067, SPEC-068, SPEC-069*
-
 *引用: 基本仕様 §1*
 
 ### DES-198
@@ -979,8 +943,6 @@ VOの `derives_from` entryの `anchor` / `note` の欠落・空文字列は `cha
 ### DES-204
 
 「どの上流条項がどのVOへ対応するか」の対応ペアは、`anchor` 付き `derives_from` エッジとして保持し、§11.6のprojection出力で露出する。
-
-*導出元: SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
 
 *引用: 基本仕様 §11.1*
 
@@ -1055,8 +1017,6 @@ readerは読取り互換fieldとして `status` を受理するが、実効判�
 
 組合せ空間の定義が仕様に対して十分かは本システムの検査ではなく、`UNKNOWN` としてエスカレーションの領分である（§8）。
 
-*導出元: SPEC-358, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364, SPEC-365, SPEC-366, SPEC-367, SPEC-368, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11, 基本仕様 §10*
 
 ### DES-221
@@ -1072,8 +1032,6 @@ readerは読取り互換fieldとして `status` を受理するが、実効判�
 > combinations:
 >   - { operand-sign: positive, operator: div }
 >   - { operand-sign: negative, operator: div }
-
-*導出元: SPEC-358, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364, SPEC-365, SPEC-366, SPEC-367, SPEC-368, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375*
 
 *引用: 基本仕様 §10*
 
@@ -1129,15 +1087,11 @@ entryが宣言済みdimensionのいずれかを欠く、または同じdimension
 
 `combinations` の値が仕様に対して十分な組合せ集合かは本システムの検査ではなく、エスカレーションの領分である。
 
-*導出元: SPEC-358, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364, SPEC-365, SPEC-366, SPEC-367, SPEC-368, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §10, 基本仕様 §11*
 
 ### DES-235
 
 Relationは、どちらか一方のエンティティに自然に所属しない関係（VO間の依存、Test間の補完関係など）だけを保存する。
-
-*導出元: SPEC-094, SPEC-095, SPEC-096, SPEC-097, SPEC-098, SPEC-099, SPEC-100*
 
 *引用: 基本仕様 §2.3*
 
@@ -1196,8 +1150,6 @@ Relationの変更はファイル削除＋新規作成で表す。
 ### DES-247
 
 判断記録は、`UNKNOWN` に対して外部（人間または判断可能Agent）が下した判断の記録である。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
@@ -1291,8 +1243,6 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DES-264
@@ -1338,8 +1288,6 @@ Relationの変更はファイル削除＋新規作成で表す。
 ### DES-274
 
 判断記録の受理は当該対象の検証状態（§4.1の5状態）を昇格させない（§8.3）。
-
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3*
 
@@ -1415,8 +1363,6 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 承認は検証状態と独立の別軸である。
 
-*導出元: REQ-109, REQ-110, REQ-111, REQ-112, REQ-113, REQ-114, SPEC-203, SPEC-204, SPEC-205, SPEC-206, SPEC-207, SPEC-208, SPEC-209, SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497*
-
 *引用: 基本仕様 §4.5, 基本仕様 §17, 要件定義 §5.5*
 
 ### DES-288
@@ -1468,8 +1414,6 @@ Relationの変更はファイル削除＋新規作成で表す。
 ### DES-299
 
 承認対象種別 `document` は、総称documentとして登録した文書で表現し、専用のエンティティ型を設けない（§3.1）。
-
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143*
 
 *引用: 基本仕様 §3.1*
 
@@ -1677,8 +1621,6 @@ Xが判断記録のとき、`approved` から `draft` への遷移は、当該�
 
 誰がどの対象・範囲を承認できるか（approval authority）、承認ロール、必要承認数、権限schemaはプロジェクト側で定義可能とし、その具体は別紙A / プロジェクト設定へ委譲する。
 
-*導出元: SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497, SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 基本仕様 §17, 基本仕様 §30*
 
 ### DES-351
@@ -1761,15 +1703,11 @@ Evidenceレコードの `log_ref` fieldはGit管理外の生ログを指す。
 
 本システムは合否を再判定せず、`result` を `target_binding` の証拠として消費する。
 
-*導出元: SPEC-300, SPEC-301, SPEC-302, SPEC-303, SPEC-304, SPEC-305, SPEC-306, SPEC-307, SPEC-308*
-
 *引用: 基本仕様 §7*
 
 ### DES-362
 
 有効なEvidenceの `result: FAIL` は `target_binding = FAIL`（テストランナーが失敗を報告）へ至る（§11.2）。
-
-*導出元: REQ-094, REQ-095, REQ-096, REQ-097, REQ-098, REQ-099, REQ-100, REQ-101, REQ-102, REQ-103, REQ-104*
 
 *引用: 要件定義 §5.3*
 
@@ -1849,8 +1787,6 @@ Evidence内の `target` は実行時snapshotを識別するkeyであり、TEST �
 
 graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのtarget listからedgeを生成しない。
 
-*導出元: SPEC-094, SPEC-095, SPEC-096, SPEC-097, SPEC-098, SPEC-099, SPEC-100*
-
 *引用: 基本仕様 §2.3*
 
 ### DES-382
@@ -1921,8 +1857,6 @@ Evidence readerは `adapter` の欠落を許容するが、現在のTestが `rus
 
 すべての管理対象Testに `covers ≥ 1` を一律に要求する。
 
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 基本仕様 §12, 要件定義 §4.1*
 
 ### DES-398
@@ -1932,8 +1866,6 @@ VOへの寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 ### DES-399
 
 検証対象は一般概念であり、adapter中立coreは各管理対象Testに1件以上の検証対象を要求する。
-
-*導出元: REQ-144, REQ-145, REQ-146, REQ-147, REQ-148, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339*
 
 *引用: 基本仕様 §9.1, 要件定義 §9.1*
 
@@ -1945,23 +1877,17 @@ VOへの寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 検証対象を実装construct（Source Target）として実現するか、外部から観測可能な契約・境界上の振る舞いとして実現するかは実行形態が定める。
 
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339*
-
 *引用: 基本仕様 §8.3, 基本仕様 §9.1, 要件定義 §4.3*
 
 ### DES-402
 
 coreの `chain_integrity` は「検証対象をSource Targetとして実現し `targets ≥ 1` を宣言すること」をadapter中立の必須リンクとしない（coreのTest層必須はTest ID・`covers ≥ 1`・その他の必須metadata）（§11.1.1）。
 
-*導出元: SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 基本仕様 §5.1, 基本仕様 §12*
 
 ### DES-403
 
 `targets[]` は検証対象をSource Targetとして実現するためのcapability fieldであり、その要求件数はadapterが定める。
-
-*導出元: SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349*
 
 *引用: 基本仕様 §9.2*
 
@@ -1972,8 +1898,6 @@ v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実
 ### DES-405
 
 非sourceの境界形態（外部契約・境界上の振る舞い）の具体的表現・確認方法は特定形態を他形態へ一律要求せず、下位仕様・後続adapter・後続版へ委譲する（本versionでContract-Target類の新schemaは設けない）。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262*
 
 *引用: 要件定義 §4.3, 基本仕様 §5.3*
 
@@ -2091,8 +2015,6 @@ doc comment 内の `@vtest.` を含まない行は自由記述として無視す
 
 scannerは `@vtest.src-id` の指定値を認識するが、付与を必須としない。
 
-*導出元: SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349*
-
 *引用: 基本仕様 §9.2*
 
 ### DES-434
@@ -2150,8 +2072,6 @@ source declarationを構文上完全なTest Entityへ正規化できる条件は
 
 `rust-cargo` は検証対象をSource Targetとして実現する形態であり、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。
 
-*導出元: SPEC-340, SPEC-341, SPEC-342, SPEC-343, SPEC-344, SPEC-345, SPEC-346, SPEC-347, SPEC-348, SPEC-349*
-
 *引用: 基本仕様 §9.2*
 
 ### DES-447
@@ -2165,8 +2085,6 @@ E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`tar
 ### DES-449
 
 `covers` 件数の可変制約（旧role/anchor由来）は設けず、すべての管理対象Testに `covers ≥ 1` を一律要求する。
-
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
 
 *引用: 基本仕様 §12*
 
@@ -2348,8 +2266,6 @@ coreは `targets ≥ 1` を中立必須にせず、`TestEntity.targets` の型�
 
 検証状態は `Pass` / `Fail` / `Mismatch` / `NoEvidence` / `Unknown` の5つのみである。
 
-*導出元: REQ-085, REQ-086, REQ-087, REQ-088, REQ-089, REQ-090, REQ-091, SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-183, SPEC-184, SPEC-185, SPEC-186*
-
 *引用: 基本仕様 §4.1, 要件定義 §5.1*
 
 ### DES-494
@@ -2376,8 +2292,6 @@ coreは `targets ≥ 1` を中立必須にせず、`TestEntity.targets` の型�
 
 診断ラベルは検証状態と別軸である。
 
-*導出元: REQ-092, REQ-093, SPEC-187, SPEC-188, SPEC-189, SPEC-190*
-
 *引用: 基本仕様 §4.2, 要件定義 §5.2*
 
 ### DES-500
@@ -2399,8 +2313,6 @@ coreは `targets ≥ 1` を中立必須にせず、`TestEntity.targets` の型�
 ### DES-504
 
 検査は `ChainIntegrity` / `OrphanDetection` / `TargetBinding` / `OraclePresence` の4本のみである。
-
-*導出元: REQ-034, REQ-035, REQ-050, REQ-051, REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084, SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
 
 *引用: 基本仕様 §5, 要件定義 §3.3, 要件定義 §4*
 
@@ -2427,8 +2339,6 @@ coreは `targets ≥ 1` を中立必須にせず、`TestEntity.targets` の型�
 ### DES-510
 
 集約の代表値選択に診断ラベルを用いない（§11.3）。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 基本仕様 §22.2*
 
@@ -2964,8 +2874,6 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 
 上流文書はすべてDOCノードとし、文書間・VO→文書は `derives_from` の一種で表現する（§19）。
 
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143, SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
-
 *引用: 基本仕様 §3.1, 基本仕様 §3.2*
 
 ### DES-644
@@ -3168,8 +3076,6 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 `orphan_detection` は文書層の孤児検出であり、親（上流document）を持たない `document` ノードが存在するかを問う。
 
-*導出元: REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241*
-
 *引用: 基本仕様 §5.2, 要件定義 §4.2*
 
 ### DES-694
@@ -3180,15 +3086,11 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 
 根指定は `.verify/` 設定として保持する。
 
-*導出元: SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241*
-
 *引用: 基本仕様 §5.2*
 
 ### DES-696
 
 根指定の追加・削除は `vtest doc` コマンドの引数で管理し `doc.roots` へ反映する。
-
-*導出元: SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689*
 
 *引用: 基本仕様 §26.1, 別紙A*
 
@@ -3199,8 +3101,6 @@ E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を 
 ### DES-698
 
 `orphan_detection` の対象は文書層のみである。実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。
-
-*導出元: R-2, REQ-292, SPEC-729, SPEC-730, SPEC-731, SPEC-732, SPEC-733, SPEC-734, SPEC-735, SPEC-736, SPEC-737, SPEC-738, SPEC-739*
 
 *引用: 要件定義 R-2, 基本仕様 §29 OOS-005*
 
@@ -3408,15 +3308,11 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 決定論的解析結果は正典レコードを持たず、検証のたびに現在のsource / configから再計算する派生情報である。
 
-*導出元: P-003*
-
 *引用: 基本仕様 P-003*
 
 ### DES-747
 
 `vtest audit static`は要求時に解析を起動し、結果をstdoutと`cache/`へ出力する。
-
-*導出元: SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689*
 
 *引用: 基本仕様 §26.1*
 
@@ -3440,8 +3336,6 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 `UNKNOWN`は意味判定できる者への判断記録エスカレーション（§8）の領分である。
 
-*導出元: SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11*
 
 ### DES-753
@@ -3456,23 +3350,17 @@ Structured Operationの入力検証（別紙A §14、§15）で解決に失敗�
 
 `oracle_presence`は、全ルールが違反なしなら`PASS`とする。
 
-*導出元: REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274*
-
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
 ### DES-756
 
 `oracle_presence`は、1つでも`FAIL`があれば`FAIL`とする。
 
-*導出元: REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274*
-
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
 ### DES-757
 
 `oracle_presence`は、`FAIL`がなく`UNKNOWN`があれば`UNKNOWN`とする。
-
-*導出元: REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274*
 
 *引用: 基本仕様 §5.4, 要件定義 §4.4*
 
@@ -3497,8 +3385,6 @@ DA-002のtarget別verdictの`UNKNOWN`は「静的解析の到達判定境界の�
 DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。
 
 > 要件定義 §4.3の2証拠源モデルは`target_binding`に固有。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072*
 
 *引用: 要件定義 §4.3*
 
@@ -3724,8 +3610,6 @@ assert相当の引数、または引数へ到達する束縛（§7.2のデータ
 
 `target_binding`は「そのTestが検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか」を問う。
 
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262*
-
 *引用: 基本仕様 §5.3, 要件定義 §4.3*
 
 ### DES-816
@@ -3848,8 +3732,6 @@ runtime証明は当該targetの`target_coverage` = PASSのときだけ成立す�
 
 > 基本仕様 §5.3「実装 construct（Source Target）を検証対象とする実行形態では…」
 
-*導出元: SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262*
-
 *引用: 基本仕様 §5.3*
 
 ### DES-845
@@ -3859,8 +3741,6 @@ runtime証明は当該targetの`target_coverage` = PASSのときだけ成立す�
 ### DES-846
 
 検証対象をSource Targetとして宣言しない他の実行形態（外部契約・境界上の振る舞い）の確認方法は、特定形態を他形態へ一律要求せず下位仕様・後続版へ委譲する。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-325, SPEC-326, SPEC-327, SPEC-328, SPEC-329, SPEC-330, SPEC-331*
 
 *引用: 要件定義 §4.3, 基本仕様 §5.3・§8.3*
 
@@ -3902,8 +3782,6 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 本システムは、宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを、自ら発見・裁定しない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11, 要件定義 §12*
 
 ### DES-856
@@ -3917,8 +3795,6 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 ### DES-858
 
 判断記録の受理は当該対象の検証状態を昇格させない。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
@@ -3937,8 +3813,6 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 ### DES-862
 
 バンドルには基本仕様§11.3が定める判断対象の情報一式を含める。
-
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3*
 
@@ -4008,15 +3882,11 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 `case-coverage`は、subjectがTest IDのとき、外部へ引き渡す問いは「当該Testが宣言したcases集合は、covers先VOの要求入力空間を十分に代表・網羅しているか」である。
 
-*導出元: SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408, SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434*
-
 *引用: 基本仕様 §14、§11*
 
 ### DES-879
 
 `case-coverage`は、subjectがVO IDのとき、外部へ引き渡す問いは「当該VOをcoversするTest群のcases集合は、当該VOの要求入力空間を十分に代表・網羅しているか」である。
-
-*導出元: SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408, SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434*
 
 *引用: 基本仕様 §14、§11*
 
@@ -4072,15 +3942,11 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 
 判断は少なくともactor / subject / decisionを含む。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DES-892
 
 理由・根拠は任意（optional）とする。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
@@ -4125,8 +3991,6 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 ### DES-902
 
 理由が空であることだけを根拠に判断を無効化しない。
-
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3*
 
@@ -4177,8 +4041,6 @@ runtime coverageはtargetの「実行」を証明するが「結果検証」を�
 ### DES-914
 
 旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192*
 
 *引用: 要件定義 §12*
 
@@ -4278,8 +4140,6 @@ Eから外れた判断記録への承認は`draft`相当とする。
 
 仕様・VO・Test等が変更された場合、過去の判断を現在状態へそのまま流用してはならず、現在状態に対して通常の検証（§5の4検査）を再実施する。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DES-938
@@ -4311,8 +4171,6 @@ Eから外れた判断記録への承認は`draft`相当とする。
 ### DES-944
 
 判断は`UNKNOWN`に対する外部判断の追跡であり、検査ゲートではない（§8 冒頭、基本仕様 §11.3）。
-
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 基本仕様 §11.3*
 
@@ -4484,8 +4342,6 @@ Testごとに§3.6のレコードを1件生成する。
 
 利用不能な場合、Evidenceの`target_coverage`を`checked: false`（検証時`NO_EVIDENCE`、診断`NOT_CHECKED`）とし診断W-EXEC-101を出す（`PASS`へ変換しない）。
 
-*導出元: SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262*
-
 *引用: 基本仕様 §5.3*
 
 ### DES-985
@@ -4547,8 +4403,6 @@ target別判定は、count > 0なら`PASS`とする。
 ### DES-999
 
 target別判定は、count == 0なら`FAIL`（診断NOT_EXECUTED）とする。
-
-*導出元: SPEC-191, SPEC-192, SPEC-193, SPEC-194, SPEC-195, SPEC-196, SPEC-197, SPEC-198, SPEC-199*
 
 *引用: 基本仕様 §4.3*
 
@@ -4626,8 +4480,6 @@ coverage providerが境界越しの実行を宣言targetへ帰属させられる
 
 > 4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |
 
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
-
 *引用: 基本仕様 §5*
 
 ### DES-1017
@@ -4657,8 +4509,6 @@ coverage providerが境界越しの実行を宣言targetへ帰属させられる
 ### DES-1023
 
 4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）、および当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）に限る。
-
-*導出元: REQ-224, REQ-225, REQ-226, REQ-227, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
 
 *引用: 基本仕様 §11.1, 要件定義 §17.2*
 
@@ -4728,8 +4578,6 @@ Execution State subjectの入力（toolchain identity・adapter config・入力m
 
 完全検証の検査集合はこの4検査に固定し、設定で追加・削除できない（§2.2、基本仕様 §22.1）。
 
-*導出元: SPEC-570, SPEC-571, SPEC-572, SPEC-573, SPEC-574, SPEC-575, SPEC-576*
-
 *引用: 基本仕様 §22.1*
 
 ### DES-1040
@@ -4752,23 +4600,17 @@ Execution State subjectの入力（toolchain identity・adapter config・入力m
 
 `evidence_validity`は独立検査を廃し、鮮度喪失を診断ラベル`STALE`として§11.2で説明した（基本仕様 §6）。
 
-*導出元: SPEC-287, SPEC-288, SPEC-289, SPEC-290, SPEC-291, SPEC-292, SPEC-293, SPEC-294, SPEC-295, SPEC-296, SPEC-297, SPEC-298, SPEC-299*
-
 *引用: 基本仕様 §6*
 
 ### DES-1045
 
 `spec_coverage` / `vo_coverage` / `vo_decomposition` / `semantic_audit` / `impl_consistency`は検査から除去し、網羅・意味の疑義は`UNKNOWN`として判断記録エスカレーションとした（§8、基本仕様 §11、要件定義 §12）。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11, 要件定義 §12*
 
 ### DES-1046
 
 `chain_integrity`は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う。
-
-*導出元: SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234*
 
 *引用: 基本仕様 §5.1*
 
@@ -4800,8 +4642,6 @@ VO層は、`combinations`が§3.2.1の受理条件を満たすこと（違反は
 
 Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。
 
-*導出元: SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-332, SPEC-333, SPEC-334, SPEC-335, SPEC-336, SPEC-337, SPEC-338, SPEC-339*
-
 *引用: 基本仕様 §5.1・§9.1, 基本仕様 §5.1, 基本仕様 §9.1*
 
 ### DES-1054
@@ -4832,15 +4672,11 @@ Relationのfrom / to不在はE-SCAN-009とする。
 
 すべてのTestを管理対象とすることと、当該Testを証拠として算入すること（§7 / §10のtarget_binding / oracle_presence）は別個の条件とする。
 
-*導出元: SPEC-309, SPEC-310, SPEC-311, SPEC-312*
-
 *引用: 基本仕様 §8.1*
 
 ### DES-1061
 
 旧モデルの`role`に基づく`covers`可変制約・適用項目集合は設けず、すべての管理対象Testに`covers ≥ 1`を一律要求する。
-
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
 
 *引用: 基本仕様 §12*
 
@@ -4922,8 +4758,6 @@ Evidenceは全宣言targetが一意に解決できる場合だけ生成される
 
 有効なEvidenceが得られたとき、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`とする。
 
-*導出元: REQ-094, REQ-095, REQ-096, REQ-097, REQ-098, REQ-099, REQ-100, REQ-101, REQ-102, REQ-103, REQ-104*
-
 *引用: 要件定義 §5.3*
 
 ### DES-1081
@@ -4946,15 +4780,11 @@ Evidenceが無ければ`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。
 
 複数条件が非`PASS`なら根拠をすべて保持し、表示代表値は基本仕様 §22.2の優先順位で選ぶ（診断ラベルは順位に用いず併記する）。
 
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
-
 *引用: 基本仕様 §22.2*
 
 ### DES-1086
 
 項目scopeが省略された場合、aggregatorはconfig値から部分集合を組み立てず、基本仕様 §5の固定4検査を選択する。
-
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
 
 *引用: 基本仕様 §5*
 
@@ -5006,8 +4836,6 @@ fail-closed合成は、子にFAIL/MISMATCH/NO_EVIDENCE/UNKNOWNが1つでもあ�
 
 fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATCH > NO_EVIDENCE > UNKNOWNで選ぶ。
 
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
-
 *引用: 基本仕様 §22.2*
 
 ### DES-1099
@@ -5018,8 +4846,6 @@ fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATC
 
 利用者向け簡易出力は`OK` / `NG`の二値とする。
 
-*導出元: SPEC-570, SPEC-571, SPEC-572, SPEC-573, SPEC-574, SPEC-575, SPEC-576*
-
 *引用: 基本仕様 §22.1*
 
 ### DES-1101
@@ -5029,8 +4855,6 @@ fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATC
 ### DES-1102
 
 人間向けテキストと機械可読JSONの両方を出力できる。
-
-*導出元: SPEC-583, SPEC-584, SPEC-585, SPEC-586, SPEC-587, SPEC-588, SPEC-589, SPEC-590, SPEC-591, SPEC-592, SPEC-593, SPEC-594, SPEC-595*
 
 *引用: 基本仕様 §22.3*
 
@@ -5058,23 +4882,17 @@ runtime証明に依存する`target_binding`の値は、根拠として用いた
 
 「1つのTestが複数VOを検証していること」自体は許容し、各leaf VOの充足と組合せは§3.2.1の実体化されたleaf VO単位で判定する。
 
-*導出元: SPEC-358, SPEC-359, SPEC-360, SPEC-361, SPEC-362, SPEC-363, SPEC-364, SPEC-365, SPEC-366, SPEC-367, SPEC-368, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
-
 *引用: 基本仕様 §10、§22.2*
 
 ### DES-1109
 
 基本仕様 §22.2がTest単位の結果の集約先として挙げる「Feature単位」は、親VO（`parent`により1件以上の子VOを持つVO。§3.2）を単位として実現する。
 
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
-
 *引用: 基本仕様 §22.2*
 
 ### DES-1110
 
 Featureを独立のエンティティ種別・レコードファイル・ID体系・宣言fieldとして設けず、`.verify/`にFeature用ディレクトリを置かない（基本仕様 §3.1のエンティティ種別を増やさない）。
-
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143*
 
 *引用: 基本仕様 §3.1*
 
@@ -5085,8 +4903,6 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 ### DES-1112
 
 子に1つでも非`PASS`があれば親VOは非`PASS`であり、代表値の優先順位も基本仕様 §22.2と同一とする。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 基本仕様 §22.2*
 
@@ -5134,8 +4950,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1の5状態）と承認（§3.5）が通過条件を満たすかを評価・提示できなければならない（MUST）。
 
-*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308, SPEC-535, SPEC-536, SPEC-537, SPEC-538, SPEC-539, SPEC-540, SPEC-541, SPEC-542*
-
 *引用: 基本仕様 §20, 要件定義 §26.4*
 
 ### DES-1124
@@ -5178,8 +4992,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 全値が`PASS`なら代表値は`PASS`（総合OKと同値）、非`PASS`が混在する場合は基本仕様 §22.2の優先順位`FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`で選ぶ。
 
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
-
 *引用: 基本仕様 §22.2*
 
 ### DES-1134
@@ -5202,8 +5014,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 `--items`で検査軸を限定した実行では、scope外の検査が`NO_EVIDENCE`（診断`NOT_CHECKED`）として代表値の合成に参加する（§11.3、基本仕様 §4.6）。
 
-*導出元: SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
-
 *引用: 基本仕様 §4.6*
 
 ### DES-1139
@@ -5218,8 +5028,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 承認未充足は検証状態を降格させず、検証の非`PASS`は承認の充足有無を変えない（基本仕様 §4.5）。
 
-*導出元: SPEC-203, SPEC-204, SPEC-205, SPEC-206, SPEC-207, SPEC-208, SPEC-209*
-
 *引用: 基本仕様 §4.5*
 
 ### DES-1142
@@ -5233,8 +5041,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 ### DES-1144
 
 フェーズのライフサイクル管理・工程の自動遷移は責務外とする（§29 OOS-004）。
-
-*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308, SPEC-535, SPEC-536, SPEC-537, SPEC-538, SPEC-539, SPEC-540, SPEC-541, SPEC-542*
 
 *引用: 基本仕様 §20, 要件定義 §26.4, OOS-004*
 
@@ -5252,15 +5058,11 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 
 具体的なフェーズ名・承認ロール・必要承認数・権限schemaはプロジェクト設定と別紙Aへ委譲する（基本仕様 §30）。
 
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 別紙A, 基本仕様 §30*
 
 ### DES-1148
 
 同一のトレーサビリティ構造から、利用者の役割または利用目的に応じて参照対象・関係・集約粒度を変えたprojectionを取得・提示できる。
-
-*導出元: REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044, REQ-045, REQ-046, REQ-047, REQ-048, REQ-049, SPEC-520, SPEC-521, SPEC-522, SPEC-523, SPEC-524, SPEC-525, SPEC-526, SPEC-527, SPEC-528, SPEC-529, SPEC-530, SPEC-531, SPEC-532, SPEC-533, SPEC-534*
 
 *引用: 基本仕様 §19, 要件定義 §3.4*
 
@@ -5281,8 +5083,6 @@ DOC単位の集約は下流VO部分木の合成であり、機能単位の集約
 ### DES-1152
 
 役割を固定enumやモード名として本冊で仕様化せず、preset・UI・モード体系は別紙Aへ委譲する（基本仕様 §30）。
-
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
 
 *引用: 別紙A, 基本仕様 §30*
 
@@ -5320,8 +5120,6 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
 
-*導出元: SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
-
 *引用: 基本仕様 §11.1*
 
 ### DES-1161
@@ -5335,8 +5133,6 @@ projectionが出力する`derives_from`エッジに当該entryの`anchor`を常�
 ### DES-1163
 
 導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として保持・取得可能とする。
-
-*導出元: REQ-228, REQ-229, SPEC-515, SPEC-516*
 
 *引用: 基本仕様 §18.3, 要件定義 §17.3*
 
@@ -5420,8 +5216,6 @@ projectionが出力する`derives_from`エッジに当該entryの`anchor`を常�
 
 UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。
 
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 別紙A, 基本仕様 §30 item 19, 基本仕様 §30*
 
 ## DA-013 16. 並列動作と整合性
@@ -5434,15 +5228,11 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 書き込み操作は上記のいずれかに分類され、ファイルロックを必要としない。
 
-*導出元: SPEC-631, SPEC-632, SPEC-633, SPEC-634, SPEC-635, SPEC-636, SPEC-637, SPEC-638, SPEC-639, SPEC-640, SPEC-641, SPEC-642, SPEC-643, SPEC-644, SPEC-645, SPEC-646, SPEC-647*
-
 *引用: 基本仕様 §24.2*
 
 ### DES-1186
 
 新規レコード追加（rel / decisions / approvals / evidence）はULIDファイル名の新規作成のみであり、並列生成は衝突しない。
-
-*導出元: SPEC-631, SPEC-632, SPEC-633, SPEC-634, SPEC-635, SPEC-636, SPEC-637, SPEC-638, SPEC-639, SPEC-640, SPEC-641, SPEC-642, SPEC-643, SPEC-644, SPEC-645, SPEC-646, SPEC-647*
 
 *引用: 基本仕様 §24.2*
 
@@ -5450,15 +5240,11 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 エンティティファイル編集（doc / vo）は1エンティティ1ファイルであり、異なるエンティティの並列編集は独立であり、同一エンティティの並列編集はGitのマージ衝突として顕在化する。
 
-*導出元: SPEC-631, SPEC-632, SPEC-633, SPEC-634, SPEC-635, SPEC-636, SPEC-637, SPEC-638, SPEC-639, SPEC-640, SPEC-641, SPEC-642, SPEC-643, SPEC-644, SPEC-645, SPEC-646, SPEC-647*
-
 *引用: 基本仕様 §24.2*
 
 ### DES-1188
 
 テストコード編集は通常のソース編集と同じ扱いとする。
-
-*導出元: SPEC-631, SPEC-632, SPEC-633, SPEC-634, SPEC-635, SPEC-636, SPEC-637, SPEC-638, SPEC-639, SPEC-640, SPEC-641, SPEC-642, SPEC-643, SPEC-644, SPEC-645, SPEC-646, SPEC-647*
 
 *引用: 基本仕様 §24.2*
 
@@ -5473,8 +5259,6 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 ### DES-1191
 
 「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。
-
-*導出元: SPEC-631, SPEC-632, SPEC-633, SPEC-634, SPEC-635, SPEC-636, SPEC-637, SPEC-638, SPEC-639, SPEC-640, SPEC-641, SPEC-642, SPEC-643, SPEC-644, SPEC-645, SPEC-646, SPEC-647*
 
 *引用: 基本仕様 §24.2*
 
@@ -5692,8 +5476,6 @@ dangling referenceはE-SCAN-003 / E-SCAN-009 / E-SCAN-012として検出する�
 
 検証状態と内部エラーは終了コードで分離する。
 
-*導出元: SPEC-200, SPEC-201, SPEC-202, SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689*
-
 *引用: 基本仕様 §4.4、§26.1*
 
 ## DA-015 19. 実装選択と提供範囲
@@ -5757,8 +5539,6 @@ cargo-nextest対応は提供範囲外とする。
 ### DES-1255
 
 本別紙は基本仕様 §26.1（CLI コマンド一覧）・§26.2（MCP ツール一覧）が確定したコマンド・ツールの引数と入出力 schema を具体化する HOW である。
-
-*導出元: SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689*
 
 *引用: 本冊 §0, 基本仕様 §26.1*
 
@@ -5833,8 +5613,6 @@ JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` �
 > }
 > ```
 
-*導出元: SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
-
 *引用: 本冊 §11.3, 基本仕様 §4.6*
 
 ### DES-1269
@@ -5893,8 +5671,6 @@ scope 外・未実施の検査は集約ツリー内で `NO_EVIDENCE`（診断 `N
 
 検証結果を出力するすべてのコマンド（`verify` / `report` / `scan` の集約表示等）は、検証状態と診断ラベルを常に別軸の2列として提示する。
 
-*導出元: SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-183, SPEC-184, SPEC-185, SPEC-186, SPEC-187, SPEC-188, SPEC-189, SPEC-190*
-
 *引用: 本冊 §5.2, 基本仕様 §4.1・§4.2*
 
 ### DES-1282
@@ -5920,8 +5696,6 @@ JSON では診断ラベルを各検査ノードの `diagnostic` field（0件以�
 ### DES-1287
 
 診断ラベルを集約の代表値選択に用いず、原因説明として併記するだけとする。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 本冊 §11.3, 基本仕様 §22.2*
 
@@ -5995,15 +5769,11 @@ Test入力から `execution` を復元できるのは、`rust-cargo` codecに完
 
 本 version の Test metadata は存在理由分類（旧 `role` / `anchor` / `anchor_rationale`）を持たない。
 
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 本冊 §4.1, 基本仕様 §12, 要件定義 §4.1*
 
 ### DES-1304
 
 本 version はすべての管理対象 Test に `covers ≥ 1` を一律に要求する。
-
-*導出元: REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
 
 *引用: 本冊 §4.1, 基本仕様 §12, 要件定義 §4.1*
 
@@ -6035,8 +5805,6 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 検証・reportで能力不足を観測した場合はW-ADAPTER-101と能力別の非PASS値（static / coverage 欠落は `NO_EVIDENCE`／診断 `NOT_CHECKED`、runner 欠落は `NO_EVIDENCE`／診断 `NOT_EXECUTED`、解析限界は `UNKNOWN`）を返す。
 
-*導出元: SPEC-583, SPEC-584, SPEC-585, SPEC-586, SPEC-587, SPEC-588, SPEC-589, SPEC-590, SPEC-591, SPEC-592, SPEC-593, SPEC-594, SPEC-595*
-
 *引用: 本冊 §5.2 末尾, 基本仕様 §22.3*
 
 ### DES-1312
@@ -6066,8 +5834,6 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 ### DES-1316
 
 `vtest init` は `.verify/` を作成するだけであり、既存コードを変更しない。
-
-*導出元: R-5, SPEC-500, SPEC-501, SPEC-502, SPEC-503, SPEC-504, SPEC-505, SPEC-506, SPEC-507, SPEC-508, SPEC-509*
 
 *引用: 基本仕様 §18.1, 要件定義 R-5*
 
@@ -6121,8 +5887,6 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 
 整合性検査は `chain_integrity`（文書鎖・VO derives_from・Test 管理宣言）と `orphan_detection`（文書層孤児）を構成する。
 
-*導出元: SPEC-596, SPEC-597, SPEC-598, SPEC-599, SPEC-600, SPEC-601, SPEC-602, SPEC-603, SPEC-604, SPEC-605, SPEC-606, SPEC-607, SPEC-608, SPEC-609, SPEC-610, SPEC-611, SPEC-612, SPEC-613, SPEC-614, SPEC-615, SPEC-616, SPEC-617*
-
 *引用: 本冊 §5.6, 基本仕様 §23*
 
 ### DES-1328
@@ -6157,8 +5921,6 @@ VO への寄与は `covers` 宣言と証拠の十分性判定だけから導出�
 > vtest doc list [--tree] [--roots]
 > vtest doc show DOC-BASIC-001
 > ```
-
-*導出元: SPEC-121, SPEC-122, SPEC-123, SPEC-124, SPEC-125, SPEC-126, SPEC-127, SPEC-128, SPEC-129, SPEC-130, SPEC-131, SPEC-132, SPEC-133, SPEC-134, SPEC-135, SPEC-136, SPEC-137, SPEC-138, SPEC-139, SPEC-140, SPEC-141, SPEC-142, SPEC-143, SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
 
 *引用: 本冊 §3.1, 基本仕様 §3.1・§3.2*
 
@@ -6299,8 +6061,6 @@ VO は 1 件以上の `document` から `derives_from` で直結して導出さ�
 >                  --state <approved|rejected|withdrawn>
 >                  [--model <m>] [--basis <ref>]... [--supersedes <approval-id>]...
 > ```
-
-*導出元: SPEC-144, SPEC-145, SPEC-146, SPEC-147, SPEC-148, SPEC-149, SPEC-150, SPEC-151, SPEC-152, SPEC-153, SPEC-154, SPEC-155, SPEC-156, SPEC-157, SPEC-158, SPEC-159, SPEC-160, SPEC-161, SPEC-162, SPEC-163, SPEC-164*
 
 *引用: 本冊 §3.2, 基本仕様 §3.2*
 
@@ -6529,8 +6289,6 @@ VO の `status`（`draft` / `approved`）は正典 field ではなく承認レ�
 
 承認は検証状態と独立の別軸であり、承認済みを理由に非 `PASS` を `PASS` へ昇格させない。
 
-*導出元: SPEC-203, SPEC-204, SPEC-205, SPEC-206, SPEC-207, SPEC-208, SPEC-209, SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497*
-
 *引用: 本冊 §3.5, 基本仕様 §4.5・§17*
 
 ### DES-1405
@@ -6575,8 +6333,6 @@ VO の `status`（`draft` / `approved`）は正典 field ではなく承認レ�
 > vtest test edit TEST-X --answers desired.yaml [--dry-run]
 > vtest test edit TEST-X --set covers=VO-A,VO-B [--set intent="..."]...
 > ```
-
-*導出元: SPEC-440, SPEC-441, SPEC-442, SPEC-443*
 
 *引用: 基本仕様 §15.1*
 
@@ -6630,8 +6386,6 @@ Test implementation の書き換えは `--body-file <path>` で adapter へ全�
 
 静的解析は正典レコードを持たない再計算派生であり、`audit static` は正典の監査レコードを生成しない。
 
-*導出元: P-003*
-
 *引用: 本冊 §7.1, 基本仕様 P-003*
 
 ### DES-1417
@@ -6670,8 +6424,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 ### DES-1422
 
 本システムは機械が決定論で確定できない疑義を `UNKNOWN` として外部（人間または判断可能 Agent）へ引き渡し、その判断を判断記録（`.verify/decisions/`）として追跡する。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 本冊 §8 冒頭, 基本仕様 §11, 要件定義 §12*
 
@@ -6715,8 +6467,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 `case-coverage` は「cases 集合が VO の要求入力空間を十分に代表・網羅しているか」を意味し、`--test` / `--vo` の双方に使う。
 
-*導出元: SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434*
-
 *引用: 本冊 §8.1, 基本仕様 §14*
 
 ### DES-1431
@@ -6739,8 +6489,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 `case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。
 
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
-
 *引用: 基本仕様 §5*
 
 ### DES-1436
@@ -6762,8 +6510,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 ### DES-1439
 
 理由が空であることだけを根拠に判断を無効化しない。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 本冊 §8.3, 基本仕様 §11.3, 要件定義 §12*
 
@@ -6799,8 +6545,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 判断記録の受理は当該対象の検証状態（5状態）を昇格させない。
 
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 本冊 §8.3・§3.4, 基本仕様 §11.3*
 
 ### DES-1447
@@ -6822,8 +6566,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 ### DES-1450
 
 判断済み ≠ 承認済みである。
-
-*導出元: SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497*
 
 *引用: 本冊 §8.5, 基本仕様 §17*
 
@@ -6877,8 +6619,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 
 検査は基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）のみである。
 
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
-
 *引用: 基本仕様 §5*
 
 ### DES-1459
@@ -6890,8 +6630,6 @@ target-scoped な DA-002 / DA-003 は宣言 target ごとの verdict を規則�
 ### DES-1460
 
 scope は2軸であり、`--items` が検査軸（4検査の部分集合）、`--doc` / `--vo` / `--test` がエンティティ軸（部分木）である。
-
-*導出元: SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
 
 *引用: 基本仕様 §4.6, 本冊 §11.3*
 
@@ -6930,8 +6668,6 @@ scope は2軸であり、`--items` が検査軸（4検査の部分集合）、`-
 ### DES-1468
 
 いかなる設定値も完全検証を4本未満へ縮退させない。
-
-*導出元: SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216, SPEC-570, SPEC-571, SPEC-572, SPEC-573, SPEC-574, SPEC-575, SPEC-576*
 
 *引用: 基本仕様 §4.6・§22.1*
 
@@ -6985,8 +6721,6 @@ config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コー
 ### DES-1475
 
 診断ラベルは代表値の順位（基本仕様 §22.2 の `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`）に用いず、原因説明として併記する。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 基本仕様 §22.2*
 
@@ -7073,8 +6807,6 @@ JSON は target 別 list を欠落なく返す。
 
 `--from <node>` は任意ノード（DOC / VO / TEST / SRC）からの局所トレースの起点である。
 
-*導出元: SPEC-520, SPEC-521, SPEC-522, SPEC-523, SPEC-524, SPEC-525, SPEC-526, SPEC-527, SPEC-528, SPEC-529, SPEC-530, SPEC-531, SPEC-532, SPEC-533, SPEC-534*
-
 *引用: 本冊 §11.6, 基本仕様 §19*
 
 ### DES-1492
@@ -7093,8 +6825,6 @@ JSON は target 別 list を欠落なく返す。
 
 役割を固定 enum として本冊は仕様化せず、preset・view 体系はここに委譲される。
 
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 本冊 §11.6, 基本仕様 §30 item21*
 
 ### DES-1496
@@ -7106,8 +6836,6 @@ JSON は target 別 list を欠落なく返す。
 ### DES-1497
 
 機能単位の集約は親 VO（子 VO を持つ VO）を単位とする。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 本冊 §11.3・§11.6, 基本仕様 §22.2*
 
@@ -7126,8 +6854,6 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 ### DES-1501
 
 `--format json` の trace 出力に含まれる `derives_from` エッジ（DOC → DOC、DOC → VO）は、`anchor` と `note` を同伴する。
-
-*導出元: SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
 
 *引用: 本冊 §11.6・§3.1・§3.2, 基本仕様 §11.1*
 
@@ -7155,8 +6881,6 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 
 `--format json` の出力へ、未確定・要判断事項を横断的に集約した `pending` section を含める（§12.4）。
 
-*導出元: SPEC-515, SPEC-516*
-
 *引用: 本冊 §11.7, 基本仕様 §18.3*
 
 ### DES-1508
@@ -7176,8 +6900,6 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 ### DES-1510
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（5状態）と承認（§3.5）が通過条件を満たすかを評価・提示できなければならない（MUST）。
-
-*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308, SPEC-535, SPEC-536, SPEC-537, SPEC-538, SPEC-539, SPEC-540, SPEC-541, SPEC-542*
 
 *引用: 本冊 §11.5, 基本仕様 §20, 要件定義 §26.4*
 
@@ -7235,8 +6957,6 @@ Feature を別エンティティとして出力せず、Feature 名・Feature ID
 
 承認ロールの解決は本別紙が新設する最小規則である。
 
-*導出元: SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497, SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 基本仕様 §17・§30 item22*
 
 ### DES-1523
@@ -7273,8 +6993,6 @@ scope 内に複数の対象がある場合は各対象について当該ロー�
 
 より細粒度の承認 authority・対象範囲はプロジェクト設定へ委譲する。
 
-*導出元: SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497, SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 基本仕様 §17・§30 item22*
 
 ### DES-1529
@@ -7288,8 +7006,6 @@ scope 内に複数の対象がある場合は各対象について当該ロー�
 ### DES-1531
 
 検証状態と承認は独立の軸であり、承認未充足は検証状態を降格させない。
-
-*導出元: SPEC-203, SPEC-204, SPEC-205, SPEC-206, SPEC-207, SPEC-208, SPEC-209*
 
 *引用: 本冊 §3.5, 基本仕様 §4.5*
 
@@ -7350,15 +7066,11 @@ JSON では検証状態（集約ツリーと `gate.verification.actual`）と `g
 
 具体的なフェーズ名・承認ロール・必要承認数・権限 schema はプロジェクト設定（`config.yaml`）へ委譲する。
 
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 基本仕様 §30 items 22-23*
 
 ### DES-1543
 
 導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として `verify` / `report` の JSON 出力へ含める。
-
-*導出元: REQ-228, REQ-229, SPEC-515, SPEC-516*
 
 *引用: 本冊 §11.7, 基本仕様 §18.3, 要件定義 §17.3*
 
@@ -7674,8 +7386,6 @@ transport は stdio である。
 >   → verify(test)                          # 自タスクの完了確認
 > ```
 
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 本冊 §8, 基本仕様 §11.3*
 
 ### DES-1605
@@ -7876,8 +7586,6 @@ Integration Test の配置先（test suite location）は Source Target の loca
 
 Form Schema はユーザー定義可能とし、大局的に一意な `kind` と登録済み Structured Test adapter の `adapter` ID を必須とする。
 
-*導出元: SPEC-455, SPEC-456, SPEC-457, SPEC-458, SPEC-459, SPEC-460, SPEC-461, SPEC-462, SPEC-463, SPEC-464, SPEC-465*
-
 *引用: 本冊 §4.1・§5.2, 基本仕様 §15.4*
 
 ### DES-1638
@@ -7887,8 +7595,6 @@ Form Schema はユーザー定義可能とし、大局的に一意な `kind` と
 ### DES-1639
 
 partition・境界値を必須入力とする種別は、該当フィールドに `required: true` を設定することで表現する。
-
-*導出元: SPEC-455, SPEC-456, SPEC-457, SPEC-458, SPEC-459, SPEC-460, SPEC-461, SPEC-462, SPEC-463, SPEC-464, SPEC-465*
 
 *引用: 基本仕様 §15.4*
 
@@ -7908,8 +7614,6 @@ Form Schema の検証は単一 field の `required` と検証器だけで閉じ�
 
 すべての管理対象 Test に `covers ≥ 1` を一律要求するため、user-defined Form も `covers` を `required: true` の `vo-ref-list` として持つ。
 
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 本冊 §4.1, 基本仕様 §12*
 
 ### DES-1644
@@ -7923,8 +7627,6 @@ Form Schema の検証は単一 field の `required` と検証器だけで閉じ�
 ### DES-1646
 
 user-defined Form も `kind` と owner `adapter` ID を宣言する通常の Form Schema であり、kind の大局的一意性と owner 解決の規則（§14.2）は変わらない。
-
-*導出元: SPEC-455, SPEC-456, SPEC-457, SPEC-458, SPEC-459, SPEC-460, SPEC-461, SPEC-462, SPEC-463, SPEC-464, SPEC-465*
 
 *引用: 基本仕様 §15.4*
 
@@ -7999,8 +7701,6 @@ desired state（answers / set / body）から、あるべきアノテーショ�
 ### DES-1662
 
 Create 経路にだけ検証を省く分岐を設けない。
-
-*導出元: SPEC-440, SPEC-441, SPEC-442, SPEC-443*
 
 *引用: 基本仕様 §15.1*
 
@@ -8118,15 +7818,11 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 `edit TEST-001` は他のTestへ影響しない。
 
-*導出元: REQ-210, REQ-211, REQ-212, REQ-213, REQ-214, REQ-215, REQ-216, REQ-217, SPEC-446, SPEC-447, SPEC-448, SPEC-449, SPEC-450, SPEC-451, SPEC-452, SPEC-453, SPEC-454*
-
 *引用: 要件定義 §16, 基本仕様 §15.3*
 
 ### DES-1690
 
 helper・fixture・通常ソースコードの編集手段は提供しない。
-
-*導出元: SPEC-446, SPEC-447, SPEC-448, SPEC-449, SPEC-450, SPEC-451, SPEC-452, SPEC-453, SPEC-454*
 
 *引用: 要件定義 OOS-003, 基本仕様 §15.3*
 
@@ -8200,8 +7896,6 @@ fixture は、`covers` を宣言しない Test（`covers` 0）を表現できる
 
 すべての管理対象 Test に `covers ≥ 1` を一律要求するため、`covers` を宣言しない Test は E-SCAN-007 と `chain_integrity = MISMATCH`（診断`MISSING`）になる。
 
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
-
 *引用: 本冊 §11.1.1, 基本仕様 §12*
 
 ### DES-1708
@@ -8244,8 +7938,6 @@ fixture は、5 状態それぞれを生じる入力（`PASS` / `FAIL` / `MISMAT
 
 状態は5つのみとする。
 
-*導出元: SPEC-174, SPEC-175, SPEC-176, SPEC-177, SPEC-178, SPEC-179, SPEC-180, SPEC-181, SPEC-182, SPEC-183, SPEC-184, SPEC-185, SPEC-186*
-
 *引用: 基本仕様 §4.1*
 
 ### DES-1717
@@ -8256,15 +7948,11 @@ fixture は、4 診断ラベルそれぞれを生じる入力（`MISSING` / `NOT
 
 診断ラベルは検証状態と別軸の原因説明である。
 
-*導出元: SPEC-187, SPEC-188, SPEC-189, SPEC-190*
-
 *引用: 基本仕様 §4.2*
 
 ### DES-1719
 
 診断ラベルは状態値ではない。
-
-*導出元: SPEC-187, SPEC-188, SPEC-189, SPEC-190*
 
 *引用: 基本仕様 §4.2*
 
@@ -8464,8 +8152,6 @@ adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relati
 
 Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。
 
-*導出元: SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234*
-
 *引用: 本冊 §11.1.1, 基本仕様 §5.1*
 
 ### DES-1769
@@ -8487,8 +8173,6 @@ Test 層は、管理宣言または必須metadata（core 中立の Test ID・`co
 ### DES-1773
 
 役割による`covers`可変制約・特別扱いの分岐を設けず、すべての管理対象 Test に`covers ≥ 1`を一律要求する。
-
-*導出元: SPEC-409, SPEC-410, SPEC-411, SPEC-412, SPEC-413, SPEC-414, SPEC-415, SPEC-416, SPEC-417, SPEC-418, SPEC-419, SPEC-420, SPEC-421, SPEC-422, SPEC-423, SPEC-424, SPEC-425*
 
 *引用: 基本仕様 §12*
 
@@ -8710,8 +8394,6 @@ CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--deri
 
 既存ソース・既存テストを含む fixture project で `vtest init` を実行した前後で、`.verify/` を除いた作業ツリーの全ファイルのバイト列が同一である。
 
-*導出元: SPEC-500, SPEC-501, SPEC-502, SPEC-503, SPEC-504, SPEC-505, SPEC-506, SPEC-507, SPEC-508, SPEC-509*
-
 *引用: 別紙A §12.2, 基本仕様 §18.1*
 
 ### DES-1827
@@ -8730,15 +8412,11 @@ CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--deri
 
 `orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う。
 
-*導出元: REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241*
-
 *引用: 本冊 §5.6, 基本仕様 §5.2, 要件定義 §4.2*
 
 ### DES-1831
 
 実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。
-
-*導出元: R-2, REQ-292, SPEC-729, SPEC-730, SPEC-731, SPEC-732, SPEC-733, SPEC-734, SPEC-735, SPEC-736, SPEC-737, SPEC-738, SPEC-739*
 
 *引用: 要件定義 R-2, 基本仕様 §29 OOS-005*
 
@@ -8749,8 +8427,6 @@ CLI で `--derives-from` を伴わない `--anchor`、または 1 つの `--deri
 ### DES-1833
 
 根指定の追加・削除は `vtest doc` コマンドの引数で管理する。
-
-*導出元: SPEC-665, SPEC-666, SPEC-667, SPEC-668, SPEC-669, SPEC-670, SPEC-671, SPEC-672, SPEC-673, SPEC-674, SPEC-675, SPEC-676, SPEC-677, SPEC-678, SPEC-679, SPEC-680, SPEC-681, SPEC-682, SPEC-683, SPEC-684, SPEC-685, SPEC-686, SPEC-687, SPEC-688, SPEC-689*
 
 *引用: 基本仕様 §26.1*
 
@@ -8776,8 +8452,6 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 
 静的解析は正典レコードを持たない再計算派生であり、検証のたびに現在のsource / configから再計算する。
 
-*導出元: P-003*
-
 *引用: 本冊 §7.1, 基本仕様 P-003*
 
 ### DES-1839
@@ -8791,8 +8465,6 @@ DA-001〜DA-006とW-DA-101は本冊§7の判定条件に従う。
 ### DES-1841
 
 `oracle_presence` は DA-001 / DA-003 / DA-004 / DA-005 / DA-006 の合成とし、全ルール違反なしで `PASS` になる。
-
-*導出元: SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274*
 
 *引用: 本冊 §7.1, 基本仕様 §5.4*
 
@@ -9050,8 +8722,6 @@ Evidenceなしでは`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）�
 
 鮮度喪失の独立検査（旧`evidence_validity`）は設けず、鮮度は基本仕様§6のハッシュ束縛により満たし、喪失を診断ラベル`STALE`として説明する。
 
-*導出元: SPEC-287, SPEC-288, SPEC-289, SPEC-290, SPEC-291, SPEC-292, SPEC-293, SPEC-294, SPEC-295, SPEC-296, SPEC-297, SPEC-298, SPEC-299*
-
 *引用: 基本仕様 §6*
 
 ### DES-1902
@@ -9069,8 +8739,6 @@ Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHに�
 ### DES-1905
 
 有効なEvidenceについて、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`になる。
-
-*導出元: REQ-094, REQ-095, REQ-096, REQ-097, REQ-098, REQ-099, REQ-100, REQ-101, REQ-102, REQ-103, REQ-104*
 
 *引用: 本冊 §11.2, 要件定義 §5.3*
 
@@ -9172,8 +8840,6 @@ providerが境界越しの実行を帰属できなければtarget別UNKNOWNと�
 
 バンドルは派生情報であり Git 管理しない。
 
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 本冊 §8.1, 基本仕様 §11.3*
 
 ### DES-1929
@@ -9208,8 +8874,6 @@ submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind
 
 理由が空であることだけを根拠に判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱わない。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DES-1937
@@ -9228,8 +8892,6 @@ submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind
 
 判断記録プロトコルは検証状態のゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
 
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 本冊 §8, 基本仕様 §11.3*
 
 ### DES-1941
@@ -9239,8 +8901,6 @@ submit は、supersedes の各 ULID が同一 subject かつ同一 judgment_kind
 ### DES-1942
 
 旧モデルの意味監査 bundle 種別（spec-coverage / test-semantic / vo-coverage / impl-consistency）を検査として扱わず、網羅・意味の疑義は `UNKNOWN` として本プロトコルへエスカレーションする。
-
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
 
 *引用: 本冊 §7.1・§8, 基本仕様 §5・§11, 要件定義 §12*
 
@@ -9274,8 +8934,6 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 `@vtest.case` 宣言の正規化文字列を宣言順に並べた list として出力する。
 
-*導出元: SPEC-430, SPEC-431, SPEC-432, SPEC-433, SPEC-434*
-
 *引用: 本冊 §8.1・§8.2, 基本仕様 §14*
 
 ### DES-1950
@@ -9299,8 +8957,6 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 ### DES-1954
 
 `case-coverage` は §11 の判断対象であって基本仕様 §5 の 4 検査ではない。
-
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
 
 *引用: 基本仕様 §5*
 
@@ -9404,8 +9060,6 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用せず、現在状態に対して §5 の 4 検査を再実施する。
 
-*導出元: REQ-180, REQ-181, REQ-182, REQ-183, REQ-184, REQ-185, REQ-186, REQ-187, REQ-188, REQ-189, REQ-190, REQ-191, REQ-192, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408*
-
 *引用: 基本仕様 §11.3, 要件定義 §12*
 
 ### DES-1976
@@ -9434,8 +9088,6 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 
 判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる。
 
-*導出元: SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407, SPEC-408, SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497*
-
 *引用: 本冊 §3.4・§3.5, 基本仕様 §11.3・§17*
 
 ### DES-1982
@@ -9449,8 +9101,6 @@ document は登録 content_hash と実ファイルの一致も要求し、不一
 ### DES-1984
 
 承認済みを理由に非`PASS`（`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）を`PASS`へ昇格させず、未承認を理由に`PASS`を降格させない。
-
-*導出元: SPEC-203, SPEC-204, SPEC-205, SPEC-206, SPEC-207, SPEC-208, SPEC-209, SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497*
 
 *引用: 基本仕様 §4.5・§17*
 
@@ -9628,8 +9278,6 @@ document dependency は §1.3 の document subject hash を使用するため、
 
 承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する。
 
-*導出元: SPEC-471, SPEC-472, SPEC-473, SPEC-474, SPEC-475, SPEC-476, SPEC-477, SPEC-478, SPEC-479, SPEC-480, SPEC-481, SPEC-482, SPEC-483, SPEC-484, SPEC-485, SPEC-486, SPEC-487, SPEC-488, SPEC-489, SPEC-490, SPEC-491, SPEC-492, SPEC-493, SPEC-494, SPEC-495, SPEC-496, SPEC-497, SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
-
 *引用: 基本仕様 §17・§30*
 
 ### DES-2023
@@ -9641,8 +9289,6 @@ document dependency は §1.3 の document subject hash を使用するため、
 ### DES-2024
 
 完全検証は基本仕様 §5 の 4 検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）をすべて評価し、各検査の非PASSを総合NGへ反映する。
-
-*導出元: SPEC-217, SPEC-218, SPEC-219, SPEC-220, SPEC-221, SPEC-222, SPEC-223, SPEC-224, SPEC-225, SPEC-226, SPEC-227, SPEC-228, SPEC-229, SPEC-230, SPEC-231, SPEC-232, SPEC-233, SPEC-234, SPEC-235, SPEC-236, SPEC-237, SPEC-238, SPEC-239, SPEC-240, SPEC-241, SPEC-242, SPEC-243, SPEC-244, SPEC-245, SPEC-246, SPEC-247, SPEC-248, SPEC-249, SPEC-250, SPEC-251, SPEC-252, SPEC-253, SPEC-254, SPEC-255, SPEC-256, SPEC-257, SPEC-258, SPEC-259, SPEC-260, SPEC-261, SPEC-262, SPEC-263, SPEC-264, SPEC-265, SPEC-266, SPEC-267, SPEC-268, SPEC-269, SPEC-270, SPEC-271, SPEC-272, SPEC-273, SPEC-274, SPEC-275, SPEC-276, SPEC-277, SPEC-278, SPEC-279, SPEC-280, SPEC-281, SPEC-282, SPEC-283, SPEC-284, SPEC-285, SPEC-286*
 
 *引用: 基本仕様 §5*
 
@@ -9671,8 +9317,6 @@ version 1 の重複・未知項目、version 2 の欠落・重複・未知・余
 ### DES-2030
 
 scope は 2 軸で限定できる。
-
-*導出元: P-002, SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
 
 *引用: 基本仕様 §4.6, 要件定義 P-002*
 
@@ -9732,8 +9376,6 @@ NO_EVIDENCE を生む入力（証拠が存在しない／証拠のハッシュ�
 
 NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / `STALE` / `NOT_CHECKED`）となり `PASS` へ変換されない。
 
-*導出元: SPEC-191, SPEC-192, SPEC-193, SPEC-194, SPEC-195, SPEC-196, SPEC-197, SPEC-198, SPEC-199, SPEC-210, SPEC-211, SPEC-212, SPEC-213, SPEC-214, SPEC-215, SPEC-216*
-
 *引用: 基本仕様 §4.3・§4.6*
 
 ### DES-2045
@@ -9751,8 +9393,6 @@ NO_EVIDENCE を生む入力は `NO_EVIDENCE`（診断は順に `NOT_EXECUTED` / 
 ### DES-2048
 
 代表値の優先順位は `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とし、診断ラベル（`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE`）は代表値の順位に用いず原因説明として併記する。
-
-*導出元: SPEC-577, SPEC-578, SPEC-579, SPEC-580, SPEC-581, SPEC-582*
 
 *引用: 基本仕様 §22.2, 本冊 §11.3*
 
@@ -9772,8 +9412,6 @@ report は DOC → VO → Test の構造と、各非PASSの根拠（判断記録
 
 管理下にある事実と、いずれの VO へも寄与しない事実の双方を出力から確認できる。
 
-*導出元: SPEC-583, SPEC-584, SPEC-585, SPEC-586, SPEC-587, SPEC-588, SPEC-589, SPEC-590, SPEC-591, SPEC-592, SPEC-593, SPEC-594, SPEC-595*
-
 *引用: 基本仕様 §22.3*
 
 ### DES-2053
@@ -9787,8 +9425,6 @@ text treeのancestor continuation、middle child、last childを一意なbranch�
 ### DES-2055
 
 同一 revision・同一 `.verify/` ファイル集合（`config.yaml`・document / VO / Relation レコード・判断記録・承認・Evidence）・同一 scope 指定に対して `verify` を繰り返し実行すると、4 検査の検証状態・診断ラベル・診断コード集合・集約結果・`pending` section・終了コードが毎回一致する。
-
-*導出元: SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
 
 *引用: 本冊 §11.1, 基本仕様 §11.1*
 
@@ -9828,8 +9464,6 @@ toolchain identity・adapter config・入力 manifest を変える環境変更�
 
 `report --from DOC-X --direction down --format json` は、`derives_from` エッジごとに `from` / `relation` / `to` と当該 entry の `anchor`・`note` を返し、「どの上流条項がどの VO へ対応するか」の対応ペア集合として読める。
 
-*導出元: SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383*
-
 *引用: 本冊 §11.6・§3.1・§3.2, 基本仕様 §11.1*
 
 ### DES-2064
@@ -9843,8 +9477,6 @@ toolchain identity・adapter config・入力 manifest を変える環境変更�
 ### DES-2066
 
 プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1 の 5 状態）と承認（§18.3.7）が通過条件を満たすかを評価・提示できなければならない（MUST）。
-
-*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308, SPEC-535, SPEC-536, SPEC-537, SPEC-538, SPEC-539, SPEC-540, SPEC-541, SPEC-542*
 
 *引用: 本冊 §11.5, 基本仕様 §20, 要件定義 §26.4*
 
@@ -9954,8 +9586,6 @@ config の `gates` に定義の無いゲート名を `verify --gate` / `report -
 
 フェーズのライフサイクル管理・工程の自動遷移は責務外とする。
 
-*導出元: REQ-302, REQ-303, REQ-304, REQ-305, REQ-306, REQ-307, REQ-308, SPEC-535, SPEC-536, SPEC-537, SPEC-538, SPEC-539, SPEC-540, SPEC-541, SPEC-542, SPEC-729, SPEC-730, SPEC-731, SPEC-732, SPEC-733, SPEC-734, SPEC-735, SPEC-736, SPEC-737, SPEC-738, SPEC-739*
-
 *引用: 基本仕様 §20・§29 OOS-004, 要件定義 §26.4*
 
 ### DES-2093
@@ -9965,8 +9595,6 @@ config の `gates` に定義の無いゲート名を `verify --gate` / `report -
 ### DES-2094
 
 具体的なフェーズ名・承認ロール・必要承認数はプロジェクト設定と別紙A へ委譲する。
-
-*導出元: SPEC-740, SPEC-741, SPEC-742, SPEC-743, SPEC-744, SPEC-745, SPEC-746, SPEC-747, SPEC-748, SPEC-749, SPEC-750, SPEC-751, SPEC-752, SPEC-753, SPEC-754, SPEC-755, SPEC-756, SPEC-757, SPEC-758, SPEC-759, SPEC-760, SPEC-761, SPEC-762, SPEC-763, SPEC-764, SPEC-765*
 
 *引用: 基本仕様 §30*
 
@@ -10017,8 +9645,6 @@ Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004と
 ### DES-2106
 
 create は挿入後に対象ファイルを再パースし、構文妥当性・挿入分がちょうど 1 Test として認識されること・その Test ID と annotation が desired state と一致すること・他の Test と通常 source が不変であることを確認する。
-
-*導出元: SPEC-440, SPEC-441, SPEC-442, SPEC-443*
 
 *引用: 別紙A §15.2, 基本仕様 §15.1*
 

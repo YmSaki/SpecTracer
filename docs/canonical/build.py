@@ -31,15 +31,20 @@ export
     require,spec,design}.md.
 
 all
-    build, then apply-derivation, then coverage, then export. Stops at
-    the first failure. (coverage's position relative to apply-derivation
-    doesn't matter -- coverage never reads specification.json.)
+    build, then coverage, then export. Stops at the first failure.
+    apply-derivation is not part of this chain (2026-09-05 ID freeze
+    revision): once ids are frozen, `build` passes each fragment item's
+    stored derived_from through unchanged, and apply-derivation is a
+    separate, explicit command (report-only by default; --write to
+    apply) run deliberately, not on every build.
 
 check-fragment <path>
     Validate one fragment file's structural shape (not the final
-    schema): required keys present, derived_from == [], no stray "id"
-    key, source.lines is a valid [start, end] pair. Exit 1 on any
-    problem.
+    schema): required keys present, source.lines is a valid [start, end]
+    pair. Since the 2026-09-05 ID freeze, a stored "id" (item or design
+    area) and a non-empty "derived_from" are legitimate -- both are
+    checked against the schema's id pattern rather than rejected
+    outright. Exit 1 on any problem.
 
 harvest-cites
     Scan every item's "statement" (including design area items) for
@@ -102,7 +107,7 @@ derivation-candidates
         a bare document name), or "unresolved" (cite recognised but zero
         or ambiguous matches, or not recognised at all). layer_relation is
         computed from (citing statement's layer, resolved target's layer)
-        over the fixed order request<require<spec<design (every design
+        over the fixed order request<require<spec<basic_design<design (every design
         area is layer "design" regardless of which of 本冊/別紙A/別紙C):
         "adjacent-upstream" (target exactly one layer up), "skip-upstream"
         (two or more layers up), "same-layer", "downstream" (target layer
@@ -147,43 +152,131 @@ derivation-candidates
     specification.json's own array order; table rows in line order).
 
 apply-derivation
-    CONVERSION.md SS6 (2026-09-05 revision): Owner decision that
-    derived_from is a reference, not a proof -- it is computed
-    mechanically, no pairwise approval. Runs after `build`, reads and
-    rewrites specification.json in place (fragments are never touched;
-    ids are not frozen yet, so derived_from is recomputed at build time
-    every run, not stored upstream). Reuses the exact same candidate
-    logic as `derivation-candidates` (build_derivation_candidates /
-    build_derivation_table_candidates) rather than a separate resolver.
-    Rule 1: for every statement with cites, every candidate whose
-    layer_relation is "adjacent-upstream" or "skip-upstream" is added to
-    that statement's derived_from; "same-layer", "downstream",
-    "unresolved" and "doc-only" candidates add nothing.
-    Rule 2: for every derivation-table row with both non-empty source_ids
-    and target_ids, every source_id is added to derived_from of every
-    target_id in that row; a row whose 上流 is only an Issue/F-item (no
-    ids) contributes nothing.
-    Rule 3 (applied to the union of both rules' contributions, per
+    CONVERSION.md SS6: Owner decision that derived_from is a reference,
+    not a proof -- it is computed mechanically, no pairwise approval.
+    Reads specification.json; a plain run only REPORTS what it would
+    change (report-only by default, since 2026-09-05's ID-freeze
+    revision -- see `freeze` below); pass --write to actually overwrite
+    specification.json's derived_from with the recomputed set (still
+    never touches fragments -- that is `freeze`'s job).
+    Edges come from three sources, reusing the exact same candidate logic
+    as `derivation-candidates` for sources 1-2 rather than a separate
+    resolver:
+    Source 1 (cites): for every statement with cites, every candidate
+    whose layer_relation is "adjacent-upstream" or "skip-upstream" is
+    added; "same-layer", "downstream", "unresolved" and "doc-only" add
+    nothing.
+    Source 2 (要求→要件 derivation table): for every row with both
+    non-empty source_ids and target_ids, every source_id is added to
+    every target_id in that row; a row whose 上流 is only an Issue/F-item
+    (no ids) contributes nothing.
+    Source 3 -- Task A, 2026-09-05 (each document's own trailing 「付記
+    （非規範）: トレーサビリティ表」, found via the dropped-log reason text
+    containing "トレーサビリティ表", not a hard-coded location): a row's
+    own section (leftmost column, "§N"/"§N.N") names a source section
+    within THAT document; every statement whose heading begins with that
+    number gets every candidate from the row's upstream column (中列)
+    added. Upstream tokens can be a bare id (P-00N/R-N/NFR-00N/OOS-00N),
+    or a §-list, and for 本冊/別紙A/別紙C tables every §-list has a leading
+    abbreviated doc name (本冊/基本/要件) that can change mid-cell without
+    a separator (inspected: neither table ever actually has a bare §-list
+    with no doc name); 基本仕様's own table has no doc names at all and
+    every bare §-list defaults to 要件定義 (its one upstream doc, again
+    confirmed empirically: no row names one explicitly). A trailing
+    "itemN" or "itemN-M" qualifier (e.g. "基本§30 item18") is recognised
+    and dropped -- resolution stays at the section, not the sub-item,
+    level, since there is no per-item heading data to match against.
+    Rule 3 (applied to the union of all three sources' contributions, per
     statement): dedup; drop the statement's own id; drop any id whose
     layer is the same as or later than (>=) the statement's own layer in
-    the fixed order request<require<spec<design (derived_from only ever
-    points strictly upstream) -- both kinds of drop are counted and
-    reported. What survives is sorted by (layer order, then the id's
-    trailing number).
+    the fixed order request<require<spec<basic_design<design (derived_from only ever
+    points strictly upstream -- this is also what makes a 別紙 citing 本冊
+    produce no edge, since both are layer "design") -- both kinds of drop
+    are counted and reported. What survives is sorted by (layer order,
+    then the id's trailing number).
     Request-layer statements are skipped entirely (the rootItem schema
     has no derived_from field).
-    After computing, verifies every remaining derived_from id actually
+    In --write mode: verifies every remaining derived_from id actually
     exists in specification.json (exit 1 otherwise, before writing) and
     re-validates the whole document against specification.schema.json
     (exit 1 on any schema error, before writing) -- only then writes.
-    Prints: statements with non-empty derived_from per layer (require/
-    spec/design), total edges, mean and max derived_from size (over
-    statements with a non-empty derived_from), the count of statements
-    that had cites but ended with an empty derived_from, and the count
-    dropped by rule 3.
-    Runs as its own subcommand, and as part of `all` (after build, before
-    export -- coverage's position relative to it does not matter, since
-    coverage never reads specification.json).
+    Prints, always: the Task A row-parse report (rows parsed per table,
+    any unparseable row verbatim, statements-with-derived_from per layer
+    before vs after Task A, raw edge count Task A added), then a
+    stored-vs-recomputed diff count; in --write mode, also the usual
+    summary (statements with non-empty derived_from per layer, total
+    edges, mean/max size, statements with cites but empty derived_from,
+    count dropped by rule 3).
+    Deliberately not part of `all` (see `all` above and `freeze` below).
+
+freeze
+    CONVERSION.md SS6/SS7 (2026-09-05 ID freeze). A one-way operation:
+    builds specification.json in memory exactly as `build` would (same
+    sort, same id assignment -- a fragment item/area that already has a
+    stored "id" keeps it; a new one gets the next unused number for its
+    prefix; a duplicate stored id is a hard error, same as `build`), then
+    writes each item/area's assigned id, and its derived_from computed
+    the same way apply-derivation --write would (all three edge sources,
+    rule 3 filtering), directly into the *fragment* JSON files (same
+    formatting: UTF-8, ensure_ascii=False, indent 2, trailing newline).
+    A "keep_id" is removed once its value is promoted into "id" (the two
+    would otherwise be redundant). Every fragment file that contributed
+    at least one item or area is rewritten, even if nothing in it
+    actually changed. Prints, per fragment file, how many items+areas
+    were stamped, and the totals.
+    After this runs, ids in fragments are load-bearing: `build` will keep
+    reusing them, and re-running `freeze` mid-stream should be a no-op
+    for any item that was already frozen (its stored id and, unless
+    apply-derivation has re-run, its derived_from do not change) --
+    still, only run it deliberately, not as part of `all`.
+
+Layer split (2026-09-05, Owner): detailed_spec, basic_design
+--------------------------------------------------------------
+Two layers inserted between spec and design: request < require < spec <
+detailed_spec < basic_design < design. detailed_spec (詳細仕様, prefix
+DS-, area prefix DSA-) and basic_design (基本設計, prefix BD-, area prefix
+BDA-) both have the same area-based shape as design (schema_defs
+designArea, reused verbatim for all three) and their own top-level
+specification.json array, export file (detailed_spec.md 「詳細仕様」,
+basic_design.md 「基本設計」), and id-stamping pass. Everything that
+touches "the area-layers" (_AREA_LAYERS) or "the flat layers"
+(_FLAT_LAYERS) is written generically over those tuples, so a further
+layer is a small, mechanical addition, not a rewrite.
+A fragment still declares one document-level "layer", which fixes its
+on-disk shape (flat items for request/require/spec; areas for
+detailed_spec/basic_design/design). Independently, any item may carry its
+own optional "layer" field (spec|detailed_spec|basic_design|design,
+_RELAYER_TARGET_LAYERS) that overrides where it lands at build time --
+see effective_layer(). This is the relayer mechanism: it never touches a
+fragment's shape, only routes individual items.
+An item promoted out of a flat layer (e.g. spec) into an area-based one
+gets a synthetic one-item area, titled from its own heading text. An item
+whose fragment already puts it in an area keeps that area as its grouping
+key when redirected to a *different* area-layer; if only some of an
+area's items move, the area is represented once per layer that still has
+items in it (same title/description/source, disjoint item sets) -- so the
+same original area can appear in more than one of detailed_spec/
+basic_design/design at once. See build_in_memory's docstring for the
+id-stability caveat this creates for a split area (not a live concern
+until freeze and relayer are both in use at once).
+
+relayer apply <mapping.json>
+    Reads a JSON object {"<id or '<doc>:<start>-<end>'>": {"layer":
+    "spec"|"detailed_spec"|"basic_design"|"design", "reason", "confidence":
+    "high"|"low", "code_like": bool}}, resolves each key against the
+    *current* build (an id from the most recent build, or a literal
+    doc+line-range for content that has no id yet), and writes only the
+    "layer" field into that fragment item, in place -- reason/confidence/
+    code_like are never persisted to the fragment, only echoed in the
+    printed report (with confidence=low and code_like=true entries called
+    out separately, so they can be routed to the Owner/queued for later
+    cleanup). Unresolved keys are reported, not treated as fatal. Only
+    fragment files that actually changed are rewritten.
+
+relayer report
+    Prints, for every leaf item across all fragments, a count grouped by
+    (its source doc, its effective layer) -- i.e. what the *next* build
+    would actually produce, without running one.
 
 qualifier-check
     A mechanical transcription-fidelity check, independent of derivation.
@@ -253,7 +346,7 @@ source-check
 
 ID stamping (CONVERSION.md SS7)
 --------------------------------
-Items are sorted by (layer order request<require<spec<design, doc
+Items are sorted by (layer order request<require<spec<basic_design<design, doc
 key, source.lines[0]) and stamped in that order with a per-prefix
 counter (R for request, REQ for require, SPEC for spec, DES for design
 items, DA for design areas), zero-padded to 3 digits (more if needed,
@@ -303,10 +396,28 @@ for _stream in (sys.stdout, sys.stderr):
         except Exception:
             pass
 
-LAYER_ORDER = {"request": 0, "require": 1, "spec": 2, "design": 3}
+# 2026-09-05: two layers inserted between spec and design, per the Owner's
+# layer split -- detailed_spec (詳細仕様, DS-/area DSA-) then basic_design
+# (基本設計, BD-/area BDA-). request<require<spec are always flat (no
+# areas); detailed_spec/basic_design/design are always area-based -- an
+# item's area is keyed by (target layer, doc, top-level heading), so the
+# same original area can end up represented in more than one of them (see
+# relayer below). Everything downstream of these two tuples and two dicts
+# is written to generalize over however many area-layers there are, so
+# adding a further one is just adding it here.
+LAYER_ORDER = {"request": 0, "require": 1, "spec": 2, "detailed_spec": 3, "basic_design": 4, "design": 5}
 LAYERS = tuple(LAYER_ORDER)
-LEAF_PREFIX = {"request": "R", "require": "REQ", "spec": "SPEC"}
-ID_PATTERN = re.compile(r"^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$")
+_FLAT_LAYERS = ("request", "require", "spec")
+_AREA_LAYERS = ("detailed_spec", "basic_design", "design")
+# Valid targets for an item's "layer" override (relayer): spec, plus every
+# area-layer. request/require are never override targets.
+_RELAYER_TARGET_LAYERS = ("spec",) + _AREA_LAYERS
+LEAF_PREFIX = {"request": "R", "require": "REQ", "spec": "SPEC", "detailed_spec": "DS", "basic_design": "BD", "design": "DES"}
+AREA_PREFIX = {"detailed_spec": "DSA", "basic_design": "BDA", "design": "DA"}
+ID_PATTERN = re.compile(
+    r"^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DS-[0-9]{3,}|DSA-[0-9]{3,}"
+    r"|BD-[0-9]{3,}|BDA-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$"
+)
 HEADING_RE = re.compile(r"^#{1,6} ")
 SCHEMA_VERSION = "0.1"
 
@@ -393,7 +504,7 @@ def design_doc_rank(doc: str) -> int:
 
 
 def doc_key(layer: str, doc: str):
-    if layer == "design":
+    if layer in _AREA_LAYERS:
         return (design_doc_rank(doc), doc)
     return (0, doc)
 
@@ -403,16 +514,50 @@ def item_sort_key(layer: str, item: dict):
     return (LAYER_ORDER[layer], doc_key(layer, src["doc"]), src["lines"][0])
 
 
-def assign_ids(items: list[dict], prefix: str) -> None:
-    """Stamp item['_id'] in place, in the given (already sorted) order."""
-    counter = 1
+_ID_NUM_TRAIL_RE = re.compile(r"([0-9]+)$")
+
+
+def assign_ids(items: list[dict], prefix: str) -> list[str]:
+    """Stamp item['_id'] in place, in the given (already sorted) order.
+
+    Since the 2026-09-05 ID freeze: an item with a stored 'id' (frozen by
+    `freeze`) or a 'keep_id' (the pre-freeze literal-name mechanism, still
+    honoured for an item that has not been frozen yet) keeps that value
+    verbatim -- ids are never renumbered. Everything else gets the next
+    unused number for `prefix`, continuing after the highest number
+    already in use for it (stored or keep_id), so adding or removing
+    unfrozen items never shifts an already-frozen id.
+    Returns the list of ids used by more than one item (empty if none);
+    the caller decides how to fail on that."""
+    used: set[str] = set()
+    dups: list[str] = []
+    max_numbered = 0
     for item in items:
-        keep = item.get("keep_id")
-        if keep:
-            item["_id"] = keep
-        else:
-            item["_id"] = f"{prefix}-{counter:03d}"
+        candidate = item.get("id") or item.get("keep_id")
+        if not candidate:
+            continue
+        if candidate in used:
+            dups.append(candidate)
+        used.add(candidate)
+        if candidate.startswith(prefix + "-"):
+            m = _ID_NUM_TRAIL_RE.search(candidate)
+            if m:
+                max_numbered = max(max_numbered, int(m.group(1)))
+
+    counter = max_numbered + 1
+    for item in items:
+        candidate = item.get("id") or item.get("keep_id")
+        if candidate:
+            item["_id"] = candidate
+            continue
+        new_id = f"{prefix}-{counter:03d}"
+        while new_id in used:
             counter += 1
+            new_id = f"{prefix}-{counter:03d}"
+        item["_id"] = new_id
+        used.add(new_id)
+        counter += 1
+    return dups
 
 
 # ------------------------------------------------------------- building --
@@ -426,6 +571,9 @@ def build_leaf_output(item: dict, layer: str) -> dict:
     if item.get("description"):
         out["description"] = item["description"]
     if layer != "request":
+        # Stored derived_from passes through unchanged (2026-09-05 ID
+        # freeze): build never computes it -- that is apply-derivation's
+        # job, run deliberately with --write, not on every build.
         out["derived_from"] = list(item.get("derived_from") or [])
         cites = item.get("cites")
         if cites:
@@ -434,60 +582,166 @@ def build_leaf_output(item: dict, layer: str) -> dict:
     return out
 
 
-def cmd_build(args) -> int:
-    root = Path(args.root)
+_HEADING_MARKUP_STRIP_RE = re.compile(r"^#{1,6}\s*")
+
+
+def strip_heading_markup(heading: str) -> str:
+    return _HEADING_MARKUP_STRIP_RE.sub("", heading).strip()
+
+
+def effective_layer(item: dict, frag_layer: str) -> str:
+    """An item's actual (post-relayer) layer: its own "layer" override if
+    present and a real layer name, else the layer its fragment declares."""
+    override = item.get("layer")
+    return override if override in LAYER_ORDER else frag_layer
+
+
+def build_in_memory(root: Path):
+    """Core of `build`, factored out so `freeze` can reuse it: sorts and
+    id-stamps every fragment item/area exactly as `build` would, but also
+    hands back the *original* fragment item/area dict objects (by
+    reference, keyed by their assigned id) so a caller can mutate and
+    persist them -- and the (path, frag) pairs `load_fragments` returned,
+    so a caller can write fragments back to the same files.
+
+    2026-09-05 layer split: a fragment's own declared "layer" (request/
+    require/spec/basic_design/design) picks its on-disk shape (flat items,
+    or areas); an item's own optional "layer" field (spec/basic_design/
+    design only -- see effective_layer) can redirect it elsewhere at build
+    time without touching the fragment's shape. A flat-declared item
+    (request/require/spec) redirected into an area-layer gets a synthetic
+    one-item area (title = its own heading, text stripped of "#"/
+    whitespace); several such items sharing the same (doc, heading)
+    collapse into the same synthetic area. An area-declared item
+    redirected to a *different* area-layer keeps its original area's
+    title/description/source as the grouping key, so if only some of an
+    area's items move, the area is represented once per layer it now has
+    items in (a stored area id is only reused for the layer that ends up
+    with the area's full original item set; the other gets a fresh one --
+    freeze does not run concurrently with an unresolved split, so this is
+    not a live concern yet).
+
+    -> (output, item_objects: dict[id, dict], area_objects: dict[id, dict],
+        dup_ids: list[str], fragments: list[(Path, dict)])
+    Raises ValueError on an unknown/missing layer; does not touch disk."""
     fragments = load_fragments(root)
 
-    per_layer_items: dict[str, list[dict]] = {"request": [], "require": [], "spec": [], "design": []}
-    design_areas: list[dict] = []
+    flat_items: dict[str, list[dict]] = {layer: [] for layer in _FLAT_LAYERS}
+    # (doc, heading) -> group record, per area-layer
+    area_groups: dict[str, dict] = {layer: {} for layer in _AREA_LAYERS}
+
+    def route(it: dict, target: str) -> None:
+        if target in _AREA_LAYERS:
+            native_area = it.get("_native_area")
+            group_source = native_area["source"] if native_area is not None else it["source"]
+            key = (group_source["doc"], group_source["heading"])
+            grp = area_groups[target].get(key)
+            if grp is None:
+                if native_area is not None:
+                    grp = {
+                        "title": native_area["title"],
+                        "description": native_area.get("description"),
+                        "source": native_area["source"],
+                        "native_area": native_area,
+                        "items": [],
+                    }
+                else:
+                    grp = {
+                        "title": strip_heading_markup(it["source"]["heading"]),
+                        "description": None,
+                        "source": it["source"],
+                        "native_area": None,
+                        "items": [],
+                    }
+                area_groups[target][key] = grp
+            grp["items"].append(it)
+            it["_group"] = grp
+        else:
+            flat_items[target].append(it)
 
     for path, frag in fragments:
-        layer = frag.get("layer")
-        if layer not in LAYERS:
-            print(f"error: {path}: unknown or missing layer {layer!r}", file=sys.stderr)
-            return 1
-        if layer == "design":
+        frag_layer = frag.get("layer")
+        if frag_layer not in LAYERS:
+            raise ValueError(f"{path}: unknown or missing layer {frag_layer!r}")
+        if frag_layer in _AREA_LAYERS:
             for area in frag.get("areas", []):
-                design_areas.append(area)
-                per_layer_items["design"].extend(area.get("items", []))
                 for it in area.get("items", []):
-                    it["_area"] = area
+                    it["_native_area"] = area
+                    route(it, effective_layer(it, frag_layer))
         else:
-            per_layer_items[layer].extend(frag.get("items", []))
+            for it in frag.get("items", []):
+                it["_native_area"] = None
+                route(it, effective_layer(it, frag_layer))
 
-    # request / require / spec: sort, stamp, build output arrays.
     output = {"schema_version": SCHEMA_VERSION}
-    for layer in ("request", "require", "spec"):
-        items = per_layer_items[layer]
+    all_dups: list[str] = []
+    item_objects: dict[str, dict] = {}
+
+    for layer in _FLAT_LAYERS:
+        items = flat_items[layer]
         items.sort(key=lambda it, layer=layer: item_sort_key(layer, it))
-        assign_ids(items, LEAF_PREFIX[layer])
+        all_dups.extend(assign_ids(items, LEAF_PREFIX[layer]))
         output[layer] = [build_leaf_output(it, layer) for it in items]
+        for it in items:
+            item_objects[it["_id"]] = it
 
-    # design: areas ordered/stamped independently of items; items ordered
-    # and stamped in one global pass, then grouped back under their area.
-    design_areas.sort(key=lambda a: (design_doc_rank(a["source"]["doc"]), a["source"]["lines"][0]))
-    assign_ids(design_areas, "DA")
+    area_objects: dict[str, dict] = {}
+    for layer in _AREA_LAYERS:
+        groups = list(area_groups[layer].values())
+        groups.sort(key=lambda g: (design_doc_rank(g["source"]["doc"]), g["source"]["lines"][0]))
 
-    all_design_items = per_layer_items["design"]
-    all_design_items.sort(key=lambda it: item_sort_key("design", it))
-    assign_ids(all_design_items, "DES")
+        # An area-group's own "id" carrier: only when a native area's WHOLE
+        # original item set landed in this one layer (not split) does its
+        # stored id (if any) belong here unambiguously.
+        area_id_carriers = []
+        for g in groups:
+            na = g["native_area"]
+            carrier = {}
+            if na is not None and len(na.get("items", [])) == len(g["items"]) and na.get("id"):
+                carrier["id"] = na["id"]
+            area_id_carriers.append(carrier)
+        all_dups.extend(assign_ids(area_id_carriers, AREA_PREFIX[layer]))
+        for g, carrier in zip(groups, area_id_carriers):
+            g["_area_id"] = carrier["_id"]
 
-    area_out_by_id = {}
-    design_out = []
-    for area in design_areas:
-        area_out = {"id": area["_id"], "title": area["title"]}
-        if area.get("description"):
-            area_out["description"] = area["description"]
-        area_out["items"] = []
-        area_out["source"] = build_source(area["source"])
-        design_out.append(area_out)
-        area_out_by_id[id(area)] = area_out
+        all_items_this_layer = [it for g in groups for it in g["items"]]
+        all_items_this_layer.sort(key=lambda it: item_sort_key(layer, it))
+        all_dups.extend(assign_ids(all_items_this_layer, LEAF_PREFIX[layer]))
 
-    for it in all_design_items:
-        area_out = area_out_by_id[id(it["_area"])]
-        area_out["items"].append(build_leaf_output(it, "design"))
+        area_out_by_group_id = {}
+        layer_out = []
+        for g in groups:
+            area_out = {"id": g["_area_id"], "title": g["title"]}
+            if g.get("description"):
+                area_out["description"] = g["description"]
+            area_out["items"] = []
+            area_out["source"] = build_source(g["source"])
+            layer_out.append(area_out)
+            area_out_by_group_id[id(g)] = area_out
+            na = g["native_area"]
+            area_objects[g["_area_id"]] = na if (na is not None and len(na.get("items", [])) == len(g["items"])) else g
 
-    output["design"] = design_out
+        for it in all_items_this_layer:
+            area_out = area_out_by_group_id[id(it["_group"])]
+            area_out["items"].append(build_leaf_output(it, layer))
+            item_objects[it["_id"]] = it
+
+        output[layer] = layer_out
+
+    return output, item_objects, area_objects, all_dups, fragments
+
+
+def cmd_build(args) -> int:
+    root = Path(args.root)
+    try:
+        output, _item_objects, _area_objects, dups, _fragments = build_in_memory(root)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if dups:
+        for d in sorted(set(dups)):
+            print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
+        return 1
 
     text = json.dumps(output, ensure_ascii=False, indent=2) + "\n"
     spec_json_path(root).write_text(text, encoding="utf-8")
@@ -504,6 +758,8 @@ def cmd_build(args) -> int:
 
     print(f"build: wrote {spec_json_path(root)} ({len(output['request'])} request, "
           f"{len(output['require'])} require, {len(output['spec'])} spec, "
+          f"{len(output['detailed_spec'])} detailed_spec areas, "
+          f"{len(output['basic_design'])} basic_design areas, "
           f"{len(output['design'])} design areas) -- schema OK")
     return 0
 
@@ -559,7 +815,7 @@ def cmd_coverage(args) -> int:
 
     for path, frag in fragments:
         layer = frag.get("layer")
-        if layer == "design":
+        if layer in _AREA_LAYERS:
             for area in frag.get("areas", []):
                 asrc = area["source"]
                 note_doc(asrc["doc"])
@@ -663,6 +919,20 @@ def write_export_file(path: Path, title: str, blocks: list[list[str]]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def fmt_area_blocks(areas: list) -> list:
+    blocks: list = []
+    for area in areas:
+        block = [f"## {area['id']} {area['title']}"]
+        if area.get("description"):
+            block.append("")
+            block.append(area["description"].strip())
+        for it in area["items"]:
+            block.append("")
+            block.extend(fmt_item(it))
+        blocks.append(block)
+    return blocks
+
+
 def cmd_export(args) -> int:
     root = Path(args.root)
     spec = read_json(spec_json_path(root))
@@ -672,20 +942,11 @@ def cmd_export(args) -> int:
     write_export_file(out_dir / "request.md", "要求", [fmt_item(it) for it in spec["request"]])
     write_export_file(out_dir / "require.md", "要件定義", [fmt_item(it) for it in spec["require"]])
     write_export_file(out_dir / "spec.md", "基本仕様", [fmt_item(it) for it in spec["spec"]])
+    write_export_file(out_dir / "detailed_spec.md", "詳細仕様", fmt_area_blocks(spec["detailed_spec"]))
+    write_export_file(out_dir / "basic_design.md", "基本設計", fmt_area_blocks(spec["basic_design"]))
+    write_export_file(out_dir / "design.md", "詳細設計", fmt_area_blocks(spec["design"]))
 
-    design_blocks: list[list[str]] = []
-    for area in spec["design"]:
-        block = [f"## {area['id']} {area['title']}"]
-        if area.get("description"):
-            block.append("")
-            block.append(area["description"].strip())
-        for it in area["items"]:
-            block.append("")
-            block.extend(fmt_item(it))
-        design_blocks.append(block)
-    write_export_file(out_dir / "design.md", "詳細設計", design_blocks)
-
-    print(f"export: wrote {out_dir / 'request.md'}, require.md, spec.md, design.md")
+    print(f"export: wrote {out_dir / 'request.md'}, require.md, spec.md, detailed_spec.md, basic_design.md, design.md")
     return 0
 
 
@@ -714,11 +975,18 @@ def check_leaf_item(item, label: str, problems: list[str]) -> None:
     if not isinstance(item.get("statement"), str) or not item.get("statement"):
         problems.append(f"{label}: statement must be a non-empty string")
     if "id" in item:
-        problems.append(f"{label}: fragments must not carry an 'id'; ids are stamped by 'build'")
+        # 2026-09-05 ID freeze: a stored 'id' is now legitimate (written by
+        # `freeze`); build keeps it verbatim rather than renumbering. Still
+        # validate its shape against the schema's id pattern.
+        iid = item["id"]
+        if not isinstance(iid, str) or not ID_PATTERN.match(iid):
+            problems.append(f"{label}: id={iid!r} does not match the id pattern")
     if "derived_from" not in item:
-        problems.append(f"{label}: derived_from is required (must be []) in fragments")
-    elif item["derived_from"] != []:
-        problems.append(f"{label}: derived_from must be [] in fragments; got {item['derived_from']!r}")
+        problems.append(f"{label}: derived_from is required in fragments")
+    else:
+        derived = item["derived_from"]
+        if not (isinstance(derived, list) and all(isinstance(d, str) and ID_PATTERN.match(d) for d in derived)):
+            problems.append(f"{label}: derived_from must be a list of ids matching the id pattern; got {derived!r}")
     if "description" in item and not isinstance(item["description"], str):
         problems.append(f"{label}: description must be a string")
     if "cites" in item:
@@ -729,6 +997,13 @@ def check_leaf_item(item, label: str, problems: list[str]) -> None:
         keep = item["keep_id"]
         if not isinstance(keep, str) or not ID_PATTERN.match(keep):
             problems.append(f"{label}: keep_id={keep!r} does not match the id pattern")
+    if "layer" in item:
+        # 2026-09-05 relayer: an item may override its effective layer to
+        # spec or any area-layer, independent of its fragment's own
+        # declared layer (see effective_layer / build_in_memory).
+        override = item["layer"]
+        if override not in _RELAYER_TARGET_LAYERS:
+            problems.append(f"{label}: layer override {override!r} must be one of {_RELAYER_TARGET_LAYERS}")
     if "source" not in item:
         problems.append(f"{label}: source is required")
     else:
@@ -751,7 +1026,7 @@ def cmd_check_fragment(args) -> int:
     if layer not in LAYERS:
         problems.append(f"layer must be one of {LAYERS}; got {layer!r}")
 
-    if layer in ("request", "require", "spec"):
+    if layer in _FLAT_LAYERS:
         if "areas" in frag:
             problems.append(f"layer {layer!r} must not carry 'areas'")
         items = frag.get("items")
@@ -760,9 +1035,9 @@ def cmd_check_fragment(args) -> int:
         else:
             for i, it in enumerate(items):
                 check_leaf_item(it, f"items[{i}]", problems)
-    elif layer == "design":
+    elif layer in _AREA_LAYERS:
         if "items" in frag:
-            problems.append("layer 'design' must not carry top-level 'items' (use 'areas[].items')")
+            problems.append(f"layer {layer!r} must not carry top-level 'items' (use 'areas[].items')")
         areas = frag.get("areas")
         if not isinstance(areas, list):
             problems.append("areas must be a list")
@@ -773,7 +1048,9 @@ def cmd_check_fragment(args) -> int:
                     problems.append(f"{alabel}: area must be an object")
                     continue
                 if "id" in area:
-                    problems.append(f"{alabel}: fragments must not carry an 'id'; ids are stamped by 'build'")
+                    aid = area["id"]
+                    if not isinstance(aid, str) or not ID_PATTERN.match(aid):
+                        problems.append(f"{alabel}: id={aid!r} does not match the id pattern")
                 if not isinstance(area.get("title"), str) or not area.get("title"):
                     problems.append(f"{alabel}: title must be a non-empty string")
                 if "description" in area and not isinstance(area["description"], str):
@@ -933,7 +1210,10 @@ def harvest_item(item: dict, self_definition_codes: frozenset = frozenset()) -> 
 
 
 def iter_leaf_items(frag: dict):
-    if frag.get("layer") == "design":
+    """Iterates a fragment's own declared structure (areas vs flat items) --
+    NOT the effective/overridden layer of each item, which only matters at
+    build time. basic_design and design fragments are both area-shaped."""
+    if frag.get("layer") in _AREA_LAYERS:
         for area in frag.get("areas", []):
             for it in area.get("items", []):
                 yield it
@@ -992,8 +1272,8 @@ def cmd_harvest_cites(args) -> int:
 # ---------------------------------------------------- derivation-candidates --
 
 def build_id_index(spec: dict) -> dict:
-    """Every statement id (request/require/spec/design item) -> its record,
-    in specification.json's own deterministic order."""
+    """Every statement id (any layer's item) -> its record, in
+    specification.json's own deterministic order."""
     idx: dict = {}
     for it in spec["request"]:
         idx[it["id"]] = dict(it, layer="request")
@@ -1001,22 +1281,25 @@ def build_id_index(spec: dict) -> dict:
         idx[it["id"]] = dict(it, layer="require")
     for it in spec["spec"]:
         idx[it["id"]] = dict(it, layer="spec")
-    for area in spec["design"]:
-        for it in area["items"]:
-            idx[it["id"]] = dict(it, layer="design", area_id=area["id"], area_title=area["title"])
+    for layer in _AREA_LAYERS:
+        for area in spec.get(layer, []):
+            for it in area["items"]:
+                idx[it["id"]] = dict(it, layer=layer, area_id=area["id"], area_title=area["title"])
     return idx
 
 
 def scope_items(spec: dict, scope: str) -> list:
-    """scope: 'require' | 'spec' | 'design:本冊' | 'design:別紙A' | 'design:別紙B' | 'design:別紙C'."""
+    """scope: 'require' | 'spec' | '<area_layer>:本冊' | '<area_layer>:別紙A' |
+    '<area_layer>:別紙B' | '<area_layer>:別紙C', area_layer in
+    {basic_design, design} (both draw areas from the same document set)."""
     if scope == "require":
         return spec["require"]
     if scope == "spec":
         return spec["spec"]
-    if scope.startswith("design:"):
-        mark = scope.split(":", 1)[1]
+    area_layer, _, mark = scope.partition(":")
+    if area_layer in _AREA_LAYERS and mark:
         out = []
-        for area in spec["design"]:
+        for area in spec.get(area_layer, []):
             doc = area["source"]["doc"]
             if mark == "本冊":
                 is_match = "別紙A" not in doc and "別紙B" not in doc and "別紙C" not in doc
@@ -1166,16 +1449,17 @@ def scope_to_layer(scope: str):
         return "require"
     if scope == "spec":
         return "spec"
-    if scope and scope.startswith("design:"):
-        return "design"
+    area_layer, _, mark = (scope or "").partition(":")
+    if area_layer in _AREA_LAYERS and mark:
+        return area_layer
     return None
 
 
-_LAYER_RANK = {"request": 0, "require": 1, "spec": 2, "design": 3}
+_LAYER_RANK = LAYER_ORDER
 
 
 def layer_relation(source_layer, target_layer):
-    """Fixed order request<require<spec<design (every design area, whichever
+    """Fixed order request<require<spec<basic_design<design (every design area, whichever
     of 本冊/別紙A/別紙C, is layer 'design'). None when either layer is
     undetermined (e.g. an unresolved cite whose ambiguous self-naming
     candidates don't share one layer)."""
@@ -1235,9 +1519,10 @@ def iter_all_statements(spec: dict):
         yield it
     for it in spec["spec"]:
         yield it
-    for area in spec["design"]:
-        for it in area["items"]:
-            yield it
+    for layer in _AREA_LAYERS:
+        for area in spec.get(layer, []):
+            for it in area["items"]:
+                yield it
 
 
 def build_derivation_candidates(spec: dict, id_index: dict) -> list:
@@ -1593,9 +1878,10 @@ def id_sort_number(iid: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def collect_derivation_edges(spec: dict, id_index: dict, root: Path, repo_root: Path) -> dict:
-    """target_id -> set of candidate source ids, from both rules, before
-    rule 3 filtering/dedup/sort."""
+def collect_rules_1_2_edges(spec: dict, id_index: dict, root: Path, repo_root: Path) -> dict:
+    """target_id -> set of candidate source ids, from cites (rule 1) and
+    the 要求-要件 derivation table (rule 2) only, before rule 3
+    filtering/dedup/sort."""
     edges: dict = {}
 
     # Rule 1: reuse derivation-candidates' own cite resolution + layer_relation.
@@ -1610,6 +1896,167 @@ def collect_derivation_edges(spec: dict, id_index: dict, root: Path, repo_root: 
                 edges.setdefault(t, set()).update(r["source_ids"])
 
     return edges
+
+
+# --- Rule 3 (traceability tables): each document's own trailing 「付記
+# （非規範）: トレーサビリティ表」 records, per row, which upstream section(s)
+# a given section of THIS document realises. Found via the dropped-log
+# reason text (these entries are not marked keep_for_derivation -- that
+# flag is reserved for the 要求→要件 table -- so fragments need no edit
+# for this to work).
+
+_TRACE_DOC_ABBR_TO_SCOPE = {"本冊": "design:本冊", "基本": "spec", "要件": "require"}
+_TRACE_DOC_ABBR_RE = "本冊|基本|要件"
+_TRACE_ITEM_SUFFIX = r"(?:\s*item[0-9]+(?:-[0-9]+)?)?"
+_TRACE_SECLIST_BODY = (
+    r"§\s*[0-9]+(?:\.[0-9]+)*" + _TRACE_ITEM_SUFFIX
+    + r"(?:\s*[・、/／]\s*§?\s*[0-9]+(?:\.[0-9]+)*" + _TRACE_ITEM_SUFFIX + r")*"
+)
+_TRACE_SCAN_RE = re.compile(
+    r"(?P<secdoc>" + _TRACE_DOC_ABBR_RE + r")\s*(?P<seclist>" + _TRACE_SECLIST_BODY + r")"
+    r"|(?P<bareseclist>" + _TRACE_SECLIST_BODY + r")"
+    r"|(?<![A-Za-z0-9])(?P<bare>P-[0-9]{3}|R-[1-5]|F[0-9]+|OOS-[0-9]{3}|NFR-[0-9]{3})(?![A-Za-z0-9])"
+)
+_TRACE_TOKEN_SEP_RE = re.compile(r"\s*[・、/／]\s*")
+_TRACE_ITEM_SUFFIX_TRIM_RE = re.compile(r"\s*item[0-9]+(?:-[0-9]+)?\s*$")
+_TRACE_OWN_SECTION_RE = re.compile(r"^§\s*([0-9]+(?:\.[0-9]+)*)")
+_TRACE_TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
+
+
+def split_trace_seclist(seclist: str) -> list:
+    nums = []
+    for raw in _TRACE_TOKEN_SEP_RE.split(seclist):
+        raw = raw.strip()
+        if not raw:
+            continue
+        raw = _TRACE_ITEM_SUFFIX_TRIM_RE.sub("", raw).strip()
+        if not raw.startswith("§"):
+            raw = "§" + raw
+        nums.append(raw[1:].strip())
+    return nums
+
+
+def resolve_trace_upstream_cell(spec: dict, id_index: dict, cell: str, default_bare_scope):
+    """-> (candidate_ids: list[str], had_unresolvable_bare_section: bool).
+    default_bare_scope is the scope a §-group with no doc abbreviation at
+    all resolves against (基本仕様's own table has none, per its 1 fixed
+    upstream doc 要件定義); None means "no default" -- such a group is
+    reported as a parse problem rather than guessed."""
+    ids = []
+    problem = False
+    for m in _TRACE_SCAN_RE.finditer(cell):
+        if m.group("secdoc"):
+            scope = _TRACE_DOC_ABBR_TO_SCOPE[m.group("secdoc")]
+            for num in split_trace_seclist(m.group("seclist")):
+                ids.extend(section_candidates(spec, scope, num))
+        elif m.group("bareseclist"):
+            if default_bare_scope is None:
+                problem = True
+                continue
+            for num in split_trace_seclist(m.group("bareseclist")):
+                ids.extend(section_candidates(spec, default_bare_scope, num))
+        elif m.group("bare"):
+            code = m.group("bare")
+            if re.match(r"^(R-[1-5]|P-[0-9]{3})$", code):
+                if code in id_index:
+                    ids.append(code)
+            else:
+                ids.extend(self_naming_candidates(id_index, code))
+    return ids, problem
+
+
+def find_traceability_table_ranges(root: Path) -> list:
+    """[(doc, start, end), ...] from dropped-log entries whose reason
+    names the trailing traceability appendix."""
+    out = []
+    for _path, entry in load_dropped(root):
+        if "トレーサビリティ表" in entry.get("reason", ""):
+            out.append((entry["doc"], entry["lines"][0], entry["lines"][1]))
+    return out
+
+
+def _trace_table_profile(doc: str):
+    """-> (table_name, source_scope, default_bare_scope) for a doc path,
+    or None if it doesn't match one of the 4 known traceability tables."""
+    if "基本仕様" in doc:
+        return "基本仕様", "spec", "require"
+    if "別紙A" in doc:
+        return "別紙A", "design:別紙A", None
+    if "別紙C" in doc:
+        return "別紙C", "design:別紙C", None
+    if "詳細設計" in doc:
+        return "本冊", "design:本冊", "spec"
+    return None
+
+
+def parse_generic_table_rows(md_lines: list, start: int, end: int) -> list:
+    """Like parse_md_table_rows, but detects the header row positionally
+    (the row immediately before a separator row) instead of matching a
+    specific header text, so it works for any table shape."""
+    raw_rows = []
+    for line_no in range(start, min(end, len(md_lines)) + 1):
+        m = _TRACE_TABLE_ROW_RE.match(md_lines[line_no - 1].strip())
+        if not m:
+            continue
+        raw_rows.append((line_no, [c.strip() for c in m.group(1).split("|")]))
+    rows = []
+    for i, (line_no, cells) in enumerate(raw_rows):
+        if all(_TABLE_SEP_CELL_RE.match(c) for c in cells if c):
+            continue
+        if i + 1 < len(raw_rows):
+            next_cells = raw_rows[i + 1][1]
+            if all(_TABLE_SEP_CELL_RE.match(c) for c in next_cells if c):
+                continue  # this row is a header (the one right before the separator)
+        rows.append((line_no, cells))
+    return rows
+
+
+def collect_traceability_table_edges(spec: dict, id_index: dict, root: Path, repo_root: Path):
+    """-> (edges: dict[target_id -> set(source_id)], stats: dict with
+    rows_parsed, unparseable ([(table_name, line_no, cells), ...]),
+    by_table ({table_name: rows_parsed}))."""
+    edges: dict = {}
+    rows_parsed = 0
+    unparseable = []
+    by_table = Counter()
+
+    for doc, start, end in find_traceability_table_ranges(root):
+        profile = _trace_table_profile(doc)
+        if profile is None:
+            continue
+        table_name, source_scope, default_bare_scope = profile
+        md_lines = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+        for line_no, cells in parse_generic_table_rows(md_lines, start, end):
+            if len(cells) != 3:
+                unparseable.append((table_name, line_no, cells))
+                continue
+            own_cell, upstream_cell, _kind_cell = cells
+            m = _TRACE_OWN_SECTION_RE.match(own_cell)
+            if not m:
+                unparseable.append((table_name, line_no, cells))
+                continue
+            targets = section_candidates(spec, source_scope, m.group(1))
+            upstream_ids, had_problem = resolve_trace_upstream_cell(spec, id_index, upstream_cell, default_bare_scope)
+            if had_problem:
+                unparseable.append((table_name, line_no, cells))
+                continue
+            rows_parsed += 1
+            by_table[table_name] += 1
+            for t in targets:
+                edges.setdefault(t, set()).update(upstream_ids)
+
+    return edges, {"rows_parsed": rows_parsed, "unparseable": unparseable, "by_table": by_table}
+
+
+def collect_derivation_edges(spec: dict, id_index: dict, root: Path, repo_root: Path):
+    """-> (edges, trace_stats). edges is target_id -> set of candidate
+    source ids, merged from all three rules, before rule 3
+    filtering/dedup/sort."""
+    edges = collect_rules_1_2_edges(spec, id_index, root, repo_root)
+    trace_edges, trace_stats = collect_traceability_table_edges(spec, id_index, root, repo_root)
+    for t, srcs in trace_edges.items():
+        edges.setdefault(t, set()).update(srcs)
+    return edges, trace_stats
 
 
 def finalize_derived_from(target_id: str, candidate_ids, id_index: dict):
@@ -1637,33 +2084,104 @@ def finalize_derived_from(target_id: str, candidate_ids, id_index: dict):
     return kept, dropped
 
 
+def summarize_edges(spec: dict, id_index: dict, edges: dict) -> dict:
+    """layer -> count of statements that would have a non-empty
+    derived_from under `edges`, after rule 3. Read-only (does not touch
+    the statements)."""
+    counts = Counter()
+    for it in iter_all_statements(spec):
+        iid = it["id"]
+        layer = id_index[iid]["layer"]
+        if layer == "request":
+            continue
+        final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
+        if final_list:
+            counts[layer] += 1
+    return counts
+
+
 def cmd_apply_derivation(args) -> int:
     root = Path(args.root)
     repo_root = Path(args.repo_root)
     spec = read_json(spec_json_path(root))
     id_index = build_id_index(spec)
 
-    edges = collect_derivation_edges(spec, id_index, root, repo_root)
+    edges_before = collect_rules_1_2_edges(spec, id_index, root, repo_root)
+    stats_before = summarize_edges(spec, id_index, edges_before)
+
+    trace_edges, trace_stats = collect_traceability_table_edges(spec, id_index, root, repo_root)
+    edges_after = {k: set(v) for k, v in edges_before.items()}
+    for t, srcs in trace_edges.items():
+        edges_after.setdefault(t, set()).update(srcs)
+    stats_after = summarize_edges(spec, id_index, edges_after)
+
+    edges_added_by_trace = sum(
+        len(srcs - edges_before.get(t, set())) for t, srcs in trace_edges.items()
+    )
+
+    print("--- apply-derivation: Task A (traceability tables) ---")
+    print(f"  rows parsed: {trace_stats['rows_parsed']}")
+    for table_name in ("基本仕様", "本冊", "別紙A", "別紙C"):
+        print(f"    {table_name}: {trace_stats['by_table'].get(table_name, 0)}")
+    print(f"  rows unparseable: {len(trace_stats['unparseable'])}")
+    for table_name, line_no, cells in trace_stats["unparseable"]:
+        print(f"    {table_name} L{line_no}: {cells!r}")
+    print("  statements with derived_from BEFORE Task A (rules 1+2 only):")
+    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+        print(f"    {layer}: {stats_before.get(layer, 0)}")
+    print("  statements with derived_from AFTER Task A (rules 1+2+3):")
+    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+        print(f"    {layer}: {stats_after.get(layer, 0)}")
+    print(f"  edges added by Task A (raw candidate pairs, before rule 3): {edges_added_by_trace}")
+
     cited_ids = {it["id"] for it in iter_all_statements(spec) if it.get("cites")}
 
+    recomputed: dict = {}
     dropped_total = 0
-    stats_by_layer = Counter()
     sizes = []
     empty_after_cite = 0
-
     for it in iter_all_statements(spec):
         iid = it["id"]
         layer = id_index[iid]["layer"]
         if layer == "request":
             continue  # rootItem schema has no derived_from field
-        final_list, dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
+        final_list, dropped = finalize_derived_from(iid, edges_after.get(iid, ()), id_index)
         dropped_total += dropped
-        it["derived_from"] = final_list
+        recomputed[iid] = final_list
         if final_list:
-            stats_by_layer[layer] += 1
             sizes.append(len(final_list))
         elif iid in cited_ids:
             empty_after_cite += 1
+
+    stats_by_layer = Counter()
+    for iid, lst in recomputed.items():
+        if lst:
+            stats_by_layer[id_index[iid]["layer"]] += 1
+
+    diffs = []
+    for it in iter_all_statements(spec):
+        iid = it["id"]
+        if iid not in recomputed:
+            continue
+        stored = it.get("derived_from", [])
+        new = recomputed[iid]
+        if stored != new:
+            diffs.append((iid, sorted(set(new) - set(stored)), sorted(set(stored) - set(new))))
+
+    print(f"--- apply-derivation diff (stored vs recomputed): {len(diffs)} statement(s) differ ---")
+    added_total = sum(len(a) for _i, a, _r in diffs)
+    removed_total_diff = sum(len(r) for _i, _a, r in diffs)
+    print(f"  ids that would be added across those statements: {added_total}")
+    print(f"  ids that would be removed across those statements: {removed_total_diff}")
+
+    if not getattr(args, "write", False):
+        print("(report-only: pass --write to overwrite specification.json's derived_from with the recomputed set)")
+        return 0
+
+    for it in iter_all_statements(spec):
+        iid = it["id"]
+        if iid in recomputed:
+            it["derived_from"] = recomputed[iid]
 
     bad_refs = [
         (it["id"], did)
@@ -1693,7 +2211,7 @@ def cmd_apply_derivation(args) -> int:
     max_size = max(sizes) if sizes else 0
 
     print("--- apply-derivation summary ---")
-    for layer in ("require", "spec", "design"):
+    for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
     print(f"  total edges: {total_edges}")
     print(f"  mean derived_from size (non-empty statements only): {mean_size:.2f}")
@@ -1701,6 +2219,188 @@ def cmd_apply_derivation(args) -> int:
     print(f"  statements with cites but empty derived_from (unresolved): {empty_after_cite}")
     print(f"  dropped by rule 3 (self-id / same-or-later layer): {dropped_total}")
     print(f"wrote {spec_json_path(root)} -- schema OK")
+    return 0
+
+
+# ------------------------------------------------------------------ freeze --
+
+def cmd_freeze(args) -> int:
+    root = Path(args.root)
+    repo_root = Path(args.repo_root)
+
+    try:
+        output, item_objects, area_objects, dups, fragments = build_in_memory(root)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if dups:
+        for d in sorted(set(dups)):
+            print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
+        return 1
+
+    id_index = build_id_index(output)
+    edges, _trace_stats = collect_derivation_edges(output, id_index, root, repo_root)
+
+    for iid, item_obj in item_objects.items():
+        item_obj["id"] = iid
+        item_obj.pop("_id", None)
+        item_obj.pop("_native_area", None)
+        item_obj.pop("_group", None)
+        item_obj.pop("keep_id", None)  # promoted into "id"; the old mechanism is now redundant
+        # NOTE: an item's "layer" override (if any) is NOT removed here --
+        # it is a permanent routing directive build_in_memory reads on
+        # every run, independent of the assigned id; stripping it would
+        # silently un-relayer the item on the next build.
+        layer = id_index[iid]["layer"]
+        if layer != "request":
+            final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
+            item_obj["derived_from"] = final_list
+
+    for aid, area_obj in area_objects.items():
+        area_obj["id"] = aid
+        area_obj.pop("_id", None)
+        area_obj.pop("_area_id", None)
+
+    stamped_by_file: dict = {}
+    for path, frag in fragments:
+        n = 0
+        if frag.get("layer") in _AREA_LAYERS:
+            for area in frag.get("areas", []):
+                n += 1
+                n += len(area.get("items", []))
+        else:
+            n += len(frag.get("items", []))
+        stamped_by_file[str(path)] = n
+
+    for path, frag in fragments:
+        text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
+        path.write_text(text, encoding="utf-8")
+
+    print("--- freeze summary ---")
+    for path_str in sorted(stamped_by_file):
+        print(f"  {path_str}: {stamped_by_file[path_str]} stamped")
+    print(f"  total items+areas stamped: {sum(stamped_by_file.values())}")
+    print(f"  fragment files rewritten: {len(fragments)}")
+    return 0
+
+
+# ----------------------------------------------------------------- relayer --
+
+_RELAYER_KEY_DOC_LINES_RE = re.compile(r"^(.*):([0-9]+)-([0-9]+)$")
+
+
+def strip_build_bookkeeping(item_objects: dict, area_objects: dict) -> None:
+    """Undo build_in_memory's transient mutations (_id/_native_area/_group
+    on items, _id/_area_id on areas) before writing a fragment back to
+    disk from outside `freeze` (i.e. from `relayer apply`)."""
+    for it in item_objects.values():
+        it.pop("_id", None)
+        it.pop("_native_area", None)
+        it.pop("_group", None)
+    for area in area_objects.values():
+        area.pop("_id", None)
+        area.pop("_area_id", None)
+
+
+def cmd_relayer_apply(args) -> int:
+    root = Path(args.root)
+    mapping_path = Path(args.mapping)
+    mapping = read_json(mapping_path)
+    if not isinstance(mapping, dict):
+        print(f"error: {mapping_path} must be a JSON object", file=sys.stderr)
+        return 1
+
+    try:
+        _output, item_objects, area_objects, dups, fragments = build_in_memory(root)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if dups:
+        for d in sorted(set(dups)):
+            print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
+        return 1
+
+    by_doc_lines = {}
+    for it in item_objects.values():
+        s, e = it["source"]["lines"]
+        by_doc_lines[(it["source"]["doc"], s, e)] = it
+
+    item_to_path = {}
+    for path, frag in fragments:
+        for it in iter_leaf_items(frag):
+            item_to_path[id(it)] = path
+
+    applied = []      # (key, old_layer_or_none, new_layer)
+    low_confidence = []
+    code_like = []
+    unresolved = []
+    touched_paths = set()
+
+    for key, entry in mapping.items():
+        if not isinstance(entry, dict) or "layer" not in entry:
+            unresolved.append((key, "mapping entry missing 'layer'"))
+            continue
+        new_layer = entry["layer"]
+        if new_layer not in _RELAYER_TARGET_LAYERS:
+            unresolved.append((key, f"invalid layer {new_layer!r} (must be one of {_RELAYER_TARGET_LAYERS})"))
+            continue
+
+        item_obj = item_objects.get(key)
+        if item_obj is None:
+            m = _RELAYER_KEY_DOC_LINES_RE.match(key)
+            if m:
+                doc, s, e = m.group(1), int(m.group(2)), int(m.group(3))
+                item_obj = by_doc_lines.get((doc, s, e))
+        if item_obj is None:
+            unresolved.append((key, "id/'<doc>:<start>-<end>' not found in the current build"))
+            continue
+
+        old_layer = item_obj.get("layer")
+        item_obj["layer"] = new_layer
+        applied.append((key, old_layer, new_layer))
+        touched_paths.add(item_to_path[id(item_obj)])
+        if entry.get("confidence") == "low":
+            low_confidence.append((key, entry.get("reason", "")))
+        if entry.get("code_like"):
+            code_like.append((key, entry.get("reason", "")))
+
+    strip_build_bookkeeping(item_objects, area_objects)
+
+    for path, frag in fragments:
+        if path in touched_paths:
+            text = json.dumps(frag, ensure_ascii=False, indent=2) + "\n"
+            path.write_text(text, encoding="utf-8")
+
+    print("--- relayer apply ---")
+    print(f"  entries in mapping: {len(mapping)}")
+    print(f"  applied: {len(applied)}")
+    print(f"  unresolved: {len(unresolved)}")
+    for key, why in unresolved:
+        print(f"    {key}: {why}")
+    print(f"  fragment files rewritten: {len(touched_paths)}")
+    if low_confidence:
+        print(f"  confidence=low ({len(low_confidence)}):")
+        for key, reason in low_confidence:
+            print(f"    {key}: {reason}")
+    if code_like:
+        print(f"  code_like=true ({len(code_like)}):")
+        for key, reason in code_like:
+            print(f"    {key}: {reason}")
+    return 0
+
+
+def cmd_relayer_report(args) -> int:
+    root = Path(args.root)
+    counts: dict = {}
+    for _path, frag in load_fragments(root):
+        frag_layer = frag.get("layer")
+        for it in iter_leaf_items(frag):
+            key = (it["source"]["doc"], effective_layer(it, frag_layer))
+            counts[key] = counts.get(key, 0) + 1
+
+    print("--- relayer report: counts per (source doc -> target layer) ---")
+    for (doc, layer), n in sorted(counts.items()):
+        print(f"  {doc} -> {layer}: {n}")
     return 0
 
 
@@ -2045,9 +2745,6 @@ def cmd_all(args) -> int:
     rc = cmd_build(args)
     if rc != 0:
         return rc
-    rc = cmd_apply_derivation(args)
-    if rc != 0:
-        return rc
     rc = cmd_coverage(args)
     if rc != 0:
         return rc
@@ -2077,7 +2774,7 @@ def main(argv=None) -> int:
     add_root_arg(p_exp)
     p_exp.set_defaults(func=cmd_export)
 
-    p_all = sub.add_parser("all", help="build, then apply-derivation, then coverage, then export; stop at first failure")
+    p_all = sub.add_parser("all", help="build, then coverage, then export; stop at first failure")
     add_root_arg(p_all)
     add_repo_root_arg(p_all)
     p_all.set_defaults(func=cmd_all)
@@ -2097,10 +2794,28 @@ def main(argv=None) -> int:
     add_repo_root_arg(p_deriv)
     p_deriv.set_defaults(func=cmd_derivation_candidates)
 
-    p_applyderiv = sub.add_parser("apply-derivation", help="CONVERSION.md SS6: compute derived_from from cites/table and write it into specification.json")
+    p_applyderiv = sub.add_parser("apply-derivation", help="CONVERSION.md SS6: report (or, with --write, apply) the recomputed derived_from vs the stored one")
     add_root_arg(p_applyderiv)
     add_repo_root_arg(p_applyderiv)
+    p_applyderiv.add_argument("--write", action="store_true", help="overwrite specification.json's derived_from with the recomputed set (default: report only)")
     p_applyderiv.set_defaults(func=cmd_apply_derivation)
+
+    p_freeze = sub.add_parser("freeze", help="write id and computed derived_from into fragments in place (2026-09-05 ID freeze)")
+    add_root_arg(p_freeze)
+    add_repo_root_arg(p_freeze)
+    p_freeze.set_defaults(func=cmd_freeze)
+
+    p_relayer = sub.add_parser("relayer", help="apply or report per-item layer overrides (spec/basic_design/design split)")
+    relayer_sub = p_relayer.add_subparsers(dest="relayer_command", required=True)
+
+    p_relayer_apply = relayer_sub.add_parser("apply", help="write a layer override into fragment items from a mapping file")
+    add_root_arg(p_relayer_apply)
+    p_relayer_apply.add_argument("mapping", help="path to the mapping JSON: {'<id or doc:start-end>': {'layer': ..., 'reason': ..., 'confidence': 'high'|'low', 'code_like': bool}}")
+    p_relayer_apply.set_defaults(func=cmd_relayer_apply)
+
+    p_relayer_report = relayer_sub.add_parser("report", help="print counts per (source doc -> effective layer)")
+    add_root_arg(p_relayer_report)
+    p_relayer_report.set_defaults(func=cmd_relayer_report)
 
     p_qual = sub.add_parser("qualifier-check", help="mechanical transcription check for a fixed set of limiting/qualifying tokens")
     add_root_arg(p_qual)
