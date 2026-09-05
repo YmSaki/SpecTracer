@@ -1,0 +1,61 @@
+=== diagnostic_code ===
+  base: n=6 layers=['basic_design', 'detailed_spec', 'spec']
+      SPEC-454 [spec] 旧モデルのW-SCAN-102（孤立VO）はVO層の警告であり、文書層 `orphan_detection` とは別物として存置する。
+      SPEC-479 [detailed_spec] 旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検
+      SPEC-530 [spec] 旧モデルの意味監査提出検査（E-AUDIT-005 / E-AUDIT-006 / E-AUDIT-007）は判断記録層への転用（§8.4）
+      SPEC-589 [spec] 旧モデルの W-SCAN-102（孤立 VO）は VO 層の警告であり、文書層 `orphan_detection` とは別物として存置する
+  det1: n=28 layers=['basic_design', 'design', 'detailed_spec', 'spec']
+      DES-100 [design] `judgment_ref` が指す判断記録が存在しない場合は、書込み時にE-APPROVAL-001として拒否する。既存レコードとして読み
+      DES-101 [detailed_spec] 判断記録ULIDを `subject` に持つ承認レコードは、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取
+      DES-107 [basic_design] `approved_state` が値域外の他の値の場合、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った
+      DES-110 [basic_design] 参照先を解決できない、対象が一致しない、または自己参照する `supersedes` entryを含むレコードは、書込み時にE-APPROV
+  det2: n=0 layers=[]
+  anxA: n=0 layers=[]
+  anxC: n=0 layers=[]
+=== exit_code ===
+  base: n=10 layers=['detailed_spec', 'spec']
+      SPEC-134 [spec] 内部エラー・入力不正は検証状態と別系統（終了コード。§27）で表現する。
+      SPEC-349 [detailed_spec] CIはCLI（非対話）で `vtest verify` を同一revisionで再実行し、終了コードで判定する。
+      SPEC-354 [spec] コマンドの完全仕様（引数・出力・終了コード）は詳細設計で定める。
+      SPEC-358 [spec] 終了コード体系の詳細は詳細設計へ委譲する。
+  det1: n=0 layers=[]
+  det2: n=0 layers=[]
+  anxA: n=0 layers=[]
+  anxC: n=0 layers=[]
+=== verify_layout ===
+  base: n=3 layers=['basic_design', 'detailed_spec', 'spec']
+      SPEC-498 [spec] 外部AI／Agentは判断記録（§8）の著者として`.verify/decisions/`へ記録を残す経路でのみ関与し、その記録は入力集合の
+      SPEC-566 [detailed_spec] 本システムは機械が決定論で確定できない疑義を `UNKNOWN` として外部（人間または判断可能 Agent）へ引き渡し、その判断を判断記録
+      SPEC-569 [basic_design] 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind
+  det1: n=4 layers=['basic_design', 'design', 'detailed_spec']
+      DES-069 [design] writerは `.verify/rel/REL-<ULID>.yaml` と同値の `id` だけを生成する。
+      DES-070 [design] readerはversion 1互換入力として `.verify/rel/<ULID>.yaml` かつ同値のbare `id` を受理し、
+      DES-172 [basic_design] `.git/`、`.verify/` のcanonical record / cache、Cargo target directory等の生
+      DES-230 [detailed_spec] 処理フロー第6段は、`.verify/` 読み込みであり、vtest-storeが全レコード（document / VO / Relatio
+  det2: n=0 layers=[]
+  anxA: n=0 layers=[]
+  anxC: n=0 layers=[]
+=== adapter_core_boundary ===
+  base: n=0 layers=[]
+  det1: n=12 layers=['basic_design', 'design', 'detailed_spec', 'spec']
+      DES-001 [spec] core domainの `TestEntity` は、言語・runner非依存の `execution`（adapter・project・
+      DES-044 [detailed_spec] adapterはhash未計算のmanifestと完全性を返し、coreが各entryとsubject全体を検証・hash化する。
+      DES-046 [basic_design] coreはadapter出力と現在のsource bytesの対応を検証し、言語非依存encodingとSHA-256計算を行ってからdom
+      DES-168 [detailed_spec] writerは実行直前にadapterからsnapshot DTOを取得し、core検証後のschema ID、完全性、subject ha
+  det2: n=0 layers=[]
+  anxA: n=0 layers=[]
+  anxC: n=0 layers=[]
+=== id_rule ===
+  base: n=20 layers=['basic_design', 'design', 'detailed_spec', 'spec']
+      SPEC-029 [spec] Testとは、登録adapterが実行可能な検証単位として識別し、Test IDで管理するtest constructである。
+      SPEC-037 [spec] Source Targetは、adapter IDとadapter所有のopaque locatorからなるTarget Reference
+      SPEC-067 [spec] adapterが返す導出結果はregistryでmergeし、adapter ID・path・Test IDの順に正規化する。
+      SPEC-068 [spec] registryの重複ID、未登録adapter、adapter間のTest ID重複は操作エラーとする。
+  det1: n=60 layers=['basic_design', 'design', 'detailed_spec', 'spec']
+      DES-017 [spec] Test subject hashはdomain `vtest:test-subject:v1` を用い、adapter ID、Test I
+      DES-028 [basic_design] 恒久SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference経由でもhash 
+      DES-029 [basic_design] 恒久SRC IDの宣言・変更・削除はcanonical Target Referenceを変えない。
+      DES-030 [basic_design] 恒久SRC IDの宣言をSource Targetのconstruct bytesの内側へ置くadapter（`rust-cargo` の 
+  det2: n=0 layers=[]
+  anxA: n=0 layers=[]
+  anxC: n=0 layers=[]

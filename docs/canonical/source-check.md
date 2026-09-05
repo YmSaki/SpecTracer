@@ -6,31 +6,39 @@ check1: 範囲の先頭または末尾行が空行・見出し・コードフェ
 
 ## docs\canonical\fragments\anxA.json
 
-items scanned: 438 / check1: 7 / check2: 13 / check3: 0
+items scanned: 438 / check1: 21 / check2: 7 / check3: 0
 
 check1 違反:
 - 12.1 共通仕様 L18-33: 末尾行='```'
-- 12.2 `vtest test create` L178-195: 末尾行='```'
+- 12.2 `vtest init` L69-74: 先頭行='```text'
+- 12.2 `vtest scan` L85-89: 先頭行='```text'
+- 12.2 `vtest doc add / list / show` L98-107: 先頭行='```text'
+- 12.2 `vtest vo add / edit / list / show / expand / approve` L118-136: 先頭行='```text'
+- 12.2 `vtest approval create / withdraw / show` L150-161: 先頭行='```text'
+- 12.2 `vtest test create` L173-195: 先頭行='```text', 末尾行='```'
+- 12.2 `vtest test edit` L199-204: 先頭行='```text'
+- 12.2 `vtest test show / list / query` L210-216: 先頭行='```text'
+- 12.2 `vtest audit static` L220-224: 先頭行='```text'
+- 12.2 `vtest audit bundle / submit`（判断記録プロトコル） L228-235: 先頭行='```text'
+- 12.2 `vtest run` L248-252: 先頭行='```text'
+- 12.2 `vtest verify` L257-263: 先頭行='```text'
+- 12.2 `vtest report` L303-310: 先頭行='```text'
+- 12.2 `vtest mcp` L320-324: 先頭行='```text'
 - 12.3 フェーズゲート評価（`verify --gate` / `report --gate`） L333-339: 末尾行='  ```'
 - 12.3 フェーズゲート評価（`verify --gate` / `report --gate`） L344-356: 末尾行=''
 - 12.4 判断待ち情報 section（`verify` / `report` JSON） L365-386: 先頭行='```json'
+- 13.3 エージェント向け利用フロー（参考） L448-463: 先頭行='```text'
 - 14.1 スキーマ形式（`.verify/forms/<kind>.yaml`） L471-529: 末尾行='```'
 - 15.1 `rust-cargo` 対象の特定 L584-590: 末尾行='```'
 
 check2 違反:
 - 12.2 `vtest init` L79-79: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 12.2 `vtest scan` L89-89: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest scan` L90-90: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest scan` L90-90: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest doc add / list / show` L113-113: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest doc add / list / show` L113-113: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest vo add / edit / list / show / expand / approve` L141-141: バッククォートトークン 2 個中 0 個のみ範囲内に出現
-- 12.2 `vtest test create` L178-195: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 12.2 `vtest test edit` L204-204: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 12.2 `vtest test show / list / query` L216-216: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 12.2 `vtest test show / list / query` L216-216: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 12.2 `vtest run` L252-252: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 12.2 `vtest mcp` L324-324: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 
 ## docs\canonical\fragments\anxC.json
 
@@ -74,15 +82,15 @@ check3 違反:
 
 ## docs\canonical\fragments\det1.json
 
-items scanned: 697 / check1: 7 / check2: 18 / check3: 9
+items scanned: 700 / check1: 7 / check2: 18 / check3: 8
 
 check1 違反:
 - #### 3.2.1 dimensions と組合せの実体化 L241-250: 先頭行='```yaml'
 - #### 3.2.1 dimensions と組合せの実体化 L260-272: 末尾行='```'
-- ### 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`） L294-300: 末尾行='```'
-- ### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`） L312-336: 末尾行='```'
-- ### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`） L349-367: 末尾行='```'
-- ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`） L437-467: 末尾行='```'
+- ### 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`） L293-300: 末尾行='```'
+- ### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`） L311-336: 末尾行='```'
+- ### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`） L348-367: 末尾行='```'
+- ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`） L434-467: 末尾行='```'
 - ### 4.1 adapter-neutralな正規化 L511-515: 末尾行='```'
 
 check2 違反:
@@ -100,7 +108,7 @@ check2 違反:
 - ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`） L462-462: バッククォートトークン 5 個中 2 個のみ範囲内に出現
 - ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`） L476-476: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - ### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`） L477-477: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- ### 4.3 `rust-cargo` locator構文 L551-551: バッククォートトークン 1 個中 0 個のみ範囲内に出現
+- ### 4.3 `rust-cargo` locator構文 L551-557: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - ### 5.2 エンティティモデル（vtest-model） L620-620: バッククォートトークン 3 個中 1 個のみ範囲内に出現
 - ### 5.2 エンティティモデル（vtest-model） L620-620: バッククォートトークン 2 個中 0 個のみ範囲内に出現
 - ### 5.5 `rust-cargo` SourceDiscoveryAdapter L932-935: バッククォートトークン 1 個中 0 個のみ範囲内に出現
@@ -110,7 +118,6 @@ check3 違反:
 - ### 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`） L324-324
 - ### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`） L361-361
 - ### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`） L365-365
-- ### 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`） L409-409
 - ### 4.2 `rust-cargo` annotation文法 L540-540
 - ### 5.2 エンティティモデル（vtest-model） L658-658
 - ### 5.2 エンティティモデル（vtest-model） L659-659
@@ -118,7 +125,7 @@ check3 違反:
 
 ## docs\canonical\fragments\det2.json
 
-items scanned: 549 / check1: 20 / check2: 22 / check3: 4
+items scanned: 553 / check1: 20 / check2: 21 / check3: 1
 
 check1 違反:
 - 6.1.1 target identityの一方向確定 L964-972: 末尾行='```'
@@ -136,7 +143,7 @@ check1 違反:
 - 8.4 提出の検証 L1227-1234: 先頭行='```text'
 - 8.4 提出の検証 L1227-1235: 先頭行='```text'
 - 8.4 提出の検証 L1227-1239: 先頭行='```text', 末尾行='```'
-- 8.5 有効性と再判断 L1247-1250: 先頭行='```text'
+- 8.5 有効性と再判断 L1247-1252: 先頭行='```text'
 - 8.6 参考プロンプト L1278-1291: 末尾行='```'
 - 9.2 `rust-cargo` TestRunnerAdapter L1313-1318: 末尾行='```'
 - 9.3 `rust-cargo` 結果のパース L1329-1336: 末尾行='```'
@@ -150,7 +157,6 @@ check2 違反:
 - 6.3 候補提示 L993-1001: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 6.3 候補提示 L1004-1004: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 6.3 候補提示 L1004-1004: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 7.2.1 照合の委譲先の終端（DA-003・DA-006） L1064-1064: バッククォートトークン 4 個中 0 個のみ範囲内に出現
 - 7.3 target 到達の静的証明と runtime 証明の関係（target_binding） L1108-1108: バッククォートトークン 2 個中 0 個のみ範囲内に出現
 - 8.3 提出スキーマ L1191-1191: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 8.4 提出の検証 L1227-1228: バッククォートトークン 1 個中 0 個のみ範囲内に出現
@@ -159,17 +165,14 @@ check2 違反:
 - 8.4 提出の検証 L1227-1234: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 8.4 提出の検証 L1227-1235: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 8.4 提出の検証 L1227-1239: バッククォートトークン 1 個中 0 個のみ範囲内に出現
-- 9.2 `rust-cargo` TestRunnerAdapter L1307-1307: バッククォートトークン 3 個中 1 個のみ範囲内に出現
 - 10.1 計測方式 L1365-1369: バッククォートトークン 1 個中 0 個のみ範囲内に出現
 - 10.2 判定 L1397-1397: バッククォートトークン 1 個中 0 個のみ範囲内に出現
+- 11.1 検査の評価地点 L1423-1423: バッククォートトークン 6 個中 0 個のみ範囲内に出現
 - 17.2 終了コード L1664-1664: バッククォートトークン 2 個中 0 個のみ範囲内に出現
 - 17.2 終了コード L1665-1665: バッククォートトークン 2 個中 0 個のみ範囲内に出現
 - 17.2 終了コード L1665-1665: バッククォートトークン 2 個中 0 個のみ範囲内に出現
 
 check3 違反:
-- 7.2.1 照合の委譲先の終端（DA-003・DA-006） L1064-1064
-- 7.2.1 照合の委譲先の終端（DA-003・DA-006） L1064-1064
-- 7.2.1 照合の委譲先の終端（DA-003・DA-006） L1064-1064
 - 8.3 提出スキーマ L1191-1191
 
 ## docs\canonical\fragments\req-request.json

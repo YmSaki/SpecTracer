@@ -6640,7 +6640,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-018",
@@ -6733,7 +6733,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-067",
@@ -6774,7 +6774,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-079",
@@ -6867,7 +6867,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-096",
@@ -6941,7 +6941,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-115",
@@ -7042,7 +7042,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-115",
@@ -7135,7 +7135,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-119",
@@ -7397,7 +7397,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-131",
@@ -7686,7 +7686,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-136",
@@ -7723,7 +7723,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-146",
@@ -7784,7 +7784,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-151",
@@ -8026,7 +8026,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-170",
@@ -8034,7 +8034,7 @@
     "cite": "基本仕様 §3.4",
     "candidates": [],
     "resolution": "unresolved",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-171",
@@ -8127,7 +8127,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-174",
@@ -8135,7 +8135,7 @@
     "cite": "基本仕様 §3.4",
     "candidates": [],
     "resolution": "unresolved",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-176",
@@ -8143,7 +8143,7 @@
     "cite": "基本仕様 §3.4",
     "candidates": [],
     "resolution": "unresolved",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-180",
@@ -8220,7 +8220,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-187",
@@ -8273,7 +8273,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-187",
@@ -8374,7 +8374,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-197",
@@ -8571,7 +8571,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-201",
@@ -8579,7 +8579,7 @@
     "cite": "基本仕様 §3.4",
     "candidates": [],
     "resolution": "unresolved",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-204",
@@ -8608,7 +8608,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-220",
@@ -8749,7 +8749,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-220",
@@ -8830,7 +8830,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-221",
@@ -8911,7 +8911,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-234",
@@ -8992,7 +8992,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-234",
@@ -9133,7 +9133,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-235",
@@ -9170,7 +9170,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-247",
@@ -9267,7 +9267,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-247",
@@ -9425,7 +9425,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-263",
@@ -9583,7 +9583,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-287",
@@ -9620,7 +9620,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-287",
@@ -9737,7 +9737,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-287",
@@ -10672,7 +10672,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-350",
@@ -10789,7 +10789,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-350",
@@ -10902,7 +10902,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-351",
@@ -11917,7 +11917,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-362",
@@ -12007,7 +12007,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-397",
@@ -12084,7 +12084,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-397",
@@ -12162,7 +12162,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-399",
@@ -12228,7 +12228,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-401",
@@ -12269,7 +12269,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-401",
@@ -12367,7 +12367,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-402",
@@ -12444,7 +12444,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-403",
@@ -12493,7 +12493,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-405",
@@ -12631,7 +12631,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-422",
@@ -12741,7 +12741,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-446",
@@ -12790,7 +12790,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-449",
@@ -12867,7 +12867,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-493",
@@ -12928,7 +12928,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-493",
@@ -12990,7 +12990,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-499",
@@ -13296,7 +13296,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-504",
@@ -13495,7 +13495,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-643",
@@ -13596,7 +13596,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-643",
@@ -13689,7 +13689,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-693",
@@ -13726,7 +13726,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-693",
@@ -13792,7 +13792,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-696",
@@ -13901,7 +13901,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-696",
@@ -13975,7 +13975,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-698",
@@ -14472,7 +14472,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-752",
@@ -14613,7 +14613,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-755",
@@ -14670,7 +14670,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-755",
@@ -14784,7 +14784,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-756",
@@ -14898,7 +14898,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-757",
@@ -15093,7 +15093,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-815",
@@ -15231,7 +15231,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-846",
@@ -15369,7 +15369,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-846",
@@ -15406,7 +15406,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-855",
@@ -15547,7 +15547,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-855",
@@ -15705,7 +15705,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-858",
@@ -15863,7 +15863,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-878",
@@ -15892,7 +15892,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-878",
@@ -16033,7 +16033,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-879",
@@ -16062,7 +16062,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-879",
@@ -16203,7 +16203,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-880",
@@ -17101,7 +17101,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-891",
@@ -17259,7 +17259,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-892",
@@ -17417,7 +17417,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-914",
@@ -17575,7 +17575,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-937",
@@ -17733,7 +17733,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-984",
@@ -17826,7 +17826,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-999",
@@ -17871,7 +17871,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1016",
@@ -18160,7 +18160,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1023",
@@ -18189,7 +18189,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1023",
@@ -18251,7 +18251,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1044",
@@ -18312,7 +18312,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1045",
@@ -18453,7 +18453,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1045",
@@ -18567,7 +18567,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1053",
@@ -18620,7 +18620,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1053",
@@ -18661,7 +18661,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1053",
@@ -18714,7 +18714,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1053",
@@ -18755,7 +18755,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1060",
@@ -18780,7 +18780,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1061",
@@ -18857,7 +18857,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1080",
@@ -18943,7 +18943,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1086",
@@ -19232,7 +19232,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1098",
@@ -19265,7 +19265,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1100",
@@ -19302,7 +19302,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1102",
@@ -19363,7 +19363,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1108",
@@ -19444,7 +19444,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1108",
@@ -19477,7 +19477,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1109",
@@ -19510,7 +19510,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1110",
@@ -19611,7 +19611,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1112",
@@ -19644,7 +19644,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1123",
@@ -19685,7 +19685,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1123",
@@ -19755,7 +19755,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1138",
@@ -19792,7 +19792,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1141",
@@ -19829,7 +19829,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1144",
@@ -19870,7 +19870,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1144",
@@ -20044,7 +20044,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1148",
@@ -20113,7 +20113,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1148",
@@ -20299,7 +20299,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1156",
@@ -20336,7 +20336,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1163",
@@ -20353,7 +20353,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1163",
@@ -20491,7 +20491,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1183",
@@ -20604,7 +20604,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1185",
@@ -20681,7 +20681,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1186",
@@ -20758,7 +20758,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1187",
@@ -20835,7 +20835,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1188",
@@ -20912,7 +20912,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1191",
@@ -20989,7 +20989,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1220",
@@ -22010,7 +22010,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1242",
@@ -22119,7 +22119,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1254",
@@ -22450,7 +22450,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1256",
@@ -22738,7 +22738,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1270",
@@ -23806,7 +23806,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1281",
@@ -23831,7 +23831,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1287",
@@ -24001,7 +24001,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1291",
@@ -25623,7 +25623,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1303",
@@ -25806,7 +25806,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1304",
@@ -26577,7 +26577,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1312",
@@ -26860,7 +26860,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1316",
@@ -28000,7 +28000,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1329",
@@ -28312,7 +28312,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1332",
@@ -28405,7 +28405,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1336",
@@ -28646,7 +28646,7 @@
     "cite": "基本仕様 §3.4",
     "candidates": [],
     "resolution": "unresolved",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1339",
@@ -30073,7 +30073,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1360",
@@ -34320,7 +34320,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1404",
@@ -34437,7 +34437,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1407",
@@ -34495,7 +34495,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1413",
@@ -36882,7 +36882,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1422",
@@ -37509,7 +37509,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1435",
@@ -37798,7 +37798,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1436",
@@ -38279,7 +38279,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1439",
@@ -38805,7 +38805,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1448",
@@ -39534,7 +39534,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1453",
@@ -40300,7 +40300,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1459",
@@ -40534,7 +40534,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1460",
@@ -41014,7 +41014,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1468",
@@ -41051,7 +41051,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1472",
@@ -41310,7 +41310,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1476",
@@ -42118,7 +42118,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1495",
@@ -42300,7 +42300,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1496",
@@ -42596,7 +42596,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1501",
@@ -43000,7 +43000,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1507",
@@ -43110,7 +43110,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1508",
@@ -43369,7 +43369,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1510",
@@ -43938,7 +43938,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1522",
@@ -44051,7 +44051,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1523",
@@ -44786,7 +44786,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1528",
@@ -44899,7 +44899,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1531",
@@ -45245,7 +45245,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1538",
@@ -45427,7 +45427,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1543",
@@ -45537,7 +45537,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1543",
@@ -48081,7 +48081,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1608",
@@ -49320,7 +49320,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1639",
@@ -49373,7 +49373,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1643",
@@ -49519,7 +49519,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1646",
@@ -49572,7 +49572,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1662",
@@ -49597,7 +49597,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1664",
@@ -49950,7 +49950,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1690",
@@ -50003,7 +50003,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1707",
@@ -50157,7 +50157,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1708",
@@ -50344,7 +50344,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1718",
@@ -50369,7 +50369,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1719",
@@ -50394,7 +50394,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1768",
@@ -50524,7 +50524,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1773",
@@ -50601,7 +50601,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1781",
@@ -52088,7 +52088,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1830",
@@ -52166,7 +52166,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1830",
@@ -52261,7 +52261,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1831",
@@ -52383,7 +52383,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1837",
@@ -53108,7 +53108,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1845",
@@ -54220,7 +54220,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1905",
@@ -55132,7 +55132,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1936",
@@ -55229,7 +55229,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1936",
@@ -55756,7 +55756,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1942",
@@ -56515,7 +56515,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1942",
@@ -56656,7 +56656,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1942",
@@ -57034,7 +57034,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1953",
@@ -58253,7 +58253,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1955",
@@ -59549,7 +59549,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1975",
@@ -60274,7 +60274,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1981",
@@ -60391,7 +60391,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1984",
@@ -60428,7 +60428,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1984",
@@ -60545,7 +60545,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-1988",
@@ -65315,7 +65315,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2022",
@@ -65428,7 +65428,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2023",
@@ -66026,7 +66026,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2027",
@@ -66216,7 +66216,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2030",
@@ -66274,7 +66274,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2044",
@@ -66311,7 +66311,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2048",
@@ -66344,7 +66344,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2048",
@@ -66542,7 +66542,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2055",
@@ -66768,7 +66768,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2056",
@@ -67506,7 +67506,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2066",
@@ -67656,7 +67656,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2066",
@@ -67887,7 +67887,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2092",
@@ -67940,7 +67940,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2092",
@@ -68098,7 +68098,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2106",
@@ -68232,7 +68232,7 @@
       }
     ],
     "resolution": "section",
-    "layer_relation": "adjacent-upstream"
+    "layer_relation": "skip-upstream"
   },
   {
     "id": "DES-2113",

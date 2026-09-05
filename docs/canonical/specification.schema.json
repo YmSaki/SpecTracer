@@ -2,21 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "spectracer/specification.schema.json",
   "title": "SpecTracer canonical specification (Issue #14)",
-  "description": "要求・要件定義・基本仕様・詳細仕様・基本設計・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。2026-09-05: 基本仕様と詳細設計の間に詳細仕様（detailed_spec, DS-/area DSA-）と基本設計（basic_design, BD-/area BDA-）を挿入（Owner の層分割）。",
+  "description": "要求・要件定義・基本仕様・詳細仕様・基本設計・詳細設計の正典。md はここからの一方向エクスポート。source / cites は移行期間限定の field（Issue #14 コメント 2026-09-04 の却下リスト）。2026-09-05: 基本仕様と詳細設計の間に詳細仕様（detailed_spec, DS-）と基本設計（basic_design, BD-）を挿入（Owner の層分割）。同日: request 以外の全層（require/spec/detailed_spec/basic_design/design）を designArea から再帰的な section 木（見出し番号から機械的に構築）へ一般化。area 接頭辞 DA-/BDA-/DSA- は廃止し、節 id は <層接頭辞>-S### に統一。",
   "type": "object",
   "required": ["schema_version", "request", "require", "spec", "detailed_spec", "basic_design", "design"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "0.1" },
     "request":        { "type": "array", "items": { "$ref": "#/$defs/rootItem" } },
-    "require":        { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
-    "spec":           { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
-    "detailed_spec":  { "type": "array", "items": { "$ref": "#/$defs/designArea" } },
-    "basic_design":   { "type": "array", "items": { "$ref": "#/$defs/designArea" } },
-    "design":         { "type": "array", "items": { "$ref": "#/$defs/designArea" } }
+    "require":        { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "spec":           { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "detailed_spec":  { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "basic_design":   { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "design":         { "type": "array", "items": { "$ref": "#/$defs/section" } }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DS-[0-9]{3,}|DSA-[0-9]{3,}|BD-[0-9]{3,}|BDA-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$" },
+    "id": { "type": "string", "pattern": "^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}|DS-[0-9]{3,}|DS-S[0-9]{3,}|BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$" },
     "source": {
       "description": "移行期間限定。元 md のどこから写したか。lines は statement と description の両方を含む行範囲（1 始まり、両端含む）。",
       "type": "object",
@@ -57,16 +57,19 @@
         "source":       { "$ref": "#/$defs/source" }
       }
     },
-    "designArea": {
+    "section": {
+      "description": "文書 > 節 > 小節 > 文の木の1ノード。見出し番号から build 時に機械的に構築される（fragments には保存しない）。derived_from は文にも節にも付きうる（節の辺 = トレーサビリティ表・要求→要件 導出表の行、文の辺 = 文中の cites）。子を持ち自分自身は文を持たない節（見出し番号はあるが直下の item がない）も存在してよい。",
       "type": "object",
-      "required": ["id", "title", "items", "source"],
+      "required": ["id", "title", "source"],
       "additionalProperties": false,
       "properties": {
-        "id":          { "$ref": "#/$defs/id" },
-        "title":       { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
-        "items":       { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } },
-        "source":      { "$ref": "#/$defs/source" }
+        "id":           { "$ref": "#/$defs/id" },
+        "title":        { "type": "string", "minLength": 1 },
+        "description":  { "type": "string" },
+        "source":       { "$ref": "#/$defs/source" },
+        "derived_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "sections":     { "type": "array", "items": { "$ref": "#/$defs/section" } },
+        "items":        { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } }
       }
     }
   }

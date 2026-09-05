@@ -63,15 +63,7 @@
     "row_line": 636,
     "target_section": "§1",
     "target_ids": [
-      "REQ-001",
-      "REQ-002",
-      "REQ-003",
-      "REQ-004",
-      "REQ-005",
-      "REQ-006",
-      "REQ-007",
-      "REQ-008",
-      "REQ-009"
+      "REQ-S001"
     ],
     "source_ids": [
       "R-1"
@@ -85,15 +77,7 @@
     "row_line": 637,
     "target_section": "§1",
     "target_ids": [
-      "REQ-001",
-      "REQ-002",
-      "REQ-003",
-      "REQ-004",
-      "REQ-005",
-      "REQ-006",
-      "REQ-007",
-      "REQ-008",
-      "REQ-009"
+      "REQ-S001"
     ],
     "source_ids": [
       "R-1"
@@ -171,9 +155,7 @@
     "row_line": 643,
     "target_section": "§3.1",
     "target_ids": [
-      "REQ-021",
-      "REQ-022",
-      "REQ-023"
+      "REQ-S004"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -185,16 +167,7 @@
     "row_line": 644,
     "target_section": "§3.2",
     "target_ids": [
-      "REQ-024",
-      "REQ-025",
-      "REQ-026",
-      "REQ-027",
-      "REQ-028",
-      "REQ-029",
-      "REQ-030",
-      "REQ-031",
-      "REQ-032",
-      "REQ-033"
+      "REQ-S005"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -206,16 +179,7 @@
     "row_line": 645,
     "target_section": "§3.2",
     "target_ids": [
-      "REQ-024",
-      "REQ-025",
-      "REQ-026",
-      "REQ-027",
-      "REQ-028",
-      "REQ-029",
-      "REQ-030",
-      "REQ-031",
-      "REQ-032",
-      "REQ-033"
+      "REQ-S005"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -227,16 +191,7 @@
     "row_line": 646,
     "target_section": "§3.2",
     "target_ids": [
-      "REQ-024",
-      "REQ-025",
-      "REQ-026",
-      "REQ-027",
-      "REQ-028",
-      "REQ-029",
-      "REQ-030",
-      "REQ-031",
-      "REQ-032",
-      "REQ-033"
+      "REQ-S005"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -248,16 +203,7 @@
     "row_line": 647,
     "target_section": "§3.2",
     "target_ids": [
-      "REQ-024",
-      "REQ-025",
-      "REQ-026",
-      "REQ-027",
-      "REQ-028",
-      "REQ-029",
-      "REQ-030",
-      "REQ-031",
-      "REQ-032",
-      "REQ-033"
+      "REQ-S005"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -269,8 +215,7 @@
     "row_line": 648,
     "target_section": "§3.3",
     "target_ids": [
-      "REQ-034",
-      "REQ-035"
+      "REQ-S006"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -282,20 +227,7 @@
     "row_line": 649,
     "target_section": "§3.4",
     "target_ids": [
-      "REQ-036",
-      "REQ-037",
-      "REQ-038",
-      "REQ-039",
-      "REQ-040",
-      "REQ-041",
-      "REQ-042",
-      "REQ-043",
-      "REQ-044",
-      "REQ-045",
-      "REQ-046",
-      "REQ-047",
-      "REQ-048",
-      "REQ-049"
+      "REQ-S007"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -307,20 +239,7 @@
     "row_line": 650,
     "target_section": "§3.4",
     "target_ids": [
-      "REQ-036",
-      "REQ-037",
-      "REQ-038",
-      "REQ-039",
-      "REQ-040",
-      "REQ-041",
-      "REQ-042",
-      "REQ-043",
-      "REQ-044",
-      "REQ-045",
-      "REQ-046",
-      "REQ-047",
-      "REQ-048",
-      "REQ-049"
+      "REQ-S007"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -332,20 +251,7 @@
     "row_line": 651,
     "target_section": "§3.4",
     "target_ids": [
-      "REQ-036",
-      "REQ-037",
-      "REQ-038",
-      "REQ-039",
-      "REQ-040",
-      "REQ-041",
-      "REQ-042",
-      "REQ-043",
-      "REQ-044",
-      "REQ-045",
-      "REQ-046",
-      "REQ-047",
-      "REQ-048",
-      "REQ-049"
+      "REQ-S007"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -357,20 +263,7 @@
     "row_line": 652,
     "target_section": "§3.4",
     "target_ids": [
-      "REQ-036",
-      "REQ-037",
-      "REQ-038",
-      "REQ-039",
-      "REQ-040",
-      "REQ-041",
-      "REQ-042",
-      "REQ-043",
-      "REQ-044",
-      "REQ-045",
-      "REQ-046",
-      "REQ-047",
-      "REQ-048",
-      "REQ-049"
+      "REQ-S007"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -382,41 +275,7 @@
     "row_line": 653,
     "target_section": "§4",
     "target_ids": [
-      "REQ-050",
-      "REQ-051",
-      "REQ-052",
-      "REQ-053",
-      "REQ-054",
-      "REQ-055",
-      "REQ-056",
-      "REQ-057",
-      "REQ-058",
-      "REQ-059",
-      "REQ-060",
-      "REQ-061",
-      "REQ-062",
-      "REQ-063",
-      "REQ-064",
-      "REQ-065",
-      "REQ-066",
-      "REQ-067",
-      "REQ-068",
-      "REQ-069",
-      "REQ-070",
-      "REQ-071",
-      "REQ-072",
-      "REQ-073",
-      "REQ-074",
-      "REQ-075",
-      "REQ-076",
-      "REQ-077",
-      "REQ-078",
-      "REQ-079",
-      "REQ-080",
-      "REQ-081",
-      "REQ-082",
-      "REQ-083",
-      "REQ-084"
+      "REQ-S008"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -428,13 +287,7 @@
     "row_line": 654,
     "target_section": "§4.1",
     "target_ids": [
-      "REQ-052",
-      "REQ-053",
-      "REQ-054",
-      "REQ-055",
-      "REQ-056",
-      "REQ-057",
-      "REQ-058"
+      "REQ-S009"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -446,13 +299,7 @@
     "row_line": 655,
     "target_section": "§4.1",
     "target_ids": [
-      "REQ-052",
-      "REQ-053",
-      "REQ-054",
-      "REQ-055",
-      "REQ-056",
-      "REQ-057",
-      "REQ-058"
+      "REQ-S009"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -464,21 +311,10 @@
     "row_line": 656,
     "target_section": "§4.1",
     "target_ids": [
-      "REQ-052",
-      "REQ-053",
-      "REQ-054",
-      "REQ-055",
-      "REQ-056",
-      "REQ-057",
-      "REQ-058"
+      "REQ-S009"
     ],
     "source_ids": [
-      "REQ-125",
-      "REQ-126",
-      "REQ-127",
-      "REQ-128",
-      "REQ-129",
-      "REQ-130"
+      "REQ-S022"
     ],
     "kind": "ACCEPTED",
     "kind_text": "成立検査と算入判定の独立（§8.1）のリンク規則側への反映",
@@ -489,11 +325,7 @@
     "row_line": 657,
     "target_section": "§4.2",
     "target_ids": [
-      "REQ-059",
-      "REQ-060",
-      "REQ-061",
-      "REQ-062",
-      "REQ-063"
+      "REQ-S010"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -505,11 +337,7 @@
     "row_line": 658,
     "target_section": "§4.2",
     "target_ids": [
-      "REQ-059",
-      "REQ-060",
-      "REQ-061",
-      "REQ-062",
-      "REQ-063"
+      "REQ-S010"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -521,15 +349,7 @@
     "row_line": 659,
     "target_section": "§4.3",
     "target_ids": [
-      "REQ-064",
-      "REQ-065",
-      "REQ-066",
-      "REQ-067",
-      "REQ-068",
-      "REQ-069",
-      "REQ-070",
-      "REQ-071",
-      "REQ-072"
+      "REQ-S011"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -541,15 +361,7 @@
     "row_line": 660,
     "target_section": "§4.3",
     "target_ids": [
-      "REQ-064",
-      "REQ-065",
-      "REQ-066",
-      "REQ-067",
-      "REQ-068",
-      "REQ-069",
-      "REQ-070",
-      "REQ-071",
-      "REQ-072"
+      "REQ-S011"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -561,15 +373,7 @@
     "row_line": 661,
     "target_section": "§4.3",
     "target_ids": [
-      "REQ-064",
-      "REQ-065",
-      "REQ-066",
-      "REQ-067",
-      "REQ-068",
-      "REQ-069",
-      "REQ-070",
-      "REQ-071",
-      "REQ-072"
+      "REQ-S011"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -581,15 +385,7 @@
     "row_line": 662,
     "target_section": "§4.3",
     "target_ids": [
-      "REQ-064",
-      "REQ-065",
-      "REQ-066",
-      "REQ-067",
-      "REQ-068",
-      "REQ-069",
-      "REQ-070",
-      "REQ-071",
-      "REQ-072"
+      "REQ-S011"
     ],
     "source_ids": [
       "P-002"
@@ -603,18 +399,7 @@
     "row_line": 663,
     "target_section": "§4.4",
     "target_ids": [
-      "REQ-073",
-      "REQ-074",
-      "REQ-075",
-      "REQ-076",
-      "REQ-077",
-      "REQ-078",
-      "REQ-079",
-      "REQ-080",
-      "REQ-081",
-      "REQ-082",
-      "REQ-083",
-      "REQ-084"
+      "REQ-S012"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -626,18 +411,7 @@
     "row_line": 664,
     "target_section": "§4.4",
     "target_ids": [
-      "REQ-073",
-      "REQ-074",
-      "REQ-075",
-      "REQ-076",
-      "REQ-077",
-      "REQ-078",
-      "REQ-079",
-      "REQ-080",
-      "REQ-081",
-      "REQ-082",
-      "REQ-083",
-      "REQ-084"
+      "REQ-S012"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -649,18 +423,7 @@
     "row_line": 665,
     "target_section": "§4.4",
     "target_ids": [
-      "REQ-073",
-      "REQ-074",
-      "REQ-075",
-      "REQ-076",
-      "REQ-077",
-      "REQ-078",
-      "REQ-079",
-      "REQ-080",
-      "REQ-081",
-      "REQ-082",
-      "REQ-083",
-      "REQ-084"
+      "REQ-S012"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -672,13 +435,7 @@
     "row_line": 666,
     "target_section": "§5.1",
     "target_ids": [
-      "REQ-085",
-      "REQ-086",
-      "REQ-087",
-      "REQ-088",
-      "REQ-089",
-      "REQ-090",
-      "REQ-091"
+      "REQ-S014"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -690,8 +447,7 @@
     "row_line": 667,
     "target_section": "§5.2",
     "target_ids": [
-      "REQ-092",
-      "REQ-093"
+      "REQ-S015"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -703,17 +459,7 @@
     "row_line": 668,
     "target_section": "§5.3",
     "target_ids": [
-      "REQ-094",
-      "REQ-095",
-      "REQ-096",
-      "REQ-097",
-      "REQ-098",
-      "REQ-099",
-      "REQ-100",
-      "REQ-101",
-      "REQ-102",
-      "REQ-103",
-      "REQ-104"
+      "REQ-S016"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -725,10 +471,7 @@
     "row_line": 669,
     "target_section": "§5.4",
     "target_ids": [
-      "REQ-105",
-      "REQ-106",
-      "REQ-107",
-      "REQ-108"
+      "REQ-S017"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -740,12 +483,7 @@
     "row_line": 670,
     "target_section": "§6",
     "target_ids": [
-      "REQ-115",
-      "REQ-116",
-      "REQ-117",
-      "REQ-118",
-      "REQ-119",
-      "REQ-120"
+      "REQ-S019"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -757,12 +495,7 @@
     "row_line": 671,
     "target_section": "§6",
     "target_ids": [
-      "REQ-115",
-      "REQ-116",
-      "REQ-117",
-      "REQ-118",
-      "REQ-119",
-      "REQ-120"
+      "REQ-S019"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -774,10 +507,7 @@
     "row_line": 672,
     "target_section": "§7",
     "target_ids": [
-      "REQ-121",
-      "REQ-122",
-      "REQ-123",
-      "REQ-124"
+      "REQ-S020"
     ],
     "source_ids": [
       "R-3"
@@ -791,12 +521,7 @@
     "row_line": 673,
     "target_section": "§8.1",
     "target_ids": [
-      "REQ-125",
-      "REQ-126",
-      "REQ-127",
-      "REQ-128",
-      "REQ-129",
-      "REQ-130"
+      "REQ-S022"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -808,12 +533,7 @@
     "row_line": 674,
     "target_section": "§8.1",
     "target_ids": [
-      "REQ-125",
-      "REQ-126",
-      "REQ-127",
-      "REQ-128",
-      "REQ-129",
-      "REQ-130"
+      "REQ-S022"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -825,13 +545,7 @@
     "row_line": 675,
     "target_section": "§8.2",
     "target_ids": [
-      "REQ-131",
-      "REQ-132",
-      "REQ-133",
-      "REQ-134",
-      "REQ-135",
-      "REQ-136",
-      "REQ-137"
+      "REQ-S023"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -843,13 +557,7 @@
     "row_line": 676,
     "target_section": "§8.2",
     "target_ids": [
-      "REQ-131",
-      "REQ-132",
-      "REQ-133",
-      "REQ-134",
-      "REQ-135",
-      "REQ-136",
-      "REQ-137"
+      "REQ-S023"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -861,12 +569,7 @@
     "row_line": 677,
     "target_section": "§8.1",
     "target_ids": [
-      "REQ-125",
-      "REQ-126",
-      "REQ-127",
-      "REQ-128",
-      "REQ-129",
-      "REQ-130"
+      "REQ-S022"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -878,12 +581,7 @@
     "row_line": 678,
     "target_section": "§8.3",
     "target_ids": [
-      "REQ-138",
-      "REQ-139",
-      "REQ-140",
-      "REQ-141",
-      "REQ-142",
-      "REQ-143"
+      "REQ-S024"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -895,11 +593,7 @@
     "row_line": 679,
     "target_section": "§9.1",
     "target_ids": [
-      "REQ-144",
-      "REQ-145",
-      "REQ-146",
-      "REQ-147",
-      "REQ-148"
+      "REQ-S026"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -911,14 +605,7 @@
     "row_line": 680,
     "target_section": "§9.2",
     "target_ids": [
-      "REQ-149",
-      "REQ-150",
-      "REQ-151",
-      "REQ-152",
-      "REQ-153",
-      "REQ-154",
-      "REQ-155",
-      "REQ-156"
+      "REQ-S027"
     ],
     "source_ids": [
       "R-3"
@@ -932,11 +619,7 @@
     "row_line": 681,
     "target_section": "§9.3",
     "target_ids": [
-      "REQ-157",
-      "REQ-158",
-      "REQ-159",
-      "REQ-160",
-      "REQ-161"
+      "REQ-S028"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -948,8 +631,7 @@
     "row_line": 682,
     "target_section": "§10.1",
     "target_ids": [
-      "REQ-162",
-      "REQ-163"
+      "REQ-S030"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -961,9 +643,7 @@
     "row_line": 683,
     "target_section": "§10.2",
     "target_ids": [
-      "REQ-164",
-      "REQ-165",
-      "REQ-166"
+      "REQ-S031"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -975,9 +655,7 @@
     "row_line": 684,
     "target_section": "§10.3",
     "target_ids": [
-      "REQ-167",
-      "REQ-168",
-      "REQ-169"
+      "REQ-S032"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -989,14 +667,10 @@
     "row_line": 685,
     "target_section": "§10.4",
     "target_ids": [
-      "REQ-170",
-      "REQ-171",
-      "REQ-172",
-      "REQ-173"
+      "REQ-S033"
     ],
     "source_ids": [
-      "REQ-162",
-      "REQ-163"
+      "REQ-S030"
     ],
     "kind": "ACCEPTED",
     "kind_text": "命題単位とテスト実装単位は独立に決まるため、対応は多対多になる",
@@ -1007,12 +681,7 @@
     "row_line": 686,
     "target_section": "§11",
     "target_ids": [
-      "REQ-174",
-      "REQ-175",
-      "REQ-176",
-      "REQ-177",
-      "REQ-178",
-      "REQ-179"
+      "REQ-S034"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1024,12 +693,7 @@
     "row_line": 687,
     "target_section": "§11",
     "target_ids": [
-      "REQ-174",
-      "REQ-175",
-      "REQ-176",
-      "REQ-177",
-      "REQ-178",
-      "REQ-179"
+      "REQ-S034"
     ],
     "source_ids": [
       "P-002"
@@ -1043,19 +707,7 @@
     "row_line": 688,
     "target_section": "§12",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192"
+      "REQ-S035"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1067,19 +719,7 @@
     "row_line": 689,
     "target_section": "§12",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192"
+      "REQ-S035"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1091,19 +731,7 @@
     "row_line": 690,
     "target_section": "§12",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192"
+      "REQ-S035"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1115,36 +743,8 @@
     "row_line": 691,
     "target_section": "§12/§19",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192",
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S035",
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1156,19 +756,7 @@
     "row_line": 692,
     "target_section": "§12",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192"
+      "REQ-S035"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1180,19 +768,7 @@
     "row_line": 693,
     "target_section": "§12",
     "target_ids": [
-      "REQ-180",
-      "REQ-181",
-      "REQ-182",
-      "REQ-183",
-      "REQ-184",
-      "REQ-185",
-      "REQ-186",
-      "REQ-187",
-      "REQ-188",
-      "REQ-189",
-      "REQ-190",
-      "REQ-191",
-      "REQ-192"
+      "REQ-S035"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1204,16 +780,7 @@
     "row_line": 694,
     "target_section": "§13",
     "target_ids": [
-      "REQ-193",
-      "REQ-194",
-      "REQ-195",
-      "REQ-196",
-      "REQ-197",
-      "REQ-198",
-      "REQ-199",
-      "REQ-200",
-      "REQ-201",
-      "REQ-202"
+      "REQ-S036"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1225,16 +792,7 @@
     "row_line": 695,
     "target_section": "§13",
     "target_ids": [
-      "REQ-193",
-      "REQ-194",
-      "REQ-195",
-      "REQ-196",
-      "REQ-197",
-      "REQ-198",
-      "REQ-199",
-      "REQ-200",
-      "REQ-201",
-      "REQ-202"
+      "REQ-S036"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1246,16 +804,7 @@
     "row_line": 696,
     "target_section": "§13",
     "target_ids": [
-      "REQ-193",
-      "REQ-194",
-      "REQ-195",
-      "REQ-196",
-      "REQ-197",
-      "REQ-198",
-      "REQ-199",
-      "REQ-200",
-      "REQ-201",
-      "REQ-202"
+      "REQ-S036"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1267,9 +816,7 @@
     "row_line": 697,
     "target_section": "§14",
     "target_ids": [
-      "REQ-203",
-      "REQ-204",
-      "REQ-205"
+      "REQ-S037"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1281,14 +828,10 @@
     "row_line": 698,
     "target_section": "§15",
     "target_ids": [
-      "REQ-206",
-      "REQ-207",
-      "REQ-208",
-      "REQ-209"
+      "REQ-S038"
     ],
     "source_ids": [
-      "REQ-162",
-      "REQ-163"
+      "REQ-S030"
     ],
     "kind": "ACCEPTED",
     "kind_text": "VO 粒度を構文で決めない原則の実行単位側への適用（case 分解を強制しない）",
@@ -1299,14 +842,7 @@
     "row_line": 699,
     "target_section": "§16",
     "target_ids": [
-      "REQ-210",
-      "REQ-211",
-      "REQ-212",
-      "REQ-213",
-      "REQ-214",
-      "REQ-215",
-      "REQ-216",
-      "REQ-217"
+      "REQ-S039"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1318,14 +854,7 @@
     "row_line": 700,
     "target_section": "§16",
     "target_ids": [
-      "REQ-210",
-      "REQ-211",
-      "REQ-212",
-      "REQ-213",
-      "REQ-214",
-      "REQ-215",
-      "REQ-216",
-      "REQ-217"
+      "REQ-S039"
     ],
     "source_ids": [
       "P-004"
@@ -1339,10 +868,7 @@
     "row_line": 701,
     "target_section": "§17.1",
     "target_ids": [
-      "REQ-220",
-      "REQ-221",
-      "REQ-222",
-      "REQ-223"
+      "REQ-S041"
     ],
     "source_ids": [
       "R-5"
@@ -1356,10 +882,7 @@
     "row_line": 702,
     "target_section": "§17.2",
     "target_ids": [
-      "REQ-224",
-      "REQ-225",
-      "REQ-226",
-      "REQ-227"
+      "REQ-S042"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1371,8 +894,7 @@
     "row_line": 703,
     "target_section": "§17.3",
     "target_ids": [
-      "REQ-228",
-      "REQ-229"
+      "REQ-S043"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1384,9 +906,7 @@
     "row_line": 704,
     "target_section": "§17.4",
     "target_ids": [
-      "REQ-230",
-      "REQ-231",
-      "REQ-232"
+      "REQ-S044"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1398,9 +918,7 @@
     "row_line": 705,
     "target_section": "§18",
     "target_ids": [
-      "REQ-233",
-      "REQ-234",
-      "REQ-235"
+      "REQ-S045"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1412,9 +930,7 @@
     "row_line": 706,
     "target_section": "§18",
     "target_ids": [
-      "REQ-233",
-      "REQ-234",
-      "REQ-235"
+      "REQ-S045"
     ],
     "source_ids": [
       "R-1"
@@ -1428,23 +944,7 @@
     "row_line": 707,
     "target_section": "§19",
     "target_ids": [
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1456,23 +956,7 @@
     "row_line": 708,
     "target_section": "§19",
     "target_ids": [
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1484,23 +968,7 @@
     "row_line": 709,
     "target_section": "§19",
     "target_ids": [
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1512,12 +980,7 @@
     "row_line": 710,
     "target_section": "§5.5",
     "target_ids": [
-      "REQ-109",
-      "REQ-110",
-      "REQ-111",
-      "REQ-112",
-      "REQ-113",
-      "REQ-114"
+      "REQ-S018"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1529,23 +992,7 @@
     "row_line": 711,
     "target_section": "§19",
     "target_ids": [
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1557,23 +1004,7 @@
     "row_line": 712,
     "target_section": "§19",
     "target_ids": [
-      "REQ-236",
-      "REQ-237",
-      "REQ-238",
-      "REQ-239",
-      "REQ-240",
-      "REQ-241",
-      "REQ-242",
-      "REQ-243",
-      "REQ-244",
-      "REQ-245",
-      "REQ-246",
-      "REQ-247",
-      "REQ-248",
-      "REQ-249",
-      "REQ-250",
-      "REQ-251",
-      "REQ-252"
+      "REQ-S046"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1585,13 +1016,7 @@
     "row_line": 713,
     "target_section": "§26.4",
     "target_ids": [
-      "REQ-302",
-      "REQ-303",
-      "REQ-304",
-      "REQ-305",
-      "REQ-306",
-      "REQ-307",
-      "REQ-308"
+      "REQ-S057"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1603,11 +1028,7 @@
     "row_line": 714,
     "target_section": "§20",
     "target_ids": [
-      "REQ-253",
-      "REQ-254",
-      "REQ-255",
-      "REQ-256",
-      "REQ-257"
+      "REQ-S047"
     ],
     "source_ids": [
       "R-1"
@@ -1621,11 +1042,7 @@
     "row_line": 715,
     "target_section": "§20",
     "target_ids": [
-      "REQ-253",
-      "REQ-254",
-      "REQ-255",
-      "REQ-256",
-      "REQ-257"
+      "REQ-S047"
     ],
     "source_ids": [
       "R-4"
@@ -1639,15 +1056,7 @@
     "row_line": 716,
     "target_section": "§21-a",
     "target_ids": [
-      "REQ-258",
-      "REQ-259",
-      "REQ-260",
-      "REQ-261",
-      "REQ-262",
-      "REQ-263",
-      "REQ-264",
-      "REQ-265",
-      "REQ-266"
+      "REQ-S048"
     ],
     "source_ids": [
       "R-3"
@@ -1661,15 +1070,7 @@
     "row_line": 717,
     "target_section": "§21-b",
     "target_ids": [
-      "REQ-258",
-      "REQ-259",
-      "REQ-260",
-      "REQ-261",
-      "REQ-262",
-      "REQ-263",
-      "REQ-264",
-      "REQ-265",
-      "REQ-266"
+      "REQ-S048"
     ],
     "source_ids": [
       "R-3"
@@ -1683,15 +1084,7 @@
     "row_line": 718,
     "target_section": "§21-c",
     "target_ids": [
-      "REQ-258",
-      "REQ-259",
-      "REQ-260",
-      "REQ-261",
-      "REQ-262",
-      "REQ-263",
-      "REQ-264",
-      "REQ-265",
-      "REQ-266"
+      "REQ-S048"
     ],
     "source_ids": [
       "R-3"
@@ -1705,15 +1098,7 @@
     "row_line": 719,
     "target_section": "§21-d",
     "target_ids": [
-      "REQ-258",
-      "REQ-259",
-      "REQ-260",
-      "REQ-261",
-      "REQ-262",
-      "REQ-263",
-      "REQ-264",
-      "REQ-265",
-      "REQ-266"
+      "REQ-S048"
     ],
     "source_ids": [
       "R-2"
@@ -1727,15 +1112,7 @@
     "row_line": 720,
     "target_section": "§21-e",
     "target_ids": [
-      "REQ-258",
-      "REQ-259",
-      "REQ-260",
-      "REQ-261",
-      "REQ-262",
-      "REQ-263",
-      "REQ-264",
-      "REQ-265",
-      "REQ-266"
+      "REQ-S048"
     ],
     "source_ids": [
       "P-002"
@@ -1749,10 +1126,7 @@
     "row_line": 721,
     "target_section": "§22",
     "target_ids": [
-      "REQ-267",
-      "REQ-268",
-      "REQ-269",
-      "REQ-270"
+      "REQ-S049"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1764,10 +1138,7 @@
     "row_line": 722,
     "target_section": "§22",
     "target_ids": [
-      "REQ-267",
-      "REQ-268",
-      "REQ-269",
-      "REQ-270"
+      "REQ-S049"
     ],
     "source_ids": [
       "R-1"
@@ -1781,15 +1152,7 @@
     "row_line": 723,
     "target_section": "§23",
     "target_ids": [
-      "REQ-271",
-      "REQ-272",
-      "REQ-273",
-      "REQ-274",
-      "REQ-275",
-      "REQ-276",
-      "REQ-277",
-      "REQ-278",
-      "REQ-279"
+      "REQ-S050"
     ],
     "source_ids": [
       "R-4"
@@ -1966,8 +1329,7 @@
     "row_line": 738,
     "target_section": "§26.1",
     "target_ids": [
-      "REQ-295",
-      "REQ-296"
+      "REQ-S054"
     ],
     "source_ids": [
       "P-002"
@@ -1981,8 +1343,7 @@
     "row_line": 739,
     "target_section": "§26.2",
     "target_ids": [
-      "REQ-297",
-      "REQ-298"
+      "REQ-S055"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",
@@ -1994,9 +1355,7 @@
     "row_line": 740,
     "target_section": "§26.3",
     "target_ids": [
-      "REQ-299",
-      "REQ-300",
-      "REQ-301"
+      "REQ-S056"
     ],
     "source_ids": [
       "P-002"
@@ -2010,30 +1369,7 @@
     "row_line": 741,
     "target_section": "§28",
     "target_ids": [
-      "REQ-309",
-      "REQ-310",
-      "REQ-311",
-      "REQ-312",
-      "REQ-313",
-      "REQ-314",
-      "REQ-315",
-      "REQ-316",
-      "REQ-317",
-      "REQ-318",
-      "REQ-319",
-      "REQ-320",
-      "REQ-321",
-      "REQ-322",
-      "REQ-323",
-      "REQ-324",
-      "REQ-325",
-      "REQ-326",
-      "REQ-327",
-      "REQ-328",
-      "REQ-329",
-      "REQ-330",
-      "REQ-331",
-      "REQ-332"
+      "REQ-S058"
     ],
     "source_ids": [],
     "kind": "ACCEPTED",

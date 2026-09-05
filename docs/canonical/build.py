@@ -107,7 +107,7 @@ derivation-candidates
         a bare document name), or "unresolved" (cite recognised but zero
         or ambiguous matches, or not recognised at all). layer_relation is
         computed from (citing statement's layer, resolved target's layer)
-        over the fixed order request<require<spec<basic_design<design (every design
+        over the fixed order request<require<spec<detailed_spec<basic_design<design (every design
         area is layer "design" regardless of which of 本冊/別紙A/別紙C):
         "adjacent-upstream" (target exactly one layer up), "skip-upstream"
         (two or more layers up), "same-layer", "downstream" (target layer
@@ -189,7 +189,7 @@ apply-derivation
     Rule 3 (applied to the union of all three sources' contributions, per
     statement): dedup; drop the statement's own id; drop any id whose
     layer is the same as or later than (>=) the statement's own layer in
-    the fixed order request<require<spec<basic_design<design (derived_from only ever
+    the fixed order request<require<spec<detailed_spec<basic_design<design (derived_from only ever
     points strictly upstream -- this is also what makes a 別紙 citing 本冊
     produce no edge, since both are layer "design") -- both kinds of drop
     are counted and reported. What survives is sorted by (layer order,
@@ -233,45 +233,83 @@ freeze
 Layer split (2026-09-05, Owner): detailed_spec, basic_design
 --------------------------------------------------------------
 Two layers inserted between spec and design: request < require < spec <
-detailed_spec < basic_design < design. detailed_spec (詳細仕様, prefix
-DS-, area prefix DSA-) and basic_design (基本設計, prefix BD-, area prefix
-BDA-) both have the same area-based shape as design (schema_defs
-designArea, reused verbatim for all three) and their own top-level
-specification.json array, export file (detailed_spec.md 「詳細仕様」,
-basic_design.md 「基本設計」), and id-stamping pass. Everything that
-touches "the area-layers" (_AREA_LAYERS) or "the flat layers"
-(_FLAT_LAYERS) is written generically over those tuples, so a further
-layer is a small, mechanical addition, not a rewrite.
-A fragment still declares one document-level "layer", which fixes its
-on-disk shape (flat items for request/require/spec; areas for
-detailed_spec/basic_design/design). Independently, any item may carry its
-own optional "layer" field (spec|detailed_spec|basic_design|design,
+detailed_spec < basic_design < design (detailed_spec 詳細仕様 DS-,
+basic_design 基本設計 BD-). A fragment still declares one document-level
+"layer", which fixes its on-disk SHAPE only (flat "items" for request/
+require/spec; "areas" for detailed_spec/basic_design/design -- see
+_FLAT_LAYERS/_AREA_LAYERS). Independently, any item may carry its own
+optional "layer" field (spec|detailed_spec|basic_design|design,
 _RELAYER_TARGET_LAYERS) that overrides where it lands at build time --
 see effective_layer(). This is the relayer mechanism: it never touches a
 fragment's shape, only routes individual items.
-An item promoted out of a flat layer (e.g. spec) into an area-based one
-gets a synthetic one-item area, titled from its own heading text. An item
-whose fragment already puts it in an area keeps that area as its grouping
-key when redirected to a *different* area-layer; if only some of an
-area's items move, the area is represented once per layer that still has
-items in it (same title/description/source, disjoint item sets) -- so the
-same original area can appear in more than one of detailed_spec/
-basic_design/design at once. See build_in_memory's docstring for the
-id-stability caveat this creates for a split area (not a live concern
-until freeze and relayer are both in use at once).
 
-relayer apply <mapping.json>
-    Reads a JSON object {"<id or '<doc>:<start>-<end>'>": {"layer":
-    "spec"|"detailed_spec"|"basic_design"|"design", "reason", "confidence":
-    "high"|"low", "code_like": bool}}, resolves each key against the
-    *current* build (an id from the most recent build, or a literal
-    doc+line-range for content that has no id yet), and writes only the
-    "layer" field into that fragment item, in place -- reason/confidence/
-    code_like are never persisted to the fragment, only echoed in the
-    printed report (with confidence=low and code_like=true entries called
-    out separately, so they can be routed to the Owner/queued for later
-    cleanup). Unresolved keys are reported, not treated as fatal. Only
-    fragment files that actually changed are rewritten.
+Section-node model (2026-09-05, Owner): every layer except request is a
+recursive section tree
+------------------------------------------------------------------------
+Superseding the area-per-layer shape above: request/require/spec/
+detailed_spec/basic_design/design's "area" concept is replaced by a
+文書 > 節 > 小節 > 文 tree, built at build time from the numeric prefix of
+each item's source.heading (build_layer_section_tree) -- not from a
+fragment's own "areas" grouping, which survives only as authoring shape
+and as a source for a matching section's "description" (a native area's
+own "title" is never used; a section's title always comes from a real
+heading -- its own item's, or, absent one, the true md heading text via
+--repo-root, or a bare-number placeholder as a last resort). A section
+with numbered children but no item of its own (e.g. "## 2. 基本原則" whose
+first content is "### P-001 ...") still exists as a node -- an item with
+no numbered heading of its own (that "### P-001 ..." itself) falls back
+to the nearest preceding numbered heading in the real md text, never to
+"whichever item happens to have a token", so an implied parent isn't
+silently skipped over. Section ids are LEAF_PREFIX-S### (REQ-S001,
+SPEC-S001, DS-S001, BD-S001, DES-S001), replacing the old per-layer area
+prefixes (DA-/BDA-/DSA-) entirely, freshly assigned every build (no
+stored-id passthrough for sections yet -- freeze does not persist them).
+Statement ids are assigned exactly as before this model (item_sort_key,
+one flat per-layer counter) -- the tree only changes how items nest in
+the output, never their id.
+Edges keep exactly one shape (derived_from, LAYERING.md SS1.1) but now
+attach to two kinds of node: an inline `cites` in a statement still
+resolves to upstream STATEMENT ids and attaches to that statement (rule
+1, unchanged -- section_candidates' fan-out is exactly what it always
+was); a row of the 要求→要件 derivation table or of a document's own
+trailing traceability appendix, when its column names a section (§N),
+resolves to the upstream SECTION node id and attaches to the citing
+SECTION node (section_id_candidates -- exact match, never fan-out) --
+this is what keeps 136 traceability-table rows from exploding into a
+statement-level cross product. A descendant statement still reaches such
+an edge through "effective upstream reach" (its own derived_from union
+every ancestor section's), computed on demand by cmd_apply_derivation,
+never stored.
+
+relayer apply <mapping.json> [<mapping2.json> ...]
+    Reads one or more JSON objects {"<id or '<doc>:<start>-<end>'>":
+    {"layer": "spec"|"detailed_spec"|"basic_design"|"design", "reason",
+    "confidence": "high"|"low", "code_like": bool, "statement_prefix":
+    str (optional)}}. Given more than one file, ALL of them are loaded and
+    merged FIRST, and every key resolves against ONE baseline build (the
+    fragments as they are before this invocation writes anything) -- never
+    apply mapping files one invocation at a time: the first write shifts
+    statement ids (a moved item leaves its old layer's id sequence), so a
+    second invocation's file would resolve its ids against an
+    already-renumbered build (found the hard way, 2026-09-05: separate
+    per-file invocations left later files 100% unresolved or silently
+    misapplied against stale ids). The same key present in more than one
+    file with a DIFFERENT entry is a hard error before anything is applied
+    (both occurrences are printed); an identical duplicate entry is fine.
+    A "statement_prefix" entry (optional), if present, is checked against
+    the resolved item's own statement (first 30 chars of each) before
+    applying -- a mismatch is skipped and reported separately from a
+    plain unresolved key, since it means the mapping was built against
+    different content than what's in the fragment now. Resolves each key
+    against the baseline build (an id from the most recent build, or a
+    literal doc+line-range for content that has no id yet), and writes
+    only the "layer" field into that fragment item, in place --
+    reason/confidence/code_like/statement_prefix are never persisted to
+    the fragment, only echoed in the printed report (with confidence=low
+    and code_like=true entries called out separately, so they can be
+    routed to the Owner/queued for later cleanup). Unresolved keys are
+    reported, not treated as fatal. Only fragment files that actually
+    changed are rewritten.
 
 relayer report
     Prints, for every leaf item across all fragments, a count grouped by
@@ -346,7 +384,7 @@ source-check
 
 ID stamping (CONVERSION.md SS7)
 --------------------------------
-Items are sorted by (layer order request<require<spec<basic_design<design, doc
+Items are sorted by (layer order request<require<spec<detailed_spec<basic_design<design, doc
 key, source.lines[0]) and stamped in that order with a per-prefix
 counter (R for request, REQ for require, SPEC for spec, DES for design
 items, DA for design areas), zero-padded to 3 digits (more if needed,
@@ -397,26 +435,38 @@ for _stream in (sys.stdout, sys.stderr):
             pass
 
 # 2026-09-05: two layers inserted between spec and design, per the Owner's
-# layer split -- detailed_spec (詳細仕様, DS-/area DSA-) then basic_design
-# (基本設計, BD-/area BDA-). request<require<spec are always flat (no
-# areas); detailed_spec/basic_design/design are always area-based -- an
-# item's area is keyed by (target layer, doc, top-level heading), so the
-# same original area can end up represented in more than one of them (see
-# relayer below). Everything downstream of these two tuples and two dicts
-# is written to generalize over however many area-layers there are, so
-# adding a further one is just adding it here.
+# layer split -- detailed_spec (詳細仕様, DS-) then basic_design (基本設計,
+# BD-). Two INDEPENDENT axes exist from here on, and must stay independent:
+#   - fragment SHAPE (_FLAT_LAYERS / _AREA_LAYERS): what a fragment's own
+#     declared "layer" puts on disk -- flat "items" for request/require/
+#     spec, "areas" for detailed_spec/basic_design/design. This is authoring
+#     shape and does not change with relayering: a base.json item relayered
+#     to basic_design still lives inside a flat fragment.
+#   - output SHAPE (_SECTIONED_LAYERS): every layer except request is,
+#     in specification.json, a recursive section tree (文書 > 節 > 小節 >
+#     文), built at build time from source.heading's numbering -- see
+#     build_in_memory. A fragment's declared "areas" grouping is consulted
+#     only for a matching section's "description" (2026-09-05 section-node
+#     model); it no longer determines node identity or membership.
+# Everything downstream is written to generalize over however many
+# area-layers / sectioned-layers there are, so adding a further one is
+# just adding it here.
 LAYER_ORDER = {"request": 0, "require": 1, "spec": 2, "detailed_spec": 3, "basic_design": 4, "design": 5}
 LAYERS = tuple(LAYER_ORDER)
-_FLAT_LAYERS = ("request", "require", "spec")
-_AREA_LAYERS = ("detailed_spec", "basic_design", "design")
+_FLAT_LAYERS = ("request", "require", "spec")            # fragment shape
+_AREA_LAYERS = ("detailed_spec", "basic_design", "design")  # fragment shape
+_SECTIONED_LAYERS = ("require", "spec", "detailed_spec", "basic_design", "design")  # output shape
 # Valid targets for an item's "layer" override (relayer): spec, plus every
 # area-layer. request/require are never override targets.
 _RELAYER_TARGET_LAYERS = ("spec",) + _AREA_LAYERS
 LEAF_PREFIX = {"request": "R", "require": "REQ", "spec": "SPEC", "detailed_spec": "DS", "basic_design": "BD", "design": "DES"}
-AREA_PREFIX = {"detailed_spec": "DSA", "basic_design": "BDA", "design": "DA"}
+# Section-node id infix (2026-09-05): <LEAF_PREFIX>-S### for every
+# sectioned layer, replacing the old per-layer area prefixes (DA-/BDA-/
+# DSA-) entirely -- a section is no longer a distinct id family, just the
+# leaf prefix with an "S" marker before the number.
 ID_PATTERN = re.compile(
-    r"^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|SPEC-[0-9]{3,}|DS-[0-9]{3,}|DSA-[0-9]{3,}"
-    r"|BD-[0-9]{3,}|BDA-[0-9]{3,}|DES-[0-9]{3,}|DA-[0-9]{3,})$"
+    r"^(R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}"
+    r"|DS-[0-9]{3,}|DS-S[0-9]{3,}|BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$"
 )
 HEADING_RE = re.compile(r"^#{1,6} ")
 SCHEMA_VERSION = "0.1"
@@ -504,7 +554,12 @@ def design_doc_rank(doc: str) -> int:
 
 
 def doc_key(layer: str, doc: str):
-    if layer in _AREA_LAYERS:
+    # design_doc_rank order applies to every sectioned layer (2026-09-05):
+    # once section trees exist, a layer's docs are ordered the same way
+    # regardless of whether it's request/require/spec (currently
+    # single-doc) or an originally-area layer split across multiple docs
+    # via relayer.
+    if layer in _SECTIONED_LAYERS:
         return (design_doc_rank(doc), doc)
     return (0, doc)
 
@@ -596,68 +651,281 @@ def effective_layer(item: dict, frag_layer: str) -> str:
     return override if override in LAYER_ORDER else frag_layer
 
 
-def build_in_memory(root: Path):
-    """Core of `build`, factored out so `freeze` can reuse it: sorts and
-    id-stamps every fragment item/area exactly as `build` would, but also
-    hands back the *original* fragment item/area dict objects (by
-    reference, keyed by their assigned id) so a caller can mutate and
-    persist them -- and the (path, frag) pairs `load_fragments` returned,
-    so a caller can write fragments back to the same files.
+# ------------------------------------------------------ section-tree build --
+# 2026-09-05 (section-node model): every layer except request is a tree,
+# 文書 > 節 > 小節 > 文, built purely from the numeric prefix of
+# source.heading (heading_number_token, already used by cites/table-row
+# resolution) -- not from a fragment's own "areas" grouping, which is
+# authoring-time only from here on (see the module-level comment above
+# _SECTIONED_LAYERS). A section node's number token is a tuple of ints so
+# ("4", "4.2", "4.10") sort numerically, not lexically.
 
-    2026-09-05 layer split: a fragment's own declared "layer" (request/
-    require/spec/basic_design/design) picks its on-disk shape (flat items,
-    or areas); an item's own optional "layer" field (spec/basic_design/
-    design only -- see effective_layer) can redirect it elsewhere at build
-    time without touching the fragment's shape. A flat-declared item
-    (request/require/spec) redirected into an area-layer gets a synthetic
-    one-item area (title = its own heading, text stripped of "#"/
-    whitespace); several such items sharing the same (doc, heading)
-    collapse into the same synthetic area. An area-declared item
-    redirected to a *different* area-layer keeps its original area's
-    title/description/source as the grouping key, so if only some of an
-    area's items move, the area is represented once per layer it now has
-    items in (a stored area id is only reused for the layer that ends up
-    with the area's full original item set; the other gets a fresh one --
-    freeze does not run concurrently with an unresolved split, so this is
-    not a live concern yet).
+def token_parts(token: str) -> tuple:
+    return tuple(int(p) for p in token.split("."))
 
-    -> (output, item_objects: dict[id, dict], area_objects: dict[id, dict],
-        dup_ids: list[str], fragments: list[(Path, dict)])
+
+def parent_token(token: str):
+    """'4.2.1' -> '4.2'; '4' -> None (top-level, no parent)."""
+    if "." not in token:
+        return None
+    return token.rsplit(".", 1)[0]
+
+
+def ancestor_tokens(token: str) -> list:
+    """'4.2.1' -> ['4', '4.2'] (nearest-last, excludes token itself)."""
+    parts = token.split(".")
+    return [".".join(parts[:i]) for i in range(1, len(parts))]
+
+
+def effective_number_resolver(items_in_doc: list, doc: str, get_md_lines):
+    """-> function(item) -> number token, for one (layer, doc) group.
+
+    An item's own heading usually carries a numeric token (heading_
+    number_token); a handful do not (a named sub-heading like "### P-001
+    ..." under "## 2. 基本原則", or preamble text before a document's
+    first numbered heading) -- CONVERSION.md and the section-node task say
+    nothing about these, so the rule here is the smallest one that stays
+    inside "derive from source.heading": such an item belongs to the
+    nearest PRECEDING numbered heading in the same doc (by line position).
+    That "nearest preceding heading" set must come from the real md text
+    (get_md_lines), not just from headings some item happens to own
+    verbatim -- "## 2. 基本原則" in 要求・要件定義 has no item of its own (its
+    first content is "### P-001 ..."), so if "known" were built only from
+    items'/areas' own tokens, every one of section 2's fallback items
+    would silently walk past it and attach to section 1 instead (a real
+    bug caught against the live corpus, not a hypothetical). When
+    get_md_lines is unavailable (no --repo-root given), this falls back to
+    items'/areas' own tokens only -- coarser, but never worse than before
+    repo_root support existed. An item with nothing preceding it at all
+    (true document-start preamble) gets the sentinel token "0" -- already
+    a real convention in this corpus (詳細設計 本冊 "0. 本書の位置付け")."""
+    known = []
+    if get_md_lines is not None:
+        for i, line in enumerate(get_md_lines(doc), start=1):
+            if HEADING_RE.match(line):
+                tok = heading_number_token(line)
+                if tok is not None:
+                    known.append((i, tok))
+    if not known:
+        seen_area_ids = set()
+        for it in items_in_doc:
+            tok = heading_number_token(it["source"]["heading"])
+            if tok is not None:
+                known.append((it["source"]["lines"][0], tok))
+            na = it.get("_native_area")
+            if na is not None and id(na) not in seen_area_ids:
+                seen_area_ids.add(id(na))
+                atok = heading_number_token(na["source"]["heading"])
+                if atok is not None:
+                    known.append((na["source"]["lines"][0], atok))
+    known.sort(key=lambda p: p[0])
+
+    def resolve(it: dict) -> str:
+        tok = heading_number_token(it["source"]["heading"])
+        if tok is not None:
+            return tok
+        line = it["source"]["lines"][0]
+        best = None
+        for kline, ktok in known:
+            if kline <= line:
+                best = ktok
+            else:
+                break
+        return best if best is not None else "0"
+
+    return resolve
+
+
+def find_heading_in_md(get_md_lines, doc: str, token: str):
+    """-> (heading_line_text, line_no) for the ATX heading in `doc` whose
+    own number token exactly equals `token`, or (None, None) if `doc`
+    couldn't be read or no such heading exists. Used only for a node that
+    has no item and no native area at its own number (an "implied parent"
+    -- a heading that groups sub-numbered content but was never itself
+    transcribed as/near a statement)."""
+    for i, line in enumerate(get_md_lines(doc), start=1):
+        if HEADING_RE.match(line) and heading_number_token(line) == token:
+            return line.strip(), i
+    return None, None
+
+
+def build_layer_section_tree(layer: str, items_for_layer: list, get_md_lines) -> tuple:
+    """-> (layer_out: list[section dict, schema-shaped], item_objects: dict).
+    Builds the 文書 > 節 > 小節 > 文 tree for one sectioned layer (2026-09-05
+    section-node model): items are grouped by doc (doc order = doc_key,
+    uniform across every sectioned layer since any of them can now draw
+    from more than one document via relayer); within a doc, a section node
+    exists for every number token any item resolves to (effective_number_
+    resolver) plus every ancestor of that token (ancestor_tokens) -- so a
+    heading with only numbered children and no item of its own still gets
+    a node (docstring requirement: "sections with no statements of their
+    own but with children still exist"). Item ids are assigned exactly as
+    before this model (item_sort_key, one flat counter per layer, global
+    across all docs/sections of the layer) -- the tree only changes how
+    items nest in the output, never their id. Section ids are freshly
+    assigned every build (LEAF_PREFIX-S###, pre-order, doc order then
+    numeric token order) -- no stored-id passthrough for sections yet
+    (freeze does not persist them; see build.py's freeze docstring)."""
+    all_items = list(items_for_layer)
+    all_items.sort(key=lambda it: item_sort_key(layer, it))
+    dups = assign_ids(all_items, LEAF_PREFIX[layer])
+    item_objects = {it["_id"]: it for it in all_items}
+
+    by_doc: dict[str, list] = {}
+    for it in all_items:
+        by_doc.setdefault(it["source"]["doc"], []).append(it)
+    docs_sorted = sorted(by_doc, key=lambda d: doc_key(layer, d))
+
+    layer_out = []
+    section_counter = 1
+
+    for doc in docs_sorted:
+        items_in_doc = by_doc[doc]
+        resolve = effective_number_resolver(items_in_doc, doc, get_md_lines)
+
+        all_tokens: set = set()
+        item_tok: dict = {}
+        for it in items_in_doc:
+            tok = resolve(it)
+            item_tok[id(it)] = tok
+            all_tokens.add(tok)
+            all_tokens.update(ancestor_tokens(tok))
+        tokens_sorted = sorted(all_tokens, key=token_parts)
+
+        area_by_token: dict = {}
+        seen_area_ids = set()
+        for it in items_in_doc:
+            na = it.get("_native_area")
+            if na is not None and id(na) not in seen_area_ids:
+                seen_area_ids.add(id(na))
+                atok = heading_number_token(na["source"]["heading"])
+                if atok is not None and atok not in area_by_token:
+                    area_by_token[atok] = na
+
+        nodes: dict = {}
+        for tok in tokens_sorted:
+            nodes[tok] = {"children": [], "items": []}
+        for tok in tokens_sorted:
+            p = parent_token(tok)
+            if p is not None:
+                nodes[p]["children"].append(tok)
+        for it in items_in_doc:
+            nodes[item_tok[id(it)]]["items"].append(it)
+
+        for tok in tokens_sorted:
+            node = nodes[tok]
+            own_items = sorted(
+                (it for it in node["items"] if heading_number_token(it["source"]["heading"]) == tok),
+                key=lambda it: it["source"]["lines"][0],
+            )
+            area = area_by_token.get(tok)
+            if own_items:
+                node["heading"] = own_items[0]["source"]["heading"]
+                node["lines"] = [
+                    min(it["source"]["lines"][0] for it in own_items),
+                    max(it["source"]["lines"][1] for it in own_items),
+                ]
+                node["title_source"] = "item"
+            elif area is not None:
+                node["heading"] = area["source"]["heading"]
+                node["lines"] = list(area["source"]["lines"])
+                node["title_source"] = "area"
+            else:
+                heading_text, line_no = find_heading_in_md(get_md_lines, doc, tok) if get_md_lines else (None, None)
+                if heading_text is not None:
+                    node["heading"] = heading_text
+                    node["lines"] = [line_no, line_no]
+                    node["title_source"] = "md"
+                else:
+                    node["heading"] = "#" * min(tok.count(".") + 1, 6) + " " + tok
+                    node["lines"] = None  # filled below from subtree bounds
+                    node["title_source"] = "placeholder"
+            node["title"] = strip_heading_markup(node["heading"])
+            if area is not None and area.get("description"):
+                node["description"] = area["description"]
+
+        memo: dict = {}
+
+        def subtree_bounds(tok):
+            if tok in memo:
+                return memo[tok]
+            node = nodes[tok]
+            los = [it["source"]["lines"][0] for it in node["items"]]
+            his = [it["source"]["lines"][1] for it in node["items"]]
+            for ctok in node["children"]:
+                cs, ce = subtree_bounds(ctok)
+                los.append(cs)
+                his.append(ce)
+            result = (min(los), max(his))
+            memo[tok] = result
+            return result
+
+        for tok in tokens_sorted:
+            if nodes[tok]["lines"] is None:
+                nodes[tok]["lines"] = list(subtree_bounds(tok))
+
+        def serialize(tok):
+            node = nodes[tok]
+            nonlocal section_counter
+            out = {"id": f"{LEAF_PREFIX[layer]}-S{section_counter:03d}", "title": node["title"]}
+            section_counter += 1
+            if node.get("description"):
+                out["description"] = node["description"]
+            out["source"] = {"doc": doc, "heading": node["heading"], "lines": node["lines"]}
+            out["derived_from"] = []
+            child_toks = sorted(node["children"], key=token_parts)
+            if child_toks:
+                out["sections"] = [serialize(c) for c in child_toks]
+            own = sorted(node["items"], key=lambda it: item_sort_key(layer, it))
+            if own:
+                out["items"] = [build_leaf_output(it, layer) for it in own]
+            return out
+
+        top_tokens = sorted((t for t in tokens_sorted if parent_token(t) is None), key=token_parts)
+        layer_out.extend(serialize(t) for t in top_tokens)
+
+    return layer_out, item_objects, dups
+
+
+def build_in_memory(root: Path, repo_root: Path = None):
+    """Core of `build`, factored out so `freeze`/`relayer` can reuse it:
+    routes every fragment item to its effective layer (request/require/
+    spec/detailed_spec/basic_design/design -- see effective_layer), builds
+    request as a flat rootItem list and every other layer as a 文書 > 節 >
+    小節 > 文 section tree (build_layer_section_tree, 2026-09-05
+    section-node model), and hands back the *original* fragment item dict
+    objects (by reference, keyed by their assigned id) so a caller can
+    mutate and persist them -- and the (path, frag) pairs `load_fragments`
+    returned, so a caller can write fragments back to the same files.
+
+    A fragment's own declared "layer" picks its on-disk SHAPE only (flat
+    "items" for request/require/spec, "areas" for detailed_spec/
+    basic_design/design) -- this shape is authoring convenience and no
+    longer determines section identity or membership; see the
+    _SECTIONED_LAYERS comment. An item's own optional "layer" field
+    (spec/detailed_spec/basic_design/design -- see effective_layer) can
+    still redirect it to a different layer at build time without touching
+    the fragment's shape (the relayer mechanism).
+
+    repo_root, if given, lets a section node with no item and no native
+    area of its own number (an "implied parent" heading) read its real
+    title from the source md instead of falling back to a bare-number
+    placeholder (see find_heading_in_md); omit it (None) to skip that
+    lookup entirely and always use the placeholder for such nodes.
+
+    -> (output, item_objects: dict[id, dict], dup_ids: list[str],
+        fragments: list[(Path, dict)])
     Raises ValueError on an unknown/missing layer; does not touch disk."""
     fragments = load_fragments(root)
 
-    flat_items: dict[str, list[dict]] = {layer: [] for layer in _FLAT_LAYERS}
-    # (doc, heading) -> group record, per area-layer
-    area_groups: dict[str, dict] = {layer: {} for layer in _AREA_LAYERS}
+    request_items: list[dict] = []
+    sectioned_items: dict[str, list[dict]] = {layer: [] for layer in _SECTIONED_LAYERS}
 
     def route(it: dict, target: str) -> None:
-        if target in _AREA_LAYERS:
-            native_area = it.get("_native_area")
-            group_source = native_area["source"] if native_area is not None else it["source"]
-            key = (group_source["doc"], group_source["heading"])
-            grp = area_groups[target].get(key)
-            if grp is None:
-                if native_area is not None:
-                    grp = {
-                        "title": native_area["title"],
-                        "description": native_area.get("description"),
-                        "source": native_area["source"],
-                        "native_area": native_area,
-                        "items": [],
-                    }
-                else:
-                    grp = {
-                        "title": strip_heading_markup(it["source"]["heading"]),
-                        "description": None,
-                        "source": it["source"],
-                        "native_area": None,
-                        "items": [],
-                    }
-                area_groups[target][key] = grp
-            grp["items"].append(it)
-            it["_group"] = grp
+        if target == "request":
+            request_items.append(it)
         else:
-            flat_items[target].append(it)
+            sectioned_items[target].append(it)
 
     for path, frag in fragments:
         frag_layer = frag.get("layer")
@@ -677,64 +945,44 @@ def build_in_memory(root: Path):
     all_dups: list[str] = []
     item_objects: dict[str, dict] = {}
 
-    for layer in _FLAT_LAYERS:
-        items = flat_items[layer]
-        items.sort(key=lambda it, layer=layer: item_sort_key(layer, it))
-        all_dups.extend(assign_ids(items, LEAF_PREFIX[layer]))
-        output[layer] = [build_leaf_output(it, layer) for it in items]
-        for it in items:
-            item_objects[it["_id"]] = it
+    request_items.sort(key=lambda it: item_sort_key("request", it))
+    all_dups.extend(assign_ids(request_items, LEAF_PREFIX["request"]))
+    output["request"] = [build_leaf_output(it, "request") for it in request_items]
+    for it in request_items:
+        item_objects[it["_id"]] = it
 
-    area_objects: dict[str, dict] = {}
-    for layer in _AREA_LAYERS:
-        groups = list(area_groups[layer].values())
-        groups.sort(key=lambda g: (design_doc_rank(g["source"]["doc"]), g["source"]["lines"][0]))
+    md_cache: dict = {}
 
-        # An area-group's own "id" carrier: only when a native area's WHOLE
-        # original item set landed in this one layer (not split) does its
-        # stored id (if any) belong here unambiguously.
-        area_id_carriers = []
-        for g in groups:
-            na = g["native_area"]
-            carrier = {}
-            if na is not None and len(na.get("items", [])) == len(g["items"]) and na.get("id"):
-                carrier["id"] = na["id"]
-            area_id_carriers.append(carrier)
-        all_dups.extend(assign_ids(area_id_carriers, AREA_PREFIX[layer]))
-        for g, carrier in zip(groups, area_id_carriers):
-            g["_area_id"] = carrier["_id"]
+    def get_md_lines(doc: str):
+        if repo_root is None:
+            return []
+        if doc not in md_cache:
+            try:
+                md_cache[doc] = (repo_root / doc).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                md_cache[doc] = []
+        return md_cache[doc]
 
-        all_items_this_layer = [it for g in groups for it in g["items"]]
-        all_items_this_layer.sort(key=lambda it: item_sort_key(layer, it))
-        all_dups.extend(assign_ids(all_items_this_layer, LEAF_PREFIX[layer]))
-
-        area_out_by_group_id = {}
-        layer_out = []
-        for g in groups:
-            area_out = {"id": g["_area_id"], "title": g["title"]}
-            if g.get("description"):
-                area_out["description"] = g["description"]
-            area_out["items"] = []
-            area_out["source"] = build_source(g["source"])
-            layer_out.append(area_out)
-            area_out_by_group_id[id(g)] = area_out
-            na = g["native_area"]
-            area_objects[g["_area_id"]] = na if (na is not None and len(na.get("items", [])) == len(g["items"])) else g
-
-        for it in all_items_this_layer:
-            area_out = area_out_by_group_id[id(it["_group"])]
-            area_out["items"].append(build_leaf_output(it, layer))
-            item_objects[it["_id"]] = it
-
+    for layer in _SECTIONED_LAYERS:
+        layer_out, layer_item_objects, dups = build_layer_section_tree(
+            layer, sectioned_items[layer], get_md_lines if repo_root is not None else None
+        )
         output[layer] = layer_out
+        item_objects.update(layer_item_objects)
+        all_dups.extend(dups)
 
-    return output, item_objects, area_objects, all_dups, fragments
+    return output, item_objects, all_dups, fragments
+
+
+def count_sections(nodes: list) -> int:
+    return sum(1 + count_sections(n.get("sections", [])) for n in nodes)
 
 
 def cmd_build(args) -> int:
     root = Path(args.root)
+    repo_root = Path(args.repo_root) if getattr(args, "repo_root", None) else None
     try:
-        output, _item_objects, _area_objects, dups, _fragments = build_in_memory(root)
+        output, _item_objects, dups, _fragments = build_in_memory(root, repo_root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -756,11 +1004,14 @@ def cmd_build(args) -> int:
         print(f"build: wrote {spec_json_path(root)} but it failed schema validation ({len(errors)} error(s))", file=sys.stderr)
         return 1
 
-    print(f"build: wrote {spec_json_path(root)} ({len(output['request'])} request, "
-          f"{len(output['require'])} require, {len(output['spec'])} spec, "
-          f"{len(output['detailed_spec'])} detailed_spec areas, "
-          f"{len(output['basic_design'])} basic_design areas, "
-          f"{len(output['design'])} design areas) -- schema OK")
+    stmt_counts = {layer: sum(1 for _ in iter_leaf_items_tree(output.get(layer, []))) for layer in _SECTIONED_LAYERS}
+    sec_counts = {layer: count_sections(output.get(layer, [])) for layer in _SECTIONED_LAYERS}
+    print(f"build: wrote {spec_json_path(root)} ({len(output['request'])} request statements, "
+          + ", ".join(
+              f"{stmt_counts[layer]} {layer} statements in {sec_counts[layer]} sections"
+              for layer in _SECTIONED_LAYERS
+          )
+          + ") -- schema OK")
     return 0
 
 
@@ -919,17 +1170,30 @@ def write_export_file(path: Path, title: str, blocks: list[list[str]]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def fmt_area_blocks(areas: list) -> list:
+def fmt_sections(sections: list, depth: int = 2) -> list:
+    """2026-09-05 section-node model: replaces fmt_area_blocks, recursive
+    over a layer's section tree (every sectioned layer, not just the
+    former area-layers) -- one block per node, heading depth increasing
+    with nesting (capped at 6, ATX's own limit), children's blocks
+    following their parent's in the same flat list write_export_file
+    expects. A node's own derived_from renders the same *導出元:...*
+    marker an item's does, since a section can carry one too."""
     blocks: list = []
-    for area in areas:
-        block = [f"## {area['id']} {area['title']}"]
-        if area.get("description"):
+    for sec in sections:
+        mark = "#" * min(depth, 6)
+        block = [f"{mark} {sec['id']} {sec['title']}"]
+        if sec.get("description"):
             block.append("")
-            block.append(area["description"].strip())
-        for it in area["items"]:
+            block.append(sec["description"].strip())
+        derived = sec.get("derived_from")
+        if derived:
+            block.append("")
+            block.append(f"*導出元: {', '.join(derived)}*")
+        for it in sec.get("items", []):
             block.append("")
             block.extend(fmt_item(it))
         blocks.append(block)
+        blocks.extend(fmt_sections(sec.get("sections", []), depth + 1))
     return blocks
 
 
@@ -940,11 +1204,11 @@ def cmd_export(args) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     write_export_file(out_dir / "request.md", "要求", [fmt_item(it) for it in spec["request"]])
-    write_export_file(out_dir / "require.md", "要件定義", [fmt_item(it) for it in spec["require"]])
-    write_export_file(out_dir / "spec.md", "基本仕様", [fmt_item(it) for it in spec["spec"]])
-    write_export_file(out_dir / "detailed_spec.md", "詳細仕様", fmt_area_blocks(spec["detailed_spec"]))
-    write_export_file(out_dir / "basic_design.md", "基本設計", fmt_area_blocks(spec["basic_design"]))
-    write_export_file(out_dir / "design.md", "詳細設計", fmt_area_blocks(spec["design"]))
+    write_export_file(out_dir / "require.md", "要件定義", fmt_sections(spec["require"]))
+    write_export_file(out_dir / "spec.md", "基本仕様", fmt_sections(spec["spec"]))
+    write_export_file(out_dir / "detailed_spec.md", "詳細仕様", fmt_sections(spec["detailed_spec"]))
+    write_export_file(out_dir / "basic_design.md", "基本設計", fmt_sections(spec["basic_design"]))
+    write_export_file(out_dir / "design.md", "詳細設計", fmt_sections(spec["design"]))
 
     print(f"export: wrote {out_dir / 'request.md'}, require.md, spec.md, detailed_spec.md, basic_design.md, design.md")
     return 0
@@ -1271,44 +1535,106 @@ def cmd_harvest_cites(args) -> int:
 
 # ---------------------------------------------------- derivation-candidates --
 
+def iter_leaf_items_tree(sections: list):
+    """Recursively yield every leaf item across a section-tree list (a
+    layer's own top-level array in specification.json), depth-first,
+    section order preserved -- a section's own "items" before its
+    children's."""
+    for sec in sections:
+        yield from sec.get("items", [])
+        yield from iter_leaf_items_tree(sec.get("sections", []))
+
+
+def iter_all_sections(sections: list):
+    """Recursively yield every section node (self before children),
+    depth-first, section order preserved."""
+    for sec in sections:
+        yield sec
+        yield from iter_all_sections(sec.get("sections", []))
+
+
 def build_id_index(spec: dict) -> dict:
     """Every statement id (any layer's item) -> its record, in
-    specification.json's own deterministic order."""
+    specification.json's own deterministic order. Section ids are
+    deliberately NOT included here (see build_full_index) -- this index's
+    other job, self_naming_candidates' full-corpus scan, would otherwise
+    have to guard against matching a section's title text."""
     idx: dict = {}
     for it in spec["request"]:
         idx[it["id"]] = dict(it, layer="request")
-    for it in spec["require"]:
-        idx[it["id"]] = dict(it, layer="require")
-    for it in spec["spec"]:
-        idx[it["id"]] = dict(it, layer="spec")
-    for layer in _AREA_LAYERS:
-        for area in spec.get(layer, []):
-            for it in area["items"]:
-                idx[it["id"]] = dict(it, layer=layer, area_id=area["id"], area_title=area["title"])
+    for layer in _SECTIONED_LAYERS:
+        for it in iter_leaf_items_tree(spec.get(layer, [])):
+            idx[it["id"]] = dict(it, layer=layer)
     return idx
 
 
+def build_full_index(spec: dict) -> dict:
+    """build_id_index plus every section id -> {"layer": ...} (2026-09-05
+    section-node model): finalize_derived_from's rank check needs a
+    candidate/target's layer regardless of whether it is a statement or a
+    section id, since Task A / the 要求→要件 table's §-targets now resolve
+    to section ids. Deliberately a separate function from build_id_index
+    (not merged into it) so self_naming_candidates' whole-corpus scan never
+    sees a section's title text as a candidate statement."""
+    idx = build_id_index(spec)
+    for layer in _SECTIONED_LAYERS:
+        for sec in iter_all_sections(spec.get(layer, [])):
+            idx[sec["id"]] = {"layer": layer, "title": sec["title"]}
+    return idx
+
+
+def doc_matches_mark(doc: str, mark: str) -> bool:
+    """Whether `doc` (a fragment/section source path) belongs to the
+    document `mark` names -- 基本仕様/要件定義/別紙A/別紙B/別紙C match by a
+    literal substring; 本冊 (詳細設計 v0.1.md, the only design-family doc
+    with no distinguishing substring of its own) matches positively on
+    "詳細設計" and negatively excludes every 別紙. The positive "詳細設計"
+    check matters once relayering can put an item from any doc into any
+    sectioned layer (2026-09-05): a require/spec-layer section's doc never
+    contains "詳細設計" or "別紙", so a mark-scoped search across every
+    layer (section_id_candidates_cross_layer) can't mistake it for 本冊 the
+    way a negative-only check (not 別紙A/B/C) would if it were applied
+    outside a single already-known design-family layer."""
+    if mark == "本冊":
+        return "詳細設計" in doc and "別紙A" not in doc and "別紙B" not in doc and "別紙C" not in doc
+    return mark in doc
+
+
 def scope_items(spec: dict, scope: str) -> list:
-    """scope: 'require' | 'spec' | '<area_layer>:本冊' | '<area_layer>:別紙A' |
-    '<area_layer>:別紙B' | '<area_layer>:別紙C', area_layer in
-    {basic_design, design} (both draw areas from the same document set)."""
-    if scope == "require":
-        return spec["require"]
-    if scope == "spec":
-        return spec["spec"]
-    area_layer, _, mark = scope.partition(":")
-    if area_layer in _AREA_LAYERS and mark:
-        out = []
-        for area in spec.get(area_layer, []):
-            doc = area["source"]["doc"]
-            if mark == "本冊":
-                is_match = "別紙A" not in doc and "別紙B" not in doc and "別紙C" not in doc
-            else:
-                is_match = mark in doc
-            if is_match:
-                out.extend(area["items"])
-        return out
-    return []
+    """scope: 'require' | 'spec' | '<sectioned_layer>:本冊' |
+    '<sectioned_layer>:別紙A' | '<sectioned_layer>:別紙B' |
+    '<sectioned_layer>:別紙C'. Flattens the scope's section tree into its
+    leaf items (2026-09-05: require/spec are trees too, so both branches
+    below now go through the same doc-filtered tree walk as an
+    area-layer's scope always did)."""
+    layer = scope_to_layer(scope)
+    if layer is None:
+        return []
+    _, _, mark = (scope or "").partition(":")
+    if not mark:
+        return list(iter_leaf_items_tree(spec.get(layer, [])))
+    out = []
+    for sec in spec.get(layer, []):
+        if doc_matches_mark(sec["source"]["doc"], mark):
+            out.extend(iter_leaf_items_tree([sec]))
+    return out
+
+
+def scoped_sections(spec: dict, scope: str) -> list:
+    """Like scope_items, but yields section NODES instead of leaf items --
+    used by section_id_candidates (2026-09-05: table-row §-references
+    resolve to the section itself, not to every statement under it)."""
+    layer = scope_to_layer(scope)
+    if layer is None:
+        return []
+    _, _, mark = (scope or "").partition(":")
+    if not mark:
+        return list(iter_all_sections(spec.get(layer, [])))
+    out = []
+    for sec in spec.get(layer, []):
+        if doc_matches_mark(sec["source"]["doc"], mark):
+            out.extend(iter_all_sections([sec]))
+    return out
 
 
 _DOC_TO_SCOPE = {
@@ -1336,11 +1662,59 @@ def section_matches(query: str, token) -> bool:
 
 
 def section_candidates(spec: dict, scope: str, number: str) -> list:
+    """Statement ids under `number` (exact node or any descendant),
+    unchanged since before the section-node model -- this is rule 1
+    (inline cites): 文中の引用は文の辺 (LAYERING.md SS1.1), so a citing
+    statement's target still fans out to every statement in the cited
+    section, never to the section node itself."""
     return [
         it["id"]
         for it in scope_items(spec, scope)
         if section_matches(number, heading_number_token(it["source"]["heading"]))
     ]
+
+
+def section_id_candidates(spec: dict, scope: str, number: str) -> list:
+    """The section NODE id(s) whose own heading number token exactly
+    equals `number` (2026-09-05 section-node model) -- used by the
+    table-based rules (要求→要件 導出表 §-targets, and every Task A
+    traceability-table §-reference, both source and upstream side): 表を
+    文単位に展開しない (LAYERING.md SS1.1), so a §N reference here attaches
+    to the one section node for N, not to every statement under it. A
+    descendant statement still inherits the edge through "effective
+    upstream reach" (own derived_from union ancestors'), computed, not
+    stored -- see cmd_apply_derivation. At most one id in the ordinary
+    case (each doc has one node per number); a list because the caller
+    (resolve_table_ref et al.) already expects one."""
+    return [
+        sec["id"]
+        for sec in scoped_sections(spec, scope)
+        if heading_number_token(sec["source"]["heading"]) == number
+    ]
+
+
+def section_id_candidates_cross_layer(spec: dict, doc_mark: str, number: str) -> list:
+    """Like section_id_candidates, but searches every sectioned layer
+    (not one predetermined layer) for a node matching (doc_mark, number).
+    2026-09-05 (post-relayer fix): a traceability-table row names a
+    SOURCE-DOCUMENT section (e.g. 基本仕様 §5.2), not a layer -- after
+    relayering, that document section's statements can be split across
+    more than one layer (spec / detailed_spec / basic_design), so it can
+    legitimately have a section node of the same (doc, number) in each of
+    them. The edge attaches to EVERY such node, in any layer -- dropping
+    it to "the first match" would silently under-realize whichever layer
+    lost the coin flip. require never splits (it is never a relayer
+    target), so a require-scoped call here degrades to exactly one match,
+    same as section_id_candidates."""
+    out = []
+    for layer in _SECTIONED_LAYERS:
+        for sec in spec.get(layer, []):
+            if not doc_matches_mark(sec["source"]["doc"], doc_mark):
+                continue
+            for node in iter_all_sections([sec]):
+                if heading_number_token(node["source"]["heading"]) == number:
+                    out.append(node["id"])
+    return out
 
 
 def line_candidates(spec: dict, scope: str, line_no: int) -> list:
@@ -1459,7 +1833,7 @@ _LAYER_RANK = LAYER_ORDER
 
 
 def layer_relation(source_layer, target_layer):
-    """Fixed order request<require<spec<basic_design<design (every design area, whichever
+    """Fixed order request<require<spec<detailed_spec<basic_design<design (every design area, whichever
     of 本冊/別紙A/別紙C, is layer 'design'). None when either layer is
     undetermined (e.g. an unresolved cite whose ambiguous self-naming
     candidates don't share one layer)."""
@@ -1515,14 +1889,8 @@ def resolve_cite(spec: dict, id_index: dict, cite: str):
 def iter_all_statements(spec: dict):
     for it in spec["request"]:
         yield it
-    for it in spec["require"]:
-        yield it
-    for it in spec["spec"]:
-        yield it
-    for layer in _AREA_LAYERS:
-        for area in spec.get(layer, []):
-            for it in area["items"]:
-                yield it
+    for layer in _SECTIONED_LAYERS:
+        yield from iter_leaf_items_tree(spec.get(layer, []))
 
 
 def build_derivation_candidates(spec: dict, id_index: dict) -> list:
@@ -1629,7 +1997,10 @@ def resolve_table_ref(spec: dict, id_index: dict, token: str):
     if kind == "id":
         return ([key] if key in id_index else []), matched
     if kind == "section":
-        return section_candidates(spec, "require", key), matched
+        # 2026-09-05 section-node model: a §-target in the 要求→要件 table
+        # attaches to the require-layer SECTION node, not to every
+        # statement under it (LAYERING.md SS1.1 -- 表を文単位に展開しない).
+        return section_id_candidates(spec, "require", key), matched
     if kind == "selfname":
         return self_naming_candidates_scoped(spec, "require", key), matched
     return [], None
@@ -1905,7 +2276,7 @@ def collect_rules_1_2_edges(spec: dict, id_index: dict, root: Path, repo_root: P
 # flag is reserved for the 要求→要件 table -- so fragments need no edit
 # for this to work).
 
-_TRACE_DOC_ABBR_TO_SCOPE = {"本冊": "design:本冊", "基本": "spec", "要件": "require"}
+_TRACE_DOC_ABBR_TO_DOCMARK = {"本冊": "本冊", "基本": "基本仕様", "要件": "要件定義"}
 _TRACE_DOC_ABBR_RE = "本冊|基本|要件"
 _TRACE_ITEM_SUFFIX = r"(?:\s*item[0-9]+(?:-[0-9]+)?)?"
 _TRACE_SECLIST_BODY = (
@@ -1936,25 +2307,34 @@ def split_trace_seclist(seclist: str) -> list:
     return nums
 
 
-def resolve_trace_upstream_cell(spec: dict, id_index: dict, cell: str, default_bare_scope):
+def resolve_trace_upstream_cell(spec: dict, id_index: dict, cell: str, default_bare_doc_mark):
     """-> (candidate_ids: list[str], had_unresolvable_bare_section: bool).
-    default_bare_scope is the scope a §-group with no doc abbreviation at
-    all resolves against (基本仕様's own table has none, per its 1 fixed
-    upstream doc 要件定義); None means "no default" -- such a group is
-    reported as a parse problem rather than guessed."""
+    default_bare_doc_mark is the document mark a §-group with no doc
+    abbreviation at all resolves against (基本仕様's own table has none,
+    per its 1 fixed upstream doc 要件定義); None means "no default" -- such
+    a group is reported as a parse problem rather than guessed.
+    2026-09-05 section-node model: a §-reference here resolves to every
+    upstream SECTION node id whose (doc, number) matches, in ANY sectioned
+    layer (section_id_candidates_cross_layer -- see its docstring for why
+    single-layer resolution stopped being correct once relayering could
+    split one document section's statements across layers) -- the
+    returned list can therefore mix section ids (from a §-group, possibly
+    several per group) and statement ids (from a bare id/self-naming code
+    in the same cell); finalize_derived_from's rank check works on either
+    via build_full_index."""
     ids = []
     problem = False
     for m in _TRACE_SCAN_RE.finditer(cell):
         if m.group("secdoc"):
-            scope = _TRACE_DOC_ABBR_TO_SCOPE[m.group("secdoc")]
+            doc_mark = _TRACE_DOC_ABBR_TO_DOCMARK[m.group("secdoc")]
             for num in split_trace_seclist(m.group("seclist")):
-                ids.extend(section_candidates(spec, scope, num))
+                ids.extend(section_id_candidates_cross_layer(spec, doc_mark, num))
         elif m.group("bareseclist"):
-            if default_bare_scope is None:
+            if default_bare_doc_mark is None:
                 problem = True
                 continue
             for num in split_trace_seclist(m.group("bareseclist")):
-                ids.extend(section_candidates(spec, default_bare_scope, num))
+                ids.extend(section_id_candidates_cross_layer(spec, default_bare_doc_mark, num))
         elif m.group("bare"):
             code = m.group("bare")
             if re.match(r"^(R-[1-5]|P-[0-9]{3})$", code):
@@ -1976,16 +2356,20 @@ def find_traceability_table_ranges(root: Path) -> list:
 
 
 def _trace_table_profile(doc: str):
-    """-> (table_name, source_scope, default_bare_scope) for a doc path,
-    or None if it doesn't match one of the 4 known traceability tables."""
+    """-> (table_name, source_doc_mark, default_bare_doc_mark) for a doc
+    path, or None if it doesn't match one of the 4 known traceability
+    tables. 2026-09-05: doc marks, not layer scopes -- a document's own
+    section can now live in more than one sectioned layer after
+    relayering (section_id_candidates_cross_layer resolves across all of
+    them)."""
     if "基本仕様" in doc:
-        return "基本仕様", "spec", "require"
+        return "基本仕様", "基本仕様", "要件定義"
     if "別紙A" in doc:
-        return "別紙A", "design:別紙A", None
+        return "別紙A", "別紙A", None
     if "別紙C" in doc:
-        return "別紙C", "design:別紙C", None
+        return "別紙C", "別紙C", None
     if "詳細設計" in doc:
-        return "本冊", "design:本冊", "spec"
+        return "本冊", "本冊", "基本仕様"
     return None
 
 
@@ -2014,7 +2398,15 @@ def parse_generic_table_rows(md_lines: list, start: int, end: int) -> list:
 def collect_traceability_table_edges(spec: dict, id_index: dict, root: Path, repo_root: Path):
     """-> (edges: dict[target_id -> set(source_id)], stats: dict with
     rows_parsed, unparseable ([(table_name, line_no, cells), ...]),
-    by_table ({table_name: rows_parsed}))."""
+    by_table ({table_name: rows_parsed})).
+    2026-09-05 section-node model: a row's own section (leftmost column)
+    is always a §-reference, so `targets` here is always one or more
+    section ids (section_id_candidates_cross_layer, not section_
+    candidates -- every matching node in every sectioned layer, since
+    relayering can split one document section's statements across layers)
+    -- every edge this function produces is therefore keyed by a section
+    id on the target side (the upstream side can still mix section and
+    statement ids, see resolve_trace_upstream_cell)."""
     edges: dict = {}
     rows_parsed = 0
     unparseable = []
@@ -2024,7 +2416,7 @@ def collect_traceability_table_edges(spec: dict, id_index: dict, root: Path, rep
         profile = _trace_table_profile(doc)
         if profile is None:
             continue
-        table_name, source_scope, default_bare_scope = profile
+        table_name, source_doc_mark, default_bare_doc_mark = profile
         md_lines = (repo_root / doc).read_text(encoding="utf-8").splitlines()
         for line_no, cells in parse_generic_table_rows(md_lines, start, end):
             if len(cells) != 3:
@@ -2035,8 +2427,8 @@ def collect_traceability_table_edges(spec: dict, id_index: dict, root: Path, rep
             if not m:
                 unparseable.append((table_name, line_no, cells))
                 continue
-            targets = section_candidates(spec, source_scope, m.group(1))
-            upstream_ids, had_problem = resolve_trace_upstream_cell(spec, id_index, upstream_cell, default_bare_scope)
+            targets = section_id_candidates_cross_layer(spec, source_doc_mark, m.group(1))
+            upstream_ids, had_problem = resolve_trace_upstream_cell(spec, id_index, upstream_cell, default_bare_doc_mark)
             if had_problem:
                 unparseable.append((table_name, line_no, cells))
                 continue
@@ -2100,20 +2492,47 @@ def summarize_edges(spec: dict, id_index: dict, edges: dict) -> dict:
     return counts
 
 
+def build_ancestor_section_map(spec: dict, layer: str) -> dict:
+    """item_id -> [ancestor section id, ...] (root-to-immediate-parent
+    order) for one sectioned layer -- used by "effective upstream reach"
+    (own derived_from union every ancestor section's derived_from,
+    computed, not stored -- LAYERING.md SS1.1 "辿るとき")."""
+    out: dict = {}
+
+    def walk(sections, chain):
+        for sec in sections:
+            new_chain = chain + [sec["id"]]
+            for it in sec.get("items", []):
+                out[it["id"]] = new_chain
+            walk(sec.get("sections", []), new_chain)
+
+    walk(spec.get(layer, []), [])
+    return out
+
+
 def cmd_apply_derivation(args) -> int:
     root = Path(args.root)
     repo_root = Path(args.repo_root)
     spec = read_json(spec_json_path(root))
+    # id_index (statement ids only) feeds collect_rules_1_2_edges /
+    # collect_traceability_table_edges -- both call self_naming_candidates,
+    # which needs every id_index entry to have a "statement" key, so a
+    # section entry (title only) must never be in it. full_index adds
+    # section ids on top, for finalize_derived_from/summarize_edges: rule
+    # 2's §-targets and every Task A §-reference now key edges by section
+    # id (2026-09-05 section-node model), and the rank check needs a
+    # section id's layer too.
     id_index = build_id_index(spec)
+    full_index = build_full_index(spec)
 
     edges_before = collect_rules_1_2_edges(spec, id_index, root, repo_root)
-    stats_before = summarize_edges(spec, id_index, edges_before)
+    stats_before = summarize_edges(spec, full_index, edges_before)
 
     trace_edges, trace_stats = collect_traceability_table_edges(spec, id_index, root, repo_root)
     edges_after = {k: set(v) for k, v in edges_before.items()}
     for t, srcs in trace_edges.items():
         edges_after.setdefault(t, set()).update(srcs)
-    stats_after = summarize_edges(spec, id_index, edges_after)
+    stats_after = summarize_edges(spec, full_index, edges_after)
 
     edges_added_by_trace = sum(
         len(srcs - edges_before.get(t, set())) for t, srcs in trace_edges.items()
@@ -2145,7 +2564,7 @@ def cmd_apply_derivation(args) -> int:
         layer = id_index[iid]["layer"]
         if layer == "request":
             continue  # rootItem schema has no derived_from field
-        final_list, dropped = finalize_derived_from(iid, edges_after.get(iid, ()), id_index)
+        final_list, dropped = finalize_derived_from(iid, edges_after.get(iid, ()), full_index)
         dropped_total += dropped
         recomputed[iid] = final_list
         if final_list:
@@ -2174,8 +2593,67 @@ def cmd_apply_derivation(args) -> int:
     print(f"  ids that would be added across those statements: {added_total}")
     print(f"  ids that would be removed across those statements: {removed_total_diff}")
 
+    # 2026-09-05 section-node model: SECTION-targeted edges (rule 2's
+    # §-targets, every Task A row's own-section target) never appear in
+    # `recomputed` above (iter_all_statements only yields leaf items) --
+    # compute and report them in parallel here, over every section node in
+    # every sectioned layer.
+    section_recomputed: dict = {}
+    section_dropped_total = 0
+    section_sizes = []
+    for layer in _SECTIONED_LAYERS:
+        for sec in iter_all_sections(spec.get(layer, [])):
+            sid = sec["id"]
+            final_list, dropped = finalize_derived_from(sid, edges_after.get(sid, ()), full_index)
+            section_dropped_total += dropped
+            section_recomputed[sid] = final_list
+            if final_list:
+                section_sizes.append(len(final_list))
+
+    section_stats_by_layer = Counter()
+    for sid, lst in section_recomputed.items():
+        if lst:
+            section_stats_by_layer[full_index[sid]["layer"]] += 1
+
+    total_section_edges = sum(section_sizes)
+    print("--- apply-derivation: section edges (rule 2 §-targets + Task A own-section targets) ---")
+    for layer in _SECTIONED_LAYERS:
+        print(f"  sections with non-empty derived_from ({layer}): {section_stats_by_layer.get(layer, 0)}")
+    print(f"  total section edges: {total_section_edges}")
+    print(f"  dropped by rule 3 among section edges (self-id / same-or-later layer): {section_dropped_total}")
+
+    # Effective upstream reach (LAYERING.md SS1.1 "辿るとき"): a statement's
+    # own recomputed derived_from union every ancestor section's recomputed
+    # derived_from -- computed here for the report only, never stored.
+    reach_stats_by_layer = Counter()
+    for layer in _SECTIONED_LAYERS:
+        ancestor_map = build_ancestor_section_map(spec, layer)
+        for it in iter_leaf_items_tree(spec.get(layer, [])):
+            iid = it["id"]
+            effective = set(recomputed.get(iid, ()))
+            for anc in ancestor_map.get(iid, ()):
+                effective.update(section_recomputed.get(anc, ()))
+            if effective:
+                reach_stats_by_layer[layer] += 1
+
+    print("--- apply-derivation: effective upstream reach (own union ancestor sections', computed not stored) ---")
+    for layer in _SECTIONED_LAYERS:
+        print(f"  statements with non-empty effective reach ({layer}): {reach_stats_by_layer.get(layer, 0)}")
+
     if not getattr(args, "write", False):
         print("(report-only: pass --write to overwrite specification.json's derived_from with the recomputed set)")
+        print("(--write now also persists section-node derived_from -- see the section-edges block above)")
+        total_edges = sum(sizes)
+        mean_size = (total_edges / len(sizes)) if sizes else 0.0
+        max_size = max(sizes) if sizes else 0
+        print("--- apply-derivation summary (statement edges) ---")
+        for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
+            print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
+        print(f"  total edges: {total_edges}")
+        print(f"  mean derived_from size (non-empty statements only): {mean_size:.2f}")
+        print(f"  max derived_from size: {max_size}")
+        print(f"  statements with cites but empty derived_from (unresolved): {empty_after_cite}")
+        print(f"  dropped by rule 3 (self-id / same-or-later layer): {dropped_total}")
         return 0
 
     for it in iter_all_statements(spec):
@@ -2183,11 +2661,29 @@ def cmd_apply_derivation(args) -> int:
         if iid in recomputed:
             it["derived_from"] = recomputed[iid]
 
+    # 2026-09-05: --write now persists section derived_from too (it was
+    # computed above into section_recomputed but never written before --
+    # Owner-flagged gap: specification.json had 0 sections with
+    # derived_from despite the report counting hundreds of section
+    # edges). Every section id in section_recomputed is written whether
+    # its list ended up empty or not, mirroring how a statement's
+    # "derived_from" key is always present (never omitted) once frozen.
+    for layer in _SECTIONED_LAYERS:
+        for sec in iter_all_sections(spec.get(layer, [])):
+            if sec["id"] in section_recomputed:
+                sec["derived_from"] = section_recomputed[sec["id"]]
+
     bad_refs = [
         (it["id"], did)
         for it in iter_all_statements(spec)
         for did in it.get("derived_from", [])
-        if did not in id_index
+        if did not in full_index
+    ] + [
+        (sec["id"], did)
+        for layer in _SECTIONED_LAYERS
+        for sec in iter_all_sections(spec.get(layer, []))
+        for did in sec.get("derived_from", [])
+        if did not in full_index
     ]
     if bad_refs:
         for sid, did in bad_refs:
@@ -2210,7 +2706,7 @@ def cmd_apply_derivation(args) -> int:
     mean_size = (total_edges / len(sizes)) if sizes else 0.0
     max_size = max(sizes) if sizes else 0
 
-    print("--- apply-derivation summary ---")
+    print("--- apply-derivation summary (statement edges) ---")
     for layer in ("require", "spec", "detailed_spec", "basic_design", "design"):
         print(f"  statements with non-empty derived_from ({layer}): {stats_by_layer.get(layer, 0)}")
     print(f"  total edges: {total_edges}")
@@ -2218,7 +2714,7 @@ def cmd_apply_derivation(args) -> int:
     print(f"  max derived_from size: {max_size}")
     print(f"  statements with cites but empty derived_from (unresolved): {empty_after_cite}")
     print(f"  dropped by rule 3 (self-id / same-or-later layer): {dropped_total}")
-    print(f"wrote {spec_json_path(root)} -- schema OK")
+    print(f"wrote {spec_json_path(root)} -- schema OK (statement and section derived_from both persisted)")
     return 0
 
 
@@ -2229,7 +2725,7 @@ def cmd_freeze(args) -> int:
     repo_root = Path(args.repo_root)
 
     try:
-        output, item_objects, area_objects, dups, fragments = build_in_memory(root)
+        output, item_objects, dups, fragments = build_in_memory(root, repo_root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -2238,14 +2734,23 @@ def cmd_freeze(args) -> int:
             print(f"error: duplicate stored id {d!r} used by more than one item/area", file=sys.stderr)
         return 1
 
-    id_index = build_id_index(output)
+    # 2026-09-05 section-node model: id_index/finalize_derived_from cover
+    # both statement ids and section ids (build_full_index) since Task A /
+    # rule 2's own-section and §-target resolution now lands on section
+    # nodes, not just statements. NOTE: this only computes and writes
+    # STATEMENT derived_from into fragments, exactly as before -- fragments
+    # have no field to persist a SECTION's derived_from yet (sections are
+    # not stored, only derived at build time), so a section edge is not
+    # frozen anywhere by this command. That gap is unresolved and explicitly
+    # not addressed by the section-node-model pass (freeze itself is on
+    # hold); revisit once/if sections need their own persisted identity.
+    id_index = build_full_index(output)
     edges, _trace_stats = collect_derivation_edges(output, id_index, root, repo_root)
 
     for iid, item_obj in item_objects.items():
         item_obj["id"] = iid
         item_obj.pop("_id", None)
         item_obj.pop("_native_area", None)
-        item_obj.pop("_group", None)
         item_obj.pop("keep_id", None)  # promoted into "id"; the old mechanism is now redundant
         # NOTE: an item's "layer" override (if any) is NOT removed here --
         # it is a permanent routing directive build_in_memory reads on
@@ -2255,11 +2760,6 @@ def cmd_freeze(args) -> int:
         if layer != "request":
             final_list, _dropped = finalize_derived_from(iid, edges.get(iid, ()), id_index)
             item_obj["derived_from"] = final_list
-
-    for aid, area_obj in area_objects.items():
-        area_obj["id"] = aid
-        area_obj.pop("_id", None)
-        area_obj.pop("_area_id", None)
 
     stamped_by_file: dict = {}
     for path, frag in fragments:
@@ -2289,29 +2789,50 @@ def cmd_freeze(args) -> int:
 _RELAYER_KEY_DOC_LINES_RE = re.compile(r"^(.*):([0-9]+)-([0-9]+)$")
 
 
-def strip_build_bookkeeping(item_objects: dict, area_objects: dict) -> None:
-    """Undo build_in_memory's transient mutations (_id/_native_area/_group
-    on items, _id/_area_id on areas) before writing a fragment back to
-    disk from outside `freeze` (i.e. from `relayer apply`)."""
+def strip_build_bookkeeping(item_objects: dict) -> None:
+    """Undo build_in_memory's transient mutations (_id/_native_area on
+    items) before writing a fragment back to disk from outside `freeze`
+    (i.e. from `relayer apply`). 2026-09-05: areas no longer carry any
+    build-time bookkeeping of their own (section ids are computed fresh
+    every build, never stored on the native area object)."""
     for it in item_objects.values():
         it.pop("_id", None)
         it.pop("_native_area", None)
-        it.pop("_group", None)
-    for area in area_objects.values():
-        area.pop("_id", None)
-        area.pop("_area_id", None)
 
 
 def cmd_relayer_apply(args) -> int:
     root = Path(args.root)
-    mapping_path = Path(args.mapping)
-    mapping = read_json(mapping_path)
-    if not isinstance(mapping, dict):
-        print(f"error: {mapping_path} must be a JSON object", file=sys.stderr)
+    mapping_paths = [Path(p) for p in args.mapping]
+
+    # 2026-09-05 (found the hard way): applying several mapping files one
+    # invocation at a time is wrong -- each write shifts statement ids
+    # (moved items leave a layer, changing that layer's id sequence), so
+    # a later file resolves its own ids against an already-renumbered
+    # build. Every key across every given file must resolve against ONE
+    # baseline (the fragments as they are right now), so all files are
+    # loaded and merged BEFORE the single build_in_memory call below.
+    merged: dict = {}
+    conflicts = []  # (key, [(path, entry), (path, entry), ...])
+    for mapping_path in mapping_paths:
+        mapping = read_json(mapping_path)
+        if not isinstance(mapping, dict):
+            print(f"error: {mapping_path} must be a JSON object", file=sys.stderr)
+            return 1
+        for key, entry in mapping.items():
+            if key in merged and merged[key][1] != entry:
+                conflicts.append((key, [merged[key], (mapping_path, entry)]))
+                continue
+            merged[key] = (mapping_path, entry)
+
+    if conflicts:
+        print(f"error: {len(conflicts)} key(s) appear in more than one mapping file with different entries -- fix the inputs, nothing was applied:", file=sys.stderr)
+        for key, occurrences in conflicts:
+            for path, entry in occurrences:
+                print(f"    {key} in {path}: {entry}", file=sys.stderr)
         return 1
 
     try:
-        _output, item_objects, area_objects, dups, fragments = build_in_memory(root)
+        _output, item_objects, dups, fragments = build_in_memory(root)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -2334,11 +2855,12 @@ def cmd_relayer_apply(args) -> int:
     low_confidence = []
     code_like = []
     unresolved = []
+    prefix_mismatches = []  # (key, expected_prefix, actual_prefix)
     touched_paths = set()
 
-    for key, entry in mapping.items():
+    for key, (mapping_path, entry) in merged.items():
         if not isinstance(entry, dict) or "layer" not in entry:
-            unresolved.append((key, "mapping entry missing 'layer'"))
+            unresolved.append((key, f"mapping entry missing 'layer' (from {mapping_path})"))
             continue
         new_layer = entry["layer"]
         if new_layer not in _RELAYER_TARGET_LAYERS:
@@ -2355,6 +2877,11 @@ def cmd_relayer_apply(args) -> int:
             unresolved.append((key, "id/'<doc>:<start>-<end>' not found in the current build"))
             continue
 
+        prefix = entry.get("statement_prefix")
+        if prefix and not item_obj.get("statement", "").startswith(prefix[:30]):
+            prefix_mismatches.append((key, prefix[:30], item_obj.get("statement", "")[:30]))
+            continue
+
         old_layer = item_obj.get("layer")
         item_obj["layer"] = new_layer
         applied.append((key, old_layer, new_layer))
@@ -2364,7 +2891,7 @@ def cmd_relayer_apply(args) -> int:
         if entry.get("code_like"):
             code_like.append((key, entry.get("reason", "")))
 
-    strip_build_bookkeeping(item_objects, area_objects)
+    strip_build_bookkeeping(item_objects)
 
     for path, frag in fragments:
         if path in touched_paths:
@@ -2372,11 +2899,16 @@ def cmd_relayer_apply(args) -> int:
             path.write_text(text, encoding="utf-8")
 
     print("--- relayer apply ---")
-    print(f"  entries in mapping: {len(mapping)}")
+    print(f"  mapping files: {len(mapping_paths)}")
+    print(f"  entries merged: {len(merged)}")
     print(f"  applied: {len(applied)}")
     print(f"  unresolved: {len(unresolved)}")
     for key, why in unresolved:
         print(f"    {key}: {why}")
+    if prefix_mismatches:
+        print(f"  skipped -- statement_prefix mismatch ({len(prefix_mismatches)}):")
+        for key, expected, actual in prefix_mismatches:
+            print(f"    {key}: expected {expected!r}, found {actual!r}")
     print(f"  fragment files rewritten: {len(touched_paths)}")
     if low_confidence:
         print(f"  confidence=low ({len(low_confidence)}):")
@@ -2763,6 +3295,7 @@ def main(argv=None) -> int:
 
     p_build = sub.add_parser("build", help="assign ids, write specification.json, validate against schema")
     add_root_arg(p_build)
+    add_repo_root_arg(p_build)
     p_build.set_defaults(func=cmd_build)
 
     p_cov = sub.add_parser("coverage", help="report md lines not accounted for by any fragment/dropped-log entry")
@@ -2808,9 +3341,9 @@ def main(argv=None) -> int:
     p_relayer = sub.add_parser("relayer", help="apply or report per-item layer overrides (spec/basic_design/design split)")
     relayer_sub = p_relayer.add_subparsers(dest="relayer_command", required=True)
 
-    p_relayer_apply = relayer_sub.add_parser("apply", help="write a layer override into fragment items from a mapping file")
+    p_relayer_apply = relayer_sub.add_parser("apply", help="write a layer override into fragment items from one or more mapping files")
     add_root_arg(p_relayer_apply)
-    p_relayer_apply.add_argument("mapping", help="path to the mapping JSON: {'<id or doc:start-end>': {'layer': ..., 'reason': ..., 'confidence': 'high'|'low', 'code_like': bool}}")
+    p_relayer_apply.add_argument("mapping", nargs="+", help="path(s) to mapping JSON file(s): {'<id or doc:start-end>': {'layer': ..., 'reason': ..., 'confidence': 'high'|'low', 'code_like': bool, 'statement_prefix': ... (optional)}}. Given more than one, ALL keys across ALL files resolve against the SAME baseline build (fragments as they are now) before any write -- passing them separately in multiple invocations is wrong, since the first invocation's write shifts ids for the next (2026-09-05, found the hard way).")
     p_relayer_apply.set_defaults(func=cmd_relayer_apply)
 
     p_relayer_report = relayer_sub.add_parser("report", help="print counts per (source doc -> effective layer)")
