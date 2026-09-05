@@ -23,7 +23,8 @@
               953,
               953
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "coreは、opaque locatorの解釈を該当する`SourceDiscoveryAdapter`へ委譲する。",
@@ -35,7 +36,8 @@
               953,
               953
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "adapterは正規化されたTarget Reference、Source Location、source range、content bytes、解決status、候補を返す。",
@@ -47,7 +49,8 @@
               953,
               953
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "coreは、返却されたadapter IDとTarget Referenceの一致、source rangeの範囲、current bytesとの一致を検証する。",
@@ -59,7 +62,8 @@
               954,
               954
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "coreは§1.3のSource Target hashを計算する。",
@@ -71,7 +75,8 @@
               954,
               954
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "coreはopaque locatorの内部構文は解釈しない。",
@@ -83,7 +88,8 @@
               954,
               954
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "解決が0件または複数候補で一意に定まらない場合はE-SCAN-004とする。",
@@ -95,7 +101,8 @@
               954,
               954
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解決が0件または複数候補で一意に定まらない場合、推測で候補を選択しない。",
@@ -107,7 +114,8 @@
               954,
               954
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "SRC ID参照はcoreが統合済みSRC索引で一意性を検査する。",
@@ -119,7 +127,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "SRC ID参照は対応するadapterのSource Locationとsource rangeを使用する。",
@@ -131,7 +140,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "SRC ID参照は当該恒久SRC IDを宣言したSource Targetのcanonical locatorへ解決する。",
@@ -143,7 +153,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "SRC ID参照は、同じSource Targetへのlocator参照と同一のcanonical Source Target・同一のSource Target hashへ到達する。",
@@ -155,7 +166,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解決結果をlocator版とSrcId版の別entityへ分岐させない。",
@@ -167,7 +179,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合はE-SCAN-011とする。",
@@ -179,7 +192,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDが複数adapterまたは複数Source Targetで衝突する場合、いずれのSource Targetも選択しない。",
@@ -191,7 +205,8 @@
               956,
               956
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別する。",
@@ -203,7 +218,8 @@
               958,
               958
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "曖昧はfail-closedな終端状態とする。",
@@ -215,7 +231,8 @@
               958,
               958
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "曖昧な解決から代表候補を選ばない。",
@@ -227,7 +244,8 @@
               958,
               958
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "曖昧な解決について、解決済みのcanonical Source Targetを要求する後段（静的解析、Evidence、`target_coverage`、鮮度判定）へ候補を1件も引き渡さない。",
@@ -239,7 +257,8 @@
               958,
               958
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "候補は§6.3の診断表示にだけ用い、表示できることを選択の根拠にしない。",
@@ -251,7 +270,8 @@
               958,
               958
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "曖昧な解決について候補を後段へ1件も引き渡さないという禁止はTarget Referenceの解決に関するものであり、Source Targetの具体化を止めるものではない。",
@@ -263,7 +283,8 @@
               959,
               959
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "各Source Targetは自身のcanonical locatorで独立に具体化され、恒久SRC IDが衝突していても`SourceTargetDraft`ごとに1件のSource Targetとして成立する。",
@@ -275,7 +296,8 @@
               959,
               959
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "衝突が壊すのは当該恒久SRC IDによる参照の一意性だけである。",
@@ -287,7 +309,8 @@
               959,
               959
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Target Referenceの解決はcoreの単一経路が所有し、静的解析、実行、Evidence writer、検証集約はいずれもTarget Referenceの解決の結果を消費する。",
@@ -299,7 +322,8 @@
               960,
               960
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "各subsystemが独自にcandidate列を走査して1件を選ぶ経路を持ってはならない。",
@@ -311,7 +335,8 @@
               960,
               960
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "E-SCAN-004またはE-SCAN-011で解決できなかったtargetを、後段が任意の候補で埋めて記録・永続化することを禁ずる。",
@@ -323,7 +348,8 @@
               960,
               960
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Source Target identityは「宣言されたTargetRef（Locator / SrcId）→ resolve（§6.1）→ canonical Locator」の一方向でだけ確定する。",
@@ -336,7 +362,8 @@
               964,
               972
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidence（§3.6、§9.4）、`target_coverage`（§10.2）、および鮮度判定（§11.2）は、解決後のcanonical Locatorをtarget identityとして記録・比較する。",
@@ -348,7 +375,8 @@
               974,
               974
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "参照側Testが宣言した`TargetRef`の綴り（SRC ID参照を含む）をこれらのidentityとして保存してはならない。",
@@ -360,7 +388,8 @@
               974,
               974
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testがどう宣言したか（同じSource Targetに対するLocator参照からSRC ID参照への書き換え等）の変更は、`targets`をcanonical metadataとして束縛する§1.3のTest subject hashが捕捉する。",
@@ -372,7 +401,8 @@
               975,
               975
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidence側で宣言表現を保持する必要はなく、保持すれば同一Source Targetが参照方法ごとに別identityへ分裂する。",
@@ -384,7 +414,8 @@
               975,
               975
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testの宣言target集合は解決後のcanonical Source Target単位で一意でなければならない。",
@@ -396,7 +427,8 @@
               976,
               976
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "綴りの異なる複数の宣言が同一のcanonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005とする。",
@@ -408,7 +440,8 @@
               976,
               976
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のlocator`path::item-path`の解決は、§5.5で構築したSRC索引への完全一致検索とする。",
@@ -420,7 +453,8 @@
               980,
               980
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo`のlocator解決は、pathが索引に存在するかを確認する。",
@@ -433,7 +467,8 @@
               982,
               987
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo`のlocator解決は、path内でitem-pathが一致するfn / impl fnが存在するかを確認する。",
@@ -445,7 +480,8 @@
               982,
               987
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo`のlocator解決で一意に決まらない場合（同名fnがcfg分岐で複数等）は、すべて候補として返し、解決失敗（E-SCAN-004）とする。",
@@ -457,7 +493,8 @@
               982,
               987
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "Structured Operationの入力検証（別紙A §14、§15）で解決に失敗した場合、coreはadapterが返した候補を共通envelopeで表示する。",
@@ -473,7 +510,8 @@
           "cites": [
             "別紙A §14",
             "別紙A §15"
-          ]
+          ],
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo` adapterは、item-pathの末尾セグメント一致（別パスの同名関数）の順で候補を構築する。",
@@ -486,7 +524,8 @@
               993,
               1001
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterは、編集距離2以内の近似名の順で候補を構築する。",
@@ -498,7 +537,8 @@
               993,
               1001
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterのenum variant検証（`expect`の値が`ParseError::InvalidUtf8`形式の場合）は、スキャン済みASTからenum定義を検索する。",
@@ -510,7 +550,8 @@
               1003,
               1003
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterのenum variant検証は、解決できる場合のみ検証する。",
@@ -522,7 +563,8 @@
               1004,
               1004
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo` adapterのenum variant検証は、解決できない自由記述はそのまま受理する（best effort。拒否はしない）。",
@@ -534,7 +576,8 @@
               1004,
               1004
             ]
-          }
+          },
+          "layer": "detailed_spec"
         }
       ]
     },
@@ -559,7 +602,8 @@
               1010,
               1010
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
@@ -571,7 +615,8 @@
               1010,
               1010
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "決定論的解析結果は正典レコードを持たず、検証のたびに現在のsource / configから再計算する派生情報である。",
@@ -586,7 +631,8 @@
               1010,
               1010
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`vtest audit static`は要求時に解析を起動し、結果をstdoutと`cache/`へ出力する。",
@@ -601,7 +647,8 @@
               1010,
               1010
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`vtest audit static`は判断記録（§8）とは別機構であり、外部判断の記録には転用しない。",
@@ -613,7 +660,8 @@
               1010,
               1010
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "各ルールは`FAIL` / `UNKNOWN` / `PASS(違反なし)`のいずれかを返す。",
@@ -625,7 +673,8 @@
               1014,
               1014
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "決定論的に確定できる違反のみFAILとする。",
@@ -637,7 +686,8 @@
               1015,
               1015
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解析の限界で確定できない場合はFAILではなくUNKNOWNとする。",
@@ -649,7 +699,8 @@
               1016,
               1016
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`UNKNOWN`は意味判定できる者への判断記録エスカレーション（§8）の領分である。",
@@ -664,7 +715,8 @@
               1016,
               1016
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ただしDA-002のtarget到達UNKNOWNは§7.3のruntime到達証明で解決し、判断記録へは委ねない。",
@@ -676,7 +728,8 @@
               1016,
               1016
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の合成とする。",
@@ -688,7 +741,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`は、全ルールが違反なしなら`PASS`とする。",
@@ -704,7 +758,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`は、1つでも`FAIL`があれば`FAIL`とする。",
@@ -720,7 +775,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`は、`FAIL`がなく`UNKNOWN`があれば`UNKNOWN`とする。",
@@ -736,7 +792,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`に動的な昇格経路は無い。",
@@ -748,7 +805,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析は不成立の証明であり、証明の失敗は`UNKNOWN`であって、runtime証拠で`PASS`へ昇格しない。",
@@ -760,7 +818,8 @@
               1018,
               1018
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`の静的到達証明はDA-002が担う（§7.3）。",
@@ -772,7 +831,8 @@
               1020,
               1020
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002のtarget別verdictの`UNKNOWN`は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。",
@@ -784,7 +844,8 @@
               1020,
               1020
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002のtarget別verdictのUNKNOWNは§7.3に従い当該targetのruntime計測（§10）が実行を証明した場合に限り充足される。",
@@ -800,7 +861,8 @@
               1020,
               1020
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`vtest-audit`は`TestEntity.execution.adapter`をregistryで解決する。",
@@ -812,7 +874,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`vtest-audit`は、Test、全Target Reference、各source range、content hash、および選択adapterの現在configを`StaticAnalysisAdapter`へ渡す。",
@@ -824,7 +887,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "adapterはrule ID、verdict、根拠span、解析限界を返す。",
@@ -836,7 +900,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "target-scopedなDA-002 / DA-003については、宣言targetごとのverdictと根拠spanを（規則単位のverdictへ畳み込む前の形で）返す。",
@@ -848,7 +913,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "target-scopedなDA-002 / DA-003の集合を全宣言targetと過不足なく1対1に対応させる。",
@@ -860,7 +926,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "coreはadapter ID、source location・現在bytesとの対応、決定論的encodingを検証し、§7.2の規則で集約する。",
@@ -872,7 +939,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "adapter固有のASTやassertion構文をcoreは解釈しない。",
@@ -884,7 +952,8 @@
               1022,
               1022
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
@@ -896,7 +965,8 @@
               1024,
               1024
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。",
@@ -908,7 +978,8 @@
               1024,
               1024
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
@@ -921,7 +992,8 @@
               1028,
               1033
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のassert相当の構文は`assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロを含む。",
@@ -933,7 +1005,8 @@
               1030,
               1030
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のassert相当の構文は`#[should_panic]`属性を含む。",
@@ -945,7 +1018,8 @@
               1031,
               1031
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のassert相当の構文は`.unwrap()` / `.expect(..)` / `?`演算子（Result / Optionの成立検証として扱う）を含む。",
@@ -957,7 +1031,8 @@
               1032,
               1032
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`rust-cargo`のassert相当の構文はTest関数が`Result`を返し`Err`を返しうる構造を含む。",
@@ -969,7 +1044,8 @@
               1033,
               1033
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-001（定数アサーション）はoracle_presenceへ供給する検査であり、引数がすべてリテラル・定数式のassertを内容とし、関数内のassert相当がすべて定数アサーションであることをFAIL条件とし、定数性を確定できない式をUNKNOWNへ退避する例とする。",
@@ -981,7 +1057,8 @@
               1035,
               1037
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002（対象未呼出）はtarget_bindingへ供給する検査であり、宣言されたtargetシンボルを呼んでいないことを内容とし、関数本体および同一ファイル内の呼出先helper（1段）を探索して呼出が存在しない、かつ他ファイルへの呼出も存在しないことをFAIL条件とし、他ファイル・他クレートの関数呼出があり間接呼出の可能性を排除できない場合をUNKNOWNへ退避する例とする。",
@@ -993,7 +1070,8 @@
               1035,
               1038
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ`#[should_panic]`がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
@@ -1005,7 +1083,8 @@
               1035,
               1039
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、`assert_eq!(a, b)`でaとbがトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
@@ -1017,7 +1096,8 @@
               1035,
               1040
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-005（空テスト）はoracle_presenceへ供給する検査であり、関数本体に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。",
@@ -1029,7 +1109,8 @@
               1035,
               1041
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-006（検証構文なし）はoracle_presenceへ供給する検査であり、関数内にassert相当が1つも存在しないことを内容とし、関数内にassert相当が1つも存在せず、かつ§7.2.1の照合の委譲先も同定できないことをFAIL条件とし、委譲先を同定できるが終端を確認できない場合（§7.2.1）をUNKNOWNへ退避する例とする。",
@@ -1041,7 +1122,8 @@
               1035,
               1042
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "W-DA-101（ignored）は`#[ignore]`属性を内容とし、FAILにしない警告のみであり、実行されなければ`target_binding`が診断NOT_EXECUTEDになる。",
@@ -1053,7 +1135,8 @@
               1035,
               1043
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002 / DA-003のデータフロー解析は関数内のローカル束縛の追跡（let束縛、メソッドチェーン、フィールドアクセス）までとする。",
@@ -1065,7 +1148,8 @@
               1045,
               1045
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002 / DA-003のデータフロー解析はクロージャ内・マクロ展開内はUNKNOWNとする。",
@@ -1077,7 +1161,8 @@
               1045,
               1045
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "複数target TestではDA-002 / DA-003を各targetへ個別適用する。",
@@ -1089,7 +1174,8 @@
               1046,
               1046
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "target別結果に1件でもFAILがあればrule結果をFAILとする。",
@@ -1101,7 +1187,8 @@
               1046,
               1046
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "FAILがなく1件でもUNKNOWNがあればrule結果をUNKNOWNとする。",
@@ -1113,7 +1200,8 @@
               1046,
               1046
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "全targetが違反なしの場合だけrule結果をPASSとする。",
@@ -1125,7 +1213,8 @@
               1046,
               1046
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析は再計算派生であるため、これらのtarget別verdictと規則単位verdictは検証のたびに現在sourceから計算し、正典レコードへ永続化しない（§7.1）。",
@@ -1137,7 +1226,8 @@
               1047,
               1047
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "宣言targetへの呼出がTest本体に静的に現れない場合（subprocessを起動して別プロセスでtargetを実行する等、target呼出がsource内に存在しない）、DA-003の当該target別verdictをUNKNOWNとする。",
@@ -1149,7 +1239,8 @@
               1049,
               1049
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "呼出結果を観測できないことを「違反なし（空虚PASS）」とも「結果未到達（空虚FAIL）」とも判定しない。",
@@ -1161,7 +1252,8 @@
               1049,
               1049
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "宣言targetへの呼出がTest本体に静的に現れない場合、DA-002も同targetでUNKNOWNであり、DA-002が§7.3のruntime証明で救済されてもDA-003はUNKNOWNのまま`oracle_presence`へ寄与するため、呼出が本体に現れないTest（典型的なsubprocess E2E）はoracle_presence = PASSに到達しない。",
@@ -1173,7 +1265,8 @@
               1049,
               1049
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合（他ファイル・他クレートへの直接呼出で間接呼出の可能性を排除できない等）、その呼出結果がTest本体内でassert相当へ到達すればDA-003 = PASSになりうる。",
@@ -1185,7 +1278,8 @@
               1050,
               1050
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "target呼出はTest本体に現れるがDA-002がUNKNOWNになる場合のtargetは、DA-002をruntimeで救済すれば`target_binding` = PASSに到達しうる（runtime救済で実益が出る型）。",
@@ -1197,7 +1291,8 @@
               1050,
               1050
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "クロージャ・マクロ展開の内側での到達は§7.2の一般則どおりDA-002 / DA-003ともUNKNOWNとする。",
@@ -1209,7 +1304,8 @@
               1050,
               1050
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ルールごとの判定結果と根拠（該当スパン）は`vtest audit static`の出力および`cache/`の派生結果として提示する。",
@@ -1221,7 +1317,8 @@
               1051,
               1051
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "Testの成否判定が、assert相当の構文でなく通常の関数へ委譲されている場合、その委譲先が検証閉包の中で終端しない限り、照合装置検査の成立側を確定しない。",
@@ -1233,7 +1330,8 @@
               1055,
               1055
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "assert相当の引数、または引数へ到達する束縛（§7.2のデータフロー解析の範囲内）に現れる関数呼出は当該Testの照合の委譲先とする。",
@@ -1246,7 +1344,8 @@
               1057,
               1059
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "関数内にassert相当が1つも存在しないTest本体に現れる関数呼出は当該Testの照合の委譲先とする。",
@@ -1259,7 +1358,8 @@
               1057,
               1060
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先`H`は、`H`を宣言targetとするTestが1件以上存在し、それらすべての`oracle_presence`が`PASS`であるとき、かつそのときに限り終端する。",
@@ -1271,7 +1371,8 @@
               1062,
               1062
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終端の判定は covers / 宣言target のグラフの参照だけで行う。",
@@ -1283,7 +1384,8 @@
               1062,
               1062
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終端の判定について、信頼を宣言する専用の記録・注釈・設定項目は設けない。",
@@ -1295,7 +1397,8 @@
               1062,
               1062
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先が無い（assert相当の構文だけで照合が完結する）場合、DA-003 / DA-006は従来どおり各ルールのFAIL条件で評価する。",
@@ -1308,7 +1411,8 @@
               1064,
               1068
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先がすべて終端する場合、DA-003 / DA-006は違反なしとする。",
@@ -1320,7 +1424,8 @@
               1066,
               1069
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先を同定できるが、それを宣言targetとするTestが0件の場合、DA-003 / DA-006は`UNKNOWN`とする。",
@@ -1332,7 +1437,8 @@
               1066,
               1070
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先を宣言targetとするTestが存在するが、その`oracle_presence`が`PASS`でない（`FAIL` / `UNKNOWN` / `NO_EVIDENCE`のいずれか）場合、DA-003 / DA-006は`UNKNOWN`とする。",
@@ -1344,7 +1450,8 @@
               1066,
               1071
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終端の探索が循環する（`H`を宣言targetとするTestの照合が`H`自身へ、または相互に委譲される）場合、DA-003 / DA-006は`UNKNOWN`とする。",
@@ -1356,7 +1463,8 @@
               1066,
               1072
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先が他ファイル・他クレート・マクロ展開内にあり呼出先を同定できない場合、DA-003 / DA-006は`UNKNOWN`とする。",
@@ -1368,7 +1476,8 @@
               1066,
               1073
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終端を確認できない委譲先を、違反なし（成立側）としても`FAIL`としても扱わない。",
@@ -1381,7 +1490,8 @@
               1075,
               1075
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終端の判定は同一のscan結果から算出する（§11.1の決定性）。",
@@ -1393,7 +1503,8 @@
               1077,
               1077
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "他Testの`oracle_presence`を参照するため、循環は上表のとおり`UNKNOWN`で閉じ、評価順序によって結果が変わる経路を作らない。",
@@ -1405,7 +1516,8 @@
               1077,
               1077
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "委譲先が終端したことは当該Testの`oracle_presence`を昇格させる根拠にはならず、上表の枝が示すのはDA-003 / DA-006の値だけである。",
@@ -1417,7 +1529,8 @@
               1077,
               1077
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`oracle_presence`全体は§7.1の合成規則で決まる。",
@@ -1429,7 +1542,8 @@
               1077,
               1077
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は「そのTestが検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか」を問う。",
@@ -1445,7 +1559,8 @@
               1081,
               1081
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は静的解析（DA-002）と動的計測（§10 coverage）の2証拠源を持ち、静的に確定できなければ`UNKNOWN`とし動的証拠で昇格できる。",
@@ -1457,7 +1572,8 @@
               1081,
               1081
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002は§7.2の解析境界（関数本体および同一ファイル内helper1段。クロージャ内・マクロ展開内・他ファイル・他クレートへの呼出は§7.1 / §7.2に従いUNKNOWN）で行う静的なtarget到達証明である。",
@@ -1469,7 +1585,8 @@
               1083,
               1083
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testがtargetを静的解析の追えない実行境界を越えて到達させる形態はいずれもDA-002のUNKNOWNとして現れる。",
@@ -1481,7 +1598,8 @@
               1083,
               1083
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testがtargetを静的解析の追えない実行境界を越えて到達させる形態は、Testのkind（unit / integration）とは独立に、execution topologyによって決まる。",
@@ -1493,7 +1611,8 @@
               1083,
               1083
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析の追えない実行境界は、他ファイル・他クレートへの呼出を介した間接到達を含む。",
@@ -1505,7 +1624,8 @@
               1085,
               1085
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析の追えない実行境界は、クロージャ・マクロ展開内での到達を含む。",
@@ -1517,7 +1637,8 @@
               1086,
               1086
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析の追えない実行境界は、生成した別スレッド（in-process, thread boundary）での到達を含む。",
@@ -1529,7 +1650,8 @@
               1087,
               1087
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的解析の追えない実行境界は、別プロセス（subprocessを起動し、そのプロセス内でtargetを実行するprocess boundary）での到達を含む。",
@@ -1541,7 +1663,8 @@
               1088,
               1088
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "到達要件は、targetごとに、静的証明：当該targetのDA-002 verdict = PASS（§7.2の解析境界内で呼出を確認）のいずれかで充足される。",
@@ -1553,7 +1676,8 @@
               1090,
               1092
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "到達要件は、targetごとに、runtime証明：§11.2が選択した最新Evidenceが§6のハッシュ束縛（鮮度）を満たすとき、そのEvidenceの§10.2target別`target_coverage` result = PASS（`checked: true`かつ実行count > 0）のいずれかで充足される。",
@@ -1565,7 +1689,8 @@
               1090,
               1093
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002 verdictがUNKNOWN（静的に証明できない）であるtargetは、runtime証明が成立するときに限り到達要件を満たす。",
@@ -1577,7 +1702,8 @@
               1095,
               1095
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "複数target Testではtargetごとに到達要件を適用する。",
@@ -1589,7 +1715,8 @@
               1095,
               1095
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testの`target_binding`到達は全宣言targetの到達要件が充足された場合にのみ成立する。",
@@ -1601,7 +1728,8 @@
               1095,
               1095
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "static側は§7.2のDA-002 verdictをtargetごとに用いる。",
@@ -1613,7 +1741,8 @@
               1097,
               1097
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-002 verdict = FAIL（解析境界内で到達を静的に否定）はruntime証明で覆さない。",
@@ -1625,7 +1754,8 @@
               1097,
               1097
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "runtime側は§11.2が選択した最新Evidenceだけを用いる。",
@@ -1637,7 +1767,8 @@
               1098,
               1098
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "最新Evidenceが鮮度を満たさなければruntime証明は成立せず、古いEvidenceへフォールバックしない。",
@@ -1650,7 +1781,8 @@
               1098,
               1098
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`項目値は検証時に算出する。",
@@ -1662,7 +1794,8 @@
               1100,
               1100
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "static側は§7.2のDA-002を再計算し、runtime側は§11.2選択Evidenceを用いて、targetごとに実効到達状態を定める。",
@@ -1674,7 +1807,8 @@
               1100,
               1100
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "静的到達とは、DA-002 verdict = PASSである状態をいう。",
@@ -1686,7 +1820,8 @@
               1102,
               1102
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "runtime到達とは、DA-002 verdict = UNKNOWNかつruntime証明成立である状態をいう。",
@@ -1698,7 +1833,8 @@
               1103,
               1103
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "未充足とは、DA-002 verdict = FAIL、またはUNKNOWNでruntime証明が成立しない状態をいう。",
@@ -1710,7 +1846,8 @@
               1104,
               1104
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は、Evidenceの`result: FAIL`（テストランナーが失敗を報告）なら`FAIL`とする。",
@@ -1722,7 +1859,8 @@
               1106,
               1106
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は、そうでなく全宣言targetの到達が静的到達またはruntime到達で充足されれば`PASS`とする。",
@@ -1734,7 +1872,8 @@
               1106,
               1106
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "到達未充足のtargetがあれば§11.2の写像に従い非`PASS`（動的計測count 0は`FAIL`/診断NOT_EXECUTED、計測不能・未計測は`NO_EVIDENCE`、解析限界は`UNKNOWN`）とする。",
@@ -1746,7 +1885,8 @@
               1106,
               1106
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`の到達要件が静的到達またはruntime到達の充足によってのみ`PASS`となる関係はfail-closedを保つ。",
@@ -1758,7 +1898,8 @@
               1108,
               1108
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "runtime証明は当該targetの`target_coverage` = PASSのときだけ成立する。",
@@ -1770,7 +1911,8 @@
               1110,
               1110
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_coverage`がFAIL（count 0）・UNKNOWN（関数不見当）・NOT_CHECKED（coverage利用不能、未計測、`--fast`）のときは到達要件を満たさず、当該targetは未充足となり、`target_binding`を非`PASS`にする。",
@@ -1782,7 +1924,8 @@
               1110,
               1110
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "本節の到達要件は検証対象をSource Targetとして実現する形態に限定する（`rust-cargo`）。",
@@ -1798,7 +1941,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
@@ -1810,7 +1954,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "検証対象をSource Targetとして宣言しない他の実行形態（外部契約・境界上の振る舞い）の確認方法は、特定形態を他形態へ一律要求せず下位仕様・後続版へ委譲する。",
@@ -1826,7 +1971,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "本節の target 実行到達規則を普遍規則として適用しない。",
@@ -1838,7 +1984,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "v0.1の唯一のadapter`rust-cargo`では検証対象をSource Targetとして宣言しないTestはE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になる。",
@@ -1850,7 +1997,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "targetを持たないTestは本節の合成へ到達しない。",
@@ -1862,7 +2010,8 @@
               1111,
               1111
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-003はこのto-runtime joinに含めない。",
@@ -1874,7 +2023,8 @@
               1113,
               1113
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DA-003は`oracle_presence`（照合装置の存在）へ寄与するstatic data-flow判定であり（§7.2）、targetの「結果検証」を問う。",
@@ -1886,7 +2036,8 @@
               1113,
               1113
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "runtime coverageはtargetの「実行」を証明するが「結果検証」を証明しないため、coverageはDA-003を代替せず、DA-003は§7.2の意味論のまま維持する。",
@@ -1898,7 +2049,8 @@
               1113,
               1113
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "典型的なsubprocess E2E（targetの戻り値 → 子プロセスのstdout / exit code → 親プロセスのassert）では、このdata-flowはstatic analyzerから追えないためDA-003はUNKNOWNのまま残りやすい。",
@@ -1910,7 +2062,8 @@
               1113,
               1113
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "本節はprocess boundaryによってDA-002到達が恒久UNKNOWNになる問題だけを解消するものであり、boundary testを完全にoracle_presence PASS可能にするものではない。",
@@ -1922,7 +2075,8 @@
               1113,
               1113
             ]
-          }
+          },
+          "layer": "spec"
         }
       ]
     },
@@ -1951,7 +2105,8 @@
               1119,
               1119
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "機械が決定論で確定できない疑義は`UNKNOWN`として外部（人間または判断可能Agent）へ引き渡し、その判断を判断記録（§3.4）として追跡する。",
@@ -1963,7 +2118,8 @@
               1119,
               1119
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断記録プロトコルは検証状態のゲートではない。",
@@ -1975,7 +2131,8 @@
               1119,
               1119
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断記録の受理は当該対象の検証状態を昇格させない。",
@@ -1991,7 +2148,8 @@
               1119,
               1119
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`vtest audit bundle`は判断対象ごとに、判断に必要な情報をJSONとして`cache/bundles/<ULID>.json`へ出力する。",
@@ -2003,7 +2161,8 @@
               1123,
               1123
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "バンドルは派生情報でありGit管理しない。",
@@ -2015,7 +2174,8 @@
               1124,
               1124
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "提出結果の検証に必要な情報（対象の内容ハッシュ）は判断記録へ複製されるため、バンドル自体の永続化は不要である。",
@@ -2027,7 +2187,8 @@
               1125,
               1125
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "バンドルには基本仕様§11.3が定める判断対象の情報一式を含める。",
@@ -2042,7 +2203,8 @@
               1127,
               1137
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは対象VO（`--vo` / `--test`から導出したcovers先VOレコードとclaim）を含める。",
@@ -2054,7 +2216,8 @@
               1129,
               1129
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルはTest Intent（`--test`の場合の対象Testのintent・input・expect）を含める。",
@@ -2066,7 +2229,8 @@
               1130,
               1130
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルはテストコード（Test construct source全文とmetadata宣言）を含める。",
@@ -2078,7 +2242,8 @@
               1131,
               1131
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルはTestのcases集合（対象Testが`@vtest.case`で宣言したcaseの正規化文字列を宣言順に並べたlist。§4.1の論理field`cases[]`）を含める。",
@@ -2091,7 +2256,8 @@
               1132,
               1132
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは対象実装（全宣言targetのimplementation construct source全文）を含める。",
@@ -2103,7 +2269,8 @@
               1133,
               1133
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは関連テスト（related / 同一VOをcoversする他Testのidとintent）を含める。",
@@ -2115,7 +2282,8 @@
               1134,
               1134
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは既知partition（対象VOのdimensions・coverage_policy・representative_cases）を含める。",
@@ -2127,7 +2295,8 @@
               1135,
               1135
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは過去の判断（同一`(subject, judgment_kind)`への有効・無効な過去判断記録の要約）を含める。",
@@ -2139,7 +2308,8 @@
               1136,
               1136
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは対象の内容ハッシュとリビジョン（Test subject / target subject / VO subjectの現在hash、revision）を含める。",
@@ -2151,7 +2321,8 @@
               1137,
               1137
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "バンドルは判断型（`judgment_kind`）をちょうど1件持ち、その値を`judgment_kind`として出力する。",
@@ -2163,7 +2334,8 @@
               1139,
               1139
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "判断型は判断対象を一意に区切るkeyであり（§3.4）、判断記録へ複製される。",
@@ -2175,7 +2347,8 @@
               1139,
               1139
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "本書が定義する判断型の値は`test-semantic` / `impl-consistency` / `case-coverage`の3種であり、これ以外の値でバンドルを生成しない。",
@@ -2187,7 +2360,8 @@
               1139,
               1145
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`test-semantic`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「テストコードは、covers先VOのclaimとTest Intentが宣言する振る舞いを実際に検証しているか」である。",
@@ -2199,7 +2373,8 @@
               1141,
               1143
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`impl-consistency`は、subjectの値域がTest IDであり、外部へ引き渡す問いは「対象実装は宣言と一致しているか」である。",
@@ -2211,7 +2386,8 @@
               1141,
               1144
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`case-coverage`は、subjectの値域をTest IDまたはVO IDとする。",
@@ -2223,7 +2399,8 @@
               1141,
               1145
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`case-coverage`は、subjectがTest IDのとき、外部へ引き渡す問いは「当該Testが宣言したcases集合は、covers先VOの要求入力空間を十分に代表・網羅しているか」である。",
@@ -2238,7 +2415,8 @@
               1141,
               1145
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`case-coverage`は、subjectがVO IDのとき、外部へ引き渡す問いは「当該VOをcoversするTest群のcases集合は、当該VOの要求入力空間を十分に代表・網羅しているか」である。",
@@ -2253,7 +2431,8 @@
               1141,
               1145
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`judgment_kind`と`subject`の種別の組合せがこの表にない要求ではバンドルを生成しない（別紙A §12.2のusage error、終了コード2）。",
@@ -2268,7 +2447,8 @@
               1147,
               1147
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`case-coverage`は§11の判断対象であって§5の4検査ではない。",
@@ -2280,7 +2460,8 @@
               1149,
               1149
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`case-coverage`の未判断・判断結果はいずれも4検査の値へ写像せず、§11.3の集約へ寄与しない。",
@@ -2292,7 +2473,8 @@
               1149,
               1149
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "外部判断が必要な事実は§11.7の判断待ち情報として提示する。",
@@ -2304,7 +2486,8 @@
               1149,
               1149
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`impl-consistency`型の判断（対象実装が宣言と一致するかの意味判定）のように上流documentを要する対象では、対象VOから§3.5と同じ上流依存規則で導出するdocument subject完全集合とsource全文を加える。",
@@ -2316,7 +2499,8 @@
               1151,
               1151
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`case-coverage`型のバンドルでは、covers先の全leaf / 中間VOの`dimensions`・`coverage_policy`・`representative_cases`と、Testのcases集合を必須項目として含める。",
@@ -2328,7 +2512,8 @@
               1151,
               1151
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "宣言targetのいずれか、または上流documentのいずれかを解決できない場合はバンドルを生成せず、候補のいずれも選択しない（§6.1）。",
@@ -2340,7 +2525,8 @@
               1151,
               1151
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解決失敗の種別は対象不在（E-SCAN-004、document不在）を`MISMATCH`（診断`MISSING`）として当該対象の検証結果へ保持する。",
@@ -2352,7 +2538,8 @@
               1151,
               1151
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解決失敗の種別は恒久SRC ID衝突による曖昧（E-SCAN-011）を`MISMATCH`として当該対象の検証結果へ保持する。",
@@ -2364,7 +2551,8 @@
               1151,
               1151
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "バンドルJSONスキーマは`bundle_id`・`generated_at`・`revision`・`subject`・`judgment_kind`・`test`・`vos`・`targets`・`related_tests`・`static_analysis`・`prior_decisions`のfieldからなる。",
@@ -2377,7 +2565,8 @@
               1155,
               1189
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`vtest audit submit --file result.json`で提出する。",
@@ -2389,7 +2578,8 @@
               1191,
               1191
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "判断は少なくともactor / subject / decisionを含む。",
@@ -2405,7 +2595,8 @@
               1193,
               1193
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "理由・根拠は任意（optional）とする。",
@@ -2421,7 +2612,8 @@
               1193,
               1193
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "提出スキーマは`bundle_id`・`subject`・`judgment_kind`・`supersedes`・`decision`・`reason`・`exclusions`・`actor`のfieldからなる。",
@@ -2434,7 +2626,8 @@
               1195,
               1216
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`decision`の値集合はツールが受理する判断値（`accepted` / `rejected` / `deferred`等）とし、その妥当性を§8.4で検証する。",
@@ -2446,7 +2639,8 @@
               1218,
               1218
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "旧モデルの`verdict → CheckValue`写像（`PASS`/`FAIL`/`COMPLETE`/`INCOMPLETE`を検証状態へ変換する経路）は撤去する。",
@@ -2458,7 +2652,8 @@
               1218,
               1218
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "判断記録は検証状態を変更しない（§8 冒頭）。",
@@ -2470,7 +2665,8 @@
               1218,
               1218
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`judgment_kind`は必須であり、`bundle_id`が指すバンドルの`judgment_kind`と一致しなければならない（§8.4）。",
@@ -2482,7 +2678,8 @@
               1219,
               1219
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`supersedes`は任意であり、省略時は空listとして記録する。",
@@ -2494,7 +2691,8 @@
               1220,
               1220
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`supersedes`に列挙する各ULIDは、同一`subject`かつ同一`judgment_kind`の既存判断記録を指さなければならない（§8.4）。",
@@ -2506,7 +2704,8 @@
               1220,
               1220
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`reason` / `exclusions`は任意である。",
@@ -2518,7 +2717,8 @@
               1221,
               1221
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`basis.kind`は`document` / `vo` / `test-code` / `target-code`のいずれかとする。",
@@ -2530,7 +2730,8 @@
               1221,
               1221
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "理由が空であることだけを根拠に判断を無効化しない。",
@@ -2545,7 +2746,8 @@
               1221,
               1221
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`audit submit`は、検証に失敗した場合は§17のエラーコードで拒否する。",
@@ -2557,7 +2759,8 @@
               1225,
               1225
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`audit submit`は、bundle_idのバンドルがcacheに存在することを検証する（E-AUDIT-001）。",
@@ -2569,7 +2772,8 @@
               1227,
               1228
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、subjectがバンドルと一致することを検証する（E-AUDIT-003）。",
@@ -2581,7 +2785,8 @@
               1227,
               1229
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、judgment_kindがバンドルと一致し、§8.1の値域内であることを検証する（E-AUDIT-003）。",
@@ -2593,7 +2798,8 @@
               1227,
               1231
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、バンドル記録時の各対象の内容ハッシュが、現在のハッシュと一致することを検証する（対象が変更されていれば判断は無効。E-AUDIT-002）。",
@@ -2605,7 +2811,8 @@
               1227,
               1234
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、decisionが受理する判断値であることを検証する（E-AUDIT-004）。",
@@ -2617,7 +2824,8 @@
               1227,
               1235
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`audit submit`は、supersedesの各ULIDが、同一subjectかつ同一judgment_kindの既存判断記録を指し、自己参照でないことを検証する（E-AUDIT-008）。",
@@ -2629,7 +2837,8 @@
               1227,
               1239
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "受理された提出は判断記録（§3.4）として`.verify/decisions/`へ保存される。",
@@ -2641,7 +2850,8 @@
               1241,
               1241
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`subjects`に相当する対象集合はバンドル生成時の全対象の内容ハッシュを`subject_hash`と`dependencies`として記録し、依存closureのハッシュに束縛する。",
@@ -2653,7 +2863,8 @@
               1241,
               1241
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "理由（`reason` / `exclusions`）の有無を提出の受理条件にしない。",
@@ -2665,7 +2876,8 @@
               1241,
               1241
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は撤去する。",
@@ -2677,7 +2889,8 @@
               1241,
               1241
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "旧モデルのreasons / claim / basis必須検査（E-AUDIT-005）、decomposition-viewpoint検査（E-AUDIT-006）、spec / req basis検査（E-AUDIT-007）は要件定義§12「理由が空であることだけを根拠に無効扱いしない」と矛盾するため、判断記録層では課さない。",
@@ -2692,7 +2905,8 @@
               1241,
               1241
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断記録の有効性は判定時に評価する。",
@@ -2704,7 +2918,8 @@
               1245,
               1245
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断記録が有効であるとは、judgment_kindが§8.1の値域内であり、subjectが一致し、subject_hashが現在の内容ハッシュと一致し、dependenciesが現在の上流依存closureとentity・hashとも完全一致することをいう。",
@@ -2717,7 +2932,8 @@
               1247,
               1252
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象は`(subject, judgment_kind)`の組であり、組ごとに独立に評価する。",
@@ -2729,7 +2945,8 @@
               1255,
               1255
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断値が食い違う有効判断記録が併存する場合、機械はどれも選ばない。",
@@ -2741,7 +2958,8 @@
               1255,
               1255
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "V(subject, judgment_kind)は、「有効」を満たす判断記録の集合とする。",
@@ -2753,7 +2971,8 @@
               1258,
               1258
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効集合Eは、Vから、V内の他レコードのsupersedesに名指しされたものを除いた集合とする。",
@@ -2766,7 +2985,8 @@
               1259,
               1260
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断は、Eが空のとき未確定（UNKNOWN）とする。",
@@ -2778,7 +2998,8 @@
               1261,
               1262
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断は、Eの全レコードのdecisionが同一値であるとき、そのdecisionを実効判断値とする。",
@@ -2790,7 +3011,8 @@
               1261,
               1263
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断は、Eに2種以上のdecision値がある（競合）とき未確定（UNKNOWN）とし、W-STORE-004を出す。",
@@ -2802,7 +3024,8 @@
               1261,
               1264
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断が「未確定（`UNKNOWN`）」であることは、当該対象が§11のエスカレーション状態にとどまることを意味する。",
@@ -2814,7 +3037,8 @@
               1267,
               1267
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断が未確定（`UNKNOWN`）であり当該対象が§11のエスカレーション状態にとどまることは、§4.1の検証状態を変更せず、`UNKNOWN`に§4.2の診断ラベルを付与しない（§8 冒頭）。",
@@ -2826,7 +3050,8 @@
               1267,
               1267
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "未確定である事実は§11.7の判断待ち情報として提示する。",
@@ -2838,7 +3063,8 @@
               1267,
               1267
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "競合は、新しい判断記録が旧判断記録を`supersedes`で明示に名指しして置き換えたときにだけ解消する。",
@@ -2850,7 +3076,8 @@
               1268,
               1268
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録の新旧（`decided_at` / ULID順）、`decision`値の優先順位（`rejected`優先等）、記録件数の多寡のいずれも解消規則に用いてはならない。",
@@ -2862,7 +3089,8 @@
               1268,
               1268
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`supersedes`が循環する（レコード群が互いを名指ししてEが空になる）場合は未確定（`UNKNOWN`）とし、W-STORE-005を出す。",
@@ -2874,7 +3102,8 @@
               1269,
               1269
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "いずれかのレコードを推測で残さない。",
@@ -2886,7 +3115,8 @@
               1269,
               1269
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind`を欠くか値域外の判断記録は、いずれの`(subject, judgment_kind)`のVにも属さず、実効判断へ寄与しない。",
@@ -2898,7 +3128,8 @@
               1270,
               1270
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind`を欠くか値域外の判断記録は、履歴表示だけを許可し、W-STORE-003を出す。",
@@ -2910,7 +3141,8 @@
               1270,
               1270
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録を対象とする承認（§3.5の`judgment_ref`）は、当該判断記録が有効かつEに属する場合にだけ実効承認を導出する。",
@@ -2922,7 +3154,8 @@
               1271,
               1271
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Eから外れた判断記録への承認は`draft`相当とする。",
@@ -2934,7 +3167,8 @@
               1271,
               1271
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "同一対象に有効な判断記録が複数あってよい（再判断・多重判断）。",
@@ -2946,7 +3180,8 @@
               1272,
               1272
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "回数はツールとして制限しない（運用ポリシー）。",
@@ -2958,7 +3193,8 @@
               1272,
               1272
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "仕様・VO・Test等が変更された場合、過去の判断を現在状態へそのまま流用してはならず、現在状態に対して通常の検証（§5の4検査）を再実施する。",
@@ -2974,7 +3210,8 @@
               1273,
               1273
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "現在状態に対して通常の検証（§5の4検査）を再実施した結果は`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`のいずれにもなり得る。",
@@ -2986,7 +3223,8 @@
               1273,
               1273
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "変更そのものが`UNKNOWN`を生成するのではない。",
@@ -2998,7 +3236,8 @@
               1273,
               1273
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断済みと承認済みは区別する（判断済み≠承認済み）。",
@@ -3010,7 +3249,8 @@
               1274,
               1274
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断は承認なしでも記録でき、正式採用は§3.5の承認の別段階である。",
@@ -3022,7 +3262,8 @@
               1274,
               1274
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断エージェントのプロンプト・スキル構成はツールの責務外だが、参考として骨子を示す。",
@@ -3035,7 +3276,8 @@
               1278,
               1291
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断の受理は検証状態を昇格させない。",
@@ -3047,7 +3289,8 @@
               1293,
               1293
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断は`UNKNOWN`に対する外部判断の追跡であり、検査ゲートではない（§8 冒頭、基本仕様 §11.3）。",
@@ -3062,7 +3305,8 @@
               1293,
               1293
             ]
-          }
+          },
+          "layer": "spec"
         }
       ]
     },
@@ -3087,7 +3331,8 @@
               1301,
               1301
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "旧モデルの`--req`（REQ指定）はdocument層の総称化により廃止し、document scopeが必要な場合はVO部分木経由で指定する。",
@@ -3099,7 +3344,8 @@
               1301,
               1301
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`project`をcargo package名として解釈する。",
@@ -3112,7 +3358,8 @@
               1305,
               1307
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`suite.kind`を`lib` / `bin` / `integration`として解釈する。",
@@ -3124,7 +3371,8 @@
               1308,
               1308
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`suite.name`をbin名またはintegration test target名として解釈し、`lib`では省略する。",
@@ -3136,7 +3384,8 @@
               1309,
               1309
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`rust-cargo` adapterは`TestEntity.execution`の`selector`をtest targetのrootからのmodule path＋function名（例：`parser::tests::rejects_invalid_utf8`）として解釈する。",
@@ -3148,7 +3397,8 @@
               1310,
               1310
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "adapter内部ではこれらからCargo launch coordinateを構築する。",
@@ -3160,7 +3410,8 @@
               1312,
               1312
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`TestEntity`へCargo固有fieldを戻してはならない。",
@@ -3172,7 +3423,8 @@
               1312,
               1312
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "実行は（project, suite）で分けたbatchとし、libtestの`--exact` flagと複数selectorを用いる。",
@@ -3185,7 +3437,8 @@
               1313,
               1318
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "実行対象の解釈とcommand生成は`TestRunnerAdapter`が所有する。",
@@ -3197,7 +3450,8 @@
               1320,
               1320
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "orchestrationは`ExecutionDescriptor.adapter`をregistryで解決し、adapter不一致（E-ADAPTER-003）を拒否する。",
@@ -3209,7 +3463,8 @@
               1320,
               1321
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "明示的なrunでrunner未提供ならE-ADAPTER-004としてEvidenceを生成せず、検証集約の`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。",
@@ -3221,7 +3476,8 @@
               1322,
               1323
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`--exact`は後続の全フィルタへ適用されるフラグであり、各フィルタは完全一致で解釈される。",
@@ -3233,7 +3489,8 @@
               1325,
               1325
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "stdoutのパースはstable toolchainの標準出力形式のみに依存する。",
@@ -3245,7 +3502,8 @@
               1329,
               1336
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`running N tests`という出力は実行対象数の確認を意味する。",
@@ -3257,7 +3515,8 @@
               1332,
               1332
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`test <selector> ... ok`という出力はPASSを意味する。",
@@ -3269,7 +3528,8 @@
               1333,
               1333
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`test <selector> ... FAILED`という出力はFAILを意味する。",
@@ -3281,7 +3541,8 @@
               1334,
               1334
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`test <selector> ... ignored`という出力は実行されずを意味する。",
@@ -3293,7 +3554,8 @@
               1335,
               1335
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`test <selector> ... ignored`が実行されずの場合、Evidenceは記録しない。",
@@ -3305,7 +3567,8 @@
               1335,
               1335
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`test <selector> ... ignored`が実行されずの場合、target_bindingは診断NOT_EXECUTEDとする。",
@@ -3317,7 +3580,8 @@
               1335,
               1335
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "要求した各フィルタについて結果行が得られなかった場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
@@ -3329,7 +3593,8 @@
               1338,
               1338
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "プロセス終了コードと結果行の集計が矛盾する場合もE-EXEC-003とする。",
@@ -3341,7 +3606,8 @@
               1339,
               1339
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "stdout / stderrの全文は`cache/logs/<ULID>.log`へ保存し、Evidenceの`log_ref`から参照する。",
@@ -3353,7 +3619,8 @@
               1340,
               1340
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "Testごとに§3.6のレコードを1件生成する。",
@@ -3365,7 +3632,8 @@
               1344,
               1344
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`revision`は実行直前に`git rev-parse HEAD`と`git status --porcelain`で取得する。",
@@ -3377,7 +3645,8 @@
               1346,
               1346
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`revision`の取得失敗時は`commit: null`とし、このEvidenceは鮮度（§11.2）のrevision一致を満たさず`target_binding`の有効な`PASS`にならない。",
@@ -3389,7 +3658,8 @@
               1346,
               1346
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`hashes`は、実行直前のdiscovery結果から、Test subject hashと、全宣言targetを§6.1で解決したcanonical Locator・implementation construct hash（§1.3）を宣言順で記録する。",
@@ -3401,7 +3671,8 @@
               1347,
               1347
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`hashes`は欠落・重複を許可しない。",
@@ -3413,7 +3684,8 @@
               1347,
               1347
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`hashes`は宣言された`TargetRef`の綴りではなく解決後のcanonical Locatorを記録する（§6.1.1）。",
@@ -3425,7 +3697,8 @@
               1347,
               1347
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "全宣言targetがcanonical Source Targetへ一意に解決できることをEvidence生成の前提とする。",
@@ -3437,7 +3710,8 @@
               1348,
               1348
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）ならEvidenceを生成しない。",
@@ -3449,7 +3723,8 @@
               1348,
               1348
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "部分的な`hashes.targets`を持つEvidenceを生成して後段で弾く方式は採らない。",
@@ -3461,7 +3736,8 @@
               1348,
               1348
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
@@ -3473,7 +3749,8 @@
               1348,
               1348
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`execution_state`は、実行直前にrunner adapterが返すsnapshot schema、runner / toolchain / 実行影響config、およびrepository / local dependency入力manifestをcoreが検証し、§1.3のExecution State subject hashとして記録する。",
@@ -3485,7 +3762,8 @@
               1349,
               1349
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "完全性を保証できない場合は`complete: false`とし、後続の鮮度を`PASS`にしない。",
@@ -3497,7 +3775,8 @@
               1349,
               1349
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ビルド失敗（コンパイルエラー）の場合、対象Test群のEvidenceは記録せずE-EXEC-001を報告する。",
@@ -3509,7 +3788,8 @@
               1350,
               1350
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとなる。",
@@ -3521,7 +3801,8 @@
               1350,
               1350
             ]
-          }
+          },
+          "layer": "detailed_spec"
         }
       ]
     },
@@ -3546,7 +3827,8 @@
               1358,
               1358
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "起動時に`cargo llvm-cov --version`で利用可否を確認し、利用不能なら計測しない。",
@@ -3558,7 +3840,8 @@
               1359,
               1359
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "利用不能な場合、Evidenceの`target_coverage`を`checked: false`（検証時`NO_EVIDENCE`、診断`NOT_CHECKED`）とし診断W-EXEC-101を出す（`PASS`へ変換しない）。",
@@ -3573,7 +3856,8 @@
               1359,
               1359
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "カバレッジをTest単位で対象関数へ帰属させるため、計測時はTestを1件ずつ実行する。",
@@ -3585,7 +3869,8 @@
               1361,
               1361
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられるかは`rust-cargo` CoverageAdapterの能力に属する（§10.2・§7.3）。",
@@ -3597,7 +3882,8 @@
               1363,
               1363
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "subprocess内の実行を計測するには起動される実行体もinstrument対象とし、子プロセスのprofileをmergeする必要がある。",
@@ -3609,7 +3895,8 @@
               1363,
               1363
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "起動される実行体をinstrument対象とし子プロセスのprofileをmergeすることを提供できない構成では境界越しtargetをUNKNOWNとする。",
@@ -3621,7 +3908,8 @@
               1363,
               1363
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "計測不能なら`target_coverage.checked: false`（`NO_EVIDENCE`/`NOT_CHECKED`）とし、能力の有無で計測結果を捏造しない。",
@@ -3633,7 +3921,8 @@
               1363,
               1363
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testが起動したsubprocess・spawnしたthreadの実行を宣言targetへ帰属させられる能力の実装可否は§7.3のruntime到達証明がsubprocess E2Eに及ぶかを左右するが、欠如時もfail-closedを保つ（DA-002はUNKNOWNのまま）。",
@@ -3645,7 +3934,8 @@
               1363,
               1363
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "計測コマンドは`cargo llvm-cov test -p <project> --lib --json --output-path cache/cov/<ULID>.json -- --exact <selector>`である。",
@@ -3657,7 +3947,8 @@
               1365,
               1369
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "coverageは独立した`CoverageAdapter` capabilityとして扱う。",
@@ -3669,7 +3960,8 @@
               1371,
               1371
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "提供されない場合は`target_coverage.checked: false`（`NO_EVIDENCE`/`NOT_CHECKED`）とする。",
@@ -3681,7 +3973,8 @@
               1372,
               1372
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "解析限界は`UNKNOWN`とし、測定済み`PASS`を推測しない。",
@@ -3693,7 +3986,8 @@
               1372,
               1372
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "出力JSON（llvm-cov export形式）の`data[].functions[]`から、Testが宣言する各対象関数を検索する。",
@@ -3705,7 +3999,8 @@
               1376,
               1376
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "一致条件は、demangle済み関数名の末尾がlocatorのitem-pathと一致し、かつfilenamesのいずれかの末尾がlocatorのpathと一致することである。",
@@ -3717,7 +4012,8 @@
               1379,
               1381
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。",
@@ -3729,7 +4025,8 @@
               1383,
               1383
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "target別判定は、count > 0なら`PASS`とする。",
@@ -3741,7 +4038,8 @@
               1385,
               1386
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "target別判定は、count == 0なら`FAIL`（診断NOT_EXECUTED）とする。",
@@ -3756,7 +4054,8 @@
               1385,
               1387
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "target別判定は、関数が見つからなければ`UNKNOWN`（インライン化・cfg除外等の可能性）とする。",
@@ -3768,7 +4067,8 @@
               1385,
               1388
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test単位集約は、FAILが1件以上あれば`FAIL`とする。",
@@ -3780,7 +4080,8 @@
               1390,
               1391
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test単位集約は、FAILなし、UNKNOWNが1件以上あれば`UNKNOWN`とする。",
@@ -3792,7 +4093,8 @@
               1390,
               1392
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test単位集約は、1件以上の全宣言targetがPASSなら`PASS`とする。",
@@ -3804,7 +4106,8 @@
               1390,
               1393
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "各targetのcanonical Locator（§6.1.1）・result・countとTest単位集約結果をEvidenceの`target_coverage`へ記録する。",
@@ -3816,7 +4119,8 @@
               1396,
               1396
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "target別entryの欠落、重複、余分なentry、または解決後のcanonical Source Target集合との不一致を`PASS`として保存しない。",
@@ -3828,7 +4132,8 @@
               1397,
               1397
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceの`target_coverage`へ記録する計測結果は§7.3のtarget_binding runtime証明の証拠源であり、独立の検査項目ではない。",
@@ -3840,7 +4145,8 @@
               1397,
               1397
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testが別プロセス（起動したsubprocess内）・別スレッド等の実行境界越しにtargetを到達させる場合も、判定は実行countに基づく。",
@@ -3852,7 +4158,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "coverage providerは当該境界越しの実行を宣言targetへ帰属させなければならない（例：起動される実行体も計測対象としてinstrumentし、子プロセスのprofileをmergeする）。",
@@ -3864,7 +4171,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "providerが境界越しの実行を帰属できない場合はそのtargetを`UNKNOWN`（関数不見当扱い）とする。",
@@ -3876,7 +4184,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "計測自体が不能なら`target_coverage.checked: false`とする。",
@@ -3888,7 +4197,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "providerが境界越しの実行を帰属できない場合、または計測自体が不能な場合は、いずれも§7.3のruntime到達証明を成立させず、静的到達のUNKNOWNを`PASS`へ変換しない。",
@@ -3900,7 +4210,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "coverage providerが境界越しの実行を宣言targetへ帰属させられるかはadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。",
@@ -3912,7 +4223,8 @@
               1399,
               1399
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`vtest run`は2モードを持つ。",
@@ -3924,7 +4236,8 @@
               1403,
               1403
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`--fast`モードはcargo testのみとし、`target_coverage.checked: false`で記録し、検証時は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
@@ -3936,7 +4249,8 @@
               1405,
               1405
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "既定モード（完全検証向け）はcargo-llvm-covによるTest単位実行とする。",
@@ -3949,7 +4263,8 @@
               1406,
               1406
             ]
-          }
+          },
+          "layer": "detailed_spec"
         }
       ]
     },
@@ -3978,7 +4293,8 @@
               1414,
               1418
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`orphan_detection`は評価地点をDOCとし、親を持たず`doc.roots`にも列挙されないdocumentが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
@@ -3990,7 +4306,8 @@
               1419,
               1419
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`は評価地点をTESTとし、§7.3の合成による。",
@@ -4002,7 +4319,8 @@
               1420,
               1420
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`target_binding`は、Evidence result FAILは`FAIL`、全宣言targetの到達が静的到達またはruntime到達で充足されれば`PASS`とする。",
@@ -4014,7 +4332,8 @@
               1420,
               1420
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`の未充足は§11.2の写像に従う。",
@@ -4026,7 +4345,8 @@
               1420,
               1420
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`oracle_presence`は評価地点をTESTとし、§7.1の合成（DA-001 / DA-003 / DA-004 / DA-005 / DA-006）による。",
@@ -4038,7 +4358,8 @@
               1421,
               1421
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`oracle_presence`は、全PASSで`PASS`、1つでもFAILで`FAIL`、FAILなくUNKNOWNで`UNKNOWN`とする。",
@@ -4050,7 +4371,8 @@
               1421,
               1421
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）、および当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）に限る。",
@@ -4066,7 +4388,8 @@
               1423,
               1423
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力は、当該revisionのrepositoryを走査したscan結果（adapterが返すdiscovery出力と、そこからcoreが具体化したエンティティ・内容ハッシュ）を含む。",
@@ -4078,7 +4401,8 @@
               1425,
               1425
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力は、`.verify/`配下の正典ファイル集合（`config.yaml`、documentレコード、VOレコード、Relationレコード、判断記録〔`.verify/decisions/`〕、承認レコード〔`.verify/approvals/`〕、Evidenceレコード〔`.verify/evidence/`〕）を含む。",
@@ -4090,7 +4414,8 @@
               1426,
               1426
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力は、Evidence鮮度判定（§11.2）が現在のsnapshotとして再構築するExecution State subjectの入力（toolchain identity、実行結果へ影響するadapter configのcanonical projection、repository / local dependencyの入力manifest。§1.3）を含む。",
@@ -4102,7 +4427,8 @@
               1427,
               1427
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力は、当該実行の要求scope指定（検査軸・エンティティ軸・`--gate`）を含む。",
@@ -4114,7 +4440,8 @@
               1428,
               1428
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "4検査の評価入力の集合が同一であれば、4検査の検証状態（5状態）・診断ラベル・診断コード集合・集約結果・`pending` sectionの内容・終了コードは同一でなければならない。",
@@ -4127,7 +4454,8 @@
               1430,
               1430
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実行時の現在時刻・経過時間・乱数・プロセスIDを、それ自体として検査入力にしてはならない。",
@@ -4139,7 +4467,8 @@
               1432,
               1432
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ロケール・タイムゾーン・環境変数・呼出し元の作業ディレクトリ（`--project`で解決したプロジェクトルート自体は入力に含む）を、それ自体として検査入力にしてはならない。",
@@ -4151,7 +4480,8 @@
               1433,
               1433
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ネットワーク応答、およびLLM APIを含む外部サービスの応答を、それ自体として検査入力にしてはならない。",
@@ -4163,7 +4493,8 @@
               1434,
               1434
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "環境の変化が結果へ影響しうるのは、Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲に限る。",
@@ -4175,7 +4506,8 @@
               1436,
               1436
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Execution State subjectの入力（toolchain identity・adapter config・入力manifest）を変える範囲で環境の変化が結果へ影響する場合の影響はEvidenceの鮮度喪失（`NO_EVIDENCE`、診断`STALE`。§11.2）として現れ、環境そのものを判定条件として読むわけではない。",
@@ -4187,7 +4519,8 @@
               1436,
               1436
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ネットワーク応答と外部サービス応答はExecution State subjectの入力に含まれないため、例外なく検査入力にならない。",
@@ -4199,7 +4532,8 @@
               1436,
               1436
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "本システムは意味判定・候補生成を外部の判定器へ委ねるseam（実行時に差し替え可能な意味判定・意味生成の呼出し点）を4検査の評価経路に持たない。",
@@ -4211,7 +4545,8 @@
               1438,
               1438
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "外部AI／Agentは判断記録（§8）の著者として`.verify/decisions/`へ記録を残す経路でのみ関与し、その記録は入力集合の一部としてファイル経由で読まれる。",
@@ -4223,7 +4558,8 @@
               1438,
               1438
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断記録の受理は検証状態を昇格させない（§8.3）。",
@@ -4235,7 +4571,8 @@
               1438,
               1438
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "将来そのようなseamを評価経路へ設ける場合は、任意の判定を返す実装（正反対の判定を返す実装を含む）を差し替えても4検査の結果が変化しないことを満たさなければならない。",
@@ -4247,7 +4584,8 @@
               1438,
               1438
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "完全検証の検査集合はこの4検査に固定し、設定で追加・削除できない（§2.2、基本仕様 §22.1）。",
@@ -4262,7 +4600,8 @@
               1440,
               1440
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。",
@@ -4274,7 +4613,8 @@
               1440,
               1446
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`test_existence` / `test_traceability`は`chain_integrity`へ統合した。",
@@ -4286,7 +4626,8 @@
               1442,
               1442
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`static_audit`は`oracle_presence`（DA-001/003/004/005/006）と`target_binding`の静的到達（DA-002）へ分割した。",
@@ -4298,7 +4639,8 @@
               1443,
               1443
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`test_execution` / `target_execution` / `runtime_result`は`target_binding`の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収した。",
@@ -4310,7 +4652,8 @@
               1444,
               1444
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`evidence_validity`は独立検査を廃し、鮮度喪失を診断ラベル`STALE`として§11.2で説明した（基本仕様 §6）。",
@@ -4325,7 +4668,8 @@
               1445,
               1445
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`spec_coverage` / `vo_coverage` / `vo_decomposition` / `semantic_audit` / `impl_consistency`は検査から除去し、網羅・意味の疑義は`UNKNOWN`として判断記録エスカレーションとした（§8、基本仕様 §11、要件定義 §12）。",
@@ -4341,7 +4685,8 @@
               1446,
               1446
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`chain_integrity`は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う。",
@@ -4356,7 +4701,8 @@
               1450,
               1450
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "いずれか違反があれば`MISMATCH`（切れた箇所を診断ラベルで示す）とする。",
@@ -4368,7 +4714,8 @@
               1450,
               1450
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "文書層は、各`document`の`derives_from`参照先が存在すること（E-SCAN-012）を評価する。",
@@ -4380,7 +4727,8 @@
               1452,
               1452
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "文書層は、`content_hash`が現物と一致すること（不一致は診断`STALE`。§11.4）を評価する。",
@@ -4392,7 +4740,8 @@
               1452,
               1452
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "VO層は、各VOが1件以上の`document`への解決可能な`derives_from`を持つこと（不在・解決不能はE-SCAN-012）を評価する。",
@@ -4404,7 +4753,8 @@
               1453,
               1453
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "VO層は、VO parentの不在・循環をE-SCAN-008とする。",
@@ -4416,7 +4766,8 @@
               1453,
               1453
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "VO層は、`combinations`が§3.2.1の受理条件を満たすこと（違反はE-SCAN-017）を評価する。",
@@ -4428,7 +4779,8 @@
               1453,
               1453
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。",
@@ -4445,7 +4797,8 @@
               1454,
               1454
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test層は、`covers`の全VO参照を解決できること（E-SCAN-003）を評価する。",
@@ -4457,7 +4810,8 @@
               1454,
               1454
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Test層は、Test IDが発見結果全体で一意であること（衝突はE-SCAN-002）を評価する。",
@@ -4469,7 +4823,8 @@
               1454,
               1454
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "双方向完全性は、leaf VO → Test（検証実装の存在。coversするTestが1件以上）と、発見されたTest → 宣言（管理宣言の解決）の両方向が成立して初めて成立する。",
@@ -4481,7 +4836,8 @@
               1455,
               1455
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "coversするTestの無いleaf VOは`MISMATCH`（診断`MISSING`）とする。",
@@ -4493,7 +4849,8 @@
               1455,
               1455
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Relationのfrom / to不在はE-SCAN-009とする。",
@@ -4505,7 +4862,8 @@
               1456,
               1456
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "恒久SRC IDのadapter越え衝突はE-SCAN-011とする。",
@@ -4517,7 +4875,8 @@
               1456,
               1456
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "すべてのTestを管理対象とすることと、当該Testを証拠として算入すること（§7 / §10のtarget_binding / oracle_presence）は別個の条件とする。",
@@ -4532,7 +4891,8 @@
               1458,
               1458
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "旧モデルの`role`に基づく`covers`可変制約・適用項目集合は設けず、すべての管理対象Testに`covers ≥ 1`を一律要求する。",
@@ -4547,7 +4907,8 @@
               1458,
               1458
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`covers`を持たない（0件の）Testは管理宣言不整合として`chain_integrity = MISMATCH`であり、特別扱いの分岐を設けない。",
@@ -4559,7 +4920,8 @@
               1458,
               1458
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象Testの Evidenceのうち最新のものについて、evidence.hashes.test_subject == 現在のTest subject hashを検査する。",
@@ -4571,7 +4933,8 @@
               1463,
               1465
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象TestのEvidenceのうち最新のものについて、evidence.hashes.targetsの参照集合が、現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し、各target_constructが現在のimplementation construct hashと一致することを検査する。",
@@ -4583,7 +4946,8 @@
               1463,
               1466
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象TestのEvidenceのうち最新のものについて、evidence.revision.commitが非nullかつ現在のHEAD revisionと一致することを検査する。",
@@ -4595,7 +4959,8 @@
               1463,
               1468
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象TestのEvidenceのうち最新のものについて、evidence.execution_state.complete == trueかつ、同じschemaで現在再構築したExecution State subjectがcompleteで、hashが一致することを検査する。",
@@ -4607,7 +4972,8 @@
               1463,
               1469
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象TestのEvidenceのうち最新のものについて、evidence.adapterが現在のTest.execution.adapterと一致することを検査する。",
@@ -4620,7 +4986,8 @@
               1463,
               1470
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "evidence.hashes.test_subject == 現在のTest subject hashであること、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致し各target_constructが現在のimplementation construct hashと一致すること、evidence.revision.commitが非nullかつ現在のHEAD revisionと一致すること、evidence.execution_state.complete == trueかつ同じschemaで現在再構築したExecution State subjectがcompleteでhashが一致すること、およびevidence.adapterが現在のTest.execution.adapterと一致することのすべてが成立する場合、当該Evidenceは現在の証拠として有効とする（dirty: trueでもExecution State subject一致なら有効。実行入力manifestが実体を保証する）。",
@@ -4632,7 +4999,8 @@
               1472,
               1473
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "evidence.hashes.test_subjectが現在のTest subject hashと一致しない場合、または、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致しない場合（各target_constructが現在のimplementation construct hashと一致しない場合を含む）、`NO_EVIDENCE`（診断STALE）とする。",
@@ -4644,7 +5012,8 @@
               1474,
               1474
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "evidence.revision.commitが非nullでない、または現在のHEAD revisionと一致しない場合、`NO_EVIDENCE`（診断STALE。現在revisionに対する実行ではない）とする。",
@@ -4656,7 +5025,8 @@
               1475,
               1475
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "evidence.execution_stateのrecordが欠落している場合、またはhashが一致しない場合、`NO_EVIDENCE`（診断STALE）とする。",
@@ -4668,7 +5038,8 @@
               1476,
               1476
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "evidence.execution_state.completeがtrueでない、または現在再構築したExecution State subjectを完全に構築不能の場合、`UNKNOWN`とする。",
@@ -4680,7 +5051,8 @@
               1477,
               1477
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceのadapterが現在のTestのexecution.adapterと明示的に不一致の場合、`MISMATCH`とする。",
@@ -4692,7 +5064,8 @@
               1478,
               1478
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceのadapterが現在のTestのexecution.adapterと一致するかを確認不能の場合、`UNKNOWN`とする。",
@@ -4704,7 +5077,8 @@
               1479,
               1479
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceなしの場合、`NO_EVIDENCE`（診断NOT_EXECUTED）とする。",
@@ -4716,7 +5090,8 @@
               1480,
               1480
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceは全宣言targetが一意に解決できる場合だけ生成される（§9.4）。",
@@ -4728,7 +5103,8 @@
               1483,
               1483
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "現在の宣言targetのうち1件でもcanonical Source Targetへ一意に解決できなくなった場合、記録済み参照集合は現在のcanonical集合と一致しないため、evidence.hashes.targetsの参照集合が現在のTest.targetsを§6.1で解決したcanonical Locator集合と重複なく一致するという条件は成立せず、`target_binding`を有効な`PASS`にしない。",
@@ -4740,7 +5116,8 @@
               1483,
               1483
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "対象が存在せずE-SCAN-004となるtargetは`MISMATCH`（診断`MISSING`）として保持する（§5.4）。",
@@ -4752,7 +5129,8 @@
               1484,
               1484
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "複数候補により曖昧でE-SCAN-011となるtargetは`MISMATCH`として保持する（§5.4）。",
@@ -4764,7 +5142,8 @@
               1484,
               1484
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "有効なEvidenceが得られたとき、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`とする。",
@@ -4779,7 +5158,8 @@
               1486,
               1488
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "有効なEvidenceが得られたとき、`result: PASS`かつ全宣言targetの到達要件が§7.3で充足（静的到達またはruntime到達）されれば`target_binding`は`PASS`とする。",
@@ -4791,7 +5171,8 @@
               1486,
               1489
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "有効なEvidenceが得られたとき、`result: PASS`だが到達未充足のtargetがある場合、当該targetの`target_coverage`に従い、count 0は`FAIL`（診断NOT_EXECUTED）、計測不能・未計測（`checked: false`）は`NO_EVIDENCE`（診断NOT_CHECKED）、関数不見当は`UNKNOWN`とする。",
@@ -4803,7 +5184,8 @@
               1486,
               1490
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceが存在するが有効でない場合、`target_binding`はEvidenceを再利用せず、上表の`MISMATCH` / `NO_EVIDENCE`（STALE）/ `UNKNOWN`を保持する。",
@@ -4815,7 +5197,8 @@
               1492,
               1492
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Evidenceが無ければ`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。",
@@ -4827,7 +5210,8 @@
               1492,
               1492
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "複数条件が非`PASS`なら根拠をすべて保持し、表示代表値は基本仕様 §22.2の優先順位で選ぶ（診断ラベルは順位に用いず併記する）。",
@@ -4842,7 +5226,8 @@
               1492,
               1492
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "項目scopeが省略された場合、aggregatorはconfig値から部分集合を組み立てず、基本仕様 §5の固定4検査を選択する。",
@@ -4857,7 +5242,8 @@
               1496,
               1496
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`verify.full_scope`はconfig読込み時に§2.2のinvariantとして検証・正規化済みでなければならない。",
@@ -4869,7 +5255,8 @@
               1496,
               1496
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "明示的な部分集合だけを限定scopeとし、その結果を完全検証として表示しない。",
@@ -4881,7 +5268,8 @@
               1496,
               1496
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、scanによりグラフ構築する（§5）。",
@@ -4893,7 +5281,8 @@
               1499,
               1500
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "aggregateは、chain_integrity / orphan_detectionをrepository / DOC / VO / TEST構造に対して評価する。",
@@ -4905,7 +5294,8 @@
               1499,
               1501
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、scopeのエンティティ軸でDOC/VO/TEST部分木を選択する。",
@@ -4917,7 +5307,8 @@
               1499,
               1502
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、各TESTについて、scopeの検査軸に含まれるtarget_binding / oracle_presenceを評価する（含まれない検査はNO_EVIDENCE、診断NOT_CHECKED）。",
@@ -4929,7 +5320,8 @@
               1499,
               1504
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、各leaf VOについてcoversするTEST群の結果をfail-closedで合成する。",
@@ -4941,7 +5333,8 @@
               1499,
               1505
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、子VOを持つVO（親VO）について、子VOの値と、当該親VOを直接coversするTESTの値を合わせてfail-closedで合成する（直接coversするTESTが無ければ子VOの値だけを合成する）。",
@@ -4953,7 +5346,8 @@
               1499,
               1507
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "aggregateは、DOCについて下流VO部分木の合成（fail-closed）を行う。",
@@ -4965,7 +5359,8 @@
               1499,
               1508
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "総合判定は、構造検査（chain_integrity / orphan_detection）とentity treeのscope内評価がすべてPASSならOK、それ以外ならNGとする。",
@@ -4977,7 +5372,8 @@
               1499,
               1510
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "fail-closed合成は、子にFAIL/MISMATCH/NO_EVIDENCE/UNKNOWNが1つでもあれば親を非PASSとする。",
@@ -4989,7 +5385,8 @@
               1512,
               1513
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "fail-closed合成の代表値は基本仕様 §22.2の優先順位FAIL > MISMATCH > NO_EVIDENCE > UNKNOWNで選ぶ。",
@@ -5004,7 +5401,8 @@
               1512,
               1514
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "診断ラベル（MISSING / NOT_EXECUTED / NOT_CHECKED / STALE）は順位に用いず併記する。",
@@ -5016,7 +5414,8 @@
               1512,
               1515
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "利用者向け簡易出力は`OK` / `NG`の二値とする。",
@@ -5031,7 +5430,8 @@
               1518,
               1518
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "詳細出力は任意ノードからの局所／経路／全体トレース（§11.6）に沿ったツリー表示とし、非`PASS`の根拠（判断記録・Evidenceへの参照）を辿れる。",
@@ -5043,7 +5443,8 @@
               1518,
               1518
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "人間向けテキストと機械可読JSONの両方を出力できる。",
@@ -5058,7 +5459,8 @@
               1518,
               1518
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "検査の表示scopeと、検査導出に必要な内部依存の評価は分離する。",
@@ -5070,7 +5472,8 @@
               1520,
               1520
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "§7.3により`target_binding`は当該TestのEvidence鮮度（§11.2）とtarget別`target_coverage`へ依存する。",
@@ -5082,7 +5485,8 @@
               1520,
               1520
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`target_binding`が項目scopeに含まれる場合、aggregatorは§7.3のruntime到達証明の判定に必要な範囲でこれらを内部依存として評価する。",
@@ -5094,7 +5498,8 @@
               1520,
               1520
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "runtime証明に依存する`target_binding`の値は、根拠として用いたEvidence IDと当該targetの`target_coverage`結果をreportで引用し、原因を辿れる状態にする。",
@@ -5106,7 +5511,8 @@
               1520,
               1520
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`covers`を持つTestはcovers先それぞれのVOの合成に独立に参加する。",
@@ -5118,7 +5524,8 @@
               1522,
               1522
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "「1つのTestが複数VOを検証していること」自体は許容し、各leaf VOの充足と組合せは§3.2.1の実体化されたleaf VO単位で判定する。",
@@ -5133,7 +5540,8 @@
               1522,
               1522
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "基本仕様 §22.2がTest単位の結果の集約先として挙げる「Feature単位」は、親VO（`parent`により1件以上の子VOを持つVO。§3.2）を単位として実現する。",
@@ -5148,7 +5556,8 @@
               1524,
               1524
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "Featureを独立のエンティティ種別・レコードファイル・ID体系・宣言fieldとして設けず、`.verify/`にFeature用ディレクトリを置かない（基本仕様 §3.1のエンティティ種別を増やさない）。",
@@ -5163,7 +5572,8 @@
               1524,
               1524
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "親VOの値は、子VOの値と当該親VOを直接coversするTESTの値を合わせたfail-closed合成そのものであり、機能単位の表示のために別の合成規則・緩和規則を設けない。",
@@ -5175,7 +5585,8 @@
               1526,
               1526
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "子に1つでも非`PASS`があれば親VOは非`PASS`であり、代表値の優先順位も基本仕様 §22.2と同一とする。",
@@ -5190,7 +5601,8 @@
               1526,
               1526
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Testの結果が親VOへ寄与する経路は、(a) coversするleaf VO経由の伝播と、(b) 当該親VOを直接coversするTestの直接参加の2つに限る。",
@@ -5202,7 +5614,8 @@
               1527,
               1527
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "covers宣言を経由しない「機能名による束ね」（ファイルパス・モジュール名・命名規約からの推定束ね）を設けない。",
@@ -5214,7 +5627,8 @@
               1527,
               1527
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "親VOを持たないleaf VOは、それ自体が最上位の束ね単位となる。",
@@ -5226,7 +5640,8 @@
               1528,
               1528
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "DOC単位の集約は下流VO部分木の合成であり、機能単位の集約はその中間段に位置する。",
@@ -5238,7 +5653,8 @@
               1528,
               1528
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "機能単位の表示経路（起点指定と内訳の提示）は§11.6のprojectionで露出し、新規コマンド・ツール・出力エンティティを増やさない。",
@@ -5250,7 +5666,8 @@
               1529,
               1529
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "スキャン時にdocumentレコードの`content_hash`と実ファイル（`path`）を比較し、不一致ならW-SCAN-104を出す。",
@@ -5262,7 +5679,8 @@
               1533,
               1533
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "当該documentを`derives_from`で参照するVO / 上位documentの鎖は、content_hash不一致として`chain_integrity = MISMATCH`（診断`STALE`）となる（§11.1.1）。",
@@ -5274,7 +5692,8 @@
               1534,
               1534
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "当該document subjectをdependencyに含む判断記録（§8.5）・承認記録（§3.5）も無効となる。",
@@ -5286,7 +5705,8 @@
               1535,
               1535
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "仕様文書の更新は`vtest doc add --update`による再登録で反映し、依存する判断・承認が失効することを利用者へ提示する。",
@@ -5298,7 +5718,8 @@
               1536,
               1536
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "再登録でdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。",
@@ -5310,7 +5731,8 @@
               1536,
               1536
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§4.1の5状態）と承認（§3.5）が通過条件を満たすかを評価・提示できなければならない（MUST）。",
@@ -5326,7 +5748,8 @@
               1540,
               1540
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "検証状態と承認は独立の軸であり、ゲートは両者の組合せを進行条件にできる。",
@@ -5338,7 +5761,8 @@
               1540,
               1540
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "ゲート定義は、`config.yaml`の`gates`（§2.2）に、ゲート名と進行条件（`require.verification`＝要求する検証結果、`require.approvals`＝要求する承認ロール集合）を保持する。",
@@ -5350,7 +5774,8 @@
               1542,
               1542
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "`vtest verify --gate <name>`は、指定ゲートの対象scopeについて検証を実行し、(1) 検証結果が`require.verification`を満たすか、(2) `require.approvals`の各ロールについて対象の実効承認状態（§3.5）が`approved`であるか、を評価して満否と根拠（不足している非`PASS`検査・未充足の承認ロール）を提示する。",
@@ -5362,7 +5787,8 @@
               1543,
               1543
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`--gate <name>`は`gates[].name`との大文字小文字を区別した完全一致で解決する。",
@@ -5374,7 +5800,8 @@
               1544,
               1544
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`--gate <name>`の解決は前方一致・部分一致・近似一致・既定ゲートへの代替は行わない。",
@@ -5386,7 +5813,8 @@
               1544,
               1544
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "一致するゲート定義が無い場合（`gates`が空、または未定義名の指定）はusage errorとしてE-CONFIG-002（終了コード2）で拒否し、スキャン・検証・ゲート評価のいずれも実行せず、検証結果・部分結果を生成しない。",
@@ -5398,7 +5826,8 @@
               1544,
               1544
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "診断には指定名と定義済みゲート名の一覧を含める。",
@@ -5410,7 +5839,8 @@
               1544,
               1544
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "検証条件の充足判定は、`require.verification`の値と、要求scopeの集約代表値との完全一致でのみ充足する。",
@@ -5422,7 +5852,8 @@
               1545,
               1545
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "集約代表値は、要求scope内で評価した全値（構造検査`chain_integrity` / `orphan_detection`と、エンティティ軸の部分木で評価した各Test / VO / DOCの検査値）を§11.3のfail-closed規則で合成した1値とする。",
@@ -5434,7 +5865,8 @@
               1546,
               1546
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "全値が`PASS`なら代表値は`PASS`（総合OKと同値）、非`PASS`が混在する場合は基本仕様 §22.2の優先順位`FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`で選ぶ。",
@@ -5449,7 +5881,8 @@
               1546,
               1546
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "診断ラベルは充足判定に用いない。",
@@ -5461,7 +5894,8 @@
               1546,
               1546
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "5状態に順序・優劣・包含関係を設けない。",
@@ -5473,7 +5907,8 @@
               1547,
               1547
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "「要求値以上」「要求値より良い」といった比較解釈を採らず、`require.verification: UNKNOWN`は代表値が`UNKNOWN`のときだけ充足し、代表値が`PASS`でも充足しない。",
@@ -5485,7 +5920,8 @@
               1547,
               1547
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "同様に`require.verification: PASS`は代表値が`PASS`のときだけ充足する。",
@@ -5497,7 +5933,8 @@
               1547,
               1547
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`--items`で検査軸を限定した実行では、scope外の検査が`NO_EVIDENCE`（診断`NOT_CHECKED`）として代表値の合成に参加する（§11.3、基本仕様 §4.6）。",
@@ -5512,7 +5949,8 @@
               1548,
               1548
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "したがって限定scopeでの`require.verification: PASS`は充足せず、限定scopeの結果でゲートを充足させることはできない。",
@@ -5524,7 +5962,8 @@
               1548,
               1548
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "承認条件は検証条件と独立に評価し、`require.approvals`が空集合（省略）なら承認条件は充足とする。",
@@ -5536,7 +5975,8 @@
               1549,
               1549
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "承認未充足は検証状態を降格させず、検証の非`PASS`は承認の充足有無を変えない（基本仕様 §4.5）。",
@@ -5551,7 +5991,8 @@
               1549,
               1549
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ゲート全体の充足は検証条件と承認条件の両方が充足した場合に限る。",
@@ -5563,7 +6004,8 @@
               1549,
               1549
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "本システムの責務はゲート条件が現在満たされているかの評価・提示に限る。",
@@ -5575,7 +6017,8 @@
               1550,
               1550
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "フェーズのライフサイクル管理・工程の自動遷移は責務外とする（§29 OOS-004）。",
@@ -5592,7 +6035,8 @@
               1550,
               1550
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "「Releaseフェーズへ遷移させる」のではなく「Release gateの条件を現在満たしている」を提示する。",
@@ -5604,7 +6048,8 @@
               1550,
               1550
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "新規CLIコマンド・MCPツールを増やさず、既存の`vtest verify`の`--gate`引数と出力、および`report`のJSONでゲート評価を露出する（引数・出力schemaは別紙A）。",
@@ -5619,7 +6064,8 @@
               1551,
               1551
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "具体的なフェーズ名・承認ロール・必要承認数・権限schemaはプロジェクト設定と別紙Aへ委譲する（基本仕様 §30）。",
@@ -5635,7 +6081,8 @@
               1551,
               1551
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "同一のトレーサビリティ構造から、利用者の役割または利用目的に応じて参照対象・関係・集約粒度を変えたprojectionを取得・提示できる。",
@@ -5651,7 +6098,8 @@
               1555,
               1555
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノード（DOC / VO / TEST / SRC）から取得でき、必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。",
@@ -5664,7 +6112,8 @@
               1557,
               1557
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "常に全チェーンを表示することは求めない。",
@@ -5676,7 +6125,8 @@
               1557,
               1557
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "役割または利用目的に応じた参照観点をpresetとして提供する（例：PMは上位のdocument・VOの状態と未確定/NG、Testerは VO・Test・検証対象・Evidence・未実施/失敗理由、Coderは実装から関連Test・VO・上流documentへのトレース）。",
@@ -5688,7 +6138,8 @@
               1558,
               1558
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "役割を固定enumやモード名として本冊で仕様化せず、preset・UI・モード体系は別紙Aへ委譲する（基本仕様 §30）。",
@@ -5704,7 +6155,8 @@
               1558,
               1558
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "親VOを起点とする下流方向のprojectionが、§11.3の機能単位の集約（Feature単位＝親VO）を提示する経路である。",
@@ -5716,7 +6168,8 @@
               1559,
               1559
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "当該親VOの代表値と、その配下の子VOごと・Testごとの内訳を同じ出力から辿れる。",
@@ -5728,7 +6181,8 @@
               1559,
               1559
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "Feature名・Feature IDの別fieldを出力に設けず、束ねの識別子は親VOのIDとする。",
@@ -5740,7 +6194,8 @@
               1559,
               1559
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "新規コマンド・ツールを増やさず、既存の`vtest report`のview / projection引数と、`test query`の逆引きで露出する（引数・出力schemaは別紙A）。",
@@ -5755,7 +6210,8 @@
               1560,
               1560
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）をprojectionの基盤とする（§5.3）。",
@@ -5767,7 +6223,8 @@
               1560,
               1560
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）には、当該entryの`anchor`（§3.1・§3.2）を常に同伴させる。",
@@ -5779,7 +6236,8 @@
               1561,
               1561
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`anchor`を持たないentryでは当該fieldを省略または`null`とし、空文字列で埋めない。",
@@ -5791,7 +6249,8 @@
               1561,
               1561
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
@@ -5806,7 +6265,8 @@
               1561,
               1561
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`anchor`の値は不透明な文字列として transport するだけで、projectionは文書内位置への解決・整合検査を行わない。",
@@ -5818,7 +6278,8 @@
               1561,
               1561
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアの取得のために新規コマンド・ツールを設けない。",
@@ -5830,7 +6291,8 @@
               1562,
               1562
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として保持・取得可能とする。",
@@ -5846,7 +6308,8 @@
               1566,
               1566
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "判断待ち情報は構造化record（report JSON内のsection）として提示する。",
@@ -5858,7 +6321,8 @@
               1568,
               1574
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`subject`は対象エンティティIDまたは解決済みcanonical Locatorとする。",
@@ -5870,7 +6334,8 @@
               1569,
               1569
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`kind`は`unknown`（UNKNOWNによるエスカレーション）/ `unregistered`（管理宣言欠落）/ `unresolved`（参照解決不能）/ `undecided`（VO未確定）/ `pending_approval`（承認待ち）のいずれかとする。",
@@ -5882,7 +6347,8 @@
               1570,
               1570
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`check`は関係する検査（4検査のいずれか）と現在の検証状態・診断ラベルとする。",
@@ -5894,7 +6360,8 @@
               1571,
               1571
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "4検査のいずれにも由来しない項目（判断型に由来する項目・判断競合）では`check`を`null`とする。",
@@ -5906,7 +6373,8 @@
               1571,
               1571
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`check`が`null`の項目は§11.3の集約へ寄与せず、いかなる検査の値も変更しない。",
@@ -5918,7 +6386,8 @@
               1571,
               1571
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`judgment_kind`は外部判断が必要な場合の判断型（§8.1の値域）とする。",
@@ -5930,7 +6399,8 @@
               1572,
               1572
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "不要な項目では`judgment_kind`を`null`とする。",
@@ -5942,7 +6412,8 @@
               1572,
               1572
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`basis`は機械的に確認済みの事実（宣言鎖・検査結果・対象外とした範囲）への参照とする。",
@@ -5954,7 +6425,8 @@
               1573,
               1573
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`bundle_ref`は外部判断が必要な場合の判断バンドル（§8.1）への参照（任意）とする。",
@@ -5966,7 +6438,8 @@
               1574,
               1574
             ]
-          }
+          },
+          "layer": "design"
         },
         {
           "statement": "`judgment_kind: case-coverage`の項目（`kind: unknown`、`check: null`、`subject`＝対象Test ID）は、条件をすべて満たす管理対象Testごとにちょうど1件生成する。",
@@ -5978,7 +6451,8 @@
               1575,
               1578
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断型に由来する項目の生成条件の1つは、`covers`が1件以上あることである。",
@@ -5990,7 +6464,8 @@
               1576,
               1576
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断型に由来する項目の生成条件の1つは、当該Testの`cases`が1件以上ある、または解決済みのcovers先VO（レコードが存在するVO。E-SCAN-003のdangling参照を除く）のいずれかが`dimensions`を1件以上持つことである。",
@@ -6002,7 +6477,8 @@
               1577,
               1577
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断型に由来する項目の生成条件の1つは、`(当該Test, case-coverage)`の実効判断（§8.5）が`accepted`でないことである。",
@@ -6014,7 +6490,8 @@
               1578,
               1578
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "実効判断が未確定・`rejected`・`deferred`のいずれの場合も項目を生成し、参照した判断記録IDを`basis`に載せる。",
@@ -6026,7 +6503,8 @@
               1578,
               1578
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断型に由来する項目の生成条件は`case-coverage`型の項目にだけ適用する。",
@@ -6038,7 +6516,8 @@
               1580,
               1580
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "検査に由来する`kind: unknown`の項目（DA規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断記録の有無で変わらない。",
@@ -6050,7 +6529,8 @@
               1580,
               1580
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "§8.5の実効判断が競合により未確定となった`(subject, judgment_kind)`は、`kind: unknown`、`check: null`、当該`judgment_kind`、および競合した全判断記録IDを`basis`（`kind: decision`）に持つ項目として提示する。",
@@ -6062,7 +6542,8 @@
               1581,
               1581
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "新規コマンド・ツールを増やさず、`vtest verify` / `vtest report`のJSON出力に判断待ちsectionを含めて露出する。",
@@ -6074,7 +6555,8 @@
               1582,
               1582
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。",
@@ -6091,7 +6573,8 @@
               1582,
               1582
             ]
-          }
+          },
+          "layer": "spec"
         }
       ]
     },
@@ -6116,7 +6599,8 @@
               1588,
               1588
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "新規レコード追加（rel / decisions / approvals / evidence）はULIDファイル名の新規作成のみであり、並列生成は衝突しない。",
@@ -6131,7 +6615,8 @@
               1594,
               1594
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "エンティティファイル編集（doc / vo）は1エンティティ1ファイルであり、異なるエンティティの並列編集は独立であり、同一エンティティの並列編集はGitのマージ衝突として顕在化する。",
@@ -6146,7 +6631,8 @@
               1595,
               1595
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "テストコード編集は通常のソース編集と同じ扱いとする。",
@@ -6161,7 +6647,8 @@
               1596,
               1596
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "書き込み操作は上記のいずれかに分類され、ファイルロックを必要としない。",
@@ -6176,7 +6663,8 @@
               1592,
               1592
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "同時実行された`vtest`プロセス同士の調停は行わない。",
@@ -6188,7 +6676,8 @@
               1598,
               1598
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。",
@@ -6200,7 +6689,8 @@
               1599,
               1599
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "「その時点の正典の読み取り」は書込みの原子的公開（基本仕様 §24.2）を前提とする。",
@@ -6215,7 +6705,8 @@
               1601,
               1601
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "原子的公開の対象は`.verify/`配下のrecord・エンティティファイル（新規レコード追加とエンティティファイル編集）であり、完全な内容が単一の操作で可視になる方式（同一ファイルシステム内へのtemp書込み＋rename等）で公開し、書きかけ状態・一時ファイル残渣を正典ディレクトリの読み手に観測させてはならない。",
@@ -6227,7 +6718,8 @@
               1601,
               1601
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "テストコード編集は通常のソース編集と同じ扱いで本規定の対象外とする。",
@@ -6239,7 +6731,8 @@
               1601,
               1601
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "解析不能な中間状態はadapter discoveryのE-SCAN-001 / Incompleteとしてfail-closedに検出される（§5.1）。",
@@ -6251,7 +6744,8 @@
               1601,
               1601
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。",
@@ -6263,7 +6757,8 @@
               1605,
               1606
             ]
-          }
+          },
+          "layer": "basic_design"
         },
         {
           "statement": "ID衝突はE-SCAN-002として検出する。",
@@ -6275,7 +6770,8 @@
               1608,
               1608
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "dangling referenceはE-SCAN-003 / E-SCAN-009 / E-SCAN-012として検出する。",
@@ -6287,7 +6783,8 @@
               1609,
               1609
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "孤児documentはE-SCAN-016として検出する。",
@@ -6299,7 +6796,8 @@
               1610,
               1610
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "承認の失効は§3.5のハッシュ束縛により自動的にdraftへ遷移する。",
@@ -6311,7 +6809,8 @@
               1611,
               1611
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "判断記録・Evidenceの失効は§8.5 / §11.2のハッシュ束縛により自動的に無効（診断STALE）へ遷移する。",
@@ -6323,7 +6822,8 @@
               1612,
               1612
             ]
-          }
+          },
+          "layer": "detailed_spec"
         }
       ]
     },
@@ -6348,7 +6848,8 @@
               1620,
               1620
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`E-SCAN-017`はerrorであり、VOの`combinations`が不正（`coverage_policy: explicit`で欠落・空、`explicit`以外で非空、未宣言dimension・未列挙partitionの参照、宣言dimensionの欠落・重複、重複tuple。§3.2.1）である。当該VOの`chain_integrity`を`MISMATCH`とし、`vo expand`は子VOを生成しない。",
@@ -6361,7 +6862,8 @@
               1624
             ]
           },
-          "description": "表: | コード | 種別 | 内容 |"
+          "description": "表: | コード | 種別 | 内容 |",
+          "layer": "detailed_spec"
         },
         {
           "statement": "`W-SCAN-104`はwarningであり、documentレコードのcontent_hashと実ファイルの不一致である（依存判断・依存Approvalは無効、鎖はchain_integrity STALE）。",
@@ -6373,7 +6875,8 @@
               1625,
               1625
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-EXEC-001`はerrorであり、テストビルド失敗である。",
@@ -6385,7 +6888,8 @@
               1626,
               1626
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-EXEC-002`はerrorであり、要求したテストの結果行が得られないことである。",
@@ -6397,7 +6901,8 @@
               1627,
               1627
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-EXEC-003`はerrorであり、終了コードと結果行集計の矛盾である。",
@@ -6409,7 +6914,8 @@
               1628,
               1628
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-EXEC-004`はerrorであり、実行中にExecution State subjectが変化することである。",
@@ -6421,7 +6927,8 @@
               1629,
               1629
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`W-EXEC-101`はwarningであり、カバレッジツール利用不能である（target_coverageはchecked: false、検証時NO_EVIDENCE/NOT_CHECKED）。",
@@ -6433,7 +6940,8 @@
               1630,
               1630
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-AUDIT-001`はerrorであり、提出されたbundle_idが存在しないことである。",
@@ -6445,7 +6953,8 @@
               1631,
               1631
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-AUDIT-002`はerrorであり、バンドル記録時のハッシュと現在のハッシュの不一致（対象が変更済）である。",
@@ -6457,7 +6966,8 @@
               1632,
               1632
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-AUDIT-003`はerrorであり、subjectまたはjudgment_kindの不一致・値域外・スキーマ違反である。",
@@ -6469,7 +6979,8 @@
               1633,
               1633
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-AUDIT-004`はerrorであり、decisionが受理する判断値でないことである。",
@@ -6481,7 +6992,8 @@
               1634,
               1634
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-AUDIT-008`はerrorであり、supersedesの参照先が存在しない、subjectまたはjudgment_kindが一致しない、または自己参照であることである（§8.4）。",
@@ -6493,7 +7005,8 @@
               1635,
               1635
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-APPROVAL-001`はerrorであり、Approval対象、`judgment_ref`の参照先、または上流依存closureを完全・currentに解決できず、recordを生成しないことである。",
@@ -6505,7 +7018,8 @@
               1636,
               1636
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-APPROVAL-002`はerrorであり、`approved_state`が値域外、`subject`の種別が値域外（判断記録ULID・Test ID等）、または`supersedes`の参照先が存在しない・対象が一致しない・自己参照であることである（§3.5。recordを生成しない）。",
@@ -6517,7 +7031,8 @@
               1637,
               1637
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（未知・重複adapter IDはE-ADAPTER-001）。",
@@ -6529,7 +7044,8 @@
               1638,
               1638
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-CONFIG-002`はerrorであり、呼出しがconfigに定義の無いゲート名を参照することである（`--gate` / MCPの`gate`入力。config内容自体はinvariantを満たす。検証・ゲート評価を実行せず結果を生成しない。§11.5）。",
@@ -6541,7 +7057,8 @@
               1639,
               1639
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-OP-001`はerrorであり、Structured Operationの入力検証失敗（候補提示を伴う。§6.3）である。",
@@ -6553,7 +7070,8 @@
               1640,
               1640
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-OP-002`はerrorであり、Edit対象Testの特定失敗である。",
@@ -6565,7 +7083,8 @@
               1641,
               1641
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-OP-003`はerrorであり、Create / Editの適用後検証に失敗（再パース不能、生成された宣言がdesired stateと不一致、変更が1 Testの範囲を超える）することである。適用前の状態へロールバックし操作を中止する（別紙A §15.2・§15.4）。",
@@ -6582,7 +7101,8 @@
               1642,
               1642
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-ADAPTER-001`はerrorであり、adapterが未登録、重複、またはregistryの宣言と実装が不一致であることである。",
@@ -6594,7 +7114,8 @@
               1643,
               1643
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-ADAPTER-002`はerrorであり、adapterのdiscoveryまたはrunnerが確定的に失敗（Evidenceなし）することである。",
@@ -6606,7 +7127,8 @@
               1644,
               1644
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-ADAPTER-003`はerrorであり、Testのexecution descriptorと選択adapterが不一致であることである。",
@@ -6618,7 +7140,8 @@
               1645,
               1645
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`E-ADAPTER-004`はerrorであり、明示操作に必須のadapter capabilityが未提供（変更・判断・Evidenceなし）であることである。",
@@ -6630,7 +7153,8 @@
               1646,
               1646
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`W-ADAPTER-101`はwarningであり、検証対象のadapter capabilityが未提供であることである（能力に応じNO_EVIDENCE/NOT_CHECKEDまたはNOT_EXECUTED）。",
@@ -6642,7 +7166,8 @@
               1647,
               1647
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`W-ADAPTER-102`はwarningであり、adapterが解析限界を報告することである（該当検査はUNKNOWN）。",
@@ -6654,7 +7179,8 @@
               1648,
               1648
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "旧モデルの意味監査提出検査（E-AUDIT-005 / E-AUDIT-006 / E-AUDIT-007）は判断記録層への転用（§8.4）に伴い撤去する。",
@@ -6666,7 +7192,8 @@
               1650,
               1650
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "終了コード`0`は、要求scopeの検証結果がOK（操作コマンドでは成功）であることを意味する。",
@@ -6679,7 +7206,8 @@
               1654,
               1656
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終了コード`1`は、検証結果がNGであることを意味する。",
@@ -6691,7 +7219,8 @@
               1657,
               1657
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終了コード`2`は、操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-* / E-CONFIG-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない）であることを意味する。",
@@ -6703,7 +7232,8 @@
               1658,
               1658
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終了コード`3`は、内部エラー（ツール自体の異常）であることを意味する。",
@@ -6715,7 +7245,8 @@
               1659,
               1659
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`--gate <name>`を指定した`vtest verify` / `vtest report`では、0と1をゲート充足で決める。",
@@ -6727,7 +7258,8 @@
               1661,
               1661
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "ゲート全体が充足（§11.5の検証条件と承認条件の両方が充足）なら0、いずれかが不充足なら1とする。",
@@ -6739,7 +7271,8 @@
               1661,
               1661
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`require.verification`に`PASS`以外を定義したゲートでは、集約代表値が要求値と一致して充足した実行が0になり、この場合に総合がNGであることは0を妨げない。",
@@ -6751,7 +7284,8 @@
               1661,
               1661
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "要求scopeの総合OK / NGはJSONとtextの集約出力から読み取れる（別紙A §12.1・§12.3）。",
@@ -6768,7 +7302,8 @@
               1661,
               1661
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "ゲート名が未定義の場合はE-CONFIG-002で2とし、0 / 1を返さない。",
@@ -6780,7 +7315,8 @@
               1661,
               1661
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "終了コードは診断severityだけでなく操作段階で決める。",
@@ -6792,7 +7328,8 @@
               1663,
               1663
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`vtest scan` / `vtest doctor`では、registry・config・adapter契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする。",
@@ -6804,7 +7341,8 @@
               1664,
               1664
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`vtest scan` / `vtest doctor`では、scanが完了してrepository整合性のE-SCAN-*を報告した場合は1とする。",
@@ -6816,7 +7354,8 @@
               1665,
               1665
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "`vtest scan` / `vtest doctor`では、errorがなければ0とする。",
@@ -6828,7 +7367,8 @@
               1665,
               1665
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "同一実行に複数候補がある場合は内部エラー3、操作拒否2、検証NG1、成功0の順で優先する。",
@@ -6840,7 +7380,8 @@
               1666,
               1666
             ]
-          }
+          },
+          "layer": "detailed_spec"
         },
         {
           "statement": "検証状態と内部エラーは終了コードで分離する。",
@@ -6855,7 +7396,8 @@
               1666,
               1666
             ]
-          }
+          },
+          "layer": "spec"
         }
       ]
     },
@@ -6881,7 +7423,8 @@
               1672,
               1674
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`#[tokio::test]`等、属性末尾`test`以外のカスタムテスト属性への対応範囲は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -6893,7 +7436,8 @@
               1675,
               1675
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "cargo workspace外の単一クレートプロジェクトでのパス解決の細部は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -6905,7 +7449,8 @@
               1676,
               1676
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "レポートのツリー描画の細部（文字種、折返し）は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。",
@@ -6917,7 +7462,8 @@
               1677,
               1677
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "LSP / rust-analyzer連携によるシンボル解決は提供範囲外とする。",
@@ -6930,7 +7476,8 @@
               1679,
               1681
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "永続インデックス（`cache/`の活用）は提供範囲外とする。",
@@ -6942,7 +7489,8 @@
               1682,
               1682
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "Relationのtombstone方式は提供範囲外とする。",
@@ -6954,7 +7502,8 @@
               1683,
               1683
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "`rust-cargo`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
@@ -6966,7 +7515,8 @@
               1684,
               1684
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "LLM API直接呼び出しによる判断は提供範囲外とする。",
@@ -6978,7 +7528,8 @@
               1685,
               1685
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "rename追跡とSRC恒久IDの自動昇格支援は提供範囲外とする。",
@@ -6990,7 +7541,8 @@
               1686,
               1686
             ]
-          }
+          },
+          "layer": "spec"
         },
         {
           "statement": "cargo-nextest対応は提供範囲外とする。",
@@ -7002,7 +7554,8 @@
               1687,
               1687
             ]
-          }
+          },
+          "layer": "spec"
         }
       ]
     }
