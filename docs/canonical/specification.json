@@ -1650,7 +1650,7 @@
           "items": [
             {
               "id": "REQ-059",
-              "statement": "`orphan_detection` の問いは、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するか、である。",
+              "statement": "`orphan_detection` の問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するか、である。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -7378,7 +7378,7 @@
           "items": [
             {
               "id": "SPEC-059",
-              "statement": "orphan_detectionの問いは、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
+              "statement": "orphan_detectionの問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -12230,7 +12230,7 @@
           "items": [
             {
               "id": "SPEC-291",
-              "statement": "`orphan_detection` は文書層の孤児検出であり、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。",
+              "statement": "`orphan_detection` は文書層の孤児検出であり、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。",
               "derives_from": [
                 "REQ-059",
                 "REQ-060",
@@ -14014,7 +14014,7 @@
             },
             {
               "id": "SPEC-377",
-              "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
+              "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -14909,7 +14909,7 @@
               "items": [
                 {
                   "id": "SPEC-422",
-                  "statement": "`orphan_detection` は文書層のみを対象とし、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。",
+                  "statement": "`orphan_detection` は文書層のみを対象とし、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。",
                   "derives_from": [
                     "REQ-059",
                     "REQ-060",
@@ -16150,8 +16150,8 @@
           ],
           "items": [
             {
-              "id": "DS-022",
-              "statement": "registryの重複ID、未登録adapter、adapter間のTest ID重複は操作エラーとする。",
+              "id": "DS-1631",
+              "statement": "registryの重複ID、未登録adapterは操作エラーとする。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -16163,8 +16163,8 @@
               }
             },
             {
-              "id": "DS-023",
-              "statement": "registryの重複ID、未登録adapter、adapter間のTest ID重複は空のscanとして成功扱いしない。",
+              "id": "DS-1632",
+              "statement": "registryの重複ID、未登録adapterは空のscanとして成功扱いしない。",
               "derives_from": [
                 "REQ-258",
                 "REQ-259",
@@ -16747,7 +16747,11 @@
             {
               "id": "DS-053",
               "statement": "IDの一意性はスキャン時に全数検査する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-055",
+                "REQ-155",
+                "REQ-156"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "3.2 ID 規則と関係リンク",
@@ -16760,7 +16764,10 @@
             {
               "id": "DS-054",
               "statement": "ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする（§5.1、§23）。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-097",
+                "REQ-156"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "3.2 ID 規則と関係リンク",
@@ -21215,7 +21222,7 @@
         },
         {
           "id": "DS-305",
-          "statement": "根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
+          "statement": "`root` 層のノードを除き、根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -22595,7 +22602,7 @@
             },
             {
               "id": "DS-390",
-              "statement": "実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
+              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23942,9 +23949,13 @@
               }
             },
             {
-              "id": "DS-477",
-              "statement": "確認不能は `UNKNOWN`、明示adapterの不一致は `MISMATCH` とし、いずれも `PASS` へ昇格しない。",
-              "derives_from": [],
+              "id": "DS-1629",
+              "statement": "確認不能は `UNKNOWN`、明示adapterの不一致は `NO_EVIDENCE`（診断`STALE`）とし、いずれも `PASS` へ昇格しない。",
+              "derives_from": [
+                "REQ-099",
+                "REQ-120",
+                "SPEC-427"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）",
@@ -24198,9 +24209,15 @@
               }
             },
             {
-              "id": "DS-483",
-              "statement": "v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実現し `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
-              "derives_from": [],
+              "id": "DS-1633",
+              "statement": "v0.1の唯一のadapter `rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
+              "derives_from": [
+                "REQ-055",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 4.1 adapter-neutralな正規化",
@@ -24359,9 +24376,12 @@
               }
             },
             {
-              "id": "DS-494",
-              "statement": "`case` と `related` はキー自体を複数行書ける。",
-              "derives_from": [],
+              "id": "DS-1618",
+              "statement": "`case`・`related`・`target` はキー自体を複数行書ける。",
+              "derives_from": [
+                "REQ-150",
+                "SPEC-085"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 4.2 `rust-cargo` annotation文法",
@@ -24372,24 +24392,11 @@
               }
             },
             {
-              "id": "DS-495",
-              "statement": "`case` と `related` 以外のキーの重複はエラーE-SCAN-005とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.2 `rust-cargo` annotation文法",
-                "lines": [
-                  541,
-                  541
-                ]
-              }
-            },
-            {
-              "id": "DS-496",
-              "statement": "ただし `kind` がintegration系のTestに限り、`target` の複数行を許容する。",
-              "derives_from": [],
-              "cites": [
-                "別紙A §14.3"
+              "id": "DS-1619",
+              "statement": "`case`・`related`・`target` 以外のキーの重複はエラーE-SCAN-005とする。",
+              "derives_from": [
+                "REQ-150",
+                "SPEC-085"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24402,8 +24409,10 @@
             },
             {
               "id": "DS-497",
-              "statement": "許容された複数 `target` 内でも同じTargetRefの重複はE-SCAN-005とする。",
-              "derives_from": [],
+              "statement": "複数 `target` 内でも同じTargetRefの重複はE-SCAN-005とする。",
+              "derives_from": [
+                "REQ-151"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 4.2 `rust-cargo` annotation文法",
@@ -24653,11 +24662,15 @@
               }
             },
             {
-              "id": "DS-513",
-              "statement": "`rust-cargo` は検証対象をSource Targetとして実現する形態であり、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。",
+              "id": "DS-1634",
+              "statement": "`rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。",
               "derives_from": [
                 "SPEC-085",
-                "SPEC-086"
+                "SPEC-086",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
               ],
               "cites": [
                 "基本仕様 §9.2"
@@ -24672,9 +24685,15 @@
               }
             },
             {
-              "id": "DS-514",
-              "statement": "coreの `id` / `covers ≥ 1` / `intent`、および `rust-cargo` の `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
-              "derives_from": [],
+              "id": "DS-1620",
+              "statement": "coreの `id` / `covers ≥ 1` / `intent`、および検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
+              "derives_from": [
+                "REQ-055",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 4.4 宣言エラーの扱い",
@@ -25152,9 +25171,15 @@
               }
             },
             {
-              "id": "DS-541",
-              "statement": "E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata。`rust-cargo` では targets ≥ 1）の欠落を意味する。",
-              "derives_from": [],
+              "id": "DS-1621",
+              "statement": "E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata。`rust-cargo` では検証対象をSource Targetとして実現する実行形態について targets ≥ 1）の欠落を意味する。",
+              "derives_from": [
+                "REQ-055",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.4 整合性診断",
@@ -25231,7 +25256,7 @@
             },
             {
               "id": "DS-547",
-              "statement": "E-SCAN-016はerrorであり、根に指定されない孤児ノード（実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されない）を意味する（§5.6）。",
+              "statement": "E-SCAN-016はerrorであり、根に指定されない孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されない）を意味する（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25508,32 +25533,6 @@
           ],
           "items": [
             {
-              "id": "DS-567",
-              "statement": "欠落はE-SCAN-007として報告する（§4.4・§5.4）。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
-                "lines": [
-                  904,
-                  904
-                ]
-              }
-            },
-            {
-              "id": "DS-568",
-              "statement": "したがって `rust-cargo` のTestは従来どおりSource Target宣言を要し、挙動・Eコード・fixtureは本改訂で実効的に変わらない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
-                "lines": [
-                  904,
-                  904
-                ]
-              }
-            },
-            {
               "id": "DS-569",
               "statement": "`rust-cargo` discoveryの第4段はTest construct抽出であり、属性pathの末尾segmentが\"test\"である関数（`#[test]`、`#[tokio::test]` 等）を抽出する。",
               "derives_from": [],
@@ -25591,9 +25590,13 @@
               }
             },
             {
-              "id": "DS-572",
-              "statement": "`derives_from` が空、かつ他のどのdocumentからも `derives_from` で参照されないdocumentのうち、`doc.roots` に列挙されないものを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
-              "derives_from": [],
+              "id": "DS-1626",
+              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードのうち、`doc.roots` に列挙されないものを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
+              "derives_from": [
+                "REQ-059",
+                "SPEC-059",
+                "SPEC-291"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.6 文書層 orphan_detection",
@@ -27411,9 +27414,15 @@
               }
             },
             {
-              "id": "DS-686",
-              "statement": "v0.1の唯一のadapter`rust-cargo`では検証対象をSource Targetとして宣言しないTestはE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になる。",
-              "derives_from": [],
+              "id": "DS-1622",
+              "statement": "v0.1の唯一のadapter`rust-cargo`では、検証対象をSource Targetとして実現する実行形態のTestが検証対象をSource Targetとして宣言しない場合にE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になり、外部契約・境界上の振る舞いを検証する実行形態のTestはこれに当たらない。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "SPEC-300"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
@@ -29262,14 +29271,17 @@
                   }
                 },
                 {
-                  "id": "DS-804",
-                  "statement": "Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。",
+                  "id": "DS-1624",
+                  "statement": "Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では、検証対象をSource Targetとして実現する実行形態について1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。",
                   "derives_from": [
                     "SPEC-057",
                     "SPEC-058",
                     "SPEC-082",
                     "SPEC-083",
-                    "SPEC-084"
+                    "SPEC-084",
+                    "REQ-147",
+                    "REQ-148",
+                    "SPEC-301"
                   ],
                   "cites": [
                     "基本仕様 §5.1・§9.1",
@@ -29439,8 +29451,8 @@
           ],
           "items": [
             {
-              "id": "DS-780",
-              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（document derives_from・content_hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoではtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
+              "id": "DS-1623",
+              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（document derives_from・content_hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoでは検証対象をSource Targetとして実現する実行形態についてtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
               "description": "4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |",
               "derives_from": [
                 "SPEC-053",
@@ -29466,7 +29478,11 @@
                 "SPEC-290",
                 "SPEC-291",
                 "SPEC-292",
-                "SPEC-293"
+                "SPEC-293",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
               ],
               "cites": [
                 "基本仕様 §5"
@@ -29482,7 +29498,7 @@
             },
             {
               "id": "DS-781",
-              "statement": "`orphan_detection`は評価地点をノードとし、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず`doc.roots`にも列挙されないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
+              "statement": "`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たず`doc.roots`にも列挙されないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29879,9 +29895,13 @@
               }
             },
             {
-              "id": "DS-823",
-              "statement": "Evidenceのadapterが現在のTestのexecution.adapterと明示的に不一致の場合、`MISMATCH`とする。",
-              "derives_from": [],
+              "id": "DS-1628",
+              "statement": "Evidenceのadapterが現在のTestのexecution.adapterと明示的に不一致の場合、`NO_EVIDENCE`（診断`STALE`）とする。",
+              "derives_from": [
+                "REQ-099",
+                "REQ-120",
+                "SPEC-427"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.2 Evidence 鮮度判定（target_binding の証拠有効性）",
@@ -31383,7 +31403,10 @@
             {
               "id": "DS-920",
               "statement": "`E-OP-003`はerrorであり、Create / Editの適用後検証に失敗（再パース不能、生成された宣言がdesired stateと不一致、変更が1 Testの範囲を超える）することである。適用前の状態へロールバックし操作を中止する（別紙A §15.2・§15.4）。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-217",
+                "SPEC-143"
+              ],
               "cites": [
                 "別紙A §15.2・§15.4",
                 "別紙A §15.2",
@@ -32126,9 +32149,14 @@
               }
             },
             {
-              "id": "DS-970",
-              "statement": "`rust-cargo` は `targets ≥ 1` を必須とする。",
-              "derives_from": [],
+              "id": "DS-1635",
+              "statement": "`rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301"
+              ],
               "cites": [
                 "本冊 §4.1・§4.4"
               ],
@@ -33001,7 +33029,7 @@
             },
             {
               "id": "DS-1020",
-              "statement": "根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
+              "statement": "`root` 層のノードを除き、根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
               "derives_from": [],
               "cites": [
                 "本冊 §5.6"
@@ -36720,22 +36748,6 @@
               }
             },
             {
-              "id": "DS-1248",
-              "statement": "`target` キーは integration 種別に限り複数行を許容する。",
-              "derives_from": [],
-              "cites": [
-                "本冊 §4.2の例外"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-                "heading": "14.3 組込フォーム",
-                "lines": [
-                  560,
-                  561
-                ]
-              }
-            },
-            {
               "id": "DS-1249",
               "statement": "先頭以外の target を `@vtest.related` へ変換しない。",
               "derives_from": [],
@@ -37370,11 +37382,15 @@
                   }
                 },
                 {
-                  "id": "DS-1277",
-                  "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
+                  "id": "DS-1625",
+                  "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では、検証対象をSource Targetとして実現する実行形態について `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
                   "derives_from": [
                     "SPEC-057",
-                    "SPEC-058"
+                    "SPEC-058",
+                    "REQ-147",
+                    "REQ-148",
+                    "SPEC-084",
+                    "SPEC-301"
                   ],
                   "cites": [
                     "本冊 §11.1.1",
@@ -38200,9 +38216,13 @@
                   }
                 },
                 {
-                  "id": "DS-1335",
-                  "statement": "孤児判定は、`derives_from` が空、かつ他のどの document からも `derives_from` で参照されず、`doc.roots` にも列挙されない document を孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
-                  "derives_from": [],
+                  "id": "DS-1627",
+                  "statement": "孤児判定は、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
+                  "derives_from": [
+                    "REQ-059",
+                    "SPEC-059",
+                    "SPEC-291"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.2 orphan_detection（文書層の孤児検出）",
@@ -39088,9 +39108,13 @@
                   }
                 },
                 {
-                  "id": "DS-1398",
-                  "statement": "Evidenceのadapter IDがTest execution adapterと異なる場合はMISMATCHになる。",
-                  "derives_from": [],
+                  "id": "DS-1630",
+                  "statement": "Evidenceのadapter IDがTest execution adapterと異なる場合は`NO_EVIDENCE`（診断`STALE`）になる。",
+                  "derives_from": [
+                    "REQ-099",
+                    "REQ-120",
+                    "SPEC-427"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.4 execution・Evidence（target_binding の証拠）",
@@ -41504,9 +41528,12 @@
                   }
                 },
                 {
-                  "id": "DS-1553",
-                  "statement": "editは1 Testの拡張rangeだけを単一置換し、他Testと通常sourceを変更しない。",
-                  "derives_from": [],
+                  "id": "DS-1636",
+                  "statement": "editは、adapterが特定した対象Testのmetadata宣言範囲とTest construct範囲だけを置換し、他Testと通常sourceを変更しない。",
+                  "derives_from": [
+                    "REQ-260",
+                    "SPEC-135"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.10 Structured Test Operation",
@@ -41584,7 +41611,10 @@
                 {
                   "id": "DS-1559",
                   "statement": "ロールバック後に scan すると、当該 create 操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-217",
+                    "SPEC-143"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.10 Structured Test Operation / Create の挿入後検証とロールバック",
@@ -41597,7 +41627,10 @@
                 {
                   "id": "DS-1560",
                   "statement": "部分適用された挿入内容・採番された Test ID・Evidence・判断記録がいずれも残らない。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-217",
+                    "SPEC-143"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.10 Structured Test Operation / Create の挿入後検証とロールバック",
@@ -45908,9 +45941,17 @@
               }
             },
             {
-              "id": "BD-201",
-              "statement": "各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
-              "derives_from": [],
+              "id": "BD-315",
+              "statement": "検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
+              "derives_from": [
+                "REQ-055",
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
@@ -47451,9 +47492,13 @@
           }
         },
         {
-          "id": "BD-257",
-          "statement": "orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が返す拡張範囲を単一置換として適用する。",
-          "derives_from": [],
+          "id": "BD-317",
+          "statement": "orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する。",
+          "derives_from": [
+            "REQ-260",
+            "SPEC-135",
+            "DS-225"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",
@@ -47675,10 +47720,17 @@
               }
             },
             {
-              "id": "BD-269",
-              "statement": "fixture は、`rust-cargo` で `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
-              "description": "`targets ≥ 1`は`rust-cargo` adapterの必須metadata。",
-              "derives_from": [],
+              "id": "BD-316",
+              "statement": "fixture は、`rust-cargo` で検証対象をSource Targetとして実現する実行形態でありながら `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
+              "description": "`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする追加metadataである。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "cites": [
                 "本冊 §4.4・§5.5"
               ],
@@ -47901,7 +47953,7 @@
             },
             {
               "id": "BD-286",
-              "statement": "fixture は、文書鎖の状態として実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
+              "statement": "fixture は、文書鎖の状態として `root` 層以外で実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -52318,9 +52370,16 @@
               }
             },
             {
-              "id": "DES-225",
-              "statement": "E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は `rust-cargo` の必須metadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。",
-              "derives_from": [],
+              "id": "DES-581",
+              "statement": "E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とするmetadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 4.4 宣言エラーの扱い",
@@ -52612,9 +52671,16 @@
               }
             },
             {
-              "id": "DES-243",
-              "statement": "`TestEntity.targets` の件数はadapterが定める（`rust-cargo` は `targets ≥ 1` を必須とする）（§4.1・§4.4）。",
-              "derives_from": [],
+              "id": "DES-582",
+              "statement": "`TestEntity.targets` の件数はadapterが定める（`rust-cargo` は検証対象をSource Targetとして実現する実行形態について `targets ≥ 1` を必須とする）（§4.1・§4.4）。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.2 エンティティモデル（vtest-model）",
@@ -53938,9 +54004,11 @@
               }
             },
             {
-              "id": "DES-345",
-              "statement": "`ManagedTestDraftLink::One` は、構文上有効なTest IDと必須metadata（core中立の `covers ≥ 1` / `intent`、および当該adapterが必須とする追加metadata。`rust-cargo` では `targets ≥ 1`）をdraftとして具体化できる場合に設定する（§4.1・§4.4）。",
-              "derives_from": [],
+              "id": "DES-579",
+              "statement": "`ManagedTestDraftLink::One` は、構文上有効なTest IDと必須metadata（core中立の `covers ≥ 1` / `intent`、および当該adapterが必須とする追加metadata）をdraftとして具体化できる場合に設定する（§4.1・§4.4）。",
+              "derives_from": [
+                "REQ-055"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.2 エンティティモデル（vtest-model）",
@@ -54467,8 +54535,15 @@
             },
             {
               "id": "DES-384",
-              "statement": "検証グラフのエッジ `TEST → SRC` は `targets` であり、検証対象をSource Targetとして実現する形態、1:N（`rust-cargo` では `targets ≥ 1`）である（§4.1）。",
-              "derives_from": [],
+              "statement": "検証グラフのエッジ `TEST → SRC` は `targets` であり、検証対象をSource Targetとして実現する実行形態、1:N（`rust-cargo` では当該形態について `targets ≥ 1`）である（§4.1）。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.3 検証グラフ",
@@ -54588,9 +54663,16 @@
               }
             },
             {
-              "id": "DES-390",
-              "statement": "当該adapterは検証対象をSource Targetとして実現する形態であり、各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とする。",
-              "derives_from": [],
+              "id": "DES-580",
+              "statement": "当該adapterは、検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とし、外部契約・境界上の振る舞いを検証する実行形態のTestには内部Source Targetの宣言をTest成立性の必須条件としない。",
+              "derives_from": [
+                "REQ-147",
+                "REQ-148",
+                "SPEC-084",
+                "SPEC-301",
+                "DS-178",
+                "DS-179"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
@@ -56922,7 +57004,10 @@
             {
               "id": "DES-503",
               "statement": "挿入後の再パース検証とロールバックは Edit と同一の規則で Create にも適用する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-217",
+                "SPEC-143"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "15.2 `rust-cargo` 編集・挿入の適用",
@@ -57084,7 +57169,10 @@
             {
               "id": "DES-516",
               "statement": "ロールバック後は、当該操作より前と同じソーステキストが観測できなければならない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-217",
+                "SPEC-143"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "15.2 `rust-cargo` 編集・挿入の適用",
@@ -57097,7 +57185,10 @@
             {
               "id": "DES-517",
               "statement": "部分適用された挿入内容を残さない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-217",
+                "SPEC-143"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "15.2 `rust-cargo` 編集・挿入の適用",
@@ -57136,7 +57227,10 @@
             {
               "id": "DES-520",
               "statement": "ロールバック後の再スキャンで、当該操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-217",
+                "SPEC-143"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "15.2 `rust-cargo` 編集・挿入の適用",

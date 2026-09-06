@@ -340,5 +340,155 @@
     "old_id": "BD-314",
     "new_id": null,
     "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: fixture が表現する対象（`W-SCAN-104` の状態）が退役したため。"
+  },
+  {
+    "old_id": "DS-494",
+    "new_id": "DS-1618",
+    "reason": "audit13 node disposition 2026-09-06 (theme A): norm changed; `target` を複数行可のキー集合（および E-SCAN-005 の例外集合）へ加え、`kind` が integration 系という下流発明の条件を外した（上流 REQ-150 / SPEC-085 は無条件に許可している）。"
+  },
+  {
+    "old_id": "DS-495",
+    "new_id": "DS-1619",
+    "reason": "audit13 node disposition 2026-09-06 (theme A): norm changed; `target` を複数行可のキー集合（および E-SCAN-005 の例外集合）へ加え、`kind` が integration 系という下流発明の条件を外した（上流 REQ-150 / SPEC-085 は無条件に許可している）。"
+  },
+  {
+    "old_id": "DS-496",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme A): `kind` が integration 系という条件そのものが detailed_spec の発明であり、上流 REQ-150 / SPEC-085 は 1 件以上の Source Target 宣言を無条件に許可している。例外への `target` の追加は DS-1618 / DS-1619 が担う。"
+  },
+  {
+    "old_id": "DS-1248",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme A): DS-496 と同文の別紙A 側。上流に根拠が無く、後継は DS-1618 / DS-1619 が担う。"
+  },
+  {
+    "old_id": "DES-345",
+    "new_id": "DES-579",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "BD-201",
+    "new_id": "BD-315",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-390",
+    "new_id": "DES-580",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "BD-269",
+    "new_id": "BD-316",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-567",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme B): 「欠落」の主語は adapter 一律の `targets ≥ 1` 必須であり、その規範が退役すると主語が消える。上流条件付きの E-SCAN-007 報告は同層の生きた DS-1620 / DS-1621 が持つ。"
+  },
+  {
+    "old_id": "DS-568",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme B): 規範の言い直しと改訂履歴の散文（「従来どおり」「本改訂で実効的に変わらない」）であり、上流に根拠が無い。"
+  },
+  {
+    "old_id": "DS-514",
+    "new_id": "DS-1620",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-541",
+    "new_id": "DS-1621",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-686",
+    "new_id": "DS-1622",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-780",
+    "new_id": "DS-1623",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-804",
+    "new_id": "DS-1624",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-1277",
+    "new_id": "DS-1625",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-225",
+    "new_id": "DES-581",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-243",
+    "new_id": "DES-582",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-572",
+    "new_id": "DS-1626",
+    "reason": "audit13 node disposition 2026-09-06 (theme C): norm changed; 孤児判定から AND の第二条件（他のどの document からも参照されない）を外し、`root` 層の除外を明示した（上流 REQ-059 / SPEC-291 は一条件）。"
+  },
+  {
+    "old_id": "DS-1335",
+    "new_id": "DS-1627",
+    "reason": "audit13 node disposition 2026-09-06 (theme C): norm changed; 孤児判定から AND の第二条件（他のどの document からも参照されない）を外し、`root` 層の除外を明示した（上流 REQ-059 / SPEC-291 は一条件）。"
+  },
+  {
+    "old_id": "DS-823",
+    "new_id": "DS-1628",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-477",
+    "new_id": "DS-1629",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-1398",
+    "new_id": "DS-1630",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-022",
+    "new_id": "DS-1631",
+    "reason": "audit13 node disposition 2026-09-06 (theme F): norm changed; 操作エラーの列挙から「adapter 間の Test ID 重複」を外した（上流 REQ-097 / REQ-199 により Test ID 衝突は `MISMATCH`。registry の重複 ID と未登録 adapter は残る）。"
+  },
+  {
+    "old_id": "DS-023",
+    "new_id": "DS-1632",
+    "reason": "audit13 node disposition 2026-09-06 (theme F): norm changed; 操作エラーの列挙から「adapter 間の Test ID 重複」を外した（上流 REQ-097 / REQ-199 により Test ID 衝突は `MISMATCH`。registry の重複 ID と未登録 adapter は残る）。"
+  },
+  {
+    "old_id": "BD-257",
+    "new_id": "BD-317",
+    "reason": "audit13 node disposition 2026-09-06 (theme H): norm changed; 言語非依存の orchestration 契約から「単一置換」の限定を外し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する形にした（上流 DS-225 / SPEC-135 / REQ-260）。"
+  },
+  {
+    "old_id": "DS-483",
+    "new_id": "DS-1633",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-513",
+    "new_id": "DS-1634",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-970",
+    "new_id": "DS-1635",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-1553",
+    "new_id": "DS-1636",
+    "reason": "audit13 node disposition 2026-09-06 (theme H): norm changed; 受入項目から「単一置換」の限定を外し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ置換する形にした（上流 SPEC-135 / REQ-260。当該節 18.3.10 は adapter 中立の受入項目であり rust-cargo 固有ではない）。"
   }
 ]

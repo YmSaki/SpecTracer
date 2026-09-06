@@ -511,3 +511,246 @@ DS-054    G  基本仕様 §3.2   ID 衝突 → chain_integrity MISMATCH（同�
 - 「同型の未確認候補」に挙げたノードは上流照合をしていない。同文・同義に見えるという観察のみである。
 - 主題 B の「削除後に残る問い」（境界検証形態の rust-cargo Test に対する `target_binding` の確認方法）は、上流 REQ-070 が下位仕様へ委譲したまま埋まっていない。処置の可否とは独立の未決事項として開示する。
 - 置換文は上流の逐語からの転記として書いた。表記（バッククォート・読点）は当該節の既存文体に合わせたが、**採否と最終文言は Owner の判断による**。
+
+---
+
+# 適用結果（2026-09-06）
+
+**本節より上は提案である。本節は適用の記録である。** Owner の裁定と PM の演繹を受け、`docs/canonical/specification.json` と `docs/canonical/relations/retired-ids.json` を編集した。**コミットはしていない。** `docs/` の md は一切変更していない。
+
+## 適用の枠（PM 指示。審査中に変更していない）
+
+- **原則（Owner、2026-09-06）**: 下流の規則は、上流の条件と**少なくとも同じ精度で条件づけられて**いなければならない。上流と別のもの（adapter、`kind`）で条件づける下流規則は、その条件が上流の条件を満たすという根拠を要し、根拠が無ければ上流の条件へ書き換える。
+- 置換文は**報告本文が逐語引用した上流文の転記**に限った。上流に無い内容は足していない。
+- **新 id の判定は一つの基準で全主題に当てた**: 「その文が真になる入力集合が変わるか」。変わる → 新 id ＋ 旧 id を退役。変わらない（削除された条件への参照を落とす、モデルが既に含意することを明示する）→ **id 据置**。各表に「処置」列で示す。
+- 退役台帳 `relations/retired-ids.json` は既存の key（`old_id` / `new_id`）に `reason` を加えた形で追記した。後継を持たない退役は `new_id: null`。`reason` は**主題ごとに何が変わったかを書き分けた**（総称文言を全件に流用しない）。
+- 退役 id を `derives_from` で指す生きたノードは無かった（適用前に全 3,851 ノードを走査して確認）ため、張り替えは発生していない。
+- 項目が空になった節は無かったため、節の退役は発生していない。
+
+## A. 複数 Source Target の宣言を integration 系に限る
+
+| 旧 id | 処置 | 新 id | 適用後の statement |
+|---|---|---|---|
+| `DS-494` | 新 id | `DS-1618` | `` `case`・`related`・`target` はキー自体を複数行書ける。 `` |
+| `DS-495` | 新 id | `DS-1619` | `` `case`・`related`・`target` 以外のキーの重複はエラーE-SCAN-005とする。 `` |
+| `DS-496` | 退役 | `null` | — |
+| `DS-497` | id 据置 | `DS-497` | `` 複数 `target` 内でも同じTargetRefの重複はE-SCAN-005とする。 `` |
+| `DS-1248` | 退役 | `null` | — |
+
+`DS-1618` / `DS-1619` の `derives_from` に `REQ-150`・`SPEC-085` を、`DS-497` に `REQ-151` を付けた。`DS-497` が id 据置なのは、消えた条件（`DS-496` の「許容された」）への参照を落としただけで、E-SCAN-005 になる入力集合が変わらないためである。
+
+## B. rust-cargo の全 Test に `targets ≥ 1` を一律必須にする
+
+置換の型は共通で、上流 `REQ-147` / `REQ-148` の語彙をそのまま使った。
+
+- 必須の側: **検証対象をSource Targetとして実現する実行形態**の Test に `targets ≥ 1` を必須とする。
+- 免除の側: **外部契約・境界上の振る舞いを検証する実行形態**の Test には内部 Source Target の宣言を Test 成立性の必須条件としない。
+
+`derives_from` は detailed_spec のノードに `REQ-147`・`REQ-148`・`SPEC-084`・`SPEC-301`（＋必須metadataの列挙を運ぶものは `REQ-055`）、basic_design / design のノードにはこれに加えて `DS-178`・`DS-179`（基本仕様 §9.1 L355 の逐語が正典ではこの層にある）を付けた。
+
+### B-1. 報告 §B の処置案に挙げた 6 ノード
+
+| 旧 id | 層 | 処置 | 新 id | 適用後の要点 |
+|---|---|---|---|---|
+| `DES-345` | design | 新 id | `DES-579` | `` 。`rust-cargo` では `targets ≥ 1` `` の一句を落とし、`REQ-055` の転記に戻した |
+| `DS-567` | detailed_spec | 退役 | `null` | 「欠落」の主語が adapter 一律必須であり、その規範が退役すると主語が消える。上流条件付きの E-SCAN-007 報告は生きた `DS-1620` / `DS-1621` が持つ |
+| `DS-568` | detailed_spec | 退役 | `null` | 規範の言い直し＋改訂履歴の散文（「従来どおり」「本改訂で実効的に変わらない」）で、上流に根拠が無い |
+| `BD-201` | basic_design | 新 id | `BD-315` | 必須要求を実行形態で条件づけたうえで、層帰属（core 中立の必須リンクではない）はそのまま残した |
+| `DES-390` | design | 新 id | `DES-580` | 本主題の主箇所。前段の断定（`rust-cargo` は `REQ-147` の形態だけの adapter だ）を削り、両側を書いた |
+| `BD-269` | basic_design | 新 id | `BD-316` | fixture の対象を実行形態で条件づけた。`description` も同時に書き換えた |
+
+### B-2. 報告 §B が「同型の未確認候補」として挙げた 10 ノード
+
+| 旧 id | 層 | 処置 | 新 id | 何を直したか |
+|---|---|---|---|---|
+| `DS-514` | detailed_spec | 新 id | `DS-1620` | 「`rust-cargo` の `targets ≥ 1`」→「当該実行形態について `rust-cargo` が必須とする `targets ≥ 1`」 |
+| `DS-541` | detailed_spec | 新 id | `DS-1621` | E-SCAN-007 の定義。**総称部分（必須metadata の欠落）は残した**。`DS-567` を後継なしで退役させた根拠がここに掛かっている |
+| `DS-686` | detailed_spec | 新 id | `DS-1622` | 上流 `REQ-148` が免除した Test を名指しで `MISMATCH` にしていた文。免除側の一句を明記した |
+| `DS-780` | detailed_spec | 新 id | `DS-1623` | 角括弧内の「rust-cargoではtargets ≥ 1」を条件づけた。既存の `derives_from`（SPEC 24 件）と `cites` は保存し、上流 4 件を追記した |
+| `DS-804` | detailed_spec | 新 id | `DS-1624` | 同上。既存の `derives_from` 5 件を保存 |
+| `DS-1277` | detailed_spec | 新 id | `DS-1625` | 同上。既存の `derives_from` 2 件を保存 |
+| `DES-225` | design | 新 id | `DES-581` | E-SCAN-007 の検出経路。`targets ≥ 1` の帰属を条件づけた |
+| `DES-243` | design | 新 id | `DES-582` | 括弧内の「`rust-cargo` は `targets ≥ 1` を必須とする」を条件づけた |
+| `DES-244` | design | **変更不要** | `DES-244` | core が `targets ≥ 1` を中立必須にしないという core 側の文であり、adapter 一律規則を運んでいない。書き換えると内容を足すことになる |
+| `DES-384` | design | **id 据置** | `DES-384` | 本文が既に「検証対象をSource Targetとして実現する形態」で限定しているため入力集合は変わらない。無条件に読める括弧内だけ「当該形態について」に直した |
+
+### B-3. 掃引で見つかった 3 ノード（報告のどの表にも無い）
+
+PM 指示「`rust-cargo requires targets for all Tests` をどこにも残さない」は、13 箇所と 10 候補の処置だけでは満たせない。適用後に全 3,847 ノードの `statement` / `description` を `targets ≥ 1` と `E-SCAN-007` で掃引したところ、同じ規範を運ぶ文が 3 件残っていた。同じ型で書き換えた。
+
+| 旧 id | 層 | 新 id | 旧 statement |
+|---|---|---|---|
+| `DS-483` | detailed_spec | `DS-1633` | v0.1の唯一のadapter `rust-cargo` は検証対象をSource Targetとして実現し `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。 |
+| `DS-513` | detailed_spec | `DS-1634` | `` `rust-cargo` は検証対象をSource Targetとして実現する形態であり、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。 `` |
+| `DS-970` | detailed_spec | `DS-1635` | `` `rust-cargo` は `targets ≥ 1` を必須とする。 `` |
+
+掃引後に残った `targets ≥ 1` の言及は、**core 側の否定文**（`DS-482`、`DES-244`、`DES-481`）と、**adapter 名を持たない総称文**（`DS-560`、`DES-229`）と、`covers ≥ 1` の話（`DS-1256`）だけである。adapter 一律の必須要求を運ぶ文は残っていない。
+
+### B の未決事項（処置とは独立。再掲）
+
+境界検証形態の `rust-cargo` Test に対する `target_binding` の確認方法は、`REQ-070` が下位仕様へ委譲したまま埋まっていない。一律必須の削除はこの穴を埋めない。**上流が委譲した穴として別途起票する項目**である。置換文はこの点について何も決めていない（誰がどう実行形態を判定するかも書いていない）。
+
+## C. 孤児判定に第二条件を AND で追加
+
+| 旧 id | 層 | 処置 | 新 id | 適用後の statement |
+|---|---|---|---|---|
+| `DS-572` | detailed_spec | 新 id | `DS-1626` | `` `root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードのうち、`doc.roots` に列挙されないものを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。 `` |
+| `DS-1335` | detailed_spec | 新 id | `DS-1627` | 孤児判定は、`` `root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。 `` |
+
+`derives_from` に `REQ-059`・`SPEC-059`・`SPEC-291` を付けた。
+
+### AND 形が誤りである理由
+
+第二条件は「他のどの document からも `derives_from` で参照されない」である。これを AND で足すと、**下流から参照されている根なしノードが孤児から外れる。**
+
+具体例。`derives_from` が空で `doc.roots` にも列挙されていないノード `D` があり、別のノード `E` が `derives_from: [D]` を宣言している。上流の一条件では `D` は実効的な上流を持たないので孤児（`MISMATCH`）。第二条件つきでは `D` は `E` から参照されているので孤児から外れ、検出されない。
+
+`D` は**宣言されていない根**である。上流に根拠を持たない規範を誰かが足し、それを下流が参照した瞬間に、その規範は孤児検出をすり抜ける。**発明された規範ほど下流参照を持ちやすいので、第二条件は隠したいものを狙って隠す形になっている。** 検出を狭める方向の追加であり fail-closed に反する。
+
+第二条件が本当にやろうとしていたのは**根の除外**である。それは既に `doc.roots` が担っており、7 層モデルでは `root` 層が構造的に担う。だから第二条件は不要で、`root` 層の除外がその位置に入る。
+
+### 同じ判定基準を運ぶ他ノードの整合（id 据置）
+
+2026-09-06 の文書モデル再整合で「実効的な上流（自分の辺 ∪ 先祖の辺）を持たない」へ揃えた文のうち、判定基準を書いているものに `root` 層の除外を足した。**`root` 層は schema 上 `derives_from` を持たない唯一の層**なので、除外が無ければ `ROOT-001`〜`ROOT-047` の全件が孤児になる。モデルが既に含意することを明示しただけなので **id は据え置いた**。
+
+| id | 層 |
+|---|---|
+| `REQ-059` | require |
+| `SPEC-059`、`SPEC-291`、`SPEC-377`、`SPEC-422` | spec |
+| `DS-305`、`DS-390`、`DS-547`、`DS-781`、`DS-1020` | detailed_spec |
+| `BD-286` | basic_design |
+
+判定基準を書いていない 2 件（`DS-563`「E-SCAN-016（孤児ノード）は `orphan_detection = MISMATCH` に写像する」、`DS-899`「孤児ノードはE-SCAN-016として検出する」）は、定義を参照するだけなので触れていない。
+
+### PM 指示との差（開示）
+
+PM の指示文は置換形を「`root` 層の外にあり実効的な上流が空のノード」と書いており、`doc.roots` に触れていない。**`doc.roots` は残した。** `DS-571`、`DS-1010`、`DS-1011`、`DS-1334`、`DS-1336`、`DS-916`、`BD-203`、`BD-285`、`DES-111` が生きた機構として `doc.roots` を規定しており、`DS-572` / `DS-1335` からだけ落とすと主題 C の外に desync を作る。他 12 件への指示（「無ければ `root` 層除外を**足す**」）と読み合わせ、`doc.roots` の削除指示ではないと解した。
+
+## D. Evidence の adapter 不一致だけを `MISMATCH` に割り当てる
+
+| 旧 id | 層 | 処置 | 新 id | 適用後の statement |
+|---|---|---|---|---|
+| `DS-823` | detailed_spec | 新 id | `DS-1628` | `` Evidenceのadapterが現在のTestのexecution.adapterと明示的に不一致の場合、`NO_EVIDENCE`（診断`STALE`）とする。 `` |
+| `DS-477` | detailed_spec | 新 id | `DS-1629` | `` 確認不能は `UNKNOWN`、明示adapterの不一致は `NO_EVIDENCE`（診断`STALE`）とし、いずれも `PASS` へ昇格しない。 `` |
+| `DS-1398` | detailed_spec | 新 id | `DS-1630` | `` Evidenceのadapter IDがTest execution adapterと異なる場合は`NO_EVIDENCE`（診断`STALE`）になる。 `` |
+
+`derives_from` に `REQ-099`・`REQ-120`・`SPEC-427` を付けた。adapter ID は鮮度条件の一つ（`DS-818` が5条件の一つとして並置し、`DES-077` が `test_subject` hash に adapter ID を束縛している）なので、不一致は鮮度喪失であり、上流 `REQ-099` の割当は `NO_EVIDENCE`＋診断 `STALE` である。
+
+DELETE ではなく REWRITE にしたので、`DS-817`（adapter 一致を検査する）が結果の記述を持たない検査として残ることはない。適用後に「adapter の不一致 → `MISMATCH`」を運ぶ文を全ノード掃引したが 0 件だった。
+
+## E. 編集失敗時のロールバック義務
+
+**保持**。7 ノードすべてに `derives_from` として `REQ-217`・`SPEC-143` を付けた。**statement は 1 文字も変えていない。**
+
+| id | 層 |
+|---|---|
+| `DS-920`、`DS-1559`、`DS-1560` | detailed_spec |
+| `DES-503`、`DES-516`、`DES-517`、`DES-520` | design |
+
+**これは導出であって明文ではない。** `REQ-217` は「事故を低減し…であることが**望ましい**」であり義務を課していない。公式編集経路が部分適用を残しうるなら、公式経路を通ったほうが直接編集より状態が悪くなり、`REQ-217` が低減しようとした事故（誤編集・更新忘れ・複数 Test 同時変更）を公式経路自身が作り出す。目的が反転するので、ロールバックは `REQ-217` の実現手段（HOW）として正当な具体化である。この導出は本節に記録し、`derives_from` は参照として張った（Owner 裁定 `ROOT-041`「あくまで derives_from は参照なので」に従う）。
+
+## F. Test ID 重複を操作エラーにする
+
+| 旧 id | 層 | 処置 | 新 id | 適用後の statement |
+|---|---|---|---|---|
+| `DS-022` | detailed_spec | 新 id | `DS-1631` | registryの重複ID、未登録adapterは操作エラーとする。 |
+| `DS-023` | detailed_spec | 新 id | `DS-1632` | registryの重複ID、未登録adapterは空のscanとして成功扱いしない。 |
+
+「adapter間のTest ID重複」の一項だけを落とした。registry の重複 ID と未登録 adapter は要件定義 §21 の委譲の範囲内で正当なので残した。`DS-1632` は旧 `DS-023` の `derives_from`（`REQ-258`〜`REQ-266`）と `cites`（要件定義 §21）をそのまま継承している。
+
+**Test ID 衝突の帰結は `MISMATCH` である**（`REQ-097`「Test ID 衝突が生じる場合、状態は `MISMATCH` となる。」、`REQ-199`「`M` は…他の entity と Test ID が衝突する entity も含む。」）。この割当は既に `DS-298`・`DS-536`・`DS-561`・`DS-1279` が持っており、いずれも生きている。**新しいノードは作っていない**（作れば `CONVERSION.md` §2「1 statement = 1 規範文」に反する重複になる）。
+
+`REQ-097` / `REQ-199` を `DS-1631` / `DS-1632` の `derives_from` には**張っていない**。「registry の重複 ID は操作エラー」という規範は `REQ-097` から導出されていないので、張ると辺の意味が壊れる。削除の根拠は本節に記録する。
+
+## G. ID 一意性を DOC / VO に一般化
+
+**保持**。報告は DELETE を推していたが、PM 指示は KEEP ＋ `derives_from` の付与である。statement は変えていない。
+
+| id | 適用後の `derives_from` |
+|---|---|
+| `DS-053`（IDの一意性はスキャン時に全数検査する） | `REQ-055`、`REQ-155`、`REQ-156` |
+| `DS-054`（ID衝突は `chain_integrity` の非 `PASS`） | `REQ-097`、`REQ-156` |
+
+**これは導出であって明文ではない。** 上流が一意性を課しているのは Test ID（`REQ-055`）と恒久 SRC ID（`REQ-155`）だけで、DOC ID / VO ID の一意性を課した文は require 層に無い。DOC / VO への一般化は次の演繹による: ID が衝突すると参照の解決が曖昧になり、`REQ-156`「同一 SRC ID を複数 adapter または複数 Source Target が宣言した状態を曖昧な参照として受理してはならない」が禁じた状態と同じ類になる。衝突の帰結は Test ID 衝突と同じ `MISMATCH`（`REQ-097`）である。`REQ-156` は SRC ID に限定した文なので、DOC / VO への一般化の根拠としては**演繹**である。
+
+報告が指摘した重複（`DS-544` の E-SCAN-010 が互換正規化後の logical record ID 重複を既に持っており、`DS-054` が同じ事象へ別の帰結を割り当てている）は**未解消のまま残る**。保持の指示に従ったためで、開示事項として残す。
+
+## H. 編集の適用を「単一置換」に限定
+
+| 旧 id | 層 | 処置 | 新 id | 適用後の statement |
+|---|---|---|---|---|
+| `BD-257` | basic_design | 新 id | `BD-317` | orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する。 |
+
+`derives_from` に `REQ-260`・`SPEC-135`・`DS-225` を付けた。**2 つの範囲を許しているのは `DS-225`**「編集はadapterが特定した単一のmetadata宣言範囲とTest construct範囲に限定する。」（元「基本仕様 L462」。正典では `detailed_spec` なので `basic_design` から見て上流）である。core が返す範囲は 1 つとは限らず、adapter が返したものをそのまま適用する。
+
+### 「単一置換」を運ぶ残り 2 ノードの仕分け（節の所属で判定した）
+
+適用後の掃引で「単一置換」が 2 件残ったため、`BD-257` と同じ判定を当てた。判定は文の見た目ではなく**その文がどの節に属するか**で切った。
+
+| id | 層 | 所属節 | 判定 | 処置 |
+|---|---|---|---|---|
+| `DS-1553` | detailed_spec | 別紙C `DS-S158`「18.3.10 Structured Test Operation」 | **(a) 共通契約** | 新 id `DS-1636`。「editは、adapterが特定した対象Testのmetadata宣言範囲とTest construct範囲だけを置換し、他Testと通常sourceを変更しない。」`derives_from` に `REQ-260`・`SPEC-135` |
+| `DES-498` | design | 別紙A `DES-S092`「15.2 `rust-cargo` 編集・挿入の適用」 | **(b) adapter 固有** | **据え置き。** adapter 固有のため据え置き |
+
+`DS-1553` を (a) と判定した根拠は同節の兄弟文である。`DS-1549`「coreは未知kindを `rust-cargo` へfallbackしない。」、`DS-1551`「…すべてのadapterへ一律に要求しない。」、`DS-1555`「Structured Test capabilityがないadapterへのcreate / editはE-ADAPTER-004となり…」。**18.3.10 は adapter 中立の受入項目の節**であり、`rust-cargo` の節ではない。報告本文 §H が「別紙C の受入項目で、対象を `rust-cargo` として読める」と書いたのは節の所属を確かめずに書いた読みであり、**その読みは兄弟文と両立しない。**
+
+`DES-498` を (b) と判定した根拠は 2 つ。節の題が `rust-cargo` を名指ししていること、および `BD-259`「§15.1〜§15.4 は `rust-cargo` StructuredTestAdapter の構文処理を定める。」。statement 自身も「doc comment 先頭〜関数末尾」と Rust の構文構造を名指ししている。`rust-cargo` の実現方法として正当なので、書き換えない。
+
+問題は `BD-257` と `DS-1553` が言語非依存の層に置かれていたことだった。
+
+## 対象外（処置しなかった隣接文）
+
+報告 §5 が挙げた 29 ノードのうち 7 件は指摘された規範を運んでいない隣接文であり、触れていない: `DS-498`、`DS-1247`、`DES-344`、`BD-200`、`DES-389`、`BD-016`、`DES-009`。
+
+## 検査結果
+
+適用後の `docs/canonical/specification.json`（3,847 ノード）と `relations/retired-ids.json`（99 エントリ、退役 id 97 件）に対して機械検査を実行した。**全項目 PASS、exit 0。**
+
+```
+PASS  id unique (3847 nodes)
+PASS  id pattern
+PASS  no retired id alive (97 retired)
+PASS  derives_from targets exist
+PASS  no live->retired edge
+PASS  retirement chains resolve (alive or null)
+PASS  jsonschema validate
+PASS  derives_from no duplicates
+PASS  derives_from points strictly upstream
+PASS  no section without items/sections
+FAILURES: 0
+```
+
+`jsonschema validate` は `specification.schema.json` に対する `Draft202012Validator`。`derives_from points strictly upstream` は `root` → `request` → `require` → `spec` → `detailed_spec` → `basic_design` → `design` の層順で、辺が厳密に上流を指すことを全辺で確かめた（層をまたがない辺・下流を指す辺が 0 件）。
+
+掃引（全ノードの `statement` + `description` に対する正規表現）の結果:
+
+| 掃引 | 件数 | 残存 |
+|---|---|---|
+| `targets ≥ 1` / `E-SCAN-007` | 21 | adapter 一律の必須要求は 0。残りは core 側の否定文・総称文・`covers ≥ 1` |
+| integration 系限定の複数 target | 0 | — |
+| adapter 不一致 → `MISMATCH` | 0 | — |
+| 孤児判定（判定基準を書く文） | 13 | すべて `root` 層除外つき |
+| Test ID 重複 | 4 | `MISMATCH` 側のみ（`DS-298`、`DS-536`、`SPEC-353`、`SPEC-377`）。操作エラー側は 0 |
+| 単一置換 | 1 | `DES-498` のみ（別紙A §15.2 の rust-cargo 節。意図的に残置）。`DS-1553` は共通契約の節にあったので書き換えた |
+
+書式は保存されている（CRLF、indent 2、key 順、`ensure_ascii=False`）。両ファイルとも、読み込んで同じ規則で書き戻すと byte 単位で一致することを確認した。
+
+## `git diff --numstat`
+
+```
+150	0	docs/canonical/relations/retired-ids.json
+252	158	docs/canonical/specification.json
+```
+
+（`AGENTS.md` の変更は本作業の開始時点で既に作業ツリーにあったもので、本作業では触れていない。）
+
+退役台帳への追記は 30 件（`new_id` あり 26 件、`new_id: null` 4 件）。`specification.json` からノードが消えたのは 4 件（`DS-496`、`DS-1248`、`DS-567`、`DS-568`）。
+
+## 本節の限界（開示）
+
+- **主題 E と G は導出である。** どちらも上流に明文が無い。E は `REQ-217` の目的が反転することからの演繹、G は `REQ-156` の曖昧参照禁止からの類推である。`derives_from` は参照として張ったが、**明文の裏付けではない**。裁定を覆す材料が出れば両方とも動く。
+- **主題 C の 12 件は id 据置とした。** `root` 層の除外はモデルが既に含意することの明示だと判断したが、厳密には判定される入力集合が変わる（`ROOT-` の 47 件が孤児から外れる）。2026-09-06 の再整合が孤児判定の 12 件を REWORD にした先例に揃えた。この緊張は残る。
+- **主題 G の重複は解消していない。** `DS-054`（ID 衝突 → `chain_integrity` の `MISMATCH`）と `DS-544`（logical record ID 重複 → E-SCAN-010）が同じ事象に別の帰結を割り当てている状態が続く。
+- **主題 B の未決事項は埋めていない。** 境界検証形態の Test に対する `target_binding` の確認方法は `REQ-070` が委譲したまま空である。
+- **`source` は書き換えたノードでも旧ノードから継承した。** schema は `source` を「元 md のどこから写したか」と定義しているので、書き換え後のノードでは「写した」が成立しない。指す行にあるのは退役した旧規範である。`source` は移行期間限定の field であり、辺を辿って元 md を読む者が旧規範を正と誤読しないよう、ここに開示する（2026-09-06 の文書モデル再整合の §A.2 と同じ開示）。
+- **掃引は 6 パターンの正規表現による。** パターンが当たらない言い換えは検出できていない。逆方向の監査（上流にあるのに下流に無い＝欠落）はしていない。
