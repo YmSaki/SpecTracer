@@ -28201,7 +28201,7 @@
             {
               "id": "DS-724",
               "statement": "判断記録が有効であるとは、judgment_kindが§8.1の値域内であり、subjectが一致し、subject_hashが現在の内容ハッシュと一致し、dependenciesが現在の上流依存closureとentity・hashとも完全一致することをいう。",
-              "description": "document は登録 content_hash と実ファイルの一致も要求。不一致の場合は当該 document を STALE とし、依存する判断記録も無効。",
+              "description": "document ノードについては、依存 closure が束縛したノードのハッシュが現在の subject hash と一致することも要求する。一致しない場合は当該ノードを STALE とし、依存する判断記録も無効とする（§3.1）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29480,8 +29480,8 @@
           ],
           "items": [
             {
-              "id": "DS-1623",
-              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（document derives_from・content_hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoでは検証対象をSource Targetとして実現する実行形態についてtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
+              "id": "DS-1644",
+              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（ノードの `derives_from`・subject hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoでは検証対象をSource Targetとして実現する実行形態についてtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
               "description": "4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |",
               "derives_from": [
                 "SPEC-053",
@@ -45130,9 +45130,11 @@
               }
             },
             {
-              "id": "BD-168",
-              "statement": "仕様文書そのものは `.verify/` へ複製しない。",
-              "derives_from": [],
+              "id": "BD-327",
+              "statement": "上流文書の正典はノードそのものであり、md 形式の文書はノードからの一方向エクスポートである。",
+              "derives_from": [
+                "ROOT-039"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
