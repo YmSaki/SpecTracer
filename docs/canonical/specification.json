@@ -22536,8 +22536,8 @@
               }
             },
             {
-              "id": "DS-384",
-              "statement": "`anchor` の値は不透明な文字列として保存・出力するだけであり、本システムは `anchor` を `path` の実ファイル内位置へ解決せず、実在・一意性・書式を検証しない。",
+              "id": "DS-1639",
+              "statement": "VO レコードの `derives_from` entry の `anchor` の値は不透明な文字列として保存・出力するだけであり、本システムは `anchor` を解決せず、実在・一意性・書式を検証しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22549,8 +22549,8 @@
               }
             },
             {
-              "id": "DS-385",
-              "statement": "`anchor` の内容不一致を検出する検査・診断コードは存在しない。",
+              "id": "DS-1640",
+              "statement": "VO レコードの `anchor` の内容不一致を検出する検査・診断コードは存在しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22562,8 +22562,8 @@
               }
             },
             {
-              "id": "DS-386",
-              "statement": "同一 `doc` を指す複数entryを `anchor` 違いで持つことを許容し、重複としない。",
+              "id": "DS-1641",
+              "statement": "VO レコードは同一 `doc` を指す複数 entry を `anchor` 違いで持つことを許容し、重複としない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23013,8 +23013,8 @@
               }
             },
             {
-              "id": "DS-398",
-              "statement": "VOの `derives_from` entryもdocumentレコードと同じく任意の `anchor`（参照先document内の該当箇所を指す不透明な文字列。節番号・条項番号・見出し等）と任意の `note` を持つ。",
+              "id": "DS-1638",
+              "statement": "VOの `derives_from` entry は、任意の `anchor`（参照先ノード内の該当箇所を指す不透明な文字列。節番号・条項番号・見出し等）と任意の `note` を持つ。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -34953,8 +34953,8 @@
               }
             },
             {
-              "id": "DS-1142",
-              "statement": "`--format json` の trace 出力に含まれる `derives_from` エッジ（DOC → DOC、DOC → VO）は、`anchor` と `note` を同伴する。",
+              "id": "DS-1642",
+              "statement": "`--format json` の trace 出力に含まれる `derives_from` エッジのうち、ノード → ノードのエッジは `anchor` と `note` を同伴しない。ノード → VO のエッジは `anchor` と `note` を同伴する。",
               "derives_from": [
                 "SPEC-109",
                 "SPEC-110",
@@ -34990,8 +34990,8 @@
               }
             },
             {
-              "id": "DS-1143",
-              "statement": "エッジ要素は `{ \"from\": \"DOC-REQ-001\", \"relation\": \"derives_from\", \"anchor\": \"§12.3\", \"note\": \"\", \"to\": \"VO-PARSER-UTF8-003\" }` の形とする。",
+              "id": "DS-1643",
+              "statement": "エッジ要素は `{ \"from\": \"<上流ノード id>\", \"relation\": \"derives_from\", \"anchor\": \"<任意>\", \"note\": \"<任意>\", \"to\": \"VO-PARSER-UTF8-003\" }` の形とする。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -50699,8 +50699,8 @@
               }
             },
             {
-              "id": "DES-571",
-              "statement": "`anchor` は `derives_from` の entry field としても Test metadata としても存在しない（§4.1）。",
+              "id": "DES-583",
+              "statement": "ノードの `derives_from` は entry field を持たず、`anchor` はノードの `derives_from` にも Test metadata にも存在しない（§4.1）。VO レコードの `derives_from` entry の `anchor` は §3.2 に従う。",
               "derives_from": [
                 "SPEC-123",
                 "SPEC-124",

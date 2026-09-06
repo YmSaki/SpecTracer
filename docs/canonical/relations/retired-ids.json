@@ -535,5 +535,40 @@
     "old_id": "BD-061",
     "new_id": "BD-326",
     "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため「異なるエンティティへの並列変更は異なるファイルへの変更になる」は同一文書内の別ノードについて偽になる。BD-324 と対の条文であり、片方だけ残すと裁定の帰結が隠れる。"
+  },
+  {
+    "old_id": "DES-571",
+    "new_id": "DES-583",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; 無条件の否定文が上位層の DS-398（detailed_spec）と BD-171（basic_design）に反していたため、DS-1594 のスコープ語（ノードの）を転記して限定した。"
+  },
+  {
+    "old_id": "DS-398",
+    "new_id": "DS-1638",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; 「documentレコードと同じく」という句は DS-1594 により偽になったため落とし、参照先を document から上流ノードへ改めた。"
+  },
+  {
+    "old_id": "DS-384",
+    "new_id": "DS-1639",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であり、`path` の実ファイル内位置への言及は ROOT-047 のもとで偽である。生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-385",
+    "new_id": "DS-1640",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であるため、生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-386",
+    "new_id": "DS-1641",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であるため、生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-1142",
+    "new_id": "DS-1642",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; DS-1594 / DS-1595 が node → node の anchor / note を否定し、DS-1638 が VO 側を保持しているため、エッジ種別ごとに条件づけた。先行報告（doc-model realignment 2026-09-06）の REWORD 判定が未適用のまま残っていた分を含む。"
+  },
+  {
+    "old_id": "DS-1143",
+    "new_id": "DS-1643",
+    "reason": "canonical holes 2026-09-07 (H-3/H-1): norm changed; 例の `from` が `DOC-REQ-001` であり、H-1 により `DOC-` は死んだ値域である。具体的なノード id を選ぶと正本が言っていない対応を作るため、プレースホルダにした。"
   }
 ]
