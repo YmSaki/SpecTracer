@@ -35,11 +35,7 @@ A material canonical or safety violation discovered outside the declared axes mu
 
 Read the applicable sections in this order:
 
-1. `docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md`
-2. `docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md`
-3. `docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md`
-4. `docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md`
-5. `docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md`
+1. `docs/canonical/specification.json`（正本。層の順に root → request → require → spec → detailed_spec → basic_design → design。旧 md は `docs/archive/` に退役、規範として引用しない）
 6. `DEVELOPMENT.md` for process and Git policy only.
 
 An implementation schedule is non-normative. `DEVELOPMENT.md` is not a product-behavior authority. When normative levels disagree, preserve the higher product authority and cite exact sections. Do not choose implementation behavior as authority.
