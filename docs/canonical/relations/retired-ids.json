@@ -490,5 +490,10 @@
     "old_id": "DS-1553",
     "new_id": "DS-1636",
     "reason": "audit13 node disposition 2026-09-06 (theme H): norm changed; 受入項目から「単一置換」の限定を外し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ置換する形にした（上流 SPEC-135 / REQ-260。当該節 18.3.10 は adapter 中立の受入項目であり rust-cargo 固有ではない）。"
+  },
+  {
+    "old_id": "BD-019",
+    "new_id": "BD-318",
+    "reason": "canonical holes 2026-09-07 (H-1): norm changed; `DOC-` は specification.schema.json の `$defs/id` パターンに無く、ROOT-047 のもとで死んだ値域である。id 接頭辞は層ごとの接頭辞（SPEC-462）へ再条件づけした。"
   }
 ]

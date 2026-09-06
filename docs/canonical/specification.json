@@ -42442,9 +42442,11 @@
           ],
           "items": [
             {
-              "id": "BD-019",
-              "statement": "documentのIDは `DOC-` とし、正典は `.verify/doc/` に置く。",
-              "derives_from": [],
+              "id": "BD-318",
+              "statement": "ノードの ID は層ごとの接頭辞（`ROOT-` / `R-` / `P-` / `REQ-` / `SPEC-` / `DS-` / `BD-` / `DES-`、節は `-S` を伴う）とし、正典は `.verify/doc/` に置く。",
+              "derives_from": [
+                "SPEC-462"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "3.1 エンティティ種別",
