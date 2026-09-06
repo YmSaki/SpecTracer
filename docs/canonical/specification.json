@@ -456,6 +456,123 @@
           12
         ]
       }
+    },
+    {
+      "id": "ROOT-039",
+      "statement": "要求や要件定義、基本仕様や設計なんてものを全部 JSON データ化してグラフで表現しやすくして、JSON を正本にして特定のフォーマットで md にエクスポートするってのを導入しちゃうのがよさそうだ。今はやらないとか言ってる暇じゃねぇ。",
+      "description": "Owner 裁定 2026-09-04（Issue #14 コメント 1）。JSON を正本、md は一方向エクスポート。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C1",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-040",
+      "statement": "凍結台帳はどうでもいいです。そんなん今解答されました。",
+      "description": "Owner 裁定 2026-09-04（Issue #14 コメント 1）。凍結事項 F11（ROOT-037）との衝突を示されたうえでの回答。「（上流差戻フェーズなので）」は書記の補足。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C1",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-041",
+      "statement": "あくまで derived_from は参照なので。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 2）。`derives_from` は導出の証明ではなく参照。ペアごとの承認は行わない。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C2",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-042",
+      "statement": "辺は層をまたぐ参照だけ。要求 → 要件定義 → 基本仕様 → 詳細設計の間の参照を辺にし、同じ層の中の節参照（本冊内の「§7.3」、別紙A → 本冊）は辺にしない。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 4）。直前のコメント 3「関係をグラフに置き換えると言っているだけなので。」（＝参照はすべて辺）を撤回してこれで確定。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C4",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-043",
+      "statement": "導入するでいいんじゃないの？何か問題あった？",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 5）。「この JSON を仕様書の正本として受け入れるか」への回答。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C5",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-044",
+      "statement": "基本仕様 = 何を実現するかを確定する\n基本設計 = それをどんな構造で実現するかを決める\n詳細設計 = 各部品をどう実装するかまで落とす\n詳細設計は自然言語で記述したコードになるのは避けたい。",
+      "description": "Owner 定義 2026-09-05（Issue #14 コメント 6）。同コメントの「ついでにこれの分割もしてしまおう。」で層の分割を指示。`LAYERING.md` 冒頭に逐語保存。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C6",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-045",
+      "statement": "採用してもいいし、これを既定の規定にしてもいい。\n基本仕様は複数の詳細仕様を内包できる。\n基本設計は[仕様]から導出され、複数の詳細設計に分割される。\n詳細設計は基本仕様から導出される。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 8）。6 段（要求 / 要件 / 基本仕様 / 詳細仕様 / 基本設計 / 詳細設計）を既定の規定として採用。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C8",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-046",
+      "statement": "残す必要あるんですか？ vtest がやるべきことを python で先に作る分には構わないんですが、これを正としないために消してください。",
+      "description": "Owner 指示 2026-09-06（Issue #14 コメント 10）。変換の Python 足場を削除。同等機能は vtest 側で実装する。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C10",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-047",
+      "statement": "`specification.json` は vtest 自身の `.verify/doc/` の文書モデルそのものである。",
+      "description": "Owner 裁定 2026-09-06（Issue #14 コメント 11）。`reports/doc-model-realignment-2026-09-06.md` §0.3 が「Owner の逐語が Issue #14 に無い」と開示した前提 P を、Owner が確認した。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5556643752",
+        "heading": "C11",
+        "lines": [
+          1,
+          1
+        ]
+      }
     }
   ],
   "request": [
@@ -1018,9 +1135,13 @@
               }
             },
             {
-              "id": "REQ-025",
-              "statement": "上流文書はすべて単一の総称ノード型 `document`（id + path + content_hash + 上流参照）で表現する。",
-              "derived_from": [],
+              "id": "REQ-333",
+              "statement": "上流文書は層ごとのトップレベル配列（`root` / `request` / `require` / `spec` / `detailed_spec` / `basic_design` / `design`）に分け、各層は「文書 > 節 > 小節 > 文」の木のノードとして表現する。",
+              "derived_from": [
+                "ROOT-039",
+                "ROOT-040",
+                "ROOT-045"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 3.2 宣言鎖",
@@ -1032,7 +1153,7 @@
             },
             {
               "id": "REQ-026",
-              "statement": "文書間のリンクは `derives_from` の一種のみとする。",
+              "statement": "ノード（文・節）間のリンクは `derives_from` の一種のみとする。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -1430,9 +1551,12 @@
               }
             },
             {
-              "id": "REQ-053",
-              "statement": "文書層では、各 `document` の derives_from 参照先が存在し、content_hash が現物と一致することを要求する。",
-              "derived_from": [],
+              "id": "REQ-334",
+              "statement": "文書層では、各ノードの `derives_from` 参照先が存在することを要求する。",
+              "derived_from": [
+                "ROOT-039",
+                "ROOT-040"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
@@ -1526,7 +1650,7 @@
           "items": [
             {
               "id": "REQ-059",
-              "statement": "`orphan_detection` の問いは、親を持たない `document` ノードが存在するか、である。",
+              "statement": "`orphan_detection` の問いは、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するか、である。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2175,7 +2299,7 @@
             },
             {
               "id": "REQ-098",
-              "statement": "文書鎖のリンク切れ / content_hash 不一致 / 孤児文書のいずれかが生じる場合、状態は `MISMATCH`（診断ラベルは STALE 等）となる。",
+              "statement": "文書鎖のリンク切れ / 依存 closure が束縛した document ノードのハッシュの不一致 / 孤児文書のいずれかが生じる場合、状態は `MISMATCH`（診断ラベルは STALE 等）となる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -4466,8 +4590,8 @@
           }
         },
         {
-          "id": "REQ-234",
-          "statement": "取り込まれた上流成果物は §3.2 の `document` ノードとして登録され、content_hash と derives_from を持つ。",
+          "id": "REQ-335",
+          "statement": "取り込まれた上流成果物は §3.2 のノードとして登録され、規範内容から計算される subject hash と `derives_from` を持つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -6241,7 +6365,7 @@
         },
         {
           "id": "SPEC-013",
-          "statement": "derives_fromは上流documentから下流documentへの導出を表す。",
+          "statement": "`derives_from` は上流ノードへの参照である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -6626,7 +6750,7 @@
               "statement": "要件定義 §3.2 の宣言鎖をそのまま採用する。",
               "derived_from": [
                 "REQ-024",
-                "REQ-025",
+                "REQ-333",
                 "REQ-026",
                 "REQ-027",
                 "REQ-028",
@@ -6814,7 +6938,7 @@
             },
             {
               "id": "SPEC-042",
-              "statement": "文書層の段（要件→仕様→詳細設計…）はderives_fromリンクとして表現する。",
+              "statement": "層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクとして表現する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -7254,7 +7378,7 @@
           "items": [
             {
               "id": "SPEC-059",
-              "statement": "orphan_detectionの問いは、親を持たない `document` ノードが存在するかである。",
+              "statement": "orphan_detectionの問いは、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -11984,7 +12108,7 @@
                 "REQ-050",
                 "REQ-051",
                 "REQ-052",
-                "REQ-053",
+                "REQ-334",
                 "REQ-054",
                 "REQ-055",
                 "REQ-056",
@@ -12106,7 +12230,7 @@
           "items": [
             {
               "id": "SPEC-291",
-              "statement": "`orphan_detection` は文書層の孤児検出であり、親（上流document）を持たない `document` ノードが存在するかを問う。",
+              "statement": "`orphan_detection` は文書層の孤児検出であり、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。",
               "derived_from": [
                 "REQ-059",
                 "REQ-060",
@@ -13278,7 +13402,7 @@
             },
             {
               "id": "SPEC-348",
-              "statement": "projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
+              "statement": "projection が出力する `derives_from` エッジは到達先の上流ノード id（節または文）を伴い、「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。",
               "derived_from": [],
               "cites": [
                 "基本仕様 §11.1"
@@ -13890,7 +14014,7 @@
             },
             {
               "id": "SPEC-377",
-              "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、孤児 document（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
+              "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -14751,8 +14875,8 @@
                   }
                 },
                 {
-                  "id": "SPEC-421",
-                  "statement": "document 種別を区別せず、要件定義・基本仕様・詳細設計・API Schema 等をすべて総称 document として同一に扱う。",
+                  "id": "SPEC-462",
+                  "statement": "上流文書は層ごとのトップレベル配列に分け、層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。",
                   "derived_from": [],
                   "cites": [
                     "本冊 §3.1"
@@ -14785,7 +14909,7 @@
               "items": [
                 {
                   "id": "SPEC-422",
-                  "statement": "`orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う。",
+                  "statement": "`orphan_detection` は文書層のみを対象とし、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。",
                   "derived_from": [
                     "REQ-059",
                     "REQ-060",
@@ -15235,8 +15359,8 @@
                   }
                 },
                 {
-                  "id": "SPEC-445",
-                  "statement": "旧モデルの SPEC → REQ → VO → Test 構造は総称 document 化により DOC → VO → Test へ再導出する。",
+                  "id": "SPEC-463",
+                  "statement": "旧モデルの SPEC → REQ → VO → Test 構造は、7 層の木 → VO → Test へ再導出する。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -15630,7 +15754,7 @@
           "statement": "文書種別ごとの専用スキーマは設けない。",
           "derived_from": [
             "REQ-024",
-            "REQ-025",
+            "REQ-333",
             "REQ-026",
             "REQ-027",
             "REQ-028",
@@ -15657,7 +15781,7 @@
           "statement": "対象ソースコード自身のdoc commentは、その対象実装の唯一の仕様根拠としては用いない。",
           "derived_from": [
             "REQ-233",
-            "REQ-234",
+            "REQ-335",
             "REQ-235"
           ],
           "cites": [
@@ -15674,7 +15798,7 @@
         },
         {
           "id": "DS-006",
-          "statement": "derives_fromとは、document間の唯一のリンク種別である。",
+          "statement": "`derives_from` とは、ノード間の唯一のリンク種別である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -15879,7 +16003,7 @@
             "REQ-050",
             "REQ-051",
             "REQ-052",
-            "REQ-053",
+            "REQ-334",
             "REQ-054",
             "REQ-055",
             "REQ-056",
@@ -16102,7 +16226,7 @@
           "items": [
             {
               "id": "DS-025",
-              "statement": "文書間リンクは `derives_from` の一種のみとする。",
+              "statement": "ノード間リンクは `derives_from` の一種のみとする。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -16118,7 +16242,7 @@
               "statement": "段はリンクであって検査ではない。",
               "derived_from": [
                 "REQ-024",
-                "REQ-025",
+                "REQ-333",
                 "REQ-026",
                 "REQ-027",
                 "REQ-028",
@@ -16173,7 +16297,7 @@
               "statement": "文書種別ごとの専用スキーマ・文書間リンク意味論の増殖・文書内容の良否検証を行わない。",
               "derived_from": [
                 "REQ-024",
-                "REQ-025",
+                "REQ-333",
                 "REQ-026",
                 "REQ-027",
                 "REQ-028",
@@ -16471,8 +16595,8 @@
           ],
           "items": [
             {
-              "id": "DS-044",
-              "statement": "documentは種別専用スキーマを持たない。",
+              "id": "DS-1590",
+              "statement": "上流文書のノードは層ごとのトップレベル配列（`root` / `request` / `require` / `spec` / `detailed_spec` / `basic_design` / `design`）に分かれる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -16497,8 +16621,8 @@
               }
             },
             {
-              "id": "DS-046",
-              "statement": "documentは単一の総称ノードであり、要件定義・基本仕様・詳細設計・API Schema等を種別で区別する専用スキーマを持たない。",
+              "id": "DS-1591",
+              "statement": "上流文書のノードは層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -16514,7 +16638,7 @@
               "statement": "段を増やしても種別を増やさない。",
               "derived_from": [
                 "REQ-024",
-                "REQ-025",
+                "REQ-333",
                 "REQ-026",
                 "REQ-027",
                 "REQ-028",
@@ -17124,7 +17248,7 @@
             },
             {
               "id": "DS-081",
-              "statement": "文書鎖のリンク切れ、content_hash不一致、または孤児文書の場合、状態は `MISMATCH`、診断ラベルはSTALE等とする。",
+              "statement": "文書鎖のリンク切れ、依存 closure が束縛した document ノードのハッシュの不一致、または孤児文書の場合、状態は `MISMATCH`、診断ラベルはSTALE等とする。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -17494,19 +17618,6 @@
               }
             },
             {
-              "id": "DS-105",
-              "statement": "文書層では、各documentのcontent_hashが現物と一致する。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.1 chain_integrity — 宣言鎖の完全性",
-                "lines": [
-                  218,
-                  218
-                ]
-              }
-            },
-            {
               "id": "DS-106",
               "statement": "VO層では、各VOが1件以上の `document` への解決可能なderives_fromを持つ。",
               "derived_from": [],
@@ -17573,7 +17684,7 @@
             },
             {
               "id": "DS-111",
-              "statement": "違反時の状態は§4.3に従う（管理宣言欠落は `MISMATCH`/MISSING、参照解決不能・ID衝突は `MISMATCH`、リンク切れ・hash不一致は `MISMATCH`）。",
+              "statement": "違反時の状態は§4.3に従う（管理宣言欠落は `MISMATCH`/MISSING、参照解決不能・ID衝突は `MISMATCH`、リンク切れ・依存 closure が束縛した document ノードのハッシュの不一致は `MISMATCH`）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -18208,7 +18319,7 @@
             "REQ-050",
             "REQ-051",
             "REQ-052",
-            "REQ-053",
+            "REQ-334",
             "REQ-054",
             "REQ-055",
             "REQ-056",
@@ -18260,7 +18371,7 @@
             "REQ-050",
             "REQ-051",
             "REQ-052",
-            "REQ-053",
+            "REQ-334",
             "REQ-054",
             "REQ-055",
             "REQ-056",
@@ -19551,7 +19662,7 @@
           "statement": "すべての管理対象Testに `covers ≥ 1` を一律に要求する。",
           "derived_from": [
             "REQ-052",
-            "REQ-053",
+            "REQ-334",
             "REQ-054",
             "REQ-055",
             "REQ-056",
@@ -19828,7 +19939,7 @@
           "statement": "対象ソースコード内のdoc commentを、その対象実装自身の正当性を証明する唯一の仕様根拠として使用しない。",
           "derived_from": [
             "REQ-233",
-            "REQ-234",
+            "REQ-335",
             "REQ-235"
           ],
           "cites": [
@@ -19949,7 +20060,7 @@
         },
         {
           "id": "DS-236",
-          "statement": "VOの依存closureは、再帰的な上位VO・参照するdocument（およびその上位document）からなる。",
+          "statement": "VOの依存closureは、再帰的な上位VO・参照する document ノード（およびその実効的な上流）からなる。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21091,7 +21202,7 @@
         },
         {
           "id": "DS-304",
-          "statement": "documentのderives_fromが存在しないdocumentを参照する場合（文書鎖のリンク切れ）は `MISMATCH` とする。",
+          "statement": "ノードの `derives_from` が存在しないノードを参照する場合（文書鎖のリンク切れ）は `MISMATCH` とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21104,7 +21215,7 @@
         },
         {
           "id": "DS-305",
-          "statement": "根に指定されない孤児document（`orphan_detection`）は `MISMATCH` とする。",
+          "statement": "根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21208,7 +21319,7 @@
         },
         {
           "id": "DS-313",
-          "statement": "content_hash照合は決定論的に解決する。",
+          "statement": "依存 closure が束縛した document ノードのハッシュの照合は決定論的に解決する。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21221,7 +21332,7 @@
         },
         {
           "id": "DS-314",
-          "statement": "content_hash照合は任意形式の文書本文から参照位置の存在を構文的に推測しない。",
+          "statement": "参照位置は上流ノードの id であり、文書本文の解析によって推測しない。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21848,8 +21959,8 @@
               }
             },
             {
-              "id": "DS-346",
-              "statement": "document recordの `content_hash` と実sourceが不一致ならsubject hashは現在有効な値として成立せず、`chain_integrity` の非 `PASS`（`MISMATCH`、診断 `STALE`）とする（§11.4）。",
+              "id": "DS-1613",
+              "statement": "依存 closure（判断記録・承認の `dependencies`、Evidence の subject hash）が束縛した document ノードのハッシュと現在の subject hash が不一致なら、その束縛は現在有効な値として成立せず、`chain_integrity` の非 `PASS`（`MISMATCH`、診断 `STALE`）とする（§11.4）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22346,8 +22457,8 @@
           ],
           "items": [
             {
-              "id": "DS-378",
-              "statement": "document レコードの `title` fieldは任意の表示名である。",
+              "id": "DS-1592",
+              "statement": "節ノードは必須 field `title` を持ち、文ノードは `title` を持たない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22359,8 +22470,8 @@
               }
             },
             {
-              "id": "DS-379",
-              "statement": "document レコードの `derives_from` fieldは上流documentへの導出リンクであり、0件も許容する（0件は根候補を意味する）。",
+              "id": "DS-1593",
+              "statement": "文ノードの `derives_from` は必須 field で 0 件を許容し、節ノードの `derives_from` は任意 field である。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22372,8 +22483,8 @@
               }
             },
             {
-              "id": "DS-380",
-              "statement": "document レコードの `derives_from` entryの `anchor` fieldは任意の上流該当箇所（節番号等）であり、空も許容し、`chain_integrity` の `MISMATCH` としない。",
+              "id": "DS-1594",
+              "statement": "ノードの `derives_from` は上流ノード id の並びであり、参照先の該当箇所を指す `anchor` field を entry ごとに持たない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22385,8 +22496,8 @@
               }
             },
             {
-              "id": "DS-381",
-              "statement": "document レコードの `derives_from` entryの `note` fieldは任意の導出理由であり、空も許容し、`chain_integrity` の `MISMATCH` としない。",
+              "id": "DS-1595",
+              "statement": "ノードの `derives_from` は、導出理由を記す `note` field を entry ごとに持たない。",
               "derived_from": [
                 "SPEC-281",
                 "SPEC-282",
@@ -22401,46 +22512,6 @@
                 "lines": [
                   200,
                   200
-                ]
-              }
-            },
-            {
-              "id": "DS-382",
-              "statement": "各 `derives_from` entryの `note`（導出理由・説明文）は任意であり、空でも `chain_integrity` 違反・`MISMATCH` としてはならない（§19）。",
-              "derived_from": [
-                "SPEC-281",
-                "SPEC-282",
-                "SPEC-283"
-              ],
-              "cites": [
-                "基本仕様 §3.4"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
-                "lines": [
-                  205,
-                  205
-                ]
-              }
-            },
-            {
-              "id": "DS-383",
-              "statement": "各 `derives_from` entryの `anchor`（参照先document内の該当箇所を指す文字列。節番号・条項番号・見出し等）は任意であり、欠落・空文字列を `chain_integrity` 違反・`MISMATCH` としてはならない（§19）。",
-              "derived_from": [
-                "SPEC-281",
-                "SPEC-282",
-                "SPEC-283"
-              ],
-              "cites": [
-                "基本仕様 §3.4"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
-                "lines": [
-                  206,
-                  206
                 ]
               }
             },
@@ -22484,8 +22555,8 @@
               }
             },
             {
-              "id": "DS-387",
-              "statement": "`anchor` だけの変更は `path` の実ファイルを変えないため `content_hash` を変化させないが、document subject hashを変化させるため、当該documentを上流依存closureに含む判断記録・承認は失効する（§3.5・§8.5）。",
+              "id": "DS-1599",
+              "statement": "`description` だけの変更は document ノードの subject hash を変化させないため、当該ノードを上流依存closureに含む判断記録・承認は失効しない（§3.5・§8.5）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22510,8 +22581,8 @@
               }
             },
             {
-              "id": "DS-389",
-              "statement": "`path` の実ファイルが `content_hash` と一致しなくなった場合は `chain_integrity` の `MISMATCH`（診断 `STALE`）とする（§11.4）。",
+              "id": "DS-1614",
+              "statement": "依存 closure が束縛した document ノードのハッシュが現在の subject hash と一致しなくなった場合は `chain_integrity` の `MISMATCH`（診断 `STALE`）とする（§11.4）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -22524,7 +22595,7 @@
             },
             {
               "id": "DS-390",
-              "statement": "`derives_from` が空のdocumentは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
+              "statement": "実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23544,8 +23615,8 @@
               }
             },
             {
-              "id": "DS-457",
-              "statement": "document dependencyはdocument subject hashを使用するため、document recordまたは参照先sourceの変更で承認が失効する（§1.3）。",
+              "id": "DS-1601",
+              "statement": "document dependencyはdocument subject hashを使用するため、document ノードの規範内容（`id` と `statement`）の変更で承認が失効する（§1.3）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23952,7 +24023,7 @@
               "statement": "すべての管理対象Testに `covers ≥ 1` を一律に要求する。",
               "derived_from": [
                 "REQ-052",
-                "REQ-053",
+                "REQ-334",
                 "REQ-054",
                 "REQ-055",
                 "REQ-056",
@@ -25160,7 +25231,7 @@
             },
             {
               "id": "DS-547",
-              "statement": "E-SCAN-016はerrorであり、根に指定されない孤児document（親documentを持たず `doc.roots` にも列挙されない）を意味する（§5.6）。",
+              "statement": "E-SCAN-016はerrorであり、根に指定されない孤児ノード（実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されない）を意味する（§5.6）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25368,7 +25439,7 @@
             },
             {
               "id": "DS-563",
-              "statement": "E-SCAN-016（孤児document）は `orphan_detection = MISMATCH` に写像する（§5.6）。",
+              "statement": "E-SCAN-016（孤児ノード）は `orphan_detection = MISMATCH` に写像する（§5.6）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29152,19 +29223,6 @@
                   }
                 },
                 {
-                  "id": "DS-800",
-                  "statement": "文書層は、`content_hash`が現物と一致すること（不一致は診断`STALE`。§11.4）を評価する。",
-                  "derived_from": [],
-                  "source": {
-                    "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                    "heading": "11.1.1 `chain_integrity` の評価",
-                    "lines": [
-                      1452,
-                      1452
-                    ]
-                  }
-                },
-                {
                   "id": "DS-801",
                   "statement": "VO層は、各VOが1件以上の`document`への解決可能な`derives_from`を持つこと（不在・解決不能はE-SCAN-012）を評価する。",
                   "derived_from": [],
@@ -29424,7 +29482,7 @@
             },
             {
               "id": "DS-781",
-              "statement": "`orphan_detection`は評価地点をDOCとし、親を持たず`doc.roots`にも列挙されないdocumentが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
+              "statement": "`orphan_detection`は評価地点をノードとし、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず`doc.roots`にも列挙されないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30416,21 +30474,8 @@
           "derived_from": [],
           "items": [
             {
-              "id": "DS-860",
-              "statement": "スキャン時にdocumentレコードの`content_hash`と実ファイル（`path`）を比較し、不一致ならW-SCAN-104を出す。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "11.4 document 鮮度",
-                "lines": [
-                  1533,
-                  1533
-                ]
-              }
-            },
-            {
-              "id": "DS-861",
-              "statement": "当該documentを`derives_from`で参照するVO / 上位documentの鎖は、content_hash不一致として`chain_integrity = MISMATCH`（診断`STALE`）となる（§11.1.1）。",
+              "id": "DS-1615",
+              "statement": "依存 closure（判断記録・承認の `dependencies`、Evidence の subject hash）が束縛した document ノードのハッシュが現在の subject hash と一致しない場合、当該 document ノードを参照する鎖は `chain_integrity = MISMATCH`（診断 `STALE`）となる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30455,8 +30500,8 @@
               }
             },
             {
-              "id": "DS-863",
-              "statement": "再登録でdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。",
+              "id": "DS-1605",
+              "statement": "document ノードの規範内容が変わればdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -31043,7 +31088,7 @@
             },
             {
               "id": "DS-899",
-              "statement": "孤児documentはE-SCAN-016として検出する。",
+              "statement": "孤児ノードはE-SCAN-016として検出する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -31124,19 +31169,6 @@
                 "lines": [
                   1622,
                   1624
-                ]
-              }
-            },
-            {
-              "id": "DS-903",
-              "statement": "`W-SCAN-104`はwarningであり、documentレコードのcontent_hashと実ファイルの不一致である（依存判断・依存Approvalは無効、鎖はchain_integrity STALE）。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "17.1 診断コード / 診断コード表",
-                "lines": [
-                  1625,
-                  1625
                 ]
               }
             },
@@ -32166,7 +32198,7 @@
               "statement": "本 version の Test metadata は存在理由分類（旧 `role` / `anchor` / `anchor_rationale`）を持たない。",
               "derived_from": [
                 "REQ-052",
-                "REQ-053",
+                "REQ-334",
                 "REQ-054",
                 "REQ-055",
                 "REQ-056",
@@ -32233,7 +32265,7 @@
               "statement": "本 version はすべての管理対象 Test に `covers ≥ 1` を一律に要求する。",
               "derived_from": [
                 "REQ-052",
-                "REQ-053",
+                "REQ-334",
                 "REQ-054",
                 "REQ-055",
                 "REQ-056",
@@ -32700,7 +32732,7 @@
             },
             {
               "id": "DS-1001",
-              "statement": "段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、種別を増やさない。",
+              "statement": "層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクで表現し、種別を増やさない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -32940,7 +32972,7 @@
             },
             {
               "id": "DS-1018",
-              "statement": "`derives_from` の参照先 document が存在しなければ文書鎖のリンク切れとして `chain_integrity = MISMATCH`（E-SCAN-012）とする。",
+              "statement": "`derives_from` の参照先ノードが存在しなければ文書鎖のリンク切れとして `chain_integrity = MISMATCH`（E-SCAN-012）とする。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -32952,8 +32984,8 @@
               }
             },
             {
-              "id": "DS-1019",
-              "statement": "`path` の実ファイルが `content_hash` と一致しなくなれば `chain_integrity = MISMATCH`（診断 `STALE`）とする。",
+              "id": "DS-1616",
+              "statement": "依存 closure が束縛した document ノードのハッシュが現在の subject hash と一致しなくなれば `chain_integrity = MISMATCH`（診断 `STALE`）とする。",
               "derived_from": [],
               "cites": [
                 "本冊 §11.4"
@@ -32969,7 +33001,7 @@
             },
             {
               "id": "DS-1020",
-              "statement": "根に指定されず親も持たない document は孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
+              "statement": "根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
               "derived_from": [],
               "cites": [
                 "本冊 §5.6"
@@ -34960,7 +34992,7 @@
                 "SPEC-168",
                 "SPEC-419",
                 "SPEC-420",
-                "SPEC-421",
+                "SPEC-462",
                 "SPEC-422",
                 "SPEC-423",
                 "SPEC-424",
@@ -34984,7 +35016,7 @@
                 "SPEC-442",
                 "SPEC-443",
                 "SPEC-444",
-                "SPEC-445",
+                "SPEC-463",
                 "SPEC-446",
                 "SPEC-447",
                 "SPEC-448",
@@ -37533,19 +37565,6 @@
                   }
                 },
                 {
-                  "id": "DS-1288",
-                  "statement": "各`document`の`content_hash`が実ファイル（`path`）と一致することを要求する（不一致はW-SCAN-104、`chain_integrity = MISMATCH`、診断`STALE`）。",
-                  "derived_from": [],
-                  "source": {
-                    "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                    "heading": "18.3.1 discovery・record・graph と chain_integrity / chain_integrity（宣言鎖の完全性）",
-                    "lines": [
-                      84,
-                      84
-                    ]
-                  }
-                },
-                {
                   "id": "DS-1289",
                   "statement": "`covers` する Test が 1 件以上存在しない leaf VO は `chain_integrity = MISMATCH`（診断 `MISSING`）。",
                   "derived_from": [],
@@ -38020,8 +38039,8 @@
                   }
                 },
                 {
-                  "id": "DS-1325",
-                  "statement": "同一 `doc` を指す複数 `derives_from` entry を `anchor` 違いで保持でき、重複として拒否しない。",
+                  "id": "DS-1596",
+                  "statement": "ノードの `derives_from` は同一の上流ノード id を重複して保持しない。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38033,8 +38052,8 @@
                   }
                 },
                 {
-                  "id": "DS-1326",
-                  "statement": "`anchor`だけを変更したdocumentは`content_hash`（`path`の実ファイルのハッシュ）が不変のままdocument subject hashが変化する。",
+                  "id": "DS-1609",
+                  "statement": "`description`だけを変更したdocument ノードはdocument subject hashが変化しない。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -38046,8 +38065,8 @@
                   }
                 },
                 {
-                  "id": "DS-1327",
-                  "statement": "`anchor`だけを変更したdocumentは、当該documentを上流依存closureに含む承認・判断記録を失効させる。",
+                  "id": "DS-1610",
+                  "statement": "規範内容（`id` と `statement`）を変更したdocument ノードは、当該ノードを上流依存closureに含む承認・判断記録を失効させる。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -39574,8 +39593,8 @@
                   }
                 },
                 {
-                  "id": "DS-1430",
-                  "statement": "document は登録 content_hash と実ファイルの一致も要求し、不一致の document を STALE とし、依存する判断記録も無効とする。",
+                  "id": "DS-1617",
+                  "statement": "判断記録の `dependencies` が束縛した document ノードのハッシュと現在の subject hash の一致も要求し、不一致の document ノードを STALE とし、依存する判断記録も無効とする。",
                   "derived_from": [],
                   "cites": [
                     "本冊 §8.5・§11.4"
@@ -40348,7 +40367,7 @@
                 },
                 {
                   "id": "DS-1480",
-                  "statement": "document を対象とする承認の上流依存closureは当該 document の再帰的な上位 document（`derives_from` 先）からなり、`--subject-type document` で記録する。",
+                  "statement": "ノードを対象とする承認の上流依存closureは、対象ノードの実効的な上流（自分の辺 ∪ 先祖の辺）を再帰的に閉じたものからなり、`--subject-type document` で記録する。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40448,7 +40467,7 @@
                 },
                 {
                   "id": "DS-1487",
-                  "statement": "VO を対象とする承認の上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照する document、および各 document の再帰的な上位 document からなる。",
+                  "statement": "VO を対象とする承認の上流依存closureは、対象 VO の再帰的 parent VO、対象 VO と parent VO が `derives_from` で参照するノード、および各ノードの実効的な上流（自分の辺 ∪ 先祖の辺）の再帰的閉包からなる。",
                   "derived_from": [],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -40460,8 +40479,8 @@
                   }
                 },
                 {
-                  "id": "DS-1488",
-                  "statement": "document dependency は §1.3 の document subject hash を使用するため、document record または参照先 source の変更で承認が失効する。",
+                  "id": "DS-1612",
+                  "statement": "document dependency は §1.3 の document subject hash を使用するため、document ノードの規範内容の変更で承認が失効する。",
                   "derived_from": [],
                   "cites": [
                     "本冊 §3.5・§11.4"
@@ -44952,8 +44971,8 @@
           ],
           "items": [
             {
-              "id": "BD-163",
-              "statement": "上流文書はすべて単一の総称ノード型 `document` で表現する。",
+              "id": "BD-312",
+              "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現する。",
               "derived_from": [
                 "SPEC-038",
                 "SPEC-039",
@@ -44990,7 +45009,7 @@
             },
             {
               "id": "BD-165",
-              "statement": "`derives_from` は上流documentへの唯一のリンク種別である。",
+              "statement": "`derives_from` は上流ノードへの唯一のリンク種別である。",
               "derived_from": [
                 "SPEC-043",
                 "SPEC-044",
@@ -45011,7 +45030,7 @@
             },
             {
               "id": "BD-166",
-              "statement": "文書層の段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、段を増やしても種別を増やさない。",
+              "statement": "層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクで表現し、段を増やしても種別を増やさない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -45828,8 +45847,8 @@
               }
             },
             {
-              "id": "BD-199",
-              "statement": "上流文書はすべてDOCノードとし、文書間・VO→文書は `derives_from` の一種で表現する（§19）。",
+              "id": "BD-313",
+              "statement": "検証グラフでは、ノード間・VO → ノードの関係を `derives_from` の一種で表現する（§19）。",
               "derived_from": [
                 "SPEC-038",
                 "SPEC-039",
@@ -47882,7 +47901,7 @@
             },
             {
               "id": "BD-286",
-              "statement": "fixture は、文書鎖の状態として `derives_from` が空かつ根に列挙されない孤児 document（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
+              "statement": "fixture は、文書鎖の状態として実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -47896,19 +47915,6 @@
             {
               "id": "BD-287",
               "statement": "fixture は、文書鎖の状態として `derives_from` の参照先が存在しない document / VO（E-SCAN-012、`chain_integrity = MISMATCH`）を表現できる。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                "heading": "18.2 共通fixture",
-                "lines": [
-                  48,
-                  48
-                ]
-              }
-            },
-            {
-              "id": "BD-288",
-              "statement": "fixture は、文書鎖の状態として `content_hash` と実ファイルが一致しない document（W-SCAN-104、`chain_integrity = MISMATCH`、診断 `STALE`）を表現できる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -48483,8 +48489,8 @@
       ],
       "items": [
         {
-          "id": "DES-001",
-          "statement": "documentとは、ソースコードより上流に位置する成果物を表す単一の総称ノードである。",
+          "id": "DES-567",
+          "statement": "ノードとは、ソースコードより上流に位置する成果物を、層ごとのトップレベル配列に分けて表す「文書 > 節 > 小節 > 文」の木の要素である。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -48496,8 +48502,8 @@
           }
         },
         {
-          "id": "DES-002",
-          "statement": "documentは `id + path + content_hash + 上流参照（derives_from）` を持つ。",
+          "id": "DES-568",
+          "statement": "ノードは、文ノードが `id` / `statement` / `derives_from` / `source` を、節ノードが `id` / `title` / `source` を、根ノードが `id` / `statement` / `source` を必須 field として持つ。",
           "derived_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -48509,8 +48515,8 @@
           }
         },
         {
-          "id": "DES-003",
-          "statement": "各derives_fromリンクは任意（optional）の説明文・導出理由を保持できる（§3.2）。",
+          "id": "DES-570",
+          "statement": "各 `derives_from` リンクは説明文・導出理由を保持せず、上流ノードの id だけを持つ（§3.2）。",
           "derived_from": [
             "REQ-036",
             "REQ-037",
@@ -48681,8 +48687,8 @@
           ],
           "items": [
             {
-              "id": "DES-010",
-              "statement": "上流文書はすべて単一の総称ノード型 `document` で表現する。",
+              "id": "DES-569",
+              "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -48922,34 +48928,8 @@
           ],
           "items": [
             {
-              "id": "DES-023",
-              "statement": "documentは総称の上流文書ノード（path＋content_hash＋derives_from）である。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  115,
-                  115
-                ]
-              }
-            },
-            {
               "id": "DES-024",
               "statement": "Relationは外部関係レコードであり、不変とする。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  119,
-                  119
-                ]
-              }
-            },
-            {
-              "id": "DES-025",
-              "statement": "derives_fromの説明文もRelationに保持できる。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -49506,11 +49486,11 @@
       ],
       "items": [
         {
-          "id": "DES-051",
-          "statement": "取り込まれた上流成果物はcontent_hashとderives_fromを持つ。",
+          "id": "DES-574",
+          "statement": "取り込まれた上流成果物は、規範内容から計算される subject hash と `derives_from` を持つ。",
           "derived_from": [
             "REQ-233",
-            "REQ-234",
+            "REQ-335",
             "REQ-235"
           ],
           "cites": [
@@ -50215,8 +50195,8 @@
               }
             },
             {
-              "id": "DES-091",
-              "statement": "document subject hashはdomain `vtest:document-subject:v1` を用い、canonical document recordと参照先source（`path` の実ファイル）の正規化内容を束縛する。",
+              "id": "DES-572",
+              "statement": "ノードの subject hash は domain `vtest:document-subject:v1` を用い、文ノードでは当該ノードの `id` と `statement` を、節ノードでは子ノードの subject hash を束縛し、`description` を束縛しない。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -50228,8 +50208,8 @@
               }
             },
             {
-              "id": "DES-092",
-              "statement": "document subject hashは、要件定義・基本仕様・詳細設計・API Schema等を種別で区別せず、すべて同一の総称document subjectとして計算する（§3.1）。",
+              "id": "DES-575",
+              "statement": "document subject hashは、層を区別せず、すべてのノードについて §1.3 の同一の規則で計算する（§3.1）。",
               "derived_from": [
                 "SPEC-043",
                 "SPEC-044",
@@ -50612,22 +50592,8 @@
           ],
           "items": [
             {
-              "id": "DES-113",
-              "statement": "document レコードの `path` fieldはプロジェクト相対パスである。",
-              "description": "id: DOC-BASIC-001\npath: docs/basic-spec.md        # プロジェクト相対パス\ncontent_hash: \"sha256:...\"      # 登録時の内容ハッシュ（§1.3 document subject）\ntitle: 基本仕様書               # 任意の表示名\nderives_from:                   # 上流 document への導出リンク（0件可＝根候補）\n  - doc: DOC-REQ-001\n    anchor: \"§12.3\"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）\n    note: \"\"                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）\nregistered_at: 2026-08-08T00:00:00Z",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
-                "lines": [
-                  193,
-                  201
-                ]
-              }
-            },
-            {
-              "id": "DES-114",
-              "statement": "document レコードの `content_hash` fieldは登録時の内容ハッシュである（§1.3）。",
+              "id": "DES-573",
+              "statement": "ノードは登録時の内容ハッシュを field として保持せず、subject hash を §1.3 に従って計算する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -50639,8 +50605,8 @@
               }
             },
             {
-              "id": "DES-115",
-              "statement": "`anchor` は `derives_from` entryのfieldであり、Test metadataには存在しない（§4.1）。",
+              "id": "DES-571",
+              "statement": "`anchor` は `derives_from` の entry field としても Test metadata としても存在しない（§4.1）。",
               "derived_from": [
                 "SPEC-123",
                 "SPEC-124",
@@ -50693,19 +50659,6 @@
                 "lines": [
                   206,
                   206
-                ]
-              }
-            },
-            {
-              "id": "DES-116",
-              "statement": "`anchor` はcanonical document recordの一部であり、document subject hashの入力に含まれる（§1.3）。",
-              "derived_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
-                "lines": [
-                  207,
-                  207
                 ]
               }
             }
@@ -51227,7 +51180,7 @@
             },
             {
               "id": "DES-147",
-              "statement": "承認対象種別 `vo` は、レコード上 `subject` にVO ID（`VO-*`）で表現し、上流依存closureは対象VOの再帰的なparent VO、対象VOと各parent VOが `derives_from` で参照するdocument、および各documentの再帰的な上位document（`derives_from` 先）である。",
+              "statement": "承認対象種別 `vo` は、レコード上 `subject` にVO ID（`VO-*`）で表現し、上流依存closureは対象VOの再帰的なparent VO、対象VOと各parent VOが `derives_from` で参照するノード、および各ノードの実効的な上流（自分の辺 ∪ 先祖の辺）の再帰的閉包である。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51240,7 +51193,7 @@
             },
             {
               "id": "DES-148",
-              "statement": "承認対象種別 `document` は、レコード上 `subject` にdocument ID（`DOC-*`）で表現し、上流依存closureは対象documentの再帰的な上位document（`derives_from` 先）である。",
+              "statement": "承認対象種別 `document` は、レコード上 `subject` にノード ID で表現し、上流依存closureは対象ノードの実効的な上流（自分の辺 ∪ 先祖の辺）の再帰的閉包である。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51380,8 +51333,8 @@
               }
             },
             {
-              "id": "DES-158",
-              "statement": "承認レコード a が A(X) に属するのは、`a.approved_state` が値域内であること、a の対象指定が X と一致すること（X が VO / document のとき `a.subject == X`、X が判断記録のとき `a.judgment_ref == X` の ULID）、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致すること、`a.dependencies` が `a.subject` の現在の上流依存closureと entity・hash とも完全一致すること、`a.dependencies` の各 document が登録 content_hash と実ファイルの一致を満たすこと（§11.4）、および X が判断記録のとき当該判断記録が §8.5 の有効判断でありかつ §8.5 の実効集合 E に属すること、をすべて満たす場合だけとする。",
+              "id": "DES-576",
+              "statement": "承認レコード a が A(X) に属するのは、`a.approved_state` が値域内であること、a の対象指定が X と一致すること（X が VO / document のとき `a.subject == X`、X が判断記録のとき `a.judgment_ref == X` の ULID）、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致すること、`a.dependencies` が `a.subject` の現在の上流依存closureと entity・hash とも完全一致すること、`a.dependencies` の各 document ノードについて記録された束縛ハッシュが現在の subject hash と一致すること（§11.4）、および X が判断記録のとき当該判断記録が §8.5 の有効判断でありかつ §8.5 の実効集合 E に属すること、をすべて満たす場合だけとする。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51445,8 +51398,8 @@
               }
             },
             {
-              "id": "DES-163",
-              "statement": "承認レコードaがA(X)に属するには、`a.dependencies` の各documentが登録content_hashと実ファイルの一致を満たさなければならない（§11.4）。",
+              "id": "DES-577",
+              "statement": "承認レコードaがA(X)に属するには、`a.dependencies` の各 document ノードについて記録された束縛ハッシュが現在の subject hash と一致しなければならない（§11.4）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51666,8 +51619,8 @@
               }
             },
             {
-              "id": "DES-181",
-              "statement": "`approved` から `draft` への遷移は、上流依存closureのentity構成またはいずれかのhashが変化する（document再登録・参照先source変更を含む）ことで起きる（§11.4）。",
+              "id": "DES-578",
+              "statement": "`approved` から `draft` への遷移は、上流依存closureのentity構成またはいずれかのhashが変化する（document ノードの規範内容の変更を含む）ことで起きる（§11.4）。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54415,7 +54368,7 @@
             },
             {
               "id": "DES-378",
-              "statement": "document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のスキーマに対応するstructを定義する。",
+              "statement": "ノード / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のスキーマに対応するstructを定義する。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54462,7 +54415,7 @@
             },
             {
               "id": "DES-380",
-              "statement": "検証グラフのエッジ `DOC → DOC` は `derives_from` であり、documentレコード由来である。",
+              "statement": "検証グラフのノード間エッジは `derives_from` であり、仕様ノード由来である。",
               "derived_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",

@@ -40,5 +40,305 @@
     "old_id": "DS-1586",
     "new_id": "DS-1589",
     "reason": "manual retire"
+  },
+  {
+    "old_id": "REQ-025",
+    "new_id": "REQ-333",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "REQ-053",
+    "new_id": "REQ-334",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "SPEC-421",
+    "new_id": "SPEC-462",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "SPEC-445",
+    "new_id": "SPEC-463",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-044",
+    "new_id": "DS-1590",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-046",
+    "new_id": "DS-1591",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-378",
+    "new_id": "DS-1592",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-379",
+    "new_id": "DS-1593",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-380",
+    "new_id": "DS-1594",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-381",
+    "new_id": "DS-1595",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-1325",
+    "new_id": "DS-1596",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "BD-163",
+    "new_id": "BD-312",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "BD-199",
+    "new_id": "BD-313",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-001",
+    "new_id": "DES-567",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-002",
+    "new_id": "DES-568",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-010",
+    "new_id": "DES-569",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-003",
+    "new_id": "DES-570",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-115",
+    "new_id": "DES-571",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-091",
+    "new_id": "DES-572",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-114",
+    "new_id": "DES-573",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-383",
+    "new_id": "DS-1594",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DS-382",
+    "new_id": "DS-1595",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-023",
+    "new_id": "DES-568",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-025",
+    "new_id": "DES-570",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-116",
+    "new_id": "DES-572",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-113",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): `path` field が新しいノード形に存在せず、既決材料に後継の field が無い（`source` は schema 自身が移行期間限定と宣言）。"
+  },
+  {
+    "old_id": "REQ-234",
+    "new_id": "REQ-335",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-105",
+    "new_id": "DS-1597",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-346",
+    "new_id": "DS-1598",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-387",
+    "new_id": "DS-1599",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-389",
+    "new_id": "DS-1600",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-457",
+    "new_id": "DS-1601",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-800",
+    "new_id": "DS-1602",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-860",
+    "new_id": "DS-1603",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-861",
+    "new_id": "DS-1604",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-863",
+    "new_id": "DS-1605",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-903",
+    "new_id": "DS-1606",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1019",
+    "new_id": "DS-1607",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1288",
+    "new_id": "DS-1608",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1326",
+    "new_id": "DS-1609",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1327",
+    "new_id": "DS-1610",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1430",
+    "new_id": "DS-1611",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1488",
+    "new_id": "DS-1612",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "BD-288",
+    "new_id": "BD-314",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-051",
+    "new_id": "DES-574",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-092",
+    "new_id": "DES-575",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-158",
+    "new_id": "DES-576",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-163",
+    "new_id": "DES-577",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-181",
+    "new_id": "DES-578",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1598",
+    "new_id": "DS-1613",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1600",
+    "new_id": "DS-1614",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1604",
+    "new_id": "DS-1615",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1607",
+    "new_id": "DS-1616",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1611",
+    "new_id": "DS-1617",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1603",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: スキャン時に読む document / VO / Test の正典レコードはどれも document ノードの束縛ハッシュを持たないため、この比較は入力を持たない。W-SCAN-104 は対象を失う。"
+  },
+  {
+    "old_id": "DS-1606",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: `W-SCAN-104` は入力を失った診断コードであり、意味を与える既決材料が無い。"
+  },
+  {
+    "old_id": "DS-1597",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 文書層の scan が評価するのは `derives_from` 参照先の存在だけになり、ハッシュ要求は残らない。同節の `DS-104` が参照先の存在を既に述べている。"
+  },
+  {
+    "old_id": "DS-1602",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 同上。同節の `DS-799` が「文書層は、各 `document` の `derives_from` 参照先が存在すること（E-SCAN-012）を評価する」を既に述べている。"
+  },
+  {
+    "old_id": "DS-1608",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 同上。同節の `DS-1287` が参照先の存在の要求を既に述べており、残る `W-SCAN-104` も退役した。"
+  },
+  {
+    "old_id": "BD-314",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: fixture が表現する対象（`W-SCAN-104` の状態）が退役したため。"
   }
 ]
