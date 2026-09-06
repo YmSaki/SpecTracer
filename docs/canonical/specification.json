@@ -22614,8 +22614,8 @@
               }
             },
             {
-              "id": "DS-390",
-              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは根候補であり、`config.yaml` の `doc.roots` に列挙されない場合は孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
+              "id": "DS-1649",
+              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25272,8 +25272,8 @@
               }
             },
             {
-              "id": "DS-547",
-              "statement": "E-SCAN-016はerrorであり、根に指定されない孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されない）を意味する（§5.6）。",
+              "id": "DS-1650",
+              "statement": "E-SCAN-016はerrorであり、孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）を意味する（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25594,9 +25594,13 @@
           ],
           "items": [
             {
-              "id": "DS-571",
-              "statement": "`config.yaml` の `doc.roots` に列挙されたDOC IDを根として扱い、`orphan_detection` の対象外とする（§2.2）。",
-              "derives_from": [],
+              "id": "DS-1646",
+              "statement": "根の指定は `root` 層への所属であり、`root` 層のノードを `orphan_detection` の対象外とする。設定による除外指定は持たない。",
+              "derives_from": [
+                "REQ-060",
+                "REQ-061",
+                "SPEC-060"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.6 文書層 orphan_detection",
@@ -25607,8 +25611,8 @@
               }
             },
             {
-              "id": "DS-1626",
-              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードのうち、`doc.roots` に列挙されないものを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
+              "id": "DS-1647",
+              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
               "derives_from": [
                 "REQ-059",
                 "SPEC-059",
@@ -29514,8 +29518,8 @@
               }
             },
             {
-              "id": "DS-781",
-              "statement": "`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たず`doc.roots`にも列挙されないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
+              "id": "DS-1651",
+              "statement": "`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -31366,8 +31370,8 @@
               }
             },
             {
-              "id": "DS-916",
-              "statement": "`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`doc.roots`、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（未知・重複adapter IDはE-ADAPTER-001）。",
+              "id": "DS-1652",
+              "statement": "`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（未知・重複adapter IDはE-ADAPTER-001）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -38220,21 +38224,8 @@
               ],
               "items": [
                 {
-                  "id": "DS-1334",
-                  "statement": "根の除外は、`config.yaml` の `doc.roots` に列挙された DOC ID を根として扱い、`orphan_detection` の対象外とする。",
-                  "derives_from": [],
-                  "source": {
-                    "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                    "heading": "18.3.2 orphan_detection（文書層の孤児検出）",
-                    "lines": [
-                      122,
-                      122
-                    ]
-                  }
-                },
-                {
-                  "id": "DS-1627",
-                  "statement": "孤児判定は、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たず `doc.roots` にも列挙されないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
+                  "id": "DS-1648",
+                  "statement": "孤児判定は、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
                   "derives_from": [
                     "REQ-059",
                     "SPEC-059",
@@ -38246,19 +38237,6 @@
                     "lines": [
                       123,
                       123
-                    ]
-                  }
-                },
-                {
-                  "id": "DS-1336",
-                  "statement": "`doc.roots` が存在しない DOC ID を参照する場合は config invariant 違反として E-CONFIG-001 とする。",
-                  "derives_from": [],
-                  "source": {
-                    "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                    "heading": "18.3.2 orphan_detection（文書層の孤児検出）",
-                    "lines": [
-                      124,
-                      124
                     ]
                   }
                 },
@@ -42680,9 +42658,13 @@
           ],
           "items": [
             {
-              "id": "BD-031",
-              "statement": "根の指定方式は `.verify/` 設定における明示的な根指定として保持する。",
-              "derives_from": [],
+              "id": "BD-328",
+              "statement": "根の指定方式は `root` 層への所属とし、設定による明示的な根指定を持たない。",
+              "derives_from": [
+                "REQ-060",
+                "REQ-061",
+                "SPEC-060"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "5.2 orphan_detection — 文書層の孤児検出",
@@ -44874,7 +44856,7 @@
             {
               "id": "BD-154",
               "statement": "`config.yaml` writerの正規形はversion 2とし、adapterごとにroot・scan・run設定をnamespace化する。",
-              "description": "version: 2\nproject:\n  name: example\nadapters:\n  - id: rust-cargo\n    roots: [\".\"]\n    scan:\n      include: [src, tests, crates]   # テストコード走査パス。省略時はワークスペース全体\n      assertion_macros: []            # 追加で assert 相当として扱うマクロ名\n    run:\n      coverage: llvm-cov              # target_binding 動的計測方式: llvm-cov | off\ndoc:\n  roots: [DOC-REQ-ROOT]               # orphan_detection の除外根（§5.6、基本仕様 §5.2）\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:                                # フェーズゲート定義（§11.5、基本仕様 §20）\n  - name: development\n    require: { verification: PASS }\n  - name: release\n    require: { verification: PASS, approvals: [reviewer] }\n  - name: delivery\n    require: { verification: PASS, approvals: [owner] }",
+              "description": "version: 2\nproject:\n  name: example\nadapters:\n  - id: rust-cargo\n    roots: [\".\"]\n    scan:\n      include: [src, tests, crates]   # テストコード走査パス。省略時はワークスペース全体\n      assertion_macros: []            # 追加で assert 相当として扱うマクロ名\n    run:\n      coverage: llvm-cov              # target_binding 動的計測方式: llvm-cov | off\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:                                # フェーズゲート定義（§11.5、基本仕様 §20）\n  - name: development\n    require: { verification: PASS }\n  - name: release\n    require: { verification: PASS, approvals: [reviewer] }\n  - name: delivery\n    require: { verification: PASS, approvals: [owner] }",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -46014,27 +45996,6 @@
             "DS-S021"
           ],
           "items": [
-            {
-              "id": "BD-202",
-              "statement": "根指定は `.verify/` 設定として保持する。",
-              "derives_from": [
-                "SPEC-059",
-                "SPEC-060",
-                "SPEC-287",
-                "SPEC-288"
-              ],
-              "cites": [
-                "基本仕様 §5.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.6 文書層 orphan_detection",
-                "lines": [
-                  942,
-                  942
-                ]
-              }
-            },
             {
               "id": "BD-203",
               "statement": "根指定の追加・削除は `vtest doc` コマンドの引数で管理し `doc.roots` へ反映する。",
@@ -47967,19 +47928,6 @@
                 "lines": [
                   47,
                   47
-                ]
-              }
-            },
-            {
-              "id": "BD-285",
-              "statement": "fixture は、文書鎖の状態として `doc.roots` に列挙された根 document を表現できる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                "heading": "18.2 共通fixture",
-                "lines": [
-                  48,
-                  48
                 ]
               }
             },
@@ -50588,19 +50536,6 @@
                 "lines": [
                   165,
                   165
-                ]
-              }
-            },
-            {
-              "id": "DES-111",
-              "statement": "`doc.roots` は orphan_detection の除外根をDOC IDの集合として保持する（§5.6）。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 2.2 `config.yaml`",
-                "lines": [
-                  173,
-                  173
                 ]
               }
             }

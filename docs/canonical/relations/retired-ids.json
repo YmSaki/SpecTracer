@@ -590,5 +590,70 @@
     "old_id": "DS-544",
     "new_id": "DS-1645",
     "reason": "canonical holes 2026-09-07 (H-5): norm changed; DS-376（未知フィールドは警告）の削除にともない、余剰 field が schema 不一致に含まれることを明示した。元の逐語には無い追加であるため新 id を採り、導出であることを description に残した。"
+  },
+  {
+    "old_id": "DS-571",
+    "new_id": "DS-1646",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; 委譲された「根の指定方式」（REQ-061 / REQ-310 / SPEC-060 / SPEC-149 / SPEC-233）の答えを、設定ファイルへの列挙から `root` 層への所属へ差し替えた。設定による除外は config.yaml へ 1 行足すだけでノードの id・層・derives_from・subject hash のいずれも動かさずに孤児判定を PASS にでき、鎖の切れ目を無痕跡で隠せる。否定形（設定による除外指定は持たない）は、空の委譲が再び構文を発明する場所にならないようにするため。"
+  },
+  {
+    "old_id": "DS-1626",
+    "new_id": "DS-1647",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-1627",
+    "new_id": "DS-1648",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-390",
+    "new_id": "DS-1649",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。「根候補」という中間概念も設定列挙のためだけに存在していたため消えた。"
+  },
+  {
+    "old_id": "DS-547",
+    "new_id": "DS-1650",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-781",
+    "new_id": "DS-1651",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-916",
+    "new_id": "DS-1652",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` が config.yaml から消え検査対象を失ったため、E-CONFIG-001 の列挙から外した。他の列挙項目は変えていない。"
+  },
+  {
+    "old_id": "BD-031",
+    "new_id": "BD-328",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; 根の指定方式を `.verify/` 設定から `root` 層への所属へ差し替えた（DS-1646 と同旨、basic_design 側）。BD-202 の後継もこの文が担う。"
+  },
+  {
+    "old_id": "DS-1334",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `doc.roots` による根の除外そのものが消えた。孤児判定の記述は同節の DS-1647 / DS-1648 が担う。"
+  },
+  {
+    "old_id": "DS-1336",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `doc.roots` が消え検査対象を失った。E-CONFIG-001 の列挙からの除去は DS-1652 が担う。"
+  },
+  {
+    "old_id": "DES-111",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `config.yaml` の `doc.roots` field が消えた。正規形からの除去は BD-154 の description が担う。"
+  },
+  {
+    "old_id": "BD-285",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): fixture が表現する対象（`doc.roots` に列挙された根 document）が消えた。BD-286（孤児ノードの fixture）は残る。"
+  },
+  {
+    "old_id": "BD-202",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): 「根指定は `.verify/` 設定として保持する」は設定による指定を前提としており成立しない。後継は BD-328 が担う。"
   }
 ]
