@@ -564,10 +564,23 @@
     {
       "id": "ROOT-047",
       "statement": "`specification.json` は vtest 自身の `.verify/doc/` の文書モデルそのものである。",
-      "description": "Owner 裁定 2026-09-06（Issue #14 コメント 11）。`reports/doc-model-realignment-2026-09-06.md` §0.3 が「Owner の逐語が Issue #14 に無い」と開示した前提 P を、Owner が確認した。",
+      "description": "Owner 裁定 2026-09-06（Issue #14 コメント 11）。`reports/doc-model-realignment-2026-09-06.md` §0.3 が「Owner の逐語が Issue #14 に無い」と開示した前提 P を、Owner が確認した。`docs/canonical/specification.json` は 7 層を 1 ファイルに束ねた形であり、変換・執筆のための束である。`.verify/doc/` へ登録する際は ROOT-048 に従って文書単位のファイルへ分かれる。",
       "source": {
         "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5556643752",
         "heading": "C11",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-048",
+      "statement": "1文書を1jsonに変換する。つまり、要求、要件、基本仕様、詳細仕様、基本設計、詳細設計なら6ファイル。詳細設計が複数あるなら増える。",
+      "description": "Owner 裁定 2026-09-07（Issue #14 コメント）。ファイルの単位は文書であって層でもノードでもない。同じ層に複数の文書があればファイルも複数になる。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5562815893",
+        "heading": "issuecomment-5562815893",
         "lines": [
           1,
           1
@@ -22612,6 +22625,22 @@
                   209
                 ]
               }
+            },
+            {
+              "id": "DS-1637",
+              "statement": "ノード id は利用者（人間または AI）が命名し、本システムは既存ノードの id を採番し直さない。",
+              "derives_from": [
+                "SPEC-043"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "lines": [
+                  209,
+                  209
+                ]
+              },
+              "description": "前段（利用者が命名する）は SPEC-043 の転記。後段（本システムは既存ノードの id を採番し直さない）は導出であり、明文は無い。導出の根拠: 再採番は全ノードの `derives_from` を同時に書き換えることを要し、1 件の取り違えで辺は解決するが到達先が別のノードになる。`chain_integrity` は参照先の存在しか見ない（DS-388）ため偽のリンクが検査を通る。id を固定したまま利用者が改名した場合は参照先が存在しなくなり E-SCAN-012 で必ず落ちる（fail-closed）。"
             }
           ]
         },
@@ -43208,9 +43237,11 @@
               }
             },
             {
-              "id": "BD-055",
-              "statement": "ファイル形式はすべてYAMLとする。",
-              "derives_from": [],
+              "id": "BD-319",
+              "statement": "上流文書のファイル形式は JSON とし、その他のレコードのファイル形式はすべて YAML とする。",
+              "derives_from": [
+                "ROOT-048"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "24.1 `.verify/` ディレクトリ",
@@ -43289,9 +43320,11 @@
               }
             },
             {
-              "id": "BD-059",
-              "statement": "document / VOは1エンティティ1ファイルとする。",
-              "derives_from": [],
+              "id": "BD-321",
+              "statement": "上流文書は1文書1ファイルとし、VOは1エンティティ1ファイルとする。",
+              "derives_from": [
+                "ROOT-048"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "24.2 並列編集耐性の設計原則",
@@ -43302,9 +43335,11 @@
               }
             },
             {
-              "id": "BD-060",
-              "statement": "document / VOのファイル名をIDとする。",
-              "derives_from": [],
+              "id": "BD-322",
+              "statement": "上流文書のファイル名は当該文書を識別するものとし、VOのファイル名をVO IDとする。",
+              "derives_from": [
+                "ROOT-048"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "24.2 並列編集耐性の設計原則",
@@ -43315,9 +43350,11 @@
               }
             },
             {
-              "id": "BD-061",
-              "statement": "異なるエンティティへの並列変更は異なるファイルへの変更になる。",
-              "derives_from": [],
+              "id": "BD-326",
+              "statement": "異なる上流文書および異なる VO への並列変更は異なるファイルへの変更になり、同一文書内の異なるノードへの並列変更は同一ファイルへの変更になる。",
+              "derives_from": [
+                "ROOT-048"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "24.2 並列編集耐性の設計原則",
@@ -44592,9 +44629,11 @@
               }
             },
             {
-              "id": "BD-138",
-              "statement": "`.verify/doc/` は `DOC-<NAME>.yaml` 形式で総称documentレコード（正典）を格納する。",
-              "derives_from": [],
+              "id": "BD-323",
+              "statement": "`.verify/doc/` は文書ごとに1つの JSON ファイルとして上流文書（正典）を格納する。",
+              "derives_from": [
+                "ROOT-048"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 2.1 `.verify/` レイアウト",
@@ -45006,9 +45045,10 @@
           ],
           "items": [
             {
-              "id": "BD-312",
-              "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現する。",
+              "id": "BD-325",
+              "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現し、ファイルの単位は文書とする。",
               "derives_from": [
+                "ROOT-048",
                 "SPEC-038",
                 "SPEC-039",
                 "SPEC-040",
@@ -45497,9 +45537,11 @@
       ],
       "items": [
         {
-          "id": "BD-162",
-          "statement": "すべてのレコードはYAMLとする。",
-          "derives_from": [],
+          "id": "BD-320",
+          "statement": "上流文書のレコードは JSON とし、その他のレコードはすべて YAML とする。",
+          "derives_from": [
+            "ROOT-048"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "## 3. レコードファイルスキーマ",
@@ -46804,12 +46846,10 @@
               }
             },
             {
-              "id": "BD-233",
-              "statement": "エンティティファイル編集（doc / vo）は1エンティティ1ファイルであり、異なるエンティティの並列編集は独立であり、同一エンティティの並列編集はGitのマージ衝突として顕在化する。",
+              "id": "BD-324",
+              "statement": "エンティティファイル編集（doc / vo）は上流文書が1文書1ファイル、VOが1エンティティ1ファイルであり、異なるファイルの並列編集は独立であり、同一ファイルの並列編集はGitのマージ衝突として顕在化する。",
               "derives_from": [
-                "SPEC-197",
-                "SPEC-198",
-                "SPEC-199"
+                "ROOT-048"
               ],
               "cites": [
                 "基本仕様 §24.2"

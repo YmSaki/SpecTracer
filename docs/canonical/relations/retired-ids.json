@@ -495,5 +495,45 @@
     "old_id": "BD-019",
     "new_id": "BD-318",
     "reason": "canonical holes 2026-09-07 (H-1): norm changed; `DOC-` は specification.schema.json の `$defs/id` パターンに無く、ROOT-047 のもとで死んだ値域である。id 接頭辞は層ごとの接頭辞（SPEC-462）へ再条件づけした。"
+  },
+  {
+    "old_id": "BD-055",
+    "new_id": "BD-319",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 1 文書 1 json という保存形式に合わせ、上流文書のファイル形式を YAML から JSON へ再条件づけした。その他のレコードは YAML のまま。"
+  },
+  {
+    "old_id": "BD-162",
+    "new_id": "BD-320",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; BD-055 と同旨の重複条文であり、片方だけ再条件づけすると同一層内で矛盾するため同時に処置した。"
+  },
+  {
+    "old_id": "BD-059",
+    "new_id": "BD-321",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; Issue #14 のノードモデル下で「1エンティティ1ファイル」は 1 ノード 1 ファイルと読めるため、上流文書の保存単位を文書と確定した。"
+  },
+  {
+    "old_id": "BD-060",
+    "new_id": "BD-322",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため、上流文書側のファイル名はノード id ではなく文書の識別とした。正典は文書の識別子 field を定義していない（適用結果 §10 に開示）。"
+  },
+  {
+    "old_id": "BD-138",
+    "new_id": "BD-323",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; `DOC-<NAME>.yaml` は H-1 で死んだ `DOC-` 値域と YAML 形式の両方に依存していたため、文書単位の JSON ファイルへ置き換えた。"
+  },
+  {
+    "old_id": "BD-233",
+    "new_id": "BD-324",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため、並列編集の独立性の単位もエンティティからファイルへ移る（同一文書内の別ノードの並列編集は衝突しうる）。"
+  },
+  {
+    "old_id": "BD-312",
+    "new_id": "BD-325",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 「層ごとのトップレベル配列」という語は上流 REQ-333 / SPEC-462 が同文で持つため落とさず、ファイルの単位が文書であることを追加して再条件づけした。"
+  },
+  {
+    "old_id": "BD-061",
+    "new_id": "BD-326",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため「異なるエンティティへの並列変更は異なるファイルへの変更になる」は同一文書内の別ノードについて偽になる。BD-324 と対の条文であり、片方だけ残すと裁定の帰結が隠れる。"
   }
 ]
