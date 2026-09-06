@@ -580,5 +580,15 @@
     "old_id": "BD-168",
     "new_id": "BD-327",
     "reason": "canonical holes 2026-09-07 (H-4): norm changed; 「仕様文書そのものは `.verify/` へ複製しない」は旧ファイルモデル（レコードが `path` でファイルを指すだけ）でのみ真であり、ROOT-047 のもとでノードが `statement` を保持するため成立しない。ROOT-039 の「JSON を正本、md は一方向エクスポート」へ再条件づけした。"
+  },
+  {
+    "old_id": "DS-376",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-5): 上流根拠が無く（自ノードにも祖先節 DS-S070 にも derives_from が無い＝正本自身の定義で孤児。`未知` / `互換` / `前方互換` / `後方互換` を require / spec に当てて 0 件）、同層の DS-544 / DS-476 / DS-1550 / DS-540 はいずれも error 側でこの文だけが包括的な「警告して継続」であり、DS-559 により warning は検証値を変えないため未知 field の無視は fail-open で偽のゲート充足を通す。読取り互換 field `status` の例外は DS-405 / DS-552 / DS-1024 / DS-1296 / DES-094 が個別に持ちこの文に依存しない。後継ノードは置かず、未知 field の扱いは DS-1645 が引き取る。"
+  },
+  {
+    "old_id": "DS-544",
+    "new_id": "DS-1645",
+    "reason": "canonical holes 2026-09-07 (H-5): norm changed; DS-376（未知フィールドは警告）の削除にともない、余剰 field が schema 不一致に含まれることを明示した。元の逐語には無い追加であるため新 id を採り、導出であることを description に残した。"
   }
 ]
