@@ -37,10 +37,10 @@ schema は `specification.schema.json`。変換は**忠実な転記**であり�
 - 括弧内の診断コード・状態値（「（E-SCAN-016、`orphan_detection = MISMATCH`）」）は規範の一部なので statement に残す。括弧内の上流引用（「（本冊 §11.2）」「（要件定義 §5.3）」）は `cites` へ移し statement からは外す。
 - Markdown の強調記号（`**…**`、`*…*`）は表示上のもので規範ではないので statement から外す。識別子を囲むバッククォートは残す。
 
-## 3. `derived_from` と `cites`
+## 3. `derives_from` と `cites`
 
 - 文の一部になっている引用（「終了コードは本冊 §17.2 に従う」）は statement に残す。`cites` へは後処理（`build.py harvest-cites`）が文書名つきの引用を機械的に拾って重複なく追記する。変換エージェントが手で二重に書く必要はない。
-- 初回変換では `derived_from` は**常に空配列**で、§6 の機械適用で埋めた。ID 固定後は fragments に保存されている。
+- 初回変換では `derives_from` は**常に空配列**で、§6 の機械適用で埋めた。ID 固定後は fragments に保存されている。
 - 元 md にある上流引用は **`cites` に逐語で**記録する。同一文書内の節参照（本冊の中の「§1.3」「§7.3」のように文書名を伴わないもの）は辺にならないので `cites` に入れず、statement の中にそのまま残す（Owner 2026-09-05: 辺は層をまたぐ参照だけ）。例: `"（R-1）"`, `"基本仕様 §3.2"`, `"要件定義 L324"`。文書名を伴わない節番号引用（「§5.1、§23」）は同一文書内の参照なので `cites` に入れない（次項）。文書名は補わない。
 
 ## 4. 規範でないものの落とし先
@@ -67,13 +67,13 @@ dropped-log の形: `{ "doc", "lines": [s, e], "reason", "keep_for_derivation"? 
 
 ## 6. 導出の適用（変換後、機械）
 
-Owner 裁定（2026-09-05、Issue #14 コメント）: 「あくまで derived_from は参照なので」。`derived_from` は導出の証明ではなく参照であり、文書に書いてある引用先をそのまま繋ぐ。ペアごとの承認は行わない。
+Owner 裁定（2026-09-05、Issue #14 コメント）: 「あくまで derives_from は参照なので」。`derives_from` は導出の証明ではなく参照であり、文書に書いてある引用先をそのまま繋ぐ。ペアごとの承認は行わない。
 
 1. `cites` の各引用を、指す先の節に属する上流層の statement id 集合に解決する（節引用は複数 id になる）。**辺は層をまたぐ参照だけ**（Owner 2026-09-05）: 要求 → 要件定義 → 基本仕様 → 詳細設計の間の参照を辺にし、隣接でも飛び越しでも入れる。同じ層の中の参照（本冊内の §N、別紙A・別紙C → 本冊）は辺にしない。
 2. 要求・要件定義 L612 以降の導出表（要求 → 要件 §N）の各行を同様に機械適用する。
 3. 各文書末尾のトレーサビリティ表（基本仕様 46 行・本冊 48 行・別紙A 30 行・別紙C 16 行。「本書の節 → 実現する上流節」）を同様に機械適用する。節の全文が、上流節の全文への辺を持つ。同一層への行（別紙 → 本冊）は辺にしない。
 4. 解決できない引用は空のまま残し、一覧に出す（`derivation-candidates.md`）。
-5. **ID 固定（2026-09-05）**: `build.py freeze` が id と `derived_from` を fragments に書き戻す。以後 `build` は保存された id をそのまま使い、id の無い新規 item にだけ次番号を振る。番号の付け直しはしない。`apply-derivation` は保存値と再計算の差分を報告する道具になり、`--write` を付けたときだけ上書きする。
+5. **ID 固定（2026-09-05）**: `build.py freeze` が id と `derives_from` を fragments に書き戻す。以後 `build` は保存された id をそのまま使い、id の無い新規 item にだけ次番号を振る。番号の付け直しはしない。`apply-derivation` は保存値と再計算の差分を報告する道具になり、`--write` を付けたときだけ上書きする。
 
 ## 6.1 ビルド手順（2026-09-05、節ノード版）
 
@@ -81,7 +81,7 @@ Owner 裁定（2026-09-05、Issue #14 コメント）: 「あくまで derived_f
 python docs/canonical/build.py all      # = build → apply-derivation --write → coverage → export
 ```
 
-`build` は断片から木（文書>節>小節>文）と id を作る。`apply-derivation --write` が文の辺（`cites`）と節の辺（`relations/trace-tables.json` の 247 行 = 要求→要件の導出表 111 + トレーサビリティ表 136）を計算して書く。**元 md は読まない**（見出しは各断片の `headings`、表は `relations/trace-tables.json` に保存済み。2026-09-05 a0ba70d）。md を読むのは移行期間の検査（coverage / qualifier-check / source-check / derivation-candidates）だけ。`build` 単独では `derived_from` は断片の値（空）に戻る。`all` の結果は byte 再現する。層の移動は `relayer apply <mapping...>`（複数ファイルを1回で、基準は適用前の断片。分割適用は id がずれるので禁止）。
+`build` は断片から木（文書>節>小節>文）と id を作る。`apply-derivation --write` が文の辺（`cites`）と節の辺（`relations/trace-tables.json` の 247 行 = 要求→要件の導出表 111 + トレーサビリティ表 136）を計算して書く。**元 md は読まない**（見出しは各断片の `headings`、表は `relations/trace-tables.json` に保存済み。2026-09-05 a0ba70d）。md を読むのは移行期間の検査（coverage / qualifier-check / source-check / derivation-candidates）だけ。`build` 単独では `derives_from` は断片の値（空）に戻る。`all` の結果は byte 再現する。層の移動は `relayer apply <mapping...>`（複数ファイルを1回で、基準は適用前の断片。分割適用は id がずれるので禁止）。
 
 ## 7. ID の付番
 
@@ -92,3 +92,7 @@ python docs/canonical/build.py all      # = build → apply-derivation --write �
 ## 8. 監査で見つかった13箇所の扱い
 
 `reports/upstream-traceability-audit-2026-09-04.md` の指摘箇所は、変換では**そのまま写す**。直すのは変換後に、ノード単位の編集として別途行う。変換中に直すと diff が読めなくなり、「実装に合わせて仕様を改竄しない」規則を仕様側で破ることになる。
+
+## 9. 辺の field 名（2026-09-06）
+
+正典の語彙は基本仕様が持ち、仕様本文は `derives_from` と綴る。JSON の field 名も 2026-09-06 に `derived_from` から `derives_from` に改名した（schema・`specification.json` とも）。2026-09-06 以前の報告書は旧名で書かれている。

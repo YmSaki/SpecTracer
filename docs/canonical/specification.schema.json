@@ -43,13 +43,13 @@
     },
     "derivedItem": {
       "type": "object",
-      "required": ["id", "statement", "derived_from", "source"],
+      "required": ["id", "statement", "derives_from", "source"],
       "additionalProperties": false,
       "properties": {
         "id":           { "$ref": "#/$defs/id" },
         "statement":    { "type": "string", "minLength": 1 },
         "description":  { "type": "string" },
-        "derived_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "derives_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
         "cites": {
           "description": "移行期間限定。元 md に書かれていた上流引用の逐語（例: \"基本仕様 §3.2\", \"（R-1）\", \"要件定義 L324\"）。derived_from へ解決するのは別工程で、Owner の承認を経る。",
           "type": "array",
@@ -68,7 +68,7 @@
         "title":        { "type": "string", "minLength": 1 },
         "description":  { "type": "string" },
         "source":       { "$ref": "#/$defs/source" },
-        "derived_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "derives_from": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
         "sections":     { "type": "array", "items": { "$ref": "#/$defs/section" } },
         "items":        { "type": "array", "items": { "$ref": "#/$defs/derivedItem" } }
       }
