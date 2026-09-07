@@ -1720,7 +1720,7 @@ fn validate_approval_status(
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestTarget, VoId};
+    use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestSuite, VoId};
     use vtest_store::{init_project, new_record_id, write_document_file, FormAnswers, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
@@ -2794,7 +2794,13 @@ fn combines() {}
             .find(|test| test.id.as_str() == "TEST-LIB-ONE-TARGET")
             .unwrap();
         assert_eq!(one.targets.len(), 1);
-        assert!(matches!(one.test_target, TestTarget::Lib));
+        assert_eq!(
+            one.execution.suite,
+            Some(TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
 
         let two = result
             .tests
@@ -2802,7 +2808,13 @@ fn combines() {}
             .find(|test| test.id.as_str() == "TEST-LIB-TWO-TARGETS")
             .unwrap();
         assert_eq!(two.targets.len(), 2);
-        assert!(matches!(two.test_target, TestTarget::Lib));
+        assert_eq!(
+            two.execution.suite,
+            Some(TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
 
         let three = result
             .tests
@@ -2811,8 +2823,11 @@ fn combines() {}
             .unwrap();
         assert_eq!(three.targets.len(), 3);
         assert_eq!(
-            three.test_target,
-            TestTarget::IntegrationTest("three_targets".to_owned())
+            three.execution.suite,
+            Some(TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("three_targets".to_owned()),
+            })
         );
 
         assert!(
@@ -3275,7 +3290,7 @@ fn no_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "no_target")
+                        .is_some_and(|location| location.locator == "no_target")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -3315,7 +3330,7 @@ fn empty_target() {}
             diagnostic
                 .location
                 .as_ref()
-                .is_some_and(|location| location.function == "empty_target")
+                .is_some_and(|location| location.locator == "empty_target")
         };
         assert!(
             !result
@@ -4715,17 +4730,20 @@ fn collision_second() {}
             "the canonical bundle must parse as a well-formed DocumentFile: {:?}",
             diagnostics
         );
-        let orphan_ids = diagnostics
+        // Document-node diagnostics carry no `SourceLocation` (record-layer,
+        // not adapter-discovered — see `document_node_record_path`'s doc
+        // comment), so the orphan count is taken directly from the
+        // diagnostic count rather than from distinct `.location` values.
+        let orphan_count = diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.code == "E-SCAN-016")
-            .filter_map(|diagnostic| diagnostic.location.as_ref().map(|l| l.function.clone()))
-            .collect::<Vec<_>>();
+            .count();
         eprintln!(
             "canonical_bundle_orphan_count: {} node(s) report E-SCAN-016 (orphan_detection) \
              against the real canonical bundle specification.json — not asserted (reported for \
              the PR to cite; DS-1647 scope: root-layer nodes excluded, effective upstream = own \
              derives_from ∪ ancestor section derives_from within the same file).",
-            orphan_ids.len()
+            orphan_count
         );
     }
 
