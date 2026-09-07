@@ -633,14 +633,16 @@ mod tests {
                  pretty-printed length = {} bytes, file length = {} bytes, first differing byte \
                  at offset {:?}. Known causes, not exhaustive: (a) key order — SentenceNode's \
                  field declaration order is id, statement, description, derives_from, cites, \
-                 source, but the canonical bundle itself is not internally consistent in where \
-                 `description` sits relative to `derives_from`/`source` across nodes (e.g. \
-                 DS-1637 places `description` after `source`, while other nodes place it right \
-                 after `statement`), so declaration-order serialization cannot reproduce every \
-                 node's original key order; (b) the file ends with a trailing newline that \
-                 `to_string_pretty` does not emit. This has no bearing on the structural-equality \
-                 assertion above; it is disclosed because a future byte-preserving writer (a \
-                 later PR's concern, not this one's) would need to account for both.",
+                 source, and the canonical bundle mostly agrees (e.g. detailed_spec node DS-038 \
+                 places `description` right after `statement`, matching that order), but it is \
+                 not uniform: at least 5 sentence nodes (DS-1637, DS-1658, BD-330, and 2 more) \
+                 place `description` last, after `source`, instead — the first byte offset above \
+                 lands exactly at that divergence inside DS-1637 — so declaration-order \
+                 serialization cannot reproduce every node's original key order; (b) the file \
+                 ends with a trailing newline that `to_string_pretty` does not emit. This has no \
+                 bearing on the structural-equality assertion above; it is disclosed because a \
+                 future byte-preserving writer (a later PR's concern, not this one's) would need \
+                 to account for both.",
                 pretty_bytes.len(),
                 file_bytes.len(),
                 first_diff,
