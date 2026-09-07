@@ -725,5 +725,50 @@
     "old_id": "DS-921",
     "new_id": "DS-1663",
     "reason": "adapter id diagnostics 2026-09-07 (Issue #24): norm changed; 「重複」が registry の重複（DS-1631・DES-351）と config.yaml 内の重複（DS-036）のどちらとも読め、DS-352 と衝突していた。重複を registry に限定し、config.yaml の adapters が指す未知 adapter を「未登録」から除いて E-CONFIG-001 へ渡した。config.yaml 以外の参照元が指す未登録 adapter は本コードのまま。"
+  },
+  {
+    "old_id": "REQ-148",
+    "new_id": "REQ-336",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "REQ-068",
+    "new_id": "REQ-337",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "REQ-070",
+    "new_id": null,
+    "reason": "他の実行形態における確認方法の下位仕様への委譲。実行形態を分類しないため委譲先の「他の形態」が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-071",
+    "new_id": null,
+    "reason": "特定の実行形態の確認方法を別の実行形態へ要求しない、という形態間の規範。形態を分類しないため前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-132",
+    "new_id": null,
+    "reason": "REQ-071 と同旨の形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-147",
+    "new_id": null,
+    "reason": "内部 construct を直接検証する実行形態についての規範。REQ-336 が無条件になったため不要（ROOT-049）"
+  },
+  {
+    "old_id": "SPEC-300",
+    "new_id": "SPEC-464",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "SPEC-065",
+    "new_id": null,
+    "reason": "他の実行形態における確認方法の詳細設計への委譲。委譲先の「他の形態」が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "SPEC-301",
+    "new_id": null,
+    "reason": "実行形態別の確認方法の委譲。無条件部分は SPEC-465 が引き継ぐ（ROOT-049）"
   }
 ]

@@ -1817,9 +1817,12 @@
               }
             },
             {
-              "id": "REQ-068",
-              "statement": "実装 construct（Source Target）を検証対象とする実行形態では、宣言された対象コードが実際に Test 実行経路へ入ったことをこの確認方法とする。",
-              "derives_from": [],
+              "id": "REQ-337",
+              "statement": "target を宣言した Test では、宣言された対象コードが実際に Test 実行経路へ入ったことを `target_binding` の確認方法とする。",
+              "description": "前身 `REQ-068` は条件を「実装 construct（Source Target）を検証対象とする実行形態では」としていた。`ROOT-049` により実行形態では条件付けられないため、条件を「target を宣言したか」に付け替えた。確認方法そのものは変えていない。target を宣言しない Test の `target_binding` は `DS-1664` が `NO_EVIDENCE`（診断 `NOT_CHECKED`）と定める。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
@@ -1839,32 +1842,6 @@
                 "lines": [
                   165,
                   165
-                ]
-              }
-            },
-            {
-              "id": "REQ-070",
-              "statement": "他の実行形態における確認方法は、§8 条項 3 に従い、当該形態に適した方法として下位仕様で定める。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
-                "lines": [
-                  166,
-                  166
-                ]
-              }
-            },
-            {
-              "id": "REQ-071",
-              "statement": "特定の実行形態の確認方法を、別の実行形態の Test へ一律に要求してはならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
-                "lines": [
-                  166,
-                  166
                 ]
               }
             },
@@ -2033,7 +2010,7 @@
             },
             {
               "id": "REQ-083",
-              "statement": "答えは assert の所在・実行形態（内部 construct 検証か境界の振る舞い検証か）に依らず同一でなければならない。",
+              "statement": "答えは assert の所在・実行形態に依らず同一でなければならない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -2886,19 +2863,6 @@
               }
             },
             {
-              "id": "REQ-132",
-              "statement": "特定の実行形態に固有の確認方法を、別の実行形態へ一律に要求してはならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-                "heading": "### 8.2 成立性確認の原則",
-                "lines": [
-                  261,
-                  261
-                ]
-              }
-            },
-            {
               "id": "REQ-133",
               "statement": "成立性の問いへの答えは、確認方法に依らず同一でなければならない。",
               "derives_from": [],
@@ -3139,22 +3103,12 @@
               }
             },
             {
-              "id": "REQ-147",
-              "statement": "実装 construct（Source Target）を直接検証する実行形態では、Source Target 宣言をそのまま検証対象の宣言として扱い、同一対象の二重宣言を要求しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
-                "heading": "### 9.1 検証対象",
-                "lines": [
-                  318,
-                  318
-                ]
-              }
-            },
-            {
-              "id": "REQ-148",
-              "statement": "外部契約・境界上の振る舞いを検証する実行形態では、その契約または振る舞いを検証対象とし、内部 Source Target の宣言を Test 成立性の必須条件としない。",
-              "derives_from": [],
+              "id": "REQ-336",
+              "statement": "target の宣言は Test 成立性の必須条件ではない。",
+              "description": "前身 `REQ-148` は「外部契約・境界上の振る舞いを検証する実行形態では」という実行形態の条件節を持ち、内部 Source Target を必須としないことをその形態に限って述べていた。`ROOT-049` が実行形態の分類を廃したため、条件節を落として無条件の規範にした。同時に廃止された `REQ-147`（もう一方の形態についての規範）の役割は、本節が無条件になったことで不要になる。`REQ-144`「すべての管理対象 Test は、1 件以上の検証対象を宣言できなければならない」（可能性の要件であって義務ではない）と `REQ-150`「1 つの Test は 1 件以上の Source Target を宣言できる」は変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 9.1 検証対象",
@@ -6519,8 +6473,7 @@
             "REQ-144",
             "REQ-145",
             "REQ-146",
-            "REQ-147",
-            "REQ-148"
+            "REQ-336"
           ],
           "cites": [
             "要件定義 §9.1"
@@ -7526,19 +7479,6 @@
                   239
                 ]
               }
-            },
-            {
-              "id": "SPEC-065",
-              "statement": "他の実行形態における確認方法は、当該形態に適した方法として詳細設計で定める。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.3 target_binding — 宣言対象の振る舞いの実現",
-                "lines": [
-                  242,
-                  242
-                ]
-              }
             }
           ]
         },
@@ -8014,8 +7954,7 @@
                 "REQ-144",
                 "REQ-145",
                 "REQ-146",
-                "REQ-147",
-                "REQ-148"
+                "REQ-336"
               ],
               "cites": [
                 "要件定義 §9.1"
@@ -8054,6 +7993,22 @@
                 "lines": [
                   361,
                   361
+                ]
+              }
+            },
+            {
+              "id": "SPEC-465",
+              "statement": "target の宣言は Test 成立性の必須条件ではない。",
+              "description": "`REQ-336` の基本仕様面の写し。前身 `SPEC-301` は同旨を「検証対象をSource Targetとして宣言しない他の実行形態」に限って述べ、確認方法を下位仕様・後続版へ委譲していた。`ROOT-049` により実行形態の条件節と委譲がともに消え、無条件の規範だけが残る。",
+              "derives_from": [
+                "REQ-336"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+                "heading": "9.1 検証対象",
+                "lines": [
+                  353,
+                  353
                 ]
               }
             },
@@ -12149,10 +12104,8 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072",
                 "REQ-073",
                 "REQ-074",
@@ -12412,39 +12365,14 @@
           "derives_from": [],
           "items": [
             {
-              "id": "SPEC-300",
-              "statement": "本節の到達要件は検証対象をSource Targetとして実現する形態に限定する（`rust-cargo`）。",
-              "description": "基本仕様 §5.3「実装 construct（Source Target）を検証対象とする実行形態では…」",
-              "derives_from": [],
+              "id": "SPEC-464",
+              "statement": "本節の到達要件は、target を宣言した Test に限定する。",
+              "description": "前身 `SPEC-300` は「検証対象をSource Targetとして実現する形態に限定する（`rust-cargo`）」と、実行形態で限定していた。`ROOT-049` により条件を「target を宣言したか」に付け替えた。到達要件そのものは変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "cites": [
                 "基本仕様 §5.3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
-                "lines": [
-                  1111,
-                  1111
-                ]
-              }
-            },
-            {
-              "id": "SPEC-301",
-              "statement": "検証対象をSource Targetとして宣言しない他の実行形態（外部契約・境界上の振る舞い）の確認方法は、特定形態を他形態へ一律要求せず下位仕様・後続版へ委譲する。",
-              "derives_from": [
-                "REQ-064",
-                "REQ-065",
-                "REQ-066",
-                "REQ-067",
-                "REQ-068",
-                "REQ-069",
-                "REQ-070",
-                "REQ-071",
-                "REQ-072"
-              ],
-              "cites": [
-                "要件定義 §4.3",
-                "基本仕様 §5.3・§8.3"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -16044,10 +15972,8 @@
             "REQ-065",
             "REQ-066",
             "REQ-067",
-            "REQ-068",
+            "REQ-337",
             "REQ-069",
-            "REQ-070",
-            "REQ-071",
             "REQ-072",
             "REQ-073",
             "REQ-074",
@@ -17986,10 +17912,8 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072",
                 "REQ-125",
                 "REQ-126",
@@ -17998,7 +17922,6 @@
                 "REQ-129",
                 "REQ-130",
                 "REQ-131",
-                "REQ-132",
                 "REQ-133",
                 "REQ-134",
                 "REQ-135",
@@ -18367,10 +18290,8 @@
             "REQ-065",
             "REQ-066",
             "REQ-067",
-            "REQ-068",
+            "REQ-337",
             "REQ-069",
-            "REQ-070",
-            "REQ-071",
             "REQ-072",
             "REQ-073",
             "REQ-074",
@@ -18419,10 +18340,8 @@
             "REQ-065",
             "REQ-066",
             "REQ-067",
-            "REQ-068",
+            "REQ-337",
             "REQ-069",
-            "REQ-070",
-            "REQ-071",
             "REQ-072",
             "REQ-073",
             "REQ-074",
@@ -22160,7 +22079,6 @@
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-066",
                 "SPEC-067",
                 "SPEC-068",
@@ -23947,8 +23865,7 @@
                 "SPEC-297",
                 "SPEC-298",
                 "SPEC-299",
-                "SPEC-300",
-                "SPEC-301",
+                "SPEC-464",
                 "SPEC-302",
                 "SPEC-303"
               ],
@@ -24201,8 +24118,7 @@
                 "REQ-144",
                 "REQ-145",
                 "REQ-146",
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-082",
                 "SPEC-083",
                 "SPEC-084"
@@ -24299,10 +24215,8 @@
               "statement": "v0.1の唯一のadapter `rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
               "derives_from": [
                 "REQ-055",
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24753,10 +24667,8 @@
               "derives_from": [
                 "SPEC-085",
                 "SPEC-086",
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "cites": [
                 "基本仕様 §9.2"
@@ -24775,10 +24687,8 @@
               "statement": "coreの `id` / `covers ≥ 1` / `intent`、および検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
               "derives_from": [
                 "REQ-055",
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25261,10 +25171,8 @@
               "statement": "E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata。`rust-cargo` では検証対象をSource Targetとして実現する実行形態について targets ≥ 1）の欠落を意味する。",
               "derives_from": [
                 "REQ-055",
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26457,10 +26365,8 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072"
               ],
               "cites": [
@@ -27101,16 +27007,13 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072",
                 "SPEC-061",
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-289"
               ],
               "cites": [
@@ -27495,11 +27398,9 @@
               "id": "DS-1622",
               "statement": "v0.1の唯一のadapter`rust-cargo`では、検証対象をSource Targetとして実現する実行形態のTestが検証対象をSource Targetとして宣言しない場合にE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になり、外部契約・境界上の振る舞いを検証する実行形態のTestはこれに当たらない。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
-                "SPEC-300"
+                "SPEC-464"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27529,12 +27430,8 @@
               "description": "`SPEC-065` が確認方法を詳細設計へ委ね、`SPEC-301` が下位仕様・後続版へ委譲しているため、v0.1 は検証対象をSource Targetとして宣言しないTestについて到達を確認する方法を持たない。診断ラベルを `NOT_CHECKED` とするのは、検査を実施していない状態（`DS-840` のscope外検査、`DS-1103` の `--fast`）と同型だからであり、解析を実施して限界に達した `UNKNOWN`（`DS-1403`）とは別である。`DS-687` は targetを持たないTestが §7.3 の合成へ到達しないことだけを定め、その `target_binding` の値を定めていなかった。値が定まらないことを `PASS` の側へ倒さないため、`REQ-135`（確認不能であることを成立確認済みとして扱ってはならない）に従って非 `PASS` の側へ確定する。`REQ-295` の完全検証OKは4検査すべてが `PASS` であることを要するため、targetを持たないTestを含むrepositoryはv0.1で完全検証OKに到達しない。`REQ-071` により、検証対象をSource Targetとして実現する形態の確認方法を当該Testへ一律に要求することはしない。本ノードは元mdからの転記ではないため、`source` は対になる `DS-687` の位置を指すだけであり、「そこから写した」ことを意味しない（2026-09-06 の文書モデル再整合と同じ開示）。",
               "derives_from": [
                 "REQ-064",
-                "REQ-070",
-                "REQ-071",
                 "REQ-135",
-                "REQ-148",
-                "SPEC-065",
-                "SPEC-301"
+                "REQ-336"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28957,7 +28854,6 @@
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-289"
               ],
               "cites": [
@@ -29379,9 +29275,7 @@
                     "SPEC-082",
                     "SPEC-083",
                     "SPEC-084",
-                    "REQ-147",
-                    "REQ-148",
-                    "SPEC-301"
+                    "REQ-336"
                   ],
                   "cites": [
                     "基本仕様 §5.1・§9.1",
@@ -29567,7 +29461,6 @@
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-066",
                 "SPEC-067",
                 "SPEC-068",
@@ -29579,10 +29472,8 @@
                 "SPEC-291",
                 "SPEC-292",
                 "SPEC-293",
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "cites": [
                 "基本仕様 §5"
@@ -30221,7 +30112,6 @@
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-066",
                 "SPEC-067",
                 "SPEC-068",
@@ -32254,10 +32144,8 @@
               "id": "DS-1635",
               "statement": "`rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
-                "SPEC-084",
-                "SPEC-301"
+                "REQ-336",
+                "SPEC-084"
               ],
               "cites": [
                 "本冊 §4.1・§4.4"
@@ -34129,7 +34017,6 @@
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-066",
                 "SPEC-067",
                 "SPEC-068",
@@ -37490,10 +37377,8 @@
                   "derives_from": [
                     "SPEC-057",
                     "SPEC-058",
-                    "REQ-147",
-                    "REQ-148",
-                    "SPEC-084",
-                    "SPEC-301"
+                    "REQ-336",
+                    "SPEC-084"
                   ],
                   "cites": [
                     "本冊 §11.1.1",
@@ -40665,7 +40550,6 @@
                     "SPEC-062",
                     "SPEC-063",
                     "SPEC-064",
-                    "SPEC-065",
                     "SPEC-066",
                     "SPEC-067",
                     "SPEC-068",
@@ -45670,10 +45554,8 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072",
                 "SPEC-079",
                 "SPEC-080",
@@ -45723,16 +45605,13 @@
                 "REQ-065",
                 "REQ-066",
                 "REQ-067",
-                "REQ-068",
+                "REQ-337",
                 "REQ-069",
-                "REQ-070",
-                "REQ-071",
                 "REQ-072",
                 "SPEC-061",
                 "SPEC-062",
                 "SPEC-063",
                 "SPEC-064",
-                "SPEC-065",
                 "SPEC-289"
               ],
               "cites": [
@@ -46062,10 +45941,8 @@
               "statement": "検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
               "derives_from": [
                 "REQ-055",
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
@@ -47821,10 +47698,8 @@
               "statement": "fixture は、`rust-cargo` で検証対象をSource Targetとして実現する実行形態でありながら `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
               "description": "`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする追加metadataである。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
@@ -52499,10 +52374,8 @@
               "id": "DES-581",
               "statement": "E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とするmetadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
@@ -52800,10 +52673,8 @@
               "id": "DES-582",
               "statement": "`TestEntity.targets` の件数はadapterが定める（`rust-cargo` は検証対象をSource Targetとして実現する実行形態について `targets ≥ 1` を必須とする）（§4.1・§4.4）。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
@@ -54664,10 +54535,8 @@
               "id": "DES-384",
               "statement": "検証グラフのエッジ `TEST → SRC` は `targets` であり、検証対象をSource Targetとして実現する実行形態、1:N（`rust-cargo` では当該形態について `targets ≥ 1`）である（§4.1）。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
@@ -54793,10 +54662,8 @@
               "id": "DES-580",
               "statement": "当該adapterは、検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とし、外部契約・境界上の振る舞いを検証する実行形態のTestには内部Source Targetの宣言をTest成立性の必須条件としない。",
               "derives_from": [
-                "REQ-147",
-                "REQ-148",
+                "REQ-336",
                 "SPEC-084",
-                "SPEC-301",
                 "DS-178",
                 "DS-179"
               ],
