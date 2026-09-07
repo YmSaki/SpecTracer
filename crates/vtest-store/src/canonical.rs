@@ -141,10 +141,13 @@ fn reject_dimensions_unknown_fields(value: &yaml_serde::Value) -> Result<(), Sto
 // to the same schema as the bundle: `schema_version` is a `const` (schema
 // `properties.schema_version`), every node id matches the shared
 // `$defs/id` union pattern, every layer's nodes carry that layer's id
-// prefix (DS-1658), `derives_from` has no duplicate entries (schema
-// `uniqueItems`), `statement`/`title`/`source.doc`/`source.heading` are
-// non-empty (schema `minLength: 1`), `source.lines` entries are `>= 1`
-// (schema `minimum: 1`), and no optional field is present as JSON `null`
+// prefix (DS-1658), every `derives_from` entry *also* matches the shared
+// `$defs/id` pattern (schema `derivedItem.derives_from`/`section.derives_from`,
+// both `"items": { "$ref": "#/$defs/id" }`) and has no duplicates within
+// the list (schema `uniqueItems`), `statement`/`title`/`source.doc`/
+// `source.heading` are non-empty (schema `minLength: 1`), `source.lines`
+// entries are `>= 1` (schema `minimum: 1`), and no optional field is
+// present as JSON `null`
 // (the schema's `{"type": "string"}"`/`{"type": "array", ...}` on an
 // optional property rejects `null` when the key is present — `null` is not
 // the same as absent, but `Option<T>: Deserialize` accepts it as `None`
@@ -286,9 +289,30 @@ fn validate_node_source(source: &NodeSource, node_id: &str) -> Result<(), StoreE
     Ok(())
 }
 
+/// Validates one `derives_from[]` list against the schema's `$defs/id`
+/// pattern (specification.schema.json:52/:71, `"items": { "$ref":
+/// "#/$defs/id" }`) and rejects duplicates (schema `uniqueItems`).
+///
+/// Deliberately checks the pattern only, *not* `Layer::from_id_prefix`
+/// agreement (DS-1658): an upstream document node legitimately derives from
+/// a node in a *different* layer (e.g. a `DS-` node deriving from a
+/// `SPEC-` node) — DS-1658's layer/prefix agreement applies only to a
+/// node's *own* id sitting in its *own* layer's array (`validate_node_id`),
+/// never to what that node cites as its upstream. See
+/// `document_derives_from_entry_across_layers_is_accepted` (below) for the
+/// positive case this scoping preserves.
 fn validate_derives_from_unique(ids: &[DocumentId], node_id: &str) -> Result<(), StoreError> {
     let mut seen = std::collections::BTreeSet::new();
     for id in ids {
+        if !matches_document_id_pattern(id.as_str()) {
+            return Err(schema_mismatch(
+                node_id,
+                format!(
+                    "derives_from entry `{}` does not match the schema's $defs/id pattern",
+                    id.as_str()
+                ),
+            ));
+        }
         if !seen.insert(id.as_str()) {
             return Err(schema_mismatch(
                 node_id,
@@ -693,6 +717,82 @@ mod tests {
         document_file_to_json(&file).expect_err("a source.lines entry of 0 must fail closed");
     }
 
+    /// `validate_node_source`'s `source.heading` check
+    /// (specification.schema.json `$defs/source`, `minLength: 1`) — the
+    /// module previously implemented this but had no test exercising it.
+    #[test]
+    fn document_file_rejects_empty_source_heading() {
+        let mut file = minimal_document_file();
+        file.request[0].source.heading = String::new();
+        document_file_to_json(&file).expect_err("an empty source.heading must fail closed");
+    }
+
+    /// `validate_sentence_node`'s `cites` entry check (schema `minLength: 1`
+    /// on each `cites[]` string) — implemented but previously untested.
+    #[test]
+    fn document_file_rejects_empty_cites_entry() {
+        let mut file = minimal_document_file();
+        file.request[0].cites = Some(vec![String::new()]);
+        document_file_to_json(&file).expect_err("an empty cites entry must fail closed");
+    }
+
+    /// `validate_section_node`'s `title` check (schema `$defs/section`,
+    /// `minLength: 1`) — this path is unreachable through `minimal_document_file`
+    /// alone (its `require`/`spec`/etc. arrays are always empty), so this
+    /// builds a populated `SectionNode` directly to exercise it.
+    #[test]
+    fn document_file_rejects_empty_section_title() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: String::new(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err("an empty section title must fail closed");
+    }
+
+    /// DS-1658 layer/prefix agreement, checked on a node nested two levels
+    /// deep (`require[].sections[].items[]`) — `validate_section_node`
+    /// recurses into both `sections[]` and `items[]`, and this is the only
+    /// test that reaches a nested `items[]` sentence rather than a
+    /// top-level `request[]` one.
+    #[test]
+    fn document_file_rejects_nested_item_in_wrong_layer() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: Some(vec![SectionNode {
+                id: DocumentId::new("REQ-S002"),
+                title: "A subsection".to_owned(),
+                description: None,
+                source: sample_source(),
+                derives_from: None,
+                sections: None,
+                // A design-layer id nested inside the require layer's tree.
+                items: Some(vec![SentenceNode {
+                    id: DocumentId::new("DES-001"),
+                    statement: "Wrong layer.".to_owned(),
+                    description: None,
+                    derives_from: vec![],
+                    cites: None,
+                    source: sample_source(),
+                }]),
+            }]),
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err(
+            "a nested item whose id prefix disagrees with its layer must fail closed (DS-1658)",
+        );
+    }
+
     #[test]
     fn document_file_rejects_duplicate_derives_from() {
         let mut file = minimal_document_file();
@@ -700,6 +800,110 @@ mod tests {
             vec![DocumentId::new("ROOT-001"), DocumentId::new("ROOT-001")];
         document_file_to_json(&file)
             .expect_err("a duplicated derives_from entry must fail closed (schema uniqueItems)");
+    }
+
+    /// specification.schema.json:52 (`derivedItem.derives_from`): each entry
+    /// is `{ "$ref": "#/$defs/id" }`, the same pattern checked on a node's
+    /// own `id` — a bogus string must fail closed on a sentence node's
+    /// `derives_from`, not merely on `id` itself.
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_sentence_node() {
+        let mut file = minimal_document_file();
+        file.request[0].derives_from = vec![DocumentId::new("totally bogus")];
+        let error = document_file_to_json(&file)
+            .expect_err("a derives_from entry not matching $defs/id must fail closed");
+        assert!(matches!(
+            error,
+            StoreError::SchemaMismatch {
+                code: "E-SCAN-010",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn document_file_rejects_empty_string_derives_from_entry() {
+        let mut file = minimal_document_file();
+        file.request[0].derives_from = vec![DocumentId::new("")];
+        document_file_to_json(&file).expect_err("an empty derives_from entry must fail closed");
+    }
+
+    /// specification.schema.json:71 (`section.derives_from`) is the same
+    /// `$defs/id`-constrained array as the sentence-node case above, checked
+    /// on `SectionNode::derives_from` (`Option<Vec<DocumentId>>`) instead.
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_section_node() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: Some(vec![DocumentId::new("nope")]),
+            sections: None,
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err(
+            "a section-level derives_from entry not matching $defs/id must fail closed",
+        );
+    }
+
+    /// The same check must also fire on a sentence node nested inside a
+    /// section's `items[]`, not only on a top-level `request[]` entry —
+    /// `validate_section_node` recurses into both `sections[]` and
+    /// `items[]` (canonical.rs `validate_section_node`).
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_nested_item() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: Some(vec![SentenceNode {
+                id: DocumentId::new("REQ-001"),
+                statement: "A nested requirement.".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("not-an-id")],
+                cites: None,
+                source: sample_source(),
+            }]),
+        }];
+        document_file_to_json(&file)
+            .expect_err("a nested item's malformed derives_from entry must fail closed");
+    }
+
+    /// Positive case locking in the scoping decision above: a `derives_from`
+    /// entry pointing at a node in a *different* layer than the node that
+    /// holds it is accepted here — DS-1658's layer/prefix agreement binds
+    /// only a node's own id to its own layer's array (`validate_node_id`),
+    /// never what that node cites as upstream. Only the id *pattern* is
+    /// checked on a `derives_from` entry, matching how `specification.json`
+    /// itself is shaped (e.g. a `detailed_spec`-layer `DS-` node deriving
+    /// from a `spec`-layer `SPEC-` node throughout the real bundle).
+    #[test]
+    fn document_file_accepts_derives_from_entry_across_layers() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: Some(vec![SentenceNode {
+                id: DocumentId::new("REQ-001"),
+                statement: "A requirement deriving from the request layer.".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("R-1")],
+                cites: None,
+                source: sample_source(),
+            }]),
+        }];
+        document_file_to_json(&file)
+            .expect("a derives_from entry in a different layer than its own node must be accepted");
     }
 
     #[test]
@@ -796,6 +1000,46 @@ mod tests {
                 .sum()
         }
 
+        // Measured against the *pinned* authority this PR is scoped to —
+        // the content at commit `fa96642` (blob `92f10cd7`), i.e.
+        // `git show fa96642:docs/canonical/specification.json` — not
+        // whatever `VTEST_CANONICAL_BUNDLE` happens to point at when this
+        // test is run. Verified against that exact blob (hash-object
+        // matched `git rev-parse fa96642:docs/canonical/specification.json`)
+        // and cross-checked by running vtest-model's own
+        // `document::tests::canonical_bundle_round_trips_and_matches_node_counts`
+        // against the same snapshot, which passes with these identical
+        // per-layer figures — so this is not "vtest-model's own hardcoded,
+        // possibly-stale count" as a prior version of this comment claimed;
+        // both crates agree at the pin. The main worktree's *live*
+        // `docs/canonical/specification.json` has since moved three commits
+        // past this pin (`fa96642..fc35e58`: cdab898, 743b6bb, fc35e58) and
+        // measures 3848 there (detailed_spec/design each +1) — that drift is
+        // real but is a fact about the moving bundle, not a defect in this
+        // reader or in vtest-model's count, and is out of this PR's scope
+        // (docs/ is not edited here). Whoever next re-pins this test's
+        // `VTEST_CANONICAL_BUNDLE` fixture to a newer commit must re-measure
+        // and update every assertion below together.
+        assert_eq!(file.root.len(), 48, "root layer node count");
+        assert_eq!(file.request.len(), 5, "request layer node count");
+        assert_eq!(
+            count_sections(&file.require),
+            395,
+            "require layer node count"
+        );
+        assert_eq!(count_sections(&file.spec), 593, "spec layer node count");
+        assert_eq!(
+            count_sections(&file.detailed_spec),
+            1734,
+            "detailed_spec layer node count"
+        );
+        assert_eq!(
+            count_sections(&file.basic_design),
+            408,
+            "basic_design layer node count"
+        );
+        assert_eq!(count_sections(&file.design), 663, "design layer node count");
+
         let total = file.root.len()
             + file.request.len()
             + count_sections(&file.require)
@@ -803,22 +1047,7 @@ mod tests {
             + count_sections(&file.detailed_spec)
             + count_sections(&file.basic_design)
             + count_sections(&file.design);
-        // 3848, not vtest-model's own hardcoded 3846 (see that crate's
-        // `document::tests::canonical_bundle_round_trips_and_matches_node_counts`,
-        // out of this PR's scope): measured directly against the current
-        // `specification.json` (fa96642's tree at PR21 authoring time), not
-        // derived from any canonical node. Per-layer measurement at the
-        // same run: root=48, request=5, require=395, spec=593,
-        // detailed_spec=1735, basic_design=408, design=664 — every layer
-        // matches vtest-model's own hardcoded expectation except
-        // detailed_spec (1734 there) and design (663 there), each +1. This
-        // is disclosed as a pre-existing, out-of-scope staleness: the
-        // bundle's detailed_spec/design layers grew by one node each since
-        // that other test's counts were established, and re-running that
-        // *other* crate's ignored test against the current bundle
-        // reproduces the same failure independent of any change in this
-        // PR. This PR does not edit `vtest-model` to correct it.
-        assert_eq!(total, 3848, "total node count across all layers");
+        assert_eq!(total, 3846, "total node count across all layers");
 
         // Round-trip back out through this crate's own writer and re-read.
         let rewritten = document_file_to_json(&file).expect("re-serialization must validate too");
