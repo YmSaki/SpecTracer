@@ -528,6 +528,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vtest-adapter-api"
+version = "0.1.0"
+dependencies = [
+ "vtest-model",
+]
+
+[[package]]
+name = "vtest-adapter-rust"
+version = "0.1.0"
+dependencies = [
+ "ignore",
+ "proc-macro2",
+ "serde",
+ "syn 2.0.119",
+ "toml",
+ "vtest-adapter-api",
+ "vtest-model",
+]
+
+[[package]]
 name = "vtest-audit"
 version = "0.1.0"
 dependencies = [
@@ -596,12 +616,11 @@ dependencies = [
 name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
- "ignore",
- "proc-macro2",
  "serde",
  "syn 2.0.119",
  "thiserror",
- "toml",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]

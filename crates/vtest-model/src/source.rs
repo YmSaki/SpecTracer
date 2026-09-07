@@ -1,37 +1,23 @@
-use crate::{ContentHash, SrcId};
+use crate::{AdapterId, ContentHash, SrcId};
 use serde::{Deserialize, Serialize};
 
-// TODO/refactor:
-// Locator is domain-neutral in concept but currently owns Rust-specific parsing.
-// Split into SourceLocator + Rust-specific locator/parser.
-
-/// Identifies a source construct by its source file path and item path.
+/// Identifies a source construct by an adapter ID and an adapter-owned
+/// opaque locator value (詳細設計 v0.1 本冊:632-635「`Locator { adapter:
+/// AdapterId, value: String }`」、本冊:522「`value`はadapter所有のopaque
+/// 文字列である。coreがpath、module、symbol種別を分解しない」)。
 ///
-/// A locator consists of the source file path and the construct's item path
-/// within that file.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// `value`'s internal syntax (path separators, module paths, symbol names,
+/// file extensions, ...) is owned entirely by the adapter named in
+/// `adapter`. `vtest-model` and `vtest-scan` (core) compare `value` only for
+/// exact equality and never parse or decompose it — the `rust-cargo`
+/// adapter (`vtest-adapter-rust`) owns the one concrete syntax that exists
+/// today (`pr3-decisions.md` Owner裁定2「core は adapter を registry で
+/// 引いて resolution を委譲する / rust-cargo が Rust locator の解析を所有
+/// する」).
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Locator {
-    pub path: String,
-    pub item_path: String,
-}
-
-impl Locator {
-    pub fn parse(value: &str) -> Option<Self> {
-        let separator = value.find("::")?;
-        let (path, item_path) = value.split_at(separator);
-        let item_path = item_path.strip_prefix("::")?;
-        if path.is_empty() || item_path.is_empty() || !path.ends_with(".rs") {
-            return None;
-        }
-        Some(Self {
-            path: path.replace('\\', "/"),
-            item_path: item_path.to_owned(),
-        })
-    }
-
-    pub fn as_string(&self) -> String {
-        format!("{}::{}", self.path, self.item_path)
-    }
+    pub adapter: AdapterId,
+    pub value: String,
 }
 
 /// References a source-level verification target.
@@ -74,14 +60,32 @@ pub struct SourceFunction {
 mod tests {
     use super::*;
 
-    /// @vtest.id TEST-MODEL-SOURCE-LOCATOR-PARSE
-    /// @vtest.covers VO-MODEL-SOURCE-LOCATOR-PARSE
-    /// @vtest.target crates/vtest-model/src/source.rs::Locator::parse
-    /// @vtest.intent verifies that a source locator splits at the first separator
+    /// 本冊:522「`value`はadapter所有のopaque文字列である。coreがpath、
+    /// module、symbol種別を分解しない」: `vtest-model` の `Locator` は
+    /// `adapter` と `value` の完全一致だけで比較する。内部構文の parse・
+    /// 正規化（`RustLocator`）は `vtest-adapter-rust` 側へ移った
+    /// （`pr3-decisions.md` Owner裁定2「rust-cargo が Rust locator の解析
+    /// を所有する」）。
     #[test]
-    fn locator_splits_at_first_separator() {
-        let locator = Locator::parse("src/lib.rs::module::function").expect("valid locator");
-        assert_eq!(locator.path, "src/lib.rs");
-        assert_eq!(locator.item_path, "module::function");
+    fn locators_compare_by_adapter_and_opaque_value_only() {
+        let left = Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/lib.rs::module::function".to_owned(),
+        };
+        let same = Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/lib.rs::module::function".to_owned(),
+        };
+        let different_value = Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/lib.rs::module::other".to_owned(),
+        };
+        let different_adapter = Locator {
+            adapter: AdapterId::new("other-lang"),
+            value: "src/lib.rs::module::function".to_owned(),
+        };
+        assert_eq!(left, same);
+        assert_ne!(left, different_value);
+        assert_ne!(left, different_adapter);
     }
 }
