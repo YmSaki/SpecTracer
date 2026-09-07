@@ -586,6 +586,19 @@
           1
         ]
       }
+    },
+    {
+      "id": "ROOT-049",
+      "statement": "テストがこれを検証しますよ。で済む問題じゃないの？ ブラックボックステストもホワイトボックステストもテストをするという抽象面では同一であり、動作に対してどのように動いたかを見ればいいし、それが網羅されているものを全部通過したら合格と見做せるわけで。",
+      "description": "Owner 裁定 2026-09-07（Issue #14 コメント）。適用（PM、Issue #14 コメントに記載）: (1) Test の実行形態（黒箱 / 白箱、内部 construct 検証 / 境界の振る舞い検証）は分類しない。形態別の規範・形態別の必須条件・形態を宣言するキーを設けない。(2) Test が宣言するのは「何を検証するか」（`covers` → VO）である。`target` は義務ではなく、「どこが動いたか」の観測を束縛する任意の宣言である。`targets` の宣言を Test 成立性の必須条件としない。target を持たない Test の `target_binding` は `NO_EVIDENCE`（診断 `NOT_CHECKED`）とする（`DS-1664`）。宣言された target は既存の到達性規範で検査する。(3) 網羅した検証範囲を全部通過したら合格とする。範囲外・未観測は `PASS` にしない。(4) `E-SCAN-007` は必須 metadata 欠落の一般コードであり（`DS-1621`「E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata…）の欠落を意味する。」、`DS-1256`、`DES-229`）、本裁定が落とすのは `targets ≥ 1` を必須 metadata とする条項だけである。コードそのものは退役させない。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5565960636",
+        "heading": "issuecomment-5565960636",
+        "lines": [
+          1,
+          1
+        ]
+      }
     }
   ],
   "request": [
