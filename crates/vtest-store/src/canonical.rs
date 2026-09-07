@@ -14,8 +14,8 @@
 
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
 use vtest_model::{
-    DerivesFrom, Diagnostic, DocumentFile, DocumentId, Layer, NodeSource, RootNode, SectionNode,
-    SentenceNode, VoRecord,
+    CombinationEntry, DerivesFrom, Diagnostic, DocumentFile, DocumentId, Layer, NodeSource,
+    RootNode, SectionNode, SentenceNode, VoRecord,
 };
 
 /// Known keys for one `derives_from[]` entry on a VO record (DS-1638).
@@ -583,12 +583,17 @@ pub fn read_vo_record(
 }
 
 /// Writes (or overwrites) the canonical VO record to `.verify/vo/`. Mutable
-/// in place (BD-321). Enforces the same `derives_from` cardinality floor as
-/// the reader: a writer that skipped this check could produce a record
-/// `read_vo_record` would then reject, which fail-closed reading alone does
-/// not prevent.
+/// in place (BD-321). Enforces the same two checks a reader would apply
+/// after the fact, so a writer that skipped them could not silently
+/// persist a record `read_vo_record`/`vtest-scan`'s own validation would
+/// then reject or (worse) panic on:
+/// - the `derives_from` cardinality floor (`require_at_least_one_derives_
+///   from`);
+/// - no `combinations[]` entry repeating one dimension name
+///   (`require_no_duplicate_combination_dimension_names`).
 pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), StoreError> {
     require_at_least_one_derives_from(&record.derives_from)?;
+    require_no_duplicate_combination_dimension_names(&record.combinations)?;
     let path = layout.vo_dir().join(format!("{}.yaml", record.id.as_str()));
     write_atomic(&path, &vo_record_to_yaml(record))
 }
@@ -605,6 +610,32 @@ fn require_at_least_one_derives_from(derives_from: &[DerivesFrom]) -> Result<(),
         return Err(StoreError::InvalidConfig(
             "VO derives_from must have at least one entry".to_owned(),
         ));
+    }
+    Ok(())
+}
+
+/// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
+/// `combinations[]` entry naming the same dimension twice is `combinations`
+/// 不正. `CombinationEntry`'s own `Serialize` impl (`vtest-model`) already
+/// refuses (returns `Err`) to emit such an entry rather than silently
+/// writing a YAML mapping with a repeated key — but `vo_record_to_yaml`
+/// reaches that via `yaml_serde::to_string(record).expect(...)`, so without
+/// this check first, a caller handing `write_vo_record` a malformed record
+/// would panic here instead of getting a clean `StoreError`. This mirrors
+/// `require_at_least_one_derives_from` immediately above: enforce at write
+/// time what the read/scan side would reject anyway, so the failure mode is
+/// a `Result`, not a panic.
+fn require_no_duplicate_combination_dimension_names(
+    combinations: &[CombinationEntry],
+) -> Result<(), StoreError> {
+    for entry in combinations {
+        let duplicates = entry.duplicate_dimension_names();
+        if !duplicates.is_empty() {
+            return Err(StoreError::InvalidConfig(format!(
+                "combinations entry declares dimension `{}` more than once",
+                duplicates.join("`, `")
+            )));
+        }
     }
     Ok(())
 }
@@ -1260,6 +1291,35 @@ mod tests {
             .expect_err("the writer must refuse to persist a VO it could not itself read back");
     }
 
+    /// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
+    /// `combinations[]` entry declaring the same dimension twice must not
+    /// reach `vo_record_to_yaml`'s `to_string(record).expect(...)` and
+    /// panic — `write_vo_record` must reject it with a clean `StoreError`
+    /// first, via `require_no_duplicate_combination_dimension_names`.
+    #[test]
+    fn vo_record_with_duplicate_combination_dimension_name_is_rejected_on_write() {
+        let mut record = sample_vo();
+        record.coverage_policy = Some(CoveragePolicy::Explicit);
+        record.combinations = vec![CombinationEntry::from_iter(vec![
+            ("operand-sign".to_owned(), "positive".to_owned()),
+            ("operand-sign".to_owned(), "negative".to_owned()),
+        ])];
+
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-vo-duplicate-dimension-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        let error = write_vo_record(&layout, &record).expect_err(
+            "the writer must reject a combinations entry that repeats one dimension name, \
+             not panic inside vo_record_to_yaml",
+        );
+        assert!(
+            matches!(&error, StoreError::InvalidConfig(message) if message.contains("operand-sign")),
+            "error should name the offending dimension: {error:?}"
+        );
+    }
+
     /// DES-117's own example, verbatim (including its inline comments), fed
     /// straight to the reader.
     #[test]
@@ -1323,16 +1383,10 @@ updated: 2026-08-08
 ";
         let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
         assert_eq!(record.combinations.len(), 2);
-        assert_eq!(
-            record.combinations[0]
-                .get("operand-sign")
-                .map(String::as_str),
-            Some("positive")
-        );
-        assert_eq!(
-            record.combinations[0].get("operator").map(String::as_str),
-            Some("div")
-        );
+        // `CombinationEntry::get` already returns `Option<&str>` (`vtest-model`) — no
+        // `.map(String::as_str)` needed; that call does not type-check against `&str`.
+        assert_eq!(record.combinations[0].get("operand-sign"), Some("positive"));
+        assert_eq!(record.combinations[0].get("operator"), Some("div"));
         assert!(diagnostics.is_empty());
         let roundtrip = vo_record_to_yaml(&record);
         assert_eq!(
@@ -1513,7 +1567,7 @@ updated: 2026-08-08
             },
         ];
         record.coverage_policy = Some(CoveragePolicy::Explicit);
-        record.combinations = vec![BTreeMap::from([
+        record.combinations = vec![CombinationEntry::from_iter([
             ("operand-sign".to_string(), "positive".to_string()),
             ("operator".to_string(), "div".to_string()),
         ])];
