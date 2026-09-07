@@ -1,25 +1,35 @@
 //! §1.3 subject hash composition functions: document, VO, and Source Target.
 //!
-//! These bind the canonical inputs each subject hash requires (詳細設計 v0.1
-//! §1.3, 本冊:83-91), using the encoding primitives in `hash.rs`
-//! (`SubjectHashInput` / `FieldValue` / `SubjectDomain` /
-//! `encode_nested_fields`). They only compute hash values — no existing
-//! `ContentHash::from_text` call site is rewired to use them here.
+//! These bind the canonical inputs each subject hash requires (DES-070–076
+//! for the shared encoding rules; DES-572/DES-575/DES-587 for the document
+//! node rules; DES-093/DES-094/DES-096/DES-590/DES-122 for the VO rules;
+//! DES-083/DES-085/DES-090 for the Source Target rules), using the encoding
+//! primitives in `hash.rs` (`SubjectHashInput` / `FieldValue` /
+//! `SubjectDomain` / `encode_nested_fields`). They only compute hash values
+//! — no existing `ContentHash::from_text` call site is rewired to use them
+//! here.
 //!
 //! Every scalar text field these functions bind uses
 //! [`FieldValue::text_fragment`] (normalized), not
-//! [`FieldValue::exact_bytes`] — 本冊:83 makes normalization the default for
-//! any field a subject-specific rule does not explicitly require
-//! byte-exact ("subject固有規則でbyte-exactを要求しないテキストfragmentは
-//! 改行をLFへ統一し、各行の末尾空白を除去する。これ以外の空白は正規化しな
-//! い"). 本冊:91 ("byte-exact file bytes") is the only place §1.3 states a
-//! byte-exact requirement, and it names the Execution State manifest's file
-//! bytes; no document/VO/Source-Target field carries such a requirement.
-//! Source Target construct bytes are explicitly subject to the 本冊:83
-//! normalization: 本冊:99 "上記正規化後のsource bytesが変化した場合は安全
-//! 側でSTALEにする" — "上記正規化" refers back to 本冊:83 (the word
-//! 「正規化」 does not otherwise occur in 本冊:86-98). See
-//! [`optional_text_fragment`]'s doc comment for the same citation chain.
+//! [`FieldValue::exact_bytes`] — DES-067 ("subject固有規則でbyte-exactを要
+//! 求しないテキストfragmentは、改行をLFへ統一する。") and DES-068
+//! ("subject固有規則でbyte-exactを要求しないテキストfragmentは、各行の末
+//! 尾空白を除去する。") make normalization the default for any field a
+//! subject-specific rule does not explicitly require byte-exact; DES-069
+//! then confines normalization to exactly those two operations ("改行の統
+//! 一と各行末尾空白の除去以外の空白は正規化しない。"). DES-098's manifest
+//! entry rule ("…byte-exact file bytesからなる") is the only place §1.3
+//! states a byte-exact requirement, and it names the Execution State
+//! manifest's file bytes (DES-097); no document/VO/Source-Target field
+//! carries such a requirement. DS-348 ("format変更を構文上の意味だけから
+//! 同値とみなさず、正規化後のsource bytesが変化した場合は安全側でSTALE
+//! にする。") speaks of Source Target construct bytes going through "正規
+//! 化" without itself naming which rule that is — a derivation, not a
+//! literal cross-reference: since DES-098 names the only byte-exact
+//! requirement §1.3 states, and construct bytes are not that requirement's
+//! subject, the "正規化" DS-348 refers to is DES-067–069 by elimination.
+//! See [`optional_text_fragment`]'s doc comment for the same citation
+//! chain.
 //!
 //! # Document node subject hash (root / sentence / section)
 //!
@@ -35,16 +45,20 @@
 //!
 //! Neither case binds `derives_from`, `cites`, `title`, or `source` — DES-572
 //! and DES-587 each enumerate exactly what that node kind's subject hash
-//! binds, and DS-1601 / DS-1610 / DS-1612 each gloss a sentence node's
-//! "規範内容" (normative content — what the subject hash must capture) as
+//! binds, and DS-1601 / DS-1610 each gloss a sentence node's "規範内容"
+//! (normative content — what the subject hash must capture) as
 //! parenthetically `id` と `statement`. That parenthetical is a sufficient-
-//! condition statement about sentence nodes (each of the three nodes' own
-//! `description` field says exactly this: "「規範内容（`id` と
-//! `statement`）」は文ノードについての十分条件であり、規範内容の網羅的な
-//! 定義ではない"), not an exhaustive definition of "normative content" in
-//! general — DS-1659 extends a *section*'s normative content to include its
-//! children's declared order, which is exactly `section_node_subject_hash`'s
-//! `items`/`sections` binding below.
+//! condition statement about sentence nodes, not an exhaustive definition
+//! of "normative content" in general — DS-1601 and DS-1610's own
+//! `description` field each say exactly this, in identical wording:
+//! "「規範内容（`id` と `statement`）」は文ノードについての十分条件であ
+//! り、規範内容の網羅的な定義ではない". DS-1612 makes the same
+//! non-exhaustiveness point about a document node's normative content, in
+//! its own (different) wording, without repeating the `id`/`statement`
+//! parenthetical: its `description` reads "「規範内容」は文ノードの `id`
+//! と `statement` に限られない". DS-1659 extends a *section*'s normative
+//! content to include its children's declared order, which is exactly
+//! `section_node_subject_hash`'s `items`/`sections` binding below.
 //!
 //! `root_node_subject_hash` is a derivation, not a literal citation: DES-572
 //! names its two cases "文ノード" (sentence node) and "節ノード" (section
@@ -60,9 +74,15 @@
 //!
 //! # Test subject hash is not implemented here
 //!
-//! §1.3 (本冊:87) requires Test subject hash to bind an adapter ID and a
-//! Source Location built from `adapter` / project-relative `path` / opaque
-//! `locator`, plus an `ExecutionDescriptor` (本冊:629). The spec's own
+//! DES-077 requires Test subject hash to bind an adapter ID and a Source
+//! Location built from `adapter` / project-relative `path` / opaque
+//! `locator`, plus an `ExecutionDescriptor`. The remaining citations in
+//! this section (below, and at [`crate::SourceLocation`]'s struct-shape
+//! comparison) are Test/Execution-State subject hash territory explicitly
+//! out of scope for this PR (disclosure only; see PR4/#34) and are left as
+//! retired-markdown line references (本冊:629, 本冊:637-642, 本冊:644-649)
+//! rather than fabricated node-id citations for pseudocode struct shapes
+//! this pass did not verify against specification.json. The spec's own
 //! `struct SourceLocation` (本冊:637-642) is:
 //!
 //! ```text
@@ -99,15 +119,18 @@ use crate::{
 /// identifier/metadata fields (`title`, `parent`, `anchor`, `note`).
 ///
 /// Every scalar text field in this module goes through
-/// [`FieldValue::text_fragment`], not [`FieldValue::exact_bytes`]: 本冊:83
-/// makes normalization the default for any field a subject-specific rule
-/// does not explicitly require byte-exact, and 本冊:91 ("byte-exact file
-/// bytes") is the only place §1.3 states a byte-exact requirement, naming
-/// the Execution State manifest's file bytes — document/VO/Source-Target
-/// fields carry no such requirement. Source Target construct bytes fall
-/// under the 本冊:83 default explicitly: 本冊:99 "上記正規化後のsource
-/// bytesが変化した場合は安全側でSTALEにする" ("上記正規化" refers to
-/// 本冊:83; 「正規化」 does not otherwise occur in 本冊:86-98).
+/// [`FieldValue::text_fragment`], not [`FieldValue::exact_bytes`]: DES-067
+/// and DES-068 make normalization (LF unification, per-line trailing
+/// whitespace removal) the default for any field a subject-specific rule
+/// does not explicitly require byte-exact, and DES-098's "…byte-exact file
+/// bytesからなる" is the only place §1.3 states a byte-exact requirement,
+/// naming the Execution State manifest's file bytes (DES-097) —
+/// document/VO/Source-Target fields carry no such requirement. DS-348
+/// "正規化後のsource bytesが変化した場合は安全側でSTALEにする" names
+/// construct bytes as going through "正規化" without itself saying which
+/// rule that is — by elimination against DES-098's byte-exact requirement
+/// (not construct bytes' subject), that normalization is DES-067/DES-068
+/// (a derivation, not a literal cross-reference).
 fn optional_text_fragment(value: Option<&str>) -> FieldValue {
     match value {
         None => FieldValue::Null,
@@ -187,9 +210,8 @@ pub fn section_node_subject_hash(node: &SectionNode) -> ContentHash {
         .finish()
 }
 
-/// VO subject hash (詳細設計 v0.1 §1.3, domain `vtest:record-subject:v1`,
-/// DES-093): "readerが具体化したcanonical VO recordをfield規則に従って
-/// encodeする".
+/// VO subject hash (domain `vtest:record-subject:v1`, DES-093):
+/// "readerが具体化したcanonical VO recordをfield規則に従って encodeする".
 ///
 /// The canonical `vtest_model::VoRecord` this function reads has no `status`
 /// or `covers` field — DES-094 ("VOの読取り互換field `status` を正典では
@@ -323,39 +345,44 @@ fn encode_combination_entry(entry: &CombinationEntry) -> Vec<u8> {
     )
 }
 
-/// Source Target hash (詳細設計 v0.1 §1.3, domain `vtest:target-subject:v1`,
-/// 本冊:88): "canonical Target Referenceとadapterが返すimplementation
-/// construct bytesを束縛する".
+/// Source Target hash (domain `vtest:target-subject:v1`, DES-083):
+/// "canonical Target Referenceとadapterが返すimplementation construct
+/// bytesを束縛する".
 ///
 /// `locator` is the Source Target's own **canonical Target Reference** —
-/// `本冊:88` requires this to always be a `TargetRef::Locator`, never a
-/// `TargetRef::SrcId` ("canonical Target Referenceは常に`TargetRef::Locator`
-/// …であり、`TargetRef::SrcId`をcanonical Target Referenceにしない"). Taking
-/// a plain [`Locator`] here (not a `TargetRef`) makes that structural: there
-/// is no `TargetRef::SrcId` value this parameter could hold. This also means
-/// the hash is computed only from the Source Target's own canonical Locator,
-/// never from a referencing Test's `TargetRef` spelling (本冊:88 "hashは
-/// Source Target自身のcanonical Locatorから一度だけ計算し、当該Source
-/// Targetを参照するTest側の`TargetRef`綴りからは計算しない") — this function
-/// has no parameter a Test's `TargetRef` could even be passed through.
+/// DES-085 requires this to always be a `TargetRef::Locator`, never a
+/// `TargetRef::SrcId` ("canonical Target Referenceは常に `TargetRef::Locator`
+/// …であり、`TargetRef::SrcId` をcanonical Target Referenceにしない").
+/// Taking a plain [`Locator`] here (not a `TargetRef`) makes that
+/// structural: there is no `TargetRef::SrcId` value this parameter could
+/// hold. This also means the hash is computed only from the Source
+/// Target's own canonical Locator, never from a referencing Test's
+/// `TargetRef` spelling (DES-090 "Source Target hashはSource Target自身の
+/// canonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側
+/// の `TargetRef` 綴りからは計算しない") — this function has no parameter
+/// a Test's `TargetRef` could even be passed through.
 ///
 /// `construct_text` is the adapter-returned implementation construct bytes,
 /// decoded to text by the caller (`vtest-model` does no adapter I/O). It is
-/// bound as a normalized text fragment: 本冊:99 "上記正規化後のsource bytes
-/// が変化した場合は安全側でSTALEにする" states construct bytes are subject
-/// to the 本冊:83 normalization ("上記正規化"), and 本冊:91 is the only
-/// place §1.3 requires byte-exactness (the Execution State manifest's file
-/// bytes) — Source Target construct bytes carry no such requirement.
+/// bound as a normalized text fragment: DS-348 "正規化後のsource bytesが
+/// 変化した場合は安全側でSTALEにする" names construct bytes as going
+/// through "正規化" without itself saying which rule that is; DES-098's
+/// manifest-entry rule is the only place §1.3 requires byte-exactness (the
+/// Execution State manifest's file bytes), and Source Target construct
+/// bytes are not that requirement's subject, so by elimination the
+/// "正規化" DS-348 refers to is DES-067/DES-068 (a derivation, not a
+/// literal cross-reference).
 ///
 /// The Source Target's permanent SRC ID is **not** a parameter of this
-/// function and so cannot be bound as an independent field (本冊:88 "恒久
+/// function and so cannot be bound as an independent field (DS-344 "恒久
 /// SRC IDはhash inputの独立fieldとして束縛せず、canonical Target Reference
 /// 経由でもhash inputへ入らない"). Declaring, changing, or deleting a SRC ID
 /// therefore cannot change this hash by itself — except through
 /// `construct_text`, for an adapter (`rust-cargo`'s `@vtest.src-id` doc
 /// comment) that places the SRC ID declaration inside the construct bytes
-/// themselves; 本冊:88 states this construct-bytes-mediated change is
-/// correct behavior, not evidence that SRC ID is an independent hash field.
+/// themselves (DES-088); DES-089 states this construct-bytes-mediated
+/// change is correct behavior, not evidence that SRC ID is an independent
+/// hash field.
 pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> ContentHash {
     SubjectHashInput::new(SubjectDomain::TargetSubject)
         .field(
@@ -596,8 +623,8 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-SUBJECT-HASH-INPUT-SAME-VALUE-DIFFERS-BY-FIELD-NAME-ALONE
     /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
-    /// @vtest.intent verifies, at the encoder level, that binding the identical `Ordered([X])` value under field name `items` (with no `sections` field present at all) produces a different hash than binding that same value under field name `sections` (with no `items` field present). Field name is the only variable that differs between the two encoder calls — the payload occupies the same relative position (the sole field) in both encoded buffers — so this isolates the field-name binding as the sole variable, which the two-field construction in the next test does not (there the payload's position in the buffer is confounded with which field carries it). This is what DES-587's "items と sections を別々の名前付き列として束縛する" actually rests on.
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.intent verifies, at the encoder level, that binding the identical `Ordered([X])` value under field name `items` (with no `sections` field present at all) produces a different hash than binding that same value under field name `sections` (with no `items` field present). Field name is the only variable that differs between the two encoder calls — the payload occupies the same relative position (the sole field) in both encoded buffers — so this isolates the field-name binding as the sole variable, which the two-field construction in the next test does not (there the payload's position in the buffer is confounded with which field carries it). This is what DES-587's "`items`（文ノードの列）と `sections`（下位節ノードの列）の 2 つの名前付き順序列として束縛し" actually rests on.
     #[test]
     fn subject_hash_input_same_value_differs_by_field_name_alone() {
         let same_child_hash_bytes = b"same-child-subject-hash-bytes".to_vec();
@@ -615,7 +642,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-SUBJECT-HASH-INPUT-ITEMS-FIELD-DIFFERS-FROM-SECTIONS-FIELD
     /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies, at the encoder level, that placing the same child-hash byte string under `items` (with `sections` bound empty) hashes differently than placing it under `sections` (with `items` bound empty) — the two-field shape `section_node_subject_hash` actually produces. This does NOT isolate field name as the sole variable: the payload also occupies a different position in the encoded buffer in each case (first field vs. second field), so a byte-string comparison alone cannot attribute the difference to the field name rather than to that position. The preceding test isolates field name directly by comparing the identical single-field input under each name with no other field present in either input.
     #[test]
     fn subject_hash_input_items_field_differs_from_sections_field_for_the_same_content() {
@@ -783,7 +810,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-RECORD-HAS-NO-STATUS-OR-COVERS-FIELD
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies the canonical VoRecord this function reads structurally excludes `status`/`covers` (本冊:236 "実効判定とVO subject hashでは無視し", no `covers` key in the VO YAML example 本冊:215-227)
+    /// @vtest.intent verifies the canonical VoRecord this function reads structurally excludes `status`/`covers` (DES-094 "VOの読取り互換field `status` を正典ではないため含めない"; DES-096 "`covers` の増減をTest側subjectで捕捉するため含めない"; DS-405 confirms `status` is a read-compat-only field the canonical writer never persists)
     #[test]
     fn vo_record_json_shape_has_no_status_or_covers_key() {
         let value = serde_json::to_value(base_vo()).unwrap();
@@ -801,7 +828,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-DERIVES-FROM-AND-PARENT-CHANGE-HASH
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies derives_from and parent are bound (本冊:90 "`derives_from`…と `parent` を束縛")
+    /// @vtest.intent verifies derives_from and parent are bound (DES-590 "VO subject hashは `derives_from`（参照先ノード id 集合）と `parent` を束縛する")
     #[test]
     fn vo_subject_hash_changes_when_derives_from_or_parent_changes() {
         let base = vo_subject_hash(&base_vo());
@@ -818,7 +845,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-ANCHOR-ONLY-CHANGE-DOES-NOT-CHANGE-HASH
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies derives_from[].anchor/note are excluded from VO subject hash (本冊:233 "anchorとnoteは…VO subject hashの入力に含まれない")
+    /// @vtest.intent verifies derives_from[].anchor/note are excluded from VO subject hash (DS-1661 "`anchor` と `note` はVO subject hashの入力に含まれない")
     #[test]
     fn vo_subject_hash_does_not_change_when_derives_from_anchor_or_note_changes() {
         let base = vo_subject_hash(&base_vo());
@@ -835,7 +862,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-DERIVES-FROM-REDUCES-TO-DOCUMENT-ID-SET
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies a second derives_from entry for the same document (different anchor) does not change the hash — 本冊:232 "同一docをanchor違いで複数entryとして持つことを許容し、重複としない"
+    /// @vtest.intent verifies a second derives_from entry for the same document (different anchor) does not change the hash — DS-401 "同一 `doc` を `anchor` 違いで複数entryとして持つことを許容し、重複としない"
     #[test]
     fn vo_subject_hash_dedupes_derives_from_entries_pointing_at_the_same_document() {
         let single_entry = vo_subject_hash(&base_vo());
@@ -852,7 +879,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-COMBINATIONS-CHANGE-HASH
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies combinations is bound (本冊:286 "`combinations`は…VO subject hashに束縛される")
+    /// @vtest.intent verifies combinations is bound (DES-122 "`combinations` はcanonical VO recordの一部であり、VO subject hashに束縛される")
     #[test]
     fn vo_subject_hash_changes_when_combinations_changes() {
         let base = vo_subject_hash(&base_vo());
@@ -867,7 +894,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-COMBINATIONS-ENTRY-KEY-ORDER-INDEPENDENT
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies a combinations entry's internal (dimension, partition) pair order does not change the hash (本冊:256 "記述順・map key 順には依存しない")
+    /// @vtest.intent verifies a combinations entry's internal (dimension, partition) pair order does not change the hash (DES-073 "hash inputにおいて、mapはkey昇順でencodeする"; DS-414 confirms a `combinations` entry is itself a dimension-name→partition-value map)
     #[test]
     fn vo_subject_hash_combination_entry_is_independent_of_pair_declaration_order() {
         let mut forward_order = base_vo();
@@ -891,7 +918,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-EACH-REMAINING-FIELD-CHANGES-HASH
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies claim/dimensions/coverage_policy/representative_cases/created/updated are each bound, as part of the whole canonical record (本冊:90, 本冊:286)
+    /// @vtest.intent verifies claim/dimensions/coverage_policy/representative_cases/created/updated are each bound, as part of the whole canonical record (DES-093 "readerが具体化したcanonical VO recordをfield規則に従ってencodeする")
     #[test]
     fn vo_subject_hash_changes_when_any_other_canonical_field_changes() {
         let base = vo_subject_hash(&base_vo());
@@ -932,7 +959,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-VO-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
-    /// @vtest.intent verifies record scalar fields (claim) are normalized text fragments, not byte-exact (本冊:83 makes normalization the default; VO subject hash — 本冊:90 — states no byte-exact requirement, and 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes)
+    /// @vtest.intent verifies record scalar fields (claim) are normalized text fragments, not byte-exact (DES-067/DES-068 make normalization the default; DES-093 "readerが具体化したcanonical VO recordをfield規則に従ってencodeする" states no byte-exact requirement for `claim`, and DES-098's manifest-entry rule is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes)
     #[test]
     fn vo_subject_hash_normalizes_record_text_fields() {
         let mut crlf_claim = base_vo();
@@ -970,7 +997,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-LOCATOR-AND-CONSTRUCT-CHANGE-HASH
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies canonical Target Reference (adapter, locator value) and construct bytes are each bound (本冊:88 "canonical Target Referenceとadapterが返すimplementation construct bytesを束縛する")
+    /// @vtest.intent verifies canonical Target Reference (adapter, locator value) and construct bytes are each bound (DES-083 "canonical Target Referenceとadapterが返すimplementation construct bytesを束縛する")
     #[test]
     fn source_target_subject_hash_changes_when_locator_or_construct_changes() {
         let base = source_target_subject_hash(&base_locator(), "fn parse() {}");
@@ -998,7 +1025,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-CONSTRUCT-IS-NORMALIZED
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies construct bytes are a normalized text fragment, not byte-exact (本冊:99 "上記正規化後のsource bytesが変化した場合は安全側でSTALEにする" subjects construct bytes to the 本冊:83 normalization; 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes)
+    /// @vtest.intent verifies construct bytes are a normalized text fragment, not byte-exact (DS-348 names construct bytes as going through "正規化"; DES-098's manifest-entry rule is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes — construct bytes are not that requirement's subject, so by elimination the applicable normalization is DES-067/DES-068)
     #[test]
     fn source_target_subject_hash_normalizes_construct_text() {
         let crlf =
@@ -1033,7 +1060,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-PRESERVES-LEADING-SPACE-AND-TRAILING-NEWLINE-IN-CONSTRUCT
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies construct bytes preserve leading whitespace and trailing-newline presence — normalization only unifies line endings and strips trailing per-line whitespace (本冊:83 "これ以外の空白は正規化しない")
+    /// @vtest.intent verifies construct bytes preserve leading whitespace and trailing-newline presence — normalization only unifies line endings and strips trailing per-line whitespace (DES-069 "改行の統一と各行末尾空白の除去以外の空白は正規化しない")
     #[test]
     fn source_target_subject_hash_preserves_leading_space_and_trailing_newline_in_construct() {
         let leading_space =
@@ -1050,7 +1077,7 @@ mod tests {
     /// @vtest.id TEST-MODEL-SOURCE-TARGET-SUBJECT-HASH-SRC-ID-INSIDE-CONSTRUCT-BYTES-CHANGES-HASH
     /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::source_target_subject_hash
-    /// @vtest.intent verifies a SRC ID declaration placed inside construct bytes (rust-cargo's `@vtest.src-id` doc comment) changes the hash via construct_text, which 本冊:88 states is correct — distinct from binding SRC ID as an independent field
+    /// @vtest.intent verifies a SRC ID declaration placed inside construct bytes (rust-cargo's `@vtest.src-id` doc comment) changes the hash via construct_text, which DES-089 states is correct — distinct from binding SRC ID as an independent field
     #[test]
     fn source_target_subject_hash_changes_when_an_in_construct_src_id_comment_is_added() {
         let without_src_id_comment = source_target_subject_hash(&base_locator(), "fn parse() {}");
@@ -1061,7 +1088,7 @@ mod tests {
         assert_ne!(
             without_src_id_comment, with_src_id_comment,
             "a SRC ID declared inside construct bytes changes the hash through construct_text, \
-             which 本冊:88 says is correct — it is not evidence of an independent SRC ID field"
+             which DES-089 says is correct — it is not evidence of an independent SRC ID field"
         );
     }
 }
