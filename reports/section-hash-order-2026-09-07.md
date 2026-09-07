@@ -155,7 +155,7 @@ BD-330
 **導出で決まる。Owner 裁定は不要。** 論法は 3 段。
 
 1. `ROOT-031`・`REQ-115`・`REQ-241`・`REQ-335`（明文）: 承認・判断は対象の**規範内容**から計算した subject hash に束縛され、規範内容が変われば失効しなければならない。
-2. 実測（事実）: 兄弟の並びは、正本の 9 件の文で規範内容の一部になっている。並べ替えは文ノードの `id`・`statement` を変えないため、節ノードの subject hash が唯一の捕捉地点である。
+2. 実測（事実）: 兄弟の並びは、正本の 9 件の文で規範内容の一部になっている。並べ替えは文ノードの `id`・`statement` を変えないため、現行の `DES-572` の下では節ノードの subject hash だけが捕捉地点になる。
 3. `ROOT-030`（明文）: 並べ替えが意味を変えたかを vtest は判定しない。したがって一律に束縛する。
 
 ⇒ **(a) 宣言順**。
@@ -203,6 +203,17 @@ BD-330
 | `root` 外で実効的上流が空のノード | 270 | **270** |
 
 退役台帳の `new_id` のうち正本に存在しないもの 39 件は適用前後で不変（既存の状態であり、本変更とは無関係）。
+
+### 5.2 適用の副次事実（開示）
+
+- **`design` → `root` の辺は本変更が初。** 適用前の `root` への辺は `basic_design` 10 件・`detailed_spec` 1 件・
+  `require` 83 件・`request` 7 件で、`design` からは 0 件だった。`ROOT-042` は同層への辺だけを禁じており、
+  層を飛ばす上位層への辺は既存（`design` → `require` 102 件、`design` → `request` 3 件）。違反ではない。
+  `ROOT-030` は §4 の導出 3 段目で load-bearing であるため、本文ではなく辺として持たせた。
+- **`docs/canonical/export/design.md` は再生成していない。** `AGENTS.md` の逐語に
+  「`docs/canonical/export/*.md` are generated readings of the same data and carry no authority of their own
+  (they may lag the JSON)」とあり、export の遅れは正本の権威に影響しない。
+  `export/design.md` に `DES-587` は現れない。
 
 ---
 
