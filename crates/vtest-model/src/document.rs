@@ -97,13 +97,17 @@ pub struct SectionNode {
 
     pub source: NodeSource,
 
-    /// Schema-optional (DS-1593: a section may omit this key entirely), but
-    /// the canonical bundle's own convention always writes it — even as an
-    /// empty array — rather than omitting it, so it is not marked
-    /// `skip_serializing_if` here: input tolerates omission (`#[serde(default)]`),
-    /// output always states it explicitly, matching observed practice.
-    #[serde(default)]
-    pub derives_from: Vec<DocumentId>,
+    /// `Option`, not `Vec` (contrast [`SentenceNode::derives_from`]): DS-1593
+    /// makes this key itself optional for a section, so the type preserves
+    /// exactly what the author wrote rather than normalizing it — a key
+    /// that is absent round-trips to `None` and back to absent; a key
+    /// present as `[]` round-trips to `Some(vec![])` and back to `[]`. This
+    /// crate does not decide, as a convention, whether an author should
+    /// omit or state-empty this key (the canonical bundle happens to always
+    /// state it, but that is the author's choice each schema permits, not a
+    /// rule this type enforces).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derives_from: Option<Vec<DocumentId>>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sections: Vec<SectionNode>,
@@ -317,21 +321,42 @@ mod tests {
         });
 
         let section: SectionNode = serde_json::from_value(json).unwrap();
-        assert!(section.derives_from.is_empty());
+        assert_eq!(
+            section.derives_from, None,
+            "omitted key must parse to None, not Some(vec![])"
+        );
         assert_eq!(section.sections.len(), 1);
         assert_eq!(section.sections[0].items.len(), 1);
         assert_eq!(section.sections[0].items[0].id, DocumentId::new("REQ-001"));
 
-        // Deserialization tolerates the omitted key (schema-optional,
-        // DS-1593), but serialization always states it explicitly — even
-        // empty — matching the canonical bundle's own convention (verified
-        // against specification.json: every section node carries this key).
+        // An omitted key must round-trip back to an omitted key — this type
+        // preserves the author's choice (DS-1593 makes the key itself
+        // optional) rather than normalizing every section to always state
+        // it, even though the canonical bundle's own convention happens to
+        // always state it (see the `Some(vec![])` case below).
         let round_tripped = serde_json::to_value(&section).unwrap();
+        assert!(round_tripped
+            .as_object()
+            .unwrap()
+            .get("derives_from")
+            .is_none());
+        assert!(round_tripped.as_object().unwrap().get("items").is_none());
+
+        // A key present as an explicit empty array must likewise round-trip
+        // back to an explicit empty array, not be normalized to absent.
+        let explicit_empty: SectionNode = serde_json::from_value(serde_json::json!({
+            "id": "REQ-S003",
+            "title": "A section stating an empty derives_from",
+            "source": { "doc": "d", "heading": "2", "lines": [1, 1] },
+            "derives_from": []
+        }))
+        .unwrap();
+        assert_eq!(explicit_empty.derives_from, Some(vec![]));
+        let round_tripped_empty = serde_json::to_value(&explicit_empty).unwrap();
         assert_eq!(
-            round_tripped.as_object().unwrap().get("derives_from"),
+            round_tripped_empty.as_object().unwrap().get("derives_from"),
             Some(&serde_json::json!([]))
         );
-        assert!(round_tripped.as_object().unwrap().get("items").is_none());
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-NODE-REJECTS-UNKNOWN-FIELD
