@@ -715,5 +715,15 @@
     "old_id": "DES-095",
     "new_id": "DES-590",
     "reason": "vo derives target 2026-09-07: norm changed; VO subject hash の束縛対象「参照先 document ID 集合」は DES-585 と BD-318 のもとで指す先を失った値域である。上流ノード id 集合へ改めた（DS-1660・DS-1661）。"
+  },
+  {
+    "old_id": "DS-1652",
+    "new_id": "DS-1662",
+    "reason": "adapter id diagnostics 2026-09-07 (Issue #24): norm changed; 括弧書き「未知・重複adapter IDはE-ADAPTER-001」が同層の DS-352・DS-036・DS-037 と矛盾していた。config.yaml 内の adapter ID 重複・同一 adapter 内の root 重複・未知 adapter を E-CONFIG-001 の列挙へ明記し、除外は registry 自体の重複 ID と宣言・実装の不一致に限った。上位層（root / request / require / spec）に診断コードの割り当て規範は無く、導出（DS-534 の同型割り当てと ROOT-033 F7 の行動基準）による。"
+  },
+  {
+    "old_id": "DS-921",
+    "new_id": "DS-1663",
+    "reason": "adapter id diagnostics 2026-09-07 (Issue #24): norm changed; 「重複」が registry の重複（DS-1631・DES-351）と config.yaml 内の重複（DS-036）のどちらとも読め、DS-352 と衝突していた。重複を registry に限定し、config.yaml の adapters が指す未知 adapter を「未登録」から除いて E-CONFIG-001 へ渡した。config.yaml 以外の参照元が指す未登録 adapter は本コードのまま。"
   }
 ]

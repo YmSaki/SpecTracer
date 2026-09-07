@@ -22094,6 +22094,7 @@
             {
               "id": "DS-352",
               "statement": "adapter IDの重複、同一adapter内のroot重複、未知adapter、無効なadapter設定はusage error（E-CONFIG-001）とする。",
+              "description": "本文の「adapter IDの重複」は `DS-036`「adapter IDは設定内で一意でなければならない」の重複、すなわち同一 `config.yaml` 内に同じadapter IDが2回現れることであり、registryに同じIDのadapterが2件登録される重複（`DS-1663` / `DES-351` / `DS-1631`）ではない。「未知adapter」は `config.yaml` の `adapters` が指すadapter IDをregistryで解決できないことであり、`DS-1663` の「未登録」から除かれる。「無効なadapter設定」の検証は `BD-155` により登録adapterへ委譲するが、違反したのは `config.yaml` の設定値であるためコードはE-CONFIG-001である。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -31413,8 +31414,9 @@
               }
             },
             {
-              "id": "DS-1652",
-              "statement": "`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（未知・重複adapter IDはE-ADAPTER-001）。",
+              "id": "DS-1662",
+              "statement": "`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、`adapters`（設定内のadapter ID重複、同一adapter内のroot重複、未知adapter）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（registryのadapter ID重複およびregistryの宣言と実装の不一致はE-ADAPTER-001）。",
+              "description": "`adapters` の3件は同層の `DS-352`（§2.2）および `DS-036` / `DS-037` / `DS-039`（§2.4）の転記であり、新たな義務ではない。「設定内のadapter ID重複」は `DS-036`「adapter IDは設定内で一意でなければならない」の重複、すなわち同一 `config.yaml` 内に同じadapter IDが2回現れることであり、registryに同じIDのadapterが2件登録される重複（`DS-1663` / `DES-351` / `DS-1631`）とは別の事実である。前身 `DS-1652` の括弧書きは「未知・重複adapter IDはE-ADAPTER-001」と両者を同一視していた。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -31486,8 +31488,9 @@
               }
             },
             {
-              "id": "DS-921",
-              "statement": "`E-ADAPTER-001`はerrorであり、adapterが未登録、重複、またはregistryの宣言と実装が不一致であることである。",
+              "id": "DS-1663",
+              "statement": "`E-ADAPTER-001`はerrorであり、adapterが未登録、registryのadapter IDが重複、またはregistryの宣言と実装が不一致であることである（`config.yaml` の `adapters` におけるadapter IDの重複・未知adapterはE-CONFIG-001）。",
+              "description": "前身 `DS-921` の「重複」は、registryの重複（`DS-1631` / `DES-351`）と `config.yaml` 内の重複（`DS-036`）のどちらとも読めた。registryに限定する。「未登録」から `config.yaml` が指す未知adapterを除いたのは、同層の `DS-352` が当該事実をE-CONFIG-001と定めているためであり、同層の `DS-534` がForm `kind` について採った割り当て（registryの重複kindと対応の不一致はE-ADAPTER-001、入力が指す未知kindは入力側のE-OP-001）と同型である。`config.yaml` 以外の参照元（レコード・操作入力・Form schema）が指すadapterの未登録は本コードのままである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
