@@ -1328,11 +1328,13 @@ updated: 2026-08-08
 
     /// Unlike `ApprovalRecord`/`read_evidence` (`records.rs`), a VO record's
     /// unknown-field scan is always followed by `yaml_serde::from_value::<
-    /// VoRecord>` (below), which itself rejects a non-string mapping key
-    /// with its own type error independent of `reject_unknown_fields`. This
-    /// locks that in, so a future change to either layer cannot silently
-    /// reopen the non-string-key gap `reject_unknown_fields` itself now
-    /// closes (DS-1645).
+    /// VoRecord>` (below), which independently rejects a non-string mapping
+    /// key with its own type error — a second, independent backstop behind
+    /// `reject_unknown_fields`'s own rejection (this test does not isolate
+    /// which of the two rejects first; either failing keeps the record
+    /// unread). Locks in that at least one of the two continues to reject
+    /// this shape (DS-1645), guarding against the non-string-key gap
+    /// reopening if either layer regresses.
     #[test]
     fn vo_record_with_non_string_top_level_key_is_rejected() {
         let record = sample_vo();

@@ -2637,10 +2637,12 @@ mod tests {
 
     /// Unlike `ApprovalRecord`/`read_evidence` above, `RelationRecord` is
     /// always backstopped by both `#[serde(deny_unknown_fields)]` and a
-    /// `yaml_serde::from_value` pass after `reject_unknown_fields` runs, so
-    /// a non-string mapping key is independently caught there even before
-    /// `reject_unknown_fields` itself started rejecting it (DS-1645). Locks
-    /// that in against regression in either layer.
+    /// `yaml_serde::from_value` pass after `reject_unknown_fields` runs —
+    /// independently caught there even before `reject_unknown_fields`
+    /// itself started rejecting non-string keys (DS-1645; this test does
+    /// not isolate which of the two layers rejects first). Locks in that at
+    /// least one of them continues to reject this shape, guarding against
+    /// regression in either.
     #[test]
     fn relation_with_non_string_top_level_key_is_rejected() {
         let id = new_record_id();
