@@ -603,6 +603,50 @@ mod tests {
             "parse -> serialize -> parse changed the bundle's structure"
         );
 
+        // Structural equality (asserted above) is the pass/fail criterion —
+        // byte-for-byte identity of the serialized output against the
+        // original file is a separate question this task also requires
+        // measuring and reporting, without treating a mismatch as a test
+        // failure (a schema-conformant re-serialization is not obligated to
+        // reproduce the original byte stream). Measure it here so the
+        // result is never silently unmeasured, and print the cause of any
+        // difference for the PR report to cite.
+        let round_tripped_pretty = serde_json::to_string_pretty(&parsed)
+            .expect("failed to reserialize parsed bundle as pretty JSON");
+        let pretty_bytes = round_tripped_pretty.as_bytes();
+        let file_bytes = text.as_bytes();
+        let bytes_identical = pretty_bytes == file_bytes;
+        if bytes_identical {
+            eprintln!(
+                "canonical_bundle_round_trips_and_matches_node_counts: byte-identical \
+                 round trip ({} bytes) — reported per task requirement, not asserted.",
+                file_bytes.len()
+            );
+        } else {
+            let first_diff = pretty_bytes
+                .iter()
+                .zip(file_bytes.iter())
+                .position(|(a, b)| a != b);
+            eprintln!(
+                "canonical_bundle_round_trips_and_matches_node_counts: NOT byte-identical \
+                 (structural equality above already holds — this is expected, not a failure). \
+                 pretty-printed length = {} bytes, file length = {} bytes, first differing byte \
+                 at offset {:?}. Known causes, not exhaustive: (a) key order — SentenceNode's \
+                 field declaration order is id, statement, description, derives_from, cites, \
+                 source, but the canonical bundle itself is not internally consistent in where \
+                 `description` sits relative to `derives_from`/`source` across nodes (e.g. \
+                 DS-1637 places `description` after `source`, while other nodes place it right \
+                 after `statement`), so declaration-order serialization cannot reproduce every \
+                 node's original key order; (b) the file ends with a trailing newline that \
+                 `to_string_pretty` does not emit. This has no bearing on the structural-equality \
+                 assertion above; it is disclosed because a future byte-preserving writer (a \
+                 later PR's concern, not this one's) would need to account for both.",
+                pretty_bytes.len(),
+                file_bytes.len(),
+                first_diff,
+            );
+        }
+
         fn count_sections(sections: &[SectionNode]) -> usize {
             sections
                 .iter()
