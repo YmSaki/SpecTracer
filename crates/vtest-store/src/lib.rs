@@ -324,13 +324,20 @@ impl ProjectConfig {
     /// enumeration does state this for some fields specifically —
     /// `verify.full_scope`'s duplicate/unknown/missing/surplus items
     /// (DS-356/DS-1495) and an unresolved `gates[].require.approvals` role
-    /// — and routes unknown/duplicate adapter ids to `E-ADAPTER-001`
-    /// (DS-352) instead. It does not, however, name a stray top-level or
-    /// nested key in general (a bare `config field型` mismatch is the
-    /// closest listed condition, and a surplus key is not a type mismatch)
-    /// as an `E-CONFIG-001` condition. Rejecting every unrecognized key
-    /// unconditionally is therefore this crate's own decision under that
-    /// silence, not a stated canonical rule for the general case — kept
+    /// — and its own parenthetical carves unknown/duplicate adapter ids out
+    /// to `E-ADAPTER-001` instead ("未知・重複adapter IDはE-ADAPTER-001").
+    /// (DS-352, elsewhere in the same detailed_spec layer, assigns exactly
+    /// that case — "adapter IDの重複...未知adapter...はusage error
+    /// （E-CONFIG-001）" — to `E-CONFIG-001` instead, contradicting DS-1652's
+    /// own carve-out; not resolved here, since this crate has no adapter
+    /// registry yet for either code to apply to — see `ScanSection`'s doc
+    /// comment on that gap.) Beyond these named fields, DS-1652 does not
+    /// name a stray top-level or nested key in general (a bare `config
+    /// field型` mismatch is the closest listed condition, and a surplus key
+    /// is not a type mismatch) as an `E-CONFIG-001` condition. Rejecting
+    /// every unrecognized key unconditionally is therefore this crate's own
+    /// decision under that silence, not a stated canonical rule for the
+    /// general case — kept
     /// fail-closed for the same reason the absent-`version` case above is:
     /// silently accepting a surplus key a writer expected to constrain
     /// something (e.g. a misspelled restriction field) is exactly the
