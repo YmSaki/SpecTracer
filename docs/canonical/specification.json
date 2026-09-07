@@ -27511,6 +27511,28 @@
               }
             },
             {
+              "id": "DS-1664",
+              "statement": "targetを持たないTestの`target_binding`は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
+              "description": "`SPEC-065` が確認方法を詳細設計へ委ね、`SPEC-301` が下位仕様・後続版へ委譲しているため、v0.1 は検証対象をSource Targetとして宣言しないTestについて到達を確認する方法を持たない。診断ラベルを `NOT_CHECKED` とするのは、検査を実施していない状態（`DS-840` のscope外検査、`DS-1103` の `--fast`）と同型だからであり、解析を実施して限界に達した `UNKNOWN`（`DS-1403`）とは別である。`DS-687` は targetを持たないTestが §7.3 の合成へ到達しないことだけを定め、その `target_binding` の値を定めていなかった。値が定まらないことを `PASS` の側へ倒さないため、`REQ-135`（確認不能であることを成立確認済みとして扱ってはならない）に従って非 `PASS` の側へ確定する。`REQ-295` の完全検証OKは4検査すべてが `PASS` であることを要するため、targetを持たないTestを含むrepositoryはv0.1で完全検証OKに到達しない。`REQ-071` により、検証対象をSource Targetとして実現する形態の確認方法を当該Testへ一律に要求することはしない。本ノードは元mdからの転記ではないため、`source` は対になる `DS-687` の位置を指すだけであり、「そこから写した」ことを意味しない（2026-09-06 の文書モデル再整合と同じ開示）。",
+              "derives_from": [
+                "REQ-064",
+                "REQ-070",
+                "REQ-071",
+                "REQ-135",
+                "REQ-148",
+                "SPEC-065",
+                "SPEC-301"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
+                "lines": [
+                  1111,
+                  1111
+                ]
+              }
+            },
+            {
               "id": "DS-688",
               "statement": "DA-003はこのto-runtime joinに含めない。",
               "derives_from": [],
