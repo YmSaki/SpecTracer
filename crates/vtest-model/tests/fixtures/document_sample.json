@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-001",
+      "statement": "Root ruling statement.",
+      "description": "Root description carried from Issue #11.",
+      "source": { "doc": "doc.md", "heading": "F1", "lines": [1, 1] }
+    }
+  ],
+  "request": [
+    {
+      "id": "R-1",
+      "statement": "Request statement.",
+      "derives_from": ["ROOT-001"],
+      "source": { "doc": "doc.md", "heading": "R-1", "lines": [2, 2] }
+    }
+  ],
+  "require": [
+    {
+      "id": "REQ-S001",
+      "title": "Requirements section",
+      "source": { "doc": "doc.md", "heading": "1", "lines": [3, 10] },
+      "derives_from": ["R-1"],
+      "sections": [
+        {
+          "id": "REQ-S002",
+          "title": "Nested subsection",
+          "source": { "doc": "doc.md", "heading": "1.1", "lines": [4, 6] },
+          "derives_from": [],
+          "items": [
+            {
+              "id": "REQ-001",
+              "statement": "A requirement sentence.",
+              "description": "Extra detail on the requirement.",
+              "derives_from": ["R-1", "ROOT-001"],
+              "cites": ["基本仕様 §1"],
+              "source": { "doc": "doc.md", "heading": "1.1", "lines": [5, 5] }
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": "P-001",
+          "statement": "A principle sentence nested directly under the section.",
+          "derives_from": [],
+          "source": { "doc": "doc.md", "heading": "1", "lines": [7, 7] }
+        }
+      ]
+    }
+  ],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": [
+    {
+      "id": "DES-001",
+      "title": "Design section",
+      "source": { "doc": "doc.md", "heading": "9", "lines": [20, 20] },
+      "derives_from": [],
+      "items": [
+        {
+          "id": "DES-002",
+          "statement": "A design sentence.",
+          "derives_from": ["REQ-001"],
+          "source": { "doc": "doc.md", "heading": "9", "lines": [21, 21] }
+        }
+      ]
+    }
+  ]
+}
