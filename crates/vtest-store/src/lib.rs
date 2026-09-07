@@ -137,7 +137,7 @@ impl VerifyLayout {
 /// readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない" —
 /// stated only for a *declared* 1 or 2, silent on an absent key; this reader
 /// treats that silence as fail-closed rather than as license to guess,
-/// matching DS-1652's listing of `config version` itself among the
+/// matching DS-1662's listing of `config version` itself among the
 /// `E-CONFIG-001` conditions), and every key must belong to the schema its
 /// declared version actually has — see `ProjectConfig::from_yaml`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -237,7 +237,7 @@ pub struct GateRequirement {
 /// The fixed four checks `verify.full_scope` must enumerate exactly — no
 /// more, no fewer, no duplicates, no unrecognized names. SPEC-053: "検証は
 /// `chain_integrity` / `orphan_detection` / `target_binding` /
-/// `oracle_presence` の4検査のみで行う"; DS-355/DS-356/DS-1652 make this a
+/// `oracle_presence` の4検査のみで行う"; DS-355/DS-356/DS-1662 make this a
 /// `config.yaml` invariant (`E-CONFIG-001` on violation).
 const FIXED_FULL_SCOPE: [&str; 4] = [
     "chain_integrity",
@@ -248,7 +248,7 @@ const FIXED_FULL_SCOPE: [&str; 4] = [
 
 /// The five verification states `gates[].require.verification` may name.
 /// SPEC-371: "検証状態は5値（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` /
-/// `UNKNOWN`）である"; DS-1529/DS-1652 require an exact, case-sensitive
+/// `UNKNOWN`）である"; DS-1529/DS-1662 require an exact, case-sensitive
 /// match at config-read time (`E-CONFIG-001` otherwise).
 const VERIFICATION_STATES: [&str; 5] = ["PASS", "FAIL", "MISMATCH", "NO_EVIDENCE", "UNKNOWN"];
 
@@ -305,7 +305,7 @@ impl ProjectConfig {
     /// key is therefore this crate's own decision under that silence, not a
     /// stated canonical rule: disclosed here as existing, undocumented
     /// behavior kept because the alternative (defaulting a missing version
-    /// to some number) is exactly the kind of silent-promotion DS-1652
+    /// to some number) is exactly the kind of silent-promotion DS-1662
     /// forbids for every *other* E-CONFIG-001 condition it lists, `config
     /// version` among them.
     /// `version: 2` is parsed as written; `version: 1` is parsed under the
@@ -314,34 +314,38 @@ impl ProjectConfig {
     /// adapter設定としてin-memory変換して読み取るが、読み取りだけで正典を
     /// 書き換えない" (a read never rewrites the canonical file). Any other
     /// version — malformed, or a number this reader does not recognize — is
-    /// rejected: DS-1652 lists `config version` itself among the
+    /// rejected: DS-1662 lists `config version` itself among the
     /// `E-CONFIG-001` conditions, so guessing at an unknown schema version
     /// would be exactly the silent-promotion this system's fail-closed
     /// design forbids. Every key must also belong to the schema its
     /// declared version actually has (`#[serde(deny_unknown_fields)]` on
     /// `ProjectConfig`/`V1Config` and their sub-sections), e.g. a `version:
-    /// 1` config carrying a v2-only `gates:` key is rejected. DS-1652's own
+    /// 1` config carrying a v2-only `gates:` key is rejected. DS-1662's own
     /// enumeration does state this for some fields specifically —
     /// `verify.full_scope`'s duplicate/unknown/missing/surplus items
-    /// (DS-356/DS-1495) and an unresolved `gates[].require.approvals` role
-    /// — and its own parenthetical carves unknown/duplicate adapter ids out
-    /// to `E-ADAPTER-001` instead ("未知・重複adapter IDはE-ADAPTER-001").
-    /// (DS-352, elsewhere in the same detailed_spec layer, assigns exactly
-    /// that case — "adapter IDの重複...未知adapter...はusage error
-    /// （E-CONFIG-001）" — to `E-CONFIG-001` instead, contradicting DS-1652's
-    /// own carve-out; not resolved here, since this crate has no adapter
-    /// registry yet for either code to apply to — see `ScanSection`'s doc
-    /// comment on that gap.) Beyond these named fields, DS-1652 does not
-    /// name a stray top-level or nested key in general (a bare `config
-    /// field型` mismatch is the closest listed condition, and a surplus key
-    /// is not a type mismatch) as an `E-CONFIG-001` condition. Rejecting
-    /// every unrecognized key unconditionally is therefore this crate's own
+    /// (DS-356/DS-1495), an unresolved `gates[].require.approvals` role,
+    /// and, for `adapters`, a config-internal adapter id duplicate, a
+    /// same-adapter root duplicate, and an unknown adapter — all
+    /// `E-CONFIG-001`, matching DS-352's "adapter IDの重複...未知
+    /// adapter...はusage error （E-CONFIG-001）" in the same detailed_spec
+    /// layer. (The predecessor `DS-1652` carved those three adapter
+    /// conditions out to `E-ADAPTER-001` instead — "未知・重複adapter ID
+    /// はE-ADAPTER-001" — contradicting DS-352; Issue #24 corrected
+    /// `DS-1662` to agree with DS-352 and confined `E-ADAPTER-001` to the
+    /// registry's own duplicate adapter ids and a registry
+    /// declaration/implementation mismatch. Neither code path has an
+    /// adapter registry to apply to yet — see `ScanSection`'s doc comment
+    /// on that gap.) Beyond these named fields, DS-1662 does not name a
+    /// stray top-level or nested key in general (a bare `config field型`
+    /// mismatch is the closest listed condition, and a surplus key is not
+    /// a type mismatch) as an `E-CONFIG-001` condition. Rejecting every
+    /// unrecognized key unconditionally is therefore this crate's own
     /// decision under that silence, not a stated canonical rule for the
     /// general case — kept
     /// fail-closed for the same reason the absent-`version` case above is:
     /// silently accepting a surplus key a writer expected to constrain
     /// something (e.g. a misspelled restriction field) is exactly the
-    /// silent-promotion DS-1645/DS-1652 forbid elsewhere.
+    /// silent-promotion DS-1645/DS-1662 forbid elsewhere.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
@@ -540,7 +544,7 @@ fn validate_full_scope(full_scope: &[String]) -> Result<(), StoreError> {
 /// Structural (not cross-referential) validation of a version 2 config.
 /// Checks that only need the config text itself: adapter id/root duplicates,
 /// `verify.full_scope`, gate name duplicates, `require.verification`
-/// vocabulary, and unresolved `require.approvals` roles (DS-1162, DS-1652).
+/// vocabulary, and unresolved `require.approvals` roles (DS-1162, DS-1662).
 /// This config carries no document-root configuration to cross-reference:
 /// DS-1646 makes root-layer membership itself the orphan-detection root
 /// ("根の指定は `root` 層への所属であり…設定による除外指定は持たない"), so
@@ -922,7 +926,7 @@ mod tests {
     ///
     /// BD-154's own text ends without an `approval_roles:` section even
     /// though its `gates` reference the `reviewer`/`owner` roles — DS-1162/
-    /// DS-1652 make an unresolved `gates.require.approvals` role a fail-
+    /// DS-1662 make an unresolved `gates.require.approvals` role a fail-
     /// closed E-CONFIG-001 condition, so this literal example, fed exactly
     /// as BD-154 states it, is rejected by this reader. This is disclosed
     /// as a spec-internal gap (BD-154's own quoted `lines` range, 131-155,
@@ -1081,7 +1085,7 @@ mod tests {
     /// key. This test locks in this reader's own fail-closed choice under
     /// that canonical silence (see `ProjectConfig::from_yaml`'s doc
     /// comment): guessing "1" for an absent version would be exactly the
-    /// kind of silent-promotion DS-1652 forbids for every *stated*
+    /// kind of silent-promotion DS-1662 forbids for every *stated*
     /// E-CONFIG-001 condition.
     #[test]
     fn unversioned_config_is_rejected() {
@@ -1093,7 +1097,7 @@ mod tests {
         assert!(error.to_string().contains("version"));
     }
 
-    /// DS-1652 lists `config version` among the `E-CONFIG-001` conditions:
+    /// DS-1662 lists `config version` among the `E-CONFIG-001` conditions:
     /// an unrecognized version must fail closed, not be guessed at as
     /// whichever schema is "closest".
     #[test]
@@ -1269,7 +1273,7 @@ mod tests {
     }
 
     /// Rejecting a stray key outside a declared version's own schema is
-    /// this crate's own fail-closed choice, not a DS-1652 condition stated
+    /// this crate's own fail-closed choice, not a DS-1662 condition stated
     /// for the general case (see `ProjectConfig::from_yaml`'s doc comment)
     /// — implemented as `#[serde(deny_unknown_fields)]`, not a
     /// version-conditioned branch: a `version: 1` config carrying the
