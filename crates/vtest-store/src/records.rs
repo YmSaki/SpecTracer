@@ -21,8 +21,11 @@
 //! parse; `ApprovalRecord::from_yaml` and `read_evidence` do the same
 //! known-key scan over a `yaml_serde::Value` first, then keep their
 //! existing hand-rolled extraction (and its existing, more specific
-//! validations — ULID format, `VO-` prefix, `human`/`agent` whitelist, and
-//! so on) unchanged over the original text.
+//! validations — ULID format, `human`/`agent` whitelist, and so on)
+//! unchanged over the original text. Deliberately *not* listed among those
+//! validations: a format/prefix check on `ApprovalRecord.subject` — DS-052
+//! ("ツールはID形式を強制せず一意性のみを強制する") forbids exactly that,
+//! see `ApprovalRecord::from_yaml`'s own doc comment at that field.
 
 use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
@@ -444,8 +447,10 @@ impl ApprovalRecord {
     /// to run that known-key scan; the actual field extraction below is
     /// unchanged, still driven by the original `text` through this
     /// module's hand-rolled scalar/nested-scalar helpers (which already
-    /// enforce their own, more specific rules — ULID format, `VO-` prefix,
-    /// `human`/`agent` whitelist), not by deserializing through `Value`.
+    /// enforce their own, more specific rules — ULID format,
+    /// `human`/`agent` whitelist; not a `subject` format/prefix check —
+    /// see the doc comment where `subject` is used below, DS-052), not by
+    /// deserializing through `Value`.
     pub fn from_yaml(text: &str, fallback_id: &str) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid approval record: {error}"))
@@ -492,16 +497,18 @@ impl ApprovalRecord {
                 "approval id must be a valid ULID".to_owned(),
             ));
         }
-        if !subject.starts_with("VO-")
-            || subject.len() <= "VO-".len()
-            || !subject.chars().all(|character| {
-                character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
-            })
-        {
-            return Err(StoreError::InvalidConfig(
-                "approval subject must be a valid VO ID".to_owned(),
-            ));
-        }
+        // No format check on `subject` beyond the non-empty presence
+        // `required_top_level_scalar` already enforced above: DS-048
+        // ("DOC/VO/TESTのIDは人間可読な形式とする") lists VO ids in the same
+        // breath as DOC/TEST ids under the tool-wide rule DS-052 states
+        // next to it — "ツールはID形式を強制せず一意性のみを強制する" (the
+        // tool does not enforce ID *format*, only uniqueness). A
+        // "VO-"-prefix-and-charset gate here is exactly that prohibited
+        // format enforcement, not an existence/uniqueness check (those are
+        // scan-layer concerns — E-SCAN-003/E-SCAN-012 style resolution —
+        // this record-layer reader does not have the VO set to check
+        // against). Re-applies PR #26 review round 1 BLOCKER 5's removal,
+        // which a9b3113's store rewrite reintroduced.
         Ok(Self {
             id,
             subject: VoId::new(subject),
@@ -2146,6 +2153,30 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    /// DS-052 ("ツールはID形式を強制せず一意性のみを強制する") / DS-048
+    /// (DOC/VO/TEST ids are grouped under the same rule): the record layer
+    /// must not enforce a `subject` format or `"VO-"` prefix — only a
+    /// scan-layer existence/uniqueness check is permitted, and this
+    /// record-level reader does not have the VO set to run one. A subject
+    /// that would fail the retired prefix/charset gate (lowercase letters,
+    /// no `VO-` prefix) must still parse.
+    ///
+    /// @vtest.id TEST-STORE-APPROVAL-SUBJECT-NO-FORMAT-GATE
+    /// @vtest.covers VO-STORE-APPROVAL-RECORD-SHAPE
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies ApprovalRecord.subject is not format/prefix-checked (DS-052)
+    #[test]
+    fn approval_subject_is_not_format_or_prefix_checked() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: not-a-vo-shaped-id\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n")
+        );
+        let record = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect("a subject with no VO- prefix and lowercase characters must still parse");
+        assert_eq!(record.subject, VoId::new("not-a-vo-shaped-id"));
     }
 
     /// DS-1645/E-SCAN-010: an approval record carrying a scope-limiting
