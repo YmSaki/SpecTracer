@@ -124,12 +124,17 @@ impl VerifyLayout {
     }
 }
 
-/// Canonical v0.1 project configuration (詳細設計 v0.1 §2.2). The writer's
-/// normal form is version 2; an explicit `version: 1` is read as a single
-/// implicit `rust-cargo` adapter and converted in-memory to this shape
-/// without rewriting the file (§2.4). `version` itself is required (別紙C
-/// §18.3.12: the reader accepts exactly versions 1 and 2 — never a config
-/// with no declared version), and every key must belong to the schema its
+/// Canonical v0.1 project configuration. The writer's normal form is
+/// version 2; an explicit `version: 1` is read as a single implicit
+/// `rust-cargo` adapter and converted in-memory to this shape without
+/// rewriting the file (DES-014/DES-109: "readerはversion 1を単一の
+/// `rust-cargo` adapter設定としてin-memory変換して読み取るが、読み取りだけで
+/// 正典を書き換えない"). `version` itself is required (DS-1572: "config
+/// readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない" —
+/// stated only for a *declared* 1 or 2, silent on an absent key; this reader
+/// treats that silence as fail-closed rather than as license to guess,
+/// matching DS-1652's listing of `config version` itself among the
+/// `E-CONFIG-001` conditions), and every key must belong to the schema its
 /// declared version actually has — see `ProjectConfig::from_yaml`.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -139,8 +144,8 @@ pub struct ProjectConfig {
     pub adapters: Vec<AdapterConfig>,
     pub verify: VerifySection,
 
-    /// 詳細設計 v0.1 §2.2: "`gates` field自体の欠落と空 list は「ゲート定義
-    /// なし」として受理する" — absence and `gates: []` are equivalent.
+    /// DS-362: "`gates` field自体の欠落と空listは「ゲート定義なし」として
+    /// 受理する" — absence and `gates: []` are equivalent.
     #[serde(default)]
     pub gates: Vec<GateConfig>,
 
@@ -164,13 +169,14 @@ pub struct AdapterConfig {
 }
 
 /// Deliberately no `#[serde(deny_unknown_fields)]` here (unlike its sibling
-/// sections): 詳細設計 v0.1 §2.2 delegates adapter-payload validation to the
-/// registered adapter itself — "adapter固有設定の検証は登録adapterへ委譲し、
-/// coreは未知のnamespaceや値をRust設定として解釈しない". PR2 has no adapter
-/// registry yet, so this struct's fixed Rust-cargo-shaped fields are an
-/// existing constraint, not this invariant's concern; a registry PR replaces
-/// this direct-deserialize with delegated validation instead of tightening it
-/// here.
+/// sections): BD-155 delegates adapter-payload validation to the registered
+/// adapter itself ("adapter固有設定の検証は登録adapterへ委譲する"), and
+/// BD-157 treats `scan`/`run` as version-1-schema-compatible wire values
+/// ("`scan` と `run` はversion 1 schema互換のwire値とする"). PR2 has no
+/// adapter registry yet, so this struct's fixed Rust-cargo-shaped fields are
+/// an existing constraint, not this invariant's concern; a registry PR
+/// replaces this direct-deserialize with delegated validation instead of
+/// tightening it here.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSection {
     pub include: Vec<String>,
@@ -190,7 +196,9 @@ pub struct VerifySection {
     pub full_scope: Vec<String>,
 }
 
-/// One phase-gate definition (詳細設計 v0.1 §2.2, §11.5).
+/// One phase-gate definition. BD-226: "ゲート定義は、`config.yaml`の
+/// `gates`に、ゲート名と進行条件（`require.verification`＝要求する検証結果、
+/// `require.approvals`＝要求する承認ロール集合）を保持する".
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GateConfig {
@@ -203,15 +211,17 @@ pub struct GateConfig {
 pub struct GateRequirement {
     pub verification: String,
 
-    /// 詳細設計 v0.1 §2.2: "`require.approvals` は省略可能とし、省略は「要求
-    /// する承認ロールなし（空集合）」として受理する".
+    /// DS-372: "`require.approvals` は省略可能とし、省略は「要求する承認
+    /// ロールなし（空集合）」として受理する".
     #[serde(default)]
     pub approvals: Vec<String>,
 }
 
-/// The fixed four checks (基本仕様 §5) `verify.full_scope` must enumerate
-/// exactly — no more, no fewer, no duplicates, no unrecognized names
-/// (詳細設計 v0.1 §2.2).
+/// The fixed four checks `verify.full_scope` must enumerate exactly — no
+/// more, no fewer, no duplicates, no unrecognized names. SPEC-053: "検証は
+/// `chain_integrity` / `orphan_detection` / `target_binding` /
+/// `oracle_presence` の4検査のみで行う"; DS-355/DS-356/DS-1652 make this a
+/// `config.yaml` invariant (`E-CONFIG-001` on violation).
 const FIXED_FULL_SCOPE: [&str; 4] = [
     "chain_integrity",
     "orphan_detection",
@@ -219,8 +229,10 @@ const FIXED_FULL_SCOPE: [&str; 4] = [
     "oracle_presence",
 ];
 
-/// The five verification states `gates[].require.verification` may name
-/// (基本仕様 §4.1, 詳細設計 v0.1 §2.2). Case-sensitive exact match.
+/// The five verification states `gates[].require.verification` may name.
+/// SPEC-371: "検証状態は5値（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` /
+/// `UNKNOWN`）である"; DS-1529/DS-1652 require an exact, case-sensitive
+/// match at config-read time (`E-CONFIG-001` otherwise).
 const VERIFICATION_STATES: [&str; 5] = ["PASS", "FAIL", "MISMATCH", "NO_EVIDENCE", "UNKNOWN"];
 
 impl ProjectConfig {
@@ -254,8 +266,8 @@ impl ProjectConfig {
     /// via `yaml_serde`, using `ProjectConfig`'s own `Serialize` derive.
     /// Every in-memory `ProjectConfig` this crate constructs already carries
     /// `version: 2` (`default_for`, `from_yaml_v1`, and `from_yaml_v2` all
-    /// guarantee it), matching 詳細設計 v0.1 §2.2's "writer の正規形は
-    /// version 2".
+    /// guarantee it), matching DS-1573: "config writerと`vtest init`は
+    /// version 2のadapter namespaceを出力する".
     pub fn to_yaml(&self) -> String {
         yaml_serde::to_string(self).expect("ProjectConfig always serializes to valid YAML")
     }
@@ -263,22 +275,33 @@ impl ProjectConfig {
     /// Read a project configuration. `version` is read through the YAML
     /// model itself, not a hand-rolled text scan: a config that is not a
     /// YAML mapping, or that has no `version` key, or whose `version` is not
-    /// an integer, fails closed rather than being guessed at (基本仕様 §2.4:
-    /// "reader は version 1 を...読み取る" and 別紙C §18.3.12: "config reader
-    /// はversion 1とversion 2を受理し" both only ever speak of a *declared*
-    /// version 1 or 2 — neither states or implies a third "absent" case).
+    /// an integer, fails closed rather than being guessed at. DES-014
+    /// ("readerはversion 1を単一の `rust-cargo` adapter設定として
+    /// in-memory変換して読み取る") and DS-1572 ("config readerはversion 1と
+    /// version 2を受理し、読み取りだけでconfigを書き換えない") both only ever
+    /// speak of a *declared* version 1 or 2 — neither states nor implies a
+    /// third "absent" case. This reader's rejection of an absent `version`
+    /// key is therefore this crate's own decision under that silence, not a
+    /// stated canonical rule: disclosed here as existing, undocumented
+    /// behavior kept because the alternative (defaulting a missing version
+    /// to some number) is exactly the kind of silent-promotion DS-1652
+    /// forbids for every *other* E-CONFIG-001 condition it lists, `config
+    /// version` among them.
     /// `version: 2` is parsed as written; `version: 1` is parsed under the
-    /// version 1 shape and converted in-memory to this (version 2) shape
-    /// (§2.4: a read never rewrites the canonical file). Any other version
-    /// — malformed, or a number this reader does not recognize — is
-    /// rejected: 詳細設計 v0.1 §17.1 lists `config version` itself among the
-    /// E-CONFIG-001 conditions, so guessing at an unknown schema version
+    /// version 1 shape and converted in-memory to this (version 2) shape —
+    /// DES-109: "`config.yaml` readerはversion 1を単一の `rust-cargo`
+    /// adapter設定としてin-memory変換して読み取るが、読み取りだけで正典を
+    /// 書き換えない" (a read never rewrites the canonical file). Any other
+    /// version — malformed, or a number this reader does not recognize — is
+    /// rejected: DS-1652 lists `config version` itself among the
+    /// `E-CONFIG-001` conditions, so guessing at an unknown schema version
     /// would be exactly the silent-promotion this system's fail-closed
     /// design forbids. Every key must also belong to the schema its
     /// declared version actually has (`#[serde(deny_unknown_fields)]` on
     /// `ProjectConfig`/`V1Config` and their sub-sections) — the same
-    /// E-CONFIG-001 condition covers a declared version whose body does not
-    /// match it, e.g. a `version: 1` config carrying a v2-only `gates:` key.
+    /// `E-CONFIG-001` condition covers a declared version whose body does
+    /// not match it, e.g. a `version: 1` config carrying a v2-only `gates:`
+    /// key.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
@@ -321,8 +344,12 @@ impl ProjectConfig {
     }
 
     /// Reads a version 1 configuration and converts it in-memory to the
-    /// version 2 shape: a single implicit `rust-cargo` adapter, no doc
-    /// roots, no gates, no approval roles.
+    /// version 2 shape: a single implicit `rust-cargo` adapter, no gates, no
+    /// approval roles. (A prior version of this comment also said "no doc
+    /// roots"; 0861f12 removed the `doc`/`DocSection`/`doc.roots` key this
+    /// referred to from `ProjectConfig` entirely — DS-1646 makes root-layer
+    /// membership itself the orphan-detection root, so there is no
+    /// config-level document-root list left for a v1 config to lack.)
     fn from_yaml_v1(
         value: yaml_serde::Value,
         project_name: impl Into<String>,
@@ -364,12 +391,13 @@ impl ProjectConfig {
             )));
         }
 
-        // 詳細設計 v0.1 §2.2: "version 1 では field 欠落を固定4検査として
-        // 具体化し、重複または未知項目は E-CONFIG-001 で拒否する...
-        // in-memory 補完で受理しない". A *present* full_scope goes straight
-        // to validate_full_scope with no dedup step first — a prior version
-        // of this reader deduped before validating, which silently hid
-        // adjacent duplicates from the very check meant to reject them.
+        // DS-357/DS-1494/DS-1108: "version 1では、`verify.full_scope` の
+        // field欠落を固定4検査として具体化し、重複または未知項目は
+        // E-CONFIG-001で拒否する"; DS-1109: "in-memory の項目補完は行わない".
+        // A *present* full_scope goes straight to validate_full_scope with
+        // no dedup step first — a prior version of this reader deduped
+        // before validating, which silently hid adjacent duplicates from
+        // the very check meant to reject them.
         let full_scope = match v1.verify.and_then(|verify| verify.full_scope) {
             Some(list) => {
                 validate_full_scope(&list)?;
@@ -520,10 +548,11 @@ fn validate_v2_config(config: &ProjectConfig) -> Result<(), StoreError> {
                 gate.name, gate.require.verification
             )));
         }
-        // 詳細設計 v0.1 §2.2: "指定する場合は文字列ロール名の list とし、
-        // 空文字列・重複ロール名は E-CONFIG-001 とする" — both conditions
-        // are scoped to *this gate's own* `approvals` list, distinct from
-        // whether a name resolves in `approval_roles` at all (checked below).
+        // DS-373: "`require.approvals` を指定する場合は文字列ロール名の
+        // listとし、空文字列・重複ロール名はE-CONFIG-001（終了コード2）と
+        // する" — both conditions are scoped to *this gate's own*
+        // `approvals` list, distinct from whether a name resolves in
+        // `approval_roles` at all (checked below, DS-1162).
         let mut seen_gate_approval_roles = std::collections::BTreeSet::new();
         for role in &gate.require.approvals {
             if role.trim().is_empty() {
@@ -965,12 +994,15 @@ mod tests {
         assert!(parsed.gates.is_empty());
     }
 
-    /// 別紙C §18.3.12: the config reader accepts exactly version 1 and
-    /// version 2 — it never states or implies a third "no declared version"
-    /// case, and no writer in this codebase (nor its predecessor) has ever
-    /// emitted a config without a `version` key. Guessing "1" for an absent
-    /// version would be exactly the kind of silent-promotion this system's
-    /// fail-closed design forbids elsewhere.
+    /// DS-1572 ("config readerはversion 1とversion 2を受理し") speaks only
+    /// of a *declared* version 1 or 2 — it neither states nor implies a
+    /// third "no declared version" case, and no writer in this codebase
+    /// (nor its predecessor) has ever emitted a config without a `version`
+    /// key. This test locks in this reader's own fail-closed choice under
+    /// that canonical silence (see `ProjectConfig::from_yaml`'s doc
+    /// comment): guessing "1" for an absent version would be exactly the
+    /// kind of silent-promotion DS-1652 forbids for every *stated*
+    /// E-CONFIG-001 condition.
     #[test]
     fn unversioned_config_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -981,9 +1013,9 @@ mod tests {
         assert!(error.to_string().contains("version"));
     }
 
-    /// 詳細設計 v0.1 §17.1 lists `config version` among the E-CONFIG-001
-    /// conditions: an unrecognized version must fail closed, not be guessed
-    /// at as whichever schema is "closest".
+    /// DS-1652 lists `config version` among the `E-CONFIG-001` conditions:
+    /// an unrecognized version must fail closed, not be guessed at as
+    /// whichever schema is "closest".
     #[test]
     fn unrecognized_config_version_is_rejected() {
         for text in [
@@ -1110,8 +1142,9 @@ mod tests {
         );
     }
 
-    /// 詳細設計 v0.1 §2.2: the old 12-item full_scope enumeration violates
-    /// the current fixed-4-checks invariant regardless of config version.
+    /// DS-358/DS-1494: the old 12-item full_scope enumeration ("旧12項目の
+    /// 列挙…") violates the current fixed-4-checks invariant regardless of
+    /// config version.
     #[test]
     fn predecessor_twelve_item_full_scope_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -1122,11 +1155,12 @@ mod tests {
         assert!(error.to_string().contains("full_scope"));
     }
 
-    /// 詳細設計 v0.1 §2.2: "version 1 では...重複または未知項目は
-    /// E-CONFIG-001 で拒否する...in-memory 補完で受理しない". A prior
-    /// version of this reader ran `Vec::dedup()` (adjacent-only) on a
-    /// present v1 `full_scope` before validating it, which silently erased
-    /// exactly this shape of duplicate instead of rejecting it.
+    /// DS-357: "version 1では、`verify.full_scope` のfield欠落を固定4検査
+    /// として具体化し、重複または未知項目はE-CONFIG-001で拒否する";
+    /// DS-1109: "in-memory の項目補完は行わない". A prior version of this
+    /// reader ran `Vec::dedup()` (adjacent-only) on a present v1
+    /// `full_scope` before validating it, which silently erased exactly
+    /// this shape of duplicate instead of rejecting it.
     #[test]
     fn v1_full_scope_with_an_adjacent_duplicate_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -1154,8 +1188,8 @@ mod tests {
         assert!(error.to_string().contains("run.coverage"));
     }
 
-    /// 詳細設計 v0.1 §17.1's E-CONFIG-001 covers a declared `version` whose
-    /// body does not match it — the fix here is a rewritten implementation
+    /// DS-1652's `E-CONFIG-001` covers a declared `version` whose body does
+    /// not match it — the fix here is a rewritten implementation
     /// (`#[serde(deny_unknown_fields)]`), not a version-conditioned branch:
     /// a `version: 1` config carrying the v2-only `gates:` key is simply an
     /// invalid version-1 config, independent of any compatibility concern.
@@ -1233,8 +1267,8 @@ mod tests {
         assert!(error.to_string().contains("approval role"));
     }
 
-    /// 詳細設計 v0.1 §2.2: "指定する場合は文字列ロール名の list とし、
-    /// 空文字列・重複ロール名は E-CONFIG-001 とする".
+    /// DS-373: "`require.approvals` を指定する場合は文字列ロール名の
+    /// listとし、空文字列・重複ロール名はE-CONFIG-001とする".
     #[test]
     fn gate_with_duplicate_approval_role_is_rejected() {
         let mut config = ProjectConfig::default_for("calc");
