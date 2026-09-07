@@ -594,18 +594,34 @@ mod tests {
         );
     }
 
-    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-DISTINGUISHES-ITEMS-FROM-SECTIONS
+    /// @vtest.id TEST-MODEL-SUBJECT-HASH-INPUT-ITEMS-FIELD-DIFFERS-FROM-SECTIONS-FIELD
     /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
-    /// @vtest.intent verifies moving the same child hash from `items` to `sections` changes the parent's hash — DES-587 binds them as two separately-named sequences, not one merged list
+    /// @vtest.intent verifies, at the encoder level, that the same child-hash byte string bound under field name `items` hashes differently than under field name `sections` — DES-587 binds them as two separately-named sequences, not one merged list. Isolated here (not through the typed `SectionNode` API) because that API has no way to place one child at the same tree depth under both names: a sentence's subject hash and a section's subject hash never collide (different field sets go into each), so which-named-field can only be isolated directly against `SubjectHashInput`.
     #[test]
-    fn section_node_subject_hash_distinguishes_items_from_sections() {
+    fn subject_hash_input_items_field_differs_from_sections_field_for_the_same_content() {
+        let same_child_hash_bytes = b"same-child-subject-hash-bytes".to_vec();
+        let as_items = SubjectHashInput::new(SubjectDomain::DocumentSubject)
+            .field(
+                "items",
+                FieldValue::Ordered(vec![same_child_hash_bytes.clone()]),
+            )
+            .field("sections", FieldValue::Ordered(vec![]))
+            .finish();
+        let as_sections = SubjectHashInput::new(SubjectDomain::DocumentSubject)
+            .field("items", FieldValue::Ordered(vec![]))
+            .field("sections", FieldValue::Ordered(vec![same_child_hash_bytes]))
+            .finish();
+        assert_ne!(as_items, as_sections);
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-DIFFERS-WHEN-A-CHILD-MOVES-TO-A-NESTED-SECTION
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies a real structural edit — moving a sentence out of `items` and into a new child section's own `items` — changes the parent's hash. This is a meaningful regression test on the typed API, but (unlike the encoder-level test above) it does not isolate "which named field" as the sole variable: the wrapping child section also adds one level of nesting, so a hypothetical implementation that merged items+sections into one unordered list could also fail this comparison for the nesting-depth reason alone, not necessarily by distinguishing the two field names.
+    #[test]
+    fn section_node_subject_hash_changes_when_a_child_moves_into_a_nested_section() {
         let leaf_sentence = sample_sentence("REQ-001", "shared content");
-        // A section whose subordinate section has no children of its own has
-        // the same subject hash as an empty section (see the next test) —
-        // chosen here only so both sides of the comparison hold one child at
-        // the same tree depth, isolating "which named field" as the only
-        // difference.
         let as_item = sample_section("REQ-S001", vec![leaf_sentence.clone()], vec![]);
         let as_section = sample_section(
             "REQ-S001",
