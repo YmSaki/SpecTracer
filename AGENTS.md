@@ -2,13 +2,9 @@
 
 ## Authority
 
-Product behavior is governed, in descending order, by:
+Product behavior is governed by the canonical specification `docs/canonical/specification.json` (schema `docs/canonical/specification.schema.json`; layer definitions `docs/canonical/LAYERING.md`). Within it, authority descends by layer: `root` (Owner rulings) → `request` → `require` → `spec` → `detailed_spec` → `basic_design` → `design`. A lower layer never adds a norm absent from the layers above it; a conflict is resolved in favour of the higher layer and fed upstream.
 
-1. `docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md`
-2. `docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md`
-3. `docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md`
-4. `docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md`
-5. `docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md`
+`docs/canonical/export/*.md` are generated readings of the same data and carry no authority of their own (they may lag the JSON). The markdown documents under `docs/archive/` are the pre-conversion sources and are retired: do not cite them as norms.
 
 An implementation schedule is process material, not a normative product source. Use it only when planning requires it, and never let it override the documents above. If active normative documents disagree or leave a required decision open, cite the exact sections and report the unresolved contract. Do not fill the gap from historical files, tests, implementation behavior, or Git history.
 

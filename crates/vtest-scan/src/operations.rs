@@ -616,42 +616,24 @@ fn validate_desired_test(
             );
         }
     }
-    if desired.targets.is_empty() {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            "target must contain at least one source locator",
-        ));
-    }
-    // 失われた検査（`SourceLocation`/`ExecutionDescriptor` reshape、
-    // hash27-model-spec.md 対応 PR）: 本冊 §4.2改訂（Owner裁定3、
-    // pr3-decisions.md）により、複数targetの許容はrust-cargoが判定した
-    // 実行形態がCargo Integration Testであるかどうかで決まる
-    // （`@vtest.kind` の文字列では判定しない）。以前はここで
-    // `current.test_target`（`vtest_model::TestTarget` enum）を直接
-    // matches! していたが、`TestTarget` 型は本冊:685-703「`filter`、
-    // `package`、`test_target`および`TestTarget`型を`vtest-model`へ置か
-    // ない」により `vtest-model` から除去され、`TestEntity` は
-    // `execution: ExecutionDescriptor`（`suite.kind: String`、enum制約
-    // なし）だけを持つ。
-    //
-    // ここで代わりに `current.execution.suite.kind == "integration"` を
-    // 読んで判定を再現することはしない — 本冊:688「coreは `project`、
-    // `suite.kind`、`suite.name`、`selector` の文字列を解釈しない」が
-    // 明示的に禁じる。この判定（実行形態の判別）は adapter
-    // （`rust-cargo` の `TestRunnerAdapter`）の責務であり、core
-    // （`vtest-scan`）へ持ち込まない。
-    //
-    // したがってこの検査は削除した。**失われるもの**: Structured Edit
-    // （`vtest edit`）で `targets` を複数件に増やす場合、以前は
-    // 「対象 Test が Cargo Integration Test でなければ拒否」がここで
-    // fail-closed に効いていたが、今はこのcrateにその判定余地が無い。
-    // 複数 target 自体は許容されたまま通る（Cargo Integration Test か
-    // どうかを問わなくなる）。**ここで復旧しない理由**: 判定を adapter
-    // 側へ移すには、adapter が「この Test は複数 target を許容するか」を
-    // core へ返す新しい DTO と呼び出し順序が要るが、詳細設計にその
-    // 契約が無い（PR3の裁量で決めた `SourceDiscoveryAdapter` trait には
-    // この形の問い合わせが無い）。**復旧予定**: Issue #32（上流へ差し
-    // 戻し済み）。
+    // ROOT-049/DS-1673: `targets` の宣言は Test 成立性の必須条件ではなく、
+    // 1 つの Test は 0 件以上の Source Target を持つ。REQ-150/SPEC-085
+    // 「1 つの Test は 1 件以上の Source Target を宣言できる」は可能性の
+    // 記述であって義務ではない（DS-1673 の開示）。この Structured Edit
+    // 経路がかつて課していた「targets 必須（≥1）」の下限強制は、その
+    // 誤読を引き継いだものだったため撤去した。target を持たない Test の
+    // `target_binding` を `NO_EVIDENCE`（DS-1664）にする判定は verify 側の
+    // 責務であり、Structured Edit のこのゲートの範囲ではない。
+    // REQ-150/SPEC-085/DS-1618: a Test may declare N >= 1 Source Targets
+    // unconditionally — no execution-form or `@vtest.kind` cap. This
+    // Structured Edit path used to reject more than one target unless
+    // `current.test_target` was a Cargo integration test (本冊 §4.2改訂,
+    // Owner裁定3、pr3-decisions.md, PR #26 review round 5); the canonical
+    // audit found no upstream basis for that restriction (REQ-150/SPEC-085
+    // are both unconditional), so it was removed rather than re-derived.
+    // `current.test_target` is unused for this gate now, but still feeds
+    // `TestDraft.test_target`'s value elsewhere (adapter-owned execution
+    // form, unrelated to this cardinality question).
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
@@ -2218,5 +2200,94 @@ fn adds() { assert_eq!(2, 1 + 1); }
         let field = field("covers", "vo-ref-list");
         let value = FormValue::Scalar("WIDGET-ADD".to_owned());
         assert!(validate_value_shape(&field, &value).is_err());
+    }
+
+    fn temp_root(name: &str) -> std::path::PathBuf {
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-scan-operations-{name}-{}-{sequence}",
+            std::process::id(),
+        ));
+        fs::create_dir_all(root.join(".verify/doc")).expect("create .verify/doc");
+        fs::create_dir_all(root.join(".verify/vo")).expect("create .verify/vo");
+        fs::write(root.join(".verify/vo/VO-ADD.yaml"), "id: VO-ADD\n")
+            .expect("write VO-ADD record");
+        fs::write(root.join(".verify/vo/VO-KNOWN.yaml"), "id: VO-KNOWN\n")
+            .expect("write VO-KNOWN record");
+        root
+    }
+
+    /// ROOT-049/DS-1673（本冊:455 以下のコメントで開示済み）: `targets` の
+    /// 宣言は Test 成立性の必須条件ではない。Structured Edit の
+    /// `validate_desired_test` はこの下限強制（かつての
+    /// `desired.targets.is_empty()` → E-OP-001）を撤去した。この test は
+    /// その回帰を固定する: target を0件持つ `DesiredTest` を編集しても
+    /// E-OP-001 にならないこと。
+    #[test]
+    fn validate_desired_test_accepts_zero_targets() {
+        let root = temp_root("zero-targets");
+        let current = sample_test("TEST-NO-TARGET", "no_target_fn", "no-target-seed");
+        assert!(
+            current.targets.is_empty(),
+            "fixture must start with 0 targets"
+        );
+        let desired = DesiredTest::from_current(&current);
+        assert!(
+            desired.targets.is_empty(),
+            "DesiredTest::from_current must not synthesize a target"
+        );
+        let scan = sample_scan(vec![current.clone()]);
+        let result = validate_desired_test(&root, &scan, &current, &desired);
+        assert!(
+            result.is_ok(),
+            "a Test with 0 declared targets must not be rejected by Structured Edit: {result:?}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 別紙A §14.3「`rust-integration` は `rust-unit-function` との差分が
+    /// target→targets必須化とfileのrequired化の2点のみ」。DS-1247は必須
+    /// list answer への空 list を拒否する。Structured Edit 側で target
+    /// 0件を許すようになったこと（上のtest）が、`rust-integration` Form の
+    /// `targets`（`required: true`）まで弱めていないことを固定する。
+    #[test]
+    fn rust_integration_form_rejects_an_empty_targets_list() {
+        let root = temp_root("empty-targets-form");
+        let schema =
+            vtest_store::parse_form_schema(vtest_store::RUST_INTEGRATION_FORM).expect("parse form");
+        let mut answers = BTreeMap::new();
+        answers.insert("targets".to_owned(), FormValue::List(Vec::new()));
+        answers.insert(
+            "covers".to_owned(),
+            FormValue::List(vec!["VO-KNOWN".to_owned()]),
+        );
+        answers.insert(
+            "behavior".to_owned(),
+            FormValue::Scalar("behavior".to_owned()),
+        );
+        answers.insert(
+            "test_kind".to_owned(),
+            FormValue::Scalar("normal".to_owned()),
+        );
+        answers.insert("input".to_owned(), FormValue::Scalar("input".to_owned()));
+        answers.insert("expect".to_owned(), FormValue::Scalar("expect".to_owned()));
+        answers.insert(
+            "fn_name".to_owned(),
+            FormValue::Scalar("fn_name".to_owned()),
+        );
+        answers.insert(
+            "file".to_owned(),
+            FormValue::Scalar("src/lib.rs".to_owned()),
+        );
+        let supplied = FormAnswers {
+            form: "rust-integration".to_owned(),
+            answers,
+        };
+        let scan = sample_scan(Vec::new());
+        let result = validate_form_answers(&root, &schema, &supplied, &scan);
+        let error = result.expect_err("an empty required `targets` list must be rejected");
+        assert_eq!(error.code, "E-OP-001");
+        let _ = fs::remove_dir_all(&root);
     }
 }
