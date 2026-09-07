@@ -1,12 +1,28 @@
-//! Predecessor entity records (Spec/Req/VO/Approval/Audit/Evidence) plus the
-//! canonical Relation record. The predecessor readers below (`SpecRecord`,
-//! `ReqRecord`, the local `VoRecord`, `ApprovalRecord`, `AuditRecord`,
-//! `read_evidence`) accept the deliberately small hand-rolled scalar/list
-//! YAML subset vtest itself emits and are out of this PR's scope (PR8
-//! retires them). `RelationRecord` is canonical and, unlike the
-//! predecessor readers here, does not preserve unknown fields by ignoring
-//! them — DS-1645/E-SCAN-010 makes a surplus field a schema mismatch,
-//! rejected fail-closed (see `RelationRecord::from_yaml`, below).
+//! Predecessor entity records (Spec/Req/VO/Audit) plus the canonical
+//! Approval, Evidence, and Relation records that also happen to live in this
+//! file. `SpecRecord`, `ReqRecord`, the local `VoRecord`, and `AuditRecord`
+//! accept the deliberately small hand-rolled scalar/list YAML subset vtest
+//! itself emits and are out of this PR's scope (PR8 retires the predecessor
+//! Spec/Req/audits model these serve — see AGENTS.md's predecessor/canonical
+//! split; `AuditRecord` specifically is the predecessor's semantic-audit
+//! result, not the canonical `Evidence`/`VerificationResult` chain).
+//!
+//! `ApprovalRecord`, `read_evidence`/`EvidenceRecord`, and `RelationRecord`
+//! are canonical entities on that same chain (`Document` → `VO` → `Test` →
+//! `Target` → `Evidence` → `VerificationResult`, with Approval an
+//! independent domain per AGENTS.md) and are not PR8 predecessors, even
+//! though `ApprovalRecord`/`read_evidence` still parse via this file's
+//! hand-rolled scalar/list helpers rather than `yaml_serde`'s typed
+//! `Deserialize` the way `RelationRecord` does below. All three reject an
+//! unrecognized field fail-closed (DS-1645/E-SCAN-010: schema不一致
+//! （宣言されていない余剰 field を含む）is an error, not a warning) rather
+//! than preserving it by silently ignoring it — `RelationRecord::from_yaml`
+//! does this via a `yaml_serde::Value` → known-key scan → typed struct
+//! parse; `ApprovalRecord::from_yaml` and `read_evidence` do the same
+//! known-key scan over a `yaml_serde::Value` first, then keep their
+//! existing hand-rolled extraction (and its existing, more specific
+//! validations — ULID format, `VO-` prefix, `human`/`agent` whitelist, and
+//! so on) unchanged over the original text.
 
 use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
@@ -188,6 +204,57 @@ pub struct RelationRecord {
 /// を含む）").
 const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
 
+/// Known top-level keys for a canonical Approval record, matching
+/// `ApprovalRecord`'s own fields (DS-1645/E-SCAN-010).
+const APPROVAL_KEYS: &[&str] = &[
+    "id",
+    "subject",
+    "subject_hash",
+    "approver",
+    "basis",
+    "approved_at",
+];
+
+/// Known keys for an Approval record's nested `approver` mapping, matching
+/// `Approver`'s own fields.
+const APPROVER_KEYS: &[&str] = &["kind", "id", "model"];
+
+/// Known keys for one entry of an Approval record's `basis[]` list, matching
+/// `ApprovalBasis`'s own fields.
+const APPROVAL_BASIS_KEYS: &[&str] = &["kind", "ref"];
+
+/// Known top-level keys for a canonical Evidence record, matching
+/// `EvidenceRecord`'s own fields (`vtest-model`) as `read_evidence` below
+/// actually populates them, and the shape `vtest-exec`'s `evidence_yaml`
+/// writer emits.
+const EVIDENCE_KEYS: &[&str] = &[
+    "id",
+    "test_id",
+    "result",
+    "executed_at",
+    "revision",
+    "hashes",
+    "runner",
+    "target_execution",
+    "log_ref",
+];
+
+/// Known keys for an Evidence record's nested `revision` mapping.
+const EVIDENCE_REVISION_KEYS: &[&str] = &["commit", "dirty"];
+
+/// Known keys for an Evidence record's nested `hashes` mapping. `target_fns`
+/// is optional (`read_evidence` treats an absent `target_fns:` key as an
+/// empty list), matching `EvidenceHashes`'s own fields.
+const EVIDENCE_HASHES_KEYS: &[&str] = &["test_fn", "target_fn", "target_fns"];
+
+/// Known keys for an Evidence record's nested `runner` mapping, matching
+/// `RunnerInfo`'s own fields.
+const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
+
+/// Known keys for an Evidence record's nested `target_execution` mapping,
+/// matching `TargetExecution`'s own fields.
+const EVIDENCE_TARGET_EXECUTION_KEYS: &[&str] = &["checked", "method", "result", "count"];
+
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
         let mut out = format!(
@@ -368,7 +435,35 @@ impl ApprovalRecord {
         out
     }
 
+    /// DS-1645/E-SCAN-010: a field outside `APPROVAL_KEYS`/`APPROVER_KEYS`/
+    /// `APPROVAL_BASIS_KEYS` fails closed rather than being silently
+    /// ignored — the same false-open shape DES-586's own reasoning names
+    /// for the upstream document model (a written scope-limiting field a
+    /// reader discards is a written-narrower approval a machine then reads
+    /// as unlimited). This parses the text into a `yaml_serde::Value` only
+    /// to run that known-key scan; the actual field extraction below is
+    /// unchanged, still driven by the original `text` through this
+    /// module's hand-rolled scalar/nested-scalar helpers (which already
+    /// enforce their own, more specific rules — ULID format, `VO-` prefix,
+    /// `human`/`agent` whitelist), not by deserializing through `Value`.
     pub fn from_yaml(text: &str, fallback_id: &str) -> Result<Self, StoreError> {
+        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid approval record: {error}"))
+        })?;
+        crate::canonical::reject_unknown_fields(&value, APPROVAL_KEYS, "")?;
+        if let Some(approver) = value.get("approver") {
+            crate::canonical::reject_unknown_fields(approver, APPROVER_KEYS, "approver.")?;
+        }
+        if let Some(basis) = value.get("basis").and_then(yaml_serde::Value::as_sequence) {
+            for (index, entry) in basis.iter().enumerate() {
+                crate::canonical::reject_unknown_fields(
+                    entry,
+                    APPROVAL_BASIS_KEYS,
+                    &format!("basis[{index}]."),
+                )?;
+            }
+        }
+
         let id = required_top_level_scalar(text, "id", "approval")?;
         let subject = required_top_level_scalar(text, "subject", "approval")?;
         let subject_hash = required_top_level_scalar(text, "subject_hash", "approval")?
@@ -794,8 +889,36 @@ impl RelationRecord {
     }
 }
 
+/// DS-1645/E-SCAN-010: same fail-closed known-key scan as
+/// `ApprovalRecord::from_yaml` above, applied to Evidence's own shape. The
+/// existing hand-rolled extraction below (driven by `text`, unchanged) keeps
+/// owning every other validation.
+fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid Evidence record: {error}")))?;
+    crate::canonical::reject_unknown_fields(&value, EVIDENCE_KEYS, "")?;
+    if let Some(revision) = value.get("revision") {
+        crate::canonical::reject_unknown_fields(revision, EVIDENCE_REVISION_KEYS, "revision.")?;
+    }
+    if let Some(hashes) = value.get("hashes") {
+        crate::canonical::reject_unknown_fields(hashes, EVIDENCE_HASHES_KEYS, "hashes.")?;
+    }
+    if let Some(runner) = value.get("runner") {
+        crate::canonical::reject_unknown_fields(runner, EVIDENCE_RUNNER_KEYS, "runner.")?;
+    }
+    if let Some(target_execution) = value.get("target_execution") {
+        crate::canonical::reject_unknown_fields(
+            target_execution,
+            EVIDENCE_TARGET_EXECUTION_KEYS,
+            "target_execution.",
+        )?;
+    }
+    Ok(())
+}
+
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     let text = read_text(path)?;
+    reject_unknown_evidence_fields(&text)?;
     let fallback = path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -2019,6 +2142,60 @@ mod tests {
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
     }
 
+    /// DS-1645/E-SCAN-010: an approval record carrying a scope-limiting
+    /// field the reader does not recognize (e.g. an expiry or scope
+    /// restriction) must fail closed rather than being silently discarded —
+    /// discarding it would let a writer record "approved with a
+    /// restriction" while a machine reads "approved unconditionally", the
+    /// exact false-open path DES-586's own reasoning warns against for the
+    /// document model's equivalent case.
+    #[test]
+    fn approval_with_unknown_top_level_field_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml();
+        yaml.push_str("scope: read-only\n");
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized top-level approval field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn approval_with_unknown_nested_approver_field_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  weight: 2\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized nested approver field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn approval_with_unknown_nested_basis_field_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\nbasis:\n  - kind: audit\n    ref: {}\n    note: extra\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+            new_record_id(),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized nested basis[] field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
     #[test]
     fn audit_round_trip_binds_subjects_and_reads_from_a_ulid_file() {
         let id = new_record_id();
@@ -2229,6 +2406,44 @@ mod tests {
             read_evidence(&matching_path).is_err(),
             "an Evidence record missing id entirely must fail closed, not fall back to the file name"
         );
+    }
+
+    /// DS-1645/E-SCAN-010: an Evidence record carrying a field this reader
+    /// does not recognize must fail closed rather than being silently
+    /// discarded — the same rule already applied to Document/VO/Relation,
+    /// now closed for Evidence too (it is a canonical entity on the
+    /// `Document` → `VO` → `Test` → `Target` → `Evidence` →
+    /// `VerificationResult` chain, not a PR8 predecessor).
+    #[test]
+    fn read_evidence_rejects_unknown_top_level_field() {
+        let root = temporary_directory("read-evidence-unknown-top-level");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\nnotes: extra\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("an unrecognized top-level Evidence field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn read_evidence_rejects_unknown_nested_hashes_field() {
+        let root = temporary_directory("read-evidence-unknown-hashes");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\n  algorithm: sha256\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error =
+            read_evidence(&path).expect_err("an unrecognized nested hashes field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
     #[test]
