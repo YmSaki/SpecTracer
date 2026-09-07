@@ -183,7 +183,20 @@ pub struct AdapterConfig {
 /// tightening it here.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ScanSection {
-    pub include: Vec<String>,
+    /// DS-349: "`config.yaml` の各adapterの `scan` 設定の `include` はテスト
+    /// コード走査パスであり、省略時はワークスペース全体を対象とする". `None`
+    /// carries that omission faithfully (this store crate does not itself
+    /// resolve "whole workspace" into a path list — that is scan's own
+    /// concern once it consumes this config); `Some(paths)` is an explicit,
+    /// non-default set of scan paths. `default_for` writes `Some(vec!["src",
+    /// "tests", "crates"])` because that is the concrete value BD-154's own
+    /// literal `config.yaml` example gives for this key, not because that
+    /// list is DS-349's stated default (DS-349's default is "the whole
+    /// workspace", not these three directories). What an *explicit*
+    /// `include: []` should mean is not stated by any canonical node found
+    /// so far — disclosed, not decided here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include: Option<Vec<String>>,
     pub assertion_macros: Vec<String>,
 }
 
@@ -248,7 +261,11 @@ impl ProjectConfig {
                 id: "rust-cargo".to_owned(),
                 roots: vec![".".to_owned()],
                 scan: ScanSection {
-                    include: vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()],
+                    include: Some(vec![
+                        "src".to_owned(),
+                        "tests".to_owned(),
+                        "crates".to_owned(),
+                    ]),
                     assertion_macros: Vec::new(),
                 },
                 run: RunSection {
@@ -378,11 +395,15 @@ impl ProjectConfig {
             .and_then(|section| section.name)
             .unwrap_or_else(|| project_name.into());
 
-        let include = v1
-            .scan
-            .as_ref()
-            .and_then(|scan| scan.include.clone())
-            .unwrap_or_else(|| vec!["src".to_owned(), "tests".to_owned(), "crates".to_owned()]);
+        // DS-349: an omitted `scan.include` means "the whole workspace",
+        // not this store's own guess at a directory list — carried through
+        // as `None` (see `ScanSection::include`'s doc comment) rather than
+        // backfilled with `["src", "tests", "crates"]` as a prior version
+        // of this reader did (that value is BD-154's example, not DS-349's
+        // stated default, and narrowing the scan surface by inventing it
+        // would hide tests outside those three directories from downstream
+        // orphan/coverage checks without the writer ever having said so).
+        let include = v1.scan.as_ref().and_then(|scan| scan.include.clone());
 
         let mut assertion_macros = v1
             .scan
@@ -877,7 +898,11 @@ mod tests {
         assert_eq!(parsed, expected);
         assert_eq!(parsed.version, 2);
         assert_eq!(parsed.adapters[0].id, "rust-cargo");
-        assert!(parsed.adapters[0].scan.include.contains(&"src".to_owned()));
+        assert!(parsed.adapters[0]
+            .scan
+            .include
+            .as_ref()
+            .is_some_and(|include| include.contains(&"src".to_owned())));
         assert_eq!(parsed.adapters[0].run.coverage, "llvm-cov");
     }
 
@@ -970,7 +995,11 @@ mod tests {
         assert_eq!(config.adapters[0].roots, vec!["."]);
         assert_eq!(
             config.adapters[0].scan.include,
-            vec!["src", "tests", "crates"]
+            Some(vec![
+                "src".to_owned(),
+                "tests".to_owned(),
+                "crates".to_owned()
+            ])
         );
         assert!(config.adapters[0].scan.assertion_macros.is_empty());
         assert_eq!(config.adapters[0].run.coverage, "llvm-cov");
@@ -1010,8 +1039,32 @@ mod tests {
         assert_eq!(parsed.adapters.len(), 1);
         assert_eq!(parsed.adapters[0].id, "rust-cargo");
         assert_eq!(parsed.adapters[0].roots, vec!["."]);
-        assert_eq!(parsed.adapters[0].scan.include, vec!["examples"]);
+        assert_eq!(
+            parsed.adapters[0].scan.include,
+            Some(vec!["examples".to_owned()])
+        );
         assert!(parsed.gates.is_empty());
+    }
+
+    /// DS-349: "省略時はワークスペース全体を対象とする" — an omitted v2
+    /// `scan.include` must parse as `None`, not be backfilled with any
+    /// concrete directory list this store crate invents on its own.
+    #[test]
+    fn v2_config_with_omitted_scan_include_parses_to_none() {
+        let yaml = "version: 2\nproject:\n  name: x\nadapters:\n  - id: rust-cargo\n    roots: [\".\"]\n    scan:\n      assertion_macros: []\n    run:\n      coverage: llvm-cov\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
+        let parsed = ProjectConfig::from_yaml(yaml, "fallback").unwrap();
+        assert_eq!(parsed.adapters[0].scan.include, None);
+    }
+
+    /// Same DS-349 omission, on the version 1 compatibility path — a prior
+    /// version of this reader backfilled an omitted v1 `scan.include` with
+    /// `["src", "tests", "crates"]`, a value under no canonical node and
+    /// narrower than DS-349's stated "whole workspace" default.
+    #[test]
+    fn v1_config_with_omitted_scan_include_parses_to_none() {
+        let parsed =
+            ProjectConfig::from_yaml("version: 1\nproject:\n  name: x\n", "fallback").unwrap();
+        assert_eq!(parsed.adapters[0].scan.include, None);
     }
 
     /// DS-1572 ("config readerはversion 1とversion 2を受理し") speaks only
