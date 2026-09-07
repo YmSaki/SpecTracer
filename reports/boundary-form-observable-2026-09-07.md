@@ -229,7 +229,7 @@ description（要旨）:
 | `DES-524` | design | アノテーションを常にキー順（id, covers, execution-form, target, intent, input, expect, kind, case, related）で再生成する規則は、Create が挿入する annotation block にも同一に適用する。 |
 | `DES-526` | design | アノテーションの再生成キー順（id, covers, execution-form, target, intent, input, expect, kind, case, related）は本冊 §4.2 の test-key（\`id\` / \`covers\` / \`execution-form\` / \`target\` / \`intent\` / \`input\` / \`expect\` / \`kind\` / \`case\` / \`related\`）と一致する。 |
 
-`DES-215` を含める理由: Structured Edit の再生成は論理 field から annotation block を組み立て直し、`@vtest.` を含む行のうちキー順に無いものは温存されない（`DES-522` が温存するのは `@vtest.` を**含まない**行だけ）。論理 field に載せないと、Structured Edit を1回通すたびに形態宣言が黙って消える。
+`DES-215` を含める理由: Structured Edit の再生成は論理 field から annotation block を組み立て直し、`@vtest.` を含む行のうちキー順に無いものは温存されない。`DES-522`「`@vtest.` を含まない自由記述の doc comment 行は元の位置関係を保って温存する」が温存するのは `@vtest.` を**含まない**行だけだからである。論理 field に載せないと、Structured Edit を1回通すたびに形態宣言が黙って消える（データ喪失）。**adapter 内部だけで消費して論理 field に載せない案は、この1点で落ちる。**
 
 `DES-080`（canonical metadata＝hash 入力）は**含めない**。理由は §4.6。ただし「形態値の変更が既存 Evidence を失効させない」ことを保守側に倒したいなら `DES-080` も退役対象に加える判断はありうる（その場合 8 件）。**これは選択であり、判断を残す。**
 
@@ -241,6 +241,8 @@ description（要旨）:
 | （新規） | detailed_spec | `DS-S086`（§5.4）または `DS-S098`（§7.3） | \`rust-cargo\` は \`execution-form\` が \`source-target\` であるTestについて \`targets ≥ 1\` を要求し、\`external-contract\` であるTestには要求しない。 |
 
 `derives_from` はいずれも上位層のみ（`REQ-070` / `REQ-071` / `REQ-147` / `REQ-148` / `SPEC-084` / `SPEC-301` など）。design 層に wire 形（annotation 行としての綴り）を別ノードで足す必要は無い。`DES-394` の後継が parse 対象として、`DES-521` / `DES-523` / `DES-524` / `DES-526` の後継が出力キー順として、すでに wire 形を定めるためである。
+
+2件目は `DS-1621` / `DS-1622` の**言い換えではない**。両ノードが既に課している `targets ≥ 1` を、何を見て課すかで**条件づける**フックである。したがってここで新しい義務は生じない。`rust-cargo` が source 形態の Test に `targets ≥ 1` を課すこと自体は `DS-1621` / `DS-1633` / `DS-1634` / `DS-1635` / `BD-315` / `DES-580` / `DES-582` が既に定めており、`SPEC-006` / `SPEC-260`（要件定義・基本仕様に無い義務を新設しない）に対しては、**新設ではなく既存義務の評価可能化**として立つ。`execution-form` の宣言そのものは任意である（§4.4）。
 
 ### 6.4 退役台帳の行（起草）
 
