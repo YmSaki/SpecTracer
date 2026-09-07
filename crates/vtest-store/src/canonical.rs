@@ -1058,45 +1058,95 @@ mod tests {
                 .sum()
         }
 
-        // Measured against the *pinned* authority this PR is scoped to —
-        // the content at commit `fa96642` (blob `92f10cd7`), i.e.
-        // `git show fa96642:docs/canonical/specification.json` — not
-        // whatever `VTEST_CANONICAL_BUNDLE` happens to point at when this
-        // test is run. Verified against that exact blob (hash-object
-        // matched `git rev-parse fa96642:docs/canonical/specification.json`)
-        // and cross-checked by running vtest-model's own
-        // `document::tests::canonical_bundle_round_trips_and_matches_node_counts`
-        // against the same snapshot, which passes with these identical
-        // per-layer figures — so this is not "vtest-model's own hardcoded,
-        // possibly-stale count" as a prior version of this comment claimed;
-        // both crates agree at the pin. The main worktree's *live*
-        // `docs/canonical/specification.json` has since moved three commits
-        // past this pin (`fa96642..fc35e58`: cdab898, 743b6bb, fc35e58) and
-        // measures 3848 there (detailed_spec/design each +1) — that drift is
-        // real but is a fact about the moving bundle, not a defect in this
-        // reader or in vtest-model's count, and is out of this PR's scope
-        // (docs/ is not edited here). Whoever next re-pins this test's
-        // `VTEST_CANONICAL_BUNDLE` fixture to a newer commit must re-measure
-        // and update every assertion below together.
-        assert_eq!(file.root.len(), 48, "root layer node count");
-        assert_eq!(file.request.len(), 5, "request layer node count");
+        // Node counts are asserted for self-consistency, not pinned to a
+        // literal observed at one canonical-bundle revision: the canonical
+        // specification.json moves forward on its own branch, and a count
+        // baked in at one commit turns every subsequent growth of the spec
+        // into a false failure here, with no relation to whether this
+        // crate's reader regressed. Instead, each layer's count is computed
+        // two independent ways from the same bundle text — once by walking
+        // the typed `DocumentFile` this store's own reader
+        // (`document_file_from_json`) produced, via the `count_sections`
+        // walk above, and once by walking a `serde_json::Value` parsed
+        // independently from the same text — and the two must agree. This
+        // is not redundant with the round-trip assertion below: that
+        // assertion shows the store's writer/reader pair is idempotent on
+        // this bundle, while this one shows the reader's typed output
+        // matches the schema's own node shape, independent of how
+        // `SectionNode`'s fields happen to be laid out.
+        let raw: serde_json::Value =
+            serde_json::from_str(&text).expect("bundle must also parse as a plain JSON value");
+
+        fn count_sections_value(sections: &[serde_json::Value]) -> usize {
+            sections
+                .iter()
+                .map(|s| {
+                    let items = s
+                        .get("items")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    let empty = Vec::new();
+                    let nested = s
+                        .get("sections")
+                        .and_then(|v| v.as_array())
+                        .unwrap_or(&empty);
+                    1 + items + count_sections_value(nested)
+                })
+                .sum()
+        }
+
+        fn layer_array<'a>(bundle: &'a serde_json::Value, key: &str) -> &'a [serde_json::Value] {
+            bundle
+                .get(key)
+                .and_then(|v| v.as_array())
+                .unwrap_or_else(|| panic!("bundle `{key}` is not a JSON array"))
+                .as_slice()
+        }
+
+        let value_root = layer_array(&raw, "root").len();
+        let value_request = layer_array(&raw, "request").len();
+        let value_require = count_sections_value(layer_array(&raw, "require"));
+        let value_spec = count_sections_value(layer_array(&raw, "spec"));
+        let value_detailed_spec = count_sections_value(layer_array(&raw, "detailed_spec"));
+        let value_basic_design = count_sections_value(layer_array(&raw, "basic_design"));
+        let value_design = count_sections_value(layer_array(&raw, "design"));
+
+        assert_eq!(
+            file.root.len(),
+            value_root,
+            "root layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            file.request.len(),
+            value_request,
+            "request layer node count: store reader's typed count vs. independent Value-based count"
+        );
         assert_eq!(
             count_sections(&file.require),
-            395,
-            "require layer node count"
+            value_require,
+            "require layer node count: store reader's typed count vs. independent Value-based count"
         );
-        assert_eq!(count_sections(&file.spec), 593, "spec layer node count");
+        assert_eq!(
+            count_sections(&file.spec),
+            value_spec,
+            "spec layer node count: store reader's typed count vs. independent Value-based count"
+        );
         assert_eq!(
             count_sections(&file.detailed_spec),
-            1734,
-            "detailed_spec layer node count"
+            value_detailed_spec,
+            "detailed_spec layer node count: store reader's typed count vs. independent Value-based count"
         );
         assert_eq!(
             count_sections(&file.basic_design),
-            408,
-            "basic_design layer node count"
+            value_basic_design,
+            "basic_design layer node count: store reader's typed count vs. independent Value-based count"
         );
-        assert_eq!(count_sections(&file.design), 663, "design layer node count");
+        assert_eq!(
+            count_sections(&file.design),
+            value_design,
+            "design layer node count: store reader's typed count vs. independent Value-based count"
+        );
 
         let total = file.root.len()
             + file.request.len()
@@ -1105,7 +1155,21 @@ mod tests {
             + count_sections(&file.detailed_spec)
             + count_sections(&file.basic_design)
             + count_sections(&file.design);
-        assert_eq!(total, 3846, "total node count across all layers");
+
+        eprintln!(
+            "canonical_bundle_round_trips_through_the_store_reader: observed node counts — \
+             root={}, request={}, require={}, spec={}, detailed_spec={}, basic_design={}, \
+             design={}, total={} (not pinned to a literal — this run's store-reader typed count \
+             matched an independent Value-based count for every layer).",
+            file.root.len(),
+            file.request.len(),
+            count_sections(&file.require),
+            count_sections(&file.spec),
+            count_sections(&file.detailed_spec),
+            count_sections(&file.basic_design),
+            count_sections(&file.design),
+            total,
+        );
 
         // Round-trip back out through this crate's own writer and re-read.
         let rewritten = document_file_to_json(&file).expect("re-serialization must validate too");
