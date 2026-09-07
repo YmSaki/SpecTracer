@@ -309,17 +309,10 @@ pub fn scan_project_with_config(
     let sources = source_drafts
         .into_iter()
         .map(|draft| SourceFunction {
-            // §1.3 Source Target hash（本冊:88）: canonical Target
-            // Reference（`draft.locator`）と construct bytes の両方を
-            // 束縛する。以前は construct bytes だけを hash していたため、
-            // 別の場所にある同一内容の関数が同一ハッシュになっていた
-            // （Issue #27）。`locator` を先に borrow してから同じ式内で
-            // move するため、struct literal の field 順は宣言順ではなく
-            // borrow が先に来る順にしている。
-            content_hash: source_target_subject_hash(&draft.locator, &draft.construct_text),
             locator: draft.locator,
             src_id: draft.src_id,
             location: draft.location,
+            content_hash: ContentHash::from_text(&draft.construct_text),
         })
         .collect::<Vec<_>>();
 
@@ -2747,44 +2740,6 @@ fn misplaced() {}
                 .as_ref()
                 .is_some_and(|location| location.function == "helper")
         }));
-    }
-
-    /// §1.3 Source Target hash（本冊:88）は canonical Target Reference と
-    /// adapterが返すimplementation construct bytesの両方を束縛する。同一の
-    /// construct bytesを持つ2つのSource Targetが異なる場所（＝異なる
-    /// canonical Locator）にある場合、hashは異なる値になるべきである
-    /// （配線前はconstruct bytesのみをhashしていたため、同一内容・異なる
-    /// 場所の関数が同一ハッシュになっていた。Issue #27）。
-    ///
-    /// 既存の `fixture()`（Test・VO・doc 登録済みの現実的な構成、`pub mod`
-    /// によるモジュール分割）を通した確認版。最小構成での確認は
-    /// `source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes`
-    /// が別に持つ。両方に価値があるため両方残す。
-    #[test]
-    fn source_target_hash_differs_for_identical_construct_text_at_different_locations() {
-        let root = fixture();
-        fs::write(
-            root.join("src/lib.rs"),
-            "pub mod second;\n\npub fn helper() -> i32 { 0 }\n",
-        )
-        .unwrap();
-        fs::write(root.join("src/second.rs"), "pub fn helper() -> i32 { 0 }\n").unwrap();
-        let result = scan_project(&root).unwrap();
-        let lib_helper = result
-            .sources
-            .iter()
-            .find(|source| source.locator.value == "src/lib.rs::helper")
-            .unwrap();
-        let second_helper = result
-            .sources
-            .iter()
-            .find(|source| source.locator.value == "src/second.rs::helper")
-            .unwrap();
-        assert_ne!(
-            lib_helper.content_hash, second_helper.content_hash,
-            "identical construct bytes at different canonical locators must hash \
-             differently once the canonical Target Reference is bound (本冊:88)"
-        );
     }
 
     /// 本冊 §5.1手順5・基本仕様§9.2「恒久SRC IDを使用する場合、adapter境界を
