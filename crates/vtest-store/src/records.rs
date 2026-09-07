@@ -2196,6 +2196,53 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// DS-1645: `reject_unknown_fields` used to silently skip any mapping
+    /// key that was not a YAML string (`key.as_str()` returning `None`),
+    /// relying on a `from_value` deserialize elsewhere to reject the type
+    /// mismatch — a precondition that holds for `VoRecord`/`RelationRecord`
+    /// but not for `ApprovalRecord`, which never builds a typed struct from
+    /// this `Value` at all (see `ApprovalRecord::from_yaml`'s doc comment).
+    /// A surplus field written with an integer/bool/null key (e.g. a
+    /// numeric-looking scope-limiting field like `2026: unlimited`) used to
+    /// pass through unrejected.
+    #[test]
+    fn approval_with_non_string_top_level_key_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        for extra in ["2026: unlimited\n", "true: unlimited\n", "~: unlimited\n"] {
+            let mut yaml = record.to_yaml();
+            yaml.push_str(extra);
+            let error = ApprovalRecord::from_yaml(&yaml, &id).expect_err(&format!(
+                "a non-string top-level key ({extra:?}) must fail closed, not be silently skipped"
+            ));
+            assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+        }
+    }
+
+    /// Same gap as above, on the nested `approver` mapping.
+    #[test]
+    fn approval_with_non_string_nested_approver_key_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  7: extra\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("a non-string nested approver key must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
     #[test]
     fn audit_round_trip_binds_subjects_and_reads_from_a_ulid_file() {
         let id = new_record_id();
@@ -2446,6 +2493,43 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// DS-1645: same non-string-key gap as `ApprovalRecord::from_yaml` (see
+    /// `approval_with_non_string_top_level_key_is_rejected`) — `read_evidence`
+    /// also never builds a typed struct from the `Value` this scan runs
+    /// over, so a surplus field written with a non-string key used to be
+    /// silently skipped instead of rejected.
+    #[test]
+    fn read_evidence_rejects_non_string_top_level_key() {
+        let root = temporary_directory("read-evidence-non-string-key");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n2026: unlimited\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("a non-string top-level key must fail closed, not be silently skipped");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn read_evidence_rejects_non_string_nested_hashes_key() {
+        let root = temporary_directory("read-evidence-non-string-nested-key");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\n  9: extra\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("a non-string nested hashes key must fail closed, not be silently skipped");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
         let id = new_record_id();
@@ -2543,6 +2627,29 @@ mod tests {
         let error = RelationRecord::from_yaml(&yaml, &id)
             .expect_err("an unknown top-level field must fail closed");
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// Unlike `ApprovalRecord`/`read_evidence` above, `RelationRecord` is
+    /// always backstopped by both `#[serde(deny_unknown_fields)]` and a
+    /// `yaml_serde::from_value` pass after `reject_unknown_fields` runs, so
+    /// a non-string mapping key is independently caught there even before
+    /// `reject_unknown_fields` itself started rejecting it (DS-1645). Locks
+    /// that in against regression in either layer.
+    #[test]
+    fn relation_with_non_string_top_level_key_is_rejected() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("2026: unlimited\n");
+        RelationRecord::from_yaml(&yaml, &id)
+            .expect_err("a non-string top-level key must fail closed");
     }
 
     /// Guards `RELATION_KEYS` against drifting out of sync with

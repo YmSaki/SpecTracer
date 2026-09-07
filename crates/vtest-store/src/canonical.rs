@@ -60,7 +60,19 @@ fn schema_mismatch(location: impl Into<String>, detail: impl Into<String>) -> St
 /// the reported key so a nested unknown key (e.g. inside `derives_from[0]`)
 /// reads distinctly from a top-level one. Does nothing if `value` isn't a
 /// mapping — a type mismatch there is instead caught, fail-closed, by the
-/// `from_value` deserialize this always runs alongside.
+/// `from_value` deserialize `VoRecord`'s and `RelationRecord`'s callers run
+/// alongside this scan.
+///
+/// A mapping key that is *not* a YAML string (an integer, bool, null, or
+/// nested collection key) is rejected here rather than skipped: every
+/// `known` list is entirely strings, so such a key can never be a
+/// recognized field, and for `ApprovalRecord::from_yaml` and
+/// `read_evidence` — the two callers whose own record type has no
+/// `#[serde(deny_unknown_fields)]`/`from_value` pass behind this scan (see
+/// their call sites) — this scan is their *only* defense against a surplus
+/// field. Silently skipping a non-string key here would let a config such
+/// as `2026: unlimited` sit in an Approval record unrejected, undermining
+/// exactly the fail-closed guarantee DS-1645 states.
 ///
 /// `pub(crate)` so `records.rs`'s `RelationRecord::from_yaml` — a reader
 /// that lives outside this module for historical reasons (see that file's
@@ -75,10 +87,15 @@ pub(crate) fn reject_unknown_fields(
         return Ok(());
     };
     for (key, _) in mapping.iter() {
-        let Some(key) = key.as_str() else { continue };
-        if !known.contains(&key) {
+        let Some(key_str) = key.as_str() else {
             return Err(schema_mismatch(
-                format!("{prefix}{key}"),
+                format!("{prefix}{key:?}"),
+                "non-string mapping key is not part of the record schema (DS-1645)",
+            ));
+        };
+        if !known.contains(&key_str) {
+            return Err(schema_mismatch(
+                format!("{prefix}{key_str}"),
                 "unknown field is not part of the record schema (DS-1645)",
             ));
         }
@@ -1266,6 +1283,22 @@ updated: 2026-08-08
         let error = vo_record_from_yaml(&yaml, record.id.as_str())
             .expect_err("an unknown top-level field must fail closed");
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// Unlike `ApprovalRecord`/`read_evidence` (`records.rs`), a VO record's
+    /// unknown-field scan is always followed by `yaml_serde::from_value::<
+    /// VoRecord>` (below), which itself rejects a non-string mapping key
+    /// with its own type error independent of `reject_unknown_fields`. This
+    /// locks that in, so a future change to either layer cannot silently
+    /// reopen the non-string-key gap `reject_unknown_fields` itself now
+    /// closes (DS-1645).
+    #[test]
+    fn vo_record_with_non_string_top_level_key_is_rejected() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("2026: unlimited\n");
+        vo_record_from_yaml(&yaml, record.id.as_str())
+            .expect_err("a non-string top-level key must fail closed");
     }
 
     #[test]
