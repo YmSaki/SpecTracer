@@ -21,6 +21,43 @@
 //! 「正規化」 does not otherwise occur in 本冊:86-98). See
 //! [`optional_text_fragment`]'s doc comment for the same citation chain.
 //!
+//! # Document node subject hash (root / sentence / section)
+//!
+//! DES-572 states one rule, domain `vtest:document-subject:v1`
+//! (`SubjectDomain::DocumentSubject`), applied without distinguishing layer
+//! (DES-575: "document subject hashは、層を区別せず、すべてのノードについて
+//! §1.3 の同一の規則で計算する"): a sentence node's subject hash binds its
+//! own `id` and `statement` (`description` excluded); a section node's
+//! subject hash binds its children's subject hashes as two named ordered
+//! sequences, `items` and `sections`, each encoded in declaration (array)
+//! order (DES-587), with an absent or empty sequence bound as an explicit
+//! empty list either way, never omitted.
+//!
+//! Neither case binds `derives_from`, `cites`, `title`, or `source` — DES-572
+//! and DES-587 each enumerate exactly what that node kind's subject hash
+//! binds, and DS-1601 / DS-1610 / DS-1612 each gloss a sentence node's
+//! "規範内容" (normative content — what the subject hash must capture) as
+//! parenthetically `id` と `statement`. That parenthetical is a sufficient-
+//! condition statement about sentence nodes (each of the three nodes' own
+//! `description` field says exactly this: "「規範内容（`id` と
+//! `statement`）」は文ノードについての十分条件であり、規範内容の網羅的な
+//! 定義ではない"), not an exhaustive definition of "normative content" in
+//! general — DS-1659 extends a *section*'s normative content to include its
+//! children's declared order, which is exactly `section_node_subject_hash`'s
+//! `items`/`sections` binding below.
+//!
+//! `root_node_subject_hash` is a derivation, not a literal citation: DES-572
+//! names its two cases "文ノード" (sentence node) and "節ノード" (section
+//! node) and does not mention `RootNode` in so many words. Schema
+//! `$defs/rootItem` gives a root node the same leaf shape as
+//! `$defs/derivedItem`'s sentence node — `id`, `statement`, optional
+//! `description`, `source` — minus `derives_from`/`cites`, and DES-575
+//! states the *same* §1.3 rule applies to every node "層を区別せず"
+//! (regardless of layer). A root node is that leaf shape (it carries
+//! `statement`, not `items`/`sections`), so this module folds it into
+//! DES-572's sentence-node case. No specification.json node states this for
+//! `RootNode` by name; see the PR report for this call-out.
+//!
 //! # Test subject hash is not implemented here
 //!
 //! §1.3 (本冊:87) requires Test subject hash to bind an adapter ID and a
@@ -52,7 +89,8 @@ use std::collections::BTreeSet;
 
 use crate::{
     encode_nested_fields, normalize_hashed_text, CombinationEntry, ContentHash, Dimension,
-    DocumentRecord, FieldValue, Locator, SubjectDomain, SubjectHashInput, VoRecord,
+    DocumentId, FieldValue, Locator, RootNode, SectionNode, SentenceNode, SubjectDomain,
+    SubjectHashInput, VoRecord,
 };
 
 /// A scalar field whose declaration may be entirely absent (`None`,
@@ -77,77 +115,99 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
     }
 }
 
-/// document subject hash (詳細設計 v0.1 §1.3, domain
-/// `vtest:document-subject:v1`, 本冊:89): "canonical document recordと参照先
-/// source（`path` の実ファイル）の正規化内容を束縛する".
-///
-/// `source_text` is the current content of the file at `record.path`,
-/// already read by the caller — `vtest-model` does not perform file I/O
-/// (see this crate's `lib.rs` header). This function does not compare
-/// `record.content_hash` against `source_text`'s freshly computed hash;
-/// that staleness judgment (本冊:89, §11.4) belongs to a verification layer,
-/// not to this pure hash-composition function.
-///
-/// Binds every canonical `DocumentRecord` field, including the full
-/// `derives_from[]` entries (`doc`/`anchor`/`note`) — 本冊:207: "`anchor` は
-/// canonical document record の一部であり、§1.3 の document subject hash の
-/// 入力に含まれる". This differs from VO subject hash, which reduces
-/// `derives_from` to just the referenced document ID set (本冊:233) — see
-/// [`vo_subject_hash`]'s doc comment for that asymmetry.
-pub fn document_subject_hash(record: &DocumentRecord, source_text: &str) -> ContentHash {
+/// A leaf document node's subject hash: binds `id` and `statement`,
+/// excludes `description` (DES-572). Shared by [`root_node_subject_hash`]
+/// and [`sentence_node_subject_hash`] — see this module's doc comment for
+/// why a root node is folded into DES-572's sentence-node case.
+fn leaf_node_subject_hash(id: &DocumentId, statement: &str) -> ContentHash {
     SubjectHashInput::new(SubjectDomain::DocumentSubject)
-        .field("id", FieldValue::text_fragment(record.id.as_str()))
-        .field("path", FieldValue::text_fragment(&record.path))
-        .field(
-            "content_hash",
-            FieldValue::text_fragment(record.content_hash.as_str()),
-        )
-        .field("title", optional_text_fragment(record.title.as_deref()))
-        .field(
-            "derives_from",
-            FieldValue::Ordered(
-                record
-                    .derives_from
-                    .iter()
-                    .map(|entry| {
-                        encode_nested_fields([
-                            ("doc", FieldValue::text_fragment(entry.doc.as_str())),
-                            ("anchor", optional_text_fragment(entry.anchor.as_deref())),
-                            ("note", optional_text_fragment(entry.note.as_deref())),
-                        ])
-                    })
-                    .collect(),
-            ),
-        )
-        .field(
-            "registered_at",
-            FieldValue::text_fragment(&record.registered_at),
-        )
-        .field("source", FieldValue::text_fragment(source_text))
+        .field("id", FieldValue::text_fragment(id.as_str()))
+        .field("statement", FieldValue::text_fragment(statement))
+        .finish()
+}
+
+/// Root node subject hash (DES-572, DES-575). A derivation, not a literal
+/// citation — see this module's doc comment for why `RootNode` is folded
+/// into DES-572's sentence-node case.
+pub fn root_node_subject_hash(node: &RootNode) -> ContentHash {
+    leaf_node_subject_hash(&node.id, &node.statement)
+}
+
+/// Sentence node subject hash (DES-572): "文ノードでは当該ノードの `id` と
+/// `statement` を…束縛し、`description` を束縛しない".
+pub fn sentence_node_subject_hash(node: &SentenceNode) -> ContentHash {
+    leaf_node_subject_hash(&node.id, &node.statement)
+}
+
+/// Section node subject hash (DES-572, DES-587): "節ノードでは子ノードの
+/// subject hash を束縛し" — DES-587 elaborates this as two named ordered
+/// sequences, `items` (sentence nodes) and `sections` (child section
+/// nodes), each encoded in the array's declaration order ("当該配列の宣言
+/// 順で encode する"). An absent (`None`) or explicitly empty
+/// (`Some(vec![])`) sequence encodes identically — an explicit empty list
+/// either way (DES-587 "空の列も空 list として明示し、省略しない") —
+/// matching [`SectionNode`]'s own doc comment that this crate does not treat
+/// the author's absent-vs-explicit-empty choice as meaningful.
+///
+/// This recurses into nested sections, so a section's subject hash is a
+/// Merkle-style fold over its entire subtree: reordering, adding, or
+/// removing any descendant sentence or section changes every ancestor
+/// section's subject hash up to the root of that subtree (DS-1659). Neither
+/// this function nor DES-572/DES-587 binds the section's own `id`, `title`,
+/// `description`, `derives_from`, or `source` — only its children's hashes.
+pub fn section_node_subject_hash(node: &SectionNode) -> ContentHash {
+    let item_hashes: Vec<Vec<u8>> = node
+        .items
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .map(|item| {
+            sentence_node_subject_hash(item)
+                .as_str()
+                .as_bytes()
+                .to_vec()
+        })
+        .collect();
+    let section_hashes: Vec<Vec<u8>> = node
+        .sections
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .map(|section| {
+            section_node_subject_hash(section)
+                .as_str()
+                .as_bytes()
+                .to_vec()
+        })
+        .collect();
+
+    SubjectHashInput::new(SubjectDomain::DocumentSubject)
+        .field("items", FieldValue::Ordered(item_hashes))
+        .field("sections", FieldValue::Ordered(section_hashes))
         .finish()
 }
 
 /// VO subject hash (詳細設計 v0.1 §1.3, domain `vtest:record-subject:v1`,
-/// 本冊:90): "readerが具体化したcanonical VO recordをfield規則に従って
-/// encodeする…`derives_from`（参照先 document ID 集合）と `parent` を束縛".
+/// DES-093): "readerが具体化したcanonical VO recordをfield規則に従って
+/// encodeする".
 ///
 /// The canonical `vtest_model::VoRecord` this function reads has no `status`
-/// or `covers` field — §1.3's "VOの読取り互換field `status`は正典ではない
-/// ため含めない" and "`covers`の増減は…VO subjectには含めない" are therefore
-/// structurally satisfied by this function's parameter type, not by an
-/// explicit runtime exclusion (there is nothing to exclude): 本冊:235-237
-/// confirms `status` is a read-compat-only field the canonical writer never
-/// persists, and no VO YAML example (本冊:215-227) has a `covers` key.
+/// or `covers` field — DES-094 ("VOの読取り互換field `status` を正典では
+/// ないため含めない") and DES-096 ("`covers` の増減をTest側subjectで捕捉す
+/// るため含めない") are therefore structurally satisfied by this function's
+/// parameter type, not by an explicit runtime exclusion (there is nothing
+/// to exclude): DS-405 confirms `status` is a read-compat-only field the
+/// canonical writer never persists ("readerは読取り互換fieldとして
+/// `status` を受理するが、実効判定とVO subject hashでは無視し"), and no
+/// `VoRecord` field is named `covers`.
 ///
-/// `derives_from` is reduced to the **set** of referenced document IDs,
+/// `derives_from` is reduced to the **set** of referenced upstream node ids,
 /// dropping each entry's `anchor`/`note` — 本冊:233: "`anchor` と `note` は
 /// §1.3 の VO subject hash の入力に含まれない（VO subject hash は
 /// `derives_from` の参照先 document ID 集合を束縛する）", and 本冊:232:
 /// "同一 `doc` を `anchor` 違いで複数 entry として持つことを許容し、重複と
 /// しない" — two entries differing only by `anchor` reference one document,
-/// so this reduction step deduplicates by document ID. This is narrower than
-/// [`document_subject_hash`], which keeps full `derives_from` entries
-/// (anchor included) per 本冊:207.
+/// so this reduction step deduplicates by document ID.
 ///
 /// Every other canonical field is bound as part of the whole record —
 /// 本冊:286 confirms this explicitly for `combinations`: "`combinations` は
@@ -300,20 +360,13 @@ pub fn source_target_subject_hash(locator: &Locator, construct_text: &str) -> Co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, VoId};
+    use crate::{AdapterId, CoveragePolicy, DerivesFrom, DocumentId, NodeSource, VoId};
 
-    fn base_document() -> DocumentRecord {
-        DocumentRecord {
-            id: DocumentId::new("DOC-BASIC-001"),
-            path: "docs/basic-spec.md".to_string(),
-            content_hash: ContentHash::from_text("registered content"),
-            title: Some("基本仕様書".to_string()),
-            derives_from: vec![DerivesFrom {
-                doc: DocumentId::new("DOC-REQ-001"),
-                anchor: Some("§12.3".to_string()),
-                note: Some("".to_string()),
-            }],
-            registered_at: "2026-08-08T00:00:00Z".to_string(),
+    fn sample_source() -> NodeSource {
+        NodeSource {
+            doc: "docs/spec.md".to_string(),
+            heading: "1".to_string(),
+            lines: [1, 1],
         }
     }
 
@@ -344,103 +397,339 @@ mod tests {
         }
     }
 
-    // ---- document subject hash ----
+    // ---- document node subject hash (root / sentence / section) ----
 
-    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-SOURCE-CONTENT-CHANGES-HASH
-    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies the referenced source file's current content is bound (本冊:89 "参照先 source…の正規化内容を束縛する")
-    #[test]
-    fn document_subject_hash_changes_when_source_text_changes() {
-        let record = base_document();
-        let a = document_subject_hash(&record, "current file content\n");
-        let b = document_subject_hash(&record, "different file content\n");
-        assert_ne!(a, b);
+    fn sample_sentence(id: &str, statement: &str) -> SentenceNode {
+        SentenceNode {
+            id: DocumentId::new(id),
+            statement: statement.to_string(),
+            description: None,
+            derives_from: vec![],
+            cites: None,
+            source: sample_source(),
+        }
     }
 
-    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-EACH-RECORD-FIELD-CHANGES-HASH
-    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies each canonical DocumentRecord field is bound (本冊:89 "canonical document recordと…を束縛する")
+    fn sample_root(id: &str, statement: &str) -> RootNode {
+        RootNode {
+            id: DocumentId::new(id),
+            statement: statement.to_string(),
+            description: None,
+            source: sample_source(),
+        }
+    }
+
+    fn sample_section(
+        id: &str,
+        items: Vec<SentenceNode>,
+        sections: Vec<SectionNode>,
+    ) -> SectionNode {
+        SectionNode {
+            id: DocumentId::new(id),
+            title: format!("title for {id}"),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: if sections.is_empty() {
+                None
+            } else {
+                Some(sections)
+            },
+            items: if items.is_empty() { None } else { Some(items) },
+        }
+    }
+
+    /// @vtest.id TEST-MODEL-DOCUMENT-NODE-SUBJECT-HASH-IS-DETERMINISTIC
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::sentence_node_subject_hash
+    /// @vtest.intent verifies computing the same node's subject hash twice yields the same value (DES-572)
     #[test]
-    fn document_subject_hash_changes_when_any_record_field_changes() {
-        let base = document_subject_hash(&base_document(), "source");
+    fn document_node_subject_hash_is_deterministic() {
+        let node = sample_sentence("REQ-001", "a requirement");
+        assert_eq!(
+            sentence_node_subject_hash(&node),
+            sentence_node_subject_hash(&node)
+        );
 
-        let mut id_changed = base_document();
-        id_changed.id = DocumentId::new("DOC-BASIC-002");
-        assert_ne!(base, document_subject_hash(&id_changed, "source"));
+        let section = sample_section("REQ-S001", vec![sample_sentence("REQ-002", "x")], vec![]);
+        assert_eq!(
+            section_node_subject_hash(&section),
+            section_node_subject_hash(&section)
+        );
+    }
 
-        let mut path_changed = base_document();
-        path_changed.path = "docs/other-spec.md".to_string();
-        assert_ne!(base, document_subject_hash(&path_changed, "source"));
+    /// @vtest.id TEST-MODEL-SENTENCE-NODE-SUBJECT-HASH-BINDS-ID-AND-STATEMENT
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::sentence_node_subject_hash
+    /// @vtest.intent verifies id and statement each change the hash (DES-572 "文ノードでは当該ノードの `id` と `statement` を…束縛し")
+    #[test]
+    fn sentence_node_subject_hash_changes_when_id_or_statement_changes() {
+        let base = sentence_node_subject_hash(&sample_sentence("REQ-001", "a requirement"));
 
-        let mut content_hash_changed = base_document();
-        content_hash_changed.content_hash = ContentHash::from_text("a different registered value");
-        assert_ne!(base, document_subject_hash(&content_hash_changed, "source"));
+        let id_changed = sample_sentence("REQ-002", "a requirement");
+        assert_ne!(base, sentence_node_subject_hash(&id_changed));
 
-        let mut title_changed = base_document();
-        title_changed.title = Some("別のタイトル".to_string());
-        assert_ne!(base, document_subject_hash(&title_changed, "source"));
+        let statement_changed = sample_sentence("REQ-001", "a different requirement");
+        assert_ne!(base, sentence_node_subject_hash(&statement_changed));
+    }
 
-        let mut registered_at_changed = base_document();
-        registered_at_changed.registered_at = "2026-09-01T00:00:00Z".to_string();
+    /// @vtest.id TEST-MODEL-SENTENCE-NODE-SUBJECT-HASH-EXCLUDES-DESCRIPTION
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::sentence_node_subject_hash
+    /// @vtest.intent verifies description does not change the hash (DES-572 "`description` を束縛しない"; DS-1599/DS-1609)
+    #[test]
+    fn sentence_node_subject_hash_ignores_description() {
+        let mut without_description = sample_sentence("REQ-001", "a requirement");
+        without_description.description = None;
+        let mut with_description = sample_sentence("REQ-001", "a requirement");
+        with_description.description = Some("an explanatory note".to_string());
+        assert_eq!(
+            sentence_node_subject_hash(&without_description),
+            sentence_node_subject_hash(&with_description)
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SENTENCE-NODE-SUBJECT-HASH-EXCLUDES-DERIVES-FROM-AND-CITES
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::sentence_node_subject_hash
+    /// @vtest.intent verifies derives_from/cites do not change the hash — DES-572 enumerates only id and statement as bound for a sentence node
+    #[test]
+    fn sentence_node_subject_hash_ignores_derives_from_and_cites() {
+        let base = sentence_node_subject_hash(&sample_sentence("REQ-001", "a requirement"));
+
+        let mut derives_from_changed = sample_sentence("REQ-001", "a requirement");
+        derives_from_changed.derives_from = vec![DocumentId::new("ROOT-001")];
+        assert_eq!(base, sentence_node_subject_hash(&derives_from_changed));
+
+        let mut cites_changed = sample_sentence("REQ-001", "a requirement");
+        cites_changed.cites = Some(vec!["基本仕様 §3.2".to_string()]);
+        assert_eq!(base, sentence_node_subject_hash(&cites_changed));
+    }
+
+    /// @vtest.id TEST-MODEL-ROOT-NODE-SUBJECT-HASH-MATCHES-SENTENCE-NODE-RULE
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::root_node_subject_hash
+    /// @vtest.intent verifies a root node's subject hash follows the same id+statement rule as a sentence node (derivation — see this module's doc comment; DES-575 "層を区別せず…同一の規則で計算する"), and that id/statement each change it while description does not
+    #[test]
+    fn root_node_subject_hash_follows_the_sentence_node_rule() {
+        let root = sample_root("ROOT-001", "Frozen ruling.");
+        let sentence_with_same_id_and_statement = sample_sentence("ROOT-001", "Frozen ruling.");
+        assert_eq!(
+            root_node_subject_hash(&root),
+            sentence_node_subject_hash(&sentence_with_same_id_and_statement),
+            "DES-575 states one rule applied regardless of layer; a root node is DES-572's leaf shape"
+        );
+
+        let base = root_node_subject_hash(&sample_root("ROOT-001", "Frozen ruling."));
         assert_ne!(
             base,
-            document_subject_hash(&registered_at_changed, "source")
+            root_node_subject_hash(&sample_root("ROOT-002", "Frozen ruling."))
         );
-
-        let mut derives_from_changed = base_document();
-        derives_from_changed.derives_from[0].doc = DocumentId::new("DOC-REQ-002");
-        assert_ne!(base, document_subject_hash(&derives_from_changed, "source"));
-    }
-
-    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-ANCHOR-ONLY-CHANGE-CHANGES-HASH
-    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies derives_from[].anchor is bound for document subject hash (本冊:207 "anchor は…document subject hash の入力に含まれる"), unlike VO subject hash
-    #[test]
-    fn document_subject_hash_changes_when_derives_from_anchor_changes() {
-        let base = document_subject_hash(&base_document(), "source");
-
-        let mut anchor_changed = base_document();
-        anchor_changed.derives_from[0].anchor = Some("§99.9".to_string());
-        assert_ne!(base, document_subject_hash(&anchor_changed, "source"));
-
-        let mut note_changed = base_document();
-        note_changed.derives_from[0].note = Some("a reason".to_string());
-        assert_ne!(base, document_subject_hash(&note_changed, "source"));
-    }
-
-    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-RECORD-TEXT-FIELDS-ARE-NORMALIZED
-    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies record scalar fields (title, id) are normalized text fragments, not byte-exact (本冊:83 makes normalization the default; 本冊:91 is the only place §1.3 requires byte-exactness, naming the Execution State manifest's file bytes — document fields carry no such requirement)
-    #[test]
-    fn document_subject_hash_normalizes_record_text_fields() {
-        let mut crlf_title = base_document();
-        crlf_title.title = Some("基本仕様書  \r\n".to_string());
-        let mut lf_title = base_document();
-        lf_title.title = Some("基本仕様書  \n".to_string());
-        assert_eq!(
-            document_subject_hash(&crlf_title, "source"),
-            document_subject_hash(&lf_title, "source"),
-            "title is a normalized text fragment, so CRLF vs LF must not change the hash"
-        );
-    }
-
-    /// @vtest.id TEST-MODEL-DOCUMENT-SUBJECT-HASH-TITLE-ABSENT-VS-EMPTY
-    /// @vtest.covers VO-MODEL-DOCUMENT-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::document_subject_hash
-    /// @vtest.intent verifies an absent title (None) hashes differently from an explicit empty title (Some(""))
-    #[test]
-    fn document_subject_hash_distinguishes_absent_title_from_empty_title() {
-        let mut absent = base_document();
-        absent.title = None;
-        let mut empty = base_document();
-        empty.title = Some(String::new());
         assert_ne!(
-            document_subject_hash(&absent, "source"),
-            document_subject_hash(&empty, "source")
+            base,
+            root_node_subject_hash(&sample_root("ROOT-001", "A different ruling."))
+        );
+
+        let mut with_description = sample_root("ROOT-001", "Frozen ruling.");
+        with_description.description = Some("context".to_string());
+        assert_eq!(base, root_node_subject_hash(&with_description));
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-CHANGES-WHEN-CHILDREN-REORDERED
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies reordering items, and reordering sections, each change the parent section's hash even though the child set is unchanged (DS-1659, DES-587 "当該配列の宣言順で encode する")
+    #[test]
+    fn section_node_subject_hash_changes_when_children_are_reordered() {
+        let forward_items = sample_section(
+            "REQ-S001",
+            vec![
+                sample_sentence("REQ-001", "first"),
+                sample_sentence("REQ-002", "second"),
+            ],
+            vec![],
+        );
+        let reversed_items = sample_section(
+            "REQ-S001",
+            vec![
+                sample_sentence("REQ-002", "second"),
+                sample_sentence("REQ-001", "first"),
+            ],
+            vec![],
+        );
+        assert_ne!(
+            section_node_subject_hash(&forward_items),
+            section_node_subject_hash(&reversed_items)
+        );
+
+        let forward_sections = sample_section(
+            "REQ-S002",
+            vec![],
+            vec![
+                sample_section("REQ-S003", vec![sample_sentence("REQ-003", "a")], vec![]),
+                sample_section("REQ-S004", vec![sample_sentence("REQ-004", "b")], vec![]),
+            ],
+        );
+        let reversed_sections = sample_section(
+            "REQ-S002",
+            vec![],
+            vec![
+                sample_section("REQ-S004", vec![sample_sentence("REQ-004", "b")], vec![]),
+                sample_section("REQ-S003", vec![sample_sentence("REQ-003", "a")], vec![]),
+            ],
+        );
+        assert_ne!(
+            section_node_subject_hash(&forward_sections),
+            section_node_subject_hash(&reversed_sections)
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-DISTINGUISHES-ITEMS-FROM-SECTIONS
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies moving the same child hash from `items` to `sections` changes the parent's hash — DES-587 binds them as two separately-named sequences, not one merged list
+    #[test]
+    fn section_node_subject_hash_distinguishes_items_from_sections() {
+        let leaf_sentence = sample_sentence("REQ-001", "shared content");
+        // A section whose subordinate section has no children of its own has
+        // the same subject hash as an empty section (see the next test) —
+        // chosen here only so both sides of the comparison hold one child at
+        // the same tree depth, isolating "which named field" as the only
+        // difference.
+        let as_item = sample_section("REQ-S001", vec![leaf_sentence.clone()], vec![]);
+        let as_section = sample_section(
+            "REQ-S001",
+            vec![],
+            vec![sample_section("REQ-S002", vec![leaf_sentence], vec![])],
+        );
+        assert_ne!(
+            section_node_subject_hash(&as_item),
+            section_node_subject_hash(&as_section)
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-ABSENT-EQUALS-EXPLICIT-EMPTY
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies items:None and items:Some(vec![]) (likewise sections) hash identically — DES-587 "空の列も空 list として明示し、省略しない"
+    #[test]
+    fn section_node_subject_hash_treats_absent_and_explicit_empty_the_same() {
+        let mut none_children = sample_section("REQ-S001", vec![], vec![]);
+        none_children.items = None;
+        none_children.sections = None;
+
+        let mut explicit_empty_children = sample_section("REQ-S001", vec![], vec![]);
+        explicit_empty_children.items = Some(vec![]);
+        explicit_empty_children.sections = Some(vec![]);
+
+        assert_eq!(
+            section_node_subject_hash(&none_children),
+            section_node_subject_hash(&explicit_empty_children)
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-IGNORES-OWN-IDENTITY-FIELDS
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies a section's own id/title/description/derives_from do not change its hash — DES-572 binds only the children's subject hashes for a section node
+    #[test]
+    fn section_node_subject_hash_ignores_its_own_identity_fields() {
+        let base = sample_section("REQ-S001", vec![sample_sentence("REQ-001", "x")], vec![]);
+        let base_hash = section_node_subject_hash(&base);
+
+        let mut id_changed = base.clone();
+        id_changed.id = DocumentId::new("REQ-S999");
+        assert_eq!(base_hash, section_node_subject_hash(&id_changed));
+
+        let mut title_changed = base.clone();
+        title_changed.title = "a different title".to_string();
+        assert_eq!(base_hash, section_node_subject_hash(&title_changed));
+
+        let mut description_changed = base.clone();
+        description_changed.description = Some("context".to_string());
+        assert_eq!(base_hash, section_node_subject_hash(&description_changed));
+
+        let mut derives_from_changed = base;
+        derives_from_changed.derives_from = Some(vec![DocumentId::new("ROOT-001")]);
+        assert_eq!(base_hash, section_node_subject_hash(&derives_from_changed));
+    }
+
+    /// @vtest.id TEST-MODEL-SECTION-NODE-SUBJECT-HASH-PROPAGATES-FROM-NESTED-DESCENDANT
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies changing a deeply nested sentence's statement changes every ancestor section's hash (DS-1659's Merkle-style propagation)
+    #[test]
+    fn section_node_subject_hash_propagates_changes_from_nested_descendants() {
+        let build = |leaf_statement: &str| {
+            sample_section(
+                "REQ-S001",
+                vec![],
+                vec![sample_section(
+                    "REQ-S002",
+                    vec![sample_sentence("REQ-001", leaf_statement)],
+                    vec![],
+                )],
+            )
+        };
+        assert_ne!(
+            section_node_subject_hash(&build("original")),
+            section_node_subject_hash(&build("changed"))
+        );
+    }
+
+    /// Real-bundle sweep: only runs when `VTEST_CANONICAL_BUNDLE` names the
+    /// canonical `specification.json`. Not run by default (see
+    /// `document.rs`'s analogous `#[ignore]`d round-trip test for the same
+    /// convention).
+    #[test]
+    #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
+    fn canonical_bundle_document_node_subject_hashes_compute_without_panicking() {
+        let path = std::env::var("VTEST_CANONICAL_BUNDLE")
+            .expect("set VTEST_CANONICAL_BUNDLE to the canonical specification.json path");
+        let text = std::fs::read_to_string(&path).expect("failed to read canonical bundle");
+        let bundle: crate::DocumentFile =
+            serde_json::from_str(&text).expect("bundle does not parse as DocumentFile");
+
+        let mut hashes: Vec<String> = Vec::new();
+
+        for root in &bundle.root {
+            hashes.push(root_node_subject_hash(root).as_str().to_owned());
+        }
+        for sentence in &bundle.request {
+            hashes.push(sentence_node_subject_hash(sentence).as_str().to_owned());
+        }
+
+        fn walk_sections(sections: &[SectionNode], hashes: &mut Vec<String>) {
+            for section in sections {
+                hashes.push(section_node_subject_hash(section).as_str().to_owned());
+                if let Some(items) = &section.items {
+                    for item in items {
+                        hashes.push(sentence_node_subject_hash(item).as_str().to_owned());
+                    }
+                }
+                if let Some(nested) = &section.sections {
+                    walk_sections(nested, hashes);
+                }
+            }
+        }
+        walk_sections(&bundle.require, &mut hashes);
+        walk_sections(&bundle.spec, &mut hashes);
+        walk_sections(&bundle.detailed_spec, &mut hashes);
+        walk_sections(&bundle.basic_design, &mut hashes);
+        walk_sections(&bundle.design, &mut hashes);
+
+        let total = hashes.len();
+        let distinct: std::collections::HashSet<&String> = hashes.iter().collect();
+        eprintln!(
+            "canonical_bundle_document_node_subject_hashes_compute_without_panicking: computed \
+             {total} node subject hashes with 0 panics; {} distinct values ({} colliding). Not \
+             asserted: the canonical bundle moves forward on its own branch, and a section-level \
+             collision is not by itself a defect — DES-572 binds a section's subject hash purely \
+             to its children's hashes, never its own id/title, so two structurally identical \
+             subtrees (most commonly two sections with neither items nor sections) hash \
+             identically by design.",
+            distinct.len(),
+            total - distinct.len(),
         );
     }
 
