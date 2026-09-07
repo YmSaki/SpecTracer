@@ -55,11 +55,15 @@ pub struct TestSuite {
 pub struct TestEntity {
     pub id: TestId,
     pub covers: Vec<VoId>,
-    /// 基本仕様:146「1 つの Test は 1 件以上の Source Target を持ち、各
-    /// target 参照を個別に保持する。代表 1 件へ縮約しない」。本冊:620 も
-    /// `pub targets: Vec<TargetRef>` という単一 field を定める。以前の
-    /// `target` + `additional_targets` という2 field 形状は代表 1 件を
-    /// 前面に押し出す構造であり、この規範と整合しなかった。
+    /// `DS-1673`（基本仕様:146、`ROOT-049` 派生）「1つのTestは0件以上の
+    /// Source Targetを持ち、各target参照を個別に保持する。」`DS-064`
+    /// （同:146）「Source Targetは代表1件へ縮約しない。」前身 `DS-063`
+    /// （retired、`relations/retired-ids.json`）は「1件以上」を Test の
+    /// 構造として要求していたが、`ROOT-049` により `targets` の宣言は
+    /// Test 成立性の必須条件ではなくなったため、`DS-1673` が下限を 0 に
+    /// 改めた。以前の `target` + `additional_targets` という2 field 形状
+    /// は代表 1 件を前面に押し出す構造であり、`DS-064` と整合しなかった
+    /// ため、単一 `Vec<TargetRef>` field にした。
     pub targets: Vec<TargetRef>,
     pub intent: String,
     pub input: Option<String>,
