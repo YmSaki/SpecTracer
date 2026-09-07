@@ -202,23 +202,33 @@ pub fn section_node_subject_hash(node: &SectionNode) -> ContentHash {
 /// `VoRecord` field is named `covers`.
 ///
 /// `derives_from` is reduced to the **set** of referenced upstream node ids,
-/// dropping each entry's `anchor`/`note` — 本冊:233: "`anchor` と `note` は
-/// §1.3 の VO subject hash の入力に含まれない（VO subject hash は
-/// `derives_from` の参照先 document ID 集合を束縛する）", and 本冊:232:
-/// "同一 `doc` を `anchor` 違いで複数 entry として持つことを許容し、重複と
-/// しない" — two entries differing only by `anchor` reference one document,
-/// so this reduction step deduplicates by document ID.
+/// dropping each entry's `anchor`/`note` — DES-590 ("VO subject hashは
+/// `derives_from`（参照先ノード id 集合）と `parent` を束縛する") and
+/// DS-1661 ("`anchor` と `note` はVO subject hashの入力に含まれない（VO
+/// subject hash は `derives_from` の参照先ノード id 集合を束縛する）"), and
+/// DS-401 ("同一 `doc` を `anchor` 違いで複数entryとして持つことを許容し、
+/// 重複としない") — two entries differing only by `anchor` reference one
+/// upstream node, so this reduction step deduplicates by that node's id.
+/// `DerivesFrom::doc` names an upstream node — a section or a sentence node
+/// (DS-1660: "VO レコードの `derives_from` entry の `doc` field の値は上流
+/// ノード id（節ノードまたは文ノード）であり、上流文書のファイル名では
+/// ない"), never a document *file*. This is narrower than a document node's
+/// own subject hash ([`sentence_node_subject_hash`] /
+/// [`section_node_subject_hash`]), which does not bind `derives_from` at all
+/// — see this module's document-node doc comment.
 ///
 /// Every other canonical field is bound as part of the whole record —
-/// 本冊:286 confirms this explicitly for `combinations`: "`combinations` は
-/// canonical VO record の一部であり、§1.3 の VO subject hash に束縛される".
+/// DES-122 confirms this explicitly for `combinations`: "`combinations` は
+/// canonical VO recordの一部であり、VO subject hashに束縛される".
 /// `combinations` entries are encoded via [`CombinationEntry::iter`], sorted
 /// by (dimension name, partition value) — the same canonical, declaration-
-/// order-independent form the type's own `Eq`/`Ord` use (本冊:256: "記述順・
-/// map key 順には依存しない"), which also preserves a malformed entry with a
-/// repeated dimension name losslessly rather than collapsing it.
+/// order-independent form the type's own `Eq`/`Ord` use (DS-414:
+/// "`combinations` の各entryはdimension名→partition値のmapとし" — a map, so
+/// order-independent by construction), which also preserves a malformed
+/// entry with a repeated dimension name losslessly rather than collapsing
+/// it.
 pub fn vo_subject_hash(record: &VoRecord) -> ContentHash {
-    let referenced_documents: BTreeSet<Vec<u8>> = record
+    let referenced_node_ids: BTreeSet<Vec<u8>> = record
         .derives_from
         .iter()
         .map(|entry| normalize_hashed_text(entry.doc.as_str()).into_bytes())
@@ -232,7 +242,7 @@ pub fn vo_subject_hash(record: &VoRecord) -> ContentHash {
         )
         .field(
             "derives_from",
-            FieldValue::Set(referenced_documents.into_iter().collect()),
+            FieldValue::Set(referenced_node_ids.into_iter().collect()),
         )
         .field("claim", FieldValue::text_fragment(&record.claim))
         .field(
