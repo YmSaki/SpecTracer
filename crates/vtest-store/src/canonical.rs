@@ -1,40 +1,34 @@
-//! Canonical v0.1 record storage (詳細設計 v0.1 §3), for the types defined in
-//! `vtest-model`. Kept separate from `records.rs`'s predecessor Req/Spec-model
-//! types so neither module's exports collide with the other's.
+//! Canonical v0.1 record storage, for the types defined in `vtest-model`.
+//! Kept separate from `records.rs`'s predecessor Req/Spec-model types so
+//! neither module's exports collide with the other's.
 //!
-//! Serialization goes through `yaml_serde` rather than the hand-rolled
-//! scalar/list helpers `records.rs` uses for predecessor types: those
-//! helpers silently mis-parse inline comments and flow-mappings (both of
-//! which 詳細設計 v0.1's own YAML examples use), so canonical types rely on
-//! their existing `Serialize`/`Deserialize` derives (shared with their JSON
-//! representation) instead.
+//! The upstream document model (`DocumentFile`) is JSON — BD-319: "上流文書
+//! のファイル形式は JSON とし、その他のレコードのファイル形式はすべて YAML
+//! とする" (basic_design), echoed at BD-320: "上流文書のレコードは JSON とし、
+//! その他のレコードはすべて YAML とする" (detailed_spec) — while VO and
+//! Relation stay YAML through `yaml_serde`. `yaml_serde` is used (rather
+//! than the hand-rolled scalar/list helpers `records.rs` uses for
+//! predecessor types) because those helpers silently mis-parse inline
+//! comments and flow-mappings (both of which the canonical VO example —
+//! DES-117 — uses).
 
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
-use vtest_model::{DerivesFrom, Diagnostic, DocumentRecord, VoRecord};
+use vtest_model::{
+    CombinationEntry, DerivesFrom, Diagnostic, DocumentFile, DocumentId, Layer, NodeSource,
+    RootNode, SectionNode, SentenceNode, VoRecord,
+};
 
-/// Known top-level keys for a canonical document record (詳細設計 v0.1
-/// §3.1). Kept in sync with `DocumentRecord`'s own fields by
-/// `document_known_keys_match_the_record_shape` (below, in `#[cfg(test)]`):
-/// a field added to the struct without updating this list would otherwise
-/// go unwarned rather than loudly wrong.
-const DOCUMENT_KEYS: &[&str] = &[
-    "id",
-    "path",
-    "content_hash",
-    "title",
-    "derives_from",
-    "registered_at",
-];
-
-/// Known keys for one `derives_from[]` entry (詳細設計 v0.1 §3.1/§3.2),
-/// shared by document and VO records.
+/// Known keys for one `derives_from[]` entry on a VO record (DS-1638).
+/// Distinct from the upstream document model's own `derives_from` entries,
+/// which are bare ids with no such shape (DS-1594, DS-1595) — see
+/// `vtest_model::document`'s module doc comment.
 const DERIVES_FROM_KEYS: &[&str] = &["doc", "anchor", "note"];
 
-/// Known top-level keys for a canonical VO record (詳細設計 v0.1 §3.2).
+/// Known top-level keys for a canonical VO record (DES-S037 / DES-117 area).
 /// `status` is listed as *known* here even though `VoRecord` has no such
-/// field: its presence already gets its own, more specific W-STORE-001
-/// diagnostic (詳細設計 v0.1 §3.2 L235-237); listing it here stops the same
-/// key from also being reported as a generic W-STORE-007.
+/// field: its presence gets its own, more specific W-STORE-001 diagnostic
+/// (DS-405) — listing it here stops the same key from also being rejected as
+/// a generic unknown field.
 const VO_KEYS: &[&str] = &[
     "id",
     "parent",
@@ -49,284 +43,486 @@ const VO_KEYS: &[&str] = &[
     "status",
 ];
 
-/// Known keys for one `dimensions[]` entry (詳細設計 v0.1 §3.2).
+/// Known keys for one `dimensions[]` entry.
 const DIMENSION_KEYS: &[&str] = &["name", "partitions"];
 
-/// Minimal shape a diagnostics-scan value must provide: its string-keyed
-/// mapping entries, its elements if it is a sequence, and lookup by key.
-/// Implemented by `LenientValue` (below), which every §3 record reader
-/// (`document_from_yaml`, `vo_record_from_yaml`, `RelationRecord::from_yaml`)
-/// now scans through — see `LenientValue`'s own doc comment for why none of
-/// them use `yaml_serde::Value` for this anymore. Kept as a trait, rather
-/// than each scan function naming `LenientValue` directly, so a future value
-/// shape could plug into the same scan without duplicating it; factoring the
-/// scan functions below over this trait, instead of duplicating each one per
-/// value type, keeps the W-STORE-007/derives_from[]/dimensions[] scan logic
-/// in one place — the diagnostic message text and traversal order only need
-/// to be right once.
-pub(crate) trait DiagnosticValue: Sized {
-    /// This value's string-keyed mapping entries, in occurrence order,
-    /// skipping any non-string key. Empty (not an error) if this value
-    /// isn't a mapping at all — a type mismatch there is instead caught,
-    /// fail-closed, by the typed struct deserialize each reader runs
-    /// alongside this scan.
-    fn mapping_entries(&self) -> Vec<(&str, &Self)>;
-    /// This value's elements, if it is a sequence.
-    fn as_sequence(&self) -> Option<&[Self]>;
-    /// The value under `key`, if this is a mapping containing it.
-    fn get(&self, key: &str) -> Option<&Self>;
+fn schema_mismatch(location: impl Into<String>, detail: impl Into<String>) -> StoreError {
+    StoreError::SchemaMismatch {
+        code: "E-SCAN-010",
+        location: location.into(),
+        detail: detail.into(),
+    }
 }
 
-/// Scans a YAML mapping for keys outside `known`, returning one
-/// `W-STORE-007` diagnostic per unknown key, in YAML occurrence order.
-/// 詳細設計 v0.1 §3 header (L185): "すべてのレコードは YAML とし、未知
-/// フィールドはエラーではなく警告とする" — the record is still read (this
-/// function never returns an `Err`), only warned about. `prefix` is
-/// prepended to each reported key so a nested unknown key (e.g. inside
-/// `derives_from[0]`) reads distinctly from a top-level one.
+/// Scans a YAML mapping for keys outside `known`, failing closed on the
+/// first one found. DS-1645 (E-SCAN-010): "schema不一致（宣言されていない
+/// 余剰 field を含む）" is an error, not a warning — this replaces the
+/// retired `DS-376` "warn and continue" behavior (see
+/// `docs/canonical/relations/retired-ids.json`). `prefix` is prepended to
+/// the reported key so a nested unknown key (e.g. inside `derives_from[0]`)
+/// reads distinctly from a top-level one. Does nothing if `value` isn't a
+/// mapping — a type mismatch there is instead caught, fail-closed, by the
+/// `from_value` deserialize `VoRecord`'s and `RelationRecord`'s callers run
+/// alongside this scan.
 ///
-/// `pub(crate)` (rather than private to this module) so `records.rs`'s
-/// `RelationRecord::from_yaml` — a §3.3 reader that lives outside this
-/// module for historical reasons (see that file's module doc comment) —
-/// can apply the same §3-header rule instead of re-implementing the scan.
-pub(crate) fn unknown_field_diagnostics<V: DiagnosticValue>(
-    value: &V,
+/// A mapping key that is *not* a YAML string (an integer, bool, null, or
+/// nested collection key) is rejected here rather than skipped: every
+/// `known` list is entirely strings, so such a key can never be a
+/// recognized field, and for `ApprovalRecord::from_yaml` and
+/// `read_evidence` — the two callers whose own record type has no
+/// `#[serde(deny_unknown_fields)]`/`from_value` pass behind this scan (see
+/// their call sites) — this scan is their *only* defense against a surplus
+/// field. Silently skipping a non-string key here would let a config such
+/// as `2026: unlimited` sit in an Approval record unrejected, undermining
+/// exactly the fail-closed guarantee DS-1645 states.
+///
+/// `pub(crate)` so `records.rs`'s `RelationRecord::from_yaml` — a reader
+/// that lives outside this module for historical reasons (see that file's
+/// module doc comment) — can apply the same DS-1645 rule instead of
+/// re-implementing the scan.
+pub(crate) fn reject_unknown_fields(
+    value: &yaml_serde::Value,
     known: &[&str],
     prefix: &str,
-) -> Vec<Diagnostic> {
-    value
-        .mapping_entries()
-        .into_iter()
-        .filter(|(key, _)| !known.contains(key))
-        .map(|(key, _)| {
-            Diagnostic::warning(
-                "W-STORE-007",
-                format!("unknown field `{prefix}{key}` is not part of the §3 schema; its value is ignored"),
-            )
-        })
-        .collect()
-}
-
-/// Extends the unknown-field scan into each `derives_from[]` entry — the
-/// nested shape §3.1 (document) and §3.2 (VO) share.
-fn derives_from_diagnostics<V: DiagnosticValue>(value: &V) -> Vec<Diagnostic> {
-    let Some(sequence) = value.get("derives_from").and_then(V::as_sequence) else {
-        return Vec::new();
+) -> Result<(), StoreError> {
+    let Some(mapping) = value.as_mapping() else {
+        return Ok(());
     };
-    sequence
-        .iter()
-        .enumerate()
-        .flat_map(|(index, entry)| {
-            unknown_field_diagnostics(entry, DERIVES_FROM_KEYS, &format!("derives_from[{index}]."))
-        })
-        .collect()
-}
-
-/// Extends the unknown-field scan into each VO `dimensions[]` entry (詳細設計
-/// v0.1 §3.2). `combinations[]` is deliberately not scanned the same way:
-/// each entry's keys are the *dimension names themselves* (a dynamic,
-/// record-specific vocabulary), not a fixed schema — whether a combination
-/// covers exactly the declared dimensions is E-SCAN-017, a chain_integrity/
-/// scan-time concern this record-level reader does not have the dimension
-/// set resolved enough to evaluate (the same record-vs-scan layer split
-/// `require_at_least_one_derives_from` below documents for E-SCAN-012).
-fn dimensions_diagnostics<V: DiagnosticValue>(value: &V) -> Vec<Diagnostic> {
-    let Some(sequence) = value.get("dimensions").and_then(V::as_sequence) else {
-        return Vec::new();
-    };
-    sequence
-        .iter()
-        .enumerate()
-        .flat_map(|(index, entry)| {
-            unknown_field_diagnostics(entry, DIMENSION_KEYS, &format!("dimensions[{index}]."))
-        })
-        .collect()
-}
-
-/// Serializes a `DocumentRecord` to its canonical `.verify/doc/DOC-*.yaml`
-/// shape (詳細設計 v0.1 §3.1) via `yaml_serde`, using `DocumentRecord`'s own
-/// `Serialize` derive.
-pub fn document_to_yaml(record: &DocumentRecord) -> String {
-    yaml_serde::to_string(record).expect("DocumentRecord always serializes to valid YAML")
-}
-
-/// Parses a `DocumentRecord` from its canonical YAML representation,
-/// returning any non-fatal diagnostics alongside it. `yaml_serde::from_str`
-/// already fails closed on a missing required field, a malformed value, or a
-/// duplicate key on one of `DocumentRecord`'s own (nested) fields, via its
-/// `Deserialize` derive; this adds the id/file-name check the derive cannot
-/// express (matching the strictness `RelationRecord`/`ApprovalRecord`/
-/// `AuditRecord` already apply), plus the unknown-field scan 詳細設計 v0.1
-/// §3 header (L185) requires of every record type.
-///
-/// **Parses straight from `text` into `DocumentRecord`, not through
-/// `yaml_serde::Value` first**, for the same reason `vo_record_from_yaml`
-/// does (see that function's own doc comment for the fuller rationale,
-/// established by BLOCKER A / PR #26 review round 2 for VO, then extended
-/// here to document/Relation by PR #26 round 3): `yaml_serde::Value`'s
-/// `Mapping` rejects a duplicate key *anywhere* in the document tree, not
-/// only inside a field this reader actually parses into typed structure. A
-/// duplicate key confined to the value of a field §3.1 does not recognize —
-/// which this reader would otherwise warn about (W-STORE-007) and still read
-/// — used to reject the whole record instead, the same fail-closed-too-far
-/// shape `vo_record_from_yaml` closed for `combinations[]`. The unknown-field
-/// diagnostics scan below runs against a separately-built `LenientValue`
-/// (`yaml_serde::from_str::<LenientValue>(text)`, `?`-propagated — not an
-/// `if let Ok(...)` catch-all, so an unexpected failure there still fails the
-/// whole read closed) instead, which cannot itself fail to build on a
-/// duplicate key anywhere.
-pub fn document_from_yaml(
-    text: &str,
-    fallback_id: &str,
-) -> Result<(DocumentRecord, Vec<Diagnostic>), StoreError> {
-    let record: DocumentRecord = yaml_serde::from_str(text)
-        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
-    if record.id.as_str() != fallback_id {
-        return Err(StoreError::InvalidConfig(format!(
-            "document id {} does not match file name {fallback_id}",
-            record.id.as_str()
-        )));
+    for (key, _) in mapping.iter() {
+        let Some(key_str) = key.as_str() else {
+            return Err(schema_mismatch(
+                format!("{prefix}{key:?}"),
+                "non-string mapping key is not part of the record schema (DS-1645)",
+            ));
+        };
+        if !known.contains(&key_str) {
+            return Err(schema_mismatch(
+                format!("{prefix}{key_str}"),
+                "unknown field is not part of the record schema (DS-1645)",
+            ));
+        }
     }
-
-    let value: LenientValue = yaml_serde::from_str(text)
-        .map_err(|error| StoreError::InvalidConfig(format!("invalid document record: {error}")))?;
-    let mut diagnostics = unknown_field_diagnostics(&value, DOCUMENT_KEYS, "");
-    diagnostics.extend(derives_from_diagnostics(&value));
-
-    Ok((record, diagnostics))
+    Ok(())
 }
 
-/// Reads the canonical document record `<id>.yaml` from `.verify/doc/`.
-pub fn read_document(
-    layout: &VerifyLayout,
-    id: &str,
-) -> Result<(DocumentRecord, Vec<Diagnostic>), StoreError> {
-    let path = layout.doc_dir().join(format!("{id}.yaml"));
+// `derives_from[]`/`dimensions[]` unknown-field scanning for a VO record
+// runs against `LenientValue` instead of this shape — see that type's own
+// doc comment, just above `vo_record_from_yaml`, for why (DS-422/DS-902,
+// E-SCAN-017 condition 6: a `combinations[]` entry repeating one dimension
+// name must reach the scan layer intact, and `yaml_serde::Value` cannot
+// represent that). `RelationRecord`/`ApprovalRecord`/Evidence (`records.rs`)
+// have no field with that same duplicate-tolerance requirement, so they
+// keep using `reject_unknown_fields` directly against `yaml_serde::Value`.
+
+// ---------------------------------------------------------------------
+// Upstream document model (`.verify/doc/<name>.json`)
+// ---------------------------------------------------------------------
+//
+// ROOT-047/ROOT-048 (Owner ruling): `specification.json` *is* the
+// `.verify/doc/` document model, bundled one file per layer array; on
+// registration each document becomes its own file of the same shape
+// (BD-319, BD-320, BD-321, BD-323, DES-586). BD-322/BD-330/DES-585: the
+// file carries no field identifying which document it is — the filename
+// itself (chosen by the document's author, never a machine-generated
+// identifier) is the identity, so there is no id/file-name agreement check
+// here (contrast the predecessor's per-record `id` field, and VO's
+// `VoRecord.id` below).
+//
+// The checks below are exactly the ones DES-586's own reasoning names as
+// following from `specification.schema.json` once a document file is held
+// to the same schema as the bundle: `schema_version` is a `const` (schema
+// `properties.schema_version`), every node id matches the shared
+// `$defs/id` union pattern, every layer's nodes carry that layer's id
+// prefix (DS-1658), every `derives_from` entry *also* matches the shared
+// `$defs/id` pattern (schema `derivedItem.derives_from`/`section.derives_from`,
+// both `"items": { "$ref": "#/$defs/id" }`) and has no duplicates within
+// the list (schema `uniqueItems`), `statement`/`title`/`source.doc`/
+// `source.heading` are non-empty (schema `minLength: 1`), `source.lines`
+// entries are `>= 1` (schema `minimum: 1`), and no optional field is
+// present as JSON `null`
+// (the schema's `{"type": "string"}"`/`{"type": "array", ...}` on an
+// optional property rejects `null` when the key is present — `null` is not
+// the same as absent, but `Option<T>: Deserialize` accepts it as `None`
+// regardless, so this needs an explicit pre-pass over the raw JSON `Value`
+// PR20's `DocumentFile`/`SectionNode`/etc. cannot express on their own).
+// Any violation is DS-1645/E-SCAN-010 (schema mismatch) per DES-586's own
+// citation of DS-1645 for the surplus-field case; this crate does not
+// mint a second diagnostic code for the other schema violations, matching
+// DS-1658's own "新しい診断コードは作らない".
+
+/// `specification.schema.json`'s `properties.schema_version` — `{ "type":
+/// "string", "const": "0.1" }`.
+const DOCUMENT_SCHEMA_VERSION: &str = "0.1";
+
+/// Optional-field keys the upstream document schema types as a required
+/// shape (`string`/`array`) whenever the key is present — so JSON `null`
+/// must be rejected for these keys specifically, everywhere they occur in a
+/// document file. Scoped to this module's document-file parsing only: a VO
+/// record's `parent: null` (DES-117) is a different schema entirely and is
+/// unaffected.
+const DOCUMENT_NULL_DISALLOWED_KEYS: &[&str] =
+    &["description", "cites", "derives_from", "sections", "items"];
+
+/// Walks every object in a parsed document-file JSON value and rejects any
+/// of `DOCUMENT_NULL_DISALLOWED_KEYS` present with an explicit `null`.
+fn reject_document_json_nulls(value: &serde_json::Value) -> Result<(), StoreError> {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, nested) in map {
+                if DOCUMENT_NULL_DISALLOWED_KEYS.contains(&key.as_str()) && nested.is_null() {
+                    return Err(schema_mismatch(
+                        key.as_str(),
+                        "must not be JSON null when present; omit the key instead (schema types it as string/array when present)",
+                    ));
+                }
+                reject_document_json_nulls(nested)?;
+            }
+            Ok(())
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                reject_document_json_nulls(item)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Matches `specification.schema.json`'s `$defs/id` pattern:
+/// `^(ROOT-[0-9]{3,}|R-[0-9]+|P-[0-9]{3}|REQ-[0-9]{3,}|REQ-S[0-9]{3,}|
+/// SPEC-[0-9]{3,}|SPEC-S[0-9]{3,}|DS-[0-9]{3,}|DS-S[0-9]{3,}|
+/// BD-[0-9]{3,}|BD-S[0-9]{3,}|DES-[0-9]{3,}|DES-S[0-9]{3,})$`. Written by
+/// hand rather than pulling in a regex crate; the `-S` variant of each
+/// prefix is checked before its plain counterpart so `"REQ-S001"` is not
+/// consumed by the `"REQ-"` branch first.
+fn matches_document_id_pattern(id: &str) -> bool {
+    fn digits(rest: &str, min: usize) -> bool {
+        !rest.is_empty() && rest.len() >= min && rest.bytes().all(|b| b.is_ascii_digit())
+    }
+    fn digits_exact(rest: &str, exact: usize) -> bool {
+        rest.len() == exact && rest.bytes().all(|b| b.is_ascii_digit())
+    }
+    if let Some(rest) = id.strip_prefix("ROOT-") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("R-") {
+        return digits(rest, 1);
+    }
+    if let Some(rest) = id.strip_prefix("P-") {
+        return digits_exact(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("REQ-S") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("REQ-") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("SPEC-S") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("SPEC-") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("DS-S") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("DS-") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("BD-S") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("BD-") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("DES-S") {
+        return digits(rest, 3);
+    }
+    if let Some(rest) = id.strip_prefix("DES-") {
+        return digits(rest, 3);
+    }
+    false
+}
+
+/// Validates one node id: it must match the schema's `$defs/id` pattern
+/// *and* its prefix must resolve to `expected_layer` (DS-1658) — the two
+/// are independent checks (a syntactically valid id can still sit in the
+/// wrong layer's array).
+fn validate_node_id(id: &str, expected_layer: Layer) -> Result<(), StoreError> {
+    if !matches_document_id_pattern(id) {
+        return Err(schema_mismatch(
+            id,
+            "id does not match the schema's $defs/id pattern",
+        ));
+    }
+    match Layer::from_id_prefix(id) {
+        Some(layer) if layer == expected_layer => Ok(()),
+        _ => Err(schema_mismatch(
+            id,
+            "id's prefix does not match the layer array it was placed in (DS-1658)",
+        )),
+    }
+}
+
+fn validate_node_source(source: &NodeSource, node_id: &str) -> Result<(), StoreError> {
+    if source.doc.is_empty() {
+        return Err(schema_mismatch(node_id, "source.doc must not be empty"));
+    }
+    if source.heading.is_empty() {
+        return Err(schema_mismatch(node_id, "source.heading must not be empty"));
+    }
+    if source.lines[0] < 1 || source.lines[1] < 1 {
+        return Err(schema_mismatch(
+            node_id,
+            "source.lines entries must each be >= 1",
+        ));
+    }
+    Ok(())
+}
+
+/// Validates one `derives_from[]` list against the schema's `$defs/id`
+/// pattern (specification.schema.json:52/:71, `"items": { "$ref":
+/// "#/$defs/id" }`) and rejects duplicates (schema `uniqueItems`).
+///
+/// Deliberately checks the pattern only, *not* `Layer::from_id_prefix`
+/// agreement (DS-1658): an upstream document node legitimately derives from
+/// a node in a *different* layer (e.g. a `DS-` node deriving from a
+/// `SPEC-` node) — DS-1658's layer/prefix agreement applies only to a
+/// node's *own* id sitting in its *own* layer's array (`validate_node_id`),
+/// never to what that node cites as its upstream. See
+/// `document_derives_from_entry_across_layers_is_accepted` (below) for the
+/// positive case this scoping preserves.
+fn validate_derives_from_unique(ids: &[DocumentId], node_id: &str) -> Result<(), StoreError> {
+    let mut seen = std::collections::BTreeSet::new();
+    for id in ids {
+        if !matches_document_id_pattern(id.as_str()) {
+            return Err(schema_mismatch(
+                node_id,
+                format!(
+                    "derives_from entry `{}` does not match the schema's $defs/id pattern",
+                    id.as_str()
+                ),
+            ));
+        }
+        if !seen.insert(id.as_str()) {
+            return Err(schema_mismatch(
+                node_id,
+                format!("derives_from duplicates `{}`", id.as_str()),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_root_node(node: &RootNode) -> Result<(), StoreError> {
+    validate_node_id(node.id.as_str(), Layer::Root)?;
+    if node.statement.is_empty() {
+        return Err(schema_mismatch(
+            node.id.as_str(),
+            "statement must not be empty",
+        ));
+    }
+    validate_node_source(&node.source, node.id.as_str())
+}
+
+fn validate_sentence_node(node: &SentenceNode, layer: Layer) -> Result<(), StoreError> {
+    validate_node_id(node.id.as_str(), layer)?;
+    if node.statement.is_empty() {
+        return Err(schema_mismatch(
+            node.id.as_str(),
+            "statement must not be empty",
+        ));
+    }
+    validate_node_source(&node.source, node.id.as_str())?;
+    validate_derives_from_unique(&node.derives_from, node.id.as_str())?;
+    if let Some(cites) = &node.cites {
+        for citation in cites {
+            if citation.is_empty() {
+                return Err(schema_mismatch(
+                    node.id.as_str(),
+                    "cites entries must not be empty",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_section_node(section: &SectionNode, layer: Layer) -> Result<(), StoreError> {
+    validate_node_id(section.id.as_str(), layer)?;
+    if section.title.is_empty() {
+        return Err(schema_mismatch(
+            section.id.as_str(),
+            "title must not be empty",
+        ));
+    }
+    validate_node_source(&section.source, section.id.as_str())?;
+    if let Some(derives_from) = &section.derives_from {
+        validate_derives_from_unique(derives_from, section.id.as_str())?;
+    }
+    if let Some(children) = &section.sections {
+        for child in children {
+            validate_section_node(child, layer)?;
+        }
+    }
+    if let Some(items) = &section.items {
+        for item in items {
+            validate_sentence_node(item, layer)?;
+        }
+    }
+    Ok(())
+}
+
+/// Runs every schema-intrinsic check this module owns against an already
+/// well-typed `DocumentFile` (id pattern, DS-1658 layer/prefix agreement,
+/// `derives_from` uniqueness, non-empty statement/title/source fields,
+/// `source.lines >= 1`, `schema_version` const). Does *not* re-check for
+/// JSON `null` on optional fields — that only makes sense against the raw
+/// JSON text (see `reject_document_json_nulls`), and by the time a value is
+/// a `DocumentFile` that distinction is already gone. Used by both the
+/// reader (after parsing) and the writer (before serializing), so the
+/// writer cannot emit a file the reader would then reject.
+pub fn validate_document_file(file: &DocumentFile) -> Result<(), StoreError> {
+    if file.schema_version != DOCUMENT_SCHEMA_VERSION {
+        return Err(schema_mismatch(
+            "schema_version",
+            format!(
+                "must be \"{DOCUMENT_SCHEMA_VERSION}\", got \"{}\"",
+                file.schema_version
+            ),
+        ));
+    }
+    for node in &file.root {
+        validate_root_node(node)?;
+    }
+    for node in &file.request {
+        validate_sentence_node(node, Layer::Request)?;
+    }
+    for section in &file.require {
+        validate_section_node(section, Layer::Require)?;
+    }
+    for section in &file.spec {
+        validate_section_node(section, Layer::Spec)?;
+    }
+    for section in &file.detailed_spec {
+        validate_section_node(section, Layer::DetailedSpec)?;
+    }
+    for section in &file.basic_design {
+        validate_section_node(section, Layer::BasicDesign)?;
+    }
+    for section in &file.design {
+        validate_section_node(section, Layer::Design)?;
+    }
+    Ok(())
+}
+
+/// Parses one upstream document file (BD-319/BD-320: JSON). `text` is
+/// parsed twice on purpose: once to a `serde_json::Value` for the
+/// null-rejection walk (see `DOCUMENT_NULL_DISALLOWED_KEYS`), and once
+/// straight to `DocumentFile` so its `#[serde(deny_unknown_fields)]` and
+/// serde-derive's own duplicate-key rejection apply — collapsing this into
+/// a single `Value -> from_value` pass would lose both (a `serde_json::Value`
+/// object silently keeps only the *last* of two duplicate keys, and
+/// `from_value` cannot see whether a key was present-with-null or absent
+/// once the intermediate `Value` has already merged them).
+pub fn document_file_from_json(text: &str) -> Result<DocumentFile, StoreError> {
+    let raw: serde_json::Value = serde_json::from_str(text)
+        .map_err(|error| schema_mismatch("<document>", format!("invalid JSON: {error}")))?;
+    reject_document_json_nulls(&raw)?;
+
+    let file: DocumentFile = serde_json::from_str(text).map_err(|error| {
+        schema_mismatch(
+            "<document>",
+            format!("does not conform to the document file schema: {error}"),
+        )
+    })?;
+    validate_document_file(&file)?;
+    Ok(file)
+}
+
+/// Serializes a `DocumentFile` to its canonical JSON text (pretty-printed,
+/// trailing newline). Byte-for-byte identity with the canonical bundle's
+/// own formatting is not required — see
+/// `vtest_model::document::tests::canonical_bundle_round_trips_and_matches_node_counts`
+/// for the measured, disclosed divergence (key order on a handful of nodes,
+/// trailing newline). Refuses to serialize a `DocumentFile` this module's
+/// own reader would then reject, the same defensive symmetry
+/// `write_vo_record` already applies below.
+pub fn document_file_to_json(file: &DocumentFile) -> Result<String, StoreError> {
+    validate_document_file(file)?;
+    let mut text =
+        serde_json::to_string_pretty(file).expect("DocumentFile always serializes to valid JSON");
+    text.push('\n');
+    Ok(text)
+}
+
+/// Reads the upstream document file `<name>.json` from `.verify/doc/`.
+/// `name` is the file's own name (BD-330/DES-585: user-chosen, not a
+/// machine-generated identifier, and not compared against any field inside
+/// the file — the file carries no such field).
+pub fn read_document_file(layout: &VerifyLayout, name: &str) -> Result<DocumentFile, StoreError> {
+    let path = layout.doc_dir().join(format!("{name}.json"));
     let text = read_text(&path)?;
-    document_from_yaml(&text, id)
+    document_file_from_json(&text)
 }
 
-/// Writes (or overwrites) the canonical document record to `.verify/doc/`.
-/// Documents are mutable-in-place: 基本仕様 §24.2 lists only Relation /
-/// decision / approval / Evidence as append-only-only, so document (like VO)
-/// follows the general one-record-one-file edit model.
-pub fn write_document(layout: &VerifyLayout, record: &DocumentRecord) -> Result<(), StoreError> {
-    let path = layout
-        .doc_dir()
-        .join(format!("{}.yaml", record.id.as_str()));
-    write_atomic(&path, &document_to_yaml(record))
+/// Writes (or overwrites) the upstream document file `<name>.json` to
+/// `.verify/doc/`. Mutable in place: BD-062 lists only Relation / decision /
+/// approval / Evidence as append-only-only new-file-per-write; the document
+/// model (like VO) follows the general one-record-one-file edit model
+/// (BD-321).
+pub fn write_document_file(
+    layout: &VerifyLayout,
+    name: &str,
+    file: &DocumentFile,
+) -> Result<(), StoreError> {
+    let path = layout.doc_dir().join(format!("{name}.json"));
+    let text = document_file_to_json(file)?;
+    write_atomic(&path, &text)
 }
 
-/// Serializes a canonical `VoRecord` to its `.verify/vo/VO-*.yaml` shape
-/// (詳細設計 v0.1 §3.2) via `yaml_serde`. Distinct name from `read_vo`/
-/// `VoRecord` (records.rs) on purpose: that pair still serves the
-/// predecessor store-side `VoRecord` until PR8 retires it, and the two types
-/// are not interchangeable.
+// ---------------------------------------------------------------------
+// VO records (`.verify/vo/VO-*.yaml`)
+// ---------------------------------------------------------------------
+
+/// Serializes a canonical `VoRecord` to its `.verify/vo/VO-*.yaml` shape via
+/// `yaml_serde`. Distinct name from `read_vo`/`VoRecord` (records.rs) on
+/// purpose: that pair still serves the predecessor store-side `VoRecord`
+/// until PR8 retires it, and the two types are not interchangeable.
 pub fn vo_record_to_yaml(record: &VoRecord) -> String {
     yaml_serde::to_string(record).expect("VoRecord always serializes to valid YAML")
 }
 
 /// A duplicate-tolerant mirror of `yaml_serde::Value`'s mapping/sequence
-/// shape, used by every §3 record reader's diagnostics scan —
-/// `vo_record_from_yaml` (below), `document_from_yaml`, and
-/// `RelationRecord::from_yaml` (`records.rs`) all build one from `text`
-/// independently of their primary typed-struct parse. Originally added for
-/// VO alone; PR #26 round 3 found the same asymmetry document/Relation had
-/// not yet closed (see the "Extended to document/Relation" note at the end
-/// of this comment) and switched all three readers to it, so they now agree
-/// on this input shape instead of only VO doing so.
+/// shape, used only by `vo_record_from_yaml`'s unknown-field/`status` scan
+/// below. `yaml_serde::Value`'s own `Mapping` (`mapping.rs`) rejects *any*
+/// duplicate key it finds while deserializing, at *any* depth in the
+/// document tree — not only inside `combinations[]`. DS-422: "entryが
+/// 宣言済みdimensionのいずれかを欠く、または同じdimension名を2回以上持つ
+/// 場合、当該VOレコードは `combinations` 不正とし、`E-SCAN-017` を報告して
+/// 当該VOの `chain_integrity` を `MISMATCH` とする（§17.1）。" — a
+/// `combinations[]` entry
+/// repeating one dimension name must reach `vtest-scan`'s `invalid_vo_
+/// combinations` check intact (the VO retained, not dropped), not be
+/// rejected here as E-SCAN-010 before that scan-layer judgment ever runs.
+/// `VoRecord.combinations`'s element type, `CombinationEntry`
+/// (`vtest-model`), already preserves such a duplicate losslessly instead of
+/// silently collapsing or rejecting it — but only when built directly from
+/// `text`, bypassing `yaml_serde::Value` (see that type's own doc comment).
+/// So this record's *unknown-field* scan (DS-1645, run independently of the
+/// primary parse below) needs its own value type that likewise never fails
+/// to build on a duplicate key.
 ///
-/// **Corrects `61ba379`** (PR #26 round 1's BLOCKER 1 fix): that commit's
-/// message claimed the diagnostics scan below could fail to run "only
-/// possible now when combinations\[\] has a duplicate key, since Value
-/// structurally cannot represent that". PR #26 round 2 review measured this
-/// empirically against a scratch harness calling `vo_record_from_yaml`
-/// directly and found it false: `yaml_serde::Value`'s own `Mapping`
-/// (`mapping.rs`) rejects *any* duplicate key it finds while deserializing,
-/// at *any* depth in the document tree — not only inside `combinations[]`.
-/// Building a `yaml_serde::Value` for the whole VO record text therefore
-/// failed not only for the one shape `VoRecord`'s own typed parse cannot
-/// itself reject (a repeated dimension name confined to one
-/// `combinations[]` entry — see `CombinationEntry`'s doc comment), but for a
-/// duplicate key *anywhere else* in the document too — including inside the
-/// value of a field the §3.2 schema does not even recognize (an unrelated
-/// unknown top-level key whose own value happens to be a YAML mapping with
-/// a repeated key, or the read-compat `status` field's value, or an unknown
-/// key nested inside a `dimensions[]` entry). Round 1's fix routed every one
-/// of those cases through the same `if let Ok(value) = ... else { skip }`,
-/// silently dropping W-STORE-007/W-STORE-001/the `derives_from[]`/
-/// `dimensions[]` nested scans for a record that otherwise reads (and
-/// should warn) fine — a broader loss than the round-1 commit message or
-/// the PR's "Known gaps" section described (詳細設計 v0.1 本冊:185, :890,
-/// :884, :237).
-///
-/// `LenientValue` mirrors just the shape the scan below needs — mapping (as
-/// ordered key/value pairs, keeping every occurrence instead of rejecting a
-/// repeat, the same technique `CombinationEntry` already uses for the same
-/// reason), sequence, and "anything else" (a bare scalar, kept only far
-/// enough to distinguish it from a mapping/sequence) — built directly from
-/// `MapAccess`/`SeqAccess` rather than delegating to `yaml_serde::Mapping`/
-/// `Sequence`, so *no* level of the tree can fail on a duplicate key. This is
-/// not a general-purpose YAML value type — it only needs to answer "is this
-/// a mapping/sequence, and what does it contain", which is all
-/// `unknown_field_diagnostics`/`derives_from_diagnostics`/
-/// `dimensions_diagnostics` (via `DiagnosticValue`, above) ask of it — but
-/// its `Deserialize` impl still implements every `Visitor` method
-/// `yaml_serde`'s `deserialize_any` can invoke (PR #26 round 3 review found
-/// three missing: `visit_i128`/`visit_u128`, for an integer outside u64's
-/// range, and `visit_enum`, for a value carrying a local YAML tag like
-/// `!Foo`; §3's schema never assigns meaning to a tag or to an out-of-u64
-/// integer, so both are read through structurally — the tag is discarded and
-/// the tagged content is read as a plain `LenientValue`, the out-of-range
-/// integer becomes a `Scalar` — rather than rejected). A *standard*-tagged
-/// scalar (e.g. `!!binary ...`, resolving to `tag:yaml.org,2002:binary`)
-/// never reaches `visit_enum` in the first place: `yaml_serde` only routes a
-/// tag through the enum path when it doesn't recognize it as one of YAML's
-/// core tags, which a leading-`!!` shorthand always resolves to.
-///
-/// Because this never fails on a duplicate key anywhere, `vo_record_from_
-/// yaml` below no longer needs to distinguish "the one tolerated shape" from
-/// "every other reason `Value` could fail to build" — there is no longer a
-/// second reason for a duplicate key. Its own `yaml_serde::from_str::
-/// <LenientValue>(text)` call is `?`-propagated, not swallowed by an
-/// `if let Ok(...)`: if it ever did fail, the whole read now fails closed
-/// instead of silently returning zero diagnostics.
-///
-/// **Known exception, not closed by this type: `yaml_serde`'s recursion
-/// guard.** Unlike the primary typed parse — whose derived `Deserialize`
-/// discards an unknown field with `IgnoredAny` without ever descending into
-/// its value — `LenientValue`'s own `visit_map`/`visit_seq` *do* descend, to
-/// answer the diagnostics scan's "what does this contain". A text whose
-/// primary parse accepts an unknown field nested 128 levels deep or more
-/// (measured: 127 still reads and warns, 128 fails) therefore still trips
-/// `yaml_serde`'s recursion limit here even though the primary `VoRecord`/
-/// `DocumentRecord`/`RelationRecord` parse of the same text does not. When
-/// that happens the whole record is rejected, not just the one field's
-/// diagnostic — an exception to 詳細設計 v0.1 本冊:185's "未知フィールドは
-/// エラーではなく警告とする" for this one pathological depth, not a defect
-/// introduced or fixed by this commit. See
-/// `document_with_unknown_field_nested_past_the_recursion_limit_fails_closed`
-/// (below) for the boundary pinned as a test.
-///
-/// **Extended to document/Relation (PR #26 round 3).** `document_from_yaml`
-/// and `RelationRecord::from_yaml` had no `combinations[]`-shaped field that
-/// forced them off a `Value`-first parse the way VO's did, so round 1/2 left
-/// them on the original `text -> yaml_serde::Value -> known-key scan -> typed
-/// struct` shape (see each function's own doc comment history). But that
-/// shape has the exact defect this type was built to fix, independent of
-/// `combinations[]`: an unrelated *unknown* field's value containing a
-/// duplicate key made the whole `Value` build fail before `from_value` ever
-/// ran, rejecting a document/Relation record that would otherwise read fine
-/// and only warrant a W-STORE-007 for the unknown field itself — the same
-/// asymmetry `vo_record_from_yaml` no longer has, and every §3 record type
-/// is bound by the same §3 header rule (詳細設計 v0.1 本冊:185: "すべての
-/// レコードは...未知フィールドはエラーではなく警告とする", worded without a
-/// per-record-type carve-out). Both readers now parse straight from `text`
-/// into their typed struct first (so a duplicate key on a field they
-/// actually recognize still rejects, via that struct's own derived
-/// `Deserialize` — unchanged), then build a `LenientValue` independently for
-/// the diagnostics-only scan, exactly like `vo_record_from_yaml` below.
-pub(crate) enum LenientValue {
+/// Mirrors just the shape the scan needs — mapping (as ordered key/value
+/// pairs, keeping every occurrence instead of rejecting a repeat, the same
+/// technique `CombinationEntry` uses), sequence, and "anything else" (a bare
+/// scalar, kept only far enough to distinguish it from a mapping/sequence) —
+/// built directly from `MapAccess`/`SeqAccess` rather than delegating to
+/// `yaml_serde::Mapping`/`Sequence`, so *no* level of the tree can fail on a
+/// duplicate key.
+#[derive(Debug)]
+enum LenientValue {
     Mapping(Vec<(LenientValue, LenientValue)>),
     Sequence(Vec<LenientValue>),
     String(String),
@@ -347,25 +543,15 @@ impl LenientValue {
             _ => None,
         }
     }
-}
 
-impl DiagnosticValue for LenientValue {
-    fn mapping_entries(&self) -> Vec<(&str, &Self)> {
-        self.as_mapping()
-            .into_iter()
-            .flatten()
-            .filter_map(|(key, value)| key.as_str().map(|key| (key, value)))
-            .collect()
-    }
-
-    fn as_sequence(&self) -> Option<&[Self]> {
+    fn as_sequence(&self) -> Option<&[LenientValue]> {
         match self {
             LenientValue::Sequence(items) => Some(items.as_slice()),
             _ => None,
         }
     }
 
-    fn get(&self, key: &str) -> Option<&Self> {
+    fn get(&self, key: &str) -> Option<&LenientValue> {
         self.as_mapping()?
             .iter()
             .find(|(candidate, _)| candidate.as_str() == Some(key))
@@ -465,15 +651,10 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
                 // A locally-tagged value (`!Foo ...`) — `yaml_serde` routes
                 // any scalar/sequence/mapping carrying an unrecognized `!`
                 // tag through `deserialize_any`'s `visit_enum`, with the tag
-                // itself as the "variant name" (`de.rs` `enum_tag`/
-                // `EnumAccess`). §3's schema never assigns meaning to a tag,
-                // so the tag is discarded (`IgnoredAny`) and the content
-                // underneath it is read as a plain `LenientValue` via
-                // `newtype_variant` — same recursion `deserialize_any` uses
-                // for every other shape, just re-entered with the tag
-                // consumed so it isn't seen a second time. This is what lets
-                // the unknown-field scan warn-and-read a tagged value instead
-                // of failing the whole record closed on it.
+                // itself as the "variant name". DS-1645's schema never
+                // assigns meaning to a tag, so the tag is discarded
+                // (`IgnoredAny`) and the content underneath it is read as a
+                // plain `LenientValue` via `newtype_variant`.
                 use serde::de::VariantAccess;
                 let (_tag, variant): (serde::de::IgnoredAny, _) = data.variant()?;
                 variant.newtype_variant::<LenientValue>()
@@ -484,74 +665,135 @@ impl<'de> serde::Deserialize<'de> for LenientValue {
     }
 }
 
+/// `reject_unknown_fields`'s non-string-key/unknown-key rejection, applied
+/// to a `LenientValue` instead of `yaml_serde::Value`. Kept as a separate
+/// function (rather than making `reject_unknown_fields` generic) because the
+/// two value types are used by disjoint callers for disjoint reasons — see
+/// `LenientValue`'s own doc comment.
+fn reject_unknown_fields_lenient(
+    value: &LenientValue,
+    known: &[&str],
+    prefix: &str,
+) -> Result<(), StoreError> {
+    let Some(mapping) = value.as_mapping() else {
+        return Ok(());
+    };
+    for (key, _) in mapping {
+        let Some(key_str) = key.as_str() else {
+            return Err(schema_mismatch(
+                format!("{prefix}{key:?}"),
+                "non-string mapping key is not part of the record schema (DS-1645)",
+            ));
+        };
+        if !known.contains(&key_str) {
+            return Err(schema_mismatch(
+                format!("{prefix}{key_str}"),
+                "unknown field is not part of the record schema (DS-1645)",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Extends `reject_unknown_fields_lenient` into each `derives_from[]` entry
+/// (DS-1638).
+fn reject_derives_from_unknown_fields(value: &LenientValue) -> Result<(), StoreError> {
+    let Some(sequence) = value
+        .get("derives_from")
+        .and_then(LenientValue::as_sequence)
+    else {
+        return Ok(());
+    };
+    for (index, entry) in sequence.iter().enumerate() {
+        reject_unknown_fields_lenient(
+            entry,
+            DERIVES_FROM_KEYS,
+            &format!("derives_from[{index}]."),
+        )?;
+    }
+    Ok(())
+}
+
+/// Extends `reject_unknown_fields_lenient` into each VO `dimensions[]`
+/// entry. `combinations[]` is deliberately not scanned the same way: each
+/// entry's keys are the *dimension names themselves* (a dynamic,
+/// record-specific vocabulary), not a fixed schema — whether a combination
+/// covers exactly the declared dimensions is E-SCAN-017, a chain_integrity/
+/// scan-time concern this record-level reader does not have the dimension
+/// set resolved enough to evaluate (the same record-vs-scan layer split
+/// `require_at_least_one_derives_from` below documents for E-SCAN-012).
+fn reject_dimensions_unknown_fields(value: &LenientValue) -> Result<(), StoreError> {
+    let Some(sequence) = value.get("dimensions").and_then(LenientValue::as_sequence) else {
+        return Ok(());
+    };
+    for (index, entry) in sequence.iter().enumerate() {
+        reject_unknown_fields_lenient(entry, DIMENSION_KEYS, &format!("dimensions[{index}]."))?;
+    }
+    Ok(())
+}
+
 /// Parses a canonical `VoRecord` from its YAML representation, returning any
 /// non-fatal diagnostics alongside it. `yaml_serde::from_str::<VoRecord>`
 /// fails closed on a missing required field (`claim`/`created`/`updated`/
 /// etc.) or an unrecognized `coverage_policy` value via `VoRecord`'s
 /// `Deserialize` derive; this adds the id/file-name check the derive cannot
-/// express, plus the `derives_from` cardinality floor (詳細設計 v0.1 §3.2).
+/// express, the `derives_from` cardinality floor (SPEC-015), plus DS-1645's
+/// fail-closed rejection of any field outside the schema.
 ///
-/// **Two independent parses, not one `Value`-first pass** (a shape every
-/// other canonical record reader also uses now — see `document_from_yaml`/
-/// `RelationRecord::from_yaml`'s own doc comments; VO moved off `Value`-first
-/// first, for the combinations[]-specific reason below, and PR #26 round 3
-/// then found document/Relation needed the same move for a more general
-/// reason). BLOCKER 1 (PR #26 review round 1):
-/// 詳細設計 v0.1 本冊:283（§3.2.1 の受理条件、条件6）"entry が宣言済み
-/// dimension のいずれかを欠く、または同じ dimension 名を2回以上持つ" is one
-/// `E-SCAN-017` condition (`vtest-scan`'s `invalid_vo_combinations`, VO
-/// retained with `chain_integrity = MISMATCH` — 本冊:1625・別紙A:438), a
-/// scan-layer judgment. But a `combinations[]` entry with a repeated
-/// dimension name is exactly the kind of YAML mapping
-/// `yaml_serde::Value`'s own `Mapping` type structurally cannot hold — its
-/// `Deserialize` rejects *any* duplicate key anywhere in the document
-/// before a `VoRecord` (or anything else) is ever built from it. Routing
-/// every VO record through `Value` first — as this function used to —
-/// would make that record-layer rejection (E-SCAN-010, the VO dropped from
-/// `vtest-scan`'s `vos` map entirely) pre-empt the scan-layer judgment the
-/// spec assigns this condition to, for a `combinations[]`-confined
-/// duplicate.
+/// **Two independent parses, not one `Value`-first pass.** DS-422/DS-902
+/// (E-SCAN-017 condition 6) require a `combinations[]` entry that repeats
+/// one dimension name to reach the scan layer intact (VO retained,
+/// `chain_integrity = MISMATCH`), not be rejected here as E-SCAN-010 before
+/// that check ever runs. Routing the whole record through `yaml_serde::
+/// Value` first — as this function used to — makes that record-layer
+/// rejection pre-empt the scan-layer judgment for any `combinations[]`-
+/// confined duplicate, because `Value`'s own `Mapping` rejects *any*
+/// duplicate key anywhere in the document before a `VoRecord` (or anything
+/// else) is ever built from it.
 ///
-/// So `VoRecord` is now built directly from `text`
-/// (`yaml_serde::from_str::<VoRecord>`), bypassing `Value` for the primary
-/// parse. `VoRecord.combinations`'s element type, `CombinationEntry`
-/// (`vtest-model`), has a hand-written `Deserialize` that preserves a
-/// repeated dimension name instead of rejecting or silently collapsing it
-/// (see that type's own doc comment) — the one field in `VoRecord`'s tree
-/// that needs this. Every other field keeps rejecting a duplicate key on
-/// its own, with no help from `Value`: a `struct`'s derived `Deserialize`
-/// (`VoRecord` itself, `DerivesFrom`, `Dimension`) tracks each field and
-/// errors the second time it sees one, independent of `Value` — confirmed
-/// empirically, not just inferred (see `vo_record_with_a_duplicate_top_
-/// level_key_outside_combinations_is_still_rejected`, `vo_record_with_a_
-/// duplicate_key_in_a_derives_from_entry_is_still_rejected`, and
-/// `vo_record_with_a_duplicate_key_in_a_dimensions_entry_is_still_rejected`
-/// below). `combinations`'s old element type, a bare `BTreeMap<String,
-/// String>`, was the one field that fell through that protection — a plain
-/// map's `Deserialize` has no duplicate-key check of its own, so read
-/// directly (bypassing `Value`) it used to silently keep only the last
-/// value for a repeated key.
+/// So `VoRecord` is built directly from `text` (`yaml_serde::from_str::
+/// <VoRecord>`), bypassing `Value` for the primary parse.
+/// `VoRecord.combinations`'s element type, `CombinationEntry` (`vtest-
+/// model`), has a hand-written `Deserialize` that preserves a repeated
+/// dimension name instead of rejecting or silently collapsing it (see that
+/// type's own doc comment) — the one field in `VoRecord`'s tree that needs
+/// this. Every other field keeps rejecting a duplicate key on its own, with
+/// no help from `Value`: a struct's derived `Deserialize`
+/// (`VoRecord`/`DerivesFrom`/`Dimension`) tracks each field and errors the
+/// second time it sees one, independent of `Value` (see `vtest_model::
+/// vo::CombinationEntry`'s doc comment, which states this empirically-
+/// confirmed contract; `vo_record_with_duplicate_top_level_key_is_rejected`/
+/// `vo_record_with_duplicate_key_in_derives_from_entry_is_rejected` below
+/// lock it in for this crate too).
 ///
-/// **The unknown-field diagnostics this function also returns** (W-STORE-
-/// 007, the `status` read-compat warning, `derives_from[]`/`dimensions[]`
-/// nested unknown-field scans) run against `LenientValue` (above), not
-/// `yaml_serde::Value` — built from `text` independently of the primary
-/// parse, since that scan walks arbitrary keys `VoRecord`'s own fixed
-/// schema does not know about, which a typed struct parse alone cannot
-/// surface. Unlike PR #26 round 1's `yaml_serde::Value` attempt,
-/// `LenientValue` cannot itself fail to build on a duplicate key anywhere
-/// in the document (see its own doc comment for why, and for the round-1
-/// commit-message correction) — so this no longer costs anything: every
-/// case round 2 review measured empirically (an unrelated unknown top-level
-/// field, `status`, or an unknown nested `dimensions[]` key, each paired
-/// with a `combinations[]` duplicate or not) now reaches its diagnostic.
-/// `vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
-/// scan_as_e_scan_017` and `vo_record_with_a_combinations_duplicate_and_an_
-/// unrelated_unknown_field_still_warns` below lock this in.
+/// The unknown-field/`status` diagnostics this function also computes run
+/// against `LenientValue` (above), not `yaml_serde::Value` — built from
+/// `text` independently of the primary parse, since that scan walks
+/// arbitrary keys `VoRecord`'s own fixed schema does not know about, which a
+/// typed struct parse alone cannot surface. `LenientValue` cannot itself
+/// fail to build on a duplicate key anywhere in the document (see its own
+/// doc comment), so this costs nothing: an unrelated unknown field
+/// alongside a `combinations[]` duplicate still fails closed
+/// (`vo_record_combinations_duplicate_with_unrelated_unknown_field_is_
+/// still_rejected` below).
 pub fn vo_record_from_yaml(
     text: &str,
     fallback_id: &str,
 ) -> Result<(VoRecord, Vec<Diagnostic>), StoreError> {
+    let lenient: LenientValue = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
+
+    let mut diagnostics = Vec::new();
+    if lenient.get("status").is_some() {
+        diagnostics.push(Diagnostic::warning(
+            "W-STORE-001",
+            "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
+        ));
+    }
+    reject_unknown_fields_lenient(&lenient, VO_KEYS, "")?;
+    reject_derives_from_unknown_fields(&lenient)?;
+    reject_dimensions_unknown_fields(&lenient)?;
+
     let record: VoRecord = yaml_serde::from_str(text)
         .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
     if record.id.as_str() != fallback_id {
@@ -561,19 +803,6 @@ pub fn vo_record_from_yaml(
         )));
     }
     require_at_least_one_derives_from(&record.derives_from)?;
-
-    let value: LenientValue = yaml_serde::from_str(text)
-        .map_err(|error| StoreError::InvalidConfig(format!("invalid VO record: {error}")))?;
-    let mut diagnostics = Vec::new();
-    if value.get("status").is_some() {
-        diagnostics.push(Diagnostic::warning(
-            "W-STORE-001",
-            "VO record has the non-canonical read-compat field `status`; its value is ignored — effective state and the VO subject hash are derived from approvals instead",
-        ));
-    }
-    diagnostics.extend(unknown_field_diagnostics(&value, VO_KEYS, ""));
-    diagnostics.extend(derives_from_diagnostics(&value));
-    diagnostics.extend(dimensions_diagnostics(&value));
     Ok((record, diagnostics))
 }
 
@@ -588,17 +817,14 @@ pub fn read_vo_record(
 }
 
 /// Writes (or overwrites) the canonical VO record to `.verify/vo/`. Mutable
-/// in place, for the same reason as `write_document` above. Enforces the
-/// same `derives_from` cardinality floor as the reader: a writer that
-/// skipped this check could produce a record `read_vo_record` would then
-/// reject, which fail-closed reading alone does not prevent. Also enforces
-/// `require_no_duplicate_combination_dimension_names` for the same reason,
-/// applied to `combinations` (BLOCKER 1 condition 2, PR #26 review round 2):
-/// `CombinationEntry` can *hold* a repeated dimension name (so the reader
-/// can hand a malformed record to the scan layer losslessly), but the
-/// writer must not be able to freshly persist one — a reader that tolerates
-/// what a writer can also produce is not a read-only accommodation anymore,
-/// it is a normalized shape.
+/// in place (BD-321). Enforces the same two checks a reader would apply
+/// after the fact, so a writer that skipped them could not silently
+/// persist a record `read_vo_record`/`vtest-scan`'s own validation would
+/// then reject or (worse) panic on:
+/// - the `derives_from` cardinality floor (`require_at_least_one_derives_
+///   from`);
+/// - no `combinations[]` entry repeating one dimension name
+///   (`require_no_duplicate_combination_dimension_names`).
 pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), StoreError> {
     require_at_least_one_derives_from(&record.derives_from)?;
     require_no_duplicate_combination_dimension_names(&record.combinations)?;
@@ -606,42 +832,13 @@ pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), S
     write_atomic(&path, &vo_record_to_yaml(record))
 }
 
-/// 詳細設計 v0.1 本冊:283（§3.2.1 条件6後半）"同じ dimension 名を2回以上
-/// 持つ" entry を持つ `combinations` は、reader が読み取れる不正な状態
-/// （`vtest-scan`の E-SCAN-017 が扱う）であって、writer が新たに書き出して
-/// よい状態ではない。`CombinationEntry`はこの状態を読み取り時に losslessly
-/// 保持できるよう意図的に許容する型だが（`vo_record_from_yaml`参照）、
-/// 書き込み時にまで許すと「reader だけ直して writer が緩い」という非対称
-/// になる（このリポジトリで繰り返し指摘されてきた欠陥クラス）。
-/// `CombinationEntry`自身の`Serialize`も同じ状態を拒否する
-/// （`yaml_serde::to_string`が`Err`を返す）ため、この関数を経由しない
-/// `vo_record_to_yaml`の直接呼び出しも（`.expect(...)`のpanicという形で
-/// はあるが）無防備ではない。ここでは`write_vo_record`という実際の
-/// ディスク書き込み経路で、panicではなくきれいな`StoreError`として
-/// 早期に拒否する。
-fn require_no_duplicate_combination_dimension_names(
-    combinations: &[vtest_model::CombinationEntry],
-) -> Result<(), StoreError> {
-    for combination in combinations {
-        let duplicates = combination.duplicate_dimension_names();
-        if !duplicates.is_empty() {
-            return Err(StoreError::InvalidConfig(format!(
-                "VO combinations entry declares dimension `{}` more than once; \
-                 the writer refuses to persist a record it cannot read back losslessly",
-                duplicates.join("`, `")
-            )));
-        }
-    }
-    Ok(())
-}
-
-/// 詳細設計 v0.1 §3.2: "VO は 1 件以上の `document` から `derives_from` で
-/// 導出される" — unlike document's `derives_from` (0 or more, an empty list
+/// SPEC-015: "VOは1件以上のdocumentからderives_fromで導出される" — unlike the
+/// upstream document model's own `derives_from` (0 or more; an empty list
 /// marks a root candidate), a VO's `derives_from` must be non-empty. This
-/// checks only cardinality: whether each entry's `doc` resolves to a document
-/// that actually exists is E-SCAN-012 (§3.2 L230), a chain_integrity/scan-time
-/// concern this record-level reader/writer does not have the document set to
-/// evaluate.
+/// checks only cardinality: whether each entry's `doc` resolves to a
+/// document that actually exists is E-SCAN-012, a chain_integrity/scan-time
+/// concern this record-level reader/writer does not have the document set
+/// to evaluate.
 fn require_at_least_one_derives_from(derives_from: &[DerivesFrom]) -> Result<(), StoreError> {
     if derives_from.is_empty() {
         return Err(StoreError::InvalidConfig(
@@ -651,278 +848,604 @@ fn require_at_least_one_derives_from(derives_from: &[DerivesFrom]) -> Result<(),
     Ok(())
 }
 
+/// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
+/// `combinations[]` entry naming the same dimension twice is `combinations`
+/// 不正. `CombinationEntry`'s own `Serialize` impl (`vtest-model`) already
+/// refuses (returns `Err`) to emit such an entry rather than silently
+/// writing a YAML mapping with a repeated key — but `vo_record_to_yaml`
+/// reaches that via `yaml_serde::to_string(record).expect(...)`, so without
+/// this check first, a caller handing `write_vo_record` a malformed record
+/// would panic here instead of getting a clean `StoreError`. This mirrors
+/// `require_at_least_one_derives_from` immediately above: enforce at write
+/// time what the read/scan side would reject anyway, so the failure mode is
+/// a `Result`, not a panic.
+fn require_no_duplicate_combination_dimension_names(
+    combinations: &[CombinationEntry],
+) -> Result<(), StoreError> {
+    for entry in combinations {
+        let duplicates = entry.duplicate_dimension_names();
+        if !duplicates.is_empty() {
+            return Err(StoreError::InvalidConfig(format!(
+                "combinations entry declares dimension `{}` more than once",
+                duplicates.join("`, `")
+            )));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vtest_model::{ContentHash, CoveragePolicy, Dimension, DocumentId, VoId};
+    use std::collections::BTreeMap;
+    use vtest_model::{CoveragePolicy, Dimension, VoId};
 
-    fn sample_document() -> DocumentRecord {
-        DocumentRecord {
-            id: DocumentId::new("DOC-BASIC-001"),
-            path: "docs/basic-spec.md".to_string(),
-            content_hash: ContentHash::from_text("basic spec contents"),
-            title: Some("基本仕様書".to_string()),
-            derives_from: vec![DerivesFrom {
-                doc: DocumentId::new("DOC-REQ-001"),
-                anchor: Some("§12.3".to_string()),
-                note: None,
+    // -------------------------------------------------------------
+    // Document file tests
+    // -------------------------------------------------------------
+
+    fn sample_source() -> NodeSource {
+        NodeSource {
+            doc: "docs/spec.md".to_owned(),
+            heading: "1".to_owned(),
+            lines: [1, 1],
+        }
+    }
+
+    fn minimal_document_file() -> DocumentFile {
+        DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![RootNode {
+                id: DocumentId::new("ROOT-001"),
+                statement: "A frozen ruling.".to_owned(),
+                description: None,
+                source: sample_source(),
             }],
-            registered_at: "2026-08-08T00:00:00Z".to_string(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-1"),
+                statement: "A request.".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("ROOT-001")],
+                cites: None,
+                source: sample_source(),
+            }],
+            require: vec![],
+            spec: vec![],
+            detailed_spec: vec![],
+            basic_design: vec![],
+            design: vec![],
         }
     }
 
     #[test]
-    fn document_round_trips_through_canonical_yaml() {
-        let record = sample_document();
-        let yaml = document_to_yaml(&record);
-        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(parsed, record);
-        assert!(diagnostics.is_empty());
-    }
-
-    #[test]
-    fn document_without_title_or_derives_from_round_trips() {
-        let record = DocumentRecord {
-            id: DocumentId::new("DOC-ROOT-001"),
-            path: "docs/root.md".to_string(),
-            content_hash: ContentHash::from_text("root contents"),
-            title: None,
-            derives_from: vec![],
-            registered_at: "2026-08-08T00:00:00Z".to_string(),
-        };
-        let yaml = document_to_yaml(&record);
-        assert_eq!(
-            document_from_yaml(&yaml, record.id.as_str()).unwrap().0,
-            record
-        );
-    }
-
-    /// 詳細設計 v0.1 §3.1's own example (L193-201), verbatim including its
-    /// inline comments — the fixture the hand-rolled parser used to
-    /// silently corrupt. Only `content_hash`'s value is substituted: the
-    /// spec itself writes it as the documentation placeholder
-    /// `"sha256:..."`, which is not a parseable hash.
-    #[test]
-    fn document_parses_the_literal_spec_example() {
-        let yaml = "\
-id: DOC-BASIC-001
-path: docs/basic-spec.md        # プロジェクト相対パス
-content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"      # 登録時の内容ハッシュ（§1.3 document subject）
-title: 基本仕様書               # 任意の表示名
-derives_from:                   # 上流 document への導出リンク（0件可＝根候補）
-  - doc: DOC-REQ-001
-    anchor: \"§12.3\"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
-    note: \"\"                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
-registered_at: 2026-08-08T00:00:00Z
-";
-        let (record, diagnostics) = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
-        assert_eq!(record.id.as_str(), "DOC-BASIC-001");
-        assert_eq!(record.path, "docs/basic-spec.md");
-        assert_eq!(record.title.as_deref(), Some("基本仕様書"));
-        assert_eq!(record.derives_from[0].doc.as_str(), "DOC-REQ-001");
-        assert_eq!(record.derives_from[0].anchor.as_deref(), Some("§12.3"));
-        assert_eq!(record.derives_from[0].note.as_deref(), Some(""));
-        assert!(diagnostics.is_empty());
-        let roundtrip = document_to_yaml(&record);
-        assert_eq!(
-            document_from_yaml(&roundtrip, "DOC-BASIC-001").unwrap().0,
-            record
-        );
-    }
-
-    #[test]
-    fn document_with_id_disagreeing_with_file_name_is_rejected() {
-        let yaml = document_to_yaml(&sample_document());
-        let error = document_from_yaml(&yaml, "DOC-OTHER-001")
-            .expect_err("a document id that disagrees with the file name must fail closed");
-        assert!(error.to_string().contains("does not match file name"));
-    }
-
-    #[test]
-    fn document_missing_a_required_field_is_rejected() {
-        let yaml = document_to_yaml(&sample_document());
-        for key in ["id", "path", "content_hash", "registered_at"] {
-            let without_field = yaml
-                .lines()
-                .filter(|line| !line.starts_with(&format!("{key}:")))
-                .collect::<Vec<_>>()
-                .join("\n");
-            assert!(
-                document_from_yaml(&without_field, "DOC-BASIC-001").is_err(),
-                "expected a document missing `{key}` to fail closed"
-            );
-        }
-    }
-
-    /// `document_from_yaml`'s primary parse builds `DocumentRecord` directly
-    /// from `text` (PR #26 round 3), not through `yaml_serde::Value` first —
-    /// but a duplicate top-level key (every key here is one `DocumentRecord`
-    /// actually has) is still rejected, via `DocumentRecord`'s own derived
-    /// `Deserialize`: a `struct` visitor tracks each field and errors the
-    /// second time it sees one, independent of `Value`.
-    #[test]
-    fn document_with_a_duplicate_top_level_key_is_rejected() {
-        let yaml = document_to_yaml(&sample_document());
-        let mut duplicated = yaml.clone();
-        duplicated.push_str(&yaml);
-        let error = document_from_yaml(&duplicated, "DOC-BASIC-001")
-            .expect_err("a document YAML with every top-level key duplicated must fail closed");
-        assert!(
-            error.to_string().contains("duplicate field"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// Same carve-out boundary, one level deeper: a duplicate key inside a
-    /// `derives_from[]` entry (a nested `struct`, `DerivesFrom`) is also
-    /// still rejected, via that struct's own derived `Deserialize`.
-    #[test]
-    fn document_with_a_duplicate_key_in_a_derives_from_entry_is_rejected() {
-        let yaml = "\
-id: DOC-BASIC-001
-path: docs/basic-spec.md
-content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"
-derives_from:
-  - doc: DOC-REQ-001
-    doc: DOC-OTHER-001
-registered_at: 2026-08-08T00:00:00Z
-";
-        let error = document_from_yaml(yaml, "DOC-BASIC-001")
-            .expect_err("a duplicate key in a derives_from[] entry must fail closed");
-        assert!(
-            error.to_string().contains("duplicate field"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// PR #26 round 3: the defect the earlier `Value`-first parse had for
-    /// `vo_record_from_yaml` (BLOCKER A, PR #26 review round 2) applied to
-    /// `document_from_yaml` too, for the same reason — an unrelated *unknown*
-    /// top-level key whose own value is a mapping with an internally
-    /// duplicated key used to reject the whole document, even though the
-    /// document itself (and `owner`'s presence) reads fine and should only
-    /// warn W-STORE-007. `document_from_yaml` now scans with `LenientValue`
-    /// (see its own doc comment), which cannot fail to build on a duplicate
-    /// key anywhere, so the warning is no longer lost.
-    #[test]
-    fn document_with_unknown_top_level_field_whose_value_has_a_duplicate_key_still_warns() {
-        let record = sample_document();
-        let mut yaml = document_to_yaml(&record);
-        yaml.push_str("owner:\n  x: 1\n  x: 2\n");
-        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).expect(
-            "an unrelated unknown field's internally-duplicated value must not fail the read",
-        );
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("owner"));
-    }
-
-    #[test]
-    fn document_read_write_round_trips_through_disk() {
+    fn document_file_round_trips_through_disk() {
         let root = std::env::temp_dir().join(format!(
             "vtest-store-canonical-doc-{}",
             crate::new_record_id()
         ));
         let layout = crate::init_project(&root, "example").unwrap();
-        let record = sample_document();
+        let file = minimal_document_file();
 
-        write_document(&layout, &record).unwrap();
+        write_document_file(&layout, "requirements", &file).unwrap();
+        assert_eq!(read_document_file(&layout, "requirements").unwrap(), file);
+    }
+
+    #[test]
+    fn document_file_has_no_identifying_field_on_disk() {
+        // BD-330/DES-585: the file's *name* is the identity; a name unlike
+        // the document's own content is accepted (nothing inside the file
+        // is checked against it), unlike VO's id/file-name agreement.
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-doc-any-name-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        let file = minimal_document_file();
+        write_document_file(&layout, "whatever-the-author-called-it", &file).unwrap();
         assert_eq!(
-            read_document(&layout, record.id.as_str()).unwrap().0,
-            record
+            read_document_file(&layout, "whatever-the-author-called-it").unwrap(),
+            file
         );
     }
 
-    /// 詳細設計 v0.1 §3 header (L185): an unknown field warns, it does not
-    /// stop the record from being read.
     #[test]
-    fn document_with_unknown_top_level_field_warns_and_still_reads() {
-        let record = sample_document();
-        let mut yaml = document_to_yaml(&record);
-        yaml.push_str("owner: someone\n");
-        let (parsed, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("owner"));
+    fn document_file_rejects_unrecognized_schema_version() {
+        let mut file = minimal_document_file();
+        file.schema_version = "0.2".to_owned();
+        let error = document_file_to_json(&file)
+            .expect_err("an unrecognized schema_version must fail closed");
+        assert!(matches!(
+            error,
+            StoreError::SchemaMismatch {
+                code: "E-SCAN-010",
+                ..
+            }
+        ));
     }
 
     #[test]
-    fn document_with_unknown_nested_derives_from_field_warns_with_path() {
-        let yaml = "\
-id: DOC-BASIC-001
-path: docs/basic-spec.md
-content_hash: \"sha256:9f2c1a4e5b6d7c8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60\"
-derives_from:
-  - doc: DOC-REQ-001
-    foo: bar
-registered_at: 2026-08-08T00:00:00Z
-";
-        let (_record, diagnostics) = document_from_yaml(yaml, "DOC-BASIC-001").unwrap();
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("derives_from[0].foo"));
+    fn document_file_rejects_malformed_node_id() {
+        let mut file = minimal_document_file();
+        file.root[0].id = DocumentId::new("ROOT-1"); // fewer than 3 digits
+        document_file_to_json(&file).expect_err("a malformed id must fail closed");
     }
 
-    /// Two unknown keys appended out of alphabetical order — proves
-    /// diagnostics follow YAML occurrence order (the `Mapping`'s insertion
-    /// order), not e.g. a sorted-key iteration.
     #[test]
-    fn document_with_multiple_unknown_fields_warns_in_yaml_order() {
-        let record = sample_document();
-        let mut yaml = document_to_yaml(&record);
-        yaml.push_str("zeta_unknown: 1\nalpha_unknown: 2\n");
-        let (_record, diagnostics) = document_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(diagnostics.len(), 2);
-        assert!(diagnostics[0].message.contains("zeta_unknown"));
-        assert!(diagnostics[1].message.contains("alpha_unknown"));
+    fn document_file_rejects_node_in_wrong_layer_array() {
+        let mut file = minimal_document_file();
+        // A design-layer id placed in the request array — DS-1658.
+        file.request[0].id = DocumentId::new("DES-001");
+        document_file_to_json(&file).expect_err(
+            "an id whose prefix disagrees with its layer array must fail closed (DS-1658)",
+        );
     }
 
-    /// Guards `DOCUMENT_KEYS`/`DERIVES_FROM_KEYS` against drifting out of
-    /// sync with `DocumentRecord`/`DerivesFrom`'s actual fields: every
-    /// optional field here is populated (`Some`, non-empty), so nothing is
-    /// omitted from the serialized shape by a `skip_serializing_if`.
     #[test]
-    fn document_known_keys_match_the_record_shape() {
-        let record = DocumentRecord {
-            id: DocumentId::new("DOC-MAX-001"),
-            path: "docs/max.md".to_string(),
-            content_hash: ContentHash::from_text("max"),
-            title: Some("title".to_string()),
-            derives_from: vec![DerivesFrom {
-                doc: DocumentId::new("DOC-REQ-001"),
-                anchor: Some("anchor".to_string()),
-                note: Some("note".to_string()),
+    fn document_file_rejects_empty_statement() {
+        let mut file = minimal_document_file();
+        file.request[0].statement = String::new();
+        document_file_to_json(&file).expect_err("an empty statement must fail closed");
+    }
+
+    #[test]
+    fn document_file_rejects_empty_source_doc() {
+        let mut file = minimal_document_file();
+        file.request[0].source.doc = String::new();
+        document_file_to_json(&file).expect_err("an empty source.doc must fail closed");
+    }
+
+    #[test]
+    fn document_file_rejects_source_lines_below_one() {
+        let mut file = minimal_document_file();
+        file.request[0].source.lines = [0, 1];
+        document_file_to_json(&file).expect_err("a source.lines entry of 0 must fail closed");
+    }
+
+    /// `validate_node_source`'s `source.heading` check
+    /// (specification.schema.json `$defs/source`, `minLength: 1`) — the
+    /// module previously implemented this but had no test exercising it.
+    #[test]
+    fn document_file_rejects_empty_source_heading() {
+        let mut file = minimal_document_file();
+        file.request[0].source.heading = String::new();
+        document_file_to_json(&file).expect_err("an empty source.heading must fail closed");
+    }
+
+    /// `validate_sentence_node`'s `cites` entry check (schema `minLength: 1`
+    /// on each `cites[]` string) — implemented but previously untested.
+    #[test]
+    fn document_file_rejects_empty_cites_entry() {
+        let mut file = minimal_document_file();
+        file.request[0].cites = Some(vec![String::new()]);
+        document_file_to_json(&file).expect_err("an empty cites entry must fail closed");
+    }
+
+    /// `validate_section_node`'s `title` check (schema `$defs/section`,
+    /// `minLength: 1`) — this path is unreachable through `minimal_document_file`
+    /// alone (its `require`/`spec`/etc. arrays are always empty), so this
+    /// builds a populated `SectionNode` directly to exercise it.
+    #[test]
+    fn document_file_rejects_empty_section_title() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: String::new(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err("an empty section title must fail closed");
+    }
+
+    /// DS-1658 layer/prefix agreement, checked on a node nested two levels
+    /// deep (`require[].sections[].items[]`) — `validate_section_node`
+    /// recurses into both `sections[]` and `items[]`, and this is the only
+    /// test that reaches a nested `items[]` sentence rather than a
+    /// top-level `request[]` one.
+    #[test]
+    fn document_file_rejects_nested_item_in_wrong_layer() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: Some(vec![SectionNode {
+                id: DocumentId::new("REQ-S002"),
+                title: "A subsection".to_owned(),
+                description: None,
+                source: sample_source(),
+                derives_from: None,
+                sections: None,
+                // A design-layer id nested inside the require layer's tree.
+                items: Some(vec![SentenceNode {
+                    id: DocumentId::new("DES-001"),
+                    statement: "Wrong layer.".to_owned(),
+                    description: None,
+                    derives_from: vec![],
+                    cites: None,
+                    source: sample_source(),
+                }]),
+            }]),
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err(
+            "a nested item whose id prefix disagrees with its layer must fail closed (DS-1658)",
+        );
+    }
+
+    #[test]
+    fn document_file_rejects_duplicate_derives_from() {
+        let mut file = minimal_document_file();
+        file.request[0].derives_from =
+            vec![DocumentId::new("ROOT-001"), DocumentId::new("ROOT-001")];
+        document_file_to_json(&file)
+            .expect_err("a duplicated derives_from entry must fail closed (schema uniqueItems)");
+    }
+
+    /// specification.schema.json:52 (`derivedItem.derives_from`): each entry
+    /// is `{ "$ref": "#/$defs/id" }`, the same pattern checked on a node's
+    /// own `id` — a bogus string must fail closed on a sentence node's
+    /// `derives_from`, not merely on `id` itself.
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_sentence_node() {
+        let mut file = minimal_document_file();
+        file.request[0].derives_from = vec![DocumentId::new("totally bogus")];
+        let error = document_file_to_json(&file)
+            .expect_err("a derives_from entry not matching $defs/id must fail closed");
+        assert!(matches!(
+            error,
+            StoreError::SchemaMismatch {
+                code: "E-SCAN-010",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn document_file_rejects_empty_string_derives_from_entry() {
+        let mut file = minimal_document_file();
+        file.request[0].derives_from = vec![DocumentId::new("")];
+        document_file_to_json(&file).expect_err("an empty derives_from entry must fail closed");
+    }
+
+    /// specification.schema.json:71 (`section.derives_from`) is the same
+    /// `$defs/id`-constrained array as the sentence-node case above, checked
+    /// on `SectionNode::derives_from` (`Option<Vec<DocumentId>>`) instead.
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_section_node() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: Some(vec![DocumentId::new("nope")]),
+            sections: None,
+            items: None,
+        }];
+        document_file_to_json(&file).expect_err(
+            "a section-level derives_from entry not matching $defs/id must fail closed",
+        );
+    }
+
+    /// The same check must also fire on a sentence node nested inside a
+    /// section's `items[]`, not only on a top-level `request[]` entry —
+    /// `validate_section_node` recurses into both `sections[]` and
+    /// `items[]` (canonical.rs `validate_section_node`).
+    #[test]
+    fn document_file_rejects_malformed_derives_from_entry_on_nested_item() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: Some(vec![SentenceNode {
+                id: DocumentId::new("REQ-001"),
+                statement: "A nested requirement.".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("not-an-id")],
+                cites: None,
+                source: sample_source(),
+            }]),
+        }];
+        document_file_to_json(&file)
+            .expect_err("a nested item's malformed derives_from entry must fail closed");
+    }
+
+    /// Positive case locking in the scoping decision above: a `derives_from`
+    /// entry pointing at a node in a *different* layer than the node that
+    /// holds it is accepted here — DS-1658's layer/prefix agreement binds
+    /// only a node's own id to its own layer's array (`validate_node_id`),
+    /// never what that node cites as upstream. Only the id *pattern* is
+    /// checked on a `derives_from` entry, matching how `specification.json`
+    /// itself is shaped (e.g. a `detailed_spec`-layer `DS-` node deriving
+    /// from a `spec`-layer `SPEC-` node throughout the real bundle).
+    #[test]
+    fn document_file_accepts_derives_from_entry_across_layers() {
+        let mut file = minimal_document_file();
+        file.require = vec![SectionNode {
+            id: DocumentId::new("REQ-S001"),
+            title: "A section".to_owned(),
+            description: None,
+            source: sample_source(),
+            derives_from: None,
+            sections: None,
+            items: Some(vec![SentenceNode {
+                id: DocumentId::new("REQ-001"),
+                statement: "A requirement deriving from the request layer.".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("R-1")],
+                cites: None,
+                source: sample_source(),
+            }]),
+        }];
+        document_file_to_json(&file)
+            .expect("a derives_from entry in a different layer than its own node must be accepted");
+    }
+
+    #[test]
+    fn document_file_json_rejects_explicit_null_description() {
+        let json = r#"{
+            "schema_version": "0.1",
+            "root": [{
+                "id": "ROOT-001",
+                "statement": "x",
+                "description": null,
+                "source": { "doc": "d", "heading": "h", "lines": [1, 1] }
             }],
-            registered_at: "2026-08-08T00:00:00Z".to_string(),
-        };
-        let value = yaml_serde::to_value(&record).unwrap();
-
-        let mut keys: Vec<&str> = value
-            .as_mapping()
-            .unwrap()
-            .iter()
-            .filter_map(|(key, _)| key.as_str())
-            .collect();
-        keys.sort_unstable();
-        let mut expected = DOCUMENT_KEYS.to_vec();
-        expected.sort_unstable();
-        assert_eq!(keys, expected);
-
-        let mut derives_from_keys: Vec<&str> = value
-            .get("derives_from")
-            .and_then(|list| list.get(0))
-            .and_then(yaml_serde::Value::as_mapping)
-            .unwrap()
-            .iter()
-            .filter_map(|(key, _)| key.as_str())
-            .collect();
-        derives_from_keys.sort_unstable();
-        let mut expected_derives_from = DERIVES_FROM_KEYS.to_vec();
-        expected_derives_from.sort_unstable();
-        assert_eq!(derives_from_keys, expected_derives_from);
+            "request": [], "require": [], "spec": [],
+            "detailed_spec": [], "basic_design": [], "design": []
+        }"#;
+        let error = document_file_from_json(json)
+            .expect_err("an explicit JSON null on an optional field must fail closed");
+        assert!(matches!(
+            error,
+            StoreError::SchemaMismatch {
+                code: "E-SCAN-010",
+                ..
+            }
+        ));
     }
+
+    #[test]
+    fn document_file_json_accepts_absent_description() {
+        let json = r#"{
+            "schema_version": "0.1",
+            "root": [{
+                "id": "ROOT-001",
+                "statement": "x",
+                "source": { "doc": "d", "heading": "h", "lines": [1, 1] }
+            }],
+            "request": [], "require": [], "spec": [],
+            "detailed_spec": [], "basic_design": [], "design": []
+        }"#;
+        document_file_from_json(json).unwrap();
+    }
+
+    #[test]
+    fn document_file_rejects_unknown_top_level_field_fixture() {
+        let text = include_str!("../tests/fixtures/document_unknown_field_top_level.json");
+        let error =
+            document_file_from_json(text).expect_err("an unknown top-level field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn document_file_rejects_unknown_section_field_fixture() {
+        let text = include_str!("../tests/fixtures/document_unknown_field_section.json");
+        document_file_from_json(text).expect_err("an unknown section field must fail closed");
+    }
+
+    #[test]
+    fn document_file_rejects_unknown_sentence_field_fixture() {
+        let text = include_str!("../tests/fixtures/document_unknown_field_sentence.json");
+        document_file_from_json(text).expect_err("an unknown sentence field must fail closed");
+    }
+
+    #[test]
+    fn document_file_rejects_derives_from_anchor_note_fixture() {
+        let text = include_str!("../tests/fixtures/document_derives_from_anchor_rejected.json");
+        document_file_from_json(text).expect_err(
+            "a document derives_from entry shaped as {doc, anchor} must fail closed — that shape is VO-only (DS-1638)",
+        );
+    }
+
+    /// Default-run (not `#[ignore]`d) positive round-trip of PR #20's small,
+    /// populated document fixture through *this crate's* reader/writer and
+    /// through disk — the exit-gate item the four negative fixtures above
+    /// (all `expect_err`) do not exercise: none of them is a document this
+    /// store is expected to accept and preserve. Reads the fixture directly
+    /// from `vtest-model`'s own `tests/fixtures/` rather than copying it, so
+    /// there is exactly one copy of this fixture's content to keep in sync.
+    #[test]
+    fn document_sample_fixture_round_trips_through_the_store_reader_and_writer() {
+        let text = include_str!("../../vtest-model/tests/fixtures/document_sample.json");
+
+        let file = document_file_from_json(text)
+            .expect("PR #20's small populated fixture must pass this store's reader checks");
+        assert_eq!(file.root.len(), 1);
+        assert_eq!(file.request.len(), 1);
+        assert_eq!(file.require.len(), 1);
+        assert_eq!(file.design.len(), 1);
+
+        // Round-trip through this crate's own writer/reader in memory.
+        let rewritten =
+            document_file_to_json(&file).expect("re-serializing the fixture must validate too");
+        let reparsed = document_file_from_json(&rewritten)
+            .expect("the store's own writer output must be readable by its own reader");
+        assert_eq!(reparsed, file);
+
+        // Round-trip through disk, the same path `read_document_file`/
+        // `write_document_file` exercise for every other document test.
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-doc-sample-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        write_document_file(&layout, "document_sample", &file).unwrap();
+        assert_eq!(
+            read_document_file(&layout, "document_sample").unwrap(),
+            file
+        );
+    }
+
+    /// Real-bundle round trip through *this crate's* reader/writer, not
+    /// `vtest-model`'s own (already covered by
+    /// `vtest_model::document::tests::canonical_bundle_round_trips_and_matches_node_counts`).
+    /// Only runs when `VTEST_CANONICAL_BUNDLE` names the canonical
+    /// `specification.json` — not run by default, since it depends on a
+    /// file outside this crate's fixtures.
+    #[test]
+    #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
+    fn canonical_bundle_round_trips_through_the_store_reader() {
+        let path = std::env::var("VTEST_CANONICAL_BUNDLE")
+            .expect("set VTEST_CANONICAL_BUNDLE to the canonical specification.json path");
+        let text = std::fs::read_to_string(&path).expect("failed to read canonical bundle");
+
+        let file = document_file_from_json(&text)
+            .expect("the canonical bundle must pass every check this store's reader applies");
+
+        fn count_sections(sections: &[SectionNode]) -> usize {
+            sections
+                .iter()
+                .map(|s| {
+                    let items = s.items.as_deref().unwrap_or_default().len();
+                    let nested = s.sections.as_deref().unwrap_or_default();
+                    1 + items + count_sections(nested)
+                })
+                .sum()
+        }
+
+        // Node counts are asserted for self-consistency, not pinned to a
+        // literal observed at one canonical-bundle revision: the canonical
+        // specification.json moves forward on its own branch, and a count
+        // baked in at one commit turns every subsequent growth of the spec
+        // into a false failure here, with no relation to whether this
+        // crate's reader regressed. Instead, each layer's count is computed
+        // two independent ways from the same bundle text — once by walking
+        // the typed `DocumentFile` this store's own reader
+        // (`document_file_from_json`) produced, via the `count_sections`
+        // walk above, and once by walking a `serde_json::Value` parsed
+        // independently from the same text — and the two must agree. This
+        // is not redundant with the round-trip assertion below: that
+        // assertion shows the store's writer/reader pair is idempotent on
+        // this bundle, while this one shows the reader's typed output
+        // matches the schema's own node shape, independent of how
+        // `SectionNode`'s fields happen to be laid out.
+        let raw: serde_json::Value =
+            serde_json::from_str(&text).expect("bundle must also parse as a plain JSON value");
+
+        fn count_sections_value(sections: &[serde_json::Value]) -> usize {
+            sections
+                .iter()
+                .map(|s| {
+                    let items = s
+                        .get("items")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    let empty = Vec::new();
+                    let nested = s
+                        .get("sections")
+                        .and_then(|v| v.as_array())
+                        .unwrap_or(&empty);
+                    1 + items + count_sections_value(nested)
+                })
+                .sum()
+        }
+
+        fn layer_array<'a>(bundle: &'a serde_json::Value, key: &str) -> &'a [serde_json::Value] {
+            bundle
+                .get(key)
+                .and_then(|v| v.as_array())
+                .unwrap_or_else(|| panic!("bundle `{key}` is not a JSON array"))
+                .as_slice()
+        }
+
+        let value_root = layer_array(&raw, "root").len();
+        let value_request = layer_array(&raw, "request").len();
+        let value_require = count_sections_value(layer_array(&raw, "require"));
+        let value_spec = count_sections_value(layer_array(&raw, "spec"));
+        let value_detailed_spec = count_sections_value(layer_array(&raw, "detailed_spec"));
+        let value_basic_design = count_sections_value(layer_array(&raw, "basic_design"));
+        let value_design = count_sections_value(layer_array(&raw, "design"));
+
+        assert_eq!(
+            file.root.len(),
+            value_root,
+            "root layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            file.request.len(),
+            value_request,
+            "request layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            count_sections(&file.require),
+            value_require,
+            "require layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            count_sections(&file.spec),
+            value_spec,
+            "spec layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            count_sections(&file.detailed_spec),
+            value_detailed_spec,
+            "detailed_spec layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            count_sections(&file.basic_design),
+            value_basic_design,
+            "basic_design layer node count: store reader's typed count vs. independent Value-based count"
+        );
+        assert_eq!(
+            count_sections(&file.design),
+            value_design,
+            "design layer node count: store reader's typed count vs. independent Value-based count"
+        );
+
+        let total = file.root.len()
+            + file.request.len()
+            + count_sections(&file.require)
+            + count_sections(&file.spec)
+            + count_sections(&file.detailed_spec)
+            + count_sections(&file.basic_design)
+            + count_sections(&file.design);
+
+        eprintln!(
+            "canonical_bundle_round_trips_through_the_store_reader: observed node counts — \
+             root={}, request={}, require={}, spec={}, detailed_spec={}, basic_design={}, \
+             design={}, total={} (not pinned to a literal — this run's store-reader typed count \
+             matched an independent Value-based count for every layer).",
+            file.root.len(),
+            file.request.len(),
+            count_sections(&file.require),
+            count_sections(&file.spec),
+            count_sections(&file.detailed_spec),
+            count_sections(&file.basic_design),
+            count_sections(&file.design),
+            total,
+        );
+
+        // Round-trip back out through this crate's own writer and re-read.
+        let rewritten = document_file_to_json(&file).expect("re-serialization must validate too");
+        let reparsed = document_file_from_json(&rewritten)
+            .expect("the store's own writer output must be readable by its own reader");
+        assert_eq!(reparsed, file);
+    }
+
+    // -------------------------------------------------------------
+    // VO record tests
+    // -------------------------------------------------------------
 
     fn sample_vo() -> VoRecord {
         VoRecord {
@@ -956,8 +1479,8 @@ registered_at: 2026-08-08T00:00:00Z
         assert!(diagnostics.is_empty());
     }
 
-    /// `derives_from` itself is mandatory (詳細設計 v0.1 §3.2: "1 件以上");
-    /// this exercises every *other* optional field being absent instead.
+    /// `derives_from` itself is mandatory (SPEC-015); this exercises every
+    /// *other* optional field being absent instead.
     #[test]
     fn vo_record_without_parent_or_other_optional_fields_round_trips() {
         let record = VoRecord {
@@ -1002,10 +1525,182 @@ registered_at: 2026-08-08T00:00:00Z
             .expect_err("the writer must refuse to persist a VO it could not itself read back");
     }
 
-    /// 詳細設計 v0.1 §3.2's own example, verbatim (including its inline
-    /// comments), fed straight to the reader.
+    /// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
+    /// `combinations[]` entry declaring the same dimension twice must not
+    /// reach `vo_record_to_yaml`'s `to_string(record).expect(...)` and
+    /// panic — `write_vo_record` must reject it with a clean `StoreError`
+    /// first, via `require_no_duplicate_combination_dimension_names`.
     #[test]
-    fn vo_record_parses_the_literal_spec_example() {
+    fn vo_record_with_duplicate_combination_dimension_name_is_rejected_on_write() {
+        let mut record = sample_vo();
+        record.coverage_policy = Some(CoveragePolicy::Explicit);
+        record.combinations = vec![CombinationEntry::from_iter(vec![
+            ("operand-sign".to_owned(), "positive".to_owned()),
+            ("operand-sign".to_owned(), "negative".to_owned()),
+        ])];
+
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-vo-duplicate-dimension-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        let error = write_vo_record(&layout, &record).expect_err(
+            "the writer must reject a combinations entry that repeats one dimension name, \
+             not panic inside vo_record_to_yaml",
+        );
+        assert!(
+            matches!(&error, StoreError::InvalidConfig(message) if message.contains("operand-sign")),
+            "error should name the offending dimension: {error:?}"
+        );
+    }
+
+    /// DS-422/DS-902 (E-SCAN-017 condition 6): the record layer must hand a
+    /// `combinations[]` entry with a repeated dimension name to the scan
+    /// layer intact — reading it must succeed, and the duplicate must
+    /// survive on `CombinationEntry`, rather than the read failing closed as
+    /// E-SCAN-010 before `vtest-scan`'s `invalid_vo_combinations` ever sees
+    /// it. This is the regression this whole fix exists for: before it, the
+    /// initial `yaml_serde::Value` parse rejected the duplicate key at
+    /// `combinations[0]` before any `VoRecord` was ever built.
+    #[test]
+    fn vo_record_combinations_entry_with_duplicate_dimension_key_is_read_intact() {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+coverage_policy: explicit
+combinations:
+  - { operand-sign: positive, operand-sign: negative }
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001")
+            .expect("a combinations[] entry repeating one dimension name must still be read");
+        assert!(diagnostics.is_empty());
+        assert_eq!(record.combinations.len(), 1);
+        assert_eq!(
+            record.combinations[0].duplicate_dimension_names(),
+            vec!["operand-sign"],
+            "the duplicate must survive losslessly for the scan-layer E-SCAN-017 check"
+        );
+    }
+
+    /// The record layer's own protections stay intact for every *other*
+    /// field once the primary parse bypasses `yaml_serde::Value`: a
+    /// duplicate top-level key (here, two `claim:` entries) is still
+    /// rejected by `VoRecord`'s own derived `Deserialize`, independent of
+    /// `Value` (see `vtest_model::vo::CombinationEntry`'s doc comment).
+    #[test]
+    fn vo_record_with_duplicate_top_level_key_is_rejected() {
+        let yaml = "\
+id: VO-PARSER-UTF8-003
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: first claim
+claim: second claim
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003")
+            .expect_err("a duplicate top-level key outside combinations[] must fail closed");
+    }
+
+    /// Same protection, nested one level down: a duplicate key inside a
+    /// single `derives_from[]` entry is rejected by `DerivesFrom`'s own
+    /// derived `Deserialize`.
+    #[test]
+    fn vo_record_with_duplicate_key_in_derives_from_entry_is_rejected() {
+        let yaml = "\
+id: VO-PARSER-UTF8-003
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+    doc: DOC-OTHER-001
+claim: claim
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003")
+            .expect_err("a duplicate key inside one derives_from[] entry must fail closed");
+    }
+
+    /// Same protection, on the other nested shape `vtest_model::vo::
+    /// CombinationEntry`'s doc comment names: a duplicate key inside one
+    /// `dimensions[]` entry is rejected by `Dimension`'s own derived
+    /// `Deserialize`, independent of `Value` — `combinations[]` is the *only*
+    /// nested shape that tolerates a repeat.
+    #[test]
+    fn vo_record_with_duplicate_key_in_dimensions_entry_is_rejected() {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    name: operator
+    partitions: [positive, negative]
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+";
+        vo_record_from_yaml(yaml, "VO-ARITH-001")
+            .expect_err("a duplicate key inside one dimensions[] entry must fail closed");
+    }
+
+    /// The unknown-field scan (DS-1645) is not skipped merely because a
+    /// `combinations[]` entry also has a tolerated duplicate: an unrelated
+    /// unknown top-level field must still fail closed, proving `LenientValue`
+    /// building successfully on the duplicate did not also swallow this
+    /// check.
+    #[test]
+    fn vo_record_combinations_duplicate_with_unrelated_unknown_field_is_still_rejected() {
+        let yaml = "\
+id: VO-ARITH-001
+parent: null
+derives_from:
+  - doc: DOC-BASIC-001
+claim: claim
+dimensions:
+  - name: operand-sign
+    partitions: [positive, negative]
+coverage_policy: explicit
+combinations:
+  - { operand-sign: positive, operand-sign: negative }
+representative_cases: []
+created: 2026-08-08
+updated: 2026-08-08
+nickname: quick-vo
+";
+        let error = vo_record_from_yaml(yaml, "VO-ARITH-001").expect_err(
+            "an unrelated unknown top-level field must still fail closed alongside a tolerated \
+             combinations[] duplicate",
+        );
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// DES-117's own example, verbatim (including its inline comments), fed
+    /// straight to the reader.
+    #[test]
+    fn vo_record_parses_the_literal_des_117_example() {
         let yaml = "\
 id: VO-PARSER-UTF8-003
 parent: VO-PARSER-UTF8          # VO ID または null（階層化）
@@ -1039,11 +1734,11 @@ updated: 2026-08-08
         );
     }
 
-    /// 詳細設計 v0.1 §3.2.1's `explicit` combinations example, verbatim: each
-    /// entry is a dimension-name → partition-value flow-mapping, not a
-    /// positional list of bare strings.
+    /// DES-121's own `description`, verbatim: each `combinations[]` entry is
+    /// a dimension-name → partition-value flow-mapping, not a positional
+    /// list of bare strings.
     #[test]
-    fn vo_record_parses_the_literal_combinations_example() {
+    fn vo_record_parses_the_literal_des_121_example() {
         let yaml = "\
 id: VO-ARITH-001
 parent: null
@@ -1065,12 +1760,10 @@ updated: 2026-08-08
 ";
         let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
         assert_eq!(record.combinations.len(), 2);
+        // `CombinationEntry::get` already returns `Option<&str>` (`vtest-model`) — no
+        // `.map(String::as_str)` needed; that call does not type-check against `&str`.
         assert_eq!(record.combinations[0].get("operand-sign"), Some("positive"));
         assert_eq!(record.combinations[0].get("operator"), Some("div"));
-        // `combinations[]` entries are keyed by the record's own declared
-        // dimension names (a dynamic vocabulary), not a fixed schema — this
-        // locks in that the unknown-field scan does not walk into them and
-        // misreport every dimension name as an unknown key.
         assert!(diagnostics.is_empty());
         let roundtrip = vo_record_to_yaml(&record);
         assert_eq!(
@@ -1079,324 +1772,9 @@ updated: 2026-08-08
         );
     }
 
-    /// 別紙C:97-104's E-SCAN-017 condition 1 names three distinct `explicit`-
-    /// policy inputs — `combinations` **欠落**（missing key）, `null`, and an
-    /// empty list — as all requiring the same E-SCAN-017 diagnostic from the
-    /// scan layer (`vtest-scan`'s `invalid_vo_combinations`), not a record-
-    /// layer schema rejection. `null` and an omitted key must therefore both
-    /// reach the typed `VoRecord` as `combinations: vec![]`, exactly like an
-    /// explicit `combinations: []`, rather than failing `Deserialize`
-    /// outright — this locks in both empirically (`VoRecord.combinations`
-    /// carries `#[serde(default)]` for this reason).
-    #[test]
-    fn vo_record_combinations_missing_or_null_parses_as_empty_vec() {
-        let base = "\
-id: VO-COMBOS
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: claim
-dimensions: []
-coverage_policy: null
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let (missing, diagnostics) = vo_record_from_yaml(base, "VO-COMBOS").unwrap();
-        assert!(missing.combinations.is_empty());
-        assert!(diagnostics.is_empty());
-
-        let with_null = format!("{base}combinations: null\n");
-        let (null_record, diagnostics) = vo_record_from_yaml(&with_null, "VO-COMBOS").unwrap();
-        assert!(null_record.combinations.is_empty());
-        assert!(diagnostics.is_empty());
-        assert_eq!(missing, null_record);
-    }
-
-    /// 詳細設計 v0.1 本冊:283（§3.2.1 の受理条件、条件6）"entry が宣言済み
-    /// dimension のいずれかを欠く、**または同じ dimension 名を2回以上持つ**"
-    /// is one `E-SCAN-017` condition (VO retained, `chain_integrity =
-    /// MISMATCH` — 本冊:1625・別紙A:438), not a record-layer rejection.
-    /// BLOCKER 1 (PR #26 review round 1/2): this test used to assert the
-    /// opposite — that reading such a record fails outright
-    /// (`unwrap_err()`, "duplicate entry") — which routed this condition
-    /// through E-SCAN-010 instead, dropping the VO from `vtest-scan`'s
-    /// `vos` map entirely. `vo_record_from_yaml`'s own doc comment explains
-    /// how this is now avoided (direct `VoRecord` deserialize,
-    /// `CombinationEntry` preserving the duplicate losslessly instead of a
-    /// bare `BTreeMap` colliding or `yaml_serde::Value` rejecting it).
-    #[test]
-    fn vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_scan_as_e_scan_017() {
-        let yaml = "\
-id: VO-COMBOS
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: claim
-dimensions:
-  - name: d1
-    partitions: [a, b]
-  - name: d2
-    partitions: [x, y]
-coverage_policy: explicit
-combinations:
-  - d1: a
-    d1: b
-    d2: x
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let (record, diagnostics) = vo_record_from_yaml(yaml, "VO-COMBOS")
-            .expect("a duplicate key confined to inside one combinations[] entry must not fail the whole VO record read (BLOCKER 1) — the defect belongs to the scan layer's E-SCAN-017, not a record-layer rejection");
-        assert_eq!(record.combinations.len(), 1);
-        assert_eq!(
-            record.combinations[0].iter().collect::<Vec<_>>(),
-            vec![("d1", "a"), ("d1", "b"), ("d2", "x")],
-            "every declared pair must survive, in declaration order — nothing fabricated, \
-             nothing dropped"
-        );
-        assert_eq!(
-            record.combinations[0].duplicate_dimension_names(),
-            vec!["d1"]
-        );
-        // BLOCKER A (PR #26 review round 2): this record has no other
-        // unknown field, so the empty result here is "nothing to warn
-        // about", not "the scan was skipped" — `vo_record_with_a_
-        // combinations_duplicate_and_an_unrelated_unknown_field_still_warns`
-        // (below) is the test that actually distinguishes the two, by
-        // adding an unrelated unknown field to the same combinations[]
-        // duplicate and asserting its W-STORE-007 still fires.
-        assert!(
-            diagnostics.is_empty(),
-            "no unrelated unknown field is present on this record, so there is nothing for the \
-             scan to warn about: {diagnostics:?}"
-        );
-    }
-
-    /// BLOCKER A (PR #26 review round 2): round 1's fix
-    /// (`vo_record_combination_entry_with_a_duplicate_dimension_key_
-    /// reaches_scan_as_e_scan_017`, above) built its diagnostics-only value
-    /// with `yaml_serde::Value`, which — round 2 review measured — fails to
-    /// build for *any* duplicate key anywhere in the document, not only one
-    /// confined to `combinations[]`. Because the two failure reasons were
-    /// indistinguishable through an `if let Ok(value) = ... else { skip }`,
-    /// round 1 silently dropped every diagnostic on a record like this one
-    /// — an unrelated unknown top-level field, on a record that also has a
-    /// `combinations[]` duplicate — even though the record itself reads
-    /// fine and the unknown field has nothing to do with `combinations[]`.
-    /// This test used to lock that loss in as "a known, tested trade-off";
-    /// `vo_record_from_yaml` now scans with `LenientValue` (see its own doc
-    /// comment), which cannot fail to build on a duplicate key anywhere, so
-    /// the warning is no longer lost.
-    #[test]
-    fn vo_record_with_a_combinations_duplicate_and_an_unrelated_unknown_field_still_warns() {
-        let yaml = "\
-id: VO-COMBOS
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: claim
-dimensions:
-  - name: d1
-    partitions: [a, b]
-coverage_policy: explicit
-combinations:
-  - d1: a
-    d1: b
-unknown_field: surprise
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let (record, diagnostics) =
-            vo_record_from_yaml(yaml, "VO-COMBOS").expect("the record itself still reads fine");
-        assert_eq!(
-            record.combinations[0].duplicate_dimension_names(),
-            vec!["d1"],
-            "the combinations[] duplicate must still reach the record, unaffected by the \
-             unrelated unknown field"
-        );
-        assert_eq!(
-            diagnostics.len(),
-            1,
-            "unknown_field must still warn as W-STORE-007, even though the same record's \
-             combinations[] entry has an (unrelated) duplicate dimension key: {diagnostics:?}"
-        );
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("unknown_field"));
-    }
-
-    /// BLOCKER A (PR #26 review round 2), probe row 6: an unrelated unknown
-    /// top-level key whose *own value* is a mapping with an internally
-    /// duplicated key. Round 1's `yaml_serde::Value`-based scan failed to
-    /// build for this input too (the duplicate is not inside
-    /// `combinations[]`, but `Value`'s duplicate-key rejection applies
-    /// recursively to the whole document, not just the fields a schema
-    /// recognizes) — so `extra` itself went unwarned, silently. `VoRecord`'s
-    /// own typed parse never saw a problem here: `extra` is not one of its
-    /// fields, so serde's generated struct visitor discards its value via
-    /// `IgnoredAny` without ever checking that value's own keys for
-    /// duplicates.
-    #[test]
-    fn vo_record_with_unknown_top_level_field_whose_value_has_a_duplicate_key_still_warns() {
-        let record = sample_vo();
-        let mut yaml = vo_record_to_yaml(&record);
-        yaml.push_str("extra:\n  x: 1\n  x: 2\n");
-        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).expect(
-            "an unrelated unknown field's internally-duplicated value must not fail the read",
-        );
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("extra"));
-    }
-
-    /// BLOCKER A (PR #26 review round 2), probe row 8: `status`'s own value
-    /// is a mapping with an internally duplicated key (rather than the
-    /// ordinary scalar `status: draft`/`status: approved`). `status` is not
-    /// a `VoRecord` field either, so the same `IgnoredAny` reasoning as the
-    /// previous test applies to the primary parse; the presence check below
-    /// only needs to see the *key*, not validate its value.
-    #[test]
-    fn vo_record_with_status_field_whose_value_has_a_duplicate_key_still_warns() {
-        let record = sample_vo();
-        let mut yaml = vo_record_to_yaml(&record);
-        yaml.push_str("status:\n  x: 1\n  x: 2\n");
-        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str())
-            .expect("status's internally-duplicated value must not fail the read");
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].code, "W-STORE-001");
-    }
-
-    /// BLOCKER A (PR #26 review round 2), probe row 10: an unknown key
-    /// nested inside a `dimensions[]` entry, whose own value is a mapping
-    /// with an internally duplicated key. `Dimension`'s derived
-    /// `Deserialize` ignores `bar` the same way `VoRecord` ignores an
-    /// unrecognized top-level key (ミラー of the two tests above, one level
-    /// deeper — the same defect class, at the nesting the round-2 probe
-    /// found it missing from).
-    #[test]
-    fn vo_record_with_unknown_nested_dimensions_field_whose_value_has_a_duplicate_key_still_warns()
-    {
-        let yaml = "\
-id: VO-ARITH-001
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: claim
-dimensions:
-  - name: operand-sign
-    partitions: [positive, negative]
-    bar:
-      x: 1
-      x: 2
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001")
-            .expect("an unknown nested field's internally-duplicated value must not fail the read");
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("dimensions[0].bar"));
-    }
-
-    /// The general duplicate-key rejection PR2 established for every VO
-    /// record field — outside `combinations[]` — must survive the carve-out
-    /// above unchanged. A duplicate top-level `claim:` key is still a
-    /// record-layer rejection, and it no longer depends on `yaml_serde::
-    /// Value` to get there: `VoRecord`'s own `#[derive(Deserialize)]`
-    /// rejects it directly (confirmed empirically — `serde`'s generated
-    /// struct visitor tracks each field and errors the second time it sees
-    /// one, independent of whichever `Deserializer` drives it).
-    #[test]
-    fn vo_record_with_a_duplicate_top_level_key_outside_combinations_is_still_rejected() {
-        let yaml = "\
-id: VO-DUP-TOP
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: first claim
-claim: second claim
-dimensions: []
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let error = vo_record_from_yaml(yaml, "VO-DUP-TOP")
-            .expect_err("a duplicate top-level key outside combinations[] must fail closed");
-        assert!(
-            error.to_string().contains("duplicate field"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// Same carve-out boundary, one level deeper: a duplicate key inside a
-    /// `derives_from[]` entry (a nested `struct`, `DerivesFrom`) is also
-    /// still rejected, via that struct's own derived `Deserialize` — not
-    /// `combinations[]`, so `CombinationEntry`'s tolerance does not apply.
-    #[test]
-    fn vo_record_with_a_duplicate_key_in_a_derives_from_entry_is_still_rejected() {
-        let yaml = "\
-id: VO-DUP-DERIVES
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-    doc: DOC-OTHER-001
-claim: claim
-dimensions: []
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let error = vo_record_from_yaml(yaml, "VO-DUP-DERIVES")
-            .expect_err("a duplicate key in a derives_from[] entry must fail closed");
-        assert!(
-            error.to_string().contains("duplicate field"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// Same carve-out boundary, checked for the other nested `struct`
-    /// (`Dimension`, inside `dimensions[]`) that `combinations[]` sits
-    /// alongside in `VoRecord`.
-    #[test]
-    fn vo_record_with_a_duplicate_key_in_a_dimensions_entry_is_still_rejected() {
-        let yaml = "\
-id: VO-DUP-DIMENSIONS
-parent: null
-derives_from:
-  - doc: DOC-BASIC-001
-claim: claim
-dimensions:
-  - name: d1
-    name: d2
-    partitions: [a, b]
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-08-08
-updated: 2026-08-08
-";
-        let error = vo_record_from_yaml(yaml, "VO-DUP-DIMENSIONS")
-            .expect_err("a duplicate key in a dimensions[] entry must fail closed");
-        assert!(
-            error.to_string().contains("duplicate field"),
-            "expected a duplicate-key parse rejection, got: {error}"
-        );
-    }
-
-    /// 詳細設計 v0.1 §3.2: the reader accepts `status` (does not reject the
-    /// record) but ignores its *value* and instead notifies W-STORE-001 on
-    /// the field's mere presence — this checks both halves.
+    /// DS-405: the reader accepts `status` (does not reject the record) but
+    /// ignores its *value* and instead notifies W-STORE-001 on the field's
+    /// mere presence — this checks both halves.
     #[test]
     fn vo_record_status_read_compat_field_value_is_ignored_but_presence_warns() {
         let record = sample_vo();
@@ -1417,38 +1795,52 @@ updated: 2026-08-08
         assert!(diagnostics.is_empty());
     }
 
-    /// `status` keeps its own specific W-STORE-001 diagnostic even when a
-    /// second, genuinely unknown field is also present — the two do not
-    /// collapse into one, and `status` (checked first) is reported first.
+    /// DS-1645: a genuinely unknown field fails closed even when `status`
+    /// (a distinct, legitimate read-compat field per DS-405) is also
+    /// present — the two do not get to coexist as two warnings any more.
     #[test]
-    fn vo_record_with_status_and_another_unknown_field_reports_both() {
+    fn vo_record_with_status_and_another_unknown_field_is_rejected() {
         let record = sample_vo();
         let mut yaml = vo_record_to_yaml(&record);
         yaml.push_str("status: draft\nnickname: quick-vo\n");
-        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 2);
-        assert_eq!(diagnostics[0].code, "W-STORE-001");
-        assert_eq!(diagnostics[1].code, "W-STORE-007");
-        assert!(diagnostics[1].message.contains("nickname"));
+        let error = vo_record_from_yaml(&yaml, record.id.as_str())
+            .expect_err("a genuinely unknown field must fail closed even alongside `status`");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
-    /// 詳細設計 v0.1 §3 header (L185): same generic warn-and-continue
-    /// behavior as document, for a field with no dedicated code.
+    /// DS-1645 (E-SCAN-010): an unknown top-level field is now rejected,
+    /// not merely warned about (this replaces the retired DS-376 behavior —
+    /// see `docs/canonical/relations/retired-ids.json`).
     #[test]
-    fn vo_record_with_unknown_top_level_field_warns_and_still_reads() {
+    fn vo_record_with_unknown_top_level_field_is_rejected() {
         let record = sample_vo();
         let mut yaml = vo_record_to_yaml(&record);
         yaml.push_str("owner: someone\n");
-        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("owner"));
+        let error = vo_record_from_yaml(&yaml, record.id.as_str())
+            .expect_err("an unknown top-level field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// Unlike `ApprovalRecord`/`read_evidence` (`records.rs`), a VO record's
+    /// unknown-field scan is always followed by `yaml_serde::from_value::<
+    /// VoRecord>` (below), which independently rejects a non-string mapping
+    /// key with its own type error — a second, independent backstop behind
+    /// `reject_unknown_fields`'s own rejection (this test does not isolate
+    /// which of the two rejects first; either failing keeps the record
+    /// unread). Locks in that at least one of the two continues to reject
+    /// this shape (DS-1645), guarding against the non-string-key gap
+    /// reopening if either layer regresses.
+    #[test]
+    fn vo_record_with_non_string_top_level_key_is_rejected() {
+        let record = sample_vo();
+        let mut yaml = vo_record_to_yaml(&record);
+        yaml.push_str("2026: unlimited\n");
+        vo_record_from_yaml(&yaml, record.id.as_str())
+            .expect_err("a non-string top-level key must fail closed");
     }
 
     #[test]
-    fn vo_record_with_unknown_nested_derives_from_field_warns_with_path() {
+    fn vo_record_with_unknown_nested_derives_from_field_is_rejected() {
         let yaml = "\
 id: VO-PARSER-UTF8-003
 parent: null
@@ -1463,14 +1855,12 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003").unwrap();
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("derives_from[0].foo"));
+        vo_record_from_yaml(yaml, "VO-PARSER-UTF8-003")
+            .expect_err("an unknown nested derives_from field must fail closed");
     }
 
     #[test]
-    fn vo_record_with_unknown_nested_dimensions_field_warns_with_path() {
+    fn vo_record_with_unknown_nested_dimensions_field_is_rejected() {
         let yaml = "\
 id: VO-ARITH-001
 parent: null
@@ -1487,52 +1877,8 @@ representative_cases: []
 created: 2026-08-08
 updated: 2026-08-08
 ";
-        let (_record, diagnostics) = vo_record_from_yaml(yaml, "VO-ARITH-001").unwrap();
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("dimensions[0].bar"));
-    }
-
-    /// Guards `VO_KEYS`/`DIMENSION_KEYS` against drifting out of sync with
-    /// `VoRecord`/`Dimension`'s actual fields. `sample_vo()` already
-    /// populates every optional field (`parent`, `coverage_policy`), and no
-    /// `VoRecord` field carries `skip_serializing_if` other than
-    /// `derives_from` (always non-empty for a valid VO), so its serialized
-    /// shape already has every key present.
-    #[test]
-    fn vo_known_keys_match_the_record_shape() {
-        let value = yaml_serde::to_value(sample_vo()).unwrap();
-
-        let mut keys: Vec<&str> = value
-            .as_mapping()
-            .unwrap()
-            .iter()
-            .filter_map(|(key, _)| key.as_str())
-            .collect();
-        keys.sort_unstable();
-        let mut expected: Vec<&str> = VO_KEYS
-            .iter()
-            .copied()
-            .filter(|key| *key != "status")
-            .collect();
-        expected.sort_unstable();
-        assert_eq!(
-            keys, expected,
-            "VO_KEYS (minus the status read-compat key) must list exactly VoRecord's fields"
-        );
-
-        let mut dimension_keys: Vec<&str> = value
-            .get("dimensions")
-            .and_then(|list| list.get(0))
-            .and_then(yaml_serde::Value::as_mapping)
-            .unwrap()
-            .iter()
-            .filter_map(|(key, _)| key.as_str())
-            .collect();
-        dimension_keys.sort_unstable();
-        let mut expected_dimension = DIMENSION_KEYS.to_vec();
-        expected_dimension.sort_unstable();
-        assert_eq!(dimension_keys, expected_dimension);
+        vo_record_from_yaml(yaml, "VO-ARITH-001")
+            .expect_err("an unknown nested dimensions field must fail closed");
     }
 
     #[test]
@@ -1598,7 +1944,7 @@ updated: 2026-08-08
             },
         ];
         record.coverage_policy = Some(CoveragePolicy::Explicit);
-        record.combinations = vec![vtest_model::CombinationEntry::from_iter([
+        record.combinations = vec![CombinationEntry::from_iter([
             ("operand-sign".to_string(), "positive".to_string()),
             ("operator".to_string(), "div".to_string()),
         ])];
@@ -1606,341 +1952,6 @@ updated: 2026-08-08
         assert_eq!(
             vo_record_from_yaml(&yaml, record.id.as_str()).unwrap().0,
             record
-        );
-    }
-
-    /// BLOCKER 1 condition 2 (PR #26 review round 2): the writer must not be
-    /// able to persist a `combinations[]` entry with a duplicate dimension
-    /// name, even though the reader can tolerate reading one back
-    /// (`vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
-    /// scan_as_e_scan_017` below). A `BTreeMap`-backed entry could not even
-    /// construct this state; `CombinationEntry` can (that is the whole point
-    /// — see its doc comment), so the writer needs its own explicit guard.
-    #[test]
-    fn write_vo_record_refuses_a_combinations_entry_with_a_duplicate_dimension_name() {
-        let root = std::env::temp_dir().join(format!(
-            "vtest-store-canonical-dup-combo-{}",
-            crate::new_record_id()
-        ));
-        let layout = crate::init_project(&root, "example").unwrap();
-        let mut record = sample_vo();
-        record.dimensions = vec![Dimension {
-            name: "d1".to_string(),
-            partitions: vec!["a".to_string(), "b".to_string()],
-        }];
-        record.coverage_policy = Some(CoveragePolicy::Explicit);
-        record.combinations = vec![vtest_model::CombinationEntry::from_iter([
-            ("d1".to_string(), "a".to_string()),
-            ("d1".to_string(), "b".to_string()),
-        ])];
-        write_vo_record(&layout, &record)
-            .expect_err("a duplicate dimension name in combinations must not be writable");
-        assert!(
-            !layout
-                .vo_dir()
-                .join(format!("{}.yaml", record.id.as_str()))
-                .exists(),
-            "the writer must refuse before touching disk"
-        );
-    }
-
-    /// PR #26 round 3: the three §3 record readers used to disagree on a
-    /// record whose only defect was a duplicate key confined to the value of
-    /// a field none of them recognize — document/Relation rejected the whole
-    /// record, VO warned and read it. All three now agree on every row of
-    /// this table (each row exercised for document, then VO, then Relation,
-    /// in that order):
-    ///
-    /// | input shape                                       | document    | VO          | Relation    |
-    /// |----------------------------------------------------|-------------|-------------|-------------|
-    /// | unknown field's *value* has an internal duplicate   | warn, reads | warn, reads | warn, reads |
-    /// | duplicate key on a field the schema *does* recognize | reject      | reject      | reject      |
-    /// | an ordinary (non-duplicated) unknown top-level field | warn, reads | warn, reads | warn, reads |
-    /// | unknown field's value carries a local YAML tag (mapping) | warn, reads | warn, reads | warn, reads |
-    /// | unknown field's value carries a local YAML tag (scalar) | warn, reads | warn, reads | warn, reads |
-    /// | unknown field's value is an integer wider than u64  | warn, reads | warn, reads | warn, reads |
-    ///
-    /// The last three rows pin PR #26 round 3 review's BLOCKER B-1: `?`-
-    /// propagating `LenientValue`'s deserialize (so a genuine parse failure
-    /// still fails the read closed, unlike round 1's `if let Ok(...)`
-    /// catch-all) requires `LenientVisitor` to actually implement every
-    /// `Visitor` method `yaml_serde`'s `deserialize_any` can invoke —
-    /// otherwise a shape it doesn't cover turns "warn and read" into "reject
-    /// the whole record", for the same reason a missing arm caused BLOCKER A.
-    /// `visit_enum` (a local `!Foo` tag) and `visit_i128`/`visit_u128` (an
-    /// integer outside u64's range) were the three gaps found; see
-    /// `LenientValue`'s own doc comment for the full visitor inventory.
-    /// The individual per-reader tests above (`document_with_unknown_top_
-    /// level_field_whose_value_has_a_duplicate_key_still_warns`,
-    /// `vo_record_with_unknown_top_level_field_whose_value_has_a_duplicate_
-    /// key_still_warns`, and `records.rs`'s
-    /// `relation_with_unknown_top_level_field_whose_value_has_a_duplicate_
-    /// key_still_warns`/`relation_with_a_duplicate_top_level_key_is_still_
-    /// rejected`) already lock in each cell on its own; this test exists so
-    /// the three readers' agreement is visible in one place instead of
-    /// inferred by reading three files.
-    #[test]
-    fn document_vo_relation_readers_agree_on_the_same_three_input_shapes() {
-        fn relation_fixture() -> crate::RelationRecord {
-            crate::RelationRecord {
-                id: crate::new_record_id(),
-                relation_type: crate::RelationType::Complements,
-                from: "TEST-PARSER-044".to_owned(),
-                to: "TEST-PARSER-012".to_owned(),
-                note: None,
-                created: "2026-08-08T00:00:00Z".to_owned(),
-            }
-        }
-
-        // Row 1: an unknown field's value has an internally duplicated key.
-        {
-            let record = sample_document();
-            let mut yaml = document_to_yaml(&record);
-            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
-            let (parsed, diagnostics) =
-                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 1: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "document, row 1: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = sample_vo();
-            let mut yaml = vo_record_to_yaml(&record);
-            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
-            let (parsed, diagnostics) =
-                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 1: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "VO, row 1: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = relation_fixture();
-            let mut yaml = record.to_yaml().unwrap();
-            yaml.push_str("owner:\n  x: 1\n  x: 2\n");
-            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
-                .expect("Relation, row 1: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "Relation, row 1: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-
-        // Row 2: a duplicate key on a field the schema does recognize.
-        {
-            let yaml = document_to_yaml(&sample_document());
-            let mut duplicated = yaml.clone();
-            duplicated.push_str(&yaml);
-            assert!(
-                document_from_yaml(&duplicated, "DOC-BASIC-001").is_err(),
-                "document, row 2: must reject"
-            );
-        }
-        {
-            let yaml = vo_record_to_yaml(&sample_vo());
-            let mut duplicated = yaml.clone();
-            duplicated.push_str(&yaml);
-            assert!(
-                vo_record_from_yaml(&duplicated, "VO-PARSER-UTF8-003").is_err(),
-                "VO, row 2: must reject"
-            );
-        }
-        {
-            let record = relation_fixture();
-            let yaml = record.to_yaml().unwrap();
-            let mut duplicated = yaml.clone();
-            duplicated.push_str(&yaml);
-            assert!(
-                crate::RelationRecord::from_yaml(&duplicated, &record.id).is_err(),
-                "Relation, row 2: must reject"
-            );
-        }
-
-        // Row 3: an ordinary unknown top-level field, with no duplicate
-        // anywhere.
-        {
-            let record = sample_document();
-            let mut yaml = document_to_yaml(&record);
-            yaml.push_str("nickname: quick-doc\n");
-            let (parsed, diagnostics) =
-                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 3: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "document, row 3: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = sample_vo();
-            let mut yaml = vo_record_to_yaml(&record);
-            yaml.push_str("nickname: quick-vo\n");
-            let (parsed, diagnostics) =
-                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 3: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "VO, row 3: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = relation_fixture();
-            let mut yaml = record.to_yaml().unwrap();
-            yaml.push_str("nickname: quick-rel\n");
-            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
-                .expect("Relation, row 3: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "Relation, row 3: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-
-        // Row 4: an unknown field's value carries a local YAML tag
-        // (mapping shape) — exercises `LenientVisitor::visit_enum`.
-        {
-            let record = sample_document();
-            let mut yaml = document_to_yaml(&record);
-            yaml.push_str("owner: !Custom\n  a: 1\n");
-            let (parsed, diagnostics) =
-                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 4: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "document, row 4: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = sample_vo();
-            let mut yaml = vo_record_to_yaml(&record);
-            yaml.push_str("owner: !Custom\n  a: 1\n");
-            let (parsed, diagnostics) =
-                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 4: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "VO, row 4: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = relation_fixture();
-            let mut yaml = record.to_yaml().unwrap();
-            yaml.push_str("owner: !Custom\n  a: 1\n");
-            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
-                .expect("Relation, row 4: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "Relation, row 4: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-
-        // Row 5: an unknown field's value carries a local YAML tag
-        // (scalar shape) — same `visit_enum` path, different content shape.
-        {
-            let record = sample_document();
-            let mut yaml = document_to_yaml(&record);
-            yaml.push_str("owner: !Custom hello\n");
-            let (parsed, diagnostics) =
-                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 5: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "document, row 5: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = sample_vo();
-            let mut yaml = vo_record_to_yaml(&record);
-            yaml.push_str("owner: !Custom hello\n");
-            let (parsed, diagnostics) =
-                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 5: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "VO, row 5: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = relation_fixture();
-            let mut yaml = record.to_yaml().unwrap();
-            yaml.push_str("owner: !Custom hello\n");
-            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
-                .expect("Relation, row 5: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "Relation, row 5: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-
-        // Row 6: an unknown field's value is an integer wider than u64 —
-        // exercises `LenientVisitor::visit_i128`/`visit_u128`.
-        {
-            let record = sample_document();
-            let mut yaml = document_to_yaml(&record);
-            yaml.push_str("owner: 99999999999999999999999999\n");
-            let (parsed, diagnostics) =
-                document_from_yaml(&yaml, record.id.as_str()).expect("document, row 6: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "document, row 6: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = sample_vo();
-            let mut yaml = vo_record_to_yaml(&record);
-            yaml.push_str("owner: 99999999999999999999999999\n");
-            let (parsed, diagnostics) =
-                vo_record_from_yaml(&yaml, record.id.as_str()).expect("VO, row 6: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "VO, row 6: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-        {
-            let record = relation_fixture();
-            let mut yaml = record.to_yaml().unwrap();
-            yaml.push_str("owner: 99999999999999999999999999\n");
-            let (parsed, diagnostics) = crate::RelationRecord::from_yaml(&yaml, &record.id)
-                .expect("Relation, row 6: must read");
-            assert_eq!(parsed, record);
-            assert_eq!(diagnostics.len(), 1, "Relation, row 6: {diagnostics:?}");
-            assert_eq!(diagnostics[0].code, "W-STORE-007");
-        }
-    }
-
-    /// Confirms, independently of `document_from_yaml`'s combined behavior
-    /// below, that the primary typed-struct parse alone tolerates the same
-    /// pathologically deep unknown-field value that trips the diagnostics
-    /// scan — i.e. that the failure this locks in belongs to
-    /// `LenientValue`, not to `DocumentRecord`'s own `Deserialize`.
-    #[test]
-    fn document_records_own_typed_parse_alone_reads_the_depth_that_fails_the_scan() {
-        let record = sample_document();
-        let mut yaml = document_to_yaml(&record);
-        let nest = "[".repeat(200) + &"]".repeat(200);
-        yaml.push_str(&format!("owner: {nest}\n"));
-        let parsed: DocumentRecord = yaml_serde::from_str(&yaml)
-            .expect("the primary parse discards an unknown field via IgnoredAny, which never descends into its value, so it does not hit yaml_serde's recursion guard");
-        assert_eq!(parsed, record);
-    }
-
-    /// **Known exception to 詳細設計 v0.1 本冊:185** ("未知フィールドは
-    /// エラーではなく警告とする"): `LenientValue` (see its doc comment above)
-    /// walks into every unknown field's value to scan it for W-STORE-007/
-    /// duplicate-key tolerance, which the primary typed parse's `IgnoredAny`
-    /// does not — so a value nested deep enough trips `yaml_serde`'s
-    /// recursion guard (measured here: 127 deep still reads and warns, 128
-    /// fails) even though the primary parse alone reads it fine (see
-    /// `document_records_own_typed_parse_alone_reads_the_depth_that_fails_
-    /// the_scan` above, and `LenientValue`'s doc comment). When this fires,
-    /// `document_from_yaml` fails closed on the *whole* record — this is not
-    /// a bug this commit introduces or fixes; it is `fd6715a`'s
-    /// `Value`-first parse boundary, now pinned to its exact depth so a
-    /// future change to `LenientValue` or `yaml_serde` cannot silently move
-    /// it. The input required to hit it (128 levels of nested flow sequence)
-    /// has no realistic §3 source; this is not a §3.2 shape limit.
-    #[test]
-    fn document_with_unknown_field_nested_past_the_recursion_limit_fails_closed() {
-        let record = sample_document();
-
-        let mut still_reads = document_to_yaml(&record);
-        let nest_127 = "[".repeat(127) + &"]".repeat(127);
-        still_reads.push_str(&format!("owner: {nest_127}\n"));
-        let (parsed, diagnostics) = document_from_yaml(&still_reads, record.id.as_str())
-            .expect("127 levels deep is still within yaml_serde's recursion guard");
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-
-        let mut fails_closed = document_to_yaml(&record);
-        let nest_128 = "[".repeat(128) + &"]".repeat(128);
-        fails_closed.push_str(&format!("owner: {nest_128}\n"));
-        let error = document_from_yaml(&fails_closed, record.id.as_str()).expect_err(
-            "128 levels deep exceeds yaml_serde's recursion guard, and LenientValue's own \
-             deserialization (unlike the primary typed parse's IgnoredAny) descends into it",
-        );
-        assert!(
-            error.to_string().contains("recursion limit exceeded"),
-            "{error}"
         );
     }
 }

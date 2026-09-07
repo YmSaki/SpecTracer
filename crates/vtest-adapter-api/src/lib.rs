@@ -56,8 +56,8 @@ pub struct AdapterScanConfig {
 /// 含む関数item全体。本冊:99）であり、core が `ContentHash::from_text` で
 /// hash を計算する入力になる。
 ///
-/// 必須 metadata（core 中立: id・`covers ≥ 1`・intent、および adapter 追加
-/// 必須: `targets ≥ 1`。本冊 §4.4）を具体化できないTest構文は、adapterが
+/// 必須 metadata（core 中立: id・`covers ≥ 1`・intent。本冊 §4.4、DS-1666）を
+/// 具体化できないTest構文は、adapterが
 /// 診断（W-SCAN-101/E-SCAN-005/006/007）を返した上で、`TestDraft` の代わりに
 /// `MissingTestConstruct`（下記）を返す（`ManagedTestDraftLink::Missing`
 /// 相当）。したがってこの型のフィールドは必須 metadata について `Option`
@@ -190,9 +190,12 @@ pub trait SourceDiscoveryAdapter {
 
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig
 /// の検証」・§6.1「coreはregistryで解決」）。PR3 時点では `rust-cargo` の
-/// みを登録する。未知 adapter ID の扱い（E-CONFIG-001 か E-ADAPTER-001 か）は
-/// 仕様の食い違いで Owner 裁定待ち（Issue #24）であり、この registry 自体は
-/// 「該当実装が無ければ `None`」を返すだけで、その先の診断判断はしない。
+/// みを登録する。未知 adapter ID の扱い（`config.yaml` の `adapters[].id` が
+/// registryで解決できない場合のコード）は正本監査で確定済み — DS-352/
+/// DS-1663（`vtest-scan::ScanError::UnknownAdapterId`のdoc comment参照）が
+/// E-CONFIG-001と定める（旧Issue #24はこの条件ではなく別の争点だった）。
+/// この registry 自体は「該当実装が無ければ `None`」を返すだけで、その先の
+/// 診断判断（コードの割り当て）は呼び出し元（`vtest-scan`）が行う。
 #[derive(Default)]
 pub struct AdapterRegistry {
     adapters: Vec<Box<dyn SourceDiscoveryAdapter>>,
@@ -216,9 +219,11 @@ impl AdapterRegistry {
 
     /// Registered adapter IDs, in registration order. Used by core to report
     /// the known-adapter list when it rejects a `config.yaml` adapter ID that
-    /// `get` cannot resolve (fail-closed rejection of unregistered IDs; which
-    /// diagnostic code that rejection carries is Issue #24's Owner-decision
-    /// question, not this method's).
+    /// `get` cannot resolve (fail-closed rejection of unregistered IDs). Which
+    /// diagnostic code that rejection carries is settled, not this method's
+    /// concern to restate: DS-352/DS-1663 fix it as E-CONFIG-001 (see the
+    /// struct-level doc comment above), and `vtest-scan::ScanError::
+    /// UnknownAdapterId` implements it that way.
     pub fn ids(&self) -> impl Iterator<Item = &str> {
         self.adapters.iter().map(|adapter| adapter.id())
     }

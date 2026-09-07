@@ -69,7 +69,13 @@ define_string_id_type!(
 );
 
 define_string_id_type!(
-    /// Identifier of a canonical document record.
+    /// Identifier of a canonical specification node (root, sentence, or
+    /// section) in the upstream document model — a value from
+    /// `specification.schema.json`'s `$defs/id` union (`ROOT-`, `R-`, `P-`,
+    /// `REQ-`/`REQ-S`, `SPEC-`/`SPEC-S`, `DS-`/`DS-S`, `BD-`/`BD-S`,
+    /// `DES-`/`DES-S`; BD-318). Chosen by the document's author and never
+    /// renumbered by vtest (DS-1637): this type provides no id-generation
+    /// function, only wrapping.
     DocumentId
 );
 

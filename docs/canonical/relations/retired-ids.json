@@ -1,0 +1,929 @@
+[
+  {
+    "old_id": "DES-174",
+    "new_id": "DS-1585"
+  },
+  {
+    "old_id": "DES-514",
+    "new_id": "DS-1586"
+  },
+  {
+    "old_id": "DES-166",
+    "new_id": "DS-1585"
+  },
+  {
+    "old_id": "DES-506",
+    "new_id": "DS-1586"
+  },
+  {
+    "old_id": "DS-1585",
+    "new_id": "DES-564"
+  },
+  {
+    "old_id": "DS-1063",
+    "new_id": "DES-565"
+  },
+  {
+    "old_id": "DS-1586",
+    "new_id": "DES-566"
+  },
+  {
+    "old_id": "DES-565",
+    "new_id": "DS-1587"
+  },
+  {
+    "old_id": "DS-1585",
+    "new_id": "DS-1588",
+    "reason": "manual retire"
+  },
+  {
+    "old_id": "DS-1586",
+    "new_id": "DS-1589",
+    "reason": "manual retire"
+  },
+  {
+    "old_id": "REQ-025",
+    "new_id": "REQ-333",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "REQ-053",
+    "new_id": "REQ-334",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "SPEC-421",
+    "new_id": "SPEC-462",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "SPEC-445",
+    "new_id": "SPEC-463",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-044",
+    "new_id": "DS-1590",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-046",
+    "new_id": "DS-1591",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-378",
+    "new_id": "DS-1592",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-379",
+    "new_id": "DS-1593",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-380",
+    "new_id": "DS-1594",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-381",
+    "new_id": "DS-1595",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-1325",
+    "new_id": "DS-1596",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "BD-163",
+    "new_id": "BD-312",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "BD-199",
+    "new_id": "BD-313",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-001",
+    "new_id": "DES-567",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-002",
+    "new_id": "DES-568",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-010",
+    "new_id": "DES-569",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-003",
+    "new_id": "DES-570",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-115",
+    "new_id": "DES-571",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-091",
+    "new_id": "DES-572",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DES-114",
+    "new_id": "DES-573",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14)"
+  },
+  {
+    "old_id": "DS-383",
+    "new_id": "DS-1594",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DS-382",
+    "new_id": "DS-1595",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-023",
+    "new_id": "DES-568",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-025",
+    "new_id": "DES-570",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-116",
+    "new_id": "DES-572",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): merged into successor"
+  },
+  {
+    "old_id": "DES-113",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): `path` field が新しいノード形に存在せず、既決材料に後継の field が無い（`source` は schema 自身が移行期間限定と宣言）。"
+  },
+  {
+    "old_id": "REQ-234",
+    "new_id": "REQ-335",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-105",
+    "new_id": "DS-1597",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-346",
+    "new_id": "DS-1598",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-387",
+    "new_id": "DS-1599",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-389",
+    "new_id": "DS-1600",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-457",
+    "new_id": "DS-1601",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-800",
+    "new_id": "DS-1602",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-860",
+    "new_id": "DS-1603",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-861",
+    "new_id": "DS-1604",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-863",
+    "new_id": "DS-1605",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-903",
+    "new_id": "DS-1606",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1019",
+    "new_id": "DS-1607",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1288",
+    "new_id": "DS-1608",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1326",
+    "new_id": "DS-1609",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1327",
+    "new_id": "DS-1610",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1430",
+    "new_id": "DS-1611",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1488",
+    "new_id": "DS-1612",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "BD-288",
+    "new_id": "BD-314",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-051",
+    "new_id": "DES-574",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-092",
+    "new_id": "DES-575",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-158",
+    "new_id": "DES-576",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-163",
+    "new_id": "DES-577",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DES-181",
+    "new_id": "DES-578",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): W-SCAN-104 rebound to the VO-recorded subject hash"
+  },
+  {
+    "old_id": "DS-1598",
+    "new_id": "DS-1613",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1600",
+    "new_id": "DS-1614",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1604",
+    "new_id": "DS-1615",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1607",
+    "new_id": "DS-1616",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1611",
+    "new_id": "DS-1617",
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record"
+  },
+  {
+    "old_id": "DS-1603",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: スキャン時に読む document / VO / Test の正典レコードはどれも document ノードの束縛ハッシュを持たないため、この比較は入力を持たない。W-SCAN-104 は対象を失う。"
+  },
+  {
+    "old_id": "DS-1606",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: `W-SCAN-104` は入力を失った診断コードであり、意味を与える既決材料が無い。"
+  },
+  {
+    "old_id": "DS-1597",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 文書層の scan が評価するのは `derives_from` 参照先の存在だけになり、ハッシュ要求は残らない。同節の `DS-104` が参照先の存在を既に述べている。"
+  },
+  {
+    "old_id": "DS-1602",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 同上。同節の `DS-799` が「文書層は、各 `document` の `derives_from` 参照先が存在すること（E-SCAN-012）を評価する」を既に述べている。"
+  },
+  {
+    "old_id": "DS-1608",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: 同上。同節の `DS-1287` が参照先の存在の要求を既に述べており、残る `W-SCAN-104` も退役した。"
+  },
+  {
+    "old_id": "BD-314",
+    "new_id": null,
+    "reason": "doc-model realignment 2026-09-06 (Issue #14): deduction 3 corrected - binding hash lives in the dependency closure, not the VO record: fixture が表現する対象（`W-SCAN-104` の状態）が退役したため。"
+  },
+  {
+    "old_id": "DS-494",
+    "new_id": "DS-1618",
+    "reason": "audit13 node disposition 2026-09-06 (theme A): norm changed; `target` を複数行可のキー集合（および E-SCAN-005 の例外集合）へ加え、`kind` が integration 系という下流発明の条件を外した（上流 REQ-150 / SPEC-085 は無条件に許可している）。"
+  },
+  {
+    "old_id": "DS-495",
+    "new_id": "DS-1619",
+    "reason": "audit13 node disposition 2026-09-06 (theme A): norm changed; `target` を複数行可のキー集合（および E-SCAN-005 の例外集合）へ加え、`kind` が integration 系という下流発明の条件を外した（上流 REQ-150 / SPEC-085 は無条件に許可している）。"
+  },
+  {
+    "old_id": "DS-496",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme A): `kind` が integration 系という条件そのものが detailed_spec の発明であり、上流 REQ-150 / SPEC-085 は 1 件以上の Source Target 宣言を無条件に許可している。例外への `target` の追加は DS-1618 / DS-1619 が担う。"
+  },
+  {
+    "old_id": "DS-1248",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme A): DS-496 と同文の別紙A 側。上流に根拠が無く、後継は DS-1618 / DS-1619 が担う。"
+  },
+  {
+    "old_id": "DES-345",
+    "new_id": "DES-579",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "BD-201",
+    "new_id": "BD-315",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-390",
+    "new_id": "DES-580",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "BD-269",
+    "new_id": "BD-316",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-567",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme B): 「欠落」の主語は adapter 一律の `targets ≥ 1` 必須であり、その規範が退役すると主語が消える。上流条件付きの E-SCAN-007 報告は同層の生きた DS-1620 / DS-1621 が持つ。"
+  },
+  {
+    "old_id": "DS-568",
+    "new_id": null,
+    "reason": "audit13 node disposition 2026-09-06 (theme B): 規範の言い直しと改訂履歴の散文（「従来どおり」「本改訂で実効的に変わらない」）であり、上流に根拠が無い。"
+  },
+  {
+    "old_id": "DS-514",
+    "new_id": "DS-1620",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-541",
+    "new_id": "DS-1621",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-686",
+    "new_id": "DS-1622",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-780",
+    "new_id": "DS-1623",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-804",
+    "new_id": "DS-1624",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-1277",
+    "new_id": "DS-1625",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-225",
+    "new_id": "DES-581",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DES-243",
+    "new_id": "DES-582",
+    "reason": "audit13 node disposition 2026-09-06 (theme B): norm changed; adapter 単位の一律必須（`rust-cargo` の全 Test に `targets ≥ 1`）を、上流 REQ-147 / REQ-148 が切っている実行形態の条件へ書き換えた。"
+  },
+  {
+    "old_id": "DS-572",
+    "new_id": "DS-1626",
+    "reason": "audit13 node disposition 2026-09-06 (theme C): norm changed; 孤児判定から AND の第二条件（他のどの document からも参照されない）を外し、`root` 層の除外を明示した（上流 REQ-059 / SPEC-291 は一条件）。"
+  },
+  {
+    "old_id": "DS-1335",
+    "new_id": "DS-1627",
+    "reason": "audit13 node disposition 2026-09-06 (theme C): norm changed; 孤児判定から AND の第二条件（他のどの document からも参照されない）を外し、`root` 層の除外を明示した（上流 REQ-059 / SPEC-291 は一条件）。"
+  },
+  {
+    "old_id": "DS-823",
+    "new_id": "DS-1628",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-477",
+    "new_id": "DS-1629",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-1398",
+    "new_id": "DS-1630",
+    "reason": "audit13 node disposition 2026-09-06 (theme D): norm changed; Evidence の adapter 不一致の帰結を `MISMATCH` から `NO_EVIDENCE`（診断 `STALE`）へ戻した（上流 REQ-099 / REQ-120 / SPEC-427。adapter ID は鮮度条件の一つ）。"
+  },
+  {
+    "old_id": "DS-022",
+    "new_id": "DS-1631",
+    "reason": "audit13 node disposition 2026-09-06 (theme F): norm changed; 操作エラーの列挙から「adapter 間の Test ID 重複」を外した（上流 REQ-097 / REQ-199 により Test ID 衝突は `MISMATCH`。registry の重複 ID と未登録 adapter は残る）。"
+  },
+  {
+    "old_id": "DS-023",
+    "new_id": "DS-1632",
+    "reason": "audit13 node disposition 2026-09-06 (theme F): norm changed; 操作エラーの列挙から「adapter 間の Test ID 重複」を外した（上流 REQ-097 / REQ-199 により Test ID 衝突は `MISMATCH`。registry の重複 ID と未登録 adapter は残る）。"
+  },
+  {
+    "old_id": "BD-257",
+    "new_id": "BD-317",
+    "reason": "audit13 node disposition 2026-09-06 (theme H): norm changed; 言語非依存の orchestration 契約から「単一置換」の限定を外し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する形にした（上流 DS-225 / SPEC-135 / REQ-260）。"
+  },
+  {
+    "old_id": "DS-483",
+    "new_id": "DS-1633",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-513",
+    "new_id": "DS-1634",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-970",
+    "new_id": "DS-1635",
+    "reason": "audit13 node disposition 2026-09-06 (theme B, sweep): norm changed; the adapter-wide requirement is re-conditioned on the execution form."
+  },
+  {
+    "old_id": "DS-1553",
+    "new_id": "DS-1636",
+    "reason": "audit13 node disposition 2026-09-06 (theme H): norm changed; 受入項目から「単一置換」の限定を外し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ置換する形にした（上流 SPEC-135 / REQ-260。当該節 18.3.10 は adapter 中立の受入項目であり rust-cargo 固有ではない）。"
+  },
+  {
+    "old_id": "BD-019",
+    "new_id": "BD-318",
+    "reason": "canonical holes 2026-09-07 (H-1): norm changed; `DOC-` は specification.schema.json の `$defs/id` パターンに無く、ROOT-047 のもとで死んだ値域である。id 接頭辞は層ごとの接頭辞（SPEC-462）へ再条件づけした。"
+  },
+  {
+    "old_id": "BD-055",
+    "new_id": "BD-319",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 1 文書 1 json という保存形式に合わせ、上流文書のファイル形式を YAML から JSON へ再条件づけした。その他のレコードは YAML のまま。"
+  },
+  {
+    "old_id": "BD-162",
+    "new_id": "BD-320",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; BD-055 と同旨の重複条文であり、片方だけ再条件づけすると同一層内で矛盾するため同時に処置した。"
+  },
+  {
+    "old_id": "BD-059",
+    "new_id": "BD-321",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; Issue #14 のノードモデル下で「1エンティティ1ファイル」は 1 ノード 1 ファイルと読めるため、上流文書の保存単位を文書と確定した。"
+  },
+  {
+    "old_id": "BD-060",
+    "new_id": "BD-322",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため、上流文書側のファイル名はノード id ではなく文書の識別とした。正典は文書の識別子 field を定義していない（適用結果 §10 に開示）。"
+  },
+  {
+    "old_id": "BD-138",
+    "new_id": "BD-323",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; `DOC-<NAME>.yaml` は H-1 で死んだ `DOC-` 値域と YAML 形式の両方に依存していたため、文書単位の JSON ファイルへ置き換えた。"
+  },
+  {
+    "old_id": "BD-233",
+    "new_id": "BD-324",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため、並列編集の独立性の単位もエンティティからファイルへ移る（同一文書内の別ノードの並列編集は衝突しうる）。"
+  },
+  {
+    "old_id": "BD-312",
+    "new_id": "BD-325",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 「層ごとのトップレベル配列」という語は上流 REQ-333 / SPEC-462 が同文で持つため落とさず、ファイルの単位が文書であることを追加して再条件づけした。"
+  },
+  {
+    "old_id": "BD-061",
+    "new_id": "BD-326",
+    "reason": "canonical holes 2026-09-07 (H-2, Owner 裁定 2026-09-07): norm changed; 保存単位が文書になったため「異なるエンティティへの並列変更は異なるファイルへの変更になる」は同一文書内の別ノードについて偽になる。BD-324 と対の条文であり、片方だけ残すと裁定の帰結が隠れる。"
+  },
+  {
+    "old_id": "DES-571",
+    "new_id": "DES-583",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; 無条件の否定文が上位層の DS-398（detailed_spec）と BD-171（basic_design）に反していたため、DS-1594 のスコープ語（ノードの）を転記して限定した。"
+  },
+  {
+    "old_id": "DS-398",
+    "new_id": "DS-1638",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; 「documentレコードと同じく」という句は DS-1594 により偽になったため落とし、参照先を document から上流ノードへ改めた。"
+  },
+  {
+    "old_id": "DS-384",
+    "new_id": "DS-1639",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であり、`path` の実ファイル内位置への言及は ROOT-047 のもとで偽である。生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-385",
+    "new_id": "DS-1640",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であるため、生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-386",
+    "new_id": "DS-1641",
+    "reason": "canonical holes 2026-09-07 (H-3/H-4): norm changed; DS-1594 のもとでノードについては空文であるため、生きている VO スコープへ限定した。"
+  },
+  {
+    "old_id": "DS-1142",
+    "new_id": "DS-1642",
+    "reason": "canonical holes 2026-09-07 (H-3): norm changed; DS-1594 / DS-1595 が node → node の anchor / note を否定し、DS-1638 が VO 側を保持しているため、エッジ種別ごとに条件づけた。先行報告（doc-model realignment 2026-09-06）の REWORD 判定が未適用のまま残っていた分を含む。"
+  },
+  {
+    "old_id": "DS-1143",
+    "new_id": "DS-1643",
+    "reason": "canonical holes 2026-09-07 (H-3/H-1): norm changed; 例の `from` が `DOC-REQ-001` であり、H-1 により `DOC-` は死んだ値域である。具体的なノード id を選ぶと正本が言っていない対応を作るため、プレースホルダにした。"
+  },
+  {
+    "old_id": "DS-1623",
+    "new_id": "DS-1644",
+    "reason": "canonical holes 2026-09-07 (H-4): norm changed; 文書鎖の評価入力を `document derives_from・content_hash` から `ノードの derives_from・subject hash` へ改めた。ROOT-047 のもとでノードは `content_hash` field を持たず（specification.schema.json の derivedItem / section は additionalProperties: false で `content_hash` も `path` も列挙しない）、鮮度は依存 closure のハッシュ束縛に吸収される（DS-1614、ROOT-031）。"
+  },
+  {
+    "old_id": "BD-168",
+    "new_id": "BD-327",
+    "reason": "canonical holes 2026-09-07 (H-4): norm changed; 「仕様文書そのものは `.verify/` へ複製しない」は旧ファイルモデル（レコードが `path` でファイルを指すだけ）でのみ真であり、ROOT-047 のもとでノードが `statement` を保持するため成立しない。ROOT-039 の「JSON を正本、md は一方向エクスポート」へ再条件づけした。"
+  },
+  {
+    "old_id": "DS-376",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-5): 上流根拠が無く（自ノードにも祖先節 DS-S070 にも derives_from が無い＝正本自身の定義で孤児。`未知` / `互換` / `前方互換` / `後方互換` を require / spec に当てて 0 件）、同層の DS-544 / DS-476 / DS-1550 / DS-540 はいずれも error 側でこの文だけが包括的な「警告して継続」であり、DS-559 により warning は検証値を変えないため未知 field の無視は fail-open で偽のゲート充足を通す。読取り互換 field `status` の例外は DS-405 / DS-552 / DS-1024 / DS-1296 / DES-094 が個別に持ちこの文に依存しない。後継ノードは置かず、未知 field の扱いは DS-1645 が引き取る。"
+  },
+  {
+    "old_id": "DS-544",
+    "new_id": "DS-1645",
+    "reason": "canonical holes 2026-09-07 (H-5): norm changed; DS-376（未知フィールドは警告）の削除にともない、余剰 field が schema 不一致に含まれることを明示した。元の逐語には無い追加であるため新 id を採り、導出であることを description に残した。"
+  },
+  {
+    "old_id": "DS-571",
+    "new_id": "DS-1646",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; 委譲された「根の指定方式」（REQ-061 / REQ-310 / SPEC-060 / SPEC-149 / SPEC-233）の答えを、設定ファイルへの列挙から `root` 層への所属へ差し替えた。設定による除外は config.yaml へ 1 行足すだけでノードの id・層・derives_from・subject hash のいずれも動かさずに孤児判定を PASS にでき、鎖の切れ目を無痕跡で隠せる。否定形（設定による除外指定は持たない）は、空の委譲が再び構文を発明する場所にならないようにするため。"
+  },
+  {
+    "old_id": "DS-1626",
+    "new_id": "DS-1647",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-1627",
+    "new_id": "DS-1648",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-390",
+    "new_id": "DS-1649",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。「根候補」という中間概念も設定列挙のためだけに存在していたため消えた。"
+  },
+  {
+    "old_id": "DS-547",
+    "new_id": "DS-1650",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-781",
+    "new_id": "DS-1651",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` による除外条件を落とした（DS-1646）。"
+  },
+  {
+    "old_id": "DS-916",
+    "new_id": "DS-1652",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; `doc.roots` が config.yaml から消え検査対象を失ったため、E-CONFIG-001 の列挙から外した。他の列挙項目は変えていない。"
+  },
+  {
+    "old_id": "BD-031",
+    "new_id": "BD-328",
+    "reason": "canonical holes 2026-09-07 (H-8): norm changed; 根の指定方式を `.verify/` 設定から `root` 層への所属へ差し替えた（DS-1646 と同旨、basic_design 側）。BD-202 の後継もこの文が担う。"
+  },
+  {
+    "old_id": "DS-1334",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `doc.roots` による根の除外そのものが消えた。孤児判定の記述は同節の DS-1647 / DS-1648 が担う。"
+  },
+  {
+    "old_id": "DS-1336",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `doc.roots` が消え検査対象を失った。E-CONFIG-001 の列挙からの除去は DS-1652 が担う。"
+  },
+  {
+    "old_id": "DES-111",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): `config.yaml` の `doc.roots` field が消えた。正規形からの除去は BD-154 の description が担う。"
+  },
+  {
+    "old_id": "BD-285",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): fixture が表現する対象（`doc.roots` に列挙された根 document）が消えた。BD-286（孤児ノードの fixture）は残る。"
+  },
+  {
+    "old_id": "BD-202",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (H-8): 「根指定は `.verify/` 設定として保持する」は設定による指定を前提としており成立しない。後継は BD-328 が担う。"
+  },
+  {
+    "old_id": "DS-116",
+    "new_id": "DS-1653",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されない」という設定による免除条件が H-8 の掃引正規表現（`doc.roots`・`roots:`・`--root`・除外根・根指定・根として・根の指定・根集合）に当たらず残っていた。孤児の定義句は同層の適用済み DS-1650 の逐語を転記し、対象語も同層に揃えて文書からノードへ改めた。"
+  },
+  {
+    "old_id": "DS-305",
+    "new_id": "DS-1654",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されず」という設定による免除条件が H-8 の掃引に当たらず残っていた。DS-1647 と同型に条件づけた。"
+  },
+  {
+    "old_id": "DS-1020",
+    "new_id": "DS-1655",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されず」という設定による免除条件が H-8 の掃引に当たらず残っていた。DS-1647 と同型に条件づけた。"
+  },
+  {
+    "old_id": "DS-573",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): 削除済み DS-1336（別紙C §18.3.2）と同一規範の本冊 §5.6 版であり、`doc.roots` が消え検査対象を失った。E-CONFIG-001 の列挙からの除去は DS-1652 が担う。"
+  },
+  {
+    "old_id": "DES-467",
+    "new_id": "DES-584",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-3): norm changed; ノード → ノードのエッジに `anchor` を常に同伴させる無条件の義務が、上位層の適用済み DS-1594（ノードの `derives_from` は `anchor` field を entry ごとに持たない）と同層の DES-583 に反していた。DS-1642 と同型にエッジ種別ごとに条件づけ、消えた §3.1 の anchor への参照を落とした。"
+  },
+  {
+    "old_id": "DS-1323",
+    "new_id": "DS-1656",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-3): norm changed; 受入項目が document の `derives_from` entry に `anchor` を持つ状態の読み取りを要求しており、同層の適用済み DS-1594 と直接矛盾していた。生きている VO スコープへ限定した。据置の CLI / MCP CRUD 面（`DS-1218` 等のコマンド・ツールの引数面）と違い、この文はレコード読み取りの意味論そのものを述べており、別紙C の他ノード（`DS-1481` / `DS-1524`）が据置に入っているのとは区別される。"
+  },
+  {
+    "old_id": "DS-377",
+    "new_id": "DS-1657",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-2): norm changed; 「`id` とファイル名は一致」は無条件のまま ROOT-048（1 文書 1 json）と両立しない。上流文書のレコードを除外して再条件づけた（導出。除外は当該ノードの description に明記）。ファイル名に関する規範は root / request / require / spec のいずれにも無く（`ファイル名` 0 件）、この文は detailed_spec 固有である。"
+  },
+  {
+    "old_id": "BD-170",
+    "new_id": "BD-329",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-1): norm changed; `derives_from:[DOC-]` の `DOC-` は H-1（BD-318）で死んだ値域であり、同層の BD-318 と字面で矛盾していた。値域の語を落とした。"
+  },
+  {
+    "old_id": "DES-570",
+    "new_id": "DES-588",
+    "reason": "vo derives target 2026-09-07: norm changed; 無条件の「各 `derives_from` リンクは説明文・導出理由を保持せず」が上位層の DS-1638（VO の entry は任意の `anchor` と `note` を持つ）と BD-171 に反していた。DS-1595 のスコープ語（ノードの）を転記して限定した。`anchor` 側の同型処置 DES-583 と対になる。"
+  },
+  {
+    "old_id": "DES-381",
+    "new_id": "DES-589",
+    "reason": "vo derives target 2026-09-07: norm changed; エッジ表記 `VO → DOC` の `DOC` は BD-318（H-1）で死んだ値域であり、上位層の BD-313（VO → ノード）および同層の DES-380 と字面で矛盾していた。到達先をノードへ改めた。"
+  },
+  {
+    "old_id": "DS-402",
+    "new_id": "DS-1661",
+    "reason": "vo derives target 2026-09-07: norm changed; VO subject hash の束縛対象「参照先 document ID 集合」の「document の ID」は DES-585 と BD-318 のもとで指す先を失った値域である。上流ノード id 集合へ改めた（DS-1660）。同旨の DES-095 → DES-590 と対で適用。"
+  },
+  {
+    "old_id": "DES-095",
+    "new_id": "DES-590",
+    "reason": "vo derives target 2026-09-07: norm changed; VO subject hash の束縛対象「参照先 document ID 集合」は DES-585 と BD-318 のもとで指す先を失った値域である。上流ノード id 集合へ改めた（DS-1660・DS-1661）。"
+  },
+  {
+    "old_id": "DS-1652",
+    "new_id": "DS-1662",
+    "reason": "adapter id diagnostics 2026-09-07 (Issue #24): norm changed; 括弧書き「未知・重複adapter IDはE-ADAPTER-001」が同層の DS-352・DS-036・DS-037 と矛盾していた。config.yaml 内の adapter ID 重複・同一 adapter 内の root 重複・未知 adapter を E-CONFIG-001 の列挙へ明記し、除外は registry 自体の重複 ID と宣言・実装の不一致に限った。上位層（root / request / require / spec）に診断コードの割り当て規範は無く、導出（DS-534 の同型割り当てと ROOT-033 F7 の行動基準）による。"
+  },
+  {
+    "old_id": "DS-921",
+    "new_id": "DS-1663",
+    "reason": "adapter id diagnostics 2026-09-07 (Issue #24): norm changed; 「重複」が registry の重複（DS-1631・DES-351）と config.yaml 内の重複（DS-036）のどちらとも読め、DS-352 と衝突していた。重複を registry に限定し、config.yaml の adapters が指す未知 adapter を「未登録」から除いて E-CONFIG-001 へ渡した。config.yaml 以外の参照元が指す未登録 adapter は本コードのまま。"
+  },
+  {
+    "old_id": "REQ-148",
+    "new_id": "REQ-336",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "REQ-068",
+    "new_id": "REQ-337",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "REQ-070",
+    "new_id": null,
+    "reason": "他の実行形態における確認方法の下位仕様への委譲。実行形態を分類しないため委譲先の「他の形態」が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-071",
+    "new_id": null,
+    "reason": "特定の実行形態の確認方法を別の実行形態へ要求しない、という形態間の規範。形態を分類しないため前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-132",
+    "new_id": null,
+    "reason": "REQ-071 と同旨の形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "REQ-147",
+    "new_id": null,
+    "reason": "内部 construct を直接検証する実行形態についての規範。REQ-336 が無条件になったため不要（ROOT-049）"
+  },
+  {
+    "old_id": "SPEC-300",
+    "new_id": "SPEC-464",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "SPEC-065",
+    "new_id": null,
+    "reason": "他の実行形態における確認方法の詳細設計への委譲。委譲先の「他の形態」が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "SPEC-301",
+    "new_id": null,
+    "reason": "実行形態別の確認方法の委譲。無条件部分は SPEC-465 が引き継ぐ（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1620",
+    "new_id": "DS-1665",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1621",
+    "new_id": "DS-1666",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1624",
+    "new_id": "DS-1667",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1625",
+    "new_id": "DS-1668",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1644",
+    "new_id": "DS-1669",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-120",
+    "new_id": "DS-1670",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-179",
+    "new_id": "DS-1671",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-685",
+    "new_id": "DS-1672",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-063",
+    "new_id": "DS-1673",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1575",
+    "new_id": "DS-1674",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-176",
+    "new_id": null,
+    "reason": "実装construct を直接検証する実行形態についての規範。DS-1671 が無条件になったため不要（ROOT-049）"
+  },
+  {
+    "old_id": "DS-177",
+    "new_id": null,
+    "reason": "同上（同一対象の二重宣言を要求しない）。前提の実行形態が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "DS-178",
+    "new_id": null,
+    "reason": "外部契約・境界上の振る舞いを検証する実行形態を検証対象とする規範。形態を分類しない（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1622",
+    "new_id": null,
+    "reason": "実行形態別に E-SCAN-007 の適用可否を分ける規範。形態を分類せず targets >= 1 も必須でない（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1633",
+    "new_id": null,
+    "reason": "rust-cargo が当該実行形態について targets >= 1 を必須とする規範（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1634",
+    "new_id": null,
+    "reason": "同上（追加必須 metadata としての targets >= 1）（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1635",
+    "new_id": null,
+    "reason": "同上（ROOT-049）"
+  },
+  {
+    "old_id": "DS-128",
+    "new_id": null,
+    "reason": "特定形態の確認方法を別形態の Test へ一律要求しない、という形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "DS-167",
+    "new_id": null,
+    "reason": "DS-128 と同旨の形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "BD-183",
+    "new_id": null,
+    "reason": "検証対象を Source Target として実現するか境界の振る舞いとして実現するかを実行形態が定める、という分類そのもの（ROOT-049）"
+  },
+  {
+    "old_id": "BD-185",
+    "new_id": null,
+    "reason": "非source の境界形態の表現・確認方法の委譲。形態を分類しないため委譲先が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "BD-315",
+    "new_id": null,
+    "reason": "当該実行形態の Test に targets >= 1 を必須とすることが adapter 層に属する、という規範。必須そのものが消滅（ROOT-049）"
+  },
+  {
+    "old_id": "BD-316",
+    "new_id": null,
+    "reason": "当該実行形態でありながら targets を宣言しない Test を fixture が表現できる、という規範。当該事象が E-SCAN-007 ではなくなった（ROOT-049）"
+  },
+  {
+    "old_id": "DES-582",
+    "new_id": "DES-591",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-384",
+    "new_id": "DES-592",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-287",
+    "new_id": "DES-593",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-084",
+    "new_id": "DES-594",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-580",
+    "new_id": null,
+    "reason": "当該実行形態の Test に targets >= 1 を必須とし他形態には課さない、という形態別規範（ROOT-049）"
+  },
+  {
+    "old_id": "DES-581",
+    "new_id": null,
+    "reason": "targets >= 1 を E-SCAN-007 経路で検出するという形態別規範。E-SCAN-007 の一般経路は DES-229 が定める（ROOT-049）"
+  },
+  {
+    "old_id": "DS-897",
+    "new_id": "DS-1675",
+    "reason": "node id collision diagnostic 2026-09-07 (E-SCAN-002 は Test ID 限定)"
+  },
+  {
+    "old_id": "DS-1645",
+    "new_id": "DS-1676",
+    "reason": "node id collision diagnostic 2026-09-07 (E-SCAN-010 へ文書ノード id 重複を追加)"
+  }
+]
