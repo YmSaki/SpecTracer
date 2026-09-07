@@ -923,12 +923,12 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
-    // 詳細設計 v0.1 §3 header: "id とファイル名（拡張子除く）は一致しなければ
-    // ならない" applies schema-independently to every record type; 基本仕様
-    // §3.2: "判断・承認・Evidence の ID は bare ULID とする". A present-but-
-    // different `id` used to be silently accepted (only an *absent* id fell
-    // back to the file name), the same fail-open shape `read_approval`
-    // already closes for approvals.
+    // DS-1657: "上流文書のレコードを除き、`id` とファイル名（拡張子除く）は
+    // 一致しなければならない" applies schema-independently to every record
+    // type Evidence is not excluded from; DES-032: "判断・承認・Evidenceの
+    // IDはbare ULIDとする". A present-but-different `id` used to be silently
+    // accepted (only an *absent* id fell back to the file name), the same
+    // fail-open shape `read_approval` already closes for approvals.
     let id = scalar(&text, "id")
         .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing id".to_owned()))?;
     if id != fallback {
@@ -1076,9 +1076,10 @@ pub fn read_relation(path: &Path) -> Result<(RelationRecord, Vec<Diagnostic>), S
 }
 
 /// Creates a new canonical Relation record and writes it to `.verify/rel/`.
-/// The id is always generated here as `REL-<ULID>`: 詳細設計 v0.1 §3.3
-/// requires the writer to emit only that form, even though `is_valid_relation_id`
-/// still accepts a bare ULID for version 1 compatibility on read.
+/// The id is always generated here as `REL-<ULID>`: DES-124 ("writerは
+/// `.verify/rel/REL-<ULID>.yaml` と同値の `id` だけを生成する") requires the
+/// writer to emit only that form, even though `is_valid_relation_id` still
+/// accepts a bare ULID for version 1 compatibility on read (DES-125).
 pub fn write_relation(
     layout: &VerifyLayout,
     relation_type: RelationType,
@@ -1248,9 +1249,14 @@ pub fn is_valid_ulid(value: &str) -> bool {
         && value.chars().all(|character| ALPHABET.contains(character))
 }
 
-/// Accept both spellings currently present in the normative documents:
-/// detailed design uses a bare ULID, while basic specification §3.1 labels
-/// Relation IDs as `REL-` (ULID). The payload is always strictly validated.
+/// The canonical Relation ID form is `REL-` prefixed only (BD-023: "Relation
+/// のIDは `REL-`（ULID）とし..."; DS-427: "canonical Relation IDは `REL-` と
+/// 26文字のULID payloadからなる"). A bare ULID is accepted here only as
+/// version 1 compatibility input on read (DES-125: "readerはversion 1
+/// 互換入力として...bare `id` を受理し、`REL-<ULID>` へin-memoryで正規化する
+/// が、読み取りだけでファイルを書き換えない"); `relation_ulid_payload` below
+/// normalizes either shape to its ULID payload, which is always strictly
+/// validated.
 pub fn is_valid_relation_id(value: &str) -> bool {
     relation_ulid_payload(value).is_some()
 }
@@ -2407,11 +2413,11 @@ mod tests {
         assert!(static_with_bundle.to_yaml().is_err());
     }
 
-    /// 詳細設計 v0.1 §3 header ("id とファイル名は一致しなければならない") and
-    /// 基本仕様 §3.2 ("Evidence の ID は bare ULID とする") both apply to
-    /// Evidence the same as any other record type; `read_evidence` used to
-    /// accept a present-but-different `id` silently (only an absent one fell
-    /// back to the file name).
+    /// DS-1657 ("上流文書のレコードを除き、`id` とファイル名は一致しなければ
+    /// ならない") and DES-032 ("判断・承認・EvidenceのIDはbare ULIDとする")
+    /// both apply to Evidence the same as any other record type;
+    /// `read_evidence` used to accept a present-but-different `id` silently
+    /// (only an absent one fell back to the file name).
     #[test]
     fn read_evidence_enforces_id_file_name_and_ulid_invariants() {
         let root = temporary_directory("read-evidence");

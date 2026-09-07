@@ -78,7 +78,9 @@ impl VerifyLayout {
         self.verify_dir().join("req")
     }
 
-    /// Canonical `document` record directory (詳細設計 v0.1 §2.1). Replaces the
+    /// Canonical upstream-document record directory. BD-318: "...正典は
+    /// `.verify/doc/` に置く"; BD-323: "`.verify/doc/` は文書ごとに1つの
+    /// JSON ファイルとして上流文書（正典）を格納する". Replaces the
     /// predecessor `spec/`/`req/` split; those accessors stay for the readers
     /// that still use them until PR8 removes the predecessor model.
     pub fn doc_dir(&self) -> PathBuf {
@@ -89,8 +91,10 @@ impl VerifyLayout {
         self.verify_dir().join("vo")
     }
 
-    /// Judgment-record directory (詳細設計 v0.1 §2.1, §3.4). New in the
-    /// canonical v0.1 layout; there is no predecessor equivalent.
+    /// Judgment-record directory. BD-024: "判断記録のIDはULIDとし、正典は
+    /// `.verify/decisions/` に置く"; BD-051: "`.verify/decisions/` は判断記録
+    /// （事実・追記型）を格納する". New in the canonical v0.1 layout; there is
+    /// no predecessor equivalent.
     pub fn decisions_dir(&self) -> PathBuf {
         self.verify_dir().join("decisions")
     }
@@ -775,8 +779,12 @@ mod tests {
             assert!(directory.is_dir(), "expected {directory:?} to exist");
         }
 
-        // 詳細設計 v0.1 §2.1 replaces spec/+req/ with doc/, and drops the
-        // canonical audits/ directory entirely.
+        // BD-323 replaces spec/+req/ with doc/ ("`.verify/doc/` は文書ごとに
+        // 1つのJSONファイルとして上流文書（正典）を格納する"); DS-985's own
+        // `vtest init` generation list ("`doc/` / `vo/` / `rel/` / `forms/` /
+        // `decisions/` / `approvals/` / `evidence/` / `cache/`と
+        // `.verify/.gitignore`...") has no `audits/` entry, backing its
+        // absence here too.
         for removed in [layout.spec_dir(), layout.req_dir(), layout.audits_dir()] {
             assert!(
                 !removed.exists(),

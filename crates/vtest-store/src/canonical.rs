@@ -2,13 +2,15 @@
 //! Kept separate from `records.rs`'s predecessor Req/Spec-model types so
 //! neither module's exports collide with the other's.
 //!
-//! The upstream document model (`DocumentFile`) is JSON — BD-319/BD-320:
-//! "上流文書のファイル形式は JSON とし、その他のレコードのファイル形式は
-//! すべて YAML とする" — while VO and Relation stay YAML through
-//! `yaml_serde`. `yaml_serde` is used (rather than the hand-rolled
-//! scalar/list helpers `records.rs` uses for predecessor types) because
-//! those helpers silently mis-parse inline comments and flow-mappings
-//! (both of which the canonical VO example — DES-117 — uses).
+//! The upstream document model (`DocumentFile`) is JSON — BD-319: "上流文書
+//! のファイル形式は JSON とし、その他のレコードのファイル形式はすべて YAML
+//! とする" (basic_design), echoed at BD-320: "上流文書のレコードは JSON とし、
+//! その他のレコードはすべて YAML とする" (detailed_spec) — while VO and
+//! Relation stay YAML through `yaml_serde`. `yaml_serde` is used (rather
+//! than the hand-rolled scalar/list helpers `records.rs` uses for
+//! predecessor types) because those helpers silently mis-parse inline
+//! comments and flow-mappings (both of which the canonical VO example —
+//! DES-117 — uses).
 
 use crate::{read_text, write_atomic, StoreError, VerifyLayout};
 use vtest_model::{
@@ -1231,11 +1233,11 @@ updated: 2026-08-08
         );
     }
 
-    /// §3.2.1's `explicit` combinations example, verbatim: each entry is a
-    /// dimension-name → partition-value flow-mapping, not a positional list
-    /// of bare strings.
+    /// DES-121's own `description`, verbatim: each `combinations[]` entry is
+    /// a dimension-name → partition-value flow-mapping, not a positional
+    /// list of bare strings.
     #[test]
-    fn vo_record_parses_the_literal_combinations_example() {
+    fn vo_record_parses_the_literal_des_121_example() {
         let yaml = "\
 id: VO-ARITH-001
 parent: null
