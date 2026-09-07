@@ -79,11 +79,16 @@
 //! invocation projection, toolchain identity, an adapter config projection,
 //! and a full manifest of repository / local dependency inputs (each entry:
 //! stable root identity, root-relative path, input kind, byte-exact file
-//! bytes). None of these has a matching type anywhere in `vtest-model` or
-//! `vtest-adapter-api` as of this module's writing (no `ExecutionState`,
-//! `Snapshot`, `Manifest`/`ManifestEntry`, `ToolchainIdentity`, or `Revision`
-//! type exists in either crate — confirmed by grep). Composing this hash
-//! would require inventing the DTO shapes those inputs would arrive in,
+//! bytes). `vtest-model` already carries two predecessor-model types that
+//! happen to name a subset of these — `Revision { commit, dirty }` and
+//! `RunnerInfo { kind, command, exit_code }` (`evidence.rs`, both used
+//! inside `EvidenceRecord`) — but neither has been evaluated as the actual
+//! receiving type DES-097 intends, and the remaining inputs still have no
+//! matching type anywhere in `vtest-model` or `vtest-adapter-api` (no
+//! `ExecutionState`, `Snapshot`, `Manifest`/`ManifestEntry`, or
+//! `ToolchainIdentity` type exists in either crate — confirmed by grep).
+//! Composing this hash would require inventing the DTO shapes those inputs
+//! would arrive in,
 //! which is not this module's place to do (this crate's own header: "この
 //! crate は…filesystem access and derived indexes intentionally live in…
 //! higher-level crates" — the same reasoning that keeps `document_subject_hash`
@@ -134,55 +139,59 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
 }
 
 /// Test subject hash (詳細設計 v0.1 §1.3, domain `vtest:test-subject:v1`,
-/// 本冊:87): "adapter ID、Test ID、全canonical metadata、Source Locationの
-/// adapter・project-relative path・opaque locator、ExecutionDescriptor、
-/// および正規化したTest construct bytesを束縛する。byte range自体は前方の
-/// 無関係な編集で変化するためhash inputにしない。"
+/// DES-077): "Test subject hashはdomain `vtest:test-subject:v1` を用い、
+/// adapter ID、Test ID、全canonical metadata、Source Locationのadapter・
+/// project-relative path・opaque locator、ExecutionDescriptor、および正規化
+/// したTest construct bytesを束縛する。" DES-078 adds: "Test subject hashは、
+/// byte range自体を前方の無関係な編集で変化するためhash inputにしない。"
 ///
-/// # Inputs, matched against 本冊:87 one by one
+/// # Inputs, matched against DES-077 one by one
 ///
 /// - `adapter`: the discovering adapter's ID ("adapter ID"). This is a
-///   separate parameter from `location.adapter` because 本冊:87 lists them
+///   separate parameter from `location.adapter` because DES-077 lists them
 ///   as two distinct bound items ("adapter ID、…、Source Locationのadapter
 ///   …"); in every adapter this crate knows about the two values coincide,
 ///   but the spec text binds both positions, so both are taken and both are
 ///   encoded under distinct field names (`adapter` and inside `location`).
 /// - `metadata`: `id`/`covers`/`targets`/`intent`/`input`/`expect`/`kind`/
-///   `cases`/`related` — exactly 本冊:87's "canonical metadataは `id` /
+///   `cases`/`related` — exactly DES-080's "canonical metadataは `id` /
 ///   `covers` / `targets` / `intent` / `input` / `expect` / `kind` /
-///   `cases` / `related` からなる" list, which is also this function's only
-///   source for "Test ID" (`metadata.id` — the spec mentions "Test ID" and
-///   metadata's `id` field as the same field, not two).
+///   `cases` / `related` からなる。" list, which is also this function's
+///   only source for "Test ID" (`metadata.id` — DES-077 mentions "Test ID"
+///   and metadata's `id` field as the same field, not two).
 /// - `location`: only `adapter`/`path`/`locator` are read — `byte_range` is
 ///   deliberately never touched by this function (there is no parameter
-///   position it could reach hash input through), which is what 本冊:87's
-///   "byte range自体は…hash inputにしない" requires.
-/// - `execution`: bound as a whole (adapter/project/suite/selector) — 本冊:87
-///   names `ExecutionDescriptor` as a single bound input.
+///   position it could reach hash input through), which is what DES-078's
+///   "byte range自体を…hash inputにしない" requires.
+/// - `execution`: bound as a whole (adapter/project/suite/selector) —
+///   DES-077 names `ExecutionDescriptor` as a single bound input.
 /// - `construct_text`: the normalized Test construct bytes ("正規化した
-///   Test construct bytes") — a normalized [`FieldValue::text_fragment`],
-///   not [`FieldValue::exact_bytes`], per the same 本冊:83-default reasoning
-///   this module's header documents (本冊:91's manifest file bytes are the
-///   only byte-exact requirement in §1.3).
+///   Test construct bytes", DES-077) — a normalized
+///   [`FieldValue::text_fragment`], not [`FieldValue::exact_bytes`], per the
+///   same DES-067/DES-068-default reasoning this module's header documents
+///   (DES-098's manifest file bytes are the only byte-exact requirement in
+///   §1.3).
 ///
 /// `metadata.targets` binds the **declared** `TargetRef` values verbatim
 /// (via [`encode_target_ref`]), never a resolved canonical Source Target
-/// Locator — 本冊:87: "canonical metadataの`targets`は**宣言された**
-/// `TargetRef`の正規化値を束縛し、解決後のcanonical Locatorへ置換しない".
+/// Locator — DS-341: "canonical metadataの `targets` は宣言された
+/// `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しない。"
 /// This function has no parameter a *resolved* Source Target could reach —
 /// only the caller's own `metadata.targets: Vec<TargetRef>` — so a spelling
 /// change in a Test's declared target reference (e.g. rewriting a `Locator`
 /// reference to a `SrcId` reference for the same underlying Source Target)
-/// changes this hash, which is the effect 本冊:87 requires ("これにより
-/// Testの参照方法の変更…はTest subject hashで捕捉される").
+/// changes this hash, which is the effect DS-342 requires ("Testの参照方法
+/// の変更（同一Source Targetへのlocator参照からSRC ID参照への書き換え等）
+/// はTest subject hashで捕捉される").
 ///
 /// `covers`/`targets`/`related` are bound as sets (normalized-value
-/// ascending, deduplicated — 本冊:85), `cases` as a declaration-ordered
-/// list (本冊:85), matching [`FieldValue::Set`]/[`FieldValue::Ordered`]
+/// ascending, deduplicated — DES-074), `cases` as a declaration-ordered
+/// list (DES-075), matching [`FieldValue::Set`]/[`FieldValue::Ordered`]
 /// respectively. `input`/`expect`/`kind` go through
 /// [`optional_text_fragment`] so an absent declaration (`None`) hashes
 /// differently from an explicit empty string (`Some(String::new())`) —
-/// 本冊:87 "宣言の不在と空値の明示は異なる値としてencodeする".
+/// DES-082 "Test subject hashは、宣言の不在と空値の明示を異なる値として
+/// encodeする。"
 pub fn test_subject_hash(
     adapter: &AdapterId,
     metadata: &TestRecord,
