@@ -405,15 +405,17 @@ fn materialize_tests(
         //
         // 開示（PR34 の ContentHash::from_text 全数調査より）: specification.json
         // には `DiscoveredTest.content_hash: ContentHash` という field 型の
-        // 宣言（本冊:788 台）はあるが、この field 自体が何を束縛するかを
-        // 定める subject hash 規則は見つからない — §1.3 が名付ける domain は
-        // document/VO/Test/Source Target の4つのみで、"DiscoveredTest" 用の
-        // domain は無い（本冊:104「coreはrange・bytes対応を検証し、§1.3で
-        // hashを計算してから TestEntity、SourceTarget および DiscoveredTest
-        // を具体化する」は3型まとめて言うだけで、DiscoveredTest固有の束縛
-        // 対象までは述べない）。したがって上の「construct-only」という設計は
-        // 上記の構造的理由（`missing_drafts` に `TestRecord` が無い）からの
-        // 導出であり、明文の引用ではない。
+        // 宣言（`DES-339`）はあるが、この field 自体が何を束縛するかを
+        // 定める subject hash 規則は見つからない — §1.3 が名付ける
+        // domain-separated hash は `vtest:test-subject:v1` /
+        // `vtest:target-subject:v1` / `vtest:document-subject:v1` /
+        // `vtest:record-subject:v1`（VO）/ `vtest:execution-state:v1` の
+        // 5つで、"DiscoveredTest" 用の domain は無い（`DES-335`「coreは
+        // range・bytes対応を検証し、§1.3でhashを計算してから `TestEntity`、
+        // `SourceTarget` および `DiscoveredTest` を具体化する」は3型まとめて
+        // 言うだけで、DiscoveredTest固有の束縛対象までは述べない）。したがって
+        // 上の「construct-only」という設計は上記の構造的理由（`missing_drafts`
+        // に `TestRecord` が無い）からの導出であり、明文の引用ではない。
         let construct_hash = ContentHash::from_text(&draft.construct_text);
 
         let metadata = TestRecord {
