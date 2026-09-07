@@ -744,6 +744,30 @@ mod tests {
         assert_ne!(base, different_spelling_hash);
     }
 
+    /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-COMPUTES-WITH-EMPTY-TARGETS
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
+    /// @vtest.intent verifies the hash computes for a Test declaring zero targets and differs from one declaring a target (ROOT-049/DS-1666: Source Target cardinality is N >= 0, not N >= 1 — `TestRecord.targets` is a plain `Vec`, not `Option<Vec>`, so an empty declaration and a present-but-empty declaration are the same value; there is no null/empty distinction to encode for this field, unlike the `Option` metadata fields covered elsewhere in this module)
+    #[test]
+    fn test_subject_hash_computes_with_empty_targets() {
+        let mut no_targets = base_test_record();
+        no_targets.targets = vec![];
+        let empty_hash = test_subject_hash(
+            &AdapterId::new("rust-cargo"),
+            &no_targets,
+            &base_test_location(),
+            &base_test_execution(),
+            base_test_construct(),
+        );
+
+        assert_ne!(
+            base_test_hash(),
+            empty_hash,
+            "a Test declaring zero targets must hash differently from base_test_record's \
+             single declared target, and must not panic or otherwise fail to compute"
+        );
+    }
+
     /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-LOCATION-FIELDS-CHANGE-HASH
     /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::test_subject_hash
