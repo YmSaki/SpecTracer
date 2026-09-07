@@ -820,9 +820,9 @@ mod tests {
         }
 
         // BD-323 replaces spec/+req/ with doc/ ("`.verify/doc/` は文書ごとに
-        // 1つのJSONファイルとして上流文書（正典）を格納する"); DS-985's own
+        // 1つの JSON ファイルとして上流文書（正典）を格納する"); DS-985's own
         // `vtest init` generation list ("`doc/` / `vo/` / `rel/` / `forms/` /
-        // `decisions/` / `approvals/` / `evidence/` / `cache/`と
+        // `decisions/` / `approvals/` / `evidence/` / `cache/` と
         // `.verify/.gitignore`...") has no `audits/` entry, backing its
         // absence here too.
         for removed in [layout.spec_dir(), layout.req_dir(), layout.audits_dir()] {
