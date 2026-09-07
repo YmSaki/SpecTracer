@@ -594,10 +594,29 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-SUBJECT-HASH-INPUT-SAME-VALUE-DIFFERS-BY-FIELD-NAME-ALONE
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies, at the encoder level, that binding the identical `Ordered([X])` value under field name `items` (with no `sections` field present at all) produces a different hash than binding that same value under field name `sections` (with no `items` field present). Field name is the only variable that differs between the two encoder calls — the payload occupies the same relative position (the sole field) in both encoded buffers — so this isolates the field-name binding as the sole variable, which the two-field construction in the next test does not (there the payload's position in the buffer is confounded with which field carries it). This is what DES-587's "items と sections を別々の名前付き列として束縛する" actually rests on.
+    #[test]
+    fn subject_hash_input_same_value_differs_by_field_name_alone() {
+        let same_child_hash_bytes = b"same-child-subject-hash-bytes".to_vec();
+        let as_items = SubjectHashInput::new(SubjectDomain::DocumentSubject)
+            .field(
+                "items",
+                FieldValue::Ordered(vec![same_child_hash_bytes.clone()]),
+            )
+            .finish();
+        let as_sections = SubjectHashInput::new(SubjectDomain::DocumentSubject)
+            .field("sections", FieldValue::Ordered(vec![same_child_hash_bytes]))
+            .finish();
+        assert_ne!(as_items, as_sections);
+    }
+
     /// @vtest.id TEST-MODEL-SUBJECT-HASH-INPUT-ITEMS-FIELD-DIFFERS-FROM-SECTIONS-FIELD
     /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
     /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
-    /// @vtest.intent verifies, at the encoder level, that the same child-hash byte string bound under field name `items` hashes differently than under field name `sections` — DES-587 binds them as two separately-named sequences, not one merged list. Isolated here (not through the typed `SectionNode` API) because that API has no way to place one child at the same tree depth under both names: a sentence's subject hash and a section's subject hash never collide (different field sets go into each), so which-named-field can only be isolated directly against `SubjectHashInput`.
+    /// @vtest.intent verifies, at the encoder level, that placing the same child-hash byte string under `items` (with `sections` bound empty) hashes differently than placing it under `sections` (with `items` bound empty) — the two-field shape `section_node_subject_hash` actually produces. This does NOT isolate field name as the sole variable: the payload also occupies a different position in the encoded buffer in each case (first field vs. second field), so a byte-string comparison alone cannot attribute the difference to the field name rather than to that position. The preceding test isolates field name directly by comparing the identical single-field input under each name with no other field present in either input.
     #[test]
     fn subject_hash_input_items_field_differs_from_sections_field_for_the_same_content() {
         let same_child_hash_bytes = b"same-child-subject-hash-bytes".to_vec();
