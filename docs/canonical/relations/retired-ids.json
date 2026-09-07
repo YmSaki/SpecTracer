@@ -865,5 +865,55 @@
     "old_id": "DS-167",
     "new_id": null,
     "reason": "DS-128 と同旨の形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "BD-183",
+    "new_id": null,
+    "reason": "検証対象を Source Target として実現するか境界の振る舞いとして実現するかを実行形態が定める、という分類そのもの（ROOT-049）"
+  },
+  {
+    "old_id": "BD-185",
+    "new_id": null,
+    "reason": "非source の境界形態の表現・確認方法の委譲。形態を分類しないため委譲先が存在しない（ROOT-049）"
+  },
+  {
+    "old_id": "BD-315",
+    "new_id": null,
+    "reason": "当該実行形態の Test に targets >= 1 を必須とすることが adapter 層に属する、という規範。必須そのものが消滅（ROOT-049）"
+  },
+  {
+    "old_id": "BD-316",
+    "new_id": null,
+    "reason": "当該実行形態でありながら targets を宣言しない Test を fixture が表現できる、という規範。当該事象が E-SCAN-007 ではなくなった（ROOT-049）"
+  },
+  {
+    "old_id": "DES-582",
+    "new_id": "DES-591",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-384",
+    "new_id": "DES-592",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-287",
+    "new_id": "DES-593",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-084",
+    "new_id": "DES-594",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DES-580",
+    "new_id": null,
+    "reason": "当該実行形態の Test に targets >= 1 を必須とし他形態には課さない、という形態別規範（ROOT-049）"
+  },
+  {
+    "old_id": "DES-581",
+    "new_id": null,
+    "reason": "targets >= 1 を E-SCAN-007 経路で検出するという形態別規範。E-SCAN-007 の一般経路は DES-229 が定める（ROOT-049）"
   }
 ]

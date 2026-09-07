@@ -45407,38 +45407,6 @@
           ],
           "items": [
             {
-              "id": "BD-183",
-              "statement": "検証対象を実装construct（Source Target）として実現するか、外部から観測可能な契約・境界上の振る舞いとして実現するかは実行形態が定める。",
-              "derives_from": [
-                "REQ-064",
-                "REQ-065",
-                "REQ-066",
-                "REQ-067",
-                "REQ-337",
-                "REQ-069",
-                "REQ-072",
-                "SPEC-079",
-                "SPEC-080",
-                "SPEC-081",
-                "SPEC-082",
-                "SPEC-083",
-                "SPEC-084"
-              ],
-              "cites": [
-                "基本仕様 §8.3",
-                "基本仕様 §9.1",
-                "要件定義 §4.3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.1 adapter-neutralな正規化",
-                "lines": [
-                  519,
-                  519
-                ]
-              }
-            },
-            {
               "id": "BD-184",
               "statement": "`targets[]` は検証対象をSource Targetとして実現するためのcapability fieldであり、その要求件数はadapterが定める。",
               "derives_from": [
@@ -45447,36 +45415,6 @@
               ],
               "cites": [
                 "基本仕様 §9.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.1 adapter-neutralな正規化",
-                "lines": [
-                  519,
-                  519
-                ]
-              }
-            },
-            {
-              "id": "BD-185",
-              "statement": "非sourceの境界形態（外部契約・境界上の振る舞い）の具体的表現・確認方法は特定形態を他形態へ一律要求せず、下位仕様・後続adapter・後続版へ委譲する（本versionでContract-Target類の新schemaは設けない）。",
-              "derives_from": [
-                "REQ-064",
-                "REQ-065",
-                "REQ-066",
-                "REQ-067",
-                "REQ-337",
-                "REQ-069",
-                "REQ-072",
-                "SPEC-061",
-                "SPEC-062",
-                "SPEC-063",
-                "SPEC-064",
-                "SPEC-289"
-              ],
-              "cites": [
-                "要件定義 §4.3",
-                "基本仕様 §5.3"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -45787,24 +45725,6 @@
               "id": "BD-200",
               "statement": "`vtest-scan` はこれらのRust固有処理を実行しない。",
               "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
-                "lines": [
-                  904,
-                  904
-                ]
-              }
-            },
-            {
-              "id": "BD-315",
-              "statement": "検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。",
-              "derives_from": [
-                "REQ-055",
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
-              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
@@ -47549,27 +47469,6 @@
                 "lines": [
                   31,
                   31
-                ]
-              }
-            },
-            {
-              "id": "BD-316",
-              "statement": "fixture は、`rust-cargo` で検証対象をSource Targetとして実現する実行形態でありながら `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。",
-              "description": "`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする追加metadataである。",
-              "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
-              ],
-              "cites": [
-                "本冊 §4.4・§5.5"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-                "heading": "18.2 共通fixture",
-                "lines": [
-                  32,
-                  32
                 ]
               }
             },
@@ -49974,9 +49873,12 @@
               }
             },
             {
-              "id": "DES-084",
-              "statement": "construct bytesへの束縛は当該実現形態（`rust-cargo` 等のSource Target形態）に対する規則であり、Source Targetを宣言しない検証対象形態へは適用しない。",
-              "derives_from": [],
+              "id": "DES-594",
+              "statement": "construct bytesへの束縛は宣言された Source Target に対する規則であり、target を宣言しない Test へは適用しない。",
+              "description": "前身 `DES-084` は「当該実現形態（`rust-cargo` 等のSource Target形態）に対する規則であり、Source Targetを宣言しない検証対象形態へは適用しない」と、実行形態で条件付けていた。`ROOT-049` により条件を「target を宣言したか」に付け替えた。適用範囲の実質は変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 1.3 内容ハッシュの定義",
@@ -52229,23 +52131,6 @@
               }
             },
             {
-              "id": "DES-581",
-              "statement": "E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は、検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とするmetadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。",
-              "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.4 宣言エラーの扱い",
-                "lines": [
-                  567,
-                  567
-                ]
-              }
-            },
-            {
               "id": "DES-226",
               "statement": "構文上完全なTest Entityへ正規化できるが、`covers` のVO IDをcore storeで解決できない場合、そのentityと `ManagedTestLink::One(id)` を保持する。",
               "derives_from": [],
@@ -52527,12 +52412,11 @@
               }
             },
             {
-              "id": "DES-582",
-              "statement": "`TestEntity.targets` の件数はadapterが定める（`rust-cargo` は検証対象をSource Targetとして実現する実行形態について `targets ≥ 1` を必須とする）（§4.1・§4.4）。",
+              "id": "DES-591",
+              "statement": "`TestEntity.targets` の件数はadapterが定める（§4.1・§4.4）。",
+              "description": "前身 `DES-582` は括弧内で「`rust-cargo` は検証対象をSource Targetとして実現する実行形態について `targets ≥ 1` を必須とする」と述べていた。`ROOT-049` によりこの必須は消滅したため括弧内を外した。件数を adapter が定めるという規範そのものは変えていない。",
               "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -53103,9 +52987,12 @@
               }
             },
             {
-              "id": "DES-287",
-              "statement": "Test JSON writerは `TestEntity.targets` を1件以上のlistとして常に出力する。",
-              "derives_from": [],
+              "id": "DES-593",
+              "statement": "Test JSON writerは `TestEntity.targets` をlistとして常に出力する。",
+              "description": "前身 `DES-287` は「1件以上のlistとして」だった。`ROOT-049` により list は空になりうる（`DS-1674`）。常に出力するという規範は変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.2 エンティティモデル（vtest-model）",
@@ -54388,12 +54275,11 @@
               }
             },
             {
-              "id": "DES-384",
-              "statement": "検証グラフのエッジ `TEST → SRC` は `targets` であり、検証対象をSource Targetとして実現する実行形態、1:N（`rust-cargo` では当該形態について `targets ≥ 1`）である（§4.1）。",
+              "id": "DES-592",
+              "statement": "検証グラフのエッジ `TEST → SRC` は `targets` であり、0:N である（§4.1）。",
+              "description": "前身 `DES-384` は「検証対象をSource Targetとして実現する実行形態、1:N（`rust-cargo` では当該形態について `targets ≥ 1`）」だった。`ROOT-049` により実行形態の限定が消え、下限が 0 になる（`DS-1673`）。エッジの種別と到達先は変えていない。",
               "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54504,23 +54390,6 @@
               "id": "DES-389",
               "statement": "`rust-cargo` adapterは§5.1の `DiscoveryBatch` を構築する。",
               "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
-                "lines": [
-                  904,
-                  904
-                ]
-              }
-            },
-            {
-              "id": "DES-580",
-              "statement": "当該adapterは、検証対象をSource Targetとして実現する実行形態のTestに1件以上のSource Target（`targets ≥ 1`）を必須とし、外部契約・境界上の振る舞いを検証する実行形態のTestには内部Source Targetの宣言をTest成立性の必須条件としない。",
-              "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "DS-1671"
-              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.5 `rust-cargo` SourceDiscoveryAdapter",
