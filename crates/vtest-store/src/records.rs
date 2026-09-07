@@ -1,11 +1,14 @@
-//! Canonical entity and append-only approval records.
-//!
-//! M2 keeps the on-disk representation YAML as specified.  The project does
-//! not yet depend on a YAML parser, so this module accepts the deliberately
-//! small scalar/list subset emitted by vtest and preserves unknown fields by
-//! ignoring them (forward-compatible read behavior).
+//! Predecessor entity records (Spec/Req/VO/Approval/Audit/Evidence) plus the
+//! canonical Relation record. The predecessor readers below (`SpecRecord`,
+//! `ReqRecord`, the local `VoRecord`, `ApprovalRecord`, `AuditRecord`,
+//! `read_evidence`) accept the deliberately small hand-rolled scalar/list
+//! YAML subset vtest itself emits and are out of this PR's scope (PR8
+//! retires them). `RelationRecord` is canonical and, unlike the
+//! predecessor readers here, does not preserve unknown fields by ignoring
+//! them — DS-1645/E-SCAN-010 makes a surplus field a schema mismatch,
+//! rejected fail-closed (see `RelationRecord::from_yaml`, below).
 
-use crate::{canonical::unknown_field_diagnostics, StoreError, VerifyLayout};
+use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -165,6 +168,7 @@ pub enum RelationType {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RelationRecord {
     pub id: String,
     #[serde(rename = "type")]
@@ -176,9 +180,12 @@ pub struct RelationRecord {
     pub created: String,
 }
 
-/// Known top-level keys for a canonical Relation record (詳細設計 v0.1
-/// §3.3). Kept in sync with `RelationRecord`'s own fields by
-/// `relation_known_keys_match_the_record_shape` (`#[cfg(test)]`, below).
+/// Known top-level keys for a canonical Relation record (DS-425/DS-426,
+/// DS-S074). Kept in sync with `RelationRecord`'s own fields by
+/// `relation_known_keys_match_the_record_shape` (`#[cfg(test)]`, below) —
+/// also enforced independently by `#[serde(deny_unknown_fields)]` above
+/// (DS-1645/E-SCAN-010's generic "schema不一致（宣言されていない余剰 field
+/// を含む）").
 const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
 
 impl SpecRecord {
@@ -736,22 +743,26 @@ impl RelationRecord {
         })
     }
 
-    /// Parses a `RelationRecord`, returning any non-fatal diagnostics
-    /// alongside it. Goes through the same text -> `Value` -> known-key scan
-    /// -> typed struct shape `document_from_yaml`/`vo_record_from_yaml`
-    /// (`canonical.rs`) use, so an unknown field here warns (W-STORE-007)
-    /// rather than being silently dropped — 詳細設計 v0.1 §3 header (L185)
-    /// applies to Relation the same as every other record type.
+    /// Parses a `RelationRecord`. Returns `(Self, Vec<Diagnostic>)` to match
+    /// the shape `vo_record_from_yaml` (`canonical.rs`) uses, though the
+    /// vector here is always empty: Relation has no read-compat field like
+    /// VO's `status` (DS-405), so every field outside `RELATION_KEYS` is a
+    /// straightforward DS-1645/E-SCAN-010 rejection, not a warning — this
+    /// goes through the same text -> `Value` -> known-key check -> typed
+    /// struct shape `document_file_from_json`/`vo_record_from_yaml` use, so
+    /// the unknown field is named in the error rather than silently
+    /// dropped. `#[serde(deny_unknown_fields)]` on `RelationRecord` itself
+    /// (above) is a second, independent enforcement of the same rule.
     pub fn from_yaml(text: &str, filename_id: &str) -> Result<(Self, Vec<Diagnostic>), StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid relation record: {error}"))
         })?;
-        let diagnostics = unknown_field_diagnostics(&value, RELATION_KEYS, "");
+        crate::canonical::reject_unknown_fields(&value, RELATION_KEYS, "")?;
         let record: Self = yaml_serde::from_value(value).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid relation record: {error}"))
         })?;
         record.validate(Some(filename_id))?;
-        Ok((record, diagnostics))
+        Ok((record, Vec::new()))
     }
 
     fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
@@ -2296,12 +2307,13 @@ mod tests {
         assert_eq!(read_relation(&path).unwrap().0, record);
     }
 
-    /// 詳細設計 v0.1 §3 header (L185): an unknown field warns, it does not
-    /// stop the record from being read — same rule `document_from_yaml`/
-    /// `vo_record_from_yaml` (`canonical.rs`) apply, exercised here for the
-    /// Relation reader that lives in this module instead.
+    /// DS-1645/E-SCAN-010: an unknown field is rejected, not merely warned
+    /// about — this replaces the retired DS-376 "warn and continue"
+    /// behavior (`docs/canonical/relations/retired-ids.json`), exercised
+    /// here for the Relation reader that lives in this module instead of
+    /// `canonical.rs`.
     #[test]
-    fn relation_with_unknown_top_level_field_warns_and_still_reads() {
+    fn relation_with_unknown_top_level_field_is_rejected() {
         let id = new_record_id();
         let record = RelationRecord {
             id: id.clone(),
@@ -2313,11 +2325,9 @@ mod tests {
         };
         let mut yaml = record.to_yaml().unwrap();
         yaml.push_str("owner: someone\n");
-        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
-        assert_eq!(parsed, record);
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, "W-STORE-007");
-        assert!(diagnostics[0].message.contains("owner"));
+        let error = RelationRecord::from_yaml(&yaml, &id)
+            .expect_err("an unknown top-level field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
     /// Guards `RELATION_KEYS` against drifting out of sync with
