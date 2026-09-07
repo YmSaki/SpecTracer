@@ -35026,7 +35026,7 @@
             },
             {
               "id": "DS-1643",
-              "statement": "エッジ要素は `{ \"from\": \"<上流ノード id>\", \"relation\": \"derives_from\", \"anchor\": \"<任意>\", \"note\": \"<任意>\", \"to\": \"VO-PARSER-UTF8-003\" }` の形とする。",
+              "statement": "エッジ要素は `{ \"from\": \"SPEC-999\", \"relation\": \"derives_from\", \"anchor\": \"<任意>\", \"note\": \"<任意>\", \"to\": \"VO-PARSER-UTF8-003\" }` の形とする。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -35035,7 +35035,8 @@
                   314,
                   314
                 ]
-              }
+              },
+              "description": "`SPEC-999` は例示 id である。`specification.schema.json` の `$defs/id` と `BD-318` の層接頭辞規則に適合するが、正本に実在するノードではない。`DES-117` の VO レコード例と同じ値を使う。正本の VO 例は `DES-117`（レコード全体）と本ノード（trace エッジ）の 2 箇所にあり、値が食い違うと読み手がどちらを wire の形と取るか決められないため、同じ値に揃えた。`anchor` / `note` の `<任意>` は値域を持たない自由文字列の placeholder であり、id とは扱いが異なるのでそのまま残した。例が値域に適合していなければならないのは、`DS-1660` により `doc` の値が `$defs/id` の値域で検査されるためである（正本の例そのものが reader に拒否されることを避ける）。"
             },
             {
               "id": "DS-1144",
@@ -50890,7 +50891,7 @@
             {
               "id": "DES-117",
               "statement": "VO レコードの `parent` fieldはVO IDまたはnull（階層化）である。",
-              "description": "id: VO-PARSER-UTF8-003\nparent: VO-PARSER-UTF8          # VO ID または null（階層化）\nderives_from:                   # 1件以上の上流ノードへの直結（基本仕様 §3.2）\n  - doc: <上流ノード id>        # 節ノードまたは文ノードの id（§3.2）\n    anchor: \"§8.2条項2\"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）\n    note: \"\"                    # 任意（空可・非 MISMATCH）\nclaim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す\ndimensions: []                  # 検証軸（任意。§3.2.1）\ncoverage_policy: null           # independent-axes | full-product | explicit | null\ncombinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）\nrepresentative_cases: []        # 代表入力値（任意）\ncreated: 2026-08-08\nupdated: 2026-08-08",
+              "description": "id: VO-PARSER-UTF8-003\nparent: VO-PARSER-UTF8          # VO ID または null（階層化）\nderives_from:                   # 1件以上の上流ノードへの直結（基本仕様 §3.2）\n  - doc: SPEC-999               # 節ノードまたは文ノードの id（§3.2）\n    anchor: \"§8.2条項2\"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）\n    note: \"\"                    # 任意（空可・非 MISMATCH）\nclaim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す\ndimensions: []                  # 検証軸（任意。§3.2.1）\ncoverage_policy: null           # independent-axes | full-product | explicit | null\ncombinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）\nrepresentative_cases: []        # 代表入力値（任意）\ncreated: 2026-08-08\nupdated: 2026-08-08\n\n（`SPEC-999` は例示 id である。`specification.schema.json` の `$defs/id` と `BD-318` の層接頭辞規則に適合するが、正本に実在するノードではない。`DS-1643` の trace エッジ例と同じ値を使う。）",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
