@@ -190,9 +190,12 @@ pub trait SourceDiscoveryAdapter {
 
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig
 /// の検証」・§6.1「coreはregistryで解決」）。PR3 時点では `rust-cargo` の
-/// みを登録する。未知 adapter ID の扱い（E-CONFIG-001 か E-ADAPTER-001 か）は
-/// 仕様の食い違いで Owner 裁定待ち（Issue #24）であり、この registry 自体は
-/// 「該当実装が無ければ `None`」を返すだけで、その先の診断判断はしない。
+/// みを登録する。未知 adapter ID の扱い（`config.yaml` の `adapters[].id` が
+/// registryで解決できない場合のコード）は正本監査で確定済み — DS-352/
+/// DS-1663（`vtest-scan::ScanError::UnknownAdapterId`のdoc comment参照）が
+/// E-CONFIG-001と定める（旧Issue #24はこの条件ではなく別の争点だった）。
+/// この registry 自体は「該当実装が無ければ `None`」を返すだけで、その先の
+/// 診断判断（コードの割り当て）は呼び出し元（`vtest-scan`）が行う。
 #[derive(Default)]
 pub struct AdapterRegistry {
     adapters: Vec<Box<dyn SourceDiscoveryAdapter>>,

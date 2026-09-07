@@ -52,16 +52,31 @@ pub enum ScanError {
     /// 操作拒否をexit 2…にする」を満たすには、対応するコードが必要）。
     #[error("[E-ADAPTER-002] source discovery failed at {path}: {message}")]
     Discovery { path: PathBuf, message: String },
-    /// adapter registry 関連の確定的失敗。本冊:1644（§17.1）「E-ADAPTER-001
-    /// \| error \| adapterが未登録、重複、またはregistryの宣言と実装が
-    /// 不一致」。config.yaml が登録されていない adapter ID を宣言している
-    /// 場合がこれに当たる（本冊:1639 の E-CONFIG-001 行は自らの適用範囲を
-    /// 括弧書きで明示的に除外している：「未知・重複adapter IDは
-    /// E-ADAPTER-001」。別紙C:319「registryは…未登録adapterを拒否する」。
-    /// BLOCKER 4、PR #26 review round 1 — 以前はコードを持たない
-    /// `ScanError::Config` だった）。
-    #[error("[E-ADAPTER-001] {message}")]
-    Adapter { message: String },
+    /// `config.yaml`'s `adapters[].id` names an adapter the registry cannot
+    /// resolve. DS-352（specification.json, statement）「adapter IDの重複、
+    /// 同一adapter内のroot重複、未知adapter、無効なadapter設定はusage
+    /// error（E-CONFIG-001）とする」、その description が明示的に定義する
+    /// 「未知adapter」＝「`config.yaml` の `adapters` が指すadapter IDを
+    /// registryで解決できないこと」——これはこの variant が唯一構成される
+    /// 条件そのものである。DS-1663（同ファイル、statement）はこの条件を
+    /// `E-ADAPTER-001` の「未登録」から明示的に除外する：「`config.yaml`
+    /// の `adapters` におけるadapter IDの重複・未知adapterはE-CONFIG-001」。
+    /// `E-ADAPTER-001` はDS-1663が残す3条件（registry内部で判明する
+    /// adapterの未登録・registryのadapter ID重複・registryの宣言と実装の
+    /// 不一致）専用であり、この構成サイトにはいずれも当たらない —
+    /// この variant 名は以前 `Adapter`（コード `E-ADAPTER-001`）だったが、
+    /// 正本監査（主題H・診断コード全数照合）が上の逐語で誤りと確認したため
+    /// 改名した。
+    ///
+    /// 黙って discovery から除外すること自体が fail-open である点は
+    /// 変わらない: 走査対象が黙って減り、テスト0件の正常 scan として
+    /// 報告されうる（DS-1292「adapter discoveryの失敗をTest 0件の
+    /// 正常scanとして扱わない」、DS-333/REQ-265「adapterが未登録・
+    /// 能力不足・解析不能の場合、検証結果を推測で `PASS` へ昇格しては
+    /// ならない」——このscan呼び出しはfail-closedにErrを返すので、この
+    /// variantの構成自体はその要求を満たす）。
+    #[error("[E-CONFIG-001] {message}")]
+    UnknownAdapterId { message: String },
     #[error("config error: {0}")]
     Config(String),
 }
@@ -78,7 +93,7 @@ impl ScanError {
     pub fn code(&self) -> Option<&'static str> {
         match self {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
-            Self::Adapter { .. } => Some("E-ADAPTER-001"),
+            Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
             Self::Store(_) | Self::Io { .. } | Self::Config(_) => None,
         }
     }
@@ -232,33 +247,27 @@ pub fn scan_project_with_config(
     sorted_adapters.sort_by(|left, right| left.id.cmp(&right.id));
     for adapter_config in sorted_adapters {
         let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
-            // BLOCKER 4（PR #26 review round 1）の再裁定: 未知 adapter ID の
-            // 診断コードは §2.2（本冊:158「未知adapter…はusage error
-            // （E-CONFIG-001）とする」）と §17.1 の間で「食い違っている」
-            // ように見えるが、§17.1 の E-CONFIG-001 の行自体（本冊:1639）が
-            // 括弧書きで自らの適用範囲からこの条件を明示的に除外している:
-            // 「config field型または登録adapterが検証する設定値が現在の
-            // config invariantに違反（未知・重複adapter IDはE-ADAPTER-001）」。
-            // §17.1 は診断コード表として §2.2 より後段にあり、各コードの
-            // 正確な適用範囲を確定する逐語である。E-ADAPTER-001 の行
-            // （本冊:1644「adapterが未登録、重複、またはregistryの宣言と
-            // 実装が不一致」）・別紙C:319「registryは…未登録adapterを
-            // 拒否する」もこの読みと一致する。したがって Issue #24 が
-            // 争っていたのはこの条件ではなく（#24 は別の争点だった）、
-            // 本冊内で既に自己解決している。E-ADAPTER-001 を用いる。
-            //
-            // 黙って discovery から除外すること自体が fail-open である点は
-            // 変わらない: 走査対象が黙って減り、テスト0件の正常 scan として
-            // 報告されうる（別紙C:86-87「adapter discoveryの失敗をTest 0件
-            // の正常scanとして扱わない」、基本仕様:719-723「adapterが
-            // 未登録...の場合、検証結果を推測でPASSへ昇格してはならない」）。
+            // 正本監査（診断コード全数照合、主題H）: 本条件（config.yaml の
+            // `adapters[].id` がregistryで解決できない）はDS-352の
+            // statementそのもの（「adapter IDの重複、同一adapter内の
+            // root重複、未知adapter、無効なadapter設定はusage error
+            // （E-CONFIG-001）とする」）で、そのdescriptionが「未知adapter」
+            // を明示的にこの条件と定義し、`DS-1663`の「未登録」から除く旨も
+            // 明記する。DS-1663のstatement自体も同じ除外を逆方向から明記する
+            // （「`config.yaml` の `adapters` におけるadapter IDの重複・
+            // 未知adapterはE-CONFIG-001」）。E-ADAPTER-001はDS-1663が残す
+            // 3条件（registry内部で判明するadapterの未登録・registryの
+            // adapter ID重複・registryの宣言と実装の不一致）専用であり、
+            // ここには当たらない（以前はE-ADAPTER-001を返していたが、
+            // 上記の逐語で誤りと確認して修正した — ScanError::UnknownAdapterId
+            // 自身のdoc commentも参照）。
             let known_ids = registry.ids().collect::<BTreeSet<_>>();
             let known_list = if known_ids.is_empty() {
                 "(none registered)".to_owned()
             } else {
                 known_ids.into_iter().collect::<Vec<_>>().join(", ")
             };
-            return Err(ScanError::Adapter {
+            return Err(ScanError::UnknownAdapterId {
                 message: format!(
                     "config.yaml declares adapter id `{}` which is not registered; \
                      registered adapter id(s): {known_list}",
@@ -783,7 +792,7 @@ fn record_diagnostics(
     // validation is removed outright rather than repointed. `entity_ids[0]`
     // is now `.verify/doc/*.json` file *names* (DES-585/586), each a full
     // upstream `DocumentFile` tree of nodes, not a single flat record.
-    let document_node_ids = validate_document_nodes(&layout, &entity_ids[0], &mut diagnostics)?;
+    let document_node_ids = validate_document_nodes(&layout, &entity_ids[0], &mut diagnostics);
 
     let mut vos = BTreeMap::new();
     for id in &entity_ids[1] {
@@ -829,30 +838,56 @@ fn record_diagnostics(
 ///   持たない").
 ///
 /// A whole document file failing to parse (`read_document_file`'s
-/// `StoreError`) is propagated via `?` rather than turned into a Diagnostic:
-/// `document_file_from_json` already runs every schema-intrinsic check
-/// (DS-1645) before a `DocumentFile` value exists, and — unlike the
-/// predecessor per-record reader — a `DocumentFile` carries no internal
+/// `StoreError`) is reported as `E-SCAN-010` and that file is skipped,
+/// exactly like `validate_vo_record` (below) already does for a malformed
+/// VO record — it is not propagated via `?` to abort the whole scan.
+/// BD-320 calls the upstream document file itself "上流文書のレコード", so
+/// DS-1645's "レコードのid / ファイル名 / schema不一致…を意味する" applies
+/// to it exactly as it does to a VO record; `document_file_from_json`
+/// already runs every schema-intrinsic check DS-1645 requires (a prior
+/// version of this comment claimed no diagnostic code covers this — that
+/// was wrong: DS-1645/E-SCAN-010 does, via BD-320's own vocabulary). Unlike
+/// the predecessor per-record reader, a `DocumentFile` carries no internal
 /// id/filename pair for an "id / ファイル名不一致" condition to apply to
-/// (BD-330/DES-585: the file itself carries no identifying field). No
-/// detailed_spec §5.4 diagnostic code (DS-535..DS-1650) covers "a whole
-/// document file fails to parse"; inventing one would violate this crate's
-/// own no-new-diagnostic-codes rule, so this follows the same no-code
-/// precedent `ScanError::code`'s doc comment already documents for
-/// `ScanError::Store`/`Io`/`Config`.
+/// (BD-330/DES-585: the file itself carries no identifying field) — but
+/// DS-1645's other two branches (schema不一致, logical record ID重複) still
+/// apply, and this crate has no third code to reach for, so every
+/// `read_document_file` failure reported here uses E-SCAN-010, matching
+/// `validate_vo_record`'s own precedent for folding a record read failure
+/// (including a raw I/O failure) into that same code rather than aborting.
 ///
-/// Returns every node id found, across every document, for
+/// Aborting the whole scan on one malformed document file was a real
+/// defect, not only a wrong code: `record_diagnostics` calls this function
+/// first, before the VO/relation/parent-graph/approval checks, so an `Err`
+/// here discarded every other diagnostic the scan would otherwise have
+/// produced, and the resulting `ScanError::Store` carries no diagnostic
+/// code at all (`ScanError::code`'s doc comment documents that as
+/// deliberate only for `Store`/`Io`/`Config`'s *other* uses, not this one).
+///
+/// Returns every node id found, across every document that parsed, for
 /// `validate_vo_document_references`'s DS-1660 check (a VO's own
 /// `derives_from[].doc` names an upstream *node* id, not a document file
-/// name).
+/// name). A node defined only inside a skipped (malformed) file is absent
+/// from that set — a `derives_from` entry elsewhere pointing at such a node
+/// will report E-SCAN-012 as "missing", a disclosed consequence of skipping
+/// the file rather than aborting, not a separate defect.
 fn validate_document_nodes(
     layout: &VerifyLayout,
     document_names: &[String],
     diagnostics: &mut Vec<Diagnostic>,
-) -> Result<BTreeSet<String>, ScanError> {
+) -> BTreeSet<String> {
     let mut files = Vec::with_capacity(document_names.len());
     for name in document_names {
-        files.push((name.clone(), read_document_file(layout, name)?));
+        match read_document_file(layout, name) {
+            Ok(file) => files.push((name.clone(), file)),
+            Err(error) => diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("document {name} has an invalid record: {error}"),
+                )
+                .with_location(document_node_location(layout, name, name)),
+            ),
+        }
     }
 
     // First pass: index every node id across every document. E-SCAN-012
@@ -901,7 +936,7 @@ fn validate_document_nodes(
         // orphan_detection outright.
     }
 
-    Ok(known_ids)
+    known_ids
 }
 
 fn index_document_ids(file: &DocumentFile, known_ids: &mut BTreeSet<String>) {
@@ -1730,16 +1765,18 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
-    /// 未知 adapter ID の fail-closed 拒否。拒否すること自体は別紙C:86-87・
-    /// 基本仕様:719-723 により確定しており、診断コードは本冊:1639 の
-    /// E-CONFIG-001 行が自らの適用範囲を括弧書きで除外した先の
-    /// E-ADAPTER-001（本冊:1644・別紙C:319）で確定する（BLOCKER 4、PR #26
-    /// review round 1 — 旧版はコードを持たない `ScanError::Config` を返し、
-    /// Issue #24 のコード選択を保留扱いにしていた）。config.yaml の唯一の
+    /// 未知 adapter ID の fail-closed 拒否。拒否すること自体は DS-1292・
+    /// DS-333/REQ-265 により確定しており、診断コードは DS-352 の
+    /// statement/descriptionと DS-1663 の statement/description が
+    /// 揃って明示する E-CONFIG-001 で確定する（正本監査、診断コード全数
+    /// 照合、主題H — 旧版は E-ADAPTER-001 を返しており、退役 md
+    /// （本冊:1639/1644、別紙C:319）とIssue #24を根拠に挙げていたが、
+    /// 正本の逐語と食い違っていたため修正した）。config.yaml の唯一の
     /// adapter エントリを未登録 ID へ書き換えると、discovery からの黙った
-    /// 除外（旧挙動: テスト0件の正常 scan）ではなく `ScanError::Adapter`
-    /// （`.code() == Some("E-ADAPTER-001")`）を返すこと、かつそのメッセージ
-    /// が未登録だった ID と登録済み ID 一覧の両方を含むことを確認する。
+    /// 除外（旧挙動: テスト0件の正常 scan）ではなく
+    /// `ScanError::UnknownAdapterId`（`.code() == Some("E-CONFIG-001")`）を
+    /// 返すこと、かつそのメッセージが未登録だった ID と登録済み ID 一覧の
+    /// 両方を含むことを確認する。
     #[test]
     fn unknown_adapter_id_is_rejected_fail_closed() {
         let root = fixture();
@@ -1750,12 +1787,14 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::write(layout.config(), config.to_yaml()).unwrap();
 
         let error = match scan_project(&root) {
-            Err(err @ ScanError::Adapter { .. }) => {
-                assert_eq!(err.code(), Some("E-ADAPTER-001"));
+            Err(err @ ScanError::UnknownAdapterId { .. }) => {
+                assert_eq!(err.code(), Some("E-CONFIG-001"));
                 err.to_string()
             }
             other => {
-                panic!("expected ScanError::Adapter for an unregistered adapter id, got {other:?}")
+                panic!(
+                    "expected ScanError::UnknownAdapterId for an unregistered adapter id, got {other:?}"
+                )
             }
         };
         assert!(
@@ -2985,14 +3024,16 @@ fn edit_collision_second() {}
         );
     }
 
-    /// 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数target許容の判定は
-    /// `@vtest.kind`の文字列ではなく、rust-cargoが判定した実行形態
-    /// （Cargo Integration Test）で決める。`operations.rs`の
-    /// `validate_desired_test`はこの許容判定を`current.test_target`
-    /// （`TestTarget::IntegrationTest`）で行う — `fixture()`のTEST-ADDは
-    /// `tests/calc.rs`に置かれたCargo integration testであり、`kind`を
-    /// `integration`を含まない値へ`--set`しても複数targetへの編集が
-    /// 通ることを確認する。
+    /// 複数target許容のカーディナリティ検査はもはや実行形態に条件付けられて
+    /// いない — `operations.rs`の`validate_desired_test`は`current.
+    /// test_target`/`desired.targets.len()`を一切見ない無条件の1件以上検査
+    /// になった（正本監査がREQ-150/SPEC-085に上位の根拠を見つけられず、旧
+    /// `TestTarget::IntegrationTest`限定条件を撤去した — 下記
+    /// `edit_test_allows_multiple_targets_for_a_lib_test_regardless_of_
+    /// kind_string`を参照）。このテストは、その無条件の許容がCargo
+    /// integration test（`fixture()`のTEST-ADDが置かれる`tests/calc.rs`）
+    /// についても成り立つことを確認する — `kind`を`integration`を含まない
+    /// 値へ`--set`しても複数targetへの編集が通る。
     #[test]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
         let root = fixture();
@@ -3213,16 +3254,16 @@ fn lib_test() {}
     #[test]
     fn reports_vo_and_relation_integrity_diagnostics() {
         // 詳細設計 v0.1 §2.1 replaced the predecessor REQ/SPEC layers with
-        // canonical doc/VO (本冊:30-60); this test used to also exercise the
-        // predecessor SPEC-layer staleness check (`.verify/spec/`,
-        // W-SCAN-104) here. That subject survives canonically as DOC +
-        // `derives_from` (本冊:1626 §17.1), but no DOC-layer validator exists
-        // in this crate yet — its assertion moved, unweakened, to
-        // `reports_document_content_hash_staleness` below (`#[ignore]`d
-        // until that validator lands). What remains here is the VO-layer
-        // and Relation-layer integrity checks (E-SCAN-008/009/010,
-        // W-SCAN-102/103, W-STORE-001), which are unaffected by the doc/
-        // REQ/SPEC migration.
+        // canonical doc/VO; this test used to also exercise the predecessor
+        // SPEC-layer staleness check (`.verify/spec/`, W-SCAN-104) here.
+        // That predecessor diagnostic has no current canonical basis (see
+        // the W-SCAN-104 removal note further down this file) and was
+        // removed outright rather than ported to a DOC-layer equivalent —
+        // there is no `reports_document_content_hash_staleness` test to
+        // move its assertion to. What remains here is the VO-layer and
+        // Relation-layer integrity checks (E-SCAN-008/009/010, W-SCAN-102/
+        // 103, W-STORE-001), which are unaffected by the doc/REQ/SPEC
+        // migration.
         let root = fixture();
         fs::write(
             root.join(".verify/vo/VO-MISSING-PARENT.yaml"),
@@ -3404,6 +3445,36 @@ fn covers_parent() {}
     // staleness`, `add_doc_root`) are removed outright rather than ported —
     // there is no current canonical condition left for them to assert.
 
+    /// DS-546 (E-SCAN-012, VO half): "VOの `derives_from` が存在しない
+    /// documentを参照…" (`validate_vo_document_references`, above). Every
+    /// other VO fixture in this crate (`valid_vo`) resolves its
+    /// `derives_from` target against `ROOT-001` (written into every
+    /// `fixture()` by `write_doc_test_fixture`), so this branch had no test
+    /// making it fire — this locks it in, mirroring the document-side
+    /// dangling-reference test immediately below.
+    #[test]
+    fn reports_vo_derives_from_dangling_reference() {
+        let root = fixture();
+        let vo_text =
+            valid_vo("VO-DANGLING", "null").replace("doc: ROOT-001", "doc: DOC-NODE-NOT-FOUND");
+        assert!(
+            vo_text.contains("doc: DOC-NODE-NOT-FOUND"),
+            "fixture template must actually contain the substring being replaced"
+        );
+        fs::write(root.join(".verify/vo/VO-DANGLING.yaml"), vo_text).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-012"
+                    && diagnostic.message.contains("VO-DANGLING")
+                    && diagnostic.message.contains("DOC-NODE-NOT-FOUND")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
     #[test]
     fn reports_document_derives_from_dangling_reference() {
         let root = fixture();
@@ -3449,6 +3520,66 @@ fn covers_parent() {}
                     && diagnostic.message.contains("R-901")),
             "a node with a (dangling) derives_from entry is not orphaned; \
              E-SCAN-012 and E-SCAN-016 must not both fire for it: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// DS-1645/BD-320 (E-SCAN-010): a `.verify/doc/*.json` file that fails
+    /// `document_file_from_json`'s schema checks must be reported the same
+    /// way a malformed VO record is (`validate_vo_record`) — an E-SCAN-010
+    /// diagnostic, the file skipped — rather than aborting the whole scan
+    /// with a code-less `ScanError` and no `ScanResult` at all. This also
+    /// proves the abort does not silently swallow every diagnostic
+    /// `record_diagnostics` would otherwise produce: a second, well-formed
+    /// document with an orphaned node must still report its own E-SCAN-016.
+    #[test]
+    fn malformed_document_file_reports_e_scan_010_and_scan_continues() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        write_document_file(
+            &layout,
+            "DOC-OK",
+            &DocumentFile {
+                schema_version: "0.1".to_owned(),
+                root: Vec::new(),
+                request: vec![SentenceNode {
+                    id: DocumentId::new("R-907"),
+                    statement: "an orphaned request in a document alongside a broken one"
+                        .to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                }],
+                require: Vec::new(),
+                spec: Vec::new(),
+                detailed_spec: Vec::new(),
+                basic_design: Vec::new(),
+                design: Vec::new(),
+            },
+        )
+        .unwrap();
+        fs::write(layout.doc_dir().join("DOC-BROKEN.json"), "{ not valid json").unwrap();
+
+        let result = scan_project(&root).expect(
+            "a malformed document file must not abort the whole scan with a code-less error",
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"
+                    && diagnostic.message.contains("DOC-BROKEN")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-016"
+                    && diagnostic.message.contains("R-907")),
+            "the scan must still evaluate documents after the broken one: {:?}",
             result.diagnostics
         );
     }
@@ -3539,6 +3670,155 @@ fn covers_parent() {}
                 diagnostic.code == "E-SCAN-016"
                     && (diagnostic.message.contains("REQ-903")
                         || diagnostic.message.contains("REQ-S901"))
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// `check_section_node`'s own E-SCAN-016 branch (a section with neither
+    /// its own edge nor an ancestor one) was never reached by any fixture in
+    /// this suite: every other `SectionNode` fixture carries its own
+    /// `derives_from`. A top-level `require`-layer section with no edge and
+    /// no ancestor (unlike a `request`-layer sentence, which cannot even
+    /// have a section ancestor) must still report E-SCAN-016 for itself.
+    #[test]
+    fn reports_orphaned_section_node_with_no_own_or_ancestor_edge() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: Vec::new(),
+            require: vec![SectionNode {
+                id: DocumentId::new("REQ-S902"),
+                title: "a section with no edge of its own and no ancestor".to_owned(),
+                description: None,
+                source: fixture_node_source(),
+                derives_from: None,
+                sections: None,
+                items: None,
+            }],
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-ORPHAN-SECTION", &file).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("REQ-S902")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// `check_section_node`'s own E-SCAN-012 branch (a section's *own*
+    /// `derives_from` dangling) was never reached by any fixture in this
+    /// suite either — the sibling dangling-reference test above uses a
+    /// `SentenceNode`. A dangling edge on a `SectionNode` itself must report
+    /// E-SCAN-012, and — since it still counts as "having an edge" for
+    /// orphan_detection purposes, resolving or not — must not also report
+    /// E-SCAN-016 for that same section.
+    #[test]
+    fn reports_dangling_derives_from_on_section_node_without_orphan() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: Vec::new(),
+            require: vec![SectionNode {
+                id: DocumentId::new("REQ-S903"),
+                title: "a section with a dangling edge of its own".to_owned(),
+                description: None,
+                source: fixture_node_source(),
+                derives_from: Some(vec![DocumentId::new("SPEC-999")]),
+                sections: None,
+                items: None,
+            }],
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-SECTION-DANGLING", &file).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-012"
+                    && diagnostic.message.contains("REQ-S903")
+                    && diagnostic.message.contains("SPEC-999")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            !result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("REQ-S903")
+            }),
+            "a section with a (dangling) derives_from entry is not orphaned: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// DS-1647's ancestor-union rescue was only ever exercised at depth 1
+    /// (a section's direct `items[]`) — no fixture in this suite nests
+    /// `sections[]`, so the recursive `has_upstream` propagation through
+    /// `check_section_node`'s own `sections[]` branch was never reached.
+    /// Here, an outer section carries the only edge; its nested child
+    /// section has none of its own, and that child's own sentence item also
+    /// has none — both the child section and the sentence must be rescued by
+    /// the outer section's edge propagating two levels down.
+    #[test]
+    fn orphan_rescue_propagates_through_nested_sections_at_depth_two() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: Vec::new(),
+            require: vec![SectionNode {
+                id: DocumentId::new("REQ-S904"),
+                title: "outer section with the only edge".to_owned(),
+                description: None,
+                source: fixture_node_source(),
+                derives_from: Some(vec![DocumentId::new("ROOT-001")]),
+                sections: Some(vec![SectionNode {
+                    id: DocumentId::new("REQ-S905"),
+                    title: "nested child section with no edge of its own".to_owned(),
+                    description: None,
+                    source: fixture_node_source(),
+                    derives_from: None,
+                    sections: None,
+                    items: Some(vec![SentenceNode {
+                        id: DocumentId::new("REQ-906"),
+                        statement: "rescued through two levels of ancestor sections".to_owned(),
+                        description: None,
+                        derives_from: Vec::new(),
+                        cites: None,
+                        source: fixture_node_source(),
+                    }]),
+                }]),
+                items: None,
+            }],
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-NESTED-RESCUE", &file).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-016"
+                    && (diagnostic.message.contains("REQ-S905")
+                        || diagnostic.message.contains("REQ-906"))
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -3659,8 +3939,14 @@ fn covers_parent() {}
 
         let mut diagnostics = Vec::new();
         let document_names = vec!["BUNDLE".to_owned()];
-        validate_document_nodes(&layout, &document_names, &mut diagnostics)
-            .expect("the canonical bundle must parse as a well-formed DocumentFile");
+        validate_document_nodes(&layout, &document_names, &mut diagnostics);
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "the canonical bundle must parse as a well-formed DocumentFile: {:?}",
+            diagnostics
+        );
         let orphan_ids = diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.code == "E-SCAN-016")
