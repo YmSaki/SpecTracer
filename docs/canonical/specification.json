@@ -17791,8 +17791,8 @@
               }
             },
             {
-              "id": "DS-116",
-              "statement": "根に指定されない孤児文書は `MISMATCH` とする（§4.3）。",
+              "id": "DS-1653",
+              "statement": "孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）は `MISMATCH` とする（§4.3）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -21234,8 +21234,8 @@
           }
         },
         {
-          "id": "DS-305",
-          "statement": "`root` 層のノードを除き、根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
+          "id": "DS-1654",
+          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -23999,9 +23999,12 @@
       ],
       "items": [
         {
-          "id": "DS-377",
-          "statement": "`id` とファイル名（拡張子除く）は一致しなければならない。",
-          "derives_from": [],
+          "id": "DS-1657",
+          "statement": "上流文書のレコードを除き、`id` とファイル名（拡張子除く）は一致しなければならない。",
+          "description": "「上流文書のレコードを除き」は導出である。導出の根拠: ROOT-048 によりファイルの単位は文書であってノードではないため、上流文書のファイル名はノード id と一致しえない（BD-322 も同じ帰結を basic_design 側で持つ）。除外した側の規範（何が文書を識別するか）は正典に無い空白であり、この文では埋めていない。",
+          "derives_from": [
+            "ROOT-048"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "## 3. レコードファイルスキーマ",
@@ -25624,19 +25627,6 @@
                 "lines": [
                   943,
                   943
-                ]
-              }
-            },
-            {
-              "id": "DS-573",
-              "statement": "根に指定されたdocumentが存在しないDOC IDを参照する場合は、config invariant違反としてE-CONFIG-001とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 5.6 文書層 orphan_detection",
-                "lines": [
-                  945,
-                  945
                 ]
               }
             }
@@ -33049,8 +33039,8 @@
               }
             },
             {
-              "id": "DS-1020",
-              "statement": "`root` 層のノードを除き、根に指定されず実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
+              "id": "DS-1655",
+              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
               "derives_from": [],
               "cites": [
                 "本冊 §5.6"
@@ -38047,8 +38037,8 @@
                   }
                 },
                 {
-                  "id": "DS-1323",
-                  "statement": "document / VO の `derives_from` entry に `anchor` を持つ状態と持たない状態の双方を読み取り、いずれも `chain_integrity` に影響しない（`anchor` の欠落・空文字列で `MISMATCH` にならない）。",
+                  "id": "DS-1656",
+                  "statement": "VO の `derives_from` entry に `anchor` を持つ状態と持たない状態の双方を読み取り、いずれも `chain_integrity` に影響しない（`anchor` の欠落・空文字列で `MISMATCH` にならない）。",
                   "derives_from": [],
                   "cites": [
                     "本冊 §3.1・§3.2"
@@ -45219,8 +45209,9 @@
               }
             },
             {
-              "id": "BD-170",
-              "statement": "VOは旧モデルの `requirements`（REQ参照）と `spec_refs`（SPEC + 節参照）は持たず、上流参照は `derives_from:[DOC-]` へ一本化する。",
+              "id": "BD-329",
+              "statement": "VOは旧モデルの `requirements`（REQ参照）と `spec_refs`（SPEC + 節参照）は持たず、上流参照は `derives_from` へ一本化する。",
+              "description": "`DOC-` の値域は H-1（BD-318）で死んでおり、上流参照先ノードの id 値域は層ごとの接頭辞である。値域の語を落としただけで、一本化という規範は変えていない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -46800,7 +46791,10 @@
               "id": "BD-324",
               "statement": "エンティティファイル編集（doc / vo）は上流文書が1文書1ファイル、VOが1エンティティ1ファイルであり、異なるファイルの並列編集は独立であり、同一ファイルの並列編集はGitのマージ衝突として顕在化する。",
               "derives_from": [
-                "ROOT-048"
+                "ROOT-048",
+                "SPEC-197",
+                "SPEC-198",
+                "SPEC-199"
               ],
               "cites": [
                 "基本仕様 §24.2"
@@ -56045,8 +56039,8 @@
               }
             },
             {
-              "id": "DES-467",
-              "statement": "projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）には、当該entryの`anchor`（§3.1・§3.2）を常に同伴させる。",
+              "id": "DES-584",
+              "statement": "projectionが出力する `derives_from` エッジのうち、ノード → ノードのエッジは `anchor` を同伴しない。ノード → VO のエッジは当該 entry の `anchor`（§3.2）を同伴させる。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",

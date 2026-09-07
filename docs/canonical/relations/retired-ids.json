@@ -655,5 +655,45 @@
     "old_id": "BD-202",
     "new_id": null,
     "reason": "canonical holes 2026-09-07 (H-8): 「根指定は `.verify/` 設定として保持する」は設定による指定を前提としており成立しない。後継は BD-328 が担う。"
+  },
+  {
+    "old_id": "DS-116",
+    "new_id": "DS-1653",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されない」という設定による免除条件が H-8 の掃引正規表現（`doc.roots`・`roots:`・`--root`・除外根・根指定・根として・根の指定・根集合）に当たらず残っていた。孤児の定義句は同層の適用済み DS-1650 の逐語を転記し、対象語も同層に揃えて文書からノードへ改めた。"
+  },
+  {
+    "old_id": "DS-305",
+    "new_id": "DS-1654",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されず」という設定による免除条件が H-8 の掃引に当たらず残っていた。DS-1647 と同型に条件づけた。"
+  },
+  {
+    "old_id": "DS-1020",
+    "new_id": "DS-1655",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): norm changed; 「根に指定されず」という設定による免除条件が H-8 の掃引に当たらず残っていた。DS-1647 と同型に条件づけた。"
+  },
+  {
+    "old_id": "DS-573",
+    "new_id": null,
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-8): 削除済み DS-1336（別紙C §18.3.2）と同一規範の本冊 §5.6 版であり、`doc.roots` が消え検査対象を失った。E-CONFIG-001 の列挙からの除去は DS-1652 が担う。"
+  },
+  {
+    "old_id": "DES-467",
+    "new_id": "DES-584",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-3): norm changed; ノード → ノードのエッジに `anchor` を常に同伴させる無条件の義務が、上位層の適用済み DS-1594（ノードの `derives_from` は `anchor` field を entry ごとに持たない）と同層の DES-583 に反していた。DS-1642 と同型にエッジ種別ごとに条件づけ、消えた §3.1 の anchor への参照を落とした。"
+  },
+  {
+    "old_id": "DS-1323",
+    "new_id": "DS-1656",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-3): norm changed; 受入項目が document の `derives_from` entry に `anchor` を持つ状態の読み取りを要求しており、同層の適用済み DS-1594 と直接矛盾していた。生きている VO スコープへ限定した。据置の CLI / MCP CRUD 面（`DS-1218` 等のコマンド・ツールの引数面）と違い、この文はレコード読み取りの意味論そのものを述べており、別紙C の他ノード（`DS-1481` / `DS-1524`）が据置に入っているのとは区別される。"
+  },
+  {
+    "old_id": "DS-377",
+    "new_id": "DS-1657",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-2): norm changed; 「`id` とファイル名は一致」は無条件のまま ROOT-048（1 文書 1 json）と両立しない。上流文書のレコードを除外して再条件づけた（導出。除外は当該ノードの description に明記）。ファイル名に関する規範は root / request / require / spec のいずれにも無く（`ファイル名` 0 件）、この文は detailed_spec 固有である。"
+  },
+  {
+    "old_id": "BD-170",
+    "new_id": "BD-329",
+    "reason": "canonical holes 2026-09-07 (fix round 1, H-1): norm changed; `derives_from:[DOC-]` の `DOC-` は H-1（BD-318）で死んだ値域であり、同層の BD-318 と字面で矛盾していた。値域の語を落とした。"
   }
 ]
