@@ -430,9 +430,11 @@ fn materialize_tests(
     // `drafts`（構文上有効な Test ID を持つ construct）だけから構築して
     // おり、`missing_drafts` はここに加えない — `ManagedTestLink::Missing`
     // は `Missing` variant 自体が `TestId` を運ばない型（本冊:796-800）
-    // であり、E-SCAN-007 の5経路（id・covers・target・intent 欠落、
-    // covers split後0件）のうち id 以外の4経路は構文上有効な `@vtest.id`
-    // を持つ construct でも起こりうる。したがって「`Missing` は Test ID
+    // であり、E-SCAN-007 の4経路（id・covers・intent 欠落、covers split後
+    // 0件。target 欠落は含まない — DS-1666 / ROOT-049 により `targets` の
+    // 宣言は Test 成立性の必須条件ではなく、空値も core の target 解決
+    // （E-SCAN-004）へ素通しする）のうち id 以外の3経路は構文上有効な
+    // `@vtest.id` を持つ construct でも起こりうる。したがって「`Missing` は Test ID
     // を持たない」は誤りで、正しくは「`ManagedTestLink::Missing` という
     // 型が Test ID を運ばないため、たとえ元の宣言に `@vtest.id` の文字列
     // があっても core 側にはこの検査で比較できる `TestId` が存在しない」
