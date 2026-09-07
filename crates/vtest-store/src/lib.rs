@@ -10,7 +10,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use vtest_model::DocumentId;
 
 pub mod canonical;
 pub mod forms;
@@ -37,6 +36,20 @@ pub enum StoreError {
     InvalidForm(String),
     #[error("invalid form answers: {0}")]
     InvalidAnswers(String),
+
+    /// A record does not conform to the canonical schema it declares —
+    /// DS-1645: "E-SCAN-010はerrorであり、レコードのid / ファイル名 /
+    /// schema不一致（宣言されていない余剰 field を含む）...を意味する". This
+    /// is the fail-closed replacement for the retired `DS-376` "warn and
+    /// continue" behavior (see `docs/canonical/relations/retired-ids.json`);
+    /// `code` carries the diagnostic code so a caller (PR6) can map it to an
+    /// exit code without re-deriving it from a string.
+    #[error("{code} at {location}: {detail}")]
+    SchemaMismatch {
+        code: &'static str,
+        location: String,
+        detail: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -124,7 +137,6 @@ pub struct ProjectConfig {
     pub version: u32,
     pub project: ProjectSection,
     pub adapters: Vec<AdapterConfig>,
-    pub doc: DocSection,
     pub verify: VerifySection,
 
     /// 詳細設計 v0.1 §2.2: "`gates` field自体の欠落と空 list は「ゲート定義
@@ -170,13 +182,6 @@ pub struct ScanSection {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunSection {
     pub coverage: String,
-}
-
-/// Orphan-detection roots for the document layer (詳細設計 v0.1 §2.2, §5.6).
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DocSection {
-    pub roots: Vec<DocumentId>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -234,7 +239,6 @@ impl ProjectConfig {
                     coverage: "llvm-cov".to_owned(),
                 },
             }],
-            doc: DocSection { roots: Vec::new() },
             verify: VerifySection {
                 full_scope: FIXED_FULL_SCOPE
                     .iter()
@@ -304,11 +308,11 @@ impl ProjectConfig {
 
     /// Parses a canonical version 2 configuration directly via `yaml_serde`,
     /// using `ProjectConfig`'s own `Deserialize` derive. A missing
-    /// `project`/`adapters`/`doc`/`verify` section fails closed through the
-    /// derive's standard "missing field" behavior (none of the four carry
+    /// `project`/`adapters`/`verify` section fails closed through the
+    /// derive's standard "missing field" behavior (none of the three carry
     /// `#[serde(default)]`); `gates`/`approval_roles` default to empty,
-    /// matching 詳細設計 v0.1 §2.2's "`gates` field自体の欠落と空 list は
-    /// 「ゲート定義なし」として受理する".
+    /// matching DS-362's "`gates` field自体の欠落と空listは「ゲート定義な
+    /// し」として受理する".
     fn from_yaml_v2(value: yaml_serde::Value) -> Result<Self, StoreError> {
         let config: Self = yaml_serde::from_value(value)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid v2 config: {error}")))?;
@@ -389,7 +393,6 @@ impl ProjectConfig {
                 },
                 run: RunSection { coverage },
             }],
-            doc: DocSection { roots: Vec::new() },
             verify: VerifySection { full_scope },
             gates: Vec::new(),
             approval_roles: BTreeMap::new(),
@@ -465,10 +468,12 @@ fn validate_full_scope(full_scope: &[String]) -> Result<(), StoreError> {
 /// Structural (not cross-referential) validation of a version 2 config.
 /// Checks that only need the config text itself: adapter id/root duplicates,
 /// `verify.full_scope`, gate name duplicates, `require.verification`
-/// vocabulary, and unresolved `require.approvals` roles. Whether a `doc.roots`
-/// entry names a document that actually exists needs the registered document
-/// set, which this parser does not have; that check belongs to whichever
-/// component evaluates `orphan_detection` (out of PR2's scope).
+/// vocabulary, and unresolved `require.approvals` roles (DS-1162, DS-1652).
+/// This config carries no document-root configuration to cross-reference:
+/// DS-1646 makes root-layer membership itself the orphan-detection root
+/// ("根の指定は `root` 層への所属であり…設定による除外指定は持たない"), so
+/// there is no `doc.roots`-shaped entry for this parser (or any other
+/// component) to resolve against a registered document set.
 fn validate_v2_config(config: &ProjectConfig) -> Result<(), StoreError> {
     let mut seen_adapter_ids = std::collections::BTreeSet::new();
     for adapter in &config.adapters {
@@ -638,10 +643,11 @@ pub fn load_config(root: &Path) -> Result<ProjectConfig, StoreError> {
 }
 
 /// Returns the file-stem IDs of every `.yaml` record in `directory`, sorted.
-/// Generic over the directory: used for both the canonical (`doc/`, `vo/`)
-/// and the predecessor (`spec/`, `req/`) record layouts. Full schema
-/// validation is a separate concern; this read-side helper never writes
-/// derived cache files.
+/// Generic over the directory: used for both the canonical (`vo/`) and the
+/// predecessor (`spec/`, `req/`) record layouts. Full schema validation is a
+/// separate concern; this read-side helper never writes derived cache
+/// files. Not used for `doc/`: BD-319/BD-320 make the upstream document
+/// model's file format JSON, not YAML — see `read_document_names`.
 pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
     let entries = fs::read_dir(directory).map_err(|source| StoreError::Io {
         path: directory.to_owned(),
@@ -665,19 +671,47 @@ pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
     Ok(ids)
 }
 
-/// IDs of every registered `document` and `VO` record (詳細設計 v0.1 §2.1's
-/// `doc/`+`vo/` layout — the predecessor `spec/`+`req/` split collapsed into
-/// the single generic `document` type PR1 introduced, so this returns two
-/// slots, not the predecessor reader's three). `vtest-scan`, this function's
-/// only caller, still expects the retired three-slot `[spec, req, vo]` shape
-/// and does not compile against this branch's canonical `ProjectConfig`
-/// regardless (18 pre-existing errors, unrelated to this change); updating
-/// that caller to the shape below is PR3's job, when scan itself moves onto
-/// the canonical model.
+/// Returns the file-stem names of every `.json` upstream document file in
+/// `directory` (`.verify/doc/`), sorted. BD-330/DES-585: this name is the
+/// document's own identity (author-chosen, never a machine-generated
+/// identifier) — there is no separate `id` field inside the file to check
+/// it against, unlike `read_record_ids`'s YAML records.
+pub fn read_document_names(directory: &Path) -> Result<Vec<String>, StoreError> {
+    let entries = fs::read_dir(directory).map_err(|source| StoreError::Io {
+        path: directory.to_owned(),
+        source,
+    })?;
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|source| StoreError::Io {
+            path: directory.to_owned(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|v| v.to_str()) != Some("json") {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|v| v.to_str()) {
+            names.push(stem.to_owned());
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+/// Names/IDs of every registered upstream document and VO record (BD-323's
+/// `doc/`+BD-139's `vo/` layout — the predecessor `spec/`+`req/` split
+/// collapsed into the single generic document model PR1/PR20 introduced,
+/// so this returns two slots, not the predecessor reader's three).
+/// `vtest-scan`, this function's only caller, still expects the retired
+/// three-slot `[spec, req, vo]` shape and does not compile against this
+/// branch's canonical `ProjectConfig` regardless (28 pre-existing errors,
+/// unrelated to this change); updating that caller to the shape below is
+/// PR3's job, when scan itself moves onto the canonical model.
 pub fn read_entity_ids(root: &Path) -> Result<[Vec<String>; 2], StoreError> {
     let layout = VerifyLayout::new(root);
     Ok([
-        read_record_ids(&layout.doc_dir())?,
+        read_document_names(&layout.doc_dir())?,
         read_record_ids(&layout.vo_dir())?,
     ])
 }
@@ -736,15 +770,27 @@ mod tests {
     fn read_entity_ids_reflects_registered_documents_and_vos() {
         let root = temporary_directory("read-entity-ids-populated");
         let layout = init_project(&root, "example").unwrap();
-        write_document(
+        canonical::write_document_file(
             &layout,
-            &vtest_model::DocumentRecord {
-                id: vtest_model::DocumentId::new("DOC-A"),
-                path: "docs/a.md".to_owned(),
-                content_hash: vtest_model::ContentHash::from_text("a"),
-                title: None,
-                derives_from: vec![],
-                registered_at: "2026-08-08T00:00:00Z".to_owned(),
+            "DOC-A",
+            &vtest_model::DocumentFile {
+                schema_version: "0.1".to_owned(),
+                root: vec![vtest_model::RootNode {
+                    id: vtest_model::DocumentId::new("ROOT-001"),
+                    statement: "A frozen ruling.".to_owned(),
+                    description: None,
+                    source: vtest_model::NodeSource {
+                        doc: "docs/a.md".to_owned(),
+                        heading: "1".to_owned(),
+                        lines: [1, 1],
+                    },
+                }],
+                request: vec![],
+                require: vec![],
+                spec: vec![],
+                detailed_spec: vec![],
+                basic_design: vec![],
+                design: vec![],
             },
         )
         .unwrap();
@@ -786,10 +832,61 @@ mod tests {
         assert_eq!(parsed.adapters[0].run.coverage, "llvm-cov");
     }
 
-    /// 詳細設計 v0.1 §2.2's own literal `config.yaml` example, verified
-    /// field-for-field rather than derived from the writer.
+    /// BD-154's own literal `config.yaml` example (its `description`
+    /// field), verbatim including its inline comments — no `doc:` block:
+    /// BD-154 goes straight from `adapters:` to `verify:`, corroborating
+    /// removal of `DocSection`/`doc.roots` (DS-1646 already makes `root`
+    /// layer membership itself the orphan-detection root, with no config
+    /// exclusion mechanism).
+    ///
+    /// BD-154's own text ends without an `approval_roles:` section even
+    /// though its `gates` reference the `reviewer`/`owner` roles — DS-1162/
+    /// DS-1652 make an unresolved `gates.require.approvals` role a fail-
+    /// closed E-CONFIG-001 condition, so this literal example, fed exactly
+    /// as BD-154 states it, is rejected by this reader. This is disclosed
+    /// as a spec-internal gap (BD-154's own quoted `lines` range, 131-155,
+    /// is a sub-range of the full "### 2.2 config.yaml" section, 131-173 —
+    /// the source markdown very likely continued past line 155 with an
+    /// `approval_roles:` block that BD-154's own text does not capture),
+    /// not something this PR resolves by inventing role data BD-154 itself
+    /// does not state.
     #[test]
-    fn documented_v2_example_parses_as_specified() {
+    fn bd_154_example_config_fails_closed_on_its_own_unresolved_approval_roles() {
+        let yaml = concat!(
+            "version: 2\n",
+            "project:\n",
+            "  name: example\n",
+            "adapters:\n",
+            "  - id: rust-cargo\n",
+            "    roots: [\".\"]\n",
+            "    scan:\n",
+            "      include: [src, tests, crates]   # テストコード走査パス。省略時はワークスペース全体\n",
+            "      assertion_macros: []            # 追加で assert 相当として扱うマクロ名\n",
+            "    run:\n",
+            "      coverage: llvm-cov              # target_binding 動的計測方式: llvm-cov | off\n",
+            "verify:\n",
+            "  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n",
+            "gates:                                # フェーズゲート定義（§11.5、基本仕様 §20）\n",
+            "  - name: development\n",
+            "    require: { verification: PASS }\n",
+            "  - name: release\n",
+            "    require: { verification: PASS, approvals: [reviewer] }\n",
+            "  - name: delivery\n",
+            "    require: { verification: PASS, approvals: [owner] }\n",
+        );
+
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
+            .expect_err("BD-154's own example, taken verbatim, does not itself define the approval roles its gates reference");
+        assert!(error.to_string().contains("approval role"));
+    }
+
+    /// The structural (non-role) shape of BD-154's example does parse: this
+    /// isolates that from the unresolved-role gap the test above discloses,
+    /// by supplying the `approval_roles:` DS-1160 itself shows as the
+    /// mapping's shape (role name → list of approver ids) — not part of
+    /// BD-154's own quoted text, and not asserted to be BD-154's own text.
+    #[test]
+    fn bd_154_example_config_parses_once_its_disclosed_gap_is_filled() {
         let yaml = concat!(
             "version: 2\n",
             "project:\n",
@@ -802,8 +899,6 @@ mod tests {
             "      assertion_macros: []\n",
             "    run:\n",
             "      coverage: llvm-cov\n",
-            "doc:\n",
-            "  roots: [DOC-REQ-ROOT]\n",
             "verify:\n",
             "  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n",
             "gates:\n",
@@ -830,10 +925,6 @@ mod tests {
         );
         assert!(config.adapters[0].scan.assertion_macros.is_empty());
         assert_eq!(config.adapters[0].run.coverage, "llvm-cov");
-        assert_eq!(
-            config.doc.roots,
-            vec![vtest_model::DocumentId::new("DOC-REQ-ROOT")]
-        );
         assert_eq!(
             config.verify.full_scope,
             vec![
@@ -871,7 +962,6 @@ mod tests {
         assert_eq!(parsed.adapters[0].id, "rust-cargo");
         assert_eq!(parsed.adapters[0].roots, vec!["."]);
         assert_eq!(parsed.adapters[0].scan.include, vec!["examples"]);
-        assert!(parsed.doc.roots.is_empty());
         assert!(parsed.gates.is_empty());
     }
 
@@ -966,7 +1056,7 @@ mod tests {
     /// leaving the round 2 claim uncorrected.
     #[test]
     fn approval_roles_with_a_duplicate_key_is_rejected() {
-        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\napproval_roles:\n  reviewer: [a]\n  reviewer: [b]\n";
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\napproval_roles:\n  reviewer: [a]\n  reviewer: [b]\n";
         ProjectConfig::from_yaml(yaml, "fallback")
             .expect_err("a duplicate key inside approval_roles must fail closed");
     }
@@ -975,7 +1065,7 @@ mod tests {
     fn v2_config_missing_a_required_section_is_rejected() {
         let full = ProjectConfig::default_for("calc").to_yaml();
         let lines: Vec<&str> = full.lines().collect();
-        for section in ["project", "adapters", "doc", "verify"] {
+        for section in ["project", "adapters", "verify"] {
             // Drops the section's header line *and* its indented body, so
             // the result is valid YAML that genuinely lacks the section
             // (not a header-only removal, which can fold an orphaned body
@@ -1012,7 +1102,7 @@ mod tests {
 
     #[test]
     fn v2_config_with_explicitly_empty_adapters_parses_to_no_adapters() {
-        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
         let parsed = ProjectConfig::from_yaml(yaml, "fallback").unwrap();
         assert!(
             parsed.adapters.is_empty(),
@@ -1089,7 +1179,7 @@ mod tests {
 
     #[test]
     fn v2_config_with_a_misspelled_top_level_key_is_rejected() {
-        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngate: []\n";
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngate: []\n";
         let error = ProjectConfig::from_yaml(yaml, "fallback")
             .expect_err("an unrecognized top-level config key must fail closed");
         assert!(error.to_string().contains("gate"));
@@ -1097,7 +1187,7 @@ mod tests {
 
     #[test]
     fn v2_config_with_an_unknown_nested_project_key_is_rejected() {
-        let yaml = "version: 2\nproject: {name: x, foo: y}\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
+        let yaml = "version: 2\nproject: {name: x, foo: y}\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
         let error = ProjectConfig::from_yaml(yaml, "fallback")
             .expect_err("an unknown key nested inside `project` must fail closed");
         assert!(error.to_string().contains("foo"));
@@ -1105,7 +1195,7 @@ mod tests {
 
     #[test]
     fn v2_config_with_a_misspelled_nested_gate_requirement_key_is_rejected() {
-        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\ndoc:\n  roots: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:\n  - name: release\n    require:\n      verification: PASS\n      approval: []\n";
+        let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:\n  - name: release\n    require:\n      verification: PASS\n      approval: []\n";
         let error = ProjectConfig::from_yaml(yaml, "fallback")
             .expect_err("an unknown key nested inside `gates[].require` must fail closed");
         assert!(error.to_string().contains("approval"));
