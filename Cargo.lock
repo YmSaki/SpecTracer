@@ -611,6 +611,7 @@ name = "vtest-store"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror",
  "vtest-model",
  "yaml_serde",
