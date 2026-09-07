@@ -22969,6 +22969,23 @@
               }
             },
             {
+              "id": "DS-1660",
+              "statement": "VO レコードの `derives_from` entry の `doc` field の値は上流ノード id（節ノードまたは文ノード）であり、上流文書のファイル名ではない。",
+              "derives_from": [
+                "SPEC-013",
+                "SPEC-348"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "### 3.2 VO レコード（`.verify/vo/VO-*.yaml`）",
+                "lines": [
+                  217,
+                  217
+                ]
+              },
+              "description": "明文の転記である。上位の明文は 2 件。`SPEC-013`（spec）「`derives_from` は上流ノードへの参照である」が参照先をノードと定め、`SPEC-348`（spec）「projection が出力する `derives_from` エッジは到達先の上流ノード id（節または文）を伴い、「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき…」が、まさに VO への対応ペアを作るエッジについて値域（上流ノード id）と粒度（節ノードも可）を定める。`REQ-026`（require）「ノード（文・節）間のリンクは `derives_from` の一種のみとする」も同じ語彙を持つ。下位層も一致するが根拠ではない: `BD-313`「ノード間・VO → ノードの関係」、`DS-1638`「参照先ノード内の該当箇所」、`DS-1643`（エッジ要素の `from` は `<上流ノード id>`、`to` は VO id）。 field 名 `doc` は据え置く。旧モデルで上流文書の総称ノード型の名が `document` であったこと（`ROOT-037` F11）に由来する wire 形であり、`DS-401` / `DS-1641` / `DS-1218` が同じ綴りを使う。名前を変えることは規範変更にあたるので変えない。ただし `ROOT-048` により「文書」はファイルの単位になったため、field 名は文書ファイルを指すかのように読める。本文はその読みを塞ぐ。同節の `DS-391` / `DS-396` の `document` は総称ノード型の名であって本文と同じ対象を指す（`BD-318` が `BD-019`「document の ID」を「ノードの ID」へ改めた）。 節ノードを指してよいことは `SPEC-348` の「節または文」が明文である。嘘テストでも緩まない: 節ノードを指した VO の承認・判断記録は、`DS-1659`・`DES-587` により当該節の子の追加・削除・並べ替えでも失効するので、文ノードを指す場合より失効の範囲が広い（fail-closed）。文書ファイルを指す読みだけが、節や文の差し替えを承認の外に置いて鎖の切れ目を隠す。 `SPEC-013` / `SPEC-348` / `REQ-026` の現行逐語は 2026-09-06 の Issue #14 再整合（`c8c6ec1`）が id を維持したまま書き換えたものであり、退役した md の逐語ではない。経緯は `reports/vo-derives-target-2026-09-07.md`。"
+            },
+            {
               "id": "DS-392",
               "statement": "VO レコードの `derives_from` entryの `anchor` fieldは任意の上流該当箇所（節番号等）であり、空も許容し、`chain_integrity` 違反・`MISMATCH` としない。",
               "derives_from": [],
@@ -23106,8 +23123,8 @@
               }
             },
             {
-              "id": "DS-402",
-              "statement": "`anchor` と `note` はVO subject hashの入力に含まれない（VO subject hashは `derives_from` の参照先document ID集合を束縛する）（§1.3）。",
+              "id": "DS-1661",
+              "statement": "`anchor` と `note` はVO subject hashの入力に含まれない（VO subject hashは `derives_from` の参照先ノード id 集合を束縛する）（§1.3）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23116,7 +23133,8 @@
                   233,
                   233
                 ]
-              }
+              },
+              "description": "「参照先 document ID 集合」の「document の ID」は、`DES-585`（上流文書のファイルは当該文書を識別する field を持たない）と `BD-318`（ノードの ID は層ごとの接頭辞）のもとで指す先を失った値域である。束縛対象を `DS-1660` の定める値域（上流ノード id）へ改めた。同旨の `DES-095`（design、後継 `DES-590`）を同じコミットで改めている。片方だけ直すと層をまたいで矛盾する。同節の `DS-404`「参照先document集合そのものの変更はVOの承認・判断記録を従来どおり失効させる」は `document` を総称ノード型の名として使っており、指す先を失った「ID」の語を含まないため触っていない（`reports/vo-derives-target-2026-09-07.md` に開示）。"
             },
             {
               "id": "DS-403",
@@ -48594,8 +48612,8 @@
           }
         },
         {
-          "id": "DES-570",
-          "statement": "各 `derives_from` リンクは説明文・導出理由を保持せず、上流ノードの id だけを持つ（§3.2）。",
+          "id": "DES-588",
+          "statement": "ノードの各 `derives_from` リンクは説明文・導出理由を保持せず、上流ノードの id だけを持つ（§3.2）。VO レコードの `derives_from` entry の `note` は §3.2 に従う。",
           "derives_from": [
             "REQ-036",
             "REQ-037",
@@ -48622,7 +48640,8 @@
               26,
               26
             ]
-          }
+          },
+          "description": "無条件の否定文が上位層の `DS-1638`（VO の `derives_from` entry は任意の `anchor` と任意の `note` を持つ）と `BD-171`（対応ペアは `anchor` 付き `derives_from` エッジとして保持する）に反していた。`DS-1595`（detailed_spec）のスコープ語「ノードの」を転記して限定した。`anchor` について同型の処置を受けた `DES-583` と対になる条文であり、`note`・説明文の側だけが無条件のまま残っていた。「上流ノードの id だけを持つ」の値域は変えていない（`DS-1594` と一致する）。"
         },
         {
           "id": "DES-004",
@@ -50354,8 +50373,8 @@
               }
             },
             {
-              "id": "DES-095",
-              "statement": "VO subject hashは `derives_from`（参照先document ID集合）と `parent` を束縛する。",
+              "id": "DES-590",
+              "statement": "VO subject hashは `derives_from`（参照先ノード id 集合）と `parent` を束縛する。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -50364,7 +50383,8 @@
                   90,
                   90
                 ]
-              }
+              },
+              "description": "上位層の `DS-1661` と同旨の条文であり、「document ID 集合」は `DES-585` と `BD-318` のもとで指す先を失った値域である。束縛対象を `DS-1660` の定める値域（上流ノード id）へ改めた。束縛する field の組（`derives_from` と `parent`）は変えていない。"
             },
             {
               "id": "DES-096",
@@ -50870,7 +50890,7 @@
             {
               "id": "DES-117",
               "statement": "VO レコードの `parent` fieldはVO IDまたはnull（階層化）である。",
-              "description": "id: VO-PARSER-UTF8-003\nparent: VO-PARSER-UTF8          # VO ID または null（階層化）\nderives_from:                   # 1件以上の document への直結（基本仕様 §3.2）\n  - doc: DOC-BASIC-001\n    anchor: \"§8.2条項2\"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）\n    note: \"\"                    # 任意（空可・非 MISMATCH）\nclaim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す\ndimensions: []                  # 検証軸（任意。§3.2.1）\ncoverage_policy: null           # independent-axes | full-product | explicit | null\ncombinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）\nrepresentative_cases: []        # 代表入力値（任意）\ncreated: 2026-08-08\nupdated: 2026-08-08",
+              "description": "id: VO-PARSER-UTF8-003\nparent: VO-PARSER-UTF8          # VO ID または null（階層化）\nderives_from:                   # 1件以上の上流ノードへの直結（基本仕様 §3.2）\n  - doc: <上流ノード id>        # 節ノードまたは文ノードの id（§3.2）\n    anchor: \"§8.2条項2\"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）\n    note: \"\"                    # 任意（空可・非 MISMATCH）\nclaim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す\ndimensions: []                  # 検証軸（任意。§3.2.1）\ncoverage_policy: null           # independent-axes | full-product | explicit | null\ncombinations: []                # coverage_policy: explicit のとき実体化する組合せ（§3.2.1）\nrepresentative_cases: []        # 代表入力値（任意）\ncreated: 2026-08-08\nupdated: 2026-08-08",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54562,8 +54582,8 @@
               }
             },
             {
-              "id": "DES-381",
-              "statement": "検証グラフのエッジ `VO → DOC` は `derives_from` であり、VOレコード由来、1:N（1件以上）である。",
+              "id": "DES-589",
+              "statement": "検証グラフのエッジ `VO → ノード` は `derives_from` であり、VOレコード由来、1:N（1件以上）である。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54572,7 +54592,8 @@
                   853,
                   853
                 ]
-              }
+              },
+              "description": "`DOC` は `BD-318`（canonical holes 2026-09-07 の H-1）で死んだ値域である。上位層の `BD-313`「検証グラフでは、ノード間・VO → ノードの関係を `derives_from` の一種で表現する」と、同層の `DES-380`（ノード間エッジ）に字面を揃えた。到達先の値域そのものは `DS-1660` が定める。カーディナリティは変えていない。`derives_from` は前身 `DES-381` と同じく空のままで、親節 `DES-S051` の辺を継承する。"
             },
             {
               "id": "DES-382",

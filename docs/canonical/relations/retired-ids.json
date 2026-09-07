@@ -695,5 +695,25 @@
     "old_id": "BD-170",
     "new_id": "BD-329",
     "reason": "canonical holes 2026-09-07 (fix round 1, H-1): norm changed; `derives_from:[DOC-]` の `DOC-` は H-1（BD-318）で死んだ値域であり、同層の BD-318 と字面で矛盾していた。値域の語を落とした。"
+  },
+  {
+    "old_id": "DES-570",
+    "new_id": "DES-588",
+    "reason": "vo derives target 2026-09-07: norm changed; 無条件の「各 `derives_from` リンクは説明文・導出理由を保持せず」が上位層の DS-1638（VO の entry は任意の `anchor` と `note` を持つ）と BD-171 に反していた。DS-1595 のスコープ語（ノードの）を転記して限定した。`anchor` 側の同型処置 DES-583 と対になる。"
+  },
+  {
+    "old_id": "DES-381",
+    "new_id": "DES-589",
+    "reason": "vo derives target 2026-09-07: norm changed; エッジ表記 `VO → DOC` の `DOC` は BD-318（H-1）で死んだ値域であり、上位層の BD-313（VO → ノード）および同層の DES-380 と字面で矛盾していた。到達先をノードへ改めた。"
+  },
+  {
+    "old_id": "DS-402",
+    "new_id": "DS-1661",
+    "reason": "vo derives target 2026-09-07: norm changed; VO subject hash の束縛対象「参照先 document ID 集合」の「document の ID」は DES-585 と BD-318 のもとで指す先を失った値域である。上流ノード id 集合へ改めた（DS-1660）。同旨の DES-095 → DES-590 と対で適用。"
+  },
+  {
+    "old_id": "DES-095",
+    "new_id": "DES-590",
+    "reason": "vo derives target 2026-09-07: norm changed; VO subject hash の束縛対象「参照先 document ID 集合」は DES-585 と BD-318 のもとで指す先を失った値域である。上流ノード id 集合へ改めた（DS-1660・DS-1661）。"
   }
 ]
