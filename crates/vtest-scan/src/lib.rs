@@ -926,13 +926,13 @@ fn validate_document_nodes(
     for name in document_names {
         match read_document_file(layout, name) {
             Ok(file) => files.push((name.clone(), file)),
-            Err(error) => diagnostics.push(
-                Diagnostic::error(
+            Err(error) => {
+                let record_path = document_node_record_path(layout, name);
+                diagnostics.push(Diagnostic::error(
                     "E-SCAN-010",
-                    format!("document {name} has an invalid record: {error}"),
-                )
-                .with_location(document_node_location(layout, name, name)),
-            ),
+                    format!("document {name} has an invalid record: {error} ({record_path})"),
+                ));
+            }
         }
     }
 
@@ -967,20 +967,14 @@ fn validate_document_nodes(
             let mut locations = occurring_in.clone();
             locations.sort();
             locations.dedup();
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!(
-                        "document node id {id} occurs more than once, in: {}",
-                        locations.join(", ")
-                    ),
-                )
-                .with_location(document_node_location(
-                    layout,
-                    &occurring_in[0],
-                    id,
-                )),
-            );
+            let record_path = document_node_record_path(layout, &occurring_in[0]);
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!(
+                    "document node id {id} occurs more than once, in: {} ({record_path})",
+                    locations.join(", ")
+                ),
+            ));
         } else {
             known_ids.insert(id.clone());
         }
@@ -1072,15 +1066,15 @@ fn index_section_ids(
     }
 }
 
-/// A document-node diagnostic's location: the `.verify/doc/<name>.json`
-/// file, with `function` set to the node's own id (mirrors
-/// `validate_vo_record`'s use of `record_location` for `.verify/vo/`).
-fn document_node_location(layout: &VerifyLayout, name: &str, node_id: &str) -> SourceLocation {
-    record_location(
-        &layout.root,
-        &layout.doc_dir().join(format!("{name}.json")),
-        node_id,
-    )
+/// A document-node diagnostic's identifying record path: the repo-relative
+/// `.verify/doc/<name>.json` path, embedded in the diagnostic's message text
+/// rather than attached as a `SourceLocation` — document nodes are a record
+/// layer, not an adapter-discovered construct, so (see `record_relative_path`'s
+/// own doc comment) they must not fabricate one. Mirrors `record_relative_path`'s
+/// use for every other record-layer diagnostic in this file (E-SCAN-008/009/
+/// 010, and `validate_vo_document_references` below).
+fn document_node_record_path(layout: &VerifyLayout, name: &str) -> String {
+    record_relative_path(&layout.root, &layout.doc_dir().join(format!("{name}.json")))
 }
 
 /// Walks one `SectionNode` and its descendants, checking both E-SCAN-012
@@ -1099,35 +1093,29 @@ fn check_section_node(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let own_edges = section.derives_from.as_deref().unwrap_or(&[]);
-    let location = document_node_location(layout, document, section.id.as_str());
+    let record_path = document_node_record_path(layout, document);
     for target in own_edges {
         if !known_ids.contains(target.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-012",
-                    format!(
-                        "document node {} derives_from missing node {}",
-                        section.id.as_str(),
-                        target.as_str()
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-012",
+                format!(
+                    "document node {} derives_from missing node {} ({record_path})",
+                    section.id.as_str(),
+                    target.as_str()
+                ),
+            ));
         }
     }
     let has_upstream = ancestor_has_upstream || !own_edges.is_empty();
     if !has_upstream {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-016",
-                format!(
-                    "document node {} is orphaned: no effective upstream (own or ancestor \
-                     derives_from edges)",
-                    section.id.as_str()
-                ),
-            )
-            .with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-016",
+            format!(
+                "document node {} is orphaned: no effective upstream (own or ancestor \
+                 derives_from edges) ({record_path})",
+                section.id.as_str()
+            ),
+        ));
     }
 
     if let Some(items) = &section.items {
@@ -1159,35 +1147,29 @@ fn check_sentence_node(
     known_ids: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let location = document_node_location(layout, document, sentence.id.as_str());
+    let record_path = document_node_record_path(layout, document);
     for target in &sentence.derives_from {
         if !known_ids.contains(target.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-012",
-                    format!(
-                        "document node {} derives_from missing node {}",
-                        sentence.id.as_str(),
-                        target.as_str()
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-012",
+                format!(
+                    "document node {} derives_from missing node {} ({record_path})",
+                    sentence.id.as_str(),
+                    target.as_str()
+                ),
+            ));
         }
     }
     let has_upstream = ancestor_has_upstream || !sentence.derives_from.is_empty();
     if !has_upstream {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-016",
-                format!(
-                    "document node {} is orphaned: no effective upstream (own or ancestor \
-                     derives_from edges)",
-                    sentence.id.as_str()
-                ),
-            )
-            .with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-016",
+            format!(
+                "document node {} is orphaned: no effective upstream (own or ancestor \
+                 derives_from edges) ({record_path})",
+                sentence.id.as_str()
+            ),
+        ));
     }
 }
 
@@ -1205,21 +1187,15 @@ fn validate_vo_document_references(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for (id, record) in vos {
-        let location = record_location(
-            &layout.root,
-            &layout.vo_dir().join(format!("{id}.yaml")),
-            id,
-        );
+        let record_path =
+            record_relative_path(&layout.root, &layout.vo_dir().join(format!("{id}.yaml")));
         for entry in &record.derives_from {
             let target = entry.doc.as_str();
             if !document_node_ids.contains(target) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-012",
-                        format!("VO {id} derives_from missing node {target}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-012",
+                    format!("VO {id} derives_from missing node {target} ({record_path})"),
+                ));
             }
         }
     }
