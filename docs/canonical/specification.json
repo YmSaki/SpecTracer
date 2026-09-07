@@ -16894,9 +16894,12 @@
               }
             },
             {
-              "id": "DS-063",
-              "statement": "1つのTestは1件以上のSource Targetを持ち、各target参照を個別に保持する。",
-              "derives_from": [],
+              "id": "DS-1673",
+              "statement": "1つのTestは0件以上のSource Targetを持ち、各target参照を個別に保持する。",
+              "description": "前身 `DS-063` は「1件以上」を Test の構造として要求していた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではないため、下限を 0 にした。上限は無く、複数 target を個別に保持する点は変えていない。上流の許可規範（`REQ-150`「1 つの Test は 1 件以上の Source Target を宣言できる」・`SPEC-085`）は可能性の記述であって義務ではないため、変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "3.3 Source Target の識別",
@@ -17801,9 +17804,13 @@
               }
             },
             {
-              "id": "DS-120",
-              "statement": "実装construct（Source Target）を検証対象とする実行形態では、宣言された対象コードが実際にTest実行経路へ入ったことを確認方法とする。",
-              "derives_from": [],
+              "id": "DS-1670",
+              "statement": "targetを宣言したTestでは、宣言された対象コードが実際にTest実行経路へ入ったことを確認方法とする。",
+              "description": "前身 `DS-120` は条件を「実装construct（Source Target）を検証対象とする実行形態では」としていた。上流の `REQ-337`（前身 `REQ-068`）と同じ付け替えを詳細設計面に反映し、条件を「target を宣言したか」にした。確認方法そのものは変えていない。",
+              "derives_from": [
+                "REQ-337",
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "5.3 target_binding — 宣言対象の振る舞いの実現",
@@ -17901,48 +17908,6 @@
                 "lines": [
                   241,
                   241
-                ]
-              }
-            },
-            {
-              "id": "DS-128",
-              "statement": "特定形態の確認方法を別形態のTestへ一律要求しない。",
-              "derives_from": [
-                "REQ-064",
-                "REQ-065",
-                "REQ-066",
-                "REQ-067",
-                "REQ-337",
-                "REQ-069",
-                "REQ-072",
-                "REQ-125",
-                "REQ-126",
-                "REQ-127",
-                "REQ-128",
-                "REQ-129",
-                "REQ-130",
-                "REQ-131",
-                "REQ-133",
-                "REQ-134",
-                "REQ-135",
-                "REQ-136",
-                "REQ-137",
-                "REQ-138",
-                "REQ-139",
-                "REQ-140",
-                "REQ-141",
-                "REQ-142",
-                "REQ-143"
-              ],
-              "cites": [
-                "要件定義 §4.3、§8 条項 3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.3 target_binding — 宣言対象の振る舞いの実現",
-                "lines": [
-                  242,
-                  242
                 ]
               }
             },
@@ -18699,19 +18664,6 @@
               }
             },
             {
-              "id": "DS-167",
-              "statement": "特定形態固有の確認方法を別形態へ一律要求しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "8.2 成立性の必要条件",
-                "lines": [
-                  303,
-                  303
-                ]
-              }
-            },
-            {
               "id": "DS-168",
               "statement": "成立性の問いへの答えは確認方法に依らず同一でなければならない。",
               "derives_from": [],
@@ -18878,48 +18830,14 @@
               }
             },
             {
-              "id": "DS-176",
-              "statement": "実装construct（Source Target）を直接検証する実行形態ではSource Target宣言をそのまま検証対象の宣言として扱う。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "9.1 検証対象",
-                "lines": [
-                  355,
-                  355
-                ]
-              }
-            },
-            {
-              "id": "DS-177",
-              "statement": "実装construct（Source Target）を直接検証する実行形態では、同一対象の二重宣言を要求しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "9.1 検証対象",
-                "lines": [
-                  355,
-                  355
-                ]
-              }
-            },
-            {
-              "id": "DS-178",
-              "statement": "外部契約・境界上の振る舞いを検証する実行形態では、その契約・振る舞いを検証対象とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "9.1 検証対象",
-                "lines": [
-                  355,
-                  355
-                ]
-              }
-            },
-            {
-              "id": "DS-179",
-              "statement": "外部契約・境界上の振る舞いを検証する実行形態では、内部Source Targetの宣言をTest成立性の必須条件としない。",
-              "derives_from": [],
+              "id": "DS-1671",
+              "statement": "targetの宣言はTest成立性の必須条件ではない。",
+              "description": "前身 `DS-179` は「外部契約・境界上の振る舞いを検証する実行形態では」という条件節を持っていた。上流の `REQ-336` / `SPEC-465` と同じく無条件にした。同じ節にあった `DS-176` / `DS-177` / `DS-178` は、もう一方の実行形態についての規範だったため退役した。",
+              "derives_from": [
+                "REQ-336",
+                "SPEC-465",
+                "ROOT-049"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "9.1 検証対象",
@@ -24209,23 +24127,6 @@
                   519
                 ]
               }
-            },
-            {
-              "id": "DS-1633",
-              "statement": "v0.1の唯一のadapter `rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする（§4.2・§4.4・§5.5）。",
-              "derives_from": [
-                "REQ-055",
-                "REQ-336",
-                "SPEC-084"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.1 adapter-neutralな正規化",
-                "lines": [
-                  519,
-                  519
-                ]
-              }
             }
           ]
         },
@@ -24662,33 +24563,14 @@
               }
             },
             {
-              "id": "DS-1634",
-              "statement": "`rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて、追加必須metadataとして `targets ≥ 1` を要求する（§4.1・§4.2・§5.5）。",
-              "derives_from": [
-                "SPEC-085",
-                "SPEC-086",
-                "REQ-336",
-                "SPEC-084"
-              ],
-              "cites": [
-                "基本仕様 §9.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 4.4 宣言エラーの扱い",
-                "lines": [
-                  567,
-                  567
-                ]
-              }
-            },
-            {
-              "id": "DS-1620",
-              "statement": "coreの `id` / `covers ≥ 1` / `intent`、および検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
+              "id": "DS-1665",
+              "statement": "coreの `id` / `covers ≥ 1` / `intent` という必須metadataを欠く場合はE-SCAN-007とし、`ManagedTestLink::Missing`（`chain_integrity` の `MISMATCH`、診断 `MISSING`）とする。",
+              "description": "前身 `DS-1620` は必須 metadata の列挙に「検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1`」を含めていた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではなくなったため、この条項だけを外した。E-SCAN-007 そのものは退役していない。同コードは `covers ≥ 1` を含む必須 metadata 欠落の一般コードであり（`DS-1256`・`DES-229`）、その経路は変えていない。adapter が追加 metadata を必須にできること自体も変えていない。",
               "derives_from": [
                 "REQ-055",
                 "REQ-336",
-                "SPEC-084"
+                "SPEC-084",
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -25167,12 +25049,14 @@
               }
             },
             {
-              "id": "DS-1621",
-              "statement": "E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata。`rust-cargo` では検証対象をSource Targetとして実現する実行形態について targets ≥ 1）の欠落を意味する。",
+              "id": "DS-1666",
+              "statement": "E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata）の欠落を意味する。",
+              "description": "前身 `DS-1621` は必須 metadata の列挙に「検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1`」を含めていた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではなくなったため、この条項だけを外した。E-SCAN-007 そのものは退役していない。同コードは `covers ≥ 1` を含む必須 metadata 欠落の一般コードであり（`DS-1256`・`DES-229`）、その経路は変えていない。adapter が追加 metadata を必須にできること自体も変えていない。",
               "derives_from": [
                 "REQ-055",
                 "REQ-336",
-                "SPEC-084"
+                "SPEC-084",
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27382,25 +27266,11 @@
               }
             },
             {
-              "id": "DS-685",
-              "statement": "検証対象をSource Targetとして実現する形態（`rust-cargo`）で、宣言targetをどのtopologyでも実行しないTest（構造・契約のみをassertするTest）は静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
-                "lines": [
-                  1111,
-                  1111
-                ]
-              }
-            },
-            {
-              "id": "DS-1622",
-              "statement": "v0.1の唯一のadapter`rust-cargo`では、検証対象をSource Targetとして実現する実行形態のTestが検証対象をSource Targetとして宣言しない場合にE-SCAN-007（`targets ≥ 1`欠落）として`target_binding`評価の手前で`chain_integrity`の`MISMATCH`になり、外部契約・境界上の振る舞いを検証する実行形態のTestはこれに当たらない。",
+              "id": "DS-1672",
+              "statement": "targetを宣言したTestが宣言targetをどのtopologyでも実行しない場合（構造・契約のみをassertするTest）、静的にもruntimeにも到達を確立できず、到達要件は未充足のままとなる。",
+              "description": "前身 `DS-685` は「検証対象をSource Targetとして実現する形態（`rust-cargo`）で」と実行形態で条件付けていた。`ROOT-049` により条件を「target を宣言したか」に付け替えた。到達要件の帰結は変えていない。target を宣言しない Test はこの文の対象外であり、その `target_binding` は `DS-1664` が定める。",
               "derives_from": [
-                "REQ-336",
-                "SPEC-084",
-                "SPEC-464"
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27427,11 +27297,12 @@
             {
               "id": "DS-1664",
               "statement": "targetを持たないTestの`target_binding`は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
-              "description": "`SPEC-065` が確認方法を詳細設計へ委ね、`SPEC-301` が下位仕様・後続版へ委譲しているため、v0.1 は検証対象をSource Targetとして宣言しないTestについて到達を確認する方法を持たない。診断ラベルを `NOT_CHECKED` とするのは、検査を実施していない状態（`DS-840` のscope外検査、`DS-1103` の `--fast`）と同型だからであり、解析を実施して限界に達した `UNKNOWN`（`DS-1403`）とは別である。`DS-687` は targetを持たないTestが §7.3 の合成へ到達しないことだけを定め、その `target_binding` の値を定めていなかった。値が定まらないことを `PASS` の側へ倒さないため、`REQ-135`（確認不能であることを成立確認済みとして扱ってはならない）に従って非 `PASS` の側へ確定する。`REQ-295` の完全検証OKは4検査すべてが `PASS` であることを要するため、targetを持たないTestを含むrepositoryはv0.1で完全検証OKに到達しない。`REQ-071` により、検証対象をSource Targetとして実現する形態の確認方法を当該Testへ一律に要求することはしない。本ノードは元mdからの転記ではないため、`source` は対になる `DS-687` の位置を指すだけであり、「そこから写した」ことを意味しない（2026-09-06 の文書モデル再整合と同じ開示）。",
+              "description": "target を宣言しない Test には束縛すべき宣言対象が無いため、`target_binding` は観測の不在であって検査の失敗ではない。診断ラベルを `NOT_CHECKED` とするのは、検査を実施していない状態（`DS-840` のscope外検査、`DS-1103` の `--fast`）と同型だからであり、解析を実施して限界に達した `UNKNOWN`（`DS-1403`）とは別である。`DS-687` は targetを持たないTestが §7.3 の合成へ到達しないことだけを定め、その `target_binding` の値を定めていなかった。値が定まらないことを `PASS` の側へ倒さないため、`REQ-135`（確認不能であることを成立確認済みとして扱ってはならない）に従って非 `PASS` の側へ確定する。`REQ-295` の完全検証OKは4検査すべてが `PASS` であることを要するため、targetを持たないTestを含むrepositoryはv0.1で完全検証OKに到達しない。本ノードは元mdからの転記ではないため、`source` は対になる `DS-687` の位置を指すだけであり、「そこから写した」ことを意味しない（2026-09-06 の文書モデル再整合と同じ開示）。2026-09-07: 前の description は `SPEC-065` / `SPEC-301` が確認方法を委譲していることを根拠にしていたが、`ROOT-049` により両ノードが退役したため、根拠を「宣言が無いので束縛すべき対象が無い」へ書き直した。`REQ-071` への言及も、同ノードの退役に伴って外した。結論の状態値と診断ラベルは変えていない。",
               "derives_from": [
                 "REQ-064",
                 "REQ-135",
-                "REQ-336"
+                "REQ-336",
+                "ROOT-049"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29267,15 +29138,17 @@
                   }
                 },
                 {
-                  "id": "DS-1624",
-                  "statement": "Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。`targets ≥ 1`はadapter中立coreの必須リンクに含めず、当該adapterが必須とする追加metadataとして扱う〔`rust-cargo`では、検証対象をSource Targetとして実現する実行形態について1件以上の`targets`〕。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。",
+                  "id": "DS-1667",
+                  "statement": "Test層は、発見された各Testに対応する管理宣言（構文上有効なTest ID・1件以上の`covers`・`intent`その他の必須metadata。§4.1・基本仕様 §5.1・§9.1）がちょうど1件存在すること（欠落はE-SCAN-007、診断`MISSING`）を評価する。",
+                  "description": "前身 `DS-1624` は必須 metadata の列挙に「検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1`」を含めていた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではなくなったため、この条項だけを外した。E-SCAN-007 そのものは退役していない。同コードは `covers ≥ 1` を含む必須 metadata 欠落の一般コードであり（`DS-1256`・`DES-229`）、その経路は変えていない。adapter が追加 metadata を必須にできること自体も変えていない。",
                   "derives_from": [
                     "SPEC-057",
                     "SPEC-058",
                     "SPEC-082",
                     "SPEC-083",
                     "SPEC-084",
-                    "REQ-336"
+                    "REQ-336",
+                    "ROOT-049"
                   ],
                   "cites": [
                     "基本仕様 §5.1・§9.1",
@@ -29445,9 +29318,9 @@
           ],
           "items": [
             {
-              "id": "DS-1644",
-              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（ノードの `derives_from`・subject hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata。rust-cargoでは検証対象をSource Targetとして実現する実行形態についてtargets ≥ 1〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
-              "description": "4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |",
+              "id": "DS-1669",
+              "statement": "`chain_integrity`は評価地点をrepository scan result / DOC / VO / TESTとし、文書鎖（ノードの `derives_from`・subject hash）、VOのderives_from（document 1件以上）、Testの管理宣言（Test ID・covers ≥ 1・その他の必須metadata〔intent、および当該adapterが必須とする追加metadata〕）・covers参照解決・Test ID大局的一意性がすべて成立すれば`PASS`とする（§11.1.1）。",
+              "description": "4検査（基本仕様§5）は、次の地点で評価する。表: | 検査 | 評価地点 | 評価方法 |\n\n前身 `DS-1644` は必須 metadata の列挙に「検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1`」を含めていた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではなくなったため、この条項だけを外した。E-SCAN-007 そのものは退役していない。同コードは `covers ≥ 1` を含む必須 metadata 欠落の一般コードであり（`DS-1256`・`DES-229`）、その経路は変えていない。adapter が追加 metadata を必須にできること自体も変えていない。",
               "derives_from": [
                 "SPEC-053",
                 "SPEC-054",
@@ -29473,7 +29346,8 @@
                 "SPEC-292",
                 "SPEC-293",
                 "REQ-336",
-                "SPEC-084"
+                "SPEC-084",
+                "ROOT-049"
               ],
               "cites": [
                 "基本仕様 §5"
@@ -32130,25 +32004,6 @@
               "derives_from": [],
               "cites": [
                 "本冊 §5.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-                "heading": "12.1 共通仕様",
-                "lines": [
-                  54,
-                  54
-                ]
-              }
-            },
-            {
-              "id": "DS-1635",
-              "statement": "`rust-cargo` は、検証対象をSource Targetとして実現する実行形態のTestについて `targets ≥ 1` を必須とする。",
-              "derives_from": [
-                "REQ-336",
-                "SPEC-084"
-              ],
-              "cites": [
-                "本冊 §4.1・§4.4"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -37372,13 +37227,15 @@
                   }
                 },
                 {
-                  "id": "DS-1625",
-                  "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata〔`rust-cargo` では、検証対象をSource Targetとして実現する実行形態について `targets ≥ 1`〕）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
+                  "id": "DS-1668",
+                  "statement": "Test 層は、管理宣言または必須metadata（core 中立の Test ID・`covers ≥ 1`・`intent`、および当該 adapter が必須とする追加 metadata）を持たないTestが1件でもあれば、W-SCAN-101またはE-SCAN-007を表示し、`ManagedTestLink::Missing`から`chain_integrity = MISMATCH`（診断 `MISSING`）を導出する。",
+                  "description": "前身 `DS-1625` は必須 metadata の列挙に「検証対象をSource Targetとして実現する実行形態について `rust-cargo` が必須とする `targets ≥ 1`」を含めていた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではなくなったため、この条項だけを外した。E-SCAN-007 そのものは退役していない。同コードは `covers ≥ 1` を含む必須 metadata 欠落の一般コードであり（`DS-1256`・`DES-229`）、その経路は変えていない。adapter が追加 metadata を必須にできること自体も変えていない。",
                   "derives_from": [
                     "SPEC-057",
                     "SPEC-058",
                     "REQ-336",
-                    "SPEC-084"
+                    "SPEC-084",
+                    "ROOT-049"
                   ],
                   "cites": [
                     "本冊 §11.1.1",
@@ -41826,9 +41683,12 @@
                   }
                 },
                 {
-                  "id": "DS-1575",
-                  "statement": "Test JSON writerは1件以上の`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。",
-                  "derives_from": [],
+                  "id": "DS-1674",
+                  "statement": "Test JSON writerは`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。",
+                  "description": "前身 `DS-1575` は「1件以上の`targets` list」を常に出力するとしていた。`ROOT-049` により target を宣言しない Test が成立するため、list は空になりうる。list を常に出力すること、および単数互換 field の条件（1件のときだけ）は変えていない。",
+                  "derives_from": [
+                    "ROOT-049"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.12 adapter contract",
@@ -45943,8 +45803,7 @@
                 "REQ-055",
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -47700,8 +47559,7 @@
               "derives_from": [
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "cites": [
                 "本冊 §4.4・§5.5"
@@ -52376,8 +52234,7 @@
               "derives_from": [
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -52675,8 +52532,7 @@
               "derives_from": [
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54537,8 +54393,7 @@
               "derives_from": [
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -54664,8 +54519,7 @@
               "derives_from": [
                 "REQ-336",
                 "SPEC-084",
-                "DS-178",
-                "DS-179"
+                "DS-1671"
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",

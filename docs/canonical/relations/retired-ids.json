@@ -770,5 +770,100 @@
     "old_id": "SPEC-301",
     "new_id": null,
     "reason": "実行形態別の確認方法の委譲。無条件部分は SPEC-465 が引き継ぐ（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1620",
+    "new_id": "DS-1665",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1621",
+    "new_id": "DS-1666",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1624",
+    "new_id": "DS-1667",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1625",
+    "new_id": "DS-1668",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1644",
+    "new_id": "DS-1669",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-120",
+    "new_id": "DS-1670",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-179",
+    "new_id": "DS-1671",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-685",
+    "new_id": "DS-1672",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-063",
+    "new_id": "DS-1673",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-1575",
+    "new_id": "DS-1674",
+    "reason": "Owner 裁定 ROOT-049"
+  },
+  {
+    "old_id": "DS-176",
+    "new_id": null,
+    "reason": "実装construct を直接検証する実行形態についての規範。DS-1671 が無条件になったため不要（ROOT-049）"
+  },
+  {
+    "old_id": "DS-177",
+    "new_id": null,
+    "reason": "同上（同一対象の二重宣言を要求しない）。前提の実行形態が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "DS-178",
+    "new_id": null,
+    "reason": "外部契約・境界上の振る舞いを検証する実行形態を検証対象とする規範。形態を分類しない（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1622",
+    "new_id": null,
+    "reason": "実行形態別に E-SCAN-007 の適用可否を分ける規範。形態を分類せず targets >= 1 も必須でない（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1633",
+    "new_id": null,
+    "reason": "rust-cargo が当該実行形態について targets >= 1 を必須とする規範（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1634",
+    "new_id": null,
+    "reason": "同上（追加必須 metadata としての targets >= 1）（ROOT-049）"
+  },
+  {
+    "old_id": "DS-1635",
+    "new_id": null,
+    "reason": "同上（ROOT-049）"
+  },
+  {
+    "old_id": "DS-128",
+    "new_id": null,
+    "reason": "特定形態の確認方法を別形態の Test へ一律要求しない、という形態間規範。前提が消滅（ROOT-049）"
+  },
+  {
+    "old_id": "DS-167",
+    "new_id": null,
+    "reason": "DS-128 と同旨の形態間規範。前提が消滅（ROOT-049）"
   }
 ]
