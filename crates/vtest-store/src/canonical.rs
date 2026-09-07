@@ -990,6 +990,45 @@ mod tests {
         );
     }
 
+    /// Default-run (not `#[ignore]`d) positive round-trip of PR #20's small,
+    /// populated document fixture through *this crate's* reader/writer and
+    /// through disk — the exit-gate item the four negative fixtures above
+    /// (all `expect_err`) do not exercise: none of them is a document this
+    /// store is expected to accept and preserve. Reads the fixture directly
+    /// from `vtest-model`'s own `tests/fixtures/` rather than copying it, so
+    /// there is exactly one copy of this fixture's content to keep in sync.
+    #[test]
+    fn document_sample_fixture_round_trips_through_the_store_reader_and_writer() {
+        let text = include_str!("../../vtest-model/tests/fixtures/document_sample.json");
+
+        let file = document_file_from_json(text)
+            .expect("PR #20's small populated fixture must pass this store's reader checks");
+        assert_eq!(file.root.len(), 1);
+        assert_eq!(file.request.len(), 1);
+        assert_eq!(file.require.len(), 1);
+        assert_eq!(file.design.len(), 1);
+
+        // Round-trip through this crate's own writer/reader in memory.
+        let rewritten =
+            document_file_to_json(&file).expect("re-serializing the fixture must validate too");
+        let reparsed = document_file_from_json(&rewritten)
+            .expect("the store's own writer output must be readable by its own reader");
+        assert_eq!(reparsed, file);
+
+        // Round-trip through disk, the same path `read_document_file`/
+        // `write_document_file` exercise for every other document test.
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-canonical-doc-sample-{}",
+            crate::new_record_id()
+        ));
+        let layout = crate::init_project(&root, "example").unwrap();
+        write_document_file(&layout, "document_sample", &file).unwrap();
+        assert_eq!(
+            read_document_file(&layout, "document_sample").unwrap(),
+            file
+        );
+    }
+
     /// Real-bundle round trip through *this crate's* reader/writer, not
     /// `vtest-model`'s own (already covered by
     /// `vtest_model::document::tests::canonical_bundle_round_trips_and_matches_node_counts`).
