@@ -773,9 +773,15 @@ fn record_diagnostics(
     let layout = VerifyLayout::new(root);
     let mut diagnostics = Vec::new();
     let mut known_ids = BTreeSet::new();
-    for ids in entity_ids {
-        known_ids.extend(ids.iter().cloned());
-    }
+    // `entity_ids[0]` is `.verify/doc/*.json` file *names* (DES-585/586), not
+    // an entity id — BD-330/DES-585 state the upstream document *file* carries
+    // no field that identifies it ("上流文書のファイルは、当該文書を識別する
+    // fieldを持たない"); the entity id a `derives_from`/relation edge resolves
+    // to is the *node* id inside that file (BD-318, DS-1660). So `known_ids`
+    // is seeded here from `entity_ids[1]` (VO ids) only; the file-name slot is
+    // not folded in, and the corpus-wide node-id index computed below by
+    // `validate_document_nodes` is merged in afterward instead.
+    known_ids.extend(entity_ids[1].iter().cloned());
     known_ids.extend(tests.iter().map(|test| test.id.as_str().to_owned()));
     for source in sources {
         known_ids.insert(source.locator.value.clone());
@@ -793,6 +799,12 @@ fn record_diagnostics(
     // is now `.verify/doc/*.json` file *names* (DES-585/586), each a full
     // upstream `DocumentFile` tree of nodes, not a single flat record.
     let document_node_ids = validate_document_nodes(&layout, &entity_ids[0], &mut diagnostics);
+    // DS-425/DS-429/DS-543: a relation's `from`/`to` is an arbitrary entity
+    // id, and its existence is what E-SCAN-009 checks — the entity id space
+    // for the document layer is the node-id index just built, not the file
+    // names `entity_ids[0]` holds. Merge it in before `validate_relations`
+    // resolves anything against `known_ids`.
+    known_ids.extend(document_node_ids.iter().cloned());
 
     let mut vos = BTreeMap::new();
     for id in &entity_ids[1] {
@@ -3249,6 +3261,63 @@ fn lib_test() {}
             .collect::<Vec<_>>();
         assert_eq!(duplicates.len(), 1, "diagnostics: {:?}", result.diagnostics);
         assert!(duplicates[0].location.is_some());
+    }
+
+    /// Regression test for the `known_ids`/`document_node_ids` merge bug: a
+    /// relation's `from`/`to` must resolve against the corpus-wide upstream
+    /// *node*-id index (DS-425/DS-429/DS-543), never against
+    /// `.verify/doc/*.json` file *names* (BD-330/DES-585 — the upstream
+    /// document file itself carries no field that identifies it; BD-318/
+    /// DS-1660 place the entity id on the node, not the file). The fixture's
+    /// document file is named `DOC-TEST` and declares one real node,
+    /// `ROOT-001` (see `write_doc_test_fixture`): a relation naming the real
+    /// node id must resolve, and one naming the file name must not — before
+    /// this fix, `known_ids` held the file name and not the node id, so both
+    /// directions were backwards (the file name resolved, the real node id
+    /// did not).
+    #[test]
+    fn relation_endpoints_resolve_against_document_node_ids_not_file_names() {
+        let root = fixture();
+
+        let resolves_id = new_record_id();
+        fs::write(
+            root.join(format!(".verify/rel/{resolves_id}.yaml")),
+            "id: RESOLVES\ntype: depends-on\nfrom: ROOT-001\nto: VO-ADD\ncreated: '2026-01-01'\n"
+                .replace("RESOLVES", &resolves_id),
+        )
+        .unwrap();
+
+        let dangling_id = new_record_id();
+        fs::write(
+            root.join(format!(".verify/rel/{dangling_id}.yaml")),
+            "id: DANGLING\ntype: depends-on\nfrom: DOC-TEST\nto: VO-ADD\ncreated: '2026-01-01'\n"
+                .replace("DANGLING", &dangling_id),
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+        let e_scan_009_messages = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-SCAN-009")
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            !e_scan_009_messages
+                .iter()
+                .any(|message| message.contains("ROOT-001")),
+            "a relation `from: ROOT-001` names a real upstream node id and must resolve: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            e_scan_009_messages
+                .iter()
+                .any(|message| message.contains("DOC-TEST")),
+            "a relation `from: DOC-TEST` names a document *file name*, not a node id, \
+             and must NOT resolve: {:?}",
+            result.diagnostics
+        );
     }
 
     #[test]
