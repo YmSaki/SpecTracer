@@ -1,9 +1,28 @@
-//! Canonical entity and append-only approval records.
+//! Predecessor entity records (Spec/Req/VO/Audit) plus the canonical
+//! Approval, Evidence, and Relation records that also happen to live in this
+//! file. `SpecRecord`, `ReqRecord`, the local `VoRecord`, and `AuditRecord`
+//! accept the deliberately small hand-rolled scalar/list YAML subset vtest
+//! itself emits and are out of this PR's scope (PR8 retires the predecessor
+//! Spec/Req/audits model these serve — see AGENTS.md's predecessor/canonical
+//! split; `AuditRecord` specifically is the predecessor's semantic-audit
+//! result, not the canonical `Evidence`/`VerificationResult` chain).
 //!
-//! M2 keeps the on-disk representation YAML as specified.  The project does
-//! not yet depend on a YAML parser, so this module accepts the deliberately
-//! small scalar/list subset emitted by vtest and preserves unknown fields by
-//! ignoring them (forward-compatible read behavior).
+//! `ApprovalRecord`, `read_evidence`/`EvidenceRecord`, and `RelationRecord`
+//! are canonical entities on that same chain (`Document` → `VO` → `Test` →
+//! `Target` → `Evidence` → `VerificationResult`, with Approval an
+//! independent domain per AGENTS.md) and are not PR8 predecessors, even
+//! though `ApprovalRecord`/`read_evidence` still parse via this file's
+//! hand-rolled scalar/list helpers rather than `yaml_serde`'s typed
+//! `Deserialize` the way `RelationRecord` does below. All three reject an
+//! unrecognized field fail-closed (DS-1645/E-SCAN-010: schema不一致
+//! （宣言されていない余剰 field を含む）is an error, not a warning) rather
+//! than preserving it by silently ignoring it — `RelationRecord::from_yaml`
+//! does this via a `yaml_serde::Value` → known-key scan → typed struct
+//! parse; `ApprovalRecord::from_yaml` and `read_evidence` do the same
+//! known-key scan over a `yaml_serde::Value` first, then keep their
+//! existing hand-rolled extraction (and its existing, more specific
+//! validations — ULID format, `VO-` prefix, `human`/`agent` whitelist, and
+//! so on) unchanged over the original text.
 
 use crate::{StoreError, VerifyLayout};
 use serde::{Deserialize, Serialize};
@@ -16,8 +35,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetExecution, TestId, TestResult, VoId,
+    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision,
+    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -164,43 +183,77 @@ pub enum RelationType {
     ConflictsWith,
 }
 
-impl RelationType {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::DependsOn => "depends-on",
-            Self::Supersedes => "supersedes",
-            Self::RegressionFor => "regression-for",
-            Self::DerivedFrom => "derived-from",
-            Self::SamePartition => "same-partition",
-            Self::Complements => "complements",
-            Self::ConflictsWith => "conflicts-with",
-        }
-    }
-
-    fn parse(value: &str) -> Option<Self> {
-        match value {
-            "depends-on" => Some(Self::DependsOn),
-            "supersedes" => Some(Self::Supersedes),
-            "regression-for" => Some(Self::RegressionFor),
-            "derived-from" => Some(Self::DerivedFrom),
-            "same-partition" => Some(Self::SamePartition),
-            "complements" => Some(Self::Complements),
-            "conflicts-with" => Some(Self::ConflictsWith),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RelationRecord {
     pub id: String,
     #[serde(rename = "type")]
     pub relation_type: RelationType,
     pub from: String,
     pub to: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     pub created: String,
 }
+
+/// Known top-level keys for a canonical Relation record (DS-425/DS-426,
+/// DS-S074). Kept in sync with `RelationRecord`'s own fields by
+/// `relation_known_keys_match_the_record_shape` (`#[cfg(test)]`, below) —
+/// also enforced independently by `#[serde(deny_unknown_fields)]` above
+/// (DS-1645/E-SCAN-010's generic "schema不一致（宣言されていない余剰 field
+/// を含む）").
+const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
+
+/// Known top-level keys for a canonical Approval record, matching
+/// `ApprovalRecord`'s own fields (DS-1645/E-SCAN-010).
+const APPROVAL_KEYS: &[&str] = &[
+    "id",
+    "subject",
+    "subject_hash",
+    "approver",
+    "basis",
+    "approved_at",
+];
+
+/// Known keys for an Approval record's nested `approver` mapping, matching
+/// `Approver`'s own fields.
+const APPROVER_KEYS: &[&str] = &["kind", "id", "model"];
+
+/// Known keys for one entry of an Approval record's `basis[]` list, matching
+/// `ApprovalBasis`'s own fields.
+const APPROVAL_BASIS_KEYS: &[&str] = &["kind", "ref"];
+
+/// Known top-level keys for a canonical Evidence record, matching
+/// `EvidenceRecord`'s own fields (`vtest-model`) as `read_evidence` below
+/// actually populates them, and the shape `vtest-exec`'s `evidence_yaml`
+/// writer emits.
+const EVIDENCE_KEYS: &[&str] = &[
+    "id",
+    "test_id",
+    "result",
+    "executed_at",
+    "revision",
+    "hashes",
+    "runner",
+    "target_execution",
+    "log_ref",
+];
+
+/// Known keys for an Evidence record's nested `revision` mapping.
+const EVIDENCE_REVISION_KEYS: &[&str] = &["commit", "dirty"];
+
+/// Known keys for an Evidence record's nested `hashes` mapping. `target_fns`
+/// is optional (`read_evidence` treats an absent `target_fns:` key as an
+/// empty list), matching `EvidenceHashes`'s own fields.
+const EVIDENCE_HASHES_KEYS: &[&str] = &["test_fn", "target_fn", "target_fns"];
+
+/// Known keys for an Evidence record's nested `runner` mapping, matching
+/// `RunnerInfo`'s own fields.
+const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
+
+/// Known keys for an Evidence record's nested `target_execution` mapping,
+/// matching `TargetExecution`'s own fields.
+const EVIDENCE_TARGET_EXECUTION_KEYS: &[&str] = &["checked", "method", "result", "count"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -382,7 +435,35 @@ impl ApprovalRecord {
         out
     }
 
+    /// DS-1645/E-SCAN-010: a field outside `APPROVAL_KEYS`/`APPROVER_KEYS`/
+    /// `APPROVAL_BASIS_KEYS` fails closed rather than being silently
+    /// ignored — the same false-open shape DES-586's own reasoning names
+    /// for the upstream document model (a written scope-limiting field a
+    /// reader discards is a written-narrower approval a machine then reads
+    /// as unlimited). This parses the text into a `yaml_serde::Value` only
+    /// to run that known-key scan; the actual field extraction below is
+    /// unchanged, still driven by the original `text` through this
+    /// module's hand-rolled scalar/nested-scalar helpers (which already
+    /// enforce their own, more specific rules — ULID format, `VO-` prefix,
+    /// `human`/`agent` whitelist), not by deserializing through `Value`.
     pub fn from_yaml(text: &str, fallback_id: &str) -> Result<Self, StoreError> {
+        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid approval record: {error}"))
+        })?;
+        crate::canonical::reject_unknown_fields(&value, APPROVAL_KEYS, "")?;
+        if let Some(approver) = value.get("approver") {
+            crate::canonical::reject_unknown_fields(approver, APPROVER_KEYS, "approver.")?;
+        }
+        if let Some(basis) = value.get("basis").and_then(yaml_serde::Value::as_sequence) {
+            for (index, entry) in basis.iter().enumerate() {
+                crate::canonical::reject_unknown_fields(
+                    entry,
+                    APPROVAL_BASIS_KEYS,
+                    &format!("basis[{index}]."),
+                )?;
+            }
+        }
+
         let id = required_top_level_scalar(text, "id", "approval")?;
         let subject = required_top_level_scalar(text, "subject", "approval")?;
         let subject_hash = required_top_level_scalar(text, "subject_hash", "approval")?
@@ -752,36 +833,31 @@ impl AuditRecord {
 impl RelationRecord {
     pub fn to_yaml(&self) -> Result<String, StoreError> {
         self.validate(None)?;
-        let mut out = format!(
-            "id: {}\ntype: {}\nfrom: {}\nto: {}\n",
-            yaml_scalar(&self.id),
-            yaml_scalar(self.relation_type.as_str()),
-            yaml_scalar(&self.from),
-            yaml_scalar(&self.to),
-        );
-        if let Some(note) = &self.note {
-            out.push_str(&format!("note: {}\n", yaml_scalar(note)));
-        }
-        out.push_str(&format!("created: {}\n", yaml_scalar(&self.created)));
-        Ok(out)
+        yaml_serde::to_string(self).map_err(|error| {
+            StoreError::InvalidConfig(format!("could not serialize relation: {error}"))
+        })
     }
 
-    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
-        let record = Self {
-            id: required_top_level_scalar(text, "id", "relation")?,
-            relation_type: required_top_level_scalar(text, "type", "relation")
-                .ok()
-                .and_then(|value| RelationType::parse(&value))
-                .ok_or_else(|| {
-                    StoreError::InvalidConfig("relation has an invalid type".to_owned())
-                })?,
-            from: required_top_level_scalar(text, "from", "relation")?,
-            to: required_top_level_scalar(text, "to", "relation")?,
-            note: top_level_scalar(text, "note"),
-            created: required_top_level_scalar(text, "created", "relation")?,
-        };
+    /// Parses a `RelationRecord`. Returns `(Self, Vec<Diagnostic>)` to match
+    /// the shape `vo_record_from_yaml` (`canonical.rs`) uses, though the
+    /// vector here is always empty: Relation has no read-compat field like
+    /// VO's `status` (DS-405), so every field outside `RELATION_KEYS` is a
+    /// straightforward DS-1645/E-SCAN-010 rejection, not a warning — this
+    /// goes through the same text -> `Value` -> known-key check -> typed
+    /// struct shape `document_file_from_json`/`vo_record_from_yaml` use, so
+    /// the unknown field is named in the error rather than silently
+    /// dropped. `#[serde(deny_unknown_fields)]` on `RelationRecord` itself
+    /// (above) is a second, independent enforcement of the same rule.
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<(Self, Vec<Diagnostic>), StoreError> {
+        let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
+        crate::canonical::reject_unknown_fields(&value, RELATION_KEYS, "")?;
+        let record: Self = yaml_serde::from_value(value).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid relation record: {error}"))
+        })?;
         record.validate(Some(filename_id))?;
-        Ok(record)
+        Ok((record, Vec::new()))
     }
 
     fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
@@ -813,12 +889,58 @@ impl RelationRecord {
     }
 }
 
+/// DS-1645/E-SCAN-010: same fail-closed known-key scan as
+/// `ApprovalRecord::from_yaml` above, applied to Evidence's own shape. The
+/// existing hand-rolled extraction below (driven by `text`, unchanged) keeps
+/// owning every other validation.
+fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid Evidence record: {error}")))?;
+    crate::canonical::reject_unknown_fields(&value, EVIDENCE_KEYS, "")?;
+    if let Some(revision) = value.get("revision") {
+        crate::canonical::reject_unknown_fields(revision, EVIDENCE_REVISION_KEYS, "revision.")?;
+    }
+    if let Some(hashes) = value.get("hashes") {
+        crate::canonical::reject_unknown_fields(hashes, EVIDENCE_HASHES_KEYS, "hashes.")?;
+    }
+    if let Some(runner) = value.get("runner") {
+        crate::canonical::reject_unknown_fields(runner, EVIDENCE_RUNNER_KEYS, "runner.")?;
+    }
+    if let Some(target_execution) = value.get("target_execution") {
+        crate::canonical::reject_unknown_fields(
+            target_execution,
+            EVIDENCE_TARGET_EXECUTION_KEYS,
+            "target_execution.",
+        )?;
+    }
+    Ok(())
+}
+
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
     let text = read_text(path)?;
+    reject_unknown_evidence_fields(&text)?;
     let fallback = path
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
+    // DS-1657: "上流文書のレコードを除き、`id` とファイル名（拡張子除く）は
+    // 一致しなければならない" applies schema-independently to every record
+    // type Evidence is not excluded from; DES-032: "判断・承認・Evidenceの
+    // IDはbare ULIDとする". A present-but-different `id` used to be silently
+    // accepted (only an *absent* id fell back to the file name), the same
+    // fail-open shape `read_approval` already closes for approvals.
+    let id = scalar(&text, "id")
+        .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing id".to_owned()))?;
+    if id != fallback {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} does not match file name {fallback}"
+        )));
+    }
+    if !is_valid_ulid(&id) {
+        return Err(StoreError::InvalidConfig(format!(
+            "Evidence id {id} is not a valid ULID"
+        )));
+    }
     let test_hash = nested_scalar(&text, "hashes", "test_fn")
         .ok_or_else(|| StoreError::InvalidConfig("Evidence is missing hashes.test_fn".to_owned()))?
         .parse()
@@ -874,7 +996,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         _ => CheckValue::Unknown,
     };
     Ok(EvidenceRecord {
-        id: scalar(&text, "id").unwrap_or_else(|| fallback.to_owned()),
+        id,
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
@@ -942,6 +1064,41 @@ pub fn read_audit(path: &Path) -> Result<AuditRecord, StoreError> {
         .and_then(|value| value.to_str())
         .unwrap_or_default();
     AuditRecord::from_yaml(&text, fallback)
+}
+
+pub fn read_relation(path: &Path) -> Result<(RelationRecord, Vec<Diagnostic>), StoreError> {
+    let text = read_text(path)?;
+    let fallback = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    RelationRecord::from_yaml(&text, fallback)
+}
+
+/// Creates a new canonical Relation record and writes it to `.verify/rel/`.
+/// The id is always generated here as `REL-<ULID>`: DES-124 ("writerは
+/// `.verify/rel/REL-<ULID>.yaml` と同値の `id` だけを生成する") requires the
+/// writer to emit only that form, even though `is_valid_relation_id` still
+/// accepts a bare ULID for version 1 compatibility on read (DES-125).
+pub fn write_relation(
+    layout: &VerifyLayout,
+    relation_type: RelationType,
+    from: impl Into<String>,
+    to: impl Into<String>,
+    note: Option<String>,
+    created: impl Into<String>,
+) -> Result<RelationRecord, StoreError> {
+    let record = RelationRecord {
+        id: format!("REL-{}", new_record_id()),
+        relation_type,
+        from: from.into(),
+        to: to.into(),
+        note,
+        created: created.into(),
+    };
+    let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+    write_new_record(&path, &record.to_yaml()?)?;
+    Ok(record)
 }
 
 pub fn read_text(path: &Path) -> Result<String, StoreError> {
@@ -1092,9 +1249,14 @@ pub fn is_valid_ulid(value: &str) -> bool {
         && value.chars().all(|character| ALPHABET.contains(character))
 }
 
-/// Accept both spellings currently present in the normative documents:
-/// detailed design uses a bare ULID, while basic specification §3.1 labels
-/// Relation IDs as `REL-` (ULID). The payload is always strictly validated.
+/// The canonical Relation ID form is `REL-` prefixed only (BD-023: "Relation
+/// のIDは `REL-`（ULID）とし..."; DS-427: "canonical Relation IDは `REL-` と
+/// 26文字のULID payloadからなる"). A bare ULID is accepted here only as
+/// version 1 compatibility input on read (DES-125: "readerはversion 1
+/// 互換入力として...bare `id` を受理し、`REL-<ULID>` へin-memoryで正規化する
+/// が、読み取りだけでファイルを書き換えない"); `relation_ulid_payload` below
+/// normalizes either shape to its ULID payload, which is always strictly
+/// validated.
 pub fn is_valid_relation_id(value: &str) -> bool {
     relation_ulid_payload(value).is_some()
 }
@@ -1284,7 +1446,7 @@ fn parse_dimensions(text: &str) -> Vec<Dimension> {
     dimensions
 }
 
-fn parse_combinations(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse_combinations(text: &str) -> Vec<Vec<String>> {
     let lines = text.lines().collect::<Vec<_>>();
     let Some(start) = lines.iter().position(|line| {
         !line.starts_with([' ', '\t'])
@@ -1798,7 +1960,7 @@ fn top_level_scalar(text: &str, key: &str) -> Option<String> {
     })
 }
 
-fn scalar(text: &str, key: &str) -> Option<String> {
+pub(crate) fn scalar(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|raw| {
         let line = raw.trim();
         let (candidate, value) = line.split_once(':')?;
@@ -1839,7 +2001,7 @@ fn nested_scalar(text: &str, parent: &str, key: &str) -> Option<String> {
     None
 }
 
-fn list(text: &str, key: &str) -> Vec<String> {
+pub(crate) fn list(text: &str, key: &str) -> Vec<String> {
     let lines = text.lines().collect::<Vec<_>>();
     for (index, raw) in lines.iter().enumerate() {
         let line = raw.trim();
@@ -1864,7 +2026,7 @@ fn list(text: &str, key: &str) -> Vec<String> {
     Vec::new()
 }
 
-fn parse_inline_list(value: &str) -> Vec<String> {
+pub(crate) fn parse_inline_list(value: &str) -> Vec<String> {
     let value = value.trim();
     let value = value
         .strip_prefix('[')
@@ -1878,16 +2040,16 @@ fn parse_inline_list(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
+pub(crate) fn yaml_list<'a>(values: impl Iterator<Item = &'a str>) -> String {
     let values = values.map(yaml_scalar).collect::<Vec<_>>();
     format!("[{}]", values.join(", "))
 }
 
-fn yaml_scalar(value: &str) -> String {
+pub(crate) fn yaml_scalar(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn unquote(value: &str) -> String {
+pub(crate) fn unquote(value: &str) -> String {
     if value.starts_with('\'') && value.ends_with('\'') && value.len() >= 2 {
         value[1..value.len() - 1].replace("''", "'")
     } else if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
@@ -1984,6 +2146,107 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
+    }
+
+    /// DS-1645/E-SCAN-010: an approval record carrying a scope-limiting
+    /// field the reader does not recognize (e.g. an expiry or scope
+    /// restriction) must fail closed rather than being silently discarded —
+    /// discarding it would let a writer record "approved with a
+    /// restriction" while a machine reads "approved unconditionally", the
+    /// exact false-open path DES-586's own reasoning warns against for the
+    /// document model's equivalent case.
+    #[test]
+    fn approval_with_unknown_top_level_field_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml();
+        yaml.push_str("scope: read-only\n");
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized top-level approval field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn approval_with_unknown_nested_approver_field_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  weight: 2\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized nested approver field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn approval_with_unknown_nested_basis_field_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\nbasis:\n  - kind: audit\n    ref: {}\n    note: extra\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+            new_record_id(),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("an unrecognized nested basis[] field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// DS-1645: `reject_unknown_fields` used to silently skip any mapping
+    /// key that was not a YAML string (`key.as_str()` returning `None`),
+    /// relying on a `from_value` deserialize elsewhere to reject the type
+    /// mismatch — a precondition that holds for `VoRecord`/`RelationRecord`
+    /// but not for `ApprovalRecord`, which never builds a typed struct from
+    /// this `Value` at all (see `ApprovalRecord::from_yaml`'s doc comment).
+    /// A surplus field written with an integer/bool/null key (e.g. a
+    /// numeric-looking scope-limiting field like `2026: unlimited`) used to
+    /// pass through unrejected.
+    #[test]
+    fn approval_with_non_string_top_level_key_is_rejected() {
+        let id = new_record_id();
+        let record = ApprovalRecord {
+            id: id.clone(),
+            subject: VoId::new("VO-ONE"),
+            subject_hash: ContentHash::from_text("vo\n"),
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            basis: vec![],
+            approved_at: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        for extra in ["2026: unlimited\n", "true: unlimited\n", "~: unlimited\n"] {
+            let mut yaml = record.to_yaml();
+            yaml.push_str(extra);
+            let error = ApprovalRecord::from_yaml(&yaml, &id).expect_err(&format!(
+                "a non-string top-level key ({extra:?}) must fail closed, not be silently skipped"
+            ));
+            assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+        }
+    }
+
+    /// Same gap as above, on the nested `approver` mapping.
+    #[test]
+    fn approval_with_non_string_nested_approver_key_is_rejected() {
+        let id = new_record_id();
+        let yaml = format!(
+            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  7: extra\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            ContentHash::from_text("vo\n"),
+        );
+        let error = ApprovalRecord::from_yaml(&yaml, &id)
+            .expect_err("a non-string nested approver key must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
     #[test]
@@ -2150,6 +2413,129 @@ mod tests {
         assert!(static_with_bundle.to_yaml().is_err());
     }
 
+    /// DS-1657 ("上流文書のレコードを除き、`id` とファイル名は一致しなければ
+    /// ならない") and DES-032 ("判断・承認・EvidenceのIDはbare ULIDとする")
+    /// both apply to Evidence the same as any other record type;
+    /// `read_evidence` used to accept a present-but-different `id` silently
+    /// (only an absent one fell back to the file name).
+    #[test]
+    fn read_evidence_enforces_id_file_name_and_ulid_invariants() {
+        let root = temporary_directory("read-evidence");
+        let id = new_record_id();
+        let base = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+
+        let matching_path = root.join(format!("{id}.yaml"));
+        fs::write(&matching_path, &base).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_ok(),
+            "a well-formed Evidence record with a matching bare-ULID id must parse"
+        );
+
+        let mismatched_path = root.join(format!("{}.yaml", new_record_id()));
+        fs::write(&mismatched_path, &base).unwrap();
+        let error = read_evidence(&mismatched_path)
+            .expect_err("an Evidence id that disagrees with the file name must fail closed");
+        assert!(error.to_string().contains("does not match file name"));
+
+        let non_ulid_id = "not-a-ulid";
+        let non_ulid_yaml = base.replacen(&id, non_ulid_id, 1);
+        let non_ulid_path = root.join(format!("{non_ulid_id}.yaml"));
+        fs::write(&non_ulid_path, &non_ulid_yaml).unwrap();
+        let error = read_evidence(&non_ulid_path)
+            .expect_err("a non-ULID Evidence id must fail closed even if it matches the file name");
+        assert!(error.to_string().contains("not a valid ULID"));
+
+        let missing_id_yaml = base
+            .lines()
+            .filter(|line| !line.starts_with("id:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&matching_path, &missing_id_yaml).unwrap();
+        assert!(
+            read_evidence(&matching_path).is_err(),
+            "an Evidence record missing id entirely must fail closed, not fall back to the file name"
+        );
+    }
+
+    /// DS-1645/E-SCAN-010: an Evidence record carrying a field this reader
+    /// does not recognize must fail closed rather than being silently
+    /// discarded — the same rule already applied to Document/VO/Relation,
+    /// now closed for Evidence too (it is a canonical entity on the
+    /// `Document` → `VO` → `Test` → `Target` → `Evidence` →
+    /// `VerificationResult` chain, not a PR8 predecessor).
+    #[test]
+    fn read_evidence_rejects_unknown_top_level_field() {
+        let root = temporary_directory("read-evidence-unknown-top-level");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\nnotes: extra\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("an unrecognized top-level Evidence field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn read_evidence_rejects_unknown_nested_hashes_field() {
+        let root = temporary_directory("read-evidence-unknown-hashes");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\n  algorithm: sha256\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error =
+            read_evidence(&path).expect_err("an unrecognized nested hashes field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// DS-1645: same non-string-key gap as `ApprovalRecord::from_yaml` (see
+    /// `approval_with_non_string_top_level_key_is_rejected`) — `read_evidence`
+    /// also never builds a typed struct from the `Value` this scan runs
+    /// over, so a surplus field written with a non-string key used to be
+    /// silently skipped instead of rejected.
+    #[test]
+    fn read_evidence_rejects_non_string_top_level_key() {
+        let root = temporary_directory("read-evidence-non-string-key");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n2026: unlimited\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("a non-string top-level key must fail closed, not be silently skipped");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn read_evidence_rejects_non_string_nested_hashes_key() {
+        let root = temporary_directory("read-evidence-non-string-nested-key");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {}\n  target_fn: {}\n  9: extra\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            ContentHash::from_text("test body\n"),
+            ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, &yaml).unwrap();
+        let error = read_evidence(&path)
+            .expect_err("a non-string nested hashes key must fail closed, not be silently skipped");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
         let id = new_record_id();
@@ -2162,13 +2548,15 @@ mod tests {
             created: "2026-08-08T00:00:00Z".to_owned(),
         };
         let yaml = record.to_yaml().unwrap();
-        assert_eq!(RelationRecord::from_yaml(&yaml, &id).unwrap(), record);
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&yaml, &id).unwrap();
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty());
 
         for malformed in [
-            yaml.replacen("type: 'complements'", "type: 'unknown'", 1),
-            yaml.replacen("from: 'TEST-PARSER-044'", "from: ''", 1),
-            yaml.replacen("to: 'TEST-PARSER-012'", "to: ''", 1),
-            yaml.replacen("created: '2026-08-08T00:00:00Z'", "created: ''", 1),
+            yaml.replacen("type: complements", "type: unknown", 1),
+            yaml.replacen("from: TEST-PARSER-044", "from: ''", 1),
+            yaml.replacen("to: TEST-PARSER-012", "to: ''", 1),
+            yaml.replacen("created: 2026-08-08T00:00:00Z", "created: ''", 1),
         ] {
             assert!(RelationRecord::from_yaml(&malformed, &id).is_err());
         }
@@ -2181,7 +2569,9 @@ mod tests {
         };
         let prefixed_yaml = prefixed.to_yaml().unwrap();
         assert_eq!(
-            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id).unwrap(),
+            RelationRecord::from_yaml(&prefixed_yaml, &prefixed_id)
+                .unwrap()
+                .0,
             prefixed
         );
 
@@ -2192,8 +2582,107 @@ mod tests {
         assert!(invalid.to_yaml().is_err());
         let invalid = RelationRecord {
             from: String::new(),
-            ..RelationRecord::from_yaml(&yaml, &id).unwrap()
+            ..RelationRecord::from_yaml(&yaml, &id).unwrap().0
         };
         assert!(invalid.to_yaml().is_err());
+    }
+
+    #[test]
+    fn write_relation_always_generates_a_rel_prefixed_id() {
+        let root = temporary_directory("write-relation");
+        let layout = crate::init_project(&root, "example").unwrap();
+
+        let record = write_relation(
+            &layout,
+            RelationType::DependsOn,
+            "TEST-PARSER-044",
+            "TEST-PARSER-012",
+            None,
+            "2026-08-08T00:00:00Z",
+        )
+        .unwrap();
+
+        assert!(
+            record.id.starts_with("REL-"),
+            "expected a REL-prefixed id, got {}",
+            record.id
+        );
+
+        let path = layout.relation_dir().join(format!("{}.yaml", record.id));
+        assert_eq!(read_relation(&path).unwrap().0, record);
+    }
+
+    /// DS-1645/E-SCAN-010: an unknown field is rejected, not merely warned
+    /// about — this replaces the retired DS-376 "warn and continue"
+    /// behavior (`docs/canonical/relations/retired-ids.json`), exercised
+    /// here for the Relation reader that lives in this module instead of
+    /// `canonical.rs`.
+    #[test]
+    fn relation_with_unknown_top_level_field_is_rejected() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("owner: someone\n");
+        let error = RelationRecord::from_yaml(&yaml, &id)
+            .expect_err("an unknown top-level field must fail closed");
+        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    /// Unlike `ApprovalRecord`/`read_evidence` above, `RelationRecord` is
+    /// always backstopped by both `#[serde(deny_unknown_fields)]` and a
+    /// `yaml_serde::from_value` pass after `reject_unknown_fields` runs —
+    /// independently caught there even before `reject_unknown_fields`
+    /// itself started rejecting non-string keys (DS-1645; this test does
+    /// not isolate which of the two layers rejects first). Locks in that at
+    /// least one of them continues to reject this shape, guarding against
+    /// regression in either.
+    #[test]
+    fn relation_with_non_string_top_level_key_is_rejected() {
+        let id = new_record_id();
+        let record = RelationRecord {
+            id: id.clone(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: None,
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let mut yaml = record.to_yaml().unwrap();
+        yaml.push_str("2026: unlimited\n");
+        RelationRecord::from_yaml(&yaml, &id)
+            .expect_err("a non-string top-level key must fail closed");
+    }
+
+    /// Guards `RELATION_KEYS` against drifting out of sync with
+    /// `RelationRecord`'s actual fields: `note` is populated (`Some`), so
+    /// its `skip_serializing_if` does not omit the key from the shape.
+    #[test]
+    fn relation_known_keys_match_the_record_shape() {
+        let record = RelationRecord {
+            id: new_record_id(),
+            relation_type: RelationType::Complements,
+            from: "TEST-PARSER-044".to_owned(),
+            to: "TEST-PARSER-012".to_owned(),
+            note: Some("boundary cases overlap".to_owned()),
+            created: "2026-08-08T00:00:00Z".to_owned(),
+        };
+        let value = yaml_serde::to_value(&record).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, _)| key.as_str())
+            .collect();
+        keys.sort_unstable();
+        let mut expected = RELATION_KEYS.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
     }
 }
