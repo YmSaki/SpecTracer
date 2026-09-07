@@ -3635,6 +3635,46 @@ fn covers_parent() {}
         );
     }
 
+    /// Real-bundle orphan count: only runs when `VTEST_CANONICAL_BUNDLE`
+    /// names the canonical `specification.json`. The bundle *is* a
+    /// `DocumentFile` shape (DES-586: every document's same-named layer
+    /// arrays concatenated — see `vtest_model::document`'s and
+    /// `vtest_store::canonical`'s own bundle round-trip tests), so it is
+    /// written as one `.verify/doc/BUNDLE.json` and run straight through
+    /// `validate_document_nodes`. Reports the E-SCAN-016 (orphan_detection)
+    /// count via `eprintln!` for the PR to cite — not asserted, per this
+    /// task's own instruction (the number moves as the canonical bundle
+    /// grows on its own branch).
+    #[test]
+    #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
+    fn canonical_bundle_orphan_count() {
+        let path = std::env::var("VTEST_CANONICAL_BUNDLE")
+            .expect("set VTEST_CANONICAL_BUNDLE to the canonical specification.json path");
+        let text = std::fs::read_to_string(&path).expect("failed to read canonical bundle");
+
+        let root =
+            std::env::temp_dir().join(format!("vtest-scan-bundle-orphan-{}", new_record_id()));
+        let layout = init_project(&root, "bundle").unwrap();
+        fs::write(layout.doc_dir().join("BUNDLE.json"), &text).unwrap();
+
+        let mut diagnostics = Vec::new();
+        let document_names = vec!["BUNDLE".to_owned()];
+        validate_document_nodes(&layout, &document_names, &mut diagnostics)
+            .expect("the canonical bundle must parse as a well-formed DocumentFile");
+        let orphan_ids = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-SCAN-016")
+            .filter_map(|diagnostic| diagnostic.location.as_ref().map(|l| l.function.clone()))
+            .collect::<Vec<_>>();
+        eprintln!(
+            "canonical_bundle_orphan_count: {} node(s) report E-SCAN-016 (orphan_detection) \
+             against the real canonical bundle specification.json — not asserted (reported for \
+             the PR to cite; DS-1647 scope: root-layer nodes excluded, effective upstream = own \
+             derives_from ∪ ancestor section derives_from within the same file).",
+            orphan_ids.len()
+        );
+    }
+
     /// Overwrites `.verify/vo/VO-ADD.yaml` (the VO `fixture()` already wires
     /// `TEST-ADD` to `covers`) with a custom record, so each E-SCAN-017 test
     /// below only has to vary the `combinations`/`dimensions`/
