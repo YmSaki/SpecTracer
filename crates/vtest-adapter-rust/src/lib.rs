@@ -549,11 +549,19 @@ impl<'a> Scanner<'a> {
             return Ok(());
         };
         let target_values = annotation.targets;
-        if target_values.is_empty() || target_values.iter().any(|value| value.is_empty()) {
+        // ROOT-049 / DS-1666: `targets` の宣言は Test 成立性の必須条件では
+        // ない（旧 DS-1621 の `targets ≥ 1` 条項は撤去された）。target を
+        // 持たない Test はここで E-SCAN-007 にせず先へ進める — その
+        // `target_binding` は DS-1664 により `NO_EVIDENCE`（診断
+        // `NOT_CHECKED`）になる（判定経路は verify 側、ここでは扱わない）。
+        // 一方、宣言された target 値が空文字列であることは「宣言が無い」
+        // ことにはならない構文上の欠陥であり、必須 metadata の欠落と同型
+        // の早期 return を維持する。
+        if target_values.iter().any(|value| value.is_empty()) {
             self.diagnostics.push(
                 Diagnostic::error(
                     "E-SCAN-007",
-                    format!("test `{function_name}` is missing required @vtest.target"),
+                    format!("test `{function_name}` has an empty @vtest.target value"),
                 )
                 .with_location(location.clone()),
             );

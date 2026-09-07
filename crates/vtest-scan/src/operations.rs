@@ -452,22 +452,22 @@ fn validate_desired_test(
             );
         }
     }
-    if desired.targets.is_empty() {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            "target must contain at least one source locator",
-        ));
-    }
+    // ROOT-049/DS-1673: `targets` の宣言は Test 成立性の必須条件ではなく、
+    // 1 つの Test は 0 件以上の Source Target を持つ。REQ-150/SPEC-085
+    // 「1 つの Test は 1 件以上の Source Target を宣言できる」は可能性の
+    // 記述であって義務ではない（DS-1673 の開示）。この Structured Edit
+    // 経路がかつて課していた「targets 必須（≥1）」の下限強制は、その
+    // 誤読を引き継いだものだったため撤去した。target を持たない Test の
+    // `target_binding` を `NO_EVIDENCE`（DS-1664）にする判定は verify 側の
+    // 責務であり、Structured Edit のこのゲートの範囲ではない。
     // REQ-150/SPEC-085/DS-1618: a Test may declare N >= 1 Source Targets
     // unconditionally — no execution-form or `@vtest.kind` cap. This
     // Structured Edit path used to reject more than one target unless
     // `current.test_target` was a Cargo integration test (本冊 §4.2改訂,
     // Owner裁定3、pr3-decisions.md, PR #26 review round 5); the canonical
     // audit found no upstream basis for that restriction (REQ-150/SPEC-085
-    // are both unconditional), so it is removed rather than re-derived —
-    // cardinality alone (checked above: `targets` non-empty) is REQ-150's
-    // whole condition. `desired.targets.len()` and `current.test_target`
-    // are unused for this gate now, but `current.test_target` still feeds
+    // are both unconditional), so it was removed rather than re-derived.
+    // `current.test_target` is unused for this gate now, but still feeds
     // `TestDraft.test_target`'s value elsewhere (adapter-owned execution
     // form, unrelated to this cardinality question).
     for target in &desired.targets {

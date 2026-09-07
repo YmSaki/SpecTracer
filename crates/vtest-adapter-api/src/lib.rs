@@ -56,8 +56,8 @@ pub struct AdapterScanConfig {
 /// 含む関数item全体。本冊:99）であり、core が `ContentHash::from_text` で
 /// hash を計算する入力になる。
 ///
-/// 必須 metadata（core 中立: id・`covers ≥ 1`・intent、および adapter 追加
-/// 必須: `targets ≥ 1`。本冊 §4.4）を具体化できないTest構文は、adapterが
+/// 必須 metadata（core 中立: id・`covers ≥ 1`・intent。本冊 §4.4、DS-1666）を
+/// 具体化できないTest構文は、adapterが
 /// 診断（W-SCAN-101/E-SCAN-005/006/007）を返した上で、`TestDraft` の代わりに
 /// `MissingTestConstruct`（下記）を返す（`ManagedTestDraftLink::Missing`
 /// 相当）。したがってこの型のフィールドは必須 metadata について `Option`

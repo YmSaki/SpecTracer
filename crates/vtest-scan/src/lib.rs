@@ -2885,31 +2885,43 @@ fn free_text() {}
             .any(|test| test.id.as_str() == "TEST-FREE-TEXT"));
     }
 
-    /// 本冊 §4.4 / §5.5: `rust-cargo` は追加必須 metadata として
-    /// `targets ≥ 1` を要求する。`@vtest.target` を1件も宣言しない Test は
-    /// E-SCAN-007 になる。
+    /// ROOT-049 / DS-1666: `targets` の宣言は Test 成立性の必須条件では
+    /// ない（旧 DS-1621 の `targets ≥ 1` 条項は撤去された）。
+    /// `@vtest.target` を1件も宣言しない Test は E-SCAN-007 にならず、
+    /// core 中立の必須 metadata（id・covers ≥ 1・intent）さえ揃えば
+    /// `TestEntity` として具体化される。その `target_binding` を
+    /// `NO_EVIDENCE`（DS-1664）にする判定は verify 側の責務であり、
+    /// scan/adapter 層の観測範囲ではない。
     #[test]
-    fn missing_target_annotation_is_rejected() {
+    fn missing_target_annotation_is_accepted() {
         let root = fixture();
         fs::write(
             root.join("tests/no_target.rs"),
             r#"
 /// @vtest.id TEST-NO-TARGET
 /// @vtest.covers VO-ADD
-/// @vtest.intent requires at least one target
+/// @vtest.intent target declaration is optional
 #[test]
 fn no_target() {}
 "#,
         )
         .unwrap();
         let result = scan_project(&root).unwrap();
-        assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "E-SCAN-007"
-                && diagnostic
-                    .location
-                    .as_ref()
-                    .is_some_and(|location| location.function == "no_target")
-        }));
+        assert!(
+            !result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-007"
+                    && diagnostic
+                        .location
+                        .as_ref()
+                        .is_some_and(|location| location.function == "no_target")
+            }),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-NO-TARGET"));
     }
 
     /// 本冊 §4.4 / §11.1.1: core が中立に要求する必須 metadata（`id` /
