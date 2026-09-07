@@ -9,7 +9,6 @@ use syn::spanned::Spanned;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestResult,
-    TestTarget,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -459,18 +458,18 @@ fn validate_desired_test(
             "target must contain at least one source locator",
         ));
     }
-    // 本冊 §4.2改訂（Owner裁定3、pr3-decisions.md）: 複数targetの許容は
-    // `@vtest.kind` の文字列ではなく、rust-cargoが判定した実行形態が
-    // Cargo Integration Testであるかどうかで決める。Structured Editは
-    // ファイル移動を禁じている（直前のE-OP-003検査）ため、editの前後で
-    // `current` の物理的な配置（したがって実行形態）は変わらず、
-    // `current.test_target` をそのまま判定材料にできる。
-    if desired.targets.len() > 1 && !matches!(current.test_target, TestTarget::IntegrationTest(_)) {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            "multiple targets are allowed only for Cargo integration tests",
-        ));
-    }
+    // REQ-150/SPEC-085/DS-1618: a Test may declare N >= 1 Source Targets
+    // unconditionally — no execution-form or `@vtest.kind` cap. This
+    // Structured Edit path used to reject more than one target unless
+    // `current.test_target` was a Cargo integration test (本冊 §4.2改訂,
+    // Owner裁定3、pr3-decisions.md, PR #26 review round 5); the canonical
+    // audit found no upstream basis for that restriction (REQ-150/SPEC-085
+    // are both unconditional), so it is removed rather than re-derived —
+    // cardinality alone (checked above: `targets` non-empty) is REQ-150's
+    // whole condition. `desired.targets.len()` and `current.test_target`
+    // are unused for this gate now, but `current.test_target` still feeds
+    // `TestDraft.test_target`'s value elsewhere (adapter-owned execution
+    // form, unrelated to this cardinality question).
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(

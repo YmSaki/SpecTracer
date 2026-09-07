@@ -22,11 +22,12 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest, DocumentRecord,
-    ManagedTestLink, ScanSummary, SourceFunction, SourceLocation, TargetRef, TestEntity, VoRecord,
+    AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest, DocumentFile,
+    ManagedTestLink, ScanSummary, SectionNode, SentenceNode, SourceFunction, SourceLocation,
+    TargetRef, TestEntity, VoRecord,
 };
 use vtest_store::{
-    is_valid_ulid, load_config, read_approval, read_document, read_entity_ids, read_text,
+    is_valid_ulid, load_config, read_approval, read_document_file, read_entity_ids, read_text,
     read_vo_record, relation_ulid_payload, yaml_scalar_value, AdapterConfig, ProjectConfig,
     RelationRecord, StoreError, VerifyLayout,
 };
@@ -323,16 +324,9 @@ pub fn scan_project_with_config(
         sources,
         diagnostics,
     };
-    let doc_roots = config
-        .doc
-        .roots
-        .iter()
-        .map(|id| id.as_str().to_owned())
-        .collect::<BTreeSet<_>>();
     result.diagnostics.extend(record_diagnostics(
         root,
         &entity_ids,
-        &doc_roots,
         &result.tests,
         &result.sources,
     )?);
@@ -726,22 +720,36 @@ pub(crate) fn adapter_scan_includes(config: &ProjectConfig) -> Result<Vec<PathBu
 /// `operations.rs`) and by `scan_project_with_config`'s per-adapter discovery
 /// dispatch (only the matched adapter's own entry).
 fn resolve_adapter_includes(adapter: &AdapterConfig) -> Vec<PathBuf> {
+    // A leading "." (from the common `roots: ["."]` default) is preserved
+    // as an explicit `CurDir` component by `Path` (docs: normalized away
+    // only when *not* the first component), which would make
+    // `Path::starts_with` fail against a bare relative path like
+    // "src/lib.rs". Strip it so callers can compare against
+    // project-relative paths directly.
+    fn strip_curdir(path: PathBuf) -> PathBuf {
+        path.components()
+            .filter(|component| !matches!(component, Component::CurDir))
+            .collect()
+    }
+
     let mut includes = Vec::new();
     for adapter_root in &adapter.roots {
-        for include in &adapter.scan.include {
-            let joined = Path::new(adapter_root).join(include);
-            // A leading "." (from the common `roots: ["."]` default) is
-            // preserved as an explicit `CurDir` component by `Path`
-            // (docs: normalized away only when *not* the first
-            // component), which would make `Path::starts_with` fail
-            // against a bare relative path like "src/lib.rs". Strip it
-            // so callers can compare against project-relative paths
-            // directly.
-            let normalized: PathBuf = joined
-                .components()
-                .filter(|component| !matches!(component, Component::CurDir))
-                .collect();
-            includes.push(normalized);
+        match &adapter.scan.include {
+            Some(patterns) => {
+                for include in patterns {
+                    includes.push(strip_curdir(Path::new(adapter_root).join(include)));
+                }
+            }
+            None => {
+                // DS-349: "`config.yaml` の各adapterの `scan` 設定の
+                // `include` はテストコード走査パスであり、省略時は
+                // ワークスペース全体を対象とする". An omitted `include`
+                // is not "scan nothing" or "scan the `default_for`
+                // literal (`src`/`tests`/`crates`)" — it is this
+                // adapter's own root, walked whole, so every file under
+                // it is in scope.
+                includes.push(strip_curdir(Path::new(adapter_root).to_path_buf()));
+            }
         }
     }
     includes
@@ -750,7 +758,6 @@ fn resolve_adapter_includes(adapter: &AdapterConfig) -> Vec<PathBuf> {
 fn record_diagnostics(
     root: &Path,
     entity_ids: &[Vec<String>; 2],
-    doc_roots: &BTreeSet<String>,
     tests: &[TestEntity],
     sources: &[SourceFunction],
 ) -> Result<Vec<Diagnostic>, ScanError> {
@@ -773,14 +780,10 @@ fn record_diagnostics(
     // `.verify/spec` or `.verify/req`). `entity_ids` therefore carries only
     // [doc, vo] (`vtest_store::read_entity_ids`) — there is no third (REQ)
     // slot to validate, and REQ has no canonical counterpart at all, so its
-    // validation is removed outright rather than repointed.
-    let mut docs = BTreeMap::new();
-    for id in &entity_ids[0] {
-        if let Some(record) = validate_document_record(&layout, id, &mut diagnostics) {
-            docs.insert(id.clone(), record);
-        }
-    }
-    validate_document_graph(&layout, &docs, doc_roots, &mut diagnostics);
+    // validation is removed outright rather than repointed. `entity_ids[0]`
+    // is now `.verify/doc/*.json` file *names* (DES-585/586), each a full
+    // upstream `DocumentFile` tree of nodes, not a single flat record.
+    let document_node_ids = validate_document_nodes(&layout, &entity_ids[0], &mut diagnostics)?;
 
     let mut vos = BTreeMap::new();
     for id in &entity_ids[1] {
@@ -788,7 +791,7 @@ fn record_diagnostics(
             vos.insert(id.clone(), record);
         }
     }
-    validate_vo_document_references(&layout, &vos, &docs, &mut diagnostics);
+    validate_vo_document_references(&layout, &vos, &document_node_ids, &mut diagnostics);
 
     let vo_parents = vos
         .iter()
@@ -810,168 +813,265 @@ fn record_diagnostics(
     Ok(diagnostics)
 }
 
-/// Reads and validates the canonical document record `.verify/doc/<id>.yaml`
-/// (詳細設計 v0.1 §3.1), delegating every schema-intrinsic check (required
-/// fields, id/file-name match, unknown fields) to `vtest_store::read_document`
-/// — the record-layer reader — rather than re-checking them here (record vs.
-/// scan layer split; `pr3-spec-extract.md` §7, mirrors `validate_vo_record`
-/// below). This function adds the one check that reader deliberately leaves
-/// to the scan layer: `content_hash` staleness against the file at `path`
-/// (W-SCAN-104, 本冊:1626 §17.1) — the reader only sees the record text,
-/// never the working tree, so it cannot compare against the file `path`
-/// names. It deliberately does not police the `DOC-<NAME>.yaml` id/file-name
-/// *shape*: 基本仕様:126-134 states the ID prefix/charset is a convention the
-/// tool must not enforce, only uniqueness (PM 裁定7); the reader's
-/// id-matches-file-name check above is a different, permitted rule (ファイル
-/// 名を ID とする, 本冊:644), not a format constraint on what that ID may
-/// contain.
-fn validate_document_record(
+/// Reads every upstream document file `.verify/doc/<name>.json` (DES-585/586)
+/// and checks the document-node layer of chain_integrity/orphan_detection:
+///
+/// - E-SCAN-012 (DS-546/本冊:878): each node's own `derives_from` entries
+///   must resolve to a node id that exists somewhere in the corpus (any
+///   document — DS-546 does not confine resolution to the same file).
+/// - E-SCAN-016 (DS-1647/DS-1650, §5.6): every node except a `root`-layer
+///   one must have a non-empty *effective* upstream — its own `derives_from`
+///   edges, unioned with every ancestor section's edges within the same
+///   document file ("自分の辺 ∪ 先祖の辺"). DS-1646 confirms `root`-layer
+///   exclusion is structural (RootNode carries no `derives_from` field at
+///   all) and that there is no config-based exclusion to honor instead
+///   (`doc.roots` no longer exists — DS-1646: "設定による除外指定は
+///   持たない").
+///
+/// A whole document file failing to parse (`read_document_file`'s
+/// `StoreError`) is propagated via `?` rather than turned into a Diagnostic:
+/// `document_file_from_json` already runs every schema-intrinsic check
+/// (DS-1645) before a `DocumentFile` value exists, and — unlike the
+/// predecessor per-record reader — a `DocumentFile` carries no internal
+/// id/filename pair for an "id / ファイル名不一致" condition to apply to
+/// (BD-330/DES-585: the file itself carries no identifying field). No
+/// detailed_spec §5.4 diagnostic code (DS-535..DS-1650) covers "a whole
+/// document file fails to parse"; inventing one would violate this crate's
+/// own no-new-diagnostic-codes rule, so this follows the same no-code
+/// precedent `ScanError::code`'s doc comment already documents for
+/// `ScanError::Store`/`Io`/`Config`.
+///
+/// Returns every node id found, across every document, for
+/// `validate_vo_document_references`'s DS-1660 check (a VO's own
+/// `derives_from[].doc` names an upstream *node* id, not a document file
+/// name).
+fn validate_document_nodes(
     layout: &VerifyLayout,
-    id: &str,
+    document_names: &[String],
     diagnostics: &mut Vec<Diagnostic>,
-) -> Option<DocumentRecord> {
-    let path = layout.doc_dir().join(format!("{id}.yaml"));
-    let location = record_location(&layout.root, &path, id);
-    let (record, record_diagnostics) = match read_document(layout, id) {
-        Ok(result) => result,
-        Err(error) => {
-            // Same E-SCAN-010 precedent `validate_vo_record` documents: every
-            // failure `read_document` reports (invalid YAML, a missing
-            // required field, id/file-name mismatch, or a raw I/O failure) is
-            // schema non-conformance for scan's purposes.
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("document {id} has an invalid record: {error}"),
-                )
-                .with_location(location),
-            );
-            return None;
-        }
-    };
-    diagnostics.extend(
-        record_diagnostics
-            .into_iter()
-            .map(|diagnostic| diagnostic.with_location(location.clone())),
-    );
-    if let Some(diagnostic) = document_staleness_diagnostic(&layout.root, &record, &location) {
-        diagnostics.push(diagnostic);
+) -> Result<BTreeSet<String>, ScanError> {
+    let mut files = Vec::with_capacity(document_names.len());
+    for name in document_names {
+        files.push((name.clone(), read_document_file(layout, name)?));
     }
-    Some(record)
+
+    // First pass: index every node id across every document. E-SCAN-012
+    // resolution must see the whole corpus before any single-file walk
+    // checks an edge, since a node in document A may cite a node defined
+    // in document B.
+    //
+    // A node id occurring more than once (within one file, or across two
+    // files) is a real DS-052/DS-053 condition ("IDの一意性はスキャン時に
+    // 全数検査する") but no detailed_spec §5.4 diagnostic code names it —
+    // E-SCAN-002 is Test ID collision specifically (DS-536), not a general
+    // node-id collision. This crate therefore does not emit a diagnostic
+    // for it (no code to invent one from) and does not silently resolve
+    // the collision either: `known_ids` is a set, so an E-SCAN-012 lookup
+    // against a colliding id still reports "exists" (existence, not a
+    // specific resolved node, is all E-SCAN-012 needs) rather than picking
+    // a first- or last-wins candidate. Open upstream question, disclosed
+    // rather than decided here.
+    let mut known_ids = BTreeSet::new();
+    for (_, file) in &files {
+        index_document_ids(file, &mut known_ids);
+    }
+
+    for (name, file) in &files {
+        for node in &file.request {
+            check_sentence_node(layout, name, node, false, &known_ids, diagnostics);
+        }
+        for section in &file.require {
+            check_section_node(layout, name, section, false, &known_ids, diagnostics);
+        }
+        for section in &file.spec {
+            check_section_node(layout, name, section, false, &known_ids, diagnostics);
+        }
+        for section in &file.detailed_spec {
+            check_section_node(layout, name, section, false, &known_ids, diagnostics);
+        }
+        for section in &file.basic_design {
+            check_section_node(layout, name, section, false, &known_ids, diagnostics);
+        }
+        for section in &file.design {
+            check_section_node(layout, name, section, false, &known_ids, diagnostics);
+        }
+        // `file.root` nodes are excluded from both checks by construction:
+        // `RootNode` has no `derives_from` field (nothing for E-SCAN-012 to
+        // resolve) and DS-1647 excludes the `root` layer from
+        // orphan_detection outright.
+    }
+
+    Ok(known_ids)
 }
 
-/// W-SCAN-104 (本冊:1626 §17.1: "document レコードの content_hash と実ファイル
-/// の不一致"). Recomputes the referenced file's hash the same way the
-/// canonical model does (`ContentHash::from_text`, 詳細設計 v0.1 §1.3
-/// normalization — the same function `validate_approval_status` already uses
-/// for VO subject hashing) and compares it against the record's stored
-/// `content_hash`. `path` failing to read (deleted/moved file) is treated the
-/// same as a mismatch: there is no way to confirm the record is still
-/// current, so this stays fail-closed rather than silently passing when the
-/// file is simply gone.
-fn document_staleness_diagnostic(
-    root: &Path,
-    record: &DocumentRecord,
-    location: &SourceLocation,
-) -> Option<Diagnostic> {
-    let current = match fs::read_to_string(root.join(&record.path)) {
-        Ok(text) => ContentHash::from_text(&text),
-        Err(error) => {
-            return Some(
-                Diagnostic::warning(
-                    "W-SCAN-104",
+fn index_document_ids(file: &DocumentFile, known_ids: &mut BTreeSet<String>) {
+    for node in &file.root {
+        known_ids.insert(node.id.as_str().to_owned());
+    }
+    for node in &file.request {
+        known_ids.insert(node.id.as_str().to_owned());
+    }
+    for section in &file.require {
+        index_section_ids(section, known_ids);
+    }
+    for section in &file.spec {
+        index_section_ids(section, known_ids);
+    }
+    for section in &file.detailed_spec {
+        index_section_ids(section, known_ids);
+    }
+    for section in &file.basic_design {
+        index_section_ids(section, known_ids);
+    }
+    for section in &file.design {
+        index_section_ids(section, known_ids);
+    }
+}
+
+fn index_section_ids(section: &SectionNode, known_ids: &mut BTreeSet<String>) {
+    known_ids.insert(section.id.as_str().to_owned());
+    if let Some(items) = &section.items {
+        for item in items {
+            known_ids.insert(item.id.as_str().to_owned());
+        }
+    }
+    if let Some(children) = &section.sections {
+        for child in children {
+            index_section_ids(child, known_ids);
+        }
+    }
+}
+
+/// A document-node diagnostic's location: the `.verify/doc/<name>.json`
+/// file, with `function` set to the node's own id (mirrors
+/// `validate_vo_record`'s use of `record_location` for `.verify/vo/`).
+fn document_node_location(layout: &VerifyLayout, name: &str, node_id: &str) -> SourceLocation {
+    record_location(
+        &layout.root,
+        &layout.doc_dir().join(format!("{name}.json")),
+        node_id,
+    )
+}
+
+/// Walks one `SectionNode` and its descendants, checking both E-SCAN-012
+/// (this section's own `derives_from` entries resolve) and E-SCAN-016 (this
+/// section's *effective* upstream — own edges ∪ `ancestor_has_upstream` —
+/// is non-empty). `ancestor_has_upstream` carries whether any strict
+/// ancestor section already had a non-empty `derives_from` (DS-1647's
+/// "先祖の辺"); a section with its own edge also becomes an upstream-bearing
+/// ancestor for its own children.
+fn check_section_node(
+    layout: &VerifyLayout,
+    document: &str,
+    section: &SectionNode,
+    ancestor_has_upstream: bool,
+    known_ids: &BTreeSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let own_edges = section.derives_from.as_deref().unwrap_or(&[]);
+    let location = document_node_location(layout, document, section.id.as_str());
+    for target in own_edges {
+        if !known_ids.contains(target.as_str()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-012",
                     format!(
-                        "document {} content_hash cannot be verified: {} is unreadable ({error})",
-                        record.id, record.path
+                        "document node {} derives_from missing node {}",
+                        section.id.as_str(),
+                        target.as_str()
                     ),
                 )
                 .with_location(location.clone()),
             );
         }
-    };
-    if current == record.content_hash {
-        return None;
     }
-    Some(
-        Diagnostic::warning(
-            "W-SCAN-104",
-            format!(
-                "document {} content_hash does not match {}",
-                record.id, record.path
-            ),
-        )
-        .with_location(location.clone()),
-    )
-}
-
-/// chain_integrity（文書層）と orphan_detection（別紙C §18.3.1 L76-95・§18.3.2
-/// L119-125 逐語）:
-/// - E-SCAN-012（本冊:878）: 各 document の `derives_from` 参照先が document
-///   として存在すること。参照先集合は VO 同様、成功裏に読めた `docs`（本関数
-///   の呼び出し元が構築）のみとする — `validate_parent_graph`（VO parent）が
-///   既に確立した「解決先は正常にparseできたrecordの集合」という前例と揃える。
-/// - E-SCAN-016（本冊:879）: 「`derives_from` が空、かつ他のどの document か
-///   らも `derives_from` で参照されず、`doc.roots` にも列挙されない」の3条件
-///   すべてを満たす document を孤児とする。3条件目だけを見て「根に列挙されて
-///   いない」を孤児と判定しない — 別紙C:119-125 は3条件の連言である。
-fn validate_document_graph(
-    layout: &VerifyLayout,
-    docs: &BTreeMap<String, DocumentRecord>,
-    doc_roots: &BTreeSet<String>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    let referenced = docs
-        .values()
-        .flat_map(|record| record.derives_from.iter())
-        .map(|entry| entry.doc.as_str().to_owned())
-        .collect::<BTreeSet<_>>();
-
-    for (id, record) in docs {
-        let location = record_location(
-            &layout.root,
-            &layout.doc_dir().join(format!("{id}.yaml")),
-            id,
+    let has_upstream = ancestor_has_upstream || !own_edges.is_empty();
+    if !has_upstream {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-016",
+                format!(
+                    "document node {} is orphaned: no effective upstream (own or ancestor \
+                     derives_from edges)",
+                    section.id.as_str()
+                ),
+            )
+            .with_location(location),
         );
-        for entry in &record.derives_from {
-            let target = entry.doc.as_str();
-            if !docs.contains_key(target) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-012",
-                        format!("document {id} derives_from missing document {target}"),
-                    )
-                    .with_location(location.clone()),
-                );
-            }
+    }
+
+    if let Some(items) = &section.items {
+        for item in items {
+            check_sentence_node(layout, document, item, has_upstream, known_ids, diagnostics);
         }
-        if record.derives_from.is_empty()
-            && !referenced.contains(id.as_str())
-            && !doc_roots.contains(id.as_str())
-        {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-016",
-                    format!(
-                        "document {id} is orphaned: empty derives_from, not referenced by \
-                         another document, and not listed in config.yaml's doc.roots"
-                    ),
-                )
-                .with_location(location),
+    }
+    if let Some(children) = &section.sections {
+        for child in children {
+            check_section_node(
+                layout,
+                document,
+                child,
+                has_upstream,
+                known_ids,
+                diagnostics,
             );
         }
     }
 }
 
+/// Same checks as `check_section_node`, for a `SentenceNode`. A sentence
+/// node never has children, so it only ever reports for itself.
+fn check_sentence_node(
+    layout: &VerifyLayout,
+    document: &str,
+    sentence: &SentenceNode,
+    ancestor_has_upstream: bool,
+    known_ids: &BTreeSet<String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let location = document_node_location(layout, document, sentence.id.as_str());
+    for target in &sentence.derives_from {
+        if !known_ids.contains(target.as_str()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-012",
+                    format!(
+                        "document node {} derives_from missing node {}",
+                        sentence.id.as_str(),
+                        target.as_str()
+                    ),
+                )
+                .with_location(location.clone()),
+            );
+        }
+    }
+    let has_upstream = ancestor_has_upstream || !sentence.derives_from.is_empty();
+    if !has_upstream {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SCAN-016",
+                format!(
+                    "document node {} is orphaned: no effective upstream (own or ancestor \
+                     derives_from edges)",
+                    sentence.id.as_str()
+                ),
+            )
+            .with_location(location),
+        );
+    }
+}
+
 /// chain_integrity（VO 層、本冊:878/別紙C:80）: 各 VO の `derives_from` は
-/// document へ解決できなければならない。カーディナリティ（1件以上）は
-/// `vtest_store::vo_record_from_yaml` が既に record 層で強制しているので
-/// (`require_at_least_one_derives_from`)、ここでは各 entry の参照先が実在す
-/// る document かどうかだけを検査する — `validate_document_graph`の
-/// E-SCAN-012チェックと対になる、VO側の半分。
+/// upstream node へ解決できなければならない（DS-1660: `doc` field の値は
+/// 上流ノード id であり、上流文書のファイル名ではない）。カーディナリティ
+/// （1件以上）は `vtest_store::vo_record_from_yaml` が既に record 層で強制
+/// しているので (`require_at_least_one_derives_from`)、ここでは各 entry の
+/// 参照先が実在する node かどうかだけを検査する — `validate_document_nodes`
+/// の E-SCAN-012 チェックと対になる、VO側の半分。
 fn validate_vo_document_references(
     layout: &VerifyLayout,
     vos: &BTreeMap<String, VoRecord>,
-    docs: &BTreeMap<String, DocumentRecord>,
+    document_node_ids: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for (id, record) in vos {
@@ -982,11 +1082,11 @@ fn validate_vo_document_references(
         );
         for entry in &record.derives_from {
             let target = entry.doc.as_str();
-            if !docs.contains_key(target) {
+            if !document_node_ids.contains(target) {
                 diagnostics.push(
                     Diagnostic::error(
                         "E-SCAN-012",
-                        format!("VO {id} derives_from missing document {target}"),
+                        format!("VO {id} derives_from missing node {target}"),
                     )
                     .with_location(location.clone()),
                 );
@@ -1526,42 +1626,48 @@ fn validate_approval_status(
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_model::{DerivesFrom, DocumentId, DocumentRecord, SrcId, TestId, TestTarget, VoId};
-    use vtest_store::{init_project, new_record_id, write_document, FormAnswers, FormValue};
+    use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestTarget, VoId};
+    use vtest_store::{init_project, new_record_id, write_document_file, FormAnswers, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
-            "id: {id}\nparent: {parent}\nderives_from:\n  - doc: DOC-TEST\nclaim: claim\ndimensions: []\ncoverage_policy: null\ncombinations: []\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
+            "id: {id}\nparent: {parent}\nderives_from:\n  - doc: ROOT-001\nclaim: claim\ndimensions: []\ncoverage_policy: null\ncombinations: []\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
         )
     }
 
-    /// Registers `DOC-TEST` — the document every `valid_vo` fixture record
-    /// declares as its `derives_from` target — as a resolvable, non-stale,
-    /// root document. Adding E-SCAN-012/E-SCAN-016 (this PR) would otherwise
-    /// make every existing VO fixture that uses `valid_vo` dangling
-    /// (`derives_from: [{doc: DOC-TEST}]` pointing at a document that never
-    /// existed before this PR) and every such VO fixture unresolvable, since
-    /// nothing wrote a `.verify/doc/DOC-TEST.yaml`.
+    fn fixture_node_source() -> NodeSource {
+        NodeSource {
+            doc: "docs/test.md".to_owned(),
+            heading: "1".to_owned(),
+            lines: [1, 1],
+        }
+    }
+
+    /// Writes an empty `DocumentFile` (DES-586) with a single `root`-layer
+    /// node, `ROOT-001` — the node every `valid_vo` fixture record declares
+    /// as its `derives_from` target (DS-1660: a VO's `derives_from[].doc` is
+    /// an upstream *node* id, not a document file name). `root`-layer nodes
+    /// are excluded from orphan_detection outright (DS-1646/DS-1647) and
+    /// resolve trivially for E-SCAN-012, so this fixture never itself trips
+    /// either check.
     fn write_doc_test_fixture(root: &Path) {
         let layout = VerifyLayout::new(root);
-        fs::create_dir_all(root.join("docs")).unwrap();
-        let text = "fixture document\n";
-        fs::write(root.join("docs/test.md"), text).unwrap();
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-TEST"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text(text),
-                title: None,
-                derives_from: Vec::new(),
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
-        let mut config = load_config(root).unwrap();
-        config.doc.roots = vec![DocumentId::new("DOC-TEST")];
-        fs::write(layout.config(), config.to_yaml()).unwrap();
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![RootNode {
+                id: DocumentId::new("ROOT-001"),
+                statement: "fixture root ruling".to_owned(),
+                description: None,
+                source: fixture_node_source(),
+            }],
+            request: Vec::new(),
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-TEST", &file).unwrap();
     }
 
     fn fixture() -> PathBuf {
@@ -1709,6 +1815,69 @@ fn adds() { assert_eq!(2, crate::missing()); }
                 })
         }));
         assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+    }
+
+    /// DS-349: "`config.yaml` の各adapterの `scan` 設定の `include` は
+    /// テストコード走査パスであり、省略時はワークスペース全体を対象とする".
+    /// An omitted `include` must resolve to this adapter's own root — not an
+    /// empty list, and not `default_for`'s concrete `src`/`tests`/`crates`
+    /// literal (that is one adapter's chosen default value, not DS-349's
+    /// stated default).
+    #[test]
+    fn resolve_adapter_includes_none_targets_the_whole_adapter_root() {
+        let mut adapter = ProjectConfig::default_for("fixture")
+            .adapters
+            .into_iter()
+            .next()
+            .unwrap();
+        assert!(adapter.scan.include.is_some(), "precondition: default_for sets an explicit include list, not None — this test is exercising the *other* case");
+        adapter.scan.include = None;
+
+        let includes = resolve_adapter_includes(&adapter);
+        assert_eq!(
+            includes,
+            vec![PathBuf::new()],
+            "an omitted include must resolve to the adapter root itself (joined with an \
+             empty relative path), not an empty include list: {includes:?}"
+        );
+    }
+
+    #[test]
+    fn omitted_scan_include_scans_the_whole_workspace() {
+        let root = fixture();
+        // DS-349: place the adapter's `scan.include` at `None` and put a
+        // Test construct outside `default_for`'s own `src`/`tests`/`crates`
+        // literal to prove the whole workspace is in scope, not silently
+        // narrowed back to that literal or to nothing.
+        let layout = VerifyLayout::new(&root);
+        let mut config = load_config(&root).unwrap();
+        config.adapters[0].scan.include = None;
+        fs::write(layout.config(), config.to_yaml()).unwrap();
+
+        fs::create_dir_all(root.join("other")).unwrap();
+        fs::write(
+            root.join("other/extra.rs"),
+            r#"
+/// @vtest.id TEST-OUTSIDE-DEFAULT-INCLUDE
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent lives outside src/tests/crates
+#[test]
+fn outside_default() {}
+"#,
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result
+                .tests
+                .iter()
+                .any(|test| test.id.as_str() == "TEST-OUTSIDE-DEFAULT-INCLUDE"),
+            "an omitted scan.include must scan the whole workspace, not just \
+             default_for's src/tests/crates literal: {:?}",
+            result.tests
+        );
     }
 
     #[test]
@@ -2130,46 +2299,59 @@ fn missing_intent() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-007"));
     }
 
-    /// pr3-decisions.md Owner裁定3「複数targetを許可するかどうかは
-    /// `@vtest.kind`の文字列ではなく、`rust-cargo`が判定した実行形態が
-    /// Cargo Integration Testであるかによって決める」。別紙A §14.3の
-    /// built-in `rust-integration` Formは§14.1との差分が`targets`/`file`の
-    /// 2点だけであり、生成される`@vtest.kind`はunit-{test_kind}のまま
-    /// （`integration`という文字列を含まない）。このテストは両方向を断言
-    /// する — `@vtest.kind unit-normal`のTestがCargo integration test
-    /// （`tests/`配下）に物理的に置かれていれば複数targetを許容し、
-    /// `@vtest.kind`に`integration`という文字列を含めても物理的にlib
-    /// test（`src/`配下）であれば複数targetを許容しない。
+    /// REQ-150「1 つの Test は 1 件以上の Source Target を宣言できる」・
+    /// SPEC-085（同文）・DS-1618「`case`・`related`・`target` はキー自体を
+    /// 複数行書ける」: cardinality is N >= 1 with no upper bound and no
+    /// execution-form or `@vtest.kind` condition. This crate used to allow
+    /// more than one `target` only for a Cargo integration test
+    /// (pr3-decisions.md Owner裁定3, PR #26 review round 5); the canonical
+    /// audit found no upstream node granting that restriction, so it was
+    /// removed rather than re-derived (`vtest-adapter-rust`'s
+    /// `parse_test_annotations` and `vtest-scan::operations`'s
+    /// `validate_desired_test`). This test asserts N=1, N=2, and N=3 all
+    /// work, for a lib test (`src/`, not a Cargo integration test) and for
+    /// a Cargo integration test (`tests/`) alike, with `@vtest.kind` values
+    /// chosen to also show the decision is not kind-dependent.
     #[test]
-    fn integration_tests_allow_multiple_targets_only() {
+    fn tests_declare_any_number_of_targets_regardless_of_kind_or_physical_location() {
         let root = fixture();
         fs::write(
             root.join("src/lib.rs"),
             r#"pub fn add(a: i32, b: i32) -> i32 { a + b }
 pub fn subtract(a: i32, b: i32) -> i32 { a - b }
+pub fn multiply(a: i32, b: i32) -> i32 { a * b }
 
 #[cfg(test)]
 mod tests {
-    /// @vtest.id TEST-FAKE-INTEGRATION-KIND
+    /// @vtest.id TEST-LIB-ONE-TARGET
+    /// @vtest.covers VO-ADD
+    /// @vtest.target src/lib.rs::add
+    /// @vtest.intent a lib test declaring exactly one target (N=1)
+    /// @vtest.kind integration-normal
+    #[test]
+    fn one_target() {}
+
+    /// @vtest.id TEST-LIB-TWO-TARGETS
     /// @vtest.covers VO-ADD
     /// @vtest.target src/lib.rs::add
     /// @vtest.target src/lib.rs::subtract
-    /// @vtest.intent an integration-looking kind does not unlock multiple targets for a lib test
+    /// @vtest.intent a lib test may declare more than one target (N=2)
     /// @vtest.kind integration-normal
     #[test]
-    fn duplicate_target() {}
+    fn two_targets() {}
 }
 "#,
         )
         .unwrap();
         fs::write(
-            root.join("tests/multiple.rs"),
+            root.join("tests/three_targets.rs"),
             r#"
-/// @vtest.id TEST-INTEGRATION
+/// @vtest.id TEST-INTEGRATION-THREE-TARGETS
 /// @vtest.covers VO-ADD
 /// @vtest.target src/lib.rs::add
 /// @vtest.target src/lib.rs::subtract
-/// @vtest.intent combines operations
+/// @vtest.target src/lib.rs::multiply
+/// @vtest.intent a Cargo integration test may declare three targets (N=3)
 /// @vtest.kind unit-normal
 #[test]
 fn combines() {}
@@ -2178,52 +2360,51 @@ fn combines() {}
         .unwrap();
         let result = scan_project(&root).unwrap();
 
-        let integration = result
+        let one = result
             .tests
             .iter()
-            .find(|test| test.id.as_str() == "TEST-INTEGRATION")
+            .find(|test| test.id.as_str() == "TEST-LIB-ONE-TARGET")
             .unwrap();
-        assert_eq!(integration.targets.len(), 2);
+        assert_eq!(one.targets.len(), 1);
+        assert!(matches!(one.test_target, TestTarget::Lib));
+
+        let two = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-LIB-TWO-TARGETS")
+            .unwrap();
+        assert_eq!(two.targets.len(), 2);
+        assert!(matches!(two.test_target, TestTarget::Lib));
+
+        let three = result
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-INTEGRATION-THREE-TARGETS")
+            .unwrap();
+        assert_eq!(three.targets.len(), 3);
         assert_eq!(
-            integration.test_target,
-            TestTarget::IntegrationTest("multiple".to_owned())
-        );
-        assert!(
-            !result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-005"
-                    && diagnostic
-                        .location
-                        .as_ref()
-                        .is_some_and(|location| location.function == "combines")
-            }),
-            "a Cargo integration test declaring `@vtest.kind unit-normal` (the value the \
-             built-in §14.1/§14.3 Form actually outputs) must still be allowed multiple targets: {:?}",
-            result.diagnostics
+            three.test_target,
+            TestTarget::IntegrationTest("three_targets".to_owned())
         );
 
         assert!(
-            result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-005"
-                    && diagnostic
-                        .location
-                        .as_ref()
-                        .is_some_and(|location| location.function == "tests::duplicate_target")
-            }),
-            "a lib test declaring `@vtest.kind integration-normal` must not be allowed \
-             multiple targets merely because of the kind string: {:?}",
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-005"),
+            "declaring 1, 2, or 3 distinct targets must never be reported as a duplicate, \
+             for a lib test or a Cargo integration test alike, regardless of `@vtest.kind`: {:?}",
             result.diagnostics
         );
-        assert!(!result
-            .tests
-            .iter()
-            .any(|test| test.id.as_str() == "TEST-FAKE-INTEGRATION-KIND"));
     }
 
     /// 本冊 §4.2「許容された複数 `target` 内でも同じ TargetRef の重複は
-    /// E-SCAN-005 とする」— Cargo integration test（実行形態による許容）
-    /// でも同一 target の重複宣言は許容しない。`@vtest.kind` は
-    /// `unit-normal`（別紙A §14.1/§14.3 の built-in Form が実際に出力する
-    /// 値）とし、許容判定が kind の文字列に依存しないことを併せて示す。
+    /// E-SCAN-005 とする」(DS-497) — a literal duplicate spelling within a
+    /// Test's declared targets is still rejected regardless of how many
+    /// targets are declared or what execution form the Test has.
+    /// `@vtest.kind` is `unit-normal` (the value the built-in §14.1/§14.3
+    /// Form actually outputs) to also show the rejection is not
+    /// kind-dependent.
     #[test]
     fn integration_test_duplicate_target_value_is_rejected() {
         let root = fixture();
@@ -2841,30 +3022,27 @@ fn edit_collision_second() {}
         );
     }
 
-    /// 上記の裏側: 実行形態が Cargo Integration Test ではない（lib test の）
-    /// Test は、`@vtest.kind`に`integration`という文字列を含めても複数
-    /// targetへの編集を拒否する。旧実装（`desired.kind.starts_with(
-    /// "integration")`）はこのケースを誤って許可していた —
-    /// 却下された判定基準（Owner裁定3）を repo 全体から掃引したことを
-    /// ロックインする回帰テスト。
+    /// 上記の裏側: REQ-150/SPEC-085/DS-1618 はカーディナリティに執行形態
+    /// 条件を課さないため、Cargo Integration Test ではない（lib test の）
+    /// Test への Structured Edit も複数 target への編集を許容する。旧実装は
+    /// これを `current.test_target` で拒否していた（Owner裁定3、PR #26
+    /// review round 5）— 正本監査が上位の根拠を見つけられず撤去した後の
+    /// 挙動をロックインする回帰テスト。
     #[test]
-    fn edit_test_rejects_multiple_targets_for_a_lib_test_even_with_an_integration_looking_kind() {
+    fn edit_test_allows_multiple_targets_for_a_lib_test_regardless_of_kind_string() {
         let root = fixture();
         fs::write(
             root.join("src/lib.rs"),
             r#"pub fn add(a: i32, b: i32) -> i32 { a + b }
 pub fn subtract(a: i32, b: i32) -> i32 { a - b }
 
-#[cfg(test)]
-mod tests {
-    /// @vtest.id TEST-LIB-FAKE-INTEGRATION-KIND
-    /// @vtest.covers VO-ADD
-    /// @vtest.target src/lib.rs::add
-    /// @vtest.intent an integration-looking kind string must not unlock multiple targets for a lib test
-    /// @vtest.kind integration-normal
-    #[test]
-    fn lib_test() {}
-}
+/// @vtest.id TEST-LIB-FAKE-INTEGRATION-KIND
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent editing this lib test to declare a second target must succeed
+/// @vtest.kind integration-normal
+#[test]
+fn lib_test() {}
 "#,
         )
         .unwrap();
@@ -2884,11 +3062,12 @@ mod tests {
             None,
             true,
         );
-        let error = result.expect_err(
-            "a lib test must not be allowed multiple targets merely because `kind` contains \
-             the string `integration`",
+        assert!(
+            result.is_ok(),
+            "a lib test must be allowed multiple targets — cardinality has no execution-form \
+             condition: {:?}",
+            result.err()
         );
-        assert_eq!(error.code, "E-OP-001");
     }
 
     /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」: `--set
@@ -3215,269 +3394,242 @@ fn covers_parent() {}
         );
     }
 
-    #[test]
-    fn reports_document_content_hash_staleness() {
-        let root = fixture();
-        fs::create_dir_all(root.join("docs")).unwrap();
-        fs::write(root.join("docs/spec.md"), "original\n").unwrap();
-        let layout = VerifyLayout::new(&root);
-        let document = DocumentRecord {
-            id: DocumentId::new("DOC-ONE"),
-            path: "docs/spec.md".to_owned(),
-            content_hash: ContentHash::from_text("original\n"),
-            title: None,
-            derives_from: Vec::new(),
-            registered_at: "2026-01-01T00:00:00Z".to_owned(),
-        };
-        write_document(&layout, &document).unwrap();
-        // Declare DOC-ONE a root so this test observes W-SCAN-104 in
-        // isolation, without also tripping E-SCAN-016 (orphan) on a document
-        // this test never gave a `derives_from`.
-        add_doc_root(&root, "DOC-ONE");
-        fs::write(root.join("docs/spec.md"), "changed\n").unwrap();
-
-        let result = scan_project(&root).unwrap();
-        // レビュー round 2 項目【K-1】: コードだけでなく、staleness の対象
-        // ドキュメント（`DOC-ONE`）を診断が名指ししていることも断言する。
-        // コードだけの断言では、別の document へ誤って診断が付いていても
-        // 検出できない。
-        assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "W-SCAN-104"
-                    && diagnostic.message.contains("DOC-ONE")),
-            "diagnostics: {:?}",
-            result.diagnostics
-        );
-    }
-
-    /// Appends `id` to `config.yaml`'s `doc.roots` (詳細設計 v0.1 §2.2/§5.6),
-    /// keeping every root the fixture already declared (e.g. `DOC-TEST`, see
-    /// `write_doc_test_fixture`).
-    fn add_doc_root(root: &Path, id: &str) {
-        let layout = VerifyLayout::new(root);
-        let mut config = load_config(root).unwrap();
-        config.doc.roots.push(DocumentId::new(id));
-        fs::write(layout.config(), config.to_yaml()).unwrap();
-    }
+    // W-SCAN-104 (predecessor content_hash-vs-file staleness diagnostic) and
+    // `doc.roots`-based root declaration no longer exist in this crate:
+    // neither the detailed_spec §5.4 diagnostic table (DS-535..DS-1650) nor
+    // any other node in specification.json assigns `W-SCAN-104` to
+    // anything, and DS-1646 replaces config-declared roots with structural
+    // `root`-layer membership ("設定による除外指定は持たない"). The
+    // predecessor tests exercising both (`reports_document_content_hash_
+    // staleness`, `add_doc_root`) are removed outright rather than ported —
+    // there is no current canonical condition left for them to assert.
 
     #[test]
     fn reports_document_derives_from_dangling_reference() {
         let root = fixture();
         let layout = VerifyLayout::new(&root);
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-DANGLING"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text("fixture document\n"),
-                title: None,
-                derives_from: vec![DerivesFrom {
-                    doc: DocumentId::new("DOC-MISSING"),
-                    anchor: None,
-                    note: None,
-                }],
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
+        // DS-1660's own illustrative non-existent id: `SPEC-999` never
+        // appears in any document this fixture writes. A dangling
+        // `derives_from` entry is still an edge — the node it belongs to is
+        // not orphaned — so E-SCAN-012 and E-SCAN-016 must not both fire.
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-901"),
+                statement: "dangling reference fixture".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("SPEC-999")],
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-DANGLING", &file).unwrap();
 
         let result = scan_project(&root).unwrap();
         let dangling = result
             .diagnostics
             .iter()
             .filter(|diagnostic| {
-                diagnostic.code == "E-SCAN-012" && diagnostic.message.contains("DOC-DANGLING")
+                diagnostic.code == "E-SCAN-012" && diagnostic.message.contains("R-901")
             })
             .collect::<Vec<_>>();
         assert_eq!(dangling.len(), 1, "diagnostics: {:?}", result.diagnostics);
-        assert!(dangling[0].message.contains("DOC-MISSING"));
+        assert!(dangling[0].message.contains("SPEC-999"));
         assert!(
             !result
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "E-SCAN-016"
-                    && diagnostic.message.contains("DOC-DANGLING")),
-            "a document with a (dangling) derives_from entry is not orphaned; \
+                    && diagnostic.message.contains("R-901")),
+            "a node with a (dangling) derives_from entry is not orphaned; \
              E-SCAN-012 and E-SCAN-016 must not both fire for it: {:?}",
             result.diagnostics
         );
     }
 
     #[test]
-    fn reports_orphan_document_not_listed_as_root() {
+    fn reports_orphan_node_with_no_effective_upstream() {
         let root = fixture();
         let layout = VerifyLayout::new(&root);
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-ORPHAN"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text("fixture document\n"),
-                title: None,
+        // DS-1647: a `request`-layer sentence has no ancestor section to be
+        // rescued by, so an empty `derives_from` here is orphan outright —
+        // this is the one node shape where "own edges" and "effective
+        // upstream" coincide exactly.
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-902"),
+                statement: "orphan fixture".to_owned(),
+                description: None,
                 derives_from: Vec::new(),
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-ORPHAN", &file).unwrap();
 
         let result = scan_project(&root).unwrap();
         let orphan = result
             .diagnostics
             .iter()
             .filter(|diagnostic| {
-                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("DOC-ORPHAN")
+                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("R-902")
             })
             .collect::<Vec<_>>();
         assert_eq!(orphan.len(), 1, "diagnostics: {:?}", result.diagnostics);
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-012" && diagnostic.message.contains("DOC-ORPHAN")
+                diagnostic.code == "E-SCAN-012" && diagnostic.message.contains("R-902")
             }),
-            "an orphan document with no derives_from entries has nothing to \
+            "an orphan node with no derives_from entries has nothing to \
              dangle; E-SCAN-012 must not fire for it: {:?}",
             result.diagnostics
         );
     }
 
     #[test]
-    fn document_referenced_by_another_documents_derives_from_is_not_orphaned() {
+    fn sentence_with_empty_derives_from_is_rescued_by_ancestor_section_edge() {
+        // DS-1647: 実効的な上流 = 自分の辺 ∪ 先祖の辺. A sentence whose own
+        // `derives_from` is empty is not orphaned when the section
+        // containing it already carries an edge.
         let root = fixture();
         let layout = VerifyLayout::new(&root);
-        // DOC-UPSTREAM has an empty derives_from and is not in doc.roots, but
-        // DOC-DOWNSTREAM derives from it — 別紙C:119-125's second orphan
-        // condition ("他のどの document からも derives_from で参照されず")
-        // means that incoming reference alone keeps DOC-UPSTREAM connected.
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-UPSTREAM"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text("fixture document\n"),
-                title: None,
-                derives_from: Vec::new(),
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-DOWNSTREAM"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text("fixture document\n"),
-                title: None,
-                derives_from: vec![DerivesFrom {
-                    doc: DocumentId::new("DOC-UPSTREAM"),
-                    anchor: None,
-                    note: None,
-                }],
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: Vec::new(),
+            require: vec![SectionNode {
+                id: DocumentId::new("REQ-S901"),
+                title: "ancestor with an edge".to_owned(),
+                description: None,
+                source: fixture_node_source(),
+                derives_from: Some(vec![DocumentId::new("ROOT-001")]),
+                sections: None,
+                items: Some(vec![SentenceNode {
+                    id: DocumentId::new("REQ-903"),
+                    statement: "rescued by ancestor".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                }]),
+            }],
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-ANCESTOR-RESCUE", &file).unwrap();
 
         let result = scan_project(&root).unwrap();
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("DOC-UPSTREAM")
+                diagnostic.code == "E-SCAN-016"
+                    && (diagnostic.message.contains("REQ-903")
+                        || diagnostic.message.contains("REQ-S901"))
             }),
             "diagnostics: {:?}",
             result.diagnostics
         );
+    }
+
+    #[test]
+    fn node_referenced_by_another_nodes_derives_from_is_still_orphan() {
+        // DS-1647 drops the predecessor document model's "referenced by
+        // another document" rescue condition entirely: effective upstream
+        // is own edges ∪ ancestor edges only, never an incoming reference.
+        // A node with an empty `derives_from` stays orphan even when
+        // another node cites it — this is a deliberate behavior change from
+        // the predecessor model, asserted explicitly so a future change
+        // does not silently reintroduce the dropped condition.
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![
+                SentenceNode {
+                    id: DocumentId::new("R-904"),
+                    statement: "cited by R-905 but has no upstream edge itself".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+                SentenceNode {
+                    id: DocumentId::new("R-905"),
+                    statement: "cites R-904".to_owned(),
+                    description: None,
+                    derives_from: vec![DocumentId::new("R-904")],
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+            ],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-INCOMING-REF-ONLY", &file).unwrap();
+
+        let result = scan_project(&root).unwrap();
         assert!(
-            !result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "E-SCAN-012"),
-            "diagnostics: {:?}",
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("R-904")
+            }),
+            "an incoming derives_from reference from another node must not rescue an \
+             otherwise-empty node from orphan_detection (DS-1647 has no such condition): {:?}",
             result.diagnostics
         );
     }
 
     #[test]
     fn well_formed_documents_report_no_document_layer_diagnostics() {
-        // fixture() already registers DOC-TEST (empty derives_from, listed
-        // in doc.roots, content_hash matching docs/test.md) — the baseline
-        // this test asserts stays silent under E-SCAN-012/E-SCAN-016/
-        // W-SCAN-104. Add one more well-formed, non-root document that
-        // derives from it to also exercise a resolving `derives_from`.
+        // fixture() already registers DOC-TEST's ROOT-001 (root layer,
+        // excluded from orphan_detection outright). Add one more
+        // well-formed, non-root node that derives from it to also exercise
+        // a resolving `derives_from`.
         let root = fixture();
         let layout = VerifyLayout::new(&root);
-        write_document(
-            &layout,
-            &DocumentRecord {
-                id: DocumentId::new("DOC-CHILD"),
-                path: "docs/test.md".to_owned(),
-                content_hash: ContentHash::from_text("fixture document\n"),
-                title: None,
-                derives_from: vec![DerivesFrom {
-                    doc: DocumentId::new("DOC-TEST"),
-                    anchor: None,
-                    note: None,
-                }],
-                registered_at: "2026-01-01T00:00:00Z".to_owned(),
-            },
-        )
-        .unwrap();
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-906"),
+                statement: "derives from the fixture root".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("ROOT-001")],
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-CHILD", &file).unwrap();
 
         let result = scan_project(&root).unwrap();
-        let document_layer_codes = ["E-SCAN-012", "E-SCAN-016", "W-SCAN-104"];
+        let document_layer_codes = ["E-SCAN-012", "E-SCAN-016"];
         assert!(
             !result
                 .diagnostics
                 .iter()
                 .any(|diagnostic| document_layer_codes.contains(&diagnostic.code.as_str())),
-            "diagnostics: {:?}",
-            result.diagnostics
-        );
-    }
-
-    #[test]
-    fn spec_example_document_yaml_parses_verbatim() {
-        // 詳細設計 v0.1 §3.1 (docs/AI並列開発向けテスト検証システム 詳細設計
-        // v0.1.md:192-202), verbatim including inline comments. The example
-        // is illustrative, not a fixture: DOC-REQ-001 is never registered and
-        // "sha256:..." is a placeholder, not a real hash — this asserts scan
-        // accepts the shape (no E-SCAN-010) while still, correctly, flagging
-        // both as chain-integrity problems rather than silently passing them.
-        let yaml = r#"id: DOC-BASIC-001
-path: docs/basic-spec.md        # プロジェクト相対パス
-content_hash: "sha256:..."      # 登録時の内容ハッシュ（§1.3 document subject）
-title: 基本仕様書               # 任意の表示名
-derives_from:                   # 上流 document への導出リンク（0件可＝根候補）
-  - doc: DOC-REQ-001
-    anchor: "§12.3"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
-    note: ""                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
-registered_at: 2026-08-08T00:00:00Z
-"#;
-
-        let root = fixture();
-        fs::create_dir_all(root.join("docs")).unwrap();
-        fs::write(root.join("docs/basic-spec.md"), "basic spec body\n").unwrap();
-        let layout = VerifyLayout::new(&root);
-        fs::write(layout.doc_dir().join("DOC-BASIC-001.yaml"), yaml).unwrap();
-
-        let result = scan_project(&root).unwrap();
-        assert!(
-            !result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("DOC-BASIC-001")
-            }),
-            "the spec's own example record must parse as schema-valid: {:?}",
-            result.diagnostics
-        );
-        assert!(
-            result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-012" && diagnostic.message.contains("DOC-BASIC-001")
-            }),
-            "diagnostics: {:?}",
-            result.diagnostics
-        );
-        assert!(
-            result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "W-SCAN-104" && diagnostic.message.contains("DOC-BASIC-001")
-            }),
             "diagnostics: {:?}",
             result.diagnostics
         );
@@ -3506,7 +3658,7 @@ registered_at: 2026-08-08T00:00:00Z
     /// each test only supplies the `dimensions:`/`coverage_policy:`/
     /// `combinations:` block that condition exercises.
     fn vo_add_header() -> &'static str {
-        "id: VO-ADD\nparent: null\nderives_from:\n  - doc: DOC-TEST\nclaim: claim\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
+        "id: VO-ADD\nparent: null\nderives_from:\n  - doc: ROOT-001\nclaim: claim\nrepresentative_cases: []\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n"
     }
 
     /// 別紙C:97-104 condition 1a: `explicit` かつ `combinations` 欠落

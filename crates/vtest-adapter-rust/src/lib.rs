@@ -504,7 +504,7 @@ impl<'a> Scanner<'a> {
         if !is_test {
             return Ok(());
         }
-        let Some(annotation) = parse_test_annotations(attrs, test_target) else {
+        let Some(annotation) = parse_test_annotations(attrs) else {
             self.diagnostics.push(
                 Diagnostic::warning(
                     "W-SCAN-101",
@@ -738,17 +738,16 @@ fn vtest_annotation_lines(attrs: &[Attribute]) -> Vec<(String, String)> {
 /// test-annotation-line 文法で解析する。`@vtest.` 行が1件も無ければ
 /// `None`（呼び出し側は W-SCAN-101 の判定に使う）。
 ///
-/// `test_target` は複数 `target` 行を許容するかどうかの判定に使う
-/// （本冊 §4.2・pr3-decisions.md Owner裁定3）。`@vtest.kind` の文字列では
-/// なく、`rust-cargo` が判定した実行形態（Cargo Integration Test か）で
-/// 決める — 別紙A §14.3 の組込 `rust-integration` Form 自身が
-/// `@vtest.kind unit-{test_kind}` を出力する（§14.1 との差分は `target`
-/// フィールドと `file` の2点のみ）ため、`@vtest.kind` の文字列プレフィックス
-/// では built-in Form 自身を判別できない。
-fn parse_test_annotations(
-    attrs: &[Attribute],
-    test_target: &TestTarget,
-) -> Option<TestAnnotationOutcome> {
+/// `target` は `case`/`related` と同じく、キー自体を無条件に複数行書ける
+/// （DS-1618: "`case`・`related`・`target` はキー自体を複数行書ける"、
+/// REQ-150/SPEC-085: "1つのTestは1件以上のSource Targetを宣言できる" —
+/// 上限も実行形態による条件もない）。この関数はかつて実行形態が Cargo
+/// Integration Test の Test に限って複数 `target` を許容していたが
+/// （pr3-decisions.md Owner裁定3、PR #26 review round 5）、正本監査が
+/// この制限に上位の根拠を見つけられなかった（REQ-150/SPEC-085 はいずれも
+/// 無条件） ため撤去された。DS-1619 は `case`・`related`・`target` 以外の
+/// キーの重複だけを E-SCAN-005 とする — 撤去後は `target` もその除外対象。
+fn parse_test_annotations(attrs: &[Attribute]) -> Option<TestAnnotationOutcome> {
     let lines = vtest_annotation_lines(attrs);
     if lines.is_empty() {
         return None;
@@ -783,21 +782,14 @@ fn parse_test_annotations(
             }
         }
     }
-    // 本冊 §4.2・pr3-decisions.md Owner裁定3: 実行形態が Cargo Integration
-    // Test の Test に限り `target` の複数行を許容する。判定根拠は
-    // `@vtest.kind` の文字列ではなく、`rust-cargo` が判定した実行形態
-    // （`TestTarget::IntegrationTest`）。それ以外のキーの重複は常にエラー。
-    let is_integration_test = matches!(test_target, TestTarget::IntegrationTest(_));
-    if targets.len() > 1 && !is_integration_test {
-        diagnostics.push((
-            "E-SCAN-005".to_owned(),
-            "duplicate annotation key `target`".to_owned(),
-        ));
-    } else if targets.len() > 1 {
-        // 許容された複数 `target` 内でも同じ値の重複は E-SCAN-005 とする。
-        // 綴りが異なるが解決後に同一 canonical Source Target へ到達する
-        // 場合の検出は core の Target Reference 解決（§6.1）が担い、この
-        // 段階（宣言表面の解析）では扱わない。
+    // DS-497/DS-498: even though `target` may repeat without limit, the
+    // same declared value repeated verbatim is still E-SCAN-005 — a
+    // literal duplicate spelling would otherwise collapse silently inside
+    // core's Target Reference resolution (§6.1: two identical spellings
+    // resolve to the same canonical Source Target with no distinguishable
+    // "previous spelling" to compare against), so this surface-parsing
+    // stage is the only place that can still see and reject it.
+    if targets.len() > 1 {
         let mut seen = BTreeSet::new();
         for value in &targets {
             if !seen.insert(value.as_str()) {
