@@ -631,9 +631,15 @@ fn validate_desired_test(
     // Owner裁定3、pr3-decisions.md, PR #26 review round 5); the canonical
     // audit found no upstream basis for that restriction (REQ-150/SPEC-085
     // are both unconditional), so it was removed rather than re-derived.
-    // `current.test_target` is unused for this gate now, but still feeds
-    // `TestDraft.test_target`'s value elsewhere (adapter-owned execution
-    // form, unrelated to this cardinality question).
+    // `current.test_target` and `TestDraft.test_target` no longer exist —
+    // neither `TestEntity` nor `TestDraft` carries a `test_target` field
+    // (BD-192/DES-561; removed together with `TestTarget`/`filter`/
+    // `package`). The execution-form information this comment used to
+    // describe now flows entirely inside `vtest-adapter-rust`: its own
+    // internal `TestTarget` maps through `suite_for` (adapter-rust's
+    // `lib.rs:71,746`) into `ExecutionDescriptor.suite`, which
+    // `TestDraft.execution` carries (adapter-api's `lib.rs:101`) — unrelated
+    // to this cardinality question.
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
