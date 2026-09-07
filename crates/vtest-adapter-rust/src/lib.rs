@@ -554,20 +554,16 @@ impl<'a> Scanner<'a> {
         // 持たない Test はここで E-SCAN-007 にせず先へ進める — その
         // `target_binding` は DS-1664 により `NO_EVIDENCE`（診断
         // `NOT_CHECKED`）になる（判定経路は verify 側、ここでは扱わない）。
-        // 一方、宣言された target 値が空文字列であることは「宣言が無い」
-        // ことにはならない構文上の欠陥であり、必須 metadata の欠落と同型
-        // の早期 return を維持する。
-        if target_values.iter().any(|value| value.is_empty()) {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{function_name}` has an empty @vtest.target value"),
-                )
-                .with_location(location.clone()),
-            );
-            self.push_missing_test(location, content);
-            return Ok(());
-        }
+        // 空文字列の target 値も同様にここで早期 return しない: `target`
+        // は必須キーではない（DES-229 は必須キー欠落を E-SCAN-005/006/007
+        // で報告すると定めるのみ）ため、空値は「欠落」ではなく構文上有効な
+        // 宣言として core へ渡す。DS-538・本冊:990-1005 は target locator /
+        // SRC ID の解決失敗を core の単一経路（`vtest-scan::resolve_targets`）
+        // が所有すると定めており、adapter が独自に解決可否を判定して
+        // E-SCAN-004/007 いずれを発行するかを先取りしてはならない。空文字列
+        // の locator は他のどの Source Target ロケータとも一致しないため、
+        // 素通しすれば core 側の「0件ヒット」経路がそのまま E-SCAN-004
+        // （診断 `MISSING`、`MISMATCH`）を発行する。
         let Some(intent) = annotation.intent.filter(|value| !value.is_empty()) else {
             self.diagnostics.push(
                 Diagnostic::error(
