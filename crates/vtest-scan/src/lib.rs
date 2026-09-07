@@ -911,31 +911,45 @@ fn validate_document_nodes(
     // files) is a real DS-053 condition ("IDの一意性はスキャン時に全数検査
     // する", derives_from REQ-055/REQ-155/REQ-156) and DS-054 assigns it a
     // state ("ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする").
-    // But the corpus disagrees on the *diagnostic code*, and the
-    // disagreement is not confined to one layer: DS-897 (detailed_spec,
-    // §16.2) reads "ID衝突はE-SCAN-002として検出する。" — general ID
-    // collision — while DS-536, in the very same detailed_spec §5.4 that
-    // this file's other E-SCAN-* codes are drawn from, reads "E-SCAN-002は
-    // errorであり、Test ID重複（identity collision）を意味する。", and
-    // SPEC-377 — one layer *above* detailed_spec — names E-SCAN-002 as
-    // "同じTest IDの重複" specifically, alongside E-SCAN-003/E-SCAN-012/
-    // E-SCAN-016 as the four things `vtest doctor` reports. A conflict
-    // between a layer and the one above it resolves in favour of the
-    // higher layer (AGENTS.md), so DS-897's broader reading does not stand
-    // as written; but DS-897 is itself a same-layer contradiction against
-    // DS-536 (both detailed_spec) that a downstream crate has no authority
-    // to settle by silently discarding one of them — it is fed upstream
-    // instead. Pending that ruling, this crate emits *no* diagnostic for a
-    // document-node id collision (inventing a code, or repurposing
-    // E-SCAN-002 against SPEC-377's own text, would both be worse), and it
-    // does not silently resolve the collision either: `known_ids` is a
-    // set, so an E-SCAN-012 lookup against a colliding id still reports
-    // "exists" (existence, not a specific resolved node, is all
-    // E-SCAN-012 needs) rather than picking a first- or last-wins
-    // candidate.
+    // The diagnostic code has since been settled upstream (superseding the
+    // account this comment previously gave of an unresolved DS-897/DS-536
+    // conflict): DS-1675 confines E-SCAN-002 to Test ID collisions and
+    // assigns every other `.verify/` record id collision — including an
+    // upstream document node's own `id` — to E-SCAN-010, and DS-1677/
+    // DS-1676 spell out the document-node case by name. A colliding id is
+    // excluded from `known_ids` below rather than resolved: per DS-1677,
+    // "当該idを参照するderives_fromはいずれの候補も解決先として選ばず" — no
+    // candidate wins, so a `derives_from` edge pointing at a colliding id
+    // reports E-SCAN-012 (unresolved) instead of appearing to resolve to an
+    // arbitrary one of the colliding nodes.
+    let mut occurrences: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (name, file) in &files {
+        index_document_ids(file, name, &mut occurrences);
+    }
+
     let mut known_ids = BTreeSet::new();
-    for (_, file) in &files {
-        index_document_ids(file, &mut known_ids);
+    for (id, occurring_in) in &occurrences {
+        if occurring_in.len() > 1 {
+            let mut locations = occurring_in.clone();
+            locations.sort();
+            locations.dedup();
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-010",
+                    format!(
+                        "document node id {id} occurs more than once, in: {}",
+                        locations.join(", ")
+                    ),
+                )
+                .with_location(document_node_location(
+                    layout,
+                    &occurring_in[0],
+                    id,
+                )),
+            );
+        } else {
+            known_ids.insert(id.clone());
+        }
     }
 
     for (name, file) in &files {
@@ -966,40 +980,60 @@ fn validate_document_nodes(
     known_ids
 }
 
-fn index_document_ids(file: &DocumentFile, known_ids: &mut BTreeSet<String>) {
+fn index_document_ids(
+    file: &DocumentFile,
+    name: &str,
+    occurrences: &mut BTreeMap<String, Vec<String>>,
+) {
     for node in &file.root {
-        known_ids.insert(node.id.as_str().to_owned());
+        occurrences
+            .entry(node.id.as_str().to_owned())
+            .or_default()
+            .push(name.to_owned());
     }
     for node in &file.request {
-        known_ids.insert(node.id.as_str().to_owned());
+        occurrences
+            .entry(node.id.as_str().to_owned())
+            .or_default()
+            .push(name.to_owned());
     }
     for section in &file.require {
-        index_section_ids(section, known_ids);
+        index_section_ids(section, name, occurrences);
     }
     for section in &file.spec {
-        index_section_ids(section, known_ids);
+        index_section_ids(section, name, occurrences);
     }
     for section in &file.detailed_spec {
-        index_section_ids(section, known_ids);
+        index_section_ids(section, name, occurrences);
     }
     for section in &file.basic_design {
-        index_section_ids(section, known_ids);
+        index_section_ids(section, name, occurrences);
     }
     for section in &file.design {
-        index_section_ids(section, known_ids);
+        index_section_ids(section, name, occurrences);
     }
 }
 
-fn index_section_ids(section: &SectionNode, known_ids: &mut BTreeSet<String>) {
-    known_ids.insert(section.id.as_str().to_owned());
+fn index_section_ids(
+    section: &SectionNode,
+    name: &str,
+    occurrences: &mut BTreeMap<String, Vec<String>>,
+) {
+    occurrences
+        .entry(section.id.as_str().to_owned())
+        .or_default()
+        .push(name.to_owned());
     if let Some(items) = &section.items {
         for item in items {
-            known_ids.insert(item.id.as_str().to_owned());
+            occurrences
+                .entry(item.id.as_str().to_owned())
+                .or_default()
+                .push(name.to_owned());
         }
     }
     if let Some(children) = &section.sections {
         for child in children {
-            index_section_ids(child, known_ids);
+            index_section_ids(child, name, occurrences);
         }
     }
 }
@@ -3616,6 +3650,238 @@ fn covers_parent() {}
                     && diagnostic.message.contains("R-901")),
             "a node with a (dangling) derives_from entry is not orphaned; \
              E-SCAN-012 and E-SCAN-016 must not both fire for it: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// DS-1677/DS-1676 (E-SCAN-010): the same node id defined across two
+    /// different document files must be reported as a collision, and a
+    /// `derives_from` edge naming that id must not resolve — DS-1677: "当該
+    /// idを参照するderives_fromはいずれの候補も解決先として選ばず". Two
+    /// documents each declare `R-908` and a third node cites it.
+    #[test]
+    fn reports_document_node_id_collision_across_files() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file_a = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-908"),
+                statement: "first definition".to_owned(),
+                description: None,
+                derives_from: Vec::new(),
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        let file_b = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![
+                SentenceNode {
+                    id: DocumentId::new("R-908"),
+                    statement: "second definition".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+                SentenceNode {
+                    id: DocumentId::new("R-905"),
+                    statement: "cites the colliding id".to_owned(),
+                    description: None,
+                    derives_from: vec![DocumentId::new("R-908")],
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+            ],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-DUP-A", &file_a).unwrap();
+        write_document_file(&layout, "DOC-DUP-B", &file_b).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        let collisions = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("R-908")
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            !collisions.is_empty(),
+            "expected an E-SCAN-010 for the R-908 collision, diagnostics: {:?}",
+            result.diagnostics
+        );
+
+        // Per DS-1677, no candidate resolves: the reference must surface as
+        // an unresolved E-SCAN-012, not a silent (arbitrary) resolution.
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-012"
+                    && diagnostic.message.contains("R-905")
+                    && diagnostic.message.contains("R-908")
+            }),
+            "a derives_from edge naming a colliding id must not resolve, diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// Same as above but the collision is within one document file — DS-1677
+    /// draws no distinction ("同一ファイル内・ファイル間を問わない").
+    #[test]
+    fn reports_document_node_id_collision_within_one_file() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![
+                SentenceNode {
+                    id: DocumentId::new("R-909"),
+                    statement: "first definition".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+                SentenceNode {
+                    id: DocumentId::new("R-909"),
+                    statement: "second definition, same file".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                },
+            ],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-SAME-FILE-DUP", &file).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("R-909")
+            }),
+            "expected an E-SCAN-010 for the same-file collision, diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// DS-1675/DS-536: a Test ID duplicate stays E-SCAN-002 and must not be
+    /// reported as E-SCAN-010 — the two codes partition by id kind, they do
+    /// not both fire for the same collision. Reuses the same colliding-Test-
+    /// ID fixture as `colliding_test_ids_are_all_preserved_and_reach_
+    /// downstream_checks` above.
+    #[test]
+    fn test_id_collision_stays_e_scan_002_not_e_scan_010() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/collision.rs"),
+            r#"
+/// @vtest.id TEST-COLLISION
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent first construct declaring a colliding Test ID
+#[test]
+fn collision_first() {}
+
+/// @vtest.id TEST-COLLISION
+/// @vtest.covers VO-ADD
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent second construct declaring the same colliding Test ID
+#[test]
+fn collision_second() {}
+"#,
+        )
+        .unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-002"
+                    && diagnostic.message.contains("TEST-COLLISION")),
+            "expected the Test ID collision to be reported as E-SCAN-002, diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"
+                    && diagnostic.message.contains("TEST-COLLISION")),
+            "a Test ID collision must not be reported as E-SCAN-010, diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// A corpus with no colliding ids at all must report zero E-SCAN-010
+    /// diagnostics for document nodes — two distinct ids across two files,
+    /// each referencing the other with no dangling or colliding entry.
+    #[test]
+    fn no_document_node_collision_reports_no_e_scan_010() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let file_a = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-906"),
+                statement: "no collision fixture A".to_owned(),
+                description: None,
+                derives_from: Vec::new(),
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        let file_b = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-907"),
+                statement: "no collision fixture B".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("R-906")],
+                cites: None,
+                source: fixture_node_source(),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-NO-COLLISION-A", &file_a).unwrap();
+        write_document_file(&layout, "DOC-NO-COLLISION-B", &file_b).unwrap();
+
+        let result = scan_project(&root).unwrap();
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "no collision should report zero E-SCAN-010, diagnostics: {:?}",
             result.diagnostics
         );
     }
