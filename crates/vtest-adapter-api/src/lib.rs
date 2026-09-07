@@ -57,8 +57,13 @@ pub struct AdapterScanConfig {
 /// 関数itemのbytesを返す」— `rust-cargo` adapterではmetadata doc comment
 /// だけを除いた範囲であり、`SourceDraft::construct_text`（属性とdoc
 /// commentを含む関数item全体。本冊:99「Source Targetには属性とdoc comment
-/// を含む関数item全体を返す」）とは異なる範囲を指す）であり、core が
-/// `ContentHash::from_text` で hash を計算する入力になる。
+/// を含む関数item全体を返す」）とは異なる範囲を指す）であり、core が2つの
+/// 独立したhashへの入力として使う（`vtest-scan::materialize_tests`）:
+/// `vtest_model::DiscoveredTest.content_hash`（`ContentHash::from_text` に
+/// よる、construct bytesだけを束縛する限定hash）と、
+/// `vtest_model::TestEntity.content_hash`（`test_subject_hash`、DES-077の
+/// Test subject hash — adapter ID・全canonical metadata・`location`の
+/// adapter/path/locator・`execution`と合わせて束縛する）の両方。
 ///
 /// 必須 metadata（core 中立: id・`covers ≥ 1`・intent。本冊 §4.4、DS-1666）を
 /// 具体化できないTest構文は、adapterが

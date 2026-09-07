@@ -1622,6 +1622,21 @@ fn validate_approval_status(
     vos: &BTreeMap<String, VoRecord>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<(), ScanError> {
+    // 開示（PR34 audit, item 6): `current_hashes`'s `ContentHash` values are
+    // computed here but never read below — the only consumer is
+    // `.contains_key(subject)` at this function's tail, a presence check
+    // that would work identically over a `BTreeSet<String>` of VO ids. No
+    // comparison against `approval.subject_hash` exists anywhere in this
+    // function (confirmed: `approval.subject_hash` is never referenced after
+    // `read_approval` below), so this is not currently a VO-content
+    // staleness check despite computing a per-VO hash. Left unsimplified and
+    // the `ContentHash::from_text` call left unreplaced (rather than
+    // collapsing to a `BTreeSet` or wiring in a real `vo_subject_hash`
+    // comparison) because either change reaches into Approval-record
+    // validity semantics, which this function's own doc comment already
+    // marks out of this PR's scope pending the canonical Approval migration
+    // (item 5 / PR4+; DES-093 would be the binding rule for that eventual
+    // comparison).
     let mut current_hashes = BTreeMap::new();
     for id in vos.keys() {
         let path = layout.vo_dir().join(format!("{id}.yaml"));
