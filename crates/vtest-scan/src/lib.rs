@@ -1394,14 +1394,17 @@ fn record_relative_path(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-/// `vtest-store` の record reader（`read_document` / `read_vo_record` /
-/// `RelationRecord::from_yaml` 等）が返す diagnostics（W-STORE-007 等）は、
-/// どの document/VO/relation/approval レコードから来たかを知らずに生成
-/// される — メッセージ本文に id もパスも含まない（`vtest-store` 側は
-/// `VerifyLayout`/ファイルパスの文脈を持たない）。呼び出し元（この crate）
-/// は id とパスを知っているので、`record_relative_path` で失われた
-/// `SourceLocation` の代わりに、対象を識別できる文脈をメッセージ先頭へ
-/// 前置する。
+/// `vtest-store` の record reader のうち `(record, Vec<Diagnostic>)` を返す
+/// もの（`read_vo_record` / `RelationRecord::from_yaml`）が生成する
+/// diagnostics（W-STORE-007 等）は、どの VO/relation/approval レコードから
+/// 来たかを知らずに生成される — メッセージ本文に id もパスも含まない
+/// （`vtest-store` 側は `VerifyLayout`/ファイルパスの文脈を持たない）。
+/// 呼び出し元（この crate）は id とパスを知っているので、
+/// `record_relative_path` で失われた `SourceLocation` の代わりに、対象を
+/// 識別できる文脈をメッセージ先頭へ前置する。（`read_document_file` は
+/// この形に当てはまらない — `Vec<Diagnostic>` を返さず、失敗は
+/// `validate_document_nodes` がこの crate 自身で E-SCAN-010 へ畳み込む。
+/// ここでの annotate 対象ではない。）
 fn annotate_record_diagnostic(diagnostic: Diagnostic, context: &str) -> Diagnostic {
     Diagnostic {
         message: format!("{context}: {}", diagnostic.message),
