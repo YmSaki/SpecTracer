@@ -915,5 +915,15 @@
     "old_id": "DES-581",
     "new_id": null,
     "reason": "targets >= 1 を E-SCAN-007 経路で検出するという形態別規範。E-SCAN-007 の一般経路は DES-229 が定める（ROOT-049）"
+  },
+  {
+    "old_id": "DS-897",
+    "new_id": "DS-1675",
+    "reason": "node id collision diagnostic 2026-09-07 (E-SCAN-002 は Test ID 限定)"
+  },
+  {
+    "old_id": "DS-1645",
+    "new_id": "DS-1676",
+    "reason": "node id collision diagnostic 2026-09-07 (E-SCAN-010 へ文書ノード id 重複を追加)"
   }
 ]
