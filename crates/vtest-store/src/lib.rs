@@ -302,10 +302,22 @@ impl ProjectConfig {
     /// would be exactly the silent-promotion this system's fail-closed
     /// design forbids. Every key must also belong to the schema its
     /// declared version actually has (`#[serde(deny_unknown_fields)]` on
-    /// `ProjectConfig`/`V1Config` and their sub-sections) — the same
-    /// `E-CONFIG-001` condition covers a declared version whose body does
-    /// not match it, e.g. a `version: 1` config carrying a v2-only `gates:`
-    /// key.
+    /// `ProjectConfig`/`V1Config` and their sub-sections), e.g. a `version:
+    /// 1` config carrying a v2-only `gates:` key is rejected. DS-1652's own
+    /// enumeration does state this for some fields specifically —
+    /// `verify.full_scope`'s duplicate/unknown/missing/surplus items
+    /// (DS-356/DS-1495) and an unresolved `gates[].require.approvals` role
+    /// — and routes unknown/duplicate adapter ids to `E-ADAPTER-001`
+    /// (DS-352) instead. It does not, however, name a stray top-level or
+    /// nested key in general (a bare `config field型` mismatch is the
+    /// closest listed condition, and a surplus key is not a type mismatch)
+    /// as an `E-CONFIG-001` condition. Rejecting every unrecognized key
+    /// unconditionally is therefore this crate's own decision under that
+    /// silence, not a stated canonical rule for the general case — kept
+    /// fail-closed for the same reason the absent-`version` case above is:
+    /// silently accepting a surplus key a writer expected to constrain
+    /// something (e.g. a misspelled restriction field) is exactly the
+    /// silent-promotion DS-1645/DS-1652 forbid elsewhere.
     pub fn from_yaml(text: &str, project_name: impl Into<String>) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text)
             .map_err(|error| StoreError::InvalidConfig(format!("invalid config: {error}")))?;
@@ -1196,11 +1208,13 @@ mod tests {
         assert!(error.to_string().contains("run.coverage"));
     }
 
-    /// DS-1652's `E-CONFIG-001` covers a declared `version` whose body does
-    /// not match it — the fix here is a rewritten implementation
-    /// (`#[serde(deny_unknown_fields)]`), not a version-conditioned branch:
-    /// a `version: 1` config carrying the v2-only `gates:` key is simply an
-    /// invalid version-1 config, independent of any compatibility concern.
+    /// Rejecting a stray key outside a declared version's own schema is
+    /// this crate's own fail-closed choice, not a DS-1652 condition stated
+    /// for the general case (see `ProjectConfig::from_yaml`'s doc comment)
+    /// — implemented as `#[serde(deny_unknown_fields)]`, not a
+    /// version-conditioned branch: a `version: 1` config carrying the
+    /// v2-only `gates:` key is simply an invalid version-1 config,
+    /// independent of any compatibility concern.
     #[test]
     fn v1_config_with_a_v2_only_key_is_rejected() {
         let yaml =
