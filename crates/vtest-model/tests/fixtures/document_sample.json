@@ -13,6 +13,7 @@
       "id": "R-1",
       "statement": "Request statement.",
       "derives_from": ["ROOT-001"],
+      "cites": [],
       "source": { "doc": "doc.md", "heading": "R-1", "lines": [2, 2] }
     }
   ],
@@ -50,12 +51,21 @@
       ]
     }
   ],
-  "spec": [],
+  "spec": [
+    {
+      "id": "SPEC-S001",
+      "title": "Spec section with explicit empty children",
+      "source": { "doc": "doc.md", "heading": "5", "lines": [11, 11] },
+      "derives_from": [],
+      "sections": [],
+      "items": []
+    }
+  ],
   "detailed_spec": [],
   "basic_design": [],
   "design": [
     {
-      "id": "DES-001",
+      "id": "DES-S001",
       "title": "Design section",
       "source": { "doc": "doc.md", "heading": "9", "lines": [20, 20] },
       "derives_from": [],
