@@ -147,7 +147,18 @@ Issue #24 が 1 つの問い（「未知 adapter ID はどちらか」）に見�
 
 ### 3.3 E は E-ADAPTER-001 のまま
 
-registry 自身の重複 ID と宣言・実装の不一致（`DS-1631`・`DES-351`）、および `config.yaml` 以外の参照元（レコードの `ExecutionDescriptor.adapter`、`TargetRef::Locator.adapter`、Form schema の `adapter` field、MCP / CLI の操作入力。`DS-1230`・`BD-204`・`DES-489`）が指す adapter の未登録は E-ADAPTER-001 のままである。**`DS-921` の「未登録」は入力を失わない。** `REQ-265`（adapter が未登録でも推測で `PASS` へ昇格しない）はこの経路が生きていることを前提にしている。
+registry 自身の重複 ID と宣言・実装の不一致（`DS-1631`・`DES-351`）は E-ADAPTER-001 のままである。「未登録」も、`config.yaml` 以外の経路で判明するものは本コードに残る。`REQ-265`（adapter が未登録でも推測で `PASS` へ昇格しない）と `DS-1631`・`DS-1632` がこの経路を要求している。
+
+**ただし、参照元を列挙してはならない（本書の初版の誤り。§5.2 と自己矛盾していた）。** 正本は「未登録 adapter が registry 参照で判明する」場面に一律のコードを与えていない。実測:
+
+| 参照元 | 条文 | 正本が与えているコード |
+|---|---|---|
+| `ExecutionDescriptor.adapter` | `DS-745` | **E-ADAPTER-003**（adapter 不一致）。解決失敗のコードは無い |
+| `TargetRef::Locator.adapter` | `BD-204` | 無い（「registryで解決する」だけ） |
+| Form schema の `adapter` field | `DES-489` | 無い（§5.2 の穴） |
+| フォーム・監査・実行の操作入力 | `DS-1230` | 無い（既定値への暗黙変換の禁止だけ） |
+
+**参照元ごとのコードは当該参照元の条文が定めるべきで、`DS-1663` は決めていない。** `DS-1663` の適用範囲は「registry 自身の欠陥」と「`config.yaml` を経由しない未登録の判明」に限る。
 
 ### 3.4 開示 — これは誤記の修正ではなく、上書きである
 
@@ -161,12 +172,13 @@ registry 自身の重複 ID と宣言・実装の不一致（`DS-1631`・`DES-35
 
 ## 4. 適用
 
-コミット 1 本。対象は `docs/canonical/specification.json`、`docs/canonical/relations/retired-ids.json`、本書。
+コミット 2 本（第 1 コミット `604f2ee` と、その description の誤りを撤回する第 2 コミット。§4.2）。対象は `docs/canonical/specification.json`、`docs/canonical/relations/retired-ids.json`、本書。
 
 | 処置 | id | 変更後の statement | 理由 |
 |---|---|---|---|
 | **新 id** | `DS-1652` → `DS-1662` | `E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、`adapters`（設定内のadapter ID重複、同一adapter内のroot重複、未知adapter）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（registryのadapter ID重複およびregistryの宣言と実装の不一致はE-ADAPTER-001）。 | 括弧書きが `DS-352` / `DS-036` / `DS-037` と矛盾していた。`adapters` の 3 件は同層からの転記。除外を registry 自体の欠陥に限った |
 | **新 id** | `DS-921` → `DS-1663` | `E-ADAPTER-001`はerrorであり、adapterが未登録、registryのadapter IDが重複、またはregistryの宣言と実装が不一致であることである（`config.yaml` の `adapters` におけるadapter IDの重複・未知adapterはE-CONFIG-001）。 | 「重複」を registry に限定。「未登録」から `config.yaml` の未知 adapter を除いた。前身の括弧書きと同じ形で carve-out を書いた |
+| **REWORD（id 維持、第 2 コミット）** | `DS-1663` | statement は不変 | 初版の description が参照元（レコード・操作入力・Form schema）を列挙して E-ADAPTER-001 を主張しており、§5.2 の「Form schema の未知 adapter にコードが無い」と自己矛盾していた。列挙を撤回し「参照元ごとのコードは当該参照元の条文が定める」へ改めた。`DS-1599` により subject hash は動かない |
 | **REWORD（id 維持）** | `DS-352` | statement は 1 文字も変えていない | 判定により `DS-352` は正しい。変更は `description` のみで、「重複」「未知adapter」「無効なadapter設定」の指す先を `DS-036` / `DS-1663` / `BD-155` の語で確定した。`DS-1599` により description のみの変更は subject hash を動かさない |
 
 `derives_from`（2 件とも `[]`）・`cites`（無し）・`source` は前身の値をそのまま保持した。**辺を足しても引いてもいない。ノードの追加・削除も無い。**
@@ -176,6 +188,17 @@ registry 自身の重複 ID と宣言・実装の不一致（`DS-1631`・`DES-35
 ### 4.1 帰結（開示）
 
 `DS-1601` / `DS-1610` により、規範内容（`id` と `statement`）を変えた `DS-1662` / `DS-1663` は、前身 `DS-1652` / `DS-921` を上流依存 closure に含む承認・判断記録を失効させる。`DS-352` は `DS-1599` により失効しない。
+
+### 4.2 第 2 コミット — 本書初版と `DS-1663` description の誤りの撤回
+
+**第 1 コミット `604f2ee` は、`DS-1663` の description と本書 §3.3 で、E-ADAPTER-001 が掛かる参照元を「レコード・操作入力・Form schema」と列挙していた。これは正本に根拠が無く、しかも本書 §5.2（Form schema の `adapter` field が指す未知 adapter にコードは無い）と同一コミット内で矛盾していた。** 撤回の実測根拠は §3.3 の表のとおり。
+
+第 2 コミットの変更は 2 箇所で、どちらも規範内容ではない。
+
+- `DS-1663` の description のみ（statement 不変、id 維持、退役台帳への追記なし）。`DS-1599` により subject hash は動かない。
+- 本書 §3.3 / §4 / §4.2 / §6。
+
+**判定そのもの（config 側 = E-CONFIG-001、registry 側 = E-ADAPTER-001）は変わっていない。** 変わったのは、E-ADAPTER-001 が `config.yaml` 以外のどの参照元に掛かるかを本書が言えるかどうかで、**言えないというのが正しい。**
 
 ---
 
@@ -205,6 +228,8 @@ registry 自身の重複 ID と宣言・実装の不一致（`DS-1631`・`DES-35
 ---
 
 ## 6. 機械検査
+
+第 2 コミットの変更は `DS-1663` の description と本書だけなので、数値は第 1 コミットと同一である（下表の「適用後」は両コミットに共通）。
 
 | 検査 | `d68b84f`（適用前） | 適用後 |
 |---|---|---|

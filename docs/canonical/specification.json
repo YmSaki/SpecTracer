@@ -31490,7 +31490,7 @@
             {
               "id": "DS-1663",
               "statement": "`E-ADAPTER-001`はerrorであり、adapterが未登録、registryのadapter IDが重複、またはregistryの宣言と実装が不一致であることである（`config.yaml` の `adapters` におけるadapter IDの重複・未知adapterはE-CONFIG-001）。",
-              "description": "前身 `DS-921` の「重複」は、registryの重複（`DS-1631` / `DES-351`）と `config.yaml` 内の重複（`DS-036`）のどちらとも読めた。registryに限定する。「未登録」から `config.yaml` が指す未知adapterを除いたのは、同層の `DS-352` が当該事実をE-CONFIG-001と定めているためであり、同層の `DS-534` がForm `kind` について採った割り当て（registryの重複kindと対応の不一致はE-ADAPTER-001、入力が指す未知kindは入力側のE-OP-001）と同型である。`config.yaml` 以外の参照元（レコード・操作入力・Form schema）が指すadapterの未登録は本コードのままである。",
+              "description": "前身 `DS-921` の「重複」は、registryの重複（`DS-1631` / `DES-351`）と `config.yaml` 内の重複（`DS-036`）のどちらとも読めた。registryに限定する。「未登録」から `config.yaml` が指す未知adapterを除いたのは、同層の `DS-352` が当該事実をE-CONFIG-001と定めているためであり、同層の `DS-534` がForm `kind` について採った割り当て（registryの重複kindと対応の不一致はE-ADAPTER-001、入力が指す未知kindは入力側のE-OP-001）と同型である。`config.yaml` 以外の経路で判明するadapterの未登録は本文の「未登録」に含まれる。参照元ごとのコードは当該参照元の条文が定める。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
