@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 ///
 /// This shape (an `anchor` pointing at a location within the referenced
 /// node, plus a free-text `note`) is specific to the VO record's
-/// `derives_from` (詳細設計 DS-1638). The upstream document node model's own
+/// `derives_from` (詳細仕様 DS-1638 — the `DS-` prefix names the
+/// `detailed_spec` layer, 詳細仕様; `design`/`DES-` is 詳細設計, a distinct
+/// layer). The upstream document node model's own
 /// `derives_from` is a bare list of node ids and does not use this type
 /// (DS-1594, DS-1595) — see [`RootNode`], [`SentenceNode`], [`SectionNode`].
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -72,8 +74,16 @@ pub struct SentenceNode {
     /// Verbatim upstream citations carried over from the source markdown
     /// during the migration period (e.g. `"基本仕様 §3.2"`); resolving these
     /// into `derives_from` entries is a separate, Owner-approved step.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cites: Vec<String>,
+    ///
+    /// `Option`, not `Vec`: schema `$defs/derivedItem` does not list `cites`
+    /// in `required`, so — like [`SectionNode::derives_from`],
+    /// [`SectionNode::sections`], and [`SectionNode::items`] — this key's
+    /// own presence is optional, and the type preserves exactly what the
+    /// author wrote rather than normalizing it: an absent key round-trips
+    /// to `None` and back to absent; a key present as `[]` round-trips to
+    /// `Some(vec![])` and back to `[]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cites: Option<Vec<String>>,
 
     pub source: NodeSource,
 }
@@ -109,16 +119,30 @@ pub struct SectionNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derives_from: Option<Vec<DocumentId>>,
 
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sections: Vec<SectionNode>,
+    /// `Option`, not `Vec`: schema `$defs/section` does not list `sections`
+    /// in `required` either, so this key's presence is preserved on the
+    /// same terms as `derives_from` above (absent round-trips to absent,
+    /// `[]` round-trips to `[]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sections: Option<Vec<SectionNode>>,
 
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub items: Vec<SentenceNode>,
+    /// `Option`, not `Vec`: schema `$defs/section` does not list `items` in
+    /// `required` either, so this key's presence is preserved on the same
+    /// terms as `derives_from` above (absent round-trips to absent, `[]`
+    /// round-trips to `[]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub items: Option<Vec<SentenceNode>>,
 }
 
-/// One of the seven specification layers, in descending authority order
-/// (root > request > require > spec > detailed_spec > basic_design >
-/// design — AGENTS.md "Authority"; BD-318).
+/// One of the seven specification layers. Root, request, require, spec,
+/// detailed_spec, basic_design, and design are enumerated in exactly this
+/// order by the upstream document model's own top-level arrays (REQ-333,
+/// SPEC-462). Reading that order, together with the canonical
+/// upstream-to-downstream propagation direction (SPEC-261, itself derived
+/// from P-005), as a descending authority ranking is a derivation this
+/// crate makes for the `Ord` intuition the variant order suggests — no
+/// specification.json node states an authority order over these seven
+/// layers in these words, and this type does not derive `Ord`/`PartialOrd`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Layer {
@@ -279,7 +303,7 @@ mod tests {
             statement: "A requirement.".to_string(),
             description: None,
             derives_from: vec![],
-            cites: vec![],
+            cites: None,
             source: sample_source(),
         };
 
@@ -325,9 +349,11 @@ mod tests {
             section.derives_from, None,
             "omitted key must parse to None, not Some(vec![])"
         );
-        assert_eq!(section.sections.len(), 1);
-        assert_eq!(section.sections[0].items.len(), 1);
-        assert_eq!(section.sections[0].items[0].id, DocumentId::new("REQ-001"));
+        let subsections = section.sections.as_ref().expect("sections must be Some");
+        assert_eq!(subsections.len(), 1);
+        let nested_items = subsections[0].items.as_ref().expect("items must be Some");
+        assert_eq!(nested_items.len(), 1);
+        assert_eq!(nested_items[0].id, DocumentId::new("REQ-001"));
 
         // An omitted key must round-trip back to an omitted key — this type
         // preserves the author's choice (DS-1593 makes the key itself
@@ -356,6 +382,78 @@ mod tests {
         assert_eq!(
             round_tripped_empty.as_object().unwrap().get("derives_from"),
             Some(&serde_json::json!([]))
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-DOCUMENT-SENTENCE-CITES-KEY-OPTIONAL
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.target crates/vtest-model/src/document.rs::SentenceNode
+    /// @vtest.intent verifies a sentence node's cites key preserves the author's absent/empty choice, mirroring SectionNode::derives_from
+    #[test]
+    fn sentence_node_cites_key_is_optional_and_round_trips() {
+        let missing_cites: SentenceNode = serde_json::from_value(serde_json::json!({
+            "id": "REQ-004",
+            "statement": "x",
+            "derives_from": [],
+            "source": { "doc": "d", "heading": "h", "lines": [1, 1] }
+        }))
+        .unwrap();
+        assert_eq!(
+            missing_cites.cites, None,
+            "omitted key must parse to None, not Some(vec![])"
+        );
+        let round_tripped = serde_json::to_value(&missing_cites).unwrap();
+        assert!(
+            round_tripped.as_object().unwrap().get("cites").is_none(),
+            "an omitted cites key must round-trip back to an omitted key"
+        );
+
+        let explicit_empty: SentenceNode = serde_json::from_value(serde_json::json!({
+            "id": "REQ-005",
+            "statement": "x",
+            "derives_from": [],
+            "cites": [],
+            "source": { "doc": "d", "heading": "h", "lines": [1, 1] }
+        }))
+        .unwrap();
+        assert_eq!(explicit_empty.cites, Some(vec![]));
+        let round_tripped_empty = serde_json::to_value(&explicit_empty).unwrap();
+        assert_eq!(
+            round_tripped_empty.as_object().unwrap().get("cites"),
+            Some(&serde_json::json!([])),
+            "a cites key present as [] must round-trip back to [], not be dropped"
+        );
+    }
+
+    /// @vtest.id TEST-MODEL-DOCUMENT-SECTION-CHILDREN-KEYS-OPTIONAL
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.target crates/vtest-model/src/document.rs::SectionNode
+    /// @vtest.intent verifies a section node's sections/items keys preserve the author's absent/empty choice, mirroring SectionNode::derives_from
+    #[test]
+    fn section_node_sections_and_items_keys_are_optional_and_round_trip() {
+        let explicit_empty: SectionNode = serde_json::from_value(serde_json::json!({
+            "id": "SPEC-S001",
+            "title": "A section stating empty children",
+            "source": { "doc": "d", "heading": "3", "lines": [1, 1] },
+            "derives_from": [],
+            "sections": [],
+            "items": []
+        }))
+        .unwrap();
+        assert_eq!(explicit_empty.sections, Some(vec![]));
+        assert_eq!(explicit_empty.items, Some(vec![]));
+
+        let round_tripped = serde_json::to_value(&explicit_empty).unwrap();
+        let object = round_tripped.as_object().unwrap();
+        assert_eq!(
+            object.get("sections"),
+            Some(&serde_json::json!([])),
+            "a sections key present as [] must round-trip back to [], not be dropped"
+        );
+        assert_eq!(
+            object.get("items"),
+            Some(&serde_json::json!([])),
+            "an items key present as [] must round-trip back to [], not be dropped"
         );
     }
 
@@ -508,7 +606,11 @@ mod tests {
         fn count_sections(sections: &[SectionNode]) -> usize {
             sections
                 .iter()
-                .map(|s| 1 + s.items.len() + count_sections(&s.sections))
+                .map(|s| {
+                    let items = s.items.as_deref().unwrap_or_default().len();
+                    let nested = s.sections.as_deref().unwrap_or_default();
+                    1 + items + count_sections(nested)
+                })
                 .sum()
         }
 
