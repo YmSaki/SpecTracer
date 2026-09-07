@@ -2960,6 +2960,63 @@ fn no_target() {}
             .any(|test| test.id.as_str() == "TEST-NO-TARGET"));
     }
 
+    /// DS-1666/DES-229「E-SCAN-007は必須metadata（core中立: id / covers ≥ 1
+    /// / intent）の欠落を意味し、targetは必須キーではない」。DS-538・
+    /// 本冊:990-1005「targetロケータ／SRC IDの解決失敗（E-SCAN-004）は
+    /// coreの単一経路（`resolve_targets`）が所有する」。`@vtest.target` に
+    /// 空文字列を宣言した場合、それは「宣言が無い」ことにはならない
+    /// （`missing_target_annotation_is_accepted` とは異なる経路）ため
+    /// adapterはE-SCAN-007で早期returnせず、core側のtarget解決へ素通し
+    /// する。空文字列はどのSource Targetロケータとも一致しないため、
+    /// core の「0件ヒット」経路がE-SCAN-004を発行する。
+    #[test]
+    fn empty_string_target_value_resolves_through_core_to_e_scan_004_not_e_scan_007() {
+        let root = fixture();
+        fs::write(
+            root.join("tests/empty_target.rs"),
+            r#"
+/// @vtest.id TEST-EMPTY-TARGET
+/// @vtest.covers VO-ADD
+/// @vtest.target
+/// @vtest.intent an empty target value is not a missing declaration
+#[test]
+fn empty_target() {}
+"#,
+        )
+        .unwrap();
+        let result = scan_project(&root).unwrap();
+        let at_empty_target = |diagnostic: &&Diagnostic| {
+            diagnostic
+                .location
+                .as_ref()
+                .is_some_and(|location| location.function == "empty_target")
+        };
+        assert!(
+            !result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-007" && at_empty_target(&diagnostic)),
+            "an empty @vtest.target value must not be reported as E-SCAN-007: {:?}",
+            result.diagnostics
+        );
+        let e_scan_004 = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-SCAN-004" && at_empty_target(diagnostic))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            e_scan_004.len(),
+            1,
+            "an empty @vtest.target value must resolve through core to exactly one \
+             E-SCAN-004: {:?}",
+            result.diagnostics
+        );
+        assert!(result
+            .tests
+            .iter()
+            .any(|test| test.id.as_str() == "TEST-EMPTY-TARGET"));
+    }
+
     /// 本冊 §4.4 / §11.1.1: core が中立に要求する必須 metadata（`id` /
     /// `covers ≥ 1`）の欠落も E-SCAN-007 になる。
     #[test]
