@@ -18077,7 +18077,7 @@
             },
             {
               "id": "DS-139",
-              "statement": "答えはassertの所在・実行形態（内部construct検証か境界の振る舞い検証か）に依らず同一でなければならない。",
+              "statement": "答えはassertの所在・実行形態に依らず同一でなければならない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",

@@ -345,3 +345,17 @@ description（要旨）:
 | 退役 7 ノードの後継 statement（キー1語の挿入以外は不変） | §6.2 |
 | 新規 2 ノードの statement | §6.3 |
 | 退役台帳 `relations/retired-ids.json` の行 | §6.4 |
+
+---
+
+## 9. 追記 2026-09-07 — §8 の問いは Owner 裁定により消滅した
+
+Owner は Issue #14（[issuecomment-5565960636](https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5565960636)）で、Test の実行形態を分類しないと裁定した。正本には `ROOT-049` として転記されている。
+
+したがって §8 の問い（境界形態の Test を宣言するキーを v0.1 に足すか、後続版へ送るか）は、**足すか送るかではなく、分類そのものが無くなる**ことで消滅した。第三の答えである。
+
+- §8.1 が挙げた 7 ノードの退役＋新規 2 ノードは**実施していない**。宣言キーは足さない。
+- §8.3 の表の「送る（現状維持）」列にあった `E-SCAN-007` / `chain_integrity = MISMATCH` は起きない。`targets ≥ 1` が必須 metadata から外れたため、CLI の終了コードだけを検証する Test は `@vtest.target` を書かないまま `chain_integrity` を通る。`target_binding` は両列と同じく `NO_EVIDENCE`（診断 `NOT_CHECKED`、`DS-1664`）である。
+- §4.2 が「`targets ≥ 1` の上流根拠」とした `REQ-147` は退役した。`REQ-148` は無条件の `REQ-336` になった。
+
+適用の全容・掃引結果・嘘テストは `reports/test-form-ruling-2026-09-07.md` にある。
