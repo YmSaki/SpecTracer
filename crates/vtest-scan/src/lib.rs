@@ -908,16 +908,31 @@ fn validate_document_nodes(
     // in document B.
     //
     // A node id occurring more than once (within one file, or across two
-    // files) is a real DS-052/DS-053 condition ("IDの一意性はスキャン時に
-    // 全数検査する") but no detailed_spec §5.4 diagnostic code names it —
-    // E-SCAN-002 is Test ID collision specifically (DS-536), not a general
-    // node-id collision. This crate therefore does not emit a diagnostic
-    // for it (no code to invent one from) and does not silently resolve
-    // the collision either: `known_ids` is a set, so an E-SCAN-012 lookup
-    // against a colliding id still reports "exists" (existence, not a
-    // specific resolved node, is all E-SCAN-012 needs) rather than picking
-    // a first- or last-wins candidate. Open upstream question, disclosed
-    // rather than decided here.
+    // files) is a real DS-053 condition ("IDの一意性はスキャン時に全数検査
+    // する", derives_from REQ-055/REQ-155/REQ-156) and DS-054 assigns it a
+    // state ("ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする").
+    // But the corpus disagrees on the *diagnostic code*, and the
+    // disagreement is not confined to one layer: DS-897 (detailed_spec,
+    // §16.2) reads "ID衝突はE-SCAN-002として検出する。" — general ID
+    // collision — while DS-536, in the very same detailed_spec §5.4 that
+    // this file's other E-SCAN-* codes are drawn from, reads "E-SCAN-002は
+    // errorであり、Test ID重複（identity collision）を意味する。", and
+    // SPEC-377 — one layer *above* detailed_spec — names E-SCAN-002 as
+    // "同じTest IDの重複" specifically, alongside E-SCAN-003/E-SCAN-012/
+    // E-SCAN-016 as the four things `vtest doctor` reports. A conflict
+    // between a layer and the one above it resolves in favour of the
+    // higher layer (AGENTS.md), so DS-897's broader reading does not stand
+    // as written; but DS-897 is itself a same-layer contradiction against
+    // DS-536 (both detailed_spec) that a downstream crate has no authority
+    // to settle by silently discarding one of them — it is fed upstream
+    // instead. Pending that ruling, this crate emits *no* diagnostic for a
+    // document-node id collision (inventing a code, or repurposing
+    // E-SCAN-002 against SPEC-377's own text, would both be worse), and it
+    // does not silently resolve the collision either: `known_ids` is a
+    // set, so an E-SCAN-012 lookup against a colliding id still reports
+    // "exists" (existence, not a specific resolved node, is all
+    // E-SCAN-012 needs) rather than picking a first- or last-wins
+    // candidate.
     let mut known_ids = BTreeSet::new();
     for (_, file) in &files {
         index_document_ids(file, &mut known_ids);
