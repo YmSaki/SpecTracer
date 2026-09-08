@@ -6,7 +6,6 @@ members = [
     "crates/vtest-adapter-api",
     "crates/vtest-adapter-rust",
     "crates/vtest-scan",
-    "crates/vtest-audit",
     "crates/vtest-exec",
     "crates/vtest-verify",
     "crates/vtest-cli",
