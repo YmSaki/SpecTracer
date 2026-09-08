@@ -1,0 +1,323 @@
+# verify slice が正本で止まった 7 件 — 逐語・判定・適用結果
+
+対象: 正本 `docs/canonical/specification.json`（ブランチ `spec/upstream-traceability-audit`、
+親コミット `3a39613`）。入力は実装 slice（PR4〜PR6、`vtest-verify` の 4 検査）が
+報告した沈黙・矛盾 7 件（`verify-slice-table.md` の §9 と stopped_on 参照）。
+
+判定の区分は 4 つ。**明文** = 正本に既に逐語がある（変更なし）。**導出** = 上位層の
+逐語から演繹できる（開示のうえ適用）。**HOW** = 上位が複数を許し目的でも区別できない
+（設計の裁量）。**Owner 裁定要** = どちらの読みでも嘘が通らず目的から区別できず
+Owner の言葉も無い（適用せず争点だけ記録）。
+
+結果: 明文 4 件、導出 2 件、Owner 裁定要 0 件。**Owner へ上げるべき争点は無い。**
+
+| # | 件名 | 判定 | 正本の変更 |
+|---|---|---|---|
+| 1 | E-SCAN-011 の検査状態（DS-756 vs DS-829） | 導出 | DS-756 → DS-1678（退役・置換） |
+| 2 | oracle_presence の定義と UNKNOWN の境界 | 明文 | なし |
+| 3 | `vtest verify` の JSON wire 形式 | 明文 | なし |
+| 4 | E-SCAN-010 の検査状態への対応 | 導出 | DS-1679（新規） |
+| 5 | Evidence の読み手 | 明文 | なし |
+| 6 | 承認ゲートを既定で満たさないこと | 明文 | なし |
+| 7 | DS-871 の優先順位の上流根拠 | 明文（監査側の誤読） | DS-288 に description 追加 |
+
+コミット:
+
+| 件 | hash |
+|---|---|
+| 1 | `4935b11` |
+| 4 | `4b1f8a2` |
+| 7 | `fb79e55` |
+| 報告書 | 本コミット |
+
+機械検査（全コミットで同値。schema は `jsonschema` で検証）:
+
+| 項目 | 値 |
+|---|---|
+| schema | OK |
+| ノード総数 / 一意 id | 3833 / 3833 |
+| dangling `derives_from` | 0 |
+| 同層・下位層への辺 | 0 |
+| 退役 `old_id` の生存 | 0 |
+| root 外の実効的上流が空のノード | 269（不変） |
+
+---
+
+## 1. E-SCAN-011 の検査状態 — 導出、DS-756 を退役
+
+### 逐語
+
+矛盾していたのは 2 件ではなく、1 件 対 7 件だった。
+
+- `DS-756`（前身）: 「全宣言targetのうち1件でも「対象なし」または「曖昧」
+  （E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`
+  （診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。」
+- `DS-829`: 「複数候補により曖昧でE-SCAN-011となるtargetは`MISMATCH`として保持する（§5.4）。」
+- `DS-828`: 「対象が存在せずE-SCAN-004となるtargetは`MISMATCH`（診断`MISSING`）として保持する（§5.4）。」
+- `DS-703`: 「解決失敗の種別は対象不在（E-SCAN-004、document不在）を`MISMATCH`（診断`MISSING`）として当該対象の検証結果へ保持する。」
+- `DS-704`: 「解決失敗の種別は恒久SRC ID衝突による曖昧（E-SCAN-011）を`MISMATCH`として当該対象の検証結果へ保持する。」
+- `DS-564`: 「E-SCAN-011があるSRC ID参照は曖昧なため、関係するtarget解決を `MISMATCH` とし、いずれのSource Targetも選択しない。」
+- `DS-1386` / `DS-1460`: 「対象が存在しない場合（E-SCAN-004）は`MISMATCH`（診断`MISSING`）、
+  複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`とし、**両者を一括して同一の状態値にしない**。」
+- `DS-755`: 「1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）ならEvidenceを生成しない。」
+
+上位層（root / request / require / spec）に、この場面の状態値を決める逐語は無い。
+
+### 判定 — 導出
+
+上位が沈黙しているため `ROOT-033`（F7）の状態存在資格から演繹した。F7 は各状態を
+受け手の行動で定義する。
+
+- `NO_EVIDENCE` → 「証拠を作れ（機械で解決可能）」
+- `MISMATCH` → 「コードを触る前に宣言側（上流）を直す」
+
+両方の読みに当てる。target が解決できない・曖昧なまま生成できる Evidence は存在せず、
+`DS-755` がその生成を明示的に禁じている。よって `NO_EVIDENCE` が指示する行動は
+**実行しても前進しない**。宣言 target を直すことが唯一の解消手段であり、これは
+`MISMATCH` の行動と一致する。`DS-756` の読みは、解消できない作業を読み手に指示する
+ことで宣言側の切れ目を隠していた。片方だけが目的に適合するため Owner 裁定は不要。
+
+### 適用
+
+`DS-756` → `DS-1678`（規範変更のため id を変えて退役。台帳に `reason` 付きで記録）。
+
+新しい文は 004 と 011 を別々に書いた（`DS-1460` の「一括して同一の状態値にしない」に従う）。
+併せて前身の用語の緩さも正した: 前身は「曖昧」を E-SCAN-011 だけに結び付けていたが、
+複数候補で一意に定まらない locator 解決は `DS-574` / `DS-596` により **E-SCAN-004** であり、
+E-SCAN-011 は恒久 SRC ID の衝突（`DS-545` / `DS-579`）である。
+
+`derives_from` は `ROOT-033` と `REQ-064`。同節の兄弟ノードはいずれも
+`derives_from` が空のため、辺は上位層から新たに張った。4 検査・5 状態は変えていない。
+
+---
+
+## 2. oracle_presence の定義と UNKNOWN の境界 — 明文、変更なし
+
+### 逐語
+
+監査は `REQ-076`（決定論的に言えない場合は `UNKNOWN`）と `REQ-108` / `ROOT-033`
+（`UNKNOWN` はエラーのフォールバックではない）が衝突すると読んだが、両者を分ける
+逐語が `REQ-S012` の中に既にある。
+
+- `REQ-080`: 「**証明の失敗は `UNKNOWN` の事由ではない。**」
+- `REQ-079`: 「静的解析は成立の証明装置ではなく、証明できない場合は何も言わない。」
+
+そして「解析そのものを実施しない場合」は、同じ節（`DS-S095`、`DS-605`〜`DS-609` の隣）で
+明示的に決まっている。
+
+- `DS-614`: 「**Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。**」
+- `DS-925`: 「`W-ADAPTER-101`はwarningであり、検証対象のadapter capabilityが未提供である
+  ことである（能力に応じNO_EVIDENCE/NOT_CHECKEDまたはNOT_EXECUTED）。」
+
+### 判定 — 明文
+
+境界は「解析を**実施したか**」で引かれている。実施していない（adapter capability 不在、
+`DS-1103` の `--fast`、`DS-840` の scope 外）→ `NO_EVIDENCE` + `NOT_CHECKED`。
+実施して決定論の限界に達した → `UNKNOWN`（`DS-608`）。`REQ-080` は前者を `UNKNOWN` と
+呼ぶことを禁じており、`REQ-108` / `ROOT-033` と矛盾しない。
+
+slice の実装（capability 不在で `NO_EVIDENCE` + `NOT_CHECKED` に保持）は `DS-614` の
+とおりであり、正本の変更は要らない。
+
+### slice の表への指摘（正本の欠陥ではない）
+
+`verify-slice-table.md` §5 の `REQ-079` 行は「static analysis never proves the positive
+→ never PASS」と読み替えているが、これは**言い過ぎ**である。`REQ-075`（照合装置の存在が
+決定論的に確認できる場合、この検査は成立側とする）、`DS-606` / `DS-1340`（全ルール違反
+なしなら `PASS`）が `PASS` を明示的に許している。テスト名は
+`oracle_presence_is_never_pass_and_never_unknown_without_da_analysis` と
+「without DA analysis」で限定されているので実装は正しいが、「oracle_presence は
+PASS にならない」を正本の読みとして固定しないこと。
+
+---
+
+## 3. `vtest verify` の JSON wire 形式 — 明文、変更なし
+
+envelope は未規定ではなく、複数のノードに分かれて確定している。
+
+- `DS-941`: 「JSON 出力は最上位に `{ "ok": bool, "data": ..., "diagnostics": [...] }` を持つ。」
+- `DS-942`: 「`diagnostics` の要素は `{ "code": "E-SCAN-002", "severity": "error", "message": "...", "location": ... }` である。」
+- `DS-961` / `DS-962`: 検証状態は各検査ノードの `state` field、診断ラベルは `diagnostic`
+  field（0 件以上）へ入れ、「`state` の値には決して用いない」。
+- `DS-947` / `DES-548`: 最上位 field `scope`。`scope.requested.items`（`--items` 省略時は
+  固定 4 検査を 4 件すべて列挙）、`scope.requested.entities`、`scope.unverified_outside_scope`。
+- `DS-1214`: `verify` の出力は最上位 `scope`、総合 OK / NG、集約ツリー、`pending` section、
+  `data.gate`（指定時）。
+- `DS-1169` / `DES-554`: `--gate` 指定時は `data.gate` に
+  `name`・`verification.{required, actual, satisfied}`・`approvals[].{role, satisfied, missing_subjects}`・`satisfied`。
+- `DS-964` / `BD-100` / `BD-260`: envelope は CLI と MCP で共通。`DS-1190` も同一構造を要求。
+
+**AGENTS.md の不変条件（検証状態とゲート満否は別軸）に対応する逐語も明文である。**
+
+- `DS-1177`: 「JSON では検証状態（集約ツリーと `gate.verification.actual`）と
+  `gate.satisfied` を別 field として常に併記し、text 出力でも検証状態の行と
+  ゲート満否の行を分けて表示する。」
+- `DS-1174` / `DS-1539`: `--gate` 指定時の最上位 `ok` と終了コードはゲート充足で決まる。
+
+### 残っている読み（開示）
+
+`--gate` を**指定しない**実行で集約代表値がどの field に載るかを名指しするノードは無い。
+`DS-1175` は「要求 scope の総合 OK / NG は集約ツリーと `gate.verification.actual` から
+読み取る」と述べており、`--gate` 無しでは**集約ツリーの根が代表値を担う**という読みを
+採った。`DS-870`（集約代表値は要求 scope 内の全評価値の fail-closed 合成）と整合する。
+専用の最上位 field を新設する規範は上流に無いため、追加していない。
+
+---
+
+## 4. E-SCAN-010 の検査状態への対応 — 導出、DS-1679 を追加
+
+### 逐語
+
+`E-SCAN-010` はレコード種別横断の一般コードで、行き先が種別ごとに決まっている。
+
+- `DS-1676`: 「E-SCAN-010はerrorであり、レコードのid / ファイル名 / schema不一致
+  （宣言されていない余剰 field を含む）、互換正規化後のlogical record ID重複、または
+  上流文書ノードの `id` が 2 箇所以上に現れることを意味する。」
+- `DS-1677`: 上流文書ノードの衝突 → `chain_integrity` を `MISMATCH`。**明示済み。**
+- `DS-476`: 「schema違反、target entryの欠落・重複・余剰、またはaggregate resultと
+  target別結果の矛盾はE-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。」
+- `DS-278`: 「Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXECUTED）とする。」
+- `DS-428` / `DS-1294`: レコード id / payload の重複は E-SCAN-010 とし「いずれかを選ばない」。
+  **検査名も状態も与えていない。** ← 沈黙の所在
+
+### 判定 — 導出
+
+沈黙は VO / Test レコードが `E-SCAN-010` で受理されなかった場合に残る。2 つの読みに
+当てた。
+
+- 読み (a) 受理されなかったレコードは「存在しない」→ 集約木から消える。
+- 読み (b) 木に残り `MISMATCH` として現れる。
+
+**(a) は嘘を通す。** 参照されていない leaf VO が消えると、被覆 Test を要求する義務ごと
+消える。`REQ-056` / `ROOT-034` の双方向完全性は空振りし、`chain_integrity` は当該 VO に
+ついて何も言わずに `PASS` になりうる。`DS-936` / `DS-1304` により `vtest scan` は
+`E-SCAN-*` で exit 1 になるが、**scan の失敗は verify の総合 OK を非 `PASS` にしない**
+（別軸）。したがって「宣言が壊れている」という切れ目が verify の出力から消える。
+`REQ-135`（確認不能であることを成立確認済みとして扱ってはならない）に従い、非 `PASS`
+の側へ確定した。
+
+検査の選択は `ROOT-033`（F7）の行動一致による。壊れているのは宣言鎖の成立であり、
+読み手の行動は「レコードを直す」= `MISMATCH`。`DS-1677` が同じ事象に既に採っている
+割り当てと同型である。
+
+Test レコードについては、ファイルが発見される限り `DS-560`（`E-SCAN-007`）が別経路で
+`MISMATCH` を与えるため重複するが、発見されない場合を含めて同じ状態へ揃えた。
+
+### 適用
+
+`DS-1679`（新規、§5.4、`derives_from`: `SPEC-197` / `REQ-135`）。導出であることを
+description で開示した。新しい診断コード・検査・状態は追加していない。
+
+### slice の実装への指摘（正本の欠陥ではない）
+
+slice は `E-SCAN-010` を**一括して** `chain_integrity = MISMATCH` に写像している
+（`verify-slice-table.md` §9 の S4）。Evidence レコードについてはこれが**正本と食い違う**。
+`DS-476` + `DS-278` により、Evidence の `E-SCAN-010` は当該 Evidence を無効にする
+だけで、`target_binding` の `NO_EVIDENCE`（診断 `NOT_EXECUTED`）になる。
+一括写像は fail-closed ではあるが、証拠ファイルの不備に対して「宣言を直せ」という
+誤った行動を読み手に指示する。`DS-1679` はこの切り分けを文に含めた。
+
+---
+
+## 5. Evidence の読み手 — 明文、変更なし
+
+「正本は定義済みか」だけの確認だったので、確認結果のみ記す。**完全に定義済み。**
+
+- レコードの置き場と形式: `BD-026` / `BD-053` / `BD-144`（`.verify/evidence/<ULID>.yaml`、
+  事実・追記型）、節 `DS-S077` / `BD-S047` / `DES-S042`（3.6 Evidence レコード）。
+- field: `DES-183`（`result` はランナーが報告した `PASS` | `FAIL`）、`DES-184`
+  （`execution_state.hash`）、`DES-185`〜`DES-187`（`target_coverage`、
+  旧 `target_execution` からの改名を含む）。
+- 有効性: `DS-265`（Test subject 内容ハッシュ・target 参照集合・各 target 内容ハッシュ・
+  adapter ID・HEAD revision・Execution State subject の全一致）。`ROOT-031` がハッシュ
+  非束縛の証拠を不在扱いにする。
+- 状態写像: `DS-830`（`result: FAIL` → `FAIL`）、`DS-831`（`PASS` かつ到達充足 → `PASS`）、
+  `DS-832`（到達未充足の内訳）、`DS-833`（有効でない Evidence の扱い）、
+  `DS-278`（不在 → `NO_EVIDENCE` + `NOT_EXECUTED`）。
+- 評価入力への算入: `DS-784` / `DS-786`。
+
+したがって slice で target を持つ Test が `NO_EVIDENCE` + `NOT_EXECUTED` になることは、
+Evidence reader が未実装であることの正しい帰結であり（`DS-278`）、正本の穴ではない。
+PR5 は上記を実装対象として持てばよい。
+
+---
+
+## 6. 承認ゲートを既定で満たさないこと — 明文、変更なし
+
+- `DS-864`: 「`vtest verify --gate <name>`は…(2) `require.approvals`の各ロールについて
+  対象の実効承認状態（§3.5）が`approved`であるか、を評価して満否と根拠…を提示する。」
+- `DS-1588`: 「**A'(X) が空の場合、実効承認状態は `draft` とする。**」
+- `DS-1468`: 「承認取消・却下は実効承認を `draft` へ落とす。」
+- `DS-1060` / `DS-1484`: 「実効承認は明示の `supersedes` 関係だけで決まる。」
+
+承認レコードが無ければ実効承認は `draft` であり `approved` ではないから、
+`require.approvals` を持つゲートは満たされない。fail-closed は正本の規則そのもので
+あって実装の判断ではない。変更なし。
+
+### PR6 への注意（正本の欠陥ではない）
+
+「実効承認の読み手が未実装」と「A'(X) が空」は**別の事実**である。前者を根拠に
+`draft` を*真実として主張*すると、承認レコードが実在する repository で嘘の根拠を
+出すことになる。ゲートは当該ロールを未充足として報告しつつ、理由が「未実装のため
+評価できていない」ことを `data.gate.approvals[].missing_subjects` や `diagnostics`
+から読み取れるようにすること。`DS-864` は「満否と根拠」の提示を求めており、
+根拠の中身を偽ることは許していない。
+
+---
+
+## 7. DS-871 の優先順位の上流根拠 — 明文（監査側の誤読）
+
+### 逐語
+
+`DS-871` は `cites: 基本仕様 §22.2` を持つが、`spec` 層の §22.2（`SPEC-S054`）は
+`SPEC-190`「Test単位の結果をVO・Feature・document単位へ集約可能とする。」と
+`SPEC-191`「詳細出力では子の個別値をすべて確認できる。」の 2 文だけで、優先順位を
+述べていない。監査はここから「上流根拠不在」と結論した。
+
+しかし優先順位を述べるノードは正本に実在する。
+
+- `DS-288`: 「集約時に複数の非 `PASS` 値が混在する場合、上位に表示する代表値の優先順位は
+  `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN` とする。」
+  `source`: **`基本仕様 v0.1` §22.2、L583**
+
+`SPEC-190` / `SPEC-191` の `source` も同じ **§22.2 L583** である。つまり優先順位の本文は
+基本仕様の逐語であり、`LAYERING.md` §2 の仕分け（「優先順位」は詳細仕様の項目）に
+よって `detailed_spec` 配列へ置かれた。
+
+### 判定 — 明文
+
+`cites: 基本仕様 §22.2` は**正しい**。`derives_from: [SPEC-190, SPEC-191]` は再仕分けの
+機械的帰結であり（cite が §22.2 のうち `spec` 層に残った分へ解決された）、辺の先だけを
+読むと根拠不在に見える。規則そのものは基本仕様に由来するので、`cites` は削除しない。
+HOW でも Owner 裁定要でもない。
+
+なお `DS-288` は同層（`detailed_spec`）なので `DS-871` から `derives_from` は張れない
+（層をまたぐ辺だけという規約による）。辺での解決は不可能で、開示で解く。
+
+### 検討して落とした対案（開示）
+
+`ROOT-033`（F7）の記述順は `PASS / FAIL / MISMATCH / NO_EVIDENCE / UNKNOWN` だが、
+行動の順で読むと `MISMATCH`（コードを触る**前**に宣言側を直す）が `FAIL`（実装を直す）
+より先に来る、という読みが立つ。これを採ると優先順位は `MISMATCH > FAIL > …` になる。
+落とした理由: F7 は行動を列挙しているだけで順位を宣言しておらず、`DS-288` が基本仕様の
+逐語として順位を確定させているため、対案には上流の逐語が無い。どちらの順でも
+非 `PASS` は非 `PASS` のままで総合 OK にはならず（`SPEC-191` が子の個別値を必ず見せる）、
+嘘は通らない。上流に逐語がある側を採る。
+
+### 適用
+
+`DS-288` に `description` を追加し、L583 の逐語であること・`LAYERING.md` §2 により
+この層に置かれたこと・`DS-846` / `DS-871` / `DS-1512` が同じ順位を再掲していることを
+開示した。**文・辺・`source`・`cites` はいずれも変更していない。規範変更ではない。**
+
+---
+
+## 適用しなかったもの
+
+- 上位層（root / request / require / spec）の `statement` は 1 文字も変えていない。
+- 新しい診断コード・検査・状態は追加していない（4 検査・5 状態は不変）。
+- Owner 裁定に上げる争点は無い。7 件すべて正本の逐語または目的からの演繹で閉じた。
+- `verify-slice-table.md` の stopped_on 節そのものは scratchpad に保存されておらず
+  読めなかった。本報告は同表の §9 と、依頼に付された 7 件の要約、および正本の逐語
+  収集から構成した。stopped_on の具体的な入力例が後から届いた場合、結論は変わらないが
+  各件の再現手順として追記する価値がある。
