@@ -383,12 +383,13 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
     );
 }
 
-/// DS-1017: `doc show` reports `freshness` (structurally always `true` --
-/// see `DocView::freshness`'s doc comment) and `approval_states` (node id
-/// -> `draft`/`approved`, one entry per top-level node the document owns
-/// -- Approval's `document` subject_type binds per node, DS-1051). A
+/// DS-1017 new: `doc show` reports `freshness` (node id -> `Option<bool>`
+/// -- `Some(true)`/`Some(false)`/`None`, see `ShowResult`'s doc comment
+/// for the full definition) and `approval_states` (node id ->
+/// `draft`/`approved`, one entry per top-level node the document owns --
+/// Approval's `document` subject_type binds per node, DS-1051). A
 /// document with no Approval record for any of its nodes reads `draft`
-/// for every one.
+/// for every one, and `None` (no comparison target) for freshness.
 #[test]
 fn show_reports_freshness_and_per_node_approval_states() {
     let root = temp_root("show-freshness-approval-states");
@@ -564,6 +565,46 @@ fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
         Some(Some(false)),
         "ROOT-001's current subject hash no longer matches the approval's recorded \
          dependency hash, so it must read stale (Some(false)), not fresh or no-comparison-target"
+    );
+}
+
+/// DS-1017 new "各トップレベルノード": a section node's own `items`
+/// children must NOT appear in `approval_states`/`freshness` -- only the
+/// section's own id (a document's actual top-level node set), regardless
+/// of how many nested sentence nodes it declares. Regression for the
+/// earlier round's over-inclusive deep walk (`document_node_ids` reused
+/// `collect_all_ids`, meant for a different purpose -- resolving
+/// arbitrary `derives_from` targets anywhere in the corpus -- and picked
+/// up nested `items`/`sections` children too).
+#[test]
+fn show_states_and_freshness_exclude_section_item_children() {
+    let root = temp_root("show-top-level-only");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_section_items = r#"{"schema_version":"0.1","root":[{"id":"ROOT-001","statement":"fixture root","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"request":[],"require":[],"spec":[{"id":"SPEC-001","title":"fixture section","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]},"items":[{"id":"SPEC-002","statement":"nested item","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}]}],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+    fs::write(root.join("basic-spec.json"), with_section_items).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+
+    let approval_keys: std::collections::BTreeSet<&str> =
+        result.approval_states.keys().map(String::as_str).collect();
+    let freshness_keys: std::collections::BTreeSet<&str> =
+        result.freshness.keys().map(String::as_str).collect();
+    let expected: std::collections::BTreeSet<&str> = ["ROOT-001", "SPEC-001"].into();
+
+    assert_eq!(
+        approval_keys, expected,
+        "approval_states must contain exactly the document's top-level node ids (ROOT-001, \
+         SPEC-001), not the nested SPEC-002 item"
+    );
+    assert_eq!(
+        freshness_keys, expected,
+        "freshness must contain exactly the document's top-level node ids (ROOT-001, \
+         SPEC-001), not the nested SPEC-002 item"
     );
 }
 
@@ -774,4 +815,91 @@ fn list_roots_lists_the_current_root_set() {
         .map(|view| view.id.clone())
         .collect();
     assert_eq!(roots, vec!["DOC-BASIC-001".to_owned()]);
+}
+
+/// DS-1017 new/DS-1194: `doc list`'s own `freshness` field must carry the
+/// actual expected per-node values, not merely be internally consistent
+/// with itself (the two-function comparison this crate's `node_freshness`
+/// shares with `doc show` would pass even if both sides made the same
+/// mistake) -- so every expected value here is hand-derived from the
+/// fixture's own construction, independent of the function under test.
+#[test]
+fn list_reports_the_expected_freshness_values_per_document() {
+    use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};
+
+    let root = temp_root("list-freshness-values");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_request = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [{"id":"R-001","statement":"fixture requirement","derives_from":["ROOT-001"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    // No Approval record exists yet: every node must have no comparison
+    // target (None), not Some(true)/Some(false).
+    let before = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    assert_eq!(
+        before.freshness.get("DOC-BASIC-001"),
+        Some(&std::collections::BTreeMap::from([
+            ("ROOT-001".to_owned(), None),
+            ("R-001".to_owned(), None),
+        ])),
+        "before any Approval record exists, every node must read no-comparison-target"
+    );
+
+    // Approve VO-LIST-FRESHNESS (deriving from R-001, whose own ancestor
+    // closure includes ROOT-001) -- both nodes now have a current
+    // dependency entry, so both must read fresh (Some(true)).
+    vtest_store::write_vo_record(
+        &layout,
+        &VoRecord {
+            id: VoId::new("VO-LIST-FRESHNESS"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("R-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "fixture claim".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-10T00:00:00Z".to_owned(),
+            updated: "2026-09-10T00:00:00Z".to_owned(),
+        },
+    )
+    .expect("write VO record");
+    vtest_cli::ops::approval::create(
+        &layout,
+        vtest_cli::ops::approval::CreateArgs {
+            subject_type: "vo".to_owned(),
+            subject_id: "VO-LIST-FRESHNESS".to_owned(),
+            approved_state: "approved".to_owned(),
+            approver_kind: "human".to_owned(),
+            approver_id: "reviewer".to_owned(),
+            approver_model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        },
+    )
+    .expect("approval create must succeed against a resolvable VO subject");
+
+    let after = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    assert_eq!(
+        after.freshness.get("DOC-BASIC-001"),
+        Some(&std::collections::BTreeMap::from([
+            ("ROOT-001".to_owned(), Some(true)),
+            ("R-001".to_owned(), Some(true)),
+        ])),
+        "after approving a VO whose dependency closure covers both nodes with their current \
+         hashes, both must read fresh (Some(true))"
+    );
 }

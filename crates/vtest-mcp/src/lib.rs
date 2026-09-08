@@ -860,9 +860,11 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
     match ops::doc::show(&layout, id) {
         Ok(result) => {
             let mut data = doc_view_json(&result.view);
-            // DS-1017 new: overrides `doc_view_json`'s coarse per-document
-            // placeholder with the actual per-node, cross-referencing
-            // computation -- see `ops::doc::ShowResult`'s doc comment.
+            // DS-1017 new: `freshness` is not part of `doc_view_json`'s
+            // base shape at all (see that function's own doc comment) --
+            // this is the one place that actually computed it, via
+            // `ops::doc::show`'s per-node, cross-referencing computation
+            // (see `ops::doc::ShowResult`'s doc comment).
             data["freshness"] = json!(result.freshness);
             data["approval_states"] = json!(result.approval_states);
             if want_tree || want_roots {
@@ -1739,6 +1741,12 @@ mod tests {
             Value::Bool(false),
             "root: true combined with update: true must be rejected, got {envelope_true:?}"
         );
+        assert_eq!(
+            envelope_true["diagnostics"][0]["code"],
+            Value::String("E-OP-001".to_owned()),
+            "the rejection must carry E-OP-001 (this is a Usage error from ops::doc::add, not \
+             a store-layer failure), got {envelope_true:?}"
+        );
 
         let envelope_false = dispatch_tool(
             &root,
@@ -1750,6 +1758,11 @@ mod tests {
             Value::Bool(false),
             "root: false (still present) combined with update: true must be rejected too, got \
              {envelope_false:?}"
+        );
+        assert_eq!(
+            envelope_false["diagnostics"][0]["code"],
+            Value::String("E-OP-001".to_owned()),
+            "got {envelope_false:?}"
         );
     }
 

@@ -680,10 +680,11 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
         DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
             Ok(result) => {
                 let mut data = doc_view_json(&result.view);
-                // DS-1017 new: `freshness` here overrides `doc_view_json`'s
-                // coarse per-document placeholder with the actual
-                // per-node, cross-referencing computation -- see
-                // `ShowResult`'s doc comment.
+                // DS-1017 new: `freshness` is not part of `doc_view_json`'s
+                // base shape at all (see that function's own doc comment)
+                // -- this is the one place that actually computed it, via
+                // `ops::doc::show`'s per-node, cross-referencing
+                // computation (see `ShowResult`'s doc comment).
                 data["freshness"] = serde_json::json!(result.freshness);
                 data["approval_states"] = serde_json::json!(result.approval_states);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());

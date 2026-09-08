@@ -91,8 +91,9 @@ pub fn add(
     // presence of the flag at all here, rather than only rejecting when
     // it would actually attempt a change, is this module's own
     // fail-closed derivation, not DS-1683/BD-331's literal text -- team-
-    // lead ruling 2026-09-10 (see `reports/closure-trace.md`'s stopped_on
-    // history): flagged rather than silently narrowed.
+    // lead ruling 2026-09-10 (see `reports/closure-trace.md`'s "レビュー6
+    // 巡目の対応" section, minor item 1): flagged rather than silently
+    // narrowed.
     if args.update && args.root_specified {
         return Err(DocOpError::Usage(
             "--root/--no-root cannot be combined with --update: DS-1683/BD-331 fix the root \
