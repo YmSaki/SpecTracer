@@ -1,0 +1,11 @@
+id: VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
+parent: null
+derives_from:
+  - doc: DES-552
+claim: ゲートの条件充足・不足の両方がfixtureで確認できる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

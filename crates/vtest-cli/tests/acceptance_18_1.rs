@@ -72,6 +72,10 @@ fn cli(root: &std::path::Path, command: Command) -> Cli {
 /// value a usage error before `ops::approval::create` is even reached,
 /// which is itself a form of not relaxing the invariant for convenience
 /// (there is no fixture-only bypass that skips the domain check).
+/// @vtest.id TEST-ACCEPTANCE-18-1-APPROVAL-STATE-DOMAIN
+/// @vtest.covers VO-ACCEPTANCE-FIXTURE-DOES-NOT-RELAX-INVARIANTS
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent an out-of-domain approved_state is rejected through the full CLI path, even when clap's type check is bypassed
 #[test]
 fn approval_state_domain_is_not_relaxed_for_fixtures() {
     let root = temp_root("state-domain");
@@ -191,6 +195,10 @@ fn approval_state_domain_is_not_relaxed_for_fixtures() {
 /// but `Ok`): the actual, falsifiable claim is that the *content* two
 /// independently constructed fixtures produce is byte-identical, not just
 /// that both happen to succeed.
+/// @vtest.id TEST-ACCEPTANCE-18-1-FIXTURE-DETERMINISM
+/// @vtest.covers VO-ACCEPTANCE-DETERMINISTIC-FIXTURE-REPRODUCIBILITY
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent two independently constructed fixtures given the same project name produce byte-identical config.yaml content
 #[test]
 fn fixture_construction_produces_byte_identical_content_across_independent_roots() {
     let first = temp_root("determinism-a");

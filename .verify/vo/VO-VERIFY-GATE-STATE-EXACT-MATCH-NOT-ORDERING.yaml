@@ -1,0 +1,11 @@
+id: VO-VERIFY-GATE-STATE-EXACT-MATCH-NOT-ORDERING
+parent: null
+derives_from:
+  - doc: DES-553
+claim: ゲートのrequire.verification充足判定は順序・包含解釈を認めず、要求された状態と実際の状態の一致でのみ充足する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
