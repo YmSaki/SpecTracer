@@ -116,6 +116,10 @@ fn cli(root: &std::path::Path, command: Command) -> Cli {
 /// exactly as a `human` one does — DES-547's domain is the two kinds
 /// together, not `human` alone (the domain the rest of this suite's fixture
 /// coverage happens to exercise).
+/// @vtest.id TEST-ACCEPTANCE-18-3-7-AGENT-APPROVER
+/// @vtest.covers VO-APPROVAL-APPROVER-KIND-DOMAIN
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.intent an agent-kind approver is recorded and drives effective state identically to a human one
 #[test]
 fn an_agent_approver_is_traceable_and_drives_effective_state() {
     let root = temp_root("agent-approver");
@@ -154,6 +158,10 @@ fn an_agent_approver_is_traceable_and_drives_effective_state() {
 /// purely because `approved_state` changed on the record the effective-set
 /// computation reads -- no separate "withdrawal" concept exists outside
 /// that field.
+/// @vtest.id TEST-ACCEPTANCE-18-3-7-WITHDRAWAL-STATE
+/// @vtest.covers VO-APPROVAL-EFFECTIVE-STATE-FROM-APPROVED-STATE
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.intent effective approval state falls back to draft once approved_state no longer resolves to an all-approved set after withdrawal
 #[test]
 fn effective_state_tracks_approved_state_across_a_withdrawal() {
     let root = temp_root("state-tracking");
