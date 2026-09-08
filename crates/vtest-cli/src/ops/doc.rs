@@ -1,8 +1,9 @@
 //! `vtest doc add|list|show`: the Document registry entity (本冊 §12.2,
-//! DS-1000〜DS-1018, DES-482, BD-072). See
-//! `vtest_model::doc_registry`'s module doc comment for what this entity is.
+//! DS-1015〜1017/1681〜1684, DES-595, BD-072/331). See
+//! `vtest_model::doc_registry`'s module doc comment for what this entity is
+//! and the realignment (canon commit `757fdcc`) it now follows.
 
-use vtest_model::{DocRegistryDerivesFrom, DocRegistryRecord};
+use vtest_model::DocRegistryRecord;
 use vtest_store::{
     hash_doc_registry_path, read_all_doc_registry, read_doc_registry_record,
     unresolved_derives_from, write_doc_registry_record, StoreError, VerifyLayout,
@@ -16,27 +17,23 @@ pub enum DocOpError {
     Store(#[from] StoreError),
 }
 
-pub struct DerivesFromArg {
-    pub doc: String,
-    pub anchor: Option<String>,
-    pub note: Option<String>,
-}
-
 pub struct AddArgs {
     pub id: String,
     pub path: String,
     pub title: Option<String>,
-    pub derives_from: Vec<DerivesFromArg>,
-    /// `None` = neither `--root` nor `--no-root` given (DS-1010/1011: keep
+    /// DS-1681: a bare list of upstream document ids (no per-link
+    /// anchor/note).
+    pub derives_from: Vec<String>,
+    /// `None` = neither `--root` nor `--no-root` given (DS-1683: keep
     /// the current value on `--update`, default `false` on a fresh `add`).
     pub root: Option<bool>,
     pub update: bool,
 }
 
-/// DS-1012/1013/1014/DES-482: `add` creates a new record (rejecting a
+/// DS-1683/1684/DES-595: `add` creates a new record (rejecting a
 /// duplicate id unless `--update`); `--update` recomputes `content_hash`
-/// from the current `--path` file and may combine with `--root`/
-/// `--no-root`.
+/// from the current `--path` node-tree JSON file and may combine with
+/// `--root`/`--no-root`.
 pub fn add(
     project_root: &std::path::Path,
     layout: &VerifyLayout,
@@ -57,15 +54,7 @@ pub fn add(
     }
 
     let content_hash = hash_doc_registry_path(project_root, &args.path)?;
-    let derives_from = args
-        .derives_from
-        .into_iter()
-        .map(|entry| DocRegistryDerivesFrom {
-            doc: entry.doc,
-            anchor: entry.anchor,
-            note: entry.note,
-        })
-        .collect();
+    let derives_from = args.derives_from;
     let root = args
         .root
         .unwrap_or_else(|| existing.as_ref().is_some_and(|record| record.root));
@@ -109,8 +98,9 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
     })
 }
 
-/// DS-1017: `path`・`content_hash`・`derives_from`（`anchor` を含む,
-/// DS-1009）・根指定・鮮度（`content_hash` と実ファイルの一致）を返す。実効
+/// DS-1017/1682: `path`・`content_hash`・`derives_from`（参照先ノード id の
+/// 並びのみ、DS-1682 — anchor は持たない）・根指定・鮮度（`content_hash` と
+/// 実ファイルの一致）を返す。実効
 /// 承認状態は `ops::approval::show` の対象種別 `document` 経由で別途取得
 /// できる（この closure-slice では `vo`/`document` の実効承認は `vtest
 /// approval show` の責務であり、`doc show` 側で二重に計算しない — BD-306

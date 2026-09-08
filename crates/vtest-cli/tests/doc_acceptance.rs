@@ -1,5 +1,5 @@
 //! Acceptance coverage for `vtest doc add|list|show` (本冊 §12.2,
-//! DS-1000-1018, DES-482).
+//! DS-1015-1017/1681-1684, DES-595).
 
 use std::{
     env, fs,
@@ -29,9 +29,29 @@ fn temp_root(name: &str) -> PathBuf {
     root
 }
 
+/// DES-595: `--path` names an already-built node-tree JSON file (the same
+/// shape `.verify/doc/<name>.json` already uses), not a raw markdown
+/// source — this fixture is a minimal, schema-valid `DocumentFile`.
+const FIXTURE_NODE_TREE: &str = r#"{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-001",
+      "statement": "fixture root",
+      "source": {"doc": "fixture.md", "heading": "fixture", "lines": [1, 1]}
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}"#;
+
 fn build_fixture_project(root: &std::path::Path) {
     init_project(root, "vtest-doc-fixture").expect("init .verify/ layout");
-    fs::write(root.join("basic-spec.md"), "# fixture\n").expect("write source file");
+    fs::write(root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
 }
 
 fn cli(root: &std::path::Path, command: Command) -> Cli {
@@ -49,8 +69,6 @@ fn add_command(id: &str, path: &str) -> Command {
         path: path.to_owned(),
         title: None,
         derives_from: Vec::new(),
-        anchor: Vec::new(),
-        note: Vec::new(),
         root: false,
         no_root: false,
         update: false,
@@ -61,7 +79,7 @@ fn add_command(id: &str, path: &str) -> Command {
 fn add_registers_a_document_and_exits_ok() {
     let root = temp_root("add-ok");
     build_fixture_project(&root);
-    let exit = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.md")));
+    let exit = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json")));
     assert_eq!(exit, ExitCode::Ok);
     assert!(root
         .join(".verify")
@@ -75,9 +93,9 @@ fn add_registers_a_document_and_exits_ok() {
 fn add_of_an_existing_id_without_update_is_a_usage_error() {
     let root = temp_root("add-duplicate");
     build_fixture_project(&root);
-    let first = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.md")));
+    let first = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json")));
     assert_eq!(first, ExitCode::Ok);
-    let second = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.md")));
+    let second = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json")));
     assert_eq!(second, ExitCode::Usage);
 }
 
@@ -90,11 +108,9 @@ fn update_of_an_unregistered_id_is_a_usage_error() {
         &root,
         Command::Doc(DocCommand::Add {
             id: "DOC-BASIC-001".to_owned(),
-            path: "basic-spec.md".to_owned(),
+            path: "basic-spec.json".to_owned(),
             title: None,
             derives_from: Vec::new(),
-            anchor: Vec::new(),
-            note: Vec::new(),
             root: false,
             no_root: false,
             update: true,
@@ -103,24 +119,24 @@ fn update_of_an_unregistered_id_is_a_usage_error() {
     assert_eq!(exit, ExitCode::Usage);
 }
 
-/// DS-1012: `--update` recomputes `content_hash` from the current file.
+/// DS-1684: `--update` recomputes `content_hash` (the document-level
+/// subject hash, DES-595) from the current node-tree file.
 #[test]
 fn update_recomputes_content_hash_from_the_current_file() {
     let root = temp_root("update-rehash");
     build_fixture_project(&root);
-    let first = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.md")));
+    let first = run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json")));
     assert_eq!(first, ExitCode::Ok);
 
-    fs::write(root.join("basic-spec.md"), "# fixture, changed\n").expect("rewrite source file");
+    let changed = FIXTURE_NODE_TREE.replace("fixture root", "fixture root, changed");
+    fs::write(root.join("basic-spec.json"), changed).expect("rewrite source file");
     let update = run(cli(
         &root,
         Command::Doc(DocCommand::Add {
             id: "DOC-BASIC-001".to_owned(),
-            path: "basic-spec.md".to_owned(),
+            path: "basic-spec.json".to_owned(),
             title: None,
             derives_from: Vec::new(),
-            anchor: Vec::new(),
-            note: Vec::new(),
             root: false,
             no_root: false,
             update: true,
@@ -129,27 +145,15 @@ fn update_recomputes_content_hash_from_the_current_file() {
     assert_eq!(update, ExitCode::Ok);
 }
 
-/// DS-1008: `--anchor` given for an id with no matching `--derives-from` is
-/// a usage error, and no record is written.
+/// A `--path` that does not resolve to a valid node-tree JSON file is
+/// rejected (an internal store-layer error, not a silently-written record).
 #[test]
-fn anchor_without_a_matching_derives_from_is_a_usage_error() {
-    let root = temp_root("anchor-orphan");
-    build_fixture_project(&root);
-    let exit = run(cli(
-        &root,
-        Command::Doc(DocCommand::Add {
-            id: "DOC-BASIC-001".to_owned(),
-            path: "basic-spec.md".to_owned(),
-            title: None,
-            derives_from: Vec::new(),
-            anchor: vec!["DOC-REQ-001:§3.2".to_owned()],
-            note: Vec::new(),
-            root: false,
-            no_root: false,
-            update: false,
-        }),
-    ));
-    assert_eq!(exit, ExitCode::Usage);
+fn add_with_an_invalid_node_tree_file_does_not_write_a_record() {
+    let root = temp_root("invalid-node-tree");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    fs::write(root.join("not-json.txt"), "not json at all").expect("write invalid source file");
+    let exit = run(cli(&root, add_command("DOC-BASIC-001", "not-json.txt")));
+    assert_ne!(exit, ExitCode::Ok);
     assert!(!root
         .join(".verify")
         .join("doc")
@@ -176,13 +180,13 @@ fn show_of_an_unregistered_id_is_a_usage_error() {
 fn list_after_registrations_exits_ok() {
     let root = temp_root("list-ok");
     build_fixture_project(&root);
-    fs::write(root.join("req.md"), "# fixture req\n").expect("write source file");
+    fs::write(root.join("req.json"), FIXTURE_NODE_TREE).expect("write source file");
     assert_eq!(
-        run(cli(&root, add_command("DOC-REQ-001", "req.md"))),
+        run(cli(&root, add_command("DOC-REQ-001", "req.json"))),
         ExitCode::Ok
     );
     assert_eq!(
-        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.md"))),
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
         ExitCode::Ok
     );
     let exit = run(cli(

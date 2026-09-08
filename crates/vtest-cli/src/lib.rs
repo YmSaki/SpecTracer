@@ -103,9 +103,9 @@ pub enum Command {
     /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
     #[command(subcommand)]
     Approval(ApprovalCommand),
-    /// Document registry: the coarse per-file Document entity (本冊 §12.2,
-    /// DS-1000-1018, DES-482, BD-072). See `vtest_model::doc_registry`'s
-    /// module doc comment for how this differs from the fine node-tree
+    /// Document registry (本冊 §12.2, DS-1015-1017/1681-1684, DES-595,
+    /// BD-072/331). See `vtest_model::doc_registry`'s module doc comment
+    /// for how this points at, without replacing, the fine node-tree
     /// content already at `.verify/doc/<name>.json`.
     #[command(subcommand)]
     Doc(DocCommand),
@@ -113,17 +113,11 @@ pub enum Command {
 
 #[derive(Subcommand, Debug)]
 pub enum DocCommand {
-    /// DS-1000-1008/1012-1014, DES-482.
-    ///
-    /// `--derives-from <ID>` is repeatable (DS-1003). `--anchor
-    /// <ID>:<text>` and `--note <ID>:<text>` (DS-1004/1005/1006/1007) name
-    /// which `--derives-from <ID>` they bind to by id rather than by
-    /// command-line position — DS-1005's "直前の `--derives-from` に束縛"
-    /// literally describes positional binding, but clap's flat repeated-flag
-    /// model has no ordering-preserving way to interleave three distinct
-    /// flags; id-keyed binding is semantically equivalent (each anchor/note
-    /// still binds to exactly one derives-from target) and does not depend
-    /// on argument order, a disclosed HOW-level implementation choice.
+    /// DS-1681/1683/1684, DES-595. `--path` names an already-built
+    /// `.verify/doc/<name>.json` node-tree file (1 document = 1 JSON
+    /// file). `--derives-from <ID>` is a repeatable bare upstream document
+    /// id (DS-1681: no per-link anchor/note — that shape belongs to the VO
+    /// record's own `derives_from`, not this one).
     Add {
         #[arg(long)]
         id: String,
@@ -133,10 +127,6 @@ pub enum DocCommand {
         title: Option<String>,
         #[arg(long = "derives-from")]
         derives_from: Vec<String>,
-        #[arg(long = "anchor", value_name = "ID:TEXT")]
-        anchor: Vec<String>,
-        #[arg(long = "note", value_name = "ID:TEXT")]
-        note: Vec<String>,
         #[arg(long, conflicts_with = "no_root")]
         root: bool,
         #[arg(long = "no-root", conflicts_with = "root")]
@@ -152,7 +142,7 @@ pub enum DocCommand {
         #[arg(long)]
         roots: bool,
     },
-    /// DS-1009/1017.
+    /// DS-1017/1682.
     Show { id: String },
 }
 
@@ -592,18 +582,6 @@ fn approval_error_exit(
 // doc
 // ---------------------------------------------------------------------------
 
-/// Parses a repeated `ID:TEXT` flag (`--anchor`/`--note`) into `(id, text)`.
-/// A value with no `:` is a usage error (E-OP-001) rather than silently
-/// dropped or mis-split.
-fn parse_id_text_pair(flag: &str, value: &str) -> Result<(String, String), String> {
-    match value.split_once(':') {
-        Some((id, text)) if !id.trim().is_empty() => Ok((id.trim().to_owned(), text.to_owned())),
-        _ => Err(format!(
-            "--{flag} must be of the form ID:TEXT (got '{value}')"
-        )),
-    }
-}
-
 fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: bool) -> ExitCode {
     let root = match resolve_root(project, format, quiet) {
         Ok(root) => root,
@@ -617,63 +595,10 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             path,
             title,
             derives_from,
-            anchor,
-            note,
             root: root_flag,
             no_root,
             update,
         } => {
-            let mut anchors = std::collections::HashMap::new();
-            for value in &anchor {
-                match parse_id_text_pair("anchor", value) {
-                    Ok((id, text)) => {
-                        // DS-1008: a second `--anchor` for the same
-                        // `--derives-from` id is a usage error.
-                        if anchors.insert(id.clone(), text).is_some() {
-                            return usage_failure(
-                                format,
-                                quiet,
-                                "E-OP-001",
-                                &format!(
-                                    "--anchor given more than once for derives-from id '{id}'"
-                                ),
-                            );
-                        }
-                    }
-                    Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-                }
-            }
-            let mut notes = std::collections::HashMap::new();
-            for value in &note {
-                match parse_id_text_pair("note", value) {
-                    Ok((id, text)) => {
-                        notes.insert(id, text);
-                    }
-                    Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-                }
-            }
-            for id in anchors.keys().chain(notes.keys()) {
-                if !derives_from.contains(id) {
-                    // DS-1008: --anchor/--note without a matching
-                    // --derives-from is a usage error.
-                    return usage_failure(
-                        format,
-                        quiet,
-                        "E-OP-001",
-                        &format!(
-                            "--anchor/--note given for '{id}' with no matching --derives-from"
-                        ),
-                    );
-                }
-            }
-            let derives_from = derives_from
-                .into_iter()
-                .map(|doc_id| ops::doc::DerivesFromArg {
-                    anchor: anchors.get(&doc_id).cloned(),
-                    note: notes.get(&doc_id).cloned(),
-                    doc: doc_id,
-                })
-                .collect();
             let root_arg = if root_flag {
                 Some(true)
             } else if no_root {
@@ -742,11 +667,7 @@ fn doc_record_json(record: &vtest_model::DocRegistryRecord) -> serde_json::Value
         "path": record.path,
         "title": record.title,
         "content_hash": record.content_hash.as_str(),
-        "derives_from": record.derives_from.iter().map(|entry| serde_json::json!({
-            "doc": entry.doc,
-            "anchor": entry.anchor,
-            "note": entry.note,
-        })).collect::<Vec<_>>(),
+        "derives_from": record.derives_from,
         "root": record.root,
         "registered_at": record.registered_at,
     })
@@ -775,7 +696,7 @@ fn render_doc_list_text(
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter_map(|entry| entry["doc"].as_str())
+                .filter_map(|entry| entry.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
             out.push_str(&format!("  {id} -> [{derives_from}]\n"));
@@ -825,12 +746,7 @@ fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     }
     out.push_str("derives_from:\n");
     for entry in data["derives_from"].as_array().into_iter().flatten() {
-        out.push_str(&format!(
-            "  {} anchor={:?} note={:?}\n",
-            entry["doc"].as_str().unwrap_or(""),
-            entry["anchor"].as_str(),
-            entry["note"].as_str(),
-        ));
+        out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));
     }
     out
 }

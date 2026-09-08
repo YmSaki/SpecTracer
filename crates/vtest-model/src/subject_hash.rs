@@ -380,6 +380,71 @@ pub fn section_node_subject_hash(node: &SectionNode) -> ContentHash {
         .finish()
 }
 
+/// A registered document's subject hash (DES-595, replacing the retired
+/// DES-482's plain-sha256-of-file-bytes approach): "document subject hash は
+/// 本冊 §1.3 のノード subject hash 定義…に従い、単一ファイルの sha256 を
+/// そのまま subject hash に用いない". DES-595 does not spell out a new
+/// document-level field layout, only that the existing per-node §1.3 rules
+/// apply and a raw file hash must not stand in for them — this function is
+/// the direct application of [`section_node_subject_hash`]'s own "節ノード
+/// は子ノードの subject hash を束縛する" pattern one level up: a
+/// [`crate::DocumentFile`]'s subject hash folds each of its seven layer
+/// arrays' own member hashes (each layer computed by the node-kind-specific
+/// function already established: [`root_node_subject_hash`] for `root`,
+/// [`sentence_node_subject_hash`] for `request`, [`section_node_subject_hash`]
+/// for the five section-shaped layers), each field name matching the
+/// `DocumentFile` field it derives from, in the array's declaration order —
+/// the same "宣言順で encode する" rule DES-587 states for a section's own
+/// `items`/`sections` children.
+pub fn document_file_subject_hash(file: &crate::DocumentFile) -> ContentHash {
+    let root_hashes: Vec<Vec<u8>> = file
+        .root
+        .iter()
+        .map(|node| root_node_subject_hash(node).as_str().as_bytes().to_vec())
+        .collect();
+    let request_hashes: Vec<Vec<u8>> = file
+        .request
+        .iter()
+        .map(|node| {
+            sentence_node_subject_hash(node)
+                .as_str()
+                .as_bytes()
+                .to_vec()
+        })
+        .collect();
+    let section_layer_hashes = |layer: &[SectionNode]| -> Vec<Vec<u8>> {
+        layer
+            .iter()
+            .map(|node| section_node_subject_hash(node).as_str().as_bytes().to_vec())
+            .collect()
+    };
+
+    SubjectHashInput::new(SubjectDomain::DocumentSubject)
+        .field("root", FieldValue::Ordered(root_hashes))
+        .field("request", FieldValue::Ordered(request_hashes))
+        .field(
+            "require",
+            FieldValue::Ordered(section_layer_hashes(&file.require)),
+        )
+        .field(
+            "spec",
+            FieldValue::Ordered(section_layer_hashes(&file.spec)),
+        )
+        .field(
+            "detailed_spec",
+            FieldValue::Ordered(section_layer_hashes(&file.detailed_spec)),
+        )
+        .field(
+            "basic_design",
+            FieldValue::Ordered(section_layer_hashes(&file.basic_design)),
+        )
+        .field(
+            "design",
+            FieldValue::Ordered(section_layer_hashes(&file.design)),
+        )
+        .finish()
+}
+
 /// VO subject hash (domain `vtest:record-subject:v1`, DES-093):
 /// "readerが具体化したcanonical VO recordをfield規則に従って encodeする".
 ///

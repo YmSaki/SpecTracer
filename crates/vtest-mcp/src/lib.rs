@@ -431,17 +431,7 @@ fn tool_input_schema(name: &str) -> Value {
                 "id": {"type": "string"},
                 "path": {"type": "string"},
                 "title": {"type": "string"},
-                "derives_from": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "doc": {"type": "string"},
-                            "anchor": {"type": "string"},
-                            "note": {"type": "string"}
-                        }
-                    }
-                },
+                "derives_from": {"type": "array", "items": {"type": "string"}},
                 "root": {"type": "boolean"},
                 "update": {"type": "boolean"}
             }),
@@ -507,6 +497,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "path")?;
             optional_nonempty_string(args, "title")?;
+            optional_string_array(args, "derives_from")?;
             optional_bool(args, "root")?;
             optional_bool(args, "update")
         }
@@ -756,25 +747,9 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
     let update = bool_arg(args, "update");
     let root_arg = args.get("root").and_then(Value::as_bool);
 
-    let mut derives_from = Vec::new();
-    for entry in args
-        .get("derives_from")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        let Some(doc) = entry.get("doc").and_then(Value::as_str) else {
-            return failure_envelope("E-OP-001", "doc_add derives_from entries require doc");
-        };
-        derives_from.push(ops::doc::DerivesFromArg {
-            doc: doc.to_owned(),
-            anchor: entry
-                .get("anchor")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
-            note: entry.get("note").and_then(Value::as_str).map(str::to_owned),
-        });
-    }
+    // DS-1681: derives_from is a bare list of upstream document ids (no
+    // per-link anchor/note).
+    let derives_from = string_array_arg(args, "derives_from");
 
     match ops::doc::add(
         root,
@@ -836,11 +811,7 @@ fn doc_record_json(record: &vtest_model::DocRegistryRecord) -> Value {
         "path": record.path,
         "title": record.title,
         "content_hash": record.content_hash.as_str(),
-        "derives_from": record.derives_from.iter().map(|entry| json!({
-            "doc": entry.doc,
-            "anchor": entry.anchor,
-            "note": entry.note,
-        })).collect::<Vec<_>>(),
+        "derives_from": record.derives_from,
         "root": record.root,
         "registered_at": record.registered_at,
     })
@@ -1197,7 +1168,13 @@ mod tests {
             command: vtest_cli::Command::Init { name: None },
         });
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
-        fs::write(root.join("basic-spec.md"), "# fixture\n").expect("write source file");
+        // DES-595: `--path` names an already-built node-tree JSON file, the
+        // same shape `.verify/doc/<name>.json` already uses.
+        fs::write(
+            root.join("basic-spec.json"),
+            r#"{"schema_version":"0.1","root":[{"id":"ROOT-001","statement":"fixture root","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"request":[],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#,
+        )
+        .expect("write source file");
 
         let layout = vtest_store::VerifyLayout::new(&root);
         ops::doc::add(
@@ -1205,14 +1182,14 @@ mod tests {
             &layout,
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
-                path: "basic-spec.md".to_owned(),
+                path: "basic-spec.json".to_owned(),
                 title: None,
                 derives_from: Vec::new(),
                 root: None,
                 update: false,
             },
         )
-        .expect("add must succeed against a real source file");
+        .expect("add must succeed against a real node-tree file");
 
         let direct = ops::doc::show(&root, &layout, "DOC-BASIC-001")
             .expect("direct ops::doc::show must succeed");
