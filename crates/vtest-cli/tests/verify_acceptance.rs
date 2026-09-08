@@ -49,6 +49,10 @@ fn verify_command() -> Command {
 /// Running `verify` outside any project is an operation rejection, not a
 /// verification result. DS-929「終了コード`2`は、操作拒否…（検証結果は生成
 /// しない）」。とりわけ「プロジェクトが無いので PASS」には決してならない。
+/// @vtest.id TEST-VERIFY-OUTSIDE-PROJECT-REJECTION
+/// @vtest.covers VO-VERIFY-OUTSIDE-PROJECT-OPERATION-REJECTION
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent verify outside any project is exit 2, never exit 0
 #[test]
 fn verify_outside_a_project_is_an_operation_rejection_not_a_pass() {
     let root = temp_root("no-project");
@@ -61,6 +65,10 @@ fn verify_outside_a_project_is_an_operation_rejection_not_a_pass() {
 
 /// DS-1116「config の `gates` に同名の定義が無ければ E-CONFIG-002・終了コード
 /// 2 で拒否し、検証を実行しない」。
+/// @vtest.id TEST-VERIFY-UNDEFINED-GATE-REJECTED
+/// @vtest.covers VO-VERIFY-UNDEFINED-GATE-NAME-REJECTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an undefined --gate name is rejected with exit 2 before verification runs
 #[test]
 fn an_undefined_gate_name_is_rejected_before_verification_runs() {
     let root = temp_root("unknown-gate");
@@ -78,6 +86,10 @@ fn an_undefined_gate_name_is_rejected_before_verification_runs() {
 
 /// SPEC-400: the retired 12 items are not checks. Naming one is a usage
 /// error, not a silently narrowed scope.
+/// @vtest.id TEST-VERIFY-RETIRED-CHECK-NAME
+/// @vtest.covers VO-VERIFY-RETIRED-CHECK-NAME-USAGE-ERROR
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent naming a retired 12-item check in --items is a usage error, not a silently narrowed scope
 #[test]
 fn a_retired_check_name_is_a_usage_error() {
     let root = temp_root("retired-item");
@@ -94,6 +106,10 @@ fn a_retired_check_name_is_a_usage_error() {
 }
 
 /// DS-1104: the entity axis takes at most one selector.
+/// @vtest.id TEST-VERIFY-COMBINED-ENTITY-SELECTORS
+/// @vtest.covers VO-VERIFY-ENTITY-AXIS-SINGLE-SELECTOR
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent combining --doc and --vo entity selectors is a usage error
 #[test]
 fn combining_entity_selectors_is_a_usage_error() {
     let root = temp_root("two-entities");
@@ -112,6 +128,10 @@ fn combining_entity_selectors_is_a_usage_error() {
 /// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
 /// 検証…がE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。A rejected
 /// configuration is an operation rejection, not an internal error (exit 3).
+/// @vtest.id TEST-SCAN-DOCTOR-REJECTED-CONFIG
+/// @vtest.covers VO-SCAN-DOCTOR-REJECTED-CONFIG-EXIT-TWO
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent a config carrying the retired 12-item enumeration is rejected with exit 2 for both scan and doctor
 #[test]
 fn a_rejected_configuration_is_exit_two_for_scan_and_doctor() {
     let root = temp_root("bad-config");
@@ -138,6 +158,10 @@ fn a_rejected_configuration_is_exit_two_for_scan_and_doctor() {
 /// 項目・欠落・余剰). A configuration naming fewer than the fixed four is
 /// refused outright — never quietly honoured as a narrowed scope, which would
 /// report three unrun checks as though they had passed.
+/// @vtest.id TEST-VERIFY-SUBSET-FULL-SCOPE-REJECTED
+/// @vtest.covers VO-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent a config naming fewer than the fixed four checks in full_scope is rejected outright, never honoured as a narrowed selection
 #[test]
 fn a_subset_full_scope_is_rejected_not_honoured_as_a_selection() {
     let root = temp_root("subset-full-scope");
@@ -167,6 +191,10 @@ fn a_subset_full_scope_is_rejected_not_honoured_as_a_selection() {
 ///
 /// This is the single most important negative case in this file — an empty
 /// repository is exactly the input a false PASS would sail through.
+/// @vtest.id TEST-VERIFY-EMPTY-PROJECT-NOT-OK
+/// @vtest.covers VO-VERIFY-EMPTY-REPOSITORY-NOT-OK
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an empty freshly-initialised project must evaluate and come out NG, never a complete-verification OK
 #[test]
 fn an_empty_project_is_never_a_complete_verification_ok() {
     let root = temp_root("empty");
@@ -189,6 +217,10 @@ fn an_empty_project_is_never_a_complete_verification_ok() {
 ///
 /// The empty-project case above cannot show this, because it never populates
 /// anything; this is the test that proves the wiring works on real records.
+/// @vtest.id TEST-VERIFY-UNCOVERED-LEAF-VO-NG
+/// @vtest.covers VO-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent a populated project with a leaf VO no Test covers must run end to end and land on exit 1 via chain_integrity = MISMATCH
 #[test]
 fn a_populated_project_with_an_uncovered_leaf_vo_is_ng() {
     use vtest_model::{
