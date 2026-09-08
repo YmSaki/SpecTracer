@@ -235,7 +235,7 @@ fn withdraw_writes_a_new_record_referencing_the_original() {
     let withdraw_exit = run(cli(
         &root,
         Command::Approval(ApprovalCommand::Withdraw {
-            approval_id: created_id,
+            approval_id: created_id.clone(),
             approver_kind: ApproverKindArg::Human,
             approver_id: "reviewer".to_owned(),
             model: None,
@@ -247,6 +247,20 @@ fn withdraw_writes_a_new_record_referencing_the_original() {
         approval_record_count(&root),
         2,
         "withdraw must add a record, not mutate the original"
+    );
+
+    // BD-307: the new record's `supersedes` must actually name the id
+    // `withdraw` was given, not merely be present.
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let records = vtest_store::approval::read_all_approvals(&layout).expect("read written records");
+    let withdrawal = records
+        .iter()
+        .find(|record| record.approved_state == "withdrawn")
+        .expect("the withdrawal record must exist");
+    assert_eq!(
+        withdrawal.supersedes,
+        vec![created_id],
+        "the withdrawal record must supersede exactly the approval id it was given"
     );
 }
 

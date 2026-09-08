@@ -444,8 +444,20 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["id", "path"],
         ),
-        "doc_list" => (json!({}), Vec::new()),
-        "doc_get" => (json!({"id": {"type": "string"}}), vec!["id"]),
+        // DS-1194: both tools accept `tree`/`roots`; `doc_get` additionally
+        // requires `id`.
+        "doc_list" => (
+            json!({"tree": {"type": "boolean"}, "roots": {"type": "boolean"}}),
+            Vec::new(),
+        ),
+        "doc_get" => (
+            json!({
+                "id": {"type": "string"},
+                "tree": {"type": "boolean"},
+                "roots": {"type": "boolean"}
+            }),
+            vec!["id"],
+        ),
         _ => (json!({}), Vec::new()),
     };
     let mut schema = json!({
@@ -468,8 +480,8 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
         "doc_upsert" => &["id", "path", "derives_from", "root", "update"],
-        "doc_list" => &[],
-        "doc_get" => &["id"],
+        "doc_list" => &["tree", "roots"],
+        "doc_get" => &["id", "tree", "roots"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -505,8 +517,15 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_bool(args, "root")?;
             optional_bool(args, "update")
         }
-        "doc_list" => Ok(()),
-        "doc_get" => optional_nonempty_string(args, "id").map(|_| ()),
+        "doc_list" => {
+            optional_bool(args, "tree")?;
+            optional_bool(args, "roots")
+        }
+        "doc_get" => {
+            optional_nonempty_string(args, "id")?;
+            optional_bool(args, "tree")?;
+            optional_bool(args, "roots")
+        }
         _ => Ok(()),
     }
 }
@@ -740,21 +759,22 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
         return failure_envelope("E-OP-001", "doc_add requires path");
     };
     let update = bool_arg(args, "update");
-    let derives_from = args
-        .pointer("/derives_from")
-        .and_then(Value::as_array)
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default();
-    // DS-1683: `root` here is a tri-state JSON boolean matching the CLI's
-    // mutually exclusive `--root`/`--no-root` flags — `true`/`false`/absent
-    // (not given at all), not a two-state bool.
-    let root_arg = args.pointer("/root").and_then(Value::as_bool);
+    // DS-1685: distinguish "derives_from key absent" (None -- leave
+    // unchanged) from "derives_from: []" (Some(empty) -- replace with
+    // empty), which JSON can express and the CLI's repeatable-value flag
+    // cannot (see `AddArgs::derives_from`'s doc comment).
+    let derives_from: Option<Vec<String>> = args.get("derives_from").map(|value| {
+        value
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect()
+    });
+    // DS-1195: `root` is a plain bool (absent = false, the JSON-schema
+    // default for an unset boolean property).
+    let root_arg = bool_arg(args, "root");
 
     match ops::doc::add(
         root,
@@ -792,13 +812,49 @@ fn doc_list_tool(root: &Path, _args: &Value) -> Value {
     }
 }
 
+/// DS-1194: `doc_get` accepts `tree`/`roots` alongside `id` (the same
+/// input axis `doc_list` takes). Since a single-document `show` has no
+/// registered-set context of its own, `tree`/`roots` reuse `ops::doc::list`
+/// to compute the same corpus-wide `document_chain`/`roots` `doc_list`
+/// would, and add just this document's own slice of them -- `document_
+/// chain` keyed to `id`'s own resolved parent document ids, `roots` as the
+/// full current root set (there being no single document's "own" root set
+/// to narrow it to).
 fn doc_show_tool(root: &Path, args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "doc_show requires id");
     };
+    let want_tree = bool_arg(args, "tree");
+    let want_roots = bool_arg(args, "roots");
     match ops::doc::show(&layout, id) {
-        Ok(view) => success_envelope(true, doc_view_json(&view), &[]),
+        Ok(result) => {
+            let mut data = doc_view_json(&result.view);
+            data["approval_states"] = json!(result.approval_states);
+            if want_tree || want_roots {
+                match ops::doc::list(&layout) {
+                    Ok(list_result) => {
+                        if want_tree {
+                            data["document_chain"] = json!(list_result
+                                .document_chain
+                                .get(id)
+                                .cloned()
+                                .unwrap_or_default());
+                        }
+                        if want_roots {
+                            data["roots"] = json!(list_result
+                                .records
+                                .iter()
+                                .filter(|record| record.is_root)
+                                .map(|record| record.id.clone())
+                                .collect::<Vec<_>>());
+                        }
+                    }
+                    Err(error) => return doc_error_envelope(&error),
+                }
+            }
+            success_envelope(true, data, &[])
+        }
         Err(error) => doc_error_envelope(&error),
     }
 }
@@ -810,6 +866,7 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
+        "freshness": view.freshness,
     })
 }
 
@@ -1190,8 +1247,8 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                derives_from: Vec::new(),
-                root: None,
+                derives_from: None,
+                root: false,
                 update: false,
             },
         )
@@ -1199,7 +1256,9 @@ mod tests {
 
         let direct =
             ops::doc::show(&layout, "DOC-BASIC-001").expect("direct ops::doc::show must succeed");
-        let direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        let mut direct_data = doc_view_json(&direct.view);
+        direct_data["approval_states"] = json!(direct.approval_states);
+        let direct_envelope = success_envelope(true, direct_data, &[]);
         let mcp_envelope = dispatch_tool(&root, "doc_get", &json!({"id": "DOC-BASIC-001"}));
 
         // DS-1563: same root, same registered document -- content_hash is
@@ -1210,6 +1269,24 @@ mod tests {
             mcp_envelope, direct_envelope,
             "MCP `doc_get` must return the same envelope (data + diagnostics) as the shared \
              `ops::doc::show` the CLI `doc show` wrapper also calls"
+        );
+
+        // DS-1194: `doc_get` accepts `tree`/`roots` (previously rejected
+        // with E-OP-001) and populates `document_chain`/`roots`.
+        let with_tree_and_roots = dispatch_tool(
+            &root,
+            "doc_get",
+            &json!({"id": "DOC-BASIC-001", "tree": true, "roots": true}),
+        );
+        assert_eq!(with_tree_and_roots["ok"], Value::Bool(true));
+        assert!(
+            with_tree_and_roots["data"]["document_chain"].is_array(),
+            "DS-1194: doc_get with tree:true must populate document_chain, got {with_tree_and_roots:?}"
+        );
+        assert_eq!(
+            with_tree_and_roots["data"]["roots"],
+            json!(["DOC-BASIC-001"]),
+            "DS-1194: doc_get with roots:true must populate the current root set"
         );
     }
 
@@ -1329,10 +1406,29 @@ mod tests {
             }),
         );
 
+        // BD-307: `supersedes` must actually name the id `withdraw` was
+        // given, on each side independently -- blindly normalising its
+        // *content* the way `id`/`approved_at` are normalised (as the
+        // previous version of this test did) would hide a real regression
+        // (e.g. an empty or wrong `supersedes`), so this is checked
+        // against each side's own known input before the envelope
+        // comparison below normalises it for the cross-root diff.
+        assert_eq!(
+            mcp_envelope["data"]["supersedes"],
+            json!([mcp_created.id]),
+            "MCP `approval_withdraw` must supersede exactly the id it was given"
+        );
+        assert_eq!(
+            direct_withdrawn.supersedes,
+            vec![direct_created.id.clone()],
+            "direct `ops::approval::withdraw` must supersede exactly the id it was given"
+        );
+
         // DS-1563: compare the full envelope (data + diagnostics) -- `id`/
         // `approved_at` differ per call (fresh ULID/timestamp), and
-        // `supersedes[0]` is each root's own freshly-created id, so
-        // normalise exactly those three rather than a hand-picked subset.
+        // `supersedes[0]` is each root's own freshly-created id (just
+        // verified above against each side's own input), so normalise
+        // exactly those three rather than a hand-picked subset.
         let mut direct_envelope = approval_record_envelope(Ok(direct_withdrawn));
         for envelope in [&mut mcp_envelope, &mut direct_envelope] {
             envelope["data"]["id"] = json!("<id>");
@@ -1343,7 +1439,8 @@ mod tests {
             mcp_envelope, direct_envelope,
             "MCP `approval_withdraw` must return the same envelope (data + diagnostics) as \
              the shared `ops::approval::withdraw` the CLI `approval withdraw` wrapper also \
-             calls, id/approved_at/supersedes normalised (fresh per call)"
+             calls, id/approved_at/supersedes normalised (fresh per call, content verified \
+             above)"
         );
     }
 
@@ -1519,8 +1616,8 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                derives_from: Vec::new(),
-                root: None,
+                derives_from: None,
+                root: false,
                 update: false,
             },
         )
@@ -1581,8 +1678,8 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                derives_from: vec!["ROOT-001".to_owned()],
-                root: None,
+                derives_from: Some(vec!["ROOT-001".to_owned()]),
+                root: false,
                 update: false,
             },
         )
@@ -1649,8 +1746,8 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                derives_from: Vec::new(),
-                root: None,
+                derives_from: None,
+                root: false,
                 update: false,
             },
         )

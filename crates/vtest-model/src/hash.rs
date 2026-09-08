@@ -129,9 +129,10 @@ impl SubjectDomain {
 /// as a zero-length byte run. A one-byte kind tag ahead of the
 /// length-and-bytes payload is the minimal addition that makes the five
 /// payload shapes (absent, scalar, ordered sequence, set, map) mutually
-/// distinguishable regardless of length. This tag is an implementation
-/// necessity, not a literal spec quotation — see the PR report for this
-/// call-out.
+/// distinguishable regardless of length. This is DES-598's own kind tag
+/// (PR #49, `24c3cbe`; previously disclosed as an implementation necessity
+/// derived from 本冊:85 rather than a literal spec quotation — DES-598 now
+/// grounds it directly).
 ///
 /// `ORDERED` and `SET` are distinct tags even though both encode as a
 /// length-prefixed sequence of elements: 本冊:85 requires `cases`

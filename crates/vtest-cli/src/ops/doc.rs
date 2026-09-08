@@ -6,10 +6,16 @@
 //! canonical grounding, and removed (team-lead ruling 2026-09-09; see
 //! `reports/closure-trace.md`).
 
+use std::collections::BTreeMap;
+
 use vtest_store::{
+    approval::{
+        build_document_node_index, document_dependencies, effective_approval_state,
+        read_all_approvals, EffectiveApprovalState,
+    },
     doc_registry::{
-        apply_derives_from, apply_root, doc_exists, document_derives_from, read_all_docs,
-        read_doc_view, read_node_tree, unresolved_derives_from, write_doc, DocView,
+        apply_derives_from, apply_root, doc_exists, document_derives_from, document_node_ids,
+        read_all_docs, read_doc_view, read_node_tree, unresolved_derives_from, write_doc, DocView,
     },
     StoreError, VerifyLayout,
 };
@@ -25,16 +31,20 @@ pub enum DocOpError {
 pub struct AddArgs {
     pub id: String,
     pub path: String,
-    /// DS-1003/1681: bare upstream node ids to write onto every top-level
-    /// node's own `derives_from` (empty = leave the file's own content
-    /// untouched).
-    pub derives_from: Vec<String>,
-    /// DS-1683: `Some(true)` = `--root` (asserts the source file's
-    /// top-level content is entirely `root[]`), `Some(false)` =
-    /// `--no-root` (asserts `root[]` is empty), `None` = neither flag
-    /// given (no check; register the file's own layer assignment
-    /// unchanged). See `vtest_store::doc_registry::apply_root`.
-    pub root: Option<bool>,
+    /// DS-1003/1681/1685: bare upstream node ids to write onto every
+    /// top-level node's own `derives_from`. `None` = the argument was not
+    /// given (leave the file's own content untouched); `Some(ids)` =
+    /// given, replacing every top-level node's `derives_from` with `ids`
+    /// (DS-1685: replace, not append) even when `ids` is empty (clears
+    /// them) -- see `vtest_store::doc_registry::apply_derives_from`'s doc
+    /// comment for why this must not collapse to the same `Vec<String>`
+    /// an omitted argument would produce.
+    pub derives_from: Option<Vec<String>>,
+    /// DS-1195: a plain bool. `true` asserts the source file's top-level
+    /// content is entirely `root[]`; `false` performs no check (register
+    /// the file's own layer assignment unchanged). See
+    /// `vtest_store::doc_registry::apply_root`.
+    pub root: bool,
     pub update: bool,
 }
 
@@ -66,7 +76,7 @@ pub fn add(
 
     let mut file = read_node_tree(project_root, &args.path)?;
     apply_root(&file, args.root).map_err(|error| DocOpError::Usage(error.to_string()))?;
-    apply_derives_from(&mut file, &args.derives_from)
+    apply_derives_from(&mut file, args.derives_from.as_deref())
         .map_err(|error| DocOpError::Usage(error.to_string()))?;
     write_doc(layout, &args.id, &file)?;
     Ok(read_doc_view(layout, &args.id)?)
@@ -100,17 +110,46 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
     })
 }
 
-/// DS-1017/1682: returns id・path（`.verify/doc/<id>.json`自身の現在地、
-/// 元の`--path`引数ではない — DES-585/595により保存されていないため）・
-/// content_hash（都度計算）・derives_from（参照先ノード id の並びのみ、
-/// DS-1682）・根指定（`root[]` の有無から導出）。DS-1017
-/// の「鮮度（content_hash と実ファイルの一致）」は実装していない —
-/// `.verify/doc/<id>.json` 自体が正典の内容であり、比較対象となる「別の
-/// 実ファイル」が正本のどこにも定義されていないため（stopped_on 参照）。
-/// 実効承認状態は `ops::approval::show` の対象種別 `document` 経由で別途
-/// 取得できる（BD-306「対象種別ごとに別の承認規則・別の承認コマンドを
-/// 設けない」により、`doc show` 側で二重に計算しない）。
-pub fn show(layout: &VerifyLayout, id: &str) -> Result<DocView, DocOpError> {
-    read_doc_view(layout, id)
-        .map_err(|_| DocOpError::Usage(format!("no document '{id}' is registered")))
+/// DS-1017/1682 output: `view` carries id・path・content_hash・
+/// derives_from（参照先ノード id の並びのみ、DS-1682）・根指定・鮮度
+/// （`DocView.freshness`、常に`true` — 都度計算のため独立して古くなる
+/// 対象が無い）。`approval_states` は「実効承認状態」（node id →
+/// `draft`/`approved`）— Approvalの`document` subject_typeはノード単位で
+/// 束縛される（DS-1051）ため、登録document（複数ノードを持ちうる）1件に
+/// 対して単一のスカラー値ではなく、文書が持つ全トップレベルノードごとの
+/// 実効承認状態のmapとして返す。
+pub struct ShowResult {
+    pub view: DocView,
+    pub approval_states: BTreeMap<String, String>,
+}
+
+pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
+    let view = read_doc_view(layout, id)
+        .map_err(|_| DocOpError::Usage(format!("no document '{id}' is registered")))?;
+
+    let doc_index = build_document_node_index(layout)?;
+    let approvals = read_all_approvals(layout)?;
+    let mut approval_states = BTreeMap::new();
+    for node_id in document_node_ids(&view.file) {
+        let Some((hash, _)) = doc_index.get(&node_id) else {
+            continue;
+        };
+        let dependencies = document_dependencies(&doc_index, &node_id);
+        let matching: Vec<_> = approvals
+            .iter()
+            .filter(|record| record.subject_type == "document" && record.subject == node_id)
+            .cloned()
+            .collect();
+        let state = effective_approval_state(&matching, "document", &node_id, hash, &dependencies);
+        let label = match state {
+            EffectiveApprovalState::Draft => "draft",
+            EffectiveApprovalState::Approved => "approved",
+        };
+        approval_states.insert(node_id, label.to_owned());
+    }
+
+    Ok(ShowResult {
+        view,
+        approval_states,
+    })
 }

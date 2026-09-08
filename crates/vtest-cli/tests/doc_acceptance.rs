@@ -140,7 +140,7 @@ fn update_recomputes_content_hash_from_the_current_file() {
 
     let layout = vtest_store::VerifyLayout::new(&root);
     let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
-    assert_eq!(view.file.root[0].statement, "fixture root, changed");
+    assert_eq!(view.view.file.root[0].statement, "fixture root, changed");
 }
 
 /// A `--path` that does not resolve to a valid node-tree JSON file is
@@ -228,8 +228,56 @@ fn derives_from_writes_onto_every_top_level_node() {
     let layout = vtest_store::VerifyLayout::new(&root);
     let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(
-        view.file.request[0].derives_from,
+        view.view.file.request[0].derives_from,
         vec![vtest_model::DocumentId::new("ROOT-001")]
+    );
+}
+
+/// DS-1685/1686: `--derives-from` **replaces** each top-level node's
+/// existing `derives_from` (not appends to it, DS-1685) and applies the
+/// same new id list **uniformly to every** top-level node (DS-1686), not
+/// just the first one — a fixture with a single populated node cannot
+/// distinguish "wrote onto every node" from "wrote onto the only node",
+/// so this uses two request-layer nodes, each pre-populated with a
+/// different existing value the new `--derives-from` call must overwrite.
+#[test]
+fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
+    let root = temp_root("derives-from-replace-uniform");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_two_requests = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [
+            {"id":"R-001","statement":"first","derives_from":["ROOT-001"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}},
+            {"id":"R-002","statement":"second","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}
+        ],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_two_requests).expect("write source file");
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: vec!["ROOT-999".to_owned()],
+            root: false,
+            no_root: false,
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let expected = vec![vtest_model::DocumentId::new("ROOT-999")];
+    assert_eq!(
+        view.view.file.request[0].derives_from, expected,
+        "R-001's prior derives_from (ROOT-001) must be replaced, not appended to"
+    );
+    assert_eq!(
+        view.view.file.request[1].derives_from, expected,
+        "DS-1686: the same new id list must apply uniformly to every top-level node, not \
+         just the first"
     );
 }
 
@@ -253,6 +301,111 @@ fn derives_from_on_a_root_only_document_is_a_usage_error() {
         }),
     ));
     assert_eq!(exit, ExitCode::Usage);
+}
+
+/// DS-1685: `derives_from: None` (the argument not given at all) and
+/// `derives_from: Some(&[])` (given, with zero ids) must behave
+/// differently -- `None` leaves an existing `derives_from` untouched on
+/// `--update`, `Some(empty)` replaces it with empty (clears it). The CLI's
+/// own repeatable-value flag cannot express `Some(empty)` (see
+/// `ops::doc::AddArgs::derives_from`'s doc comment), so this calls
+/// `ops::doc::add` directly, the same function both the CLI and MCP
+/// dispatch to.
+#[test]
+fn derives_from_none_vs_some_empty_are_distinct_on_update() {
+    let root = temp_root("derives-from-none-vs-empty");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    // The source file already declares derives_from: [ROOT-001] -- `--update`
+    // re-reads `--path` fresh each call (DES-595's registration act), so
+    // this fixture's own content, not a prior registration's mutated
+    // state, is what `derives_from: None` must be shown to leave alone.
+    let with_request = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [{"id":"R-001","statement":"fixture requirement","derives_from":["ROOT-001"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    vtest_cli::ops::doc::add(
+        &root,
+        &layout,
+        vtest_cli::ops::doc::AddArgs {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: None,
+            root: false,
+            update: false,
+        },
+    )
+    .expect("initial add must succeed");
+
+    // `--update` with `derives_from: None` must leave it untouched.
+    vtest_cli::ops::doc::add(
+        &root,
+        &layout,
+        vtest_cli::ops::doc::AddArgs {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: None,
+            root: false,
+            update: true,
+        },
+    )
+    .expect("update with derives_from: None must succeed");
+    let after_none = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
+    assert_eq!(
+        after_none.view.file.request[0].derives_from,
+        vec![vtest_model::DocumentId::new("ROOT-001")],
+        "derives_from: None must leave the existing value untouched"
+    );
+
+    // `--update` with `derives_from: Some(&[])` must clear it.
+    vtest_cli::ops::doc::add(
+        &root,
+        &layout,
+        vtest_cli::ops::doc::AddArgs {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: Some(Vec::new()),
+            root: false,
+            update: true,
+        },
+    )
+    .expect("update with derives_from: Some(empty) must succeed");
+    let after_empty = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
+    assert!(
+        after_empty.view.file.request[0].derives_from.is_empty(),
+        "derives_from: Some(empty) must clear the existing value, not leave it untouched"
+    );
+}
+
+/// DS-1017: `doc show` reports `freshness` (structurally always `true` --
+/// see `DocView::freshness`'s doc comment) and `approval_states` (node id
+/// -> `draft`/`approved`, one entry per top-level node the document owns
+/// -- Approval's `document` subject_type binds per node, DS-1051). A
+/// document with no Approval record for any of its nodes reads `draft`
+/// for every one.
+#[test]
+fn show_reports_freshness_and_per_node_approval_states() {
+    let root = temp_root("show-freshness-approval-states");
+    build_fixture_project(&root); // FIXTURE_NODE_TREE's single node is ROOT-001
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert!(
+        result.view.freshness,
+        "freshness must always be true in this architecture"
+    );
+    assert_eq!(
+        result.approval_states.get("ROOT-001").map(String::as_str),
+        Some("draft"),
+        "a node with no Approval record must read draft"
+    );
 }
 
 /// DS-1683/DS-1658: `--root` succeeds when the source file's own top-level
@@ -279,7 +432,7 @@ fn root_flag_accepts_a_source_file_that_is_already_all_root() {
 
     let layout = vtest_store::VerifyLayout::new(&root);
     let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
-    assert!(view.is_root);
+    assert!(view.view.is_root);
 }
 
 /// DS-1683/DS-1658: `--root` is rejected against a source file whose
@@ -307,12 +460,17 @@ fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
     assert_eq!(exit, ExitCode::Usage);
 }
 
-/// DS-1683: `--no-root` is rejected against a source file whose own
-/// `root[]` is already non-empty (reconstructing what it would take to
-/// move those nodes out is undefined).
+/// DS-1195: `root` is a plain bool, so `--no-root` and omitting both flags
+/// are now behaviourally identical (no assertion) -- `--no-root` against a
+/// source file whose own `root[]` is non-empty succeeds, the same as
+/// registering it with neither flag given (see `apply_root`'s doc
+/// comment; the previous round's separate "explicit --no-root asserts
+/// root[] is empty" behavior was folded away by the `Option<bool>` ->
+/// `bool` correction, since DS-1195 gives `root` no third state to carry
+/// that assertion).
 #[test]
-fn no_root_flag_on_an_already_root_document_is_a_usage_error() {
-    let root = temp_root("no-root-flag-already-root");
+fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
+    let root = temp_root("no-root-flag-noop");
     build_fixture_project(&root); // FIXTURE_NODE_TREE's root[] has ROOT-001
     let exit = run(cli(
         &root,
@@ -325,7 +483,7 @@ fn no_root_flag_on_an_already_root_document_is_a_usage_error() {
             update: false,
         }),
     ));
-    assert_eq!(exit, ExitCode::Usage);
+    assert_eq!(exit, ExitCode::Ok);
 }
 
 /// DS-1015: `doc list --tree` renders the `derives_from` chain as a nested
@@ -367,6 +525,24 @@ fn list_tree_renders_a_nested_derives_from_tree() {
     assert!(
         child_indent > 0,
         "DOC-CHILD must be indented under DOC-PARENT in the tree, got:\n{rendered}"
+    );
+}
+
+/// A document reachable only through a cycle (every document on the cycle
+/// has *some* `derives_from` edge, so none of them is a display root) must
+/// not silently vanish from `--tree`'s output -- it must still appear
+/// somewhere, rather than being dropped because it was never reached by a
+/// walk starting from an actual root.
+#[test]
+fn list_tree_does_not_drop_a_document_reachable_only_through_a_cycle() {
+    use std::collections::BTreeMap;
+    let mut chain = BTreeMap::new();
+    chain.insert("DOC-A".to_owned(), vec!["DOC-B".to_owned()]);
+    chain.insert("DOC-B".to_owned(), vec!["DOC-A".to_owned()]);
+    let rendered = vtest_cli::render_doc_tree(&chain);
+    assert!(
+        rendered.contains("DOC-A") && rendered.contains("DOC-B"),
+        "both documents in the cycle must appear in the rendered tree, got:\n{rendered}"
     );
 }
 

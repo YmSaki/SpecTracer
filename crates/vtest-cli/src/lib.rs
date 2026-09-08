@@ -125,14 +125,18 @@ pub enum DocCommand {
         /// file's own content untouched; DS-1003's "0件可＝根候補").
         #[arg(long = "derives-from")]
         derives_from: Vec<String>,
-        /// DS-1683: asserts the source file's own top-level content is
-        /// entirely `root[]`-layer (rejected otherwise — DS-1658 ties a
+        /// DS-1195/1683: a plain bool (matching MCP `doc_upsert`'s own
+        /// `root: bool`). Asserts the source file's own top-level content
+        /// is entirely `root[]`-layer (rejected otherwise — DS-1658 ties a
         /// node's id prefix to its layer, so this cannot move a node into
         /// `root[]`; see `vtest_store::doc_registry::apply_root`).
         #[arg(long, conflicts_with = "no_root")]
         root: bool,
-        /// DS-1683: asserts the source file's own `root[]` layer is empty
-        /// (rejected otherwise, for the same DS-1658 reason as `--root`).
+        /// BD-331 names this flag alongside `--root`; behaviourally
+        /// identical to omitting both flags (DS-1195 defines `root` as a
+        /// bool, not a three-valued domain, so there is no distinct
+        /// "explicitly not root" assertion left to make — see
+        /// `apply_root`'s doc comment).
         #[arg(long = "no-root", conflicts_with = "root")]
         no_root: bool,
         #[arg(long)]
@@ -605,14 +609,25 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             path,
             derives_from,
             root: root_flag,
-            no_root,
+            no_root: _,
             update,
         } => {
-            let root_arg = match (root_flag, no_root) {
-                (true, false) => Some(true),
-                (false, true) => Some(false),
-                (false, false) => None,
-                (true, true) => unreachable!("clap `conflicts_with` rejects --root --no-root"),
+            // DS-1195: `root` is a plain bool -- `--root` asserts, and
+            // `--no-root`/omitting both flags are now behaviourally
+            // identical (no assertion), see `apply_root`'s doc comment.
+            // `--no-root` is kept as a CLI flag (BD-331 names both flags)
+            // but no longer carries distinct semantics from the default.
+            //
+            // DS-1685: a repeatable-value clap flag cannot distinguish
+            // "given, zero times" from "never given" the way MCP's JSON
+            // `"derives_from": []` vs an absent key can -- this is a
+            // disclosed limitation of the CLI flag's own shape (see
+            // `apply_derives_from`'s doc comment), not something this
+            // mapping invents a workaround for.
+            let derives_from = if derives_from.is_empty() {
+                None
+            } else {
+                Some(derives_from)
             };
             match ops::doc::add(
                 &root,
@@ -621,7 +636,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                     id,
                     path,
                     derives_from,
-                    root: root_arg,
+                    root: root_flag,
                     update,
                 },
             ) {
@@ -654,8 +669,9 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             Err(error) => doc_error_exit(&error, format, quiet),
         },
         DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
-            Ok(view) => {
-                let data = doc_view_json(&view);
+            Ok(result) => {
+                let mut data = doc_view_json(&result.view);
+                data["approval_states"] = serde_json::json!(result.approval_states);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, render_doc_show_text);
                 ExitCode::Ok
@@ -672,6 +688,7 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
+        "freshness": view.freshness,
     })
 }
 
@@ -744,7 +761,7 @@ fn render_doc_list_text(
 /// already on the current path is a cycle and is marked rather than
 /// recursed into, since the registered set is untrusted input.
 pub fn render_doc_tree(chain: &std::collections::BTreeMap<String, Vec<String>>) -> String {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
 
     let mut children: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (id, parents) in chain {
@@ -754,14 +771,42 @@ pub fn render_doc_tree(chain: &std::collections::BTreeMap<String, Vec<String>>) 
     }
 
     let mut out = String::new();
+    let mut visited: BTreeSet<String> = BTreeSet::new();
     let display_roots: Vec<&String> = chain
         .keys()
         .filter(|id| chain.get(*id).is_none_or(Vec::is_empty))
         .collect();
     for root in display_roots {
         render_doc_tree_node(root, &children, 0, &mut vec![root.clone()], &mut out);
+        visited.insert(root.clone());
+        collect_descendants(root, &children, &mut visited);
+    }
+    // A document reachable only through a cycle (every document on its own
+    // connected component has *some* `derives_from` edge, so none of them
+    // is empty-parents and none was picked up as a display root above)
+    // must not silently vanish from the tree -- render one entry per
+    // remaining unvisited id, in id order, as its own top-level (marked)
+    // node rather than recursing into it again.
+    for id in chain.keys() {
+        if !visited.contains(id) {
+            render_doc_tree_node(id, &children, 0, &mut vec![id.clone()], &mut out);
+            visited.insert(id.clone());
+            collect_descendants(id, &children, &mut visited);
+        }
     }
     out
+}
+
+fn collect_descendants(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    visited: &mut std::collections::BTreeSet<String>,
+) {
+    for child in children.get(id).into_iter().flatten() {
+        if visited.insert(child.clone()) {
+            collect_descendants(child, children, visited);
+        }
+    }
 }
 
 fn render_doc_tree_node(
@@ -789,15 +834,22 @@ fn render_doc_tree_node(
 fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     let data = &envelope.data;
     let mut out = format!(
-        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
+        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\nfreshness: {}\n",
         data["id"].as_str().unwrap_or(""),
         data["path"].as_str().unwrap_or(""),
         data["content_hash"].as_str().unwrap_or(""),
         data["root"].as_bool().unwrap_or(false),
+        data["freshness"].as_bool().unwrap_or(false),
     );
     out.push_str("derives_from:\n");
     for entry in data["derives_from"].as_array().into_iter().flatten() {
         out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));
+    }
+    if let Some(states) = data["approval_states"].as_object() {
+        out.push_str("approval_states:\n");
+        for (node_id, state) in states {
+            out.push_str(&format!("  {node_id}: {}\n", state.as_str().unwrap_or("")));
+        }
     }
     out
 }

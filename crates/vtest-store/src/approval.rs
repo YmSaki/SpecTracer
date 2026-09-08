@@ -462,6 +462,78 @@ mod tests {
         assert_eq!(state, EffectiveApprovalState::Draft);
     }
 
+    /// DS-1467's "対象指定が一致すること" (subject identity match) condition:
+    /// a record for a *different* subject entirely (either a different
+    /// `subject_type` or a different `subject` id) must never count toward
+    /// this subject's effective state, even if its `subject_hash` and
+    /// `dependencies` happen to be otherwise well-formed.
+    #[test]
+    fn effective_state_ignores_a_record_for_a_different_subject() {
+        let wrong_type = approval_record(
+            "01A",
+            "document",
+            "VO-X",
+            hash("content"),
+            Vec::new(),
+            "approved",
+            Vec::new(),
+        );
+        let wrong_id = approval_record(
+            "01B",
+            "vo",
+            "VO-OTHER",
+            hash("content"),
+            Vec::new(),
+            "approved",
+            Vec::new(),
+        );
+        let state =
+            effective_approval_state(&[wrong_type, wrong_id], "vo", "VO-X", &hash("content"), &[]);
+        assert_eq!(
+            state,
+            EffectiveApprovalState::Draft,
+            "neither record targets (vo, VO-X), so neither may contribute to its effective \
+             state"
+        );
+    }
+
+    /// DS-1467's "dependencies の entity・hash とも完全一致" condition: a
+    /// record whose `dependencies` entity *set* differs from the current
+    /// closure (a missing or an extra entity) is invalid, distinctly from
+    /// the already-covered case of a matching entity with a differing
+    /// hash.
+    #[test]
+    fn effective_state_drops_a_record_whose_dependency_entity_set_differs() {
+        let record = approval_record(
+            "01A",
+            "vo",
+            "VO-X",
+            hash("content"),
+            vec![DependencyRecord {
+                entity: "ROOT-001".to_owned(),
+                hash: hash("root"),
+            }],
+            "approved",
+            Vec::new(),
+        );
+        // Current closure has an *additional* entity the record never
+        // named -- same-hash-for-shared-entities is not enough; the sets
+        // themselves must match exactly.
+        let current_deps = [
+            DependencyRecord {
+                entity: "ROOT-001".to_owned(),
+                hash: hash("root"),
+            },
+            DependencyRecord {
+                entity: "ROOT-002".to_owned(),
+                hash: hash("root2"),
+            },
+        ];
+        let state =
+            effective_approval_state(&[record], "vo", "VO-X", &hash("content"), &current_deps);
+        assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+
     /// DS-1467: a record whose `dependencies` no longer match the subject's
     /// current dependency closure (entity or hash) is invalid for the same
     /// reason -- currentness is bound to both axes, not just the subject's
