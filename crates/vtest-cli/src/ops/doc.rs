@@ -45,6 +45,15 @@ pub struct AddArgs {
     /// the file's own layer assignment unchanged). See
     /// `vtest_store::doc_registry::apply_root`.
     pub root: bool,
+    /// DS-1683「根指定は…新規登録時にのみ定まり…登録後は変更しない」/
+    /// BD-331 (同旨、両ノードとも `233caec`/PR #50 で書き換え。旧 DS-1014
+    /// 「`--update` は `--root`/`--no-root` を併せて根指定も更新できる」は
+    /// この裁定と両立せず退役済み). Whether `--root`/`--no-root` was given
+    /// at all (regardless of its value), independent of `root`'s own bool
+    /// value -- needed only to detect and reject the forbidden combination
+    /// with `update: true`; `root`'s value itself is never consulted when
+    /// `update` is `true`.
+    pub root_specified: bool,
     pub update: bool,
 }
 
@@ -73,9 +82,21 @@ pub fn add(
             args.id
         )));
     }
+    if args.update && args.root_specified {
+        return Err(DocOpError::Usage(
+            "--root/--no-root cannot be combined with --update: DS-1683/BD-331 fix the root \
+             designation at initial registration only and forbid changing it afterward"
+                .to_owned(),
+        ));
+    }
 
     let mut file = read_node_tree(project_root, &args.path)?;
-    apply_root(&file, args.root).map_err(|error| DocOpError::Usage(error.to_string()))?;
+    // DS-1683: root designation is never touched on --update (checked
+    // above); apply_root only ever runs its assertion on initial
+    // registration.
+    if !args.update {
+        apply_root(&file, args.root).map_err(|error| DocOpError::Usage(error.to_string()))?;
+    }
     apply_derives_from(&mut file, args.derives_from.as_deref())
         .map_err(|error| DocOpError::Usage(error.to_string()))?;
     write_doc(layout, &args.id, &file)?;
@@ -111,21 +132,24 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
 }
 
 /// DS-1017/1682 output: `view` carries id・path・content_hash・
-/// derives_from（参照先ノード id の並びのみ、DS-1682）・根指定・鮮度
-/// （`DocView.freshness`、常に`true` — その理由は`DocView::freshness`の
-/// doc comment、および`reports/closure-trace.md`のstopped_on参照）。
+/// derives_from（参照先ノード id の並びのみ、DS-1682）・根指定。
 ///
-/// `approval_states`（「実効承認状態」、node id → `draft`/`approved`）:
-/// **この node id → 状態 の map という形自体、正本の直接引用ではない。**
-/// DS-1017は「実効承認状態」を単数のものとして`doc show`の出力に挙げるが、
-/// Approvalの`document` subject_typeはノード単位で束縛される（DS-1051）
-/// 一方、正本には「登録document（複数ノードを持ちうる、DES-585/595）
-/// 1件」を集約する単位が定義されていない。ノードごとのmapとして返す
-/// 実装判断は、正本に無い集約規則をこのモジュールが発明したことになる
-/// ため、`reports/closure-trace.md`のstopped_onに開示し、上流判断を
-/// 仰いでいる。
+/// `freshness`（DS-1017新: 「当該document subject hash〔DES-572〕と、
+/// 当該documentをdependencyに含む承認・判断記録が保存したdependency
+/// entryのhashとの一致（DS-862・DS-1601・DS-1605）」、`233caec`/PR #50で
+/// 明文化）: node id → `Some(true)`（一致=鮮度あり）/`Some(false)`
+/// （不一致=陳腐化）/`None`（この node をdependencyとして含む承認・判断
+/// 記録が1件も無い＝比較対象なし、真偽に丸めない）。判断記録ドメインは
+/// このコードベースに存在しないため、承認記録のみを対象とする（DS-1052
+/// 同様の開示、`reports/closure-trace.md`参照）。
+///
+/// `approval_states`（「実効承認状態」、node id → `draft`/`approved`、
+/// DS-1466）: DS-1017新は「各トップレベルノードの id を subject とする
+/// 実効承認」と明文化した（`233caec`/PR #50）。node id → 状態 の map と
+/// いう形は、この明文引用と一致する。
 pub struct ShowResult {
     pub view: DocView,
+    pub freshness: BTreeMap<String, Option<bool>>,
     pub approval_states: BTreeMap<String, String>,
 }
 
@@ -136,10 +160,30 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
     let doc_index = build_document_node_index(layout)?;
     let approvals = read_all_approvals(layout)?;
     let mut approval_states = BTreeMap::new();
+    let mut freshness = BTreeMap::new();
     for node_id in document_node_ids(&view.file) {
         let Some((hash, _)) = doc_index.get(&node_id) else {
             continue;
         };
+
+        // DS-1017 new: fresh iff every dependency entry (across every
+        // approval record) naming this node id as `entity` still carries
+        // this node's *current* subject hash; stale if any entry
+        // disagrees (DS-862/1601/1605); no comparison target at all if no
+        // record depends on this node.
+        let recorded_hashes: Vec<_> = approvals
+            .iter()
+            .flat_map(|record| &record.dependencies)
+            .filter(|dependency| dependency.entity == node_id)
+            .map(|dependency| &dependency.hash)
+            .collect();
+        let node_freshness = if recorded_hashes.is_empty() {
+            None
+        } else {
+            Some(recorded_hashes.iter().all(|recorded| *recorded == hash))
+        };
+        freshness.insert(node_id.clone(), node_freshness);
+
         let dependencies = document_dependencies(&doc_index, &node_id);
         let matching: Vec<_> = approvals
             .iter()
@@ -156,6 +200,7 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
 
     Ok(ShowResult {
         view,
+        freshness,
         approval_states,
     })
 }

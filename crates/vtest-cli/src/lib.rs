@@ -609,7 +609,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             path,
             derives_from,
             root: root_flag,
-            no_root: _,
+            no_root,
             update,
         } => {
             // DS-1195: `root` is a plain bool -- `--root` asserts, and
@@ -617,6 +617,13 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             // identical (no assertion), see `apply_root`'s doc comment.
             // `--no-root` is kept as a CLI flag (BD-331 names both flags)
             // but no longer carries distinct semantics from the default.
+            //
+            // DS-1683/BD-331 (`233caec`/PR #50): root designation is fixed
+            // at initial registration only; `--root`/`--no-root` given
+            // alongside `--update` is rejected (`ops::doc::add` enforces
+            // this given `root_specified`, since the retired DS-1014 was
+            // the only ground for allowing it).
+            let root_specified = root_flag || no_root;
             //
             // DS-1685: a repeatable-value clap flag cannot distinguish
             // "given, zero times" from "never given" the way MCP's JSON
@@ -637,6 +644,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                     path,
                     derives_from,
                     root: root_flag,
+                    root_specified,
                     update,
                 },
             ) {
@@ -671,6 +679,11 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
         DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
             Ok(result) => {
                 let mut data = doc_view_json(&result.view);
+                // DS-1017 new: `freshness` here overrides `doc_view_json`'s
+                // coarse per-document placeholder with the actual
+                // per-node, cross-referencing computation -- see
+                // `ShowResult`'s doc comment.
+                data["freshness"] = serde_json::json!(result.freshness);
                 data["approval_states"] = serde_json::json!(result.approval_states);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, render_doc_show_text);
@@ -834,16 +847,29 @@ fn render_doc_tree_node(
 fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     let data = &envelope.data;
     let mut out = format!(
-        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\nfreshness: {}\n",
+        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
         data["id"].as_str().unwrap_or(""),
         data["path"].as_str().unwrap_or(""),
         data["content_hash"].as_str().unwrap_or(""),
         data["root"].as_bool().unwrap_or(false),
-        data["freshness"].as_bool().unwrap_or(false),
     );
     out.push_str("derives_from:\n");
     for entry in data["derives_from"].as_array().into_iter().flatten() {
         out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));
+    }
+    // DS-1017 new: per-node, three-valued (fresh/stale/no comparison
+    // target) -- rendered as `<node>: true|false|none`, never rounded to
+    // a single bool.
+    if let Some(states) = data["freshness"].as_object() {
+        out.push_str("freshness:\n");
+        for (node_id, value) in states {
+            let rendered = match value.as_bool() {
+                Some(true) => "true".to_owned(),
+                Some(false) => "false".to_owned(),
+                None => "none (no comparison target)".to_owned(),
+            };
+            out.push_str(&format!("  {node_id}: {rendered}\n"));
+        }
     }
     if let Some(states) = data["approval_states"].as_object() {
         out.push_str("approval_states:\n");

@@ -335,6 +335,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
             path: "basic-spec.json".to_owned(),
             derives_from: None,
             root: false,
+            root_specified: false,
             update: false,
         },
     )
@@ -349,6 +350,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
             path: "basic-spec.json".to_owned(),
             derives_from: None,
             root: false,
+            root_specified: false,
             update: true,
         },
     )
@@ -369,6 +371,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
             path: "basic-spec.json".to_owned(),
             derives_from: Some(Vec::new()),
             root: false,
+            root_specified: false,
             update: true,
         },
     )
@@ -397,14 +400,87 @@ fn show_reports_freshness_and_per_node_approval_states() {
 
     let layout = vtest_store::VerifyLayout::new(&root);
     let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
-    assert!(
-        result.view.freshness,
-        "freshness must always be true in this architecture"
+    assert_eq!(
+        result.freshness.get("ROOT-001").copied(),
+        Some(None),
+        "DS-1017 new: no Approval record depends on ROOT-001, so there is no comparison \
+         target -- None, not rounded to Some(true)"
     );
     assert_eq!(
         result.approval_states.get("ROOT-001").map(String::as_str),
         Some("draft"),
         "a node with no Approval record must read draft"
+    );
+}
+
+/// DS-1017 new: a node id that some *other* subject's Approval record
+/// lists in its `dependencies[]`, with a hash matching that node's
+/// *current* subject hash, reads `Some(true)` (fresh) -- the positive
+/// comparison path, not just the "no comparison target" case above. Uses
+/// a VO deriving from a request node that itself derives from ROOT-001,
+/// so approving that VO records ROOT-001 as a dependency entry (via the
+/// document ancestor closure, DS-1487) without ROOT-001 ever being an
+/// approval *subject* itself.
+#[test]
+fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
+    use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};
+
+    let root = temp_root("show-freshness-fresh");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_request = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [{"id":"R-001","statement":"fixture requirement","derives_from":["ROOT-001"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    vtest_store::write_vo_record(
+        &layout,
+        &VoRecord {
+            id: VoId::new("VO-FRESHNESS-CHECK"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("R-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "fixture claim".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-10T00:00:00Z".to_owned(),
+            updated: "2026-09-10T00:00:00Z".to_owned(),
+        },
+    )
+    .expect("write VO record");
+
+    vtest_cli::ops::approval::create(
+        &layout,
+        vtest_cli::ops::approval::CreateArgs {
+            subject_type: "vo".to_owned(),
+            subject_id: "VO-FRESHNESS-CHECK".to_owned(),
+            approved_state: "approved".to_owned(),
+            approver_kind: "human".to_owned(),
+            approver_id: "reviewer".to_owned(),
+            approver_model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        },
+    )
+    .expect("approval create must succeed against a resolvable VO subject");
+
+    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert_eq!(
+        result.freshness.get("ROOT-001").copied(),
+        Some(Some(true)),
+        "the just-written VO approval's dependency closure includes ROOT-001 with its \
+         current hash, so ROOT-001 must read fresh (Some(true)), not no-comparison-target"
     );
 }
 
@@ -484,6 +560,55 @@ fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
         }),
     ));
     assert_eq!(exit, ExitCode::Ok);
+}
+
+/// DS-1683/BD-331 (`233caec`/PR #50): root designation is fixed at
+/// initial registration only -- `--root`/`--no-root` combined with
+/// `--update` is a usage rejection, not a silently-applied or silently
+/// -ignored change (the retired DS-1014 was the only ground for allowing
+/// `--update` to also change root designation).
+#[test]
+fn root_flag_combined_with_update_is_a_usage_error() {
+    let root = temp_root("root-flag-with-update");
+    build_fixture_project(&root);
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: Vec::new(),
+            root: true,
+            no_root: false,
+            update: true,
+        }),
+    ));
+    assert_eq!(
+        exit,
+        ExitCode::Usage,
+        "--root combined with --update must be rejected, not silently applied"
+    );
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: Vec::new(),
+            root: false,
+            no_root: true,
+            update: true,
+        }),
+    ));
+    assert_eq!(
+        exit,
+        ExitCode::Usage,
+        "--no-root combined with --update must be rejected too, not silently ignored"
+    );
 }
 
 /// DS-1015: `doc list --tree` renders the `derives_from` chain as a nested

@@ -52,18 +52,22 @@ pub struct DocView {
     /// layer arrays (DS-1681/1682's "参照先ノード id の並び" as observed
     /// directly in the node tree, not a separate document-level field).
     pub derives_from: Vec<String>,
-    /// DS-1017/1194: "鮮度（content_hash と実ファイルの一致）". Always
-    /// `true` in this architecture: `content_hash` is computed live from
-    /// `.verify/doc/<id>.json`'s own current bytes on every call (DES-595,
-    /// never stored separately), so there is no independently-recorded
-    /// prior hash that could go stale relative to the file to compare
-    /// against. **A check that can structurally never read `false` is a
-    /// symptom, not a feature**: DS-1017 presupposes a model where a
-    /// stored `content_hash` can drift from the file (the retired
-    /// DES-482 registry that DES-595 replaced), and that comparison target
-    /// no longer exists in this architecture — see
-    /// `reports/closure-trace.md`'s stopped_on list (this is disclosed to
-    /// upstream, not silently resolved by always returning `true`).
+    /// A coarse per-document placeholder, always `true` -- **not** DS-1017
+    /// new's actual freshness definition. DS-1017 new (`233caec`/PR #50)
+    /// defines freshness per top-level node id, comparing that node's
+    /// *current* subject hash (DES-572) against the hash any Approval
+    /// record's `dependencies[]` entry recorded for it (DS-862/1601/1605)
+    /// -- a three-valued, cross-referencing computation this coarse,
+    /// per-`DocView` bool field cannot represent (no comparison target at
+    /// all reads `None`, never rounded to `true`). `ops::doc::show`'s
+    /// `ShowResult.freshness` (`BTreeMap<String, Option<bool>>`) is the
+    /// actual DS-1017-conformant computation; this field exists only
+    /// because `doc_view_json` (shared by `doc_list`/`doc_upsert`, whose
+    /// output DS-1194 also names "鮮度" for) needs *some* value and this
+    /// module does not run the full cross-referencing check for every
+    /// document in a `doc list` call -- a real, disclosed simplification
+    /// for those two call sites, not the DS-1017-conformant one `doc show`
+    /// now provides.
     pub freshness: bool,
     pub file: DocumentFile,
 }

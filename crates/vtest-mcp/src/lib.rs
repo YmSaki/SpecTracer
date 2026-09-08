@@ -775,6 +775,11 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
     // DS-1195: `root` is a plain bool (absent = false, the JSON-schema
     // default for an unset boolean property).
     let root_arg = bool_arg(args, "root");
+    // DS-1683/BD-331 (`233caec`/PR #50): root designation is fixed at
+    // initial registration only -- `root` given at all alongside
+    // `update: true` is rejected by `ops::doc::add` (via
+    // `root_specified`), regardless of its value.
+    let root_specified = args.get("root").is_some();
 
     match ops::doc::add(
         root,
@@ -784,6 +789,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
             path: path.to_owned(),
             derives_from,
             root: root_arg,
+            root_specified,
             update,
         },
     ) {
@@ -853,6 +859,10 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
     match ops::doc::show(&layout, id) {
         Ok(result) => {
             let mut data = doc_view_json(&result.view);
+            // DS-1017 new: overrides `doc_view_json`'s coarse per-document
+            // placeholder with the actual per-node, cross-referencing
+            // computation -- see `ops::doc::ShowResult`'s doc comment.
+            data["freshness"] = json!(result.freshness);
             data["approval_states"] = json!(result.approval_states);
             if want_tree || want_roots {
                 match ops::doc::list(&layout) {
@@ -1278,6 +1288,7 @@ mod tests {
                 path: "basic-spec.json".to_owned(),
                 derives_from: None,
                 root: false,
+                root_specified: false,
                 update: false,
             },
         )
@@ -1286,6 +1297,7 @@ mod tests {
         let direct =
             ops::doc::show(&layout, "DOC-BASIC-001").expect("direct ops::doc::show must succeed");
         let mut direct_data = doc_view_json(&direct.view);
+        direct_data["freshness"] = json!(direct.freshness);
         direct_data["approval_states"] = json!(direct.approval_states);
         let direct_envelope = success_envelope(true, direct_data, &[]);
         let mcp_envelope = dispatch_tool(&root, "doc_get", &json!({"id": "DOC-BASIC-001"}));
@@ -1647,6 +1659,7 @@ mod tests {
                 path: "basic-spec.json".to_owned(),
                 derives_from: None,
                 root: false,
+                root_specified: false,
                 update: false,
             },
         )
@@ -1709,6 +1722,7 @@ mod tests {
                 path: "basic-spec.json".to_owned(),
                 derives_from: Some(vec!["ROOT-001".to_owned()]),
                 root: false,
+                root_specified: false,
                 update: false,
             },
         )
@@ -1777,6 +1791,7 @@ mod tests {
                 path: "basic-spec.json".to_owned(),
                 derives_from: None,
                 root: false,
+                root_specified: false,
                 update: false,
             },
         )
