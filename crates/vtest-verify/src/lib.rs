@@ -991,9 +991,11 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
     }
 
     // DS-831/832: the runner passed; the coverage measurement decides.
-    let coverage = &record.target_execution;
+    let coverage = &record.target_coverage;
+    // DS-832: `checked == false` -> NO_EVIDENCE (NOT_CHECKED); the diagnostic
+    // label is derived here from `checked`/`count`/`result`, not stored on
+    // the Evidence record's `target_coverage` block (DES-183/DES-185).
     if !coverage.checked {
-        // DS-832: uncomputed/unmeasured reachability -> NO_EVIDENCE (NOT_CHECKED).
         return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
@@ -1001,25 +1003,33 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
             vec!["target reachability was not measured (DS-832)".to_owned()],
         );
     }
+    // DS-832: a measured-but-zero count -> FAIL (NOT_EXECUTED), independent
+    // of the aggregate `result` value, since `count == 0` is the concrete
+    // observation that the declared target was never reached.
+    if coverage.count == Some(0) {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Fail,
+            vec![DiagnosticLabel::NotExecuted],
+            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
+        );
+    }
     match coverage.result {
-        VerificationState::Pass => CheckOutcome::new(
+        vtest_model::TargetCoverageResult::Pass => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
             vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
         ),
-        VerificationState::Fail => CheckOutcome::new(
+        vtest_model::TargetCoverageResult::Fail => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Fail,
             vec![DiagnosticLabel::NotExecuted],
             vec!["measured target coverage count is 0 (DS-832)".to_owned()],
         ),
-        // DS-832「関数不見当はUNKNOWNとする」— this aggregate-level
-        // `TargetExecution` (predecessor single-field shape; see DES-185's
-        // disclosed `target_coverage` rename this crate has not carried out)
-        // cannot name which declared target went unfound, only that the
-        // aggregate measurement could not identify one.
-        _ => CheckOutcome::new(
+        // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
+        // measurement could not identify the declared target function.
+        vtest_model::TargetCoverageResult::Unknown => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Unknown,
             Vec::new(),
@@ -2248,11 +2258,10 @@ mod tests {
                 command: "cargo test".to_owned(),
                 exit_code: 0,
             },
-            target_execution: vtest_model::TargetExecution {
+            target_coverage: vtest_model::TargetCoverage {
                 checked: false,
                 method: None,
-                result: VerificationState::NoEvidence,
-                diagnostic: Some(DiagnosticLabel::NotChecked),
+                result: vtest_model::TargetCoverageResult::Unknown,
                 count: None,
             },
             log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
@@ -2268,7 +2277,7 @@ mod tests {
              execution_state:\n  schema: '{schema}'\n  complete: {complete}\n  hash: null\n\
              hashes:\n  test_fn: '{test_fn}'\n  target_fn: '{target_fn}'\n  target_fns:\n    - '{target_fn}'\n\
              runner:\n  kind: 'cargo-test'\n  command: 'cargo test'\n  exit_code: 0\n\
-             target_execution:\n  checked: false\n  method: null\n  result: NOT_CHECKED\n  count: null\n\
+             target_coverage:\n  checked: false\n  method: null\n  result: UNKNOWN\n  count: null\n\
              log_ref: '{log_ref}'\n",
             id = record.id,
             test_id = record.test_id.as_str(),
@@ -2554,30 +2563,30 @@ mod tests {
 
         // DS-832: runner PASS, coverage not measured -> NO_EVIDENCE (NOT_CHECKED).
         record.result = vtest_model::TestResult::Pass;
-        record.target_execution.checked = false;
+        record.target_coverage.checked = false;
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::NoEvidence);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
 
         // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
-        record.target_execution.checked = true;
-        record.target_execution.result = VerificationState::Fail;
-        record.target_execution.count = Some(0);
+        record.target_coverage.checked = true;
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Fail;
+        record.target_coverage.count = Some(0);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
         // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
-        record.target_execution.result = VerificationState::Unknown;
-        record.target_execution.count = None;
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Unknown;
+        record.target_coverage.count = None;
         assert_eq!(
             dynamic_result_from_evidence(&record).state,
             VerificationState::Unknown
         );
 
         // DS-831: measured and reached -> PASS.
-        record.target_execution.result = VerificationState::Pass;
-        record.target_execution.count = Some(3);
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Pass;
+        record.target_coverage.count = Some(3);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());

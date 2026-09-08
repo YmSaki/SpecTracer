@@ -38,8 +38,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    ContentHash, Diagnostic, DiagnosticLabel, EvidenceHashes, EvidenceRecord, ReqId, Revision,
-    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VerificationState, VoId,
+    ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
+    TargetCoverage, TargetCoverageResult, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -240,7 +240,7 @@ const EVIDENCE_KEYS: &[&str] = &[
     "execution_state",
     "hashes",
     "runner",
-    "target_execution",
+    "target_coverage",
     "log_ref",
 ];
 
@@ -260,10 +260,9 @@ const EVIDENCE_HASHES_KEYS: &[&str] = &["test_fn", "target_fn", "target_fns"];
 /// `RunnerInfo`'s own fields.
 const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
 
-/// Known keys for an Evidence record's nested `target_execution` mapping,
-/// matching `TargetExecution`'s own fields.
-const EVIDENCE_TARGET_EXECUTION_KEYS: &[&str] =
-    &["checked", "method", "result", "diagnostic", "count"];
+/// Known keys for an Evidence record's nested `target_coverage` mapping,
+/// matching `TargetCoverage`'s own fields (DES-183: no `diagnostic` key).
+const EVIDENCE_TARGET_COVERAGE_KEYS: &[&str] = &["checked", "method", "result", "count"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -927,11 +926,11 @@ fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
             "execution_state.",
         )?;
     }
-    if let Some(target_execution) = value.get("target_execution") {
+    if let Some(target_coverage) = value.get("target_coverage") {
         crate::canonical::reject_unknown_fields(
-            target_execution,
-            EVIDENCE_TARGET_EXECUTION_KEYS,
-            "target_execution.",
+            target_coverage,
+            EVIDENCE_TARGET_COVERAGE_KEYS,
+            "target_coverage.",
         )?;
     }
     Ok(())
@@ -1005,40 +1004,16 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             ))
         }
     };
-    // The wire format may still carry a diagnostic-only value (NOT_CHECKED /
-    // NOT_EXECUTED / STALE / MISSING) in the `result` field from records
-    // written before state and diagnostic label were split into separate
-    // fields (see `TargetExecution`). Such a value maps to `NoEvidence` plus
-    // the corresponding `DiagnosticLabel`; an explicit `diagnostic` field, if
-    // present, is read separately below and takes precedence.
-    let (target_result, target_result_diagnostic) =
-        match nested_scalar(&text, "target_execution", "result").as_deref() {
-            Some("PASS") => (VerificationState::Pass, None),
-            Some("FAIL") => (VerificationState::Fail, None),
-            Some("MISMATCH") => (VerificationState::Mismatch, None),
-            Some("NOT_CHECKED") => (
-                VerificationState::NoEvidence,
-                Some(DiagnosticLabel::NotChecked),
-            ),
-            Some("NOT_EXECUTED") => (
-                VerificationState::NoEvidence,
-                Some(DiagnosticLabel::NotExecuted),
-            ),
-            Some("STALE") => (VerificationState::NoEvidence, Some(DiagnosticLabel::Stale)),
-            Some("MISSING") => (
-                VerificationState::NoEvidence,
-                Some(DiagnosticLabel::Missing),
-            ),
-            Some("NO_EVIDENCE") => (VerificationState::NoEvidence, None),
-            _ => (VerificationState::Unknown, None),
-        };
-    let target_diagnostic = match nested_scalar(&text, "target_execution", "diagnostic").as_deref()
-    {
-        Some("MISSING") => Some(DiagnosticLabel::Missing),
-        Some("NOT_CHECKED") => Some(DiagnosticLabel::NotChecked),
-        Some("NOT_EXECUTED") => Some(DiagnosticLabel::NotExecuted),
-        Some("STALE") => Some(DiagnosticLabel::Stale),
-        _ => target_result_diagnostic,
+    // DES-187/188: `target_coverage.result` is a restricted 3-value domain
+    // (PASS/FAIL/UNKNOWN). Any other wire value — including predecessor
+    // diagnostic-only values (NOT_CHECKED/NOT_EXECUTED/STALE/MISSING/
+    // MISMATCH/NO_EVIDENCE) once carried in this field before DS-832 moved
+    // diagnostic-label derivation downstream into vtest-verify — normalizes
+    // to `Unknown` rather than reconstructing a diagnostic label here.
+    let target_result = match nested_scalar(&text, "target_coverage", "result").as_deref() {
+        Some("PASS") => TargetCoverageResult::Pass,
+        Some("FAIL") => TargetCoverageResult::Fail,
+        _ => TargetCoverageResult::Unknown,
     };
     // DES-097/184: `execution_state.hash` is only meaningful once `complete`
     // is `true`. An absent `execution_state` mapping (a predecessor-shape
@@ -1081,14 +1056,13 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(-1),
         },
-        target_execution: TargetExecution {
-            checked: nested_scalar(&text, "target_execution", "checked")
+        target_coverage: TargetCoverage {
+            checked: nested_scalar(&text, "target_coverage", "checked")
                 .is_some_and(|value| value == "true"),
-            method: nested_scalar(&text, "target_execution", "method")
+            method: nested_scalar(&text, "target_coverage", "method")
                 .filter(|value| value != "null"),
             result: target_result,
-            diagnostic: target_diagnostic,
-            count: nested_scalar(&text, "target_execution", "count")
+            count: nested_scalar(&text, "target_coverage", "count")
                 .filter(|value| value != "null")
                 .and_then(|value| value.parse().ok()),
         },

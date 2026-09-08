@@ -192,8 +192,8 @@ fn m4_run_fast_records_one_evidence_per_registered_test() {
     assert_eq!(evidence.len(), 1, "one registered Test has one Evidence");
     assert_eq!(evidence[0]["test_id"], "TEST-M1-CLEAN");
     assert_eq!(evidence[0]["result"], "PASS");
-    assert_eq!(evidence[0]["target_execution"]["checked"], false);
-    assert_eq!(evidence[0]["target_execution"]["result"], "NOT_CHECKED");
+    assert_eq!(evidence[0]["target_coverage"]["checked"], false);
+    assert_eq!(evidence[0]["target_coverage"]["result"], "UNKNOWN");
     assert_eq!(evidence[0]["runner"]["kind"], "cargo-test");
     assert!(evidence[0]["revision"]["commit"].as_str().is_some());
     assert_eq!(evidence_files(&project).len(), 1);

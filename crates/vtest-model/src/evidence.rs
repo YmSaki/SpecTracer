@@ -1,4 +1,4 @@
-use crate::{AdapterId, ContentHash, DiagnosticLabel, TestId, VerificationState};
+use crate::{AdapterId, ContentHash, TestId};
 use serde::{Deserialize, Serialize};
 
 /// Identifies the Git revision and whether the working tree had uncommitted changes.
@@ -31,19 +31,33 @@ pub struct RunnerInfo {
     pub exit_code: i32,
 }
 
+/// Result reported for target-binding coverage, per DES-187/DES-188.
+///
+/// This is a restricted 3-value domain (PASS/FAIL/UNKNOWN), distinct from
+/// the canonical 5-value `VerificationState`. Diagnostic labels (e.g.
+/// `NOT_CHECKED`, `NOT_EXECUTED`) are derived from `checked`/`count`/`result`
+/// by the vtest-verify target_binding check-building logic (DS-832); they
+/// are not stored on this record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum TargetCoverageResult {
+    #[serde(rename = "PASS")]
+    Pass,
+    #[serde(rename = "FAIL")]
+    Fail,
+    #[serde(rename = "UNKNOWN")]
+    Unknown,
+}
+
 /// Records how a verification target was observed during test execution.
 ///
-/// `result` is the canonical `VerificationState` this measurement produced;
-/// `diagnostic` is a separate, optional label giving additional context
-/// (e.g. why coverage is `NoEvidence`). The two are independent fields per
-/// the canonical model: a diagnostic label is never a verification state.
+/// `result` is the restricted `TargetCoverageResult` this measurement
+/// produced. Diagnostic labels are not stored here; they are derived
+/// downstream from `checked`/`count`/`result` (DS-832).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TargetExecution {
+pub struct TargetCoverage {
     pub checked: bool,
     pub method: Option<String>,
-    pub result: VerificationState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub diagnostic: Option<DiagnosticLabel>,
+    pub result: TargetCoverageResult,
     pub count: Option<u64>,
 }
 
@@ -92,7 +106,7 @@ pub struct EvidenceRecord {
     pub execution_state: ExecutionState,
     pub hashes: EvidenceHashes,
     pub runner: RunnerInfo,
-    pub target_execution: TargetExecution,
+    pub target_coverage: TargetCoverage,
     // CHECKME: Should log references have a dedicated type?
     pub log_ref: String,
 }

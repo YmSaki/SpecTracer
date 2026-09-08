@@ -165,9 +165,9 @@ fn m7_called_target_records_measured_pass() {
     let value = envelope(&output);
     let evidence = &value["data"]["evidence"][0];
     assert_eq!(evidence["runner"]["kind"], "cargo-llvm-cov");
-    assert_eq!(evidence["target_execution"]["checked"], true);
-    assert_eq!(evidence["target_execution"]["result"], "PASS");
-    assert!(evidence["target_execution"]["count"].as_u64().unwrap_or(0) >= 1);
+    assert_eq!(evidence["target_coverage"]["checked"], true);
+    assert_eq!(evidence["target_coverage"]["result"], "PASS");
+    assert!(evidence["target_coverage"]["count"].as_u64().unwrap_or(0) >= 1);
 }
 
 #[test]
@@ -187,9 +187,9 @@ fn m7_passing_test_that_misses_target_records_measured_fail() {
     let value = envelope(&output);
     let evidence = &value["data"]["evidence"][0];
     assert_eq!(evidence["result"], "PASS");
-    assert_eq!(evidence["target_execution"]["checked"], true);
-    assert_eq!(evidence["target_execution"]["result"], "FAIL");
-    assert_eq!(evidence["target_execution"]["count"], 0);
+    assert_eq!(evidence["target_coverage"]["checked"], true);
+    assert_eq!(evidence["target_coverage"]["result"], "FAIL");
+    assert_eq!(evidence["target_coverage"]["count"], 0);
 }
 
 #[test]
@@ -244,8 +244,8 @@ fn m7_missing_llvm_cov_is_warning_and_not_checked() {
     let value = envelope(&output);
     let evidence = &value["data"]["evidence"][0];
     assert_eq!(evidence["runner"]["kind"], "cargo-test");
-    assert_eq!(evidence["target_execution"]["checked"], false);
-    assert_eq!(evidence["target_execution"]["result"], "NOT_CHECKED");
+    assert_eq!(evidence["target_coverage"]["checked"], false);
+    assert_eq!(evidence["target_coverage"]["result"], "UNKNOWN");
     assert!(value["diagnostics"]
         .as_array()
         .unwrap()

@@ -406,7 +406,7 @@ fn m6_complete_fixture_is_ok_for_all_eleven_items() {
         evidence
             .replace("checked: false", "checked: true")
             .replace("method: null", "method: llvm-cov")
-            .replace("result: 'NOT_CHECKED'", "result: 'PASS'")
+            .replace("result: 'UNKNOWN'", "result: 'PASS'")
             .replace("count: null", "count: 1"),
     )
     .expect("mark fixture target execution measured");
