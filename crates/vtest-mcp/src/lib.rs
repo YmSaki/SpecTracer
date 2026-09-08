@@ -10,13 +10,21 @@
 //! Per REQ-323 / SPEC-216 / SPEC-246 the full MCP tool taxonomy is a
 //! detailed-design matter delegated to 別紙A §12–§15. This slice exposes
 //! exactly the operations the current CLI (`crates/vtest-cli/src/lib.rs`)
-//! implements — `init`, `scan`, `doctor`, `run`, `verify` — and does not
-//! invent MCP-only tools for CLI surface (`spec`/`req`/`vo`/`test`/`audit`/
-//! `approval`/`report`) that does not exist yet on the canonical model
-//! (SPEC-400, see that file's module doc). Adding those tools without a
-//! citation would be exactly the invention this repository's AGENTS.md
-//! forbids; they are left out and reported as declined scope rather than
-//! guessed at.
+//! implements — `init`, `scan`, `doctor`, `run`, `verify`, and the Approval
+//! domain (`approval_create`/`approval_withdraw`/`approval_get`, named per
+//! BD-305/307/308's own MCP tool names — note `approval_get`, not
+//! `approval_show`, is the canonical name for the `show` operation) — and
+//! does not invent MCP-only tools for CLI surface (`spec`/`req`/`vo`/`test`/
+//! `audit`/`report`, or `doc` — see `vtest-cli`'s own module doc for why
+//! `doc` is not implemented: Owner-deferred per Issue #14, not an upstream
+//! silence) that does not exist yet on the canonical model (SPEC-400, see
+//! that file's module doc). Adding those tools without a citation would be
+//! exactly the invention this repository's AGENTS.md forbids; they are left
+//! out and reported as declined scope rather than guessed at.
+//!
+//! `approval_create`'s `subject_type: "judgment"` is rejected with the same
+//! disclosed error the CLI uses (`vtest_cli::ops::approval`'s module doc
+//! comment) — no judgment-record domain exists in this codebase.
 //!
 //! An MCP-only Structured-Edit tool with an apply/re-verify/rollback
 //! contract was named in the task that produced this module, citing
@@ -38,7 +46,16 @@ use serde_json::{json, Map, Value};
 use vtest_cli::ops;
 use vtest_model::ExitCode;
 
-const TOOL_NAMES: &[&str] = &["init", "scan", "doctor", "run", "verify"];
+const TOOL_NAMES: &[&str] = &[
+    "init",
+    "scan",
+    "doctor",
+    "run",
+    "verify",
+    "approval_create",
+    "approval_withdraw",
+    "approval_get",
+];
 
 #[derive(Default)]
 struct MtimeRescan {
@@ -345,6 +362,56 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             Vec::new(),
         ),
+        "approval_create" => (
+            json!({
+                "subject": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "id": {"type": "string"}
+                    }
+                },
+                "state": {"type": "string"},
+                "approver": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "id": {"type": "string"},
+                        "model": {"type": "string"}
+                    }
+                },
+                "basis": {"type": "array", "items": {"type": "string"}},
+                "supersedes": {"type": "array", "items": {"type": "string"}}
+            }),
+            vec!["subject", "state", "approver"],
+        ),
+        "approval_withdraw" => (
+            json!({
+                "approval_id": {"type": "string"},
+                "approver": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "id": {"type": "string"},
+                        "model": {"type": "string"}
+                    }
+                },
+                "basis": {"type": "array", "items": {"type": "string"}}
+            }),
+            vec!["approval_id", "approver"],
+        ),
+        "approval_get" => (
+            json!({
+                "subject": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "id": {"type": "string"}
+                    }
+                }
+            }),
+            vec!["subject"],
+        ),
         _ => (json!({}), Vec::new()),
     };
     let mut schema = json!({
@@ -364,6 +431,9 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "scan" | "doctor" => &[],
         "run" => &["test", "fast"],
         "verify" => &["items", "doc", "vo", "test", "gate", "summary"],
+        "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
+        "approval_withdraw" => &["approval_id", "approver", "basis"],
+        "approval_get" => &["subject"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -386,6 +456,11 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             }
             optional_bool(args, "summary")
         }
+        // `approval_*` argument presence/type is checked by the tool
+        // functions themselves (`approval_create_tool`/etc, via
+        // `Value::pointer`) since their shape is nested, not flat — this
+        // layer only enforces the flat allowed-key set above.
+        "approval_create" | "approval_withdraw" | "approval_get" => Ok(()),
         _ => Ok(()),
     }
 }
@@ -460,8 +535,168 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "doctor" => ops::doctor::execute(root).1,
         "run" => run_tool(root, args),
         "verify" => verify_tool(root, args),
+        "approval_create" => approval_create_tool(root, args),
+        "approval_withdraw" => approval_withdraw_tool(root, args),
+        "approval_get" => approval_get_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
+}
+
+/// BD-305: `approval_create`（`subject: { type, id }`）— the same canonical
+/// creation path `vtest approval create` calls (`ops::approval::create`).
+fn approval_create_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let Some(subject_type) = args.pointer("/subject/type").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_create requires subject.type");
+    };
+    let Some(subject_id) = args.pointer("/subject/id").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_create requires subject.id");
+    };
+    let Some(state) = string_arg(args, "state") else {
+        return failure_envelope("E-OP-001", "approval_create requires state");
+    };
+    let Some(approver_kind) = args.pointer("/approver/kind").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_create requires approver.kind");
+    };
+    let Some(approver_id) = args.pointer("/approver/id").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_create requires approver.id");
+    };
+    let approver_model = args
+        .pointer("/approver/model")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let basis = string_array_arg(args, "basis");
+    let supersedes = string_array_arg(args, "supersedes");
+
+    let result = ops::approval::create(
+        &layout,
+        ops::approval::CreateArgs {
+            subject_type: subject_type.to_owned(),
+            subject_id: subject_id.to_owned(),
+            approved_state: state.to_owned(),
+            approver_kind: approver_kind.to_owned(),
+            approver_id: approver_id.to_owned(),
+            approver_model,
+            basis,
+            supersedes,
+        },
+    );
+    approval_record_envelope(result)
+}
+
+/// BD-307: `approval_withdraw` — same canonical path as `vtest approval
+/// withdraw`.
+fn approval_withdraw_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let Some(approval_id) = string_arg(args, "approval_id") else {
+        return failure_envelope("E-OP-001", "approval_withdraw requires approval_id");
+    };
+    let Some(approver_kind) = args.pointer("/approver/kind").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_withdraw requires approver.kind");
+    };
+    let Some(approver_id) = args.pointer("/approver/id").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_withdraw requires approver.id");
+    };
+    let approver_model = args
+        .pointer("/approver/model")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let basis = string_array_arg(args, "basis");
+
+    let result = ops::approval::withdraw(
+        &layout,
+        ops::approval::WithdrawArgs {
+            approval_id: approval_id.to_owned(),
+            approver_kind: approver_kind.to_owned(),
+            approver_id: approver_id.to_owned(),
+            approver_model,
+            basis,
+        },
+    );
+    approval_record_envelope(result)
+}
+
+fn approval_record_envelope(
+    result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
+) -> Value {
+    match result {
+        Ok(record) => success_envelope(
+            true,
+            json!({
+                "id": record.id,
+                "subject_type": record.subject_type,
+                "subject": record.subject,
+                "approved_state": record.approved_state,
+                "supersedes": record.supersedes,
+                "approved_at": record.approved_at,
+            }),
+            &[],
+        ),
+        Err(error) => approval_error_envelope(&error),
+    }
+}
+
+fn approval_error_envelope(error: &ops::approval::ApprovalOpError) -> Value {
+    use ops::approval::ApprovalOpError;
+    match error {
+        ApprovalOpError::JudgmentSubjectTypeUnsupported => {
+            failure_envelope("E-OP-001", error.to_string())
+        }
+        ApprovalOpError::UnresolvedSubject(_) => {
+            failure_envelope("E-APPROVAL-001", error.to_string())
+        }
+        ApprovalOpError::InvalidRequest(_) => failure_envelope("E-APPROVAL-002", error.to_string()),
+        ApprovalOpError::Store(_) => failure_envelope("E-CORE-001", error.to_string()),
+    }
+}
+
+/// BD-308: `approval_get` — the subject's full record history plus its
+/// current effective承認 state.
+fn approval_get_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let Some(subject_type) = args.pointer("/subject/type").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_get requires subject.type");
+    };
+    let Some(subject_id) = args.pointer("/subject/id").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "approval_get requires subject.id");
+    };
+    match ops::approval::show(&layout, subject_type, subject_id) {
+        Ok(result) => {
+            let effective = match result.effective_state {
+                vtest_store::approval::EffectiveApprovalState::Draft => "draft",
+                vtest_store::approval::EffectiveApprovalState::Approved => "approved",
+            };
+            success_envelope(
+                true,
+                json!({
+                    "records": result.records.iter().map(|record| json!({
+                        "id": record.id,
+                        "subject_type": record.subject_type,
+                        "subject": record.subject,
+                        "approved_state": record.approved_state,
+                        "supersedes": record.supersedes,
+                        "approved_at": record.approved_at,
+                    })).collect::<Vec<_>>(),
+                    "effective_state": effective,
+                }),
+                &[],
+            )
+        }
+        Err(error) => approval_error_envelope(&error),
+    }
+}
+
+fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
+    args.get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
 }
 
 fn run_tool(root: &Path, args: &Value) -> Value {
@@ -667,6 +902,120 @@ mod tests {
             mcp_envelope, cli_envelope,
             "MCP `scan` tool must return the same envelope as `ops::scan::execute`, \
              which the CLI's `run_scan` wrapper also calls"
+        );
+    }
+
+    fn fixture_vo_project(root: &Path) {
+        use vtest_model::{
+            DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId,
+            VoRecord,
+        };
+        use vtest_store::{init_project, write_document_file, write_vo_record};
+
+        let layout = init_project(root, "vtest-mcp-approval-fixture").expect("init .verify/");
+        let source = NodeSource {
+            doc: "fixture.md".to_owned(),
+            heading: "fixture".to_owned(),
+            lines: [1, 1],
+        };
+        let document = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![RootNode {
+                id: DocumentId::new("ROOT-001"),
+                statement: "fixture root".to_owned(),
+                description: None,
+                source: source.clone(),
+            }],
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-001"),
+                statement: "fixture requirement".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("ROOT-001")],
+                cites: None,
+                source,
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "fixture", &document).expect("write document file");
+        write_vo_record(
+            &layout,
+            &VoRecord {
+                id: VoId::new("VO-MCP-APPROVAL"),
+                parent: None,
+                derives_from: vec![DerivesFrom {
+                    doc: DocumentId::new("R-001"),
+                    anchor: None,
+                    note: None,
+                }],
+                claim: "fixture claim".to_owned(),
+                dimensions: Vec::new(),
+                coverage_policy: None,
+                combinations: Vec::new(),
+                representative_cases: Vec::new(),
+                created: "2026-09-09T00:00:00Z".to_owned(),
+                updated: "2026-09-09T00:00:00Z".to_owned(),
+            },
+        )
+        .expect("write VO record");
+    }
+
+    /// DS-1563 equivalence for the Approval domain: `approval_get` (MCP) and
+    /// `ops::approval::show` (the same function the CLI's `approval show`
+    /// wrapper calls) must return the same effective state and record
+    /// history for the same on-disk records — this only compares reads
+    /// (`show`/`approval_get`), not `create`/`approval_create`, because a
+    /// freshly created record's `id`/`approved_at` are non-deterministic
+    /// (ULID + timestamp) and would never compare equal across two
+    /// independently invoked creations.
+    #[test]
+    fn mcp_approval_get_tool_matches_the_ops_approval_show_operation() {
+        let root = temp_root("approval-equivalence");
+        fixture_vo_project(&root);
+        let layout = vtest_store::VerifyLayout::new(&root);
+
+        ops::approval::create(
+            &layout,
+            ops::approval::CreateArgs {
+                subject_type: "vo".to_owned(),
+                subject_id: "VO-MCP-APPROVAL".to_owned(),
+                approved_state: "approved".to_owned(),
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+                supersedes: Vec::new(),
+            },
+        )
+        .expect("create must succeed against a resolvable VO subject");
+
+        let direct = ops::approval::show(&layout, "vo", "VO-MCP-APPROVAL")
+            .expect("direct ops::approval::show must succeed");
+        let direct_effective = match direct.effective_state {
+            vtest_store::approval::EffectiveApprovalState::Draft => "draft",
+            vtest_store::approval::EffectiveApprovalState::Approved => "approved",
+        };
+
+        let mcp_envelope = dispatch_tool(
+            &root,
+            "approval_get",
+            &json!({"subject": {"type": "vo", "id": "VO-MCP-APPROVAL"}}),
+        );
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["effective_state"],
+            Value::String(direct_effective.to_owned()),
+            "MCP `approval_get` must report the same effective_state as the shared \
+             `ops::approval::show` the CLI `approval show` wrapper also calls"
+        );
+        assert_eq!(
+            mcp_envelope["data"]["records"].as_array().map(Vec::len),
+            Some(direct.records.len()),
+            "MCP `approval_get` must report the same record count"
         );
     }
 }
