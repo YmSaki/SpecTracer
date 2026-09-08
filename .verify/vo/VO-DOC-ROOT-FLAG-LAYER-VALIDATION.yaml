@@ -1,0 +1,12 @@
+id: VO-DOC-ROOT-FLAG-LAYER-VALIDATION
+parent: null
+derives_from:
+  - doc: DS-1683
+  - doc: DS-1658
+claim: --rootは新規登録時にdocumentのトップレベルノードをroot層配列へ登録する検証であり、層名のid接頭辞（DS-1658）と一致しないノードを含むファイルは受理しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

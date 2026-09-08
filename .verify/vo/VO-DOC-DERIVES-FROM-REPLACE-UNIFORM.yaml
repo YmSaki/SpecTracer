@@ -1,0 +1,12 @@
+id: VO-DOC-DERIVES-FROM-REPLACE-UNIFORM
+parent: null
+derives_from:
+  - doc: DS-1685
+  - doc: DS-1686
+claim: --derives-fromは対象トップレベルノードの既存derives_fromを置換し（追記ではない）、対象documentの全トップレベルノードへ同一のid並びを一律適用する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

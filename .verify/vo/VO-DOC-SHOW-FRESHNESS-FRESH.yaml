@@ -1,0 +1,12 @@
+id: VO-DOC-SHOW-FRESHNESS-FRESH
+parent: null
+derives_from:
+  - doc: DS-1017
+  - doc: DS-1487
+claim: あるノードをdependencyに含む承認記録のdependency entry hashが当該ノードの現在のsubject hashと一致する場合、doc showの鮮度はそのノードについてfresh（Some(true)）を報告する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

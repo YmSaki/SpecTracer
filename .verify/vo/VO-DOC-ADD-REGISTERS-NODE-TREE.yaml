@@ -1,0 +1,11 @@
+id: VO-DOC-ADD-REGISTERS-NODE-TREE
+parent: null
+derives_from:
+  - doc: DES-595
+claim: doc addは--pathのノード木JSONファイルを1 documentとして登録し、document subject hashをDES-572のノードsubject hash定義に従って計算する（単一ファイルのsha256をそのまま使わない）
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,12 @@
+id: VO-DOC-LIST-FRESHNESS-VALUES
+parent: null
+derives_from:
+  - doc: DS-1017
+  - doc: DS-1194
+claim: doc_list/doc_getはdocumentレコード（木・根集合・鮮度）を出力し、鮮度はノードごとに承認・判断記録のdependency entry hashとの一致で決まる正しい値を持つ
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

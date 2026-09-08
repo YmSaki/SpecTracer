@@ -1,0 +1,11 @@
+id: VO-DOC-NO-ROOT-FLAG-NOOP
+parent: null
+derives_from:
+  - doc: DS-1195
+claim: doc_upsertのrootはbool一種のみであり、--no-rootと両フラグ省略は同じroot: false入力として振る舞う
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
