@@ -5,7 +5,7 @@
 //! 12 項目 CLI を対象としており、正典モデル上でコンパイルできないため
 //! `Cargo.toml` の `autotests = false` によりビルド対象から外してある。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use vtest_cli::{run, Cli, Command, OutputFormat};
 use vtest_model::ExitCode;
@@ -20,9 +20,9 @@ fn temp_root(name: &str) -> PathBuf {
     root
 }
 
-fn cli(root: &PathBuf, command: Command) -> Cli {
+fn cli(root: &Path, command: Command) -> Cli {
     Cli {
-        project: root.clone(),
+        project: root.to_path_buf(),
         format: OutputFormat::Json,
         quiet: true,
         command,
@@ -114,9 +114,5 @@ fn an_empty_project_is_never_a_complete_verification_ok() {
     let root = temp_root("empty");
     assert_eq!(run(cli(&root, Command::Init { name: None })), ExitCode::Ok);
     let exit = run(cli(&root, verify_command()));
-    assert_ne!(
-        exit,
-        ExitCode::Ok,
-        "an empty project must not verify as OK"
-    );
+    assert_ne!(exit, ExitCode::Ok, "an empty project must not verify as OK");
 }

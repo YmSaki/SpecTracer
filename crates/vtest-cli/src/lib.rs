@@ -155,8 +155,7 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
                 "sources": result.summary.sources,
                 "discovered": result.discovered.len(),
             });
-            let envelope =
-                JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
+            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
             emit(format, quiet, &envelope, |envelope| {
                 format!(
                     "scan: {} test(s), {} source(s), {} diagnostic(s)\n",
@@ -216,11 +215,7 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
     }
 }
 
-fn scan_error_exit(
-    error: &vtest_scan::ScanError,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
+fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: bool) -> ExitCode {
     let code = error.code().unwrap_or("E-CORE-001");
     let exit = if error.code().is_some() {
         ExitCode::Usage

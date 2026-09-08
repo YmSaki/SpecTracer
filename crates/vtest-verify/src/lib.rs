@@ -668,13 +668,16 @@ impl EntitySelection {
         match scope {
             EntityScope::Doc(id) => {
                 selected_docs.insert(id.clone());
-                selected_vos.extend(vos.iter().filter_map(|(vo_id, record)| {
-                    record
-                        .derives_from
-                        .iter()
-                        .any(|entry| entry.doc.as_str() == id)
-                        .then(|| vo_id.clone())
-                }));
+                selected_vos.extend(
+                    vos.iter()
+                        .filter(|(_, record)| {
+                            record
+                                .derives_from
+                                .iter()
+                                .any(|entry| entry.doc.as_str() == id)
+                        })
+                        .map(|(vo_id, _)| vo_id.clone()),
+                );
                 extend_with_descendants(vos, &mut selected_vos);
             }
             EntityScope::Vo(id) => {
@@ -702,7 +705,12 @@ impl EntitySelection {
         }
         for vo_id in &selected_vos {
             if let Some(record) = vos.get(vo_id) {
-                selected_docs.extend(record.derives_from.iter().map(|e| e.doc.as_str().to_owned()));
+                selected_docs.extend(
+                    record
+                        .derives_from
+                        .iter()
+                        .map(|e| e.doc.as_str().to_owned()),
+                );
             }
         }
         Self {
@@ -760,7 +768,9 @@ fn build_tree(
                         .iter()
                         .any(|entry| entry.doc.as_str() == doc)
             })
-            .map(|(id, _)| build_vo_node(id, vos, scan, selection, selected_checks, &mut placed_vos))
+            .map(|(id, _)| {
+                build_vo_node(id, vos, scan, selection, selected_checks, &mut placed_vos)
+            })
             .collect::<Vec<_>>();
         roots.push(node_from_children(NodeKind::Doc, doc, Vec::new(), children));
     }
@@ -979,9 +989,9 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{
-        AdapterId, ContentHash, DerivesFrom, Diagnostic, DiscoveredTest, DocumentId, ExecutionDescriptor,
-        NodeSource, ProjectPath, RootNode, SentenceNode, SourceLocation, SourceRange, TargetRef,
-        TestId, VoId,
+        AdapterId, ContentHash, DerivesFrom, Diagnostic, DiscoveredTest, DocumentId,
+        ExecutionDescriptor, NodeSource, ProjectPath, RootNode, SentenceNode, SourceLocation,
+        SourceRange, TargetRef, TestId, VoId,
     };
     use vtest_store::{init_project, write_document_file, write_vo_record, VerifyLayout};
 
@@ -1195,8 +1205,10 @@ mod tests {
     #[test]
     fn only_chain_integrity_breaks_on_a_test_id_collision() {
         let (root, mut scan) = complete_project("collision");
-        scan.diagnostics
-            .push(Diagnostic::error("E-SCAN-002", "duplicate Test ID TEST-ONE"));
+        scan.diagnostics.push(Diagnostic::error(
+            "E-SCAN-002",
+            "duplicate Test ID TEST-ONE",
+        ));
         let outcome = outcome_for(&root, &scan);
         assert_eq!(
             state_of(&outcome, VerificationCheck::ChainIntegrity),
