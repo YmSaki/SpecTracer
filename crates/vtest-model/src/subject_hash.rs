@@ -84,11 +84,14 @@
 //! `RunnerInfo { kind, command, exit_code }` (`evidence.rs`, both used
 //! inside `EvidenceRecord`) — but neither has been evaluated as the actual
 //! receiving type DES-097 intends, and the remaining inputs still have no
-//! matching type anywhere in `vtest-model` or `vtest-adapter-api` (no
-//! `ExecutionState`, `Snapshot`, `Manifest`/`ManifestEntry`, or
-//! `ToolchainIdentity` type exists in either crate — confirmed by grep).
-//! Composing this hash would require inventing the DTO shapes those inputs
-//! would arrive in,
+//! matching type anywhere in `vtest-model` or `vtest-adapter-api` — no
+//! `struct ExecutionState`, `Snapshot`, `Manifest`/`ManifestEntry`, or
+//! `ToolchainIdentity` exists in either crate (confirmed by grep for each
+//! bare identifier, not only `struct` declarations; `vtest-model`'s only
+//! `ExecutionState` occurrence is `SubjectDomain::ExecutionState`, this
+//! hash family's own domain-separator label in `hash.rs`, not a receiving
+//! DTO). Composing this hash would require inventing the DTO shapes those
+//! inputs would arrive in,
 //! which is not this module's place to do (this crate's own header: "この
 //! crate は…filesystem access and derived indexes intentionally live in…
 //! higher-level crates" — the same reasoning that keeps `document_subject_hash`
@@ -156,9 +159,12 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
 /// - `metadata`: `id`/`covers`/`targets`/`intent`/`input`/`expect`/`kind`/
 ///   `cases`/`related` — exactly DES-080's "canonical metadataは `id` /
 ///   `covers` / `targets` / `intent` / `input` / `expect` / `kind` /
-///   `cases` / `related` からなる。" list, which is also this function's
-///   only source for "Test ID" (`metadata.id` — DES-077 mentions "Test ID"
-///   and metadata's `id` field as the same field, not two).
+///   `cases` / `related` からなる。" list. DES-077 lists "Test ID" and
+///   "全canonical metadata" as two separately named bound items and does
+///   not itself say `id` is Test ID; DES-080 is what places `id` inside
+///   canonical metadata. This function reads Test ID from `metadata.id`
+///   and binds it once (not as a second, separate field) — a derivation
+///   that the two names denote one value, not a literal cross-reference.
 /// - `location`: only `adapter`/`path`/`locator` are read — `byte_range` is
 ///   deliberately never touched by this function (there is no parameter
 ///   position it could reach hash input through), which is what DES-078's

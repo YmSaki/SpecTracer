@@ -631,15 +631,18 @@ fn validate_desired_test(
     // Owner裁定3、pr3-decisions.md, PR #26 review round 5); the canonical
     // audit found no upstream basis for that restriction (REQ-150/SPEC-085
     // are both unconditional), so it was removed rather than re-derived.
-    // `current.test_target` and `TestDraft.test_target` no longer exist —
-    // neither `TestEntity` nor `TestDraft` carries a `test_target` field
-    // (BD-192/DES-561; removed together with `TestTarget`/`filter`/
-    // `package`). The execution-form information this comment used to
-    // describe now flows entirely inside `vtest-adapter-rust`: its own
-    // internal `TestTarget` maps through `suite_for` (adapter-rust's
-    // `lib.rs:71,746`) into `ExecutionDescriptor.suite`, which
-    // `TestDraft.execution` carries (adapter-api's `lib.rs:101`) — unrelated
-    // to this cardinality question.
+    // `current.test_target` and `TestDraft.test_target` no longer exist.
+    // `TestEntity` carries no `test_target` field (BD-192: "`filter`、
+    // `package`、`test_target` および `TestTarget` 型を `vtest-model` へ
+    // 置かない"; DES-561: "`vtest-model::TestEntity`は`ExecutionDescriptor`
+    // だけを実行座標として持ち…`test_target`、`TestTarget`を含まない").
+    // `TestDraft` (`vtest-adapter-api`) mirrors that same neutral shape for
+    // the same reason (its own doc comment on `execution` says so) and
+    // likewise carries no `test_target` field. The execution-form
+    // information this comment used to describe now flows entirely inside
+    // `vtest-adapter-rust`: its own internal `TestTarget` maps through
+    // `suite_for` into `ExecutionDescriptor.suite`, which `TestDraft`'s
+    // `execution` field carries — unrelated to this cardinality question.
     for target in &desired.targets {
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
