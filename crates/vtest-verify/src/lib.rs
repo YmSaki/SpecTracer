@@ -99,16 +99,39 @@ impl EntityScope {
 
 /// 最上位 field `scope`。DS-1114「`--format json` では同じ内容を最上位 field
 /// `scope`（§12.1）として返し、完全検証の場合も省略しない」、DS-947。
+///
+/// Field names/shape follow 別紙C DES-548 literally: `scope.requested.items`
+/// （`--items` 省略時は固定4検査を4件すべて列挙）、`scope.requested.entities`
+/// （エンティティ軸無指定は空 list）、`scope.unverified_outside_scope`
+/// （検査軸4件未満またはエンティティ軸指定ありで `true`、完全検証で
+/// `false`）。
 #[derive(Clone, Debug, Serialize)]
 pub struct ScopeReport {
-    pub requested_checks: Vec<VerificationCheck>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<EntityScope>,
-    /// DS-1111「限定 scope の結果を完全検証 OK と表示しない」。
+    pub requested: RequestedScope,
+    /// DS-1111「限定 scope の結果を完全検証 OK と表示しない」の内部判定に
+    /// 使う。DES-548 の wire 名には無いフィールドなのでシリアライズしない
+    /// — `unverified_outside_scope` が同じ真偽値を wire へ運ぶ。
+    #[serde(skip)]
     pub limited: bool,
+    /// `requested.entities` のもとになった値そのもの（`entity.id()` を
+    /// テキスト描画などで使う Rust 側の呼び出し元向け）。DES-548 の wire
+    /// 名には無いのでシリアライズしない。
+    #[serde(skip)]
+    pub entity: Option<EntityScope>,
     /// DS-1113「scope を限定した場合、出力冒頭に要求 scope と「scope 外は
     /// 未検証」の旨を必ず表示する」。
-    pub outside_scope_is_unverified: bool,
+    pub unverified_outside_scope: bool,
+}
+
+/// DES-548「`scope.requested.items`…`scope.requested.entities`」。
+#[derive(Clone, Debug, Serialize)]
+pub struct RequestedScope {
+    pub items: Vec<VerificationCheck>,
+    /// 0 or 1 entries — `EntityScope`'s own axis is exclusive (DS-1104), but
+    /// DES-548 names this field in the plural and requires an empty list
+    /// when no entity axis was requested, so this always holds the current
+    /// entity's id as a one-element list rather than an `Option`.
+    pub entities: Vec<String>,
 }
 
 /// One check's result at one evaluation point.
@@ -411,13 +434,19 @@ pub fn verify_project(
 
     VerifyOutcome {
         scope: ScopeReport {
-            requested_checks: ALL_CHECKS
-                .into_iter()
-                .filter(|check| selected.contains(check))
-                .collect(),
-            entity: entity_scope,
+            requested: RequestedScope {
+                items: ALL_CHECKS
+                    .into_iter()
+                    .filter(|check| selected.contains(check))
+                    .collect(),
+                entities: entity_scope
+                    .iter()
+                    .map(|entity| entity.id().to_owned())
+                    .collect(),
+            },
             limited,
-            outside_scope_is_unverified: limited,
+            entity: entity_scope,
+            unverified_outside_scope: limited,
         },
         structural,
         tree,
@@ -2057,7 +2086,7 @@ mod tests {
 
         let outcome = verify_project(&root, &scan, None, None);
         assert_eq!(
-            outcome.scope.requested_checks,
+            outcome.scope.requested.items,
             ALL_CHECKS.to_vec(),
             "omitting --items must mean the fixed four, not the config's list"
         );
@@ -2111,7 +2140,7 @@ mod tests {
             None,
         );
         assert!(outcome.scope.limited);
-        assert!(outcome.scope.outside_scope_is_unverified);
+        assert!(outcome.scope.unverified_outside_scope);
         assert_eq!(
             state_of(&outcome, VerificationCheck::ChainIntegrity),
             VerificationState::Pass

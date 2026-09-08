@@ -35,16 +35,44 @@ pub struct VerifyData {
     pub non_pass: usize,
 }
 
+/// DES-554「`--gate` を指定した `verify` / `report` の JSON は `data.gate`
+/// に `name`・`verification.{required, actual, satisfied}`・
+/// `approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す」。
 #[derive(Clone, serde::Serialize)]
 pub struct GateEvaluation {
     pub name: String,
-    pub required_verification: String,
-    pub verification_satisfied: bool,
-    pub approvals_satisfied: bool,
+    pub verification: GateVerification,
+    pub approvals: Vec<GateApproval>,
     pub satisfied: bool,
-    pub reasons: Vec<String>,
 }
 
+#[derive(Clone, serde::Serialize)]
+pub struct GateVerification {
+    pub required: String,
+    pub actual: String,
+    pub satisfied: bool,
+}
+
+/// One required approval role's evaluation.
+///
+/// `missing_subjects` is always empty in this slice: DES-554 requires this
+/// field, but nothing in `config.yaml`'s `gates[].require.approvals` (a
+/// bare role-name list, DS-372) or `approval_roles` (role name -> approver
+/// identity list, DS-373) names *which entity/entities* the gate's target
+/// scope requires that role to approve — resolving that needs an entity
+/// scope -> required-approval-subject mapping this slice's config schema
+/// does not carry. `satisfied` stays fail-closed (`false`) whenever a role
+/// is required, matching the existing rule that an unevaluable role must
+/// never read as satisfied. See `reports/closure-trace.md`'s stopped_on
+/// list.
+#[derive(Clone, serde::Serialize)]
+pub struct GateApproval {
+    pub role: String,
+    pub satisfied: bool,
+    pub missing_subjects: Vec<String>,
+}
+
+#[derive(Debug)]
 pub enum VerifyOpError {
     /// Usage error (E-OP-001 / E-CONFIG-002): exit code 2, no verification run.
     Usage { code: &'static str, message: String },
@@ -189,30 +217,31 @@ fn evaluate_gate(config: &GateConfig, outcome: &VerifyOutcome) -> GateEvaluation
     let actual = state_name(outcome.state);
     let verification_satisfied = config.require.verification == actual;
 
-    let mut reasons = Vec::new();
-    if !verification_satisfied {
-        reasons.push(format!(
-            "aggregate representative state is {actual}, gate requires {}",
-            config.require.verification
-        ));
-    }
-
-    let approvals_satisfied = config.require.approvals.is_empty();
-    if !approvals_satisfied {
-        reasons.push(format!(
-            "approval roles {:?} cannot be evaluated in this slice; treated as unsatisfied \
-             (fail-closed)",
-            config.require.approvals
-        ));
-    }
+    // DES-554's approvals[] is role-keyed. `missing_subjects` stays empty
+    // (see GateApproval's doc comment) and `satisfied` stays fail-closed
+    // (false) for every required role -- an unevaluable role must never
+    // read as satisfied.
+    let approvals: Vec<GateApproval> = config
+        .require
+        .approvals
+        .iter()
+        .map(|role| GateApproval {
+            role: role.clone(),
+            satisfied: false,
+            missing_subjects: Vec::new(),
+        })
+        .collect();
+    let approvals_satisfied = approvals.is_empty();
 
     GateEvaluation {
         name: config.name.clone(),
-        required_verification: config.require.verification.clone(),
-        verification_satisfied,
-        approvals_satisfied,
+        verification: GateVerification {
+            required: config.require.verification.clone(),
+            actual: actual.to_owned(),
+            satisfied: verification_satisfied,
+        },
+        approvals,
         satisfied: verification_satisfied && approvals_satisfied,
-        reasons,
     }
 }
 

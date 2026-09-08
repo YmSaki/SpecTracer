@@ -1,26 +1,23 @@
 //! Acceptance coverage for 別紙C §18.3.9 フェーズゲート評価
 //! (DES-551/552/553/554).
 //!
-//! **Known field-name gap, disclosed rather than hidden** (same nature as
-//! `acceptance_18_3_8.rs`'s): DES-554 names the JSON shape literally as
-//! `data.gate.verification.{required, actual, satisfied}` and
-//! `data.gate.approvals[].{role, satisfied, missing_subjects}`. The
-//! current implementation (`crates/vtest-cli/src/lib.rs`'s
-//! `GateEvaluation`, predating this closure-slice) instead emits a flatter
-//! shape: `name` / `required_verification` / `verification_satisfied` /
-//! `approvals_satisfied` / `satisfied` / `reasons` — no per-role
-//! `approvals[]` array with `missing_subjects` at all (the gate config's
-//! own doc comment in `crates/vtest-store/src/lib.rs` already discloses
-//! that this slice has no effective-approval-state reader wired into gate
-//! evaluation, so a per-role breakdown isn't available yet). This test
-//! asserts the behavior DES-551/552/553 require (satisfied/unsatisfied
-//! fixtures, no order/subset-interpretation leniency) against the fields
-//! that actually exist, not DES-554's literal names.
+//! DES-554's wire shape (`data.gate.verification.{required, actual,
+//! satisfied}`, `data.gate.approvals[].{role, satisfied, missing_subjects}`)
+//! is asserted here literally — `ops::verify::GateEvaluation` was renamed
+//! to this exact shape (previously a flatter `required_verification`/
+//! `verification_satisfied`/`approvals_satisfied`/`reasons` form with no
+//! per-role breakdown at all).
+//!
+//! `missing_subjects` is always an empty list in this slice's output
+//! (disclosed in `GateApproval`'s own doc comment and
+//! `reports/closure-trace.md`'s stopped_on list): nothing in `config.yaml`
+//! names which entity/entities a required role must approve, so there is no
+//! subject set to compute a "missing" list from. `satisfied` for a required
+//! role stays fail-closed (`false`).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use vtest_cli::{run, Cli, Command, OutputFormat};
-use vtest_model::ExitCode;
+use vtest_cli::ops;
 use vtest_store::init_project;
 
 fn temp_root(name: &str) -> PathBuf {
@@ -33,50 +30,73 @@ fn temp_root(name: &str) -> PathBuf {
     root
 }
 
-fn cli(root: &Path, command: Command) -> Cli {
-    Cli {
-        project: root.to_path_buf(),
-        format: OutputFormat::Json,
-        quiet: true,
-        command,
+fn write_gate_config(root: &std::path::Path, approvals: Vec<String>) -> vtest_store::VerifyLayout {
+    let layout = init_project(root, "acceptance-18-3-9-fixture").expect("init .verify/ layout");
+    let mut config = vtest_store::load_config(root).expect("load default config");
+    if !approvals.is_empty() {
+        config
+            .approval_roles
+            .insert("reviewer".to_owned(), vec!["reviewer-agent-01".to_owned()]);
     }
+    config.gates.push(vtest_store::GateConfig {
+        name: "release".to_owned(),
+        require: vtest_store::GateRequirement {
+            verification: "PASS".to_owned(),
+            approvals,
+        },
+    });
+    std::fs::write(layout.config(), config.to_yaml()).expect("write gate config");
+    layout
 }
 
 /// DES-552's "条件不足" half, DES-553's "順序・包含解釈による充足を認めない"
 /// (an undefined gate name is rejected outright, not fuzzily matched):
 /// `verify_acceptance.rs`'s existing
 /// `an_undefined_gate_name_is_rejected_before_verification_runs` already
-/// covers this exact DS-1116 rule; this file adds the `--gate` exit-code
+/// covers this exact DS-1116 rule; this test adds the `--gate` exit-code
 /// axis DES-551/554 name specifically (0/1 keyed to gate satisfaction, not
-/// to the aggregate verification state — DS-931/932/933).
+/// to the aggregate verification state — DS-931/932/933), and asserts the
+/// literal `data.gate.verification.{required,actual,satisfied}` shape.
 #[test]
-fn an_unsatisfied_gate_is_exit_one_even_though_verification_itself_also_failed() {
+fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
     let root = temp_root("gate-unsatisfied");
-    let layout = init_project(&root, "acceptance-18-3-9-fixture").expect("init .verify/ layout");
-    let mut config = vtest_store::load_config(&root).expect("load default config");
-    config.gates.push(vtest_store::GateConfig {
-        name: "release".to_owned(),
-        require: vtest_store::GateRequirement {
-            verification: "PASS".to_owned(),
-            approvals: Vec::new(),
-        },
-    });
-    std::fs::write(layout.config(), config.to_yaml()).expect("write gate config");
+    write_gate_config(&root, Vec::new());
 
-    let exit = run(cli(
-        &root,
-        Command::Verify {
-            items: Vec::new(),
-            doc: None,
-            vo: None,
-            test: None,
-            gate: Some("release".to_owned()),
-            summary: false,
-        },
-    ));
+    let (exit, data, _diagnostics) =
+        ops::verify::execute(&root, &[], None, None, None, Some("release"), false)
+            .expect("verify must run to completion on an empty (non-scan-error) project");
     assert_eq!(
         exit,
-        ExitCode::VerificationFailed,
+        vtest_model::ExitCode::VerificationFailed,
         "DES-551/554: an empty project can never satisfy a gate requiring PASS"
     );
+    let gate = data.gate.expect("--gate must populate data.gate");
+    assert_eq!(gate.name, "release");
+    assert_eq!(gate.verification.required, "PASS");
+    assert!(
+        !gate.verification.satisfied,
+        "an empty project's aggregate state cannot be PASS"
+    );
+    assert!(!gate.satisfied);
+}
+
+/// DES-554's `approvals[].{role, satisfied, missing_subjects}` half: a
+/// required role that this slice cannot evaluate is reported by name, not
+/// merely folded into an aggregate "approvals unsatisfied" boolean.
+#[test]
+fn a_required_approval_role_appears_in_approvals_by_name() {
+    let root = temp_root("gate-role");
+    write_gate_config(&root, vec!["reviewer".to_owned()]);
+
+    let (_exit, data, _diagnostics) =
+        ops::verify::execute(&root, &[], None, None, None, Some("release"), false)
+            .expect("verify must run to completion on an empty (non-scan-error) project");
+    let gate = data.gate.expect("--gate must populate data.gate");
+    assert_eq!(gate.approvals.len(), 1);
+    assert_eq!(gate.approvals[0].role, "reviewer");
+    assert!(
+        !gate.approvals[0].satisfied,
+        "DES-554: an unevaluated required role must never read as satisfied"
+    );
+    assert!(!gate.satisfied);
 }

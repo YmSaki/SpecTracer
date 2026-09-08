@@ -852,7 +852,8 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
     out.push_str(&format!(
         "Requested scope: {}\n",
         data.scope
-            .requested_checks
+            .requested
+            .items
             .iter()
             .map(|check| check_name(*check))
             .collect::<Vec<_>>()
@@ -861,7 +862,7 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
     if let Some(entity) = &data.scope.entity {
         out.push_str(&format!("Entity scope: {}\n", entity.id()));
     }
-    if data.scope.outside_scope_is_unverified {
+    if data.scope.unverified_outside_scope {
         out.push_str("Anything outside the requested scope is UNVERIFIED, not PASS.\n");
     }
 
@@ -887,6 +888,7 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
     }
 
     if let Some(gate) = &data.gate {
+        let approvals_satisfied = gate.approvals.iter().all(|approval| approval.satisfied);
         out.push_str(&format!(
             "\nGate {}: {} (verification {}, approvals {})\n",
             gate.name,
@@ -895,15 +897,27 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
             } else {
                 "NOT SATISFIED"
             },
-            if gate.verification_satisfied {
+            if gate.verification.satisfied {
                 "ok"
             } else {
                 "no"
             },
-            if gate.approvals_satisfied { "ok" } else { "no" },
+            if approvals_satisfied { "ok" } else { "no" },
         ));
-        for reason in &gate.reasons {
-            out.push_str(&format!("  - {reason}\n"));
+        out.push_str(&format!(
+            "  - verification: required {}, actual {}\n",
+            gate.verification.required, gate.verification.actual
+        ));
+        for approval in &gate.approvals {
+            out.push_str(&format!(
+                "  - approval role '{}': {}\n",
+                approval.role,
+                if approval.satisfied {
+                    "satisfied"
+                } else {
+                    "not satisfied"
+                }
+            ));
         }
     }
 
