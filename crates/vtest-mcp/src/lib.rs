@@ -10,17 +10,19 @@
 //! Per REQ-323 / SPEC-216 / SPEC-246 the full MCP tool taxonomy is a
 //! detailed-design matter delegated to 別紙A §12–§15. This slice exposes
 //! exactly the operations the current CLI (`crates/vtest-cli/src/lib.rs`)
-//! implements — `init`, `scan`, `doctor`, `run`, `verify`, and the Approval
+//! implements — `init`, `scan`, `doctor`, `run`, `verify`, the Approval
 //! domain (`approval_create`/`approval_withdraw`/`approval_get`, named per
 //! BD-305/307/308's own MCP tool names — note `approval_get`, not
-//! `approval_show`, is the canonical name for the `show` operation) — and
-//! does not invent MCP-only tools for CLI surface (`spec`/`req`/`vo`/`test`/
-//! `audit`/`report`, or `doc` — see `vtest-cli`'s own module doc for why
-//! `doc` is not implemented: Owner-deferred per Issue #14, not an upstream
-//! silence) that does not exist yet on the canonical model (SPEC-400, see
-//! that file's module doc). Adding those tools without a citation would be
-//! exactly the invention this repository's AGENTS.md forbids; they are left
-//! out and reported as declined scope rather than guessed at.
+//! `approval_show`, is the canonical name for the `show` operation), and the
+//! Document registry (`doc_add`/`doc_list`/`doc_show`, mirroring the CLI
+//! subcommand names 1:1 — no MCP-specific name override was found for `doc`
+//! the way BD-308 overrides `approval show` to `approval_get`) — and does
+//! not invent MCP-only tools for CLI surface (`spec`/`req`/`vo`/`test`/
+//! `audit`/`report`) that does not exist yet on the canonical model
+//! (SPEC-400, see that file's module doc). Adding those tools without a
+//! citation would be exactly the invention this repository's AGENTS.md
+//! forbids; they are left out and reported as declined scope rather than
+//! guessed at.
 //!
 //! `approval_create`'s `subject_type: "judgment"` is rejected with the same
 //! disclosed error the CLI uses (`vtest_cli::ops::approval`'s module doc
@@ -62,6 +64,9 @@ const TOOL_NAMES: &[&str] = &[
     "approval_create",
     "approval_withdraw",
     "approval_get",
+    "doc_add",
+    "doc_list",
+    "doc_show",
 ];
 
 #[derive(Default)]
@@ -419,6 +424,29 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["subject"],
         ),
+        "doc_add" => (
+            json!({
+                "id": {"type": "string"},
+                "path": {"type": "string"},
+                "title": {"type": "string"},
+                "derives_from": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "doc": {"type": "string"},
+                            "anchor": {"type": "string"},
+                            "note": {"type": "string"}
+                        }
+                    }
+                },
+                "root": {"type": "boolean"},
+                "update": {"type": "boolean"}
+            }),
+            vec!["id", "path"],
+        ),
+        "doc_list" => (json!({}), Vec::new()),
+        "doc_show" => (json!({"id": {"type": "string"}}), vec!["id"]),
         _ => (json!({}), Vec::new()),
     };
     let mut schema = json!({
@@ -441,6 +469,9 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
+        "doc_add" => &["id", "path", "title", "derives_from", "root", "update"],
+        "doc_list" => &[],
+        "doc_show" => &["id"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -468,6 +499,15 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         // `Value::pointer`) since their shape is nested, not flat — this
         // layer only enforces the flat allowed-key set above.
         "approval_create" | "approval_withdraw" | "approval_get" => Ok(()),
+        "doc_add" => {
+            optional_nonempty_string(args, "id")?;
+            optional_nonempty_string(args, "path")?;
+            optional_nonempty_string(args, "title")?;
+            optional_bool(args, "root")?;
+            optional_bool(args, "update")
+        }
+        "doc_list" => Ok(()),
+        "doc_show" => optional_nonempty_string(args, "id").map(|_| ()),
         _ => Ok(()),
     }
 }
@@ -545,6 +585,9 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "approval_create" => approval_create_tool(root, args),
         "approval_withdraw" => approval_withdraw_tool(root, args),
         "approval_get" => approval_get_tool(root, args),
+        "doc_add" => doc_add_tool(root, args),
+        "doc_list" => doc_list_tool(root, args),
+        "doc_show" => doc_show_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -690,6 +733,119 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
             )
         }
         Err(error) => approval_error_envelope(&error),
+    }
+}
+
+/// DS-1000-1008/1012-1014, DES-482 — same canonical path as `vtest doc add`.
+/// Unlike the CLI's `ID:TEXT`-encoded `--anchor`/`--note`, MCP arguments are
+/// JSON, so `derives_from` here is the natural `[{doc, anchor?, note?}]`
+/// array shape directly — no positional-binding workaround needed.
+fn doc_add_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "doc_add requires id");
+    };
+    let Some(path) = string_arg(args, "path") else {
+        return failure_envelope("E-OP-001", "doc_add requires path");
+    };
+    let title = string_arg(args, "title").map(str::to_owned);
+    let update = bool_arg(args, "update");
+    let root_arg = args.get("root").and_then(Value::as_bool);
+
+    let mut derives_from = Vec::new();
+    for entry in args
+        .get("derives_from")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(doc) = entry.get("doc").and_then(Value::as_str) else {
+            return failure_envelope("E-OP-001", "doc_add derives_from entries require doc");
+        };
+        derives_from.push(ops::doc::DerivesFromArg {
+            doc: doc.to_owned(),
+            anchor: entry
+                .get("anchor")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            note: entry.get("note").and_then(Value::as_str).map(str::to_owned),
+        });
+    }
+
+    match ops::doc::add(
+        root,
+        &layout,
+        ops::doc::AddArgs {
+            id: id.to_owned(),
+            path: path.to_owned(),
+            title,
+            derives_from,
+            root: root_arg,
+            update,
+        },
+    ) {
+        Ok(record) => success_envelope(true, doc_record_json(&record), &[]),
+        Err(error) => doc_error_envelope(&error),
+    }
+}
+
+fn doc_list_tool(root: &Path, _args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    match ops::doc::list(&layout) {
+        Ok(result) => {
+            let records: Vec<_> = result.records.iter().map(doc_record_json).collect();
+            success_envelope(
+                true,
+                json!({
+                    "records": records,
+                    "roots": result.records.iter().filter(|record| record.root).map(|record| record.id.clone()).collect::<Vec<_>>(),
+                    "unresolved_derives_from": result.unresolved,
+                }),
+                &[],
+            )
+        }
+        Err(error) => doc_error_envelope(&error),
+    }
+}
+
+fn doc_show_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "doc_show requires id");
+    };
+    match ops::doc::show(root, &layout, id) {
+        Ok(result) => {
+            let mut data = doc_record_json(&result.record);
+            match &result.fresh {
+                Ok(fresh) => data["fresh"] = json!(fresh),
+                Err(message) => data["fresh_error"] = json!(message),
+            }
+            success_envelope(true, data, &[])
+        }
+        Err(error) => doc_error_envelope(&error),
+    }
+}
+
+fn doc_record_json(record: &vtest_model::DocRegistryRecord) -> Value {
+    json!({
+        "id": record.id,
+        "path": record.path,
+        "title": record.title,
+        "content_hash": record.content_hash.as_str(),
+        "derives_from": record.derives_from.iter().map(|entry| json!({
+            "doc": entry.doc,
+            "anchor": entry.anchor,
+            "note": entry.note,
+        })).collect::<Vec<_>>(),
+        "root": record.root,
+        "registered_at": record.registered_at,
+    })
+}
+
+fn doc_error_envelope(error: &ops::doc::DocOpError) -> Value {
+    match error {
+        ops::doc::DocOpError::Usage(_) => failure_envelope("E-OP-001", error.to_string()),
+        ops::doc::DocOpError::Store(_) => failure_envelope("E-CORE-001", error.to_string()),
     }
 }
 
@@ -1023,6 +1179,53 @@ mod tests {
             mcp_envelope["data"]["records"].as_array().map(Vec::len),
             Some(direct.records.len()),
             "MCP `approval_get` must report the same record count"
+        );
+    }
+
+    /// DS-1563 equivalence for the Document registry: `doc_show` (MCP) vs
+    /// `ops::doc::show` (the shared function the CLI `doc show` wrapper also
+    /// calls).
+    #[test]
+    fn mcp_doc_show_tool_matches_the_ops_doc_show_operation() {
+        let root = temp_root("doc-equivalence");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(root.join("basic-spec.md"), "# fixture\n").expect("write source file");
+
+        let layout = vtest_store::VerifyLayout::new(&root);
+        ops::doc::add(
+            &root,
+            &layout,
+            ops::doc::AddArgs {
+                id: "DOC-BASIC-001".to_owned(),
+                path: "basic-spec.md".to_owned(),
+                title: None,
+                derives_from: Vec::new(),
+                root: None,
+                update: false,
+            },
+        )
+        .expect("add must succeed against a real source file");
+
+        let direct = ops::doc::show(&root, &layout, "DOC-BASIC-001")
+            .expect("direct ops::doc::show must succeed");
+        let mcp_envelope = dispatch_tool(&root, "doc_show", &json!({"id": "DOC-BASIC-001"}));
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["content_hash"],
+            Value::String(direct.record.content_hash.as_str().to_owned()),
+            "MCP `doc_show` must report the same content_hash as the shared `ops::doc::show`"
+        );
+        assert_eq!(
+            mcp_envelope["data"]["fresh"],
+            Value::Bool(direct.fresh.unwrap_or(false)),
+            "MCP `doc_show` must report the same freshness as the shared `ops::doc::show`"
         );
     }
 }
