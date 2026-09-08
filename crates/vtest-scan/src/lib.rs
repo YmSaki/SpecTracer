@@ -22,9 +22,9 @@ use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
-    source_target_subject_hash, AdapterId, ContentHash, CoveragePolicy, Diagnostic, DiscoveredTest,
-    DocumentFile, ManagedTestLink, ScanSummary, SectionNode, SentenceNode, SourceFunction,
-    SourceLocation, TargetRef, TestEntity, VoRecord,
+    source_target_subject_hash, test_subject_hash, AdapterId, ContentHash, CoveragePolicy,
+    Diagnostic, DiscoveredTest, DocumentFile, ManagedTestLink, ScanSummary, SectionNode,
+    SentenceNode, SourceFunction, SourceLocation, TargetRef, TestEntity, TestRecord, VoRecord,
 };
 use vtest_store::{
     is_valid_ulid, load_config, read_approval, read_document_file, read_entity_ids, read_text,
@@ -393,11 +393,54 @@ fn materialize_tests(
             .or_default()
             .push(draft.location.clone());
 
-        let content_hash = ContentHash::from_text(&draft.construct_text);
+        // `DiscoveredTest.content_hash` stays a construct-only hash — it
+        // exists for every observed construct, including `missing_drafts`
+        // below (which have no `TestRecord`), so it cannot depend on
+        // metadata. Only `TestEntity.content_hash` is the Test subject hash
+        // (§1.3, 本冊:87): it binds adapter ID, canonical metadata, Source
+        // Location (excluding byte_range), ExecutionDescriptor, and the
+        // normalized construct bytes, so a metadata-only edit (e.g.
+        // `@vtest.covers`) changes it even though the construct bytes do
+        // not (別紙C:35).
+        //
+        // 開示（PR34 の ContentHash::from_text 全数調査より）: specification.json
+        // には `DiscoveredTest.content_hash: ContentHash` という field 型の
+        // 宣言（`DES-339`）はあるが、この field 自体が何を束縛するかを
+        // 定める subject hash 規則は見つからない — §1.3 が名付ける
+        // domain-separated hash は `vtest:test-subject:v1` /
+        // `vtest:target-subject:v1` / `vtest:document-subject:v1` /
+        // `vtest:record-subject:v1`（VO）/ `vtest:execution-state:v1` の
+        // 5つで、"DiscoveredTest" 用の domain は無い（`DES-335`「coreは
+        // range・bytes対応を検証し、§1.3でhashを計算してから `TestEntity`、
+        // `SourceTarget` および `DiscoveredTest` を具体化する」は3型まとめて
+        // 言うだけで、DiscoveredTest固有の束縛対象までは述べない）。したがって
+        // 上の「construct-only」という設計は上記の構造的理由（`missing_drafts`
+        // に `TestRecord` が無い）からの導出であり、明文の引用ではない。
+        let construct_hash = ContentHash::from_text(&draft.construct_text);
+
+        let metadata = TestRecord {
+            id: draft.id.clone(),
+            covers: draft.covers.clone(),
+            targets: draft.targets.clone(),
+            intent: draft.intent.clone(),
+            input: draft.input.clone(),
+            expect: draft.expect.clone(),
+            kind: draft.kind.clone(),
+            cases: draft.cases.clone(),
+            related: draft.related.clone(),
+        };
+        let subject_hash = test_subject_hash(
+            &adapter,
+            &metadata,
+            &draft.location,
+            &draft.execution,
+            &draft.construct_text,
+        );
+
         discovered.push(DiscoveredTest {
             adapter,
             location: draft.location.clone(),
-            content_hash: content_hash.clone(),
+            content_hash: construct_hash,
             managed: ManagedTestLink::One(draft.id.clone()),
         });
         tests.push(TestEntity {
@@ -411,10 +454,8 @@ fn materialize_tests(
             cases: draft.cases,
             related: draft.related,
             location: draft.location,
-            content_hash,
-            filter: draft.filter,
-            package: draft.package,
-            test_target: draft.test_target,
+            content_hash: subject_hash,
+            execution: draft.execution,
         });
     }
 
@@ -899,13 +940,13 @@ fn validate_document_nodes(
     for name in document_names {
         match read_document_file(layout, name) {
             Ok(file) => files.push((name.clone(), file)),
-            Err(error) => diagnostics.push(
-                Diagnostic::error(
+            Err(error) => {
+                let record_path = document_node_record_path(layout, name);
+                diagnostics.push(Diagnostic::error(
                     "E-SCAN-010",
-                    format!("document {name} has an invalid record: {error}"),
-                )
-                .with_location(document_node_location(layout, name, name)),
-            ),
+                    format!("document {name} has an invalid record: {error} ({record_path})"),
+                ));
+            }
         }
     }
 
@@ -940,20 +981,14 @@ fn validate_document_nodes(
             let mut locations = occurring_in.clone();
             locations.sort();
             locations.dedup();
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!(
-                        "document node id {id} occurs more than once, in: {}",
-                        locations.join(", ")
-                    ),
-                )
-                .with_location(document_node_location(
-                    layout,
-                    &occurring_in[0],
-                    id,
-                )),
-            );
+            let record_path = document_node_record_path(layout, &occurring_in[0]);
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!(
+                    "document node id {id} occurs more than once, in: {} ({record_path})",
+                    locations.join(", ")
+                ),
+            ));
         } else {
             known_ids.insert(id.clone());
         }
@@ -1045,15 +1080,15 @@ fn index_section_ids(
     }
 }
 
-/// A document-node diagnostic's location: the `.verify/doc/<name>.json`
-/// file, with `function` set to the node's own id (mirrors
-/// `validate_vo_record`'s use of `record_location` for `.verify/vo/`).
-fn document_node_location(layout: &VerifyLayout, name: &str, node_id: &str) -> SourceLocation {
-    record_location(
-        &layout.root,
-        &layout.doc_dir().join(format!("{name}.json")),
-        node_id,
-    )
+/// A document-node diagnostic's identifying record path: the repo-relative
+/// `.verify/doc/<name>.json` path, embedded in the diagnostic's message text
+/// rather than attached as a `SourceLocation` — document nodes are a record
+/// layer, not an adapter-discovered construct, so (see `record_relative_path`'s
+/// own doc comment) they must not fabricate one. Mirrors `record_relative_path`'s
+/// use for every other record-layer diagnostic in this file (E-SCAN-008/009/
+/// 010, and `validate_vo_document_references` below).
+fn document_node_record_path(layout: &VerifyLayout, name: &str) -> String {
+    record_relative_path(&layout.root, &layout.doc_dir().join(format!("{name}.json")))
 }
 
 /// Walks one `SectionNode` and its descendants, checking both E-SCAN-012
@@ -1072,35 +1107,29 @@ fn check_section_node(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let own_edges = section.derives_from.as_deref().unwrap_or(&[]);
-    let location = document_node_location(layout, document, section.id.as_str());
+    let record_path = document_node_record_path(layout, document);
     for target in own_edges {
         if !known_ids.contains(target.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-012",
-                    format!(
-                        "document node {} derives_from missing node {}",
-                        section.id.as_str(),
-                        target.as_str()
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-012",
+                format!(
+                    "document node {} derives_from missing node {} ({record_path})",
+                    section.id.as_str(),
+                    target.as_str()
+                ),
+            ));
         }
     }
     let has_upstream = ancestor_has_upstream || !own_edges.is_empty();
     if !has_upstream {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-016",
-                format!(
-                    "document node {} is orphaned: no effective upstream (own or ancestor \
-                     derives_from edges)",
-                    section.id.as_str()
-                ),
-            )
-            .with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-016",
+            format!(
+                "document node {} is orphaned: no effective upstream (own or ancestor \
+                 derives_from edges) ({record_path})",
+                section.id.as_str()
+            ),
+        ));
     }
 
     if let Some(items) = &section.items {
@@ -1132,35 +1161,29 @@ fn check_sentence_node(
     known_ids: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let location = document_node_location(layout, document, sentence.id.as_str());
+    let record_path = document_node_record_path(layout, document);
     for target in &sentence.derives_from {
         if !known_ids.contains(target.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-012",
-                    format!(
-                        "document node {} derives_from missing node {}",
-                        sentence.id.as_str(),
-                        target.as_str()
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-012",
+                format!(
+                    "document node {} derives_from missing node {} ({record_path})",
+                    sentence.id.as_str(),
+                    target.as_str()
+                ),
+            ));
         }
     }
     let has_upstream = ancestor_has_upstream || !sentence.derives_from.is_empty();
     if !has_upstream {
-        diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-016",
-                format!(
-                    "document node {} is orphaned: no effective upstream (own or ancestor \
-                     derives_from edges)",
-                    sentence.id.as_str()
-                ),
-            )
-            .with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-016",
+            format!(
+                "document node {} is orphaned: no effective upstream (own or ancestor \
+                 derives_from edges) ({record_path})",
+                sentence.id.as_str()
+            ),
+        ));
     }
 }
 
@@ -1178,21 +1201,15 @@ fn validate_vo_document_references(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for (id, record) in vos {
-        let location = record_location(
-            &layout.root,
-            &layout.vo_dir().join(format!("{id}.yaml")),
-            id,
-        );
+        let record_path =
+            record_relative_path(&layout.root, &layout.vo_dir().join(format!("{id}.yaml")));
         for entry in &record.derives_from {
             let target = entry.doc.as_str();
             if !document_node_ids.contains(target) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-012",
-                        format!("VO {id} derives_from missing node {target}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-012",
+                    format!("VO {id} derives_from missing node {target} ({record_path})"),
+                ));
             }
         }
     }
@@ -1220,7 +1237,7 @@ fn validate_vo_record(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<VoRecord> {
     let path = layout.vo_dir().join(format!("{id}.yaml"));
-    let location = record_location(&layout.root, &path, id);
+    let record_path = record_relative_path(&layout.root, &path);
     let (record, record_diagnostics) = match read_vo_record(layout, id) {
         Ok(result) => result,
         Err(error) => {
@@ -1233,25 +1250,24 @@ fn validate_vo_record(
             // the same `StoreError`; the predecessor code already folded
             // that into E-SCAN-010 too, so this keeps that precedent rather
             // than inventing a new code.
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("VO {id} has an invalid record: {error}"),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("VO {id} has an invalid record: {error} ({record_path})"),
+            ));
             return None;
         }
     };
+    let context = format!("VO {id} ({record_path})");
     diagnostics.extend(
         record_diagnostics
             .into_iter()
-            .map(|diagnostic| diagnostic.with_location(location.clone())),
+            .map(|diagnostic| annotate_record_diagnostic(diagnostic, &context)),
     );
     if let Some(message) = invalid_vo_combinations(&record) {
-        diagnostics.push(
-            Diagnostic::error("E-SCAN-017", format!("VO {id} {message}")).with_location(location),
-        );
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-017",
+            format!("VO {id} {message} ({record_path})"),
+        ));
     }
     Some(record)
 }
@@ -1351,25 +1367,48 @@ fn missing_fields(text: &str, fields: &[&str]) -> Option<String> {
     (!missing.is_empty()).then(|| missing.join(", "))
 }
 
-fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
-    // レビュー round 2 項目【L】掃引: `unwrap_or_default()` は read 失敗
-    // （権限エラー等）を空文字列と同じに扱う。このサイトは PR3 round 2 の
-    // 対象外だが、失われる情報を明記する — read が失敗すると呼び出し元の
-    // 診断（E-SCAN-008/009/010 等）に付く `SourceLocation.end_line` /
-    // `end_byte` が実ファイルの実測値ではなく `1` / `0` へ退化し、read
-    // 失敗そのものは診断として一切報告されない。
-    let text = fs::read_to_string(path).unwrap_or_default();
-    SourceLocation {
-        file: path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .replace('\\', "/"),
-        function: entity.to_owned(),
-        start_line: 1,
-        end_line: text.lines().count().max(1) as u64,
-        start_byte: 0,
-        end_byte: text.len() as u64,
+/// document/VO/relation/approval の record 層診断（`.verify/*.yaml`）が
+/// 対象ファイルを特定できるよう、リポジトリ相対パスの文字列を組み立てる。
+///
+/// **経緯（`SourceLocation` reshape で表面化した不一致、上流未報告）**:
+/// 本冊:637-642 が定める `SourceLocation` は `adapter: AdapterId` を必須
+/// field とする — adapter が discovery した source construct（Test / Source
+/// Target）の location を表すための型である（本冊 §5.2）。この関数が
+/// パスを組み立てる対象（document / VO / relation / approval の canonical
+/// YAML レコード）は、どの `SourceDiscoveryAdapter` にも属さない —
+/// `vtest-store` が読む record ファイルであって、adapter が発見した source
+/// construct ではない。
+///
+/// reshape 直後の実装は、型を満たすために実在しない adapter id
+/// （`AdapterId::new("vtest-store")`）を捏造して `SourceLocation` を組み
+/// 立てていた。Owner は同種の実装（解決不能な対象に架空の locator を入れる
+/// こと）を明示的に否定しているため、これを取りやめた。record 層の診断は
+/// そもそも adapter 起源ではないので `SourceLocation` を持たない
+/// （`Diagnostic.location` は `None` のまま）。失われる情報（対象ファイルの
+/// パス）は、この関数が返す文字列を呼び出し元がメッセージ本文へ埋め込むこと
+/// で補う。
+fn record_relative_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// `vtest-store` の record reader のうち `(record, Vec<Diagnostic>)` を返す
+/// もの（`read_vo_record` / `RelationRecord::from_yaml`）が生成する
+/// diagnostics（W-STORE-007 等）は、どの VO/relation/approval レコードから
+/// 来たかを知らずに生成される — メッセージ本文に id もパスも含まない
+/// （`vtest-store` 側は `VerifyLayout`/ファイルパスの文脈を持たない）。
+/// 呼び出し元（この crate）は id とパスを知っているので、
+/// `record_relative_path` で失われた `SourceLocation` の代わりに、対象を
+/// 識別できる文脈をメッセージ先頭へ前置する。（`read_document_file` は
+/// この形に当てはまらない — `Vec<Diagnostic>` を返さず、失敗は
+/// `validate_document_nodes` がこの crate 自身で E-SCAN-010 へ畳み込む。
+/// ここでの annotate 対象ではない。）
+fn annotate_record_diagnostic(diagnostic: Diagnostic, context: &str) -> Diagnostic {
+    Diagnostic {
+        message: format!("{context}: {}", diagnostic.message),
+        ..diagnostic
     }
 }
 
@@ -1383,17 +1422,11 @@ fn validate_parent_graph(
     for (id, parent) in parents {
         if let Some(parent) = parent {
             if !parents.contains_key(parent) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-008",
-                        format!("{kind} {id} references missing parent {parent}"),
-                    )
-                    .with_location(record_location(
-                        root,
-                        &directory.join(format!("{id}.yaml")),
-                        id,
-                    )),
-                );
+                let record_path = record_relative_path(root, &directory.join(format!("{id}.yaml")));
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-008",
+                    format!("{kind} {id} references missing parent {parent} ({record_path})"),
+                ));
             }
         }
     }
@@ -1410,17 +1443,15 @@ fn validate_parent_graph(
                 key_parts.sort();
                 let key = key_parts.join("|");
                 if reported.insert(key) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "E-SCAN-008",
-                            format!("{kind} parent cycle: {}", cycle.join(" -> ")),
-                        )
-                        .with_location(record_location(
-                            root,
-                            &directory.join(format!("{current}.yaml")),
-                            &current,
-                        )),
-                    );
+                    let record_path =
+                        record_relative_path(root, &directory.join(format!("{current}.yaml")));
+                    diagnostics.push(Diagnostic::error(
+                        "E-SCAN-008",
+                        format!(
+                            "{kind} parent cycle: {} ({record_path})",
+                            cycle.join(" -> ")
+                        ),
+                    ));
                 }
                 break;
             }
@@ -1487,57 +1518,57 @@ fn validate_relations(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
-        let location = record_location(&layout.root, &path, &file_id);
+        let record_path = record_relative_path(&layout.root, &path);
         if let Some(payload) = relation_ulid_payload(&file_id) {
             if let Some(first) = relation_payloads.insert(payload.to_owned(), file_id.clone()) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!(
-                            "relation IDs {first} and {file_id} use the same ULID payload {payload}"
-                        ),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!(
+                        "relation IDs {first} and {file_id} use the same ULID payload {payload} \
+                         ({record_path})"
+                    ),
+                ));
                 continue;
             }
         }
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("relation {file_id} cannot be read: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation {file_id} cannot be read: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         let (relation, relation_diagnostics) = match RelationRecord::from_yaml(&text, &file_id) {
             Ok(parsed) => parsed,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("relation {file_id} has an invalid schema: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("relation {file_id} has an invalid schema: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
+        // NOTE (未報告の既存ギャップ、本 PR の対象外): `relation_diagnostics`
+        // （`RelationRecord::from_yaml` が返す W-STORE-007 等）はこの reshape
+        // 以前から location もメッセージ内の id/path も持たない —
+        // `vtest-store::unknown_field_diagnostics` のメッセージ自体に
+        // relation の識別情報が無いため。document/VO と揃えて
+        // `annotate_record_diagnostic` を通すべきだが、これは今回の sentinel
+        // 修正が生んだ欠陥ではなく独立の既存ギャップなので、ここでは直さず
+        // 報告のみに留める。
         diagnostics.extend(relation_diagnostics);
         for (field, value) in [("from", relation.from), ("to", relation.to)] {
             if !known_ids.contains(&value) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-009",
-                        format!("relation {file_id} {field} references missing entity {value}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-009",
+                    format!(
+                        "relation {file_id} {field} references missing entity {value} \
+                         ({record_path})"
+                    ),
+                ));
             }
         }
     }
@@ -1560,17 +1591,12 @@ fn validate_vo_warnings(
         .collect::<BTreeSet<_>>();
     for id in vos.keys() {
         if !child_ids.contains(id) && !covered_ids.contains(id) {
-            diagnostics.push(
-                Diagnostic::warning(
-                    "W-SCAN-102",
-                    format!("VO {id} is isolated and has no covering test"),
-                )
-                .with_location(record_location(
-                    &layout.root,
-                    &layout.vo_dir().join(format!("{id}.yaml")),
-                    id,
-                )),
-            );
+            let record_path =
+                record_relative_path(&layout.root, &layout.vo_dir().join(format!("{id}.yaml")));
+            diagnostics.push(Diagnostic::warning(
+                "W-SCAN-102",
+                format!("VO {id} is isolated and has no covering test ({record_path})"),
+            ));
         }
     }
     for test in tests {
@@ -1613,6 +1639,21 @@ fn validate_approval_status(
     vos: &BTreeMap<String, VoRecord>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<(), ScanError> {
+    // 開示（PR34 の ContentHash::from_text 全数調査より）: `current_hashes`'s `ContentHash` values are
+    // computed here but never read below — the only consumer is
+    // `.contains_key(subject)` at this function's tail, a presence check
+    // that would work identically over a `BTreeSet<String>` of VO ids. No
+    // comparison against `approval.subject_hash` exists anywhere in this
+    // function (confirmed: `approval.subject_hash` is never referenced after
+    // `read_approval` below), so this is not currently a VO-content
+    // staleness check despite computing a per-VO hash. Left unsimplified and
+    // the `ContentHash::from_text` call left unreplaced (rather than
+    // collapsing to a `BTreeSet` or wiring in a real `vo_subject_hash`
+    // comparison) because either change reaches into Approval-record
+    // validity semantics, which this function's own doc comment already
+    // marks out of this PR's scope pending the canonical Approval migration
+    // (item 5 / PR4+; DES-093 would be the binding rule for that eventual
+    // comparison).
     let mut current_hashes = BTreeMap::new();
     for id in vos.keys() {
         let path = layout.vo_dir().join(format!("{id}.yaml"));
@@ -1645,67 +1686,52 @@ fn validate_approval_status(
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .to_owned();
-        let location = record_location(&layout.root, &path, &file_id);
+        let record_path = record_relative_path(&layout.root, &path);
         let text = match read_text(&path) {
             Ok(text) => text,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("approval {file_id} cannot be read: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} cannot be read: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         let mut invalid = false;
         if !is_valid_ulid(&file_id) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval file name {file_id} is not a valid ULID"),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval file name {file_id} is not a valid ULID ({record_path})"),
+            ));
             invalid = true;
         }
         if let Some(missing) =
             missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
         {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} is missing required fields: {missing}"),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval {file_id} is missing required fields: {missing} ({record_path})"),
+            ));
             invalid = true;
         }
         let approval = match read_approval(&path) {
             Ok(approval) => approval,
             Err(error) => {
-                diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-010",
-                        format!("approval {file_id} has an invalid schema: {error}"),
-                    )
-                    .with_location(location.clone()),
-                );
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} has an invalid schema: {error} ({record_path})"),
+                ));
                 continue;
             }
         };
         if approval.id != file_id {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!(
-                        "approval file name {file_id} does not match record id {}",
-                        approval.id
-                    ),
-                )
-                .with_location(location.clone()),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!(
+                    "approval file name {file_id} does not match record id {} ({record_path})",
+                    approval.id
+                ),
+            ));
             invalid = true;
         }
         if invalid {
@@ -1713,13 +1739,10 @@ fn validate_approval_status(
         }
         let subject = approval.subject.as_str();
         if !current_hashes.contains_key(subject) {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-SCAN-010",
-                    format!("approval {file_id} references missing VO {subject}"),
-                )
-                .with_location(location),
-            );
+            diagnostics.push(Diagnostic::error(
+                "E-SCAN-010",
+                format!("approval {file_id} references missing VO {subject} ({record_path})"),
+            ));
         }
     }
     Ok(())
@@ -1729,7 +1752,7 @@ fn validate_approval_status(
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestTarget, VoId};
+    use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestSuite, VoId};
     use vtest_store::{init_project, new_record_id, write_document_file, FormAnswers, FormValue};
 
     fn valid_vo(id: &str, parent: &str) -> String {
@@ -1825,11 +1848,17 @@ fn adds() { assert_eq!(2, crate::missing()); }
             result.diagnostics
         );
         assert_eq!(result.tests[0].id.as_str(), "TEST-ADD");
-        assert_eq!(result.tests[0].filter, "adds");
-        assert_eq!(result.tests[0].package, "fixture");
+        assert_eq!(result.tests[0].execution.selector, "adds");
         assert_eq!(
-            result.tests[0].test_target,
-            TestTarget::IntegrationTest("calc".to_owned())
+            result.tests[0].execution.project.as_deref(),
+            Some("fixture")
+        );
+        assert_eq!(
+            result.tests[0].execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("calc".to_owned()),
+            })
         );
     }
 
@@ -1880,6 +1909,222 @@ fn adds() { assert_eq!(2, crate::missing()); }
             helper_a.content_hash, helper_b.content_hash,
             "two Source Targets with byte-identical construct bytes at different \
              canonical Locators must not collide (本冊:88, Issue #27)"
+        );
+    }
+
+    /// Locks in the `test_subject_hash` → `TestEntity.content_hash` wiring
+    /// in `materialize_tests`. §1.3 (本冊:87) makes the Test subject hash
+    /// bind canonical metadata (including `covers`) in addition to
+    /// construct bytes, and 別紙C:35 requires this specific consequence: a
+    /// metadata-only change must change `TestEntity.content_hash` even when
+    /// the Test construct bytes are byte-for-byte identical. Before this
+    /// wiring, `content_hash` was `ContentHash::from_text(&draft.
+    /// construct_text)` — construct bytes only — so a metadata-only change
+    /// would not have changed it.
+    ///
+    /// This drives `materialize_tests` directly with two hand-built
+    /// `TestDraft`s built from the exact same `construct_text` `String`
+    /// (cloned, never mutated between the two calls) and differing only in
+    /// `covers`, rather than going through `rust-cargo::discover` on a
+    /// `@vtest.covers` source edit. At the time this test was written,
+    /// `rust-cargo` sliced a Test construct as the whole item span including
+    /// its metadata doc comment, so a source-edit-based version of this test
+    /// would have changed `construct_text` too and no longer isolated a
+    /// metadata-only change — driving `materialize_tests` directly sidestepped
+    /// that gap. That gap is now closed (`vtest_adapter_rust::
+    /// test_construct_start_span` excludes the leading metadata doc comment
+    /// per 本冊:99), and `scan_project_content_hash_changes_when_only_covers_
+    /// metadata_changes_via_source_edit` below covers the same property
+    /// through a real `@vtest.covers` source edit end-to-end. This test is
+    /// kept alongside it because it isolates the `materialize_tests` wiring
+    /// itself (independent of adapter discovery) with no other moving parts.
+    #[test]
+    fn materialize_tests_content_hash_changes_when_only_covers_metadata_changes() {
+        let construct_text = "fn adds() { assert_eq!(2, add(1, 1)); }".to_owned();
+        let location = SourceLocation {
+            adapter: AdapterId::new("rust-cargo"),
+            path: vtest_model::ProjectPath::new("tests/calc.rs"),
+            locator: "adds".to_owned(),
+            byte_range: vtest_model::SourceRange {
+                start: 0,
+                end: construct_text.len() as u64,
+            },
+        };
+        let execution = vtest_model::ExecutionDescriptor {
+            adapter: AdapterId::new("rust-cargo"),
+            project: Some("fixture".to_owned()),
+            suite: Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("calc".to_owned()),
+            }),
+            selector: "adds".to_owned(),
+        };
+        let draft_with_covers = |covers: Vec<vtest_model::VoId>| vtest_adapter_api::TestDraft {
+            id: vtest_model::TestId::new("TEST-ADD"),
+            covers,
+            targets: vec![TargetRef::Locator(vtest_model::Locator {
+                adapter: AdapterId::new("rust-cargo"),
+                value: "src/lib.rs::add".to_owned(),
+            })],
+            intent: "adds values".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: location.clone(),
+            construct_text: construct_text.clone(),
+            execution: execution.clone(),
+        };
+
+        let (before_tests, _, _) = materialize_tests(
+            vec![(
+                AdapterId::new("rust-cargo"),
+                draft_with_covers(vec![vtest_model::VoId::new("VO-ADD")]),
+            )],
+            Vec::new(),
+        );
+        let (after_tests, _, _) = materialize_tests(
+            vec![(
+                AdapterId::new("rust-cargo"),
+                draft_with_covers(vec![vtest_model::VoId::new("VO-ADD-2")]),
+            )],
+            Vec::new(),
+        );
+
+        assert_eq!(before_tests.len(), 1);
+        assert_eq!(after_tests.len(), 1);
+        assert_ne!(
+            before_tests[0].covers, after_tests[0].covers,
+            "the two drafts must actually declare different covers"
+        );
+
+        assert_ne!(
+            before_tests[0].content_hash, after_tests[0].content_hash,
+            "TestEntity.content_hash must change when only covers metadata \
+             changes, even though construct_text is byte-for-byte identical \
+             (別紙C:35)"
+        );
+    }
+
+    /// 本冊:99「`rust-cargo` adapterはTest constructとしてmetadata doc
+    /// commentを除き、実行に影響する属性、signature、bodyを含む関数itemの
+    /// bytesを返す」を実ファイル経由で確認する。`@vtest.covers`はmetadata
+    /// doc commentの内側にあるため、その書き換えはTest construct bytes
+    /// （`DiscoveredTest.content_hash` — construct-onlyのhash。
+    /// `materialize_tests`のdoc comment参照）を変えないが、`TestEntity.
+    /// content_hash`（Test subject hash。§1.3, 本冊:87はcanonical metadata
+    /// も束縛する）は変える（別紙C:35）。上の
+    /// `materialize_tests_content_hash_changes_when_only_covers_metadata_
+    /// changes`が`materialize_tests`の配線だけを直接駆動して確認するのに
+    /// 対し、この版は`scan_project`を通してadapter discoveryから通し、
+    /// 「metadataだけ変えてconstructは不変」という状態が実ファイル編集
+    /// からも作れることそのものを確認する。
+    #[test]
+    fn scan_project_content_hash_changes_when_only_covers_metadata_changes_via_source_edit() {
+        let root = fixture();
+        fs::write(
+            root.join(".verify/vo/VO-ADD-2.yaml"),
+            valid_vo("VO-ADD-2", "null"),
+        )
+        .unwrap();
+
+        let before = scan_project(&root).unwrap();
+        assert!(
+            !before.has_errors(),
+            "diagnostics: {:?}",
+            before.diagnostics
+        );
+        let before_test = before
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture registers TEST-ADD");
+        let before_construct_hash = before
+            .discovered
+            .iter()
+            .find(|discovered| {
+                matches!(&discovered.managed, ManagedTestLink::One(id) if id.as_str() == "TEST-ADD")
+            })
+            .expect("TEST-ADD must have a DiscoveredTest observation")
+            .content_hash
+            .clone();
+        // `adds`自身もSource Target（属性とdoc commentを含む関数item全体。
+        // 本冊:99）として登録される（`collect_function_parts`は`is_test`
+        // 判定より前に無条件で`self.sources`へpushする）。この
+        // `SourceFunction.content_hash`はdoc commentを含む範囲から計算する
+        // ため、`@vtest.covers`の書き換えで変わるはずである — Test
+        // construct側が不変であることの非対称な裏付け（Source Targetの
+        // 範囲は変えていないことの実測）。
+        let before_source_hash = before
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "tests/calc.rs::adds")
+            .expect("fixture's own test function must be registered as a Source Target")
+            .content_hash
+            .clone();
+
+        // `@vtest.covers`だけを書き換える。属性・signature・bodyは不変。
+        fs::write(
+            root.join("tests/calc.rs"),
+            r#"
+/// @vtest.id TEST-ADD
+/// @vtest.covers VO-ADD-2
+/// @vtest.target src/lib.rs::add
+/// @vtest.intent adds values
+#[test]
+fn adds() { assert_eq!(2, crate::missing()); }
+"#,
+        )
+        .unwrap();
+
+        let after = scan_project(&root).unwrap();
+        assert!(!after.has_errors(), "diagnostics: {:?}", after.diagnostics);
+        let after_test = after
+            .tests
+            .iter()
+            .find(|test| test.id.as_str() == "TEST-ADD")
+            .expect("fixture registers TEST-ADD");
+        let after_construct_hash = after
+            .discovered
+            .iter()
+            .find(|discovered| {
+                matches!(&discovered.managed, ManagedTestLink::One(id) if id.as_str() == "TEST-ADD")
+            })
+            .expect("TEST-ADD must have a DiscoveredTest observation")
+            .content_hash
+            .clone();
+        let after_source_hash = after
+            .sources
+            .iter()
+            .find(|source| source.locator.value == "tests/calc.rs::adds")
+            .expect("fixture's own test function must be registered as a Source Target")
+            .content_hash
+            .clone();
+
+        assert_ne!(
+            before_test.covers, after_test.covers,
+            "the source edit must actually declare different covers"
+        );
+        assert_eq!(
+            before_construct_hash, after_construct_hash,
+            "Test construct bytes (metadata doc comment excluded, 本冊:99) \
+             must stay unchanged when only @vtest.covers changes"
+        );
+        assert_ne!(
+            before_test.content_hash, after_test.content_hash,
+            "TestEntity.content_hash must change when only covers metadata \
+             changes, even though Test construct bytes are unchanged (別紙C:35)"
+        );
+        assert_ne!(
+            before_source_hash, after_source_hash,
+            "Source Target hash for `adds` itself must change — its \
+             construct bytes still include the metadata doc comment \
+             (本冊:99 \"Source Targetには属性とdoc commentを含む関数item \
+             全体を返す\"), so rewriting @vtest.covers changes those bytes \
+             even though it leaves the Test construct (attrs/signature/body \
+             only) unchanged. This is the asymmetry that proves the two \
+             ranges were actually split, not both silently narrowed."
         );
     }
 
@@ -1995,10 +2240,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(result.tests[0].execution.suite, None);
 
         let root = fixture();
         fs::remove_file(root.join("Cargo.toml")).unwrap();
@@ -2006,10 +2251,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
-                    location.file == "tests/calc.rs" && location.function == "adds"
+                    location.path.as_str() == "tests/calc.rs" && location.locator == "adds"
                 })
         }));
-        assert!(matches!(result.tests[0].test_target, TestTarget::Unknown));
+        assert_eq!(result.tests[0].execution.suite, None);
     }
 
     /// DS-349: "`config.yaml` の各adapterの `scan` 設定の `include` は
@@ -2148,33 +2393,57 @@ fn parses_integration() { exercise(); }
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-MODULE")
             .unwrap();
-        assert_eq!(module_test.package, "parser-crate");
-        assert_eq!(module_test.test_target, TestTarget::Lib);
-        assert_eq!(module_test.filter, "parser::tests::parses_external_module");
+        assert_eq!(
+            module_test.execution.project.as_deref(),
+            Some("parser-crate")
+        );
+        assert_eq!(
+            module_test.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
+        assert_eq!(
+            module_test.execution.selector,
+            "parser::tests::parses_external_module"
+        );
 
         let integration = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-INTEGRATION")
             .unwrap();
-        assert_eq!(integration.package, "parser-crate");
         assert_eq!(
-            integration.test_target,
-            TestTarget::IntegrationTest("parser-suite".to_owned())
+            integration.execution.project.as_deref(),
+            Some("parser-crate")
         );
-        assert_eq!(integration.filter, "support::parses_integration");
+        assert_eq!(
+            integration.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("parser-suite".to_owned()),
+            })
+        );
+        assert_eq!(
+            integration.execution.selector,
+            "support::parses_integration"
+        );
 
         let binary = result
             .tests
             .iter()
             .find(|test| test.id.as_str() == "TEST-PARSER-BIN")
             .unwrap();
-        assert_eq!(binary.package, "parser-crate");
+        assert_eq!(binary.execution.project.as_deref(), Some("parser-crate"));
         assert_eq!(
-            binary.test_target,
-            TestTarget::Bin("parser-check".to_owned())
+            binary.execution.suite,
+            Some(vtest_model::TestSuite {
+                kind: "bin".to_owned(),
+                name: Some("parser-check".to_owned()),
+            })
         );
-        assert_eq!(binary.filter, "checks_binary");
+        assert_eq!(binary.execution.selector, "checks_binary");
     }
 
     #[test]
@@ -2192,11 +2461,11 @@ fn parses_integration() { exercise(); }
         assert!(!result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/ignored.rs"));
+            .any(|source| source.location.path.as_str() == "src/ignored.rs"));
         assert!(result
             .sources
             .iter()
-            .any(|source| source.location.file == "src/kept.rs"));
+            .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
     #[test]
@@ -2231,7 +2500,7 @@ fn ambiguous() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "ambiguous")
+                    .is_some_and(|location| location.locator == "ambiguous")
                 // 要確認C（PR #26 review round 2）: d4c1522でadapter側の
                 // E-SCAN-004発行をやめてcoreの`resolve_targets`へ一本化した
                 // 際、coreのメッセージから不正だった宣言値が落ちていた
@@ -2267,7 +2536,7 @@ fn ambiguous() {}
         let missing: Vec<&DiscoveredTest> = result
             .discovered
             .iter()
-            .filter(|entry| entry.location.function == "x")
+            .filter(|entry| entry.location.locator == "x")
             .collect();
         assert_eq!(missing.len(), 1, "expected exactly one D entry for `x`");
         assert!(matches!(missing[0].managed, ManagedTestLink::Missing));
@@ -2276,10 +2545,7 @@ fn ambiguous() {}
         // `M`（構造上完全な managed Test Entity 集合）には現れない
         // （基本:412「構造上完全とは…Test Entity として具体化できること
         // をいう」— 管理宣言自体が無いため具体化できていない）。
-        assert!(!result
-            .tests
-            .iter()
-            .any(|test| test.location.function == "x"));
+        assert!(!result.tests.iter().any(|test| test.location.locator == "x"));
     }
 
     /// 上のテストは「annotation が無い」経路（W-SCAN-101）だけを断言する。
@@ -2309,14 +2575,14 @@ fn missing_covers() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "missing_covers")
+                    .is_some_and(|location| location.locator == "missing_covers")
                 && diagnostic.message.contains("@vtest.covers")
         }));
 
         let missing: Vec<&DiscoveredTest> = result
             .discovered
             .iter()
-            .filter(|entry| entry.location.function == "missing_covers")
+            .filter(|entry| entry.location.locator == "missing_covers")
             .collect();
         assert_eq!(
             missing.len(),
@@ -2328,7 +2594,7 @@ fn missing_covers() {}
         assert!(!result
             .tests
             .iter()
-            .any(|test| test.location.function == "missing_covers"));
+            .any(|test| test.location.locator == "missing_covers"));
     }
 
     /// Owner裁定1（pr3-decisions.md）「Test ID が衝突した場合、先勝ちで1件
@@ -2377,7 +2643,7 @@ fn collision_second() {}
         );
         let functions: BTreeSet<&str> = colliding
             .iter()
-            .map(|test| test.location.function.as_str())
+            .map(|test| test.location.locator.as_str())
             .collect();
         assert_eq!(
             functions,
@@ -2394,7 +2660,7 @@ fn collision_second() {}
             .diagnostics
             .iter()
             .filter(|d| d.code == "E-SCAN-002")
-            .filter_map(|d| d.location.as_ref().map(|l| l.function.as_str()))
+            .filter_map(|d| d.location.as_ref().map(|l| l.locator.as_str()))
             .collect();
         assert_eq!(
             scan_002_functions,
@@ -2409,7 +2675,7 @@ fn collision_second() {}
             d.code == "E-SCAN-003"
                 && d.location
                     .as_ref()
-                    .is_some_and(|l| l.function == "collision_second")
+                    .is_some_and(|l| l.locator == "collision_second")
         }));
 
         // 5. `tests_by_id` は代表1件を選ばず `Collided` を返す。
@@ -2434,8 +2700,7 @@ fn collision_second() {}
             .discovered
             .iter()
             .filter(|d| {
-                d.location.function == "collision_first"
-                    || d.location.function == "collision_second"
+                d.location.locator == "collision_first" || d.location.locator == "collision_second"
             })
             .collect();
         assert_eq!(discovered_for_collision.len(), 2);
@@ -2561,7 +2826,13 @@ fn combines() {}
             .find(|test| test.id.as_str() == "TEST-LIB-ONE-TARGET")
             .unwrap();
         assert_eq!(one.targets.len(), 1);
-        assert!(matches!(one.test_target, TestTarget::Lib));
+        assert_eq!(
+            one.execution.suite,
+            Some(TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
 
         let two = result
             .tests
@@ -2569,7 +2840,13 @@ fn combines() {}
             .find(|test| test.id.as_str() == "TEST-LIB-TWO-TARGETS")
             .unwrap();
         assert_eq!(two.targets.len(), 2);
-        assert!(matches!(two.test_target, TestTarget::Lib));
+        assert_eq!(
+            two.execution.suite,
+            Some(TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            })
+        );
 
         let three = result
             .tests
@@ -2578,8 +2855,11 @@ fn combines() {}
             .unwrap();
         assert_eq!(three.targets.len(), 3);
         assert_eq!(
-            three.test_target,
-            TestTarget::IntegrationTest("three_targets".to_owned())
+            three.execution.suite,
+            Some(TestSuite {
+                kind: "integration".to_owned(),
+                name: Some("three_targets".to_owned()),
+            })
         );
 
         assert!(
@@ -2623,7 +2903,7 @@ fn same_target_twice() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "same_target_twice")
+                    .is_some_and(|location| location.locator == "same_target_twice")
         }));
         assert!(!result
             .tests
@@ -2738,7 +3018,7 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "misplaced")
+                    .is_some_and(|location| location.locator == "misplaced")
         }));
         assert!(!result
             .tests
@@ -2764,14 +3044,14 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
         assert!(!result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
     }
 
@@ -2795,7 +3075,7 @@ fn misplaced() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "helper")
+                    .is_some_and(|location| location.locator == "helper")
         }));
         let helper = result
             .sources
@@ -2831,7 +3111,7 @@ fn misplaced() {}
             diagnostic
                 .location
                 .as_ref()
-                .is_some_and(|location| location.function == "helper")
+                .is_some_and(|location| location.locator == "helper")
         }));
     }
 
@@ -2871,7 +3151,7 @@ fn misplaced() {}
             diagnostic
                 .location
                 .as_ref()
-                .map(|location| location.function.as_str()),
+                .map(|location| location.locator.as_str()),
             Some("helper_one"),
             "diagnostic must point at a declaring Source Target: {diagnostic:?}"
         );
@@ -2913,7 +3193,7 @@ fn aliased_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "aliased_target")
+                        .is_some_and(|location| location.locator == "aliased_target")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -2972,7 +3252,7 @@ fn declares_unparseable_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "declares_unparseable_target")
+                        .is_some_and(|location| location.locator == "declares_unparseable_target")
                     // 要確認C（PR #26 review round 2）: メッセージに元の
                     // 宣言値が残っていることを断言する — 利用者が「何が
                     // 不正だったか」を診断から追える最も分かりやすい例。
@@ -3042,7 +3322,7 @@ fn no_target() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "no_target")
+                        .is_some_and(|location| location.locator == "no_target")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -3082,7 +3362,7 @@ fn empty_target() {}
             diagnostic
                 .location
                 .as_ref()
-                .is_some_and(|location| location.function == "empty_target")
+                .is_some_and(|location| location.locator == "empty_target")
         };
         assert!(
             !result
@@ -3137,14 +3417,14 @@ fn no_covers() {}
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "no_id")
+                    .is_some_and(|location| location.locator == "no_id")
         }));
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-007"
                 && diagnostic
                     .location
                     .as_ref()
-                    .is_some_and(|location| location.function == "no_covers")
+                    .is_some_and(|location| location.locator == "no_covers")
         }));
     }
 
@@ -3176,7 +3456,7 @@ fn empty_covers() {}
                     && diagnostic
                         .location
                         .as_ref()
-                        .is_some_and(|location| location.function == "empty_covers")
+                        .is_some_and(|location| location.locator == "empty_covers")
             }),
             "diagnostics: {:?}",
             result.diagnostics
@@ -3473,7 +3753,18 @@ fn lib_test() {}
             })
             .collect::<Vec<_>>();
         assert_eq!(duplicates.len(), 1, "diagnostics: {:?}", result.diagnostics);
-        assert!(duplicates[0].location.is_some());
+        // record 層診断（document/VO/relation/approval）はどの adapter にも
+        // 属さないため `SourceLocation` を持たない（修正1、CLAUDE.local.md
+        // 「実在しない adapter id を捏造しない」原則）— `location` は
+        // `None` のままで、対象識別性はメッセージ本文（両方の relation id と
+        // レコードファイルの相対パス）で維持する。
+        assert!(duplicates[0].location.is_none());
+        assert!(
+            duplicates[0].message.contains(".verify/rel/")
+                && duplicates[0].message.contains(".yaml"),
+            "message should identify the record file: {}",
+            duplicates[0].message
+        );
     }
 
     /// Regression test for the `known_ids`/`document_node_ids` merge bug: a
@@ -3644,12 +3935,22 @@ fn covers_parent() {}
             "diagnostics: {:?}",
             result.diagnostics
         );
+        // record 層診断（document/VO/relation/approval、E-SCAN-008/009/010,
+        // W-SCAN-102, W-STORE-001 等）はどの adapter にも属さないため
+        // `SourceLocation` を持たない（修正1、CLAUDE.local.md「実在しない
+        // adapter id を捏造しない」原則）。以前はここで全診断に
+        // `location.is_some()` を求めていたが、それは reshape 直後の実装が
+        // 架空の adapter id で `SourceLocation` を捏造していたことへの
+        // 誤った断言だった。対象識別性は維持されるべき性質なので、
+        // location か、メッセージへ埋め込まれた record ファイルパス
+        // （`.yaml`）のどちらかを持つことを断言する。
         assert!(
-            result
-                .diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.location.is_some()),
-            "every scanner diagnostic must identify its canonical source: {:?}",
+            result.diagnostics.iter().all(|diagnostic| {
+                diagnostic.location.is_some() || diagnostic.message.contains(".yaml")
+            }),
+            "every scanner diagnostic must identify its canonical source, either via \
+             `location` (adapter-discovered constructs) or an embedded record-file \
+             path in the message (record-layer diagnostics): {:?}",
             result.diagnostics
         );
     }
@@ -4461,17 +4762,20 @@ fn collision_second() {}
             "the canonical bundle must parse as a well-formed DocumentFile: {:?}",
             diagnostics
         );
-        let orphan_ids = diagnostics
+        // Document-node diagnostics carry no `SourceLocation` (record-layer,
+        // not adapter-discovered — see `document_node_record_path`'s doc
+        // comment), so the orphan count is taken directly from the
+        // diagnostic count rather than from distinct `.location` values.
+        let orphan_count = diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.code == "E-SCAN-016")
-            .filter_map(|diagnostic| diagnostic.location.as_ref().map(|l| l.function.clone()))
-            .collect::<Vec<_>>();
+            .count();
         eprintln!(
             "canonical_bundle_orphan_count: {} node(s) report E-SCAN-016 (orphan_detection) \
              against the real canonical bundle specification.json — not asserted (reported for \
              the PR to cite; DS-1647 scope: root-layer nodes excluded, effective upstream = own \
              derives_from ∪ ancestor section derives_from within the same file).",
-            orphan_ids.len()
+            orphan_count
         );
     }
 

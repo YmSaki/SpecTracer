@@ -10,7 +10,7 @@ use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
-    RunnerInfo, TargetExecution, TestEntity, TestResult, TestTarget,
+    RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
@@ -96,7 +96,7 @@ pub fn run_tests(
             path: log_path.clone(),
             source,
         })?;
-        let observation = parse_result(&stdout, &test.entity.filter);
+        let observation = parse_result(&stdout, &test.entity.execution.selector);
         match observation {
             Some(ObservedResult::Ignored) => {}
             Some(ObservedResult::Pass) | Some(ObservedResult::Fail) => {
@@ -211,26 +211,67 @@ fn parse_result(output: &str, filter: &str) -> Option<ObservedResult> {
     })
 }
 
+// TODO: Review fail-closed handling of an absent/unresolved suite. Execution
+// must not silently fall back to an unscoped Cargo target. This TODO moved
+// here from `vtest_model::TestEntity` (旧 `test_target: TestTarget` field,
+// `TestTarget::Unknown` arm) when `TestTarget` moved out of `vtest-model`
+// into `vtest-adapter-rust` — the underlying concern (this crate silently
+// omitting `--lib`/`--bin`/`--test` and running an unscoped `cargo test`)
+// is unresolved either way, and now also applies to `execution.project`
+// being absent (see `suite_args` below).
+
+/// 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次のCargo実行
+/// 座標として解釈する」の、この crate 側での再現。
+///
+/// **注意（`validate_desired_test` と同型の、上流未報告の欠陥）**:
+/// 本冊:688「coreは `project`、`suite.kind`、`suite.name`、`selector` の
+/// 文字列を解釈しない」の「core」に `vtest-exec` が含まれるなら、この
+/// 関数（`suite.kind` の文字列 `"lib"`/`"bin"`/`"integration"` を読んで
+/// 分岐する）はその禁止の対象になる。本冊 §9.2 はこの解釈を
+/// `rust-cargo` `TestRunnerAdapter`（＝ `rust-cargo` adapter 自身）の
+/// 責務と書いているが、`vtest-exec` は workspace 構成上 adapter crate
+/// （`vtest-adapter-rust`）とは別 crate であり、この reshape 以前から
+/// 一貫してCargoコマンドを直接組み立ててきた（`cargo_command` 等、この
+/// 関数の前身）。`TestRunnerAdapter` の実装場所をこの crate から
+/// `vtest-adapter-rust` へ移すことはこの PR の範囲外（詳細設計に新しい
+/// trait／DTOが無く、`validate_desired_test` の除去理由と同じ形の
+/// 論点）。この関数は既存の振る舞い（旧 `TestTarget` enum による分岐）を
+/// 型が変わった後も等価に保つだけで、新しい解釈を追加しない。
+///
+/// `suite` が `None`（`kind` が `"lib"`/`"bin"`/`"integration"` のいずれ
+/// でもない、または `suite` 自体が無い）場合と、`kind` が `"bin"`/
+/// `"integration"` なのに `name` が無い場合は、どちらも旧
+/// `TestTarget::Unknown` と同じ「フラグを付けない」扱いにする（unscoped
+/// `cargo test` — 上のTODO参照）。
+fn suite_args(test: &TestEntity) -> Vec<String> {
+    let Some(suite) = test.execution.suite.as_ref() else {
+        return Vec::new();
+    };
+    match suite.kind.as_str() {
+        "lib" => vec!["--lib".to_owned()],
+        "bin" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--bin".to_owned(), name.to_owned()])
+            .unwrap_or_default(),
+        "integration" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--test".to_owned(), name.to_owned()])
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 fn cargo_command(root: &Path, test: &TestEntity) -> Command {
     let mut command = Command::new("cargo");
     command
         .current_dir(root)
         .arg("test")
         .arg("-p")
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
-            command.arg("--lib");
-        }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
-        }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
-        }
-        TestTarget::Unknown => {}
-    }
-    command.args(["--", "--exact", &test.filter]);
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    command.args(suite_args(test));
+    command.args(["--", "--exact", &test.execution.selector]);
     command
 }
 
@@ -239,47 +280,26 @@ fn cargo_llvm_cov_command(root: &Path, test: &TestEntity, output_path: &Path) ->
     command
         .current_dir(root)
         .args(["llvm-cov", "test", "-p"])
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
-            command.arg("--lib");
-        }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
-        }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
-        }
-        TestTarget::Unknown => {}
-    }
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    command.args(suite_args(test));
     command
         .arg("--json")
         .arg("--output-path")
         .arg(output_path)
-        .args(["--", "--exact", &test.filter]);
+        .args(["--", "--exact", &test.execution.selector]);
     command
 }
 
 fn command_string(test: &TestEntity) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
     format!(
         "cargo test -p {} {} -- --exact {}",
-        test.package, target, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        suite_args(test).join(" "),
+        test.execution.selector
     )
 }
 
 fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
     let output_path = output_path
         .strip_prefix(root)
         .unwrap_or(output_path)
@@ -287,7 +307,10 @@ fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -
         .replace('\\', "/");
     format!(
         "cargo llvm-cov test -p {} {} --json --output-path {} -- --exact {}",
-        test.package, target, output_path, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        suite_args(test).join(" "),
+        output_path,
+        test.execution.selector
     )
 }
 
