@@ -263,17 +263,29 @@ pub fn state_name(state: VerificationState) -> &'static str {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-VERIFY-PARSE-ITEMS-REJECT-UNKNOWN
+    /// @vtest.covers VO-VERIFY-RETIRED-CHECK-NAME-USAGE-ERROR
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::parse_items
+    /// @vtest.intent parse_items rejects a retired check name and accepts a current one
     #[test]
     fn items_reject_an_unknown_check_rather_than_narrowing_the_scope() {
         assert!(parse_items(&["spec_coverage".to_owned()]).is_err());
         assert!(parse_items(&["chain_integrity".to_owned()]).is_ok());
     }
 
+    /// @vtest.id TEST-VERIFY-PARSE-ITEMS-OMITTED-FOUR
+    /// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::parse_items
+    /// @vtest.intent parse_items on an empty --items list returns None, mapping to the fixed four checks
     #[test]
     fn omitted_items_map_to_the_fixed_four() {
         assert!(parse_items(&[]).expect("empty is valid").is_none());
     }
 
+    /// @vtest.id TEST-VERIFY-ENTITY-AXIS-EXCLUSIVE
+    /// @vtest.covers VO-VERIFY-ENTITY-AXIS-SINGLE-SELECTOR
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::entity_scope
+    /// @vtest.intent entity_scope rejects two simultaneous selectors and accepts zero or one
     #[test]
     fn entity_axis_is_exclusive() {
         assert!(entity_scope(Some("D".to_owned()), Some("V".to_owned()), None).is_err());
