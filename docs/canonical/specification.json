@@ -4558,7 +4558,9 @@
         {
           "id": "REQ-219",
           "statement": "開発途中または既存のプロジェクトへ、後から導入できる。",
-          "derives_from": [],
+          "derives_from": [
+            "R-5"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 17. 途中導入と既存プロジェクト対応",
@@ -5541,7 +5543,9 @@
         {
           "id": "REQ-293",
           "statement": "実装レイヤーの孤児検出・シンボル列挙の定義・上流文書の意味構造は v0.2 のスコープとする。",
-          "derives_from": [],
+          "derives_from": [
+            "R-2"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -7609,7 +7613,9 @@
         {
           "id": "SPEC-053",
           "statement": "検証は `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の4検査のみで行う。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-034"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -7622,7 +7628,9 @@
         {
           "id": "SPEC-054",
           "statement": "各検査は一つの問いを持つ。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-050"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -7635,7 +7643,9 @@
         {
           "id": "SPEC-055",
           "statement": "各検査は複数の証拠源で答えてよい。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-050"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
