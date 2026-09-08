@@ -858,7 +858,11 @@
         {
           "id": "REQ-010",
           "statement": "本システム自身は、仕様が正しい・実装が正しい・テストが正しい・どれを修正すべきである、と決定してはならない。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-005",
+            "ROOT-030",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-001 検証機であり修正方針決定機ではない",
@@ -871,7 +875,11 @@
         {
           "id": "REQ-011",
           "statement": "修正対象の選択は、本システムの外側にある開発者・レビュー担当・PM・AI Agent などが行う。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-005",
+            "ROOT-030",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-001 検証機であり修正方針決定機ではない",
@@ -900,7 +908,10 @@
         {
           "id": "REQ-012",
           "statement": "完全検証の OK は、要求されたすべての検査が `PASS` である場合に限る。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-002 Fail Closed",
@@ -913,7 +924,10 @@
         {
           "id": "REQ-013",
           "statement": "`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれか一つでもあれば OK にならない。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-002 Fail Closed",
@@ -926,7 +940,10 @@
         {
           "id": "REQ-014",
           "statement": "利用者が特定の検証観点だけを確認したい場合は、検証 scope を限定できる。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-002 Fail Closed",
@@ -939,7 +956,10 @@
         {
           "id": "REQ-015",
           "statement": "scope 限定の結果を提示する場合も、実施しなかった検査を `PASS` へ変更してはならない。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031",
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-002 Fail Closed",
@@ -967,7 +987,9 @@
         {
           "id": "REQ-016",
           "statement": "検索インデックス、グラフ、キャッシュなどの派生情報は、正となる情報から再構築可能でなければならない。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-003 単一の正典を重複して持たない",
@@ -995,7 +1017,9 @@
         {
           "id": "REQ-017",
           "statement": "既知の作業手順と既知の入力項目を持つ操作について、AI へ自然言語で自由に編集させる方式より、構造化された質問・入力・検証によって操作させる方式を優先するという考え方を、本プロジェクトでは Agent Form Engineering と呼称する。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-004 AI の自由度を必要以上に与えない",
@@ -1023,7 +1047,9 @@
         {
           "id": "REQ-018",
           "statement": "下流で不足・矛盾・疑義が見つかった場合、その情報は上流を再判断するための材料として逆方向へ提示できるが、下流成果物を根拠に上流成果物を自動的に書き換えてはならない。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-006"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
@@ -1036,7 +1062,9 @@
         {
           "id": "REQ-019",
           "statement": "上流の変更が正式に確定した後、再び正方向に下流を追随させる。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-006"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
@@ -1049,7 +1077,9 @@
         {
           "id": "REQ-020",
           "statement": "逆方向は「規範の伝播」ではなく「判断材料のフィードバック」である。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-006"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
@@ -5298,7 +5328,9 @@
         {
           "id": "REQ-280",
           "statement": "複数 AI Agent による並列変更に耐えられること（NFR-001 並列性）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-4"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5311,7 +5343,9 @@
         {
           "id": "REQ-281",
           "statement": "CI 等により同一 revision・同一検証条件で結果を再現可能であること（NFR-002 再現性）。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5324,7 +5358,10 @@
         {
           "id": "REQ-282",
           "statement": "文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であること（任意ノードからの取得・遡行・全体構造は §3.4）（NFR-003 追跡可能性）。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-011",
+            "ROOT-034"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5350,7 +5387,9 @@
         {
           "id": "REQ-284",
           "statement": "検証されていない事実を推測によって `PASS` としないこと（NFR-005 Fail Closed）。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-031"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5363,7 +5402,9 @@
         {
           "id": "REQ-285",
           "statement": "検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であること（NFR-006 説明可能性）。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-033"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5376,7 +5417,9 @@
         {
           "id": "REQ-286",
           "statement": "AI Agent、CI、CLI 等から非対話的に利用可能であること（NFR-007 自動化適性）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5389,7 +5432,9 @@
         {
           "id": "REQ-287",
           "statement": "人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であること（NFR-008 人間可読性）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5418,7 +5463,9 @@
           "id": "REQ-288",
           "statement": "複数仕様成果物同士の文章上・意味上の矛盾を発見すること（OOS-001 仕様書同士の品質監査）。",
           "description": "文書層は §3.2 の通りリンクとハッシュのみを扱う。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-037"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -5431,7 +5478,9 @@
         {
           "id": "REQ-289",
           "statement": "不一致の場合にどれを正としてどれを変更するべきか判断すること（OOS-002 修正方針決定）。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-030"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -5457,7 +5506,9 @@
         {
           "id": "REQ-291",
           "statement": "PM、実装、レビュー等の開発工程自体を本システム内部で管理すること（OOS-004 開発プロセス全体の管理）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -6690,7 +6741,8 @@
             "P-003",
             "REQ-S019",
             "REQ-S035",
-            "REQ-S046"
+            "REQ-S046",
+            "REQ-283"
           ],
           "items": [
             {
@@ -9747,7 +9799,8 @@
         ]
       },
       "derives_from": [
-        "REQ-S007"
+        "REQ-S007",
+        "REQ-282"
       ],
       "items": [
         {
@@ -14622,7 +14675,8 @@
             ]
           },
           "derives_from": [
-            "REQ-S039"
+            "REQ-S039",
+            "REQ-290"
           ],
           "items": [
             {
@@ -16098,7 +16152,8 @@
             "P-003",
             "REQ-S019",
             "REQ-S035",
-            "REQ-S046"
+            "REQ-S046",
+            "REQ-283"
           ],
           "items": [
             {
@@ -20275,7 +20330,8 @@
         ]
       },
       "derives_from": [
-        "REQ-S007"
+        "REQ-S007",
+        "REQ-282"
       ],
       "items": [
         {
@@ -42107,7 +42163,8 @@
             "P-003",
             "REQ-S019",
             "REQ-S035",
-            "REQ-S046"
+            "REQ-S046",
+            "REQ-283"
           ],
           "items": [
             {
@@ -48466,7 +48523,8 @@
             "P-003",
             "REQ-S019",
             "REQ-S035",
-            "REQ-S046"
+            "REQ-S046",
+            "REQ-283"
           ],
           "items": [
             {
@@ -57159,6 +57217,7 @@
           },
           "derives_from": [
             "REQ-S039",
+            "REQ-290",
             "SPEC-S040",
             "DS-S041"
           ],
