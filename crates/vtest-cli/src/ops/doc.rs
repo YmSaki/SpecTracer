@@ -8,8 +8,8 @@
 
 use vtest_store::{
     doc_registry::{
-        doc_exists, read_all_docs, read_doc_view, read_node_tree, unresolved_derives_from,
-        write_doc, DocView,
+        apply_derives_from, doc_exists, read_all_docs, read_doc_view, read_node_tree,
+        unresolved_derives_from, write_doc, DocView,
     },
     StoreError, VerifyLayout,
 };
@@ -25,6 +25,10 @@ pub enum DocOpError {
 pub struct AddArgs {
     pub id: String,
     pub path: String,
+    /// DS-1003/1681: bare upstream node ids to write onto every top-level
+    /// node's own `derives_from` (empty = leave the file's own content
+    /// untouched).
+    pub derives_from: Vec<String>,
     pub update: bool,
 }
 
@@ -54,7 +58,9 @@ pub fn add(
         )));
     }
 
-    let file = read_node_tree(project_root, &args.path)?;
+    let mut file = read_node_tree(project_root, &args.path)?;
+    apply_derives_from(&mut file, &args.derives_from)
+        .map_err(|error| DocOpError::Usage(error.to_string()))?;
     write_doc(layout, &args.id, &file)?;
     Ok(read_doc_view(layout, &args.id)?)
 }

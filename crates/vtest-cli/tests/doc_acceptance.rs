@@ -67,6 +67,7 @@ fn add_command(id: &str, path: &str) -> Command {
     Command::Doc(DocCommand::Add {
         id: id.to_owned(),
         path: path.to_owned(),
+        derives_from: Vec::new(),
         update: false,
     })
 }
@@ -75,6 +76,7 @@ fn update_command(id: &str, path: &str) -> Command {
     Command::Doc(DocCommand::Add {
         id: id.to_owned(),
         path: path.to_owned(),
+        derives_from: Vec::new(),
         update: true,
     })
 }
@@ -189,4 +191,56 @@ fn list_after_registrations_exits_ok() {
         }),
     ));
     assert_eq!(exit, ExitCode::Ok);
+}
+
+/// DS-1003/1681: `--derives-from` writes onto every top-level node's own
+/// `derives_from` (here, the fixture's single `request[0]` sentence node).
+#[test]
+fn derives_from_writes_onto_every_top_level_node() {
+    let root = temp_root("derives-from");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_request = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [{"id":"R-001","statement":"fixture requirement","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: vec!["ROOT-001".to_owned()],
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert_eq!(
+        view.file.request[0].derives_from,
+        vec![vtest_model::DocumentId::new("ROOT-001")]
+    );
+}
+
+/// DS-1003: `--derives-from` has no top-level node to attach to when the
+/// document's only content is in the `root` layer (RootNode has no
+/// `derives_from` field, DS-1592/1593) — this is a usage rejection, not a
+/// silent no-op.
+#[test]
+fn derives_from_on_a_root_only_document_is_a_usage_error() {
+    let root = temp_root("derives-from-root-only");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: vec!["ROOT-001".to_owned()],
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Usage);
 }

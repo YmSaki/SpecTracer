@@ -120,6 +120,11 @@ pub enum DocCommand {
         id: String,
         #[arg(long)]
         path: String,
+        /// DS-1003/1681: bare upstream node ids — writes onto every
+        /// top-level node's own `derives_from` (0 given = leave the
+        /// file's own content untouched; DS-1003's "0件可＝根候補").
+        #[arg(long = "derives-from")]
+        derives_from: Vec<String>,
         #[arg(long)]
         update: bool,
     },
@@ -579,8 +584,22 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
     let layout = vtest_store::VerifyLayout::new(&root);
 
     match command {
-        DocCommand::Add { id, path, update } => {
-            match ops::doc::add(&root, &layout, ops::doc::AddArgs { id, path, update }) {
+        DocCommand::Add {
+            id,
+            path,
+            derives_from,
+            update,
+        } => {
+            match ops::doc::add(
+                &root,
+                &layout,
+                ops::doc::AddArgs {
+                    id,
+                    path,
+                    derives_from,
+                    update,
+                },
+            ) {
                 Ok(view) => {
                     let data = doc_view_json(&view);
                     let envelope = JsonEnvelope::new(true, data, Vec::new());

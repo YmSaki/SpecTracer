@@ -430,6 +430,7 @@ fn tool_input_schema(name: &str) -> Value {
             json!({
                 "id": {"type": "string"},
                 "path": {"type": "string"},
+                "derives_from": {"type": "array", "items": {"type": "string"}},
                 "update": {"type": "boolean"}
             }),
             vec!["id", "path"],
@@ -458,7 +459,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
-        "doc_add" => &["id", "path", "update"],
+        "doc_add" => &["id", "path", "derives_from", "update"],
         "doc_list" => &[],
         "doc_show" => &["id"],
         _ => &[],
@@ -493,6 +494,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "doc_add" => {
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "path")?;
+            optional_string_array(args, "derives_from")?;
             optional_bool(args, "update")
         }
         "doc_list" => Ok(()),
@@ -725,10 +727,10 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
-/// DS-1000-1008/1012-1014, DES-482 — same canonical path as `vtest doc add`.
-/// Unlike the CLI's `ID:TEXT`-encoded `--anchor`/`--note`, MCP arguments are
-/// JSON, so `derives_from` here is the natural `[{doc, anchor?, note?}]`
-/// array shape directly — no positional-binding workaround needed.
+/// DS-1003/1681 — same canonical path as `vtest doc add`. `derives_from`
+/// here is a bare array of upstream node id strings, matching the CLI's
+/// `--derives-from` (repeatable flag) shape rather than the retired
+/// `[{doc, anchor?, note?}]` per-registry-record shape.
 fn doc_add_tool(root: &Path, args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
     let Some(id) = string_arg(args, "id") else {
@@ -738,6 +740,17 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
         return failure_envelope("E-OP-001", "doc_add requires path");
     };
     let update = bool_arg(args, "update");
+    let derives_from = args
+        .pointer("/derives_from")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
 
     match ops::doc::add(
         root,
@@ -745,6 +758,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
         ops::doc::AddArgs {
             id: id.to_owned(),
             path: path.to_owned(),
+            derives_from,
             update,
         },
     ) {
@@ -1158,6 +1172,7 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
+                derives_from: Vec::new(),
                 update: false,
             },
         )
@@ -1451,6 +1466,8 @@ mod tests {
 
     const FIXTURE_NODE_TREE: &str = r#"{"schema_version":"0.1","root":[{"id":"ROOT-001","statement":"fixture root","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"request":[],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
 
+    const FIXTURE_NODE_TREE_WITH_REQUEST: &str = r#"{"schema_version":"0.1","root":[{"id":"ROOT-001","statement":"fixture root","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"request":[{"id":"R-001","statement":"fixture requirement","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+
     /// DS-1563 equivalence for `doc_add`: MCP and `ops::doc::add` (the same
     /// function the CLI's `doc add` wrapper calls), each registering its own
     /// fixture's node-tree file under the same id.
@@ -1473,6 +1490,7 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
+                derives_from: Vec::new(),
                 update: false,
             },
         )
@@ -1504,6 +1522,75 @@ mod tests {
         assert_eq!(mcp_envelope["data"]["root"], Value::Bool(direct.is_root));
     }
 
+    /// DS-1003/1681 equivalence: MCP `doc_add`'s `derives_from` argument
+    /// writes onto the registered document's top-level node the same way
+    /// the CLI's `--derives-from` flag (via `ops::doc::add`) does.
+    #[test]
+    fn mcp_doc_add_tool_applies_derives_from_like_ops_doc_add() {
+        let direct_root = temp_root("doc-add-derives-from-direct");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: direct_root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(
+            direct_root.join("basic-spec.json"),
+            FIXTURE_NODE_TREE_WITH_REQUEST,
+        )
+        .expect("write source file");
+        let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
+        let direct = ops::doc::add(
+            &direct_root,
+            &direct_layout,
+            ops::doc::AddArgs {
+                id: "DOC-BASIC-001".to_owned(),
+                path: "basic-spec.json".to_owned(),
+                derives_from: vec!["ROOT-001".to_owned()],
+                update: false,
+            },
+        )
+        .expect("direct ops::doc::add must succeed");
+
+        let mcp_root = temp_root("doc-add-derives-from-mcp");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: mcp_root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(
+            mcp_root.join("basic-spec.json"),
+            FIXTURE_NODE_TREE_WITH_REQUEST,
+        )
+        .expect("write source file");
+        let mcp_envelope = dispatch_tool(
+            &mcp_root,
+            "doc_add",
+            &json!({
+                "id": "DOC-BASIC-001",
+                "path": "basic-spec.json",
+                "derives_from": ["ROOT-001"]
+            }),
+        );
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["content_hash"],
+            Value::String(direct.content_hash.as_str().to_owned()),
+            "MCP `doc_add` with `derives_from` must compute the same document-level subject \
+             hash as the shared `ops::doc::add` the CLI `doc add --derives-from` wrapper also \
+             calls, for byte-identical input"
+        );
+        assert_eq!(
+            direct.derives_from,
+            vec!["ROOT-001".to_owned()],
+            "direct ops::doc::add must have written derives_from onto the request-layer node"
+        );
+    }
+
     /// DS-1563 equivalence for `doc_list`: MCP and `ops::doc::list` (the
     /// same function the CLI's `doc list` wrapper calls), on the same
     /// on-disk registry records.
@@ -1525,6 +1612,7 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
+                derives_from: Vec::new(),
                 update: false,
             },
         )

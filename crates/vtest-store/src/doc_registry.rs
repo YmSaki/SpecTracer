@@ -66,6 +66,54 @@ pub fn read_node_tree(
     document_file_from_json(&text)
 }
 
+/// DS-1003「`--derives-from` は、登録する document のトップレベルノードが
+/// 持つ上流ノード id への辺（0件可＝根候補）であり、`document` という単位
+/// そのものに対する導出リンクではない」/ DS-1681（anchor/note を持たない
+/// 上流ノード id への辺）。`--derives-from` を与えると、`request`/
+/// `require`/`spec`/`detailed_spec`/`basic_design`/`design` の全トップ
+/// レベルノードの `derives_from` をこの値で上書きする（`root` 層の
+/// `RootNode` には `derives_from` field 自体が無いので対象外 — DS-1592/
+/// 1593 が `derives_from` を持つと定めるのは文ノード・節ノードのみ）。
+/// トップレベルノードが1つも無ければ `Err` を返す（`--derives-from` を
+/// 書き込む先が無い）。
+pub fn apply_derives_from(
+    file: &mut DocumentFile,
+    derives_from: &[String],
+) -> Result<(), StoreError> {
+    if derives_from.is_empty() {
+        return Ok(());
+    }
+    let ids: Vec<vtest_model::DocumentId> = derives_from
+        .iter()
+        .map(|id| vtest_model::DocumentId::new(id.clone()))
+        .collect();
+    let mut touched = false;
+    for node in &mut file.request {
+        node.derives_from = ids.clone();
+        touched = true;
+    }
+    for section in file
+        .require
+        .iter_mut()
+        .chain(&mut file.spec)
+        .chain(&mut file.detailed_spec)
+        .chain(&mut file.basic_design)
+        .chain(&mut file.design)
+    {
+        section.derives_from = Some(ids.clone());
+        touched = true;
+    }
+    if !touched {
+        return Err(StoreError::InvalidConfig(
+            "--derives-from has no top-level node to attach to: the document has no \
+             request/require/spec/detailed_spec/basic_design/design entries (root-layer \
+             nodes have no derives_from field, DS-1592/1593)"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn derives_from_of(file: &DocumentFile) -> Vec<String> {
     let mut out = Vec::new();
     for node in &file.request {
