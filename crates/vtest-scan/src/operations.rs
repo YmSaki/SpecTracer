@@ -9,8 +9,8 @@ use syn::spanned::Spanned;
 use vtest_adapter_api::AdapterScanConfig;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    test_subject_hash, CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity,
-    TestRecord, TestResult,
+    test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity, TestRecord,
+    TestResult, VerificationState,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -44,7 +44,7 @@ pub struct AuditState {
 pub struct EvidenceState {
     pub id: String,
     pub result: TestResult,
-    pub target_execution: CheckValue,
+    pub target_execution: VerificationState,
     pub executed_at: String,
 }
 
@@ -1020,7 +1020,7 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
                 target_execution: if record.target_execution.checked {
                     record.target_execution.result
                 } else {
-                    CheckValue::NotChecked
+                    VerificationState::NoEvidence
                 },
                 executed_at: record.executed_at,
             });

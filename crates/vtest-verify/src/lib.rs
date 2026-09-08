@@ -22,9 +22,8 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    CheckValue as EvidenceCheckValue, ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord,
-    ManagedTestLink, SectionNode, SentenceNode, TargetRef, TestEntity, VerificationCheck,
-    VerificationState, VoRecord,
+    ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink, SectionNode,
+    SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState, VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -1003,13 +1002,13 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
         );
     }
     match coverage.result {
-        EvidenceCheckValue::Pass => CheckOutcome::new(
+        VerificationState::Pass => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
             vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
         ),
-        EvidenceCheckValue::Fail => CheckOutcome::new(
+        VerificationState::Fail => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Fail,
             vec![DiagnosticLabel::NotExecuted],
@@ -2252,7 +2251,8 @@ mod tests {
             target_execution: vtest_model::TargetExecution {
                 checked: false,
                 method: None,
-                result: EvidenceCheckValue::NotChecked,
+                result: VerificationState::NoEvidence,
+                diagnostic: Some(DiagnosticLabel::NotChecked),
                 count: None,
             },
             log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
@@ -2561,14 +2561,14 @@ mod tests {
 
         // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
         record.target_execution.checked = true;
-        record.target_execution.result = EvidenceCheckValue::Fail;
+        record.target_execution.result = VerificationState::Fail;
         record.target_execution.count = Some(0);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
         // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
-        record.target_execution.result = EvidenceCheckValue::Unknown;
+        record.target_execution.result = VerificationState::Unknown;
         record.target_execution.count = None;
         assert_eq!(
             dynamic_result_from_evidence(&record).state,
@@ -2576,7 +2576,7 @@ mod tests {
         );
 
         // DS-831: measured and reached -> PASS.
-        record.target_execution.result = EvidenceCheckValue::Pass;
+        record.target_execution.result = VerificationState::Pass;
         record.target_execution.count = Some(3);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);

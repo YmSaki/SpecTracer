@@ -38,8 +38,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision,
-    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VoId,
+    ContentHash, Diagnostic, DiagnosticLabel, EvidenceHashes, EvidenceRecord, ReqId, Revision,
+    RunnerInfo, SpecId, TargetExecution, TestId, TestResult, VerificationState, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -262,7 +262,8 @@ const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
 
 /// Known keys for an Evidence record's nested `target_execution` mapping,
 /// matching `TargetExecution`'s own fields.
-const EVIDENCE_TARGET_EXECUTION_KEYS: &[&str] = &["checked", "method", "result", "count"];
+const EVIDENCE_TARGET_EXECUTION_KEYS: &[&str] =
+    &["checked", "method", "result", "diagnostic", "count"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -1004,16 +1005,40 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             ))
         }
     };
-    let target_result = match nested_scalar(&text, "target_execution", "result").as_deref() {
-        Some("PASS") => CheckValue::Pass,
-        Some("FAIL") => CheckValue::Fail,
-        Some("NOT_CHECKED") => CheckValue::NotChecked,
-        Some("NOT_EXECUTED") => CheckValue::NotExecuted,
-        Some("UNKNOWN") => CheckValue::Unknown,
-        Some("STALE") => CheckValue::Stale,
-        Some("MISMATCH") => CheckValue::Mismatch,
-        Some("MISSING") => CheckValue::Missing,
-        _ => CheckValue::Unknown,
+    // The wire format may still carry a diagnostic-only value (NOT_CHECKED /
+    // NOT_EXECUTED / STALE / MISSING) in the `result` field from records
+    // written before state and diagnostic label were split into separate
+    // fields (see `TargetExecution`). Such a value maps to `NoEvidence` plus
+    // the corresponding `DiagnosticLabel`; an explicit `diagnostic` field, if
+    // present, is read separately below and takes precedence.
+    let (target_result, target_result_diagnostic) =
+        match nested_scalar(&text, "target_execution", "result").as_deref() {
+            Some("PASS") => (VerificationState::Pass, None),
+            Some("FAIL") => (VerificationState::Fail, None),
+            Some("MISMATCH") => (VerificationState::Mismatch, None),
+            Some("NOT_CHECKED") => (
+                VerificationState::NoEvidence,
+                Some(DiagnosticLabel::NotChecked),
+            ),
+            Some("NOT_EXECUTED") => (
+                VerificationState::NoEvidence,
+                Some(DiagnosticLabel::NotExecuted),
+            ),
+            Some("STALE") => (VerificationState::NoEvidence, Some(DiagnosticLabel::Stale)),
+            Some("MISSING") => (
+                VerificationState::NoEvidence,
+                Some(DiagnosticLabel::Missing),
+            ),
+            Some("NO_EVIDENCE") => (VerificationState::NoEvidence, None),
+            _ => (VerificationState::Unknown, None),
+        };
+    let target_diagnostic = match nested_scalar(&text, "target_execution", "diagnostic").as_deref()
+    {
+        Some("MISSING") => Some(DiagnosticLabel::Missing),
+        Some("NOT_CHECKED") => Some(DiagnosticLabel::NotChecked),
+        Some("NOT_EXECUTED") => Some(DiagnosticLabel::NotExecuted),
+        Some("STALE") => Some(DiagnosticLabel::Stale),
+        _ => target_result_diagnostic,
     };
     // DES-097/184: `execution_state.hash` is only meaningful once `complete`
     // is `true`. An absent `execution_state` mapping (a predecessor-shape
@@ -1062,6 +1087,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             method: nested_scalar(&text, "target_execution", "method")
                 .filter(|value| value != "null"),
             result: target_result,
+            diagnostic: target_diagnostic,
             count: nested_scalar(&text, "target_execution", "count")
                 .filter(|value| value != "null")
                 .and_then(|value| value.parse().ok()),

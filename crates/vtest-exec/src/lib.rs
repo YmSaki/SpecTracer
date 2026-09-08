@@ -9,8 +9,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
-    RunnerInfo, TargetExecution, TestEntity, TestResult,
+    ContentHash, Diagnostic, DiagnosticLabel, EvidenceHashes, EvidenceRecord, Locator, Revision,
+    RunnerInfo, TargetExecution, TestEntity, TestResult, VerificationState,
 };
 use vtest_store::{
     execution_state::{reconstruct_execution_state, ExecutionStateInputs},
@@ -122,7 +122,8 @@ pub fn run_tests(
                     TargetExecution {
                         checked: false,
                         method: None,
-                        result: CheckValue::NotChecked,
+                        result: VerificationState::NoEvidence,
+                        diagnostic: Some(DiagnosticLabel::NotChecked),
                         count: None,
                     }
                 } else if let Some(coverage_path) = &coverage_path {
@@ -501,7 +502,8 @@ fn not_checked_target_execution() -> TargetExecution {
     TargetExecution {
         checked: false,
         method: Some("llvm-cov".to_owned()),
-        result: CheckValue::NotChecked,
+        result: VerificationState::NoEvidence,
+        diagnostic: Some(DiagnosticLabel::NotChecked),
         count: None,
     }
 }
@@ -511,10 +513,11 @@ fn measured_target_execution(count: u64) -> TargetExecution {
         checked: true,
         method: Some("llvm-cov".to_owned()),
         result: if count > 0 {
-            CheckValue::Pass
+            VerificationState::Pass
         } else {
-            CheckValue::Fail
+            VerificationState::Fail
         },
+        diagnostic: None,
         count: Some(count),
     }
 }
@@ -533,7 +536,8 @@ fn unknown_target_execution() -> TargetExecution {
     TargetExecution {
         checked: true,
         method: Some("llvm-cov".to_owned()),
-        result: CheckValue::Unknown,
+        result: VerificationState::Unknown,
+        diagnostic: None,
         count: None,
     }
 }
@@ -541,7 +545,7 @@ fn unknown_target_execution() -> TargetExecution {
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
     format!(
-        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  diagnostic: {target_diagnostic}\n  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
         adapter = yaml_scalar(record.adapter.as_str()),
@@ -570,15 +574,18 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
         checked = target.checked,
         method = target.method.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
         target_result = yaml_scalar(match target.result {
-            CheckValue::Pass => "PASS",
-            CheckValue::Fail => "FAIL",
-            CheckValue::Mismatch => "MISMATCH",
-            CheckValue::Missing => "MISSING",
-            CheckValue::NotChecked => "NOT_CHECKED",
-            CheckValue::NotExecuted => "NOT_EXECUTED",
-            CheckValue::Stale => "STALE",
-            CheckValue::Unknown => "UNKNOWN",
+            VerificationState::Pass => "PASS",
+            VerificationState::Fail => "FAIL",
+            VerificationState::Mismatch => "MISMATCH",
+            VerificationState::NoEvidence => "NO_EVIDENCE",
+            VerificationState::Unknown => "UNKNOWN",
         }),
+        target_diagnostic = target.diagnostic.map(|label| yaml_scalar(match label {
+            DiagnosticLabel::Missing => "MISSING",
+            DiagnosticLabel::NotChecked => "NOT_CHECKED",
+            DiagnosticLabel::NotExecuted => "NOT_EXECUTED",
+            DiagnosticLabel::Stale => "STALE",
+        })).unwrap_or_else(|| "null".to_owned()),
         count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
         log_ref = yaml_scalar(&record.log_ref),
     )
@@ -678,7 +685,11 @@ mod tests {
     fn unavailable_coverage_is_not_checked_and_never_passes() {
         let (target_execution, diagnostic) = unavailable_target_execution();
         assert!(!target_execution.checked);
-        assert_eq!(target_execution.result, CheckValue::NotChecked);
+        assert_eq!(target_execution.result, VerificationState::NoEvidence);
+        assert_eq!(
+            target_execution.diagnostic,
+            Some(DiagnosticLabel::NotChecked)
+        );
         assert_eq!(target_execution.count, None);
         assert_eq!(diagnostic.code, "W-EXEC-101");
     }
@@ -687,12 +698,12 @@ mod tests {
     fn measured_target_execution_requires_a_positive_count() {
         let called = measured_target_execution(1);
         assert!(called.checked);
-        assert_eq!(called.result, CheckValue::Pass);
+        assert_eq!(called.result, VerificationState::Pass);
         assert_eq!(called.count, Some(1));
 
         let not_called = measured_target_execution(0);
         assert!(not_called.checked);
-        assert_eq!(not_called.result, CheckValue::Fail);
+        assert_eq!(not_called.result, VerificationState::Fail);
         assert_eq!(not_called.count, Some(0));
     }
 }
