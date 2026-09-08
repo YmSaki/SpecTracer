@@ -14,16 +14,22 @@
 //! 旧 12 項目モデル（`CheckValue` / `CheckItem` / `audits/`）はこの crate から
 //! 完全に排除した。SPEC-400「旧モデルの12項目…は検査として存在しない」。
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+    process::Command,
+};
 
 use serde::Serialize;
 use vtest_model::{
-    DiagnosticLabel, DocumentFile, ManagedTestLink, SectionNode, SentenceNode, TestEntity,
+    AdapterId, CheckValue as EvidenceCheckValue, ContentHash, DiagnosticLabel, DocumentFile,
+    EvidenceRecord, ManagedTestLink, SectionNode, SentenceNode, TargetRef, TestEntity,
     VerificationCheck, VerificationState, VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
-    read_document_file, read_document_names, read_record_ids, read_vo_record, VerifyLayout,
+    read_document_file, read_document_names, read_evidence, read_record_ids, read_vo_record,
+    VerifyLayout,
 };
 
 /// 固定4検査。DS-1106「`--items` 省略時は常に固定4検査による完全検証を行う」、
@@ -269,6 +275,66 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 ///
 /// `requested_checks` が `None` のときは固定4検査（DS-1106）。`Some` のときは
 /// その明示的部分集合だけを限定 scope とする（DS-1110）。
+/// Bundles the DS-265/DS-816-825 validity inputs `evaluate_target_binding`
+/// needs beyond the current `TestEntity`/`ScanResult`: the latest recorded
+/// Evidence per Test, the current adapter identity, and the current HEAD
+/// revision.
+///
+/// **Disclosed scope limit**: `current_adapter` is a single fixed value
+/// (`rust-cargo`) rather than resolved per-Test, because this repository and
+/// this slice's only Evidence writer (`vtest-exec`) both use exactly one
+/// adapter today. DS-817/DS-1628/DS-824 (per-Test adapter identity match)
+/// are evaluated against this fixed value; a multi-adapter repository is
+/// out of this slice's scope and not represented here.
+struct EvidenceContext {
+    latest_by_test: BTreeMap<String, EvidenceRecord>,
+    current_adapter: AdapterId,
+    head_commit: Option<String>,
+}
+
+impl EvidenceContext {
+    fn load(root: &Path, layout: &VerifyLayout) -> Self {
+        let mut latest_by_test: BTreeMap<String, EvidenceRecord> = BTreeMap::new();
+        if let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
+                    continue;
+                }
+                let Ok(record) = read_evidence(&path) else {
+                    continue;
+                };
+                let test_id = record.test_id.as_str().to_owned();
+                // Evidence record ids are ULIDs (DES-032), which sort
+                // lexicographically in creation-time order, so the greatest
+                // `id` string among a Test's records is the latest one.
+                match latest_by_test.get(&test_id) {
+                    Some(existing) if existing.id >= record.id => {}
+                    _ => {
+                        latest_by_test.insert(test_id, record);
+                    }
+                }
+            }
+        }
+        Self {
+            latest_by_test,
+            current_adapter: AdapterId::new("rust-cargo"),
+            head_commit: git_head_commit(root),
+        }
+    }
+}
+
+fn git_head_commit(root: &Path) -> Option<String> {
+    Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
 pub fn verify_project(
     root: &std::path::Path,
     scan: &ScanResult,
@@ -276,6 +342,7 @@ pub fn verify_project(
     entity_scope: Option<EntityScope>,
 ) -> VerifyOutcome {
     let layout = VerifyLayout::new(root);
+    let evidence = EvidenceContext::load(root, &layout);
     let selected: BTreeSet<VerificationCheck> = match requested_checks {
         None => ALL_CHECKS.into_iter().collect(),
         Some(checks) => checks.iter().copied().collect(),
@@ -307,7 +374,7 @@ pub fn verify_project(
         .collect::<Vec<_>>();
 
     let selection = EntitySelection::new(&vos, scan, entity_scope.as_ref());
-    let tree = build_tree(&vos, scan, &selection, &selected);
+    let tree = build_tree(&vos, scan, &selection, &selected, &evidence);
 
     // 評価地点が1件も無い per-Test 検査を、空虚な `PASS` にせず明示する。
     // TEST が 1 件も無い repository（初期化直後など）で総合 OK を返すことは、
@@ -663,7 +730,128 @@ fn target_resolution_diagnostics(scan: &ScanResult) -> BTreeMap<String, TargetRe
     by_locator
 }
 
-fn evaluate_target_binding(test: &TestEntity, resolution: &TargetResolution) -> CheckOutcome {
+/// Resolves the current implementation-construct hash for every
+/// `TargetRef::Locator` target `test` declares, as a set (DS-265/818's
+/// "target参照集合").
+///
+/// **Disclosed scope limit**: `TargetRef::SrcId` targets are not resolved
+/// here — doing so needs a SRC-record lookup this crate does not yet wire
+/// in for this purpose. Returns `None` if any declared target cannot be
+/// hash-resolved this way (a `SrcId` target, or a `Locator` target not
+/// present in `scan.sources`), which the caller folds into DS-819/827's
+/// "does not match the current canonical set" outcome rather than silently
+/// skipping the check.
+fn current_target_hashes(test: &TestEntity, scan: &ScanResult) -> Option<BTreeSet<ContentHash>> {
+    let mut hashes = BTreeSet::new();
+    for target in &test.targets {
+        let TargetRef::Locator(locator) = target else {
+            return None;
+        };
+        let found = scan
+            .sources
+            .iter()
+            .find(|source| &source.locator == locator)?;
+        hashes.insert(found.content_hash.clone());
+    }
+    Some(hashes)
+}
+
+/// DS-818's full AND-condition, decomposed into DS-816/817/819/820/821/822/
+/// 1628/824's individual named failure branches. Returns `Ok(())` only when
+/// every condition holds (the Evidence is current); otherwise returns the
+/// `CheckOutcome` DS-833 says to hold instead of reusing the Evidence.
+///
+/// Branch order is this crate's own tie-break where more than one condition
+/// could independently fail at once (the canon states each condition as an
+/// independent AND-term, not a priority order): adapter identity first,
+/// then subject/target hashes, then revision, then Execution State. This is
+/// implementation discretion, not a normative claim.
+fn evidence_validity_failure(
+    test: &TestEntity,
+    record: &EvidenceRecord,
+    scan: &ScanResult,
+    evidence: &EvidenceContext,
+) -> Option<CheckOutcome> {
+    // DS-1628: adapter explicitly does not match.
+    if record.adapter != evidence.current_adapter {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec![format!(
+                "Evidence adapter {:?} does not match the current adapter {:?} (DS-1628)",
+                record.adapter, evidence.current_adapter
+            )],
+        ));
+    }
+
+    // DS-819/DS-827: current Test subject hash or current target hash set
+    // does not match the recorded one (including a target that no longer
+    // resolves to exactly the recorded canonical Locator set, or that this
+    // crate cannot resolve at all — see `current_target_hashes`'s disclosed
+    // `SrcId` gap).
+    let current_targets = current_target_hashes(test, scan);
+    let recorded_targets: BTreeSet<ContentHash> =
+        record.hashes.target_fns.iter().cloned().collect();
+    let subject_matches = record.hashes.test_fn == test.content_hash;
+    let targets_match = current_targets.as_ref() == Some(&recorded_targets);
+    if !subject_matches || !targets_match {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec![
+                "Evidence test subject or target reference set does not match \
+                  the current canonical set (DS-819/DS-827)"
+                    .to_owned(),
+            ],
+        ));
+    }
+
+    // DS-820: revision must be present and match the current HEAD.
+    let revision_matches = match (&record.revision.commit, &evidence.head_commit) {
+        (Some(recorded), Some(current)) => recorded == current,
+        _ => false,
+    };
+    if !revision_matches {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec!["Evidence revision is absent or does not match the current \
+                  HEAD revision (DS-820)"
+                .to_owned()],
+        ));
+    }
+
+    // DS-822: `execution_state.complete` must be `true`, AND the current
+    // Execution State subject must be fully reconstructible for comparison.
+    // This crate does not implement DES-098/099/100 manifest reconstruction
+    // (disclosed at the `ExecutionState` write site in `vtest-exec`), so the
+    // second disjunct always holds regardless of `complete`: a current
+    // reconstruction can never be attempted here. DS-822 assigns this case
+    // `UNKNOWN`, not `NO_EVIDENCE` — the record's completeness (or lack of
+    // it) is not itself a defect, this crate simply cannot yet finish the
+    // comparison DS-821 asks for.
+    Some(CheckOutcome::new(
+        VerificationCheck::TargetBinding,
+        VerificationState::Unknown,
+        Vec::new(),
+        vec![
+            "current Execution State subject reconstruction (DES-098/099/100) \
+              is not implemented in this crate, so DS-822's match cannot be \
+              attempted (stopped_on)"
+                .to_owned(),
+        ],
+    ))
+}
+
+fn evaluate_target_binding(
+    test: &TestEntity,
+    resolution: &TargetResolution,
+    scan: &ScanResult,
+    evidence: &EvidenceContext,
+) -> CheckOutcome {
     // DS-1664「targetを持たないTestの`target_binding`は`NO_EVIDENCE`
     // （診断`NOT_CHECKED`）とする」。
     if test.targets.is_empty() {
@@ -702,24 +890,88 @@ fn evaluate_target_binding(test: &TestEntity, resolution: &TargetResolution) -> 
         );
     }
 
-    // DS-278「Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`
-    // （診断NOT_EXECUTED）とする」。
-    //
-    // この slice には canonical Evidence の読み手が存在しない。前身の
-    // `EvidenceRecord` は旧 8 値 `CheckValue` を運び、DS-265 が要求する
-    // 有効性入力（adapter ID の一致・Execution State subject の一致）を
-    // 持たないため、正規化しても「有効な Evidence」にはなり得ない。
-    // ROOT-031「現在のソースのハッシュと一致しない証拠は、検証時に
-    // 「存在しないもの」として扱う」に従い、Evidence 不在として扱う。
-    CheckOutcome::new(
-        VerificationCheck::TargetBinding,
-        VerificationState::NoEvidence,
-        vec![DiagnosticLabel::NotExecuted],
-        vec![format!(
-            "no valid Evidence for {} declared target(s) (DS-278)",
-            test.targets.len()
-        )],
-    )
+    // DS-825「Evidenceなしの場合、`NO_EVIDENCE`（診断NOT_EXECUTED）とする」。
+    let Some(record) = evidence.latest_by_test.get(test.id.as_str()) else {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotExecuted],
+            vec![format!(
+                "no Evidence for {} declared target(s) (DS-825)",
+                test.targets.len()
+            )],
+        );
+    };
+
+    // DS-833: an Evidence record that exists but is not valid per DS-818 is
+    // never reused; the caller keeps the specific MISMATCH/NO_EVIDENCE
+    // (STALE)/UNKNOWN this returns instead.
+    if let Some(outcome) = evidence_validity_failure(test, record, scan, evidence) {
+        return outcome;
+    }
+
+    // DS-830/831/832: the Evidence is valid. This branch is unreachable
+    // today (see `evidence_validity_failure`'s DS-822 comment — a current
+    // Execution State reconstruction is never attempted, so validity always
+    // fails there first), but is implemented and unit-tested in isolation
+    // (`dynamic_result_from_evidence`) against the day that reconstruction
+    // lands.
+    dynamic_result_from_evidence(record)
+}
+
+/// DS-830/831/832: judgment applied once an Evidence record is confirmed
+/// valid (DS-818). Kept as its own function so it is unit-testable without
+/// first achieving end-to-end validity (see `evaluate_target_binding`'s
+/// doc comment on why that path is not reachable yet in this crate).
+fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
+    // DS-830: the runner itself reported failure.
+    if record.result == vtest_model::TestResult::Fail {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Fail,
+            Vec::new(),
+            vec!["test runner reported FAIL (DS-830)".to_owned()],
+        );
+    }
+
+    // DS-831/832: the runner passed; the coverage measurement decides.
+    let coverage = &record.target_execution;
+    if !coverage.checked {
+        // DS-832: uncomputed/unmeasured reachability -> NO_EVIDENCE (NOT_CHECKED).
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked],
+            vec!["target reachability was not measured (DS-832)".to_owned()],
+        );
+    }
+    match coverage.result {
+        EvidenceCheckValue::Pass => CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Pass,
+            Vec::new(),
+            vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
+        ),
+        EvidenceCheckValue::Fail => CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Fail,
+            vec![DiagnosticLabel::NotExecuted],
+            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
+        ),
+        // DS-832「関数不見当はUNKNOWNとする」— this aggregate-level
+        // `TargetExecution` (predecessor single-field shape; see DES-185's
+        // disclosed `target_coverage` rename this crate has not carried out)
+        // cannot name which declared target went unfound, only that the
+        // aggregate measurement could not identify one.
+        _ => CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Unknown,
+            Vec::new(),
+            vec!["measured coverage could not identify the declared target \
+                  function (DS-832)"
+                .to_owned()],
+        ),
+    }
 }
 
 fn evaluate_oracle_presence(_test: &TestEntity) -> CheckOutcome {
@@ -874,6 +1126,7 @@ fn build_tree(
     scan: &ScanResult,
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
+    evidence: &EvidenceContext,
 ) -> Vec<TreeNode> {
     let resolution = target_resolution_diagnostics(scan);
     let mut roots = Vec::new();
@@ -900,6 +1153,7 @@ fn build_tree(
                     selected_checks,
                     &resolution,
                     &mut placed_vos,
+                    evidence,
                 )
             })
             .collect::<Vec<_>>();
@@ -923,6 +1177,7 @@ fn build_tree(
             selected_checks,
             &resolution,
             &mut placed_vos,
+            evidence,
         ));
     }
 
@@ -938,7 +1193,13 @@ fn build_tree(
         {
             continue;
         }
-        roots.push(test_node(test, selected_checks, &resolution));
+        roots.push(test_node(
+            test,
+            selected_checks,
+            &resolution,
+            scan,
+            evidence,
+        ));
     }
 
     roots
@@ -953,6 +1214,7 @@ fn build_vo_node(
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
     placed: &mut BTreeSet<String>,
+    evidence: &EvidenceContext,
 ) -> TreeNode {
     if !placed.insert(id.to_owned()) {
         // 循環・重複配置。値を発明せず、未検査として保持する。
@@ -987,6 +1249,7 @@ fn build_vo_node(
                 selected_checks,
                 resolution,
                 placed,
+                evidence,
             )
         })
         .collect::<Vec<_>>();
@@ -997,7 +1260,7 @@ fn build_vo_node(
                 selection.tests.contains(test.id.as_str())
                     && test.covers.iter().any(|vo| vo.as_str() == id)
             })
-            .map(|test| test_node(test, selected_checks, resolution)),
+            .map(|test| test_node(test, selected_checks, resolution, scan, evidence)),
     );
     node_from_children(NodeKind::Vo, id, Vec::new(), children)
 }
@@ -1006,6 +1269,8 @@ fn test_node(
     test: &TestEntity,
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
+    scan: &ScanResult,
+    evidence: &EvidenceContext,
 ) -> TreeNode {
     let empty = TargetResolution::default();
     let test_resolution = resolution.get(&test.location.locator).unwrap_or(&empty);
@@ -1016,7 +1281,9 @@ fn test_node(
                 return CheckOutcome::out_of_scope(check);
             }
             match check {
-                VerificationCheck::TargetBinding => evaluate_target_binding(test, test_resolution),
+                VerificationCheck::TargetBinding => {
+                    evaluate_target_binding(test, test_resolution, scan, evidence)
+                }
                 VerificationCheck::OraclePresence => evaluate_oracle_presence(test),
                 _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
             }
@@ -1786,5 +2053,229 @@ mod tests {
         let json = serde_json::to_value(&outcome).expect("serialise");
         assert_eq!(json["state"], "NO_EVIDENCE");
         assert_eq!(json["labels"][0], "NOT_EXECUTED");
+    }
+
+    // -------------------------------------------------------------------
+    // target_binding: Evidence-backed judgment (DS-816-833)
+    // -------------------------------------------------------------------
+
+    fn sample_evidence(test_id: &str, adapter: &str, commit: Option<&str>) -> EvidenceRecord {
+        EvidenceRecord {
+            id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_owned(),
+            test_id: TestId::new(test_id),
+            adapter: AdapterId::new(adapter),
+            result: vtest_model::TestResult::Pass,
+            executed_at: "2026-09-08T00:00:00Z".to_owned(),
+            revision: vtest_model::Revision {
+                commit: commit.map(str::to_owned),
+                dirty: false,
+            },
+            execution_state: vtest_model::ExecutionState {
+                schema: "rust-cargo-execution-state-v1".to_owned(),
+                complete: false,
+                hash: None,
+            },
+            hashes: vtest_model::EvidenceHashes {
+                test_fn: ContentHash::from_text("TEST-ONE"),
+                target_fn: ContentHash::from_text("TEST-ONE::target0"),
+                target_fns: vec![ContentHash::from_text("TEST-ONE::target0")],
+            },
+            runner: vtest_model::RunnerInfo {
+                kind: "cargo-test".to_owned(),
+                command: "cargo test".to_owned(),
+                exit_code: 0,
+            },
+            target_execution: vtest_model::TargetExecution {
+                checked: false,
+                method: None,
+                result: EvidenceCheckValue::NotChecked,
+                count: None,
+            },
+            log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
+        }
+    }
+
+    fn write_sample_evidence(layout: &VerifyLayout, record: &EvidenceRecord) {
+        std::fs::create_dir_all(layout.evidence_dir()).expect("evidence dir");
+        let path = layout.evidence_dir().join(format!("{}.yaml", record.id));
+        let yaml = format!(
+            "id: '{id}'\ntest_id: '{test_id}'\nadapter: '{adapter}'\nresult: PASS\n\
+             executed_at: '{executed_at}'\nrevision:\n  commit: {commit}\n  dirty: false\n\
+             execution_state:\n  schema: '{schema}'\n  complete: {complete}\n  hash: null\n\
+             hashes:\n  test_fn: '{test_fn}'\n  target_fn: '{target_fn}'\n  target_fns:\n    - '{target_fn}'\n\
+             runner:\n  kind: 'cargo-test'\n  command: 'cargo test'\n  exit_code: 0\n\
+             target_execution:\n  checked: false\n  method: null\n  result: NOT_CHECKED\n  count: null\n\
+             log_ref: '{log_ref}'\n",
+            id = record.id,
+            test_id = record.test_id.as_str(),
+            adapter = record.adapter.as_str(),
+            executed_at = record.executed_at,
+            commit = record
+                .revision
+                .commit
+                .as_deref()
+                .map(|value| format!("'{value}'"))
+                .unwrap_or_else(|| "null".to_owned()),
+            schema = record.execution_state.schema,
+            complete = record.execution_state.complete,
+            test_fn = record.hashes.test_fn.as_str(),
+            target_fn = record.hashes.target_fn.as_str(),
+            log_ref = record.log_ref,
+        );
+        std::fs::write(path, yaml).expect("write evidence fixture");
+    }
+
+    /// DS-825: no Evidence at all is `NO_EVIDENCE` / `NOT_EXECUTED` — already
+    /// covered above (`target_binding_distinguishes_its_two_causes_by_diagnostic_label`'s
+    /// `tb-executed` case, which has no Evidence on disk). This test instead
+    /// covers DS-1628/DS-819/DS-820: an Evidence record that *exists* but
+    /// fails validity is `NO_EVIDENCE` / `STALE`, never reused as `PASS`.
+    #[test]
+    fn stale_evidence_with_a_mismatched_adapter_is_no_evidence_stale() {
+        let root = temp_root("tb-stale-adapter");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-ONE", None)).expect("vo");
+        let scan = scan_result(vec![test_entity("TEST-ONE", &["VO-ONE"], 1)], Vec::new());
+        write_sample_evidence(
+            &layout,
+            &sample_evidence("TEST-ONE", "other-adapter", Some("deadbeef")),
+        );
+
+        let outcome = outcome_for(&root, &scan);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            labels_of(&outcome, VerificationCheck::TargetBinding),
+            vec![DiagnosticLabel::Stale]
+        );
+    }
+
+    /// DS-819/DS-827: a matching adapter is not enough — a target set /
+    /// subject hash that no longer matches the current canonical set is
+    /// also `NO_EVIDENCE` / `STALE`, never reused as `PASS`. `scan_result`'s
+    /// test fixtures always leave `sources` empty, so the target set can
+    /// never resolve to a match; this exercises that path directly.
+    #[test]
+    fn stale_evidence_with_an_unresolvable_target_set_is_no_evidence_stale() {
+        let root = temp_root("tb-stale-targets");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-ONE", None)).expect("vo");
+        let scan = scan_result(vec![test_entity("TEST-ONE", &["VO-ONE"], 1)], Vec::new());
+        write_sample_evidence(
+            &layout,
+            &sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef")),
+        );
+
+        let outcome = outcome_for(&root, &scan);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            labels_of(&outcome, VerificationCheck::TargetBinding),
+            vec![DiagnosticLabel::Stale]
+        );
+    }
+
+    /// DS-822: an Evidence record whose `execution_state.complete` is not
+    /// `true` — every record this repository's `vtest-exec` writes today,
+    /// disclosed at the write site — is `UNKNOWN`, never `PASS` and never
+    /// silently treated as stale. This is the disclosed stopped_on
+    /// (`current Execution State subject reconstruction is not
+    /// implemented`) surfacing as a real, deterministic outcome rather than
+    /// an internal-error fallback (REQ-108/ROOT-033).
+    ///
+    /// This test cannot reach the DS-822 branch through the public
+    /// `verify_project` entry point today, because DS-819's target-set
+    /// check (see the previous test) fails first for every fixture this
+    /// crate's test helpers can construct (`scan_result` always leaves
+    /// `sources` empty). It instead calls `evidence_validity_failure`
+    /// directly with a `scan` that *does* resolve the declared target, to
+    /// isolate the DS-822 branch specifically.
+    #[test]
+    fn incomplete_execution_state_is_unknown_not_stale_or_pass() {
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
+        let target_hash = ContentHash::from_text("TEST-ONE::target0");
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 1,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: vec![vtest_model::SourceFunction {
+                locator: vtest_model::Locator {
+                    adapter: AdapterId::new("rust-cargo"),
+                    value: "src/lib.rs::target0".to_owned(),
+                },
+                src_id: None,
+                location: location("SRC-target0"),
+                content_hash: target_hash.clone(),
+            }],
+            diagnostics: Vec::new(),
+        };
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fn = target_hash.clone();
+        record.hashes.target_fns = vec![target_hash];
+        let evidence = EvidenceContext {
+            latest_by_test: BTreeMap::new(),
+            current_adapter: AdapterId::new("rust-cargo"),
+            head_commit: Some("deadbeef".to_owned()),
+        };
+
+        let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
+            .expect("an incomplete Execution State must not validate as reusable");
+        assert_eq!(outcome.state, VerificationState::Unknown);
+        assert!(outcome.labels.is_empty());
+    }
+
+    /// DS-830/831/832, isolated from the (currently unreachable — see
+    /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
+    #[test]
+    fn dynamic_result_from_evidence_covers_ds_830_831_832() {
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+
+        // DS-830: runner FAIL.
+        record.result = vtest_model::TestResult::Fail;
+        assert_eq!(
+            dynamic_result_from_evidence(&record).state,
+            VerificationState::Fail
+        );
+
+        // DS-832: runner PASS, coverage not measured -> NO_EVIDENCE (NOT_CHECKED).
+        record.result = vtest_model::TestResult::Pass;
+        record.target_execution.checked = false;
+        let outcome = dynamic_result_from_evidence(&record);
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
+
+        // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
+        record.target_execution.checked = true;
+        record.target_execution.result = EvidenceCheckValue::Fail;
+        record.target_execution.count = Some(0);
+        let outcome = dynamic_result_from_evidence(&record);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+
+        // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
+        record.target_execution.result = EvidenceCheckValue::Unknown;
+        record.target_execution.count = None;
+        assert_eq!(
+            dynamic_result_from_evidence(&record).state,
+            VerificationState::Unknown
+        );
+
+        // DS-831: measured and reached -> PASS.
+        record.target_execution.result = EvidenceCheckValue::Pass;
+        record.target_execution.count = Some(3);
+        let outcome = dynamic_result_from_evidence(&record);
+        assert_eq!(outcome.state, VerificationState::Pass);
+        assert!(outcome.labels.is_empty());
     }
 }
