@@ -6,6 +6,7 @@
 //! budget allowed. See the closure-slice task note for the acknowledged
 //! asymmetry: `verify`/`scan`/`doctor`/`init` were not refactored to match.
 
+pub mod approval;
 pub mod doctor;
 pub mod init;
 pub mod run;

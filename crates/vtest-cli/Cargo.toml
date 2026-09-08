@@ -36,3 +36,7 @@ path = "tests/evidence_e2e.rs"
 [[test]]
 name = "run_acceptance"
 path = "tests/run_acceptance.rs"
+
+[[test]]
+name = "approval_acceptance"
+path = "tests/approval_acceptance.rs"

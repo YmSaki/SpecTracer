@@ -90,6 +90,106 @@ pub enum Command {
         #[arg(long)]
         summary: bool,
     },
+    /// Approval domain: the sole canonical entry point for承認レコード
+    /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
+    #[command(subcommand)]
+    Approval(ApprovalCommand),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum SubjectTypeArg {
+    Vo,
+    Document,
+    Judgment,
+}
+
+impl SubjectTypeArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            SubjectTypeArg::Vo => "vo",
+            SubjectTypeArg::Document => "document",
+            SubjectTypeArg::Judgment => "judgment",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApprovedStateArg {
+    Approved,
+    Rejected,
+    Withdrawn,
+}
+
+impl ApprovedStateArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApprovedStateArg::Approved => "approved",
+            ApprovedStateArg::Rejected => "rejected",
+            ApprovedStateArg::Withdrawn => "withdrawn",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApproverKindArg {
+    Human,
+    Agent,
+}
+
+impl ApproverKindArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApproverKindArg::Human => "human",
+            ApproverKindArg::Agent => "agent",
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalCommand {
+    /// DS-1050/1051/1052: the sole way承認レコード are created.
+    /// `vtest vo approve` (not yet ported to this canonical CLI in this
+    /// slice) is documented as an alias of this command (BD-074, DS-1045);
+    /// it is not a second, independent implementation.
+    Create {
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
+        #[arg(long = "state", value_enum)]
+        state: ApprovedStateArg,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
+    },
+    /// BD-307/DS-1056: writes `state: withdrawn` + `supersedes:
+    /// [approval-id]`, copying the target record's subject fields.
+    Withdraw {
+        approval_id: String,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+    },
+    /// DS-1057/BD-308: the subject's full承認レコード history plus its
+    /// current effective承認 state (`draft` / `approved`).
+    Show {
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
+    },
 }
 
 pub fn run(cli: Cli) -> ExitCode {
@@ -98,6 +198,7 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
         Command::Run { test, fast } => run_run(&cli.project, &test, fast, cli.format, cli.quiet),
+        Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -259,6 +360,154 @@ fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: b
     };
     emit_failure(format, quiet, code, &error.to_string());
     exit
+}
+
+// ---------------------------------------------------------------------------
+// approval
+// ---------------------------------------------------------------------------
+
+fn run_approval(
+    project: &Path,
+    command: ApprovalCommand,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    match command {
+        ApprovalCommand::Create {
+            subject_type,
+            subject_id,
+            state,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+            supersedes,
+        } => {
+            let result = ops::approval::create(
+                &layout,
+                ops::approval::CreateArgs {
+                    subject_type: subject_type.as_str().to_owned(),
+                    subject_id,
+                    approved_state: state.as_str().to_owned(),
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                    supersedes,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Withdraw {
+            approval_id,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+        } => {
+            let result = ops::approval::withdraw(
+                &layout,
+                ops::approval::WithdrawArgs {
+                    approval_id,
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Show {
+            subject_type,
+            subject_id,
+        } => match ops::approval::show(&layout, subject_type.as_str(), &subject_id) {
+            Ok(result) => {
+                let effective = match result.effective_state {
+                    vtest_store::approval::EffectiveApprovalState::Draft => "draft",
+                    vtest_store::approval::EffectiveApprovalState::Approved => "approved",
+                };
+                let data = serde_json::json!({
+                    "records": result.records.iter().map(|record| serde_json::json!({
+                        "id": record.id,
+                        "subject_type": record.subject_type,
+                        "subject": record.subject,
+                        "approved_state": record.approved_state,
+                        "supersedes": record.supersedes,
+                        "approved_at": record.approved_at,
+                    })).collect::<Vec<_>>(),
+                    "effective_state": effective,
+                });
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, |envelope| {
+                    format!(
+                        "approval show: {} record(s), effective state {}\n",
+                        envelope.data["records"].as_array().map_or(0, Vec::len),
+                        effective
+                    )
+                });
+                ExitCode::Ok
+            }
+            Err(error) => approval_error_exit(&error, format, quiet),
+        },
+    }
+}
+
+fn approval_result(
+    result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match result {
+        Ok(record) => {
+            let data = serde_json::json!({
+                "id": record.id,
+                "subject_type": record.subject_type,
+                "subject": record.subject,
+                "approved_state": record.approved_state,
+                "supersedes": record.supersedes,
+                "approved_at": record.approved_at,
+            });
+            let envelope = JsonEnvelope::new(true, data, Vec::new());
+            emit(format, quiet, &envelope, |envelope| {
+                format!(
+                    "approval {}: {}\n",
+                    envelope.data["approved_state"].as_str().unwrap_or(""),
+                    envelope.data["id"].as_str().unwrap_or(""),
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => approval_error_exit(&error, format, quiet),
+    }
+}
+
+fn approval_error_exit(
+    error: &ops::approval::ApprovalOpError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    use ops::approval::ApprovalOpError;
+    match error {
+        ApprovalOpError::JudgmentSubjectTypeUnsupported => {
+            usage_failure(format, quiet, "E-OP-001", &error.to_string())
+        }
+        ApprovalOpError::UnresolvedSubject(_) => {
+            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
+        }
+        ApprovalOpError::InvalidRequest(_) => {
+            usage_failure(format, quiet, "E-APPROVAL-002", &error.to_string())
+        }
+        ApprovalOpError::Store(_) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
