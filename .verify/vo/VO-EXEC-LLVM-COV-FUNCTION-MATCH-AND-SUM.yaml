@@ -1,0 +1,13 @@
+id: VO-EXEC-LLVM-COV-FUNCTION-MATCH-AND-SUM
+parent: null
+derives_from:
+  - doc: DES-456
+  - doc: DES-457
+  - doc: DES-458
+claim: llvm-cov export JSONのdata[].functions[]から、demangle済み関数名の末尾がlocatorのitem-pathに、filenamesの末尾がlocatorのpathに一致する関数を探し、複数インスタンス（ジェネリック展開）のcountを合算する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

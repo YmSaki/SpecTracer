@@ -1,0 +1,12 @@
+id: VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+parent: null
+derives_from:
+  - doc: DS-760
+  - doc: DS-908
+claim: カバレッジツールが利用不能なとき、target_coverageはchecked:false・result:Unknown・count:Noneとし、診断W-EXEC-101を出す（PASSへ変換しない）
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

@@ -592,6 +592,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-EXEC-PARSE-RESULT-PASS-FAIL-IGNORED
+    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+    /// @vtest.target crates/vtest-exec/src/lib.rs::parse_result
+    /// @vtest.intent rust-cargoランナー出力の`ok`/`FAILED`/`ignored`行を対象selectorに限定してPASS/FAIL/Ignoredへ正しく解釈することを検証する
     #[test]
     fn parser_distinguishes_pass_fail_and_ignored() {
         assert_eq!(
@@ -609,6 +613,10 @@ mod tests {
         assert_eq!(parse_result("test y ... ok", "x"), None);
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM
+    /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTION-MATCH-AND-SUM
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
+    /// @vtest.intent llvm-cov export JSONからlocatorに一致する関数（複数ジェネリックインスタンス含む）のcountを合算し、一致しないtargetはNoneを返すことを検証する
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
         let target = rust_locator("src/lib.rs", "add");
@@ -639,6 +647,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &absent), None);
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-ZERO-COUNT-NOT-CONFUSED-WITH-UNKNOWN
+    /// @vtest.covers VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
+    /// @vtest.intent 対象関数が発見されcountが0のときSome(0)を返し、対象関数自体が見つからない場合のNoneと区別されることを検証する
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
         let target = rust_locator("src/lib.rs", "add");
@@ -654,6 +666,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &target), Some(0));
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-DEMANGLE-RUST-V0-NAME-MATCH
+    /// @vtest.covers VO-EXEC-LLVM-COV-DEMANGLE-MATCH
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_name_matches
+    /// @vtest.intent Rust v0 mangled関数名をdemangleした末尾がlocatorのitem-pathと一致するときだけ真を返すことを検証する
     #[test]
     fn llvm_cov_parser_demangles_rust_v0_symbols() {
         assert!(llvm_name_matches(
@@ -666,6 +682,10 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-EXEC-UNAVAILABLE-COVERAGE-NOT-CHECKED
+    /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+    /// @vtest.target crates/vtest-exec/src/lib.rs::unavailable_target_coverage
+    /// @vtest.intent カバレッジツールが利用不能なとき、target_coverageがchecked:false・result:Unknown・count:Noneとなり、診断W-EXEC-101が出ることを検証する
     #[test]
     fn unavailable_coverage_is_not_checked_and_never_passes() {
         let (target_coverage, diagnostic) = unavailable_target_coverage();
@@ -675,6 +695,10 @@ mod tests {
         assert_eq!(diagnostic.code, "W-EXEC-101");
     }
 
+    /// @vtest.id TEST-EXEC-MEASURED-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-exec/src/lib.rs::measured_target_coverage
+    /// @vtest.intent 計測countが正のときresult:PASS、countが0のときresult:FAILとなることを検証する
     #[test]
     fn measured_target_coverage_requires_a_positive_count() {
         let called = measured_target_coverage(1);
