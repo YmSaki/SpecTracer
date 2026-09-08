@@ -9,10 +9,13 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
-    AdapterId, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ExecutionState,
-    Locator, Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
+    AdapterId, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator,
+    Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
-use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
+use vtest_store::{
+    execution_state::{reconstruct_execution_state, ExecutionStateInputs},
+    new_record_id, now_rfc3339, write_new_record, VerifyLayout,
+};
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -129,20 +132,21 @@ pub fn run_tests(
                     diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
                     target_execution
                 };
+                // DS-265 validity input. This crate only runs the
+                // `rust-cargo` adapter's tests (crate doc comment); a
+                // resolved target's own locator names the adapter it came
+                // from, and falls back to `rust-cargo` literally when the
+                // Test has no resolved target locator to read it from
+                // (still this crate's sole adapter).
+                let adapter_id = test
+                    .target_locator
+                    .as_ref()
+                    .map(|locator| locator.adapter.clone())
+                    .unwrap_or_else(|| AdapterId::new("rust-cargo"));
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
-                    // DS-265 validity input. This crate only runs the
-                    // `rust-cargo` adapter's tests (crate doc comment); a
-                    // resolved target's own locator names the adapter it
-                    // came from, and falls back to `rust-cargo` literally
-                    // when the Test has no resolved target locator to read
-                    // it from (still this crate's sole adapter).
-                    adapter: test
-                        .target_locator
-                        .as_ref()
-                        .map(|locator| locator.adapter.clone())
-                        .unwrap_or_else(|| AdapterId::new("rust-cargo")),
+                    adapter: adapter_id.clone(),
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -150,23 +154,21 @@ pub fn run_tests(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
-                    // DES-097/101/184: this slice does not enumerate the
-                    // full repository/toolchain/local-dependency input
-                    // manifest DES-098 requires, so it cannot compute a
-                    // conforming Execution State subject hash. It reports
-                    // that honestly as `complete: false` / `hash: None`
-                    // (permitted by DES-184) rather than fabricate a hash
-                    // over a partial input set. Disclosed as not-yet-done:
-                    // this keeps every dynamic Evidence record this crate
-                    // writes unable to satisfy DS-265's Execution State
-                    // subject match condition, so `target_binding` cannot
-                    // reach `PASS` through this path until a future slice
-                    // implements DES-098/099/100 manifest collection.
-                    execution_state: ExecutionState {
-                        schema: "rust-cargo-execution-state-v1".to_owned(),
-                        complete: false,
-                        hash: None,
-                    },
+                    // DES-097/098/099/100/101/210/211/212: reconstructed by
+                    // the shared `vtest-store::execution_state` module (see
+                    // its module doc for the disclosed scope limits —
+                    // single-workspace-root topology, no adapter-config
+                    // projection input exists in this repository yet).
+                    execution_state: reconstruct_execution_state(
+                        root,
+                        ExecutionStateInputs {
+                            adapter: &adapter_id,
+                            schema: "rust-cargo-execution-state-v1",
+                            head_commit: revision.commit.as_deref(),
+                            runner_kind,
+                            invocation: &command_line,
+                        },
+                    ),
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
