@@ -9,3 +9,6 @@ serde.workspace = true
 vtest-model = { path = "../vtest-model" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -16,7 +16,12 @@ pub enum VerificationState {
 /// Canonical diagnostic label for a verification check.
 ///
 /// These labels provide additional context for verification results.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+///
+/// `Ord` here is declaration order, used only so a label set can be collected
+/// deterministically (`BTreeSet`). It is NOT a severity or precedence order:
+/// DS-847「診断ラベル（MISSING / NOT_EXECUTED / NOT_CHECKED / STALE）は順位に
+/// 用いず併記する」、DS-872「診断ラベルは充足判定に用いない」.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DiagnosticLabel {
     Missing,
@@ -28,7 +33,13 @@ pub enum DiagnosticLabel {
 /// Canonical verification check defined by the v0.1 model.
 ///
 /// Each variant identifies a distinct verification concern.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+///
+/// `Ord` here is declaration order, used only to hold a check set
+/// deterministically (`BTreeSet`) and to emit checks in a stable order. It
+/// carries no precedence: SPEC-054「各検査は一つの問いを持つ」— the four
+/// checks are peers. (DS-873's "5状態に順序・優劣・包含関係を設けない" is
+/// about the five *states*, which deliberately have no `Ord` at all.)
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationCheck {
     ChainIntegrity,

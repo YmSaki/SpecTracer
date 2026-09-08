@@ -568,9 +568,6 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
- "vtest-audit",
- "vtest-exec",
- "vtest-mcp",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
@@ -641,6 +638,7 @@ name = "vtest-verify"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "vtest-model",
  "vtest-scan",
  "vtest-store",

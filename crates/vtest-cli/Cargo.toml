@@ -3,15 +3,18 @@ name = "vtest-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+# The predecessor `tests/m1_acceptance.rs` … `m9_acceptance.rs` files exercise
+# the retired 12-item / `CheckValue` / `audits/` CLI surface and cannot compile
+# against the canonical model. They are left on disk (their deletion belongs to
+# the migration chain's final "旧系撤去" step) but are not built: `autotests`
+# is off and the test targets are declared explicitly below.
+autotests = false
 
 [dependencies]
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-vtest-audit = { path = "../vtest-audit" }
-vtest-exec = { path = "../vtest-exec" }
 vtest-model = { path = "../vtest-model" }
-vtest-mcp = { path = "../vtest-mcp" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
 vtest-verify = { path = "../vtest-verify" }
@@ -19,3 +22,7 @@ vtest-verify = { path = "../vtest-verify" }
 [[bin]]
 name = "vtest"
 path = "src/main.rs"
+
+[[test]]
+name = "verify_acceptance"
+path = "tests/verify_acceptance.rs"
