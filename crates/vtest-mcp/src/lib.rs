@@ -430,9 +430,6 @@ fn tool_input_schema(name: &str) -> Value {
             json!({
                 "id": {"type": "string"},
                 "path": {"type": "string"},
-                "title": {"type": "string"},
-                "derives_from": {"type": "array", "items": {"type": "string"}},
-                "root": {"type": "boolean"},
                 "update": {"type": "boolean"}
             }),
             vec!["id", "path"],
@@ -461,7 +458,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
-        "doc_add" => &["id", "path", "title", "derives_from", "root", "update"],
+        "doc_add" => &["id", "path", "update"],
         "doc_list" => &[],
         "doc_show" => &["id"],
         _ => &[],
@@ -496,9 +493,6 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "doc_add" => {
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "path")?;
-            optional_nonempty_string(args, "title")?;
-            optional_string_array(args, "derives_from")?;
-            optional_bool(args, "root")?;
             optional_bool(args, "update")
         }
         "doc_list" => Ok(()),
@@ -743,13 +737,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
     let Some(path) = string_arg(args, "path") else {
         return failure_envelope("E-OP-001", "doc_add requires path");
     };
-    let title = string_arg(args, "title").map(str::to_owned);
     let update = bool_arg(args, "update");
-    let root_arg = args.get("root").and_then(Value::as_bool);
-
-    // DS-1681: derives_from is a bare list of upstream document ids (no
-    // per-link anchor/note).
-    let derives_from = string_array_arg(args, "derives_from");
 
     match ops::doc::add(
         root,
@@ -757,13 +745,10 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
         ops::doc::AddArgs {
             id: id.to_owned(),
             path: path.to_owned(),
-            title,
-            derives_from,
-            root: root_arg,
             update,
         },
     ) {
-        Ok(record) => success_envelope(true, doc_record_json(&record), &[]),
+        Ok(view) => success_envelope(true, doc_view_json(&view), &[]),
         Err(error) => doc_error_envelope(&error),
     }
 }
@@ -772,12 +757,12 @@ fn doc_list_tool(root: &Path, _args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
     match ops::doc::list(&layout) {
         Ok(result) => {
-            let records: Vec<_> = result.records.iter().map(doc_record_json).collect();
+            let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
             success_envelope(
                 true,
                 json!({
                     "records": records,
-                    "roots": result.records.iter().filter(|record| record.root).map(|record| record.id.clone()).collect::<Vec<_>>(),
+                    "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
                     "unresolved_derives_from": result.unresolved,
                 }),
                 &[],
@@ -792,28 +777,18 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "doc_show requires id");
     };
-    match ops::doc::show(root, &layout, id) {
-        Ok(result) => {
-            let mut data = doc_record_json(&result.record);
-            match &result.fresh {
-                Ok(fresh) => data["fresh"] = json!(fresh),
-                Err(message) => data["fresh_error"] = json!(message),
-            }
-            success_envelope(true, data, &[])
-        }
+    match ops::doc::show(&layout, id) {
+        Ok(view) => success_envelope(true, doc_view_json(&view), &[]),
         Err(error) => doc_error_envelope(&error),
     }
 }
 
-fn doc_record_json(record: &vtest_model::DocRegistryRecord) -> Value {
+fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
     json!({
-        "id": record.id,
-        "path": record.path,
-        "title": record.title,
-        "content_hash": record.content_hash.as_str(),
-        "derives_from": record.derives_from,
-        "root": record.root,
-        "registered_at": record.registered_at,
+        "id": view.id,
+        "content_hash": view.content_hash.as_str(),
+        "derives_from": view.derives_from,
+        "root": view.is_root,
     })
 }
 
@@ -1183,28 +1158,25 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                title: None,
-                derives_from: Vec::new(),
-                root: None,
                 update: false,
             },
         )
         .expect("add must succeed against a real node-tree file");
 
-        let direct = ops::doc::show(&root, &layout, "DOC-BASIC-001")
-            .expect("direct ops::doc::show must succeed");
+        let direct =
+            ops::doc::show(&layout, "DOC-BASIC-001").expect("direct ops::doc::show must succeed");
         let mcp_envelope = dispatch_tool(&root, "doc_show", &json!({"id": "DOC-BASIC-001"}));
 
         assert_eq!(mcp_envelope["ok"], Value::Bool(true));
         assert_eq!(
             mcp_envelope["data"]["content_hash"],
-            Value::String(direct.record.content_hash.as_str().to_owned()),
+            Value::String(direct.content_hash.as_str().to_owned()),
             "MCP `doc_show` must report the same content_hash as the shared `ops::doc::show`"
         );
         assert_eq!(
-            mcp_envelope["data"]["fresh"],
-            Value::Bool(direct.fresh.unwrap_or(false)),
-            "MCP `doc_show` must report the same freshness as the shared `ops::doc::show`"
+            mcp_envelope["data"]["root"],
+            Value::Bool(direct.is_root),
+            "MCP `doc_show` must report the same root designation as the shared `ops::doc::show`"
         );
     }
 
@@ -1501,9 +1473,6 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                title: None,
-                derives_from: Vec::new(),
-                root: None,
                 update: false,
             },
         )
@@ -1532,7 +1501,7 @@ mod tests {
             "MCP `doc_add` must compute the same document-level subject hash as the shared \
              `ops::doc::add` the CLI `doc add` wrapper also calls, for byte-identical input"
         );
-        assert_eq!(mcp_envelope["data"]["root"], Value::Bool(direct.root));
+        assert_eq!(mcp_envelope["data"]["root"], Value::Bool(direct.is_root));
     }
 
     /// DS-1563 equivalence for `doc_list`: MCP and `ops::doc::list` (the
@@ -1556,9 +1525,6 @@ mod tests {
             ops::doc::AddArgs {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
-                title: None,
-                derives_from: Vec::new(),
-                root: Some(true),
                 update: false,
             },
         )
@@ -1579,7 +1545,7 @@ mod tests {
             json!(direct
                 .records
                 .iter()
-                .filter(|record| record.root)
+                .filter(|record| record.is_root)
                 .map(|record| record.id.clone())
                 .collect::<Vec<_>>()),
         );

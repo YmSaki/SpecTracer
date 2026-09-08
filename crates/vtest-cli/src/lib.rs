@@ -103,34 +103,23 @@ pub enum Command {
     /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
     #[command(subcommand)]
     Approval(ApprovalCommand),
-    /// Document registry (本冊 §12.2, DS-1015-1017/1681-1684, DES-595,
-    /// BD-072/331). See `vtest_model::doc_registry`'s module doc comment
-    /// for how this points at, without replacing, the fine node-tree
-    /// content already at `.verify/doc/<name>.json`.
+    /// Document registration (本冊 §3.1, DES-585/586/595, DS-1015-1017/
+    /// 1681-1684) — operates directly on `.verify/doc/<id>.json` node-tree
+    /// files. See `vtest_store::doc_registry`'s module doc comment for why
+    /// there is no separate persisted registry record.
     #[command(subcommand)]
     Doc(DocCommand),
 }
 
 #[derive(Subcommand, Debug)]
 pub enum DocCommand {
-    /// DS-1681/1683/1684, DES-595. `--path` names an already-built
-    /// `.verify/doc/<name>.json` node-tree file (1 document = 1 JSON
-    /// file). `--derives-from <ID>` is a repeatable bare upstream document
-    /// id (DS-1681: no per-link anchor/note — that shape belongs to the VO
-    /// record's own `derives_from`, not this one).
+    /// DES-595. `--path` names an already-built node-tree JSON file (1
+    /// document = 1 JSON file) to register as `.verify/doc/<id>.json`.
     Add {
         #[arg(long)]
         id: String,
         #[arg(long)]
         path: String,
-        #[arg(long)]
-        title: Option<String>,
-        #[arg(long = "derives-from")]
-        derives_from: Vec<String>,
-        #[arg(long, conflicts_with = "no_root")]
-        root: bool,
-        #[arg(long = "no-root", conflicts_with = "root")]
-        no_root: bool,
         #[arg(long)]
         update: bool,
     },
@@ -590,36 +579,10 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
     let layout = vtest_store::VerifyLayout::new(&root);
 
     match command {
-        DocCommand::Add {
-            id,
-            path,
-            title,
-            derives_from,
-            root: root_flag,
-            no_root,
-            update,
-        } => {
-            let root_arg = if root_flag {
-                Some(true)
-            } else if no_root {
-                Some(false)
-            } else {
-                None
-            };
-            match ops::doc::add(
-                &root,
-                &layout,
-                ops::doc::AddArgs {
-                    id,
-                    path,
-                    title,
-                    derives_from,
-                    root: root_arg,
-                    update,
-                },
-            ) {
-                Ok(record) => {
-                    let data = doc_record_json(&record);
+        DocCommand::Add { id, path, update } => {
+            match ops::doc::add(&root, &layout, ops::doc::AddArgs { id, path, update }) {
+                Ok(view) => {
+                    let data = doc_view_json(&view);
                     let envelope = JsonEnvelope::new(true, data, Vec::new());
                     emit(format, quiet, &envelope, |envelope| {
                         format!("doc add: {}\n", envelope.data["id"].as_str().unwrap_or(""))
@@ -631,10 +594,10 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
         }
         DocCommand::List { tree, roots } => match ops::doc::list(&layout) {
             Ok(result) => {
-                let records: Vec<_> = result.records.iter().map(doc_record_json).collect();
+                let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
                 let data = serde_json::json!({
                     "records": records,
-                    "roots": result.records.iter().filter(|r| r.root).map(|r| r.id.clone()).collect::<Vec<_>>(),
+                    "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
                     "unresolved_derives_from": result.unresolved,
                 });
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
@@ -645,13 +608,9 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             }
             Err(error) => doc_error_exit(&error, format, quiet),
         },
-        DocCommand::Show { id } => match ops::doc::show(&root, &layout, &id) {
-            Ok(result) => {
-                let mut data = doc_record_json(&result.record);
-                match &result.fresh {
-                    Ok(fresh) => data["fresh"] = serde_json::json!(fresh),
-                    Err(message) => data["fresh_error"] = serde_json::json!(message),
-                }
+        DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
+            Ok(view) => {
+                let data = doc_view_json(&view);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, render_doc_show_text);
                 ExitCode::Ok
@@ -661,15 +620,12 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
     }
 }
 
-fn doc_record_json(record: &vtest_model::DocRegistryRecord) -> serde_json::Value {
+fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value {
     serde_json::json!({
-        "id": record.id,
-        "path": record.path,
-        "title": record.title,
-        "content_hash": record.content_hash.as_str(),
-        "derives_from": record.derives_from,
-        "root": record.root,
-        "registered_at": record.registered_at,
+        "id": view.id,
+        "content_hash": view.content_hash.as_str(),
+        "derives_from": view.derives_from,
+        "root": view.is_root,
     })
 }
 
@@ -703,11 +659,7 @@ fn render_doc_list_text(
         }
     } else {
         for record in &records {
-            out.push_str(&format!(
-                "{}\t{}\n",
-                record["id"].as_str().unwrap_or(""),
-                record["path"].as_str().unwrap_or("")
-            ));
+            out.push_str(&format!("{}\n", record["id"].as_str().unwrap_or("")));
         }
     }
     let unresolved = data["unresolved_derives_from"]
@@ -715,7 +667,7 @@ fn render_doc_list_text(
         .cloned()
         .unwrap_or_default();
     if !unresolved.is_empty() {
-        out.push_str("\nUnresolved derives_from (E-SCAN-012 equivalent, registry level):\n");
+        out.push_str("\nUnresolved derives_from (DS-1018):\n");
         for entry in &unresolved {
             if let Some(pair) = entry.as_array() {
                 out.push_str(&format!(
@@ -732,18 +684,11 @@ fn render_doc_list_text(
 fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     let data = &envelope.data;
     let mut out = format!(
-        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
+        "id: {}\ncontent_hash: {}\nroot: {}\n",
         data["id"].as_str().unwrap_or(""),
-        data["path"].as_str().unwrap_or(""),
         data["content_hash"].as_str().unwrap_or(""),
         data["root"].as_bool().unwrap_or(false),
     );
-    if let Some(fresh) = data.get("fresh").and_then(serde_json::Value::as_bool) {
-        out.push_str(&format!("fresh: {fresh}\n"));
-    }
-    if let Some(error) = data.get("fresh_error").and_then(serde_json::Value::as_str) {
-        out.push_str(&format!("fresh: unknown ({error})\n"));
-    }
     out.push_str("derives_from:\n");
     for entry in data["derives_from"].as_array().into_iter().flatten() {
         out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));

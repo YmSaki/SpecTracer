@@ -1,12 +1,17 @@
-//! `vtest doc add|list|show`: the Document registry entity (本冊 §12.2,
-//! DS-1015〜1017/1681〜1684, DES-595, BD-072/331). See
-//! `vtest_model::doc_registry`'s module doc comment for what this entity is
-//! and the realignment (canon commit `757fdcc`) it now follows.
+//! `vtest doc add|list|show`: registers/inspects `.verify/doc/<id>.json`
+//! node-tree files directly (本冊 §3.1, DES-585/586/595, DS-1015-1017/
+//! 1681-1684). See `vtest_store::doc_registry`'s module doc comment for why
+//! there is no separate persisted registry record — a prior version of this
+//! module invented one (`.verify/doc/<id>.yaml`), found to have no
+//! canonical grounding, and removed (team-lead ruling 2026-09-09; see
+//! `reports/closure-trace.md`).
 
-use vtest_model::DocRegistryRecord;
 use vtest_store::{
-    hash_doc_registry_path, read_all_doc_registry, read_doc_registry_record,
-    unresolved_derives_from, write_doc_registry_record, StoreError, VerifyLayout,
+    doc_registry::{
+        doc_exists, read_all_docs, read_doc_view, read_node_tree, unresolved_derives_from,
+        write_doc, DocView,
+    },
+    StoreError, VerifyLayout,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -20,77 +25,53 @@ pub enum DocOpError {
 pub struct AddArgs {
     pub id: String,
     pub path: String,
-    pub title: Option<String>,
-    /// DS-1681: a bare list of upstream document ids (no per-link
-    /// anchor/note).
-    pub derives_from: Vec<String>,
-    /// `None` = neither `--root` nor `--no-root` given (DS-1683: keep
-    /// the current value on `--update`, default `false` on a fresh `add`).
-    pub root: Option<bool>,
     pub update: bool,
 }
 
-/// DS-1683/1684/DES-595: `add` creates a new record (rejecting a
-/// duplicate id unless `--update`); `--update` recomputes `content_hash`
-/// from the current `--path` node-tree JSON file and may combine with
-/// `--root`/`--no-root`.
+/// DES-595: registers `--path` (an already-built node-tree JSON file,
+/// anywhere under the project) as `.verify/doc/<id>.json`. Rejects a
+/// duplicate id unless `--update`; rejects `--update` of an id that was
+/// never registered. `--path` is not stored anywhere beyond this call — the
+/// canonical file *is* the registration (DES-585: the file has no
+/// identifying field; the filename alone is the identity), so there is
+/// nothing left to persist that a later call could read back out.
 pub fn add(
     project_root: &std::path::Path,
     layout: &VerifyLayout,
     args: AddArgs,
-) -> Result<DocRegistryRecord, DocOpError> {
-    let existing = read_doc_registry_record(layout, &args.id).ok();
-    if existing.is_some() && !args.update {
+) -> Result<DocView, DocOpError> {
+    let existing = doc_exists(layout, &args.id);
+    if existing && !args.update {
         return Err(DocOpError::Usage(format!(
             "document '{}' is already registered; use --update to re-register it",
             args.id
         )));
     }
-    if existing.is_none() && args.update {
+    if !existing && args.update {
         return Err(DocOpError::Usage(format!(
             "--update given but no document '{}' is registered yet",
             args.id
         )));
     }
 
-    let content_hash = hash_doc_registry_path(project_root, &args.path)?;
-    let derives_from = args.derives_from;
-    let root = args
-        .root
-        .unwrap_or_else(|| existing.as_ref().is_some_and(|record| record.root));
-    let title = args
-        .title
-        .or_else(|| existing.and_then(|record| record.title));
-
-    let record = DocRegistryRecord {
-        id: args.id,
-        path: args.path,
-        title,
-        content_hash,
-        derives_from,
-        root,
-        registered_at: vtest_store::records::now_rfc3339(),
-    };
-    write_doc_registry_record(layout, &record)?;
-    Ok(record)
+    let file = read_node_tree(project_root, &args.path)?;
+    write_doc(layout, &args.id, &file)?;
+    Ok(read_doc_view(layout, &args.id)?)
 }
 
 pub struct ListResult {
-    pub records: Vec<DocRegistryRecord>,
-    /// DS-1018: registry-level dangling `derives_from` links.
+    pub records: Vec<DocView>,
+    /// DS-1018: dangling `derives_from` links across the registered set.
     pub unresolved: Vec<(String, String)>,
 }
 
 /// DS-1015/1016: `list` (optionally `--tree`/`--roots` — both are rendering
-/// choices over the same full record set, so this returns everything and
-/// leaves the rendering axis to the caller, matching `ops::verify`'s own
+/// choices over the same full set, so this returns everything and leaves
+/// the rendering axis to the caller, matching `ops::verify`'s own
 /// data/rendering split).
 pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
-    let map = read_all_doc_registry(layout)?;
-    let unresolved = unresolved_derives_from(&map)
-        .into_iter()
-        .map(|(from, to)| (from.to_owned(), to.to_owned()))
-        .collect();
+    let map = read_all_docs(layout)?;
+    let unresolved = unresolved_derives_from(&map);
     let records = map.into_values().collect();
     Ok(ListResult {
         records,
@@ -98,34 +79,15 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
     })
 }
 
-/// DS-1017/1682: `path`・`content_hash`・`derives_from`（参照先ノード id の
-/// 並びのみ、DS-1682 — anchor は持たない）・根指定・鮮度（`content_hash` と
-/// 実ファイルの一致）を返す。実効
-/// 承認状態は `ops::approval::show` の対象種別 `document` 経由で別途取得
-/// できる（この closure-slice では `vo`/`document` の実効承認は `vtest
-/// approval show` の責務であり、`doc show` 側で二重に計算しない — BD-306
-/// 「対象種別ごとに別の承認規則・別の承認コマンドを設けない」の裏を返す
-/// と、`doc show` が独自に承認状態を再計算するのは対象種別ごとに承認経路
-/// を増やすことになる）。
-pub struct ShowResult {
-    pub record: DocRegistryRecord,
-    /// `true` when `content_hash` still matches the current `--path` file
-    /// (DS-1017's freshness field). `Err` when the file cannot currently be
-    /// read (moved/deleted since registration) — reported, not silently
-    /// treated as stale or fresh.
-    pub fresh: Result<bool, String>,
-}
-
-pub fn show(
-    project_root: &std::path::Path,
-    layout: &VerifyLayout,
-    id: &str,
-) -> Result<ShowResult, DocOpError> {
-    let record = read_doc_registry_record(layout, id)
-        .map_err(|_| DocOpError::Usage(format!("no document '{id}' is registered")))?;
-    let fresh = match hash_doc_registry_path(project_root, &record.path) {
-        Ok(current) => Ok(current == record.content_hash),
-        Err(error) => Err(error.to_string()),
-    };
-    Ok(ShowResult { record, fresh })
+/// DS-1017/1682: returns id・content_hash（都度計算）・derives_from（参照先
+/// ノード id の並びのみ、DS-1682）・根指定（`root[]` の有無から導出）。DS-1017
+/// の「鮮度（content_hash と実ファイルの一致）」は実装していない —
+/// `.verify/doc/<id>.json` 自体が正典の内容であり、比較対象となる「別の
+/// 実ファイル」が正本のどこにも定義されていないため（stopped_on 参照）。
+/// 実効承認状態は `ops::approval::show` の対象種別 `document` 経由で別途
+/// 取得できる（BD-306「対象種別ごとに別の承認規則・別の承認コマンドを
+/// 設けない」により、`doc show` 側で二重に計算しない）。
+pub fn show(layout: &VerifyLayout, id: &str) -> Result<DocView, DocOpError> {
+    read_doc_view(layout, id)
+        .map_err(|_| DocOpError::Usage(format!("no document '{id}' is registered")))
 }

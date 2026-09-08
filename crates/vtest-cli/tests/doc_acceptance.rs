@@ -1,5 +1,5 @@
-//! Acceptance coverage for `vtest doc add|list|show` (本冊 §12.2,
-//! DS-1015-1017/1681-1684, DES-595).
+//! Acceptance coverage for `vtest doc add|list|show` (本冊 §3.1,
+//! DES-585/586/595, DS-1015-1017/1681-1684).
 
 use std::{
     env, fs,
@@ -67,11 +67,15 @@ fn add_command(id: &str, path: &str) -> Command {
     Command::Doc(DocCommand::Add {
         id: id.to_owned(),
         path: path.to_owned(),
-        title: None,
-        derives_from: Vec::new(),
-        root: false,
-        no_root: false,
         update: false,
+    })
+}
+
+fn update_command(id: &str, path: &str) -> Command {
+    Command::Doc(DocCommand::Add {
+        id: id.to_owned(),
+        path: path.to_owned(),
+        update: true,
     })
 }
 
@@ -84,7 +88,7 @@ fn add_registers_a_document_and_exits_ok() {
     assert!(root
         .join(".verify")
         .join("doc")
-        .join("DOC-BASIC-001.yaml")
+        .join("DOC-BASIC-001.json")
         .exists());
 }
 
@@ -106,21 +110,13 @@ fn update_of_an_unregistered_id_is_a_usage_error() {
     build_fixture_project(&root);
     let exit = run(cli(
         &root,
-        Command::Doc(DocCommand::Add {
-            id: "DOC-BASIC-001".to_owned(),
-            path: "basic-spec.json".to_owned(),
-            title: None,
-            derives_from: Vec::new(),
-            root: false,
-            no_root: false,
-            update: true,
-        }),
+        update_command("DOC-BASIC-001", "basic-spec.json"),
     ));
     assert_eq!(exit, ExitCode::Usage);
 }
 
-/// DS-1684: `--update` recomputes `content_hash` (the document-level
-/// subject hash, DES-595) from the current node-tree file.
+/// DS-1684: `--update` re-reads the current node-tree file, so `doc show`'s
+/// content_hash (computed live, DES-595) reflects the new content.
 #[test]
 fn update_recomputes_content_hash_from_the_current_file() {
     let root = temp_root("update-rehash");
@@ -132,17 +128,13 @@ fn update_recomputes_content_hash_from_the_current_file() {
     fs::write(root.join("basic-spec.json"), changed).expect("rewrite source file");
     let update = run(cli(
         &root,
-        Command::Doc(DocCommand::Add {
-            id: "DOC-BASIC-001".to_owned(),
-            path: "basic-spec.json".to_owned(),
-            title: None,
-            derives_from: Vec::new(),
-            root: false,
-            no_root: false,
-            update: true,
-        }),
+        update_command("DOC-BASIC-001", "basic-spec.json"),
     ));
     assert_eq!(update, ExitCode::Ok);
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert_eq!(view.file.root[0].statement, "fixture root, changed");
 }
 
 /// A `--path` that does not resolve to a valid node-tree JSON file is
@@ -157,7 +149,7 @@ fn add_with_an_invalid_node_tree_file_does_not_write_a_record() {
     assert!(!root
         .join(".verify")
         .join("doc")
-        .join("DOC-BASIC-001.yaml")
+        .join("DOC-BASIC-001.json")
         .exists());
 }
 
