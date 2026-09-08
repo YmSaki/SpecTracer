@@ -152,6 +152,8 @@ fn run_outside_a_project_is_an_operation_rejection() {
         &root,
         Command::Run {
             test: Vec::new(),
+            vo: None,
+            all: false,
             fast: false,
         },
     ));
@@ -170,6 +172,8 @@ fn an_unknown_test_id_is_a_usage_error() {
         &root,
         Command::Run {
             test: vec!["TEST-DOES-NOT-EXIST".to_owned()],
+            vo: None,
+            all: false,
             fast: false,
         },
     ));
@@ -186,6 +190,8 @@ fn running_a_real_test_writes_evidence_and_exits_ok() {
         &root,
         Command::Run {
             test: vec!["TEST-RUN-CLI-DOUBLE".to_owned()],
+            vo: None,
+            all: false,
             fast: false,
         },
     ));
@@ -197,5 +203,77 @@ fn running_a_real_test_writes_evidence_and_exits_ok() {
     assert!(
         count >= 1,
         "expected at least one Evidence record on disk, found {count}"
+    );
+}
+
+/// DS-744 axis 2/3: `--vo` selects every Test whose `covers` intersects the
+/// VO subtree rooted at the given id — here the fixture's single VO with a
+/// single covering Test, so the effect is the same as naming that Test
+/// directly, but reached through the VO axis.
+#[test]
+fn vo_axis_selects_tests_covering_the_named_vo() {
+    let root = temp_root("vo-axis");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Run {
+            test: Vec::new(),
+            vo: Some("VO-RUN-CLI-DOUBLE".to_owned()),
+            all: false,
+            fast: false,
+        },
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+    let evidence_dir = root.join(".verify").join("evidence");
+    let count = fs::read_dir(&evidence_dir)
+        .expect("evidence dir exists")
+        .count();
+    assert!(
+        count >= 1,
+        "expected at least one Evidence record via the --vo axis, found {count}"
+    );
+}
+
+/// DS-744: an unresolved `--vo` id is a usage rejection (E-OP-001), the same
+/// "don't silently narrow to nothing" rule an unknown `--test` id follows.
+#[test]
+fn an_unknown_vo_id_is_a_usage_error() {
+    let root = temp_root("unknown-vo-id");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Run {
+            test: Vec::new(),
+            vo: Some("VO-DOES-NOT-EXIST".to_owned()),
+            all: false,
+            fast: false,
+        },
+    ));
+    assert_eq!(exit, ExitCode::Usage);
+}
+
+/// DS-744 axis 3/3: `--all` runs every Test the scan materialized, named
+/// explicitly rather than relying on the empty-`--test`-list default.
+#[test]
+fn all_axis_runs_every_discovered_test() {
+    let root = temp_root("all-axis");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Run {
+            test: Vec::new(),
+            vo: None,
+            all: true,
+            fast: false,
+        },
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+    let evidence_dir = root.join(".verify").join("evidence");
+    let count = fs::read_dir(&evidence_dir)
+        .expect("evidence dir exists")
+        .count();
+    assert!(
+        count >= 1,
+        "expected at least one Evidence record via the --all axis, found {count}"
     );
 }

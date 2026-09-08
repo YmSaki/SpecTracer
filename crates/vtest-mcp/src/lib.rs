@@ -359,6 +359,8 @@ fn tool_input_schema(name: &str) -> Value {
         "run" => (
             json!({
                 "test": {"type": "array", "items": {"type": "string"}},
+                "vo": {"type": "string"},
+                "all": {"type": "boolean"},
                 "fast": {"type": "boolean"}
             }),
             Vec::new(),
@@ -464,7 +466,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
     let allowed: &[&str] = match name {
         "init" => &["name"],
         "scan" | "doctor" => &[],
-        "run" => &["test", "fast"],
+        "run" => &["test", "vo", "all", "fast"],
         "verify" => &["items", "doc", "vo", "test", "gate", "summary"],
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
@@ -485,6 +487,8 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "scan" | "doctor" => Ok(()),
         "run" => {
             optional_string_array(args, "test")?;
+            optional_nonempty_string(args, "vo")?;
+            optional_bool(args, "all")?;
             optional_bool(args, "fast")
         }
         "verify" => {
@@ -863,21 +867,13 @@ fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
 }
 
 fn run_tool(root: &Path, args: &Value) -> Value {
-    let test_ids = args
-        .get("test")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_owned)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let test_ids = string_array_arg(args, "test");
+    let vo = string_arg(args, "vo").map(str::to_owned);
+    let all = bool_arg(args, "all");
     let fast = bool_arg(args, "fast");
 
     // Mirrors `vtest-cli`'s `run_run`: resolve config + scan, then hand the
-    // same `ops::run::run` the CLI calls the resolved scan and test ids.
+    // same `ops::run::run` the CLI calls the resolved scan and target.
     let config = vtest_store::load_config(root);
     if let Err(error) = config {
         return failure_envelope("E-CONFIG-001", error.to_string());
@@ -890,7 +886,14 @@ fn run_tool(root: &Path, args: &Value) -> Value {
         }
     };
     let layout = vtest_store::VerifyLayout::new(root);
-    match ops::run::run(root, &layout, &scan, &test_ids, fast) {
+    let target = if let Some(vo_id) = vo {
+        ops::run::RunTarget::Vo(vo_id)
+    } else if all {
+        ops::run::RunTarget::All
+    } else {
+        ops::run::RunTarget::Test(test_ids)
+    };
+    match ops::run::run(root, &layout, &scan, &target, fast) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = json!({
@@ -900,11 +903,10 @@ fn run_tool(root: &Path, args: &Value) -> Value {
             });
             success_envelope(!has_errors, data, &result.diagnostics)
         }
-        Err(ops::run::RunOpError::UnknownTestId(id)) => failure_envelope(
-            "E-OP-001",
-            format!("no Test with id '{id}' was discovered by scan"),
-        ),
-        Err(error @ ops::run::RunOpError::Execution(_)) => {
+        Err(
+            error @ (ops::run::RunOpError::UnknownTestId(_) | ops::run::RunOpError::UnknownVoId(_)),
+        ) => failure_envelope("E-OP-001", error.to_string()),
+        Err(error @ (ops::run::RunOpError::Execution(_) | ops::run::RunOpError::Store(_))) => {
             failure_envelope("E-CORE-001", error.to_string())
         }
     }

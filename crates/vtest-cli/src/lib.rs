@@ -56,9 +56,18 @@ pub enum Command {
     Doctor,
     /// Execute one or more Tests and record Evidence (DS-1101-1103).
     Run {
-        /// Test IDs to run. Omitted = every Test the scan materialized.
+        /// DS-744 target axis 1/3: explicit Test ids.
         #[arg(long = "test", value_name = "TEST_ID")]
         test: Vec<String>,
+        /// DS-744 target axis 2/3: a VO subtree (parent-chain descendants),
+        /// selecting every Test whose `covers` intersects it.
+        #[arg(long = "vo", value_name = "VO_ID", conflicts_with = "test")]
+        vo: Option<String>,
+        /// DS-744 target axis 3/3: every Test the scan materialized.
+        /// Also the default when neither `--test` nor `--vo` is given (kept
+        /// for the CLI's pre-DS-744 default-target behavior).
+        #[arg(long, conflicts_with_all = ["test", "vo"])]
+        all: bool,
         /// DS-1102/DS-1103: cargo test only; `target_coverage` is recorded
         /// `checked: false` and `target_binding` takes no dynamic evidence.
         #[arg(long)]
@@ -248,7 +257,12 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
-        Command::Run { test, fast } => run_run(&cli.project, &test, fast, cli.format, cli.quiet),
+        Command::Run {
+            test,
+            vo,
+            all,
+            fast,
+        } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
         Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
         Command::Verify {
@@ -349,9 +363,12 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
 // run
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 fn run_run(
     project: &Path,
-    test_ids: &[String],
+    test_ids: Vec<String>,
+    vo: Option<String>,
+    all: bool,
     fast: bool,
     format: OutputFormat,
     quiet: bool,
@@ -368,7 +385,14 @@ fn run_run(
         Err(error) => return scan_error_exit(&error, format, quiet),
     };
     let layout = VerifyLayout::new(&root);
-    match ops::run::run(&root, &layout, &scan, test_ids, fast) {
+    let target = if let Some(vo_id) = vo {
+        ops::run::RunTarget::Vo(vo_id)
+    } else if all {
+        ops::run::RunTarget::All
+    } else {
+        ops::run::RunTarget::Test(test_ids)
+    };
+    match ops::run::run(&root, &layout, &scan, &target, fast) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = serde_json::json!({
@@ -390,13 +414,15 @@ fn run_run(
                 ExitCode::Ok
             }
         }
-        Err(ops::run::RunOpError::UnknownTestId(id)) => usage_failure(
-            format,
-            quiet,
-            "E-OP-001",
-            &format!("no Test with id '{id}' was discovered by scan"),
-        ),
+        Err(
+            error @ ops::run::RunOpError::UnknownTestId(_)
+            | error @ ops::run::RunOpError::UnknownVoId(_),
+        ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
         Err(error @ ops::run::RunOpError::Execution(_)) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+        Err(error @ ops::run::RunOpError::Store(_)) => {
             emit_failure(format, quiet, "E-CORE-001", &error.to_string());
             ExitCode::Internal
         }

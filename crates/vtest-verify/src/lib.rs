@@ -1268,6 +1268,20 @@ impl EntitySelection {
     }
 }
 
+/// The VO subtree rooted at `root_id`: `root_id` itself plus every VO
+/// reachable by following `parent` links downward (child -> parent is the
+/// stored edge; this walks it in reverse to a fixed point). Shared by
+/// `ScopeReport::from_scope`'s own `EntityScope::Vo` case and by
+/// `vtest-cli`'s `ops::run` for `--vo` (DS-744: "VO指定は部分木のcoversを
+/// 辿る" — the subtree itself is this function; walking each member's
+/// `covers` to a Test set is the caller's job).
+pub fn vo_subtree_ids(vos: &BTreeMap<String, VoRecord>, root_id: &str) -> BTreeSet<String> {
+    let mut selected = BTreeSet::new();
+    selected.insert(root_id.to_owned());
+    extend_with_descendants(vos, &mut selected);
+    selected
+}
+
 fn extend_with_descendants(vos: &BTreeMap<String, VoRecord>, selected: &mut BTreeSet<String>) {
     loop {
         let additions = vos
