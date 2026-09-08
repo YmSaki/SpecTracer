@@ -1295,5 +1295,60 @@
     "old_id": "BD-S051",
     "new_id": null,
     "reason": "PM裁定（2026-09-08、CLAUDE.local.md/AGENTS.md所定の演繹規律に基づく再評価）: 4806fac の orphans-2026-09-08 §5 問い1 対象1 で「直下に規範文を持たない見出し」として検出されたが、他ノードの derives_from から参照されていたため据え置かれていた14件のうちの1件。規範文もなく、自身も上流（derives_from）を持たないため、この節へ向く辺は無へ向く辺であり、参照元ノードにとって実効的な上流たり得ない。子節は削除位置へ繰り上げた。このノードを指していた derives_from 辺は削除し、参照元は他の残存辺があればそれを上流として保持、無ければ新たに孤児として扱う（別途 relations/ 以外では追跡しない）。覆る条件: 参照元が実際にはこの見出し自身（配下の統合された規範ではなく見出しという単位）を指すべきだったと判明した場合は、見出しを復元し辺を張り直す。"
+  },
+  {
+    "old_id": "DS-1004",
+    "new_id": "DS-1681",
+    "reason": "別紙A §12.2 doc add/list/show 移行漏れ（導出）: 上位モデル（本冊 §3.1 ノード木、DES-572 document subject hash）は derives_from にリンク単位の anchor/note を持たない。--note を含む DS-1681 へ統合。"
+  },
+  {
+    "old_id": "DS-1005",
+    "new_id": "DS-1681",
+    "reason": "同上: --anchor オプションはノード木モデルと非整合のため廃止。DS-1681 へ統合。"
+  },
+  {
+    "old_id": "DS-1006",
+    "new_id": null,
+    "reason": "同上: --anchor の結合規則を述べる項目で、DS-1005/1007/1008 と共に --anchor 自体の廃止に伴い消滅。置き換え不要。"
+  },
+  {
+    "old_id": "DS-1007",
+    "new_id": null,
+    "reason": "同上: --anchor の不透明文字列格納規則。--anchor 廃止に伴い消滅。"
+  },
+  {
+    "old_id": "DS-1008",
+    "new_id": null,
+    "reason": "同上: --anchor の引数検証規則。--anchor 廃止に伴い消滅。"
+  },
+  {
+    "old_id": "DS-1009",
+    "new_id": "DS-1682",
+    "reason": "同上: doc show の anchor 表示を、derives_from のノード id 列挙表示（DS-1682）へ置換。"
+  },
+  {
+    "old_id": "DS-1010",
+    "new_id": "DS-1683",
+    "reason": "同上: 根指定を config.yaml の doc.roots で管理する旧記述は、本冊 §5.6・DS-1646 の「根 = root 層への所属、設定による除外指定を持たない」と矛盾。DS-1683 へ置換。"
+  },
+  {
+    "old_id": "DS-1011",
+    "new_id": "DS-1683",
+    "reason": "同上: doc.roots への反映を述べる項目。DS-1683 へ統合。"
+  },
+  {
+    "old_id": "DS-1012",
+    "new_id": "DS-1684",
+    "reason": "同上: --update が単一ファイルの sha256 を再計算する旧記述を、document subject hash（DES-572, vtest:document-subject:v1）の再計算へ置換。"
+  },
+  {
+    "old_id": "DES-482",
+    "new_id": "DES-595",
+    "reason": "別紙A §12.2 doc add 移行漏れ（導出）: doc add が --path 対象ファイルの sha256 を document subject へ束縛する旧記述は、DES-572（ノード subject hash, domain vtest:document-subject:v1）と矛盾する単一ファイルモデル。DES-595（1 document = 1 JSON ファイル、DES-572 のノード hash 定義に従う）へ置換。"
+  },
+  {
+    "old_id": "BD-203",
+    "new_id": "BD-331",
+    "reason": "基本設計 §5.6 doc.roots 残存記述の同期修正（導出）: DS-1010/1011/DES-482 と同一の config.yaml doc.roots 残存欠陥。DS-1646 と整合する BD-331（根指定は登録先層配列に反映、config.yaml に根集合を持たない）へ置換。"
   }
 ]

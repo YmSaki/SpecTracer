@@ -33526,28 +33526,26 @@
           }
         },
         {
-          "id": "DS-1004",
-          "statement": "各 `--derives-from` リンクに任意の `--note`（導出理由・空可・非 `MISMATCH`）を付けられる。",
-          "derives_from": [
-            "SPEC-281",
-            "SPEC-282",
-            "SPEC-283"
-          ],
+          "id": "DS-1681",
+          "statement": "document 間の `--derives-from` は上流ノード id への辺であり、`--anchor` も `--note` も持たない。ノードは本冊 §3.1 の「文書 > 節 > 小節 > 文」の粒度で対象箇所を直接表すため、参照箇所の記録は参照先ノード id の選択に吸収される。リンク単位の注釈（`anchor`/`note`）を持つのは VO の `derives_from`（DS-1027〜DS-1031）のみである。",
+          "derives_from": [],
           "cites": [
-            "基本仕様 §3.4"
+            "本冊 §3.1",
+            "別紙A §12.2 DS-1027〜DS-1031",
+            "DES-572"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
             "lines": [
               109,
-              109
+              111
             ]
           }
         },
         {
-          "id": "DS-1005",
-          "statement": "`--anchor <text>` は直前の `--derives-from` に束縛し、参照先 document 内の該当箇所（節番号・条項番号・見出し等）を記録する。",
+          "id": "DS-1682",
+          "statement": "`doc show` は `derives_from` を参照先ノード id の並びとして表示し、リンク注釈（`anchor` 等）は持たない。",
           "derives_from": [],
           "cites": [
             "本冊 §3.1"
@@ -33556,96 +33554,40 @@
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
             "lines": [
-              110,
-              110
+              109,
+              111
             ]
           }
         },
         {
-          "id": "DS-1006",
-          "statement": "`--anchor` は `--note` と同じ結合規則・同じ任意性であり、省略・空文字列は `chain_integrity` 違反にならない。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              110,
-              110
-            ]
-          }
-        },
-        {
-          "id": "DS-1007",
-          "statement": "`--anchor` の値は不透明な文字列として保存し、文書内位置への解決・実在確認・書式検証を行わない。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              110,
-              110
-            ]
-          }
-        },
-        {
-          "id": "DS-1008",
-          "statement": "`--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              110,
-              110
-            ]
-          }
-        },
-        {
-          "id": "DS-1009",
-          "statement": "`doc show` は各 `derives_from` entry の `anchor` を表示する。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              110,
-              110
-            ]
-          }
-        },
-        {
-          "id": "DS-1010",
-          "statement": "`--root` / `--no-root` は当該 DOC を `orphan_detection` の除外根（`config.yaml` の `doc.roots`）へ追加／除外する。",
-          "derives_from": [],
+          "id": "DS-1683",
+          "statement": "`--root` は当該 document のトップレベルノードを `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、`config.yaml` に根集合（`doc.roots`）を持たない。",
+          "derives_from": [
+            "REQ-060",
+            "REQ-061",
+            "SPEC-060"
+          ],
           "cites": [
-            "本冊 §2.2・§5.6"
+            "本冊 §5.6",
+            "DS-1646"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
             "lines": [
-              111,
+              109,
               111
             ]
           }
         },
         {
-          "id": "DS-1011",
-          "statement": "根指定の追加・削除はこのフラグで管理し `doc.roots` へ反映する。",
+          "id": "DS-1684",
+          "statement": "`--update` は既存 document のノード木を現ファイルで再読み込みし、document subject hash（domain `vtest:document-subject:v1`、DES-572）を再計算して更新する。",
           "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              111,
-              111
-            ]
-          }
-        },
-        {
-          "id": "DS-1012",
-          "statement": "`--update` は既存 DOC レコードの sha256 を現ファイルで再計算して更新する。",
-          "derives_from": [],
+          "cites": [
+            "本冊 §1.3",
+            "DES-572"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
@@ -46441,8 +46383,8 @@
       ],
       "items": [
         {
-          "id": "BD-203",
-          "statement": "根指定の追加・削除は `vtest doc` コマンドの引数で管理し `doc.roots` へ反映する。",
+          "id": "BD-331",
+          "statement": "根指定は `vtest doc` コマンドの引数（`--root`/`--no-root`）で管理し、当該 document ノードの登録先層配列（`root` 層か否か）に反映する。`config.yaml` に根集合を持たない。",
           "derives_from": [
             "SPEC-212",
             "SPEC-213",
@@ -46450,7 +46392,7 @@
           ],
           "cites": [
             "基本仕様 §26.1",
-            "別紙A"
+            "別紙A §12.2 DS-1683"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -56617,11 +56559,12 @@
       ],
       "items": [
         {
-          "id": "DES-482",
-          "statement": "`doc add` は `--path` の対象ファイルの sha256 を計算して document subject へ束縛した DOC レコードを作成する。",
+          "id": "DES-595",
+          "statement": "`doc add` は `--path` のノード木 JSON ファイルを 1 document として登録する（1 document = 1 JSON ファイル）。document subject hash は本冊 §1.3 のノード subject hash 定義（domain `vtest:document-subject:v1`、文ノードは `id`/`statement`、節ノードは子ノードの subject hash を束縛し `description` を束縛しない、DES-572）に従い、単一ファイルの sha256 をそのまま subject hash に用いない。",
           "derives_from": [],
           "cites": [
-            "本冊 §1.3"
+            "本冊 §1.3",
+            "DES-572"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
