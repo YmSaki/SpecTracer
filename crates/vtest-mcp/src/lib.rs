@@ -1207,4 +1207,273 @@ mod tests {
             "MCP `doc_show` must report the same freshness as the shared `ops::doc::show`"
         );
     }
+
+    /// DS-1563 equivalence for `approval_create`: MCP and `ops::approval::
+    /// create` (the same function the CLI's `approval create` wrapper
+    /// calls) must produce the same record shape for the same logical
+    /// input, on two independent fixture projects (each call writes a real
+    /// record with a fresh ULID `id`/`approved_at`, so this compares every
+    /// *other* field rather than expecting the two records to be
+    /// byte-identical).
+    #[test]
+    fn mcp_approval_create_tool_matches_the_ops_approval_create_operation() {
+        let direct_root = temp_root("approval-create-equivalence-direct");
+        fixture_vo_project(&direct_root);
+        let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
+        let direct = ops::approval::create(
+            &direct_layout,
+            ops::approval::CreateArgs {
+                subject_type: "vo".to_owned(),
+                subject_id: "VO-MCP-APPROVAL".to_owned(),
+                approved_state: "approved".to_owned(),
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+                supersedes: Vec::new(),
+            },
+        )
+        .expect("direct ops::approval::create must succeed");
+
+        let mcp_root = temp_root("approval-create-equivalence-mcp");
+        fixture_vo_project(&mcp_root);
+        let mcp_envelope = dispatch_tool(
+            &mcp_root,
+            "approval_create",
+            &json!({
+                "subject": {"type": "vo", "id": "VO-MCP-APPROVAL"},
+                "state": "approved",
+                "approver": {"kind": "human", "id": "reviewer"}
+            }),
+        );
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["subject_type"],
+            Value::String(direct.subject_type.clone()),
+        );
+        assert_eq!(
+            mcp_envelope["data"]["subject"],
+            Value::String(direct.subject.clone()),
+        );
+        assert_eq!(
+            mcp_envelope["data"]["approved_state"],
+            Value::String(direct.approved_state.clone()),
+            "MCP `approval_create` must report the same approved_state as the shared \
+             `ops::approval::create` the CLI `approval create` wrapper also calls"
+        );
+        assert_eq!(
+            mcp_envelope["data"]["supersedes"].as_array().map(Vec::len),
+            Some(direct.supersedes.len()),
+        );
+    }
+
+    /// DS-1563 equivalence for `approval_withdraw`: MCP and `ops::approval::
+    /// withdraw` (the same function the CLI's `approval withdraw` wrapper
+    /// calls), each targeting its own fixture's real prior `create`.
+    #[test]
+    fn mcp_approval_withdraw_tool_matches_the_ops_approval_withdraw_operation() {
+        let direct_root = temp_root("approval-withdraw-equivalence-direct");
+        fixture_vo_project(&direct_root);
+        let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
+        let direct_created = ops::approval::create(
+            &direct_layout,
+            ops::approval::CreateArgs {
+                subject_type: "vo".to_owned(),
+                subject_id: "VO-MCP-APPROVAL".to_owned(),
+                approved_state: "approved".to_owned(),
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+                supersedes: Vec::new(),
+            },
+        )
+        .expect("direct ops::approval::create must succeed");
+        let direct_withdrawn = ops::approval::withdraw(
+            &direct_layout,
+            ops::approval::WithdrawArgs {
+                approval_id: direct_created.id.clone(),
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+            },
+        )
+        .expect("direct ops::approval::withdraw must succeed");
+
+        let mcp_root = temp_root("approval-withdraw-equivalence-mcp");
+        fixture_vo_project(&mcp_root);
+        let mcp_layout = vtest_store::VerifyLayout::new(&mcp_root);
+        let mcp_created = ops::approval::create(
+            &mcp_layout,
+            ops::approval::CreateArgs {
+                subject_type: "vo".to_owned(),
+                subject_id: "VO-MCP-APPROVAL".to_owned(),
+                approved_state: "approved".to_owned(),
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+                supersedes: Vec::new(),
+            },
+        )
+        .expect("fixture ops::approval::create must succeed");
+        let mcp_envelope = dispatch_tool(
+            &mcp_root,
+            "approval_withdraw",
+            &json!({
+                "approval_id": mcp_created.id,
+                "approver": {"kind": "human", "id": "reviewer"}
+            }),
+        );
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["approved_state"],
+            Value::String(direct_withdrawn.approved_state.clone()),
+            "MCP `approval_withdraw` must report the same approved_state (withdrawn) as \
+             the shared `ops::approval::withdraw` the CLI `approval withdraw` wrapper also calls"
+        );
+        assert_eq!(
+            mcp_envelope["data"]["supersedes"],
+            json!([mcp_created.id]),
+            "MCP `approval_withdraw` must supersede the id it was given, matching \
+             `ops::approval::withdraw`'s own supersedes: [approval-id] shape"
+        );
+    }
+
+    /// DS-1563 equivalence for `run`: MCP and `ops::run::run` (the same
+    /// function the CLI's `run` wrapper calls), each executing its own real
+    /// fixture Test via `--fast`. Compares everything but `evidence_ids`
+    /// (fresh ULIDs per invocation).
+    #[test]
+    fn mcp_run_tool_matches_the_ops_run_operation() {
+        fn build_fixture_project(root: &Path) {
+            use std::process::Command as ProcessCommand;
+            use vtest_model::{
+                DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId,
+                VoRecord,
+            };
+            use vtest_store::{init_project, write_document_file, write_vo_record};
+
+            fs::create_dir_all(root.join("src")).expect("mkdir src");
+            fs::create_dir_all(root.join("tests")).expect("mkdir tests");
+            fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"vtest-mcp-run-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+            )
+            .expect("write Cargo.toml");
+            fs::write(
+                root.join("src").join("lib.rs"),
+                "pub fn double(x: i32) -> i32 { x * 2 }\n",
+            )
+            .expect("write src/lib.rs");
+            fs::write(
+                root.join("tests").join("registered.rs"),
+                "/// @vtest.id TEST-MCP-RUN-DOUBLE\n\
+                 /// @vtest.covers VO-MCP-RUN-DOUBLE\n\
+                 /// @vtest.target src/lib.rs::double\n\
+                 /// @vtest.intent doubles the input\n\
+                 #[test]\n\
+                 fn it_doubles() {\n    assert_eq!(vtest_mcp_run_fixture::double(2), 4);\n}\n",
+            )
+            .expect("write test file");
+
+            let git = |args: &[&str]| {
+                let status = ProcessCommand::new("git")
+                    .current_dir(root)
+                    .args(args)
+                    .status()
+                    .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
+                assert!(status.success(), "git {args:?} failed");
+            };
+            git(&["init", "-q"]);
+            git(&["config", "user.email", "vtest-fixture@example.com"]);
+            git(&["config", "user.name", "vtest fixture"]);
+            git(&["add", "."]);
+            git(&["commit", "-q", "-m", "initial fixture commit"]);
+
+            let layout = init_project(root, "vtest-mcp-run-fixture").expect("init .verify/");
+            let source = NodeSource {
+                doc: "fixture.md".to_owned(),
+                heading: "fixture".to_owned(),
+                lines: [1, 1],
+            };
+            let document = DocumentFile {
+                schema_version: "0.1".to_owned(),
+                root: vec![RootNode {
+                    id: DocumentId::new("ROOT-001"),
+                    statement: "fixture root".to_owned(),
+                    description: None,
+                    source: source.clone(),
+                }],
+                request: vec![SentenceNode {
+                    id: DocumentId::new("R-001"),
+                    statement: "fixture requirement".to_owned(),
+                    description: None,
+                    derives_from: vec![DocumentId::new("ROOT-001")],
+                    cites: None,
+                    source,
+                }],
+                require: Vec::new(),
+                spec: Vec::new(),
+                detailed_spec: Vec::new(),
+                basic_design: Vec::new(),
+                design: Vec::new(),
+            };
+            write_document_file(&layout, "fixture", &document).expect("write document file");
+            write_vo_record(
+                &layout,
+                &VoRecord {
+                    id: VoId::new("VO-MCP-RUN-DOUBLE"),
+                    parent: None,
+                    derives_from: vec![DerivesFrom {
+                        doc: DocumentId::new("R-001"),
+                        anchor: None,
+                        note: None,
+                    }],
+                    claim: "fixture claim".to_owned(),
+                    dimensions: Vec::new(),
+                    coverage_policy: None,
+                    combinations: Vec::new(),
+                    representative_cases: Vec::new(),
+                    created: "2026-09-09T00:00:00Z".to_owned(),
+                    updated: "2026-09-09T00:00:00Z".to_owned(),
+                },
+            )
+            .expect("write VO record");
+        }
+
+        let direct_root = temp_root("run-equivalence-direct");
+        build_fixture_project(&direct_root);
+        let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
+        let direct_scan =
+            vtest_scan::scan_project(&direct_root).expect("direct fixture scan must succeed");
+        let direct = ops::run::run(
+            &direct_root,
+            &direct_layout,
+            &direct_scan,
+            &ops::run::RunTarget::All,
+            true,
+        )
+        .expect("direct ops::run::run must succeed");
+
+        let mcp_root = temp_root("run-equivalence-mcp");
+        build_fixture_project(&mcp_root);
+        let mcp_envelope = dispatch_tool(&mcp_root, "run", &json!({"all": true, "fast": true}));
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["evidence"],
+            json!(direct.evidence.len()),
+            "MCP `run` must report the same evidence count as the shared `ops::run::run` \
+             the CLI `run` wrapper also calls"
+        );
+        assert_eq!(mcp_envelope["data"]["fast"], json!(true));
+        assert_eq!(
+            mcp_envelope["diagnostics"].as_array().map(Vec::len),
+            Some(direct.diagnostics.len()),
+        );
+    }
 }
