@@ -272,6 +272,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "libyaml-rs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
+
+[[package]]
 name = "log"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -329,6 +335,12 @@ name = "rustc-demangle"
 version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
+
+[[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "same-file"
@@ -516,17 +528,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "vtest-audit"
+name = "vtest-adapter-api"
 version = "0.1.0"
 dependencies = [
+ "vtest-model",
+]
+
+[[package]]
+name = "vtest-adapter-rust"
+version = "0.1.0"
+dependencies = [
+ "ignore",
  "proc-macro2",
- "quote",
  "serde",
  "syn 2.0.119",
- "thiserror",
+ "toml",
+ "vtest-adapter-api",
  "vtest-model",
- "vtest-scan",
- "vtest-store",
 ]
 
 [[package]]
@@ -536,9 +554,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
- "vtest-audit",
  "vtest-exec",
- "vtest-mcp",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
@@ -563,7 +579,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "vtest-audit",
  "vtest-exec",
  "vtest-model",
  "vtest-scan",
@@ -584,12 +599,11 @@ dependencies = [
 name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
- "ignore",
- "proc-macro2",
  "serde",
  "syn 2.0.119",
  "thiserror",
- "toml",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]
@@ -599,8 +613,10 @@ name = "vtest-store"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror",
  "vtest-model",
+ "yaml_serde",
 ]
 
 [[package]]
@@ -608,6 +624,9 @@ name = "vtest-verify"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
@@ -712,6 +731,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "yaml_serde"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33b729a08a9a6be689bbad3e2bf8015926db54b6622cc89c3a5f7dc174b9e918"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "libyaml-rs",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

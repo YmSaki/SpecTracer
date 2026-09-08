@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "root": [],
+  "request": [],
+  "require": [
+    {
+      "id": "REQ-S001",
+      "title": "Requirements section",
+      "source": { "doc": "doc.md", "heading": "1", "lines": [1, 1] },
+      "surplus_section_field": "should be rejected"
+    }
+  ],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

@@ -10,9 +10,12 @@ use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
     CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
-    RunnerInfo, TargetExecution, TestEntity, TestResult, TestTarget,
+    RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
-use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
+use vtest_store::{
+    execution_state::{reconstruct_execution_state, ExecutionStateInputs},
+    new_record_id, now_rfc3339, write_new_record, VerifyLayout,
+};
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -96,7 +99,7 @@ pub fn run_tests(
             path: log_path.clone(),
             source,
         })?;
-        let observation = parse_result(&stdout, &test.entity.filter);
+        let observation = parse_result(&stdout, &test.entity.execution.selector);
         match observation {
             Some(ObservedResult::Ignored) => {}
             Some(ObservedResult::Pass) | Some(ObservedResult::Fail) => {
@@ -129,9 +132,35 @@ pub fn run_tests(
                     diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
                     target_execution
                 };
+                // DES-213「Evidence writerは`adapter`を必須で記録し、保存前に
+                // Testの`ExecutionDescriptor.adapter`およびrunner kindとの
+                // 整合を検証する」: the Test's own declared execution
+                // adapter is authoritative, not a value re-derived from a
+                // resolved target's locator or a hardcoded literal. If a
+                // resolved target's locator names a *different* adapter,
+                // that is a real inconsistency DES-213 asks this writer to
+                // check for — reported as a diagnostic rather than
+                // silently preferring one value over the other.
+                let adapter_id = test.entity.execution.adapter.clone();
+                if let Some(locator) = &test.target_locator {
+                    if locator.adapter != adapter_id {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                "W-EXEC-102",
+                                format!(
+                                    "Test {} declares execution.adapter {:?} but its resolved \
+                                     target locator names adapter {:?} (DES-213)",
+                                    test.entity.id, adapter_id, locator.adapter
+                                ),
+                            )
+                            .with_location(test.entity.location.clone()),
+                        );
+                    }
+                }
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
+                    adapter: adapter_id.clone(),
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -139,6 +168,21 @@ pub fn run_tests(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
+                    // DES-097/098/099/100/101/210/211/212: reconstructed by
+                    // the shared `vtest-store::execution_state` module (see
+                    // its module doc for the disclosed scope limits —
+                    // single-workspace-root topology, no adapter-config
+                    // projection input exists in this repository yet).
+                    execution_state: reconstruct_execution_state(
+                        root,
+                        ExecutionStateInputs {
+                            adapter: &adapter_id,
+                            schema: "rust-cargo-execution-state-v1",
+                            head_commit: revision.commit.as_deref(),
+                            runner_kind,
+                            invocation: &command_line,
+                        },
+                    ),
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
@@ -211,26 +255,67 @@ fn parse_result(output: &str, filter: &str) -> Option<ObservedResult> {
     })
 }
 
+// TODO: Review fail-closed handling of an absent/unresolved suite. Execution
+// must not silently fall back to an unscoped Cargo target. This TODO moved
+// here from `vtest_model::TestEntity` (旧 `test_target: TestTarget` field,
+// `TestTarget::Unknown` arm) when `TestTarget` moved out of `vtest-model`
+// into `vtest-adapter-rust` — the underlying concern (this crate silently
+// omitting `--lib`/`--bin`/`--test` and running an unscoped `cargo test`)
+// is unresolved either way, and now also applies to `execution.project`
+// being absent (see `suite_args` below).
+
+/// 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次のCargo実行
+/// 座標として解釈する」の、この crate 側での再現。
+///
+/// **注意（`validate_desired_test` と同型の、上流未報告の欠陥）**:
+/// 本冊:688「coreは `project`、`suite.kind`、`suite.name`、`selector` の
+/// 文字列を解釈しない」の「core」に `vtest-exec` が含まれるなら、この
+/// 関数（`suite.kind` の文字列 `"lib"`/`"bin"`/`"integration"` を読んで
+/// 分岐する）はその禁止の対象になる。本冊 §9.2 はこの解釈を
+/// `rust-cargo` `TestRunnerAdapter`（＝ `rust-cargo` adapter 自身）の
+/// 責務と書いているが、`vtest-exec` は workspace 構成上 adapter crate
+/// （`vtest-adapter-rust`）とは別 crate であり、この reshape 以前から
+/// 一貫してCargoコマンドを直接組み立ててきた（`cargo_command` 等、この
+/// 関数の前身）。`TestRunnerAdapter` の実装場所をこの crate から
+/// `vtest-adapter-rust` へ移すことはこの PR の範囲外（詳細設計に新しい
+/// trait／DTOが無く、`validate_desired_test` の除去理由と同じ形の
+/// 論点）。この関数は既存の振る舞い（旧 `TestTarget` enum による分岐）を
+/// 型が変わった後も等価に保つだけで、新しい解釈を追加しない。
+///
+/// `suite` が `None`（`kind` が `"lib"`/`"bin"`/`"integration"` のいずれ
+/// でもない、または `suite` 自体が無い）場合と、`kind` が `"bin"`/
+/// `"integration"` なのに `name` が無い場合は、どちらも旧
+/// `TestTarget::Unknown` と同じ「フラグを付けない」扱いにする（unscoped
+/// `cargo test` — 上のTODO参照）。
+fn suite_args(test: &TestEntity) -> Vec<String> {
+    let Some(suite) = test.execution.suite.as_ref() else {
+        return Vec::new();
+    };
+    match suite.kind.as_str() {
+        "lib" => vec!["--lib".to_owned()],
+        "bin" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--bin".to_owned(), name.to_owned()])
+            .unwrap_or_default(),
+        "integration" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--test".to_owned(), name.to_owned()])
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 fn cargo_command(root: &Path, test: &TestEntity) -> Command {
     let mut command = Command::new("cargo");
     command
         .current_dir(root)
         .arg("test")
         .arg("-p")
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
-            command.arg("--lib");
-        }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
-        }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
-        }
-        TestTarget::Unknown => {}
-    }
-    command.args(["--", "--exact", &test.filter]);
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    command.args(suite_args(test));
+    command.args(["--", "--exact", &test.execution.selector]);
     command
 }
 
@@ -239,47 +324,26 @@ fn cargo_llvm_cov_command(root: &Path, test: &TestEntity, output_path: &Path) ->
     command
         .current_dir(root)
         .args(["llvm-cov", "test", "-p"])
-        .arg(&test.package);
-    match &test.test_target {
-        TestTarget::Lib => {
-            command.arg("--lib");
-        }
-        TestTarget::Bin(name) => {
-            command.arg("--bin").arg(name);
-        }
-        TestTarget::IntegrationTest(name) => {
-            command.arg("--test").arg(name);
-        }
-        TestTarget::Unknown => {}
-    }
+        .arg(test.execution.project.as_deref().unwrap_or_default());
+    command.args(suite_args(test));
     command
         .arg("--json")
         .arg("--output-path")
         .arg(output_path)
-        .args(["--", "--exact", &test.filter]);
+        .args(["--", "--exact", &test.execution.selector]);
     command
 }
 
 fn command_string(test: &TestEntity) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
     format!(
         "cargo test -p {} {} -- --exact {}",
-        test.package, target, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        suite_args(test).join(" "),
+        test.execution.selector
     )
 }
 
 fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -> String {
-    let target = match &test.test_target {
-        TestTarget::Lib => "--lib".to_owned(),
-        TestTarget::Bin(name) => format!("--bin {name}"),
-        TestTarget::IntegrationTest(name) => format!("--test {name}"),
-        TestTarget::Unknown => String::new(),
-    };
     let output_path = output_path
         .strip_prefix(root)
         .unwrap_or(output_path)
@@ -287,7 +351,10 @@ fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -
         .replace('\\', "/");
     format!(
         "cargo llvm-cov test -p {} {} --json --output-path {} -- --exact {}",
-        test.package, target, output_path, test.filter
+        test.execution.project.as_deref().unwrap_or_default(),
+        suite_args(test).join(" "),
+        output_path,
+        test.execution.selector
     )
 }
 
@@ -335,11 +402,29 @@ fn target_execution_from_coverage(
     measured_target_execution(count)
 }
 
+/// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
+/// （`<path>.rs::<item_path>`）。この crate は adapter の内部構文を正式には
+/// 所有しないが（crate 冒頭コメント「`vtest-scan`、`vtest-audit`、
+/// `vtest-exec` はadapterを選択・委譲するorchestrationであり、rustc-demangle
+/// を直接所有しない」）、llvm-cov 出力との突き合わせに `path`/`item_path`
+/// の分解がすでに必要だった既存コードであり、PR3 の範囲（`TargetRef::
+/// Locator`のadapter-neutral化）はこの crate のRust結合自体の解消を含まな
+/// い。分解は最初の `::` で区切るだけで、`RustLocator::parse`の妥当性検査
+/// （`.rs`拡張子など）は行わない — この値は常にこの adapter 自身の
+/// scanner が構築したものであり、構文は保証されている。
+fn locator_parts(locator: &Locator) -> (&str, &str) {
+    locator
+        .value
+        .split_once("::")
+        .unwrap_or((locator.value.as_str(), ""))
+}
+
 fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
     let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
     let data = value.get("data")?.as_array()?;
     let mut total = 0_u64;
     let mut matched = false;
+    let (target_path, target_item_path) = locator_parts(target);
     for item in data {
         let Some(functions) = item.get("functions").and_then(serde_json::Value::as_array) else {
             continue;
@@ -348,8 +433,8 @@ fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
             let Some(name) = function.get("name").and_then(serde_json::Value::as_str) else {
                 continue;
             };
-            if !llvm_name_matches(name, &target.item_path)
-                || !llvm_filenames_match(function, &target.path)
+            if !llvm_name_matches(name, target_item_path)
+                || !llvm_filenames_match(function, target_path)
             {
                 continue;
             }
@@ -456,13 +541,17 @@ fn unknown_target_execution() -> TargetExecution {
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
     format!(
-        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
+        adapter = yaml_scalar(record.adapter.as_str()),
         result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
         executed_at = yaml_scalar(&record.executed_at),
         commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
         dirty = record.revision.dirty,
+        es_schema = yaml_scalar(&record.execution_state.schema),
+        es_complete = record.execution_state.complete,
+        es_hash = record.execution_state.hash.as_ref().map(|hash| yaml_scalar(hash.as_str())).unwrap_or_else(|| "null".to_owned()),
         test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
         target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
         target_fns = if record.hashes.target_fns.is_empty() {
@@ -502,6 +591,14 @@ fn yaml_scalar(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_model::AdapterId;
+
+    fn rust_locator(path: &str, item_path: &str) -> Locator {
+        Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: format!("{path}::{item_path}"),
+        }
+    }
 
     #[test]
     fn parser_distinguishes_pass_fail_and_ignored() {
@@ -522,10 +619,7 @@ mod tests {
 
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
-        let target = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "add".to_owned(),
-        };
+        let target = rust_locator("src/lib.rs", "add");
         let output = r#"{
             "data": [{
                 "functions": [
@@ -549,19 +643,13 @@ mod tests {
         }"#;
         assert_eq!(llvm_cov_function_count(output, &target), Some(5));
 
-        let absent = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "subtract".to_owned(),
-        };
+        let absent = rust_locator("src/lib.rs", "subtract");
         assert_eq!(llvm_cov_function_count(output, &absent), None);
     }
 
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
-        let target = Locator {
-            path: "src/lib.rs".to_owned(),
-            item_path: "add".to_owned(),
-        };
+        let target = rust_locator("src/lib.rs", "add");
         let output = r#"{
             "data": [{
                 "functions": [{

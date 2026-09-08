@@ -1,0 +1,5438 @@
+{
+  "schema_version": "0.1",
+  "root": [],
+  "request": [],
+  "require": [
+    {
+      "id": "REQ-S001",
+      "title": "1. 目的",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 1. 目的",
+        "lines": [
+          48,
+          64
+        ]
+      },
+      "derives_from": [
+        "ROOT-029",
+        "R-1"
+      ],
+      "items": [
+        {
+          "id": "REQ-001",
+          "statement": "本システムは、テストが存在して PASS しているという事実だけでは信用できない問題を解決する検証システムである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              48,
+              48
+            ]
+          }
+        },
+        {
+          "id": "REQ-002",
+          "statement": "防ぐのは、AI の完了宣言を受け取った瞬間に、嘘の PASS を信じてマージしてしまう事故である。",
+          "derives_from": [
+            "R-1"
+          ],
+          "cites": [
+            "（R-1）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              48,
+              48
+            ]
+          }
+        },
+        {
+          "id": "REQ-003",
+          "statement": "テストランナーが PASS と言った事実そのものは疑わない（→ §7 判定権威）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              50,
+              50
+            ]
+          }
+        },
+        {
+          "id": "REQ-004",
+          "statement": "本システムが照合するのは、そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              50,
+              52
+            ]
+          }
+        },
+        {
+          "id": "REQ-005",
+          "statement": "本システムが照合するのは、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              53,
+              53
+            ]
+          }
+        },
+        {
+          "id": "REQ-006",
+          "statement": "本システムが照合するのは、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              54,
+              54
+            ]
+          }
+        },
+        {
+          "id": "REQ-007",
+          "statement": "本システムが照合するのは、その証拠が現在のコードに対するものか、である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              55,
+              55
+            ]
+          }
+        },
+        {
+          "id": "REQ-008",
+          "statement": "そのテストが宣言された義務（VO）と宣言鎖で繋がっているか、そのテストが宣言された検証対象の振る舞いを実際に生じさせたか、そのテストが宣言された不成立を自身の非成功として反映する装置を持つか、その証拠が現在のコードに対するものか、の 4 点がすべて成立した場合のみ、完全検証においてその検証対象を OK とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              57,
+              57
+            ]
+          }
+        },
+        {
+          "id": "REQ-009",
+          "statement": "本システムは、「テストが通った」を検証するツールではなく、「そのテストを通ったという事実を信用してよいか」を宣言から実行結果まで追跡して検証するツールである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 1. 目的",
+            "lines": [
+              59,
+              64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S002",
+      "title": "2 基本原則",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 2 基本原則",
+        "lines": [
+          67,
+          67
+        ]
+      },
+      "derives_from": [],
+      "items": [
+        {
+          "id": "P-001",
+          "statement": "本システムは、宣言・Test・実装・証拠が食い違っている場合、その不一致を検出し、受け取った者が次に取るべき行動が一意に決まる状態（→ §5）で提示する。",
+          "derives_from": [
+            "ROOT-005",
+            "ROOT-030",
+            "ROOT-033"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-001 検証機であり修正方針決定機ではない",
+            "lines": [
+              69,
+              71
+            ]
+          }
+        },
+        {
+          "id": "REQ-010",
+          "statement": "本システム自身は、仕様が正しい・実装が正しい・テストが正しい・どれを修正すべきである、と決定してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-001 検証機であり修正方針決定機ではない",
+            "lines": [
+              73,
+              73
+            ]
+          }
+        },
+        {
+          "id": "REQ-011",
+          "statement": "修正対象の選択は、本システムの外側にある開発者・レビュー担当・PM・AI Agent などが行う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-001 検証機であり修正方針決定機ではない",
+            "lines": [
+              73,
+              73
+            ]
+          }
+        },
+        {
+          "id": "P-002",
+          "statement": "完全検証において、未検証は合格として扱わない。",
+          "derives_from": [
+            "ROOT-031",
+            "ROOT-033"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-002 Fail Closed",
+            "lines": [
+              75,
+              77
+            ]
+          }
+        },
+        {
+          "id": "REQ-012",
+          "statement": "完全検証の OK は、要求されたすべての検査が `PASS` である場合に限る。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-002 Fail Closed",
+            "lines": [
+              77,
+              77
+            ]
+          }
+        },
+        {
+          "id": "REQ-013",
+          "statement": "`FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれか一つでもあれば OK にならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-002 Fail Closed",
+            "lines": [
+              77,
+              77
+            ]
+          }
+        },
+        {
+          "id": "REQ-014",
+          "statement": "利用者が特定の検証観点だけを確認したい場合は、検証 scope を限定できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-002 Fail Closed",
+            "lines": [
+              79,
+              79
+            ]
+          }
+        },
+        {
+          "id": "REQ-015",
+          "statement": "scope 限定の結果を提示する場合も、実施しなかった検査を `PASS` へ変更してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-002 Fail Closed",
+            "lines": [
+              79,
+              79
+            ]
+          }
+        },
+        {
+          "id": "P-003",
+          "statement": "ある事実を別の情報から決定論的に導出できる場合、その事実を複数箇所へ独立して記録し、手動同期を要求する構造を避ける。",
+          "derives_from": [
+            "R-1"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-003 単一の正典を重複して持たない",
+            "lines": [
+              81,
+              83
+            ]
+          }
+        },
+        {
+          "id": "REQ-016",
+          "statement": "検索インデックス、グラフ、キャッシュなどの派生情報は、正となる情報から再構築可能でなければならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-003 単一の正典を重複して持たない",
+            "lines": [
+              83,
+              83
+            ]
+          }
+        },
+        {
+          "id": "P-004",
+          "statement": "既知の作業手順と既知の入力項目を持つ操作については、AI へ自然言語で自由に編集させる方式より、構造化された質問・入力・検証によって操作させる方式を優先する。",
+          "derives_from": [
+            "R-1"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-004 AI の自由度を必要以上に与えない",
+            "lines": [
+              85,
+              87
+            ]
+          }
+        },
+        {
+          "id": "REQ-017",
+          "statement": "既知の作業手順と既知の入力項目を持つ操作について、AI へ自然言語で自由に編集させる方式より、構造化された質問・入力・検証によって操作させる方式を優先するという考え方を、本プロジェクトでは Agent Form Engineering と呼称する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-004 AI の自由度を必要以上に与えない",
+            "lines": [
+              87,
+              87
+            ]
+          }
+        },
+        {
+          "id": "P-005",
+          "statement": "規範的な導出・変更伝播の方向は 要求 → 要件定義 → 基本仕様 → 詳細設計 → VO → Test の上流から下流とする。",
+          "derives_from": [
+            "ROOT-006"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
+            "lines": [
+              89,
+              91
+            ]
+          }
+        },
+        {
+          "id": "REQ-018",
+          "statement": "下流で不足・矛盾・疑義が見つかった場合、その情報は上流を再判断するための材料として逆方向へ提示できるが、下流成果物を根拠に上流成果物を自動的に書き換えてはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
+            "lines": [
+              91,
+              91
+            ]
+          }
+        },
+        {
+          "id": "REQ-019",
+          "statement": "上流の変更が正式に確定した後、再び正方向に下流を追随させる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
+            "lines": [
+              91,
+              91
+            ]
+          }
+        },
+        {
+          "id": "REQ-020",
+          "statement": "逆方向は「規範の伝播」ではなく「判断材料のフィードバック」である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### P-005 規範の伝播は上流→下流、逆はフィードバック",
+            "lines": [
+              91,
+              91
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S003",
+      "title": "3 検証モデル",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 3 検証モデル",
+        "lines": [
+          95,
+          95
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S004",
+          "title": "3.1 Test 判定の主語",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 3.1 Test 判定の主語",
+            "lines": [
+              99,
+              99
+            ]
+          },
+          "derives_from": [
+            "ROOT-007"
+          ],
+          "items": [
+            {
+              "id": "REQ-021",
+              "statement": "Test の判定の主語は、常に 宣言 + コード + 証拠の組 である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.1 Test 判定の主語",
+                "lines": [
+                  99,
+                  99
+                ]
+              }
+            },
+            {
+              "id": "REQ-022",
+              "statement": "裸のテスト関数は判定対象ではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.1 Test 判定の主語",
+                "lines": [
+                  99,
+                  99
+                ]
+              }
+            },
+            {
+              "id": "REQ-023",
+              "statement": "「何のためのテストか・何を検証するか・何がどうなれば OK か」に答えを持たないテストは、本システムに管理対象として存在できない（宣言を欠く発見テストの扱いは §5.3）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.1 Test 判定の主語",
+                "lines": [
+                  99,
+                  99
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S005",
+          "title": "3.2 宣言鎖",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 3.2 宣言鎖",
+            "lines": [
+              103,
+              121
+            ]
+          },
+          "derives_from": [
+            "ROOT-008",
+            "ROOT-034",
+            "ROOT-037"
+          ],
+          "items": [
+            {
+              "id": "REQ-024",
+              "statement": "宣言は、document（上流文書）から derives_from で document（下流文書）へ、document（下流文書）から derives_from で Verification Obligation (VO) へ、VO から Test（covers 宣言）へと至る鎖をなす。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  103,
+                  116
+                ]
+              }
+            },
+            {
+              "id": "REQ-333",
+              "statement": "上流文書は層ごとのトップレベル配列（`root` / `request` / `require` / `spec` / `detailed_spec` / `basic_design` / `design`）に分け、各層は「文書 > 節 > 小節 > 文」の木のノードとして表現する。",
+              "derives_from": [
+                "ROOT-039",
+                "ROOT-040",
+                "ROOT-045"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  118,
+                  118
+                ]
+              }
+            },
+            {
+              "id": "REQ-026",
+              "statement": "ノード（文・節）間のリンクは `derives_from` の一種のみとする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  118,
+                  118
+                ]
+              }
+            },
+            {
+              "id": "REQ-027",
+              "statement": "各リンクは §3.4 の任意説明（optional な導出理由）を保持できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  118,
+                  118
+                ]
+              }
+            },
+            {
+              "id": "REQ-028",
+              "statement": "VO は 1 件以上の `document` から derives_from で導出される。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  119,
+                  119
+                ]
+              }
+            },
+            {
+              "id": "REQ-029",
+              "statement": "VO と文書の間に他のエンティティ層を置かない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  119,
+                  119
+                ]
+              }
+            },
+            {
+              "id": "REQ-030",
+              "statement": "文書層の段数は総称的に設計し、リンクを追加してもスキーマが壊れないことを設計制約とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  120,
+                  120
+                ]
+              }
+            },
+            {
+              "id": "REQ-031",
+              "statement": "段はリンクであって検査ではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  120,
+                  120
+                ]
+              }
+            },
+            {
+              "id": "REQ-032",
+              "statement": "本システムは文書内容の意味的な良し悪しに関知しない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  121,
+                  121
+                ]
+              }
+            },
+            {
+              "id": "REQ-033",
+              "statement": "文書種別ごとの専用スキーマ・文書間リンクの意味論の増殖・文書内容の良否検証を行わない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.2 宣言鎖",
+                "lines": [
+                  121,
+                  121
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S006",
+          "title": "3.3 検査",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 3.3 検査",
+            "lines": [
+              125,
+              125
+            ]
+          },
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
+          "items": [
+            {
+              "id": "REQ-034",
+              "statement": "検証は chain_integrity / orphan_detection / target_binding / oracle_presence の 4 検査のみで行う。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.3 検査",
+                "lines": [
+                  125,
+                  125
+                ]
+              }
+            },
+            {
+              "id": "REQ-035",
+              "statement": "鎖に段（リンク）が増えても検査は増えない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.3 検査",
+                "lines": [
+                  125,
+                  125
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S007",
+          "title": "3.4 関係型とトレーサビリティ",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 3.4 関係型とトレーサビリティ",
+            "lines": [
+              129,
+              132
+            ]
+          },
+          "derives_from": [
+            "ROOT-009",
+            "ROOT-010",
+            "ROOT-011",
+            "ROOT-012"
+          ],
+          "items": [
+            {
+              "id": "REQ-036",
+              "statement": "関係型を単一へ潰さない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  129,
+                  129
+                ]
+              }
+            },
+            {
+              "id": "REQ-037",
+              "statement": "文書間は derives_from、VO → Test は covers、Test ↔ 実装は検証対象 / 実装 traceability のように、性質の異なる関係は区別してよい。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  129,
+                  129
+                ]
+              }
+            },
+            {
+              "id": "REQ-038",
+              "statement": "重要なのは、それらを横断してトレース可能であることである。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  129,
+                  129
+                ]
+              }
+            },
+            {
+              "id": "REQ-039",
+              "statement": "関係型そのものを意味論的に増殖させることは求めない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  129,
+                  129
+                ]
+              }
+            },
+            {
+              "id": "REQ-040",
+              "statement": "契約上必須のリンクは必須、任意関係は欠落可、説明文は任意。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  130,
+                  130
+                ]
+              }
+            },
+            {
+              "id": "REQ-041",
+              "statement": "各関係のうち契約上必須と定義されたリンク（`parent --relation--> child`）は必須とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  130,
+                  130
+                ]
+              }
+            },
+            {
+              "id": "REQ-042",
+              "statement": "任意（optional）と定義された関係（例: §9.3 の実装 traceability）は欠落してよい。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  130,
+                  130
+                ]
+              }
+            },
+            {
+              "id": "REQ-043",
+              "statement": "存在するリンクに付す「なぜこの子がこの親から導出されたか」という説明文・導出理由は任意（optional）とし、空でも chain_integrity 違反・`MISMATCH` としてはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  130,
+                  130
+                ]
+              }
+            },
+            {
+              "id": "REQ-044",
+              "statement": "ただし説明文を付加・保存できるデータ構造とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  130,
+                  130
+                ]
+              }
+            },
+            {
+              "id": "REQ-045",
+              "statement": "最小の意味単位「上流ノード → 関係 → 下流ノード」を任意のノードから取得できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  131,
+                  131
+                ]
+              }
+            },
+            {
+              "id": "REQ-046",
+              "statement": "さらに必要に応じて上流／下流へ連続して辿れ、プロジェクト全体のトレーサビリティ構造も取得できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  131,
+                  131
+                ]
+              }
+            },
+            {
+              "id": "REQ-047",
+              "statement": "常に全チェーンを表示することは求めない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  131,
+                  131
+                ]
+              }
+            },
+            {
+              "id": "REQ-048",
+              "statement": "同一のトレーサビリティ構造から、利用者の役割または利用目的に応じて参照対象・関係・集約粒度を変えた projection を取得・提示できる。",
+              "description": "例: PM は上位の要求・要件・仕様・VO の状態と未確定/NG、Tester は VO・Test・検証対象・Evidence・未実施/失敗理由、Coder は実装から関連 Test・VO・上流仕様へのトレース。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  132,
+                  132
+                ]
+              }
+            },
+            {
+              "id": "REQ-049",
+              "statement": "役割を固定 enum やモード名として仕様化することは本要件に含めず、preset・UI・モード体系は下位仕様へ委譲する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 3.4 関係型とトレーサビリティ",
+                "lines": [
+                  132,
+                  132
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S008",
+      "title": "4. 検査",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 4. 検査",
+        "lines": [
+          138,
+          138
+        ]
+      },
+      "derives_from": [
+        "ROOT-013"
+      ],
+      "sections": [
+        {
+          "id": "REQ-S009",
+          "title": "4.1 chain_integrity — 宣言鎖の完全性",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+            "lines": [
+              142,
+              150
+            ]
+          },
+          "derives_from": [
+            "ROOT-014",
+            "ROOT-034"
+          ],
+          "items": [
+            {
+              "id": "REQ-052",
+              "statement": "`chain_integrity` の問いは、宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するか、である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  142,
+                  142
+                ]
+              }
+            },
+            {
+              "id": "REQ-334",
+              "statement": "文書層では、各ノードの `derives_from` 参照先が存在することを要求する。",
+              "derives_from": [
+                "ROOT-039",
+                "ROOT-040"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  144,
+                  144
+                ]
+              }
+            },
+            {
+              "id": "REQ-054",
+              "statement": "VO 層では、各 VO が 1 件以上の `document` への解決可能な derives_from を持つことを要求する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  145,
+                  145
+                ]
+              }
+            },
+            {
+              "id": "REQ-055",
+              "statement": "Test 層では、発見された各 Test に対応する管理宣言（構文上有効な Test ID・1 件以上の `covers`・その他の必須 metadata）がちょうど 1 件存在し、`covers` の全 VO 参照を解決でき、Test ID が発見結果全体で一意であることを要求する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  146,
+                  146
+                ]
+              }
+            },
+            {
+              "id": "REQ-056",
+              "statement": "leaf VO から Test への方向（検証実装の存在）と、発見された Test から宣言への方向（管理宣言の解決）の両方が成立して初めて、宣言鎖の双方向完全性が成立する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  147,
+                  147
+                ]
+              }
+            },
+            {
+              "id": "REQ-057",
+              "statement": "どのリンクで切れたかは診断ラベルで示す。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  148,
+                  148
+                ]
+              }
+            },
+            {
+              "id": "REQ-058",
+              "statement": "すべての Test を管理対象とすることと、当該 Test を仕様適合の証拠として算入することは、別個の条件とする（→ §8）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.1 chain_integrity — 宣言鎖の完全性",
+                "lines": [
+                  150,
+                  150
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S010",
+          "title": "4.2 orphan_detection — 文書層の孤児検出",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+            "lines": [
+              154,
+              157
+            ]
+          },
+          "derives_from": [
+            "ROOT-038"
+          ],
+          "items": [
+            {
+              "id": "REQ-059",
+              "statement": "`orphan_detection` の問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するか、である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+                "lines": [
+                  154,
+                  154
+                ]
+              }
+            },
+            {
+              "id": "REQ-060",
+              "statement": "根として指定された文書は対象外とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+                "lines": [
+                  156,
+                  156
+                ]
+              }
+            },
+            {
+              "id": "REQ-061",
+              "statement": "根の指定方式は基本仕様で定める。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+                "lines": [
+                  156,
+                  156
+                ]
+              }
+            },
+            {
+              "id": "REQ-062",
+              "statement": "対象は文書層のみとする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+                "lines": [
+                  157,
+                  157
+                ]
+              }
+            },
+            {
+              "id": "REQ-063",
+              "statement": "実装レイヤーの孤児検出（宣言されていない実装の検出）は行わない。",
+              "derives_from": [
+                "R-2"
+              ],
+              "cites": [
+                "（R-2）"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.2 orphan_detection — 文書層の孤児検出",
+                "lines": [
+                  157,
+                  157
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S011",
+          "title": "4.3 target_binding — 宣言対象の振る舞いの実現",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+            "lines": [
+              161,
+              167
+            ]
+          },
+          "derives_from": [
+            "ROOT-013",
+            "ROOT-015",
+            "ROOT-016",
+            "ROOT-034"
+          ],
+          "items": [
+            {
+              "id": "REQ-064",
+              "statement": "`target_binding` の問いは、その Test が検証対象とする振る舞いが実際に生じ、その振る舞いを反映した観測が得られたか、である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  161,
+                  161
+                ]
+              }
+            },
+            {
+              "id": "REQ-065",
+              "statement": "Test がテストランナー上で PASS しても、検証対象とする振る舞いを実際には生じさせていない場合、その Test を完全検証済み OK としない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  163,
+                  163
+                ]
+              }
+            },
+            {
+              "id": "REQ-066",
+              "statement": "一つの問いに対して静的解析と動的計測の 2 つの証拠源を持つ。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  164,
+                  164
+                ]
+              }
+            },
+            {
+              "id": "REQ-067",
+              "statement": "静的に確定できなければ `UNKNOWN` とし、動的証拠で昇格できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  164,
+                  164
+                ]
+              }
+            },
+            {
+              "id": "REQ-337",
+              "statement": "target を宣言した Test では、宣言された対象コードが実際に Test 実行経路へ入ったことを `target_binding` の確認方法とする。",
+              "description": "前身 `REQ-068` は条件を「実装 construct（Source Target）を検証対象とする実行形態では」としていた。`ROOT-049` により実行形態では条件付けられないため、条件を「target を宣言したか」に付け替えた。確認方法そのものは変えていない。target を宣言しない Test の `target_binding` は `DS-1664` が `NO_EVIDENCE`（診断 `NOT_CHECKED`）と定める。",
+              "derives_from": [
+                "ROOT-049"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  165,
+                  165
+                ]
+              }
+            },
+            {
+              "id": "REQ-069",
+              "statement": "複数 target を宣言した Test では各 target の実行を個別に計測し、1 件でも実行回数が 0 なら `FAIL`（診断: NOT_EXECUTED）、1 件でも解析不能でかつ `FAIL` がなければ `UNKNOWN`、全 target の実行を確認できた場合だけ `PASS` とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  165,
+                  165
+                ]
+              }
+            },
+            {
+              "id": "REQ-072",
+              "statement": "`target_binding` は完全検証モードではデフォルトで有効とし、高速な限定 scope の検証では省略可能とする（省略時の扱いは §5.3）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.3 target_binding — 宣言対象の振る舞いの実現",
+                "lines": [
+                  167,
+                  167
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S012",
+          "title": "4.4 oracle_presence — 照合装置の存在",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 4.4 oracle_presence — 照合装置の存在",
+            "lines": [
+              171,
+              181
+            ]
+          },
+          "derives_from": [
+            "ROOT-007",
+            "ROOT-029",
+            "ROOT-030"
+          ],
+          "items": [
+            {
+              "id": "REQ-073",
+              "statement": "`oracle_presence` の問いは、宣言された「何の時にどうなる」の不成立を、Test の非成功として反映する装置が存在するか、である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  171,
+                  171
+                ]
+              }
+            },
+            {
+              "id": "REQ-074",
+              "statement": "不成立が構造から証明できる — どんな宣言の下でも不成立を検出できない（失敗し得ない、または失敗が検証対象の振る舞いに依存しない）ことが構造から証明できる — 場合、`FAIL`。",
+              "description": "出力は次で定まる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  173,
+                  175
+                ]
+              }
+            },
+            {
+              "id": "REQ-075",
+              "statement": "照合装置の存在が決定論的に確認できる場合、この検査は成立側とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  176,
+                  176
+                ]
+              }
+            },
+            {
+              "id": "REQ-076",
+              "statement": "不成立が構造から証明できることも、照合装置の存在が決定論的に確認できることも、決定論的に言えない（解析不能等）場合、`UNKNOWN`。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  177,
+                  177
+                ]
+              }
+            },
+            {
+              "id": "REQ-077",
+              "statement": "静的解析の役割は不成立の証明である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  179,
+                  179
+                ]
+              }
+            },
+            {
+              "id": "REQ-078",
+              "statement": "成立条件から明確に外れる Test を決定論的に検出し、外部監査へ送る前に拒否する（§8）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  179,
+                  179
+                ]
+              }
+            },
+            {
+              "id": "REQ-079",
+              "statement": "静的解析は成立の証明装置ではなく、証明できない場合は何も言わない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  179,
+                  179
+                ]
+              }
+            },
+            {
+              "id": "REQ-080",
+              "statement": "証明の失敗は `UNKNOWN` の事由ではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  179,
+                  179
+                ]
+              }
+            },
+            {
+              "id": "REQ-081",
+              "statement": "照合内容が宣言の期待と意味的に一致するかは、本検査の主張に含めない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  180,
+                  180
+                ]
+              }
+            },
+            {
+              "id": "REQ-082",
+              "statement": "意味の疑義は検査ではなくエスカレーションの領分である（→ §12）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  180,
+                  180
+                ]
+              }
+            },
+            {
+              "id": "REQ-083",
+              "statement": "答えは assert の所在・実行形態に依らず同一でなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  181,
+                  181
+                ]
+              }
+            },
+            {
+              "id": "REQ-084",
+              "statement": "実行形態別の判定規則を設けない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 4.4 oracle_presence — 照合装置の存在",
+                "lines": [
+                  181,
+                  181
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": "REQ-050",
+          "statement": "各検査は一つの問いを持ち、複数の証拠源で答えてよい。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 4. 検査",
+            "lines": [
+              138,
+              138
+            ]
+          }
+        },
+        {
+          "id": "REQ-051",
+          "statement": "答えは検証方法・実行形態に依らず同一でなければならない（§8 条項 3）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 4. 検査",
+            "lines": [
+              138,
+              138
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S013",
+      "title": "5 検証状態",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 5 検証状態",
+        "lines": [
+          185,
+          185
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S014",
+          "title": "5.1 状態は 5 つ",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 5.1 状態は 5 つ",
+            "lines": [
+              189,
+              197
+            ]
+          },
+          "derives_from": [
+            "ROOT-033"
+          ],
+          "items": [
+            {
+              "id": "REQ-085",
+              "statement": "検証状態は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` の 5 つのみとする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  189,
+                  189
+                ]
+              }
+            },
+            {
+              "id": "REQ-086",
+              "statement": "状態の存在資格は「受け取った者（人間/エージェント）の行動が変わるか」であり、意味の違いは資格にならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  189,
+                  189
+                ]
+              }
+            },
+            {
+              "id": "REQ-087",
+              "statement": "`PASS` の場合、受け取った者の行動はマージ可である。",
+              "description": "状態と受け取った者の行動の対応表:\n| 状態 | 受け取った者の行動 |\n|---|---|",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  191,
+                  193
+                ]
+              }
+            },
+            {
+              "id": "REQ-088",
+              "statement": "`FAIL` の場合、受け取った者の行動は実装（テスト実装を含む）を直すことである。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  194,
+                  194
+                ]
+              }
+            },
+            {
+              "id": "REQ-089",
+              "statement": "`MISMATCH` の場合、受け取った者の行動はコードを触る前に宣言側（上流）を直すことである。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  195,
+                  195
+                ]
+              }
+            },
+            {
+              "id": "REQ-090",
+              "statement": "`NO_EVIDENCE` の場合、受け取った者の行動は証拠を作ることである（機械的に解決可能）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  196,
+                  196
+                ]
+              }
+            },
+            {
+              "id": "REQ-091",
+              "statement": "`UNKNOWN` の場合、受け取った者の行動は意味判定できる者へエスカレーションすることである（決定論の限界）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.1 状態は 5 つ",
+                "lines": [
+                  197,
+                  197
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S015",
+          "title": "5.2 診断ラベル",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 5.2 診断ラベル",
+            "lines": [
+              201,
+              201
+            ]
+          },
+          "derives_from": [
+            "ROOT-032",
+            "ROOT-033"
+          ],
+          "items": [
+            {
+              "id": "REQ-092",
+              "statement": "`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` などは、状態に付随して原因を説明する診断ラベルであり、検証状態ではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.2 診断ラベル",
+                "lines": [
+                  201,
+                  201
+                ]
+              }
+            },
+            {
+              "id": "REQ-093",
+              "statement": "診断ラベルの語彙は下位仕様で定める。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.2 診断ラベル",
+                "lines": [
+                  201,
+                  201
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S016",
+          "title": "5.3 状態の割当",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 5.3 状態の割当",
+            "lines": [
+              205,
+              214
+            ]
+          },
+          "derives_from": [
+            "ROOT-015"
+          ],
+          "items": [
+            {
+              "id": "REQ-094",
+              "statement": "発見された Test に管理宣言が無い場合、状態は `MISMATCH`、診断ラベルは MISSING となる。",
+              "description": "事象と状態・診断ラベルの対応表:\n| 事象 | 状態 | 診断ラベル |\n|---|---|---|",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  205,
+                  207
+                ]
+              }
+            },
+            {
+              "id": "REQ-095",
+              "statement": "`covers` の VO 参照を解決できない場合、状態は `MISMATCH` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  208,
+                  208
+                ]
+              }
+            },
+            {
+              "id": "REQ-096",
+              "statement": "同一 construct から複数 entity が生じる場合、状態は `MISMATCH` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  208,
+                  208
+                ]
+              }
+            },
+            {
+              "id": "REQ-097",
+              "statement": "Test ID 衝突が生じる場合、状態は `MISMATCH` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  208,
+                  208
+                ]
+              }
+            },
+            {
+              "id": "REQ-098",
+              "statement": "文書鎖のリンク切れ / 依存 closure が束縛した document ノードのハッシュの不一致 / 孤児文書のいずれかが生じる場合、状態は `MISMATCH`（診断ラベルは STALE 等）となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  209,
+                  209
+                ]
+              }
+            },
+            {
+              "id": "REQ-099",
+              "statement": "証拠が存在しない、または証拠のハッシュが現在の対象と不一致の場合、状態は `NO_EVIDENCE`（診断ラベルは STALE 等）となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  210,
+                  210
+                ]
+              }
+            },
+            {
+              "id": "REQ-100",
+              "statement": "scope 限定により検査を実施しなかった項目は、完全検証の集約時に状態 `NO_EVIDENCE`、診断ラベル NOT_CHECKED となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  211,
+                  211
+                ]
+              }
+            },
+            {
+              "id": "REQ-101",
+              "statement": "discovery が不完全な場合、状態は `UNKNOWN` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  212,
+                  212
+                ]
+              }
+            },
+            {
+              "id": "REQ-102",
+              "statement": "解析不能な場合、状態は `UNKNOWN` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  212,
+                  212
+                ]
+              }
+            },
+            {
+              "id": "REQ-103",
+              "statement": "テストランナーが失敗を報告した場合、状態は `FAIL` となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  213,
+                  213
+                ]
+              }
+            },
+            {
+              "id": "REQ-104",
+              "statement": "宣言された検証対象の実行が 0 回の場合、状態は `FAIL`、診断ラベルは NOT_EXECUTED となる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.3 状態の割当",
+                "lines": [
+                  214,
+                  214
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S017",
+          "title": "5.4 UNKNOWN の検疫",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 5.4 UNKNOWN の検疫",
+            "lines": [
+              218,
+              218
+            ]
+          },
+          "derives_from": [
+            "ROOT-033"
+          ],
+          "items": [
+            {
+              "id": "REQ-105",
+              "statement": "`UNKNOWN` はエラーではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.4 UNKNOWN の検疫",
+                "lines": [
+                  218,
+                  218
+                ]
+              }
+            },
+            {
+              "id": "REQ-106",
+              "statement": "正常動作としての降参である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.4 UNKNOWN の検疫",
+                "lines": [
+                  218,
+                  218
+                ]
+              }
+            },
+            {
+              "id": "REQ-107",
+              "statement": "内部エラー・入力不正は検証状態と別系統（終了コード）で表現し、その体系は下位仕様で定める。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.4 UNKNOWN の検疫",
+                "lines": [
+                  218,
+                  218
+                ]
+              }
+            },
+            {
+              "id": "REQ-108",
+              "statement": "`UNKNOWN` をエラー処理のフォールバック先として使う実装は仕様違反である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.4 UNKNOWN の検疫",
+                "lines": [
+                  218,
+                  218
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S018",
+          "title": "5.5 検証状態と承認の分離",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 5.5 検証状態と承認の分離",
+            "lines": [
+              222,
+              228
+            ]
+          },
+          "derives_from": [
+            "ROOT-024"
+          ],
+          "items": [
+            {
+              "id": "REQ-109",
+              "statement": "検証状態（§5.1 の 5 状態）は検証結果のみを表し、承認状態を混入させない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  222,
+                  222
+                ]
+              }
+            },
+            {
+              "id": "REQ-110",
+              "statement": "承認（§19）は検証状態と独立した別軸である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  222,
+                  222
+                ]
+              }
+            },
+            {
+              "id": "REQ-111",
+              "statement": "技術的に `PASS` であっても未承認である状態を許容する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  224,
+                  224
+                ]
+              }
+            },
+            {
+              "id": "REQ-112",
+              "statement": "未承認であることだけを理由に `PASS` を `UNKNOWN` 等へ変更してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  225,
+                  225
+                ]
+              }
+            },
+            {
+              "id": "REQ-113",
+              "statement": "承認済みであることを理由に `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` を `PASS` へ変更してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  226,
+                  226
+                ]
+              }
+            },
+            {
+              "id": "REQ-114",
+              "statement": "フェーズ進行に承認を要するかは、検証状態と承認の組合せとして §26.4 のゲート条件で扱う。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 5.5 検証状態と承認の分離",
+                "lines": [
+                  228,
+                  228
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S019",
+      "title": "6. 証拠",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 6. 証拠",
+        "lines": [
+          234,
+          236
+        ]
+      },
+      "derives_from": [
+        "ROOT-031"
+      ],
+      "items": [
+        {
+          "id": "REQ-115",
+          "statement": "証拠は検証対象の内容ハッシュに束縛される。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              234,
+              234
+            ]
+          }
+        },
+        {
+          "id": "REQ-116",
+          "statement": "現在のソースのハッシュと一致しない証拠は、検証時に「存在しないもの」として扱う（`NO_EVIDENCE`）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              234,
+              234
+            ]
+          }
+        },
+        {
+          "id": "REQ-117",
+          "statement": "証拠ストアはハッシュキーを必須とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              235,
+              235
+            ]
+          }
+        },
+        {
+          "id": "REQ-118",
+          "statement": "Evidence の判定結果を変えうる Test の意味、実行条件、対象実装、および実行可能状態が現在状態と一致することを確認できなければ、その Evidence を現在の `PASS` として利用してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              236,
+              236
+            ]
+          }
+        },
+        {
+          "id": "REQ-119",
+          "statement": "Evidence の判定結果を変えうる Test の意味、実行条件、対象実装、および実行可能状態が現在状態と一致することを確認できなければその Evidence を現在の `PASS` として利用してはならないという要求は、ハッシュ束縛によって設計制約として満たす。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              236,
+              236
+            ]
+          }
+        },
+        {
+          "id": "REQ-120",
+          "statement": "鮮度の独立検査は設けず、鮮度喪失は診断ラベル（STALE）として説明する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 6. 証拠",
+            "lines": [
+              236,
+              236
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S020",
+      "title": "7. 判定権威",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 7. 判定権威",
+        "lines": [
+          242,
+          242
+        ]
+      },
+      "derives_from": [
+        "ROOT-029",
+        "R-3"
+      ],
+      "items": [
+        {
+          "id": "REQ-121",
+          "statement": "テスト合否の判定権威は、当該 adapter のテストランナーにある。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 7. 判定権威",
+            "lines": [
+              242,
+              242
+            ]
+          }
+        },
+        {
+          "id": "REQ-122",
+          "statement": "本システムは合否を判定せず、テストランナーの結果を証拠として消費する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 7. 判定権威",
+            "lines": [
+              242,
+              242
+            ]
+          }
+        },
+        {
+          "id": "REQ-123",
+          "statement": "実行の起動は本システムから行ってよいが、判定はしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 7. 判定権威",
+            "lines": [
+              242,
+              242
+            ]
+          }
+        },
+        {
+          "id": "REQ-124",
+          "statement": "rust-cargo adapter における判定権威は cargo test である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 7. 判定権威",
+            "lines": [
+              242,
+              242
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S021",
+      "title": "8 Test の検証成立性",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 8 Test の検証成立性",
+        "lines": [
+          246,
+          246
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S022",
+          "title": "8.1 Test の成立と証拠への算入",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 8.1 Test の成立と証拠への算入",
+            "lines": [
+              250,
+              257
+            ]
+          },
+          "derives_from": [
+            "ROOT-007",
+            "ROOT-034"
+          ],
+          "items": [
+            {
+              "id": "REQ-125",
+              "statement": "管理対象となる Test は、その宣言された目的に対して、検証対象の振る舞いを反映した観測に基づく有効な成否判定を持たなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  250,
+                  250
+                ]
+              }
+            },
+            {
+              "id": "REQ-126",
+              "statement": "そのうえで、仕様適合性の証拠として算入する Test は、その検証成立性が確認済みでなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  252,
+                  252
+                ]
+              }
+            },
+            {
+              "id": "REQ-127",
+              "statement": "Test として成立しているかの検査と、仕様適合性の証拠として算入するかの判定は独立である。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  252,
+                  252
+                ]
+              }
+            },
+            {
+              "id": "REQ-128",
+              "statement": "検証成立性: Test は、検証対象の振る舞いを反映した結果・状態・その他の観測に基づいて期待条件への適合と不適合を識別し、不適合が Test の非成功として反映されるものでなければならない。",
+              "description": "この成立性の必要条件として、以下を要求する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  254,
+                  256
+                ]
+              }
+            },
+            {
+              "id": "REQ-129",
+              "statement": "依存要素の信頼性: Test の成否判定が他の構成要素の判定能力に依存する場合、その依存要素について正当性が確認されるか、検証基盤として明示的に信頼されていなければ、当該 Test の検証成立性を確認済みとして扱ってはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  257,
+                  257
+                ]
+              }
+            },
+            {
+              "id": "REQ-130",
+              "statement": "判定能力を担う依存要素は、正当性確認対象または明示的な信頼基盤として識別可能であり、成立性確認はそのいずれかで終端しなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.1 Test の成立と証拠への算入",
+                "lines": [
+                  257,
+                  257
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S023",
+          "title": "8.2 成立性確認の原則",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 8.2 成立性確認の原則",
+            "lines": [
+              261,
+              264
+            ]
+          },
+          "derives_from": [
+            "ROOT-007"
+          ],
+          "items": [
+            {
+              "id": "REQ-131",
+              "statement": "証明方法への非依存: 成立条件の確認方法は、検証対象、実行形態、観測方法に応じて異なってよい。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  261,
+                  261
+                ]
+              }
+            },
+            {
+              "id": "REQ-133",
+              "statement": "成立性の問いへの答えは、確認方法に依らず同一でなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  261,
+                  261
+                ]
+              }
+            },
+            {
+              "id": "REQ-134",
+              "statement": "未確認と違反の区別: 成立条件を確認できないことと、成立条件に違反していることを区別しなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  262,
+                  262
+                ]
+              }
+            },
+            {
+              "id": "REQ-135",
+              "statement": "確認不能であることだけを根拠として違反を推定してはならず、成立確認済みとして扱ってもならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  262,
+                  262
+                ]
+              }
+            },
+            {
+              "id": "REQ-136",
+              "statement": "成立条件から明確に外れる Test は、可能な限り決定論的な解析によって検出する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  264,
+                  264
+                ]
+              }
+            },
+            {
+              "id": "REQ-137",
+              "statement": "決定論的解析で明確に不成立とできる Test は、外部監査・エスカレーションへ送る前に拒否可能であること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.2 成立性確認の原則",
+                "lines": [
+                  264,
+                  264
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S024",
+          "title": "8.3 決定論的に検出可能な不成立構造",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 8.3 決定論的に検出可能な不成立構造",
+            "lines": [
+              268,
+              308
+            ]
+          },
+          "derives_from": [
+            "ROOT-007"
+          ],
+          "items": [
+            {
+              "id": "REQ-138",
+              "statement": "code fragment は Rust による例示であり、共通契約が Rust 構文を要求するものではない。",
+              "derives_from": [
+                "R-3"
+              ],
+              "cites": [
+                "（R-3）"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  268,
+                  268
+                ]
+              }
+            },
+            {
+              "id": "REQ-139",
+              "statement": "各 adapter は対応する言語・runner の構造に対して決定論的に判定できる範囲を提供する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  268,
+                  268
+                ]
+              }
+            },
+            {
+              "id": "REQ-140",
+              "statement": "失敗し得ない — 成否判定が定数である。",
+              "description": "以下は、§8.1 の成立条件を満たさないことを、宣言の中身に依らず決定論的に検出できる具体例である。いずれも「どんな宣言の下でも不成立を検出できない」ことが構造から証明できる。\n\n例示の前提となる宣言:\nVO-EX-001: parse_u32 は不正な 10 進文字列に対して Err を返す\nTest 宣言: covers = [VO-EX-001], 検証対象 = parse_u32\n\n例:\n#[test]\nfn rejects_invalid_decimal() {\n    parse_u32(\"12a\");\n    assert!(true);\n}",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  268,
+                  285
+                ]
+              }
+            },
+            {
+              "id": "REQ-141",
+              "statement": "検証対象の振る舞いを生じさせるだけで、その観測を成否判定に利用していない。",
+              "description": "例:\n#[test]\nfn rejects_invalid_decimal() {\n    parse_u32(\"12a\");\n    let x = 1 + 1;\n    assert_eq!(x, 2);\n}",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  287,
+                  296
+                ]
+              }
+            },
+            {
+              "id": "REQ-142",
+              "statement": "観測同士の自己比較であり、成否が検証対象の振る舞いに依存しない。",
+              "description": "例:\n#[test]\nfn rejects_invalid_decimal() {\n    let r = parse_u32(\"12a\");\n    assert_eq!(r, r);\n}",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  298,
+                  306
+                ]
+              }
+            },
+            {
+              "id": "REQ-143",
+              "statement": "その他、同様に Test の成否判定が検証対象の振る舞いを反映した観測に依存しない構造。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 8.3 決定論的に検出可能な不成立構造",
+                "lines": [
+                  308,
+                  308
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S025",
+      "title": "9 検証対象と Source Target",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 9 検証対象と Source Target",
+        "lines": [
+          312,
+          312
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S026",
+          "title": "9.1 検証対象",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 9.1 検証対象",
+            "lines": [
+              316,
+              318
+            ]
+          },
+          "derives_from": [
+            "ROOT-007",
+            "ROOT-016"
+          ],
+          "items": [
+            {
+              "id": "REQ-144",
+              "statement": "すべての管理対象 Test は、1 件以上の検証対象を宣言できなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.1 検証対象",
+                "lines": [
+                  316,
+                  316
+                ]
+              }
+            },
+            {
+              "id": "REQ-145",
+              "statement": "検証対象は、その Test が検証成立性（§8）を証明しようとする対象 — 宣言された「何の時にどうなる」の主語 — であり、実装 construct そのものに限定しない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.1 検証対象",
+                "lines": [
+                  316,
+                  316
+                ]
+              }
+            },
+            {
+              "id": "REQ-146",
+              "statement": "外部から観測可能な契約・境界上の振る舞いも検証対象にできる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.1 検証対象",
+                "lines": [
+                  316,
+                  316
+                ]
+              }
+            },
+            {
+              "id": "REQ-336",
+              "statement": "target の宣言は Test 成立性の必須条件ではない。",
+              "description": "前身 `REQ-148` は「外部契約・境界上の振る舞いを検証する実行形態では」という実行形態の条件節を持ち、内部 Source Target を必須としないことをその形態に限って述べていた。`ROOT-049` が実行形態の分類を廃したため、条件節を落として無条件の規範にした。同時に廃止された `REQ-147`（もう一方の形態についての規範）の役割は、本節が無条件になったことで不要になる。`REQ-144`「すべての管理対象 Test は、1 件以上の検証対象を宣言できなければならない」（可能性の要件であって義務ではない）と `REQ-150`「1 つの Test は 1 件以上の Source Target を宣言できる」は変えていない。",
+              "derives_from": [
+                "ROOT-049"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.1 検証対象",
+                "lines": [
+                  318,
+                  318
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S027",
+          "title": "9.2 Source Target の識別",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 9.2 Source Target の識別",
+            "lines": [
+              322,
+              326
+            ]
+          },
+          "derives_from": [
+            "R-3"
+          ],
+          "items": [
+            {
+              "id": "REQ-149",
+              "statement": "実装コード上の implementation construct を、Source Target として識別可能でなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  322,
+                  322
+                ]
+              }
+            },
+            {
+              "id": "REQ-150",
+              "statement": "1 つの Test は 1 件以上の Source Target を宣言できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  324,
+                  324
+                ]
+              }
+            },
+            {
+              "id": "REQ-151",
+              "statement": "複数 target を宣言した場合も、各 target を独立に識別し、代表 1 件へ縮約してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  324,
+                  324
+                ]
+              }
+            },
+            {
+              "id": "REQ-152",
+              "statement": "ソースコード自体への恒久 ID 埋め込みは必須としない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  325,
+                  325
+                ]
+              }
+            },
+            {
+              "id": "REQ-153",
+              "statement": "各 adapter は、Source Target を一意に解決でき、同一の source state から決定論的に正規化できる Target Reference を提供する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  325,
+                  325
+                ]
+              }
+            },
+            {
+              "id": "REQ-154",
+              "statement": "Target Reference の具体的な構文、namespace、symbol 種別は下位仕様へ委譲し、共通契約が path、module、function 等の特定言語構造を必須としてはならない。",
+              "derives_from": [
+                "R-3"
+              ],
+              "cites": [
+                "（R-3）"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  325,
+                  325
+                ]
+              }
+            },
+            {
+              "id": "REQ-155",
+              "statement": "恒久 SRC ID を使用する場合、その ID は adapter 境界を越えて repository 全体で一意でなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  326,
+                  326
+                ]
+              }
+            },
+            {
+              "id": "REQ-156",
+              "statement": "同一 SRC ID を複数 adapter または複数 Source Target が宣言した状態を曖昧な参照として受理してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.2 Source Target の識別",
+                "lines": [
+                  326,
+                  326
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S028",
+          "title": "9.3 実装 traceability",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 9.3 実装 traceability",
+            "lines": [
+              330,
+              332
+            ]
+          },
+          "derives_from": [
+            "ROOT-016"
+          ],
+          "items": [
+            {
+              "id": "REQ-157",
+              "statement": "検証対象とは別に、Test または検証対象から、関連する Source Target への traceability を保持できる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.3 実装 traceability",
+                "lines": [
+                  330,
+                  330
+                ]
+              }
+            },
+            {
+              "id": "REQ-158",
+              "statement": "実装 traceability は任意であり、影響分析・逆引き等に利用できるが、その存在自体を Test 成立性の条件としてはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.3 実装 traceability",
+                "lines": [
+                  330,
+                  330
+                ]
+              }
+            },
+            {
+              "id": "REQ-159",
+              "statement": "traceability は関連付けであって、実装対応の証明ではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.3 実装 traceability",
+                "lines": [
+                  330,
+                  330
+                ]
+              }
+            },
+            {
+              "id": "REQ-160",
+              "statement": "検証対象と実装 traceability は別の関係として扱い、一方から他方を推定してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.3 実装 traceability",
+                "lines": [
+                  330,
+                  330
+                ]
+              }
+            },
+            {
+              "id": "REQ-161",
+              "statement": "Source Target との関係（検証対象または traceability）を持つ Test について、Test から Source を検索でき、Source から関連 Test を逆引きできること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 9.3 実装 traceability",
+                "lines": [
+                  332,
+                  332
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S029",
+      "title": "10 Verification Obligation",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 10 Verification Obligation",
+        "lines": [
+          336,
+          336
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S030",
+          "title": "10.1 定義",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 10.1 定義",
+            "lines": [
+              340,
+              344
+            ]
+          },
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
+          "items": [
+            {
+              "id": "REQ-162",
+              "statement": "Verification Obligation（VO）は、独立して「この条件が成立するか」と検証可能な仕様上の命題とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.1 定義",
+                "lines": [
+                  340,
+                  344
+                ]
+              }
+            },
+            {
+              "id": "REQ-163",
+              "statement": "VO の粒度を、assert 文・test function・テストファイルなどのコード構文によって決定してはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.1 定義",
+                "lines": [
+                  344,
+                  344
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S031",
+          "title": "10.2 VO 分解",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 10.2 VO 分解",
+            "lines": [
+              348,
+              348
+            ]
+          },
+          "derives_from": [
+            "ROOT-030"
+          ],
+          "items": [
+            {
+              "id": "REQ-164",
+              "statement": "仕様は、テストによって十分な網羅性を確認できる単位まで VO へ分解できること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.2 VO 分解",
+                "lines": [
+                  348,
+                  348
+                ]
+              }
+            },
+            {
+              "id": "REQ-165",
+              "statement": "本システムは分解を表現・保持するデータモデルを提供する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.2 VO 分解",
+                "lines": [
+                  348,
+                  348
+                ]
+              }
+            },
+            {
+              "id": "REQ-166",
+              "statement": "分解が十分かの判定は本システムの検査ではない（→ §12）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.2 VO 分解",
+                "lines": [
+                  348,
+                  348
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S032",
+          "title": "10.3 VO 階層",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 10.3 VO 階層",
+            "lines": [
+              352,
+              352
+            ]
+          },
+          "derives_from": [
+            "ROOT-030"
+          ],
+          "items": [
+            {
+              "id": "REQ-167",
+              "statement": "VO は階層構造を持つことができる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.3 VO 階層",
+                "lines": [
+                  352,
+                  352
+                ]
+              }
+            },
+            {
+              "id": "REQ-168",
+              "statement": "初回登録時に階層化されていることを必須とはしない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.3 VO 階層",
+                "lines": [
+                  352,
+                  352
+                ]
+              }
+            },
+            {
+              "id": "REQ-169",
+              "statement": "flat な VO 群と階層化された VO 群の両方を扱い、flat な VO を再帰分解または階層化する操作を提供する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.3 VO 階層",
+                "lines": [
+                  352,
+                  352
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S033",
+          "title": "10.4 VO と Test の対応",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 10.4 VO と Test の対応",
+            "lines": [
+              356,
+              356
+            ]
+          },
+          "derives_from": [],
+          "items": [
+            {
+              "id": "REQ-170",
+              "statement": "VO と Test は 1:1 に限定しない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.4 VO と Test の対応",
+                "lines": [
+                  356,
+                  356
+                ]
+              }
+            },
+            {
+              "id": "REQ-171",
+              "statement": "`1 VO -> 1 Test` / `1 VO -> N Tests` / `N VOs -> 1 Test` / `N VOs -> M Tests` を許容する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.4 VO と Test の対応",
+                "lines": [
+                  356,
+                  356
+                ]
+              }
+            },
+            {
+              "id": "REQ-172",
+              "statement": "Test は VO の検証実装単位であり、VO そのものではない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.4 VO と Test の対応",
+                "lines": [
+                  356,
+                  356
+                ]
+              }
+            },
+            {
+              "id": "REQ-173",
+              "statement": "Test を構成する言語構文や test runner 上の実行単位は adapter が識別する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 10.4 VO と Test の対応",
+                "lines": [
+                  356,
+                  356
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S034",
+      "title": "11. 検証空間の表現",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 11. 検証空間の表現",
+        "lines": [
+          362,
+          364
+        ]
+      },
+      "derives_from": [
+        "ROOT-030"
+      ],
+      "items": [
+        {
+          "id": "REQ-174",
+          "statement": "仕様から必要な場合、同値 partition・境界値 partition を表現できることが望ましい。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              362,
+              362
+            ]
+          }
+        },
+        {
+          "id": "REQ-175",
+          "statement": "すべての VO へ明示的な partition 定義を要求しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              362,
+              362
+            ]
+          }
+        },
+        {
+          "id": "REQ-176",
+          "statement": "複数の検証軸が存在する場合、その組合せ空間（全直積または軸単位）を表現できること。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              363,
+              363
+            ]
+          }
+        },
+        {
+          "id": "REQ-177",
+          "statement": "何をもって十分とするかは仕様・検証理由によって決定され、その判定は本システムの検査ではない（→ §12）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              363,
+              363
+            ]
+          }
+        },
+        {
+          "id": "REQ-178",
+          "statement": "複数の観点を同時に確認する Test が存在することだけを理由として、各観点を独立に証明したことにはしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              364,
+              364
+            ]
+          }
+        },
+        {
+          "id": "REQ-179",
+          "statement": "各観点の独立検証、または必要と定義された組合せ空間の検証のいずれかを表現・確認できること。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 11. 検証空間の表現",
+            "lines": [
+              364,
+              364
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S035",
+      "title": "12. 発見・意味判定のエスカレーション",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 12. 発見・意味判定のエスカレーション",
+        "lines": [
+          370,
+          378
+        ]
+      },
+      "derives_from": [
+        "ROOT-017",
+        "ROOT-018",
+        "ROOT-019",
+        "ROOT-027",
+        "ROOT-030",
+        "ROOT-033"
+      ],
+      "items": [
+        {
+          "id": "REQ-180",
+          "statement": "本システムは、宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを、自ら発見・裁定しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              370,
+              370
+            ]
+          }
+        },
+        {
+          "id": "REQ-181",
+          "statement": "発見者・裁定者は外部（人間またはエージェント）である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              370,
+              370
+            ]
+          }
+        },
+        {
+          "id": "REQ-182",
+          "statement": "データ形態の提供: 外部の発見者が判断できる構造化出力（要求該当箇所と対応概念のペア、宣言鎖と検査結果、対象外とした範囲）を提供する。",
+          "description": "本システムの責務は次の 3 つである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              372,
+              374
+            ]
+          }
+        },
+        {
+          "id": "REQ-183",
+          "statement": "エスカレーション: 機械が決定論で確定できない疑義は `UNKNOWN` として、意味判定できる者へ引き渡す。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              375,
+              375
+            ]
+          }
+        },
+        {
+          "id": "REQ-184",
+          "statement": "判断の記録と再検証: UNKNOWN に対して外部（人間または判断可能 Agent）が判断できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-185",
+          "statement": "判断はその時点の対象成果物・前提状態に対して、依存 closure（ハッシュ）とともに記録される。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-186",
+          "statement": "判断が正式に採用されるか（承認）は §19 の別段階であり、判断済みと承認済みは区別する（判断済み ≠ 承認済み）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-187",
+          "statement": "仕様・VO・Test 等が変更された場合、過去の判断を現在状態へそのまま流用してはならず、現在状態に対して通常の検証を再実施する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-188",
+          "statement": "現在状態に対する通常の検証の結果は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` のいずれにもなり得る。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-189",
+          "statement": "変更そのものが `UNKNOWN` を生成するのではない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              376,
+              376
+            ]
+          }
+        },
+        {
+          "id": "REQ-190",
+          "statement": "判断の記録は少なくとも「誰が（actor）」「何を（subject）」「どう判断したか（decision）」を必須項目とし、追跡可能でなければならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              378,
+              378
+            ]
+          }
+        },
+        {
+          "id": "REQ-191",
+          "statement": "判断の理由・根拠・evidence note（根拠となった宣言、対象外とした範囲、具体例等）は任意（optional）とし、保存できる構造とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              378,
+              378
+            ]
+          }
+        },
+        {
+          "id": "REQ-192",
+          "statement": "理由が空であることだけを根拠に、その判断を無効・`UNKNOWN`・`NO_EVIDENCE`・`MISMATCH` 等として扱ってはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              378,
+              378
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S036",
+      "title": "13. Test Registry",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 13. Test Registry",
+        "lines": [
+          384,
+          398
+        ]
+      },
+      "derives_from": [
+        "ROOT-014",
+        "ROOT-015",
+        "ROOT-034"
+      ],
+      "items": [
+        {
+          "id": "REQ-193",
+          "statement": "各 Test は安定した Test ID によって識別可能であること。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              384,
+              384
+            ]
+          }
+        },
+        {
+          "id": "REQ-194",
+          "statement": "Test ID をハンドルとして、Test Intent・covers（VO 参照）・検証対象・Source Target・Location・監査記録・Execution Evidence を検索可能とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              384,
+              384
+            ]
+          }
+        },
+        {
+          "id": "REQ-195",
+          "statement": "登録 adapter が Test として発見した実行可能な test construct は、すべて管理対象でなければならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              386,
+              386
+            ]
+          }
+        },
+        {
+          "id": "REQ-196",
+          "statement": "発見された Test 集合を `D`、構造上完全な managed Test Entity 集合を `M` とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              386,
+              386
+            ]
+          }
+        },
+        {
+          "id": "REQ-197",
+          "statement": "構造上完全とは、source declaration から構文上有効な Test ID、1 件以上の `covers`、その他の必須 metadata を Test Entity として具体化できることをいう。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              386,
+              386
+            ]
+          }
+        },
+        {
+          "id": "REQ-198",
+          "statement": "Discovered Test と entity の対応数は構造完全性に含めず、独立した整合性条件とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              386,
+              386
+            ]
+          }
+        },
+        {
+          "id": "REQ-199",
+          "statement": "`M` は VO 参照の解決と Test ID の大局的一意性を検査する前の集合とし、解決不能な `covers` を持つ entity や、他の entity と Test ID が衝突する entity も含む。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              386,
+              386
+            ]
+          }
+        },
+        {
+          "id": "REQ-200",
+          "statement": "完全検証では、D の各要素 d について、d に対応する managed Test Entity がちょうど 1 件存在し、その managed Test Entity の covers が 1 件以上であり、covers の全 VO 参照を解決でき、かつ Test ID が発見結果全体で一意であることを要求する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              388,
+              396
+            ]
+          }
+        },
+        {
+          "id": "REQ-201",
+          "statement": "d に対応する managed Test Entity がちょうど 1 件存在しない、covers が 1 件以上でない、covers の全 VO 参照を解決できない、または Test ID が発見結果全体で一意でない、のいずれかに該当する場合の状態は §5.3 に従う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              398,
+              398
+            ]
+          }
+        },
+        {
+          "id": "REQ-202",
+          "statement": "d に対応する managed Test Entity がちょうど 1 件存在しない、covers が 1 件以上でない、covers の全 VO 参照を解決できない、または Test ID が発見結果全体で一意でない、のいずれの場合も完全検証の `PASS` として扱ってはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 13. Test Registry",
+            "lines": [
+              398,
+              398
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S037",
+      "title": "14. Test Intent",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 14. Test Intent",
+        "lines": [
+          404,
+          404
+        ]
+      },
+      "derives_from": [
+        "ROOT-008"
+      ],
+      "items": [
+        {
+          "id": "REQ-203",
+          "statement": "Test には、その実装コードだけを読まなくても、何を検証するか・どの VO に対応するか・何を入力条件とするか・何を期待するかを判断できる情報を関連付けられること。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 14. Test Intent",
+            "lines": [
+              404,
+              404
+            ]
+          }
+        },
+        {
+          "id": "REQ-204",
+          "statement": "Test Intent は Test Entity の付随情報であり、宣言鎖のノードではない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 14. Test Intent",
+            "lines": [
+              404,
+              404
+            ]
+          }
+        },
+        {
+          "id": "REQ-205",
+          "statement": "具体的入力値を Test Intent または VO へ含めることを許容するが、必須とはしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 14. Test Intent",
+            "lines": [
+              404,
+              404
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S038",
+      "title": "15. Parameterized / Table-Driven Test",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 15. Parameterized / Table-Driven Test",
+        "lines": [
+          410,
+          410
+        ]
+      },
+      "derives_from": [],
+      "items": [
+        {
+          "id": "REQ-206",
+          "statement": "table-driven の論理形式を正式に許容する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 15. Parameterized / Table-Driven Test",
+            "lines": [
+              410,
+              410
+            ]
+          }
+        },
+        {
+          "id": "REQ-207",
+          "statement": "adapter が識別した table-driven test construct 全体を一つの Test として登録でき、内部の各 case を独立 Test ID へ分解することを必須とはしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 15. Parameterized / Table-Driven Test",
+            "lines": [
+              410,
+              410
+            ]
+          }
+        },
+        {
+          "id": "REQ-208",
+          "statement": "必要な場合、cases 集合が VO に必要な入力空間を十分に代表または網羅しているかは、§12 の発見・判定の対象とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 15. Parameterized / Table-Driven Test",
+            "lines": [
+              410,
+              410
+            ]
+          }
+        },
+        {
+          "id": "REQ-209",
+          "statement": "code fragment の具体構文は adapter の言語・runner に従う。",
+          "derives_from": [
+            "R-3"
+          ],
+          "cites": [
+            "（R-3）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 15. Parameterized / Table-Driven Test",
+            "lines": [
+              410,
+              410
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S039",
+      "title": "16. Structured Test Operation",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 16. Structured Test Operation",
+        "lines": [
+          416,
+          419
+        ]
+      },
+      "derives_from": [
+        "ROOT-027"
+      ],
+      "items": [
+        {
+          "id": "REQ-210",
+          "statement": "Test 操作の公式経路として、Test ID または adapter が識別可能な Test construct を対象とした構造化操作（Create / Edit / Query / Audit）を提供する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              416,
+              416
+            ]
+          }
+        },
+        {
+          "id": "REQ-211",
+          "statement": "Test 変更時には、対象・何を検証するか・VO・入力条件・期待結果などの既知項目を構造化入力できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              416,
+              416
+            ]
+          }
+        },
+        {
+          "id": "REQ-212",
+          "statement": "入力内容は可能な限りその場で検証する。",
+          "description": "例: 対象 symbol 不在、Test ID 不在、参照 VO 不在。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              416,
+              416
+            ]
+          }
+        },
+        {
+          "id": "REQ-213",
+          "statement": "公式 Test Edit 操作では、一回の操作対象を原則として一つの Test とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              418,
+              418
+            ]
+          }
+        },
+        {
+          "id": "REQ-214",
+          "statement": "暗黙に他の Test まで変更することを許可しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              418,
+              418
+            ]
+          }
+        },
+        {
+          "id": "REQ-215",
+          "statement": "Test 外部の通常ソースコード、helper、fixture 等の編集は Test Edit の責務としない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              418,
+              418
+            ]
+          }
+        },
+        {
+          "id": "REQ-216",
+          "statement": "通常の write/edit ツールや人間による直接ソース編集そのものは完全禁止しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              419,
+              419
+            ]
+          }
+        },
+        {
+          "id": "REQ-217",
+          "statement": "公式経路の提供によって誤編集・更新忘れ・複数 Test 同時変更の事故を低減し、直接編集による不整合も検証で検出可能であることが望ましい。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 16. Structured Test Operation",
+            "lines": [
+              419,
+              419
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S040",
+      "title": "17. 途中導入と既存プロジェクト対応",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 17. 途中導入と既存プロジェクト対応",
+        "lines": [
+          425,
+          425
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S041",
+          "title": "17.1 既存資産の可視化",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 17.1 既存資産の可視化",
+            "lines": [
+              429,
+              429
+            ]
+          },
+          "derives_from": [
+            "R-5"
+          ],
+          "items": [
+            {
+              "id": "REQ-220",
+              "statement": "既に大量のソースコードと Test が存在するプロジェクトを検証対象として扱えなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.1 既存資産の可視化",
+                "lines": [
+                  429,
+                  429
+                ]
+              }
+            },
+            {
+              "id": "REQ-221",
+              "statement": "既存の文書・Source・Test を読み取り、VO の存在状況・既存 Test と VO の対応・Test の不足・検証成立性・宣言との不一致をそれぞれ可視化できること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.1 既存資産の可視化",
+                "lines": [
+                  429,
+                  429
+                ]
+              }
+            },
+            {
+              "id": "REQ-222",
+              "statement": "VO が確定していない範囲を含むプロジェクトも読み取れること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.1 既存資産の可視化",
+                "lines": [
+                  429,
+                  429
+                ]
+              }
+            },
+            {
+              "id": "REQ-223",
+              "statement": "未登録 Test、欠落する宣言、未確定の VO、未実施の検査または実行を検証済みとして扱ってはならない（状態は §5.3 に従う）。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.1 既存資産の可視化",
+                "lines": [
+                  429,
+                  429
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S042",
+          "title": "17.2 導入時の責務境界",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 17.2 導入時の責務境界",
+            "lines": [
+              433,
+              433
+            ]
+          },
+          "derives_from": [
+            "ROOT-020",
+            "ROOT-030"
+          ],
+          "items": [
+            {
+              "id": "REQ-224",
+              "statement": "決定論的に処理可能な作業について、人間による反復的な手入力を必須としない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.2 導入時の責務境界",
+                "lines": [
+                  433,
+                  433
+                ]
+              }
+            },
+            {
+              "id": "REQ-225",
+              "statement": "一方、要求・要件・仕様・VO 等の意味上の定義や対応関係を決定する責任は、プロジェクト側（開発者・設計者・PM 等）にある。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.2 導入時の責務境界",
+                "lines": [
+                  433,
+                  433
+                ]
+              }
+            },
+            {
+              "id": "REQ-226",
+              "statement": "本システムが「この文章は要求である」「この要求からこの要件を作るべき」「この Test は意味的にこの VO に対応する」といった意味判断・候補生成を行うことを、必須要件としてはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.2 導入時の責務境界",
+                "lines": [
+                  433,
+                  433
+                ]
+              }
+            },
+            {
+              "id": "REQ-227",
+              "statement": "外部 AI / Agent による補助・提案は許容するが、その能力を検証成立条件にしてはならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.2 導入時の責務境界",
+                "lines": [
+                  433,
+                  433
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S043",
+          "title": "17.3 判断待ち情報の構造化",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 17.3 判断待ち情報の構造化",
+            "lines": [
+              437,
+              437
+            ]
+          },
+          "derives_from": [
+            "ROOT-021"
+          ],
+          "items": [
+            {
+              "id": "REQ-228",
+              "statement": "導入時・検証時に生じる、未確定事項・不整合・未検証事項・機械的に確認済みの事実・外部判断が必要な事項を、機械可読な構造として保持・取得可能とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.3 判断待ち情報の構造化",
+                "lines": [
+                  437,
+                  437
+                ]
+              }
+            },
+            {
+              "id": "REQ-229",
+              "statement": "表示形式（表・GUI 等）は要件でなく、下位仕様に委ねる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.3 判断待ち情報の構造化",
+                "lines": [
+                  437,
+                  437
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S044",
+          "title": "17.4 導入難度の規模非依存（設計原則）",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 17.4 導入難度の規模非依存（設計原則）",
+            "lines": [
+              441,
+              441
+            ]
+          },
+          "derives_from": [
+            "ROOT-022"
+          ],
+          "items": [
+            {
+              "id": "REQ-230",
+              "statement": "プロジェクト規模が大きいこと自体とは別の理由によって、導入難度が構造的に増大する設計を避ける。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.4 導入難度の規模非依存（設計原則）",
+                "lines": [
+                  441,
+                  441
+                ]
+              }
+            },
+            {
+              "id": "REQ-231",
+              "statement": "「プロジェクト規模が大きいこと自体とは別の理由によって、導入難度が構造的に増大する設計を避ける」ことは、強い不変条件ではなく設計原則とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.4 導入難度の規模非依存（設計原則）",
+                "lines": [
+                  441,
+                  441
+                ]
+              }
+            },
+            {
+              "id": "REQ-232",
+              "statement": "コード量・Test 数・判断対象数など単純な物量増加に伴う処理量・作業量の増加は許容し、関係者との合意形成等は本原則の対象外とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 17.4 導入難度の規模非依存（設計原則）",
+                "lines": [
+                  441,
+                  441
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": "REQ-218",
+          "statement": "本システムは、プロジェクト開始時からの導入を前提としない。",
+          "derives_from": [
+            "R-5"
+          ],
+          "cites": [
+            "（R-5）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 17. 途中導入と既存プロジェクト対応",
+            "lines": [
+              425,
+              425
+            ]
+          }
+        },
+        {
+          "id": "REQ-219",
+          "statement": "開発途中または既存のプロジェクトへ、後から導入できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 17. 途中導入と既存プロジェクト対応",
+            "lines": [
+              425,
+              425
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S045",
+      "title": "18. 仕様入力（文書層）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 18. 仕様入力（文書層）",
+        "lines": [
+          447,
+          449
+        ]
+      },
+      "derives_from": [
+        "ROOT-037",
+        "R-1"
+      ],
+      "items": [
+        {
+          "id": "REQ-233",
+          "statement": "仕様ソースとして、ソースコードより上流に位置する成果物を利用可能とする（要件定義・基本仕様・詳細設計・API Schema・Protocol Specification・型/データ仕様・DB schema・その他の機械可読仕様）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 18. 仕様入力（文書層）",
+            "lines": [
+              447,
+              447
+            ]
+          }
+        },
+        {
+          "id": "REQ-335",
+          "statement": "取り込まれた上流成果物は §3.2 のノードとして登録され、規範内容から計算される subject hash と `derives_from` を持つ。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 18. 仕様入力（文書層）",
+            "lines": [
+              447,
+              447
+            ]
+          }
+        },
+        {
+          "id": "REQ-235",
+          "statement": "対象ソースコード内の doc comment を、その対象実装自身の正当性を証明する唯一の仕様根拠として使用することは想定しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 18. 仕様入力（文書層）",
+            "lines": [
+              449,
+              449
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S046",
+      "title": "19. 承認",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 19. 承認",
+        "lines": [
+          455,
+          461
+        ]
+      },
+      "derives_from": [
+        "ROOT-017",
+        "ROOT-018",
+        "ROOT-023",
+        "ROOT-024",
+        "ROOT-031"
+      ],
+      "items": [
+        {
+          "id": "REQ-236",
+          "statement": "承認とは、判断（§12 の判断記録を含む）または方針を「この内容で進める」と正式に認め、確定状態にすることである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              455,
+              455
+            ]
+          }
+        },
+        {
+          "id": "REQ-237",
+          "statement": "判断済みと承認済みは区別し（判断済み ≠ 承認済み）、未承認の判断は承認済みより弱い。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              455,
+              455
+            ]
+          }
+        },
+        {
+          "id": "REQ-238",
+          "statement": "VO 等の検証成果物について、確定・承認状態を表現可能とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              455,
+              455
+            ]
+          }
+        },
+        {
+          "id": "REQ-239",
+          "statement": "承認は、対象または参照する判断（judgment reference）に承認済み状態を与える。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              457,
+              457
+            ]
+          }
+        },
+        {
+          "id": "REQ-240",
+          "statement": "§12 の UNKNOWN 判断も承認の対象になり得るが、判断できることと正式承認されることは別段階である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              457,
+              457
+            ]
+          }
+        },
+        {
+          "id": "REQ-241",
+          "statement": "承認は対象自身の内容だけでなく、承認判断が依存する上流文書・上位 VO の現在の依存 closure へ束縛する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              458,
+              458
+            ]
+          }
+        },
+        {
+          "id": "REQ-242",
+          "statement": "対象またはいずれかの依存成果物が変更された承認を、現在の承認済み状態として利用してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              458,
+              458
+            ]
+          }
+        },
+        {
+          "id": "REQ-243",
+          "statement": "変更後は現在状態に対して検証を再実施し、その結果（§12 の 5 状態のいずれか）に従う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              458,
+              458
+            ]
+          }
+        },
+        {
+          "id": "REQ-244",
+          "statement": "依存 closure またはハッシュを欠く承認を推測で有効化してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              458,
+              458
+            ]
+          }
+        },
+        {
+          "id": "REQ-245",
+          "statement": "承認記録は「誰が（approver）」「何を（subject または judgment reference）」「どの承認状態か（approved state）」を必須項目として追跡可能とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              459,
+              459
+            ]
+          }
+        },
+        {
+          "id": "REQ-246",
+          "statement": "承認の根拠は任意（optional）に記録できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              459,
+              459
+            ]
+          }
+        },
+        {
+          "id": "REQ-247",
+          "statement": "承認記録は §12 の判断記録と同一 entity であることを要求しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              459,
+              459
+            ]
+          }
+        },
+        {
+          "id": "REQ-248",
+          "statement": "承認主体を人間に限定しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              460,
+              460
+            ]
+          }
+        },
+        {
+          "id": "REQ-249",
+          "statement": "Agent も承認権限を持ち得る（Human / Verification Agent / Reviewer Agent / PM Agent 等）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              460,
+              460
+            ]
+          }
+        },
+        {
+          "id": "REQ-250",
+          "statement": "ただし全 Agent が承認権限を持つことは要求せず、一般作業 Agent が承認権限を持つべきとも要求しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              460,
+              460
+            ]
+          }
+        },
+        {
+          "id": "REQ-251",
+          "statement": "誰がどの対象・範囲について承認できるか（approval authority）は、プロジェクト側で定義可能とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              461,
+              461
+            ]
+          }
+        },
+        {
+          "id": "REQ-252",
+          "statement": "具体的な承認ロール・必要承認数・権限 schema は下位仕様へ委譲する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 19. 承認",
+            "lines": [
+              461,
+              461
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S047",
+      "title": "20. 利用者",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 20. 利用者",
+        "lines": [
+          467,
+          471
+        ]
+      },
+      "derives_from": [
+        "R-1",
+        "R-4"
+      ],
+      "items": [
+        {
+          "id": "REQ-253",
+          "statement": "Coder AI は、自身の変更が要求された検証を満たしたか確認する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 20. 利用者",
+            "lines": [
+              467,
+              467
+            ]
+          }
+        },
+        {
+          "id": "REQ-254",
+          "statement": "Developer は、Test の作成・変更・検索・検証を行う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 20. 利用者",
+            "lines": [
+              468,
+              468
+            ]
+          }
+        },
+        {
+          "id": "REQ-255",
+          "statement": "CI は、同一条件で検証を再実行し、再現性を確認する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 20. 利用者",
+            "lines": [
+              469,
+              469
+            ]
+          }
+        },
+        {
+          "id": "REQ-256",
+          "statement": "Reviewer AI は、Coder の提出した Evidence と自身の再検証結果を照合する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 20. 利用者",
+            "lines": [
+              470,
+              470
+            ]
+          }
+        },
+        {
+          "id": "REQ-257",
+          "statement": "PM / PM Agent は、上位単位から、必要な VO・Test の存在と現在の NG 箇所を確認する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 20. 利用者",
+            "lines": [
+              471,
+              471
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S048",
+      "title": "21. 対応範囲と adapter 境界",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 21. 対応範囲と adapter 境界",
+        "lines": [
+          477,
+          481
+        ]
+      },
+      "derives_from": [
+        "ROOT-026",
+        "R-2",
+        "R-3"
+      ],
+      "items": [
+        {
+          "id": "REQ-258",
+          "statement": "検証契約・ID・ハッシュ・Evidence・状態・集約の概念モデルは、言語および test runner に依存しない。",
+          "derives_from": [
+            "R-3"
+          ],
+          "cites": [
+            "（R-3）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              477,
+              477
+            ]
+          }
+        },
+        {
+          "id": "REQ-259",
+          "statement": "source discovery、決定論的解析、Structured Test Operation、test runner 起動、coverage 計測は adapter の能力として提供される。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              478,
+              478
+            ]
+          }
+        },
+        {
+          "id": "REQ-260",
+          "statement": "共通契約は特定言語の構文・構造を必須としない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              478,
+              478
+            ]
+          }
+        },
+        {
+          "id": "REQ-261",
+          "statement": "core verifier を変更せずに別 adapter を登録できる境界を要求する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              479,
+              479
+            ]
+          }
+        },
+        {
+          "id": "REQ-262",
+          "statement": "adapter の追加によって共通契約・スキーマが壊れないことを設計制約とする。",
+          "derives_from": [
+            "R-3"
+          ],
+          "cites": [
+            "（R-3）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              479,
+              479
+            ]
+          }
+        },
+        {
+          "id": "REQ-263",
+          "statement": "組込 production adapter は `rust-cargo` とし、Rust・Rust function unit test・小規模な integration test を対象とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              480,
+              480
+            ]
+          }
+        },
+        {
+          "id": "REQ-264",
+          "statement": "`rust-cargo` 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "derives_from": [
+            "R-2"
+          ],
+          "cites": [
+            "（R-2）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              480,
+              480
+            ]
+          }
+        },
+        {
+          "id": "REQ-265",
+          "statement": "adapter が未登録、能力不足、または解析不能の場合、検証結果を推測で `PASS` へ昇格してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              481,
+              481
+            ]
+          }
+        },
+        {
+          "id": "REQ-266",
+          "statement": "能力不足で確認できない項目は §8 条項 4 に従い扱う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              481,
+              481
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S049",
+      "title": "22. インターフェース",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 22. インターフェース",
+        "lines": [
+          487,
+          487
+        ]
+      },
+      "derives_from": [
+        "ROOT-027",
+        "R-1"
+      ],
+      "items": [
+        {
+          "id": "REQ-267",
+          "statement": "主要インターフェースとして、AI Agent 向け MCP interface と CLI を提供する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 22. インターフェース",
+            "lines": [
+              487,
+              487
+            ]
+          }
+        },
+        {
+          "id": "REQ-268",
+          "statement": "MCP は本体である — 検証は AI エージェントの作業ループ内、完了宣言のその場で呼ばれる。",
+          "derives_from": [
+            "R-1"
+          ],
+          "cites": [
+            "（R-1）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 22. インターフェース",
+            "lines": [
+              487,
+              487
+            ]
+          }
+        },
+        {
+          "id": "REQ-269",
+          "statement": "CLI・CI は同じ検証の別入口である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 22. インターフェース",
+            "lines": [
+              487,
+              487
+            ]
+          }
+        },
+        {
+          "id": "REQ-270",
+          "statement": "GUI は必須要件としない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 22. インターフェース",
+            "lines": [
+              487,
+              487
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S050",
+      "title": "23. 並列 AI 開発への要求",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 23. 並列 AI 開発への要求",
+        "lines": [
+          493,
+          493
+        ]
+      },
+      "derives_from": [
+        "R-4"
+      ],
+      "items": [
+        {
+          "id": "REQ-271",
+          "statement": "多数の AI Agent が並列で Test を追加・変更することを前提とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-272",
+          "statement": "本システムは、不必要に単一共有台帳へ書き込ませない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-273",
+          "statement": "本システムは、一つの Test 操作が他 Test へ波及しにくい。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-274",
+          "statement": "本システムは、Test ID 衝突を検出できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-275",
+          "statement": "本システムは、dangling reference を検出できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-276",
+          "statement": "本システムは、semantic conflict を検出可能にする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-277",
+          "statement": "本システムは、派生 index を再構築可能にする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-278",
+          "statement": "本システムは、Test と関連情報の同期を人間/Agent の記憶だけに依存させない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        },
+        {
+          "id": "REQ-279",
+          "statement": "具体的な保存形式や競合回避方式は基本仕様で決定する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 23. 並列 AI 開発への要求",
+            "lines": [
+              493,
+              493
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S051",
+      "title": "24. 非機能要求",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 24. 非機能要求",
+        "lines": [
+          499,
+          506
+        ]
+      },
+      "derives_from": [],
+      "items": [
+        {
+          "id": "REQ-280",
+          "statement": "複数 AI Agent による並列変更に耐えられること（NFR-001 並列性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              499,
+              499
+            ]
+          }
+        },
+        {
+          "id": "REQ-281",
+          "statement": "CI 等により同一 revision・同一検証条件で結果を再現可能であること（NFR-002 再現性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              500,
+              500
+            ]
+          }
+        },
+        {
+          "id": "REQ-282",
+          "statement": "文書から VO、VO から Test、Test から Source、Source から Test、Test から Execution Evidence まで追跡可能であること（任意ノードからの取得・遡行・全体構造は §3.4）（NFR-003 追跡可能性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              501,
+              501
+            ]
+          }
+        },
+        {
+          "id": "REQ-283",
+          "statement": "検索 index 等の派生データを正典から再構築可能であること（NFR-004 再構築可能性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              502,
+              502
+            ]
+          }
+        },
+        {
+          "id": "REQ-284",
+          "statement": "検証されていない事実を推測によって `PASS` としないこと（NFR-005 Fail Closed）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              503,
+              503
+            ]
+          }
+        },
+        {
+          "id": "REQ-285",
+          "statement": "検証結果について、結論だけでなく根拠（どのリンク・どの証拠・どの診断か）を提示可能であること（NFR-006 説明可能性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              504,
+              504
+            ]
+          }
+        },
+        {
+          "id": "REQ-286",
+          "statement": "AI Agent、CI、CLI 等から非対話的に利用可能であること（NFR-007 自動化適性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              505,
+              505
+            ]
+          }
+        },
+        {
+          "id": "REQ-287",
+          "statement": "人間が VO・Test の不足、不一致、NG 理由を一覧で理解可能であること（NFR-008 人間可読性）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 24. 非機能要求",
+            "lines": [
+              506,
+              506
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S052",
+      "title": "25. スコープ外",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 25. スコープ外",
+        "lines": [
+          512,
+          518
+        ]
+      },
+      "derives_from": [],
+      "items": [
+        {
+          "id": "REQ-288",
+          "statement": "複数仕様成果物同士の文章上・意味上の矛盾を発見すること（OOS-001 仕様書同士の品質監査）。",
+          "description": "文書層は §3.2 の通りリンクとハッシュのみを扱う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              512,
+              512
+            ]
+          }
+        },
+        {
+          "id": "REQ-289",
+          "statement": "不一致の場合にどれを正としてどれを変更するべきか判断すること（OOS-002 修正方針決定）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              513,
+              513
+            ]
+          }
+        },
+        {
+          "id": "REQ-290",
+          "statement": "Test Edit 対象外の一般的な編集そのものを管理すること（OOS-003 通常ソースコード編集管理）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              514,
+              514
+            ]
+          }
+        },
+        {
+          "id": "REQ-291",
+          "statement": "PM、実装、レビュー等の開発工程自体を本システム内部で管理すること（OOS-004 開発プロセス全体の管理）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              515,
+              515
+            ]
+          }
+        },
+        {
+          "id": "REQ-292",
+          "statement": "OOS-005 宣言されていない実装: v0.1 は宣言された義務の裏付けのみを検証し、宣言されていない実装の存在は関知しない。",
+          "derives_from": [
+            "ROOT-028",
+            "ROOT-035",
+            "R-2"
+          ],
+          "cites": [
+            "（R-2）"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              516,
+              516
+            ]
+          }
+        },
+        {
+          "id": "REQ-293",
+          "statement": "実装レイヤーの孤児検出・シンボル列挙の定義・上流文書の意味構造は v0.2 のスコープとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              516,
+              516
+            ]
+          }
+        },
+        {
+          "id": "REQ-294",
+          "statement": "本システムは、PM、実装、レビュー等の開発工程が利用する Verification Infrastructure として機能する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 25. スコープ外",
+            "lines": [
+              518,
+              518
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "REQ-S053",
+      "title": "26 完全検証と報告",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 26 完全検証と報告",
+        "lines": [
+          522,
+          522
+        ]
+      },
+      "derives_from": [],
+      "sections": [
+        {
+          "id": "REQ-S054",
+          "title": "26.1 完全検証 OK",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 26.1 完全検証 OK",
+            "lines": [
+              526,
+              526
+            ]
+          },
+          "derives_from": [
+            "ROOT-033",
+            "ROOT-034"
+          ],
+          "items": [
+            {
+              "id": "REQ-295",
+              "statement": "完全検証における OK は、宣言鎖全体に対する検査（chain_integrity / orphan_detection）と、scope に含まれる各「宣言 + コード + 証拠」の組に対する検査（target_binding / oracle_presence）がすべて `PASS` であり、テストランナーの結果を含む証拠が §6 を満たす場合に限る。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.1 完全検証 OK",
+                "lines": [
+                  526,
+                  526
+                ]
+              }
+            },
+            {
+              "id": "REQ-296",
+              "statement": "一項目でも `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` であれば NG。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.1 完全検証 OK",
+                "lines": [
+                  526,
+                  526
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S055",
+          "title": "26.2 簡易出力と詳細出力",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 26.2 簡易出力と詳細出力",
+            "lines": [
+              530,
+              530
+            ]
+          },
+          "derives_from": [],
+          "items": [
+            {
+              "id": "REQ-297",
+              "statement": "利用者向けに OK / NG の簡易結果を提供する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.2 簡易出力と詳細出力",
+                "lines": [
+                  530,
+                  530
+                ]
+              }
+            },
+            {
+              "id": "REQ-298",
+              "statement": "NG の場合、どの検査が・どの状態で・どの診断ラベルとともに落ちたかを掘り下げ可能とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.2 簡易出力と詳細出力",
+                "lines": [
+                  530,
+                  530
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S056",
+          "title": "26.3 集約",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 26.3 集約",
+            "lines": [
+              534,
+              534
+            ]
+          },
+          "derives_from": [
+            "ROOT-034"
+          ],
+          "items": [
+            {
+              "id": "REQ-299",
+              "statement": "Test 単位の結果を VO・Feature・文書単位へ集約可能とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.3 集約",
+                "lines": [
+                  534,
+                  534
+                ]
+              }
+            },
+            {
+              "id": "REQ-300",
+              "statement": "集約は fail-closed を基本とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.3 集約",
+                "lines": [
+                  534,
+                  534
+                ]
+              }
+            },
+            {
+              "id": "REQ-301",
+              "statement": "PM 等は上位単位から NG 箇所まで掘り下げられること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.3 集約",
+                "lines": [
+                  534,
+                  534
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "REQ-S057",
+          "title": "26.4 フェーズゲートと進行条件",
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "### 26.4 フェーズゲートと進行条件",
+            "lines": [
+              538,
+              548
+            ]
+          },
+          "derives_from": [
+            "ROOT-025"
+          ],
+          "items": [
+            {
+              "id": "REQ-302",
+              "statement": "プロジェクト側が登録したフェーズ・工程・ゲートの進行条件について、現在の検証状態（§5）と承認（§19）が通過条件を満たすかを評価・提示できなければならない。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  538,
+                  538
+                ]
+              }
+            },
+            {
+              "id": "REQ-303",
+              "statement": "検証状態と承認は独立の軸であり（§5.5）、ゲートは両者の組合せを進行条件にできる。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  538,
+                  538
+                ]
+              }
+            },
+            {
+              "id": "REQ-304",
+              "statement": "ゲート条件の定義を受理できること。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  538,
+                  538
+                ]
+              }
+            },
+            {
+              "id": "REQ-305",
+              "statement": "本システムの責務は、ゲート条件が現在満たされているかの評価・提示に限る。",
+              "description": "例:\n通常開発中   : verification = PASS で進行可、approval 不要\nRelease gate : verification = PASS + Reviewer approval\nDelivery gate: verification = PASS + Owner / PM approval",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  540,
+                  548
+                ]
+              }
+            },
+            {
+              "id": "REQ-306",
+              "statement": "フェーズのライフサイクル管理・工程の自動遷移は、2026-08-24 Owner 裁定により責務外とする（OOS-004 とも整合）。",
+              "derives_from": [],
+              "cites": [
+                "OOS-004"
+              ],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  548,
+                  548
+                ]
+              }
+            },
+            {
+              "id": "REQ-307",
+              "statement": "「Release フェーズへ遷移させる」のではなく「Release gate の条件を現在満たしている」を提示する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  548,
+                  548
+                ]
+              }
+            },
+            {
+              "id": "REQ-308",
+              "statement": "具体的なフェーズ名・承認ロール・必要承認数・権限 schema は下位仕様へ委譲する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+                "heading": "### 26.4 フェーズゲートと進行条件",
+                "lines": [
+                  548,
+                  548
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REQ-S058",
+      "title": "28. 下位仕様へ委譲する設計事項",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## 28. 下位仕様へ委譲する設計事項",
+        "lines": [
+          584,
+          608
+        ]
+      },
+      "derives_from": [
+        "ROOT-036"
+      ],
+      "items": [
+        {
+          "id": "REQ-309",
+          "statement": "文書の具体的な入力フォーマットと登録方式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              584,
+              584
+            ]
+          }
+        },
+        {
+          "id": "REQ-310",
+          "statement": "文書層の根の指定方式（orphan_detection の除外指定）は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              585,
+              585
+            ]
+          }
+        },
+        {
+          "id": "REQ-311",
+          "statement": "VO 保存形式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              586,
+              586
+            ]
+          }
+        },
+        {
+          "id": "REQ-312",
+          "statement": "Test metadata の具体的 annotation syntax は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              587,
+              587
+            ]
+          }
+        },
+        {
+          "id": "REQ-313",
+          "statement": "relation の保存形式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              588,
+              588
+            ]
+          }
+        },
+        {
+          "id": "REQ-314",
+          "statement": "Test ID 命名規則は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              589,
+              589
+            ]
+          }
+        },
+        {
+          "id": "REQ-315",
+          "statement": "Target Reference / SRC ID の具体的識別方式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              590,
+              590
+            ]
+          }
+        },
+        {
+          "id": "REQ-316",
+          "statement": "AST / LSP 等の具体的解析技術（不成立証明・存在確認・静的到達の実装）は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              591,
+              591
+            ]
+          }
+        },
+        {
+          "id": "REQ-317",
+          "statement": "oracle_presence の信頼基盤の具体的範囲（標準 assert 構文・framework failure semantics・設定による列挙）と委譲確認の方法は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              592,
+              592
+            ]
+          }
+        },
+        {
+          "id": "REQ-318",
+          "statement": "target_binding の動的計測方式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              593,
+              593
+            ]
+          }
+        },
+        {
+          "id": "REQ-319",
+          "statement": "診断ラベルの語彙は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              594,
+              594
+            ]
+          }
+        },
+        {
+          "id": "REQ-320",
+          "statement": "終了コード体系（検証状態と内部エラーの分離）は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              595,
+              595
+            ]
+          }
+        },
+        {
+          "id": "REQ-321",
+          "statement": "エスカレーション出力・承認記録の具体的 schema は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              596,
+              596
+            ]
+          }
+        },
+        {
+          "id": "REQ-322",
+          "statement": "CLI command 体系は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              597,
+              597
+            ]
+          }
+        },
+        {
+          "id": "REQ-323",
+          "statement": "MCP tool 体系は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              598,
+              598
+            ]
+          }
+        },
+        {
+          "id": "REQ-324",
+          "statement": "キャッシュ / index の具体的データ形式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              599,
+              599
+            ]
+          }
+        },
+        {
+          "id": "REQ-325",
+          "statement": "並列編集時の物理的保存方式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              600,
+              600
+            ]
+          }
+        },
+        {
+          "id": "REQ-326",
+          "statement": "承認 workflow の具体的状態遷移は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              601,
+              601
+            ]
+          }
+        },
+        {
+          "id": "REQ-327",
+          "statement": "判断待ち情報（§17.3）の具体的な構造 schema と取得インターフェースは、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              602,
+              602
+            ]
+          }
+        },
+        {
+          "id": "REQ-328",
+          "statement": "関係リンクの任意説明（§3.4）の保存形式は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              603,
+              603
+            ]
+          }
+        },
+        {
+          "id": "REQ-329",
+          "statement": "役割別 projection / view（§3.4）の preset・UI・モード体系は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              604,
+              604
+            ]
+          }
+        },
+        {
+          "id": "REQ-330",
+          "statement": "approval authority（§19）の承認ロール・必要承認数・権限 schema は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              605,
+              605
+            ]
+          }
+        },
+        {
+          "id": "REQ-331",
+          "statement": "フェーズ・ゲート（§26.4）の具体的なフェーズ名と進行条件定義は、下位仕様へ委譲する設計事項である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              606,
+              606
+            ]
+          }
+        },
+        {
+          "id": "REQ-332",
+          "statement": "これらの設計事項は本文書の要求・要件を基に次工程で決定する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 28. 下位仕様へ委譲する設計事項",
+            "lines": [
+              608,
+              608
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

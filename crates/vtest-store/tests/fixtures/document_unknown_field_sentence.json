@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "root": [],
+  "request": [
+    {
+      "id": "R-1",
+      "statement": "Request statement.",
+      "derives_from": [],
+      "source": { "doc": "doc.md", "heading": "R-1", "lines": [1, 1] },
+      "surplus_sentence_field": "should be rejected"
+    }
+  ],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}
