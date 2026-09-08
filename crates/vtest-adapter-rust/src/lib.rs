@@ -1532,18 +1532,30 @@ mod tests {
         registry
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-RESOLVES-REGISTERED-ID
+    /// @vtest.covers VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent 登録済みadapter IDがregistryからIDで解決できることを確認する
     #[test]
     fn registered_adapter_id_resolves() {
         let registry = registry_with_rust_cargo();
         assert!(registry.get("rust-cargo").is_some());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-REJECTS-UNREGISTERED-ID
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-UNREGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent 未登録のadapter IDに対する解決要求がNoneを返し拒否されることを確認する
     #[test]
     fn unregistered_adapter_id_does_not_resolve() {
         let registry = registry_with_rust_cargo();
         assert!(registry.get("unknown-lang").is_none());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-IDS-LISTS-REGISTERED
+    /// @vtest.covers VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent registryが登録済みadapter ID全体を列挙できることを確認する
     #[test]
     fn ids_lists_every_registered_adapter() {
         let registry = registry_with_rust_cargo();

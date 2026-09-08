@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-004-SELF-COMPARISON
+parent: null
+derives_from:
+  - doc: DS-624
+claim: DA-004は、assert_eq!(a, b)のaとbがトークン列として同一であることをFAIL条件とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-001-CONSTANT-ASSERTION
+parent: null
+derives_from:
+  - doc: DS-621
+claim: DA-001は、関数内のassert相当がすべて引数がリテラル・定数式である定数アサーションであることをFAIL条件とし、識別子参照を含むassertは違反なしとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -688,6 +688,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-COMPOSE-ALL-NO-VIOLATION-PASSES
+    /// @vtest.covers VO-ORACLE-COMPOSE-PASS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::compose
+    /// @vtest.intent DA-001/003/004/005/006の全ルールが違反なしのときcomposeがFAILでもUNKNOWNでもないことを確認する
     #[test]
     fn a_direct_assert_eq_call_passes_all_five_rules() {
         let text = "#[test]\nfn it_doubles() {\n    assert_eq!(double(2), 4);\n}\n";
@@ -697,6 +701,10 @@ mod tests {
         assert!(!is_unknown, "{basis:?}");
     }
 
+    /// @vtest.id TEST-ORACLE-DA-005-EMPTY-BODY-FAILS
+    /// @vtest.covers VO-ORACLE-DA-005-EMPTY-TEST
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_005_empty_test
+    /// @vtest.intent 文を含まない関数本体がDA-005のFAILになることを確認する
     #[test]
     fn an_empty_test_fails_da_005() {
         let text = "#[test]\nfn empty() {\n}\n";
@@ -706,6 +714,10 @@ mod tests {
         assert!(is_fail);
     }
 
+    /// @vtest.id TEST-ORACLE-DA-006-NO-ASSERT-FAILS
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent 検証構文が1つも無い関数本体がDA-006のFAILになることを確認する
     #[test]
     fn no_verification_syntax_fails_da_006() {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
@@ -713,6 +725,10 @@ mod tests {
         assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-006-SHOULD-PANIC-PASSES
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent #[should_panic]属性が検証構文として認められDA-006が違反なしになることを確認する
     #[test]
     fn a_should_panic_test_with_no_target_call_passes_da_006_via_the_attribute() {
         let text = "#[should_panic]\n#[test]\nfn panics() {\n    panic!(\"boom\");\n}\n";
@@ -724,6 +740,10 @@ mod tests {
     /// assert-equivalent construct exists anywhere in the function, so no
     /// path — tracked or not — could carry the call's result to one. This
     /// is the one case this capability can prove structurally.
+    /// @vtest.id TEST-ORACLE-DA-003-NO-ASSERT-ANYWHERE-FAILS
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果を検証するassert相当が関数内に一つも無い場合にDA-003がFAILになることを確認する
     #[test]
     fn a_target_call_with_no_assert_construct_anywhere_fails_da_003() {
         let text = "#[test]\nfn calls_but_asserts_nothing() {\n    double(2);\n}\n";
@@ -741,6 +761,10 @@ mod tests {
     /// bounded dataflow tracking (direct-in-assert or one `let` binding)
     /// cannot trace the call's result into it. That is an analysis limit,
     /// not proof of non-verification — `Unknown`, not `Fail`.
+    /// @vtest.id TEST-ORACLE-DA-003-UNTRACEABLE-CALL-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assertが存在するがtarget呼出結果をそこへ追跡できない場合、DA-003がFAILではなくUNKNOWNになることを確認する
     #[test]
     fn a_target_call_untraceable_into_an_unrelated_assert_is_unknown_not_fail() {
         let text = "#[test]\nfn calls_but_ignores_result() {\n    double(2);\n    assert!(true == false || true);\n}\n";
@@ -752,6 +776,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-SHOULD-PANIC-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent #[should_panic]があるときassertが無くてもDA-003が違反なしになることを確認する
     #[test]
     fn a_should_panic_target_call_passes_da_003_without_an_assert() {
         let text = "#[should_panic]\n#[test]\nfn panics_on_call() {\n    divide(1, 0);\n}\n";
@@ -759,6 +787,10 @@ mod tests {
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-LET-BOUND-CALL-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果がlet束縛経由でassertへ到達する場合にDA-003が違反なしになることを確認する
     #[test]
     fn a_let_bound_call_used_in_an_assert_passes_da_003() {
         let text = "#[test]\nfn binds_then_asserts() {\n    let result = double(2);\n    assert_eq!(result, 4);\n}\n";
@@ -770,6 +802,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
+    /// @vtest.covers VO-ORACLE-DA-004-SELF-COMPARISON
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_004_self_comparison
+    /// @vtest.intent assert_eq!の両引数がトークン列として同一のときDA-004がFAILになることを確認する
     #[test]
     fn identical_assert_eq_arguments_fail_da_004() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(compute(), compute());\n}\n";
@@ -777,6 +813,10 @@ mod tests {
         assert!(matches!(analysis.da_004, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-001-ALL-LITERAL-FAILS
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent assertの引数がすべてリテラルのときDA-001がFAILになることを確認する
     #[test]
     fn an_all_literal_assert_fails_da_001() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(1, 1);\n}\n";
@@ -784,6 +824,10 @@ mod tests {
         assert!(matches!(analysis.da_001, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-001-CALL-RESULT-PASSES
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent assertが識別子（関数呼出結果）を参照するときDA-001が違反なしになることを確認する
     #[test]
     fn an_assert_referencing_a_call_result_does_not_fail_da_001() {
         let text = "#[test]\nfn real_check() {\n    assert_eq!(double(2), 4);\n}\n";
@@ -791,6 +835,10 @@ mod tests {
         assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-006-RESULT-RETURNING-SIGNATURE-PASSES
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent Resultを返すTest関数シグネチャが検証構文として認められDA-006が違反なしになることを確認する
     #[test]
     fn a_result_returning_test_signature_counts_as_verification_syntax() {
         let text =

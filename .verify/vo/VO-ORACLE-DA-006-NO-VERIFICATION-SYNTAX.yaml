@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+parent: null
+derives_from:
+  - doc: DS-626
+claim: DA-006は、関数内にassert相当が1つも存在せずかつ§7.2.1の照合の委譲先も同定できないことをFAIL条件とし、assert相当・should_panic・Result返却などの検証構文が1つでもあれば違反なしとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
