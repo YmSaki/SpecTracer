@@ -1,0 +1,12 @@
+id: VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+parent: null
+derives_from:
+  - doc: DS-819
+  - doc: DS-833
+claim: evidence.hashes.test_subjectが現在のTest subject hashと一致しない場合target_bindingはNO_EVIDENCE（診断STALE）となり、Evidenceは再利用されない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
