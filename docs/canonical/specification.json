@@ -33566,7 +33566,7 @@
         },
         {
           "id": "DS-1683",
-          "statement": "`--root` は当該 document のトップレベルノードを `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、`config.yaml` に根集合（`doc.roots`）を持たない。",
+          "statement": "`--root` は当該 document のトップレベルノードを新規登録時に `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、登録後は変更しない。`config.yaml` に根集合（`doc.roots`）を持たない。",
           "derives_from": [
             "REQ-060",
             "REQ-061",
@@ -33662,19 +33662,6 @@
           "cites": [
             "本冊 §3.5・§8.5・§11.4"
           ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              112,
-              112
-            ]
-          }
-        },
-        {
-          "id": "DS-1014",
-          "statement": "`--update` は `--root` / `--no-root` を併せて根指定も更新できる。",
-          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
@@ -46442,7 +46429,7 @@
       "items": [
         {
           "id": "BD-331",
-          "statement": "根指定は `vtest doc` コマンドの引数（`--root`/`--no-root`）で管理し、当該 document ノードの登録先層配列（`root` 層か否か）に反映する。`config.yaml` に根集合を持たない。",
+          "statement": "根指定は `vtest doc add` コマンドの引数（`--root`/`--no-root`）で新規登録時にのみ定まり、当該 document ノードの登録先層配列（`root` 層か否か）に反映される。登録後は変更しない。`config.yaml` に根集合を持たない。",
           "derives_from": [
             "SPEC-212",
             "SPEC-213",
@@ -48438,28 +48425,7 @@
         "DS-S021",
         "DS-S088"
       ],
-      "items": [
-        {
-          "id": "BD-298",
-          "statement": "根指定の追加・削除は `vtest doc` コマンドの引数で管理する。",
-          "derives_from": [
-            "SPEC-212",
-            "SPEC-213",
-            "SPEC-214"
-          ],
-          "cites": [
-            "基本仕様 §26.1"
-          ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-            "heading": "18.3.2 orphan_detection（文書層の孤児検出）",
-            "lines": [
-              122,
-              122
-            ]
-          }
-        }
-      ]
+      "items": []
     },
     {
       "id": "BD-S095",
