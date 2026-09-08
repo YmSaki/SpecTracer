@@ -332,8 +332,8 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
     fs::remove_dir_all(&root).ok();
 }
 
-fn only_check_state<'a>(
-    outcome: &'a vtest_verify::VerifyOutcome,
+fn only_check_state(
+    outcome: &vtest_verify::VerifyOutcome,
     check: vtest_model::VerificationCheck,
 ) -> VerificationState {
     let states: Vec<VerificationState> = outcome

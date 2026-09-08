@@ -877,7 +877,6 @@ fn require_no_duplicate_combination_dimension_names(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
     use vtest_model::{CoveragePolicy, Dimension, VoId};
 
     // -------------------------------------------------------------
