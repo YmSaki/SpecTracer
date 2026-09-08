@@ -754,26 +754,70 @@ pub fn read_record_ids(directory: &Path) -> Result<Vec<String>, StoreError> {
 /// identifier) — there is no separate `id` field inside the file to check
 /// it against, unlike `read_record_ids`'s YAML records.
 pub fn read_document_names(directory: &Path) -> Result<Vec<String>, StoreError> {
+    Ok(read_document_dir(directory)?.names)
+}
+
+/// The `.gitkeep` placeholder `init_project` writes into every record
+/// directory. It is part of the layout this crate creates, not a document, so
+/// it is neither a document name nor an unaccounted file.
+const DIRECTORY_PLACEHOLDER: &str = ".gitkeep";
+
+/// A listing of `.verify/doc/` that accounts for **every** entry, rather than
+/// silently filtering to the ones this reader recognises.
+///
+/// DS-784 / DS-786 make the evaluation input「`.verify/`配下の正典ファイル集合」—
+/// the canonical file *set* under the directory, not a glob subset of it. A
+/// reader that quietly drops the files it does not recognise makes an
+/// unaccounted file invisible to every check, which is the shape of a
+/// fail-open: a document left behind in a format the reader does not read
+/// would simply not exist as far as verification is concerned.
+///
+/// So the unrecognised entries are returned rather than discarded, and the
+/// scan layer (which owns the `E-SCAN-*` vocabulary) reports them.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct DocumentDirListing {
+    /// File stems of the `.json` document files, sorted.
+    pub names: Vec<String>,
+    /// File names of every other entry, sorted — anything present in the
+    /// directory that is not a document file and not the layout placeholder.
+    pub unaccounted: Vec<String>,
+}
+
+pub fn read_document_dir(directory: &Path) -> Result<DocumentDirListing, StoreError> {
     let entries = fs::read_dir(directory).map_err(|source| StoreError::Io {
         path: directory.to_owned(),
         source,
     })?;
-    let mut names = Vec::new();
+    let mut listing = DocumentDirListing::default();
     for entry in entries {
         let entry = entry.map_err(|source| StoreError::Io {
             path: directory.to_owned(),
             source,
         })?;
         let path = entry.path();
-        if path.extension().and_then(|v| v.to_str()) != Some("json") {
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_owned();
+        if file_name == DIRECTORY_PLACEHOLDER {
             continue;
         }
-        if let Some(stem) = path.file_stem().and_then(|v| v.to_str()) {
-            names.push(stem.to_owned());
+        // The `.json` suffix is this implementation's requirement, not a
+        // canonical one: BD-323 says「JSON ファイル」, DES-586 says「JSON
+        // object」and BD-330 says「拡張子を除く」, but no node fixes an
+        // extension. Everything else present is reported rather than dropped.
+        if path.extension().and_then(|v| v.to_str()) == Some("json") {
+            if let Some(stem) = path.file_stem().and_then(|v| v.to_str()) {
+                listing.names.push(stem.to_owned());
+                continue;
+            }
         }
+        listing.unaccounted.push(file_name);
     }
-    names.sort();
-    Ok(names)
+    listing.names.sort();
+    listing.unaccounted.sort();
+    Ok(listing)
 }
 
 /// Names/IDs of every registered upstream document and VO record (BD-323's

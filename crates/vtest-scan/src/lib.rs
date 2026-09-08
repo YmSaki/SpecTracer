@@ -27,9 +27,9 @@ use vtest_model::{
     SentenceNode, SourceFunction, SourceLocation, TargetRef, TestEntity, TestRecord, VoRecord,
 };
 use vtest_store::{
-    is_valid_ulid, load_config, read_approval, read_document_file, read_entity_ids, read_text,
-    read_vo_record, relation_ulid_payload, yaml_scalar_value, AdapterConfig, ProjectConfig,
-    RelationRecord, StoreError, VerifyLayout,
+    is_valid_ulid, load_config, read_approval, read_document_dir, read_document_file,
+    read_entity_ids, read_text, read_vo_record, relation_ulid_payload, yaml_scalar_value,
+    AdapterConfig, ProjectConfig, RelationRecord, StoreError, VerifyLayout,
 };
 
 pub mod operations;
@@ -846,6 +846,31 @@ fn record_diagnostics(
     // validation is removed outright rather than repointed. `entity_ids[0]`
     // is now `.verify/doc/*.json` file *names* (DES-585/586), each a full
     // upstream `DocumentFile` tree of nodes, not a single flat record.
+    // DS-784 / DS-786 make the evaluation input「`.verify/`配下の正典ファイル
+    // 集合」— the file *set* under the directory, not the subset a reader
+    // happens to recognise. An entry in `.verify/doc/` that is not a document
+    // file must therefore be reported, not silently filtered out: dropping it
+    // makes it invisible to all four checks, so a document left behind in an
+    // unread format would simply not exist as far as verification is
+    // concerned. DS-1676 covers this as schema non-conformance
+    // （「レコードのid / ファイル名 / schema不一致」）= E-SCAN-010, error.
+    //
+    // The `.gitkeep` placeholder `init_project` writes into every record
+    // directory is part of the layout, not a document, and is excluded by
+    // `read_document_dir` before this point.
+    for unaccounted in read_document_dir(&layout.doc_dir())
+        .map(|listing| listing.unaccounted)
+        .unwrap_or_default()
+    {
+        let record_path = record_relative_path(&layout.root, &layout.doc_dir().join(&unaccounted));
+        diagnostics.push(Diagnostic::error(
+            "E-SCAN-010",
+            format!(
+                "{unaccounted} in .verify/doc/ is not an upstream document file and is not \
+                 accounted for by any check ({record_path})"
+            ),
+        ));
+    }
     let document_node_ids = validate_document_nodes(&layout, &entity_ids[0], &mut diagnostics);
     // DS-425/DS-429/DS-543: a relation's `from`/`to` is an arbitrary entity
     // id, and its existence is what E-SCAN-009 checks — the entity id space
@@ -4739,6 +4764,55 @@ fn collision_second() {}
     /// `validate_document_nodes`. Reports the E-SCAN-016 (orphan_detection)
     /// count via `eprintln!` for the PR to cite — not asserted, per this
     /// task's own instruction (the number moves as the canonical bundle
+    /// DS-784 / DS-786 make the evaluation input the canonical file *set*
+    /// under `.verify/`, not the subset a reader recognises. A stray file in
+    /// `.verify/doc/` must therefore surface as E-SCAN-010 (DS-1676, schema
+    /// non-conformance) rather than being silently filtered out — silent
+    /// filtering would let a document in an unread format vanish from all
+    /// four checks.
+    ///
+    /// The `.gitkeep` that `init_project` writes into the same directory must
+    /// NOT be reported: it is part of the layout this tool creates, so a
+    /// freshly initialised project stays clean.
+    #[test]
+    fn a_stray_file_in_the_doc_directory_is_reported_not_silently_skipped() {
+        let root = std::env::temp_dir().join(format!("vtest-scan-doc-stray-{}", new_record_id()));
+        let layout = init_project(&root, "stray").unwrap();
+
+        // A freshly initialised project has only `.gitkeep` in doc/ and must
+        // report nothing.
+        let listing = read_document_dir(&layout.doc_dir()).unwrap();
+        assert!(
+            listing.unaccounted.is_empty(),
+            "the layout's own .gitkeep must not be reported: {:?}",
+            listing.unaccounted
+        );
+
+        fs::write(layout.doc_dir().join("legacy-document.yaml"), "id: DOC-1\n").unwrap();
+        let listing = read_document_dir(&layout.doc_dir()).unwrap();
+        assert_eq!(listing.unaccounted, vec!["legacy-document.yaml".to_owned()]);
+        assert!(
+            listing.names.is_empty(),
+            "a stray file is not a document name"
+        );
+
+        let result = scan_project(&root).expect("scan should complete");
+        let reported = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.code == "E-SCAN-010"
+                    && diagnostic.message.contains("legacy-document.yaml")
+            })
+            .count();
+        assert_eq!(
+            reported, 1,
+            "a stray file in .verify/doc/ must be reported once as E-SCAN-010: {:?}",
+            result.diagnostics
+        );
+        assert!(result.has_errors());
+    }
+
     /// grows on its own branch).
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
