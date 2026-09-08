@@ -14,7 +14,7 @@ use vtest_model::{
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
-    yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
+    FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
 use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
@@ -29,15 +29,7 @@ pub struct TestSelection {
 pub struct TestView {
     #[serde(flatten)]
     pub test: TestEntity,
-    pub audits: Vec<AuditState>,
     pub evidence: Vec<EvidenceState>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct AuditState {
-    pub id: String,
-    pub kind: Option<String>,
-    pub verdict: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -989,23 +981,6 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
         }
     };
     let layout = VerifyLayout::new(root);
-    let mut audits = Vec::new();
-    let audit_ids = read_record_ids(&layout.audits_dir())
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    for record_id in audit_ids {
-        let path = layout.audits_dir().join(format!("{record_id}.yaml"));
-        let text = fs::read_to_string(&path)
-            .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-        if yaml_scalar_value(&text, "test_id").as_deref() == Some(id)
-            || audit_mentions_test(&text, id)
-        {
-            audits.push(AuditState {
-                id: record_id,
-                kind: yaml_scalar_value(&text, "kind"),
-                verdict: yaml_scalar_value(&text, "verdict"),
-            });
-        }
-    }
     let mut evidence = Vec::new();
     let evidence_ids = read_record_ids(&layout.evidence_dir())
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
@@ -1027,31 +1002,7 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
         }
     }
     evidence.sort_by(|left, right| left.executed_at.cmp(&right.executed_at));
-    Ok(TestView {
-        test,
-        audits,
-        evidence,
-    })
-}
-
-fn audit_mentions_test(text: &str, test_id: &str) -> bool {
-    let mut test_subject = false;
-    for raw in text.lines() {
-        let trimmed = raw.trim().trim_start_matches('-').trim();
-        if let Some(value) = trimmed.strip_prefix("kind:") {
-            test_subject = value.trim().trim_matches(['\'', '"']) == "test";
-            continue;
-        }
-        if test_subject {
-            if let Some(value) = trimmed.strip_prefix("id:") {
-                if value.trim().trim_matches(['\'', '"']) == test_id {
-                    return true;
-                }
-                test_subject = false;
-            }
-        }
-    }
-    false
+    Ok(TestView { test, evidence })
 }
 
 pub fn list_tests(
