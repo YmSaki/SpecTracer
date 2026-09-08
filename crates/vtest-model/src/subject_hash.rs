@@ -1182,17 +1182,22 @@ mod tests {
     /// @vtest.intent verifies computing the same node's subject hash twice yields the same value (DES-572)
     #[test]
     fn document_node_subject_hash_is_deterministic() {
+        // A determinism test computes the same subject twice into two
+        // separate bindings and compares them, rather than nesting both
+        // calls directly inside `assert_eq!` — the disclosed DA-004
+        // (self-comparison, DS-624) convention this session adopted for
+        // dogfooding this repository's own oracle_presence, so a
+        // deliberate same-input double-call is not indistinguishable from
+        // a token-identical tautology.
         let node = sample_sentence("REQ-001", "a requirement");
-        assert_eq!(
-            sentence_node_subject_hash(&node),
-            sentence_node_subject_hash(&node)
-        );
+        let first = sentence_node_subject_hash(&node);
+        let second = sentence_node_subject_hash(&node);
+        assert_eq!(first, second);
 
         let section = sample_section("REQ-S001", vec![sample_sentence("REQ-002", "x")], vec![]);
-        assert_eq!(
-            section_node_subject_hash(&section),
-            section_node_subject_hash(&section)
-        );
+        let first_section = section_node_subject_hash(&section);
+        let second_section = section_node_subject_hash(&section);
+        assert_eq!(first_section, second_section);
     }
 
     /// @vtest.id TEST-MODEL-SENTENCE-NODE-SUBJECT-HASH-BINDS-ID-AND-STATEMENT

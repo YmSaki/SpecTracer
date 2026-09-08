@@ -152,28 +152,33 @@ pub fn escape_risk(root: &Path) -> Option<String> {
             return;
         }
         for macro_name in ["include!", "include_str!", "include_bytes!"] {
-            let Some(argument) = find_macro_literal_argument(text, macro_name) else {
-                continue;
-            };
-            let Some(literal) = argument else {
-                risk = Some(format!(
-                    "{path} calls {macro_name} with a non-literal argument, which cannot be \
-                     statically resolved (DES-212)",
-                    path = path.display()
-                ));
-                return;
-            };
-            let Some(parent) = path.parent() else {
-                continue;
-            };
-            let resolved = normalize_lexically(&parent.join(&literal));
-            if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
-                risk = Some(format!(
-                    "{path} resolves {macro_name}({literal:?}) outside the manifest's included \
-                     area (DES-212)",
-                    path = path.display()
-                ));
-                return;
+            // DS-212's escape check must rule out *every* occurrence of
+            // each macro in the file, not only the first — a second or
+            // later call whose argument resolves outside the manifest's
+            // included area is exactly as much an escape risk as a first
+            // one would have been. A prior version of this loop checked
+            // only the first occurrence, disclosed and corrected here.
+            for argument in find_macro_literal_arguments(text, macro_name) {
+                let Some(literal) = argument else {
+                    risk = Some(format!(
+                        "{path} calls {macro_name} with a non-literal argument, which cannot \
+                         be statically resolved (DES-212)",
+                        path = path.display()
+                    ));
+                    return;
+                };
+                let Some(parent) = path.parent() else {
+                    continue;
+                };
+                let resolved = normalize_lexically(&parent.join(&literal));
+                if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
+                    risk = Some(format!(
+                        "{path} resolves {macro_name}({literal:?}) outside the manifest's \
+                         included area (DES-212)",
+                        path = path.display()
+                    ));
+                    return;
+                }
             }
         }
     });
@@ -238,10 +243,11 @@ fn collect_manifest(root: &Path) -> Option<Vec<ManifestEntry>> {
 }
 
 /// Recursively visits every ordinary file under `root` (skipping
-/// [`EXCLUDED_DIR_NAMES`] and symlinks), calling `visit` with each file's
+/// [`EXCLUDED_DIR_NAMES`] *at `root`'s own top level only* — see [`walk`]'s
+/// doc comment — and symlinks), calling `visit` with each file's
 /// root-relative path and raw bytes. Returns `None` on any I/O error.
 fn visit_files(root: &Path, visit: &mut dyn FnMut(&Path, &[u8])) -> Option<()> {
-    walk(root, &mut |path| {
+    walk(root, root, &mut |path| {
         let bytes = fs::read(path).ok()?;
         visit(path, &bytes);
         Some(())
@@ -252,7 +258,7 @@ fn visit_files(root: &Path, visit: &mut dyn FnMut(&Path, &[u8])) -> Option<()> {
 /// `visit` the file's path and decoded (lossy) text — used by
 /// [`escape_risk`], which only needs to grep source text, not hash bytes.
 fn visit_source_files(root: &Path, visit: &mut dyn FnMut(&Path, &str)) {
-    let _ = walk(root, &mut |path| {
+    let _ = walk(root, root, &mut |path| {
         if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
             return Some(());
         }
@@ -262,7 +268,17 @@ fn visit_source_files(root: &Path, visit: &mut dyn FnMut(&Path, &str)) {
     });
 }
 
-fn walk(dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>) -> Option<()> {
+/// `EXCLUDED_DIR_NAMES` (`.git`, `.verify`, `target`) is excluded only when
+/// it names a **direct child of the workspace root** (`dir == root`), not
+/// at any depth. DES-211 names specific root-relative generated-output
+/// directories ("`.git/`、`.verify/`…、Cargo target directory"), not a bare
+/// directory-name pattern; matching the name at any depth would also drop
+/// a real source directory this repository or another project happens to
+/// name `target` deeper in its tree (e.g. a crate's own
+/// `src/target/mod.rs`) out of the manifest — under-binding the subject in
+/// the direction DES-211 does not ask for. A prior version of this walk
+/// matched by bare name at any depth, disclosed and corrected here.
+fn walk(root: &Path, dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>) -> Option<()> {
     let entries = fs::read_dir(dir).ok()?;
     for entry in entries {
         let entry = entry.ok()?;
@@ -272,14 +288,15 @@ fn walk(dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>) -> Option<(
             continue;
         }
         if file_type.is_dir() {
-            if path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| EXCLUDED_DIR_NAMES.contains(&name))
+            if dir == root
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| EXCLUDED_DIR_NAMES.contains(&name))
             {
                 continue;
             }
-            walk(&path, visit_file)?;
+            walk(root, &path, visit_file)?;
         } else if file_type.is_file() {
             visit_file(&path)?;
         }
@@ -293,37 +310,56 @@ fn walk(dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>) -> Option<(
 /// (concatenation, `env!`, a path expression, etc. — DES-212 cannot rule
 /// out an excluded-area read through those), `None` when `macro_name` does
 /// not appear at all.
-fn find_macro_literal_argument(text: &str, macro_name: &str) -> Option<Option<String>> {
-    let start = text.find(macro_name)?;
-    let after = &text[start + macro_name.len()..];
-    let trimmed = after.trim_start();
-    let inner = trimmed.strip_prefix('(')?.trim_start();
-    if !inner.starts_with('"') {
-        return Some(None);
-    }
-    let mut chars = inner[1..].char_indices();
-    let mut escaped = false;
-    for (index, ch) in &mut chars {
-        if escaped {
-            escaped = false;
+/// Finds *every* call to `macro_name` in `text` and extracts each one's
+/// argument (DS-212 must rule out every occurrence, not only the first —
+/// see the caller). Each element is `Some(literal)` for a simple `"..."`
+/// string literal argument, or `None` when that call's argument is not a
+/// simple literal (concatenation, `env!`, a path expression, etc.).
+fn find_macro_literal_arguments(text: &str, macro_name: &str) -> Vec<Option<String>> {
+    let mut results = Vec::new();
+    let mut search_from = 0;
+    while let Some(relative) = text[search_from..].find(macro_name) {
+        let start = search_from + relative;
+        search_from = start + macro_name.len();
+        let after = &text[search_from..];
+        let trimmed = after.trim_start();
+        let Some(inner) = trimmed.strip_prefix('(') else {
+            continue;
+        };
+        let inner = inner.trim_start();
+        if !inner.starts_with('"') {
+            results.push(None);
             continue;
         }
-        match ch {
-            '\\' => escaped = true,
-            '"' => {
-                let literal = &inner[1..1 + index];
-                let rest = inner[1 + index + 1..].trim_start();
-                if rest.starts_with(')') {
-                    return Some(Some(literal.replace("\\\"", "\"")));
-                }
-                // Something after the string before `)` (concatenation,
-                // a second argument) — not a simple single-literal call.
-                return Some(None);
+        let mut chars = inner[1..].char_indices();
+        let mut escaped = false;
+        let mut found = None;
+        for (index, ch) in &mut chars {
+            if escaped {
+                escaped = false;
+                continue;
             }
-            _ => {}
+            match ch {
+                '\\' => escaped = true,
+                '"' => {
+                    let literal = &inner[1..1 + index];
+                    let rest = inner[1 + index + 1..].trim_start();
+                    found = Some(if rest.starts_with(')') {
+                        Some(literal.replace("\\\"", "\""))
+                    } else {
+                        // Something after the string before `)`
+                        // (concatenation, a second argument) — not a
+                        // simple single-literal call.
+                        None
+                    });
+                    break;
+                }
+                _ => {}
+            }
         }
+        results.push(found.unwrap_or(None));
     }
-    Some(None)
+    results
 }
 
 /// Lexically resolves `.`/`..` components without touching the filesystem
@@ -347,16 +383,21 @@ fn path_is_under(path: &Path, root: &Path) -> bool {
     path.starts_with(root)
 }
 
+/// Mirrors [`walk`]'s root-top-level-only exclusion rule: a resolved
+/// `include!`-family path is excluded only when its **first** path
+/// component under `root` is one of `EXCLUDED_DIR_NAMES`, not when any
+/// deeper component happens to share that name (a prior version checked
+/// every component, which would have wrongly flagged, e.g., a legitimate
+/// `src/target/mod.rs` include as an escape risk).
 fn path_is_excluded(path: &Path, root: &Path) -> bool {
     let Ok(relative) = path.strip_prefix(root) else {
         return true;
     };
-    relative.components().any(|component| {
-        component
-            .as_os_str()
-            .to_str()
-            .is_some_and(|name| EXCLUDED_DIR_NAMES.contains(&name))
-    })
+    relative
+        .components()
+        .next()
+        .and_then(|component| component.as_os_str().to_str())
+        .is_some_and(|name| EXCLUDED_DIR_NAMES.contains(&name))
 }
 
 #[cfg(test)]
@@ -416,6 +457,37 @@ mod tests {
         .expect("rewrite");
         let after = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
         assert_ne!(before.hash, after.hash);
+    }
+
+    /// DES-211 excludes the Cargo *build output* directory at the
+    /// workspace root, not any directory that happens to share its name —
+    /// a legitimate source directory nested deeper in the tree and named
+    /// `target` (e.g. `src/target/mod.rs`) must still be bound into the
+    /// manifest. A prior version of the exclusion matched by bare
+    /// directory name at any depth and would have silently dropped it.
+    #[test]
+    fn a_nested_directory_literally_named_target_is_not_excluded() {
+        let root = temp_dir("nested-target-dir");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::create_dir_all(root.join("src").join("target")).expect("mkdir src/target");
+        fs::write(
+            root.join("src").join("target").join("mod.rs"),
+            "pub fn compile_target() {}\n",
+        )
+        .expect("write src/target/mod.rs");
+        let adapter = AdapterId::new("rust-cargo");
+        let with_file = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+        fs::write(
+            root.join("src").join("target").join("mod.rs"),
+            "pub fn compile_target() { /* changed */ }\n",
+        )
+        .expect("rewrite src/target/mod.rs");
+        let after_change = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+        assert_ne!(
+            with_file.hash, after_change.hash,
+            "a change inside a nested `target`-named directory must change the manifest hash \
+             (it must not have been excluded)"
+        );
     }
 
     /// DS-819 relies on this via the Test subject hash separately, but
@@ -497,6 +569,34 @@ mod tests {
         fs::write(
             root.join("src").join("lib.rs"),
             "fn f() { let _ = include_str!(\"../../outside.json\"); }\n",
+        )
+        .expect("write lib.rs");
+        assert!(escape_risk(&root).is_some());
+    }
+
+    /// DS-212's escape check must not stop after the first `include_str!`
+    /// occurrence in a file — a *second* call whose argument resolves
+    /// outside the manifest's included area is exactly as much a risk as a
+    /// first would be. A prior version of this check only inspected the
+    /// first occurrence (`find_macro_literal_argument`, singular) and
+    /// would have missed this.
+    #[test]
+    fn a_second_include_str_occurrence_pointing_out_of_scope_forces_incompleteness() {
+        let root = temp_dir("include-second-out-of-scope").join("nested");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::create_dir_all(root.join("tests").join("fixtures")).expect("mkdir fixtures");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(
+            root.join("tests").join("fixtures").join("in-scope.json"),
+            "{}",
+        )
+        .expect("write in-scope fixture");
+        fs::write(
+            root.join("src").join("lib.rs"),
+            "fn f() {\n    \
+                 let _ = include_str!(\"../tests/fixtures/in-scope.json\");\n    \
+                 let _ = include_str!(\"../../outside.json\");\n\
+             }\n",
         )
         .expect("write lib.rs");
         assert!(escape_risk(&root).is_some());
