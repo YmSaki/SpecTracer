@@ -9,12 +9,12 @@ use syn::spanned::Spanned;
 use vtest_adapter_api::AdapterScanConfig;
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
-    test_subject_hash, CheckValue, ContentHash, Diagnostic, SourceLocation, TargetRef, TestEntity,
-    TestRecord, TestResult,
+    test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetCoverageResult, TargetRef,
+    TestEntity, TestRecord, TestResult, VerificationState,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
-    yaml_scalar_value, FormAnswers, FormSchema, FormValue, VerifyLayout,
+    FormAnswers, FormSchema, FormValue, VerifyLayout,
 };
 
 use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
@@ -29,22 +29,14 @@ pub struct TestSelection {
 pub struct TestView {
     #[serde(flatten)]
     pub test: TestEntity,
-    pub audits: Vec<AuditState>,
     pub evidence: Vec<EvidenceState>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct AuditState {
-    pub id: String,
-    pub kind: Option<String>,
-    pub verdict: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct EvidenceState {
     pub id: String,
     pub result: TestResult,
-    pub target_execution: CheckValue,
+    pub target_coverage: VerificationState,
     pub executed_at: String,
 }
 
@@ -989,23 +981,6 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
         }
     };
     let layout = VerifyLayout::new(root);
-    let mut audits = Vec::new();
-    let audit_ids = read_record_ids(&layout.audits_dir())
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    for record_id in audit_ids {
-        let path = layout.audits_dir().join(format!("{record_id}.yaml"));
-        let text = fs::read_to_string(&path)
-            .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-        if yaml_scalar_value(&text, "test_id").as_deref() == Some(id)
-            || audit_mentions_test(&text, id)
-        {
-            audits.push(AuditState {
-                id: record_id,
-                kind: yaml_scalar_value(&text, "kind"),
-                verdict: yaml_scalar_value(&text, "verdict"),
-            });
-        }
-    }
     let mut evidence = Vec::new();
     let evidence_ids = read_record_ids(&layout.evidence_dir())
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
@@ -1017,41 +992,21 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
             evidence.push(EvidenceState {
                 id: record.id,
                 result: record.result,
-                target_execution: if record.target_execution.checked {
-                    record.target_execution.result
+                target_coverage: if record.target_coverage.checked {
+                    match record.target_coverage.result {
+                        TargetCoverageResult::Pass => VerificationState::Pass,
+                        TargetCoverageResult::Fail => VerificationState::Fail,
+                        TargetCoverageResult::Unknown => VerificationState::Unknown,
+                    }
                 } else {
-                    CheckValue::NotChecked
+                    VerificationState::NoEvidence
                 },
                 executed_at: record.executed_at,
             });
         }
     }
     evidence.sort_by(|left, right| left.executed_at.cmp(&right.executed_at));
-    Ok(TestView {
-        test,
-        audits,
-        evidence,
-    })
-}
-
-fn audit_mentions_test(text: &str, test_id: &str) -> bool {
-    let mut test_subject = false;
-    for raw in text.lines() {
-        let trimmed = raw.trim().trim_start_matches('-').trim();
-        if let Some(value) = trimmed.strip_prefix("kind:") {
-            test_subject = value.trim().trim_matches(['\'', '"']) == "test";
-            continue;
-        }
-        if test_subject {
-            if let Some(value) = trimmed.strip_prefix("id:") {
-                if value.trim().trim_matches(['\'', '"']) == test_id {
-                    return true;
-                }
-                test_subject = false;
-            }
-        }
-    }
-    false
+    Ok(TestView { test, evidence })
 }
 
 pub fn list_tests(
@@ -1993,11 +1948,16 @@ mod tests {
     /// `rescan_current_test` never resolves `covers` (that happens in
     /// `scan_project`/`materialize_tests`, not here).
     fn rescan_fixture(calc_rs: &str) -> PathBuf {
-        let suffix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-scan-rescan-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- see
+        // `lib.rs`'s `fixture()` doc comment for the confirmed root cause.
+        // Matches this same file's own `temp_root` helper's approach.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-scan-rescan-{}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
         fs::write(

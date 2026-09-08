@@ -22,9 +22,8 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    CheckValue as EvidenceCheckValue, ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord,
-    ManagedTestLink, SectionNode, SentenceNode, TargetRef, TestEntity, VerificationCheck,
-    VerificationState, VoRecord,
+    ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink, SectionNode,
+    SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState, VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -100,16 +99,39 @@ impl EntityScope {
 
 /// 最上位 field `scope`。DS-1114「`--format json` では同じ内容を最上位 field
 /// `scope`（§12.1）として返し、完全検証の場合も省略しない」、DS-947。
+///
+/// Field names/shape follow 別紙C DES-548 literally: `scope.requested.items`
+/// （`--items` 省略時は固定4検査を4件すべて列挙）、`scope.requested.entities`
+/// （エンティティ軸無指定は空 list）、`scope.unverified_outside_scope`
+/// （検査軸4件未満またはエンティティ軸指定ありで `true`、完全検証で
+/// `false`）。
 #[derive(Clone, Debug, Serialize)]
 pub struct ScopeReport {
-    pub requested_checks: Vec<VerificationCheck>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<EntityScope>,
-    /// DS-1111「限定 scope の結果を完全検証 OK と表示しない」。
+    pub requested: RequestedScope,
+    /// DS-1111「限定 scope の結果を完全検証 OK と表示しない」の内部判定に
+    /// 使う。DES-548 の wire 名には無いフィールドなのでシリアライズしない
+    /// — `unverified_outside_scope` が同じ真偽値を wire へ運ぶ。
+    #[serde(skip)]
     pub limited: bool,
+    /// `requested.entities` のもとになった値そのもの（`entity.id()` を
+    /// テキスト描画などで使う Rust 側の呼び出し元向け）。DES-548 の wire
+    /// 名には無いのでシリアライズしない。
+    #[serde(skip)]
+    pub entity: Option<EntityScope>,
     /// DS-1113「scope を限定した場合、出力冒頭に要求 scope と「scope 外は
     /// 未検証」の旨を必ず表示する」。
-    pub outside_scope_is_unverified: bool,
+    pub unverified_outside_scope: bool,
+}
+
+/// DES-548「`scope.requested.items`…`scope.requested.entities`」。
+#[derive(Clone, Debug, Serialize)]
+pub struct RequestedScope {
+    pub items: Vec<VerificationCheck>,
+    /// 0 or 1 entries — `EntityScope`'s own axis is exclusive (DS-1104), but
+    /// DES-548 names this field in the plural and requires an empty list
+    /// when no entity axis was requested, so this always holds the current
+    /// entity's id as a one-element list rather than an `Option`.
+    pub entities: Vec<String>,
 }
 
 /// One check's result at one evaluation point.
@@ -412,13 +434,19 @@ pub fn verify_project(
 
     VerifyOutcome {
         scope: ScopeReport {
-            requested_checks: ALL_CHECKS
-                .into_iter()
-                .filter(|check| selected.contains(check))
-                .collect(),
-            entity: entity_scope,
+            requested: RequestedScope {
+                items: ALL_CHECKS
+                    .into_iter()
+                    .filter(|check| selected.contains(check))
+                    .collect(),
+                entities: entity_scope
+                    .iter()
+                    .map(|entity| entity.id().to_owned())
+                    .collect(),
+            },
             limited,
-            outside_scope_is_unverified: limited,
+            entity: entity_scope,
+            unverified_outside_scope: limited,
         },
         structural,
         tree,
@@ -992,9 +1020,11 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
     }
 
     // DS-831/832: the runner passed; the coverage measurement decides.
-    let coverage = &record.target_execution;
+    let coverage = &record.target_coverage;
+    // DS-832: `checked == false` -> NO_EVIDENCE (NOT_CHECKED); the diagnostic
+    // label is derived here from `checked`/`count`/`result`, not stored on
+    // the Evidence record's `target_coverage` block (DES-183/DES-185).
     if !coverage.checked {
-        // DS-832: uncomputed/unmeasured reachability -> NO_EVIDENCE (NOT_CHECKED).
         return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
@@ -1002,25 +1032,33 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
             vec!["target reachability was not measured (DS-832)".to_owned()],
         );
     }
+    // DS-832: a measured-but-zero count -> FAIL (NOT_EXECUTED), independent
+    // of the aggregate `result` value, since `count == 0` is the concrete
+    // observation that the declared target was never reached.
+    if coverage.count == Some(0) {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Fail,
+            vec![DiagnosticLabel::NotExecuted],
+            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
+        );
+    }
     match coverage.result {
-        EvidenceCheckValue::Pass => CheckOutcome::new(
+        vtest_model::TargetCoverageResult::Pass => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
             vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
         ),
-        EvidenceCheckValue::Fail => CheckOutcome::new(
+        vtest_model::TargetCoverageResult::Fail => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Fail,
             vec![DiagnosticLabel::NotExecuted],
             vec!["measured target coverage count is 0 (DS-832)".to_owned()],
         ),
-        // DS-832「関数不見当はUNKNOWNとする」— this aggregate-level
-        // `TargetExecution` (predecessor single-field shape; see DES-185's
-        // disclosed `target_coverage` rename this crate has not carried out)
-        // cannot name which declared target went unfound, only that the
-        // aggregate measurement could not identify one.
-        _ => CheckOutcome::new(
+        // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
+        // measurement could not identify the declared target function.
+        vtest_model::TargetCoverageResult::Unknown => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Unknown,
             Vec::new(),
@@ -1257,6 +1295,20 @@ impl EntitySelection {
             tests: selected_tests,
         }
     }
+}
+
+/// The VO subtree rooted at `root_id`: `root_id` itself plus every VO
+/// reachable by following `parent` links downward (child -> parent is the
+/// stored edge; this walks it in reverse to a fixed point). Shared by
+/// `ScopeReport::from_scope`'s own `EntityScope::Vo` case and by
+/// `vtest-cli`'s `ops::run` for `--vo` (DS-744: "VO指定は部分木のcoversを
+/// 辿る" — the subtree itself is this function; walking each member's
+/// `covers` to a Test set is the caller's job).
+pub fn vo_subtree_ids(vos: &BTreeMap<String, VoRecord>, root_id: &str) -> BTreeSet<String> {
+    let mut selected = BTreeSet::new();
+    selected.insert(root_id.to_owned());
+    extend_with_descendants(vos, &mut selected);
+    selected
 }
 
 fn extend_with_descendants(vos: &BTreeMap<String, VoRecord>, selected: &mut BTreeSet<String>) {
@@ -1568,7 +1620,6 @@ fn join_ids(ids: &BTreeSet<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{
         AdapterId, ContentHash, DerivesFrom, Diagnostic, DiscoveredTest, DocumentId,
         ExecutionDescriptor, NodeSource, ProjectPath, RootNode, SentenceNode, SourceLocation,
@@ -1581,11 +1632,17 @@ mod tests {
     // -----------------------------------------------------------------
 
     fn temp_root(name: &str) -> std::path::PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-verify-{name}-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- see
+        // `vtest-scan`'s `fixture()` doc comment for the confirmed root
+        // cause of a previously-unconfirmed flaky failure elsewhere in
+        // this workspace.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-verify-{name}-{}-{sequence}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&root).expect("create fixture root");
         root
     }
@@ -2034,7 +2091,7 @@ mod tests {
 
         let outcome = verify_project(&root, &scan, None, None);
         assert_eq!(
-            outcome.scope.requested_checks,
+            outcome.scope.requested.items,
             ALL_CHECKS.to_vec(),
             "omitting --items must mean the fixed four, not the config's list"
         );
@@ -2088,7 +2145,7 @@ mod tests {
             None,
         );
         assert!(outcome.scope.limited);
-        assert!(outcome.scope.outside_scope_is_unverified);
+        assert!(outcome.scope.unverified_outside_scope);
         assert_eq!(
             state_of(&outcome, VerificationCheck::ChainIntegrity),
             VerificationState::Pass
@@ -2249,10 +2306,10 @@ mod tests {
                 command: "cargo test".to_owned(),
                 exit_code: 0,
             },
-            target_execution: vtest_model::TargetExecution {
+            target_coverage: vtest_model::TargetCoverage {
                 checked: false,
                 method: None,
-                result: EvidenceCheckValue::NotChecked,
+                result: vtest_model::TargetCoverageResult::Unknown,
                 count: None,
             },
             log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
@@ -2268,7 +2325,7 @@ mod tests {
              execution_state:\n  schema: '{schema}'\n  complete: {complete}\n  hash: null\n\
              hashes:\n  test_fn: '{test_fn}'\n  target_fn: '{target_fn}'\n  target_fns:\n    - '{target_fn}'\n\
              runner:\n  kind: 'cargo-test'\n  command: 'cargo test'\n  exit_code: 0\n\
-             target_execution:\n  checked: false\n  method: null\n  result: NOT_CHECKED\n  count: null\n\
+             target_coverage:\n  checked: false\n  method: null\n  result: UNKNOWN\n  count: null\n\
              log_ref: '{log_ref}'\n",
             id = record.id,
             test_id = record.test_id.as_str(),
@@ -2554,30 +2611,30 @@ mod tests {
 
         // DS-832: runner PASS, coverage not measured -> NO_EVIDENCE (NOT_CHECKED).
         record.result = vtest_model::TestResult::Pass;
-        record.target_execution.checked = false;
+        record.target_coverage.checked = false;
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::NoEvidence);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
 
         // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
-        record.target_execution.checked = true;
-        record.target_execution.result = EvidenceCheckValue::Fail;
-        record.target_execution.count = Some(0);
+        record.target_coverage.checked = true;
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Fail;
+        record.target_coverage.count = Some(0);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
         // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
-        record.target_execution.result = EvidenceCheckValue::Unknown;
-        record.target_execution.count = None;
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Unknown;
+        record.target_coverage.count = None;
         assert_eq!(
             dynamic_result_from_evidence(&record).state,
             VerificationState::Unknown
         );
 
         // DS-831: measured and reached -> PASS.
-        record.target_execution.result = EvidenceCheckValue::Pass;
-        record.target_execution.count = Some(3);
+        record.target_coverage.result = vtest_model::TargetCoverageResult::Pass;
+        record.target_coverage.count = Some(3);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());

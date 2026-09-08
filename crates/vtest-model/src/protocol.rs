@@ -1,37 +1,6 @@
 use crate::Diagnostic;
 use serde::{Deserialize, Serialize};
 
-/// Identifies the kind of verification check being performed.
-///
-/// Each variant represents a distinct verification concern whose result is
-/// recorded separately.
-#[deprecated(note = "Predecessor model: replace with the canonical v0.1 verification checks")]
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum CheckItem {
-    #[serde(rename = "spec_coverage")]
-    SpecCoverage,
-    #[serde(rename = "vo_decomposition")]
-    VoDecomposition,
-    #[serde(rename = "vo_coverage")]
-    VoCoverage,
-    #[serde(rename = "test_existence")]
-    TestExistence,
-    #[serde(rename = "static_audit")]
-    StaticAudit,
-    #[serde(rename = "semantic_audit")]
-    SemanticAudit,
-    #[serde(rename = "impl_consistency")]
-    ImplConsistency,
-    #[serde(rename = "test_execution")]
-    TestExecution,
-    #[serde(rename = "runtime_result")]
-    RuntimeResult,
-    #[serde(rename = "target_execution")]
-    TargetExecution,
-    #[serde(rename = "evidence_validity")]
-    EvidenceValidity,
-}
-
 /// JSON response envelope containing result data and diagnostics.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct JsonEnvelope<T> {

@@ -8,15 +8,15 @@
 //! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
 //! `verify` を動かすために必要な範囲だけを先行して落としている。
 
+pub mod ops;
+
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use vtest_model::{Diagnostic, ExitCode, JsonEnvelope, VerificationCheck, VerificationState};
-use vtest_scan::{scan_project, ScanResult};
-use vtest_store::{init_project, load_config, GateConfig, ProjectConfig};
-use vtest_verify::{
-    check_name, parse_check, verify_project, CheckOutcome, EntityScope, TreeNode, VerifyOutcome,
-};
+use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
+use vtest_scan::scan_project;
+use vtest_store::{load_config, VerifyLayout};
+use vtest_verify::{check_name, CheckOutcome, TreeNode};
 
 #[derive(Parser, Debug)]
 #[command(name = "vtest", version, about = "Specification traceability verifier")]
@@ -54,6 +54,25 @@ pub enum Command {
     Scan,
     /// Validate configuration and adapter preconditions.
     Doctor,
+    /// Execute one or more Tests and record Evidence (DS-1101-1103).
+    Run {
+        /// DS-744 target axis 1/3: explicit Test ids.
+        #[arg(long = "test", value_name = "TEST_ID")]
+        test: Vec<String>,
+        /// DS-744 target axis 2/3: a VO subtree (parent-chain descendants),
+        /// selecting every Test whose `covers` intersects it.
+        #[arg(long = "vo", value_name = "VO_ID", conflicts_with = "test")]
+        vo: Option<String>,
+        /// DS-744 target axis 3/3: every Test the scan materialized.
+        /// Also the default when neither `--test` nor `--vo` is given (kept
+        /// for the CLI's pre-DS-744 default-target behavior).
+        #[arg(long, conflicts_with_all = ["test", "vo"])]
+        all: bool,
+        /// DS-1102/DS-1103: cargo test only; `target_coverage` is recorded
+        /// `checked: false` and `target_binding` takes no dynamic evidence.
+        #[arg(long)]
+        fast: bool,
+    },
     /// Aggregate the four canonical checks and return OK / NG.
     ///
     /// SPEC-398「`vtest verify` は集約を実行し、`OK` / `NG` を返す」。
@@ -80,6 +99,155 @@ pub enum Command {
         #[arg(long)]
         summary: bool,
     },
+    /// Approval domain: the sole canonical entry point for承認レコード
+    /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
+    #[command(subcommand)]
+    Approval(ApprovalCommand),
+    /// Document registration (本冊 §3.1, DES-585/586/595, DS-1015-1017/
+    /// 1681-1684) — operates directly on `.verify/doc/<id>.json` node-tree
+    /// files. See `vtest_store::doc_registry`'s module doc comment for why
+    /// there is no separate persisted registry record.
+    #[command(subcommand)]
+    Doc(DocCommand),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DocCommand {
+    /// DES-595. `--path` names an already-built node-tree JSON file (1
+    /// document = 1 JSON file) to register as `.verify/doc/<id>.json`.
+    Add {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        path: String,
+        /// DS-1003/1681: bare upstream node ids — writes onto every
+        /// top-level node's own `derives_from` (0 given = leave the
+        /// file's own content untouched; DS-1003's "0件可＝根候補").
+        #[arg(long = "derives-from")]
+        derives_from: Vec<String>,
+        /// DS-1195/1683: a plain bool (matching MCP `doc_upsert`'s own
+        /// `root: bool`). Asserts the source file's own top-level content
+        /// is entirely `root[]`-layer (rejected otherwise — DS-1658 ties a
+        /// node's id prefix to its layer, so this cannot move a node into
+        /// `root[]`; see `vtest_store::doc_registry::apply_root`).
+        #[arg(long, conflicts_with = "no_root")]
+        root: bool,
+        /// BD-331 names this flag alongside `--root`; behaviourally
+        /// identical to omitting both flags (DS-1195 defines `root` as a
+        /// bool, not a three-valued domain, so there is no distinct
+        /// "explicitly not root" assertion left to make — see
+        /// `apply_root`'s doc comment).
+        #[arg(long = "no-root", conflicts_with = "root")]
+        no_root: bool,
+        #[arg(long)]
+        update: bool,
+    },
+    /// DS-1015/1016: `--tree` renders the `derives_from` chain as a tree;
+    /// `--roots` lists the current root set.
+    List {
+        #[arg(long)]
+        tree: bool,
+        #[arg(long)]
+        roots: bool,
+    },
+    /// DS-1017/1682.
+    Show { id: String },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum SubjectTypeArg {
+    Vo,
+    Document,
+    Judgment,
+}
+
+impl SubjectTypeArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            SubjectTypeArg::Vo => "vo",
+            SubjectTypeArg::Document => "document",
+            SubjectTypeArg::Judgment => "judgment",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApprovedStateArg {
+    Approved,
+    Rejected,
+    Withdrawn,
+}
+
+impl ApprovedStateArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApprovedStateArg::Approved => "approved",
+            ApprovedStateArg::Rejected => "rejected",
+            ApprovedStateArg::Withdrawn => "withdrawn",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApproverKindArg {
+    Human,
+    Agent,
+}
+
+impl ApproverKindArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApproverKindArg::Human => "human",
+            ApproverKindArg::Agent => "agent",
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalCommand {
+    /// DS-1050/1051/1052: the sole way承認レコード are created.
+    /// `vtest vo approve` (not yet ported to this canonical CLI in this
+    /// slice) is documented as an alias of this command (BD-074, DS-1045);
+    /// it is not a second, independent implementation.
+    Create {
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
+        #[arg(long = "state", value_enum)]
+        state: ApprovedStateArg,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
+    },
+    /// BD-307/DS-1056: writes `state: withdrawn` + `supersedes:
+    /// [approval-id]`, copying the target record's subject fields.
+    Withdraw {
+        approval_id: String,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+    },
+    /// DS-1057/BD-308: the subject's full承認レコード history plus its
+    /// current effective承認 state (`draft` / `approved`).
+    Show {
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
+    },
 }
 
 pub fn run(cli: Cli) -> ExitCode {
@@ -87,6 +255,14 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
+        Command::Run {
+            test,
+            vo,
+            all,
+            fast,
+        } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
+        Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
+        Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -122,20 +298,11 @@ fn run_init(project: &Path, name: Option<&str>, format: OutputFormat, quiet: boo
                 .map(str::to_owned)
         })
         .unwrap_or_else(|| "project".to_owned());
-    match init_project(&root, &project_name) {
-        Ok(_) => {
-            let envelope = JsonEnvelope::new(
-                true,
-                serde_json::json!({ "project": root, "initialized": true }),
-                Vec::new(),
-            );
-            emit(format, quiet, &envelope, |_| {
-                format!("initialised {}\n", root.display())
-            });
-            ExitCode::Ok
-        }
-        Err(error) => usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
-    }
+    let (exit, envelope) = ops::init::execute(&root, &project_name);
+    emit_value(format, quiet, &envelope, |_| {
+        format!("initialised {}\n", root.display())
+    });
+    exit
 }
 
 fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
@@ -143,46 +310,25 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    // config の拒否は操作拒否であって内部エラーではない。DS-935「`vtest scan`
-    // / `vtest doctor`では、registry・config・adapter契約の検証…が
-    // E-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。`scan_project` は
-    // config 読み込み失敗を `ScanError::Store`（診断コードなし）へ畳むため、
-    // ここで先に読んでおかないと終了コード 3（内部エラー）になってしまう。
-    if let Err(error) = load_config(&root) {
-        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
-    }
-    match scan_project(&root) {
-        Ok(result) => {
-            // DS-1304「`vtest scan` / `doctor`はerrorなしをexit 0にする」、
-            // DS-936「scanが完了してrepository整合性のE-SCAN-*を報告した
-            // 場合は1とする」。
-            let has_errors = result.has_errors();
-            let data = serde_json::json!({
-                "files": result.summary.files,
-                "tests": result.summary.tests,
-                "sources": result.summary.sources,
-                "discovered": result.discovered.len(),
-            });
-            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
-            emit(format, quiet, &envelope, |envelope| {
-                format!(
-                    "scan: {} test(s), {} source(s), {} diagnostic(s)\n",
-                    result.summary.tests,
-                    result.summary.sources,
-                    envelope.diagnostics.len()
-                )
-            });
-            if has_errors {
-                ExitCode::VerificationFailed
-            } else {
-                ExitCode::Ok
-            }
-        }
-        // DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter
-        // 契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された
-        // 場合は2とする」。
-        Err(error) => scan_error_exit(&error, format, quiet),
-    }
+    let (exit, envelope) = ops::scan::execute(&root);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let tests = envelope
+            .get("data")
+            .and_then(|data| data.get("tests"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let sources = envelope
+            .get("data")
+            .and_then(|data| data.get("sources"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("scan: {tests} test(s), {sources} source(s), {diagnostics} diagnostic(s)\n")
+    });
+    exit
 }
 
 fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
@@ -190,26 +336,73 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    // `doctor` は config と adapter 前提の検証（DS-935）。config の読み込みが
-    // E-CONFIG-* で拒否されれば 2、scan が整合性 error を報告すれば 1。
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
+    let (exit, envelope) = ops::doctor::execute(&root);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let project = envelope
+            .get("data")
+            .and_then(|data| data.get("project"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let adapters = envelope
+            .get("data")
+            .and_then(|data| data.get("adapters"))
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("doctor: project {project}, {adapters} adapter(s), {diagnostics} diagnostic(s)\n")
+    });
+    exit
+}
+
+// ---------------------------------------------------------------------------
+// run
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+fn run_run(
+    project: &Path,
+    test_ids: Vec<String>,
+    vo: Option<String>,
+    all: bool,
+    fast: bool,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
     };
-    match scan_project(&root) {
+    if let Err(error) = load_config(&root) {
+        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+    }
+    let scan = match scan_project(&root) {
+        Ok(scan) => scan,
+        Err(error) => return scan_error_exit(&error, format, quiet),
+    };
+    let layout = VerifyLayout::new(&root);
+    let target = if let Some(vo_id) = vo {
+        ops::run::RunTarget::Vo(vo_id)
+    } else if all {
+        ops::run::RunTarget::All
+    } else {
+        ops::run::RunTarget::Test(test_ids)
+    };
+    match ops::run::run(&root, &layout, &scan, &target, fast) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = serde_json::json!({
-                "project": config.project.name,
-                "adapters": config.adapters.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
-                "gates": config.gates.iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
+                "evidence": result.evidence.len(),
+                "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
+                "fast": fast,
             });
             let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
             emit(format, quiet, &envelope, |envelope| {
                 format!(
-                    "doctor: project {}, {} adapter(s), {} diagnostic(s)\n",
-                    config.project.name,
-                    config.adapters.len(),
+                    "run: {} evidence record(s) written, {} diagnostic(s)\n",
+                    result.evidence.len(),
                     envelope.diagnostics.len()
                 )
             });
@@ -219,7 +412,18 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
                 ExitCode::Ok
             }
         }
-        Err(error) => scan_error_exit(&error, format, quiet),
+        Err(
+            error @ ops::run::RunOpError::UnknownTestId(_)
+            | error @ ops::run::RunOpError::UnknownVoId(_),
+        ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
+        Err(error @ ops::run::RunOpError::Execution(_)) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+        Err(error @ ops::run::RunOpError::Store(_)) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
     }
 }
 
@@ -235,46 +439,557 @@ fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: b
 }
 
 // ---------------------------------------------------------------------------
+// approval
+// ---------------------------------------------------------------------------
+
+fn run_approval(
+    project: &Path,
+    command: ApprovalCommand,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    match command {
+        ApprovalCommand::Create {
+            subject_type,
+            subject_id,
+            state,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+            supersedes,
+        } => {
+            let result = ops::approval::create(
+                &layout,
+                ops::approval::CreateArgs {
+                    subject_type: subject_type.as_str().to_owned(),
+                    subject_id,
+                    approved_state: state.as_str().to_owned(),
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                    supersedes,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Withdraw {
+            approval_id,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+        } => {
+            let result = ops::approval::withdraw(
+                &layout,
+                ops::approval::WithdrawArgs {
+                    approval_id,
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Show {
+            subject_type,
+            subject_id,
+        } => match ops::approval::show(&layout, subject_type.as_str(), &subject_id) {
+            Ok(result) => {
+                let effective = match result.effective_state {
+                    vtest_store::approval::EffectiveApprovalState::Draft => "draft",
+                    vtest_store::approval::EffectiveApprovalState::Approved => "approved",
+                };
+                let data = serde_json::json!({
+                    "records": result.records.iter().map(|record| serde_json::json!({
+                        "id": record.id,
+                        "subject_type": record.subject_type,
+                        "subject": record.subject,
+                        "approved_state": record.approved_state,
+                        "supersedes": record.supersedes,
+                        "approved_at": record.approved_at,
+                    })).collect::<Vec<_>>(),
+                    "effective_state": effective,
+                });
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, |envelope| {
+                    format!(
+                        "approval show: {} record(s), effective state {}\n",
+                        envelope.data["records"].as_array().map_or(0, Vec::len),
+                        effective
+                    )
+                });
+                ExitCode::Ok
+            }
+            Err(error) => approval_error_exit(&error, format, quiet),
+        },
+    }
+}
+
+fn approval_result(
+    result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match result {
+        Ok(record) => {
+            let data = serde_json::json!({
+                "id": record.id,
+                "subject_type": record.subject_type,
+                "subject": record.subject,
+                "approved_state": record.approved_state,
+                "supersedes": record.supersedes,
+                "approved_at": record.approved_at,
+            });
+            let envelope = JsonEnvelope::new(true, data, Vec::new());
+            emit(format, quiet, &envelope, |envelope| {
+                format!(
+                    "approval {}: {}\n",
+                    envelope.data["approved_state"].as_str().unwrap_or(""),
+                    envelope.data["id"].as_str().unwrap_or(""),
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => approval_error_exit(&error, format, quiet),
+    }
+}
+
+fn approval_error_exit(
+    error: &ops::approval::ApprovalOpError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    use ops::approval::ApprovalOpError;
+    match error {
+        // DS-1058: "--subject-type judgment の参照先判断記録…を完全・
+        // current に解決できない場合は E-APPROVAL-001" — no judgment-record
+        // domain exists in this codebase (see ApprovalOpError's doc
+        // comment), so the reference can never resolve; this is DS-1058's
+        // unresolved-subject case, not a Structured Operation input
+        // validation failure (E-OP-001's actual domain).
+        ApprovalOpError::JudgmentSubjectTypeUnsupported => {
+            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
+        }
+        ApprovalOpError::UnresolvedSubject(_) => {
+            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
+        }
+        ApprovalOpError::InvalidRequest(_) => {
+            usage_failure(format, quiet, "E-APPROVAL-002", &error.to_string())
+        }
+        ApprovalOpError::Store(_) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// doc
+// ---------------------------------------------------------------------------
+
+fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    match command {
+        DocCommand::Add {
+            id,
+            path,
+            derives_from,
+            root: root_flag,
+            no_root,
+            update,
+        } => {
+            // DS-1195: `root` is a plain bool -- `--root` asserts, and
+            // `--no-root`/omitting both flags are now behaviourally
+            // identical (no assertion), see `apply_root`'s doc comment.
+            // `--no-root` is kept as a CLI flag (BD-331 names both flags)
+            // but no longer carries distinct semantics from the default.
+            //
+            // DS-1683/BD-331 (`233caec`/PR #50): root designation is fixed
+            // at initial registration only; `--root`/`--no-root` given
+            // alongside `--update` is rejected (`ops::doc::add` enforces
+            // this given `root_specified`, since the retired DS-1014 was
+            // the only ground for allowing it).
+            let root_specified = root_flag || no_root;
+            //
+            // DS-1685: a repeatable-value clap flag cannot distinguish
+            // "given, zero times" from "never given" the way MCP's JSON
+            // `"derives_from": []` vs an absent key can -- this is a
+            // disclosed limitation of the CLI flag's own shape (see
+            // `apply_derives_from`'s doc comment), not something this
+            // mapping invents a workaround for.
+            let derives_from = if derives_from.is_empty() {
+                None
+            } else {
+                Some(derives_from)
+            };
+            match ops::doc::add(
+                &root,
+                &layout,
+                ops::doc::AddArgs {
+                    id,
+                    path,
+                    derives_from,
+                    root: root_flag,
+                    root_specified,
+                    update,
+                },
+            ) {
+                Ok(view) => {
+                    let data = doc_view_json(&view);
+                    let envelope = JsonEnvelope::new(true, data, Vec::new());
+                    emit(format, quiet, &envelope, |envelope| {
+                        format!("doc add: {}\n", envelope.data["id"].as_str().unwrap_or(""))
+                    });
+                    ExitCode::Ok
+                }
+                Err(error) => doc_error_exit(&error, format, quiet),
+            }
+        }
+        DocCommand::List { tree, roots } => match ops::doc::list(&layout) {
+            Ok(result) => {
+                let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
+                let data = serde_json::json!({
+                    "records": records,
+                    "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
+                    "unresolved_derives_from": result.unresolved,
+                    "document_chain": result.document_chain,
+                    "freshness": result.freshness,
+                });
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, |envelope| {
+                    render_doc_list_text(envelope, tree, roots)
+                });
+                ExitCode::Ok
+            }
+            Err(error) => doc_error_exit(&error, format, quiet),
+        },
+        DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
+            Ok(result) => {
+                let mut data = doc_view_json(&result.view);
+                // DS-1017 new: `freshness` is not part of `doc_view_json`'s
+                // base shape at all (see that function's own doc comment)
+                // -- this is the one place that actually computed it, via
+                // `ops::doc::show`'s per-node, cross-referencing
+                // computation (see `ShowResult`'s doc comment).
+                data["freshness"] = serde_json::json!(result.freshness);
+                data["approval_states"] = serde_json::json!(result.approval_states);
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, render_doc_show_text);
+                ExitCode::Ok
+            }
+            Err(error) => doc_error_exit(&error, format, quiet),
+        },
+    }
+}
+
+// DS-1017 new/DS-1194: `freshness` is deliberately not part of this base
+// JSON shape -- it is a per-node, cross-referencing computation
+// (`ops::doc::{list,show}`'s own `freshness` field), not a `DocView`
+// property, so each caller that has actually run that computation adds
+// it itself rather than this function claiming a value it never
+// computed.
+fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value {
+    serde_json::json!({
+        "id": view.id,
+        "path": view.path.to_string_lossy(),
+        "content_hash": view.content_hash.as_str(),
+        "derives_from": view.derives_from,
+        "root": view.is_root,
+    })
+}
+
+fn render_doc_list_text(
+    envelope: &JsonEnvelope<serde_json::Value>,
+    tree: bool,
+    roots_only: bool,
+) -> String {
+    let data = &envelope.data;
+    let mut out = String::new();
+    if roots_only {
+        out.push_str("Roots:\n");
+        for root in data["roots"].as_array().into_iter().flatten() {
+            out.push_str(&format!("  {}\n", root.as_str().unwrap_or("")));
+        }
+        return out;
+    }
+    let records = data["records"].as_array().cloned().unwrap_or_default();
+    if tree {
+        out.push_str("Document tree (derives_from):\n");
+        let chain: std::collections::BTreeMap<String, Vec<String>> = data["document_chain"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(id, parents)| {
+                let parents = parents
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| entry.as_str().map(str::to_owned))
+                    .collect();
+                (id.clone(), parents)
+            })
+            .collect();
+        out.push_str(&render_doc_tree(&chain));
+    } else {
+        for record in &records {
+            out.push_str(&format!("{}\n", record["id"].as_str().unwrap_or("")));
+        }
+    }
+    let unresolved = data["unresolved_derives_from"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if !unresolved.is_empty() {
+        out.push_str("\nUnresolved derives_from (DS-1018):\n");
+        for entry in &unresolved {
+            if let Some(pair) = entry.as_array() {
+                out.push_str(&format!(
+                    "  {} -> {}\n",
+                    pair.first().and_then(|v| v.as_str()).unwrap_or(""),
+                    pair.get(1).and_then(|v| v.as_str()).unwrap_or("")
+                ));
+            }
+        }
+    }
+    out
+}
+
+/// DS-1015: `doc list --tree` renders the *document-level* `derives_from`
+/// chain as an actual nested tree (indented by depth), not a flat
+/// `id -> [parents]` listing. `chain` maps each registered document id to
+/// its already-resolved parent *document* ids (see
+/// `vtest_store::doc_registry::document_derives_from` for why this is not
+/// simply each document's raw `derives_from`, which holds node ids). A
+/// document with no parents is a root of this display graph (distinct from
+/// `root[]` layer membership) and starts at depth 0; each child is printed
+/// once under every parent it names (a document may have more than one
+/// parent, so this is not always a strict tree) — re-visiting a node while
+/// already on the current path is a cycle and is marked rather than
+/// recursed into, since the registered set is untrusted input.
+pub fn render_doc_tree(chain: &std::collections::BTreeMap<String, Vec<String>>) -> String {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let mut children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (id, parents) in chain {
+        for parent in parents {
+            children.entry(parent.clone()).or_default().push(id.clone());
+        }
+    }
+
+    let mut out = String::new();
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    let display_roots: Vec<&String> = chain
+        .keys()
+        .filter(|id| chain.get(*id).is_none_or(Vec::is_empty))
+        .collect();
+    for root in display_roots {
+        render_doc_tree_node(root, &children, 0, &mut vec![root.clone()], &mut out);
+        visited.insert(root.clone());
+        collect_descendants(root, &children, &mut visited);
+    }
+    // A document reachable only through a cycle (every document on its own
+    // connected component has *some* `derives_from` edge, so none of them
+    // is empty-parents and none was picked up as a display root above)
+    // must not silently vanish from the tree -- render one entry per
+    // remaining unvisited id, in id order, as its own top-level (marked)
+    // node rather than recursing into it again.
+    for id in chain.keys() {
+        if !visited.contains(id) {
+            render_doc_tree_node(id, &children, 0, &mut vec![id.clone()], &mut out);
+            visited.insert(id.clone());
+            collect_descendants(id, &children, &mut visited);
+        }
+    }
+    out
+}
+
+fn collect_descendants(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    visited: &mut std::collections::BTreeSet<String>,
+) {
+    for child in children.get(id).into_iter().flatten() {
+        if visited.insert(child.clone()) {
+            collect_descendants(child, children, visited);
+        }
+    }
+}
+
+fn render_doc_tree_node(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    depth: usize,
+    path: &mut Vec<String>,
+    out: &mut String,
+) {
+    out.push_str(&"  ".repeat(depth));
+    out.push_str(id);
+    out.push('\n');
+    for child in children.get(id).into_iter().flatten() {
+        if path.contains(child) {
+            out.push_str(&"  ".repeat(depth + 1));
+            out.push_str(&format!("{child} (cycle, not expanded)\n"));
+            continue;
+        }
+        path.push(child.clone());
+        render_doc_tree_node(child, children, depth + 1, path, out);
+        path.pop();
+    }
+}
+
+fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
+    let data = &envelope.data;
+    let mut out = format!(
+        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
+        data["id"].as_str().unwrap_or(""),
+        data["path"].as_str().unwrap_or(""),
+        data["content_hash"].as_str().unwrap_or(""),
+        data["root"].as_bool().unwrap_or(false),
+    );
+    out.push_str("derives_from:\n");
+    for entry in data["derives_from"].as_array().into_iter().flatten() {
+        out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));
+    }
+    // DS-1017 new: per-node, three-valued (fresh/stale/no comparison
+    // target) -- rendered as `<node>: true|false|none`, never rounded to
+    // a single bool.
+    if let Some(states) = data["freshness"].as_object() {
+        out.push_str("freshness:\n");
+        for (node_id, value) in states {
+            let rendered = match value.as_bool() {
+                Some(true) => "true".to_owned(),
+                Some(false) => "false".to_owned(),
+                None => "none (no comparison target)".to_owned(),
+            };
+            out.push_str(&format!("  {node_id}: {rendered}\n"));
+        }
+    }
+    if let Some(states) = data["approval_states"].as_object() {
+        out.push_str("approval_states:\n");
+        for (node_id, state) in states {
+            out.push_str(&format!("  {node_id}: {}\n", state.as_str().unwrap_or("")));
+        }
+    }
+    out
+}
+
+fn doc_error_exit(error: &ops::doc::DocOpError, format: OutputFormat, quiet: bool) -> ExitCode {
+    match error {
+        ops::doc::DocOpError::Usage(_) => {
+            usage_failure(format, quiet, "E-OP-001", &error.to_string())
+        }
+        ops::doc::DocOpError::Store(_) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared envelope construction — `ops::*` modules build the same
+// `JsonEnvelope` shape the CLI's own `emit`/`emit_failure` produce, so a
+// caller (CLI text renderer or `vtest-mcp`'s tool handler) sees identical
+// `ok` / `data` / `diagnostics` for identical input (DS-1563).
+// ---------------------------------------------------------------------------
+
+/// Builds the same JSON shape `JsonEnvelope::new` serializes to, without
+/// requiring the caller to hold a typed `Diagnostic` slice reference.
+pub(crate) fn envelope_json<T: serde::Serialize>(
+    ok: bool,
+    data: T,
+    diagnostics: &[Diagnostic],
+) -> serde_json::Value {
+    serde_json::to_value(JsonEnvelope::new(ok, data, diagnostics.to_vec()))
+        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": "E-CORE-001", "severity": "error", "message": error.to_string()}]}))
+}
+
+/// The `E-CONFIG-001` config-load failure envelope shared by `init` /
+/// `scan` / `doctor`.
+pub(crate) fn config_failure_envelope(message: &str) -> serde_json::Value {
+    envelope_json(
+        false,
+        serde_json::Value::Null,
+        &[Diagnostic::error("E-CONFIG-001", message.to_owned())],
+    )
+}
+
+/// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
+/// 検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。
+pub(crate) fn scan_error_result(error: &vtest_scan::ScanError) -> (ExitCode, serde_json::Value) {
+    let code = error.code().unwrap_or("E-CORE-001");
+    let exit = if error.code().is_some() {
+        ExitCode::Usage
+    } else {
+        ExitCode::Internal
+    };
+    let envelope = envelope_json(
+        false,
+        serde_json::Value::Null,
+        &[Diagnostic::error(code, error.to_string())],
+    );
+    (exit, envelope)
+}
+
+/// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
+/// [`JsonEnvelope`] — used by wrappers whose operation body now lives in
+/// `ops::*` and returns pre-built JSON rather than a typed struct.
+fn emit_value(
+    format: OutputFormat,
+    quiet: bool,
+    envelope: &serde_json::Value,
+    render_text: impl FnOnce(&serde_json::Value) -> String,
+) {
+    if quiet {
+        return;
+    }
+    match format {
+        OutputFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(envelope).unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        OutputFormat::Text => {
+            print!("{}", render_text(envelope));
+            if let Some(diagnostics) = envelope
+                .get("diagnostics")
+                .and_then(serde_json::Value::as_array)
+            {
+                for diagnostic in diagnostics {
+                    let code = diagnostic
+                        .get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    let message = diagnostic
+                        .get("message")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    println!("[{code}] {message}");
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // verify
 // ---------------------------------------------------------------------------
 
-/// The `verify` JSON payload.
-///
-/// 正典が逐語で名指しする最上位 field は `scope` だけである（DS-947 /
-/// DS-1114）。それ以外の envelope 形は正典に定義が無く（stopped_on として
-/// 開示する）、ここでは既存の [`JsonEnvelope`] の `ok` / `data` /
-/// `diagnostics` を踏襲し、`data` の中に `scope` を最上位 field として置く。
-#[derive(serde::Serialize)]
-struct VerifyData<'a> {
-    scope: &'a vtest_verify::ScopeReport,
-    /// 集約代表値（DS-870）。総合 OK/NG やゲート充足とは別の field として
-    /// 必ず出す — 検証状態とゲート充足は別軸である。
-    state: &'static str,
-    result: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    gate: Option<GateEvaluation>,
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    structural: &'a [CheckOutcome],
-    /// 評価地点を1件も持たなかった検査（DS-840 / DS-252 / DS-253）。
-    /// 空でなければ、この結果は完全検証 OK ではない。
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    unevaluated: &'a [CheckOutcome],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    tree: &'a [TreeNode],
-    non_pass: usize,
-}
-
-#[derive(serde::Serialize)]
-struct GateEvaluation {
-    name: String,
-    /// DS-869「検証条件の充足判定は、`require.verification`の値と、要求scopeの
-    /// 集約代表値との完全一致でのみ充足する」。
-    required_verification: String,
-    verification_satisfied: bool,
-    approvals_satisfied: bool,
-    satisfied: bool,
-    reasons: Vec<String>,
-}
+use ops::verify::{state_name, VerifyData};
 
 #[allow(clippy::too_many_arguments)]
 fn run_verify(
@@ -293,191 +1008,19 @@ fn run_verify(
         Err(code) => return code,
     };
 
-    // DS-1104 のエンティティ軸は排他。複数指定は操作拒否（exit 2）。
-    let entity = match entity_scope(doc, vo, test) {
-        Ok(entity) => entity,
-        Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-    };
-
-    let requested = match parse_items(items) {
-        Ok(requested) => requested,
-        Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-    };
-
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
-    };
-
-    // DS-1116「config の `gates` に同名の定義が無ければ E-CONFIG-002・
-    // 終了コード 2 で拒否し、検証を実行しない」。scan より前に解決する。
-    let gate_config = match resolve_gate(&config, gate) {
-        Ok(gate_config) => gate_config,
-        Err(message) => return usage_failure(format, quiet, "E-CONFIG-002", &message),
-    };
-
-    let scan: ScanResult = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => return scan_error_exit(&error, format, quiet),
-    };
-
-    let outcome = verify_project(&root, &scan, requested.as_deref(), entity);
-    let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
-    let non_pass = outcome
-        .all_outcomes()
-        .iter()
-        .filter(|check| check.state != VerificationState::Pass)
-        .count();
-
-    // DS-1117「`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する」。
-    // 逐語どおり、per-check の内訳（構造検査・未評価検査・ツリー）はすべて
-    // 落とす。`scope` だけは残す — DS-1114「`--format json` では同じ内容を
-    // 最上位 field `scope` として返し、完全検証の場合も省略しない」が、
-    // 出力形態を問わない無条件の義務として課している。
-    let data = VerifyData {
-        scope: &outcome.scope,
-        state: state_name(outcome.state),
-        result: if outcome.ok { "OK" } else { "NG" },
-        gate: gate_evaluation,
-        structural: if summary { &[] } else { &outcome.structural },
-        unevaluated: if summary { &[] } else { &outcome.unevaluated },
-        tree: if summary { &[] } else { &outcome.tree },
-        non_pass,
-    };
-
-    // 終了コード。DS-931「`--gate <name>`を指定した`vtest verify` /
-    // `vtest report`では、0と1をゲート充足で決める」、DS-932。
-    // DS-933「`require.verification`に`PASS`以外を定義したゲートでは、集約
-    // 代表値が要求値と一致して充足した実行が0になり、この場合に総合がNGで
-    // あることは0を妨げない」。
-    let exit = match &data.gate {
-        Some(evaluation) if evaluation.satisfied => ExitCode::Ok,
-        Some(_) => ExitCode::VerificationFailed,
-        None if outcome.ok => ExitCode::Ok,
-        None => ExitCode::VerificationFailed,
-    };
-
-    // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート充足、
-    // 非指定時は総合 OK。検証状態そのものは `state` field に常に別途出す。
-    let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, scan.diagnostics.clone());
-    emit(format, quiet, &envelope, render_verify_text);
-    exit
-}
-
-fn entity_scope(
-    doc: Option<String>,
-    vo: Option<String>,
-    test: Option<String>,
-) -> Result<Option<EntityScope>, String> {
-    let selected = [
-        doc.map(EntityScope::Doc),
-        vo.map(EntityScope::Vo),
-        test.map(EntityScope::Test),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
-    match selected.len() {
-        0 => Ok(None),
-        1 => Ok(selected.into_iter().next()),
-        _ => Err("verify accepts at most one of --doc, --vo, or --test".to_owned()),
-    }
-}
-
-/// `--items` を検査軸へ解決する。未知の名前は黙って捨てず拒否する:
-/// 捨てると要求 scope が黙って狭まり、DS-1113 の開示義務を破る。
-fn parse_items(items: &[String]) -> Result<Option<Vec<VerificationCheck>>, String> {
-    if items.is_empty() {
-        return Ok(None);
-    }
-    let mut checks = Vec::new();
-    for item in items {
-        let name = item.trim();
-        if name.is_empty() {
-            continue;
+    match ops::verify::execute(&root, items, doc, vo, test, gate, summary) {
+        Ok((exit, data, diagnostics)) => {
+            // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート
+            // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
+            // 常に別途出す。
+            let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
+            emit(format, quiet, &envelope, render_verify_text);
+            exit
         }
-        let Some(check) = parse_check(name) else {
-            return Err(format!(
-                "unknown check '{name}'; the fixed four are chain_integrity, \
-                 orphan_detection, target_binding, oracle_presence"
-            ));
-        };
-        if !checks.contains(&check) {
-            checks.push(check);
+        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
+            usage_failure(format, quiet, code, &message)
         }
-    }
-    if checks.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(checks))
-}
-
-/// DS-865「`--gate <name>`は`gates[].name`との大文字小文字を区別した完全一致で
-/// 解決する」。DS-363「`--gate` を指定しない実行は、`gates` field自体の欠落と
-/// 空listの影響を受けない」。
-fn resolve_gate<'a>(
-    config: &'a ProjectConfig,
-    gate: Option<&str>,
-) -> Result<Option<&'a GateConfig>, String> {
-    let Some(name) = gate else {
-        return Ok(None);
-    };
-    config
-        .gates
-        .iter()
-        .find(|candidate| candidate.name == name)
-        .map(Some)
-        .ok_or_else(|| format!("no gate named '{name}' is defined in config.yaml"))
-}
-
-/// DS-864「`vtest verify --gate <name>`は、指定ゲートの対象scopeについて検証を
-/// 実行し、(1) 検証結果が`require.verification`を満たすか、(2)
-/// `require.approvals`の各ロールについて対象の実効承認状態が`approved`である
-/// か、を評価して満否と根拠を提示する」。
-fn evaluate_gate(config: &GateConfig, outcome: &VerifyOutcome) -> GateEvaluation {
-    // DS-869「…`require.verification`の値と、要求scopeの集約代表値との完全
-    // 一致でのみ充足する」。DS-874「「要求値以上」「要求値より良い」といった
-    // 比較解釈を採らず…」— したがって完全一致だけで判定する。
-    let actual = state_name(outcome.state);
-    let verification_satisfied = config.require.verification == actual;
-
-    let mut reasons = Vec::new();
-    if !verification_satisfied {
-        reasons.push(format!(
-            "aggregate representative state is {actual}, gate requires {}",
-            config.require.verification
-        ));
-    }
-
-    // 承認側。この slice には正典の実効承認状態（§3.5）の読み手が無い。
-    // 「読めないから充足」は fail-open なので、要求ロールが1件でもあれば
-    // 未充足として扱い、その旨を根拠に明示する。
-    let approvals_satisfied = config.require.approvals.is_empty();
-    if !approvals_satisfied {
-        reasons.push(format!(
-            "approval roles {:?} cannot be evaluated in this slice; treated as unsatisfied \
-             (fail-closed)",
-            config.require.approvals
-        ));
-    }
-
-    GateEvaluation {
-        name: config.name.clone(),
-        required_verification: config.require.verification.clone(),
-        verification_satisfied,
-        approvals_satisfied,
-        satisfied: verification_satisfied && approvals_satisfied,
-        reasons,
-    }
-}
-
-fn state_name(state: VerificationState) -> &'static str {
-    match state {
-        VerificationState::Pass => "PASS",
-        VerificationState::Fail => "FAIL",
-        VerificationState::Mismatch => "MISMATCH",
-        VerificationState::NoEvidence => "NO_EVIDENCE",
-        VerificationState::Unknown => "UNKNOWN",
+        Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
     }
 }
 
@@ -491,7 +1034,7 @@ fn label_name(label: vtest_model::DiagnosticLabel) -> &'static str {
 }
 
 /// DS-1118「`vtest verify` は状態列…と診断ラベル列…を分離して表示する」。
-fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
+fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
     let data = &envelope.data;
     let mut out = String::new();
 
@@ -500,7 +1043,8 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
     out.push_str(&format!(
         "Requested scope: {}\n",
         data.scope
-            .requested_checks
+            .requested
+            .items
             .iter()
             .map(|check| check_name(*check))
             .collect::<Vec<_>>()
@@ -509,32 +1053,33 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
     if let Some(entity) = &data.scope.entity {
         out.push_str(&format!("Entity scope: {}\n", entity.id()));
     }
-    if data.scope.outside_scope_is_unverified {
+    if data.scope.unverified_outside_scope {
         out.push_str("Anything outside the requested scope is UNVERIFIED, not PASS.\n");
     }
 
     if !data.structural.is_empty() {
         out.push_str("\nStructural checks:\n");
-        for check in data.structural {
+        for check in &data.structural {
             out.push_str(&render_check(check, 2));
         }
     }
 
     if !data.unevaluated.is_empty() {
         out.push_str("\nChecks with no evaluation point (NOT verified, not PASS):\n");
-        for check in data.unevaluated {
+        for check in &data.unevaluated {
             out.push_str(&render_check(check, 2));
         }
     }
 
     if !data.tree.is_empty() {
         out.push('\n');
-        for node in data.tree {
+        for node in &data.tree {
             render_node(node, 0, &mut out);
         }
     }
 
     if let Some(gate) = &data.gate {
+        let approvals_satisfied = gate.approvals.iter().all(|approval| approval.satisfied);
         out.push_str(&format!(
             "\nGate {}: {} (verification {}, approvals {})\n",
             gate.name,
@@ -543,15 +1088,27 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
             } else {
                 "NOT SATISFIED"
             },
-            if gate.verification_satisfied {
+            if gate.verification.satisfied {
                 "ok"
             } else {
                 "no"
             },
-            if gate.approvals_satisfied { "ok" } else { "no" },
+            if approvals_satisfied { "ok" } else { "no" },
         ));
-        for reason in &gate.reasons {
-            out.push_str(&format!("  - {reason}\n"));
+        out.push_str(&format!(
+            "  - verification: required {}, actual {}\n",
+            gate.verification.required, gate.verification.actual
+        ));
+        for approval in &gate.approvals {
+            out.push_str(&format!(
+                "  - approval role '{}': {}\n",
+                approval.role,
+                if approval.satisfied {
+                    "satisfied"
+                } else {
+                    "not satisfied"
+                }
+            ));
         }
     }
 
@@ -685,41 +1242,6 @@ fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<Pat
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn items_reject_an_unknown_check_rather_than_narrowing_the_scope() {
-        // 旧12項目名は検査として存在しない（SPEC-400）。黙って捨てると
-        // 要求 scope が狭まったことが開示されない（DS-1113）。
-        assert!(parse_items(&["spec_coverage".to_owned()]).is_err());
-        assert!(parse_items(&["chain_integrity".to_owned()]).is_ok());
-    }
-
-    /// DS-1106: omitting `--items` selects the fixed four. `None` is the value
-    /// that carries "the fixed four" into `verify_project`, so this asserts the
-    /// argument mapping only.
-    ///
-    /// The behavioural half of DS-1107 / DS-1109 — that `config.yaml`'s
-    /// `verify.full_scope` is never consulted for item selection — is asserted
-    /// where it is observable, not here:
-    /// `vtest_verify::tests::a_config_full_scope_subset_never_narrows_the_checks_that_run`
-    /// (a subset `full_scope` on disk still runs all four) and
-    /// `verify_acceptance::a_subset_full_scope_is_rejected_not_honoured_as_a_selection`
-    /// (a subset `full_scope` is refused at config load).
-    #[test]
-    fn omitted_items_map_to_the_fixed_four() {
-        assert!(parse_items(&[]).expect("empty is valid").is_none());
-    }
-
-    #[test]
-    fn entity_axis_is_exclusive() {
-        // DS-1104: エンティティ軸は DOC / VO / Test のいずれか一つ。
-        assert!(entity_scope(Some("D".to_owned()), Some("V".to_owned()), None).is_err());
-        assert!(entity_scope(None, Some("V".to_owned()), None).is_ok());
-        assert!(entity_scope(None, None, None)
-            .expect("none is valid")
-            .is_none());
-    }
-}
+// `parse_items` / `entity_scope` argument-mapping tests now live with their
+// implementation in `ops::verify` (moved there so both the CLI and
+// `vtest-mcp` share one operation body — see DS-1563).

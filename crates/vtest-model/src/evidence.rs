@@ -1,25 +1,6 @@
 use crate::{AdapterId, ContentHash, TestId};
 use serde::{Deserialize, Serialize};
 
-/// Predecessor-model verification result.
-///
-/// This type mixes verification states and diagnostic conditions.
-#[deprecated(
-    note = "Predecessor model: replace with VerificationState and DiagnosticLabel during the canonical v0.1 migration"
-)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum CheckValue {
-    Pass,
-    Fail,
-    Mismatch,
-    Missing,
-    NotChecked,
-    NotExecuted,
-    Stale,
-    Unknown,
-}
-
 /// Identifies the Git revision and whether the working tree had uncommitted changes.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Revision {
@@ -50,12 +31,33 @@ pub struct RunnerInfo {
     pub exit_code: i32,
 }
 
+/// Result reported for target-binding coverage, per DES-187/DES-188.
+///
+/// This is a restricted 3-value domain (PASS/FAIL/UNKNOWN), distinct from
+/// the canonical 5-value `VerificationState`. Diagnostic labels (e.g.
+/// `NOT_CHECKED`, `NOT_EXECUTED`) are derived from `checked`/`count`/`result`
+/// by the vtest-verify target_binding check-building logic (DS-832); they
+/// are not stored on this record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum TargetCoverageResult {
+    #[serde(rename = "PASS")]
+    Pass,
+    #[serde(rename = "FAIL")]
+    Fail,
+    #[serde(rename = "UNKNOWN")]
+    Unknown,
+}
+
 /// Records how a verification target was observed during test execution.
+///
+/// `result` is the restricted `TargetCoverageResult` this measurement
+/// produced. Diagnostic labels are not stored here; they are derived
+/// downstream from `checked`/`count`/`result` (DS-832).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TargetExecution {
+pub struct TargetCoverage {
     pub checked: bool,
     pub method: Option<String>,
-    pub result: CheckValue,
+    pub result: TargetCoverageResult,
     pub count: Option<u64>,
 }
 
@@ -104,7 +106,7 @@ pub struct EvidenceRecord {
     pub execution_state: ExecutionState,
     pub hashes: EvidenceHashes,
     pub runner: RunnerInfo,
-    pub target_execution: TargetExecution,
+    pub target_coverage: TargetCoverage,
     // CHECKME: Should log references have a dedicated type?
     pub log_ref: String,
 }

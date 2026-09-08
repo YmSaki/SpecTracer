@@ -1730,9 +1730,17 @@ fn validate_approval_status(
             ));
             invalid = true;
         }
-        if let Some(missing) =
-            missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
-        {
+        if let Some(missing) = missing_fields(
+            &text,
+            &[
+                "id",
+                "subject_type",
+                "subject",
+                "subject_hash",
+                "approved_state",
+                "approved_at",
+            ],
+        ) {
             diagnostics.push(Diagnostic::error(
                 "E-SCAN-010",
                 format!("approval {file_id} is missing required fields: {missing} ({record_path})"),
@@ -1762,12 +1770,21 @@ fn validate_approval_status(
         if invalid {
             continue;
         }
-        let subject = approval.subject.as_str();
-        if !current_hashes.contains_key(subject) {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("approval {file_id} references missing VO {subject} ({record_path})"),
-            ));
+        // DS-1475: the effective承認対象の値域は VO ID と document ID の
+        // 2 種のみ。`subject_type == "vo"` の場合だけ、この関数がすでに
+        // 持っている VO ハッシュ集合と突き合わせる — `document`/`judgment`
+        // の存在確認は現時点でこの関数の対象外（document ノードの存在は
+        // orphan_detection/chain_integrity 側が別途扱う; judgment 参照の
+        // 存在確認は DS-1052 の判断記録ドメインが未実装のため、この
+        // closure-slice の範囲外）。
+        if approval.subject_type == "vo" {
+            let subject = approval.subject.as_str();
+            if !current_hashes.contains_key(subject) {
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} references missing VO {subject} ({record_path})"),
+                ));
+            }
         }
     }
     Ok(())
@@ -1776,7 +1793,6 @@ fn validate_approval_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestSuite, VoId};
     use vtest_store::{init_project, new_record_id, write_document_file, FormAnswers, FormValue};
 
@@ -1822,11 +1838,18 @@ mod tests {
     }
 
     fn fixture() -> PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-scan-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- two tests can
+        // get the same value, and the second `init_project` call then
+        // fails with `AlreadyInitialized` (the confirmed root cause of a
+        // previously-unconfirmed flaky failure; team-lead reproduced it
+        // via `covers_and_related_accept_comma_separated_values`). Use
+        // process id + a per-process atomic counter instead, matching
+        // `operations.rs`'s own `temp_root` helper.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root =
+            std::env::temp_dir().join(format!("vtest-scan-{}-{sequence}", std::process::id()));
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
         fs::write(
@@ -1900,11 +1923,14 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// が別に持つ。両方に価値があるため両方残す。
     #[test]
     fn source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes() {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-scan-dup-content-{suffix}"));
+        // See `fixture()`'s doc comment: a nanosecond-timestamp suffix
+        // alone collides under parallel test execution on Windows.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-scan-dup-content-{}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(root.join("src")).unwrap();
         fs::write(
             root.join("Cargo.toml"),
