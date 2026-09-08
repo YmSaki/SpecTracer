@@ -9,8 +9,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
-    AdapterId, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator,
-    Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
+    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
+    RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
 use vtest_store::{
     execution_state::{reconstruct_execution_state, ExecutionStateInputs},
@@ -132,17 +132,31 @@ pub fn run_tests(
                     diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
                     target_execution
                 };
-                // DS-265 validity input. This crate only runs the
-                // `rust-cargo` adapter's tests (crate doc comment); a
-                // resolved target's own locator names the adapter it came
-                // from, and falls back to `rust-cargo` literally when the
-                // Test has no resolved target locator to read it from
-                // (still this crate's sole adapter).
-                let adapter_id = test
-                    .target_locator
-                    .as_ref()
-                    .map(|locator| locator.adapter.clone())
-                    .unwrap_or_else(|| AdapterId::new("rust-cargo"));
+                // DES-213「Evidence writerは`adapter`を必須で記録し、保存前に
+                // Testの`ExecutionDescriptor.adapter`およびrunner kindとの
+                // 整合を検証する」: the Test's own declared execution
+                // adapter is authoritative, not a value re-derived from a
+                // resolved target's locator or a hardcoded literal. If a
+                // resolved target's locator names a *different* adapter,
+                // that is a real inconsistency DES-213 asks this writer to
+                // check for — reported as a diagnostic rather than
+                // silently preferring one value over the other.
+                let adapter_id = test.entity.execution.adapter.clone();
+                if let Some(locator) = &test.target_locator {
+                    if locator.adapter != adapter_id {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                "W-EXEC-102",
+                                format!(
+                                    "Test {} declares execution.adapter {:?} but its resolved \
+                                     target locator names adapter {:?} (DES-213)",
+                                    test.entity.id, adapter_id, locator.adapter
+                                ),
+                            )
+                            .with_location(test.entity.location.clone()),
+                        );
+                    }
+                }
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),

@@ -242,3 +242,44 @@ impl AdapterRegistry {
         self.adapters.iter().map(|adapter| adapter.id())
     }
 }
+
+/// Non-discovery adapter capabilities a verification-time caller (core)
+/// needs to branch on: DS-614 "Static Analysis capabilityがない場合は
+/// `NO_EVIDENCE`（診断`NOT_CHECKED`）とする" for `oracle_presence`, and the
+/// analogous coverage-measurement capability `target_binding`'s dynamic
+/// branch (DS-831/832) depends on.
+///
+/// **Disclosed minimal substitute, not a registry**: `AdapterRegistry`
+/// above only carries the discovery capability (`SourceDiscoveryAdapter`),
+/// and no live registry instance reaches `vtest-verify` at verify time (it
+/// runs after discovery, in a separate process invocation, with no
+/// adapter objects constructed) — replumbing that is out of this change's
+/// scope. This is a static, id-keyed table instead: a stand-in a future
+/// change can replace with a real registry query without changing this
+/// function's call sites' shape. It still names the language-specific
+/// default (`"rust-cargo"` supports both) once, here, rather than letting
+/// core assume it inline at each call site — the boundary AGENTS.md's
+/// "core owns nothing language-specific" asks for, even without a live
+/// registry object to back it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AdapterCapabilities {
+    pub static_analysis: bool,
+    pub coverage: bool,
+}
+
+/// Looks up `adapter_id`'s capabilities in the static table above. An
+/// unrecognized id reports both capabilities absent (fail-closed: DS-614's
+/// "capabilityがない場合" is the safe default for anything not explicitly
+/// known to have it).
+pub fn capabilities_for(adapter_id: &str) -> AdapterCapabilities {
+    match adapter_id {
+        "rust-cargo" => AdapterCapabilities {
+            static_analysis: true,
+            coverage: true,
+        },
+        _ => AdapterCapabilities {
+            static_analysis: false,
+            coverage: false,
+        },
+    }
+}

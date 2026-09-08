@@ -22,9 +22,9 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    AdapterId, CheckValue as EvidenceCheckValue, ContentHash, DiagnosticLabel, DocumentFile,
-    EvidenceRecord, ManagedTestLink, SectionNode, SentenceNode, TargetRef, TestEntity,
-    VerificationCheck, VerificationState, VoRecord,
+    CheckValue as EvidenceCheckValue, ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord,
+    ManagedTestLink, SectionNode, SentenceNode, TargetRef, TestEntity, VerificationCheck,
+    VerificationState, VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -278,19 +278,18 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 /// その明示的部分集合だけを限定 scope とする（DS-1110）。
 /// Bundles the DS-265/DS-816-825 validity inputs `evaluate_target_binding`
 /// needs beyond the current `TestEntity`/`ScanResult`: the latest recorded
-/// Evidence per Test, the current adapter identity, and the current HEAD
-/// revision.
+/// Evidence per Test and the current HEAD revision.
 ///
-/// **Disclosed scope limit**: `current_adapter` is a single fixed value
-/// (`rust-cargo`) rather than resolved per-Test, because this repository and
-/// this slice's only Evidence writer (`vtest-exec`) both use exactly one
-/// adapter today. DS-817/DS-1628/DS-824 (per-Test adapter identity match)
-/// are evaluated against this fixed value; a multi-adapter repository is
-/// out of this slice's scope and not represented here.
+/// The current adapter identity is *not* bundled here: DS-817/DS-1628/
+/// DS-824 (per-Test adapter identity match) compare against each Test's own
+/// `execution.adapter` (`vtest_model::ExecutionDescriptor`'s declared
+/// field), not a single fixed value — a prior version of this struct held
+/// a fixed `"rust-cargo"` constant here, which a multi-adapter repository
+/// would have compared every Test against regardless of what it actually
+/// declared.
 struct EvidenceContext {
     root: std::path::PathBuf,
     latest_by_test: BTreeMap<String, EvidenceRecord>,
-    current_adapter: AdapterId,
     head_commit: Option<String>,
 }
 
@@ -321,7 +320,6 @@ impl EvidenceContext {
         Self {
             root: root.to_owned(),
             latest_by_test,
-            current_adapter: AdapterId::new("rust-cargo"),
             head_commit: git_head_commit(root),
         }
     }
@@ -775,15 +773,19 @@ fn evidence_validity_failure(
     scan: &ScanResult,
     evidence: &EvidenceContext,
 ) -> Option<CheckOutcome> {
-    // DS-1628: adapter explicitly does not match.
-    if record.adapter != evidence.current_adapter {
+    // DS-1628/DS-817: the Test's own declared `execution.adapter` is the
+    // "current" adapter identity to compare against — not a fixed
+    // repository-wide constant (a prior version of this function compared
+    // against one, disclosed and corrected).
+    let current_adapter = &test.execution.adapter;
+    if &record.adapter != current_adapter {
         return Some(CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::Stale],
             vec![format!(
                 "Evidence adapter {:?} does not match the current adapter {:?} (DS-1628)",
-                record.adapter, evidence.current_adapter
+                record.adapter, current_adapter
             )],
         ));
     }
@@ -827,6 +829,26 @@ fn evidence_validity_failure(
         ));
     }
 
+    // DS-821「evidence.execution_stateのrecordが欠落している場合…
+    // NO_EVIDENCE（診断STALE）とする」: a genuinely absent `execution_state`
+    // block (a record written before this field existed — the predecessor
+    // shape `vtest-store`'s reader still accepts) is distinct from a
+    // *present* block that honestly reports `complete: false` (DS-822).
+    // `vtest-store::read_evidence` defaults an absent block to
+    // `schema: "", complete: false, hash: None`, which this crate's own
+    // writer (`vtest-exec`) never produces (it always sets a non-empty
+    // `schema`) — an empty `schema` is therefore this reader's signal that
+    // the block was absent, not merely `complete: false`. A prior version
+    // of this function conflated the two into one `Unknown` branch,
+    // disclosed and corrected here.
+    if record.execution_state.schema.is_empty() {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec!["Evidence carries no execution_state record at all (DS-821)".to_owned()],
+        ));
+    }
     // DS-822: `execution_state.complete` must be `true`, AND the current
     // Execution State subject must be fully reconstructible for comparison
     // (`vtest_store::execution_state::reconstruct_execution_state` — the
@@ -849,7 +871,7 @@ fn evidence_validity_failure(
     let current_state = reconstruct_execution_state(
         &evidence.root,
         ExecutionStateInputs {
-            adapter: &evidence.current_adapter,
+            adapter: current_adapter,
             schema: &record.execution_state.schema,
             head_commit: evidence.head_commit.as_deref(),
             runner_kind: &record.runner.kind,
@@ -1023,6 +1045,45 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
 /// or its byte range no longer resolves) — a real, if narrow, instance of
 /// "capability absent for this Test", not a blanket placeholder.
 fn evaluate_oracle_presence(test: &TestEntity, root: &Path) -> CheckOutcome {
+    // DS-614「Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断
+    // `NOT_CHECKED`）とする」: branch on the Test's own declared
+    // `execution.adapter` via `vtest_adapter_api::capabilities_for`
+    // (core consults an adapter capability rather than assuming one, per
+    // AGENTS.md "core owns nothing language-specific") — not a fixed
+    // `"rust-cargo"` literal, corrected from a prior version of this
+    // function that always ran the rust-cargo analyzer regardless of the
+    // Test's declared adapter.
+    let adapter_id = test.execution.adapter.as_str();
+    let capabilities = vtest_adapter_api::capabilities_for(adapter_id);
+    if !capabilities.static_analysis {
+        return CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked],
+            vec![format!(
+                "adapter {adapter_id:?} has no Static Analysis capability (DS-614)"
+            )],
+        );
+    }
+    // The capability table only ever reports `static_analysis: true` for
+    // `"rust-cargo"` today (`vtest_adapter_api::capabilities_for`'s doc
+    // comment), which is the only concrete analyzer this workspace
+    // implements (`vtest_adapter_rust::oracle_presence`). Dispatching to a
+    // *different* adapter's analyzer by id is not implemented — a real,
+    // disclosed dispatch gap this single-implementation state cannot yet
+    // expose, since no capability-true id other than "rust-cargo" exists
+    // to test it against.
+    if adapter_id != "rust-cargo" {
+        return CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked],
+            vec![format!(
+                "adapter {adapter_id:?} reports a Static Analysis capability, but no \
+                 concrete analyzer for it is wired into this crate (DS-614)"
+            )],
+        );
+    }
     let Some(construct_text) = read_construct_text(root, &test.location) else {
         return CheckOutcome::new(
             VerificationCheck::OraclePresence,
@@ -1035,7 +1096,7 @@ fn evaluate_oracle_presence(test: &TestEntity, root: &Path) -> CheckOutcome {
             ],
         );
     };
-    // DS-750-shaped disclosed narrowing (see `vtest_adapter_rust::oracle_presence`'s
+    // DS-628-shaped disclosed narrowing (see `vtest_adapter_rust::oracle_presence`'s
     // module doc): only `TargetRef::Locator` targets contribute a symbol
     // name to DA-003. A `SrcId` target is silently excluded from DA-003's
     // per-target check rather than treated as an unverified call — DA-003
@@ -2329,7 +2390,6 @@ mod tests {
         let evidence = EvidenceContext {
             root: temp_root("tb-incomplete-execution-state"),
             latest_by_test: BTreeMap::new(),
-            current_adapter: AdapterId::new("rust-cargo"),
             head_commit: Some("deadbeef".to_owned()),
         };
 
@@ -2380,13 +2440,103 @@ mod tests {
             // DS-820 passes and does not mask this branch).
             root: temp_root("tb-current-reconstruction-fails").join("does-not-exist"),
             latest_by_test: BTreeMap::new(),
-            current_adapter: AdapterId::new("rust-cargo"),
             head_commit: Some("deadbeef".to_owned()),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
             .expect("an unreconstructable current state must not validate as reusable");
         assert_eq!(outcome.state, VerificationState::Unknown);
+    }
+
+    /// DS-821「hashが一致しない場合、NO_EVIDENCE（診断STALE）とする」,
+    /// isolated from DS-822: unlike the other `evidence_validity_failure`
+    /// tests (whose current-side reconstruction never succeeds, so DS-822
+    /// always fires first), this test uses a real git-committed root so
+    /// the current reconstruction genuinely succeeds (`complete: true`,
+    /// some real hash) — then the record's own `execution_state.hash` is
+    /// deliberately a different value, exercising the STALE hash-mismatch
+    /// branch specifically.
+    #[test]
+    fn a_present_but_mismatched_execution_state_hash_is_no_evidence_stale() {
+        let root = temp_root("tb-execution-state-hash-mismatch");
+        std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["init", "-q"])
+            .status()
+            .expect("git init");
+        std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["config", "user.email", "fixture@example.com"])
+            .status()
+            .expect("git config email");
+        std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["config", "user.name", "fixture"])
+            .status()
+            .expect("git config name");
+        std::fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n")
+            .expect("write Cargo.toml");
+        std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["add", "."])
+            .status()
+            .expect("git add");
+        std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["commit", "-q", "-m", "fixture commit"])
+            .status()
+            .expect("git commit");
+        let head_commit = String::from_utf8(
+            std::process::Command::new("git")
+                .current_dir(&root)
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .expect("git rev-parse")
+                .stdout,
+        )
+        .expect("utf8 HEAD")
+        .trim()
+        .to_owned();
+
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
+        let target_hash = ContentHash::from_text("TEST-ONE::target0");
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 1,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: vec![vtest_model::SourceFunction {
+                locator: vtest_model::Locator {
+                    adapter: AdapterId::new("rust-cargo"),
+                    value: "src/lib.rs::target0".to_owned(),
+                },
+                src_id: None,
+                location: location("SRC-target0"),
+                content_hash: target_hash.clone(),
+            }],
+            diagnostics: Vec::new(),
+        };
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some(&head_commit));
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fn = target_hash.clone();
+        record.hashes.target_fns = vec![target_hash];
+        record.execution_state.complete = true;
+        // Deliberately not the hash a real reconstruction of `root` would
+        // produce — the point of this test.
+        record.execution_state.hash = Some(ContentHash::from_text("deliberately-mismatched"));
+        let evidence = EvidenceContext {
+            root: root.clone(),
+            latest_by_test: BTreeMap::new(),
+            head_commit: Some(head_commit),
+        };
+
+        let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
+            .expect("a mismatched Execution State hash must not validate as reusable");
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::Stale]);
     }
 
     /// DS-830/831/832, isolated from the (currently unreachable — see
