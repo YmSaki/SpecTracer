@@ -23,11 +23,12 @@
 //! from the file's current content on every call (DES-595's document
 //! subject hash, not stored), and "root designation" / "derives_from" are
 //! derived by reading the file's own `root[]` array and its nodes' own
-//! `derives_from` edges, not tracked separately. See
-//! `reports/closure-trace.md`'s stopped_on list for the one piece of
-//! `vtest doc add` surface this reading leaves nowhere to persist
-//! (a document-level `--derives-from` argument DS-1681 presupposes, with no
-//! field in DES-586's schema to hold it).
+//! `derives_from` edges, not tracked separately. `--derives-from` (DS-1003/
+//! 1681) mutates the node-tree file itself before it is written (see
+//! `apply_derives_from`); `--root`/`--no-root` (DS-1683) validates the
+//! source file's own layer placement rather than mutating it, since
+//! DS-1658 ties a node's id prefix to its layer and this module does not
+//! fabricate a new id to move a node between layers (see `apply_root`).
 
 use std::{collections::BTreeMap, path::Path};
 
@@ -39,6 +40,10 @@ use crate::{canonical::document_file_from_json, records::read_text, StoreError, 
 /// here is persisted separately from `.verify/doc/<id>.json` itself.
 pub struct DocView {
     pub id: String,
+    /// DS-1017: the document's current path — `.verify/doc/<id>.json`
+    /// itself, the file's own canonical location, not the original
+    /// `--path` argument (which is not stored anywhere, DES-585/595).
+    pub path: std::path::PathBuf,
     pub content_hash: ContentHash,
     /// DS-1683: whether this document currently has any `root`-layer nodes
     /// (derived from the file's own `root[]` array, not a stored flag).
@@ -114,6 +119,70 @@ pub fn apply_derives_from(
     Ok(())
 }
 
+/// DS-1683: root-ness is the fact of *which layer array a node sits in*
+/// ("根指定は登録先の層配列という形でノード自体に属し"), and DS-1658 ties a
+/// node's id prefix to the layer it may legally sit in
+/// (`validate_node_id`: "id's prefix does not match the layer array it was
+/// placed in" is a hard write-time rejection). A `ROOT-…`-prefixed node can
+/// only ever sit in `root[]`; any other prefix can only sit in its own
+/// non-root layer. `--root`/`--no-root` therefore cannot *move* a node
+/// between layers without inventing it a new id (fabricating an identity
+/// this module refuses to do); the flag instead **validates** that the
+/// source file's own layer placement (already tied to the ids the
+/// registrant chose) matches what was requested, rejecting a mismatch
+/// rather than silently accepting or silently converting it.
+///
+/// `Some(true)` (`--root`) requires `root[]` to be non-empty and every
+/// other layer array to be empty. `Some(false)` (`--no-root`) requires
+/// `root[]` to be empty. `None` (neither flag given) performs no check —
+/// the file's own layer assignment is registered unchanged, matching this
+/// module's behavior before this flag existed.
+pub fn apply_root(file: &DocumentFile, requested_root: Option<bool>) -> Result<(), StoreError> {
+    let has_non_root = !file.request.is_empty()
+        || !file.require.is_empty()
+        || !file.spec.is_empty()
+        || !file.detailed_spec.is_empty()
+        || !file.basic_design.is_empty()
+        || !file.design.is_empty();
+    match requested_root {
+        None => Ok(()),
+        Some(true) => {
+            if file.root.is_empty() {
+                Err(StoreError::InvalidConfig(
+                    "--root was given but the source file's own root[] layer is empty; \
+                     DS-1658 ties a node's id prefix to the layer it may sit in, so --root \
+                     cannot move a non-ROOT-prefixed node into root[] without fabricating it \
+                     a new id -- the source file must already carry ROOT-prefixed nodes in \
+                     root[]"
+                        .to_owned(),
+                ))
+            } else if has_non_root {
+                Err(StoreError::InvalidConfig(
+                    "--root was given but the source file has content in a non-root layer \
+                     array as well as root[]; a document registered under --root must be \
+                     entirely root-layer content"
+                        .to_owned(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        Some(false) => {
+            if file.root.is_empty() {
+                Ok(())
+            } else {
+                Err(StoreError::InvalidConfig(
+                    "--no-root was given but the source file's own root[] layer is \
+                     non-empty; DS-1658 ties a node's id prefix to the layer it may sit in, \
+                     so --no-root cannot move a ROOT-prefixed node out of root[] without \
+                     fabricating it a new id"
+                        .to_owned(),
+                ))
+            }
+        }
+    }
+}
+
 fn derives_from_of(file: &DocumentFile) -> Vec<String> {
     let mut out = Vec::new();
     for node in &file.request {
@@ -146,12 +215,13 @@ fn collect_section_derives_from(section: &vtest_model::SectionNode, out: &mut Ve
     }
 }
 
-fn to_view(id: &str, file: DocumentFile) -> DocView {
+fn to_view(id: &str, path: std::path::PathBuf, file: DocumentFile) -> DocView {
     let content_hash = document_file_subject_hash(&file);
     let is_root = !file.root.is_empty();
     let derives_from = derives_from_of(&file);
     DocView {
         id: id.to_owned(),
+        path,
         content_hash,
         is_root,
         derives_from,
@@ -164,7 +234,7 @@ pub fn read_doc_view(layout: &VerifyLayout, id: &str) -> Result<DocView, StoreEr
     let path = doc_path(layout, id);
     let text = read_text(&path)?;
     let file = document_file_from_json(&text)?;
-    Ok(to_view(id, file))
+    Ok(to_view(id, path, file))
 }
 
 /// Writes `file` to `.verify/doc/<id>.json` — DES-595's "1 document = 1
@@ -211,6 +281,41 @@ pub fn unresolved_derives_from(views: &BTreeMap<String, DocView>) -> Vec<(String
         }
     }
     unresolved
+}
+
+/// DS-1015: `doc list --tree` renders the `derives_from` *document* chain.
+/// `DocView::derives_from` holds *node* ids (DS-1681/1682), and a document
+/// may hold many nodes (DES-585/595 — the file, not any single node, is the
+/// identified unit), so the document-level parent of `doc` is whichever
+/// registered document *contains* the node id `doc` derives from, not the
+/// literal string. This resolves that node-id -> owning-document-id
+/// mapping across the whole registered set and returns, for each document
+/// id, the deduplicated set of parent document ids; a `derives_from` target
+/// with no owning document in the registered set (see
+/// [`unresolved_derives_from`]) is silently dropped here, not treated as a
+/// parent.
+pub fn document_derives_from(views: &BTreeMap<String, DocView>) -> BTreeMap<String, Vec<String>> {
+    let mut owner: BTreeMap<String, String> = BTreeMap::new();
+    for view in views.values() {
+        let mut ids = std::collections::BTreeSet::new();
+        collect_all_ids(&view.file, &mut ids);
+        for id in ids {
+            owner.entry(id).or_insert_with(|| view.id.clone());
+        }
+    }
+    let mut result = BTreeMap::new();
+    for view in views.values() {
+        let mut parents: Vec<String> = view
+            .derives_from
+            .iter()
+            .filter_map(|target| owner.get(target).cloned())
+            .filter(|parent| parent != &view.id)
+            .collect();
+        parents.sort();
+        parents.dedup();
+        result.insert(view.id.clone(), parents);
+    }
+    result
 }
 
 fn collect_all_ids(file: &DocumentFile, out: &mut std::collections::BTreeSet<String>) {

@@ -68,6 +68,8 @@ fn add_command(id: &str, path: &str) -> Command {
         id: id.to_owned(),
         path: path.to_owned(),
         derives_from: Vec::new(),
+        root: false,
+        no_root: false,
         update: false,
     })
 }
@@ -77,6 +79,8 @@ fn update_command(id: &str, path: &str) -> Command {
         id: id.to_owned(),
         path: path.to_owned(),
         derives_from: Vec::new(),
+        root: false,
+        no_root: false,
         update: true,
     })
 }
@@ -212,6 +216,8 @@ fn derives_from_writes_onto_every_top_level_node() {
             id: "DOC-BASIC-001".to_owned(),
             path: "basic-spec.json".to_owned(),
             derives_from: vec!["ROOT-001".to_owned()],
+            root: false,
+            no_root: false,
             update: false,
         }),
     ));
@@ -239,8 +245,147 @@ fn derives_from_on_a_root_only_document_is_a_usage_error() {
             id: "DOC-BASIC-001".to_owned(),
             path: "basic-spec.json".to_owned(),
             derives_from: vec!["ROOT-001".to_owned()],
+            root: false,
+            no_root: false,
             update: false,
         }),
     ));
     assert_eq!(exit, ExitCode::Usage);
+}
+
+/// DS-1683/DS-1658: `--root` succeeds when the source file's own top-level
+/// content is entirely `root[]` (already `ROOT-`-prefixed, matching
+/// DS-1658's id-prefix-to-layer rule) — it validates placement, it does
+/// not convert a non-root node into one.
+#[test]
+fn root_flag_accepts_a_source_file_that_is_already_all_root() {
+    let root = temp_root("root-flag-accept");
+    build_fixture_project(&root); // FIXTURE_NODE_TREE is entirely root[] (ROOT-001)
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: Vec::new(),
+            root: true,
+            no_root: false,
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert!(view.is_root);
+}
+
+/// DS-1683/DS-1658: `--root` is rejected against a source file whose
+/// top-level content is a non-root layer (`request` here) — DS-1658 ties
+/// the node's `R-…` id prefix to the `request` layer, so `--root` cannot
+/// move it into `root[]` without fabricating it a `ROOT-…` id.
+#[test]
+fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
+    let root = temp_root("root-flag-non-root-layer");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let request_only = r#"{"schema_version":"0.1","root":[],"request":[{"id":"R-001","statement":"fixture requirement","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+    fs::write(root.join("req-only.json"), request_only).expect("write source file");
+
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-REQ-001".to_owned(),
+            path: "req-only.json".to_owned(),
+            derives_from: Vec::new(),
+            root: true,
+            no_root: false,
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Usage);
+}
+
+/// DS-1683: `--no-root` is rejected against a source file whose own
+/// `root[]` is already non-empty (reconstructing what it would take to
+/// move those nodes out is undefined).
+#[test]
+fn no_root_flag_on_an_already_root_document_is_a_usage_error() {
+    let root = temp_root("no-root-flag-already-root");
+    build_fixture_project(&root); // FIXTURE_NODE_TREE's root[] has ROOT-001
+    let exit = run(cli(
+        &root,
+        Command::Doc(DocCommand::Add {
+            id: "DOC-BASIC-001".to_owned(),
+            path: "basic-spec.json".to_owned(),
+            derives_from: Vec::new(),
+            root: false,
+            no_root: true,
+            update: false,
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Usage);
+}
+
+/// DS-1015: `doc list --tree` renders the `derives_from` chain as a nested
+/// tree (a document with no `derives_from` edges at depth 0, its dependents
+/// indented beneath it), not a flat `id -> [parents]` listing.
+#[test]
+fn list_tree_renders_a_nested_derives_from_tree() {
+    let root = temp_root("list-tree");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+
+    // DOC-PARENT: no derives_from (a display root). DOC-CHILD: derives_from
+    // ROOT-001 (an id outside the registered set, unresolved but harmless
+    // to the tree itself, which is keyed on the registered ids).
+    let parent = r#"{"schema_version":"0.1","root":[],"request":[{"id":"R-101","statement":"parent","derives_from":[],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+    fs::write(root.join("parent.json"), parent).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-PARENT", "parent.json"))),
+        ExitCode::Ok
+    );
+
+    let child = r#"{"schema_version":"0.1","root":[],"request":[{"id":"R-102","statement":"child","derives_from":["R-101"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+    fs::write(root.join("child.json"), child).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-CHILD", "child.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let result = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    // `render_doc_tree` is exactly the rendering `doc list --tree` uses on
+    // this same resolved document-level chain (see `render_doc_list_text`).
+    let rendered = vtest_cli::render_doc_tree(&result.document_chain);
+
+    let parent_line = rendered.lines().find(|line| line.trim() == "DOC-PARENT");
+    let child_line = rendered.lines().find(|line| line.contains("DOC-CHILD"));
+    assert!(parent_line.is_some(), "rendered tree:\n{rendered}");
+    assert!(child_line.is_some(), "rendered tree:\n{rendered}");
+    let child_indent = child_line.unwrap().len() - child_line.unwrap().trim_start().len();
+    assert!(
+        child_indent > 0,
+        "DOC-CHILD must be indented under DOC-PARENT in the tree, got:\n{rendered}"
+    );
+}
+
+/// DS-1016: `doc list --roots` lists the current `root[]`-layer document
+/// set.
+#[test]
+fn list_roots_lists_the_current_root_set() {
+    let root = temp_root("list-roots");
+    build_fixture_project(&root);
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let result = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    let roots: Vec<_> = result
+        .records
+        .iter()
+        .filter(|view| view.is_root)
+        .map(|view| view.id.clone())
+        .collect();
+    assert_eq!(roots, vec!["DOC-BASIC-001".to_owned()]);
 }

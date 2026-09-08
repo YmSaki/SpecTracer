@@ -88,7 +88,12 @@ fn resolve_subject(
         }
         "judgment" => Err(ApprovalOpError::JudgmentSubjectTypeUnsupported),
         other => Err(ApprovalOpError::InvalidRequest(format!(
-            "subject_type must be one of vo, document, judgment; got {other}"
+            // "judgment" is a valid domain value (DS-1051/1480) but is
+            // rejected above via `JudgmentSubjectTypeUnsupported`
+            // (E-APPROVAL-001), not this E-APPROVAL-002 branch — do not
+            // list it here as if this codebase currently accepted it.
+            "subject_type must be vo or document; got {other} (judgment is a valid domain \
+             value but is not implemented — see JudgmentSubjectTypeUnsupported)"
         ))),
     }
 }
@@ -122,37 +127,59 @@ fn validate_supersedes(
     Ok(())
 }
 
-pub fn create(layout: &VerifyLayout, args: CreateArgs) -> Result<ApprovalRecord, ApprovalOpError> {
-    let (subject_hash, dependencies) =
-        resolve_subject(layout, &args.subject_type, &args.subject_id)?;
-    validate_supersedes(
-        layout,
-        &args.subject_type,
-        &args.subject_id,
-        &args.supersedes,
-    )?;
+/// Shared construction path for `create` and `withdraw` — BD-307:
+/// "`withdraw`…は`state: withdrawn`かつ`supersedes: [approval-id]`の
+/// `create`と同一のレコードを生成する" means withdraw is not a distinct
+/// operation with its own resolution rules; it *is* `create`, called with
+/// the target record's own `subject_type`/`subject_id` and a fixed
+/// `approved_state`/`supersedes`. In particular `subject_hash`/
+/// `dependencies` are always freshly resolved here (DS-1058 applies
+/// identically to both callers), never copied from a prior record.
+#[allow(clippy::too_many_arguments)]
+fn build_and_write(
+    layout: &VerifyLayout,
+    subject_type: String,
+    subject_id: String,
+    approved_state: String,
+    judgment_ref: Option<String>,
+    approver_kind: String,
+    approver_id: String,
+    approver_model: Option<String>,
+    basis: Vec<String>,
+    supersedes: Vec<String>,
+) -> Result<ApprovalRecord, ApprovalOpError> {
+    let (subject_hash, dependencies) = resolve_subject(layout, &subject_type, &subject_id)?;
+    validate_supersedes(layout, &subject_type, &subject_id, &supersedes)?;
     let record = ApprovalRecord {
         id: new_record_id(),
-        subject_type: args.subject_type,
-        subject: args.subject_id,
+        subject_type,
+        subject: subject_id,
         subject_hash,
         dependencies,
-        judgment_ref: None,
+        judgment_ref,
         approver: Approver {
-            kind: args.approver_kind,
-            id: args.approver_id,
-            model: args.approver_model,
+            kind: approver_kind,
+            id: approver_id,
+            model: approver_model,
         },
-        approved_state: args.approved_state,
-        basis: args
-            .basis
+        approved_state,
+        // DS-1055 defines `--basis` as a bare, optional "根拠参照" (reference) —
+        // no {kind, ref} pair, and no `kind` value domain, appears anywhere
+        // in canon for Approval's basis (unlike the retired audit-domain
+        // DS-713, which is a different field on a different, retired
+        // record). `ApprovalBasis.kind` is a downstream struct-shape
+        // decision this module did not introduce and does not have
+        // grounds to fill with an invented domain value; left empty here
+        // rather than fabricating a constant like the earlier "ref" — see
+        // `reports/closure-trace.md`'s stopped_on list.
+        basis: basis
             .into_iter()
             .map(|reference| ApprovalBasis {
-                kind: "ref".to_owned(),
+                kind: String::new(),
                 reference,
             })
             .collect(),
-        supersedes: args.supersedes,
+        supersedes,
         approved_at: vtest_store::records::now_rfc3339(),
     };
     let yaml = record
@@ -163,6 +190,21 @@ pub fn create(layout: &VerifyLayout, args: CreateArgs) -> Result<ApprovalRecord,
     Ok(record)
 }
 
+pub fn create(layout: &VerifyLayout, args: CreateArgs) -> Result<ApprovalRecord, ApprovalOpError> {
+    build_and_write(
+        layout,
+        args.subject_type,
+        args.subject_id,
+        args.approved_state,
+        None,
+        args.approver_kind,
+        args.approver_id,
+        args.approver_model,
+        args.basis,
+        args.supersedes,
+    )
+}
+
 pub struct WithdrawArgs {
     pub approval_id: String,
     pub approver_kind: String,
@@ -171,10 +213,16 @@ pub struct WithdrawArgs {
     pub basis: Vec<String>,
 }
 
-/// BD-307/DS-1056: `withdraw` is `create` with `state: withdrawn` and
-/// `supersedes: [approval-id]`, copying the target record's subject fields
-/// verbatim (not re-resolved against the current subject state — the
-/// withdrawal targets the specific prior grant, whatever its binding was).
+/// BD-307: "`withdraw`…は`state: withdrawn`かつ`supersedes: [approval-id]`
+/// の`create`と同一のレコードを生成する" — withdraw goes through the exact
+/// same `build_and_write` path `create` does, on the target record's own
+/// `subject_type`/`subject_id`: `subject_hash`/`dependencies` are resolved
+/// fresh against the *current* subject state (DS-1058 applies to withdraw
+/// identically to create — "対象…を完全・current に解決できない場合は
+/// E-APPROVAL-001"), not copied from the target record. This mirrors
+/// `create`'s own re-resolution and closes a previous divergence where
+/// `withdraw` alone bypassed E-APPROVAL-001 by copying the target's stale
+/// binding verbatim.
 pub fn withdraw(
     layout: &VerifyLayout,
     args: WithdrawArgs,
@@ -186,36 +234,20 @@ pub fn withdraw(
             args.approval_id
         )));
     };
-    let record = ApprovalRecord {
-        id: new_record_id(),
-        subject_type: target.subject_type.clone(),
-        subject: target.subject.clone(),
-        subject_hash: target.subject_hash.clone(),
-        dependencies: target.dependencies.clone(),
-        judgment_ref: target.judgment_ref.clone(),
-        approver: Approver {
-            kind: args.approver_kind,
-            id: args.approver_id,
-            model: args.approver_model,
-        },
-        approved_state: "withdrawn".to_owned(),
-        basis: args
-            .basis
-            .into_iter()
-            .map(|reference| ApprovalBasis {
-                kind: "ref".to_owned(),
-                reference,
-            })
-            .collect(),
-        supersedes: vec![args.approval_id],
-        approved_at: vtest_store::records::now_rfc3339(),
-    };
-    let yaml = record
-        .to_yaml()
-        .map_err(|error| ApprovalOpError::InvalidRequest(error.to_string()))?;
-    let path = layout.approvals_dir().join(format!("{}.yaml", record.id));
-    write_new_record(&path, &yaml)?;
-    Ok(record)
+    let subject_type = target.subject_type.clone();
+    let subject_id = target.subject.clone();
+    build_and_write(
+        layout,
+        subject_type,
+        subject_id,
+        "withdrawn".to_owned(),
+        None,
+        args.approver_kind,
+        args.approver_id,
+        args.approver_model,
+        args.basis,
+        vec![args.approval_id],
+    )
 }
 
 pub struct ShowResult {

@@ -63,8 +63,12 @@ pub struct GateVerification {
 /// scope -> required-approval-subject mapping this slice's config schema
 /// does not carry. `satisfied` stays fail-closed (`false`) whenever a role
 /// is required, matching the existing rule that an unevaluable role must
-/// never read as satisfied. See `reports/closure-trace.md`'s stopped_on
-/// list.
+/// never read as satisfied. **Consequence**: with this slice's config
+/// schema, a gate whose `require.approvals` is non-empty can therefore
+/// never reach `GateEvaluation.satisfied == true`, regardless of how many
+/// approval records exist — the role is permanently unevaluable, not
+/// merely currently unsatisfied. See `reports/closure-trace.md`'s
+/// stopped_on list.
 #[derive(Clone, serde::Serialize)]
 pub struct GateApproval {
     pub role: String,

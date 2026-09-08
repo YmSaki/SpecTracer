@@ -8,8 +8,8 @@
 
 use vtest_store::{
     doc_registry::{
-        apply_derives_from, doc_exists, read_all_docs, read_doc_view, read_node_tree,
-        unresolved_derives_from, write_doc, DocView,
+        apply_derives_from, apply_root, doc_exists, document_derives_from, read_all_docs,
+        read_doc_view, read_node_tree, unresolved_derives_from, write_doc, DocView,
     },
     StoreError, VerifyLayout,
 };
@@ -29,6 +29,12 @@ pub struct AddArgs {
     /// node's own `derives_from` (empty = leave the file's own content
     /// untouched).
     pub derives_from: Vec<String>,
+    /// DS-1683: `Some(true)` = `--root` (asserts the source file's
+    /// top-level content is entirely `root[]`), `Some(false)` =
+    /// `--no-root` (asserts `root[]` is empty), `None` = neither flag
+    /// given (no check; register the file's own layer assignment
+    /// unchanged). See `vtest_store::doc_registry::apply_root`.
+    pub root: Option<bool>,
     pub update: bool,
 }
 
@@ -59,6 +65,7 @@ pub fn add(
     }
 
     let mut file = read_node_tree(project_root, &args.path)?;
+    apply_root(&file, args.root).map_err(|error| DocOpError::Usage(error.to_string()))?;
     apply_derives_from(&mut file, &args.derives_from)
         .map_err(|error| DocOpError::Usage(error.to_string()))?;
     write_doc(layout, &args.id, &file)?;
@@ -69,6 +76,12 @@ pub struct ListResult {
     pub records: Vec<DocView>,
     /// DS-1018: dangling `derives_from` links across the registered set.
     pub unresolved: Vec<(String, String)>,
+    /// DS-1015: the document-level `derives_from` chain (document id ->
+    /// parent document ids), resolved through node ownership — see
+    /// `vtest_store::doc_registry::document_derives_from`'s doc comment for
+    /// why this is not simply each document's raw `derives_from` (which
+    /// holds node ids, not document ids).
+    pub document_chain: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 /// DS-1015/1016: `list` (optionally `--tree`/`--roots` — both are rendering
@@ -78,15 +91,19 @@ pub struct ListResult {
 pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
     let map = read_all_docs(layout)?;
     let unresolved = unresolved_derives_from(&map);
+    let document_chain = document_derives_from(&map);
     let records = map.into_values().collect();
     Ok(ListResult {
         records,
         unresolved,
+        document_chain,
     })
 }
 
-/// DS-1017/1682: returns id・content_hash（都度計算）・derives_from（参照先
-/// ノード id の並びのみ、DS-1682）・根指定（`root[]` の有無から導出）。DS-1017
+/// DS-1017/1682: returns id・path（`.verify/doc/<id>.json`自身の現在地、
+/// 元の`--path`引数ではない — DES-585/595により保存されていないため）・
+/// content_hash（都度計算）・derives_from（参照先ノード id の並びのみ、
+/// DS-1682）・根指定（`root[]` の有無から導出）。DS-1017
 /// の「鮮度（content_hash と実ファイルの一致）」は実装していない —
 /// `.verify/doc/<id>.json` 自体が正典の内容であり、比較対象となる「別の
 /// 実ファイル」が正本のどこにも定義されていないため（stopped_on 参照）。

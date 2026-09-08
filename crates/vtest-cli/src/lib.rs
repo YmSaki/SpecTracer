@@ -125,6 +125,16 @@ pub enum DocCommand {
         /// file's own content untouched; DS-1003's "0件可＝根候補").
         #[arg(long = "derives-from")]
         derives_from: Vec<String>,
+        /// DS-1683: asserts the source file's own top-level content is
+        /// entirely `root[]`-layer (rejected otherwise — DS-1658 ties a
+        /// node's id prefix to its layer, so this cannot move a node into
+        /// `root[]`; see `vtest_store::doc_registry::apply_root`).
+        #[arg(long, conflicts_with = "no_root")]
+        root: bool,
+        /// DS-1683: asserts the source file's own `root[]` layer is empty
+        /// (rejected otherwise, for the same DS-1658 reason as `--root`).
+        #[arg(long = "no-root", conflicts_with = "root")]
+        no_root: bool,
         #[arg(long)]
         update: bool,
     },
@@ -556,8 +566,14 @@ fn approval_error_exit(
 ) -> ExitCode {
     use ops::approval::ApprovalOpError;
     match error {
+        // DS-1058: "--subject-type judgment の参照先判断記録…を完全・
+        // current に解決できない場合は E-APPROVAL-001" — no judgment-record
+        // domain exists in this codebase (see ApprovalOpError's doc
+        // comment), so the reference can never resolve; this is DS-1058's
+        // unresolved-subject case, not a Structured Operation input
+        // validation failure (E-OP-001's actual domain).
         ApprovalOpError::JudgmentSubjectTypeUnsupported => {
-            usage_failure(format, quiet, "E-OP-001", &error.to_string())
+            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
         }
         ApprovalOpError::UnresolvedSubject(_) => {
             usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
@@ -588,8 +604,16 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
             id,
             path,
             derives_from,
+            root: root_flag,
+            no_root,
             update,
         } => {
+            let root_arg = match (root_flag, no_root) {
+                (true, false) => Some(true),
+                (false, true) => Some(false),
+                (false, false) => None,
+                (true, true) => unreachable!("clap `conflicts_with` rejects --root --no-root"),
+            };
             match ops::doc::add(
                 &root,
                 &layout,
@@ -597,6 +621,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                     id,
                     path,
                     derives_from,
+                    root: root_arg,
                     update,
                 },
             ) {
@@ -618,6 +643,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                     "records": records,
                     "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
                     "unresolved_derives_from": result.unresolved,
+                    "document_chain": result.document_chain,
                 });
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, |envelope| {
@@ -642,6 +668,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
 fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value {
     serde_json::json!({
         "id": view.id,
+        "path": view.path.to_string_lossy(),
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
@@ -665,17 +692,21 @@ fn render_doc_list_text(
     let records = data["records"].as_array().cloned().unwrap_or_default();
     if tree {
         out.push_str("Document tree (derives_from):\n");
-        for record in &records {
-            let id = record["id"].as_str().unwrap_or("");
-            let derives_from = record["derives_from"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|entry| entry.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            out.push_str(&format!("  {id} -> [{derives_from}]\n"));
-        }
+        let chain: std::collections::BTreeMap<String, Vec<String>> = data["document_chain"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(id, parents)| {
+                let parents = parents
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| entry.as_str().map(str::to_owned))
+                    .collect();
+                (id.clone(), parents)
+            })
+            .collect();
+        out.push_str(&render_doc_tree(&chain));
     } else {
         for record in &records {
             out.push_str(&format!("{}\n", record["id"].as_str().unwrap_or("")));
@@ -700,11 +731,67 @@ fn render_doc_list_text(
     out
 }
 
+/// DS-1015: `doc list --tree` renders the *document-level* `derives_from`
+/// chain as an actual nested tree (indented by depth), not a flat
+/// `id -> [parents]` listing. `chain` maps each registered document id to
+/// its already-resolved parent *document* ids (see
+/// `vtest_store::doc_registry::document_derives_from` for why this is not
+/// simply each document's raw `derives_from`, which holds node ids). A
+/// document with no parents is a root of this display graph (distinct from
+/// `root[]` layer membership) and starts at depth 0; each child is printed
+/// once under every parent it names (a document may have more than one
+/// parent, so this is not always a strict tree) — re-visiting a node while
+/// already on the current path is a cycle and is marked rather than
+/// recursed into, since the registered set is untrusted input.
+pub fn render_doc_tree(chain: &std::collections::BTreeMap<String, Vec<String>>) -> String {
+    use std::collections::BTreeMap;
+
+    let mut children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (id, parents) in chain {
+        for parent in parents {
+            children.entry(parent.clone()).or_default().push(id.clone());
+        }
+    }
+
+    let mut out = String::new();
+    let display_roots: Vec<&String> = chain
+        .keys()
+        .filter(|id| chain.get(*id).is_none_or(Vec::is_empty))
+        .collect();
+    for root in display_roots {
+        render_doc_tree_node(root, &children, 0, &mut vec![root.clone()], &mut out);
+    }
+    out
+}
+
+fn render_doc_tree_node(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    depth: usize,
+    path: &mut Vec<String>,
+    out: &mut String,
+) {
+    out.push_str(&"  ".repeat(depth));
+    out.push_str(id);
+    out.push('\n');
+    for child in children.get(id).into_iter().flatten() {
+        if path.contains(child) {
+            out.push_str(&"  ".repeat(depth + 1));
+            out.push_str(&format!("{child} (cycle, not expanded)\n"));
+            continue;
+        }
+        path.push(child.clone());
+        render_doc_tree_node(child, children, depth + 1, path, out);
+        path.pop();
+    }
+}
+
 fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     let data = &envelope.data;
     let mut out = format!(
-        "id: {}\ncontent_hash: {}\nroot: {}\n",
+        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
         data["id"].as_str().unwrap_or(""),
+        data["path"].as_str().unwrap_or(""),
         data["content_hash"].as_str().unwrap_or(""),
         data["root"].as_bool().unwrap_or(false),
     );

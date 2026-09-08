@@ -321,3 +321,216 @@ pub fn read_all_approvals(
     }
     Ok(records)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::records::{ApprovalRecord, Approver};
+
+    fn hash(seed: &str) -> ContentHash {
+        vtest_model::ContentHash::from_text(seed)
+    }
+
+    fn index_with(entries: &[(&str, &str, &[&str])]) -> DocumentNodeIndex {
+        let mut index = DocumentNodeIndex(BTreeMap::new());
+        for (id, seed, derives_from) in entries {
+            index.insert(
+                (*id).to_owned(),
+                hash(seed),
+                derives_from
+                    .iter()
+                    .map(|value| (*value).to_owned())
+                    .collect(),
+            );
+        }
+        index
+    }
+
+    /// DS-1480: `document_dependencies` follows `derives_from` recursively
+    /// (R-001 -> ROOT-001, transitively), excluding the subject itself.
+    #[test]
+    fn document_dependencies_follows_derives_from_recursively() {
+        let index = index_with(&[
+            ("ROOT-001", "root", &[]),
+            ("R-001", "req", &["ROOT-001"]),
+            ("SPEC-001", "spec", &["R-001"]),
+        ]);
+        let deps = document_dependencies(&index, "SPEC-001");
+        let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
+        assert_eq!(entities, BTreeSet::from(["R-001", "ROOT-001"]));
+        assert!(
+            !entities.contains("SPEC-001"),
+            "the subject itself must not appear in its own dependency closure (DS-456)"
+        );
+    }
+
+    /// DS-1480: a subject with no `derives_from` edges has an empty closure.
+    #[test]
+    fn document_dependencies_of_a_leaf_node_is_empty() {
+        let index = index_with(&[("ROOT-001", "root", &[])]);
+        assert!(document_dependencies(&index, "ROOT-001").is_empty());
+    }
+
+    fn vo(id: &str, parent: Option<&str>, doc_id: &str) -> VoRecord {
+        VoRecord {
+            id: VoId::new(id),
+            parent: parent.map(VoId::new),
+            derives_from: vec![vtest_model::DerivesFrom {
+                doc: vtest_model::DocumentId::new(doc_id),
+                anchor: None,
+                note: None,
+            }],
+            claim: "fixture claim".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-09T00:00:00Z".to_owned(),
+            updated: "2026-09-09T00:00:00Z".to_owned(),
+        }
+    }
+
+    /// DS-1487: `vo_dependencies` includes the parent-VO chain and, for the
+    /// subject VO and every ancestor VO, the document closure each one's
+    /// own `derives_from` reaches.
+    #[test]
+    fn vo_dependencies_includes_parent_chain_and_document_closure() {
+        let doc_index = index_with(&[("ROOT-001", "root", &[]), ("R-001", "req", &["ROOT-001"])]);
+        let mut vos = BTreeMap::new();
+        vos.insert("VO-PARENT".to_owned(), vo("VO-PARENT", None, "ROOT-001"));
+        vos.insert(
+            "VO-CHILD".to_owned(),
+            vo("VO-CHILD", Some("VO-PARENT"), "R-001"),
+        );
+
+        let deps = vo_dependencies(&vos, &doc_index, &VoId::new("VO-CHILD"));
+        let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
+        assert_eq!(
+            entities,
+            BTreeSet::from(["VO-PARENT", "R-001", "ROOT-001"]),
+            "must include the parent VO and the document closure of both the subject and its \
+             parent"
+        );
+        assert!(!entities.contains("VO-CHILD"));
+    }
+
+    fn approval_record(
+        id: &str,
+        subject_type: &str,
+        subject: &str,
+        subject_hash: ContentHash,
+        dependencies: Vec<DependencyRecord>,
+        approved_state: &str,
+        supersedes: Vec<String>,
+    ) -> ApprovalRecord {
+        ApprovalRecord {
+            id: id.to_owned(),
+            subject_type: subject_type.to_owned(),
+            subject: subject.to_owned(),
+            subject_hash,
+            dependencies,
+            judgment_ref: None,
+            approver: Approver {
+                kind: "human".to_owned(),
+                id: "reviewer".to_owned(),
+                model: None,
+            },
+            approved_state: approved_state.to_owned(),
+            basis: Vec::new(),
+            supersedes,
+            approved_at: "2026-09-09T00:00:00Z".to_owned(),
+        }
+    }
+
+    /// DS-1467: a record whose `subject_hash` no longer matches the
+    /// subject's current content hash is not valid -- it drops out of the
+    /// effective set entirely (not merely "not approved"), so a subject
+    /// with only such a record reads as `Draft`, identically to having no
+    /// record at all.
+    #[test]
+    fn effective_state_drops_a_record_with_a_stale_subject_hash() {
+        let record = approval_record(
+            "01A",
+            "vo",
+            "VO-X",
+            hash("old-content"),
+            Vec::new(),
+            "approved",
+            Vec::new(),
+        );
+        let state = effective_approval_state(&[record], "vo", "VO-X", &hash("new-content"), &[]);
+        assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+
+    /// DS-1467: a record whose `dependencies` no longer match the subject's
+    /// current dependency closure (entity or hash) is invalid for the same
+    /// reason -- currentness is bound to both axes, not just the subject's
+    /// own hash.
+    #[test]
+    fn effective_state_drops_a_record_with_a_stale_dependency_closure() {
+        let record = approval_record(
+            "01A",
+            "vo",
+            "VO-X",
+            hash("content"),
+            vec![DependencyRecord {
+                entity: "ROOT-001".to_owned(),
+                hash: hash("old-root"),
+            }],
+            "approved",
+            Vec::new(),
+        );
+        let current_deps = [DependencyRecord {
+            entity: "ROOT-001".to_owned(),
+            hash: hash("new-root"),
+        }];
+        let state =
+            effective_approval_state(&[record], "vo", "VO-X", &hash("content"), &current_deps);
+        assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+
+    /// A single current, valid, unsuperseded `approved` record reads as
+    /// `Approved`.
+    #[test]
+    fn effective_state_is_approved_for_one_current_valid_approved_record() {
+        let record = approval_record(
+            "01A",
+            "vo",
+            "VO-X",
+            hash("content"),
+            Vec::new(),
+            "approved",
+            Vec::new(),
+        );
+        let state = effective_approval_state(&[record], "vo", "VO-X", &hash("content"), &[]);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+    }
+
+    /// DS-1466: a valid record named by another valid record's
+    /// `supersedes` drops out of the effective set -- an `approved` record
+    /// superseded by a `withdrawn` one reads as `Draft`, not `Approved`.
+    #[test]
+    fn effective_state_excludes_a_superseded_record() {
+        let approved = approval_record(
+            "01A",
+            "vo",
+            "VO-X",
+            hash("content"),
+            Vec::new(),
+            "approved",
+            Vec::new(),
+        );
+        let withdrawn = approval_record(
+            "01B",
+            "vo",
+            "VO-X",
+            hash("content"),
+            Vec::new(),
+            "withdrawn",
+            vec!["01A".to_owned()],
+        );
+        let state =
+            effective_approval_state(&[approved, withdrawn], "vo", "VO-X", &hash("content"), &[]);
+        assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+}

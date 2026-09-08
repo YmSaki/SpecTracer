@@ -1,11 +1,14 @@
 //! Acceptance coverage for 別紙C §18.1 共通条件 (DES-532/533/534).
 //!
 //! DES-533「Rust workspace の受入テストは `cargo test --workspace` で実行
-//! できる」— this whole acceptance suite (this file plus
-//! `verify_acceptance.rs`/`run_acceptance.rs`/`approval_acceptance.rs`/
-//! `doc_acceptance.rs`/`vtest-mcp`'s own equivalence tests) already
-//! satisfies this by construction: it runs under the required gate command
-//! (`TESTING.md`), with no separate invocation path.
+//! できる」— this is a claim about how the test binary is *invoked*, not
+//! about program behavior, so no `#[test]` fn body can assert it from the
+//! inside (there is no reliable way for a running test to observe the
+//! cargo command line that launched it). This is disclosed rather than
+//! covered by a self-referential assert: the actual evidence is the
+//! measured `cargo test --workspace --locked` gate result reported
+//! alongside this suite (see `reports/closure-trace.md`), not a line in
+//! this file.
 //!
 //! DES-532「受入条件は決定論的な fixture と統合テストで再現できる」— every
 //! acceptance test in this suite builds its own disposable fixture project
@@ -150,23 +153,74 @@ fn approval_state_domain_is_not_relaxed_for_fixtures() {
         ExitCode::Ok,
         "the in-domain path must still succeed (this test's own control case)"
     );
+
+    // The actual rejection: `ApprovedStateArg`'s `value_enum` guards the
+    // built CLI binary, but `ops::approval::create` itself (which the CLI,
+    // and MCP's `approval_create`, both call) takes a raw `String` for
+    // `approved_state` -- calling it directly, bypassing clap entirely,
+    // exercises the layer where DES-534's domain invariant is actually
+    // enforced (`ApprovalRecord::validate`, DS-1054/1463), not merely the
+    // CLI's own convenience-level type check.
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let out_of_domain = vtest_cli::ops::approval::create(
+        &layout,
+        vtest_cli::ops::approval::CreateArgs {
+            subject_type: "vo".to_owned(),
+            subject_id: "VO-ACCEPTANCE-18-1".to_owned(),
+            approved_state: "bogus-state".to_owned(),
+            approver_kind: "human".to_owned(),
+            approver_id: "reviewer".to_owned(),
+            approver_model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        },
+    );
+    assert!(
+        out_of_domain.is_err(),
+        "an out-of-domain approved_state must be rejected even when clap's own type check is \
+         bypassed entirely (DES-534: the invariant is not merely a CLI-layer convenience)"
+    );
 }
 
-/// DES-532/533: this acceptance suite's own fixtures are deterministic and
+/// DES-532: this acceptance suite's own fixtures are deterministic and
 /// reproducible under the standard `cargo test --workspace` gate — a
-/// disposable temp-directory project with no ambient dependency, asserted
-/// here by running the same operation (`init`) twice against two
-/// independently constructed fixture roots and observing the same outcome.
+/// disposable temp-directory project with no ambient dependency. Asserting
+/// only that two independent `init` calls both exit `Ok` would be
+/// tautological (both roots are freshly created, so nothing could make
+/// either call fail for a reason `init` itself would report as anything
+/// but `Ok`): the actual, falsifiable claim is that the *content* two
+/// independently constructed fixtures produce is byte-identical, not just
+/// that both happen to succeed.
 #[test]
-fn fixture_construction_is_deterministic_across_independent_roots() {
+fn fixture_construction_produces_byte_identical_content_across_independent_roots() {
     let first = temp_root("determinism-a");
     let second = temp_root("determinism-b");
-    let first_exit = run(cli(&first, Command::Init { name: None }));
-    let second_exit = run(cli(&second, Command::Init { name: None }));
-    assert_eq!(first_exit, ExitCode::Ok);
-    assert_eq!(second_exit, ExitCode::Ok);
     assert_eq!(
-        first_exit, second_exit,
-        "two independently constructed fixtures must reach the same outcome for the same operation"
+        run(cli(
+            &first,
+            Command::Init {
+                name: Some("acceptance-fixture".to_owned())
+            }
+        )),
+        ExitCode::Ok
+    );
+    assert_eq!(
+        run(cli(
+            &second,
+            Command::Init {
+                name: Some("acceptance-fixture".to_owned())
+            }
+        )),
+        ExitCode::Ok
+    );
+
+    let first_config = fs::read_to_string(first.join(".verify").join("config.yaml"))
+        .expect("read the first fixture's config.yaml");
+    let second_config = fs::read_to_string(second.join(".verify").join("config.yaml"))
+        .expect("read the second fixture's config.yaml");
+    assert_eq!(
+        first_config, second_config,
+        "two independently constructed fixtures given the same project name must produce \
+         byte-identical content, not merely the same exit code"
     );
 }

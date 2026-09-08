@@ -431,6 +431,7 @@ fn tool_input_schema(name: &str) -> Value {
                 "id": {"type": "string"},
                 "path": {"type": "string"},
                 "derives_from": {"type": "array", "items": {"type": "string"}},
+                "root": {"type": "boolean"},
                 "update": {"type": "boolean"}
             }),
             vec!["id", "path"],
@@ -459,7 +460,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
-        "doc_add" => &["id", "path", "derives_from", "update"],
+        "doc_add" => &["id", "path", "derives_from", "root", "update"],
         "doc_list" => &[],
         "doc_show" => &["id"],
         _ => &[],
@@ -495,6 +496,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "path")?;
             optional_string_array(args, "derives_from")?;
+            optional_bool(args, "root")?;
             optional_bool(args, "update")
         }
         "doc_list" => Ok(()),
@@ -680,8 +682,12 @@ fn approval_record_envelope(
 fn approval_error_envelope(error: &ops::approval::ApprovalOpError) -> Value {
     use ops::approval::ApprovalOpError;
     match error {
+        // DS-1058: see the identical CLI-side comment in
+        // `vtest_cli::approval_error_exit` — this is DS-1058's unresolved-
+        // subject case (E-APPROVAL-001), not an E-OP-001 input-validation
+        // failure.
         ApprovalOpError::JudgmentSubjectTypeUnsupported => {
-            failure_envelope("E-OP-001", error.to_string())
+            failure_envelope("E-APPROVAL-001", error.to_string())
         }
         ApprovalOpError::UnresolvedSubject(_) => {
             failure_envelope("E-APPROVAL-001", error.to_string())
@@ -751,6 +757,10 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
                 .collect()
         })
         .unwrap_or_default();
+    // DS-1683: `root` here is a tri-state JSON boolean matching the CLI's
+    // mutually exclusive `--root`/`--no-root` flags — `true`/`false`/absent
+    // (not given at all), not a two-state bool.
+    let root_arg = args.pointer("/root").and_then(Value::as_bool);
 
     match ops::doc::add(
         root,
@@ -759,6 +769,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
             id: id.to_owned(),
             path: path.to_owned(),
             derives_from,
+            root: root_arg,
             update,
         },
     ) {
@@ -778,6 +789,7 @@ fn doc_list_tool(root: &Path, _args: &Value) -> Value {
                     "records": records,
                     "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
                     "unresolved_derives_from": result.unresolved,
+                    "document_chain": result.document_chain,
                 }),
                 &[],
             )
@@ -800,6 +812,7 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
 fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
     json!({
         "id": view.id,
+        "path": view.path.to_string_lossy(),
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
@@ -1030,6 +1043,57 @@ mod tests {
         );
     }
 
+    /// DS-1563 equivalence for `init`: MCP and `ops::init::execute` (the
+    /// same function the CLI's `init` wrapper calls).
+    #[test]
+    fn mcp_init_tool_matches_the_cli_init_operation() {
+        // Each call needs its own not-yet-initialised root (`init_project`
+        // is not idempotent), so the two envelopes' `data.project` paths
+        // necessarily differ; normalise that one root-specific field before
+        // comparing the rest of the envelope structurally.
+        let cli_root = temp_root("init-equivalence-cli");
+        let (_, mut cli_envelope) = ops::init::execute(&cli_root, "vtest-mcp-init-fixture");
+        cli_envelope["data"]["project"] = json!("<root>");
+
+        let mcp_root = temp_root("init-equivalence-mcp");
+        let mut mcp_envelope = dispatch_tool(
+            &mcp_root,
+            "init",
+            &json!({"name": "vtest-mcp-init-fixture"}),
+        );
+        mcp_envelope["data"]["project"] = json!("<root>");
+
+        assert_eq!(
+            mcp_envelope, cli_envelope,
+            "MCP `init` tool must return the same envelope shape as `ops::init::execute`, \
+             which the CLI's `init` wrapper also calls, for the same project name \
+             (root paths normalised: each call needs its own fresh root)"
+        );
+    }
+
+    /// DS-1563 equivalence for `doctor`: MCP and `ops::doctor::execute` (the
+    /// same function the CLI's `doctor` wrapper calls).
+    #[test]
+    fn mcp_doctor_tool_matches_the_cli_doctor_operation() {
+        let root = temp_root("doctor-equivalence");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+
+        let (_, cli_envelope) = ops::doctor::execute(&root);
+        let mcp_envelope = dispatch_tool(&root, "doctor", &json!({}));
+
+        assert_eq!(
+            mcp_envelope, cli_envelope,
+            "MCP `doctor` tool must return the same envelope as `ops::doctor::execute`, \
+             which the CLI's `doctor` wrapper also calls"
+        );
+    }
+
     fn fixture_vo_project(root: &Path) {
         use vtest_model::{
             DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId,
@@ -1173,6 +1237,7 @@ mod tests {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
                 derives_from: Vec::new(),
+                root: None,
                 update: false,
             },
         )
@@ -1491,6 +1556,7 @@ mod tests {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
                 derives_from: Vec::new(),
+                root: None,
                 update: false,
             },
         )
@@ -1548,6 +1614,7 @@ mod tests {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
                 derives_from: vec!["ROOT-001".to_owned()],
+                root: None,
                 update: false,
             },
         )
@@ -1613,6 +1680,7 @@ mod tests {
                 id: "DOC-BASIC-001".to_owned(),
                 path: "basic-spec.json".to_owned(),
                 derives_from: Vec::new(),
+                root: None,
                 update: false,
             },
         )

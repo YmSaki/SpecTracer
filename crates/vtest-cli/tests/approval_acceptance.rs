@@ -250,6 +250,110 @@ fn withdraw_writes_a_new_record_referencing_the_original() {
     );
 }
 
+/// BD-307/DS-1058: `withdraw` re-resolves the target's subject against its
+/// *current* state (it is `create` on the target's own `subject_type`/
+/// `subject_id`, not a verbatim copy of the target record's binding) — if
+/// the subject has since become unresolvable, `withdraw` fails with
+/// E-APPROVAL-001 exactly as `create` would, rather than silently writing
+/// a withdrawal record bound to a stale (now-nonexistent) subject.
+#[test]
+fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
+    let root = temp_root("withdraw-re-resolve");
+    build_fixture_project(&root);
+    let create_exit = run(cli(
+        &root,
+        create_command("VO-APPROVAL-DOUBLE", ApprovedStateArg::Approved, Vec::new()),
+    ));
+    assert_eq!(create_exit, ExitCode::Ok);
+
+    let approvals_dir = root.join(".verify").join("approvals");
+    let created_id = fs::read_dir(&approvals_dir)
+        .expect("approvals dir exists")
+        .flatten()
+        .find(|entry| entry.path().extension().and_then(|value| value.to_str()) == Some("yaml"))
+        .expect("one .yaml record written")
+        .path()
+        .file_stem()
+        .expect("file stem")
+        .to_string_lossy()
+        .into_owned();
+
+    // Remove the VO the approval targets -- its subject can no longer be
+    // resolved at all.
+    let layout = vtest_store::VerifyLayout::new(&root);
+    fs::remove_file(layout.vo_dir().join("VO-APPROVAL-DOUBLE.yaml"))
+        .expect("remove the VO record to make the subject unresolvable");
+
+    let withdraw_exit = run(cli(
+        &root,
+        Command::Approval(ApprovalCommand::Withdraw {
+            approval_id: created_id,
+            approver_kind: ApproverKindArg::Human,
+            approver_id: "reviewer".to_owned(),
+            model: None,
+            basis: Vec::new(),
+        }),
+    ));
+    assert_eq!(
+        withdraw_exit,
+        ExitCode::Usage,
+        "withdraw must re-resolve the subject (DS-1058), not copy the target's stale binding"
+    );
+    assert_eq!(
+        approval_record_count(&root),
+        1,
+        "no withdrawal record should be written when the subject cannot be re-resolved"
+    );
+}
+
+/// DS-1051/1480: `--subject-type document` resolves against
+/// `.verify/doc/*.json` node ids (not the VO domain `--subject-type vo`
+/// exercises everywhere else in this file) and writes a record.
+#[test]
+fn create_for_a_resolved_document_subject_writes_a_record_and_exits_ok() {
+    let root = temp_root("resolved-document");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Approval(ApprovalCommand::Create {
+            subject_type: SubjectTypeArg::Document,
+            subject_id: "R-001".to_owned(),
+            state: ApprovedStateArg::Approved,
+            approver_kind: ApproverKindArg::Human,
+            approver_id: "reviewer".to_owned(),
+            model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+    assert_eq!(approval_record_count(&root), 1);
+}
+
+/// DS-1058/E-APPROVAL-001: a document node id that does not exist in any
+/// registered `.verify/doc/*.json` file is a usage rejection under
+/// `--subject-type document`, mirroring the `vo` case.
+#[test]
+fn create_for_an_unresolved_document_subject_is_a_usage_error() {
+    let root = temp_root("unresolved-document");
+    build_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Approval(ApprovalCommand::Create {
+            subject_type: SubjectTypeArg::Document,
+            subject_id: "R-DOES-NOT-EXIST".to_owned(),
+            state: ApprovedStateArg::Approved,
+            approver_kind: ApproverKindArg::Human,
+            approver_id: "reviewer".to_owned(),
+            model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        }),
+    ));
+    assert_eq!(exit, ExitCode::Usage);
+    assert_eq!(approval_record_count(&root), 0);
+}
+
 /// DS-1059/E-APPROVAL-002: `withdraw` naming an approval id that does not
 /// exist is a usage rejection.
 #[test]
