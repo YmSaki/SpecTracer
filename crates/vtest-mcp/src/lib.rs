@@ -27,13 +27,20 @@
 //! comment) — no judgment-record domain exists in this codebase.
 //!
 //! An MCP-only Structured-Edit tool with an apply/re-verify/rollback
-//! contract was named in the task that produced this module, citing
-//! "E-OP-003". That diagnostic code does not exist anywhere in
-//! `docs/canonical/specification.json` (checked by grep against commit
-//! 79e43fa) — it is not a canonical requirement, so no edit/rollback tool
-//! is implemented here. This is a stopped_on, not a silent omission: an
-//! edit MCP tool needs an upstream citation for its rollback trigger
-//! condition before one can be built without inventing it downstream.
+//! contract (別紙A §15.2/§15.4, E-OP-003: apply-then-verify failure —
+//! unparseable result, generated declaration mismatched against desired
+//! state, or a change exceeding one Test's range — rolls back to the
+//! pre-apply byte sequence and aborts, leaving no Test ID / Evidence /
+//! judgment-record side effect) is a real, non-empty citation in
+//! `docs/canonical/specification.json` (confirmed present at commit
+//! `58d03fb`; an earlier version of this comment, checked against `79e43fa`,
+//! wrongly reported it absent — see `reports/closure-trace.md` for the
+//! correction). It is not implemented here: it is a Create/Edit tool over
+//! Structured Test Operations, a CLI/MCP surface this closure-slice's
+//! declared scope (parity with `vtest-cli`'s existing `init`/`scan`/
+//! `doctor`/`run`/`verify`/`doc`/`approval` subcommands) does not cover —
+//! `vtest-cli` itself has no `create`/`edit` subcommand to mirror. Reported
+//! as declined (out of this task's scope), not as an upstream silence.
 
 use std::{
     fs,

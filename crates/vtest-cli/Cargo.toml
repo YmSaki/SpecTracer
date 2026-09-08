@@ -40,3 +40,7 @@ path = "tests/run_acceptance.rs"
 [[test]]
 name = "approval_acceptance"
 path = "tests/approval_acceptance.rs"
+
+[[test]]
+name = "doc_acceptance"
+path = "tests/doc_acceptance.rs"

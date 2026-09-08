@@ -13,11 +13,13 @@ use thiserror::Error;
 
 pub mod approval;
 pub mod canonical;
+pub mod doc_registry;
 pub mod execution_state;
 pub mod forms;
 pub mod records;
 pub use approval::*;
 pub use canonical::*;
+pub use doc_registry::*;
 pub use execution_state::*;
 pub use forms::*;
 pub use records::*;
