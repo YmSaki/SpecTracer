@@ -97,6 +97,7 @@ pub struct VoRecord {
 pub struct Approver {
     pub kind: String,
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 }
 
@@ -107,15 +108,56 @@ pub struct ApprovalBasis {
     pub reference: String,
 }
 
+/// One entry of an Approval record's upstream dependency closure (DS-1467:
+/// `dependencies` は現在の上流依存closureと entity・hash とも完全一致で
+/// 有効性を判定する). `entity` is the dependency node's own id (a VO id or a
+/// document node id, per which closure DS-1480/DS-1487 built it from); `hash`
+/// is that entity's subject hash at the time this Approval record was
+/// written.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DependencyRecord {
+    pub entity: String,
+    pub hash: ContentHash,
+}
+
+/// A canonical Approval record (`.verify/approvals/<ULID>.yaml`), per 本冊
+/// §3.5 and DS-1050〜DS-1062 / DS-1461〜DS-1490.
+///
+/// `subject_type` is `"vo"` (DS-1050), `"document"` (DS-1051), or
+/// `"judgment"` (DS-1052) — the value domain DS-1475 restricts *effective*
+/// approval subjects to (VO id, document id); a `judgment`-typed record does
+/// not put the judgment record's own ULID into `subject` (DS-1483 forbids
+/// that) — it resolves the referenced judgment record's own `subject` and
+/// writes that here instead (DS-1052), with `judgment_ref` carrying the
+/// judgment record's ULID (DS-1476/DS-1482).
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApprovalRecord {
     pub id: String,
-    pub subject: VoId,
+    pub subject_type: String,
+    pub subject: String,
     pub subject_hash: ContentHash,
+    #[serde(default)]
+    pub dependencies: Vec<DependencyRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judgment_ref: Option<String>,
     pub approver: Approver,
+    pub approved_state: String,
+    #[serde(default)]
     pub basis: Vec<ApprovalBasis>,
+    #[serde(default)]
+    pub supersedes: Vec<String>,
     pub approved_at: String,
 }
+
+/// The three `subject_type` values DS-1050/DS-1051/DS-1052 define. No other
+/// value is valid (DS-1059/DS-1464: an out-of-domain `--subject-type` is
+/// E-APPROVAL-002, exit 2, on write).
+pub const APPROVAL_SUBJECT_TYPES: &[&str] = &["vo", "document", "judgment"];
+
+/// The three `approved_state` values DS-1054/DS-1463 define (本冊 §3.5's
+/// `approved_state`). No other value is valid (DS-1059/DS-1464).
+pub const APPROVAL_STATES: &[&str] = &["approved", "rejected", "withdrawn"];
 
 /// One content-addressed subject captured by an append-only audit fact.
 /// Exactly one of `id` and `locator` identifies the subject.
@@ -211,16 +253,25 @@ const RELATION_KEYS: &[&str] = &["id", "type", "from", "to", "note", "created"];
 /// `ApprovalRecord`'s own fields (DS-1645/E-SCAN-010).
 const APPROVAL_KEYS: &[&str] = &[
     "id",
+    "subject_type",
     "subject",
     "subject_hash",
+    "dependencies",
+    "judgment_ref",
     "approver",
+    "approved_state",
     "basis",
+    "supersedes",
     "approved_at",
 ];
 
 /// Known keys for an Approval record's nested `approver` mapping, matching
 /// `Approver`'s own fields.
 const APPROVER_KEYS: &[&str] = &["kind", "id", "model"];
+
+/// Known keys for one entry of an Approval record's `dependencies[]` list,
+/// matching `DependencyRecord`'s own fields.
+const APPROVAL_DEPENDENCY_KEYS: &[&str] = &["entity", "hash"];
 
 /// Known keys for one entry of an Approval record's `basis[]` list, matching
 /// `ApprovalBasis`'s own fields.
@@ -413,51 +464,19 @@ impl VoRecord {
 }
 
 impl ApprovalRecord {
-    pub fn to_yaml(&self) -> String {
-        let mut out = format!(
-            "id: {}\nsubject: {}\nsubject_hash: {}\napprover:\n  kind: {}\n  id: {}\n",
-            yaml_scalar(&self.id),
-            yaml_scalar(self.subject.as_str()),
-            yaml_scalar(self.subject_hash.as_str()),
-            yaml_scalar(&self.approver.kind),
-            yaml_scalar(&self.approver.id),
-        );
-        if let Some(model) = &self.approver.model {
-            out.push_str(&format!("  model: {}\n", yaml_scalar(model)));
-        }
-        if self.basis.is_empty() {
-            out.push_str("basis: []\n");
-        } else {
-            out.push_str("basis:\n");
-        }
-        for basis in &self.basis {
-            out.push_str(&format!(
-                "  - kind: {}\n    ref: {}\n",
-                yaml_scalar(&basis.kind),
-                yaml_scalar(&basis.reference),
-            ));
-        }
-        out.push_str(&format!(
-            "approved_at: {}\n",
-            yaml_scalar(&self.approved_at)
-        ));
-        out
+    pub fn to_yaml(&self) -> Result<String, StoreError> {
+        self.validate(None)?;
+        yaml_serde::to_string(self).map_err(|error| {
+            StoreError::InvalidConfig(format!("could not serialize approval: {error}"))
+        })
     }
 
     /// DS-1645/E-SCAN-010: a field outside `APPROVAL_KEYS`/`APPROVER_KEYS`/
-    /// `APPROVAL_BASIS_KEYS` fails closed rather than being silently
-    /// ignored — the same false-open shape DES-586's own reasoning names
-    /// for the upstream document model (a written scope-limiting field a
-    /// reader discards is a written-narrower approval a machine then reads
-    /// as unlimited). This parses the text into a `yaml_serde::Value` only
-    /// to run that known-key scan; the actual field extraction below is
-    /// unchanged, still driven by the original `text` through this
-    /// module's hand-rolled scalar/nested-scalar helpers (which already
-    /// enforce their own, more specific rules — ULID format,
-    /// `human`/`agent` whitelist; not a `subject` format/prefix check —
-    /// see the doc comment where `subject` is used below, DS-052), not by
-    /// deserializing through `Value`.
-    pub fn from_yaml(text: &str, fallback_id: &str) -> Result<Self, StoreError> {
+    /// `APPROVAL_BASIS_KEYS`/`APPROVAL_DEPENDENCY_KEYS` fails closed rather
+    /// than being silently ignored — same pattern as `RelationRecord`'s own
+    /// `from_yaml`: a text -> `Value` -> known-key scan (for a named error)
+    /// -> typed struct parse.
+    pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid approval record: {error}"))
         })?;
@@ -474,59 +493,115 @@ impl ApprovalRecord {
                 )?;
             }
         }
-
-        let id = required_top_level_scalar(text, "id", "approval")?;
-        let subject = required_top_level_scalar(text, "subject", "approval")?;
-        let subject_hash = required_top_level_scalar(text, "subject_hash", "approval")?
-            .parse()
-            .map_err(|error: String| StoreError::InvalidConfig(error))?;
-        let approver_kind = nested_scalar(text, "approver", "kind")
-            .filter(|value| matches!(value.as_str(), "human" | "agent"))
-            .ok_or_else(|| {
-                StoreError::InvalidConfig(
-                    "approval is missing a valid approver.kind (human or agent)".to_owned(),
-                )
-            })?;
-        let approver_id = nested_scalar(text, "approver", "id")
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| {
-                StoreError::InvalidConfig("approval is missing approver.id".to_owned())
-            })?;
-        let approved_at = required_top_level_scalar(text, "approved_at", "approval")?;
-        if id != fallback_id {
-            return Err(StoreError::InvalidConfig(format!(
-                "approval id {id} does not match file name {fallback_id}"
-            )));
+        if let Some(dependencies) = value
+            .get("dependencies")
+            .and_then(yaml_serde::Value::as_sequence)
+        {
+            for (index, entry) in dependencies.iter().enumerate() {
+                crate::canonical::reject_unknown_fields(
+                    entry,
+                    APPROVAL_DEPENDENCY_KEYS,
+                    &format!("dependencies[{index}]."),
+                )?;
+            }
         }
-        if !is_valid_ulid(&id) {
+
+        let record: Self = yaml_serde::from_value(value).map_err(|error| {
+            StoreError::InvalidConfig(format!("invalid approval record: {error}"))
+        })?;
+        record.validate(Some(filename_id))?;
+        Ok(record)
+    }
+
+    /// DS-1050/1051/1052 (subject_type domain), DS-1054/1463 (approved_state
+    /// domain), DS-1059/1464 (out-of-domain `--subject-type`/`--state` or a
+    /// `subject_type`↔`subject`/`judgment_ref` mismatch is E-APPROVAL-002 on
+    /// write), DS-1476/1483 (`judgment_ref` set iff `subject_type ==
+    /// "judgment"`, and a judgment ULID never appears in `subject` itself).
+    fn validate(&self, filename_id: Option<&str>) -> Result<(), StoreError> {
+        if !is_valid_ulid(&self.id) {
             return Err(StoreError::InvalidConfig(
                 "approval id must be a valid ULID".to_owned(),
             ));
         }
-        // No format check on `subject` beyond the non-empty presence
-        // `required_top_level_scalar` already enforced above: DS-048
-        // ("DOC/VO/TESTのIDは人間可読な形式とする") lists VO ids in the same
-        // breath as DOC/TEST ids under the tool-wide rule DS-052 states
-        // next to it — "ツールはID形式を強制せず一意性のみを強制する" (the
-        // tool does not enforce ID *format*, only uniqueness). A
-        // "VO-"-prefix-and-charset gate here is exactly that prohibited
-        // format enforcement, not an existence/uniqueness check (those are
-        // scan-layer concerns — E-SCAN-003/E-SCAN-012 style resolution —
-        // this record-layer reader does not have the VO set to check
-        // against). Re-applies PR #26 review round 1 BLOCKER 5's removal,
-        // which a9b3113's store rewrite reintroduced.
-        Ok(Self {
-            id,
-            subject: VoId::new(subject),
-            subject_hash,
-            approver: Approver {
-                kind: approver_kind,
-                id: approver_id,
-                model: nested_scalar(text, "approver", "model"),
-            },
-            basis: parse_approval_basis(text)?,
-            approved_at,
-        })
+        if let Some(filename_id) = filename_id {
+            if self.id != filename_id {
+                return Err(StoreError::InvalidConfig(format!(
+                    "approval id {} does not match file name {filename_id}",
+                    self.id
+                )));
+            }
+        }
+        if !APPROVAL_SUBJECT_TYPES.contains(&self.subject_type.as_str()) {
+            return Err(StoreError::InvalidConfig(format!(
+                "approval subject_type must be one of {APPROVAL_SUBJECT_TYPES:?}, got {}",
+                self.subject_type
+            )));
+        }
+        if !APPROVAL_STATES.contains(&self.approved_state.as_str()) {
+            return Err(StoreError::InvalidConfig(format!(
+                "approval approved_state must be one of {APPROVAL_STATES:?}, got {}",
+                self.approved_state
+            )));
+        }
+        if !matches!(self.approver.kind.as_str(), "human" | "agent") {
+            return Err(StoreError::InvalidConfig(
+                "approval is missing a valid approver.kind (human or agent)".to_owned(),
+            ));
+        }
+        // DS-052 ("ツールはID形式を強制せず一意性のみを強制する") — no
+        // format/prefix check on `subject`, `approver.id`, or `basis[].ref`
+        // beyond non-emptiness, matching the predecessor `ApprovalRecord`'s
+        // own documented choice at this same field.
+        for (field, value) in [
+            ("subject", self.subject.as_str()),
+            ("approver.id", self.approver.id.as_str()),
+            ("approved_at", self.approved_at.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                return Err(StoreError::InvalidConfig(format!(
+                    "approval is missing required field {field}"
+                )));
+            }
+        }
+        let judgment_typed = self.subject_type == "judgment";
+        if judgment_typed
+            && self
+                .judgment_ref
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
+        {
+            return Err(StoreError::InvalidConfig(
+                "approval subject_type judgment requires judgment_ref".to_owned(),
+            ));
+        }
+        if !judgment_typed && self.judgment_ref.is_some() {
+            return Err(StoreError::InvalidConfig(
+                "approval judgment_ref is only valid when subject_type is judgment".to_owned(),
+            ));
+        }
+        if let Some(judgment_ref) = &self.judgment_ref {
+            if !is_valid_ulid(judgment_ref) {
+                return Err(StoreError::InvalidConfig(
+                    "approval judgment_ref must be a valid ULID".to_owned(),
+                ));
+            }
+        }
+        for entry in &self.supersedes {
+            if !is_valid_ulid(entry) {
+                return Err(StoreError::InvalidConfig(format!(
+                    "approval supersedes entry {entry} must be a valid ULID"
+                )));
+            }
+            if entry == &self.id {
+                return Err(StoreError::InvalidConfig(
+                    "approval supersedes must not reference its own id".to_owned(),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1506,53 +1581,6 @@ pub(crate) fn parse_combinations(text: &str) -> Vec<Vec<String>> {
         .collect()
 }
 
-fn parse_approval_basis(text: &str) -> Result<Vec<ApprovalBasis>, StoreError> {
-    let lines = text.lines().collect::<Vec<_>>();
-    let Some(start) = lines
-        .iter()
-        .position(|line| !line.starts_with([' ', '\t']) && line.trim() == "basis:")
-    else {
-        return Ok(Vec::new());
-    };
-    let mut basis = Vec::new();
-    let mut index = start + 1;
-    while index < lines.len() {
-        let raw = lines[index];
-        if !raw.starts_with([' ', '\t']) && !raw.trim().is_empty() {
-            break;
-        }
-        let Some(kind) = raw.trim().strip_prefix("- kind:") else {
-            if raw.trim().is_empty() {
-                index += 1;
-                continue;
-            }
-            return Err(StoreError::InvalidConfig(
-                "approval basis entries must contain kind and ref".to_owned(),
-            ));
-        };
-        let reference = lines
-            .get(index + 1)
-            .and_then(|line| line.trim().strip_prefix("ref:"))
-            .map(str::trim)
-            .map(unquote)
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| {
-                StoreError::InvalidConfig(
-                    "approval basis entries must contain kind and ref".to_owned(),
-                )
-            })?;
-        let kind = unquote(kind.trim());
-        if kind.is_empty() {
-            return Err(StoreError::InvalidConfig(
-                "approval basis kind must not be empty".to_owned(),
-            ));
-        }
-        basis.push(ApprovalBasis { kind, reference });
-        index += 2;
-    }
-    Ok(basis)
-}
-
 #[derive(Clone, Debug)]
 struct AuditYamlField {
     value: String,
@@ -1970,36 +1998,6 @@ fn parse_audit_revision(field: &AuditYamlField) -> Result<Revision, StoreError> 
     })
 }
 
-fn required_top_level_scalar(
-    text: &str,
-    key: &str,
-    record_kind: &str,
-) -> Result<String, StoreError> {
-    top_level_scalar(text, key)
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            StoreError::InvalidConfig(format!("{record_kind} is missing required field {key}"))
-        })
-}
-
-fn top_level_scalar(text: &str, key: &str) -> Option<String> {
-    text.lines().find_map(|raw| {
-        if raw.starts_with([' ', '\t']) {
-            return None;
-        }
-        let (candidate, value) = raw.split_once(':')?;
-        if candidate.trim() != key {
-            return None;
-        }
-        let value = value.trim();
-        if value.is_empty() || value == "null" {
-            None
-        } else {
-            Some(unquote(value))
-        }
-    })
-}
-
 pub(crate) fn scalar(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|raw| {
         let line = raw.trim();
@@ -2154,35 +2152,42 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    #[test]
-    fn approval_round_trip_requires_a_traceable_approver() {
-        let id = new_record_id();
-        let record = ApprovalRecord {
-            id: id.clone(),
-            subject: VoId::new("VO-ONE"),
+    fn sample_approval(id: &str) -> ApprovalRecord {
+        ApprovalRecord {
+            id: id.to_owned(),
+            subject_type: "vo".to_owned(),
+            subject: "VO-ONE".to_owned(),
             subject_hash: ContentHash::from_text("vo\n"),
+            dependencies: vec![DependencyRecord {
+                entity: "DOC-ROOT-001".to_owned(),
+                hash: ContentHash::from_text("root\n"),
+            }],
+            judgment_ref: None,
             approver: Approver {
                 kind: "human".to_owned(),
                 id: "reviewer".to_owned(),
                 model: None,
             },
+            approved_state: "approved".to_owned(),
             basis: vec![ApprovalBasis {
                 kind: "audit".to_owned(),
                 reference: new_record_id(),
             }],
+            supersedes: Vec::new(),
             approved_at: "2026-08-08T00:00:00Z".to_owned(),
-        };
-        let yaml = record.to_yaml();
+        }
+    }
+
+    #[test]
+    fn approval_round_trip_requires_a_traceable_approver() {
+        let id = new_record_id();
+        let record = sample_approval(&id);
+        let yaml = record.to_yaml().unwrap();
         assert_eq!(ApprovalRecord::from_yaml(&yaml, &id).unwrap(), record);
 
         let malformed = yaml
             .lines()
-            .filter(|line| {
-                !matches!(
-                    line.trim(),
-                    "approver:" | "kind: 'human'" | "id: 'reviewer'"
-                )
-            })
+            .filter(|line| !matches!(line.trim(), "approver:" | "kind: human" | "id: reviewer"))
             .collect::<Vec<_>>()
             .join("\n");
         assert!(ApprovalRecord::from_yaml(&malformed, &id).is_err());
@@ -2203,13 +2208,12 @@ mod tests {
     #[test]
     fn approval_subject_is_not_format_or_prefix_checked() {
         let id = new_record_id();
-        let yaml = format!(
-            "id: {id}\nsubject: not-a-vo-shaped-id\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
-            ContentHash::from_text("vo\n")
-        );
-        let record = ApprovalRecord::from_yaml(&yaml, &id)
+        let mut record = sample_approval(&id);
+        record.subject = "not-a-vo-shaped-id".to_owned();
+        let yaml = record.to_yaml().unwrap();
+        let parsed = ApprovalRecord::from_yaml(&yaml, &id)
             .expect("a subject with no VO- prefix and lowercase characters must still parse");
-        assert_eq!(record.subject, VoId::new("not-a-vo-shaped-id"));
+        assert_eq!(parsed.subject, "not-a-vo-shaped-id");
     }
 
     /// DS-1645/E-SCAN-010: an approval record carrying a scope-limiting
@@ -2222,19 +2226,8 @@ mod tests {
     #[test]
     fn approval_with_unknown_top_level_field_is_rejected() {
         let id = new_record_id();
-        let record = ApprovalRecord {
-            id: id.clone(),
-            subject: VoId::new("VO-ONE"),
-            subject_hash: ContentHash::from_text("vo\n"),
-            approver: Approver {
-                kind: "human".to_owned(),
-                id: "reviewer".to_owned(),
-                model: None,
-            },
-            basis: vec![],
-            approved_at: "2026-08-08T00:00:00Z".to_owned(),
-        };
-        let mut yaml = record.to_yaml();
+        let record = sample_approval(&id);
+        let mut yaml = record.to_yaml().unwrap();
         yaml.push_str("scope: read-only\n");
         let error = ApprovalRecord::from_yaml(&yaml, &id)
             .expect_err("an unrecognized top-level approval field must fail closed");
@@ -2245,7 +2238,7 @@ mod tests {
     fn approval_with_unknown_nested_approver_field_is_rejected() {
         let id = new_record_id();
         let yaml = format!(
-            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  weight: 2\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            "id: {id}\nsubject_type: vo\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  weight: 2\napproved_state: approved\nbasis: []\nsupersedes: []\napproved_at: '2026-08-08T00:00:00Z'\n",
             ContentHash::from_text("vo\n"),
         );
         let error = ApprovalRecord::from_yaml(&yaml, &id)
@@ -2257,7 +2250,7 @@ mod tests {
     fn approval_with_unknown_nested_basis_field_is_rejected() {
         let id = new_record_id();
         let yaml = format!(
-            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\nbasis:\n  - kind: audit\n    ref: {}\n    note: extra\napproved_at: '2026-08-08T00:00:00Z'\n",
+            "id: {id}\nsubject_type: vo\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\napproved_state: approved\nbasis:\n  - kind: audit\n    ref: {}\n    note: extra\nsupersedes: []\napproved_at: '2026-08-08T00:00:00Z'\n",
             ContentHash::from_text("vo\n"),
             new_record_id(),
         );
@@ -2269,29 +2262,15 @@ mod tests {
     /// DS-1645: `reject_unknown_fields` used to silently skip any mapping
     /// key that was not a YAML string (`key.as_str()` returning `None`),
     /// relying on a `from_value` deserialize elsewhere to reject the type
-    /// mismatch — a precondition that holds for `VoRecord`/`RelationRecord`
-    /// but not for `ApprovalRecord`, which never builds a typed struct from
-    /// this `Value` at all (see `ApprovalRecord::from_yaml`'s doc comment).
-    /// A surplus field written with an integer/bool/null key (e.g. a
-    /// numeric-looking scope-limiting field like `2026: unlimited`) used to
-    /// pass through unrejected.
+    /// mismatch. A surplus field written with an integer/bool/null key
+    /// (e.g. a numeric-looking scope-limiting field like `2026: unlimited`)
+    /// used to pass through unrejected.
     #[test]
     fn approval_with_non_string_top_level_key_is_rejected() {
         let id = new_record_id();
-        let record = ApprovalRecord {
-            id: id.clone(),
-            subject: VoId::new("VO-ONE"),
-            subject_hash: ContentHash::from_text("vo\n"),
-            approver: Approver {
-                kind: "human".to_owned(),
-                id: "reviewer".to_owned(),
-                model: None,
-            },
-            basis: vec![],
-            approved_at: "2026-08-08T00:00:00Z".to_owned(),
-        };
+        let record = sample_approval(&id);
         for extra in ["2026: unlimited\n", "true: unlimited\n", "~: unlimited\n"] {
-            let mut yaml = record.to_yaml();
+            let mut yaml = record.to_yaml().unwrap();
             yaml.push_str(extra);
             let error = ApprovalRecord::from_yaml(&yaml, &id).expect_err(&format!(
                 "a non-string top-level key ({extra:?}) must fail closed, not be silently skipped"
@@ -2305,12 +2284,46 @@ mod tests {
     fn approval_with_non_string_nested_approver_key_is_rejected() {
         let id = new_record_id();
         let yaml = format!(
-            "id: {id}\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  7: extra\nbasis: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            "id: {id}\nsubject_type: vo\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\n  7: extra\napproved_state: approved\nbasis: []\nsupersedes: []\napproved_at: '2026-08-08T00:00:00Z'\n",
             ContentHash::from_text("vo\n"),
         );
         let error = ApprovalRecord::from_yaml(&yaml, &id)
             .expect_err("a non-string nested approver key must fail closed");
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+    }
+
+    #[test]
+    fn approval_subject_type_judgment_requires_judgment_ref() {
+        let id = new_record_id();
+        let mut record = sample_approval(&id);
+        record.subject_type = "judgment".to_owned();
+        // judgment_ref left None: DS-1052/1476/1483 require it whenever
+        // subject_type is judgment.
+        assert!(record.to_yaml().is_err());
+    }
+
+    #[test]
+    fn approval_out_of_domain_subject_type_is_rejected() {
+        let id = new_record_id();
+        let mut record = sample_approval(&id);
+        record.subject_type = "test".to_owned();
+        assert!(record.to_yaml().is_err());
+    }
+
+    #[test]
+    fn approval_out_of_domain_approved_state_is_rejected() {
+        let id = new_record_id();
+        let mut record = sample_approval(&id);
+        record.approved_state = "maybe".to_owned();
+        assert!(record.to_yaml().is_err());
+    }
+
+    #[test]
+    fn approval_self_referencing_supersedes_is_rejected() {
+        let id = new_record_id();
+        let mut record = sample_approval(&id);
+        record.supersedes = vec![id.clone()];
+        assert!(record.to_yaml().is_err());
     }
 
     #[test]

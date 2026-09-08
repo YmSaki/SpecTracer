@@ -11,10 +11,12 @@ use std::{
 };
 use thiserror::Error;
 
+pub mod approval;
 pub mod canonical;
 pub mod execution_state;
 pub mod forms;
 pub mod records;
+pub use approval::*;
 pub use canonical::*;
 pub use execution_state::*;
 pub use forms::*;

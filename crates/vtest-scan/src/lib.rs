@@ -1730,9 +1730,17 @@ fn validate_approval_status(
             ));
             invalid = true;
         }
-        if let Some(missing) =
-            missing_fields(&text, &["id", "subject", "subject_hash", "approved_at"])
-        {
+        if let Some(missing) = missing_fields(
+            &text,
+            &[
+                "id",
+                "subject_type",
+                "subject",
+                "subject_hash",
+                "approved_state",
+                "approved_at",
+            ],
+        ) {
             diagnostics.push(Diagnostic::error(
                 "E-SCAN-010",
                 format!("approval {file_id} is missing required fields: {missing} ({record_path})"),
@@ -1762,12 +1770,21 @@ fn validate_approval_status(
         if invalid {
             continue;
         }
-        let subject = approval.subject.as_str();
-        if !current_hashes.contains_key(subject) {
-            diagnostics.push(Diagnostic::error(
-                "E-SCAN-010",
-                format!("approval {file_id} references missing VO {subject} ({record_path})"),
-            ));
+        // DS-1475: the effective承認対象の値域は VO ID と document ID の
+        // 2 種のみ。`subject_type == "vo"` の場合だけ、この関数がすでに
+        // 持っている VO ハッシュ集合と突き合わせる — `document`/`judgment`
+        // の存在確認は現時点でこの関数の対象外（document ノードの存在は
+        // orphan_detection/chain_integrity 側が別途扱う; judgment 参照の
+        // 存在確認は DS-1052 の判断記録ドメインが未実装のため、この
+        // closure-slice の範囲外）。
+        if approval.subject_type == "vo" {
+            let subject = approval.subject.as_str();
+            if !current_hashes.contains_key(subject) {
+                diagnostics.push(Diagnostic::error(
+                    "E-SCAN-010",
+                    format!("approval {file_id} references missing VO {subject} ({record_path})"),
+                ));
+            }
         }
     }
     Ok(())
