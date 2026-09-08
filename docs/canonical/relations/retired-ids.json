@@ -930,5 +930,10 @@
     "old_id": "DS-756",
     "new_id": "DS-1678",
     "reason": "verify slice gap 1 2026-09-08: target 解決失敗の target_binding 状態が DS-829 ほか 6 ノードと矛盾していた"
+  },
+  {
+    "old_id": "DS-610",
+    "new_id": "DS-1680",
+    "reason": "oracle rule audit 2026-09-08: 上流と正面衝突。REQ-080「証明の失敗は`UNKNOWN`の事由ではない」／REQ-075「照合装置の存在が決定論的に確認できる場合、この検査は成立側とする」に対し、DS-610 は「証明の失敗は`UNKNOWN`であって」と述べ、REQ-075 の成立側経路を潰していた。層の権威（require > detailed_spec）により詳細仕様側の欠陥として退役。後継 DS-1680 は REQ-075 / REQ-076 / REQ-080 を restate する。DS-610 後段の「runtime証拠で`PASS`へ昇格しない」は同節の DS-609「`oracle_presence`に動的な昇格経路は無い」が既に担うため後継には持たせない。"
   }
 ]
