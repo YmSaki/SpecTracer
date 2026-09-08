@@ -253,6 +253,7 @@ struct VerifyData<'a> {
     result: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     gate: Option<GateEvaluation>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
     structural: &'a [CheckOutcome],
     /// 評価地点を1件も持たなかった検査（DS-840 / DS-252 / DS-253）。
     /// 空でなければ、この結果は完全検証 OK ではない。
@@ -328,13 +329,18 @@ fn run_verify(
         .filter(|check| check.state != VerificationState::Pass)
         .count();
 
+    // DS-1117「`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する」。
+    // 逐語どおり、per-check の内訳（構造検査・未評価検査・ツリー）はすべて
+    // 落とす。`scope` だけは残す — DS-1114「`--format json` では同じ内容を
+    // 最上位 field `scope` として返し、完全検証の場合も省略しない」が、
+    // 出力形態を問わない無条件の義務として課している。
     let data = VerifyData {
         scope: &outcome.scope,
         state: state_name(outcome.state),
         result: if outcome.ok { "OK" } else { "NG" },
         gate: gate_evaluation,
-        structural: &outcome.structural,
-        unevaluated: &outcome.unevaluated,
+        structural: if summary { &[] } else { &outcome.structural },
+        unevaluated: if summary { &[] } else { &outcome.unevaluated },
         tree: if summary { &[] } else { &outcome.tree },
         non_pass,
     };
@@ -507,9 +513,11 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
         out.push_str("Anything outside the requested scope is UNVERIFIED, not PASS.\n");
     }
 
-    out.push_str("\nStructural checks:\n");
-    for check in data.structural {
-        out.push_str(&render_check(check, 2));
+    if !data.structural.is_empty() {
+        out.push_str("\nStructural checks:\n");
+        for check in data.structural {
+            out.push_str(&render_check(check, 2));
+        }
     }
 
     if !data.unevaluated.is_empty() {

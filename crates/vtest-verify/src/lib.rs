@@ -234,6 +234,16 @@ impl VerifyOutcome {
 /// この関数は `VerificationState` に `Ord` を実装せず、局所的な match で
 /// 優先順位を与える — DS-873「5状態に順序・優劣・包含関係を設けない」を
 /// 型の上で守るため。
+///
+/// # 空入力の危険
+///
+/// 空の iterator を渡すと `PASS` を返す（`fold` の初期値）。これは
+/// 「何も確かめていない」を「合格」と読み替える経路であり、このツールが
+/// 防ぐべき偽 `PASS` そのものの形をしている。**呼び出し側は、集約点が空に
+/// なりうる場合、必ず先に `NO_EVIDENCE`（診断 `NOT_CHECKED`）を注入して
+/// から呼ぶこと。** この crate 内の呼び出しは 3 箇所とも注入済みである
+/// （`node_from_children` の空検査・空子ノード、`verify_project` の
+/// `unevaluated`）。
 pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> VerificationState {
     fn rank(state: VerificationState) -> u8 {
         match state {
@@ -568,7 +578,34 @@ fn evaluate_orphan_detection(scan: &ScanResult) -> CheckOutcome {
 // target_binding / oracle_presence (per Test)
 // ---------------------------------------------------------------------------
 
-fn evaluate_target_binding(test: &TestEntity) -> CheckOutcome {
+/// Target-resolution diagnostics, keyed by the locator of the Test construct
+/// they were reported against.
+///
+/// DS-756「全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 /
+/// E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）の
+/// ままとし、**target解決の診断で非`PASS`を示す**」。状態だけでは「証拠が無い」
+/// と「targetが解決できない」を読み分けられないため、後半の義務は根拠テキスト
+/// に当該診断を引用することで果たす。
+const TARGET_RESOLUTION_CODES: [&str; 2] = ["E-SCAN-004", "E-SCAN-011"];
+
+fn target_resolution_diagnostics(scan: &ScanResult) -> BTreeMap<String, Vec<String>> {
+    let mut by_locator: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for diagnostic in &scan.diagnostics {
+        if !TARGET_RESOLUTION_CODES.contains(&diagnostic.code.as_str()) {
+            continue;
+        }
+        let Some(location) = &diagnostic.location else {
+            continue;
+        };
+        by_locator
+            .entry(location.locator.clone())
+            .or_default()
+            .push(format!("[{}] {}", diagnostic.code, diagnostic.message));
+    }
+    by_locator
+}
+
+fn evaluate_target_binding(test: &TestEntity, resolution: &[String]) -> CheckOutcome {
     // DS-1664「targetを持たないTestの`target_binding`は`NO_EVIDENCE`
     // （診断`NOT_CHECKED`）とする」。
     if test.targets.is_empty() {
@@ -589,14 +626,26 @@ fn evaluate_target_binding(test: &TestEntity) -> CheckOutcome {
     // 持たないため、正規化しても「有効な Evidence」にはなり得ない。
     // ROOT-031「現在のソースのハッシュと一致しない証拠は、検証時に
     // 「存在しないもの」として扱う」に従い、Evidence 不在として扱う。
+    // DS-756 の後半（「target解決の診断で非`PASS`を示す」）: target が解決
+    // できない・曖昧な場合、状態は同じ `NO_EVIDENCE` のままでも、根拠には
+    // その診断を引用する。引用しないと「証拠が無い」と「target が解決でき
+    // ない」が読み分けられない。
+    //
+    // なお E-SCAN-011（曖昧）の状態写像は正典内で矛盾している（DS-756 は
+    // `NO_EVIDENCE`／診断 `NOT_EXECUTED`、DS-829 は `MISMATCH`）。どちらか
+    // を選ぶ根拠が正典に無いため状態は発明せず、DS-756 の側（非 `PASS` かつ
+    // 診断で示す）に留め、矛盾は stopped_on として開示する。
+    let mut basis = vec![format!(
+        "no valid Evidence for {} declared target(s) (DS-278)",
+        test.targets.len()
+    )];
+    basis.extend(resolution.iter().cloned());
+
     CheckOutcome::new(
         VerificationCheck::TargetBinding,
         VerificationState::NoEvidence,
         vec![DiagnosticLabel::NotExecuted],
-        vec![format!(
-            "no valid Evidence for {} declared target(s) (DS-278)",
-            test.targets.len()
-        )],
+        basis,
     )
 }
 
@@ -753,6 +802,7 @@ fn build_tree(
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
 ) -> Vec<TreeNode> {
+    let resolution = target_resolution_diagnostics(scan);
     let mut roots = Vec::new();
     let mut placed_vos = BTreeSet::new();
 
@@ -769,7 +819,15 @@ fn build_tree(
                         .any(|entry| entry.doc.as_str() == doc)
             })
             .map(|(id, _)| {
-                build_vo_node(id, vos, scan, selection, selected_checks, &mut placed_vos)
+                build_vo_node(
+                    id,
+                    vos,
+                    scan,
+                    selection,
+                    selected_checks,
+                    &resolution,
+                    &mut placed_vos,
+                )
             })
             .collect::<Vec<_>>();
         roots.push(node_from_children(NodeKind::Doc, doc, Vec::new(), children));
@@ -790,6 +848,7 @@ fn build_tree(
             scan,
             selection,
             selected_checks,
+            &resolution,
             &mut placed_vos,
         ));
     }
@@ -806,18 +865,20 @@ fn build_tree(
         {
             continue;
         }
-        roots.push(test_node(test, selected_checks));
+        roots.push(test_node(test, selected_checks, &resolution));
     }
 
     roots
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_vo_node(
     id: &str,
     vos: &BTreeMap<String, VoRecord>,
     scan: &ScanResult,
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
+    resolution: &BTreeMap<String, Vec<String>>,
     placed: &mut BTreeSet<String>,
 ) -> TreeNode {
     if !placed.insert(id.to_owned()) {
@@ -844,7 +905,17 @@ fn build_vo_node(
                     .as_ref()
                     .is_some_and(|parent| parent.as_str() == id)
         })
-        .map(|(child_id, _)| build_vo_node(child_id, vos, scan, selection, selected_checks, placed))
+        .map(|(child_id, _)| {
+            build_vo_node(
+                child_id,
+                vos,
+                scan,
+                selection,
+                selected_checks,
+                resolution,
+                placed,
+            )
+        })
         .collect::<Vec<_>>();
     children.extend(
         scan.tests
@@ -853,12 +924,21 @@ fn build_vo_node(
                 selection.tests.contains(test.id.as_str())
                     && test.covers.iter().any(|vo| vo.as_str() == id)
             })
-            .map(|test| test_node(test, selected_checks)),
+            .map(|test| test_node(test, selected_checks, resolution)),
     );
     node_from_children(NodeKind::Vo, id, Vec::new(), children)
 }
 
-fn test_node(test: &TestEntity, selected_checks: &BTreeSet<VerificationCheck>) -> TreeNode {
+fn test_node(
+    test: &TestEntity,
+    selected_checks: &BTreeSet<VerificationCheck>,
+    resolution: &BTreeMap<String, Vec<String>>,
+) -> TreeNode {
+    let empty = Vec::new();
+    let test_resolution = resolution
+        .get(&test.location.locator)
+        .unwrap_or(&empty)
+        .as_slice();
     let checks = PER_TEST_CHECKS
         .into_iter()
         .map(|check| {
@@ -866,7 +946,7 @@ fn test_node(test: &TestEntity, selected_checks: &BTreeSet<VerificationCheck>) -
                 return CheckOutcome::out_of_scope(check);
             }
             match check {
-                VerificationCheck::TargetBinding => evaluate_target_binding(test),
+                VerificationCheck::TargetBinding => evaluate_target_binding(test, test_resolution),
                 VerificationCheck::OraclePresence => evaluate_oracle_presence(test),
                 _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
             }

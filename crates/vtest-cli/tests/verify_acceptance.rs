@@ -137,6 +137,87 @@ fn a_rejected_configuration_is_exit_two_for_scan_and_doctor() {
 fn an_empty_project_is_never_a_complete_verification_ok() {
     let root = temp_root("empty");
     assert_eq!(run(cli(&root, Command::Init { name: None })), ExitCode::Ok);
-    let exit = run(cli(&root, verify_command()));
-    assert_ne!(exit, ExitCode::Ok, "an empty project must not verify as OK");
+    // Exit 1 specifically, not merely "not 0": verification must actually run
+    // and return NG. Exit 2 would mean the run was rejected before evaluating
+    // anything, which would leave the false-PASS question untested.
+    assert_eq!(
+        run(cli(&root, verify_command())),
+        ExitCode::VerificationFailed,
+        "an empty project must be evaluated and come out NG"
+    );
+}
+
+/// End-to-end on a *populated* canonical project: a real `.verify/doc/` node,
+/// a real VO deriving from it, and no Test covering that VO. The whole path
+/// (config -> scan -> verify -> aggregation -> exit code) must run and land on
+/// exit 1 via `chain_integrity = MISMATCH` (REQ-056 / ROOT-034: the retired
+/// `test_existence` is folded into `chain_integrity`).
+///
+/// The empty-project case above cannot show this, because it never populates
+/// anything; this is the test that proves the wiring works on real records.
+#[test]
+fn a_populated_project_with_an_uncovered_leaf_vo_is_ng() {
+    use vtest_model::{
+        DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId, VoRecord,
+    };
+    use vtest_store::{write_document_file, write_vo_record, VerifyLayout};
+
+    let root = temp_root("populated");
+    assert_eq!(run(cli(&root, Command::Init { name: None })), ExitCode::Ok);
+    let layout = VerifyLayout::new(&root);
+
+    let source = |id: &str| NodeSource {
+        doc: format!("{id}.md"),
+        heading: "acceptance".to_owned(),
+        lines: [1, 1],
+    };
+    let document = DocumentFile {
+        schema_version: "0.1".to_owned(),
+        root: vec![RootNode {
+            id: DocumentId::new("ROOT-001"),
+            statement: "acceptance root".to_owned(),
+            description: None,
+            source: source("root"),
+        }],
+        request: vec![SentenceNode {
+            id: DocumentId::new("R-001"),
+            statement: "acceptance request".to_owned(),
+            description: None,
+            derives_from: vec![DocumentId::new("ROOT-001")],
+            cites: None,
+            source: source("request"),
+        }],
+        require: Vec::new(),
+        spec: Vec::new(),
+        detailed_spec: Vec::new(),
+        basic_design: Vec::new(),
+        design: Vec::new(),
+    };
+    write_document_file(&layout, "acceptance", &document).expect("write document");
+    write_vo_record(
+        &layout,
+        &VoRecord {
+            id: VoId::new("VO-UNCOVERED"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("R-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "nothing covers this".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-08T00:00:00Z".to_owned(),
+            updated: "2026-09-08T00:00:00Z".to_owned(),
+        },
+    )
+    .expect("write VO");
+
+    assert_eq!(
+        run(cli(&root, verify_command())),
+        ExitCode::VerificationFailed,
+        "a leaf VO with no covering Test must make the run NG"
+    );
 }
