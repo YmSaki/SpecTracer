@@ -209,11 +209,7 @@
       },
       "derives_from": [
         "REQ-S001",
-        "REQ-S003",
-        "REQ-S013",
         "REQ-S020",
-        "REQ-S025",
-        "REQ-S029",
         "REQ-S035",
         "REQ-S036",
         "REQ-S037",
@@ -553,21 +549,28 @@
       ]
     },
     {
-      "id": "SPEC-S003",
-      "title": "2 全体像",
+      "id": "SPEC-S004",
+      "title": "2.1 正典の三層構造",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2 全体像",
+        "heading": "2.1 正典の三層構造",
         "lines": [
-          45,
-          45
+          69,
+          69
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "P-003",
+        "REQ-S019",
+        "REQ-S035",
+        "REQ-S046",
+        "REQ-283"
+      ],
+      "items": [
         {
-          "id": "SPEC-S004",
-          "title": "2.1 正典の三層構造",
+          "id": "SPEC-032",
+          "statement": "本システムの仕事は「宣言と実装が一致しているか」「事実が現在の宣言・実装に対して有効か」を照合することに限る。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.1 正典の三層構造",
@@ -575,122 +578,119 @@
               69,
               69
             ]
-          },
-          "derives_from": [
-            "P-003",
-            "REQ-S019",
-            "REQ-S035",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "SPEC-032",
-              "statement": "本システムの仕事は「宣言と実装が一致しているか」「事実が現在の宣言・実装に対して有効か」を照合することに限る。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  69,
-                  69
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S005",
+      "title": "2.2 宣言鎖と照合",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.2 宣言鎖と照合",
+        "lines": [
+          73,
+          91
+        ]
+      },
+      "derives_from": [
+        "REQ-S004",
+        "REQ-S005"
+      ],
+      "items": [
         {
-          "id": "SPEC-S005",
-          "title": "2.2 宣言鎖と照合",
+          "id": "SPEC-033",
+          "statement": "要件定義 §3.2 の宣言鎖をそのまま採用する。",
+          "derives_from": [
+            "REQ-024",
+            "REQ-333",
+            "REQ-026",
+            "REQ-027",
+            "REQ-028",
+            "REQ-029",
+            "REQ-030",
+            "REQ-031",
+            "REQ-032",
+            "REQ-033"
+          ],
+          "cites": [
+            "要件定義 §3.2"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.2 宣言鎖と照合",
             "lines": [
               73,
-              91
+              73
             ]
-          },
-          "derives_from": [
-            "REQ-S004",
-            "REQ-S005"
-          ],
-          "items": [
-            {
-              "id": "SPEC-033",
-              "statement": "要件定義 §3.2 の宣言鎖をそのまま採用する。",
-              "derives_from": [
-                "REQ-024",
-                "REQ-333",
-                "REQ-026",
-                "REQ-027",
-                "REQ-028",
-                "REQ-029",
-                "REQ-030",
-                "REQ-031",
-                "REQ-032",
-                "REQ-033"
-              ],
-              "cites": [
-                "要件定義 §3.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  73,
-                  73
-                ]
-              }
-            },
-            {
-              "id": "SPEC-034",
-              "statement": "宣言鎖は document（上流文書）から derives_from で document（下流文書）へ、document から derives_from で Verification Obligation（VO）へ、VO から covers（Test 宣言）で Test へと連なる。",
-              "description": "document（上流文書）\n      | derives_from\n      v\ndocument（下流文書）\n      | derives_from\n      v\nVerification Obligation (VO)\n      | covers（Test 宣言）\n      v\nTest",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  75,
-                  86
-                ]
-              }
-            },
-            {
-              "id": "SPEC-035",
-              "statement": "VOは1件以上の `document` からderives_fromで導出される。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  89,
-                  89
-                ]
-              }
-            },
-            {
-              "id": "SPEC-036",
-              "statement": "不一致は状態（§4）として提示する。",
-              "derives_from": [
-                "P-001"
-              ],
-              "cites": [
-                "要件定義 P-001"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  91,
-                  91
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "SPEC-S006",
-          "title": "2.3 導出できる関係は保存しない",
+          "id": "SPEC-034",
+          "statement": "宣言鎖は document（上流文書）から derives_from で document（下流文書）へ、document から derives_from で Verification Obligation（VO）へ、VO から covers（Test 宣言）で Test へと連なる。",
+          "description": "document（上流文書）\n      | derives_from\n      v\ndocument（下流文書）\n      | derives_from\n      v\nVerification Obligation (VO)\n      | covers（Test 宣言）\n      v\nTest",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              75,
+              86
+            ]
+          }
+        },
+        {
+          "id": "SPEC-035",
+          "statement": "VOは1件以上の `document` からderives_fromで導出される。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              89,
+              89
+            ]
+          }
+        },
+        {
+          "id": "SPEC-036",
+          "statement": "不一致は状態（§4）として提示する。",
+          "derives_from": [
+            "P-001"
+          ],
+          "cites": [
+            "要件定義 P-001"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              91,
+              91
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S006",
+      "title": "2.3 導出できる関係は保存しない",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.3 導出できる関係は保存しない",
+        "lines": [
+          95,
+          95
+        ]
+      },
+      "derives_from": [
+        "P-003"
+      ],
+      "items": [
+        {
+          "id": "SPEC-037",
+          "statement": "Test→VO（`covers`）、Test→SRC（`targets`）の関係はadapter所有のTest metadata宣言から決定論的に導出できる。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.3 導出できる関係は保存しない",
@@ -698,204 +698,189 @@
               95,
               95
             ]
-          },
-          "derives_from": [
-            "P-003"
-          ],
-          "items": [
-            {
-              "id": "SPEC-037",
-              "statement": "Test→VO（`covers`）、Test→SRC（`targets`）の関係はadapter所有のTest metadata宣言から決定論的に導出できる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
     {
-      "id": "SPEC-S007",
-      "title": "3 エンティティと ID 体系",
+      "id": "SPEC-S008",
+      "title": "3.1 エンティティ種別",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3 エンティティと ID 体系",
+        "heading": "3.1 エンティティ種別",
         "lines": [
-          109,
-          109
+          116,
+          124
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S005",
+        "REQ-S035",
+        "REQ-S036",
+        "REQ-S040",
+        "REQ-S046"
+      ],
+      "items": [
         {
-          "id": "SPEC-S008",
-          "title": "3.1 エンティティ種別",
+          "id": "SPEC-038",
+          "statement": "Verification Obligationは検証命題である。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.1 エンティティ種別",
             "lines": [
               116,
-              124
+              116
             ]
-          },
-          "derives_from": [
-            "REQ-S005",
-            "REQ-S025",
-            "REQ-S035",
-            "REQ-S036",
-            "REQ-S040",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "SPEC-038",
-              "statement": "Verification Obligationは検証命題である。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  116,
-                  116
-                ]
-              }
-            },
-            {
-              "id": "SPEC-039",
-              "statement": "Verification Obligationは階層を持てる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  116,
-                  116
-                ]
-              }
-            },
-            {
-              "id": "SPEC-040",
-              "statement": "Testはadapterが識別する実行可能なtest constructである。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  117,
-                  117
-                ]
-              }
-            },
-            {
-              "id": "SPEC-041",
-              "statement": "Source Targetは対象implementation constructである。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  118,
-                  118
-                ]
-              }
-            },
-            {
-              "id": "SPEC-042",
-              "statement": "層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクとして表現する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  124,
-                  124
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "SPEC-S009",
-          "title": "3.2 ID 規則と関係リンク",
+          "id": "SPEC-039",
+          "statement": "Verification Obligationは階層を持てる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              116,
+              116
+            ]
+          }
+        },
+        {
+          "id": "SPEC-040",
+          "statement": "Testはadapterが識別する実行可能なtest constructである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              117,
+              117
+            ]
+          }
+        },
+        {
+          "id": "SPEC-041",
+          "statement": "Source Targetは対象implementation constructである。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              118,
+              118
+            ]
+          }
+        },
+        {
+          "id": "SPEC-042",
+          "statement": "層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクとして表現する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              124,
+              124
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S009",
+      "title": "3.2 ID 規則と関係リンク",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.2 ID 規則と関係リンク",
+        "lines": [
+          128,
+          135
+        ]
+      },
+      "derives_from": [
+        "REQ-S007",
+        "REQ-S027",
+        "REQ-S058"
+      ],
+      "items": [
+        {
+          "id": "SPEC-043",
+          "statement": "DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.2 ID 規則と関係リンク",
             "lines": [
               128,
-              135
+              128
             ]
-          },
-          "derives_from": [
-            "REQ-S007",
-            "REQ-S027",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "SPEC-043",
-              "statement": "DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  128,
-                  128
-                ]
-              }
-            },
-            {
-              "id": "SPEC-044",
-              "statement": "関係リンクの任意説明文・役割別projectionの保存形式・presetは詳細設計へ委譲する。",
-              "derives_from": [
-                "REQ-309",
-                "REQ-310",
-                "REQ-311",
-                "REQ-312",
-                "REQ-313",
-                "REQ-314",
-                "REQ-315",
-                "REQ-316",
-                "REQ-317",
-                "REQ-318",
-                "REQ-319",
-                "REQ-320",
-                "REQ-321",
-                "REQ-322",
-                "REQ-323",
-                "REQ-324",
-                "REQ-325",
-                "REQ-326",
-                "REQ-327",
-                "REQ-328",
-                "REQ-329",
-                "REQ-330",
-                "REQ-331",
-                "REQ-332"
-              ],
-              "cites": [
-                "要件定義 §28"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  135,
-                  135
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "SPEC-S010",
-          "title": "3.3 Source Target の識別",
+          "id": "SPEC-044",
+          "statement": "関係リンクの任意説明文・役割別projectionの保存形式・presetは詳細設計へ委譲する。",
+          "derives_from": [
+            "REQ-309",
+            "REQ-310",
+            "REQ-311",
+            "REQ-312",
+            "REQ-313",
+            "REQ-314",
+            "REQ-315",
+            "REQ-316",
+            "REQ-317",
+            "REQ-318",
+            "REQ-319",
+            "REQ-320",
+            "REQ-321",
+            "REQ-322",
+            "REQ-323",
+            "REQ-324",
+            "REQ-325",
+            "REQ-326",
+            "REQ-327",
+            "REQ-328",
+            "REQ-329",
+            "REQ-330",
+            "REQ-331",
+            "REQ-332"
+          ],
+          "cites": [
+            "要件定義 §28"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              135,
+              135
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S010",
+      "title": "3.3 Source Target の識別",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.3 Source Target の識別",
+        "lines": [
+          139,
+          139
+        ]
+      },
+      "derives_from": [
+        "R-3",
+        "REQ-S027"
+      ],
+      "items": [
+        {
+          "id": "SPEC-045",
+          "statement": "対象はTarget Referenceで識別する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.3 Source Target の識別",
@@ -903,45 +888,29 @@
               139,
               139
             ]
-          },
-          "derives_from": [
-            "R-3",
-            "REQ-S027"
-          ],
-          "items": [
-            {
-              "id": "SPEC-045",
-              "statement": "対象はTarget Referenceで識別する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  139,
-                  139
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
     {
-      "id": "SPEC-S011",
-      "title": "4 検証状態と診断ラベル",
+      "id": "SPEC-S012",
+      "title": "4.1 状態は 5 つ",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 4 検証状態と診断ラベル",
+        "heading": "4.1 状態は 5 つ",
         "lines": [
-          150,
-          150
+          154,
+          154
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S014"
+      ],
+      "items": [
         {
-          "id": "SPEC-S012",
-          "title": "4.1 状態は 5 つ",
+          "id": "SPEC-046",
+          "statement": "状態の存在資格は「受け取った者の行動が変わるか」である。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.1 状態は 5 つ",
@@ -949,29 +918,30 @@
               154,
               154
             ]
-          },
-          "derives_from": [
-            "REQ-S014"
-          ],
-          "items": [
-            {
-              "id": "SPEC-046",
-              "statement": "状態の存在資格は「受け取った者の行動が変わるか」である。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  154,
-                  154
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S013",
+      "title": "4.2 診断ラベル",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.2 診断ラベル",
+        "lines": [
+          166,
+          166
+        ]
+      },
+      "derives_from": [
+        "REQ-S015",
+        "REQ-S058"
+      ],
+      "items": [
         {
-          "id": "SPEC-S013",
-          "title": "4.2 診断ラベル",
+          "id": "SPEC-047",
+          "statement": "`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` 等は、状態に付随して原因を説明する診断ラベルである。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.2 診断ラベル",
@@ -979,73 +949,87 @@
               166,
               166
             ]
-          },
-          "derives_from": [
-            "REQ-S015",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "SPEC-047",
-              "statement": "`MISSING` / `NOT_EXECUTED` / `NOT_CHECKED` / `STALE` 等は、状態に付随して原因を説明する診断ラベルである。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.2 診断ラベル",
-                "lines": [
-                  166,
-                  166
-                ]
-              }
-            },
-            {
-              "id": "SPEC-048",
-              "statement": "診断ラベルの語彙は詳細設計で定める。",
-              "derives_from": [
-                "REQ-092",
-                "REQ-093",
-                "REQ-309",
-                "REQ-310",
-                "REQ-311",
-                "REQ-312",
-                "REQ-313",
-                "REQ-314",
-                "REQ-315",
-                "REQ-316",
-                "REQ-317",
-                "REQ-318",
-                "REQ-319",
-                "REQ-320",
-                "REQ-321",
-                "REQ-322",
-                "REQ-323",
-                "REQ-324",
-                "REQ-325",
-                "REQ-326",
-                "REQ-327",
-                "REQ-328",
-                "REQ-329",
-                "REQ-330",
-                "REQ-331",
-                "REQ-332"
-              ],
-              "cites": [
-                "要件定義 §5.2、§28"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.2 診断ラベル",
-                "lines": [
-                  166,
-                  166
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "SPEC-S014",
-          "title": "4.3 状態の割当",
+          "id": "SPEC-048",
+          "statement": "診断ラベルの語彙は詳細設計で定める。",
+          "derives_from": [
+            "REQ-092",
+            "REQ-093",
+            "REQ-309",
+            "REQ-310",
+            "REQ-311",
+            "REQ-312",
+            "REQ-313",
+            "REQ-314",
+            "REQ-315",
+            "REQ-316",
+            "REQ-317",
+            "REQ-318",
+            "REQ-319",
+            "REQ-320",
+            "REQ-321",
+            "REQ-322",
+            "REQ-323",
+            "REQ-324",
+            "REQ-325",
+            "REQ-326",
+            "REQ-327",
+            "REQ-328",
+            "REQ-329",
+            "REQ-330",
+            "REQ-331",
+            "REQ-332"
+          ],
+          "cites": [
+            "要件定義 §5.2、§28"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.2 診断ラベル",
+            "lines": [
+              166,
+              166
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S014",
+      "title": "4.3 状態の割当",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.3 状態の割当",
+        "lines": [
+          170,
+          170
+        ]
+      },
+      "derives_from": [
+        "REQ-S016"
+      ],
+      "items": [
+        {
+          "id": "SPEC-049",
+          "statement": "要件定義 §5.3 の割当をそのまま採用する。",
+          "derives_from": [
+            "REQ-094",
+            "REQ-095",
+            "REQ-096",
+            "REQ-097",
+            "REQ-098",
+            "REQ-099",
+            "REQ-100",
+            "REQ-101",
+            "REQ-102",
+            "REQ-103",
+            "REQ-104"
+          ],
+          "cites": [
+            "要件定義 §5.3"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.3 状態の割当",
@@ -1053,44 +1037,29 @@
               170,
               170
             ]
-          },
-          "derives_from": [
-            "REQ-S016"
-          ],
-          "items": [
-            {
-              "id": "SPEC-049",
-              "statement": "要件定義 §5.3 の割当をそのまま採用する。",
-              "derives_from": [
-                "REQ-094",
-                "REQ-095",
-                "REQ-096",
-                "REQ-097",
-                "REQ-098",
-                "REQ-099",
-                "REQ-100",
-                "REQ-101",
-                "REQ-102",
-                "REQ-103",
-                "REQ-104"
-              ],
-              "cites": [
-                "要件定義 §5.3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  170,
-                  170
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S015",
+      "title": "4.4 UNKNOWN の検疫",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.4 UNKNOWN の検疫",
+        "lines": [
+          185,
+          185
+        ]
+      },
+      "derives_from": [
+        "REQ-S017"
+      ],
+      "items": [
         {
-          "id": "SPEC-S015",
-          "title": "4.4 UNKNOWN の検疫",
+          "id": "SPEC-050",
+          "statement": "`UNKNOWN` はエラーではなく正常動作としての降参である。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.4 UNKNOWN の検疫",
@@ -1098,78 +1067,60 @@
               185,
               185
             ]
-          },
-          "derives_from": [
-            "REQ-S017"
-          ],
-          "items": [
-            {
-              "id": "SPEC-050",
-              "statement": "`UNKNOWN` はエラーではなく正常動作としての降参である。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.4 UNKNOWN の検疫",
-                "lines": [
-                  185,
-                  185
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "SPEC-S016",
+      "title": "4.5 検証状態と承認の分離",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.5 検証状態と承認の分離",
+        "lines": [
+          189,
+          195
+        ]
+      },
+      "derives_from": [
+        "REQ-S018"
+      ],
+      "items": [
         {
-          "id": "SPEC-S016",
-          "title": "4.5 検証状態と承認の分離",
+          "id": "SPEC-051",
+          "statement": "承認（§17）は独立した別軸である。",
+          "derives_from": [
+            "REQ-109",
+            "REQ-110",
+            "REQ-111",
+            "REQ-112",
+            "REQ-113",
+            "REQ-114"
+          ],
+          "cites": [
+            "要件定義 §5.5"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.5 検証状態と承認の分離",
             "lines": [
               189,
+              189
+            ]
+          }
+        },
+        {
+          "id": "SPEC-052",
+          "statement": "フェーズ進行に承認を要するかは、検証状態と承認の組合せとして §21 のゲート条件で扱う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.5 検証状態と承認の分離",
+            "lines": [
+              195,
               195
             ]
-          },
-          "derives_from": [
-            "REQ-S018"
-          ],
-          "items": [
-            {
-              "id": "SPEC-051",
-              "statement": "承認（§17）は独立した別軸である。",
-              "derives_from": [
-                "REQ-109",
-                "REQ-110",
-                "REQ-111",
-                "REQ-112",
-                "REQ-113",
-                "REQ-114"
-              ],
-              "cites": [
-                "要件定義 §5.5"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  189,
-                  189
-                ]
-              }
-            },
-            {
-              "id": "SPEC-052",
-              "statement": "フェーズ進行に承認を要するかは、検証状態と承認の組合せとして §21 のゲート条件で扱う。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  195,
-                  195
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
@@ -1384,8 +1335,7 @@
             ]
           },
           "derives_from": [
-            "REQ-S012",
-            "REQ-S021"
+            "REQ-S012"
           ],
           "items": [
             {
@@ -1447,7 +1397,9 @@
         {
           "id": "SPEC-053",
           "statement": "検証は `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の4検査のみで行う。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-034"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -1460,7 +1412,9 @@
         {
           "id": "SPEC-054",
           "statement": "各検査は一つの問いを持つ。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-050"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -1473,7 +1427,9 @@
         {
           "id": "SPEC-055",
           "statement": "各検査は複数の証拠源で答えてよい。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-050"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -1665,10 +1621,7 @@
           293
         ]
       },
-      "derives_from": [
-        "REQ-S021",
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "SPEC-S024",
@@ -1794,9 +1747,7 @@
           349
         ]
       },
-      "derives_from": [
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "SPEC-S027",
@@ -2011,7 +1962,6 @@
         ]
       },
       "derives_from": [
-        "REQ-S029",
         "REQ-S034"
       ],
       "items": [
@@ -3637,7 +3587,8 @@
         ]
       },
       "derives_from": [
-        "REQ-S007"
+        "REQ-S007",
+        "REQ-282"
       ],
       "items": [
         {
@@ -4008,9 +3959,7 @@
           573
         ]
       },
-      "derives_from": [
-        "REQ-S053"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "SPEC-S053",
@@ -5388,11 +5337,7 @@
       },
       "derives_from": [
         "REQ-S001",
-        "REQ-S003",
-        "REQ-S013",
         "REQ-S020",
-        "REQ-S025",
-        "REQ-S029",
         "REQ-S035",
         "REQ-S036",
         "REQ-S037",
@@ -5767,231 +5712,235 @@
       ]
     },
     {
-      "id": "DS-S003",
-      "title": "2 全体像",
+      "id": "DS-S004",
+      "title": "2.1 正典の三層構造",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2 全体像",
+        "heading": "2.1 正典の三層構造",
         "lines": [
-          45,
-          45
+          67,
+          69
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "P-003",
+        "REQ-S019",
+        "REQ-S035",
+        "REQ-S046",
+        "REQ-283"
+      ],
+      "items": [
         {
-          "id": "DS-S004",
-          "title": "2.1 正典の三層構造",
+          "id": "DS-1631",
+          "statement": "registryの重複ID、未登録adapterは操作エラーとする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.1 正典の三層構造",
             "lines": [
               67,
-              69
+              67
             ]
-          },
-          "derives_from": [
-            "P-003",
-            "REQ-S019",
-            "REQ-S035",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "DS-1631",
-              "statement": "registryの重複ID、未登録adapterは操作エラーとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  67,
-                  67
-                ]
-              }
-            },
-            {
-              "id": "DS-1632",
-              "statement": "registryの重複ID、未登録adapterは空のscanとして成功扱いしない。",
-              "derives_from": [
-                "REQ-258",
-                "REQ-259",
-                "REQ-260",
-                "REQ-261",
-                "REQ-262",
-                "REQ-263",
-                "REQ-264",
-                "REQ-265",
-                "REQ-266"
-              ],
-              "cites": [
-                "要件定義 §21"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  67,
-                  67
-                ]
-              }
-            },
-            {
-              "id": "DS-024",
-              "statement": "どれかを正として他を修正させることはしない。",
-              "derives_from": [
-                "P-001"
-              ],
-              "cites": [
-                "要件定義 P-001"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  69,
-                  69
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S005",
-          "title": "2.2 宣言鎖と照合",
+          "id": "DS-1632",
+          "statement": "registryの重複ID、未登録adapterは空のscanとして成功扱いしない。",
+          "derives_from": [
+            "REQ-258",
+            "REQ-259",
+            "REQ-260",
+            "REQ-261",
+            "REQ-262",
+            "REQ-263",
+            "REQ-264",
+            "REQ-265",
+            "REQ-266"
+          ],
+          "cites": [
+            "要件定義 §21"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              67,
+              67
+            ]
+          }
+        },
+        {
+          "id": "DS-024",
+          "statement": "どれかを正として他を修正させることはしない。",
+          "derives_from": [
+            "P-001"
+          ],
+          "cites": [
+            "要件定義 P-001"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              69,
+              69
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S005",
+      "title": "2.2 宣言鎖と照合",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.2 宣言鎖と照合",
+        "lines": [
+          73,
+          91
+        ]
+      },
+      "derives_from": [
+        "REQ-S004",
+        "REQ-S005"
+      ],
+      "items": [
+        {
+          "id": "DS-025",
+          "statement": "ノード間リンクは `derives_from` の一種のみとする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.2 宣言鎖と照合",
             "lines": [
               73,
-              91
+              73
             ]
-          },
-          "derives_from": [
-            "REQ-S004",
-            "REQ-S005"
-          ],
-          "items": [
-            {
-              "id": "DS-025",
-              "statement": "ノード間リンクは `derives_from` の一種のみとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  73,
-                  73
-                ]
-              }
-            },
-            {
-              "id": "DS-026",
-              "statement": "段はリンクであって検査ではない。",
-              "derives_from": [
-                "REQ-024",
-                "REQ-333",
-                "REQ-026",
-                "REQ-027",
-                "REQ-028",
-                "REQ-029",
-                "REQ-030",
-                "REQ-031",
-                "REQ-032",
-                "REQ-033",
-                "REQ-034",
-                "REQ-035"
-              ],
-              "cites": [
-                "要件定義 §3.2/§3.3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  88,
-                  88
-                ]
-              }
-            },
-            {
-              "id": "DS-027",
-              "statement": "VOとdocumentの間に他のエンティティ層を置かない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  89,
-                  89
-                ]
-              }
-            },
-            {
-              "id": "DS-028",
-              "statement": "本システムは文書内容の意味的な良し悪しに関知しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  90,
-                  90
-                ]
-              }
-            },
-            {
-              "id": "DS-029",
-              "statement": "文書種別ごとの専用スキーマ・文書間リンク意味論の増殖・文書内容の良否検証を行わない。",
-              "derives_from": [
-                "REQ-024",
-                "REQ-333",
-                "REQ-026",
-                "REQ-027",
-                "REQ-028",
-                "REQ-029",
-                "REQ-030",
-                "REQ-031",
-                "REQ-032",
-                "REQ-033",
-                "REQ-288",
-                "REQ-289",
-                "REQ-290",
-                "REQ-291",
-                "REQ-292",
-                "REQ-293",
-                "REQ-294"
-              ],
-              "cites": [
-                "要件定義 §3.2、§25 OOS-001"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  90,
-                  90
-                ]
-              }
-            },
-            {
-              "id": "DS-030",
-              "statement": "不一致はどちらが正かを決めない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  91,
-                  91
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S006",
-          "title": "2.3 導出できる関係は保存しない",
+          "id": "DS-026",
+          "statement": "段はリンクであって検査ではない。",
+          "derives_from": [
+            "REQ-024",
+            "REQ-333",
+            "REQ-026",
+            "REQ-027",
+            "REQ-028",
+            "REQ-029",
+            "REQ-030",
+            "REQ-031",
+            "REQ-032",
+            "REQ-033",
+            "REQ-034",
+            "REQ-035"
+          ],
+          "cites": [
+            "要件定義 §3.2/§3.3"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              88,
+              88
+            ]
+          }
+        },
+        {
+          "id": "DS-027",
+          "statement": "VOとdocumentの間に他のエンティティ層を置かない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              89,
+              89
+            ]
+          }
+        },
+        {
+          "id": "DS-028",
+          "statement": "本システムは文書内容の意味的な良し悪しに関知しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              90,
+              90
+            ]
+          }
+        },
+        {
+          "id": "DS-029",
+          "statement": "文書種別ごとの専用スキーマ・文書間リンク意味論の増殖・文書内容の良否検証を行わない。",
+          "derives_from": [
+            "REQ-024",
+            "REQ-333",
+            "REQ-026",
+            "REQ-027",
+            "REQ-028",
+            "REQ-029",
+            "REQ-030",
+            "REQ-031",
+            "REQ-032",
+            "REQ-033",
+            "REQ-288",
+            "REQ-289",
+            "REQ-290",
+            "REQ-291",
+            "REQ-292",
+            "REQ-293",
+            "REQ-294"
+          ],
+          "cites": [
+            "要件定義 §3.2、§25 OOS-001"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              90,
+              90
+            ]
+          }
+        },
+        {
+          "id": "DS-030",
+          "statement": "不一致はどちらが正かを決めない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.2 宣言鎖と照合",
+            "lines": [
+              91,
+              91
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S006",
+      "title": "2.3 導出できる関係は保存しない",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.3 導出できる関係は保存しない",
+        "lines": [
+          95,
+          95
+        ]
+      },
+      "derives_from": [
+        "P-003"
+      ],
+      "items": [
+        {
+          "id": "DS-031",
+          "statement": "Test→VO、Test→SRCの関係を外部ファイルへ重複保存しない。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.3 導出できる関係は保存しない",
@@ -5999,846 +5948,816 @@
               95,
               95
             ]
-          },
-          "derives_from": [
-            "P-003"
-          ],
-          "items": [
-            {
-              "id": "DS-031",
-              "statement": "Test→VO、Test→SRCの関係を外部ファイルへ重複保存しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            },
-            {
-              "id": "DS-032",
-              "statement": "graphと現在のtarget集合は常にadapter所有のTest metadata宣言から再構築する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            },
-            {
-              "id": "DS-033",
-              "statement": "graphと現在のtarget集合はEvidenceのtarget参照から関係を生成・修復しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            },
-            {
-              "id": "DS-034",
-              "statement": "Evidenceに含むtarget参照はTest→SRC関係の正典ではない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S007",
-          "title": "2.4 adapter 設定と wire 互換",
+          "id": "DS-032",
+          "statement": "graphと現在のtarget集合は常にadapter所有のTest metadata宣言から再構築する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.3 導出できる関係は保存しない",
+            "lines": [
+              95,
+              95
+            ]
+          }
+        },
+        {
+          "id": "DS-033",
+          "statement": "graphと現在のtarget集合はEvidenceのtarget参照から関係を生成・修復しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.3 導出できる関係は保存しない",
+            "lines": [
+              95,
+              95
+            ]
+          }
+        },
+        {
+          "id": "DS-034",
+          "statement": "Evidenceに含むtarget参照はTest→SRC関係の正典ではない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.3 導出できる関係は保存しない",
+            "lines": [
+              95,
+              95
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S007",
+      "title": "2.4 adapter 設定と wire 互換",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.4 adapter 設定と wire 互換",
+        "lines": [
+          101,
+          105
+        ]
+      },
+      "derives_from": [
+        "REQ-S048",
+        "REQ-S058"
+      ],
+      "items": [
+        {
+          "id": "DS-035",
+          "statement": "readerは読み取りだけで正典を書き換えない。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.4 adapter 設定と wire 互換",
             "lines": [
               101,
+              101
+            ]
+          }
+        },
+        {
+          "id": "DS-036",
+          "statement": "adapter IDは設定内で一意でなければならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              103,
+              103
+            ]
+          }
+        },
+        {
+          "id": "DS-037",
+          "statement": "同一adapter内のroot重複も拒否する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              103,
+              103
+            ]
+          }
+        },
+        {
+          "id": "DS-038",
+          "statement": "異なるadapterが同じrootを走査することは許可する。",
+          "description": "polyglot repository を扱えるようにするための許可。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              103,
+              103
+            ]
+          }
+        },
+        {
+          "id": "DS-039",
+          "statement": "未知のadapterやadapter固有設定の検証失敗は操作エラーとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              103,
+              103
+            ]
+          }
+        },
+        {
+          "id": "DS-040",
+          "statement": "未知のadapterやadapter固有設定の検証失敗時、利用可能な言語や能力を推測補完しない。",
+          "derives_from": [
+            "REQ-258",
+            "REQ-259",
+            "REQ-260",
+            "REQ-261",
+            "REQ-262",
+            "REQ-263",
+            "REQ-264",
+            "REQ-265",
+            "REQ-266"
+          ],
+          "cites": [
+            "要件定義 §21"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              103,
+              103
+            ]
+          }
+        },
+        {
+          "id": "DS-041",
+          "statement": "非Rust Testでは空値・dummy値・Rust既定値を生成しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
               105
             ]
-          },
-          "derives_from": [
-            "REQ-S048",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "DS-035",
-              "statement": "readerは読み取りだけで正典を書き換えない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  101,
-                  101
-                ]
-              }
-            },
-            {
-              "id": "DS-036",
-              "statement": "adapter IDは設定内で一意でなければならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  103,
-                  103
-                ]
-              }
-            },
-            {
-              "id": "DS-037",
-              "statement": "同一adapter内のroot重複も拒否する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  103,
-                  103
-                ]
-              }
-            },
-            {
-              "id": "DS-038",
-              "statement": "異なるadapterが同じrootを走査することは許可する。",
-              "description": "polyglot repository を扱えるようにするための許可。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  103,
-                  103
-                ]
-              }
-            },
-            {
-              "id": "DS-039",
-              "statement": "未知のadapterやadapter固有設定の検証失敗は操作エラーとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  103,
-                  103
-                ]
-              }
-            },
-            {
-              "id": "DS-040",
-              "statement": "未知のadapterやadapter固有設定の検証失敗時、利用可能な言語や能力を推測補完しない。",
-              "derives_from": [
-                "REQ-258",
-                "REQ-259",
-                "REQ-260",
-                "REQ-261",
-                "REQ-262",
-                "REQ-263",
-                "REQ-264",
-                "REQ-265",
-                "REQ-266"
-              ],
-              "cites": [
-                "要件定義 §21"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  103,
-                  103
-                ]
-              }
-            },
-            {
-              "id": "DS-041",
-              "statement": "非Rust Testでは空値・dummy値・Rust既定値を生成しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DS-042",
-              "statement": "欠落・矛盾時は入力を拒否する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DS-043",
-              "statement": "欠落・矛盾時は推測で実行可能として扱わない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            }
-          ]
+          }
+        },
+        {
+          "id": "DS-042",
+          "statement": "欠落・矛盾時は入力を拒否する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DS-043",
+          "statement": "欠落・矛盾時は推測で実行可能として扱わない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
         }
       ]
     },
     {
-      "id": "DS-S008",
-      "title": "3 エンティティと ID 体系",
+      "id": "DS-S009",
+      "title": "3.1 エンティティ種別",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3 エンティティと ID 体系",
+        "heading": "3.1 エンティティ種別",
         "lines": [
-          109,
-          109
+          115,
+          124
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S005",
+        "REQ-S035",
+        "REQ-S036",
+        "REQ-S040",
+        "REQ-S046"
+      ],
+      "items": [
         {
-          "id": "DS-S009",
-          "title": "3.1 エンティティ種別",
+          "id": "DS-1590",
+          "statement": "上流文書のノードは層ごとのトップレベル配列（`root` / `request` / `require` / `spec` / `detailed_spec` / `basic_design` / `design`）に分かれる。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.1 エンティティ種別",
             "lines": [
               115,
-              124
+              115
             ]
-          },
-          "derives_from": [
-            "REQ-S005",
-            "REQ-S025",
-            "REQ-S035",
-            "REQ-S036",
-            "REQ-S040",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "DS-1590",
-              "statement": "上流文書のノードは層ごとのトップレベル配列（`root` / `request` / `require` / `spec` / `detailed_spec` / `basic_design` / `design`）に分かれる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  115,
-                  115
-                ]
-              }
-            },
-            {
-              "id": "DS-045",
-              "statement": "Source Targetの恒久IDは必須としない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  118,
-                  118
-                ]
-              }
-            },
-            {
-              "id": "DS-1591",
-              "statement": "上流文書のノードは層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  124,
-                  124
-                ]
-              }
-            },
-            {
-              "id": "DS-047",
-              "statement": "段を増やしても種別を増やさない。",
-              "derives_from": [
-                "REQ-024",
-                "REQ-333",
-                "REQ-026",
-                "REQ-027",
-                "REQ-028",
-                "REQ-029",
-                "REQ-030",
-                "REQ-031",
-                "REQ-032",
-                "REQ-033"
-              ],
-              "cites": [
-                "要件定義 §3.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  124,
-                  124
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S010",
-          "title": "3.2 ID 規則と関係リンク",
+          "id": "DS-045",
+          "statement": "Source Targetの恒久IDは必須としない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              118,
+              118
+            ]
+          }
+        },
+        {
+          "id": "DS-1591",
+          "statement": "上流文書のノードは層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              124,
+              124
+            ]
+          }
+        },
+        {
+          "id": "DS-047",
+          "statement": "段を増やしても種別を増やさない。",
+          "derives_from": [
+            "REQ-024",
+            "REQ-333",
+            "REQ-026",
+            "REQ-027",
+            "REQ-028",
+            "REQ-029",
+            "REQ-030",
+            "REQ-031",
+            "REQ-032",
+            "REQ-033"
+          ],
+          "cites": [
+            "要件定義 §3.2"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              124,
+              124
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S010",
+      "title": "3.2 ID 規則と関係リンク",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.2 ID 規則と関係リンク",
+        "lines": [
+          128,
+          133
+        ]
+      },
+      "derives_from": [
+        "REQ-S007",
+        "REQ-S027",
+        "REQ-S058"
+      ],
+      "items": [
+        {
+          "id": "DS-048",
+          "statement": "DOC / VO / TESTのIDは人間可読な形式とする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.2 ID 規則と関係リンク",
             "lines": [
               128,
-              133
+              128
             ]
-          },
-          "derives_from": [
-            "REQ-S007",
-            "REQ-S027",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "DS-048",
-              "statement": "DOC / VO / TESTのIDは人間可読な形式とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  128,
-                  128
-                ]
-              }
-            },
-            {
-              "id": "DS-049",
-              "statement": "IDの文字集合は `[A-Z0-9-]` とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  130,
-                  130
-                ]
-              }
-            },
-            {
-              "id": "DS-050",
-              "statement": "IDの接頭辞は種別ごとに固定する（`TEST-` 等）。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  130,
-                  130
-                ]
-              }
-            },
-            {
-              "id": "DS-051",
-              "statement": "IDの推奨形式は `TEST-<領域>-<連番>`（例：`TEST-PARSER-044`）とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  130,
-                  130
-                ]
-              }
-            },
-            {
-              "id": "DS-052",
-              "statement": "ツールはID形式を強制せず一意性のみを強制する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  130,
-                  130
-                ]
-              }
-            },
-            {
-              "id": "DS-053",
-              "statement": "IDの一意性はスキャン時に全数検査する。",
-              "derives_from": [
-                "REQ-055",
-                "REQ-155",
-                "REQ-156",
-                "SPEC-197"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  131,
-                  131
-                ]
-              }
-            },
-            {
-              "id": "DS-054",
-              "statement": "ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする（§5.1、§23）。",
-              "derives_from": [
-                "REQ-097",
-                "REQ-156"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  131,
-                  131
-                ]
-              }
-            },
-            {
-              "id": "DS-1677",
-              "statement": "同じ `id` を持つ上流文書ノードが 2 件以上存在する場合（同一ファイル内・ファイル間を問わない）、`E-SCAN-010` を報告し、当該 `id` を参照する `derives_from` はいずれの候補も解決先として選ばず、当該ノードおよび当該参照元ノードの `chain_integrity` を `MISMATCH` とする。",
-              "derives_from": [
-                "SPEC-197"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  131,
-                  131
-                ]
-              },
-              "description": "`DS-053`（IDの一意性はスキャン時に全数検査する）が課す義務のうち、上流文書ノードについての帰結を明示する。明示が要る理由: `DS-054` は衝突の帰結（`chain_integrity` の非 `PASS`）を定めるが診断コードを与えず、`DS-536` は E-SCAN-002 を Test ID に限定しているため、実装が文書ノードの衝突に対して診断を出さない読みが成立していた。診断が無いと、同じ `id` を持つ 2 ノードのどちらへ張られたのかが確定しないまま `derives_from` が解決され、上流に根拠が無い規範が根拠を持つように見える（偽のリンクが `chain_integrity` を通る）。候補の 1 件を選ばない扱いは `DS-428`・`DS-564` と同型である。コードの割り当ては `DS-1676`、種別ごとの分割は `DS-1675`。"
-            },
-            {
-              "id": "DS-055",
-              "statement": "任意の恒久SRC IDはadapter namespaceを持たないためrepository全体で一意とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  132,
-                  132
-                ]
-              }
-            },
-            {
-              "id": "DS-056",
-              "statement": "恒久SRC IDの衝突は曖昧参照として受理しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  132,
-                  132
-                ]
-              }
-            },
-            {
-              "id": "DS-057",
-              "statement": "恒久SRC IDの衝突時、どのSource Targetを指すか推測しない。",
-              "derives_from": [
-                "REQ-149",
-                "REQ-150",
-                "REQ-151",
-                "REQ-152",
-                "REQ-153",
-                "REQ-154",
-                "REQ-155",
-                "REQ-156"
-              ],
-              "cites": [
-                "要件定義 §9.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  132,
-                  132
-                ]
-              }
-            },
-            {
-              "id": "DS-058",
-              "statement": "derives_from・covers・検証対象・実装traceabilityなど性質の異なる関係型は潰さず区別する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  133,
-                  133
-                ]
-              }
-            },
-            {
-              "id": "DS-059",
-              "statement": "存在するリンクに付す説明文は空でもよい。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  133,
-                  133
-                ]
-              }
-            },
-            {
-              "id": "DS-060",
-              "statement": "説明文が空であることを理由に `chain_integrity` 違反・`MISMATCH` としてはならない。",
-              "derives_from": [
-                "REQ-036",
-                "REQ-037",
-                "REQ-038",
-                "REQ-039",
-                "REQ-040",
-                "REQ-041",
-                "REQ-042",
-                "REQ-043",
-                "REQ-044",
-                "REQ-045",
-                "REQ-046",
-                "REQ-047",
-                "REQ-048",
-                "REQ-049"
-              ],
-              "cites": [
-                "要件定義 §3.4"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  133,
-                  133
-                ]
-              }
-            },
-            {
-              "id": "DS-061",
-              "statement": "関係型そのものの意味論的増殖は求めない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  133,
-                  133
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S011",
-          "title": "3.3 Source Target の識別",
+          "id": "DS-049",
+          "statement": "IDの文字集合は `[A-Z0-9-]` とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              130,
+              130
+            ]
+          }
+        },
+        {
+          "id": "DS-050",
+          "statement": "IDの接頭辞は種別ごとに固定する（`TEST-` 等）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              130,
+              130
+            ]
+          }
+        },
+        {
+          "id": "DS-051",
+          "statement": "IDの推奨形式は `TEST-<領域>-<連番>`（例：`TEST-PARSER-044`）とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              130,
+              130
+            ]
+          }
+        },
+        {
+          "id": "DS-052",
+          "statement": "ツールはID形式を強制せず一意性のみを強制する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              130,
+              130
+            ]
+          }
+        },
+        {
+          "id": "DS-053",
+          "statement": "IDの一意性はスキャン時に全数検査する。",
+          "derives_from": [
+            "REQ-055",
+            "REQ-155",
+            "REQ-156",
+            "SPEC-197"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              131,
+              131
+            ]
+          }
+        },
+        {
+          "id": "DS-054",
+          "statement": "ID衝突は `chain_integrity` の非 `PASS`（`MISMATCH`）とする（§5.1、§23）。",
+          "derives_from": [
+            "REQ-097",
+            "REQ-156"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              131,
+              131
+            ]
+          }
+        },
+        {
+          "id": "DS-1677",
+          "statement": "同じ `id` を持つ上流文書ノードが 2 件以上存在する場合（同一ファイル内・ファイル間を問わない）、`E-SCAN-010` を報告し、当該 `id` を参照する `derives_from` はいずれの候補も解決先として選ばず、当該ノードおよび当該参照元ノードの `chain_integrity` を `MISMATCH` とする。",
+          "derives_from": [
+            "SPEC-197"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              131,
+              131
+            ]
+          },
+          "description": "`DS-053`（IDの一意性はスキャン時に全数検査する）が課す義務のうち、上流文書ノードについての帰結を明示する。明示が要る理由: `DS-054` は衝突の帰結（`chain_integrity` の非 `PASS`）を定めるが診断コードを与えず、`DS-536` は E-SCAN-002 を Test ID に限定しているため、実装が文書ノードの衝突に対して診断を出さない読みが成立していた。診断が無いと、同じ `id` を持つ 2 ノードのどちらへ張られたのかが確定しないまま `derives_from` が解決され、上流に根拠が無い規範が根拠を持つように見える（偽のリンクが `chain_integrity` を通る）。候補の 1 件を選ばない扱いは `DS-428`・`DS-564` と同型である。コードの割り当ては `DS-1676`、種別ごとの分割は `DS-1675`。"
+        },
+        {
+          "id": "DS-055",
+          "statement": "任意の恒久SRC IDはadapter namespaceを持たないためrepository全体で一意とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              132,
+              132
+            ]
+          }
+        },
+        {
+          "id": "DS-056",
+          "statement": "恒久SRC IDの衝突は曖昧参照として受理しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              132,
+              132
+            ]
+          }
+        },
+        {
+          "id": "DS-057",
+          "statement": "恒久SRC IDの衝突時、どのSource Targetを指すか推測しない。",
+          "derives_from": [
+            "REQ-149",
+            "REQ-150",
+            "REQ-151",
+            "REQ-152",
+            "REQ-153",
+            "REQ-154",
+            "REQ-155",
+            "REQ-156"
+          ],
+          "cites": [
+            "要件定義 §9.2"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              132,
+              132
+            ]
+          }
+        },
+        {
+          "id": "DS-058",
+          "statement": "derives_from・covers・検証対象・実装traceabilityなど性質の異なる関係型は潰さず区別する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              133,
+              133
+            ]
+          }
+        },
+        {
+          "id": "DS-059",
+          "statement": "存在するリンクに付す説明文は空でもよい。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              133,
+              133
+            ]
+          }
+        },
+        {
+          "id": "DS-060",
+          "statement": "説明文が空であることを理由に `chain_integrity` 違反・`MISMATCH` としてはならない。",
+          "derives_from": [
+            "REQ-036",
+            "REQ-037",
+            "REQ-038",
+            "REQ-039",
+            "REQ-040",
+            "REQ-041",
+            "REQ-042",
+            "REQ-043",
+            "REQ-044",
+            "REQ-045",
+            "REQ-046",
+            "REQ-047",
+            "REQ-048",
+            "REQ-049"
+          ],
+          "cites": [
+            "要件定義 §3.4"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              133,
+              133
+            ]
+          }
+        },
+        {
+          "id": "DS-061",
+          "statement": "関係型そのものの意味論的増殖は求めない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              133,
+              133
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S011",
+      "title": "3.3 Source Target の識別",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.3 Source Target の識別",
+        "lines": [
+          139,
+          146
+        ]
+      },
+      "derives_from": [
+        "R-3",
+        "REQ-S027"
+      ],
+      "items": [
+        {
+          "id": "DS-062",
+          "statement": "ソースコードへ恒久IDを埋め込むことは必須としない。",
+          "derives_from": [
+            "REQ-149",
+            "REQ-150",
+            "REQ-151",
+            "REQ-152",
+            "REQ-153",
+            "REQ-154",
+            "REQ-155",
+            "REQ-156"
+          ],
+          "cites": [
+            "要件定義 §9.2"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.3 Source Target の識別",
             "lines": [
               139,
+              139
+            ]
+          }
+        },
+        {
+          "id": "DS-1673",
+          "statement": "1つのTestは0件以上のSource Targetを持ち、各target参照を個別に保持する。",
+          "description": "前身 `DS-063` は「1件以上」を Test の構造として要求していた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではないため、下限を 0 にした。上限は無く、複数 target を個別に保持する点は変えていない。上流の許可規範（`REQ-150`「1 つの Test は 1 件以上の Source Target を宣言できる」・`SPEC-085`）は可能性の記述であって義務ではないため、変えていない。",
+          "derives_from": [
+            "ROOT-049"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.3 Source Target の識別",
+            "lines": [
+              146,
               146
             ]
-          },
-          "derives_from": [
-            "R-3",
-            "REQ-S027"
-          ],
-          "items": [
-            {
-              "id": "DS-062",
-              "statement": "ソースコードへ恒久IDを埋め込むことは必須としない。",
-              "derives_from": [
-                "REQ-149",
-                "REQ-150",
-                "REQ-151",
-                "REQ-152",
-                "REQ-153",
-                "REQ-154",
-                "REQ-155",
-                "REQ-156"
-              ],
-              "cites": [
-                "要件定義 §9.2"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  139,
-                  139
-                ]
-              }
-            },
-            {
-              "id": "DS-1673",
-              "statement": "1つのTestは0件以上のSource Targetを持ち、各target参照を個別に保持する。",
-              "description": "前身 `DS-063` は「1件以上」を Test の構造として要求していた。`ROOT-049` により `targets` の宣言は Test 成立性の必須条件ではないため、下限を 0 にした。上限は無く、複数 target を個別に保持する点は変えていない。上流の許可規範（`REQ-150`「1 つの Test は 1 件以上の Source Target を宣言できる」・`SPEC-085`）は可能性の記述であって義務ではないため、変えていない。",
-              "derives_from": [
-                "ROOT-049"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            },
-            {
-              "id": "DS-064",
-              "statement": "Source Targetは代表1件へ縮約しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            }
-          ]
+          }
+        },
+        {
+          "id": "DS-064",
+          "statement": "Source Targetは代表1件へ縮約しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.3 Source Target の識別",
+            "lines": [
+              146,
+              146
+            ]
+          }
         }
       ]
     },
     {
-      "id": "DS-S012",
-      "title": "4 検証状態と診断ラベル",
+      "id": "DS-S013",
+      "title": "4.1 状態は 5 つ",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 4 検証状態と診断ラベル",
+        "heading": "4.1 状態は 5 つ",
         "lines": [
-          150,
-          150
+          154,
+          162
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S014"
+      ],
+      "items": [
         {
-          "id": "DS-S013",
-          "title": "4.1 状態は 5 つ",
+          "id": "DS-065",
+          "statement": "検証状態は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` の5つのみとする。",
+          "derives_from": [
+            "REQ-085",
+            "REQ-086",
+            "REQ-087",
+            "REQ-088",
+            "REQ-089",
+            "REQ-090",
+            "REQ-091"
+          ],
+          "cites": [
+            "要件定義 §5.1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.1 状態は 5 つ",
             "lines": [
               154,
-              162
+              154
             ]
-          },
-          "derives_from": [
-            "REQ-S014"
-          ],
-          "items": [
-            {
-              "id": "DS-065",
-              "statement": "検証状態は `PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` の5つのみとする。",
-              "derives_from": [
-                "REQ-085",
-                "REQ-086",
-                "REQ-087",
-                "REQ-088",
-                "REQ-089",
-                "REQ-090",
-                "REQ-091"
-              ],
-              "cites": [
-                "要件定義 §5.1"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  154,
-                  154
-                ]
-              }
-            },
-            {
-              "id": "DS-066",
-              "statement": "意味の違いは資格にならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  154,
-                  154
-                ]
-              }
-            },
-            {
-              "id": "DS-067",
-              "statement": "`PASS` を受け取った者はマージできる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  156,
-                  158
-                ]
-              }
-            },
-            {
-              "id": "DS-068",
-              "statement": "完全検証において `PASS` はOKとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  158,
-                  158
-                ]
-              }
-            },
-            {
-              "id": "DS-069",
-              "statement": "`FAIL` を受け取った者は実装（テスト実装を含む）を直す。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  159,
-                  159
-                ]
-              }
-            },
-            {
-              "id": "DS-070",
-              "statement": "完全検証において `FAIL` はOKとしない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  159,
-                  159
-                ]
-              }
-            },
-            {
-              "id": "DS-071",
-              "statement": "`MISMATCH` を受け取った者はコードを触る前に宣言側（上流）を直す。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  160,
-                  160
-                ]
-              }
-            },
-            {
-              "id": "DS-072",
-              "statement": "完全検証において `MISMATCH` はOKとしない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  160,
-                  160
-                ]
-              }
-            },
-            {
-              "id": "DS-073",
-              "statement": "`NO_EVIDENCE` を受け取った者は証拠を作る（機械的に解決可能）。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  161,
-                  161
-                ]
-              }
-            },
-            {
-              "id": "DS-074",
-              "statement": "完全検証において `NO_EVIDENCE` はOKとしない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  161,
-                  161
-                ]
-              }
-            },
-            {
-              "id": "DS-075",
-              "statement": "`UNKNOWN` は決定論の限界であり、受け取った者は意味判定できる者へエスカレーションする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  162,
-                  162
-                ]
-              }
-            },
-            {
-              "id": "DS-076",
-              "statement": "完全検証において `UNKNOWN` はOKとしない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.1 状態は 5 つ",
-                "lines": [
-                  162,
-                  162
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S014",
-          "title": "4.2 診断ラベル",
+          "id": "DS-066",
+          "statement": "意味の違いは資格にならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              154,
+              154
+            ]
+          }
+        },
+        {
+          "id": "DS-067",
+          "statement": "`PASS` を受け取った者はマージできる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              156,
+              158
+            ]
+          }
+        },
+        {
+          "id": "DS-068",
+          "statement": "完全検証において `PASS` はOKとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              158,
+              158
+            ]
+          }
+        },
+        {
+          "id": "DS-069",
+          "statement": "`FAIL` を受け取った者は実装（テスト実装を含む）を直す。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              159,
+              159
+            ]
+          }
+        },
+        {
+          "id": "DS-070",
+          "statement": "完全検証において `FAIL` はOKとしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              159,
+              159
+            ]
+          }
+        },
+        {
+          "id": "DS-071",
+          "statement": "`MISMATCH` を受け取った者はコードを触る前に宣言側（上流）を直す。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              160,
+              160
+            ]
+          }
+        },
+        {
+          "id": "DS-072",
+          "statement": "完全検証において `MISMATCH` はOKとしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              160,
+              160
+            ]
+          }
+        },
+        {
+          "id": "DS-073",
+          "statement": "`NO_EVIDENCE` を受け取った者は証拠を作る（機械的に解決可能）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              161,
+              161
+            ]
+          }
+        },
+        {
+          "id": "DS-074",
+          "statement": "完全検証において `NO_EVIDENCE` はOKとしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              161,
+              161
+            ]
+          }
+        },
+        {
+          "id": "DS-075",
+          "statement": "`UNKNOWN` は決定論の限界であり、受け取った者は意味判定できる者へエスカレーションする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              162,
+              162
+            ]
+          }
+        },
+        {
+          "id": "DS-076",
+          "statement": "完全検証において `UNKNOWN` はOKとしない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.1 状態は 5 つ",
+            "lines": [
+              162,
+              162
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S014",
+      "title": "4.2 診断ラベル",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.2 診断ラベル",
+        "lines": [
+          166,
+          166
+        ]
+      },
+      "derives_from": [
+        "REQ-S015",
+        "REQ-S058"
+      ],
+      "items": [
+        {
+          "id": "DS-077",
+          "statement": "診断ラベルは検証状態ではない。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.2 診断ラベル",
@@ -6846,164 +6765,163 @@
               166,
               166
             ]
-          },
-          "derives_from": [
-            "REQ-S015",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "DS-077",
-              "statement": "診断ラベルは検証状態ではない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.2 診断ラベル",
-                "lines": [
-                  166,
-                  166
-                ]
-              }
-            },
-            {
-              "id": "DS-078",
-              "statement": "本書は状態と診断ラベルを常に別軸として扱い、混同しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.2 診断ラベル",
-                "lines": [
-                  166,
-                  166
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S015",
-          "title": "4.3 状態の割当",
+          "id": "DS-078",
+          "statement": "本書は状態と診断ラベルを常に別軸として扱い、混同しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.2 診断ラベル",
+            "lines": [
+              166,
+              166
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S015",
+      "title": "4.3 状態の割当",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.3 状態の割当",
+        "lines": [
+          172,
+          181
+        ]
+      },
+      "derives_from": [
+        "REQ-S016"
+      ],
+      "items": [
+        {
+          "id": "DS-079",
+          "statement": "発見されたTestに管理宣言が無い場合、状態は `MISMATCH`、診断ラベルはMISSINGとする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.3 状態の割当",
             "lines": [
               172,
-              181
+              174
             ]
-          },
-          "derives_from": [
-            "REQ-S016"
-          ],
-          "items": [
-            {
-              "id": "DS-079",
-              "statement": "発見されたTestに管理宣言が無い場合、状態は `MISMATCH`、診断ラベルはMISSINGとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  172,
-                  174
-                ]
-              }
-            },
-            {
-              "id": "DS-080",
-              "statement": "`covers` のVO参照を解決できない、同一constructから複数entity、またはTest ID衝突の場合、状態は `MISMATCH` とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  175,
-                  175
-                ]
-              }
-            },
-            {
-              "id": "DS-081",
-              "statement": "文書鎖のリンク切れ、依存 closure が束縛した document ノードのハッシュの不一致、または孤児文書の場合、状態は `MISMATCH`、診断ラベルはSTALE等とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  176,
-                  176
-                ]
-              }
-            },
-            {
-              "id": "DS-082",
-              "statement": "証拠が存在しない、または証拠のハッシュが現在の対象と不一致の場合、状態は `NO_EVIDENCE`、診断ラベルはSTALE等とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  177,
-                  177
-                ]
-              }
-            },
-            {
-              "id": "DS-083",
-              "statement": "scope限定により検査を実施しなかった項目（完全検証の集約時）は、状態を `NO_EVIDENCE`、診断ラベルをNOT_CHECKEDとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  178,
-                  178
-                ]
-              }
-            },
-            {
-              "id": "DS-084",
-              "statement": "discoveryが不完全、または解析不能の場合、状態は `UNKNOWN` とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  179,
-                  179
-                ]
-              }
-            },
-            {
-              "id": "DS-085",
-              "statement": "テストランナーが失敗を報告した場合、状態は `FAIL` とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  180,
-                  180
-                ]
-              }
-            },
-            {
-              "id": "DS-086",
-              "statement": "宣言された検証対象の実行が0回の場合、状態は `FAIL`、診断ラベルはNOT_EXECUTEDとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.3 状態の割当",
-                "lines": [
-                  181,
-                  181
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S016",
-          "title": "4.4 UNKNOWN の検疫",
+          "id": "DS-080",
+          "statement": "`covers` のVO参照を解決できない、同一constructから複数entity、またはTest ID衝突の場合、状態は `MISMATCH` とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              175,
+              175
+            ]
+          }
+        },
+        {
+          "id": "DS-081",
+          "statement": "文書鎖のリンク切れ、依存 closure が束縛した document ノードのハッシュの不一致、または孤児文書の場合、状態は `MISMATCH`、診断ラベルはSTALE等とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              176,
+              176
+            ]
+          }
+        },
+        {
+          "id": "DS-082",
+          "statement": "証拠が存在しない、または証拠のハッシュが現在の対象と不一致の場合、状態は `NO_EVIDENCE`、診断ラベルはSTALE等とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              177,
+              177
+            ]
+          }
+        },
+        {
+          "id": "DS-083",
+          "statement": "scope限定により検査を実施しなかった項目（完全検証の集約時）は、状態を `NO_EVIDENCE`、診断ラベルをNOT_CHECKEDとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              178,
+              178
+            ]
+          }
+        },
+        {
+          "id": "DS-084",
+          "statement": "discoveryが不完全、または解析不能の場合、状態は `UNKNOWN` とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              179,
+              179
+            ]
+          }
+        },
+        {
+          "id": "DS-085",
+          "statement": "テストランナーが失敗を報告した場合、状態は `FAIL` とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              180,
+              180
+            ]
+          }
+        },
+        {
+          "id": "DS-086",
+          "statement": "宣言された検証対象の実行が0回の場合、状態は `FAIL`、診断ラベルはNOT_EXECUTEDとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.3 状態の割当",
+            "lines": [
+              181,
+              181
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S016",
+      "title": "4.4 UNKNOWN の検疫",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.4 UNKNOWN の検疫",
+        "lines": [
+          185,
+          185
+        ]
+      },
+      "derives_from": [
+        "REQ-S017"
+      ],
+      "items": [
+        {
+          "id": "DS-087",
+          "statement": "内部エラー・入力不正は検証状態と別系統（終了コード。§27）で表現する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.4 UNKNOWN の検疫",
@@ -7011,242 +6929,224 @@
               185,
               185
             ]
-          },
-          "derives_from": [
-            "REQ-S017"
-          ],
-          "items": [
-            {
-              "id": "DS-087",
-              "statement": "内部エラー・入力不正は検証状態と別系統（終了コード。§27）で表現する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.4 UNKNOWN の検疫",
-                "lines": [
-                  185,
-                  185
-                ]
-              }
-            },
-            {
-              "id": "DS-088",
-              "statement": "`UNKNOWN` をエラー処理のフォールバック先として使う実装は仕様違反とする。",
-              "derives_from": [
-                "REQ-105",
-                "REQ-106",
-                "REQ-107",
-                "REQ-108"
-              ],
-              "cites": [
-                "要件定義 §5.4"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.4 UNKNOWN の検疫",
-                "lines": [
-                  185,
-                  185
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S017",
-          "title": "4.5 検証状態と承認の分離",
+          "id": "DS-088",
+          "statement": "`UNKNOWN` をエラー処理のフォールバック先として使う実装は仕様違反とする。",
+          "derives_from": [
+            "REQ-105",
+            "REQ-106",
+            "REQ-107",
+            "REQ-108"
+          ],
+          "cites": [
+            "要件定義 §5.4"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.4 UNKNOWN の検疫",
+            "lines": [
+              185,
+              185
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S017",
+      "title": "4.5 検証状態と承認の分離",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.5 検証状態と承認の分離",
+        "lines": [
+          189,
+          193
+        ]
+      },
+      "derives_from": [
+        "REQ-S018"
+      ],
+      "items": [
+        {
+          "id": "DS-089",
+          "statement": "検証状態（§4.1の5状態）は検証結果のみを表す。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.5 検証状態と承認の分離",
             "lines": [
               189,
-              193
+              189
             ]
-          },
-          "derives_from": [
-            "REQ-S018"
-          ],
-          "items": [
-            {
-              "id": "DS-089",
-              "statement": "検証状態（§4.1の5状態）は検証結果のみを表す。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  189,
-                  189
-                ]
-              }
-            },
-            {
-              "id": "DS-090",
-              "statement": "検証状態は承認状態を混入させない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  189,
-                  189
-                ]
-              }
-            },
-            {
-              "id": "DS-091",
-              "statement": "技術的に `PASS` であっても未承認である状態を許容する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  191,
-                  191
-                ]
-              }
-            },
-            {
-              "id": "DS-092",
-              "statement": "未承認であることだけを理由に `PASS` を `UNKNOWN` 等へ変更してはならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  192,
-                  192
-                ]
-              }
-            },
-            {
-              "id": "DS-093",
-              "statement": "承認済みであることを理由に `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` を `PASS` へ変更してはならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.5 検証状態と承認の分離",
-                "lines": [
-                  193,
-                  193
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DS-S018",
-          "title": "4.6 scope",
+          "id": "DS-090",
+          "statement": "検証状態は承認状態を混入させない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.5 検証状態と承認の分離",
+            "lines": [
+              189,
+              189
+            ]
+          }
+        },
+        {
+          "id": "DS-091",
+          "statement": "技術的に `PASS` であっても未承認である状態を許容する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.5 検証状態と承認の分離",
+            "lines": [
+              191,
+              191
+            ]
+          }
+        },
+        {
+          "id": "DS-092",
+          "statement": "未承認であることだけを理由に `PASS` を `UNKNOWN` 等へ変更してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.5 検証状態と承認の分離",
+            "lines": [
+              192,
+              192
+            ]
+          }
+        },
+        {
+          "id": "DS-093",
+          "statement": "承認済みであることを理由に `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN` を `PASS` へ変更してはならない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.5 検証状態と承認の分離",
+            "lines": [
+              193,
+              193
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S018",
+      "title": "4.6 scope",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "4.6 scope",
+        "lines": [
+          199,
+          204
+        ]
+      },
+      "derives_from": [
+        "P-002",
+        "REQ-S016"
+      ],
+      "items": [
+        {
+          "id": "DS-094",
+          "statement": "検査軸は実施する検査（4本の部分集合）を指定する。",
+          "derives_from": [
+            "P-002"
+          ],
+          "cites": [
+            "要件定義 P-002"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "4.6 scope",
             "lines": [
               199,
+              201
+            ]
+          }
+        },
+        {
+          "id": "DS-095",
+          "statement": "エンティティ軸は対象とするdocument / VO / Testの部分木を指定する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              202,
+              202
+            ]
+          }
+        },
+        {
+          "id": "DS-096",
+          "statement": "scopeを限定した検証のOKは「要求されたscope内がOK」の意味に限られる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              204,
               204
             ]
-          },
-          "derives_from": [
-            "P-002",
-            "REQ-S016"
-          ],
-          "items": [
-            {
-              "id": "DS-094",
-              "statement": "検査軸は実施する検査（4本の部分集合）を指定する。",
-              "derives_from": [
-                "P-002"
-              ],
-              "cites": [
-                "要件定義 P-002"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  199,
-                  201
-                ]
-              }
-            },
-            {
-              "id": "DS-095",
-              "statement": "エンティティ軸は対象とするdocument / VO / Testの部分木を指定する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  202,
-                  202
-                ]
-              }
-            },
-            {
-              "id": "DS-096",
-              "statement": "scopeを限定した検証のOKは「要求されたscope内がOK」の意味に限られる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  204,
-                  204
-                ]
-              }
-            },
-            {
-              "id": "DS-097",
-              "statement": "scope外・未実施の項目は `NO_EVIDENCE`（診断NOT_CHECKED）として保持する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  204,
-                  204
-                ]
-              }
-            },
-            {
-              "id": "DS-098",
-              "statement": "scope外・未実施の項目は `PASS` へ変換しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  204,
-                  204
-                ]
-              }
-            },
-            {
-              "id": "DS-099",
-              "statement": "出力には要求scopeと、scope外項目が未検証である旨を必ず併記する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  204,
-                  204
-                ]
-              }
-            },
-            {
-              "id": "DS-100",
-              "statement": "いかなる設定値も完全検証の検査を4本未満へ縮退させない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "4.6 scope",
-                "lines": [
-                  204,
-                  204
-                ]
-              }
-            }
-          ]
+          }
+        },
+        {
+          "id": "DS-097",
+          "statement": "scope外・未実施の項目は `NO_EVIDENCE`（診断NOT_CHECKED）として保持する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              204,
+              204
+            ]
+          }
+        },
+        {
+          "id": "DS-098",
+          "statement": "scope外・未実施の項目は `PASS` へ変換しない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              204,
+              204
+            ]
+          }
+        },
+        {
+          "id": "DS-099",
+          "statement": "出力には要求scopeと、scope外項目が未検証である旨を必ず併記する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              204,
+              204
+            ]
+          }
+        },
+        {
+          "id": "DS-100",
+          "statement": "いかなる設定値も完全検証の検査を4本未満へ縮退させない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "4.6 scope",
+            "lines": [
+              204,
+              204
+            ]
+          }
         }
       ]
     },
@@ -7690,8 +7590,7 @@
             ]
           },
           "derives_from": [
-            "REQ-S012",
-            "REQ-S021"
+            "REQ-S012"
           ],
           "items": [
             {
@@ -8203,10 +8102,7 @@
           293
         ]
       },
-      "derives_from": [
-        "REQ-S021",
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "DS-S027",
@@ -8512,9 +8408,7 @@
           349
         ]
       },
-      "derives_from": [
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "DS-S031",
@@ -8762,7 +8656,6 @@
         ]
       },
       "derives_from": [
-        "REQ-S029",
         "REQ-S034"
       ],
       "items": [
@@ -9971,7 +9864,8 @@
         ]
       },
       "derives_from": [
-        "REQ-S007"
+        "REQ-S007",
+        "REQ-282"
       ],
       "items": [
         {
@@ -10377,9 +10271,7 @@
           573
         ]
       },
-      "derives_from": [
-        "REQ-S053"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "DS-S053",
@@ -10538,7 +10430,8 @@
                   583,
                   583
                 ]
-              }
+              },
+              "description": "代表値の優先順位を述べる正典上の担い手は本ノードである。`source` のとおり本文は基本仕様 v0.1 §22.2（L583）の逐語であり、`LAYERING.md` §2 の仕分け（「優先順位」は詳細仕様の項目）により `detailed_spec` 配列に置かれた。したがって §22.2 のうち `spec` 層に残ったノードは `SPEC-190`・`SPEC-191` の 2 文だけで、そのどちらも優先順位を述べていない。\n\nこの開示を置く理由: `DS-846`・`DS-871`・`DS-1512` は同じ優先順位を再掲しつつ `cites: 基本仕様 §22.2`・`derives_from: [SPEC-190, SPEC-191]` を持つため、`derives_from` の先だけを読むと「優先順位に上流の根拠が無い」という誤読が成立する（2026-09-08 の verify slice 監査で実際に発生した）。cite は正しく、辺は再仕分けの機械的な帰結であって、規則そのものは基本仕様の逐語に由来する。本ノードの文・辺・`source` は変更していない。"
             },
             {
               "id": "DS-289",
@@ -11581,11 +11474,7 @@
       },
       "derives_from": [
         "REQ-S001",
-        "REQ-S003",
-        "REQ-S013",
         "REQ-S020",
-        "REQ-S025",
-        "REQ-S029",
         "REQ-S035",
         "REQ-S036",
         "REQ-S037",
@@ -11608,137 +11497,142 @@
       ]
     },
     {
-      "id": "BD-S003",
-      "title": "2 全体像",
+      "id": "BD-S004",
+      "title": "2.1 正典の三層構造",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2 全体像",
+        "heading": "2.1 正典の三層構造",
         "lines": [
-          45,
-          45
+          49,
+          67
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "P-003",
+        "REQ-S019",
+        "REQ-S035",
+        "REQ-S046",
+        "REQ-283"
+      ],
+      "items": [
         {
-          "id": "BD-S004",
-          "title": "2.1 正典の三層構造",
+          "id": "BD-010",
+          "statement": "本システムは扱う情報を三層に分ける。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.1 正典の三層構造",
             "lines": [
               49,
-              67
+              49
             ]
-          },
-          "derives_from": [
-            "P-003",
-            "REQ-S019",
-            "REQ-S035",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "BD-010",
-              "statement": "本システムは扱う情報を三層に分ける。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  49,
-                  49
-                ]
-              }
-            },
-            {
-              "id": "BD-011",
-              "statement": "宣言層は、adapter所有のTest metadata宣言、および.verify/配下のdocument / VO / Relationレコードからなり、Gitで管理される正典である。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  52,
-                  54
-                ]
-              }
-            },
-            {
-              "id": "BD-012",
-              "statement": "実装層は、テストコード本体と対象ソースコードからなり、Gitで管理される正典である。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  56,
-                  57
-                ]
-              }
-            },
-            {
-              "id": "BD-013",
-              "statement": "事実層は、実行結果・判断記録・承認記録からなる.verify/配下の追記型レコードファイルであり、Gitで管理される。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  59,
-                  61
-                ]
-              }
-            },
-            {
-              "id": "BD-014",
-              "statement": "派生情報（検索インデックス、検証グラフ、集約結果）は上記から毎回再構築する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  63,
-                  63
-                ]
-              }
-            },
-            {
-              "id": "BD-015",
-              "statement": "派生情報はGit管理しない。",
-              "derives_from": [
-                "P-003"
-              ],
-              "cites": [
-                "要件定義 P-003 / NFR-004"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  64,
-                  64
-                ]
-              }
-            },
-            {
-              "id": "BD-016",
-              "statement": "source discovery、決定論的解析、Structured Test Operation、test runner起動、coverage計測はadapter capabilityとして提供する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  67,
-                  67
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "BD-S005",
-          "title": "2.2 宣言鎖と照合",
+          "id": "BD-011",
+          "statement": "宣言層は、adapter所有のTest metadata宣言、および.verify/配下のdocument / VO / Relationレコードからなり、Gitで管理される正典である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              52,
+              54
+            ]
+          }
+        },
+        {
+          "id": "BD-012",
+          "statement": "実装層は、テストコード本体と対象ソースコードからなり、Gitで管理される正典である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              56,
+              57
+            ]
+          }
+        },
+        {
+          "id": "BD-013",
+          "statement": "事実層は、実行結果・判断記録・承認記録からなる.verify/配下の追記型レコードファイルであり、Gitで管理される。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              59,
+              61
+            ]
+          }
+        },
+        {
+          "id": "BD-014",
+          "statement": "派生情報（検索インデックス、検証グラフ、集約結果）は上記から毎回再構築する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              63,
+              63
+            ]
+          }
+        },
+        {
+          "id": "BD-015",
+          "statement": "派生情報はGit管理しない。",
+          "derives_from": [
+            "P-003"
+          ],
+          "cites": [
+            "要件定義 P-003 / NFR-004"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              64,
+              64
+            ]
+          }
+        },
+        {
+          "id": "BD-016",
+          "statement": "source discovery、決定論的解析、Structured Test Operation、test runner起動、coverage計測はadapter capabilityとして提供する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.1 正典の三層構造",
+            "lines": [
+              67,
+              67
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "BD-S005",
+      "title": "2.2 宣言鎖と照合",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.2 宣言鎖と照合",
+        "lines": [
+          88,
+          88
+        ]
+      },
+      "derives_from": [
+        "REQ-S004",
+        "REQ-S005"
+      ],
+      "items": [
+        {
+          "id": "BD-017",
+          "statement": "文書層の段数は総称的に扱い、リンクを追加してもスキーマが壊れないことを設計制約とする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.2 宣言鎖と照合",
@@ -11746,30 +11640,34 @@
               88,
               88
             ]
-          },
-          "derives_from": [
-            "REQ-S004",
-            "REQ-S005"
-          ],
-          "items": [
-            {
-              "id": "BD-017",
-              "statement": "文書層の段数は総称的に扱い、リンクを追加してもスキーマが壊れないことを設計制約とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  88,
-                  88
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "BD-S006",
+      "title": "2.3 導出できる関係は保存しない",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.3 導出できる関係は保存しない",
+        "lines": [
+          97,
+          97
+        ]
+      },
+      "derives_from": [
+        "P-003"
+      ],
+      "items": [
         {
-          "id": "BD-S006",
-          "title": "2.3 導出できる関係は保存しない",
+          "id": "BD-018",
+          "statement": "外部レコードとして保存するのは、どちらか一方のエンティティに自然に所属しない関係（VO間の依存、Test間の補完関係など）だけとする。",
+          "derives_from": [
+            "P-003"
+          ],
+          "cites": [
+            "要件定義 P-003"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.3 導出できる関係は保存しない",
@@ -11777,177 +11675,157 @@
               97,
               97
             ]
-          },
-          "derives_from": [
-            "P-003"
-          ],
-          "items": [
-            {
-              "id": "BD-018",
-              "statement": "外部レコードとして保存するのは、どちらか一方のエンティティに自然に所属しない関係（VO間の依存、Test間の補完関係など）だけとする。",
-              "derives_from": [
-                "P-003"
-              ],
-              "cites": [
-                "要件定義 P-003"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  97,
-                  97
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
     {
-      "id": "BD-S007",
-      "title": "3 エンティティと ID 体系",
+      "id": "BD-S008",
+      "title": "3.1 エンティティ種別",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3 エンティティと ID 体系",
+        "heading": "3.1 エンティティ種別",
         "lines": [
-          109,
-          109
+          113,
+          122
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S005",
+        "REQ-S035",
+        "REQ-S036",
+        "REQ-S040",
+        "REQ-S046"
+      ],
+      "items": [
         {
-          "id": "BD-S008",
-          "title": "3.1 エンティティ種別",
+          "id": "BD-318",
+          "statement": "ノードの ID は層ごとの接頭辞（`ROOT-` / `R-` / `P-` / `REQ-` / `SPEC-` / `DS-` / `BD-` / `DES-`、節は `-S` を伴う）とし、正典は `.verify/doc/` に置く。",
+          "derives_from": [
+            "SPEC-462"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.1 エンティティ種別",
             "lines": [
               113,
-              122
+              115
             ]
-          },
-          "derives_from": [
-            "REQ-S005",
-            "REQ-S025",
-            "REQ-S035",
-            "REQ-S036",
-            "REQ-S040",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "BD-318",
-              "statement": "ノードの ID は層ごとの接頭辞（`ROOT-` / `R-` / `P-` / `REQ-` / `SPEC-` / `DS-` / `BD-` / `DES-`、節は `-S` を伴う）とし、正典は `.verify/doc/` に置く。",
-              "derives_from": [
-                "SPEC-462"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  113,
-                  115
-                ]
-              }
-            },
-            {
-              "id": "BD-020",
-              "statement": "Verification ObligationのIDは `VO-` とし、正典は `.verify/vo/` に置く。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  116,
-                  116
-                ]
-              }
-            },
-            {
-              "id": "BD-021",
-              "statement": "TestのIDは `TEST-` とし、正典はadapter所有のTest metadata宣言とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  117,
-                  117
-                ]
-              }
-            },
-            {
-              "id": "BD-022",
-              "statement": "Source TargetはIDを持たない、または任意で `SRC-` を用い、adapter IDとopaque locatorで識別する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  118,
-                  118
-                ]
-              }
-            },
-            {
-              "id": "BD-023",
-              "statement": "RelationのIDは `REL-`（ULID）とし、正典は `.verify/rel/` に置く。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  119,
-                  119
-                ]
-              }
-            },
-            {
-              "id": "BD-024",
-              "statement": "判断記録のIDはULIDとし、正典は `.verify/decisions/` に置く。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  120,
-                  120
-                ]
-              }
-            },
-            {
-              "id": "BD-025",
-              "statement": "承認記録のIDはULIDとし、正典は `.verify/approvals/` に置く。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  121,
-                  121
-                ]
-              }
-            },
-            {
-              "id": "BD-026",
-              "statement": "Execution EvidenceのIDはULIDとし、正典は `.verify/evidence/` に置く。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  122,
-                  122
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "BD-S009",
-          "title": "3.3 Source Target の識別",
+          "id": "BD-020",
+          "statement": "Verification ObligationのIDは `VO-` とし、正典は `.verify/vo/` に置く。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              116,
+              116
+            ]
+          }
+        },
+        {
+          "id": "BD-021",
+          "statement": "TestのIDは `TEST-` とし、正典はadapter所有のTest metadata宣言とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              117,
+              117
+            ]
+          }
+        },
+        {
+          "id": "BD-022",
+          "statement": "Source TargetはIDを持たない、または任意で `SRC-` を用い、adapter IDとopaque locatorで識別する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              118,
+              118
+            ]
+          }
+        },
+        {
+          "id": "BD-023",
+          "statement": "RelationのIDは `REL-`（ULID）とし、正典は `.verify/rel/` に置く。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              119,
+              119
+            ]
+          }
+        },
+        {
+          "id": "BD-024",
+          "statement": "判断記録のIDはULIDとし、正典は `.verify/decisions/` に置く。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              120,
+              120
+            ]
+          }
+        },
+        {
+          "id": "BD-025",
+          "statement": "承認記録のIDはULIDとし、正典は `.verify/approvals/` に置く。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              121,
+              121
+            ]
+          }
+        },
+        {
+          "id": "BD-026",
+          "statement": "Execution EvidenceのIDはULIDとし、正典は `.verify/evidence/` に置く。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              122,
+              122
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "BD-S009",
+      "title": "3.3 Source Target の識別",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.3 Source Target の識別",
+        "lines": [
+          146,
+          146
+        ]
+      },
+      "derives_from": [
+        "R-3",
+        "REQ-S027"
+      ],
+      "items": [
+        {
+          "id": "BD-027",
+          "statement": "opaque locatorの構文と恒久SRC IDの宣言方法はadapterが定める。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.3 Source Target の識別",
@@ -11955,97 +11833,85 @@
               146,
               146
             ]
-          },
+          }
+        },
+        {
+          "id": "BD-028",
+          "statement": "共通契約がpath・module・function等の特定言語構造を必須としてはならない。",
           "derives_from": [
             "R-3",
-            "REQ-S027"
+            "REQ-149",
+            "REQ-150",
+            "REQ-151",
+            "REQ-152",
+            "REQ-153",
+            "REQ-154",
+            "REQ-155",
+            "REQ-156"
           ],
-          "items": [
-            {
-              "id": "BD-027",
-              "statement": "opaque locatorの構文と恒久SRC IDの宣言方法はadapterが定める。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            },
-            {
-              "id": "BD-028",
-              "statement": "共通契約がpath・module・function等の特定言語構造を必須としてはならない。",
-              "derives_from": [
-                "R-3",
-                "REQ-149",
-                "REQ-150",
-                "REQ-151",
-                "REQ-152",
-                "REQ-153",
-                "REQ-154",
-                "REQ-155",
-                "REQ-156"
-              ],
-              "cites": [
-                "要件定義 §9.2、R-3"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            },
-            {
-              "id": "BD-029",
-              "statement": "Test→SRCの対応はadapter所有のTest metadata宣言から提供する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            },
-            {
-              "id": "BD-030",
-              "statement": "SRC→Testの逆引きはスキャン結果から提供する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  146,
-                  146
-                ]
-              }
-            }
-          ]
+          "cites": [
+            "要件定義 §9.2、R-3"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.3 Source Target の識別",
+            "lines": [
+              146,
+              146
+            ]
+          }
+        },
+        {
+          "id": "BD-029",
+          "statement": "Test→SRCの対応はadapter所有のTest metadata宣言から提供する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.3 Source Target の識別",
+            "lines": [
+              146,
+              146
+            ]
+          }
+        },
+        {
+          "id": "BD-030",
+          "statement": "SRC→Testの逆引きはスキャン結果から提供する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.3 Source Target の識別",
+            "lines": [
+              146,
+              146
+            ]
+          }
         }
       ]
     },
     {
-      "id": "BD-S010",
-      "title": "5 検査",
+      "id": "BD-S011",
+      "title": "5.2 orphan_detection — 文書層の孤児検出",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 5 検査",
+        "heading": "5.2 orphan_detection — 文書層の孤児検出",
         "lines": [
-          208,
-          208
+          230,
+          230
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S010"
+      ],
+      "items": [
         {
-          "id": "BD-S011",
-          "title": "5.2 orphan_detection — 文書層の孤児検出",
+          "id": "BD-328",
+          "statement": "根の指定方式は `root` 層への所属とし、設定による明示的な根指定を持たない。",
+          "derives_from": [
+            "REQ-060",
+            "REQ-061",
+            "SPEC-060"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5.2 orphan_detection — 文書層の孤児検出",
@@ -12053,33 +11919,29 @@
               230,
               230
             ]
-          },
-          "derives_from": [
-            "REQ-S010"
-          ],
-          "items": [
-            {
-              "id": "BD-328",
-              "statement": "根の指定方式は `root` 層への所属とし、設定による明示的な根指定を持たない。",
-              "derives_from": [
-                "REQ-060",
-                "REQ-061",
-                "SPEC-060"
-              ],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.2 orphan_detection — 文書層の孤児検出",
-                "lines": [
-                  230,
-                  230
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "BD-S012",
+      "title": "5.5 決定論的に検出可能な不成立構造",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "5.5 決定論的に検出可能な不成立構造",
+        "lines": [
+          268,
+          268
+        ]
+      },
+      "derives_from": [
+        "REQ-S024"
+      ],
+      "items": [
         {
-          "id": "BD-S012",
-          "title": "5.5 決定論的に検出可能な不成立構造",
+          "id": "BD-032",
+          "statement": "coreはadapter固有のAST・assertion構文・call graphを解釈しない。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5.5 決定論的に検出可能な不成立構造",
@@ -12087,51 +11949,33 @@
               268,
               268
             ]
-          },
-          "derives_from": [
-            "REQ-S024"
-          ],
-          "items": [
-            {
-              "id": "BD-032",
-              "statement": "coreはadapter固有のAST・assertion構文・call graphを解釈しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.5 決定論的に検出可能な不成立構造",
-                "lines": [
-                  268,
-                  268
-                ]
-              }
-            },
-            {
-              "id": "BD-033",
-              "statement": "coreは正規化されたルール結果を検証・集約する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.5 決定論的に検出可能な不成立構造",
-                "lines": [
-                  268,
-                  268
-                ]
-              }
-            },
-            {
-              "id": "BD-034",
-              "statement": "code fragmentの具体構文はadapterの言語・runnerに従う。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.5 決定論的に検出可能な不成立構造",
-                "lines": [
-                  268,
-                  268
-                ]
-              }
-            }
-          ]
+          }
+        },
+        {
+          "id": "BD-033",
+          "statement": "coreは正規化されたルール結果を検証・集約する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "5.5 決定論的に検出可能な不成立構造",
+            "lines": [
+              268,
+              268
+            ]
+          }
+        },
+        {
+          "id": "BD-034",
+          "statement": "code fragmentの具体構文はadapterの言語・runnerに従う。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "5.5 決定論的に検出可能な不成立構造",
+            "lines": [
+              268,
+              268
+            ]
+          }
         }
       ]
     },
@@ -12189,10 +12033,7 @@
           293
         ]
       },
-      "derives_from": [
-        "REQ-S021",
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "BD-S015",
@@ -12235,9 +12076,7 @@
           349
         ]
       },
-      "derives_from": [
-        "REQ-S025"
-      ],
+      "derives_from": [],
       "sections": [
         {
           "id": "BD-S017",
@@ -13498,11 +13337,7 @@
       },
       "derives_from": [
         "REQ-S001",
-        "REQ-S003",
-        "REQ-S013",
         "REQ-S020",
-        "REQ-S025",
-        "REQ-S029",
         "REQ-S035",
         "REQ-S036",
         "REQ-S037",
@@ -13647,21 +13482,28 @@
       ]
     },
     {
-      "id": "DES-S002",
-      "title": "2 全体像",
+      "id": "DES-S003",
+      "title": "2.1 正典の三層構造",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 2 全体像",
+        "heading": "2.1 正典の三層構造",
         "lines": [
-          45,
-          45
+          67,
+          67
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "P-003",
+        "REQ-S019",
+        "REQ-S035",
+        "REQ-S046",
+        "REQ-283"
+      ],
+      "items": [
         {
-          "id": "DES-S003",
-          "title": "2.1 正典の三層構造",
+          "id": "DES-009",
+          "statement": "adapterが返す導出結果はregistryでmergeし、adapter ID・path・Test IDの順に正規化する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.1 正典の三層構造",
@@ -13669,32 +13511,30 @@
               67,
               67
             ]
-          },
-          "derives_from": [
-            "P-003",
-            "REQ-S019",
-            "REQ-S035",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "DES-009",
-              "statement": "adapterが返す導出結果はregistryでmergeし、adapter ID・path・Test IDの順に正規化する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.1 正典の三層構造",
-                "lines": [
-                  67,
-                  67
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S004",
+      "title": "2.2 宣言鎖と照合",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.2 宣言鎖と照合",
+        "lines": [
+          73,
+          73
+        ]
+      },
+      "derives_from": [
+        "REQ-S004",
+        "REQ-S005"
+      ],
+      "items": [
         {
-          "id": "DES-S004",
-          "title": "2.2 宣言鎖と照合",
+          "id": "DES-569",
+          "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.2 宣言鎖と照合",
@@ -13702,30 +13542,29 @@
               73,
               73
             ]
-          },
-          "derives_from": [
-            "REQ-S004",
-            "REQ-S005"
-          ],
-          "items": [
-            {
-              "id": "DES-569",
-              "statement": "上流文書は層ごとのトップレベル配列に分けたノードで表現する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.2 宣言鎖と照合",
-                "lines": [
-                  73,
-                  73
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S005",
+      "title": "2.3 導出できる関係は保存しない",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.3 導出できる関係は保存しない",
+        "lines": [
+          95,
+          95
+        ]
+      },
+      "derives_from": [
+        "P-003"
+      ],
+      "items": [
         {
-          "id": "DES-S005",
-          "title": "2.3 導出できる関係は保存しない",
+          "id": "DES-011",
+          "statement": "Evidenceに含むtarget参照は、target別の実行事実と内容ハッシュを束縛する実行時snapshot keyである。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.3 導出できる関係は保存しない",
@@ -13733,363 +13572,349 @@
               95,
               95
             ]
-          },
-          "derives_from": [
-            "P-003"
-          ],
-          "items": [
-            {
-              "id": "DES-011",
-              "statement": "Evidenceに含むtarget参照は、target別の実行事実と内容ハッシュを束縛する実行時snapshot keyである。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.3 導出できる関係は保存しない",
-                "lines": [
-                  95,
-                  95
-                ]
-              }
-            }
-          ]
-        },
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S006",
+      "title": "2.4 adapter 設定と wire 互換",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "2.4 adapter 設定と wire 互換",
+        "lines": [
+          101,
+          105
+        ]
+      },
+      "derives_from": [
+        "REQ-S048",
+        "REQ-S058"
+      ],
+      "items": [
         {
-          "id": "DES-S006",
-          "title": "2.4 adapter 設定と wire 互換",
+          "id": "DES-012",
+          "statement": "`config.yaml` writerの正規形はversion 2とする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "2.4 adapter 設定と wire 互換",
             "lines": [
               101,
+              101
+            ]
+          }
+        },
+        {
+          "id": "DES-013",
+          "statement": "`config.yaml` writerはadapterごとにroot・scan・run設定をnamespace化する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              101,
+              101
+            ]
+          }
+        },
+        {
+          "id": "DES-014",
+          "statement": "readerはversion 1を単一の `rust-cargo` adapter設定としてin-memory変換して読み取る。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              101,
+              101
+            ]
+          }
+        },
+        {
+          "id": "DES-015",
+          "statement": "`vtest init` はversion 2を生成する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              101,
+              101
+            ]
+          }
+        },
+        {
+          "id": "DES-016",
+          "statement": "core domainの `TestEntity` は、言語・runner非依存の `execution`（adapter・project・suite・opaque selector）だけを実行座標として持つ。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
               105
             ]
-          },
-          "derives_from": [
-            "REQ-S048",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "DES-012",
-              "statement": "`config.yaml` writerの正規形はversion 2とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  101,
-                  101
-                ]
-              }
-            },
-            {
-              "id": "DES-013",
-              "statement": "`config.yaml` writerはadapterごとにroot・scan・run設定をnamespace化する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  101,
-                  101
-                ]
-              }
-            },
-            {
-              "id": "DES-014",
-              "statement": "readerはversion 1を単一の `rust-cargo` adapter設定としてin-memory変換して読み取る。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  101,
-                  101
-                ]
-              }
-            },
-            {
-              "id": "DES-015",
-              "statement": "`vtest init` はversion 2を生成する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  101,
-                  101
-                ]
-              }
-            },
-            {
-              "id": "DES-016",
-              "statement": "core domainの `TestEntity` は、言語・runner非依存の `execution`（adapter・project・suite・opaque selector）だけを実行座標として持つ。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-017",
-              "statement": "`filter` / `package` / `test_target` は `TestEntity` のfieldではない。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-018",
-              "statement": "Test JSONのwire compatibility layerは `execution` を常に出力する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-019",
-              "statement": "Test JSONのwire compatibility layerは `rust-cargo` Testについてだけversion 1互換fieldを追加出力できる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-020",
-              "statement": "非Rust Testでは version 1互換fieldを省略する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-021",
-              "statement": "`targets` listを常に出力する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            },
-            {
-              "id": "DES-022",
-              "statement": "単数互換field `target` はtarget 1件のときだけ追加出力する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "2.4 adapter 設定と wire 互換",
-                "lines": [
-                  105,
-                  105
-                ]
-              }
-            }
-          ]
+          }
+        },
+        {
+          "id": "DES-017",
+          "statement": "`filter` / `package` / `test_target` は `TestEntity` のfieldではない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DES-018",
+          "statement": "Test JSONのwire compatibility layerは `execution` を常に出力する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DES-019",
+          "statement": "Test JSONのwire compatibility layerは `rust-cargo` Testについてだけversion 1互換fieldを追加出力できる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DES-020",
+          "statement": "非Rust Testでは version 1互換fieldを省略する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DES-021",
+          "statement": "`targets` listを常に出力する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
+        },
+        {
+          "id": "DES-022",
+          "statement": "単数互換field `target` はtarget 1件のときだけ追加出力する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "2.4 adapter 設定と wire 互換",
+            "lines": [
+              105,
+              105
+            ]
+          }
         }
       ]
     },
     {
-      "id": "DES-S007",
-      "title": "3 エンティティと ID 体系",
+      "id": "DES-S008",
+      "title": "3.1 エンティティ種別",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 3 エンティティと ID 体系",
+        "heading": "3.1 エンティティ種別",
         "lines": [
-          109,
-          109
+          115,
+          122
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S005",
+        "REQ-S035",
+        "REQ-S036",
+        "REQ-S040",
+        "REQ-S046"
+      ],
+      "items": [
         {
-          "id": "DES-S008",
-          "title": "3.1 エンティティ種別",
+          "id": "DES-024",
+          "statement": "Relationは外部関係レコードであり、不変とする。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.1 エンティティ種別",
             "lines": [
-              115,
-              122
+              119,
+              119
             ]
-          },
-          "derives_from": [
-            "REQ-S005",
-            "REQ-S025",
-            "REQ-S035",
-            "REQ-S036",
-            "REQ-S040",
-            "REQ-S046"
-          ],
-          "items": [
-            {
-              "id": "DES-024",
-              "statement": "Relationは外部関係レコードであり、不変とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  119,
-                  119
-                ]
-              }
-            },
-            {
-              "id": "DES-026",
-              "statement": "判断記録は `UNKNOWN` への外部判断であり、追記型とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  120,
-                  120
-                ]
-              }
-            },
-            {
-              "id": "DES-027",
-              "statement": "承認記録は判断・方針の正式採用であり、追記型とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  121,
-                  121
-                ]
-              }
-            },
-            {
-              "id": "DES-028",
-              "statement": "Execution Evidenceは実行証拠レコードであり、追記型とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.1 エンティティ種別",
-                "lines": [
-                  122,
-                  122
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DES-S009",
-          "title": "3.2 ID 規則と関係リンク",
+          "id": "DES-026",
+          "statement": "判断記録は `UNKNOWN` への外部判断であり、追記型とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              120,
+              120
+            ]
+          }
+        },
+        {
+          "id": "DES-027",
+          "statement": "承認記録は判断・方針の正式採用であり、追記型とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              121,
+              121
+            ]
+          }
+        },
+        {
+          "id": "DES-028",
+          "statement": "Execution Evidenceは実行証拠レコードであり、追記型とする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.1 エンティティ種別",
+            "lines": [
+              122,
+              122
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S009",
+      "title": "3.2 ID 規則と関係リンク",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.2 ID 規則と関係リンク",
+        "lines": [
+          133,
+          134
+        ]
+      },
+      "derives_from": [
+        "REQ-S007",
+        "REQ-S027",
+        "REQ-S058"
+      ],
+      "items": [
+        {
+          "id": "DES-029",
+          "statement": "関係リンクは説明文・導出理由を任意（optional）で保持できる。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.2 ID 規則と関係リンク",
             "lines": [
               133,
-              134
+              133
             ]
-          },
-          "derives_from": [
-            "REQ-S007",
-            "REQ-S027",
-            "REQ-S058"
-          ],
-          "items": [
-            {
-              "id": "DES-029",
-              "statement": "関係リンクは説明文・導出理由を任意（optional）で保持できる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  133,
-                  133
-                ]
-              }
-            },
-            {
-              "id": "DES-030",
-              "statement": "Relation writerは `REL-<ULID>` を正規IDとしてファイル名に用いる。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  134,
-                  134
-                ]
-              }
-            },
-            {
-              "id": "DES-031",
-              "statement": "readerはversion 1互換入力としてbare ULIDを `REL-<ULID>` へin-memory正規化する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  134,
-                  134
-                ]
-              }
-            },
-            {
-              "id": "DES-032",
-              "statement": "判断・承認・EvidenceのIDはbare ULIDとする。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  134,
-                  134
-                ]
-              }
-            },
-            {
-              "id": "DES-033",
-              "statement": "ULID payloadにより並列生成時のファイル名衝突を実用上排除する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.2 ID 規則と関係リンク",
-                "lines": [
-                  134,
-                  134
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "id": "DES-S010",
-          "title": "3.3 Source Target の識別",
+          "id": "DES-030",
+          "statement": "Relation writerは `REL-<ULID>` を正規IDとしてファイル名に用いる。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              134,
+              134
+            ]
+          }
+        },
+        {
+          "id": "DES-031",
+          "statement": "readerはversion 1互換入力としてbare ULIDを `REL-<ULID>` へin-memory正規化する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              134,
+              134
+            ]
+          }
+        },
+        {
+          "id": "DES-032",
+          "statement": "判断・承認・EvidenceのIDはbare ULIDとする。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              134,
+              134
+            ]
+          }
+        },
+        {
+          "id": "DES-033",
+          "statement": "ULID payloadにより並列生成時のファイル名衝突を実用上排除する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+            "heading": "3.2 ID 規則と関係リンク",
+            "lines": [
+              134,
+              134
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S010",
+      "title": "3.3 Source Target の識別",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
+        "heading": "3.3 Source Target の識別",
+        "lines": [
+          139,
+          144
+        ]
+      },
+      "derives_from": [
+        "R-3",
+        "REQ-S027"
+      ],
+      "items": [
+        {
+          "id": "DES-034",
+          "statement": "Target Referenceは、adapter IDとadapter所有のopaque locatorの組、または任意のSRC ID参照である。",
+          "description": "<adapter-id>::<opaque-locator>\n例：rust-cargo::src/parser.rs::Parser::parse",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "3.3 Source Target の識別",
@@ -14097,46 +13922,29 @@
               139,
               144
             ]
-          },
-          "derives_from": [
-            "R-3",
-            "REQ-S027"
-          ],
-          "items": [
-            {
-              "id": "DES-034",
-              "statement": "Target Referenceは、adapter IDとadapter所有のopaque locatorの組、または任意のSRC ID参照である。",
-              "description": "<adapter-id>::<opaque-locator>\n例：rust-cargo::src/parser.rs::Parser::parse",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "3.3 Source Target の識別",
-                "lines": [
-                  139,
-                  144
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
     {
-      "id": "DES-S011",
-      "title": "5 検査",
+      "id": "DES-S012",
+      "title": "5.5 決定論的に検出可能な不成立構造",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-        "heading": "## 5 検査",
+        "heading": "5.5 決定論的に検出可能な不成立構造",
         "lines": [
-          208,
-          208
+          261,
+          261
         ]
       },
-      "derives_from": [],
-      "sections": [
+      "derives_from": [
+        "REQ-S024"
+      ],
+      "items": [
         {
-          "id": "DES-S012",
-          "title": "5.5 決定論的に検出可能な不成立構造",
+          "id": "DES-035",
+          "statement": "`rust-cargo` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
+          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5.5 決定論的に検出可能な不成立構造",
@@ -14144,25 +13952,7 @@
               261,
               261
             ]
-          },
-          "derives_from": [
-            "REQ-S024"
-          ],
-          "items": [
-            {
-              "id": "DES-035",
-              "statement": "`rust-cargo` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
-              "derives_from": [],
-              "source": {
-                "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
-                "heading": "5.5 決定論的に検出可能な不成立構造",
-                "lines": [
-                  261,
-                  261
-                ]
-              }
-            }
-          ]
+          }
         }
       ]
     },
