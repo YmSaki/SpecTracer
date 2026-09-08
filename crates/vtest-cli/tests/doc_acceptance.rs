@@ -197,8 +197,10 @@ fn list_after_registrations_exits_ok() {
     assert_eq!(exit, ExitCode::Ok);
 }
 
-/// DS-1003/1681: `--derives-from` writes onto every top-level node's own
-/// `derives_from` (here, the fixture's single `request[0]` sentence node).
+/// DS-1003/1681/1685/1686: `--derives-from` writes onto every top-level
+/// node's own `derives_from` (here, the fixture's single `request[0]`
+/// sentence node) — DS-1685's "置換（追記ではない）" and DS-1686's "一律
+/// 適用" (PR #49, `24c3cbe`).
 #[test]
 fn derives_from_writes_onto_every_top_level_node() {
     let root = temp_root("derives-from");
@@ -231,10 +233,10 @@ fn derives_from_writes_onto_every_top_level_node() {
     );
 }
 
-/// DS-1003: `--derives-from` has no top-level node to attach to when the
-/// document's only content is in the `root` layer (RootNode has no
+/// DS-1003/1687: `--derives-from` has no top-level node to attach to when
+/// the document's only content is in the `root` layer (RootNode has no
 /// `derives_from` field, DS-1592/1593) — this is a usage rejection, not a
-/// silent no-op.
+/// silent no-op (PR #49, `24c3cbe`).
 #[test]
 fn derives_from_on_a_root_only_document_is_a_usage_error() {
     let root = temp_root("derives-from-root-only");

@@ -213,6 +213,16 @@ impl FieldValue {
 /// for field names and map keys as well as scalar values, and is the
 /// property the `{a:"xy",b:"z"}` vs `{a:"x",b:"yz"}` non-collision test
 /// below exercises.
+///
+/// The four specific encoding choices this builder makes are now directly
+/// grounded in 詳細設計 §1.3 (PR #49, `24c3cbe`; previously these were
+/// disclosed as a derivation from 本冊:85's general "長さ付きfield"
+/// principle, not yet spelled out node-for-node):
+/// - domain-string length prefix — DES-596
+/// - field-name length prefix — DES-597
+/// - a 1-byte kind tag distinguishing absent/scalar/ordered-sequence/
+///   set-like-sequence/map before the length+bytes — DES-598
+/// - fixed-width 64-bit unsigned big-endian length prefixes — DES-599
 pub struct SubjectHashInput {
     buf: Vec<u8>,
 }

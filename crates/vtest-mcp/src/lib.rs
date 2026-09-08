@@ -7,22 +7,28 @@
 //! 入力に対する CLI JSON と同じ data / diagnostics を返す」holds by
 //! construction rather than by two independently written code paths.
 //!
-//! Per REQ-323 / SPEC-216 / SPEC-246 the full MCP tool taxonomy is a
-//! detailed-design matter delegated to 別紙A §12–§15. This slice exposes
-//! exactly the operations the current CLI (`crates/vtest-cli/src/lib.rs`)
-//! implements — `init`, `scan`, `doctor`, `run`, `verify`, the Approval
-//! domain (`approval_create`/`approval_withdraw`/`approval_get`, named per
-//! BD-305/307/308's own MCP tool names — note `approval_get`, not
-//! `approval_show`, is the canonical name for the `show` operation), and the
-//! Document registry (`doc_add`/`doc_list`/`doc_show`, mirroring the CLI
-//! subcommand names 1:1 — no MCP-specific name override was found for `doc`
-//! the way BD-308 overrides `approval show` to `approval_get`) — and does
-//! not invent MCP-only tools for CLI surface (`spec`/`req`/`vo`/`test`/
-//! `audit`/`report`) that does not exist yet on the canonical model
-//! (SPEC-400, see that file's module doc). Adding those tools without a
-//! citation would be exactly the invention this repository's AGENTS.md
-//! forbids; they are left out and reported as declined scope rather than
-//! guessed at.
+//! 別紙A §13.2 defines a 23-tool MCP taxonomy (DS-1193〜DS-1229, confirmed by
+//! direct citation search, team-lead ruling 2026-09-10 / レビュー #15). This
+//! slice implements the 9 whose canonical operation already exists in the
+//! current CLI: `scan` (DS-1193), `doc_list`/`doc_get`/`doc_upsert`
+//! (DS-1194/1195 — note the canonical names: not `doc_list`/`doc_show`/
+//! `doc_add`, which this module used before the rename this review round
+//! corrected), `approval_create`/`approval_withdraw`/`approval_get`
+//! (DS-1196/1197/1198), `run_tests` (DS-1213, not `run`), `verify`
+//! (DS-1214). Tool **names** are taken verbatim from these nodes, not
+//! invented to mirror the CLI subcommand name.
+//!
+//! `init`/`doctor` are **not** in 別紙A §13.2's 23-tool list at all — they
+//! stay CLI-only (`vtest-cli`'s own subcommands) and are not exposed as MCP
+//! tools here (previously they were, wrongly; removed this review round).
+//!
+//! The remaining 14 canonical tools this slice does not implement
+//! (`vo_list`/`vo_get`/`vo_upsert`/`vo_expand`/`vo_approve`, `test_query`/
+//! `test_get`/`test_create`/`test_edit`, `form_get`, `audit_static`/
+//! `audit_bundle`/`audit_submit`, `report`) have no corresponding CLI
+//! subcommand to mirror in this slice — building the underlying `ops::*`
+//! for them is out of this task's declared scope, not an invented
+//! deviation. Reported in `reports/closure-trace.md`'s unimplemented table.
 //!
 //! `approval_create`'s `subject_type: "judgment"` is rejected with the same
 //! disclosed error the CLI uses (`vtest_cli::ops::approval`'s module doc
@@ -55,18 +61,21 @@ use serde_json::{json, Map, Value};
 use vtest_cli::ops;
 use vtest_model::ExitCode;
 
+/// 正本 別紙A §13.2 の23 tool taxonomy のうち、この closure-slice が実装する
+/// 9件（DS-1193/1194/1195/1196/1197/1198/1213/1214 相当）。`init`/`doctor`
+/// は正本の23 tool一覧に無いため、CLI には残しつつ MCP からは外した（team-
+/// lead ruling 2026-09-10, レビュー #15）。未登録14 tool は
+/// `reports/closure-trace.md` の未実装表に開示している。
 const TOOL_NAMES: &[&str] = &[
-    "init",
     "scan",
-    "doctor",
-    "run",
+    "run_tests",
     "verify",
     "approval_create",
     "approval_withdraw",
     "approval_get",
-    "doc_add",
+    "doc_upsert",
     "doc_list",
-    "doc_show",
+    "doc_get",
 ];
 
 #[derive(Default)]
@@ -354,9 +363,8 @@ fn tool_result(envelope: Value) -> Value {
 
 fn tool_input_schema(name: &str) -> Value {
     let (properties, required) = match name {
-        "init" => (json!({"name": {"type": "string"}}), Vec::<&str>::new()),
-        "scan" | "doctor" => (json!({}), Vec::new()),
-        "run" => (
+        "scan" => (json!({}), Vec::new()),
+        "run_tests" => (
             json!({
                 "test": {"type": "array", "items": {"type": "string"}},
                 "vo": {"type": "string"},
@@ -426,7 +434,7 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["subject"],
         ),
-        "doc_add" => (
+        "doc_upsert" => (
             json!({
                 "id": {"type": "string"},
                 "path": {"type": "string"},
@@ -437,7 +445,7 @@ fn tool_input_schema(name: &str) -> Value {
             vec!["id", "path"],
         ),
         "doc_list" => (json!({}), Vec::new()),
-        "doc_show" => (json!({"id": {"type": "string"}}), vec!["id"]),
+        "doc_get" => (json!({"id": {"type": "string"}}), vec!["id"]),
         _ => (json!({}), Vec::new()),
     };
     let mut schema = json!({
@@ -453,16 +461,15 @@ fn tool_input_schema(name: &str) -> Value {
 
 fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), Value> {
     let allowed: &[&str] = match name {
-        "init" => &["name"],
-        "scan" | "doctor" => &[],
-        "run" => &["test", "vo", "all", "fast"],
+        "scan" => &[],
+        "run_tests" => &["test", "vo", "all", "fast"],
         "verify" => &["items", "doc", "vo", "test", "gate", "summary"],
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
-        "doc_add" => &["id", "path", "derives_from", "root", "update"],
+        "doc_upsert" => &["id", "path", "derives_from", "root", "update"],
         "doc_list" => &[],
-        "doc_show" => &["id"],
+        "doc_get" => &["id"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -472,9 +479,8 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         ));
     }
     match name {
-        "init" => optional_nonempty_string(args, "name").map(|_| ()),
-        "scan" | "doctor" => Ok(()),
-        "run" => {
+        "scan" => Ok(()),
+        "run_tests" => {
             optional_string_array(args, "test")?;
             optional_nonempty_string(args, "vo")?;
             optional_bool(args, "all")?;
@@ -492,7 +498,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         // `Value::pointer`) since their shape is nested, not flat — this
         // layer only enforces the flat allowed-key set above.
         "approval_create" | "approval_withdraw" | "approval_get" => Ok(()),
-        "doc_add" => {
+        "doc_upsert" => {
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "path")?;
             optional_string_array(args, "derives_from")?;
@@ -500,7 +506,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_bool(args, "update")
         }
         "doc_list" => Ok(()),
-        "doc_show" => optional_nonempty_string(args, "id").map(|_| ()),
+        "doc_get" => optional_nonempty_string(args, "id").map(|_| ()),
         _ => Ok(()),
     }
 }
@@ -560,27 +566,15 @@ fn optional_string_array(args: &Map<String, Value>, key: &str) -> Result<(), Val
 /// in-process — no subprocess, no second implementation of the operation.
 fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
     match name {
-        "init" => {
-            let project_name = string_arg(args, "name")
-                .map(str::to_owned)
-                .or_else(|| {
-                    root.file_name()
-                        .and_then(|value| value.to_str())
-                        .map(str::to_owned)
-                })
-                .unwrap_or_else(|| "project".to_owned());
-            ops::init::execute(root, &project_name).1
-        }
         "scan" => ops::scan::execute(root).1,
-        "doctor" => ops::doctor::execute(root).1,
-        "run" => run_tool(root, args),
+        "run_tests" => run_tool(root, args),
         "verify" => verify_tool(root, args),
         "approval_create" => approval_create_tool(root, args),
         "approval_withdraw" => approval_withdraw_tool(root, args),
         "approval_get" => approval_get_tool(root, args),
-        "doc_add" => doc_add_tool(root, args),
+        "doc_upsert" => doc_add_tool(root, args),
         "doc_list" => doc_list_tool(root, args),
-        "doc_show" => doc_show_tool(root, args),
+        "doc_get" => doc_show_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -1043,57 +1037,6 @@ mod tests {
         );
     }
 
-    /// DS-1563 equivalence for `init`: MCP and `ops::init::execute` (the
-    /// same function the CLI's `init` wrapper calls).
-    #[test]
-    fn mcp_init_tool_matches_the_cli_init_operation() {
-        // Each call needs its own not-yet-initialised root (`init_project`
-        // is not idempotent), so the two envelopes' `data.project` paths
-        // necessarily differ; normalise that one root-specific field before
-        // comparing the rest of the envelope structurally.
-        let cli_root = temp_root("init-equivalence-cli");
-        let (_, mut cli_envelope) = ops::init::execute(&cli_root, "vtest-mcp-init-fixture");
-        cli_envelope["data"]["project"] = json!("<root>");
-
-        let mcp_root = temp_root("init-equivalence-mcp");
-        let mut mcp_envelope = dispatch_tool(
-            &mcp_root,
-            "init",
-            &json!({"name": "vtest-mcp-init-fixture"}),
-        );
-        mcp_envelope["data"]["project"] = json!("<root>");
-
-        assert_eq!(
-            mcp_envelope, cli_envelope,
-            "MCP `init` tool must return the same envelope shape as `ops::init::execute`, \
-             which the CLI's `init` wrapper also calls, for the same project name \
-             (root paths normalised: each call needs its own fresh root)"
-        );
-    }
-
-    /// DS-1563 equivalence for `doctor`: MCP and `ops::doctor::execute` (the
-    /// same function the CLI's `doctor` wrapper calls).
-    #[test]
-    fn mcp_doctor_tool_matches_the_cli_doctor_operation() {
-        let root = temp_root("doctor-equivalence");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
-        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
-
-        let (_, cli_envelope) = ops::doctor::execute(&root);
-        let mcp_envelope = dispatch_tool(&root, "doctor", &json!({}));
-
-        assert_eq!(
-            mcp_envelope, cli_envelope,
-            "MCP `doctor` tool must return the same envelope as `ops::doctor::execute`, \
-             which the CLI's `doctor` wrapper also calls"
-        );
-    }
-
     fn fixture_vo_project(root: &Path) {
         use vtest_model::{
             DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId,
@@ -1187,6 +1130,21 @@ mod tests {
             vtest_store::approval::EffectiveApprovalState::Draft => "draft",
             vtest_store::approval::EffectiveApprovalState::Approved => "approved",
         };
+        let direct_envelope = success_envelope(
+            true,
+            json!({
+                "records": direct.records.iter().map(|record| json!({
+                    "id": record.id,
+                    "subject_type": record.subject_type,
+                    "subject": record.subject,
+                    "approved_state": record.approved_state,
+                    "supersedes": record.supersedes,
+                    "approved_at": record.approved_at,
+                })).collect::<Vec<_>>(),
+                "effective_state": direct_effective,
+            }),
+            &[],
+        );
 
         let mcp_envelope = dispatch_tool(
             &root,
@@ -1194,17 +1152,13 @@ mod tests {
             &json!({"subject": {"type": "vo", "id": "VO-MCP-APPROVAL"}}),
         );
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563: same input, same root, same records already on disk --
+        // the full envelope (data + diagnostics) must match exactly, not
+        // merely a couple of hand-picked fields.
         assert_eq!(
-            mcp_envelope["data"]["effective_state"],
-            Value::String(direct_effective.to_owned()),
-            "MCP `approval_get` must report the same effective_state as the shared \
-             `ops::approval::show` the CLI `approval show` wrapper also calls"
-        );
-        assert_eq!(
-            mcp_envelope["data"]["records"].as_array().map(Vec::len),
-            Some(direct.records.len()),
-            "MCP `approval_get` must report the same record count"
+            mcp_envelope, direct_envelope,
+            "MCP `approval_get` must return the same envelope (data + diagnostics) as the \
+             shared `ops::approval::show` the CLI `approval show` wrapper also calls"
         );
     }
 
@@ -1212,7 +1166,7 @@ mod tests {
     /// `ops::doc::show` (the shared function the CLI `doc show` wrapper also
     /// calls).
     #[test]
-    fn mcp_doc_show_tool_matches_the_ops_doc_show_operation() {
+    fn mcp_doc_get_tool_matches_the_ops_doc_show_operation() {
         let root = temp_root("doc-equivalence");
         let init = vtest_cli::run(vtest_cli::Cli {
             project: root.clone(),
@@ -1245,18 +1199,17 @@ mod tests {
 
         let direct =
             ops::doc::show(&layout, "DOC-BASIC-001").expect("direct ops::doc::show must succeed");
-        let mcp_envelope = dispatch_tool(&root, "doc_show", &json!({"id": "DOC-BASIC-001"}));
+        let direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        let mcp_envelope = dispatch_tool(&root, "doc_get", &json!({"id": "DOC-BASIC-001"}));
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563: same root, same registered document -- content_hash is
+        // deterministic (a pure function of the file's own content), so
+        // the full envelope must match exactly, not merely a couple of
+        // hand-picked fields.
         assert_eq!(
-            mcp_envelope["data"]["content_hash"],
-            Value::String(direct.content_hash.as_str().to_owned()),
-            "MCP `doc_show` must report the same content_hash as the shared `ops::doc::show`"
-        );
-        assert_eq!(
-            mcp_envelope["data"]["root"],
-            Value::Bool(direct.is_root),
-            "MCP `doc_show` must report the same root designation as the shared `ops::doc::show`"
+            mcp_envelope, direct_envelope,
+            "MCP `doc_get` must return the same envelope (data + diagnostics) as the shared \
+             `ops::doc::show` the CLI `doc show` wrapper also calls"
         );
     }
 
@@ -1289,7 +1242,7 @@ mod tests {
 
         let mcp_root = temp_root("approval-create-equivalence-mcp");
         fixture_vo_project(&mcp_root);
-        let mcp_envelope = dispatch_tool(
+        let mut mcp_envelope = dispatch_tool(
             &mcp_root,
             "approval_create",
             &json!({
@@ -1299,24 +1252,20 @@ mod tests {
             }),
         );
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563: compare the full envelope (data + diagnostics), not a
+        // hand-picked subset -- `id`/`approved_at` are the only fields that
+        // must differ between two independently-created records (fresh
+        // ULID / timestamp per call), so normalise exactly those two.
+        let mut direct_envelope = approval_record_envelope(Ok(direct));
+        for envelope in [&mut mcp_envelope, &mut direct_envelope] {
+            envelope["data"]["id"] = json!("<id>");
+            envelope["data"]["approved_at"] = json!("<approved_at>");
+        }
         assert_eq!(
-            mcp_envelope["data"]["subject_type"],
-            Value::String(direct.subject_type.clone()),
-        );
-        assert_eq!(
-            mcp_envelope["data"]["subject"],
-            Value::String(direct.subject.clone()),
-        );
-        assert_eq!(
-            mcp_envelope["data"]["approved_state"],
-            Value::String(direct.approved_state.clone()),
-            "MCP `approval_create` must report the same approved_state as the shared \
-             `ops::approval::create` the CLI `approval create` wrapper also calls"
-        );
-        assert_eq!(
-            mcp_envelope["data"]["supersedes"].as_array().map(Vec::len),
-            Some(direct.supersedes.len()),
+            mcp_envelope, direct_envelope,
+            "MCP `approval_create` must return the same envelope (data + diagnostics) as the \
+             shared `ops::approval::create` the CLI `approval create` wrapper also calls, \
+             id/approved_at normalised (fresh per call)"
         );
     }
 
@@ -1371,7 +1320,7 @@ mod tests {
             },
         )
         .expect("fixture ops::approval::create must succeed");
-        let mcp_envelope = dispatch_tool(
+        let mut mcp_envelope = dispatch_tool(
             &mcp_root,
             "approval_withdraw",
             &json!({
@@ -1380,18 +1329,21 @@ mod tests {
             }),
         );
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563: compare the full envelope (data + diagnostics) -- `id`/
+        // `approved_at` differ per call (fresh ULID/timestamp), and
+        // `supersedes[0]` is each root's own freshly-created id, so
+        // normalise exactly those three rather than a hand-picked subset.
+        let mut direct_envelope = approval_record_envelope(Ok(direct_withdrawn));
+        for envelope in [&mut mcp_envelope, &mut direct_envelope] {
+            envelope["data"]["id"] = json!("<id>");
+            envelope["data"]["approved_at"] = json!("<approved_at>");
+            envelope["data"]["supersedes"] = json!(["<superseded-id>"]);
+        }
         assert_eq!(
-            mcp_envelope["data"]["approved_state"],
-            Value::String(direct_withdrawn.approved_state.clone()),
-            "MCP `approval_withdraw` must report the same approved_state (withdrawn) as \
-             the shared `ops::approval::withdraw` the CLI `approval withdraw` wrapper also calls"
-        );
-        assert_eq!(
-            mcp_envelope["data"]["supersedes"],
-            json!([mcp_created.id]),
-            "MCP `approval_withdraw` must supersede the id it was given, matching \
-             `ops::approval::withdraw`'s own supersedes: [approval-id] shape"
+            mcp_envelope, direct_envelope,
+            "MCP `approval_withdraw` must return the same envelope (data + diagnostics) as \
+             the shared `ops::approval::withdraw` the CLI `approval withdraw` wrapper also \
+             calls, id/approved_at/supersedes normalised (fresh per call)"
         );
     }
 
@@ -1400,7 +1352,7 @@ mod tests {
     /// fixture Test via `--fast`. Compares everything but `evidence_ids`
     /// (fresh ULIDs per invocation).
     #[test]
-    fn mcp_run_tool_matches_the_ops_run_operation() {
+    fn mcp_run_tests_tool_matches_the_ops_run_operation() {
         fn build_fixture_project(root: &Path) {
             use std::process::Command as ProcessCommand;
             use vtest_model::{
@@ -1513,19 +1465,31 @@ mod tests {
 
         let mcp_root = temp_root("run-equivalence-mcp");
         build_fixture_project(&mcp_root);
-        let mcp_envelope = dispatch_tool(&mcp_root, "run", &json!({"all": true, "fast": true}));
+        let mut mcp_envelope =
+            dispatch_tool(&mcp_root, "run_tests", &json!({"all": true, "fast": true}));
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563 requires the same `data`/`diagnostics` for the same
+        // input, not merely the same *counts* -- compare the full envelope
+        // structurally, normalising only the one field guaranteed to
+        // differ per invocation (`evidence_ids` are freshly generated
+        // ULIDs, not part of the shared operation's semantic output).
+        let mut direct_envelope = json!({
+            "ok": !direct.has_errors(),
+            "data": {
+                "evidence": direct.evidence.len(),
+                "evidence_ids": direct.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
+                "fast": true,
+            },
+            "diagnostics": direct.diagnostics,
+        });
+        mcp_envelope["data"]["evidence_ids"] = json!("<ids>");
+        direct_envelope["data"]["evidence_ids"] = json!("<ids>");
+
         assert_eq!(
-            mcp_envelope["data"]["evidence"],
-            json!(direct.evidence.len()),
-            "MCP `run` must report the same evidence count as the shared `ops::run::run` \
-             the CLI `run` wrapper also calls"
-        );
-        assert_eq!(mcp_envelope["data"]["fast"], json!(true));
-        assert_eq!(
-            mcp_envelope["diagnostics"].as_array().map(Vec::len),
-            Some(direct.diagnostics.len()),
+            mcp_envelope, direct_envelope,
+            "MCP `run_tests` must return the same envelope (data + diagnostics) as the shared \
+             `ops::run::run` the CLI `run` wrapper also calls, evidence_ids normalised (fresh \
+             ULIDs per invocation)"
         );
     }
 
@@ -1537,7 +1501,7 @@ mod tests {
     /// function the CLI's `doc add` wrapper calls), each registering its own
     /// fixture's node-tree file under the same id.
     #[test]
-    fn mcp_doc_add_tool_matches_the_ops_doc_add_operation() {
+    fn mcp_doc_upsert_tool_matches_the_ops_doc_add_operation() {
         let direct_root = temp_root("doc-add-equivalence-direct");
         let init = vtest_cli::run(vtest_cli::Cli {
             project: direct_root.clone(),
@@ -1571,28 +1535,32 @@ mod tests {
         });
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(mcp_root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
-        let mcp_envelope = dispatch_tool(
+        let mut mcp_envelope = dispatch_tool(
             &mcp_root,
-            "doc_add",
+            "doc_upsert",
             &json!({"id": "DOC-BASIC-001", "path": "basic-spec.json"}),
         );
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
-        assert_eq!(mcp_envelope["data"]["id"], Value::String(direct.id.clone()),);
+        // DS-1563: byte-identical input on both roots, so the full
+        // envelope must match exactly, normalising only `path` (each
+        // root's own absolute temp-directory path).
+        let mut direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        for envelope in [&mut mcp_envelope, &mut direct_envelope] {
+            envelope["data"]["path"] = json!("<path>");
+        }
         assert_eq!(
-            mcp_envelope["data"]["content_hash"],
-            Value::String(direct.content_hash.as_str().to_owned()),
-            "MCP `doc_add` must compute the same document-level subject hash as the shared \
-             `ops::doc::add` the CLI `doc add` wrapper also calls, for byte-identical input"
+            mcp_envelope, direct_envelope,
+            "MCP `doc_upsert` must return the same envelope (data + diagnostics) as the shared \
+             `ops::doc::add` the CLI `doc add` wrapper also calls, for byte-identical input \
+             (path normalised: each root has its own absolute temp-directory path)"
         );
-        assert_eq!(mcp_envelope["data"]["root"], Value::Bool(direct.is_root));
     }
 
     /// DS-1003/1681 equivalence: MCP `doc_add`'s `derives_from` argument
     /// writes onto the registered document's top-level node the same way
     /// the CLI's `--derives-from` flag (via `ops::doc::add`) does.
     #[test]
-    fn mcp_doc_add_tool_applies_derives_from_like_ops_doc_add() {
+    fn mcp_doc_upsert_tool_applies_derives_from_like_ops_doc_add() {
         let direct_root = temp_root("doc-add-derives-from-direct");
         let init = vtest_cli::run(vtest_cli::Cli {
             project: direct_root.clone(),
@@ -1633,9 +1601,9 @@ mod tests {
             FIXTURE_NODE_TREE_WITH_REQUEST,
         )
         .expect("write source file");
-        let mcp_envelope = dispatch_tool(
+        let mut mcp_envelope = dispatch_tool(
             &mcp_root,
-            "doc_add",
+            "doc_upsert",
             &json!({
                 "id": "DOC-BASIC-001",
                 "path": "basic-spec.json",
@@ -1643,18 +1611,20 @@ mod tests {
             }),
         );
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
-        assert_eq!(
-            mcp_envelope["data"]["content_hash"],
-            Value::String(direct.content_hash.as_str().to_owned()),
-            "MCP `doc_add` with `derives_from` must compute the same document-level subject \
-             hash as the shared `ops::doc::add` the CLI `doc add --derives-from` wrapper also \
-             calls, for byte-identical input"
-        );
         assert_eq!(
             direct.derives_from,
             vec!["ROOT-001".to_owned()],
             "direct ops::doc::add must have written derives_from onto the request-layer node"
+        );
+        let mut direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        for envelope in [&mut mcp_envelope, &mut direct_envelope] {
+            envelope["data"]["path"] = json!("<path>");
+        }
+        assert_eq!(
+            mcp_envelope, direct_envelope,
+            "MCP `doc_upsert` with `derives_from` must return the same envelope (data + \
+             diagnostics) as the shared `ops::doc::add` the CLI `doc add --derives-from` \
+             wrapper also calls, for byte-identical input (path normalised)"
         );
     }
 
@@ -1687,23 +1657,27 @@ mod tests {
         .expect("add must succeed against a real node-tree file");
 
         let direct = ops::doc::list(&layout).expect("direct ops::doc::list must succeed");
+        let direct_records: Vec<_> = direct.records.iter().map(doc_view_json).collect();
+        let direct_envelope = success_envelope(
+            true,
+            json!({
+                "records": direct_records,
+                "roots": direct.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
+                "unresolved_derives_from": direct.unresolved,
+                "document_chain": direct.document_chain,
+            }),
+            &[],
+        );
         let mcp_envelope = dispatch_tool(&root, "doc_list", &json!({}));
 
-        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        // DS-1563: same root, same registered documents -- no
+        // per-invocation nondeterminism here (unlike `doc_upsert`'s own
+        // path, this is the *same* root for both calls), so the full
+        // envelope must match exactly.
         assert_eq!(
-            mcp_envelope["data"]["records"].as_array().map(Vec::len),
-            Some(direct.records.len()),
-            "MCP `doc_list` must report the same record count as the shared `ops::doc::list` \
-             the CLI `doc list` wrapper also calls"
-        );
-        assert_eq!(
-            mcp_envelope["data"]["roots"],
-            json!(direct
-                .records
-                .iter()
-                .filter(|record| record.is_root)
-                .map(|record| record.id.clone())
-                .collect::<Vec<_>>()),
+            mcp_envelope, direct_envelope,
+            "MCP `doc_list` must return the same envelope (data + diagnostics) as the shared \
+             `ops::doc::list` the CLI `doc list` wrapper also calls"
         );
     }
 }

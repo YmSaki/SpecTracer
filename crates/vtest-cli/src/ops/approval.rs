@@ -16,7 +16,7 @@ use vtest_store::{
         read_all_approvals, read_all_vos, vo_dependencies, EffectiveApprovalState,
     },
     new_record_id,
-    records::{ApprovalBasis, ApprovalRecord, Approver, DependencyRecord},
+    records::{ApprovalRecord, Approver, DependencyRecord},
     write_new_record, StoreError, VerifyLayout,
 };
 
@@ -163,22 +163,13 @@ fn build_and_write(
             model: approver_model,
         },
         approved_state,
-        // DS-1055 defines `--basis` as a bare, optional "根拠参照" (reference) —
-        // no {kind, ref} pair, and no `kind` value domain, appears anywhere
-        // in canon for Approval's basis (unlike the retired audit-domain
-        // DS-713, which is a different field on a different, retired
-        // record). `ApprovalBasis.kind` is a downstream struct-shape
-        // decision this module did not introduce and does not have
-        // grounds to fill with an invented domain value; left empty here
-        // rather than fabricating a constant like the earlier "ref" — see
-        // `reports/closure-trace.md`'s stopped_on list.
-        basis: basis
-            .into_iter()
-            .map(|reference| ApprovalBasis {
-                kind: String::new(),
-                reference,
-            })
-            .collect(),
+        // DS-1055/1196: `basis[]` is a bare list of free-form reference
+        // strings ("根拠参照") -- no {kind, ref} pair, no `kind` value
+        // domain (team-lead ruling 2026-09-10; the earlier {kind, ref}
+        // shape and its hardcoded "ref" constant were both an unfounded
+        // downstream invention, see `reports/closure-trace.md`'s
+        // stopped_on history).
+        basis,
         supersedes,
         approved_at: vtest_store::records::now_rfc3339(),
     };

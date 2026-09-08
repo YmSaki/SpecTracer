@@ -134,6 +134,47 @@ fn build_fixture_project(root: &Path) {
     write_vo_record(&layout, &vo("VO-RUN-CLI-DOUBLE")).expect("write VO record");
 }
 
+const BROKEN_TEST_BODY: &str = "/// @vtest.id TEST-RUN-CLI-BROKEN\n\
+     /// @vtest.covers VO-RUN-CLI-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.intent doubles the input\n\
+     #[test]\n\
+     fn it_doubles() {\n    assert_eq!(vtest_run_cli_fixture::this_symbol_does_not_exist(2), 4);\n}\n";
+
+/// Same fixture shape as [`build_fixture_project`], but the annotated
+/// `#[test]` fn references an undefined symbol, so `cargo test` fails to
+/// compile the test binary at all -- no `test <name> ... ok/FAILED` line
+/// is ever printed for the declared Test id, which is exactly the
+/// "requested Test has no result line" (E-EXEC-001/E-EXEC-002) case,
+/// distinct from `UnknownTestId`/`UnknownVoId` (those are usage rejections
+/// before any execution is attempted at all).
+fn build_broken_fixture_project(root: &Path) {
+    fs::create_dir_all(root.join("src")).expect("mkdir src");
+    fs::create_dir_all(root.join("tests")).expect("mkdir tests");
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"vtest-run-cli-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
+         [workspace]\n",
+    )
+    .expect("write Cargo.toml");
+    fs::write(
+        root.join("src").join("lib.rs"),
+        "pub fn double(x: i32) -> i32 { x * 2 }\n",
+    )
+    .expect("write src/lib.rs");
+    fs::write(root.join("tests").join("registered.rs"), BROKEN_TEST_BODY).expect("write test file");
+
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "vtest-fixture@example.com"]);
+    git(root, &["config", "user.name", "vtest fixture"]);
+    git(root, &["add", "."]);
+    git(root, &["commit", "-q", "-m", "initial fixture commit"]);
+
+    let layout = init_project(root, "vtest-run-cli-fixture").expect("init .verify/ layout");
+    write_document_file(&layout, "fixture", &document_file()).expect("write document file");
+    write_vo_record(&layout, &vo("VO-RUN-CLI-DOUBLE")).expect("write VO record");
+}
+
 fn cli(root: &Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
@@ -250,6 +291,36 @@ fn an_unknown_vo_id_is_a_usage_error() {
         },
     ));
     assert_eq!(exit, ExitCode::Usage);
+}
+
+/// D-#1: `vtest run`'s exit code is deliberately silent in 正本 §17.2 (only
+/// `scan`/`doctor` are enumerated there) — this is upstream silence, not a
+/// gap this codebase fills in; team-lead ruling 2026-09-10 confirms the
+/// silence is correct and asks for a fail-closed regression test instead:
+/// a `run` call that reaches `Ok(ExecutionResult)` but carries an error
+/// diagnostic (Test id resolved fine, but its execution produced no result
+/// line -- distinct from `UnknownTestId`, which never reaches execution at
+/// all) must exit 1, matching `running_a_real_test_writes_evidence_and_exits_ok`'s
+/// exit-0 control case on the same fixture shape.
+#[test]
+fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() {
+    let root = temp_root("broken-test");
+    build_broken_fixture_project(&root);
+    let exit = run(cli(
+        &root,
+        Command::Run {
+            test: vec!["TEST-RUN-CLI-BROKEN".to_owned()],
+            vo: None,
+            all: false,
+            fast: false,
+        },
+    ));
+    assert_eq!(
+        exit,
+        ExitCode::VerificationFailed,
+        "an error diagnostic from execution (no result line, code found via compile failure) \
+         must fail closed to exit 1, not exit 0"
+    );
 }
 
 /// DS-744 axis 3/3: `--all` runs every Test the scan materialized, named

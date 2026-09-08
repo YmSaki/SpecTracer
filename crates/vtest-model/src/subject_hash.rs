@@ -383,19 +383,30 @@ pub fn section_node_subject_hash(node: &SectionNode) -> ContentHash {
 /// A registered document's subject hash (DES-595, replacing the retired
 /// DES-482's plain-sha256-of-file-bytes approach): "document subject hash は
 /// 本冊 §1.3 のノード subject hash 定義…に従い、単一ファイルの sha256 を
-/// そのまま subject hash に用いない". DES-595 does not spell out a new
-/// document-level field layout, only that the existing per-node §1.3 rules
-/// apply and a raw file hash must not stand in for them — this function is
-/// the direct application of [`section_node_subject_hash`]'s own "節ノード
-/// は子ノードの subject hash を束縛する" pattern one level up: a
-/// [`crate::DocumentFile`]'s subject hash folds each of its seven layer
-/// arrays' own member hashes (each layer computed by the node-kind-specific
-/// function already established: [`root_node_subject_hash`] for `root`,
+/// そのまま subject hash に用いない". The document-level field layout below
+/// is now directly grounded by DES-572「節ノードでは子ノードの subject hash
+/// を束縛する」and DES-587「節ノードの subject hash は、子を `items`
+/// （文ノードの列）と `sections`（下位節ノードの列）の2つの名前付き順序列
+/// として束縛し、各列を当該配列の宣言順で encode する。空の列も空 list
+/// として明示し、省略しない」— PR #49 (`24c3cbe`) confirmed this reading is
+/// the correct application, not a downstream invention (this doc comment
+/// previously described it as a derivation pending upstream confirmation;
+/// see `reports/closure-trace.md`'s history). A [`crate::DocumentFile`]'s
+/// subject hash folds each of its seven layer arrays' own member hashes
+/// (each layer computed by the node-kind-specific function already
+/// established: [`root_node_subject_hash`] for `root`,
 /// [`sentence_node_subject_hash`] for `request`, [`section_node_subject_hash`]
 /// for the five section-shaped layers), each field name matching the
 /// `DocumentFile` field it derives from, in the array's declaration order —
-/// the same "宣言順で encode する" rule DES-587 states for a section's own
-/// `items`/`sections` children.
+/// the same DES-587 "宣言順で encode する" rule applied one level up, from a
+/// section's `items`/`sections` children to a document's seven layer
+/// arrays.
+///
+/// The byte-level encoding this and every other §1.3 subject-hash function
+/// in this module use (domain-string length prefix, field-name length
+/// prefix, kind tag, fixed-width u64 big-endian length prefix) is likewise
+/// now directly grounded — DES-596/DES-597/DES-598/DES-599 respectively
+/// (PR #49, `24c3cbe`); see `vtest_model::hash`'s field-builder types.
 pub fn document_file_subject_hash(file: &crate::DocumentFile) -> ContentHash {
     let root_hashes: Vec<Vec<u8>> = file
         .root

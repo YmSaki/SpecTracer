@@ -101,13 +101,6 @@ pub struct Approver {
     pub model: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ApprovalBasis {
-    pub kind: String,
-    #[serde(rename = "ref")]
-    pub reference: String,
-}
-
 /// One entry of an Approval record's upstream dependency closure (DS-1467:
 /// `dependencies` は現在の上流依存closureと entity・hash とも完全一致で
 /// 有効性を判定する). `entity` is the dependency node's own id (a VO id or a
@@ -143,8 +136,13 @@ pub struct ApprovalRecord {
     pub judgment_ref: Option<String>,
     pub approver: Approver,
     pub approved_state: String,
+    /// DS-1055/DS-1196: "`--basis` は根拠参照（任意）である" — a bare list
+    /// of free-form reference strings, no `{kind, ref}` pair or `kind`
+    /// value domain (that structure was a prior, unfounded downstream
+    /// invention on this field; team-lead ruling 2026-09-10, see
+    /// `reports/closure-trace.md`'s stopped_on history).
     #[serde(default)]
-    pub basis: Vec<ApprovalBasis>,
+    pub basis: Vec<String>,
     #[serde(default)]
     pub supersedes: Vec<String>,
     pub approved_at: String,
@@ -272,10 +270,6 @@ const APPROVER_KEYS: &[&str] = &["kind", "id", "model"];
 /// Known keys for one entry of an Approval record's `dependencies[]` list,
 /// matching `DependencyRecord`'s own fields.
 const APPROVAL_DEPENDENCY_KEYS: &[&str] = &["entity", "hash"];
-
-/// Known keys for one entry of an Approval record's `basis[]` list, matching
-/// `ApprovalBasis`'s own fields.
-const APPROVAL_BASIS_KEYS: &[&str] = &["kind", "ref"];
 
 /// Known top-level keys for a canonical Evidence record, matching
 /// `EvidenceRecord`'s own fields (`vtest-model`) as `read_evidence` below
@@ -472,10 +466,11 @@ impl ApprovalRecord {
     }
 
     /// DS-1645/E-SCAN-010: a field outside `APPROVAL_KEYS`/`APPROVER_KEYS`/
-    /// `APPROVAL_BASIS_KEYS`/`APPROVAL_DEPENDENCY_KEYS` fails closed rather
-    /// than being silently ignored — same pattern as `RelationRecord`'s own
-    /// `from_yaml`: a text -> `Value` -> known-key scan (for a named error)
-    /// -> typed struct parse.
+    /// `APPROVAL_DEPENDENCY_KEYS` fails closed rather than being silently
+    /// ignored — same pattern as `RelationRecord`'s own `from_yaml`: a
+    /// text -> `Value` -> known-key scan (for a named error) -> typed
+    /// struct parse. `basis[]` is a bare string list (DS-1055/1196), so it
+    /// has no nested keys of its own to scan.
     pub fn from_yaml(text: &str, filename_id: &str) -> Result<Self, StoreError> {
         let value: yaml_serde::Value = yaml_serde::from_str(text).map_err(|error| {
             StoreError::InvalidConfig(format!("invalid approval record: {error}"))
@@ -483,15 +478,6 @@ impl ApprovalRecord {
         crate::canonical::reject_unknown_fields(&value, APPROVAL_KEYS, "")?;
         if let Some(approver) = value.get("approver") {
             crate::canonical::reject_unknown_fields(approver, APPROVER_KEYS, "approver.")?;
-        }
-        if let Some(basis) = value.get("basis").and_then(yaml_serde::Value::as_sequence) {
-            for (index, entry) in basis.iter().enumerate() {
-                crate::canonical::reject_unknown_fields(
-                    entry,
-                    APPROVAL_BASIS_KEYS,
-                    &format!("basis[{index}]."),
-                )?;
-            }
         }
         if let Some(dependencies) = value
             .get("dependencies")
@@ -2169,10 +2155,7 @@ mod tests {
                 model: None,
             },
             approved_state: "approved".to_owned(),
-            basis: vec![ApprovalBasis {
-                kind: "audit".to_owned(),
-                reference: new_record_id(),
-            }],
+            basis: vec![new_record_id()],
             supersedes: Vec::new(),
             approved_at: "2026-08-08T00:00:00Z".to_owned(),
         }
@@ -2246,17 +2229,35 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// DS-1055/1196: `basis[]` is a bare list of free-form reference
+    /// strings ("根拠参照", no `{kind, ref}` pair or `kind` value domain —
+    /// team-lead ruling 2026-09-10). A `basis[]` entry that is a mapping
+    /// rather than a plain string is rejected (a type mismatch against
+    /// `Vec<String>`, not a per-entry unknown-field scan, since there is no
+    /// longer a nested shape to scan).
     #[test]
-    fn approval_with_unknown_nested_basis_field_is_rejected() {
+    fn approval_with_a_non_string_basis_entry_is_rejected() {
         let id = new_record_id();
         let yaml = format!(
-            "id: {id}\nsubject_type: vo\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\napproved_state: approved\nbasis:\n  - kind: audit\n    ref: {}\n    note: extra\nsupersedes: []\napproved_at: '2026-08-08T00:00:00Z'\n",
+            "id: {id}\nsubject_type: vo\nsubject: VO-ONE\nsubject_hash: {}\napprover:\n  kind: human\n  id: reviewer\napproved_state: approved\nbasis:\n  - kind: audit\n    ref: {}\nsupersedes: []\napproved_at: '2026-08-08T00:00:00Z'\n",
             ContentHash::from_text("vo\n"),
             new_record_id(),
         );
-        let error = ApprovalRecord::from_yaml(&yaml, &id)
-            .expect_err("an unrecognized nested basis[] field must fail closed");
-        assert!(matches!(error, StoreError::SchemaMismatch { .. }));
+        assert!(
+            ApprovalRecord::from_yaml(&yaml, &id).is_err(),
+            "a basis[] entry that is a mapping, not a bare string, must be rejected"
+        );
+    }
+
+    /// DS-1055/1196: a plain `basis[]` of free-form reference strings
+    /// round-trips.
+    #[test]
+    fn approval_basis_is_a_bare_string_list() {
+        let mut record = sample_approval(&new_record_id());
+        record.basis = vec!["some free-form reference".to_owned()];
+        let yaml = record.to_yaml().expect("valid basis must serialize");
+        let read = ApprovalRecord::from_yaml(&yaml, &record.id).expect("must round-trip");
+        assert_eq!(read.basis, vec!["some free-form reference".to_owned()]);
     }
 
     /// DS-1645: `reject_unknown_fields` used to silently skip any mapping

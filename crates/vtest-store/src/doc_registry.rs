@@ -74,13 +74,14 @@ pub fn read_node_tree(
 /// DS-1003「`--derives-from` は、登録する document のトップレベルノードが
 /// 持つ上流ノード id への辺（0件可＝根候補）であり、`document` という単位
 /// そのものに対する導出リンクではない」/ DS-1681（anchor/note を持たない
-/// 上流ノード id への辺）。`--derives-from` を与えると、`request`/
-/// `require`/`spec`/`detailed_spec`/`basic_design`/`design` の全トップ
-/// レベルノードの `derives_from` をこの値で上書きする（`root` 層の
-/// `RootNode` には `derives_from` field 自体が無いので対象外 — DS-1592/
-/// 1593 が `derives_from` を持つと定めるのは文ノード・節ノードのみ）。
-/// トップレベルノードが1つも無ければ `Err` を返す（`--derives-from` を
-/// 書き込む先が無い）。
+/// 上流ノード id への辺）/ DS-1685「対象トップレベルノードの既存
+/// `derives_from` を指定した id 並びで置き換える。追記ではない」/
+/// DS-1686「登録する document が持つ `request`/`require`/`spec`/
+/// `detailed_spec`/`basic_design`/`design` いずれかの層のトップレベル
+/// ノードすべてへ、同一の id 並びを一律に適用する」/ DS-1687「トップレベル
+/// ノードが `root` 層のみで構成される場合、`root` 層ノードは
+/// `derives_from` field を持たない（DS-1592/1593）ため登録を拒否する」
+/// （PR #49, commit `24c3cbe` で明文化。以前は導出として開示していた）。
 pub fn apply_derives_from(
     file: &mut DocumentFile,
     derives_from: &[String],
