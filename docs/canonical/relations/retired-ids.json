@@ -925,5 +925,10 @@
     "old_id": "DS-1645",
     "new_id": "DS-1676",
     "reason": "node id collision diagnostic 2026-09-07 (E-SCAN-010 へ文書ノード id 重複を追加)"
+  },
+  {
+    "old_id": "DS-756",
+    "new_id": "DS-1678",
+    "reason": "verify slice gap 1 2026-09-08: target 解決失敗の target_binding 状態が DS-829 ほか 6 ノードと矛盾していた"
   }
 ]

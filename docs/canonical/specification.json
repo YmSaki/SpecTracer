@@ -28652,9 +28652,12 @@
               }
             },
             {
-              "id": "DS-756",
-              "statement": "全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 / E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）のままとし、target解決の診断で非`PASS`を示す。",
-              "derives_from": [],
+              "id": "DS-1678",
+              "statement": "全宣言targetのうち1件でも「対象なし」（E-SCAN-004）または「曖昧」（E-SCAN-011）である場合、当該targetの`target_binding`は`MISMATCH`とし（E-SCAN-004は診断`MISSING`を併記、E-SCAN-011は診断ラベルを付けない）、当該Testの`target_binding`もfail-closed合成により`MISMATCH`とする。Evidenceが生成されないこと（DS-755）を理由に`NO_EVIDENCE`（診断`NOT_EXECUTED`）へ倒してはならない。",
+              "derives_from": [
+                "ROOT-033",
+                "REQ-064"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "9.4 Evidence の記録",
@@ -28662,7 +28665,8 @@
                   1348,
                   1348
                 ]
-              }
+              },
+              "description": "前身 `DS-756` は同じ事象に対して `target_binding` を `NO_EVIDENCE`（診断 `NOT_EXECUTED`）のままとすると定めていたが、正典内の他の 6 ノードはいずれも `MISMATCH` を定めており（`DS-564`・`DS-703`・`DS-704`・`DS-828`・`DS-829`・`DS-1386`・`DS-1460`）、`DS-756` が単独の外れ値だった。上位層で決める材料が無いため `ROOT-033`（F7）の状態存在資格から演繹した: `NO_EVIDENCE` の行動は「証拠を作れ（機械で解決可能）」だが、target が解決できない・曖昧なまま生成できる Evidence は存在せず（`DS-755` が生成を禁じている）、読み手は証拠を作ることで前進できない。`MISMATCH` の行動は「コードを触る前に宣言側（上流）を直す」であり、宣言 target を直すことが実際の解消手段であるから、行動が一致するのは `MISMATCH` である。`DS-756` の読みは、解消できない作業を読み手に指示することで宣言側の切れ目を隠していた。\n\n004 と 011 を別々に書いたのは `DS-1460`（両者を一括して同一の状態値にしない）に従うためであり、対象不在に `MISSING` を併記するのは `DS-703`・`DS-828`・`DS-1386` の逐語による。前身が「曖昧」を E-SCAN-011 だけに結び付けていた点も正した: 複数候補で一意に定まらない locator 解決は `DS-574`・`DS-596` により E-SCAN-004 であり、E-SCAN-011 は恒久 SRC ID の衝突（`DS-545`・`DS-579`）である。\n\n規範変更のため id を変えて退役させた。4 検査・5 状態は変えていない。"
             },
             {
               "id": "DS-757",
