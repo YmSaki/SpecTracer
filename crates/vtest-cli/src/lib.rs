@@ -8,17 +8,15 @@
 //! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
 //! `verify` を動かすために必要な範囲だけを先行して落としている。
 
-mod ops;
+pub mod ops;
 
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use vtest_model::{Diagnostic, ExitCode, JsonEnvelope, VerificationCheck, VerificationState};
-use vtest_scan::{scan_project, ScanResult};
-use vtest_store::{init_project, load_config, GateConfig, ProjectConfig, VerifyLayout};
-use vtest_verify::{
-    check_name, parse_check, verify_project, CheckOutcome, EntityScope, TreeNode, VerifyOutcome,
-};
+use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
+use vtest_scan::scan_project;
+use vtest_store::{load_config, VerifyLayout};
+use vtest_verify::{check_name, CheckOutcome, TreeNode};
 
 #[derive(Parser, Debug)]
 #[command(name = "vtest", version, about = "Specification traceability verifier")]
@@ -135,20 +133,11 @@ fn run_init(project: &Path, name: Option<&str>, format: OutputFormat, quiet: boo
                 .map(str::to_owned)
         })
         .unwrap_or_else(|| "project".to_owned());
-    match init_project(&root, &project_name) {
-        Ok(_) => {
-            let envelope = JsonEnvelope::new(
-                true,
-                serde_json::json!({ "project": root, "initialized": true }),
-                Vec::new(),
-            );
-            emit(format, quiet, &envelope, |_| {
-                format!("initialised {}\n", root.display())
-            });
-            ExitCode::Ok
-        }
-        Err(error) => usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
-    }
+    let (exit, envelope) = ops::init::execute(&root, &project_name);
+    emit_value(format, quiet, &envelope, |_| {
+        format!("initialised {}\n", root.display())
+    });
+    exit
 }
 
 fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
@@ -156,46 +145,25 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    // config の拒否は操作拒否であって内部エラーではない。DS-935「`vtest scan`
-    // / `vtest doctor`では、registry・config・adapter契約の検証…が
-    // E-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。`scan_project` は
-    // config 読み込み失敗を `ScanError::Store`（診断コードなし）へ畳むため、
-    // ここで先に読んでおかないと終了コード 3（内部エラー）になってしまう。
-    if let Err(error) = load_config(&root) {
-        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
-    }
-    match scan_project(&root) {
-        Ok(result) => {
-            // DS-1304「`vtest scan` / `doctor`はerrorなしをexit 0にする」、
-            // DS-936「scanが完了してrepository整合性のE-SCAN-*を報告した
-            // 場合は1とする」。
-            let has_errors = result.has_errors();
-            let data = serde_json::json!({
-                "files": result.summary.files,
-                "tests": result.summary.tests,
-                "sources": result.summary.sources,
-                "discovered": result.discovered.len(),
-            });
-            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
-            emit(format, quiet, &envelope, |envelope| {
-                format!(
-                    "scan: {} test(s), {} source(s), {} diagnostic(s)\n",
-                    result.summary.tests,
-                    result.summary.sources,
-                    envelope.diagnostics.len()
-                )
-            });
-            if has_errors {
-                ExitCode::VerificationFailed
-            } else {
-                ExitCode::Ok
-            }
-        }
-        // DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter
-        // 契約の検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された
-        // 場合は2とする」。
-        Err(error) => scan_error_exit(&error, format, quiet),
-    }
+    let (exit, envelope) = ops::scan::execute(&root);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let tests = envelope
+            .get("data")
+            .and_then(|data| data.get("tests"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let sources = envelope
+            .get("data")
+            .and_then(|data| data.get("sources"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("scan: {tests} test(s), {sources} source(s), {diagnostics} diagnostic(s)\n")
+    });
+    exit
 }
 
 fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
@@ -203,37 +171,25 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    // `doctor` は config と adapter 前提の検証（DS-935）。config の読み込みが
-    // E-CONFIG-* で拒否されれば 2、scan が整合性 error を報告すれば 1。
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
-    };
-    match scan_project(&root) {
-        Ok(result) => {
-            let has_errors = result.has_errors();
-            let data = serde_json::json!({
-                "project": config.project.name,
-                "adapters": config.adapters.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
-                "gates": config.gates.iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
-            });
-            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
-            emit(format, quiet, &envelope, |envelope| {
-                format!(
-                    "doctor: project {}, {} adapter(s), {} diagnostic(s)\n",
-                    config.project.name,
-                    config.adapters.len(),
-                    envelope.diagnostics.len()
-                )
-            });
-            if has_errors {
-                ExitCode::VerificationFailed
-            } else {
-                ExitCode::Ok
-            }
-        }
-        Err(error) => scan_error_exit(&error, format, quiet),
-    }
+    let (exit, envelope) = ops::doctor::execute(&root);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let project = envelope
+            .get("data")
+            .and_then(|data| data.get("project"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let adapters = envelope
+            .get("data")
+            .and_then(|data| data.get("adapters"))
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("doctor: project {project}, {adapters} adapter(s), {diagnostics} diagnostic(s)\n")
+    });
+    exit
 }
 
 // ---------------------------------------------------------------------------
@@ -306,46 +262,96 @@ fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: b
 }
 
 // ---------------------------------------------------------------------------
+// Shared envelope construction — `ops::*` modules build the same
+// `JsonEnvelope` shape the CLI's own `emit`/`emit_failure` produce, so a
+// caller (CLI text renderer or `vtest-mcp`'s tool handler) sees identical
+// `ok` / `data` / `diagnostics` for identical input (DS-1563).
+// ---------------------------------------------------------------------------
+
+/// Builds the same JSON shape `JsonEnvelope::new` serializes to, without
+/// requiring the caller to hold a typed `Diagnostic` slice reference.
+pub(crate) fn envelope_json<T: serde::Serialize>(
+    ok: bool,
+    data: T,
+    diagnostics: &[Diagnostic],
+) -> serde_json::Value {
+    serde_json::to_value(JsonEnvelope::new(ok, data, diagnostics.to_vec()))
+        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": "E-CORE-001", "severity": "error", "message": error.to_string()}]}))
+}
+
+/// The `E-CONFIG-001` config-load failure envelope shared by `init` /
+/// `scan` / `doctor`.
+pub(crate) fn config_failure_envelope(message: &str) -> serde_json::Value {
+    envelope_json(
+        false,
+        serde_json::Value::Null,
+        &[Diagnostic::error("E-CONFIG-001", message.to_owned())],
+    )
+}
+
+/// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
+/// 検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。
+pub(crate) fn scan_error_result(error: &vtest_scan::ScanError) -> (ExitCode, serde_json::Value) {
+    let code = error.code().unwrap_or("E-CORE-001");
+    let exit = if error.code().is_some() {
+        ExitCode::Usage
+    } else {
+        ExitCode::Internal
+    };
+    let envelope = envelope_json(
+        false,
+        serde_json::Value::Null,
+        &[Diagnostic::error(code, error.to_string())],
+    );
+    (exit, envelope)
+}
+
+/// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
+/// [`JsonEnvelope`] — used by wrappers whose operation body now lives in
+/// `ops::*` and returns pre-built JSON rather than a typed struct.
+fn emit_value(
+    format: OutputFormat,
+    quiet: bool,
+    envelope: &serde_json::Value,
+    render_text: impl FnOnce(&serde_json::Value) -> String,
+) {
+    if quiet {
+        return;
+    }
+    match format {
+        OutputFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(envelope).unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        OutputFormat::Text => {
+            print!("{}", render_text(envelope));
+            if let Some(diagnostics) = envelope
+                .get("diagnostics")
+                .and_then(serde_json::Value::as_array)
+            {
+                for diagnostic in diagnostics {
+                    let code = diagnostic
+                        .get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    let message = diagnostic
+                        .get("message")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    println!("[{code}] {message}");
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // verify
 // ---------------------------------------------------------------------------
 
-/// The `verify` JSON payload.
-///
-/// 正典が逐語で名指しする最上位 field は `scope` だけである（DS-947 /
-/// DS-1114）。それ以外の envelope 形は正典に定義が無く（stopped_on として
-/// 開示する）、ここでは既存の [`JsonEnvelope`] の `ok` / `data` /
-/// `diagnostics` を踏襲し、`data` の中に `scope` を最上位 field として置く。
-#[derive(serde::Serialize)]
-struct VerifyData<'a> {
-    scope: &'a vtest_verify::ScopeReport,
-    /// 集約代表値（DS-870）。総合 OK/NG やゲート充足とは別の field として
-    /// 必ず出す — 検証状態とゲート充足は別軸である。
-    state: &'static str,
-    result: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    gate: Option<GateEvaluation>,
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    structural: &'a [CheckOutcome],
-    /// 評価地点を1件も持たなかった検査（DS-840 / DS-252 / DS-253）。
-    /// 空でなければ、この結果は完全検証 OK ではない。
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    unevaluated: &'a [CheckOutcome],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    tree: &'a [TreeNode],
-    non_pass: usize,
-}
-
-#[derive(serde::Serialize)]
-struct GateEvaluation {
-    name: String,
-    /// DS-869「検証条件の充足判定は、`require.verification`の値と、要求scopeの
-    /// 集約代表値との完全一致でのみ充足する」。
-    required_verification: String,
-    verification_satisfied: bool,
-    approvals_satisfied: bool,
-    satisfied: bool,
-    reasons: Vec<String>,
-}
+use ops::verify::{state_name, VerifyData};
 
 #[allow(clippy::too_many_arguments)]
 fn run_verify(
@@ -364,191 +370,19 @@ fn run_verify(
         Err(code) => return code,
     };
 
-    // DS-1104 のエンティティ軸は排他。複数指定は操作拒否（exit 2）。
-    let entity = match entity_scope(doc, vo, test) {
-        Ok(entity) => entity,
-        Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-    };
-
-    let requested = match parse_items(items) {
-        Ok(requested) => requested,
-        Err(message) => return usage_failure(format, quiet, "E-OP-001", &message),
-    };
-
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string()),
-    };
-
-    // DS-1116「config の `gates` に同名の定義が無ければ E-CONFIG-002・
-    // 終了コード 2 で拒否し、検証を実行しない」。scan より前に解決する。
-    let gate_config = match resolve_gate(&config, gate) {
-        Ok(gate_config) => gate_config,
-        Err(message) => return usage_failure(format, quiet, "E-CONFIG-002", &message),
-    };
-
-    let scan: ScanResult = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => return scan_error_exit(&error, format, quiet),
-    };
-
-    let outcome = verify_project(&root, &scan, requested.as_deref(), entity);
-    let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
-    let non_pass = outcome
-        .all_outcomes()
-        .iter()
-        .filter(|check| check.state != VerificationState::Pass)
-        .count();
-
-    // DS-1117「`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを出力する」。
-    // 逐語どおり、per-check の内訳（構造検査・未評価検査・ツリー）はすべて
-    // 落とす。`scope` だけは残す — DS-1114「`--format json` では同じ内容を
-    // 最上位 field `scope` として返し、完全検証の場合も省略しない」が、
-    // 出力形態を問わない無条件の義務として課している。
-    let data = VerifyData {
-        scope: &outcome.scope,
-        state: state_name(outcome.state),
-        result: if outcome.ok { "OK" } else { "NG" },
-        gate: gate_evaluation,
-        structural: if summary { &[] } else { &outcome.structural },
-        unevaluated: if summary { &[] } else { &outcome.unevaluated },
-        tree: if summary { &[] } else { &outcome.tree },
-        non_pass,
-    };
-
-    // 終了コード。DS-931「`--gate <name>`を指定した`vtest verify` /
-    // `vtest report`では、0と1をゲート充足で決める」、DS-932。
-    // DS-933「`require.verification`に`PASS`以外を定義したゲートでは、集約
-    // 代表値が要求値と一致して充足した実行が0になり、この場合に総合がNGで
-    // あることは0を妨げない」。
-    let exit = match &data.gate {
-        Some(evaluation) if evaluation.satisfied => ExitCode::Ok,
-        Some(_) => ExitCode::VerificationFailed,
-        None if outcome.ok => ExitCode::Ok,
-        None => ExitCode::VerificationFailed,
-    };
-
-    // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート充足、
-    // 非指定時は総合 OK。検証状態そのものは `state` field に常に別途出す。
-    let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, scan.diagnostics.clone());
-    emit(format, quiet, &envelope, render_verify_text);
-    exit
-}
-
-fn entity_scope(
-    doc: Option<String>,
-    vo: Option<String>,
-    test: Option<String>,
-) -> Result<Option<EntityScope>, String> {
-    let selected = [
-        doc.map(EntityScope::Doc),
-        vo.map(EntityScope::Vo),
-        test.map(EntityScope::Test),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
-    match selected.len() {
-        0 => Ok(None),
-        1 => Ok(selected.into_iter().next()),
-        _ => Err("verify accepts at most one of --doc, --vo, or --test".to_owned()),
-    }
-}
-
-/// `--items` を検査軸へ解決する。未知の名前は黙って捨てず拒否する:
-/// 捨てると要求 scope が黙って狭まり、DS-1113 の開示義務を破る。
-fn parse_items(items: &[String]) -> Result<Option<Vec<VerificationCheck>>, String> {
-    if items.is_empty() {
-        return Ok(None);
-    }
-    let mut checks = Vec::new();
-    for item in items {
-        let name = item.trim();
-        if name.is_empty() {
-            continue;
+    match ops::verify::execute(&root, items, doc, vo, test, gate, summary) {
+        Ok((exit, data, diagnostics)) => {
+            // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート
+            // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
+            // 常に別途出す。
+            let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
+            emit(format, quiet, &envelope, render_verify_text);
+            exit
         }
-        let Some(check) = parse_check(name) else {
-            return Err(format!(
-                "unknown check '{name}'; the fixed four are chain_integrity, \
-                 orphan_detection, target_binding, oracle_presence"
-            ));
-        };
-        if !checks.contains(&check) {
-            checks.push(check);
+        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
+            usage_failure(format, quiet, code, &message)
         }
-    }
-    if checks.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(checks))
-}
-
-/// DS-865「`--gate <name>`は`gates[].name`との大文字小文字を区別した完全一致で
-/// 解決する」。DS-363「`--gate` を指定しない実行は、`gates` field自体の欠落と
-/// 空listの影響を受けない」。
-fn resolve_gate<'a>(
-    config: &'a ProjectConfig,
-    gate: Option<&str>,
-) -> Result<Option<&'a GateConfig>, String> {
-    let Some(name) = gate else {
-        return Ok(None);
-    };
-    config
-        .gates
-        .iter()
-        .find(|candidate| candidate.name == name)
-        .map(Some)
-        .ok_or_else(|| format!("no gate named '{name}' is defined in config.yaml"))
-}
-
-/// DS-864「`vtest verify --gate <name>`は、指定ゲートの対象scopeについて検証を
-/// 実行し、(1) 検証結果が`require.verification`を満たすか、(2)
-/// `require.approvals`の各ロールについて対象の実効承認状態が`approved`である
-/// か、を評価して満否と根拠を提示する」。
-fn evaluate_gate(config: &GateConfig, outcome: &VerifyOutcome) -> GateEvaluation {
-    // DS-869「…`require.verification`の値と、要求scopeの集約代表値との完全
-    // 一致でのみ充足する」。DS-874「「要求値以上」「要求値より良い」といった
-    // 比較解釈を採らず…」— したがって完全一致だけで判定する。
-    let actual = state_name(outcome.state);
-    let verification_satisfied = config.require.verification == actual;
-
-    let mut reasons = Vec::new();
-    if !verification_satisfied {
-        reasons.push(format!(
-            "aggregate representative state is {actual}, gate requires {}",
-            config.require.verification
-        ));
-    }
-
-    // 承認側。この slice には正典の実効承認状態（§3.5）の読み手が無い。
-    // 「読めないから充足」は fail-open なので、要求ロールが1件でもあれば
-    // 未充足として扱い、その旨を根拠に明示する。
-    let approvals_satisfied = config.require.approvals.is_empty();
-    if !approvals_satisfied {
-        reasons.push(format!(
-            "approval roles {:?} cannot be evaluated in this slice; treated as unsatisfied \
-             (fail-closed)",
-            config.require.approvals
-        ));
-    }
-
-    GateEvaluation {
-        name: config.name.clone(),
-        required_verification: config.require.verification.clone(),
-        verification_satisfied,
-        approvals_satisfied,
-        satisfied: verification_satisfied && approvals_satisfied,
-        reasons,
-    }
-}
-
-fn state_name(state: VerificationState) -> &'static str {
-    match state {
-        VerificationState::Pass => "PASS",
-        VerificationState::Fail => "FAIL",
-        VerificationState::Mismatch => "MISMATCH",
-        VerificationState::NoEvidence => "NO_EVIDENCE",
-        VerificationState::Unknown => "UNKNOWN",
+        Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
     }
 }
 
@@ -562,7 +396,7 @@ fn label_name(label: vtest_model::DiagnosticLabel) -> &'static str {
 }
 
 /// DS-1118「`vtest verify` は状態列…と診断ラベル列…を分離して表示する」。
-fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
+fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
     let data = &envelope.data;
     let mut out = String::new();
 
@@ -586,21 +420,21 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData<'_>>) -> String {
 
     if !data.structural.is_empty() {
         out.push_str("\nStructural checks:\n");
-        for check in data.structural {
+        for check in &data.structural {
             out.push_str(&render_check(check, 2));
         }
     }
 
     if !data.unevaluated.is_empty() {
         out.push_str("\nChecks with no evaluation point (NOT verified, not PASS):\n");
-        for check in data.unevaluated {
+        for check in &data.unevaluated {
             out.push_str(&render_check(check, 2));
         }
     }
 
     if !data.tree.is_empty() {
         out.push('\n');
-        for node in data.tree {
+        for node in &data.tree {
             render_node(node, 0, &mut out);
         }
     }
@@ -756,41 +590,6 @@ fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<Pat
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn items_reject_an_unknown_check_rather_than_narrowing_the_scope() {
-        // 旧12項目名は検査として存在しない（SPEC-400）。黙って捨てると
-        // 要求 scope が狭まったことが開示されない（DS-1113）。
-        assert!(parse_items(&["spec_coverage".to_owned()]).is_err());
-        assert!(parse_items(&["chain_integrity".to_owned()]).is_ok());
-    }
-
-    /// DS-1106: omitting `--items` selects the fixed four. `None` is the value
-    /// that carries "the fixed four" into `verify_project`, so this asserts the
-    /// argument mapping only.
-    ///
-    /// The behavioural half of DS-1107 / DS-1109 — that `config.yaml`'s
-    /// `verify.full_scope` is never consulted for item selection — is asserted
-    /// where it is observable, not here:
-    /// `vtest_verify::tests::a_config_full_scope_subset_never_narrows_the_checks_that_run`
-    /// (a subset `full_scope` on disk still runs all four) and
-    /// `verify_acceptance::a_subset_full_scope_is_rejected_not_honoured_as_a_selection`
-    /// (a subset `full_scope` is refused at config load).
-    #[test]
-    fn omitted_items_map_to_the_fixed_four() {
-        assert!(parse_items(&[]).expect("empty is valid").is_none());
-    }
-
-    #[test]
-    fn entity_axis_is_exclusive() {
-        // DS-1104: エンティティ軸は DOC / VO / Test のいずれか一つ。
-        assert!(entity_scope(Some("D".to_owned()), Some("V".to_owned()), None).is_err());
-        assert!(entity_scope(None, Some("V".to_owned()), None).is_ok());
-        assert!(entity_scope(None, None, None)
-            .expect("none is valid")
-            .is_none());
-    }
-}
+// `parse_items` / `entity_scope` argument-mapping tests now live with their
+// implementation in `ops::verify` (moved there so both the CLI and
+// `vtest-mcp` share one operation body — see DS-1563).
