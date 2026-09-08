@@ -29,12 +29,18 @@ cargo install cargo-llvm-cov --locked
 
 ## Acceptance tests
 
-Milestone acceptance tests live in `crates/vtest-cli/tests/` and are recorded in
-[`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md). Run a single milestone while
+Acceptance tests live in `crates/vtest-cli/tests/` and are organized by 別紙C
+（詳細設計 v0.1 別紙C 受入仕様）§18 section, one file per subsection —
+`acceptance_18_1.rs`, `acceptance_18_3_7.rs`, `acceptance_18_3_8.rs`,
+`acceptance_18_3_9.rs`. Each `#[test]` cites the 別紙C node id(s) it covers in
+a doc comment. The predecessor `m1_acceptance.rs`…`m9_acceptance.rs` files
+(keyed to 別紙B §18.3, a non-normative implementation-plan document, not the
+normative 別紙C) have been retired; `autotests` is on, so every file in
+`tests/` is discovered automatically. Run a single acceptance file while
 developing, for example:
 
 ```bash
-cargo test -p vtest-cli --test m9_acceptance
+cargo test -p vtest-cli --test acceptance_18_3_7
 ```
 
 Run all CLI acceptance tests with:
@@ -43,9 +49,11 @@ Run all CLI acceptance tests with:
 cargo test -p vtest-cli --tests --locked
 ```
 
-The acceptance ledger is the evidence source for M1 through M9. A milestone is
-not complete when a required check is unavailable or not executed; record that
-state as `NOT_CHECKED` or `NOT_EXECUTED`.
+Not every 別紙C §18 node has a dedicated acceptance test yet: nodes covering
+product areas this slice's `crates/vtest-cli/src/ops/` does not implement
+(static audit, coverage measurement, Structured Test Operation create/edit)
+are tracked in `reports/closure-trace.md`'s gap table rather than given a
+test that would only assert the absence of a feature.
 
 ## Verification behavior to preserve
 
