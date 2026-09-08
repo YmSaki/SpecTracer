@@ -9,8 +9,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
-    CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
-    RunnerInfo, TargetExecution, TestEntity, TestResult,
+    AdapterId, CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ExecutionState,
+    Locator, Revision, RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
 use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
 
@@ -132,6 +132,17 @@ pub fn run_tests(
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
+                    // DS-265 validity input. This crate only runs the
+                    // `rust-cargo` adapter's tests (crate doc comment); a
+                    // resolved target's own locator names the adapter it
+                    // came from, and falls back to `rust-cargo` literally
+                    // when the Test has no resolved target locator to read
+                    // it from (still this crate's sole adapter).
+                    adapter: test
+                        .target_locator
+                        .as_ref()
+                        .map(|locator| locator.adapter.clone())
+                        .unwrap_or_else(|| AdapterId::new("rust-cargo")),
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -139,6 +150,23 @@ pub fn run_tests(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
+                    // DES-097/101/184: this slice does not enumerate the
+                    // full repository/toolchain/local-dependency input
+                    // manifest DES-098 requires, so it cannot compute a
+                    // conforming Execution State subject hash. It reports
+                    // that honestly as `complete: false` / `hash: None`
+                    // (permitted by DES-184) rather than fabricate a hash
+                    // over a partial input set. Disclosed as not-yet-done:
+                    // this keeps every dynamic Evidence record this crate
+                    // writes unable to satisfy DS-265's Execution State
+                    // subject match condition, so `target_binding` cannot
+                    // reach `PASS` through this path until a future slice
+                    // implements DES-098/099/100 manifest collection.
+                    execution_state: ExecutionState {
+                        schema: "rust-cargo-execution-state-v1".to_owned(),
+                        complete: false,
+                        hash: None,
+                    },
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
@@ -497,13 +525,17 @@ fn unknown_target_execution() -> TargetExecution {
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
     format!(
-        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
+        adapter = yaml_scalar(record.adapter.as_str()),
         result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
         executed_at = yaml_scalar(&record.executed_at),
         commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
         dirty = record.revision.dirty,
+        es_schema = yaml_scalar(&record.execution_state.schema),
+        es_complete = record.execution_state.complete,
+        es_hash = record.execution_state.hash.as_ref().map(|hash| yaml_scalar(hash.as_str())).unwrap_or_else(|| "null".to_owned()),
         test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
         target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
         target_fns = if record.hashes.target_fns.is_empty() {

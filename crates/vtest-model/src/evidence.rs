@@ -1,4 +1,4 @@
-use crate::{ContentHash, TestId};
+use crate::{AdapterId, ContentHash, TestId};
 use serde::{Deserialize, Serialize};
 
 /// Predecessor-model verification result.
@@ -70,16 +70,38 @@ pub enum TestResult {
     Fail,
 }
 
+/// Execution State subject, per DES-097 domain `vtest:execution-state:v1`.
+///
+/// DES-097 binds this hash to the full manifest of repository / toolchain /
+/// local-dependency inputs that can change execution results (adapter ID,
+/// snapshot schema ID/version, HEAD revision, runner kind and canonical
+/// invocation projection, toolchain identity, the canonical projection of
+/// adapter config that affects results, and a complete manifest of
+/// repository/local-dependency inputs). DES-101 assigns manifest
+/// enumeration to the adapter and hashing to core; DES-184 permits `hash`
+/// to be `None` exactly when `complete` is `false`.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionState {
+    pub schema: String,
+    pub complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hash: Option<ContentHash>,
+}
+
 /// Records execution evidence for a single managed test.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceRecord {
     // CHECKME: Should evidence IDs use a dedicated EvidenceId type?
     pub id: String,
     pub test_id: TestId,
+    /// DS-265 validity input: the adapter that produced this record must
+    /// match the Test's current adapter for the record to be reusable.
+    pub adapter: AdapterId,
     pub result: TestResult,
     // CHECKME: Should execution timestamps use a validated timestamp type?
     pub executed_at: String,
     pub revision: Revision,
+    pub execution_state: ExecutionState,
     pub hashes: EvidenceHashes,
     pub runner: RunnerInfo,
     pub target_execution: TargetExecution,

@@ -233,14 +233,20 @@ const APPROVAL_BASIS_KEYS: &[&str] = &["kind", "ref"];
 const EVIDENCE_KEYS: &[&str] = &[
     "id",
     "test_id",
+    "adapter",
     "result",
     "executed_at",
     "revision",
+    "execution_state",
     "hashes",
     "runner",
     "target_execution",
     "log_ref",
 ];
+
+/// Known keys for an Evidence record's nested `execution_state` mapping,
+/// matching `ExecutionState`'s own fields (DES-097/DES-184).
+const EVIDENCE_EXECUTION_STATE_KEYS: &[&str] = &["schema", "complete", "hash"];
 
 /// Known keys for an Evidence record's nested `revision` mapping.
 const EVIDENCE_REVISION_KEYS: &[&str] = &["commit", "dirty"];
@@ -913,6 +919,13 @@ fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
     if let Some(runner) = value.get("runner") {
         crate::canonical::reject_unknown_fields(runner, EVIDENCE_RUNNER_KEYS, "runner.")?;
     }
+    if let Some(execution_state) = value.get("execution_state") {
+        crate::canonical::reject_unknown_fields(
+            execution_state,
+            EVIDENCE_EXECUTION_STATE_KEYS,
+            "execution_state.",
+        )?;
+    }
     if let Some(target_execution) = value.get("target_execution") {
         crate::canonical::reject_unknown_fields(
             target_execution,
@@ -1002,15 +1015,35 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         Some("MISSING") => CheckValue::Missing,
         _ => CheckValue::Unknown,
     };
+    // DES-097/184: `execution_state.hash` is only meaningful once `complete`
+    // is `true`. An absent `execution_state` mapping (a predecessor-shape
+    // record written before this field existed) is read as an explicitly
+    // incomplete state, not as a silently-matching one — DS-265's validity
+    // AND-condition on Execution State subject then fails closed rather
+    // than being skipped.
+    let execution_state_complete =
+        nested_scalar(&text, "execution_state", "complete").is_some_and(|value| value == "true");
+    let execution_state_hash = nested_scalar(&text, "execution_state", "hash")
+        .filter(|value| value != "null")
+        .map(|value| value.parse::<ContentHash>())
+        .transpose()
+        .map_err(|error: String| StoreError::InvalidConfig(error))?;
+    let execution_state = vtest_model::ExecutionState {
+        schema: nested_scalar(&text, "execution_state", "schema").unwrap_or_default(),
+        complete: execution_state_complete,
+        hash: execution_state_hash,
+    };
     Ok(EvidenceRecord {
         id,
         test_id: TestId::new(scalar(&text, "test_id").unwrap_or_default()),
+        adapter: vtest_model::AdapterId::new(scalar(&text, "adapter").unwrap_or_default()),
         result,
         executed_at: scalar(&text, "executed_at").unwrap_or_default(),
         revision: Revision {
             commit: nested_scalar(&text, "revision", "commit").filter(|value| value != "null"),
             dirty: nested_scalar(&text, "revision", "dirty").is_some_and(|value| value == "true"),
         },
+        execution_state,
         hashes: EvidenceHashes {
             test_fn: test_hash,
             target_fn: target_hash,
