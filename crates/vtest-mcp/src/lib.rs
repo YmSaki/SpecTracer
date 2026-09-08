@@ -1476,4 +1476,112 @@ mod tests {
             Some(direct.diagnostics.len()),
         );
     }
+
+    const FIXTURE_NODE_TREE: &str = r#"{"schema_version":"0.1","root":[{"id":"ROOT-001","statement":"fixture root","source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"request":[],"require":[],"spec":[],"detailed_spec":[],"basic_design":[],"design":[]}"#;
+
+    /// DS-1563 equivalence for `doc_add`: MCP and `ops::doc::add` (the same
+    /// function the CLI's `doc add` wrapper calls), each registering its own
+    /// fixture's node-tree file under the same id.
+    #[test]
+    fn mcp_doc_add_tool_matches_the_ops_doc_add_operation() {
+        let direct_root = temp_root("doc-add-equivalence-direct");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: direct_root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(direct_root.join("basic-spec.json"), FIXTURE_NODE_TREE)
+            .expect("write source file");
+        let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
+        let direct = ops::doc::add(
+            &direct_root,
+            &direct_layout,
+            ops::doc::AddArgs {
+                id: "DOC-BASIC-001".to_owned(),
+                path: "basic-spec.json".to_owned(),
+                title: None,
+                derives_from: Vec::new(),
+                root: None,
+                update: false,
+            },
+        )
+        .expect("direct ops::doc::add must succeed");
+
+        let mcp_root = temp_root("doc-add-equivalence-mcp");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: mcp_root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(mcp_root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
+        let mcp_envelope = dispatch_tool(
+            &mcp_root,
+            "doc_add",
+            &json!({"id": "DOC-BASIC-001", "path": "basic-spec.json"}),
+        );
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(mcp_envelope["data"]["id"], Value::String(direct.id.clone()),);
+        assert_eq!(
+            mcp_envelope["data"]["content_hash"],
+            Value::String(direct.content_hash.as_str().to_owned()),
+            "MCP `doc_add` must compute the same document-level subject hash as the shared \
+             `ops::doc::add` the CLI `doc add` wrapper also calls, for byte-identical input"
+        );
+        assert_eq!(mcp_envelope["data"]["root"], Value::Bool(direct.root));
+    }
+
+    /// DS-1563 equivalence for `doc_list`: MCP and `ops::doc::list` (the
+    /// same function the CLI's `doc list` wrapper calls), on the same
+    /// on-disk registry records.
+    #[test]
+    fn mcp_doc_list_tool_matches_the_ops_doc_list_operation() {
+        let root = temp_root("doc-list-equivalence");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        ops::doc::add(
+            &root,
+            &layout,
+            ops::doc::AddArgs {
+                id: "DOC-BASIC-001".to_owned(),
+                path: "basic-spec.json".to_owned(),
+                title: None,
+                derives_from: Vec::new(),
+                root: Some(true),
+                update: false,
+            },
+        )
+        .expect("add must succeed against a real node-tree file");
+
+        let direct = ops::doc::list(&layout).expect("direct ops::doc::list must succeed");
+        let mcp_envelope = dispatch_tool(&root, "doc_list", &json!({}));
+
+        assert_eq!(mcp_envelope["ok"], Value::Bool(true));
+        assert_eq!(
+            mcp_envelope["data"]["records"].as_array().map(Vec::len),
+            Some(direct.records.len()),
+            "MCP `doc_list` must report the same record count as the shared `ops::doc::list` \
+             the CLI `doc list` wrapper also calls"
+        );
+        assert_eq!(
+            mcp_envelope["data"]["roots"],
+            json!(direct
+                .records
+                .iter()
+                .filter(|record| record.root)
+                .map(|record| record.id.clone())
+                .collect::<Vec<_>>()),
+        );
+    }
 }
