@@ -11706,10 +11706,10 @@
     },
     {
       "id": "SPEC-S071",
-      "title": "3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+      "title": "3.1 document ファイル（`.verify/doc/` の JSON）",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-        "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+        "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
         "lines": [
           205,
           210
@@ -11743,7 +11743,7 @@
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               205,
               205
@@ -11769,7 +11769,7 @@
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               210,
               210
@@ -23280,10 +23280,10 @@
       "sections": [
         {
           "id": "DS-S071",
-          "title": "3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+          "title": "3.1 document ファイル（`.verify/doc/` の JSON）",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               196,
               209
@@ -23301,7 +23301,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   196,
                   196
@@ -23314,7 +23314,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   197,
                   197
@@ -23327,7 +23327,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   199,
                   199
@@ -23347,7 +23347,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   200,
                   200
@@ -23360,7 +23360,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   206,
                   206
@@ -23373,7 +23373,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   206,
                   206
@@ -23386,7 +23386,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   206,
                   206
@@ -23399,7 +23399,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   207,
                   207
@@ -23416,7 +23416,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   207,
                   207
@@ -23430,7 +23430,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   208,
                   208
@@ -23443,7 +23443,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   208,
                   208
@@ -23456,7 +23456,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   209,
                   209
@@ -23471,7 +23471,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   209,
                   209
@@ -23487,7 +23487,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   209,
                   209
@@ -33514,8 +33514,13 @@
         },
         {
           "id": "DS-1003",
-          "statement": "`--derives-from` は上流 document への導出リンク（0件可＝根候補）である。",
+          "statement": "`--derives-from` は、登録する document のトップレベルノードが持つ上流ノード id への辺（0件可＝根候補）であり、`document` という単位そのものに対する導出リンクではない。",
           "derives_from": [],
+          "cites": [
+            "本冊 §3.1",
+            "DS-1594",
+            "DS-1595"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
@@ -45501,10 +45506,10 @@
       "sections": [
         {
           "id": "BD-S042",
-          "title": "3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+          "title": "3.1 document ファイル（`.verify/doc/` の JSON）",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               190,
               210
@@ -45537,7 +45542,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   190,
                   190
@@ -45550,7 +45555,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   190,
                   190
@@ -45571,7 +45576,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   204,
                   204
@@ -45584,7 +45589,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   204,
                   204
@@ -45597,7 +45602,7 @@
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   204,
                   204
@@ -45612,7 +45617,7 @@
               ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-                "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+                "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
                 "lines": [
                   210,
                   210
@@ -50759,10 +50764,10 @@
     },
     {
       "id": "DES-S036",
-      "title": "3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+      "title": "3.1 document ファイル（`.verify/doc/` の JSON）",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-        "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+        "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
         "lines": [
           193,
           207
@@ -50784,7 +50789,7 @@
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               195,
               195
@@ -50842,7 +50847,7 @@
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               206,
               206
@@ -50857,7 +50862,7 @@
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               195,
               195
@@ -50874,7 +50879,7 @@
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
+            "heading": "### 3.1 document ファイル（`.verify/doc/` の JSON）",
             "lines": [
               195,
               195
