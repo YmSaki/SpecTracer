@@ -33700,7 +33700,7 @@
         },
         {
           "id": "DS-1017",
-          "statement": "`doc show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態を表示する。",
+          "statement": "`doc show` は DOC の path・content_hash・derives_from・根指定・鮮度（当該 document subject hash〔DES-572〕と、当該 document を dependency に含む承認・判断記録が保存した dependency entry の hash との一致。DS-862・DS-1601・DS-1605）・ノードごとの実効承認状態（各トップレベルノードの id を subject とする実効承認、DS-1466）を表示する。",
           "derives_from": [],
           "cites": [
             "本冊 §3.5"
