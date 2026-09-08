@@ -131,6 +131,10 @@ fn create_command(subject_id: &str, state: ApprovedStateArg, supersedes: Vec<Str
 
 /// DS-1058/E-APPROVAL-001: a VO that does not exist is a usage rejection,
 /// not a silently-written record.
+/// @vtest.id TEST-APPROVAL-UNRESOLVED-VO-SUBJECT
+/// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent creating an approval for a VO that does not exist is a usage rejection, not a silently-written record
 #[test]
 fn create_for_an_unresolved_vo_subject_is_a_usage_error() {
     let root = temp_root("unresolved-vo");
@@ -150,6 +154,10 @@ fn create_for_an_unresolved_vo_subject_is_a_usage_error() {
 /// DS-1052: `--subject-type judgment` is explicitly rejected (no judgment
 /// record domain exists in this codebase yet) rather than silently
 /// mishandled.
+/// @vtest.id TEST-APPROVAL-JUDGMENT-SUBJECT-TYPE
+/// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent --subject-type judgment can never resolve (no judgment record domain exists yet), so create rejects it as a usage error rather than mishandling it silently
 #[test]
 fn create_with_subject_type_judgment_is_a_usage_error() {
     let root = temp_root("judgment-unsupported");
@@ -172,6 +180,10 @@ fn create_with_subject_type_judgment_is_a_usage_error() {
 
 /// A successful `create` writes exactly one record to `.verify/approvals/`
 /// and exits 0.
+/// @vtest.id TEST-APPROVAL-RESOLVED-VO-SUBJECT
+/// @vtest.covers VO-APPROVAL-CREATE-VO-SUBJECT-WRITES-RECORD
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent a successful create for a resolved VO subject writes exactly one record and exits 0
 #[test]
 fn create_for_a_resolved_vo_subject_writes_a_record_and_exits_ok() {
     let root = temp_root("resolved-vo");
@@ -186,6 +198,10 @@ fn create_for_a_resolved_vo_subject_writes_a_record_and_exits_ok() {
 
 /// DS-1466/1467: after one `approved` record with a current subject_hash and
 /// dependency closure, `show` reports effective state `approved`.
+/// @vtest.id TEST-APPROVAL-SHOW-EFFECTIVE-APPROVED
+/// @vtest.covers VO-APPROVAL-EFFECTIVE-STATE-FROM-VALID-RECORD-SET
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.intent after one approved record with a current subject_hash and dependency closure, show reports effective state approved
 #[test]
 fn show_reports_approved_after_a_single_current_approved_record() {
     let root = temp_root("effective-approved");
@@ -210,6 +226,10 @@ fn show_reports_approved_after_a_single_current_approved_record() {
 /// `supersedes: [approval-id]`) rather than mutating the original — the
 /// approvals directory grows from 1 to 2 records, and the effective state
 /// drops back to `draft` (DS-1468/1469).
+/// @vtest.id TEST-APPROVAL-WITHDRAW-NEW-RECORD
+/// @vtest.covers VO-APPROVAL-WITHDRAW-NEW-RECORD-SUPERSEDES
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.intent withdraw writes a new record (state withdrawn, supersedes the original id) instead of mutating the original
 #[test]
 fn withdraw_writes_a_new_record_referencing_the_original() {
     let root = temp_root("withdraw");
@@ -270,6 +290,10 @@ fn withdraw_writes_a_new_record_referencing_the_original() {
 /// the subject has since become unresolvable, `withdraw` fails with
 /// E-APPROVAL-001 exactly as `create` would, rather than silently writing
 /// a withdrawal record bound to a stale (now-nonexistent) subject.
+/// @vtest.id TEST-APPROVAL-WITHDRAW-RE-RESOLVE
+/// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.intent withdraw re-resolves the target's subject against its current state and fails with a usage error if the subject has become unresolvable, rather than writing a withdrawal bound to a stale subject
 #[test]
 fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
     let root = temp_root("withdraw-re-resolve");
@@ -323,6 +347,10 @@ fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
 /// DS-1051/1480: `--subject-type document` resolves against
 /// `.verify/doc/*.json` node ids (not the VO domain `--subject-type vo`
 /// exercises everywhere else in this file) and writes a record.
+/// @vtest.id TEST-APPROVAL-RESOLVED-DOCUMENT-SUBJECT
+/// @vtest.covers VO-APPROVAL-DOCUMENT-SUBJECT-TYPE
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent --subject-type document resolves against .verify/doc/*.json node ids and writes a record
 #[test]
 fn create_for_a_resolved_document_subject_writes_a_record_and_exits_ok() {
     let root = temp_root("resolved-document");
@@ -347,6 +375,10 @@ fn create_for_a_resolved_document_subject_writes_a_record_and_exits_ok() {
 /// DS-1058/E-APPROVAL-001: a document node id that does not exist in any
 /// registered `.verify/doc/*.json` file is a usage rejection under
 /// `--subject-type document`, mirroring the `vo` case.
+/// @vtest.id TEST-APPROVAL-UNRESOLVED-DOCUMENT-SUBJECT
+/// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.intent a document node id that does not exist in any registered .verify/doc/*.json file is a usage rejection under --subject-type document
 #[test]
 fn create_for_an_unresolved_document_subject_is_a_usage_error() {
     let root = temp_root("unresolved-document");
@@ -370,6 +402,10 @@ fn create_for_an_unresolved_document_subject_is_a_usage_error() {
 
 /// DS-1059/E-APPROVAL-002: `withdraw` naming an approval id that does not
 /// exist is a usage rejection.
+/// @vtest.id TEST-APPROVAL-WITHDRAW-UNKNOWN-ID
+/// @vtest.covers VO-APPROVAL-WITHDRAW-UNKNOWN-ID-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.intent withdraw naming an approval id that does not exist is a usage rejection
 #[test]
 fn withdraw_of_an_unknown_approval_id_is_a_usage_error() {
     let root = temp_root("withdraw-unknown");

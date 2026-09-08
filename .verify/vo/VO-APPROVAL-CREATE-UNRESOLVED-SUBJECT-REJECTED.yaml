@@ -1,0 +1,11 @@
+id: VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1058
+claim: 対象・判断記録・依存entityやdocument sourceのいずれかを完全・currentに解決できないapproval createはE-APPROVAL-001・終了コード2で拒否され、recordを追加しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

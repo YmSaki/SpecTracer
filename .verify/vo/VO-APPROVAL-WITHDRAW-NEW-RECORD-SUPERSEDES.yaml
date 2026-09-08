@@ -1,0 +1,12 @@
+id: VO-APPROVAL-WITHDRAW-NEW-RECORD-SUPERSEDES
+parent: null
+derives_from:
+  - doc: BD-307
+  - doc: DS-1056
+claim: approval withdrawはstate:withdrawnかつsupersedes:[approval-id]を持つ新しいレコードをcreateと同一の経路で生成し、元のレコードを書き換えない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
