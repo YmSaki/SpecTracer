@@ -1802,6 +1802,9 @@ mod tests {
 
     /// SPEC-053 / REQ-085: exactly four checks, and each lands in one of the
     /// five states. Nothing else appears in a result.
+    /// @vtest.id TEST-VERIFY-EXACTLY-FOUR-CHECKS
+    /// @vtest.covers VO-VERIFY-EXACTLY-FOUR-CHECKS
+    /// @vtest.intent A verification result contains exactly the four canonical checks and nothing else.
     #[test]
     fn a_result_holds_exactly_the_four_canonical_checks() {
         let (root, scan) = complete_project("four-checks");
@@ -1819,6 +1822,9 @@ mod tests {
     /// `target_binding` and `oracle_presence` cannot reach `PASS` here
     /// (no Evidence reader, no DA static analysis), which the two tests
     /// below assert explicitly rather than leave implied.
+    /// @vtest.id TEST-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
+    /// @vtest.covers VO-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
+    /// @vtest.intent A complete, bidirectional declaration chain passes both chain_integrity and orphan_detection.
     #[test]
     fn a_complete_declaration_chain_passes_both_structural_checks() {
         let (root, scan) = complete_project("complete");
@@ -1840,6 +1846,9 @@ mod tests {
     /// DS-561: E-SCAN-002 (Test ID collision) → `chain_integrity = MISMATCH`.
     /// `orphan_detection` is untouched: the two checks answer different
     /// questions (SPEC-054) and must not damage each other.
+    /// @vtest.id TEST-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent E-SCAN-002 (Test ID collision) makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_id_collision() {
         let (root, mut scan) = complete_project("collision");
@@ -1860,6 +1869,9 @@ mod tests {
 
     /// DS-812: a Test declaring no `covers` is a management-declaration
     /// inconsistency, `chain_integrity = MISMATCH`.
+    /// @vtest.id TEST-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent A Test declaring no covers makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_without_covers() {
         let root = temp_root("no-covers");
@@ -1889,6 +1901,9 @@ mod tests {
     /// REQ-056 / ROOT-034: the retired `test_existence` was folded into
     /// `chain_integrity`, so a leaf VO with no covering Test must be caught
     /// here or nowhere.
+    /// @vtest.id TEST-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent A leaf VO with no covering Test makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_leaf_vo_with_no_covering_test() {
         let root = temp_root("uncovered-leaf");
@@ -1912,6 +1927,9 @@ mod tests {
     /// declaration is `MISMATCH` + diagnostic `MISSING`. It is read from
     /// `discovered`, not from error diagnostics, because an unregistered
     /// `#[test]` may only be reported as a warning.
+    /// @vtest.id TEST-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+    /// @vtest.covers VO-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+    /// @vtest.intent An unmanaged discovered Test is chain_integrity MISMATCH with diagnostic label MISSING.
     #[test]
     fn an_unmanaged_discovered_test_is_mismatch_with_the_missing_label() {
         let (root, mut scan) = complete_project("unmanaged");
@@ -1940,6 +1958,9 @@ mod tests {
 
     /// DS-1647 / DS-1650 / DS-1651: E-SCAN-016 → `orphan_detection =
     /// MISMATCH`, and it must not spill into `chain_integrity`.
+    /// @vtest.id TEST-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+    /// @vtest.covers VO-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+    /// @vtest.intent An orphaned document node makes orphan_detection MISMATCH without affecting chain_integrity.
     #[test]
     fn only_orphan_detection_breaks_on_an_orphaned_document_node() {
         let (root, mut scan) = complete_project("orphan");
@@ -1967,6 +1988,9 @@ mod tests {
     /// `NOT_EXECUTED`. The state is the same; the diagnostic label is what
     /// distinguishes the two causes — which is exactly why REQ-092 keeps the
     /// label in a separate field.
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
+    /// @vtest.intent target_binding is NO_EVIDENCE in both the no-target and the no-Evidence cases, distinguished only by diagnostic label.
     #[test]
     fn target_binding_distinguishes_its_two_causes_by_diagnostic_label() {
         let (root, scan) = complete_project("tb-executed");
@@ -2000,6 +2024,9 @@ mod tests {
     ///
     /// This supersedes the retired DS-756, which had held the same event at
     /// `NO_EVIDENCE` / `NOT_EXECUTED`.
+    /// @vtest.id TEST-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+    /// @vtest.covers VO-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+    /// @vtest.intent An unresolvable declared target is target_binding MISMATCH, never folded to NO_EVIDENCE.
     #[test]
     fn an_unresolvable_target_is_mismatch_not_no_evidence() {
         let (root, mut scan) = complete_project("unresolvable-target");
@@ -2041,6 +2068,9 @@ mod tests {
     /// Disclosure: `vtest-scan` does not currently produce `Multiple` from any
     /// live scan — `rust-cargo` emits at most one draft per function item — so
     /// this mapping is exercised only by this constructed fixture.
+    /// @vtest.id TEST-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
+    /// @vtest.covers VO-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
+    /// @vtest.intent ManagedTestLink::Multiple maps to chain_integrity MISMATCH without collateral damage to the other three checks.
     #[test]
     fn a_multiple_management_declaration_is_chain_integrity_mismatch() {
         let (root, mut scan) = complete_project("multiple-link");
@@ -2079,6 +2109,9 @@ mod tests {
     /// disk, and the run still evaluates all four checks. If the config were
     /// ever consulted for item selection, three checks would come back
     /// NOT_CHECKED instead.
+    /// @vtest.id TEST-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+    /// @vtest.covers VO-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+    /// @vtest.intent A config.yaml verify.full_scope subset never narrows which checks run or converts the run into a limited scope.
     #[test]
     fn a_config_full_scope_subset_never_narrows_the_checks_that_run() {
         let (root, scan) = complete_project("config-not-a-knob");
@@ -2114,6 +2147,9 @@ mod tests {
     /// (`UNKNOWN` is not an error fallback): with no DA analysis available,
     /// `oracle_presence` is held as `NO_EVIDENCE` + `NOT_CHECKED` — never
     /// `PASS`, never `UNKNOWN`.
+    /// @vtest.id TEST-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+    /// @vtest.covers VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+    /// @vtest.intent With no DA static analysis available, oracle_presence is NO_EVIDENCE(NOT_CHECKED), never PASS, never UNKNOWN.
     #[test]
     fn oracle_presence_is_never_pass_and_never_unknown_without_da_analysis() {
         let (root, scan) = complete_project("oracle");
@@ -2135,6 +2171,9 @@ mod tests {
     /// DS-840 / DS-1110: a check outside the requested item scope is retained
     /// as `NO_EVIDENCE` + `NOT_CHECKED`; it is never converted to `PASS` and
     /// never silently dropped from the result.
+    /// @vtest.id TEST-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+    /// @vtest.intent A check outside the requested --items scope stays NO_EVIDENCE(NOT_CHECKED) and never becomes PASS.
     #[test]
     fn a_check_outside_the_item_scope_is_no_evidence_not_checked() {
         let (root, scan) = complete_project("item-scope");
@@ -2169,6 +2208,9 @@ mod tests {
 
     /// REQ-295: the structural checks are checks over the whole declaration
     /// chain, so limiting the entity axis must not shrink them into a PASS.
+    /// @vtest.id TEST-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+    /// @vtest.covers VO-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+    /// @vtest.intent Limiting the entity axis must not shrink chain_integrity/orphan_detection into a whole-chain-hiding PASS.
     #[test]
     fn an_entity_scope_does_not_shrink_the_structural_checks() {
         let root = temp_root("entity-scope");
@@ -2200,6 +2242,9 @@ mod tests {
 
     /// DS-871: `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`, and all-`PASS`
     /// yields `PASS`.
+    /// @vtest.id TEST-VERIFY-REPRESENTATIVE-STATE-PRIORITY
+    /// @vtest.covers VO-VERIFY-REPRESENTATIVE-STATE-PRIORITY
+    /// @vtest.intent Representative-state selection follows FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN, and any non-PASS child makes the parent non-PASS.
     #[test]
     fn representative_selection_follows_the_canonical_priority() {
         use VerificationState::{Fail, Mismatch, NoEvidence, Pass, Unknown};
@@ -2215,6 +2260,9 @@ mod tests {
 
     /// An aggregation point with no child and no evaluated check must not
     /// fold to `PASS` — that is the precise shape of a false PASS.
+    /// @vtest.id TEST-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+    /// @vtest.covers VO-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+    /// @vtest.intent An aggregation point with no child and no evaluated check does not fold to PASS.
     #[test]
     fn an_empty_aggregation_point_is_not_pass() {
         let node = node_from_children(NodeKind::Vo, "VO-EMPTY", Vec::new(), Vec::new());
@@ -2229,6 +2277,9 @@ mod tests {
     /// report complete-verification OK — the exact false PASS this tool
     /// exists to stop. DS-252「`vtest verify` は正典または検証事実の欠落を
     /// 対応する非 `PASS` 値として表示する」、DS-253。
+    /// @vtest.id TEST-VERIFY-EMPTY-REPOSITORY-NOT-OK
+    /// @vtest.covers VO-VERIFY-EMPTY-REPOSITORY-NOT-OK
+    /// @vtest.intent A repository with no VO and no Test never reports complete-verification OK.
     #[test]
     fn an_empty_repository_is_not_a_complete_verification_ok() {
         let root = temp_root("empty-repo");
@@ -2253,6 +2304,9 @@ mod tests {
     }
 
     /// DS-789: identical evaluation inputs must produce an identical result.
+    /// @vtest.id TEST-VERIFY-DETERMINISTIC-RESULT
+    /// @vtest.covers VO-VERIFY-DETERMINISTIC-RESULT
+    /// @vtest.intent Identical evaluation inputs produce an identical serialised verification result.
     #[test]
     fn verification_is_deterministic() {
         let (root, scan) = complete_project("determinism");
@@ -2263,6 +2317,9 @@ mod tests {
 
     /// REQ-092 / SPEC-373: state and diagnostic label are separate fields.
     /// A label must never be serialised in the state position.
+    /// @vtest.id TEST-VERIFY-STATE-LABEL-SEPARATE-FIELDS
+    /// @vtest.covers VO-VERIFY-STATE-LABEL-SEPARATE-FIELDS
+    /// @vtest.intent State and diagnostic label are serialised into separate fields; a label never appears in the state position.
     #[test]
     fn state_and_diagnostic_label_are_separate_fields() {
         let outcome = CheckOutcome::new(
@@ -2351,6 +2408,9 @@ mod tests {
     /// `tb-executed` case, which has no Evidence on disk). This test instead
     /// covers DS-1628/DS-819/DS-820: an Evidence record that *exists* but
     /// fails validity is `NO_EVIDENCE` / `STALE`, never reused as `PASS`.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+    /// @vtest.intent An Evidence record whose adapter mismatches the current Test's adapter is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_a_mismatched_adapter_is_no_evidence_stale() {
         let root = temp_root("tb-stale-adapter");
@@ -2379,6 +2439,9 @@ mod tests {
     /// also `NO_EVIDENCE` / `STALE`, never reused as `PASS`. `scan_result`'s
     /// test fixtures always leave `sources` empty, so the target set can
     /// never resolve to a match; this exercises that path directly.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+    /// @vtest.intent An Evidence record whose target set no longer resolves to the current canonical set is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_an_unresolvable_target_set_is_no_evidence_stale() {
         let root = temp_root("tb-stale-targets");
@@ -2417,6 +2480,9 @@ mod tests {
     /// `sources` empty). It instead calls `evidence_validity_failure`
     /// directly with a `scan` that *does* resolve the declared target, to
     /// isolate the DS-822 branch specifically.
+    /// @vtest.id TEST-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.intent An Evidence record with execution_state.complete false is UNKNOWN, never STALE and never PASS.
     #[test]
     fn incomplete_execution_state_is_unknown_not_stale_or_pass() {
         let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
@@ -2460,6 +2526,9 @@ mod tests {
     /// `true` but this crate's own current-side reconstruction cannot
     /// confirm it (e.g. HEAD is unknown) — not just when the record itself
     /// says `complete: false`.
+    /// @vtest.id TEST-VERIFY-CURRENT-RECONSTRUCTION-FAILURE-UNKNOWN
+    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.intent Even a recorded complete=true Execution State is UNKNOWN when this crate's own current-side reconstruction cannot confirm it.
     #[test]
     fn a_recorded_complete_state_still_falls_to_unknown_if_current_reconstruction_fails() {
         let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
@@ -2513,6 +2582,9 @@ mod tests {
     /// some real hash) — then the record's own `execution_state.hash` is
     /// deliberately a different value, exercising the STALE hash-mismatch
     /// branch specifically.
+    /// @vtest.id TEST-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.intent A present but mismatched execution_state.hash is NO_EVIDENCE(STALE), isolated from the DS-822 UNKNOWN branch.
     #[test]
     fn a_present_but_mismatched_execution_state_hash_is_no_evidence_stale() {
         let root = temp_root("tb-execution-state-hash-mismatch");
@@ -2598,6 +2670,9 @@ mod tests {
 
     /// DS-830/831/832, isolated from the (currently unreachable — see
     /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
+    /// @vtest.id TEST-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+    /// @vtest.covers VO-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+    /// @vtest.intent Given valid Evidence, target_binding's dynamic result follows runner FAIL/PASS and target_coverage per DS-830/831/832.
     #[test]
     fn dynamic_result_from_evidence_covers_ds_830_831_832() {
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));

@@ -1,0 +1,13 @@
+id: VO-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+parent: null
+derives_from:
+  - doc: DS-830
+  - doc: DS-831
+  - doc: DS-832
+claim: 有効な Evidence に対し、runner FAIL は FAIL、PASS かつ到達要件充足は PASS、到達未充足は target_coverage に応じ FAIL（count 0）/ NO_EVIDENCE（未計測）/ UNKNOWN（関数不見当）となる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

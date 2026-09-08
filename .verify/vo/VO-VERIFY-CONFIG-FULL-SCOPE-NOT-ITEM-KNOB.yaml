@@ -1,0 +1,12 @@
+id: VO-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+parent: null
+derives_from:
+  - doc: DS-1107
+  - doc: DS-1109
+claim: config.yaml の verify.full_scope は項目選択 knob として使用されず、in-memory の項目補完も行われない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

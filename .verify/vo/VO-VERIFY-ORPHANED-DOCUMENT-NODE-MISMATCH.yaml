@@ -1,0 +1,11 @@
+id: VO-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+parent: null
+derives_from:
+  - doc: DS-1647
+claim: 実効的な上流を持たない文書ノードは orphan_detection = MISMATCH であり、chain_integrity には影響しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

@@ -1,0 +1,11 @@
+id: VO-VERIFY-DETERMINISTIC-RESULT
+parent: null
+derives_from:
+  - doc: DS-789
+claim: 同一の評価入力に対する検証結果（状態・診断ラベル・診断コード集合・集約結果・pending内容・終了コード）は決定的で同一である
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00
