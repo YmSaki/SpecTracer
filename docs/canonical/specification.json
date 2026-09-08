@@ -33603,6 +33603,59 @@
           }
         },
         {
+          "id": "DS-1685",
+          "statement": "`--derives-from` は、対象トップレベルノードの既存 `derives_from` を指定した id 並びで置き換える。追記（既存へ加える）ではない。",
+          "derives_from": [
+            "DS-1003"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。DS-1003は「登録する document のトップレベルノードが持つ上流ノード id への辺」とだけ述べ、既存値との関係（置換か追記か）を明文で決めていない。`doc add` は新規登録の入口コマンドであり、DS-1684の `--update` が別途「現ファイルで再読み込みして再計算する」という更新経路を持つことから、`--derives-from` 自身は都度の指定値をそのままトップレベルノードの辺として確定する（既存値と合成しない）と読むのが、2つのコマンド引数へ異なる責務を持たせるDS-1681〜DS-1684の書き分けと整合する。"
+        },
+        {
+          "id": "DS-1686",
+          "statement": "`--derives-from` を指定した場合、登録する document が持つ `request`/`require`/`spec`/`detailed_spec`/`basic_design`/`design` いずれかの層のトップレベルノードすべてへ、同一の id 並びを一律に適用する。",
+          "derives_from": [
+            "DS-1003",
+            "DS-1593"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。DS-1003は「トップレベルノードが持つ上流ノード id への辺」と述べるのみで、複数のトップレベルノードが存在する document へ`--derives-from`をノードごとに書き分ける手段を規定していない。`--derives-from`はコマンド全体で1つの値であり、DS-1593「文ノードのderives_fromは必須fieldで0件を許容し、節ノードのderives_fromは任意field」が対象をノード単位ではなく文書全体の単位で扱っていることから、指定された id 並びは当該documentの対象トップレベルノード全体へ一律に適用される。"
+        },
+        {
+          "id": "DS-1687",
+          "statement": "`--derives-from` を指定した document のトップレベルノードが `root` 層のみで構成される場合、`root` 層ノードは `derives_from` field を持たない（DS-1592・DS-1593）ため辺を付ける対象が存在せず、登録を拒否する。",
+          "derives_from": [
+            "DS-1003"
+          ],
+          "cites": [
+            "DS-1592",
+            "DS-1593"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。AGENTS.mdの積不変条件「欠測・不整合な入力を黙って通さない（fail-closed）」に従う。`--derives-from`が指定されたのに束縛できる対象が1つも無い状態を無視して登録を成立させると、指定した意図が黙って捨てられる。DS-1592・DS-1593は`root`層ノード（RootNode）が`derives_from` fieldそのものを持たないと定めており、対象トップレベルノードが全て`root`層であるdocumentへ`--derives-from`を指定することは、束縛先が構造的に存在しない指定である。"
+        },
+        {
           "id": "DS-1013",
           "statement": "`--update` は document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する。",
           "derives_from": [],
@@ -50222,6 +50275,74 @@
               85
             ]
           }
+        },
+        {
+          "id": "DES-596",
+          "statement": "hash inputの先頭にはdomain separatorを置き、他のfieldと同じ長さ付き規則（UTF-8 byte length、byte列の順）でencodeする。",
+          "derives_from": [
+            "DES-070",
+            "DES-071"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.3 内容ハッシュの定義",
+            "lines": [
+              85,
+              85
+            ]
+          },
+          "description": "導出。DES-070は「hash inputはdomain separatorと長さ付きfieldから構成する」とだけ述べ、domain separator自身の位置と符号化規則をDES-071（field名・長さ・byte列の順）へ委ねているか明文で決めていない。domain separatorをhash inputの先頭かつ長さ付きで置くことは、DES-070の列挙順（domain separatorが先）と、DES-072「単純な文字列連結を行わない」（非長さ付きの生byte列を混ぜると連結衝突の余地が残る）から一意に導ける。新しい義務は増やしていない。"
+        },
+        {
+          "id": "DES-597",
+          "statement": "hash inputの各fieldにおいて、`field-name` 自体もUTF-8 byte lengthを前置してencodeする。field名を非長さ付きの生byte列として連結しない。",
+          "derives_from": [
+            "DES-071",
+            "DES-072"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.3 内容ハッシュの定義",
+            "lines": [
+              85,
+              85
+            ]
+          },
+          "description": "導出。DES-071は「`field-name`、UTF-8 byte length、byte列の順」と書くが、この「UTF-8 byte length」がfield値のものか field-name自身のものかは字面だけでは両読みが残る。DES-072「単純な文字列連結を行わない」は、値だけでなくfield名も含めた入力全体に適用される制約であり、field名を非長さ付きで連結すると`field-name`+値の境界があいまいになり衝突を許すため、field名自体の長さ前置も要求される。"
+        },
+        {
+          "id": "DES-598",
+          "statement": "hash inputの各fieldは、値の種別（宣言の不在／scalar／順序を持つ列／集合として扱う列／map）を区別する1byteのkind tagを、長さとbyte列の前に置く。長さとbyte内容が同一でも種別が異なれば異なる値としてencodeする。",
+          "derives_from": [
+            "DES-076",
+            "DES-082"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.3 内容ハッシュの定義",
+            "lines": [
+              85,
+              85
+            ]
+          },
+          "description": "導出。DES-076「null、空文字、空listは異なる値としてencodeする」およびDES-082「宣言の不在と空値の明示を異なる値としてencodeする」は結果（3者が異なる値になること）を定めるが、その手段を明文で指定していない。長さ付きbyte列だけでは、宣言の不在（0byte）と空文字（0byte）と空list（要素0件、要素の長さ前置和も0byte）が全て同じ0byte payloadになり区別できない。種別を先頭1byteのtagとして各fieldへ前置することが、DES-073（mapはkey昇順）・DES-074（集合はcovers等を正規化値昇順）・DES-075（順序に意味があるcasesは宣言順）がそれぞれ異なる符号化規則を持つ、という上位の書き分けとも整合する最小の手段である。"
+        },
+        {
+          "id": "DES-599",
+          "statement": "hash inputの長さ前置は固定幅64bit符号なし整数のbig-endianでencodeする。",
+          "derives_from": [
+            "DES-070",
+            "DES-071"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.3 内容ハッシュの定義",
+            "lines": [
+              85,
+              85
+            ]
+          },
+          "description": "導出。DES-070・DES-071は「長さ付きfield」「UTF-8 byte length」を要求するが、長さの表現幅とエンディアンは明文で沈黙している。固定幅・固定エンディアンでなければ、同じ長さの値が実装間または将来のバージョン間で異なるbyte列にencodeされ得、DES-072「単純な文字列連結を行わない」が要求する決定論的な一意復元不能性（衝突回避）が実装依存になる。幅と符号順を確定させることは新しい義務の追加ではなく、DES-071が既に要求する「長さ付き」を実装可能な形へ一意化する記述である。"
         },
         {
           "id": "DES-077",
