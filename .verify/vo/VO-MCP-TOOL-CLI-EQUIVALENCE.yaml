@@ -1,0 +1,11 @@
+id: VO-MCP-TOOL-CLI-EQUIVALENCE
+parent: null
+derives_from:
+  - doc: DS-1563
+claim: 別紙Aが定めるMCP toolは、同じ入力に対してCLI JSONと同じdata/diagnosticsを返す
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
