@@ -28,6 +28,7 @@ use vtest_model::{
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
+    execution_state::{escape_risk, reconstruct_execution_state, ExecutionStateInputs},
     read_document_file, read_document_names, read_evidence, read_record_ids, read_vo_record,
     VerifyLayout,
 };
@@ -287,6 +288,7 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 /// are evaluated against this fixed value; a multi-adapter repository is
 /// out of this slice's scope and not represented here.
 struct EvidenceContext {
+    root: std::path::PathBuf,
     latest_by_test: BTreeMap<String, EvidenceRecord>,
     current_adapter: AdapterId,
     head_commit: Option<String>,
@@ -317,6 +319,7 @@ impl EvidenceContext {
             }
         }
         Self {
+            root: root.to_owned(),
             latest_by_test,
             current_adapter: AdapterId::new("rust-cargo"),
             head_commit: git_head_commit(root),
@@ -825,25 +828,62 @@ fn evidence_validity_failure(
     }
 
     // DS-822: `execution_state.complete` must be `true`, AND the current
-    // Execution State subject must be fully reconstructible for comparison.
-    // This crate does not implement DES-098/099/100 manifest reconstruction
-    // (disclosed at the `ExecutionState` write site in `vtest-exec`), so the
-    // second disjunct always holds regardless of `complete`: a current
-    // reconstruction can never be attempted here. DS-822 assigns this case
-    // `UNKNOWN`, not `NO_EVIDENCE` — the record's completeness (or lack of
-    // it) is not itself a defect, this crate simply cannot yet finish the
-    // comparison DS-821 asks for.
-    Some(CheckOutcome::new(
-        VerificationCheck::TargetBinding,
-        VerificationState::Unknown,
-        Vec::new(),
-        vec![
-            "current Execution State subject reconstruction (DES-098/099/100) \
-              is not implemented in this crate, so DS-822's match cannot be \
-              attempted (stopped_on)"
-                .to_owned(),
-        ],
-    ))
+    // Execution State subject must be fully reconstructible for comparison
+    // (`vtest_store::execution_state::reconstruct_execution_state` — the
+    // same function `vtest-exec` uses to write the record in the first
+    // place, so an unchanged environment reconstructs an identical hash).
+    // The recorded runner kind/invocation are reused rather than
+    // independently re-derived: any *declared* difference (a changed
+    // `execution.selector`, a changed target) already fails the DS-819
+    // subject-hash check above, so re-deriving them here would only ever
+    // reproduce the record's own values in the non-drift case this branch
+    // exists to confirm.
+    if !record.execution_state.complete {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Unknown,
+            Vec::new(),
+            vec!["recorded execution_state.complete is not true (DS-822)".to_owned()],
+        ));
+    }
+    let current_state = reconstruct_execution_state(
+        &evidence.root,
+        ExecutionStateInputs {
+            adapter: &evidence.current_adapter,
+            schema: &record.execution_state.schema,
+            head_commit: evidence.head_commit.as_deref(),
+            runner_kind: &record.runner.kind,
+            invocation: &record.runner.command,
+        },
+    );
+    if !current_state.complete {
+        let reason = escape_risk(&evidence.root)
+            .unwrap_or_else(|| "the current environment could not be fully snapshotted".to_owned());
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Unknown,
+            Vec::new(),
+            vec![format!(
+                "current Execution State subject could not be reconstructed for \
+                 comparison (DS-822): {reason}"
+            )],
+        ));
+    }
+
+    // DS-821: a present-but-different hash is a genuine mismatch, not an
+    // inability to tell — `NO_EVIDENCE` (STALE), never `UNKNOWN`.
+    if record.execution_state.hash != current_state.hash {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec!["recorded Execution State subject hash does not match the \
+                  current one (DS-821)"
+                .to_owned()],
+        ));
+    }
+
+    None
 }
 
 fn evaluate_target_binding(
@@ -910,12 +950,7 @@ fn evaluate_target_binding(
         return outcome;
     }
 
-    // DS-830/831/832: the Evidence is valid. This branch is unreachable
-    // today (see `evidence_validity_failure`'s DS-822 comment — a current
-    // Execution State reconstruction is never attempted, so validity always
-    // fails there first), but is implemented and unit-tested in isolation
-    // (`dynamic_result_from_evidence`) against the day that reconstruction
-    // lands.
+    // DS-830/831/832: the Evidence is valid.
     dynamic_result_from_evidence(record)
 }
 
@@ -974,27 +1009,95 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
     }
 }
 
-fn evaluate_oracle_presence(_test: &TestEntity) -> CheckOutcome {
-    // DS-605「`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の
-    // 合成とする」。DA ルールは adapter が所有する静的解析（DS-617〜DS-620 の
-    // assert 相当構文の同定を要する）であり、この slice には実装が無い。
-    //
-    // `PASS` にはしない: REQ-079「静的解析は成立の証明装置ではなく、証明
-    // できない場合は何も言わない」。`UNKNOWN` にもしない: REQ-108
-    // 「`UNKNOWN` をエラー処理のフォールバック先として使う実装は仕様違反で
-    // ある」、ROOT-033「UNKNOWN の検疫: UNKNOWN ≠ エラー。正常動作としての
-    // 降参」。解析器が動いていないことは決定論的な降参ではなく、検査を
-    // 実施していないことである。
-    //
-    // したがって DS-1103（`--fast` は動的証拠を採らず `NO_EVIDENCE` /
-    // 診断 `NOT_CHECKED`）と同型に、未実施として保持する。REQ-076 との
-    // 緊張は stopped_on として開示する。
-    CheckOutcome::new(
-        VerificationCheck::OraclePresence,
-        VerificationState::NoEvidence,
-        vec![DiagnosticLabel::NotChecked],
-        vec!["DA-001/003/004/005/006 static analysis is not available in this slice".to_owned()],
-    )
+/// DS-605「`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の
+/// 合成とする」— delegated to `vtest_adapter_rust::oracle_presence`, the
+/// `rust-cargo` adapter's own "Static Analysis capability" (DS-614). Core
+/// (this function) does not interpret Rust syntax itself: it reads the raw
+/// construct bytes by the byte range `vtest-scan` already located, hands
+/// them to the adapter capability, and only composes the returned verdicts
+/// into `VerificationState`/`DiagnosticLabel` (DS-606/607/608).
+///
+/// DS-614「Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断
+/// `NOT_CHECKED`）とする」: this slice's capability is unavailable exactly
+/// when the construct's source bytes cannot be read back (the file moved,
+/// or its byte range no longer resolves) — a real, if narrow, instance of
+/// "capability absent for this Test", not a blanket placeholder.
+fn evaluate_oracle_presence(test: &TestEntity, root: &Path) -> CheckOutcome {
+    let Some(construct_text) = read_construct_text(root, &test.location) else {
+        return CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked],
+            vec![
+                "the Test construct's source bytes could not be read for static \
+                  analysis (DS-614)"
+                    .to_owned(),
+            ],
+        );
+    };
+    // DS-750-shaped disclosed narrowing (see `vtest_adapter_rust::oracle_presence`'s
+    // module doc): only `TargetRef::Locator` targets contribute a symbol
+    // name to DA-003. A `SrcId` target is silently excluded from DA-003's
+    // per-target check rather than treated as an unverified call — DA-003
+    // only evaluates calls it can name, so this narrows DA-003's coverage,
+    // it does not fabricate a violation.
+    let target_symbols: Vec<String> = test
+        .targets
+        .iter()
+        .filter_map(|target| match target {
+            TargetRef::Locator(locator) => {
+                Some(vtest_adapter_rust::oracle_presence::target_symbol(locator))
+            }
+            TargetRef::SrcId(_) => None,
+        })
+        .collect();
+    // DS-617's `assertion_macros` config projection is not read from
+    // `config.yaml` in this slice (disclosed): only the standard macro set
+    // is used. A project that only verifies through a configured custom
+    // macro would see DA-006 report `Fail` where a config-aware analysis
+    // would not.
+    let analysis =
+        vtest_adapter_rust::oracle_presence::analyze(&construct_text, &target_symbols, &[]);
+    let (is_fail, is_unknown, basis) = vtest_adapter_rust::oracle_presence::compose(&analysis);
+    // DS-609「`oracle_presence`に動的な昇格経路は無い」: composed purely
+    // from the five static verdicts, nothing else can move this outcome.
+    if is_fail {
+        CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::Fail,
+            Vec::new(),
+            basis,
+        )
+    } else if is_unknown {
+        CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::Unknown,
+            Vec::new(),
+            basis,
+        )
+    } else {
+        CheckOutcome::new(
+            VerificationCheck::OraclePresence,
+            VerificationState::Pass,
+            Vec::new(),
+            basis,
+        )
+    }
+}
+
+/// Reads a Test construct's raw source bytes back from disk by the byte
+/// range `vtest-scan` already located (`location.byte_range`), the same
+/// bytes `source_target_subject_hash`/`test_subject_hash` bind — this
+/// function never re-parses or re-locates anything, only re-reads.
+fn read_construct_text(root: &Path, location: &vtest_model::SourceLocation) -> Option<String> {
+    let path = root.join(location.path.as_str());
+    let bytes = std::fs::read(path).ok()?;
+    let start = usize::try_from(location.byte_range.start).ok()?;
+    let end = usize::try_from(location.byte_range.end).ok()?;
+    if end > bytes.len() || start > end {
+        return None;
+    }
+    String::from_utf8(bytes[start..end].to_vec()).ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -1284,7 +1387,7 @@ fn test_node(
                 VerificationCheck::TargetBinding => {
                     evaluate_target_binding(test, test_resolution, scan, evidence)
                 }
-                VerificationCheck::OraclePresence => evaluate_oracle_presence(test),
+                VerificationCheck::OraclePresence => evaluate_oracle_presence(test, &evidence.root),
                 _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
             }
         })
@@ -2224,6 +2327,7 @@ mod tests {
         record.hashes.target_fn = target_hash.clone();
         record.hashes.target_fns = vec![target_hash];
         let evidence = EvidenceContext {
+            root: temp_root("tb-incomplete-execution-state"),
             latest_by_test: BTreeMap::new(),
             current_adapter: AdapterId::new("rust-cargo"),
             head_commit: Some("deadbeef".to_owned()),
@@ -2233,6 +2337,56 @@ mod tests {
             .expect("an incomplete Execution State must not validate as reusable");
         assert_eq!(outcome.state, VerificationState::Unknown);
         assert!(outcome.labels.is_empty());
+    }
+
+    /// The DS-822 branch also fires when the *recorded* `complete` is
+    /// `true` but this crate's own current-side reconstruction cannot
+    /// confirm it (e.g. HEAD is unknown) — not just when the record itself
+    /// says `complete: false`.
+    #[test]
+    fn a_recorded_complete_state_still_falls_to_unknown_if_current_reconstruction_fails() {
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
+        let target_hash = ContentHash::from_text("TEST-ONE::target0");
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 1,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: vec![vtest_model::SourceFunction {
+                locator: vtest_model::Locator {
+                    adapter: AdapterId::new("rust-cargo"),
+                    value: "src/lib.rs::target0".to_owned(),
+                },
+                src_id: None,
+                location: location("SRC-target0"),
+                content_hash: target_hash.clone(),
+            }],
+            diagnostics: Vec::new(),
+        };
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fn = target_hash.clone();
+        record.hashes.target_fns = vec![target_hash];
+        record.execution_state.complete = true;
+        record.execution_state.hash = Some(ContentHash::from_text("anything"));
+        let evidence = EvidenceContext {
+            // A `root` that does not exist: the manifest walk itself fails,
+            // so `reconstruct_execution_state` reports `complete: false`
+            // (DS-822's second disjunct), independent of DS-820's revision
+            // check (`head_commit` here still matches the record's, so
+            // DS-820 passes and does not mask this branch).
+            root: temp_root("tb-current-reconstruction-fails").join("does-not-exist"),
+            latest_by_test: BTreeMap::new(),
+            current_adapter: AdapterId::new("rust-cargo"),
+            head_commit: Some("deadbeef".to_owned()),
+        };
+
+        let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
+            .expect("an unreconstructable current state must not validate as reusable");
+        assert_eq!(outcome.state, VerificationState::Unknown);
     }
 
     /// DS-830/831/832, isolated from the (currently unreachable — see
