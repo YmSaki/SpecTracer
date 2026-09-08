@@ -6,7 +6,9 @@
 //! bytes of one Test's construct. Core (`vtest-verify`) never interprets
 //! Rust syntax itself (本冊:685-703, AGENTS.md "core owns nothing
 //! language-specific"); it only asks this adapter capability for a verdict
-//! and composes the five verdicts per DS-606/607/608/609/610.
+//! and composes the five verdicts per DS-606/607/608/609/1680 (DS-1680
+//! replaces the retired DS-610 as of the canon's fa63065 merge — verified
+//! this session).
 //!
 //! **Disclosed scope narrowing** (the message that requested this capability
 //! explicitly scoped it to "標準assert構文とtest frameworkのfailure
@@ -17,7 +19,7 @@
 //!   list, or bound by a single `let NAME = ...;` whose `NAME` (or a
 //!   `NAME.field`/`NAME.method()` chain starting with `NAME`) then appears
 //!   inside an assert-equivalent argument list. This is a real subset of
-//!   DS-750 ("let束縛、メソッドチェーン、フィールドアクセス"), not its full
+//!   DS-628 ("let束縛、メソッドチェーン、フィールドアクセス"), not its full
 //!   extent — a target call several bindings removed, or reached only
 //!   through a closure, is not tracked and reports `Unknown` rather than
 //!   `NoViolation` (fail-closed: DS-615 "違反なしと推測しない").
@@ -290,14 +292,16 @@ fn da_003_result_unverified(
     }
     let mut any_call_found = false;
     let mut any_ambiguous = false;
+    let mut any_unverified = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, assert_spans) {
             TargetCallVerification::NotCalled => {}
             TargetCallVerification::Verified => {
                 any_call_found = true;
             }
-            TargetCallVerification::UnverifiedDirectly => {
+            TargetCallVerification::Unverified => {
                 any_call_found = true;
+                any_unverified = true;
             }
             TargetCallVerification::Ambiguous => {
                 any_call_found = true;
@@ -318,26 +322,53 @@ fn da_003_result_unverified(
                 .to_owned(),
         );
     }
-    let all_verified = target_symbols.iter().all(|symbol| {
-        matches!(
-            target_call_result_is_verified(text, symbol, assert_spans),
-            TargetCallVerification::Verified | TargetCallVerification::NotCalled
-        )
-    });
-    if all_verified {
-        DaVerdict::NoViolation
-    } else {
-        DaVerdict::Fail(
-            "a declared target's call result reaches no assert-equivalent construct, \
-             and no #[should_panic] is present (DS-623)",
-        )
+    if any_unverified {
+        // REQ-074「不成立が構造から証明できる場合のみFAIL」/DS-1680（旧
+        // DS-610の退役後の再掲。verified against the merged canon this
+        // session, fa63065: "静的解析は不成立の証明であり、不成立を証明
+        // できないことだけを理由にUNKNOWNとはしない。照合装置の存在が
+        // 決定論的に確認できる場合は違反なしとし、不成立の証明も照合装置
+        // の存在の確認もいずれも決定論的に言えない場合に限りUNKNOWNとす
+        // る」）/DS-615「adapterが不完全、解析限界…を報告した場合は
+        // UNKNOWNとし、違反なしと推測しない」: this capability's dataflow
+        // tracking is bounded (module doc — a direct in-assert call or one
+        // `let` binding). When at least one assert-equivalent construct
+        // exists in the function (`assert_spans` non-empty) but the call
+        // cannot be traced into any of them, neither "the result does not
+        // reach one" (DS-623's FAIL condition) nor "the result reaches
+        // one" (DS-1680's "照合装置の存在が確認できる" -> no violation) can
+        // be said deterministically by this capability's bounded tracker —
+        // exactly DS-1680's own UNKNOWN condition ("いずれも決定論的に
+        //言えない場合"), not a structural proof of non-verification.
+        //
+        // Only when `assert_spans` is empty is non-reaching a call
+        // structurally certain: there is no assert-equivalent construct in
+        // the function at all for any path to reach, tracked or not — a
+        // genuine DS-623 `Fail`.
+        return if assert_spans.is_empty() {
+            DaVerdict::Fail(
+                "a declared target's call result reaches no assert-equivalent construct, \
+                 and no #[should_panic] is present (DS-623)",
+            )
+        } else {
+            DaVerdict::Unknown(
+                "a declared target's call could not be traced into any of the function's \
+                 assert-equivalent constructs by this capability's bounded dataflow \
+                 tracking (a method chain, a second let-binding, or a field access this \
+                 capability does not follow could still carry the result there) — neither \
+                 reaching nor non-reaching can be said deterministically, which is DS-1680's \
+                 own UNKNOWN condition, not a structural proof of non-verification"
+                    .to_owned(),
+            )
+        };
     }
+    DaVerdict::NoViolation
 }
 
 enum TargetCallVerification {
     NotCalled,
     Verified,
-    UnverifiedDirectly,
+    Unverified,
     Ambiguous,
 }
 
@@ -358,7 +389,7 @@ fn target_call_result_is_verified(
             return TargetCallVerification::Verified;
         }
     }
-    // DS-750's disclosed bound: a single `let NAME = ...<call>...;` binding,
+    // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
     // appears inside an assert span.
     for binding in find_let_bindings_containing_call(text, symbol) {
@@ -370,14 +401,30 @@ fn target_call_result_is_verified(
     }
     // A mutable-reference or global-state argument to the call is this
     // capability's disclosed ambiguity escape (DS-623's own UNKNOWN
-    // example).
+    // example). Scoped to the call's own argument list (the parenthesized
+    // span right after `symbol`), not the rest of the function text —
+    // scanning past the call site would flag an unrelated `&mut ` written
+    // anywhere later in the function as if it belonged to this call.
     if call_sites.iter().any(|&start| {
-        let after = &text[start..];
-        after.contains("&mut ")
+        call_argument_list(text, start, symbol).is_some_and(|arguments| arguments.contains("&mut "))
     }) {
         return TargetCallVerification::Ambiguous;
     }
-    TargetCallVerification::UnverifiedDirectly
+    TargetCallVerification::Unverified
+}
+
+/// Returns the argument-list text (inside the parens) of a call to `symbol`
+/// whose name starts at byte offset `call_start` in `text`.
+fn call_argument_list<'a>(text: &'a str, call_start: usize, symbol: &str) -> Option<&'a str> {
+    let after = &text[call_start + symbol.len()..];
+    let trimmed = after.trim_start();
+    let skip = after.len() - trimmed.len();
+    let open_pos = call_start + symbol.len() + skip;
+    if !text[open_pos..].starts_with('(') {
+        return None;
+    }
+    let close_pos = find_matching_close(text, open_pos, '(', ')')?;
+    Some(&text[open_pos + 1..close_pos])
 }
 
 fn find_call_sites(text: &str, symbol: &str) -> Vec<usize> {
@@ -673,12 +720,33 @@ mod tests {
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
     }
 
+    /// REQ-074「不成立が構造から証明できる場合のみFAIL」: no
+    /// assert-equivalent construct exists anywhere in the function, so no
+    /// path — tracked or not — could carry the call's result to one. This
+    /// is the one case this capability can prove structurally.
     #[test]
-    fn a_target_call_never_reaching_an_assert_fails_da_003() {
-        let text = "#[test]\nfn calls_but_ignores_result() {\n    double(2);\n    assert!(true == false || true);\n}\n";
+    fn a_target_call_with_no_assert_construct_anywhere_fails_da_003() {
+        let text = "#[test]\nfn calls_but_asserts_nothing() {\n    double(2);\n}\n";
         let analysis = analyze(text, &["double".to_owned()], &[]);
         assert!(
             matches!(analysis.da_003, DaVerdict::Fail(_)),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
+    /// DS-615「解析限界…を報告した場合はUNKNOWNとし、違反なしと推測しない」:
+    /// an assert-equivalent construct exists in the function (so a real
+    /// verification path is structurally possible), but this capability's
+    /// bounded dataflow tracking (direct-in-assert or one `let` binding)
+    /// cannot trace the call's result into it. That is an analysis limit,
+    /// not proof of non-verification — `Unknown`, not `Fail`.
+    #[test]
+    fn a_target_call_untraceable_into_an_unrelated_assert_is_unknown_not_fail() {
+        let text = "#[test]\nfn calls_but_ignores_result() {\n    double(2);\n    assert!(true == false || true);\n}\n";
+        let analysis = analyze(text, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
             "{:?}",
             analysis.da_003
         );
