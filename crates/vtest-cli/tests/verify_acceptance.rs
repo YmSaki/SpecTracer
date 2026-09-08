@@ -103,6 +103,30 @@ fn combining_entity_selectors_is_a_usage_error() {
     assert_eq!(run(cli(&root, command)), ExitCode::Usage);
 }
 
+/// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
+/// 検証…がE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。A rejected
+/// configuration is an operation rejection, not an internal error (exit 3).
+#[test]
+fn a_rejected_configuration_is_exit_two_for_scan_and_doctor() {
+    let root = temp_root("bad-config");
+    assert_eq!(run(cli(&root, Command::Init { name: None })), ExitCode::Ok);
+    // The retired 12-item enumeration is E-CONFIG-001 regardless of version
+    // (DS-1108) — the exact shape this repository's own `.verify/config.yaml`
+    // still carries.
+    let config = root.join(".verify").join("config.yaml");
+    let text = std::fs::read_to_string(&config).expect("read config");
+    std::fs::write(
+        &config,
+        text.replace(
+            "- chain_integrity",
+            "- spec_coverage\n    - chain_integrity",
+        ),
+    )
+    .expect("write config");
+    assert_eq!(run(cli(&root, Command::Scan)), ExitCode::Usage);
+    assert_eq!(run(cli(&root, Command::Doctor)), ExitCode::Usage);
+}
+
 /// An empty, freshly initialised project has no document nodes, no VOs and no
 /// Tests. It must NOT come out as a complete-verification OK: DS-253「`vtest
 /// verify` は部分的な登録・判断・実行状態を総合 `OK` として扱わない」。

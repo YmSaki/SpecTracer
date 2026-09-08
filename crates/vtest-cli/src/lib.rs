@@ -143,6 +143,14 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
+    // config の拒否は操作拒否であって内部エラーではない。DS-935「`vtest scan`
+    // / `vtest doctor`では、registry・config・adapter契約の検証…が
+    // E-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。`scan_project` は
+    // config 読み込み失敗を `ScanError::Store`（診断コードなし）へ畳むため、
+    // ここで先に読んでおかないと終了コード 3（内部エラー）になってしまう。
+    if let Err(error) = load_config(&root) {
+        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+    }
     match scan_project(&root) {
         Ok(result) => {
             // DS-1304「`vtest scan` / `doctor`はerrorなしをexit 0にする」、
