@@ -3540,12 +3540,18 @@
               356
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
           "items": [
             {
               "id": "REQ-170",
               "statement": "VO と Test は 1:1 に限定しない。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-034",
+                "ROOT-036"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 10.4 VO と Test の対応",
@@ -3558,7 +3564,10 @@
             {
               "id": "REQ-171",
               "statement": "`1 VO -> 1 Test` / `1 VO -> N Tests` / `N VOs -> 1 Test` / `N VOs -> M Tests` を許容する。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-034",
+                "ROOT-036"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 10.4 VO と Test の対応",
@@ -3571,7 +3580,10 @@
             {
               "id": "REQ-172",
               "statement": "Test は VO の検証実装単位であり、VO そのものではない。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-034",
+                "ROOT-036"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 10.4 VO と Test の対応",
@@ -3584,7 +3596,10 @@
             {
               "id": "REQ-173",
               "statement": "Test を構成する言語構文や test runner 上の実行単位は adapter が識別する。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-034",
+                "ROOT-036"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 10.4 VO と Test の対応",
@@ -4101,12 +4116,18 @@
           410
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "ROOT-034",
+        "ROOT-036"
+      ],
       "items": [
         {
           "id": "REQ-206",
           "statement": "table-driven の論理形式を正式に許容する。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 15. Parameterized / Table-Driven Test",
@@ -4119,7 +4140,10 @@
         {
           "id": "REQ-207",
           "statement": "adapter が識別した table-driven test construct 全体を一つの Test として登録でき、内部の各 case を独立 Test ID へ分解することを必須とはしない。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 15. Parameterized / Table-Driven Test",
@@ -4132,7 +4156,10 @@
         {
           "id": "REQ-208",
           "statement": "必要な場合、cases 集合が VO に必要な入力空間を十分に代表または網羅しているかは、§12 の発見・判定の対象とする。",
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-034",
+            "ROOT-036"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 15. Parameterized / Table-Driven Test",
@@ -5376,7 +5403,9 @@
         {
           "id": "REQ-283",
           "statement": "検索 index 等の派生データを正典から再構築可能であること（NFR-004 再構築可能性）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 24. 非機能要求",
@@ -5495,7 +5524,9 @@
         {
           "id": "REQ-290",
           "statement": "Test Edit 対象外の一般的な編集そのものを管理すること（OOS-003 通常ソースコード編集管理）。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -5638,12 +5669,18 @@
               530
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "ROOT-033",
+            "R-1"
+          ],
           "items": [
             {
               "id": "REQ-297",
               "statement": "利用者向けに OK / NG の簡易結果を提供する。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-033",
+                "R-1"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 26.2 簡易出力と詳細出力",
@@ -5656,7 +5693,10 @@
             {
               "id": "REQ-298",
               "statement": "NG の場合、どの検査が・どの状態で・どの診断ラベルとともに落ちたかを掘り下げ可能とする。",
-              "derives_from": [],
+              "derives_from": [
+                "ROOT-033",
+                "R-1"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
                 "heading": "### 26.2 簡易出力と詳細出力",
@@ -11793,12 +11833,30 @@
               161
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "P-002",
+            "REQ-S010",
+            "REQ-S014",
+            "REQ-S016",
+            "REQ-S048",
+            "REQ-S053",
+            "REQ-S057",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-276",
               "statement": "統合したTest IDは全adapterでglobal uniquenessを検査する。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "REQ-S010",
+                "REQ-S014",
+                "REQ-S016",
+                "REQ-S048",
+                "REQ-S053",
+                "REQ-S057",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 2.2 `config.yaml`",
@@ -11836,12 +11894,34 @@
               210
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "R-5",
+            "REQ-S005",
+            "REQ-S007",
+            "REQ-S025",
+            "REQ-S027",
+            "REQ-S035",
+            "REQ-S036",
+            "REQ-S040",
+            "REQ-S046",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-277",
               "statement": "`note` は付加・保存できる構造とする。",
-              "derives_from": [],
+              "derives_from": [
+                "R-5",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S025",
+                "REQ-S027",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 3.1 document レコード（`.verify/doc/DOC-*.yaml`）",
@@ -11854,7 +11934,18 @@
             {
               "id": "SPEC-278",
               "statement": "本システムは文書内容の意味的良否を検証しない。",
-              "derives_from": [],
+              "derives_from": [
+                "R-5",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S025",
+                "REQ-S027",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "cites": [
                 "基本仕様 §29 OOS-001"
               ],
@@ -11880,7 +11971,13 @@
               212
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S007",
+            "REQ-S027",
+            "REQ-S029",
+            "REQ-S034",
+            "REQ-S058"
+          ],
           "sections": [
             {
               "id": "SPEC-S073",
@@ -11893,12 +11990,24 @@
                   286
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S007",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S058"
+              ],
               "items": [
                 {
                   "id": "SPEC-279",
                   "statement": "組合せ空間の定義が仕様に対して十分かは本システムの検査ではなく、`UNKNOWN` としてエスカレーションの領分である（§8）。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S007",
+                    "REQ-S027",
+                    "REQ-S029",
+                    "REQ-S034",
+                    "REQ-S058"
+                  ],
                   "cites": [
                     "基本仕様 §11",
                     "基本仕様 §10"
@@ -11915,7 +12024,13 @@
                 {
                   "id": "SPEC-280",
                   "statement": "`combinations` の値が仕様に対して十分な組合せ集合かは本システムの検査ではなく、エスカレーションの領分である。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S007",
+                    "REQ-S027",
+                    "REQ-S029",
+                    "REQ-S034",
+                    "REQ-S058"
+                  ],
                   "cites": [
                     "基本仕様 §10",
                     "基本仕様 §11"
@@ -12073,12 +12188,20 @@
               471
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S019",
+            "REQ-S020",
+            "REQ-S054"
+          ],
           "items": [
             {
               "id": "SPEC-286",
               "statement": "`target_coverage` は `target_binding` の動的計測（宣言対象の実行が生じたか）の結果であり、独立の検査項目ではない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019",
+                "REQ-S020",
+                "REQ-S054"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）",
@@ -12116,7 +12239,9 @@
               678
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S014"
+          ],
           "items": [
             {
               "id": "SPEC-287",
@@ -12210,12 +12335,30 @@
               861
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S005",
+            "REQ-S007",
+            "REQ-S025",
+            "REQ-S035",
+            "REQ-S036",
+            "REQ-S040",
+            "REQ-S046",
+            "REQ-282"
+          ],
           "items": [
             {
               "id": "SPEC-289",
               "statement": "関係型（`derives_from` / `covers` / `targets` / 外部Relation）は横断トレース可能とするが、単一へ潰さず、また意味論的に増殖もさせない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S025",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.3 検証グラフ",
@@ -12238,12 +12381,20 @@
               892
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S025",
+            "REQ-S036",
+            "REQ-S050"
+          ],
           "items": [
             {
               "id": "SPEC-290",
               "statement": "warningはレポートに常に表示する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S025",
+                "REQ-S036",
+                "REQ-S050"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "### 5.4 整合性診断",
@@ -12354,12 +12505,20 @@
               958
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "R-3",
+            "REQ-S025",
+            "REQ-S027"
+          ],
           "items": [
             {
               "id": "SPEC-294",
               "statement": "解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別する。",
-              "derives_from": [],
+              "derives_from": [
+                "R-3",
+                "REQ-S025",
+                "REQ-S027"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "6.1 adapter-neutral解決contract",
@@ -12397,12 +12556,22 @@
               1051
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S012",
+            "REQ-S021",
+            "REQ-S024",
+            "REQ-S025"
+          ],
           "items": [
             {
               "id": "SPEC-299",
               "statement": "ルールごとの判定結果と根拠（該当スパン）は`vtest audit static`の出力および`cache/`の派生結果として提示する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S012",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "7.2 `rust-cargo` ルール一覧",
@@ -12425,7 +12594,12 @@
               1113
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S011",
+            "REQ-S020",
+            "REQ-S025",
+            "REQ-S054"
+          ],
           "items": [
             {
               "id": "SPEC-464",
@@ -12449,7 +12623,12 @@
             {
               "id": "SPEC-302",
               "statement": "本節の target 実行到達規則を普遍規則として適用しない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S011",
+                "REQ-S020",
+                "REQ-S025",
+                "REQ-S054"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
@@ -12462,7 +12641,12 @@
             {
               "id": "SPEC-303",
               "statement": "本節はprocess boundaryによってDA-002到達が恒久UNKNOWNになる問題だけを解消するものであり、boundary testを完全にoracle_presence PASS可能にするものではない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S011",
+                "REQ-S020",
+                "REQ-S025",
+                "REQ-S054"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "7.3 target 到達の静的証明と runtime 証明の関係（target_binding）",
@@ -12812,7 +12996,12 @@
           1407
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S011",
+        "REQ-S019",
+        "REQ-S020",
+        "REQ-S054"
+      ],
       "sections": [
         {
           "id": "SPEC-S092",
@@ -12825,12 +13014,22 @@
               1403
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S011",
+            "REQ-S019",
+            "REQ-S020",
+            "REQ-S054"
+          ],
           "items": [
             {
               "id": "SPEC-318",
               "statement": "`vtest run`は2モードを持つ。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S011",
+                "REQ-S019",
+                "REQ-S020",
+                "REQ-S054"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "10.3 実行モードの整理",
@@ -12868,7 +13067,9 @@
               1446
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S053"
+          ],
           "sections": [
             {
               "id": "SPEC-S095",
@@ -12881,12 +13082,22 @@
                   1458
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S009",
+                "REQ-S025",
+                "REQ-S036",
+                "REQ-S053"
+              ],
               "items": [
                 {
                   "id": "SPEC-331",
                   "statement": "`chain_integrity`は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S009",
+                    "REQ-S025",
+                    "REQ-S036",
+                    "REQ-S053"
+                  ],
                   "cites": [
                     "基本仕様 §5.1"
                   ],
@@ -12902,7 +13113,12 @@
                 {
                   "id": "SPEC-332",
                   "statement": "すべてのTestを管理対象とすることと、当該Testを証拠として算入すること（§7 / §10のtarget_binding / oracle_presence）は別個の条件とする。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S009",
+                    "REQ-S025",
+                    "REQ-S036",
+                    "REQ-S053"
+                  ],
                   "cites": [
                     "基本仕様 §8.1"
                   ],
@@ -12922,7 +13138,9 @@
             {
               "id": "SPEC-319",
               "statement": "`target_binding`は評価地点をTESTとし、§7.3の合成による。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -12935,7 +13153,9 @@
             {
               "id": "SPEC-320",
               "statement": "`target_binding`の未充足は§11.2の写像に従う。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -12948,7 +13168,9 @@
             {
               "id": "SPEC-321",
               "statement": "`oracle_presence`は評価地点をTESTとし、§7.1の合成（DA-001 / DA-003 / DA-004 / DA-005 / DA-006）による。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -12961,7 +13183,9 @@
             {
               "id": "SPEC-322",
               "statement": "本システムは意味判定・候補生成を外部の判定器へ委ねるseam（実行時に差し替え可能な意味判定・意味生成の呼出し点）を4検査の評価経路に持たない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -12974,7 +13198,9 @@
             {
               "id": "SPEC-323",
               "statement": "外部AI／Agentは判断記録（§8）の著者として`.verify/decisions/`へ記録を残す経路でのみ関与し、その記録は入力集合の一部としてファイル経由で読まれる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -12987,7 +13213,9 @@
             {
               "id": "SPEC-324",
               "statement": "完全検証の検査集合はこの4検査に固定し、設定で追加・削除できない（§2.2、基本仕様 §22.1）。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "cites": [
                 "基本仕様 §22.1"
               ],
@@ -13003,7 +13231,9 @@
             {
               "id": "SPEC-325",
               "statement": "旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -13016,7 +13246,9 @@
             {
               "id": "SPEC-326",
               "statement": "`test_existence` / `test_traceability`は`chain_integrity`へ統合した。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -13029,7 +13261,9 @@
             {
               "id": "SPEC-327",
               "statement": "`static_audit`は`oracle_presence`（DA-001/003/004/005/006）と`target_binding`の静的到達（DA-002）へ分割した。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -13042,7 +13276,9 @@
             {
               "id": "SPEC-328",
               "statement": "`test_execution` / `target_execution` / `runtime_result`は`target_binding`の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収した。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.1 検査の評価地点",
@@ -13055,7 +13291,9 @@
             {
               "id": "SPEC-329",
               "statement": "`evidence_validity`は独立検査を廃し、鮮度喪失を診断ラベル`STALE`として§11.2で説明した（基本仕様 §6）。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "cites": [
                 "基本仕様 §6"
               ],
@@ -13112,12 +13350,16 @@
               1518
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S053"
+          ],
           "items": [
             {
               "id": "SPEC-333",
               "statement": "利用者向け簡易出力は`OK` / `NG`の二値とする。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "cites": [
                 "基本仕様 §22.1"
               ],
@@ -13133,7 +13375,9 @@
             {
               "id": "SPEC-334",
               "statement": "詳細出力は任意ノードからの局所／経路／全体トレース（§11.6）に沿ったツリー表示とし、非`PASS`の根拠（判断記録・Evidenceへの参照）を辿れる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.3 集約アルゴリズム",
@@ -13146,7 +13390,9 @@
             {
               "id": "SPEC-335",
               "statement": "人間向けテキストと機械可読JSONの両方を出力できる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S053"
+              ],
               "cites": [
                 "基本仕様 §22.3"
               ],
@@ -13172,12 +13418,16 @@
               1536
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S019"
+          ],
           "items": [
             {
               "id": "SPEC-336",
               "statement": "仕様文書の更新は`vtest doc add --update`による再登録で反映し、依存する判断・承認が失効することを利用者へ提示する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.4 document 鮮度",
@@ -13446,7 +13696,11 @@
               1582
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "R-5",
+            "REQ-S040",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-349",
@@ -13471,7 +13725,11 @@
             {
               "id": "SPEC-350",
               "statement": "UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。",
-              "derives_from": [],
+              "derives_from": [
+                "R-5",
+                "REQ-S040",
+                "REQ-S058"
+              ],
               "cites": [
                 "別紙A",
                 "基本仕様 §30 item 19",
@@ -13514,12 +13772,18 @@
               1599
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S050",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-352",
               "statement": "すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S050",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "16.1 ロック不要の根拠",
@@ -13542,12 +13806,20 @@
               1606
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S036",
+            "REQ-S050",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-353",
               "statement": "`vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S036",
+                "REQ-S050",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "16.2 意味的衝突検出",
@@ -13600,12 +13872,18 @@
               1620
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S015",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-354",
               "statement": "診断コードは§5.4のスキャン診断に加えて定義する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S015",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "17.1 診断コード",
@@ -13628,12 +13906,20 @@
               1666
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S017",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-355",
               "statement": "要求scopeの総合OK / NGはJSONとtextの集約出力から読み取れる（別紙A §12.1・§12.3）。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S017",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "cites": [
                 "別紙A §12.1・§12.3",
                 "別紙A §12.1",
@@ -13651,7 +13937,11 @@
             {
               "id": "SPEC-356",
               "statement": "終了コードは診断severityだけでなく操作段階で決める。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S017",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "17.2 終了コード",
@@ -13664,7 +13954,11 @@
             {
               "id": "SPEC-357",
               "statement": "検証状態と内部エラーは終了コードで分離する。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S017",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "cites": [
                 "基本仕様 §4.4、§26.1"
               ],
@@ -13977,13 +14271,77 @@
               324
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "P-002",
+            "P-003",
+            "P-004",
+            "REQ-S005",
+            "REQ-S007",
+            "REQ-S009",
+            "REQ-S010",
+            "REQ-S012",
+            "REQ-S016",
+            "REQ-S018",
+            "REQ-S019",
+            "REQ-S021",
+            "REQ-S024",
+            "REQ-S025",
+            "REQ-S026",
+            "REQ-S027",
+            "REQ-S029",
+            "REQ-S034",
+            "REQ-S035",
+            "REQ-S036",
+            "REQ-S039",
+            "REQ-S040",
+            "REQ-S045",
+            "REQ-S046",
+            "REQ-S049",
+            "REQ-S050",
+            "REQ-S053",
+            "REQ-S054",
+            "REQ-S057",
+            "REQ-S058",
+            "REQ-282"
+          ],
           "items": [
             {
               "id": "SPEC-374",
               "statement": "`vtest init` は `.verify/` 一式を生成する。",
               "description": "```text\nvtest init [--name <project-name>]\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §2.1"
               ],
@@ -14000,7 +14358,39 @@
               "id": "SPEC-375",
               "statement": "`vtest scan` はスキャンと整合性検査を実行し、診断一覧とエンティティ数のサマリを出力する。",
               "description": "```text\nvtest scan\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §5"
               ],
@@ -14016,7 +14406,39 @@
             {
               "id": "SPEC-376",
               "statement": "`vtest doctor` は `vtest scan` と同一処理の別名であり、自動化環境の整合性検査に使用する。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §16.2"
               ],
@@ -14032,7 +14454,39 @@
             {
               "id": "SPEC-377",
               "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest doctor`",
@@ -14046,7 +14500,39 @@
               "id": "SPEC-378",
               "statement": "`doc` は上流文書を総称 `document` レコードとして管理する唯一のコマンドである。",
               "description": "```text\nvtest doc add --id DOC-BASIC-001 --path docs/basic-spec.md\n              [--title <t>]\n              [--derives-from DOC-REQ-001 [--anchor <text>] [--note <text>]]...\n              [--root | --no-root] [--update]\nvtest doc list [--tree] [--roots]\nvtest doc show DOC-BASIC-001\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §3.1",
                 "基本仕様 §3.1・§3.2"
@@ -14063,7 +14549,39 @@
             {
               "id": "SPEC-379",
               "statement": "`doc edit` は設けない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest doc add / list / show`",
@@ -14076,7 +14594,39 @@
             {
               "id": "SPEC-380",
               "statement": "正典編集は `add --update` で行う。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest doc add / list / show`",
@@ -14089,7 +14639,39 @@
             {
               "id": "SPEC-381",
               "statement": "document の承認・却下・取消は `vtest approval` で行い、`doc` 側に承認操作を置かない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest doc add / list / show`",
@@ -14103,7 +14685,39 @@
               "id": "SPEC-382",
               "statement": "承認は特定のエンティティ型に従属しない独立の領域であり、対象種別を引数に取るこの経路が承認レコード生成の唯一の正典面である。",
               "description": "```text\nvtest approval create --subject-type <vo|document|judgment> --subject-id <id>\n                      --state <approved|rejected|withdrawn>\n                      --approver-kind <human|agent> --approver-id <id>\n                      [--model <m>] [--basis <ref>]... [--supersedes <approval-id>]...\nvtest approval withdraw <approval-id>\n                      --approver-kind <human|agent> --approver-id <id>\n                      [--model <m>] [--basis <ref>]...\nvtest approval show --subject-type <vo|document|judgment> --subject-id <id>\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §3.5"
               ],
@@ -14119,7 +14733,39 @@
             {
               "id": "SPEC-383",
               "statement": "エンティティ側の `vo approve` / `vo_approve` はこの経路への別名にすぎず、追加・相異する規則を持たない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest approval create / withdraw / show`",
@@ -14132,7 +14778,39 @@
             {
               "id": "SPEC-384",
               "statement": "`withdraw <approval-id>` は `create --subject-type <当該レコードの対象種別> --subject-id <当該レコードの対象> --state withdrawn --supersedes <approval-id>` と同一のレコードを生成する短縮形であり、追加の意味論を持たない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest approval create / withdraw / show`",
@@ -14146,7 +14824,39 @@
               "id": "SPEC-385",
               "statement": "`vtest test create` は Form Schema（§14）に基づく回答ファイルを受け取り、検証のうえ対応 adapter が Test construct と metadata 宣言を生成して挿入する。",
               "description": "```text\nvtest test create --form rust-unit-function\n                  --answers answers.yaml [--dry-run]\n```\n\n回答ファイル例：\n\n```yaml\nform: rust-unit-function\nanswers:\n  target: src/parser.rs::Parser::parse\n  covers: [VO-PARSER-UTF8-003]\n  behavior: 不正 UTF-8 入力の拒否\n  test_kind: error\n  input: 不正な continuation byte を含むバイト列\n  expect: ParseError::InvalidUtf8\n  fn_name: rejects_malformed_utf8\n  file: tests/parser_test.rs        # 省略時は target と同居する tests モジュール\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest test create`",
@@ -14160,7 +14870,39 @@
               "id": "SPEC-386",
               "statement": "`vtest test edit` は desired state 方式である。",
               "description": "```text\nvtest test edit TEST-X --answers desired.yaml [--dry-run]\nvtest test edit TEST-X --set covers=VO-A,VO-B [--set intent=\"...\"]...\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "基本仕様 §15.1"
               ],
@@ -14177,7 +14919,39 @@
               "id": "SPEC-387",
               "statement": "`vtest audit static` は決定論的な静的解析を要求時に起動し、rule 別 verdict（`FAIL` / `UNKNOWN` / 違反なし）と根拠 span を stdout と `cache/` へ出力する。",
               "description": "```text\nvtest audit static [--test TEST-X | --all]\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §7"
               ],
@@ -14194,7 +14968,39 @@
               "id": "SPEC-388",
               "statement": "`audit bundle` / `submit` は本冊 §8 の判断記録プロトコルであり、意味検査ではない。",
               "description": "```text\nvtest audit bundle (--test TEST-X | --vo VO-X)\n                   [--kind test-semantic | impl-consistency | case-coverage]\n                   [--include-failed]\nvtest audit submit --file result.json\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §8"
               ],
@@ -14210,7 +15016,39 @@
             {
               "id": "SPEC-389",
               "statement": "本システムは宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを自ら発見・裁定しない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest audit bundle / submit`（判断記録プロトコル）",
@@ -14255,7 +15093,39 @@
             {
               "id": "SPEC-391",
               "statement": "`audit bundle` は判断対象（`--test` / `--vo`）ごとに、判断に必要な情報一式（対象 VO と claim・Test Intent・テストコード全文・Test が宣言した cases 集合・対象実装全文・関連テスト・既知 partition・過去の判断・対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/<ULID>.json` へ出力し、パスと `bundle_id` を返す。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §8.1"
               ],
@@ -14271,7 +15141,39 @@
             {
               "id": "SPEC-392",
               "statement": "旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest audit bundle / submit`（判断記録プロトコル）",
@@ -14284,7 +15186,39 @@
             {
               "id": "SPEC-393",
               "statement": "判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest audit bundle / submit`（判断記録プロトコル）",
@@ -14297,7 +15231,39 @@
             {
               "id": "SPEC-394",
               "statement": "判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state、`vtest approval create` で生成）は別軸・別 entity である。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §3.4",
                 "本冊 §3.5"
@@ -14314,7 +15280,39 @@
             {
               "id": "SPEC-395",
               "statement": "判断済み ≠ 承認済みである。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §8.5",
                 "基本仕様 §17"
@@ -14331,7 +15329,39 @@
             {
               "id": "SPEC-396",
               "statement": "判断は承認なしでも記録でき、正式採用は承認の別段階である。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest audit bundle / submit`（判断記録プロトコル）",
@@ -14345,7 +15375,39 @@
               "id": "SPEC-397",
               "statement": "`vtest run` はテスト実行と Evidence 記録を行う。",
               "description": "```text\nvtest run (--test TEST-X | --vo VO-X | --all) [--fast]\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §9、§10"
               ],
@@ -14362,7 +15424,39 @@
               "id": "SPEC-398",
               "statement": "`vtest verify` は集約を実行し、`OK` / `NG` を返す。",
               "description": "```text\nvtest verify [--items <check1,check2,...>]\n             [--doc DOC-X | --vo VO-X | --test TEST-X]\n             [--gate <name>] [--summary]\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §11.3"
               ],
@@ -14378,7 +15472,39 @@
             {
               "id": "SPEC-399",
               "statement": "検査は基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）のみである。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "基本仕様 §5"
               ],
@@ -14394,7 +15520,39 @@
             {
               "id": "SPEC-400",
               "statement": "旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "cites": [
                 "本冊 §11.1"
               ],
@@ -14411,7 +15569,39 @@
               "id": "SPEC-401",
               "statement": "`vtest report` は `verify` と同じ集約を実行し、根拠（判断記録 ID・Evidence ID・DA rule 診断）を含む完全な詳細を出力する。",
               "description": "```text\nvtest report [--doc DOC-X | --vo VO-X | --test TEST-X]\n             [--items <check1,check2,...>] [--gate <name>]\n             [--from <node>] [--view pm|tester|coder] [--depth <n>]\n             [--direction up|down|both] [--format json]\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest report`",
@@ -14424,7 +15614,39 @@
             {
               "id": "SPEC-402",
               "statement": "`verify` が判定用、`report` が閲覧・提出用という役割分担とする。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest report`",
@@ -14438,7 +15660,39 @@
               "id": "SPEC-403",
               "statement": "`vtest mcp` は stdio で MCP サーバを起動する（§13）。",
               "description": "```text\nvtest mcp\n```",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "P-003",
+                "P-004",
+                "REQ-S005",
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S012",
+                "REQ-S016",
+                "REQ-S018",
+                "REQ-S019",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025",
+                "REQ-S026",
+                "REQ-S027",
+                "REQ-S029",
+                "REQ-S034",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S039",
+                "REQ-S040",
+                "REQ-S045",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S054",
+                "REQ-S057",
+                "REQ-S058",
+                "REQ-282"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "12.2 `vtest mcp`",
@@ -14584,12 +15838,24 @@
               421
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "P-003",
+            "REQ-S035",
+            "REQ-S046",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-408",
               "statement": "`approval_create` は承認レコード生成の唯一の正典面である。",
-              "derives_from": [],
+              "derives_from": [
+                "P-003",
+                "REQ-S035",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "cites": [
                 "本冊 §3.5"
               ],
@@ -14605,7 +15871,13 @@
             {
               "id": "SPEC-409",
               "statement": "`approval_withdraw` は `approval_create` の `state: withdrawn` ＋ `supersedes: [approval_id]` と同一である。",
-              "derives_from": [],
+              "derives_from": [
+                "P-003",
+                "REQ-S035",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "13.2 ツール一覧",
@@ -14618,7 +15890,13 @@
             {
               "id": "SPEC-410",
               "statement": "`vo_approve` は `approval_create` に `subject: { type: vo, id }` を与えた場合の別名であり、独自の意味論を持たない。",
-              "derives_from": [],
+              "derives_from": [
+                "P-003",
+                "REQ-S035",
+                "REQ-S046",
+                "REQ-S049",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "13.2 ツール一覧",
@@ -14641,12 +15919,20 @@
               463
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S035",
+            "REQ-S046",
+            "REQ-S047"
+          ],
           "items": [
             {
               "id": "SPEC-411",
               "statement": "完了確認は `verify` の4検査で行う。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S035",
+                "REQ-S046",
+                "REQ-S047"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
                 "heading": "13.3 エージェント向け利用フロー（参考）",
@@ -14747,12 +16033,26 @@
               15
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "P-002",
+            "REQ-S016",
+            "REQ-S019",
+            "REQ-S050",
+            "REQ-S053",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-414",
               "statement": "検証結果はfail-closedである。",
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "REQ-S016",
+                "REQ-S019",
+                "REQ-S050",
+                "REQ-S053",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                 "heading": "18.1 共通条件",
@@ -14775,12 +16075,38 @@
               54
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S005",
+            "REQ-S009",
+            "REQ-S010",
+            "REQ-S014",
+            "REQ-S015",
+            "REQ-S016",
+            "REQ-S025",
+            "REQ-S035",
+            "REQ-S036",
+            "REQ-S040",
+            "REQ-S046",
+            "REQ-S058"
+          ],
           "items": [
             {
               "id": "SPEC-415",
               "statement": "状態は5つのみとする。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S005",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S014",
+                "REQ-S015",
+                "REQ-S016",
+                "REQ-S025",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "cites": [
                 "基本仕様 §4.1"
               ],
@@ -14796,7 +16122,20 @@
             {
               "id": "SPEC-416",
               "statement": "診断ラベルは検証状態と別軸の原因説明である。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S005",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S014",
+                "REQ-S015",
+                "REQ-S016",
+                "REQ-S025",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "cites": [
                 "基本仕様 §4.2"
               ],
@@ -14812,7 +16151,20 @@
             {
               "id": "SPEC-417",
               "statement": "診断ラベルは状態値ではない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S005",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S014",
+                "REQ-S015",
+                "REQ-S016",
+                "REQ-S025",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "cites": [
                 "基本仕様 §4.2"
               ],
@@ -14828,7 +16180,20 @@
             {
               "id": "SPEC-418",
               "statement": "synthetic adapterは配布対象のproduction language adapterではない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S005",
+                "REQ-S009",
+                "REQ-S010",
+                "REQ-S014",
+                "REQ-S015",
+                "REQ-S016",
+                "REQ-S025",
+                "REQ-S035",
+                "REQ-S036",
+                "REQ-S040",
+                "REQ-S046",
+                "REQ-S058"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                 "heading": "18.2 共通fixture",
@@ -14864,12 +16229,32 @@
                   84
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S007",
+                "REQ-S009",
+                "REQ-S018",
+                "REQ-S025",
+                "REQ-S027",
+                "REQ-S036",
+                "REQ-S046",
+                "REQ-S050",
+                "REQ-S058"
+              ],
               "items": [
                 {
                   "id": "SPEC-419",
                   "statement": "adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S007",
+                    "REQ-S009",
+                    "REQ-S018",
+                    "REQ-S025",
+                    "REQ-S027",
+                    "REQ-S036",
+                    "REQ-S046",
+                    "REQ-S050",
+                    "REQ-S058"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.1 discovery・record・graph と chain_integrity",
@@ -14882,7 +16267,17 @@
                 {
                   "id": "SPEC-420",
                   "statement": "診断ラベルを二重定義しない。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S007",
+                    "REQ-S009",
+                    "REQ-S018",
+                    "REQ-S025",
+                    "REQ-S027",
+                    "REQ-S036",
+                    "REQ-S046",
+                    "REQ-S050",
+                    "REQ-S058"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.1 discovery・record・graph と chain_integrity / chain_integrity（宣言鎖の完全性）",
@@ -14895,7 +16290,17 @@
                 {
                   "id": "SPEC-462",
                   "statement": "上流文書は層ごとのトップレベル配列に分け、層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S007",
+                    "REQ-S009",
+                    "REQ-S018",
+                    "REQ-S025",
+                    "REQ-S027",
+                    "REQ-S036",
+                    "REQ-S046",
+                    "REQ-S050",
+                    "REQ-S058"
+                  ],
                   "cites": [
                     "本冊 §3.1"
                   ],
@@ -14982,12 +16387,24 @@
                   139
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "P-003",
+                "REQ-S012",
+                "REQ-S021",
+                "REQ-S024",
+                "REQ-S025"
+              ],
               "items": [
                 {
                   "id": "SPEC-424",
                   "statement": "確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "P-003",
+                    "REQ-S012",
+                    "REQ-S021",
+                    "REQ-S024",
+                    "REQ-S025"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",
@@ -15000,7 +16417,13 @@
                 {
                   "id": "SPEC-425",
                   "statement": "信頼を宣言する専用の注釈・設定項目・レコードを新設せず、covers / 宣言targetのグラフだけで上記の各値が決まる。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "P-003",
+                    "REQ-S012",
+                    "REQ-S021",
+                    "REQ-S024",
+                    "REQ-S025"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",
@@ -15023,12 +16446,18 @@
                   170
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019",
+                "REQ-S054"
+              ],
               "items": [
                 {
                   "id": "SPEC-426",
                   "statement": "旧モデルの`test_execution` / `runtime_result` / `target_execution`の3独立項目は撤去し、`target_binding`単一検査の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S019",
+                    "REQ-S054"
+                  ],
                   "cites": [
                     "本冊 §11.1"
                   ],
@@ -15044,7 +16473,10 @@
                 {
                   "id": "SPEC-427",
                   "statement": "鮮度喪失の独立検査（旧`evidence_validity`）は設けず、鮮度は基本仕様§6のハッシュ束縛により満たし、喪失を診断ラベル`STALE`として説明する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S019",
+                    "REQ-S054"
+                  ],
                   "cites": [
                     "基本仕様 §6"
                   ],
@@ -15070,12 +16502,22 @@
                   185
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S011",
+                "REQ-S019",
+                "REQ-S020",
+                "REQ-S054"
+              ],
               "items": [
                 {
                   "id": "SPEC-428",
                   "statement": "`target_coverage` は `target_binding` の動的計測結果であり独立の検査項目ではない。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S011",
+                    "REQ-S019",
+                    "REQ-S020",
+                    "REQ-S054"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.5 target_binding 動的計測（per-target）",
@@ -15245,12 +16687,20 @@
                   230
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S018",
+                "REQ-S035",
+                "REQ-S046"
+              ],
               "items": [
                 {
                   "id": "SPEC-437",
                   "statement": "判断済みと承認済みを区別する（判断済み ≠ 承認済み）。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.7 承認と判断記録の分離",
@@ -15263,7 +16713,11 @@
                 {
                   "id": "SPEC-438",
                   "statement": "判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "cites": [
                     "本冊 §3.4・§3.5",
                     "基本仕様 §11.3・§17"
@@ -15280,7 +16734,11 @@
                 {
                   "id": "SPEC-439",
                   "statement": "判断は承認なしでも記録でき、正式採用は承認の別段階である。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.7 承認と判断記録の分離",
@@ -15293,7 +16751,11 @@
                 {
                   "id": "SPEC-440",
                   "statement": "承認は検証状態と独立の別軸である。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.7 承認と判断記録の分離",
@@ -15306,7 +16768,11 @@
                 {
                   "id": "SPEC-441",
                   "statement": "方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.7 承認と判断記録の分離",
@@ -15319,7 +16785,11 @@
                 {
                   "id": "SPEC-442",
                   "statement": "承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "cites": [
                     "基本仕様 §17・§30"
                   ],
@@ -15335,7 +16805,11 @@
                 {
                   "id": "SPEC-443",
                   "statement": "承認 workflow の状態遷移と `approved_state` の値域は本冊 §3.5 に定める。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "REQ-S018",
+                    "REQ-S035",
+                    "REQ-S046"
+                  ],
                   "cites": [
                     "本冊 §3.5"
                   ],
@@ -15361,12 +16835,20 @@
                   264
                 ]
               },
-              "derives_from": [],
+              "derives_from": [
+                "P-002",
+                "REQ-S016",
+                "REQ-S053"
+              ],
               "items": [
                 {
                   "id": "SPEC-444",
                   "statement": "機能単位の集約は親 VO（子 VO を持つ VO）を単位とし、Feature を別エンティティ・別レコード・別 ID として設けない。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "P-002",
+                    "REQ-S016",
+                    "REQ-S053"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.8 verify・report と scope",
@@ -15379,7 +16861,11 @@
                 {
                   "id": "SPEC-463",
                   "statement": "旧モデルの SPEC → REQ → VO → Test 構造は、7 層の木 → VO → Test へ再導出する。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "P-002",
+                    "REQ-S016",
+                    "REQ-S053"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.8 verify・report と scope",
@@ -15392,7 +16878,11 @@
                 {
                   "id": "SPEC-446",
                   "statement": "「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。",
-                  "derives_from": [],
+                  "derives_from": [
+                    "P-002",
+                    "REQ-S016",
+                    "REQ-S053"
+                  ],
                   "source": {
                     "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
                     "heading": "18.3.8 verify・report と scope / 上流該当箇所の同伴",
@@ -30462,12 +31952,16 @@
               1536
             ]
           },
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S019"
+          ],
           "items": [
             {
               "id": "DS-1615",
               "statement": "依存 closure（判断記録・承認の `dependencies`、Evidence の subject hash）が束縛した document ノードのハッシュが現在の subject hash と一致しない場合、当該 document ノードを参照する鎖は `chain_integrity = MISMATCH`（診断 `STALE`）となる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.4 document 鮮度",
@@ -30480,7 +31974,9 @@
             {
               "id": "DS-862",
               "statement": "当該document subjectをdependencyに含む判断記録（§8.5）・承認記録（§3.5）も無効となる。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.4 document 鮮度",
@@ -30493,7 +31989,9 @@
             {
               "id": "DS-1605",
               "statement": "document ノードの規範内容が変わればdocument subject hashが変化するため、以前のdependency entryを現在の承認・判断へ流用しない。",
-              "derives_from": [],
+              "derives_from": [
+                "REQ-S019"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "11.4 document 鮮度",
