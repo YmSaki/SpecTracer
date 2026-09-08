@@ -14,6 +14,7 @@ autotests = false
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+vtest-exec = { path = "../vtest-exec" }
 vtest-model = { path = "../vtest-model" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
@@ -26,3 +27,7 @@ path = "src/main.rs"
 [[test]]
 name = "verify_acceptance"
 path = "tests/verify_acceptance.rs"
+
+[[test]]
+name = "evidence_e2e"
+path = "tests/evidence_e2e.rs"

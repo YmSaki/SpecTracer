@@ -12,7 +12,10 @@ use vtest_model::{
     CheckValue, ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision,
     RunnerInfo, TargetExecution, TestEntity, TestResult,
 };
-use vtest_store::{new_record_id, now_rfc3339, write_new_record, VerifyLayout};
+use vtest_store::{
+    execution_state::{reconstruct_execution_state, ExecutionStateInputs},
+    new_record_id, now_rfc3339, write_new_record, VerifyLayout,
+};
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
@@ -129,9 +132,35 @@ pub fn run_tests(
                     diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
                     target_execution
                 };
+                // DES-213「Evidence writerは`adapter`を必須で記録し、保存前に
+                // Testの`ExecutionDescriptor.adapter`およびrunner kindとの
+                // 整合を検証する」: the Test's own declared execution
+                // adapter is authoritative, not a value re-derived from a
+                // resolved target's locator or a hardcoded literal. If a
+                // resolved target's locator names a *different* adapter,
+                // that is a real inconsistency DES-213 asks this writer to
+                // check for — reported as a diagnostic rather than
+                // silently preferring one value over the other.
+                let adapter_id = test.entity.execution.adapter.clone();
+                if let Some(locator) = &test.target_locator {
+                    if locator.adapter != adapter_id {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                "W-EXEC-102",
+                                format!(
+                                    "Test {} declares execution.adapter {:?} but its resolved \
+                                     target locator names adapter {:?} (DES-213)",
+                                    test.entity.id, adapter_id, locator.adapter
+                                ),
+                            )
+                            .with_location(test.entity.location.clone()),
+                        );
+                    }
+                }
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
+                    adapter: adapter_id.clone(),
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -139,6 +168,21 @@ pub fn run_tests(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
+                    // DES-097/098/099/100/101/210/211/212: reconstructed by
+                    // the shared `vtest-store::execution_state` module (see
+                    // its module doc for the disclosed scope limits —
+                    // single-workspace-root topology, no adapter-config
+                    // projection input exists in this repository yet).
+                    execution_state: reconstruct_execution_state(
+                        root,
+                        ExecutionStateInputs {
+                            adapter: &adapter_id,
+                            schema: "rust-cargo-execution-state-v1",
+                            head_commit: revision.commit.as_deref(),
+                            runner_kind,
+                            invocation: &command_line,
+                        },
+                    ),
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
@@ -497,13 +541,17 @@ fn unknown_target_execution() -> TargetExecution {
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_execution;
     format!(
-        "id: {id}\ntest_id: {test_id}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_execution:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
+        adapter = yaml_scalar(record.adapter.as_str()),
         result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
         executed_at = yaml_scalar(&record.executed_at),
         commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
         dirty = record.revision.dirty,
+        es_schema = yaml_scalar(&record.execution_state.schema),
+        es_complete = record.execution_state.complete,
+        es_hash = record.execution_state.hash.as_ref().map(|hash| yaml_scalar(hash.as_str())).unwrap_or_else(|| "null".to_owned()),
         test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
         target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
         target_fns = if record.hashes.target_fns.is_empty() {

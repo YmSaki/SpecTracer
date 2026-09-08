@@ -34,6 +34,8 @@ use vtest_model::{
     SrcId, TargetRef, TestId, TestSuite, VoId,
 };
 
+pub mod oracle_presence;
+
 // TODO: Review fail-closed handling of `TestTarget::Unknown`. Execution
 // (`vtest-exec::cargo_command` 等) must not silently fall back to an
 // unscoped Cargo target when `ExecutionDescriptor.suite` is `None` — that

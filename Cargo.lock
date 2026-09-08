@@ -548,26 +548,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "vtest-audit"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "syn 2.0.119",
- "thiserror",
- "vtest-model",
- "vtest-scan",
- "vtest-store",
-]
-
-[[package]]
 name = "vtest-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "vtest-exec",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
@@ -592,7 +579,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "vtest-audit",
  "vtest-exec",
  "vtest-model",
  "vtest-scan",
@@ -639,6 +625,8 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-scan",
  "vtest-store",
