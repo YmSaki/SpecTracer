@@ -8,12 +8,14 @@
 //! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
 //! `verify` を動かすために必要な範囲だけを先行して落としている。
 
+mod ops;
+
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use vtest_model::{Diagnostic, ExitCode, JsonEnvelope, VerificationCheck, VerificationState};
 use vtest_scan::{scan_project, ScanResult};
-use vtest_store::{init_project, load_config, GateConfig, ProjectConfig};
+use vtest_store::{init_project, load_config, GateConfig, ProjectConfig, VerifyLayout};
 use vtest_verify::{
     check_name, parse_check, verify_project, CheckOutcome, EntityScope, TreeNode, VerifyOutcome,
 };
@@ -54,6 +56,16 @@ pub enum Command {
     Scan,
     /// Validate configuration and adapter preconditions.
     Doctor,
+    /// Execute one or more Tests and record Evidence (DS-1101-1103).
+    Run {
+        /// Test IDs to run. Omitted = every Test the scan materialized.
+        #[arg(long = "test", value_name = "TEST_ID")]
+        test: Vec<String>,
+        /// DS-1102/DS-1103: cargo test only; `target_coverage` is recorded
+        /// `checked: false` and `target_binding` takes no dynamic evidence.
+        #[arg(long)]
+        fast: bool,
+    },
     /// Aggregate the four canonical checks and return OK / NG.
     ///
     /// SPEC-398「`vtest verify` は集約を実行し、`OK` / `NG` を返す」。
@@ -87,6 +99,7 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
+        Command::Run { test, fast } => run_run(&cli.project, &test, fast, cli.format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -220,6 +233,64 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
             }
         }
         Err(error) => scan_error_exit(&error, format, quiet),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// run
+// ---------------------------------------------------------------------------
+
+fn run_run(
+    project: &Path,
+    test_ids: &[String],
+    fast: bool,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    if let Err(error) = load_config(&root) {
+        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+    }
+    let scan = match scan_project(&root) {
+        Ok(scan) => scan,
+        Err(error) => return scan_error_exit(&error, format, quiet),
+    };
+    let layout = VerifyLayout::new(&root);
+    match ops::run::run(&root, &layout, &scan, test_ids, fast) {
+        Ok(result) => {
+            let has_errors = result.has_errors();
+            let data = serde_json::json!({
+                "evidence": result.evidence.len(),
+                "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
+                "fast": fast,
+            });
+            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
+            emit(format, quiet, &envelope, |envelope| {
+                format!(
+                    "run: {} evidence record(s) written, {} diagnostic(s)\n",
+                    result.evidence.len(),
+                    envelope.diagnostics.len()
+                )
+            });
+            if has_errors {
+                ExitCode::VerificationFailed
+            } else {
+                ExitCode::Ok
+            }
+        }
+        Err(ops::run::RunOpError::UnknownTestId(id)) => usage_failure(
+            format,
+            quiet,
+            "E-OP-001",
+            &format!("no Test with id '{id}' was discovered by scan"),
+        ),
+        Err(error @ ops::run::RunOpError::Execution(_)) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
     }
 }
 
