@@ -112,12 +112,18 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
 
 /// DS-1017/1682 output: `view` carries id・path・content_hash・
 /// derives_from（参照先ノード id の並びのみ、DS-1682）・根指定・鮮度
-/// （`DocView.freshness`、常に`true` — 都度計算のため独立して古くなる
-/// 対象が無い）。`approval_states` は「実効承認状態」（node id →
-/// `draft`/`approved`）— Approvalの`document` subject_typeはノード単位で
-/// 束縛される（DS-1051）ため、登録document（複数ノードを持ちうる）1件に
-/// 対して単一のスカラー値ではなく、文書が持つ全トップレベルノードごとの
-/// 実効承認状態のmapとして返す。
+/// （`DocView.freshness`、常に`true` — その理由は`DocView::freshness`の
+/// doc comment、および`reports/closure-trace.md`のstopped_on参照）。
+///
+/// `approval_states`（「実効承認状態」、node id → `draft`/`approved`）:
+/// **この node id → 状態 の map という形自体、正本の直接引用ではない。**
+/// DS-1017は「実効承認状態」を単数のものとして`doc show`の出力に挙げるが、
+/// Approvalの`document` subject_typeはノード単位で束縛される（DS-1051）
+/// 一方、正本には「登録document（複数ノードを持ちうる、DES-585/595）
+/// 1件」を集約する単位が定義されていない。ノードごとのmapとして返す
+/// 実装判断は、正本に無い集約規則をこのモジュールが発明したことになる
+/// ため、`reports/closure-trace.md`のstopped_onに開示し、上流判断を
+/// 仰いでいる。
 pub struct ShowResult {
     pub view: DocView,
     pub approval_states: BTreeMap<String, String>,

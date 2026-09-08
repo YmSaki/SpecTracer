@@ -1620,7 +1620,6 @@ fn join_ids(ids: &BTreeSet<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use vtest_model::{
         AdapterId, ContentHash, DerivesFrom, Diagnostic, DiscoveredTest, DocumentId,
         ExecutionDescriptor, NodeSource, ProjectPath, RootNode, SentenceNode, SourceLocation,
@@ -1633,11 +1632,17 @@ mod tests {
     // -----------------------------------------------------------------
 
     fn temp_root(name: &str) -> std::path::PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-verify-{name}-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- see
+        // `vtest-scan`'s `fixture()` doc comment for the confirmed root
+        // cause of a previously-unconfirmed flaky failure elsewhere in
+        // this workspace.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-verify-{name}-{}-{sequence}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&root).expect("create fixture root");
         root
     }

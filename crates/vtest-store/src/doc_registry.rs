@@ -56,9 +56,14 @@ pub struct DocView {
     /// `true` in this architecture: `content_hash` is computed live from
     /// `.verify/doc/<id>.json`'s own current bytes on every call (DES-595,
     /// never stored separately), so there is no independently-recorded
-    /// prior hash that could go stale relative to the file — the file
-    /// *is* the record. This is a genuine, structurally-guaranteed answer
-    /// to DS-1017's freshness question, not an omission.
+    /// prior hash that could go stale relative to the file to compare
+    /// against. **A check that can structurally never read `false` is a
+    /// symptom, not a feature**: DS-1017 presupposes a model where a
+    /// stored `content_hash` can drift from the file (the retired
+    /// DES-482 registry that DES-595 replaced), and that comparison target
+    /// no longer exists in this architecture — see
+    /// `reports/closure-trace.md`'s stopped_on list (this is disclosed to
+    /// upstream, not silently resolved by always returning `true`).
     pub freshness: bool,
     pub file: DocumentFile,
 }

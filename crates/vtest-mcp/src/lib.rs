@@ -792,21 +792,44 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
-fn doc_list_tool(root: &Path, _args: &Value) -> Value {
+/// DS-1194: `tree`/`roots` are an input axis, not decoration -- the CLI's
+/// own `doc list --tree`/`--roots` (`render_doc_list_text`) switch what is
+/// rendered rather than always rendering everything, and this tool must
+/// do the same instead of unconditionally emitting every field regardless
+/// of what was asked for.
+///
+/// `roots: true` -> only `roots` (mirrors the CLI's own early return for
+/// `--roots`, which does not also render the record list). `tree: true`
+/// -> `records` + `document_chain` (the tree view needs both: the chain
+/// to draw, the records to know every registered id). Neither given ->
+/// the CLI's own default flat listing, `records` alone. `unresolved_
+/// derives_from` (DS-1018) is not view-gated in the CLI (`render_doc_
+/// list_text` always appends it after the tree/flat/roots branch), so it
+/// is always present here too.
+fn doc_list_tool(root: &Path, args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
+    let want_tree = bool_arg(args, "tree");
+    let want_roots = bool_arg(args, "roots");
     match ops::doc::list(&layout) {
         Ok(result) => {
-            let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
-            success_envelope(
-                true,
-                json!({
-                    "records": records,
-                    "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
-                    "unresolved_derives_from": result.unresolved,
-                    "document_chain": result.document_chain,
-                }),
-                &[],
-            )
+            let mut data = json!({
+                "unresolved_derives_from": result.unresolved,
+            });
+            if want_roots {
+                data["roots"] = json!(result
+                    .records
+                    .iter()
+                    .filter(|view| view.is_root)
+                    .map(|view| view.id.clone())
+                    .collect::<Vec<_>>());
+            } else {
+                let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
+                data["records"] = json!(records);
+                if want_tree {
+                    data["document_chain"] = json!(result.document_chain);
+                }
+            }
+            success_envelope(true, data, &[])
         }
         Err(error) => doc_error_envelope(&error),
     }
@@ -1011,11 +1034,17 @@ mod tests {
     use std::path::PathBuf;
 
     fn temp_root(name: &str) -> PathBuf {
-        let suffix = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-mcp-{name}-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- see
+        // `vtest-scan`'s `fixture()` doc comment for the confirmed root
+        // cause of a previously-unconfirmed flaky failure elsewhere in
+        // this workspace.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-mcp-{name}-{}-{sequence}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&root).expect("create fixture root");
         root
     }
@@ -1755,26 +1784,65 @@ mod tests {
 
         let direct = ops::doc::list(&layout).expect("direct ops::doc::list must succeed");
         let direct_records: Vec<_> = direct.records.iter().map(doc_view_json).collect();
-        let direct_envelope = success_envelope(
+
+        // DS-1194: `tree`/`roots` shape which fields appear, matching the
+        // CLI's own `render_doc_list_text` view-switching. Neither given
+        // -> flat `records` (+ always-present `unresolved_derives_from`),
+        // no `roots`/`document_chain`.
+        let default_envelope = success_envelope(
             true,
             json!({
                 "records": direct_records,
-                "roots": direct.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
-                "unresolved_derives_from": direct.unresolved,
+                "unresolved_derives_from": direct.unresolved.clone(),
+            }),
+            &[],
+        );
+        let mcp_default = dispatch_tool(&root, "doc_list", &json!({}));
+        assert_eq!(
+            mcp_default, default_envelope,
+            "MCP `doc_list` (no tree/roots) must return the same envelope (data + diagnostics) \
+             as the shared `ops::doc::list` the CLI `doc list` wrapper also calls, matching the \
+             CLI's own default flat view"
+        );
+
+        // `tree: true` -> `records` + `document_chain`, no `roots`.
+        let tree_envelope = success_envelope(
+            true,
+            json!({
+                "records": direct_records,
+                "unresolved_derives_from": direct.unresolved.clone(),
                 "document_chain": direct.document_chain,
             }),
             &[],
         );
-        let mcp_envelope = dispatch_tool(&root, "doc_list", &json!({}));
-
-        // DS-1563: same root, same registered documents -- no
-        // per-invocation nondeterminism here (unlike `doc_upsert`'s own
-        // path, this is the *same* root for both calls), so the full
-        // envelope must match exactly.
+        let mcp_tree = dispatch_tool(&root, "doc_list", &json!({"tree": true}));
         assert_eq!(
-            mcp_envelope, direct_envelope,
-            "MCP `doc_list` must return the same envelope (data + diagnostics) as the shared \
-             `ops::doc::list` the CLI `doc list` wrapper also calls"
+            mcp_tree, tree_envelope,
+            "MCP `doc_list` with tree:true must include document_chain, matching the CLI's own \
+             --tree view"
+        );
+
+        // `roots: true` -> only `roots` (mirrors the CLI's own early
+        // return for --roots, which does not also render the record
+        // list).
+        let roots_envelope = success_envelope(
+            true,
+            json!({
+                "unresolved_derives_from": direct.unresolved,
+                "roots": direct
+                    .records
+                    .iter()
+                    .filter(|view| view.is_root)
+                    .map(|view| view.id.clone())
+                    .collect::<Vec<_>>(),
+            }),
+            &[],
+        );
+        let mcp_roots = dispatch_tool(&root, "doc_list", &json!({"roots": true}));
+        assert_eq!(
+            mcp_roots, roots_envelope,
+            "MCP `doc_list` with roots:true must return only roots (+ unresolved_derives_from), \
+             matching the CLI's own --roots early-return view, not also the record list"
         );
     }
 }

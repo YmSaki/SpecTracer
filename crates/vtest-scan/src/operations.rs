@@ -1948,11 +1948,16 @@ mod tests {
     /// `rescan_current_test` never resolves `covers` (that happens in
     /// `scan_project`/`materialize_tests`, not here).
     fn rescan_fixture(calc_rs: &str) -> PathBuf {
-        let suffix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-scan-rescan-{suffix}"));
+        // A nanosecond-timestamp suffix alone collides under parallel test
+        // execution on Windows' coarser clock resolution -- see
+        // `lib.rs`'s `fixture()` doc comment for the confirmed root cause.
+        // Matches this same file's own `temp_root` helper's approach.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "vtest-scan-rescan-{}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
         fs::write(
