@@ -697,10 +697,19 @@ mod tests {
         assert!(parse_items(&["chain_integrity".to_owned()]).is_ok());
     }
 
+    /// DS-1106: omitting `--items` selects the fixed four. `None` is the value
+    /// that carries "the fixed four" into `verify_project`, so this asserts the
+    /// argument mapping only.
+    ///
+    /// The behavioural half of DS-1107 / DS-1109 — that `config.yaml`'s
+    /// `verify.full_scope` is never consulted for item selection — is asserted
+    /// where it is observable, not here:
+    /// `vtest_verify::tests::a_config_full_scope_subset_never_narrows_the_checks_that_run`
+    /// (a subset `full_scope` on disk still runs all four) and
+    /// `verify_acceptance::a_subset_full_scope_is_rejected_not_honoured_as_a_selection`
+    /// (a subset `full_scope` is refused at config load).
     #[test]
-    fn omitted_items_mean_the_fixed_four_not_a_config_subset() {
-        // DS-1106 / DS-1107: 省略は「固定4検査」であり、config 値の部分集合
-        // ではない。`None` が verify 側の「固定4検査」を意味する。
+    fn omitted_items_map_to_the_fixed_four() {
         assert!(parse_items(&[]).expect("empty is valid").is_none());
     }
 

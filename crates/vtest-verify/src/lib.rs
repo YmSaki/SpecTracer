@@ -411,14 +411,25 @@ fn evaluate_chain_integrity(
             labels.insert(DiagnosticLabel::Missing);
             basis.push(format!("[{code}] {}", diagnostic.message));
         } else if CHAIN_INTEGRITY_CODES.contains(&code) || code == "E-SCAN-010" {
-            // E-SCAN-010: DS-1677「同じ `id` を持つ上流文書ノードが 2 件以上
-            // 存在する場合…当該ノードおよび当該参照元ノードの
-            // `chain_integrity` を `MISMATCH` とする」、DS-054「ID衝突は
-            // `chain_integrity` の非 `PASS`（`MISMATCH`）とする」。この
-            // コードはレコード schema 不一致とも共有される（DS-1676）が、
-            // verify 側で内訳を再判定するとレコード層の判定を再実装する
-            // ことになるため、いずれの場合も fail-closed に `MISMATCH` と
-            // して保持する。
+            // E-SCAN-010 → `chain_integrity = MISMATCH`.
+            //
+            // DS-1679「`E-SCAN-010` により受理されなかった宣言鎖レコード
+            // （VO・Test・上流文書ノード）は、存在しないものとして集約から
+            // 取り除かず、当該レコードの`chain_integrity`を`MISMATCH`と
+            // する」。これで前身の blanket 写像（本 slice の stopped_on S4）
+            // は解消した — レコードを「存在しない」と読むと、覆う Test を
+            // 要求する義務ごと集約木から消え、REQ-056 / ROOT-034 の双方向
+            // 完全性が空振りする。
+            //
+            // DS-1679 の後半は Evidence レコードの `E-SCAN-010` を除外し、
+            // DS-476（当該Evidenceを有効な結果に使用しない）＋ DS-278
+            // （`NO_EVIDENCE`／診断 `NOT_EXECUTED`）へ送る。この分岐は本
+            // slice では到達不能である: `scan_project` は Evidence レコードを
+            // 検証せず（`read_evidence` は `operations::show_test` 専用）、
+            // したがって scan 診断に Evidence 由来の `E-SCAN-010` は現れない。
+            // 到達不能な分岐をメッセージ文字列の照合で書くと、後で Evidence
+            // 検証が入ったときに黙って誤分類するので、ここでは書かない。
+            // DS-054 / DS-1677（上流文書ノード id 衝突）も同じ `MISMATCH`。
             mismatch = true;
             basis.push(format!("[{code}] {}", diagnostic.message));
         }
@@ -443,6 +454,30 @@ fn evaluate_chain_integrity(
             "{} discovered Test construct(s) have no management declaration: {}",
             unmanaged.len(),
             join_ids(&unmanaged)
+        ));
+    }
+
+    // DS-561「`ManagedTestLink::Multiple`、E-SCAN-002（Test ID衝突）、
+    // E-SCAN-003（解決不能なVO参照）は `chain_integrity = MISMATCH` に
+    // 写像する」。`Multiple` は「同一 Test construct から複数 draft が生じた」
+    // 状態であって Test ID の大域的衝突ではない（後者は E-SCAN-002）。
+    // DS-561 が両者を並列に列挙しているとおり、別個の違反として数える。
+    //
+    // 診断ラベルは付けない: 正典は `Multiple` にラベルを割り当てておらず、
+    // 発明しない。
+    let multiple = scan
+        .discovered
+        .iter()
+        .filter(|discovered| matches!(discovered.managed, ManagedTestLink::Multiple(_)))
+        .map(|discovered| discovered.location.locator.clone())
+        .collect::<BTreeSet<_>>();
+    if !multiple.is_empty() {
+        mismatch = true;
+        basis.push(format!(
+            "{} discovered Test construct(s) produced multiple management declarations \
+             (ManagedTestLink::Multiple, DS-561): {}",
+            multiple.len(),
+            join_ids(&multiple)
         ));
     }
 
@@ -578,34 +613,57 @@ fn evaluate_orphan_detection(scan: &ScanResult) -> CheckOutcome {
 // target_binding / oracle_presence (per Test)
 // ---------------------------------------------------------------------------
 
-/// Target-resolution diagnostics, keyed by the locator of the Test construct
-/// they were reported against.
+/// One Test construct's unresolvable-target diagnostics.
 ///
-/// DS-756「全宣言targetのうち1件でも「対象なし」または「曖昧」（E-SCAN-004 /
-/// E-SCAN-011）の場合、`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）の
-/// ままとし、**target解決の診断で非`PASS`を示す**」。状態だけでは「証拠が無い」
-/// と「targetが解決できない」を読み分けられないため、後半の義務は根拠テキスト
-/// に当該診断を引用することで果たす。
-const TARGET_RESOLUTION_CODES: [&str; 2] = ["E-SCAN-004", "E-SCAN-011"];
+/// DS-1678「全宣言targetのうち1件でも解決できない場合、当該targetの
+/// `target_binding`は、対象が存在しない場合（E-SCAN-004）は`MISMATCH`
+/// （診断`MISSING`）、複数候補により曖昧な場合（E-SCAN-011）は`MISMATCH`とし、
+/// 当該Testの`target_binding`もfail-closed合成により`MISMATCH`とする。
+/// Evidenceが生成されないこと（DS-755）を理由に`NO_EVIDENCE`
+/// （診断`NOT_EXECUTED`）へ倒してはならない」。
+///
+/// DS-1678 retires the predecessor DS-756, which had held this case at
+/// `NO_EVIDENCE` / `NOT_EXECUTED`; DS-756 no longer exists in the canon.
+#[derive(Default)]
+struct TargetResolution {
+    /// E-SCAN-004: the declared target does not exist.
+    missing: Vec<String>,
+    /// E-SCAN-011: the declared target is ambiguous across candidates.
+    ambiguous: Vec<String>,
+}
 
-fn target_resolution_diagnostics(scan: &ScanResult) -> BTreeMap<String, Vec<String>> {
-    let mut by_locator: BTreeMap<String, Vec<String>> = BTreeMap::new();
+impl TargetResolution {
+    fn is_unresolved(&self) -> bool {
+        !self.missing.is_empty() || !self.ambiguous.is_empty()
+    }
+
+    fn basis(&self) -> Vec<String> {
+        self.missing
+            .iter()
+            .chain(self.ambiguous.iter())
+            .cloned()
+            .collect()
+    }
+}
+
+fn target_resolution_diagnostics(scan: &ScanResult) -> BTreeMap<String, TargetResolution> {
+    let mut by_locator: BTreeMap<String, TargetResolution> = BTreeMap::new();
     for diagnostic in &scan.diagnostics {
-        if !TARGET_RESOLUTION_CODES.contains(&diagnostic.code.as_str()) {
-            continue;
-        }
         let Some(location) = &diagnostic.location else {
             continue;
         };
-        by_locator
-            .entry(location.locator.clone())
-            .or_default()
-            .push(format!("[{}] {}", diagnostic.code, diagnostic.message));
+        let entry = by_locator.entry(location.locator.clone()).or_default();
+        let text = format!("[{}] {}", diagnostic.code, diagnostic.message);
+        match diagnostic.code.as_str() {
+            "E-SCAN-004" => entry.missing.push(text),
+            "E-SCAN-011" => entry.ambiguous.push(text),
+            _ => {}
+        }
     }
     by_locator
 }
 
-fn evaluate_target_binding(test: &TestEntity, resolution: &[String]) -> CheckOutcome {
+fn evaluate_target_binding(test: &TestEntity, resolution: &TargetResolution) -> CheckOutcome {
     // DS-1664「targetを持たないTestの`target_binding`は`NO_EVIDENCE`
     // （診断`NOT_CHECKED`）とする」。
     if test.targets.is_empty() {
@@ -614,6 +672,33 @@ fn evaluate_target_binding(test: &TestEntity, resolution: &[String]) -> CheckOut
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::NotChecked],
             vec!["Test declares no target (DS-1664)".to_owned()],
+        );
+    }
+
+    // DS-1678: an unresolvable declared target is `MISMATCH`, and must NOT be
+    // folded to `NO_EVIDENCE` / `NOT_EXECUTED` on the grounds that no Evidence
+    // could be produced. This is evaluated BEFORE the Evidence-absence rule
+    // below, because DS-1678 names that fallback as the specific error to
+    // avoid: no Evidence can exist for a target that does not resolve
+    // (DS-755 forbids generating it), so telling the reader to "create
+    // evidence" would direct them at work that cannot be done and would hide
+    // the break on the declaration side.
+    //
+    // Diagnostic labels: `MISSING` accompanies the target-absent case
+    // (E-SCAN-004) per DS-1678. For the ambiguous case (E-SCAN-011) the canon
+    // states no label and DS-1678 explicitly declines to forbid one
+    // (「E-SCAN-011 について診断ラベルを禁じてはいない（正典は沈黙しており、
+    // ここで禁止を新設しない）」), so none is invented here.
+    if resolution.is_unresolved() {
+        let mut labels = Vec::new();
+        if !resolution.missing.is_empty() {
+            labels.push(DiagnosticLabel::Missing);
+        }
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Mismatch,
+            labels,
+            resolution.basis(),
         );
     }
 
@@ -626,26 +711,14 @@ fn evaluate_target_binding(test: &TestEntity, resolution: &[String]) -> CheckOut
     // 持たないため、正規化しても「有効な Evidence」にはなり得ない。
     // ROOT-031「現在のソースのハッシュと一致しない証拠は、検証時に
     // 「存在しないもの」として扱う」に従い、Evidence 不在として扱う。
-    // DS-756 の後半（「target解決の診断で非`PASS`を示す」）: target が解決
-    // できない・曖昧な場合、状態は同じ `NO_EVIDENCE` のままでも、根拠には
-    // その診断を引用する。引用しないと「証拠が無い」と「target が解決でき
-    // ない」が読み分けられない。
-    //
-    // なお E-SCAN-011（曖昧）の状態写像は正典内で矛盾している（DS-756 は
-    // `NO_EVIDENCE`／診断 `NOT_EXECUTED`、DS-829 は `MISMATCH`）。どちらか
-    // を選ぶ根拠が正典に無いため状態は発明せず、DS-756 の側（非 `PASS` かつ
-    // 診断で示す）に留め、矛盾は stopped_on として開示する。
-    let mut basis = vec![format!(
-        "no valid Evidence for {} declared target(s) (DS-278)",
-        test.targets.len()
-    )];
-    basis.extend(resolution.iter().cloned());
-
     CheckOutcome::new(
         VerificationCheck::TargetBinding,
         VerificationState::NoEvidence,
         vec![DiagnosticLabel::NotExecuted],
-        basis,
+        vec![format!(
+            "no valid Evidence for {} declared target(s) (DS-278)",
+            test.targets.len()
+        )],
     )
 }
 
@@ -878,7 +951,7 @@ fn build_vo_node(
     scan: &ScanResult,
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
-    resolution: &BTreeMap<String, Vec<String>>,
+    resolution: &BTreeMap<String, TargetResolution>,
     placed: &mut BTreeSet<String>,
 ) -> TreeNode {
     if !placed.insert(id.to_owned()) {
@@ -932,13 +1005,10 @@ fn build_vo_node(
 fn test_node(
     test: &TestEntity,
     selected_checks: &BTreeSet<VerificationCheck>,
-    resolution: &BTreeMap<String, Vec<String>>,
+    resolution: &BTreeMap<String, TargetResolution>,
 ) -> TreeNode {
-    let empty = Vec::new();
-    let test_resolution = resolution
-        .get(&test.location.locator)
-        .unwrap_or(&empty)
-        .as_slice();
+    let empty = TargetResolution::default();
+    let test_resolution = resolution.get(&test.location.locator).unwrap_or(&empty);
     let checks = PER_TEST_CHECKS
         .into_iter()
         .map(|check| {
@@ -1432,6 +1502,124 @@ mod tests {
             labels_of(&outcome, VerificationCheck::TargetBinding),
             vec![DiagnosticLabel::NotChecked]
         );
+    }
+
+    /// DS-1678: an unresolvable declared target is `MISMATCH`, never folded to
+    /// `NO_EVIDENCE` / `NOT_EXECUTED` on the grounds that no Evidence could be
+    /// produced. E-SCAN-004 (target absent) additionally carries `MISSING`;
+    /// E-SCAN-011 (ambiguous) carries no label, because DS-1678 leaves the
+    /// canon silent there and declines to forbid one.
+    ///
+    /// This supersedes the retired DS-756, which had held the same event at
+    /// `NO_EVIDENCE` / `NOT_EXECUTED`.
+    #[test]
+    fn an_unresolvable_target_is_mismatch_not_no_evidence() {
+        let (root, mut scan) = complete_project("unresolvable-target");
+        let at = scan.tests[0].location.clone();
+        scan.diagnostics.push(
+            Diagnostic::error("E-SCAN-004", "target `src/lib.rs::gone` cannot be resolved")
+                .with_location(at),
+        );
+        let outcome = outcome_for(&root, &scan);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::Mismatch,
+            "DS-1678 forbids falling back to NO_EVIDENCE here"
+        );
+        assert!(labels_of(&outcome, VerificationCheck::TargetBinding)
+            .contains(&DiagnosticLabel::Missing));
+        assert!(!labels_of(&outcome, VerificationCheck::TargetBinding)
+            .contains(&DiagnosticLabel::NotExecuted));
+
+        // E-SCAN-011: MISMATCH, but no invented diagnostic label.
+        let (root, mut scan) = complete_project("ambiguous-target");
+        let at = scan.tests[0].location.clone();
+        scan.diagnostics.push(
+            Diagnostic::error("E-SCAN-011", "target matches multiple candidates").with_location(at),
+        );
+        let outcome = outcome_for(&root, &scan);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::Mismatch
+        );
+        assert!(labels_of(&outcome, VerificationCheck::TargetBinding).is_empty());
+    }
+
+    /// DS-561: `ManagedTestLink::Multiple` maps to `chain_integrity = MISMATCH`,
+    /// as a violation distinct from the E-SCAN-002 Test-ID collision it is
+    /// listed alongside. The other three checks must not be collaterally
+    /// damaged.
+    ///
+    /// Disclosure: `vtest-scan` does not currently produce `Multiple` from any
+    /// live scan — `rust-cargo` emits at most one draft per function item — so
+    /// this mapping is exercised only by this constructed fixture.
+    #[test]
+    fn a_multiple_management_declaration_is_chain_integrity_mismatch() {
+        let (root, mut scan) = complete_project("multiple-link");
+        scan.discovered.push(DiscoveredTest {
+            adapter: AdapterId::new("rust-cargo"),
+            location: location("ambiguous-construct"),
+            content_hash: ContentHash::from_text("ambiguous-construct"),
+            managed: ManagedTestLink::Multiple(vec![TestId::new("TEST-A"), TestId::new("TEST-B")]),
+        });
+        let outcome = outcome_for(&root, &scan);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::ChainIntegrity),
+            VerificationState::Mismatch
+        );
+        // No collateral damage to the other three.
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::OrphanDetection),
+            VerificationState::Pass
+        );
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::OraclePresence),
+            VerificationState::NoEvidence
+        );
+    }
+
+    /// DS-1107「`config.yaml` の `verify.full_scope` は…項目選択 knob として
+    /// 使用しない」 and DS-1109「`verify.full_scope` の in-memory の項目補完は
+    /// 行わない」.
+    ///
+    /// Written as a behavioural assertion rather than a statement about the
+    /// call signature: a `config.yaml` carrying a one-item `full_scope` sits on
+    /// disk, and the run still evaluates all four checks. If the config were
+    /// ever consulted for item selection, three checks would come back
+    /// NOT_CHECKED instead.
+    #[test]
+    fn a_config_full_scope_subset_never_narrows_the_checks_that_run() {
+        let (root, scan) = complete_project("config-not-a-knob");
+        std::fs::write(
+            root.join(".verify").join("config.yaml"),
+            "version: 2\nproject:\n  name: fixture\nadapters: []\nverify:\n  \
+             full_scope:\n    - chain_integrity\n",
+        )
+        .expect("write a subset full_scope config");
+
+        let outcome = verify_project(&root, &scan, None, None);
+        assert_eq!(
+            outcome.scope.requested_checks,
+            ALL_CHECKS.to_vec(),
+            "omitting --items must mean the fixed four, not the config's list"
+        );
+        assert!(
+            !outcome.scope.limited,
+            "a config value must not make the run a limited scope"
+        );
+        for check in ALL_CHECKS {
+            assert!(
+                !labels_of(&outcome, check).contains(&DiagnosticLabel::NotChecked)
+                    || check == VerificationCheck::OraclePresence
+                    || check == VerificationCheck::TargetBinding,
+                "{} was skipped as if the config had selected items",
+                check_name(check)
+            );
+        }
     }
 
     /// REQ-079 (static analysis never proves the positive) and REQ-108

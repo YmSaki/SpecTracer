@@ -127,6 +127,34 @@ fn a_rejected_configuration_is_exit_two_for_scan_and_doctor() {
     assert_eq!(run(cli(&root, Command::Doctor)), ExitCode::Usage);
 }
 
+/// DS-1107「`config.yaml` の `verify.full_scope` は…項目選択 knob として
+/// 使用しない」and DS-356 (version 2 rejects a `full_scope` with 重複・未知
+/// 項目・欠落・余剰). A configuration naming fewer than the fixed four is
+/// refused outright — never quietly honoured as a narrowed scope, which would
+/// report three unrun checks as though they had passed.
+#[test]
+fn a_subset_full_scope_is_rejected_not_honoured_as_a_selection() {
+    let root = temp_root("subset-full-scope");
+    assert_eq!(run(cli(&root, Command::Init { name: None })), ExitCode::Ok);
+    let config = root.join(".verify").join("config.yaml");
+    let text = std::fs::read_to_string(&config).expect("read config");
+    let narrowed = text
+        .replace("  - orphan_detection\n", "")
+        .replace("  - target_binding\n", "")
+        .replace("  - oracle_presence\n", "");
+    assert_ne!(
+        narrowed, text,
+        "the fixture config must actually be narrowed"
+    );
+    std::fs::write(&config, narrowed).expect("write narrowed config");
+
+    assert_eq!(
+        run(cli(&root, verify_command())),
+        ExitCode::Usage,
+        "a subset full_scope must be rejected, never used as an item selection"
+    );
+}
+
 /// An empty, freshly initialised project has no document nodes, no VOs and no
 /// Tests. It must NOT come out as a complete-verification OK: DS-253「`vtest
 /// verify` は部分的な登録・判断・実行状態を総合 `OK` として扱わない」。
