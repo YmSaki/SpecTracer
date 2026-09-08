@@ -1,24 +1,5 @@
-use crate::{AdapterId, ContentHash, TestId};
+use crate::{AdapterId, ContentHash, DiagnosticLabel, TestId, VerificationState};
 use serde::{Deserialize, Serialize};
-
-/// Predecessor-model verification result.
-///
-/// This type mixes verification states and diagnostic conditions.
-#[deprecated(
-    note = "Predecessor model: replace with VerificationState and DiagnosticLabel during the canonical v0.1 migration"
-)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum CheckValue {
-    Pass,
-    Fail,
-    Mismatch,
-    Missing,
-    NotChecked,
-    NotExecuted,
-    Stale,
-    Unknown,
-}
 
 /// Identifies the Git revision and whether the working tree had uncommitted changes.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -51,11 +32,18 @@ pub struct RunnerInfo {
 }
 
 /// Records how a verification target was observed during test execution.
+///
+/// `result` is the canonical `VerificationState` this measurement produced;
+/// `diagnostic` is a separate, optional label giving additional context
+/// (e.g. why coverage is `NoEvidence`). The two are independent fields per
+/// the canonical model: a diagnostic label is never a verification state.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TargetExecution {
     pub checked: bool,
     pub method: Option<String>,
-    pub result: CheckValue,
+    pub result: VerificationState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<DiagnosticLabel>,
     pub count: Option<u64>,
 }
 
