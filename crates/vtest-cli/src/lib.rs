@@ -667,6 +667,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                     "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
                     "unresolved_derives_from": result.unresolved,
                     "document_chain": result.document_chain,
+                    "freshness": result.freshness,
                 });
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, |envelope| {
@@ -694,6 +695,12 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
     }
 }
 
+// DS-1017 new/DS-1194: `freshness` is deliberately not part of this base
+// JSON shape -- it is a per-node, cross-referencing computation
+// (`ops::doc::{list,show}`'s own `freshness` field), not a `DocView`
+// property, so each caller that has actually run that computation adds
+// it itself rather than this function claiming a value it never
+// computed.
 fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value {
     serde_json::json!({
         "id": view.id,
@@ -701,7 +708,6 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
-        "freshness": view.freshness,
     })
 }
 

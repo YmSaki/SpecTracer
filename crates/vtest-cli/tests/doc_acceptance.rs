@@ -484,6 +484,89 @@ fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
     );
 }
 
+/// DS-1017 new: once an Approval record's recorded dependency hash for a
+/// node no longer matches that node's *current* subject hash (DES-572 --
+/// changing `statement` changes the hash, DS-1601/1605), the node reads
+/// `Some(false)` (stale), not `Some(true)` or `None`. Same fixture as
+/// `show_reports_fresh_when_a_dependency_entry_matches_the_current_hash`,
+/// with ROOT-001's own `statement` changed and re-registered (`--update`)
+/// *after* the approval was written, so the approval's dependency entry
+/// is now stale relative to the node it names.
+#[test]
+fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
+    use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};
+
+    let root = temp_root("show-freshness-stale");
+    init_project(&root, "vtest-doc-fixture").expect("init .verify/ layout");
+    let with_request = FIXTURE_NODE_TREE.replacen(
+        r#""request": [],"#,
+        r#""request": [{"id":"R-001","statement":"fixture requirement","derives_from":["ROOT-001"],"source":{"doc":"fixture.md","heading":"fixture","lines":[1,1]}}],"#,
+        1,
+    );
+    fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
+    assert_eq!(
+        run(cli(&root, add_command("DOC-BASIC-001", "basic-spec.json"))),
+        ExitCode::Ok
+    );
+
+    let layout = vtest_store::VerifyLayout::new(&root);
+    vtest_store::write_vo_record(
+        &layout,
+        &VoRecord {
+            id: VoId::new("VO-FRESHNESS-STALE"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("R-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "fixture claim".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-10T00:00:00Z".to_owned(),
+            updated: "2026-09-10T00:00:00Z".to_owned(),
+        },
+    )
+    .expect("write VO record");
+    vtest_cli::ops::approval::create(
+        &layout,
+        vtest_cli::ops::approval::CreateArgs {
+            subject_type: "vo".to_owned(),
+            subject_id: "VO-FRESHNESS-STALE".to_owned(),
+            approved_state: "approved".to_owned(),
+            approver_kind: "human".to_owned(),
+            approver_id: "reviewer".to_owned(),
+            approver_model: None,
+            basis: Vec::new(),
+            supersedes: Vec::new(),
+        },
+    )
+    .expect("approval create must succeed against a resolvable VO subject");
+
+    // Change ROOT-001's normative content and re-register -- its subject
+    // hash changes, but the approval's dependency entry above was
+    // snapshotted before this change.
+    let changed = with_request.replace("fixture root", "fixture root, changed");
+    fs::write(root.join("basic-spec.json"), changed).expect("rewrite source file");
+    assert_eq!(
+        run(cli(
+            &root,
+            update_command("DOC-BASIC-001", "basic-spec.json")
+        )),
+        ExitCode::Ok
+    );
+
+    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    assert_eq!(
+        result.freshness.get("ROOT-001").copied(),
+        Some(Some(false)),
+        "ROOT-001's current subject hash no longer matches the approval's recorded \
+         dependency hash, so it must read stale (Some(false)), not fresh or no-comparison-target"
+    );
+}
+
 /// DS-1683/DS-1658: `--root` succeeds when the source file's own top-level
 /// content is entirely `root[]` (already `ROOT-`-prefixed, matching
 /// DS-1658's id-prefix-to-layer rule) — it validates placement, it does

@@ -831,6 +831,7 @@ fn doc_list_tool(root: &Path, args: &Value) -> Value {
             } else {
                 let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
                 data["records"] = json!(records);
+                data["freshness"] = json!(result.freshness);
                 if want_tree {
                     data["document_chain"] = json!(result.document_chain);
                 }
@@ -892,6 +893,9 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
+// DS-1017 new/DS-1194: `freshness` is deliberately not part of this base
+// JSON shape -- see the identical CLI-side comment on `vtest_cli`'s own
+// `doc_view_json`.
 fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
     json!({
         "id": view.id,
@@ -899,7 +903,6 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
         "content_hash": view.content_hash.as_str(),
         "derives_from": view.derives_from,
         "root": view.is_root,
-        "freshness": view.freshness,
     })
 }
 
@@ -1695,6 +1698,61 @@ mod tests {
         );
     }
 
+    /// DS-1683/BD-331: MCP `doc_upsert` given `root` (any value, including
+    /// `false`) alongside `update: true` must be rejected -- root
+    /// designation is fixed at initial registration only. Previously
+    /// untested on the MCP side (only the CLI's own `--root`/`--no-root`
+    /// + `--update` combination had coverage).
+    #[test]
+    fn mcp_doc_upsert_tool_rejects_root_combined_with_update() {
+        let root = temp_root("doc-upsert-root-update-reject");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        fs::write(root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        ops::doc::add(
+            &root,
+            &layout,
+            ops::doc::AddArgs {
+                id: "DOC-BASIC-001".to_owned(),
+                path: "basic-spec.json".to_owned(),
+                derives_from: None,
+                root: false,
+                root_specified: false,
+                update: false,
+            },
+        )
+        .expect("initial add must succeed");
+
+        let envelope_true = dispatch_tool(
+            &root,
+            "doc_upsert",
+            &json!({"id": "DOC-BASIC-001", "path": "basic-spec.json", "root": true, "update": true}),
+        );
+        assert_eq!(
+            envelope_true["ok"],
+            Value::Bool(false),
+            "root: true combined with update: true must be rejected, got {envelope_true:?}"
+        );
+
+        let envelope_false = dispatch_tool(
+            &root,
+            "doc_upsert",
+            &json!({"id": "DOC-BASIC-001", "path": "basic-spec.json", "root": false, "update": true}),
+        );
+        assert_eq!(
+            envelope_false["ok"],
+            Value::Bool(false),
+            "root: false (still present) combined with update: true must be rejected too, got \
+             {envelope_false:?}"
+        );
+    }
+
     /// DS-1003/1681 equivalence: MCP `doc_add`'s `derives_from` argument
     /// writes onto the registered document's top-level node the same way
     /// the CLI's `--derives-from` flag (via `ops::doc::add`) does.
@@ -1809,6 +1867,7 @@ mod tests {
             json!({
                 "records": direct_records,
                 "unresolved_derives_from": direct.unresolved.clone(),
+                "freshness": direct.freshness.clone(),
             }),
             &[],
         );
@@ -1826,6 +1885,7 @@ mod tests {
             json!({
                 "records": direct_records,
                 "unresolved_derives_from": direct.unresolved.clone(),
+                "freshness": direct.freshness.clone(),
                 "document_chain": direct.document_chain,
             }),
             &[],

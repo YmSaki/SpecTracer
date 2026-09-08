@@ -10,12 +10,13 @@ use std::collections::BTreeMap;
 
 use vtest_store::{
     approval::{
-        build_document_node_index, document_dependencies, effective_approval_state,
+        build_document_node_index, document_dependencies, effective_approval_state, node_freshness,
         read_all_approvals, EffectiveApprovalState,
     },
     doc_registry::{
-        apply_derives_from, apply_root, doc_exists, document_derives_from, document_node_ids,
-        read_all_docs, read_doc_view, read_node_tree, unresolved_derives_from, write_doc, DocView,
+        apply_derives_from, apply_root, doc_exists, document_derives_from,
+        document_top_level_node_ids, read_all_docs, read_doc_view, read_node_tree,
+        unresolved_derives_from, write_doc, DocView,
     },
     StoreError, VerifyLayout,
 };
@@ -82,6 +83,16 @@ pub fn add(
             args.id
         )));
     }
+    // DS-1683/BD-331 literally forbid *changing* the root designation
+    // after registration -- they say nothing about rejecting a flag that,
+    // by its own value, would be a no-op (`--no-root`, or MCP's explicit
+    // `"root": false`, on `--update`, cannot actually change anything:
+    // `apply_root(_, false)` is a no-op regardless). Rejecting the
+    // presence of the flag at all here, rather than only rejecting when
+    // it would actually attempt a change, is this module's own
+    // fail-closed derivation, not DS-1683/BD-331's literal text -- team-
+    // lead ruling 2026-09-10 (see `reports/closure-trace.md`'s stopped_on
+    // history): flagged rather than silently narrowed.
     if args.update && args.root_specified {
         return Err(DocOpError::Usage(
             "--root/--no-root cannot be combined with --update: DS-1683/BD-331 fix the root \
@@ -113,6 +124,12 @@ pub struct ListResult {
     /// why this is not simply each document's raw `derives_from` (which
     /// holds node ids, not document ids).
     pub document_chain: std::collections::BTreeMap<String, Vec<String>>,
+    /// DS-1017 new / DS-1194: document id -> (top-level node id ->
+    /// freshness), the same per-node computation `ShowResult.freshness`
+    /// runs for a single document, run here for every registered document
+    /// — DS-1194 names "鮮度" as part of `doc_list`'s own output, not just
+    /// `doc show`'s, so this is not a coarser placeholder.
+    pub freshness: std::collections::BTreeMap<String, BTreeMap<String, Option<bool>>>,
 }
 
 /// DS-1015/1016: `list` (optionally `--tree`/`--roots` — both are rendering
@@ -123,11 +140,26 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
     let map = read_all_docs(layout)?;
     let unresolved = unresolved_derives_from(&map);
     let document_chain = document_derives_from(&map);
+
+    let doc_index = build_document_node_index(layout)?;
+    let approvals = read_all_approvals(layout)?;
+    let freshness = map
+        .values()
+        .map(|view| {
+            let node_ids = document_top_level_node_ids(&view.file);
+            (
+                view.id.clone(),
+                node_freshness(&doc_index, &approvals, &node_ids),
+            )
+        })
+        .collect();
+
     let records = map.into_values().collect();
     Ok(ListResult {
         records,
         unresolved,
         document_chain,
+        freshness,
     })
 }
 
@@ -159,43 +191,26 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
 
     let doc_index = build_document_node_index(layout)?;
     let approvals = read_all_approvals(layout)?;
+    let node_ids = document_top_level_node_ids(&view.file);
+    let freshness = node_freshness(&doc_index, &approvals, &node_ids);
+
     let mut approval_states = BTreeMap::new();
-    let mut freshness = BTreeMap::new();
-    for node_id in document_node_ids(&view.file) {
-        let Some((hash, _)) = doc_index.get(&node_id) else {
+    for node_id in &node_ids {
+        let Some((hash, _)) = doc_index.get(node_id) else {
             continue;
         };
-
-        // DS-1017 new: fresh iff every dependency entry (across every
-        // approval record) naming this node id as `entity` still carries
-        // this node's *current* subject hash; stale if any entry
-        // disagrees (DS-862/1601/1605); no comparison target at all if no
-        // record depends on this node.
-        let recorded_hashes: Vec<_> = approvals
-            .iter()
-            .flat_map(|record| &record.dependencies)
-            .filter(|dependency| dependency.entity == node_id)
-            .map(|dependency| &dependency.hash)
-            .collect();
-        let node_freshness = if recorded_hashes.is_empty() {
-            None
-        } else {
-            Some(recorded_hashes.iter().all(|recorded| *recorded == hash))
-        };
-        freshness.insert(node_id.clone(), node_freshness);
-
-        let dependencies = document_dependencies(&doc_index, &node_id);
+        let dependencies = document_dependencies(&doc_index, node_id);
         let matching: Vec<_> = approvals
             .iter()
-            .filter(|record| record.subject_type == "document" && record.subject == node_id)
+            .filter(|record| record.subject_type == "document" && &record.subject == node_id)
             .cloned()
             .collect();
-        let state = effective_approval_state(&matching, "document", &node_id, hash, &dependencies);
+        let state = effective_approval_state(&matching, "document", node_id, hash, &dependencies);
         let label = match state {
             EffectiveApprovalState::Draft => "draft",
             EffectiveApprovalState::Approved => "approved",
         };
-        approval_states.insert(node_id, label.to_owned());
+        approval_states.insert(node_id.clone(), label.to_owned());
     }
 
     Ok(ShowResult {

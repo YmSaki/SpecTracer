@@ -156,6 +156,46 @@ pub fn document_dependencies(index: &DocumentNodeIndex, subject_id: &str) -> Vec
         .collect()
 }
 
+/// DS-1017 new (`233caec`/PR #50): "鮮度" — "当該 document subject hash
+/// （DES-572）と、当該 document を dependency に含む承認・判断記録が保存
+/// した dependency entry の hash との一致（DS-862・DS-1601・DS-1605）",
+/// computed per node id (each of `node_ids`, expected to already be
+/// top-level-only — see `doc_registry::document_top_level_node_ids`'s doc
+/// comment for why a section's nested `items`/`sections` children must
+/// not be included). For each node id: `Some(true)` if every `dependencies
+/// []` entry across `approvals` naming it as `entity` still carries that
+/// node's *current* subject hash (from `doc_index`); `Some(false)` if any
+/// entry disagrees; `None` if no record depends on the node at all (never
+/// rounded to `Some(true)`). No judgment-record domain exists in this
+/// codebase (see this module's own doc comment), so only Approval records
+/// are consulted — the same disclosed scope boundary as elsewhere in this
+/// module.
+pub fn node_freshness(
+    doc_index: &DocumentNodeIndex,
+    approvals: &[crate::records::ApprovalRecord],
+    node_ids: &BTreeSet<String>,
+) -> BTreeMap<String, Option<bool>> {
+    let mut out = BTreeMap::new();
+    for node_id in node_ids {
+        let Some((hash, _)) = doc_index.get(node_id) else {
+            continue;
+        };
+        let recorded_hashes: Vec<_> = approvals
+            .iter()
+            .flat_map(|record| &record.dependencies)
+            .filter(|dependency| &dependency.entity == node_id)
+            .map(|dependency| &dependency.hash)
+            .collect();
+        let freshness = if recorded_hashes.is_empty() {
+            None
+        } else {
+            Some(recorded_hashes.iter().all(|recorded| *recorded == hash))
+        };
+        out.insert(node_id.clone(), freshness);
+    }
+    out
+}
+
 /// DS-1487: a VO subject's dependency closure is the recursive parent-VO
 /// chain, the document nodes that VO and each parent VO reference via
 /// `derives_from`, and each of those document nodes' own effective upstream

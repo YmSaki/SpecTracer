@@ -52,23 +52,6 @@ pub struct DocView {
     /// layer arrays (DS-1681/1682's "参照先ノード id の並び" as observed
     /// directly in the node tree, not a separate document-level field).
     pub derives_from: Vec<String>,
-    /// A coarse per-document placeholder, always `true` -- **not** DS-1017
-    /// new's actual freshness definition. DS-1017 new (`233caec`/PR #50)
-    /// defines freshness per top-level node id, comparing that node's
-    /// *current* subject hash (DES-572) against the hash any Approval
-    /// record's `dependencies[]` entry recorded for it (DS-862/1601/1605)
-    /// -- a three-valued, cross-referencing computation this coarse,
-    /// per-`DocView` bool field cannot represent (no comparison target at
-    /// all reads `None`, never rounded to `true`). `ops::doc::show`'s
-    /// `ShowResult.freshness` (`BTreeMap<String, Option<bool>>`) is the
-    /// actual DS-1017-conformant computation; this field exists only
-    /// because `doc_view_json` (shared by `doc_list`/`doc_upsert`, whose
-    /// output DS-1194 also names "鮮度" for) needs *some* value and this
-    /// module does not run the full cross-referencing check for every
-    /// document in a `doc list` call -- a real, disclosed simplification
-    /// for those two call sites, not the DS-1017-conformant one `doc show`
-    /// now provides.
-    pub freshness: bool,
     pub file: DocumentFile,
 }
 
@@ -246,7 +229,6 @@ fn to_view(id: &str, path: std::path::PathBuf, file: DocumentFile) -> DocView {
         content_hash,
         is_root,
         derives_from,
-        freshness: true,
         file,
     }
 }
@@ -352,13 +334,37 @@ pub fn document_derives_from(views: &BTreeMap<String, DocView>) -> BTreeMap<Stri
 }
 
 /// Every node id (any of the seven layer arrays) a document file declares.
-/// Exposed for DS-1017's "実効承認状態" on `doc show`: Approval's
-/// `document` subject_type binds to individual node ids (DS-1051), not to
-/// the registered file as a whole, so `ops::doc::show` needs this set to
-/// compute one effective state per node the document actually owns.
-pub fn document_node_ids(file: &DocumentFile) -> std::collections::BTreeSet<String> {
+/// Exposed for DS-1017's "実効承認状態"／"鮮度" on `doc show`
+/// (`233caec`/PR #50: "**各トップレベルノード**の id を subject とする実効
+/// 承認"): Approval's `document` subject_type binds to individual node
+/// ids (DS-1051), not to the registered file as a whole, so `ops::doc`
+/// needs this set to compute one effective state / freshness per node the
+/// document actually owns. **Top-level only** — a `SectionNode`'s own
+/// `items`/`sections` children are not top-level nodes of the *document*,
+/// they are children of that section; including them (as an earlier round
+/// of this function did, reusing `collect_all_ids`'s deep walk meant for
+/// a different purpose — resolving arbitrary `derives_from` targets
+/// anywhere in the corpus, see `unresolved_derives_from`/
+/// `document_derives_from` below) over-reported approval/freshness
+/// coverage past what DS-1017 names.
+pub fn document_top_level_node_ids(file: &DocumentFile) -> std::collections::BTreeSet<String> {
     let mut out = std::collections::BTreeSet::new();
-    collect_all_ids(file, &mut out);
+    for node in &file.root {
+        out.insert(node.id.as_str().to_owned());
+    }
+    for node in &file.request {
+        out.insert(node.id.as_str().to_owned());
+    }
+    for section in file
+        .require
+        .iter()
+        .chain(&file.spec)
+        .chain(&file.detailed_spec)
+        .chain(&file.basic_design)
+        .chain(&file.design)
+    {
+        out.insert(section.id.as_str().to_owned());
+    }
     out
 }
 
