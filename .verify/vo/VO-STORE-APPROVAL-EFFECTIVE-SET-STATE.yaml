@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-EFFECTIVE-SET-STATE
+parent: null
+derives_from:
+  - doc: DS-1466
+claim: 有効承認recordからsupersedeされたrecordを除き、空またはrejected・withdrawnを含む実効集合はdraft、全件approvedならapprovedとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

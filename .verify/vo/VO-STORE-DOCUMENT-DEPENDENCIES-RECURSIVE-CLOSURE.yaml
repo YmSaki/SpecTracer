@@ -1,0 +1,11 @@
+id: VO-STORE-DOCUMENT-DEPENDENCIES-RECURSIVE-CLOSURE
+parent: null
+derives_from:
+  - doc: DS-1480
+claim: document node承認の上流依存closureは対象自身を除く実効上流を再帰的に閉じた集合である
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00
