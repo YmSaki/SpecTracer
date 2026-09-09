@@ -953,7 +953,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
-    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
     #[test]

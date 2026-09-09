@@ -1,8 +1,8 @@
 id: VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
 parent: null
 derives_from:
-  - doc: DS-626
-claim: 関数内にassert相当が存在する場合、DA-006の「assert相当が1つも存在しない」というFAIL条件には該当しない
+  - doc: DS-619
+claim: target呼出しに直接連結した`.expect(..)`はDS-619のassert相当構文そのものであり、target呼出結果がそのassert相当に到達したものとして扱う
 dimensions: []
 coverage_policy: null
 combinations: []
