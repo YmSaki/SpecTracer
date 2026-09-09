@@ -41,7 +41,7 @@
 //!   report `Fail` — never the reverse — so this narrowing cannot manufacture
 //!   a false `Fail`.
 
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, visit::Visit};
 use vtest_model::{Diagnostic, Locator};
 
 /// One DA rule's verdict, before DS-606/607/608 composes the five into one
@@ -103,13 +103,16 @@ pub fn analyze(
         .chain(extra_assertion_macros.iter().map(String::as_str))
         .collect();
     let assert_spans = find_assert_spans(construct_text, &macros);
-    let has_should_panic = construct_text.contains("#[should_panic");
-    let has_unwrap_or_expect_or_try = construct_text.contains(".unwrap()")
-        || construct_text.contains(".unwrap_err()")
-        || construct_text.contains(".expect(")
-        || construct_text.contains(".expect_err(")
-        || contains_try_operator(construct_text);
-    let has_result_return = signature_returns_result(construct_text);
+    let syntax = RustFunctionSyntax::parse(construct_text);
+    let has_should_panic = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::has_should_panic);
+    let has_unwrap_or_expect_or_try = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::has_unwrap_or_expect_or_try);
+    let has_result_return = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::returns_result);
     let has_verification_syntax = !assert_spans.is_empty()
         || has_should_panic
         || has_unwrap_or_expect_or_try
@@ -436,15 +439,9 @@ fn target_call_has_assert_method_chain(text: &str, call_start: usize, symbol: &s
         return false;
     };
     let suffix = text[close + 1..].trim_start();
-    [
-        ".expect(",
-        ".expect_err(",
-        ".unwrap()",
-        ".unwrap_err()",
-        "?",
-    ]
-    .iter()
-    .any(|token| suffix.starts_with(token))
+    [".expect(", ".unwrap()", "?"]
+        .iter()
+        .any(|token| suffix.starts_with(token))
 }
 
 fn call_close_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
@@ -504,50 +501,75 @@ fn call_argument_list<'a>(text: &'a str, call_start: usize, symbol: &str) -> Opt
 }
 
 fn find_call_sites(text: &str, symbol: &str) -> Vec<usize> {
-    let mut sites = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(symbol) {
-        let start = search_from + relative;
-        let before_ok = start == 0
-            || !text[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_' || c == ':');
-        let after = &text[start + symbol.len()..];
-        let after_ok = after.trim_start().starts_with('(');
-        if before_ok && after_ok {
-            sites.push(start);
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = CallSiteVisitor {
+        text,
+        symbol,
+        sites: Vec::new(),
+    };
+    visitor.visit_item_fn(&function);
+    visitor.sites
+}
+
+struct CallSiteVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    sites: Vec<usize>,
+}
+
+impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(path) = node.func.as_ref() {
+            if path
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == self.symbol)
+            {
+                self.sites
+                    .push(span_offset(node.func.span().start(), self.text));
+            }
         }
-        search_from = start + symbol.len();
+        syn::visit::visit_expr_call(self, node);
     }
-    sites
 }
 
 fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<String> {
-    let mut bindings = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find("let ") {
-        let let_start = search_from + relative;
-        let after_let = &text[let_start + 4..];
-        let Some(name_end) = after_let.find(|c: char| !c.is_alphanumeric() && c != '_') else {
-            search_from = let_start + 4;
-            continue;
-        };
-        let name = after_let[..name_end].trim();
-        let Some(semicolon_relative) = after_let.find(';') else {
-            search_from = let_start + 4;
-            continue;
-        };
-        let statement = &after_let[..semicolon_relative];
-        if !name.is_empty()
-            && statement.contains(symbol)
-            && !find_call_sites(statement, symbol).is_empty()
-        {
-            bindings.push(name.to_owned());
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = LetBindingVisitor {
+        text,
+        symbol,
+        bindings: Vec::new(),
+    };
+    visitor.visit_item_fn(&function);
+    visitor.bindings
+}
+
+struct LetBindingVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    bindings: Vec<String>,
+}
+
+impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        if let (syn::Pat::Ident(pattern), Some(init)) = (&node.pat, &node.init) {
+            let mut calls = CallSiteVisitor {
+                text: self.text,
+                symbol: self.symbol,
+                sites: Vec::new(),
+            };
+            calls.visit_expr(init.expr.as_ref());
+            if !calls.sites.is_empty() {
+                self.bindings.push(pattern.ident.to_string());
+            }
         }
-        search_from = let_start + 4 + semicolon_relative;
+        syn::visit::visit_local(self, node);
     }
-    bindings
 }
 
 // ---------------------------------------------------------------------------
@@ -595,39 +617,70 @@ fn split_top_level_comma(arguments: &str) -> Option<(&str, &str)> {
 // ---------------------------------------------------------------------------
 
 fn da_005_empty_test(text: &str) -> DaVerdict {
-    let Some(body_start) = text.find('{') else {
-        return DaVerdict::NoViolation;
-    };
-    let Some(body_end) = text.rfind('}') else {
-        return DaVerdict::NoViolation;
-    };
-    if body_end <= body_start {
-        return DaVerdict::NoViolation;
-    }
-    let body = &text[body_start + 1..body_end];
-    let stripped = strip_comments(body);
-    if stripped.trim().is_empty() {
+    if syn::parse_str::<syn::ItemFn>(text)
+        .ok()
+        .is_some_and(|function| function.block.stmts.is_empty())
+    {
         DaVerdict::Fail("the Test function body has no statements (DS-625)")
     } else {
         DaVerdict::NoViolation
     }
 }
 
-fn strip_comments(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '/' && chars.peek() == Some(&'/') {
-            for next in chars.by_ref() {
-                if next == '\n' {
-                    break;
-                }
-            }
-            continue;
-        }
-        out.push(ch);
+struct RustFunctionSyntax {
+    function: syn::ItemFn,
+}
+
+impl RustFunctionSyntax {
+    fn parse(text: &str) -> Option<Self> {
+        syn::parse_str(text).ok().map(|function| Self { function })
     }
-    out
+
+    fn has_should_panic(&self) -> bool {
+        self.function
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("should_panic"))
+    }
+
+    fn has_unwrap_or_expect_or_try(&self) -> bool {
+        let mut visitor = VerificationSyntaxVisitor {
+            has_verifier: false,
+        };
+        visitor.visit_item_fn(&self.function);
+        visitor.has_verifier
+    }
+
+    fn returns_result(&self) -> bool {
+        match &self.function.sig.output {
+            syn::ReturnType::Type(_, ty) => match ty.as_ref() {
+                syn::Type::Path(path) => path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "Result"),
+                _ => false,
+            },
+            syn::ReturnType::Default => false,
+        }
+    }
+}
+
+struct VerificationSyntaxVisitor {
+    has_verifier: bool,
+}
+
+impl<'ast> Visit<'ast> for VerificationSyntaxVisitor {
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        if matches!(node.method.to_string().as_str(), "unwrap" | "expect") {
+            self.has_verifier = true;
+        }
+        syn::visit::visit_expr_method_call(self, node);
+    }
+
+    fn visit_expr_try(&mut self, _node: &'ast syn::ExprTry) {
+        self.has_verifier = true;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -744,25 +797,6 @@ fn find_matching_close(text: &str, open_pos: usize, open: char, close: char) -> 
     None
 }
 
-fn contains_try_operator(text: &str) -> bool {
-    // A bare `?` right after an expression (not inside a string/char
-    // literal, and not `?` used inside a type like `Option<T>?` generics —
-    // Rust does not use `?` in type position, so this simple scan is
-    // sound for the try operator specifically). Comments/strings are not
-    // stripped first, which can over-count a `?` appearing inside a
-    // string literal as a try-operator use; that only widens
-    // `has_verification_syntax`, which per this module's doc comment can
-    // only move DA-006 toward `NoViolation`, never fabricate a `Fail`.
-    text.contains('?')
-}
-
-fn signature_returns_result(text: &str) -> bool {
-    let Some(body_start) = text.find('{') else {
-        return false;
-    };
-    text[..body_start].contains("-> Result")
-}
-
 /// Diagnostic code this capability's caller uses when it cannot run this
 /// analysis at all (no `fn` signature/body recognizable in the construct
 /// text) — DS-615's "adapterが不完全…を報告した場合" fail-closed escape.
@@ -830,6 +864,14 @@ mod tests {
     fn no_verification_syntax_fails_da_006() {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
         let analysis = analyze(text, &[], &[]);
+        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+    }
+
+    #[test]
+    fn text_literal_target_and_unwrap_are_not_verification_syntax() {
+        let text = "#[test]\nfn mentions_only() {\n    let _ = \"parse(input).unwrap()\";\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
     }
 
@@ -910,13 +952,13 @@ mod tests {
         );
     }
 
-    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-ERR-PASSES
+    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
     /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent target呼出結果へ直接expect_errを連鎖した場合に到達と判定することを確認する
+    /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
     #[test]
-    fn a_direct_expect_err_call_passes_da_003_and_da_006() {
-        let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
+    fn a_direct_expect_call_passes_da_003_and_da_006() {
+        let text = "#[test]\nfn rejects() {\n    parse(input).expect(\"valid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));

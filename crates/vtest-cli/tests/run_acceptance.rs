@@ -55,6 +55,10 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn clear_outer_coverage_environment() {
+    // These removals mutate the process-wide environment. Tests in this
+    // binary therefore share the cleared state if they run concurrently;
+    // `vtest run --all` currently executes one test per process, so that
+    // sharing is not observable in that command path.
     for variable in [
         "LLVM_PROFILE_FILE",
         "CARGO_LLVM_COV",

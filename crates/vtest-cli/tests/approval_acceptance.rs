@@ -194,6 +194,14 @@ fn create_for_a_resolved_vo_subject_writes_a_record_and_exits_ok() {
     ));
     assert_eq!(exit, ExitCode::Ok);
     assert_eq!(approval_record_count(&root), 1);
+    let record_path = fs::read_dir(root.join(".verify").join("approvals"))
+        .expect("approvals dir exists")
+        .flatten()
+        .find(|entry| entry.path().extension().and_then(|value| value.to_str()) == Some("yaml"))
+        .expect("one approval record")
+        .path();
+    let record = vtest_store::read_approval(&record_path).expect("approval record parses");
+    assert_eq!(record.subject, "VO-APPROVAL-DOUBLE");
 }
 
 /// DS-1466/1467: after one `approved` record with a current subject_hash and
@@ -220,6 +228,13 @@ fn show_reports_approved_after_a_single_current_approved_record() {
         }),
     ));
     assert_eq!(show_exit, ExitCode::Ok);
+    let layout = vtest_store::VerifyLayout::new(&root);
+    let shown = vtest_cli::ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE")
+        .expect("approval show succeeds");
+    assert_eq!(
+        shown.effective_state,
+        vtest_store::approval::EffectiveApprovalState::Approved
+    );
 }
 
 /// BD-307/DS-1056: `withdraw` writes a new record (`state: withdrawn`,
