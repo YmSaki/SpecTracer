@@ -104,7 +104,9 @@ pub fn analyze(
     let assert_spans = find_assert_spans(construct_text, &macros);
     let has_should_panic = construct_text.contains("#[should_panic");
     let has_unwrap_or_expect_or_try = construct_text.contains(".unwrap()")
+        || construct_text.contains(".unwrap_err()")
         || construct_text.contains(".expect(")
+        || construct_text.contains(".expect_err(")
         || contains_try_operator(construct_text);
     let has_result_return = signature_returns_result(construct_text);
     let has_verification_syntax = !assert_spans.is_empty()
@@ -388,6 +390,12 @@ fn target_call_result_is_verified(
         {
             return TargetCallVerification::Verified;
         }
+        if call_is_inside_loop(text, call_start) {
+            return TargetCallVerification::Ambiguous;
+        }
+        if target_call_has_assert_method_chain(text, call_start, symbol) {
+            return TargetCallVerification::Verified;
+        }
     }
     // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
@@ -410,7 +418,74 @@ fn target_call_result_is_verified(
     }) {
         return TargetCallVerification::Ambiguous;
     }
+    if call_sites
+        .iter()
+        .any(|&start| target_call_is_passed_to_other_function(text, start, symbol))
+    {
+        return TargetCallVerification::Ambiguous;
+    }
     TargetCallVerification::Unverified
+}
+
+/// A target result consumed by one of DS-626's assertion-equivalent methods is
+/// verified even when it is not wrapped in an assert macro. This is deliberately
+/// limited to the method chain immediately following the target call.
+fn target_call_has_assert_method_chain(text: &str, call_start: usize, symbol: &str) -> bool {
+    let Some(close) = call_close_position(text, call_start, symbol) else {
+        return false;
+    };
+    let suffix = text[close + 1..].trim_start();
+    [
+        ".expect(",
+        ".expect_err(",
+        ".unwrap()",
+        ".unwrap_err()",
+        "?",
+    ]
+    .iter()
+    .any(|token| suffix.starts_with(token))
+}
+
+fn call_close_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
+    let after = &text[call_start + symbol.len()..];
+    let trimmed = after.trim_start();
+    let open = call_start + symbol.len() + after.len() - trimmed.len();
+    if !text[open..].starts_with('(') {
+        return None;
+    }
+    find_matching_close(text, open, '(', ')')
+}
+
+/// Calls in a loop are outside this bounded analysis: iteration and control
+/// flow can determine whether every result reaches a verifier.
+fn call_is_inside_loop(text: &str, call_start: usize) -> bool {
+    let prefix = &text[..call_start];
+    let loop_start = ["loop", "for ", "while "]
+        .iter()
+        .filter_map(|keyword| prefix.rfind(keyword))
+        .max();
+    let Some(loop_start) = loop_start else {
+        return false;
+    };
+    let Some(open) = text[loop_start..]
+        .find('{')
+        .map(|offset| loop_start + offset)
+    else {
+        return false;
+    };
+    find_matching_close(text, open, '{', '}').is_some_and(|close| call_start < close)
+}
+
+/// Passing a target result to an ordinary function is a delegation/data-flow
+/// shape this adapter cannot resolve, so DS-1680 requires UNKNOWN.
+fn target_call_is_passed_to_other_function(text: &str, call_start: usize, symbol: &str) -> bool {
+    let Some(close) = call_close_position(text, call_start, symbol) else {
+        return false;
+    };
+    let before = text[..call_start].trim_end();
+    before.ends_with('(')
+        || before.ends_with(',')
+        || text[close + 1..].trim_start().starts_with(",")
 }
 
 /// Returns the argument-list text (inside the parens) of a call to `symbol`
@@ -804,6 +879,40 @@ mod tests {
             "{:?}",
             analysis.da_003
         );
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-ERR-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果へ直接expect_errを連鎖した場合に到達と判定することを確認する
+    #[test]
+    fn a_direct_expect_err_call_passes_da_003_and_da_006() {
+        let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-LOOP-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent loop内のtarget呼出はbounded解析でUNKNOWNに退避することを確認する
+    #[test]
+    fn a_target_call_inside_a_loop_is_unknown() {
+        let text = "#[test]\nfn repeated() {\n    for item in inputs {\n        parse(item);\n    }\n    assert!(true);\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-DELEGATED-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-DELEGATION-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target結果を別関数へ渡す形は委譲先を追跡せずUNKNOWNにすることを確認する
+    #[test]
+    fn a_target_call_passed_to_another_function_is_unknown() {
+        let text = "#[test]\nfn delegated() {\n    check(parse(input));\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
     }
 
     /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
