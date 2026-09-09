@@ -3,7 +3,7 @@ parent: null
 derives_from:
   - doc: DES-209
   - doc: DES-184
-claim: snapshot生成不能または不完全の場合も実行事実の履歴を記録できるが、`complete: false`、`hash: null` として現在の有効な `PASS` 証拠へ使用しない。Evidenceレコードの `execution_state` の `hash` fieldは、`complete: false` の場合だけnullとする。
+claim: 'snapshot生成不能または不完全の場合も実行事実の履歴を記録できるが、`complete: false`、`hash: null` として現在の有効な `PASS` 証拠へ使用しない。Evidenceレコードの `execution_state` の `hash` fieldは、`complete: false` の場合だけnullとする。'
 dimensions: []
 coverage_policy: null
 combinations: []

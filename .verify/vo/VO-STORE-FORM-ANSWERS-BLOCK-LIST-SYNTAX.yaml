@@ -2,7 +2,7 @@ id: VO-STORE-FORM-ANSWERS-BLOCK-LIST-SYNTAX
 parent: null
 derives_from:
   - doc: SPEC-385
-claim: 導出。SPEC-385 は回答ファイルの list 型 field（例: `covers: [VO-PARSER-UTF8-003]`）をインライン形式で例示するが、同一の list 型 field はYAMLのブロック形式（`covers:` の下に `- VO-...` を列挙）でも同じ値集合として読めなければならない。両形式は同一の回答ファイル記法の表記ゆれであり、どちらの記法で書いても `test create` の回答解釈が変わらないことがSPEC-385の意図から導出される。
+claim: '導出。SPEC-385 は回答ファイルの list 型 field（例: `covers: [VO-PARSER-UTF8-003]`）をインライン形式で例示するが、同一の list 型 field はYAMLのブロック形式（`covers:` の下に `- VO-...` を列挙）でも同じ値集合として読めなければならない。両形式は同一の回答ファイル記法の表記ゆれであり、どちらの記法で書いても `test create` の回答解釈が変わらないことがSPEC-385の意図から導出される。'
 dimensions: []
 coverage_policy: null
 combinations: []

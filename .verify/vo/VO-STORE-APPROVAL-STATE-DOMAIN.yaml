@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-STATE-DOMAIN
 parent: null
 derives_from:
   - doc: DS-458
-claim: `approved_state`が値域外の他の値の場合、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。
+claim: '`approved_state`が値域外の他の値の場合、書込み時にE-APPROVAL-002として拒否する。既存レコードとして読み取った場合は履歴表示だけを許可していかなる実効承認も導出せず、W-STORE-006を出す。'
 dimensions: []
 coverage_policy: null
 combinations: []
