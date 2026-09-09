@@ -3668,7 +3668,7 @@ fn empty_covers() {}
     /// （PM 裁定・pr3-decisions.md 裁定7）。
     /// @vtest.id TEST-SCAN-EDIT-COVERS-NO-VO-PREFIX-ENFORCED
     /// @vtest.covers VO-SCAN-ID-FORMAT-NOT-ENFORCED
-    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
     /// @vtest.intent verifies edit_test accepts a covers value referencing a real VO whose id lacks a VO- prefix
     #[test]
     fn edit_test_covers_does_not_enforce_a_vo_id_prefix() {
@@ -3692,7 +3692,7 @@ fn empty_covers() {}
     /// 衝突した construct のどれかを黙って編集対象に選ばない。
     /// @vtest.id TEST-SCAN-EDIT-REJECTS-COLLIDING-TEST-ID
     /// @vtest.covers VO-SCAN-EDIT-COLLIDING-TEST-ID-NO-REPRESENTATIVE
-    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
     /// @vtest.intent verifies edit_test fails closed with E-OP-002 (naming the collision count) rather than silently picking one of the colliding constructs to edit
     #[test]
     fn edit_test_rejects_a_colliding_test_id() {
@@ -3740,7 +3740,7 @@ fn edit_collision_second() {}
     /// 値へ`--set`しても複数targetへの編集が通る。
     /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-CARGO-INTEGRATION-KIND-INDEPENDENT
     /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
-    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
     /// @vtest.intent verifies edit_test allows a Cargo integration test to declare multiple targets even when @vtest.kind is set to a value not starting with integration
     #[test]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
@@ -3779,7 +3779,7 @@ fn edit_collision_second() {}
     /// 挙動をロックインする回帰テスト。
     /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-LIB-KIND-INDEPENDENT
     /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
-    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
     /// @vtest.intent verifies edit_test allows a lib test (not a Cargo integration test) to declare multiple targets, with no execution-form condition on cardinality
     #[test]
     fn edit_test_allows_multiple_targets_for_a_lib_test_regardless_of_kind_string() {

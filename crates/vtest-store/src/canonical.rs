@@ -918,7 +918,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-ROUND-TRIP-DISK
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file,read_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::read_document_file
     /// @vtest.intent Writing a document file and reading it back yields the same DocumentFile.
     #[test]
     fn document_file_round_trips_through_disk() {
@@ -935,7 +936,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-NO-IDENTITY-ON-DISK
     /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
-    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file,read_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::read_document_file
     /// @vtest.intent A document file's name, not any field inside it, is its identity — an arbitrary file name round-trips.
     #[test]
     fn document_file_has_no_identifying_field_on_disk() {
@@ -1084,7 +1086,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-NESTED-WRONG-LAYER
     /// @vtest.covers VO-MODEL-DOCUMENT-LAYER-ARRAY-PREFIX-AGREEMENT
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent DS-1658's layer/prefix agreement also fires on a node nested two levels deep under sections[]/items[].
     /// DS-1658 layer/prefix agreement, checked on a node nested two levels
     /// deep (`require[].sections[].items[]`) — `validate_section_node`
@@ -1173,7 +1176,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-SECTION
     /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent A section-level derives_from entry not matching $defs/id fails closed as E-SCAN-010.
     /// specification.schema.json:71 (`section.derives_from`) is the same
     /// `$defs/id`-constrained array as the sentence-node case above, checked
@@ -1197,7 +1201,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-NESTED-ITEM
     /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent A malformed derives_from entry on a nested items[] sentence also fails closed.
     /// The same check must also fire on a sentence node nested inside a
     /// section's `items[]`, not only on a top-level `request[]` entry —
@@ -1228,7 +1233,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-ACCEPTS-CROSS-LAYER-DERIVES-FROM
     /// @vtest.covers VO-MODEL-DOCUMENT-DERIVES-FROM-CROSS-LAYER-ALLOWED
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent A derives_from entry pointing at a node in a different layer than the node that holds it is accepted.
     /// Positive case locking in the scoping decision above: a `derives_from`
     /// entry pointing at a node in a *different* layer than the node that
@@ -1361,7 +1367,10 @@ mod tests {
     /// there is exactly one copy of this fixture's content to keep in sync.
     /// @vtest.id TEST-STORE-CANONICAL-DOC-SAMPLE-FIXTURE-ROUND-TRIP
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json,document_file_to_json,write_document_file,read_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::read_document_file
     /// @vtest.intent PR #20's populated sample document round-trips through this crate's reader/writer, in memory and through disk.
     #[test]
     fn document_sample_fixture_round_trips_through_the_store_reader_and_writer() {
@@ -1403,7 +1412,8 @@ mod tests {
     /// file outside this crate's fixtures.
     /// @vtest.id TEST-STORE-CANONICAL-BUNDLE-ROUND-TRIP
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json,document_file_to_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent The real canonical specification.json round-trips through this crate's reader/writer with matching node counts.
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
@@ -1575,7 +1585,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-ROUND-TRIP-YAML
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent A VO record round-trips through canonical YAML with no diagnostics.
     #[test]
     fn vo_record_round_trips_through_canonical_yaml() {
@@ -1588,7 +1599,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-OPTIONAL-FIELDS-ABSENT-ROUND-TRIP
     /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
-    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent A VO with every optional field absent (parent, dimensions, coverage_policy, combinations, representative_cases) round-trips.
     /// `derives_from` itself is mandatory (SPEC-015); this exercises every
     /// *other* optional field being absent instead.
@@ -1619,7 +1631,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-EMPTY-DERIVES-FROM-REJECTED
     /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
-    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml,write_vo_record
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record
     /// @vtest.intent A VO with zero derives_from entries fails closed on both read and write (SPEC-015 requires >= 1).
     #[test]
     fn vo_record_with_empty_derives_from_is_rejected_on_read_and_write() {
@@ -1642,7 +1655,8 @@ mod tests {
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-COMBINATION-DIMENSION-REJECTED-ON-WRITE
     /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
-    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record,require_no_duplicate_combination_dimension_names
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record
+    /// @vtest.target crates/vtest-store/src/canonical.rs::require_no_duplicate_combination_dimension_names
     /// @vtest.intent A combinations[] entry repeating a dimension name is rejected cleanly by the writer, not by a panic inside vo_record_to_yaml.
     /// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
     /// `combinations[]` entry declaring the same dimension twice must not
@@ -1939,7 +1953,8 @@ updated: 2026-08-08
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-NO-STATUS-FIELD-NO-DIAGNOSTICS
     /// @vtest.covers VO-MODEL-VO-STATUS-COMPAT-FIELD
-    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml,vo_record_to_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml
     /// @vtest.intent A record with no status field produces no diagnostics.
     #[test]
     fn vo_record_without_status_field_reports_no_diagnostics() {
@@ -2103,7 +2118,8 @@ updated: 2026-08-08
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-READ-WRITE-ROUND-TRIP-DISK
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record,read_vo_record
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record
+    /// @vtest.target crates/vtest-store/src/canonical.rs::read_vo_record
     /// @vtest.intent Writing a VO record to disk and reading it back yields the same record.
     #[test]
     fn vo_record_read_write_round_trips_through_disk() {
@@ -2123,7 +2139,8 @@ updated: 2026-08-08
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-COMBINATIONS-ROUND-TRIP-DIMENSION-KEYED-MAPS
     /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
-    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent Multiple dimensions with a combinations[] entry round-trip as dimension-keyed maps.
     #[test]
     fn vo_record_combinations_round_trip_as_dimension_keyed_maps() {
