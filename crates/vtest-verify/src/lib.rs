@@ -1846,6 +1846,9 @@ mod tests {
     /// into both DOC subtrees. Evaluation-call counting is not exposed by the
     /// current API, so identical check/state/basis and no duplicated non-PASS
     /// outcome are the observable substitute.
+    /// @vtest.id TEST-VERIFY-SHARED-VO-PROJECTED-IDENTICALLY
+    /// @vtest.covers VO-VERIFY-DOC-AGGREGATES-DOWNSTREAM-VO-SUBTREE
+    /// @vtest.intent 複数documentから導出される同一VOを各DOC部分木へ同一状態で投影し、各部分木でfail-closedに集約することを確認する
     #[test]
     fn shared_vo_is_projected_identically_under_both_documents() {
         let root = temp_root("shared-vo-projection");
@@ -1886,6 +1889,9 @@ mod tests {
 
     /// DS-302 / DS-562: a VO parent cycle is chain_integrity MISMATCH with
     /// the E-SCAN-008 mapping visible in the affected tree node.
+    /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-MISMATCH
+    /// @vtest.covers VO-VERIFY-E-SCAN-008-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent VO parent循環をE-SCAN-008のbasis付きchain_integrity MISMATCHへ写像することを確認する
     #[test]
     fn vo_parent_cycle_is_chain_integrity_mismatch_with_e_scan_008_basis() {
         let root = temp_root("vo-parent-cycle-state");
@@ -1908,6 +1914,9 @@ mod tests {
 
     /// DS-302 / DS-562: the same cyclic fixture terminates rather than
     /// recursing forever; reaching this assertion is the termination proof.
+    /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-TERMINATES
+    /// @vtest.covers VO-VERIFY-VO-PARENT-CYCLE-IS-MISMATCH
+    /// @vtest.intent VO parent循環の検証が停止し、MISMATCHを表現できる結果木を返すことを確認する
     #[test]
     fn verify_terminates_for_vo_parent_cycle_fixture() {
         let root = temp_root("vo-parent-cycle-termination");

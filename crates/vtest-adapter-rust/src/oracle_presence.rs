@@ -894,7 +894,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-LOOP-DATAFLOW
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent loop内のtarget呼出はbounded解析でUNKNOWNに退避することを確認する
     #[test]
@@ -905,7 +905,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-DELEGATED-CALL-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-DELEGATION-DATAFLOW
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target結果を別関数へ渡す形は委譲先を追跡せずUNKNOWNにすることを確認する
     #[test]
