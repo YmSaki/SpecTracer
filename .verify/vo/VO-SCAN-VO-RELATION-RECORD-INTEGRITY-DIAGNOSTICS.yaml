@@ -1,0 +1,16 @@
+id: VO-SCAN-VO-RELATION-RECORD-INTEGRITY-DIAGNOSTICS
+parent: null
+derives_from:
+  - doc: DS-542
+  - doc: DS-429
+  - doc: DS-1676
+  - doc: DS-549
+  - doc: DS-550
+  - doc: DS-552
+claim: VO/Relation/record層は、VOのparent不在または循環（E-SCAN-008）、Relationのfrom/to不在（E-SCAN-009）、レコードのid/schema不一致（E-SCAN-010）、孤立VO（W-SCAN-102）、非leaf VOへの直接covers（W-SCAN-103）、非正典の読取り互換field status（W-STORE-001）を検出する。record層診断はadapterに属さないため、locationまたはメッセージ内のレコードファイルパスのいずれかで対象を識別する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

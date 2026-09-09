@@ -3937,6 +3937,10 @@ fn lib_test() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-RELATION-ID-ALIASES-CANNOT-DUPLICATE-ULID
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two relation records whose ids are the same ULID payload under bare and REL-prefixed spellings collide as a logical id duplicate (E-SCAN-010), with no adapter-attributed location, and the message names both ids and the file
     #[test]
     fn relation_id_aliases_cannot_duplicate_one_ulid_payload() {
         let root = fixture();
@@ -3986,6 +3990,10 @@ fn lib_test() {}
     /// this fix, `known_ids` held the file name and not the node id, so both
     /// directions were backwards (the file name resolved, the real node id
     /// did not).
+    /// @vtest.id TEST-SCAN-RELATION-ENDPOINTS-RESOLVE-BY-NODE-ID-NOT-FILENAME
+    /// @vtest.covers VO-SCAN-RELATION-ENDPOINTS-RESOLVE-BY-NODE-ID
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a relation naming a real upstream document node id resolves, and one naming the document file's name (not a declared node id) does not
     #[test]
     fn relation_endpoints_resolve_against_document_node_ids_not_file_names() {
         let root = fixture();
@@ -4031,6 +4039,10 @@ fn lib_test() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-VO-AND-RELATION-INTEGRITY-DIAGNOSTICS
+    /// @vtest.covers VO-SCAN-VO-RELATION-RECORD-INTEGRITY-DIAGNOSTICS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project reports E-SCAN-008/009/010, W-SCAN-102/103, and W-STORE-001 for the respective malformed VO/relation/approval fixtures, each diagnostic identifying its source via location or an embedded record path
     #[test]
     fn reports_vo_and_relation_integrity_diagnostics() {
         // 詳細設計 v0.1 §2.1 replaced the predecessor REQ/SPEC layers with
@@ -4167,6 +4179,10 @@ fn covers_parent() {}
     // 区別する。ディレクトリを通常ファイルへ差し替えることで、権限エラー
     // と同じ `io::ErrorKind` 非 `NotFound` 経路を移植性のある形で再現する。
 
+    /// @vtest.id TEST-SCAN-MISSING-RELATION-DIR-IS-NO-RELATIONS
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a missing .verify/rel directory is treated as zero relations, producing no relation diagnostics, rather than aborting the scan
     #[test]
     fn missing_relation_dir_is_treated_as_no_relations() {
         let root = fixture();
@@ -4181,6 +4197,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-UNREADABLE-RELATION-DIR-ABORTS-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .verify/rel path that exists but cannot be read as a directory aborts scan_project with ScanError::Io rather than being treated as empty
     #[test]
     fn unreadable_relation_dir_aborts_scan_fail_closed() {
         let root = fixture();
@@ -4195,6 +4215,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-MISSING-APPROVALS-DIR-IS-NO-APPROVALS
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a missing .verify/approvals directory is treated as zero approvals, producing no approval diagnostics
     #[test]
     fn missing_approvals_dir_is_treated_as_no_approvals() {
         let root = fixture();
@@ -4211,6 +4235,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-UNREADABLE-APPROVALS-DIR-ABORTS-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .verify/approvals path that exists but cannot be read as a directory aborts scan_project with ScanError::Io rather than being treated as empty
     #[test]
     fn unreadable_approvals_dir_aborts_scan_fail_closed() {
         let root = fixture();
@@ -4242,6 +4270,10 @@ fn covers_parent() {}
     /// `fixture()` by `write_doc_test_fixture`), so this branch had no test
     /// making it fire — this locks it in, mirroring the document-side
     /// dangling-reference test immediately below.
+    /// @vtest.id TEST-SCAN-REPORTS-VO-DERIVES-FROM-DANGLING-REFERENCE
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a VO's derives_from entry naming a non-existent document node produces E-SCAN-012 naming both the VO and the missing node
     #[test]
     fn reports_vo_derives_from_dangling_reference() {
         let root = fixture();
@@ -4265,6 +4297,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-DERIVES-FROM-DANGLING-REFERENCE
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an upstream document node's derives_from entry naming a non-existent document node produces E-SCAN-012, without also firing E-SCAN-016 (the node itself is not orphaned by a dangling edge)
     #[test]
     fn reports_document_derives_from_dangling_reference() {
         let root = fixture();

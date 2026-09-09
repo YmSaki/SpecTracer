@@ -1,0 +1,11 @@
+id: VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+parent: null
+derives_from:
+  - doc: REQ-135
+claim: 導出。確認不能であることを成立確認済みとして扱ってはならない（REQ-135）。.verify/rel・.verify/approvalsディレクトリが存在しないことは「レコードが0件である」という確認済みの事実であり空扱いでよいが、存在するが読み取れない（権限エラー等）ことは確認不能であるため、空として扱わずscanをfail-closedで中断する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
