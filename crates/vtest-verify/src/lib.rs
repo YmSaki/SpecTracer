@@ -1346,7 +1346,7 @@ fn build_tree(
 ) -> Vec<TreeNode> {
     let resolution = target_resolution_diagnostics(scan);
     let mut roots = Vec::new();
-    let mut placed_vos = BTreeSet::new();
+    let mut built_roots = BTreeSet::new();
 
     // DOC 層: VO の derives_from が指す上流ノード id（DS-1660）。
     for doc in &selection.docs {
@@ -1361,6 +1361,7 @@ fn build_tree(
                         .any(|entry| entry.doc.as_str() == doc)
             })
             .map(|(id, _)| {
+                built_roots.insert(id.clone());
                 build_vo_node(
                     id,
                     vos,
@@ -1368,7 +1369,7 @@ fn build_tree(
                     selection,
                     selected_checks,
                     &resolution,
-                    &mut placed_vos,
+                    &mut BTreeSet::new(),
                     evidence,
                 )
             })
@@ -1379,10 +1380,13 @@ fn build_tree(
     // 上流ノードへ結び付かない VO も部分木から消さない。消すと、限定 report が
     // 「見えないから PASS」を生む。
     for id in &selection.vos {
-        if placed_vos.contains(id) {
+        if built_roots.contains(id) {
             continue;
         }
-        if vos.get(id).is_some_and(|record| record.parent.is_some()) {
+        if vos
+            .get(id)
+            .is_some_and(|record| record.parent.is_some() && !vo_parent_cycle_root(vos, id))
+        {
             continue;
         }
         roots.push(build_vo_node(
@@ -1392,7 +1396,7 @@ fn build_tree(
             selection,
             selected_checks,
             &resolution,
-            &mut placed_vos,
+            &mut BTreeSet::new(),
             evidence,
         ));
     }
@@ -1429,20 +1433,22 @@ fn build_vo_node(
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
-    placed: &mut BTreeSet<String>,
+    visiting: &mut BTreeSet<String>,
     evidence: &EvidenceContext,
 ) -> TreeNode {
-    if !placed.insert(id.to_owned()) {
-        // 循環・重複配置。値を発明せず、未検査として保持する。
+    if !visiting.insert(id.to_owned()) {
+        // DS-302 / DS-542 / DS-562: a parent cycle is E-SCAN-008 and
+        // therefore chain_integrity MISMATCH. Shared DOC ancestry is not a
+        // cycle: each DOC gets a projection of the same evaluation.
         return TreeNode {
             kind: NodeKind::Vo,
             id: id.to_owned(),
-            state: VerificationState::NoEvidence,
+            state: VerificationState::Mismatch,
             checks: vec![CheckOutcome::new(
                 VerificationCheck::ChainIntegrity,
-                VerificationState::NoEvidence,
-                vec![DiagnosticLabel::NotChecked],
-                vec!["VO already placed in the tree (cycle or shared parent)".to_owned()],
+                VerificationState::Mismatch,
+                Vec::new(),
+                vec!["[E-SCAN-008] VO parent cycle".to_owned()],
             )],
             children: Vec::new(),
         };
@@ -1464,7 +1470,7 @@ fn build_vo_node(
                 selection,
                 selected_checks,
                 resolution,
-                placed,
+                visiting,
                 evidence,
             )
         })
@@ -1478,7 +1484,29 @@ fn build_vo_node(
             })
             .map(|test| test_node(test, selected_checks, resolution, scan, evidence)),
     );
+    visiting.remove(id);
     node_from_children(NodeKind::Vo, id, Vec::new(), children)
+}
+
+fn vo_parent_cycle_root(vos: &BTreeMap<String, VoRecord>, start: &str) -> bool {
+    let mut seen = BTreeMap::new();
+    let mut current = start;
+    let mut order = Vec::new();
+    while let Some(record) = vos.get(current) {
+        let Some(parent) = record.parent.as_ref().map(|parent| parent.as_str()) else {
+            return false;
+        };
+        if let Some(&cycle_start) = seen.get(current) {
+            return order[cycle_start..]
+                .iter()
+                .min()
+                .is_some_and(|root| *root == start);
+        }
+        seen.insert(current.to_owned(), order.len());
+        order.push(current);
+        current = parent;
+    }
+    false
 }
 
 fn test_node(
@@ -1794,6 +1822,101 @@ mod tests {
             .filter(|candidate| candidate.check == check)
             .flat_map(|candidate| candidate.labels.clone())
             .collect()
+    }
+
+    fn vo_nodes<'a>(nodes: &'a [TreeNode], id: &str, found: &mut Vec<&'a TreeNode>) {
+        for node in nodes {
+            if node.kind == NodeKind::Vo && node.id == id {
+                found.push(node);
+            }
+            vo_nodes(&node.children, id, found);
+        }
+    }
+
+    fn tree_contains_basis(nodes: &[TreeNode], text: &str) -> bool {
+        nodes.iter().any(|node| {
+            node.checks
+                .iter()
+                .any(|check| check.basis.iter().any(|basis| basis.contains(text)))
+                || tree_contains_basis(&node.children, text)
+        })
+    }
+
+    /// DS-1021 / DS-843: a VO derived from two DOCs is projected identically
+    /// into both DOC subtrees. Evaluation-call counting is not exposed by the
+    /// current API, so identical check/state/basis and no duplicated non-PASS
+    /// outcome are the observable substitute.
+    #[test]
+    fn shared_vo_is_projected_identically_under_both_documents() {
+        let root = temp_root("shared-vo-projection");
+        let layout = init_project(&root, "fixture").expect("init");
+        let mut second_document = document_file();
+        second_document.request[0].id = DocumentId::new("R-002");
+        write_document_file(&layout, "doc-a", &document_file()).expect("doc a");
+        write_document_file(&layout, "doc-b", &second_document).expect("doc b");
+        let mut shared = vo("VO-SHARED", None);
+        shared.derives_from.push(DerivesFrom {
+            doc: DocumentId::new("R-002"),
+            anchor: Some("second-document".to_owned()),
+            note: None,
+        });
+        write_vo_record(&layout, &shared).expect("shared VO");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+
+        let mut nodes = Vec::new();
+        vo_nodes(&outcome.tree, "VO-SHARED", &mut nodes);
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[0].state, nodes[1].state);
+        assert_eq!(nodes[0].checks.len(), nodes[1].checks.len());
+        for (left, right) in nodes[0].checks.iter().zip(&nodes[1].checks) {
+            assert_eq!(left.check, right.check);
+            assert_eq!(left.state, right.state);
+            assert_eq!(left.labels, right.labels);
+            assert_eq!(left.basis, right.basis);
+        }
+        assert_eq!(
+            nodes
+                .iter()
+                .flat_map(|node| node.checks.iter())
+                .filter(|check| check.state != VerificationState::Pass)
+                .count(),
+            2
+        );
+    }
+
+    /// DS-302 / DS-562: a VO parent cycle is chain_integrity MISMATCH with
+    /// the E-SCAN-008 mapping visible in the affected tree node.
+    #[test]
+    fn vo_parent_cycle_is_chain_integrity_mismatch_with_e_scan_008_basis() {
+        let root = temp_root("vo-parent-cycle-state");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-CYCLE-A", Some("VO-CYCLE-B"))).expect("vo a");
+        write_vo_record(&layout, &vo("VO-CYCLE-B", Some("VO-CYCLE-A"))).expect("vo b");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+        let mut nodes = Vec::new();
+        vo_nodes(&outcome.tree, "VO-CYCLE-A", &mut nodes);
+        assert!(nodes.iter().any(|node| {
+            node.state == VerificationState::Mismatch
+                || node
+                    .children
+                    .iter()
+                    .any(|child| child.state == VerificationState::Mismatch)
+        }));
+        assert!(tree_contains_basis(&outcome.tree, "E-SCAN-008"));
+    }
+
+    /// DS-302 / DS-562: the same cyclic fixture terminates rather than
+    /// recursing forever; reaching this assertion is the termination proof.
+    #[test]
+    fn verify_terminates_for_vo_parent_cycle_fixture() {
+        let root = temp_root("vo-parent-cycle-termination");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-CYCLE-A", Some("VO-CYCLE-B"))).expect("vo a");
+        write_vo_record(&layout, &vo("VO-CYCLE-B", Some("VO-CYCLE-A"))).expect("vo b");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+        assert!(!outcome.tree.is_empty());
     }
 
     // -----------------------------------------------------------------
