@@ -680,6 +680,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
+    /// @vtest.covers VO-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::target_symbol
+    /// @vtest.intent target候補名としてitem-pathの末尾segmentを抽出することを確認する
     #[test]
     fn target_symbol_takes_the_final_segment() {
         assert_eq!(

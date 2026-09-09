@@ -1674,6 +1674,10 @@ mod tests {
         assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["rust-cargo"]);
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent .rsで終わる最初の区切りでpathとitem-pathを分離することを確認する
     #[test]
     fn rust_locator_splits_at_the_first_separator() {
         let locator = RustLocator::parse("src/lib.rs::module::function").expect("valid locator");
@@ -1681,6 +1685,10 @@ mod tests {
         assert_eq!(locator.item_path, "module::function");
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent Rust item pathが関数名以外やimpl methodでも受理されることを確認する
     #[test]
     fn rust_locator_accepts_non_function_rust_item_paths() {
         for item in ["Struct", "Enum", "Trait", "VALUE"] {
@@ -1696,12 +1704,20 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-REQUIRES-RS-PATH
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent .rs pathと後続item-pathへ分離できない値をlocatorとして受理しないことを確認する
     #[test]
     fn rust_locator_rejects_values_without_an_rs_path() {
         assert!(RustLocator::parse("not-a-path::item").is_none());
         assert!(RustLocator::parse("src/lib.rs").is_none());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.covers VO-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::locator_from_declared_value
+    /// @vtest.intent parse可能な宣言locatorをrust-cargoのTargetRefへ正規化することを確認する
     #[test]
     fn locator_from_declared_value_normalizes_a_parseable_value() {
         let locator = locator_from_declared_value(r"src\lib.rs::module::function");

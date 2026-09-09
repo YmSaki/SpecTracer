@@ -3869,6 +3869,10 @@ fn lib_test() {}
     /// `rust-integration` built-in Formで編集しても、生成される
     /// `@vtest.kind`は`rust-unit-function`と同じ`unit-{test_kind}`で
     /// なければならない（別紙A §14.1/§14.3）。
+    /// @vtest.id TEST-SCAN-RUST-INTEGRATION-ANSWERS-UNIT-KIND-PREFIX
+    /// @vtest.covers VO-SCAN-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent rust-integration Formでもunit-{test_kind}を生成しintegration prefixを生成しないことを確認する
     #[test]
     fn edit_test_with_rust_integration_answers_generates_the_unit_prefix() {
         let root = fixture();

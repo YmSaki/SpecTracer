@@ -858,6 +858,10 @@ fn list_tree_renders_a_nested_derives_from_tree() {
 /// not silently vanish from `--tree`'s output -- it must still appear
 /// somewhere, rather than being dropped because it was never reached by a
 /// walk starting from an actual root.
+/// @vtest.id TEST-DOC-LIST-TREE-RETAINS-CYCLE
+/// @vtest.covers VO-DOC-LIST-TREE-NESTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::render_doc_tree
+/// @vtest.intent derives_from循環内のdocumentもdoc list --treeの表示から脱落しないことを確認する
 #[test]
 fn list_tree_does_not_drop_a_document_reachable_only_through_a_cycle() {
     use std::collections::BTreeMap;

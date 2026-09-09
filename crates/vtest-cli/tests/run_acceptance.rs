@@ -322,6 +322,10 @@ fn an_unknown_vo_id_is_a_usage_error() {
 /// line -- distinct from `UnknownTestId`, which never reaches execution at
 /// all) must exit 1, matching `running_a_real_test_writes_evidence_and_exits_ok`'s
 /// exit-0 control case on the same fixture shape.
+/// @vtest.id TEST-RUN-NO-RESULT-LINE-VERIFICATION-FAILED
+/// @vtest.covers VO-RUN-MISSING-RESULT-LINE-FAILS
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent 実行済みTestの結果行が無い場合に検証失敗の終了コード1となることを確認する
 #[test]
 fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() {
     let root = temp_root("broken-test");
