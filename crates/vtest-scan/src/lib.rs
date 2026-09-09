@@ -4355,6 +4355,10 @@ fn covers_parent() {}
     /// `derives_from` edge naming that id must not resolve — DS-1677: "当該
     /// idを参照するderives_fromはいずれの候補も解決先として選ばず". Two
     /// documents each declare `R-908` and a third node cites it.
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-NODE-ID-COLLISION-ACROSS-FILES
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies the same document node id defined in two different document files is reported as E-SCAN-010, and a derives_from edge naming that id resolves to no candidate (E-SCAN-012) rather than picking one
     #[test]
     fn reports_document_node_id_collision_across_files() {
         let root = fixture();
@@ -4435,6 +4439,10 @@ fn covers_parent() {}
 
     /// Same as above but the collision is within one document file — DS-1677
     /// draws no distinction ("同一ファイル内・ファイル間を問わない").
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-NODE-ID-COLLISION-WITHIN-FILE
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies the same document node id defined twice within one document file is reported as E-SCAN-010, matching the across-files case
     #[test]
     fn reports_document_node_id_collision_within_one_file() {
         let root = fixture();
@@ -4483,6 +4491,10 @@ fn covers_parent() {}
     /// not both fire for the same collision. Reuses the same colliding-Test-
     /// ID fixture as `colliding_test_ids_are_all_preserved_and_reach_
     /// downstream_checks` above.
+    /// @vtest.id TEST-SCAN-TEST-ID-COLLISION-STAYS-E-SCAN-002
+    /// @vtest.covers VO-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test ID collision is reported as E-SCAN-002 and never also as E-SCAN-010, since the two codes partition by id kind
     #[test]
     fn test_id_collision_stays_e_scan_002_not_e_scan_010() {
         let root = fixture();
@@ -4530,6 +4542,10 @@ fn collision_second() {}
     /// A corpus with no colliding ids at all must report zero E-SCAN-010
     /// diagnostics for document nodes — two distinct ids across two files,
     /// each referencing the other with no dangling or colliding entry.
+    /// @vtest.id TEST-SCAN-NO-DOCUMENT-NODE-COLLISION-REPORTS-NONE
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a corpus with two distinct document node ids and no dangling/colliding entry reports zero E-SCAN-010 diagnostics
     #[test]
     fn no_document_node_collision_reports_no_e_scan_010() {
         let root = fixture();
@@ -4590,6 +4606,10 @@ fn collision_second() {}
     /// proves the abort does not silently swallow every diagnostic
     /// `record_diagnostics` would otherwise produce: a second, well-formed
     /// document with an orphaned node must still report its own E-SCAN-016.
+    /// @vtest.id TEST-SCAN-MALFORMED-DOCUMENT-FILE-E-SCAN-010-CONTINUES
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010, VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a document file that fails schema parsing is reported as E-SCAN-010 with the file skipped, and the scan still evaluates the remaining well-formed document (reporting its own E-SCAN-016), rather than aborting with a code-less error
     #[test]
     fn malformed_document_file_reports_e_scan_010_and_scan_continues() {
         let root = fixture();
@@ -4642,6 +4662,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-ORPHAN-NODE-NO-EFFECTIVE-UPSTREAM
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a request-layer sentence with an empty derives_from and no ancestor section is reported as E-SCAN-016, and not also as E-SCAN-012
     #[test]
     fn reports_orphan_node_with_no_effective_upstream() {
         let root = fixture();
@@ -4688,6 +4712,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-SENTENCE-EMPTY-DERIVES-FROM-RESCUED-BY-ANCESTOR
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a sentence with an empty derives_from is not orphaned when its containing section already carries an edge (effective upstream = own edges union ancestor edges)
     #[test]
     fn sentence_with_empty_derives_from_is_rescued_by_ancestor_section_edge() {
         // DS-1647: 実効的な上流 = 自分の辺 ∪ 先祖の辺. A sentence whose own
@@ -4740,6 +4768,10 @@ fn collision_second() {}
     /// `derives_from`. A top-level `require`-layer section with no edge and
     /// no ancestor (unlike a `request`-layer sentence, which cannot even
     /// have a section ancestor) must still report E-SCAN-016 for itself.
+    /// @vtest.id TEST-SCAN-REPORTS-ORPHANED-SECTION-NO-OWN-OR-ANCESTOR-EDGE
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a top-level section with neither its own derives_from edge nor an ancestor one reports E-SCAN-016 for itself
     #[test]
     fn reports_orphaned_section_node_with_no_own_or_ancestor_edge() {
         let root = fixture();
@@ -4781,6 +4813,10 @@ fn collision_second() {}
     /// E-SCAN-012, and — since it still counts as "having an edge" for
     /// orphan_detection purposes, resolving or not — must not also report
     /// E-SCAN-016 for that same section.
+    /// @vtest.id TEST-SCAN-REPORTS-DANGLING-DERIVES-FROM-ON-SECTION-NOT-ORPHAN
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012, VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a SectionNode's own dangling derives_from entry reports E-SCAN-012, and the section — since it still carries an edge, dangling or not — is not also reported as orphaned (E-SCAN-016)
     #[test]
     fn reports_dangling_derives_from_on_section_node_without_orphan() {
         let root = fixture();
@@ -4832,6 +4868,10 @@ fn collision_second() {}
     /// section has none of its own, and that child's own sentence item also
     /// has none — both the child section and the sentence must be rescued by
     /// the outer section's edge propagating two levels down.
+    /// @vtest.id TEST-SCAN-ORPHAN-RESCUE-PROPAGATES-NESTED-DEPTH-TWO
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an outer section's derives_from edge rescues both a nested child section with no edge of its own and that child's own sentence item, two levels down
     #[test]
     fn orphan_rescue_propagates_through_nested_sections_at_depth_two() {
         let root = fixture();
@@ -4883,6 +4923,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REFERENCED-NODE-IS-STILL-ORPHAN
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a node with an empty derives_from stays orphan even when another node's derives_from cites it — an incoming reference is not part of effective upstream (own edges union ancestor edges only)
     #[test]
     fn node_referenced_by_another_nodes_derives_from_is_still_orphan() {
         // DS-1647 drops the predecessor document model's "referenced by
