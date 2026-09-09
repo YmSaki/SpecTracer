@@ -4978,6 +4978,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-WELL-FORMED-DOCUMENTS-NO-DOCUMENT-LAYER-DIAGNOSTICS
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016, VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a well-formed document tree, including a non-root node whose derives_from resolves, reports neither E-SCAN-012 nor E-SCAN-016
     #[test]
     fn well_formed_documents_report_no_document_layer_diagnostics() {
         // fixture() already registers DOC-TEST's ROOT-001 (root layer,
@@ -5036,6 +5040,10 @@ fn collision_second() {}
     /// The `.gitkeep` that `init_project` writes into the same directory must
     /// NOT be reported: it is part of the layout this tool creates, so a
     /// freshly initialised project stays clean.
+    /// @vtest.id TEST-SCAN-STRAY-DOC-FILE-REPORTED-NOT-SKIPPED
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a stray unrecognized file placed in .verify/doc/ is reported once as E-SCAN-010 rather than silently filtered, while the layout's own .gitkeep is not reported
     #[test]
     fn a_stray_file_in_the_doc_directory_is_reported_not_silently_skipped() {
         let root = std::env::temp_dir().join(format!("vtest-scan-doc-stray-{}", new_record_id()));
@@ -5076,6 +5084,10 @@ fn collision_second() {}
     }
 
     /// grows on its own branch).
+    /// @vtest.id TEST-SCAN-CANONICAL-BUNDLE-ORPHAN-COUNT
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::validate_document_nodes
+    /// @vtest.intent reports (without asserting) the E-SCAN-016 orphan count against the real canonical specification.json bundle, and asserts the bundle itself parses without E-SCAN-010
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
     fn canonical_bundle_orphan_count() {
@@ -5143,6 +5155,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 1a: `explicit` かつ `combinations` 欠落
     /// (missing key entirely, not `null` or `[]` — those are 1b/1c below).
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1A-MISSING-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with the combinations key entirely absent reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1a_missing_combinations_under_explicit_policy() {
         let root = fixture();
@@ -5162,6 +5178,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 1b: `explicit` かつ `combinations` が `null`.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1B-NULL-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with combinations: null reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1b_null_combinations_under_explicit_policy() {
         let root = fixture();
@@ -5181,6 +5201,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 1c: `explicit` かつ `combinations` が空 list.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1C-EMPTY-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with combinations: [] reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1c_empty_combinations_under_explicit_policy() {
         let root = fixture();
@@ -5200,6 +5224,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 2: `explicit` かつ `dimensions` が空.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-2-EMPTY-DIMENSIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-EMPTY-DIMENSIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with an empty dimensions list reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_2_empty_dimensions_under_explicit_policy() {
         let root = fixture();
@@ -5220,6 +5248,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 3: `combinations` が空でないのに
     /// `coverage_policy` が `explicit` 以外（ここでは `independent-axes`）.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-3-NONEXPLICIT-POLICY
+    /// @vtest.covers VO-SCAN-E-SCAN-017-NONEXPLICIT-POLICY-WITH-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-empty combinations list under a non-explicit coverage_policy (independent-axes) reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_3_nonempty_combinations_under_non_explicit_policy() {
         let root = fixture();
@@ -5242,6 +5274,10 @@ fn collision_second() {}
     /// dimensions are declared (`d1`/`d2`) so the entry's length matches
     /// `dimensions.len()` and this exercises the undeclared-name check
     /// specifically, not the length-mismatch branch condition 6 exercises.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-4-UNDECLARED-DIMENSION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-UNDECLARED-DIMENSION-NAME
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry naming a dimension not declared in dimensions[] reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_4_entry_references_an_undeclared_dimension() {
         let root = fixture();
@@ -5262,6 +5298,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 5: entry の partition 値が当該 dimension の
     /// `partitions` に無い.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-5-UNDECLARED-PARTITION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-UNDECLARED-PARTITION-VALUE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry using a partition value not listed for its dimension reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_5_entry_uses_an_undeclared_partition_value() {
         let root = fixture();
@@ -5282,6 +5322,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 6 (first half): entry が宣言済み dimension を
     /// 欠く（ここでは `d2` を欠いた1件だけの entry）.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-6-MISSING-DECLARED-DIMENSION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry that omits one of the declared dimensions reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_6_entry_is_missing_a_declared_dimension() {
         let root = fixture();
@@ -5314,6 +5358,10 @@ fn collision_second() {}
     /// 断言する。record層側の正確な挙動は`vtest_store::canonical::
     /// vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
     /// scan_as_e_scan_017`が固定する。
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-6-DUPLICATE-DIMENSION-KEY
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry that declares the same dimension name twice reports E-SCAN-017 at the scan layer without the record layer rejecting the VO as E-SCAN-010
     #[test]
     fn e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected() {
         let root = fixture();
@@ -5351,6 +5399,10 @@ fn collision_second() {}
     /// (`canonical_pairs`, `vtest-model/src/vo.rs`) instead of the
     /// declaration-order `Vec` it stores — so no special-casing is needed
     /// here to catch this as a duplicate.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-7-DUPLICATE-TUPLE
+    /// @vtest.covers VO-SCAN-E-SCAN-017-DUPLICATE-TUPLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two combinations entries resolving to the same (dimension, partition) tuple, regardless of key declaration order, report E-SCAN-017 as a duplicate
     #[test]
     fn e_scan_017_condition_7_duplicate_tuple() {
         let root = fixture();
@@ -5381,6 +5433,10 @@ fn collision_second() {}
     /// かった) must not raise E-SCAN-017. Without this, the eight tests
     /// above could all be trivially satisfied by an
     /// `invalid_vo_combinations` that always returns `Some(..)`.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-WELL-FORMED-REPORTS-NONE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a well-formed explicit-policy VO, using 本冊 §3.2.1's own literal flow-style example, raises no E-SCAN-017 — the positive control for the condition 1-7 negative tests
     #[test]
     fn e_scan_017_well_formed_explicit_combinations_report_no_diagnostic() {
         let root = fixture();
