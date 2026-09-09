@@ -3521,6 +3521,10 @@ fn no_target() {}
     /// adapterはE-SCAN-007で早期returnせず、core側のtarget解決へ素通し
     /// する。空文字列はどのSource Targetロケータとも一致しないため、
     /// core の「0件ヒット」経路がE-SCAN-004を発行する。
+    /// @vtest.id TEST-SCAN-EMPTY-TARGET-VALUE-RESOLVES-TO-E-SCAN-004
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an empty @vtest.target value is treated as a declared-but-unresolvable target (E-SCAN-004), not a missing declaration (E-SCAN-007)
     #[test]
     fn empty_string_target_value_resolves_through_core_to_e_scan_004_not_e_scan_007() {
         let root = fixture();
@@ -3571,6 +3575,10 @@ fn empty_target() {}
 
     /// 本冊 §4.4 / §11.1.1: core が中立に要求する必須 metadata（`id` /
     /// `covers ≥ 1`）の欠落も E-SCAN-007 になる。
+    /// @vtest.id TEST-SCAN-MISSING-ID-AND-COVERS-REJECTED
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct missing @vtest.id, and one missing @vtest.covers, are each rejected as E-SCAN-007
     #[test]
     fn missing_id_and_covers_annotations_are_rejected() {
         let root = fixture();
@@ -3613,6 +3621,10 @@ fn no_covers() {}
     /// 非空文字列（`,`）だが、カンマ区切りで分割すると VO ID が1件も
     /// 残らない — 旧挙動は E-SCAN-007 を出しつつ `covers: []` の
     /// `TestEntity` を管理対象集合へ混入させていた（fail-open）。
+    /// @vtest.id TEST-SCAN-COVERS-ZERO-VO-IDS-REJECTED
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-empty @vtest.covers value that splits to zero VO ids is rejected as E-SCAN-007 and produces no TestEntity
     #[test]
     fn covers_that_reduces_to_zero_vo_ids_is_rejected_and_produces_no_test_entity() {
         let root = fixture();
@@ -3654,6 +3666,10 @@ fn empty_covers() {}
     /// `covers` に `VO-` 接頭辞を持たない ID を指定しても、その ID が実在
     /// する VO を参照していれば拒否されない
     /// （PM 裁定・pr3-decisions.md 裁定7）。
+    /// @vtest.id TEST-SCAN-EDIT-COVERS-NO-VO-PREFIX-ENFORCED
+    /// @vtest.covers VO-SCAN-ID-FORMAT-NOT-ENFORCED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.intent verifies edit_test accepts a covers value referencing a real VO whose id lacks a VO- prefix
     #[test]
     fn edit_test_covers_does_not_enforce_a_vo_id_prefix() {
         let root = fixture();
@@ -3674,6 +3690,10 @@ fn empty_covers() {}
     /// Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択しては
     /// ならない」: Test ID が衝突している状態で `edit_test` を呼んでも、
     /// 衝突した construct のどれかを黙って編集対象に選ばない。
+    /// @vtest.id TEST-SCAN-EDIT-REJECTS-COLLIDING-TEST-ID
+    /// @vtest.covers VO-SCAN-EDIT-COLLIDING-TEST-ID-NO-REPRESENTATIVE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.intent verifies edit_test fails closed with E-OP-002 (naming the collision count) rather than silently picking one of the colliding constructs to edit
     #[test]
     fn edit_test_rejects_a_colliding_test_id() {
         let root = fixture();
@@ -3718,6 +3738,10 @@ fn edit_collision_second() {}
     /// integration test（`fixture()`のTEST-ADDが置かれる`tests/calc.rs`）
     /// についても成り立つことを確認する — `kind`を`integration`を含まない
     /// 値へ`--set`しても複数targetへの編集が通る。
+    /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-CARGO-INTEGRATION-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.intent verifies edit_test allows a Cargo integration test to declare multiple targets even when @vtest.kind is set to a value not starting with integration
     #[test]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
         let root = fixture();
@@ -3753,6 +3777,10 @@ fn edit_collision_second() {}
     /// これを `current.test_target` で拒否していた（Owner裁定3、PR #26
     /// review round 5）— 正本監査が上位の根拠を見つけられず撤去した後の
     /// 挙動をロックインする回帰テスト。
+    /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-LIB-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::edit_test
+    /// @vtest.intent verifies edit_test allows a lib test (not a Cargo integration test) to declare multiple targets, with no execution-form condition on cardinality
     #[test]
     fn edit_test_allows_multiple_targets_for_a_lib_test_regardless_of_kind_string() {
         let root = fixture();
