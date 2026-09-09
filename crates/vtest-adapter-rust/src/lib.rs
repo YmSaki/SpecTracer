@@ -1629,8 +1629,18 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use vtest_adapter_api::AdapterRegistry;
+    use vtest_adapter_api::AdapterScanConfig;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("vtest-adapter-rust-{name}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
 
     /// `AdapterRegistry` は `vtest-adapter-api` が所有する契約だが、
     /// registry の「登録済み ID は解決でき、未登録 ID は解決できない」動作
@@ -1672,6 +1682,69 @@ mod tests {
     fn ids_lists_every_registered_adapter() {
         let registry = registry_with_rust_cargo();
         assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["rust-cargo"]);
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-DISCOVERS-NON-FUNCTION-SOURCES
+    /// @vtest.covers VO-ADAPTER-RUST-SOURCE-DISCOVERY
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoAdapter::discover
+    /// @vtest.intent 非関数Rust itemと通常/impl fnがすべてSourceDraft locatorへ索引化されることを確認する
+    #[test]
+    fn discovery_indexes_non_function_items_and_functions_with_module_paths() {
+        let root = temp_dir("non-function-sources");
+        fs::create_dir_all(root.join("src")).expect("create src");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write manifest");
+        fs::write(
+            root.join("src/lib.rs"),
+            r#"
+struct StructItem;
+enum EnumItem { Variant }
+trait TraitItem {}
+const CONST_ITEM: usize = 1;
+static STATIC_ITEM: usize = 1;
+union UnionItem { value: usize }
+fn free_fn() {}
+struct ImplType;
+impl ImplType { fn impl_fn(&self) {} }
+mod nested { struct NestedStruct; fn nested_fn() {} }
+"#,
+        )
+        .expect("write fixture");
+
+        let outcome = RustCargoAdapter::new()
+            .discover(
+                &root,
+                "fixture",
+                &AdapterScanConfig {
+                    include_paths: vec![PathBuf::from("src")],
+                },
+            )
+            .expect("discovery succeeds");
+        let mut locators: Vec<_> = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect();
+        locators.sort_unstable();
+        assert_eq!(
+            locators,
+            vec![
+                "src/lib.rs::CONST_ITEM",
+                "src/lib.rs::EnumItem",
+                "src/lib.rs::ImplType",
+                "src/lib.rs::ImplType::impl_fn",
+                "src/lib.rs::STATIC_ITEM",
+                "src/lib.rs::StructItem",
+                "src/lib.rs::TraitItem",
+                "src/lib.rs::UnionItem",
+                "src/lib.rs::free_fn",
+                "src/lib.rs::nested::NestedStruct",
+                "src/lib.rs::nested::nested_fn",
+            ]
+        );
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR

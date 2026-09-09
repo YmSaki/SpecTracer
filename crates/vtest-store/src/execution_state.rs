@@ -348,59 +348,6 @@ fn walk(root: &Path, dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>
 /// (concatenation, `env!`, a path expression, etc. — DES-212 cannot rule
 /// out an excluded-area read through those), `None` when `macro_name` does
 /// not appear at all.
-/// Finds *every* call to `macro_name` in `text` and extracts each one's
-/// argument (DS-212 must rule out every occurrence, not only the first —
-/// see the caller). Each element is `Some(literal)` for a simple `"..."`
-/// string literal argument, or `None` when that call's argument is not a
-/// simple literal (concatenation, `env!`, a path expression, etc.).
-#[allow(dead_code)]
-fn old_find_macro_literal_arguments(text: &str, macro_name: &str) -> Vec<Option<String>> {
-    let mut results = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(macro_name) {
-        let start = search_from + relative;
-        search_from = start + macro_name.len();
-        let after = &text[search_from..];
-        let trimmed = after.trim_start();
-        let Some(inner) = trimmed.strip_prefix('(') else {
-            continue;
-        };
-        let inner = inner.trim_start();
-        if !inner.starts_with('"') {
-            results.push(None);
-            continue;
-        }
-        let mut chars = inner[1..].char_indices();
-        let mut escaped = false;
-        let mut found = None;
-        for (index, ch) in &mut chars {
-            if escaped {
-                escaped = false;
-                continue;
-            }
-            match ch {
-                '\\' => escaped = true,
-                '"' => {
-                    let literal = &inner[1..1 + index];
-                    let rest = inner[1 + index + 1..].trim_start();
-                    found = Some(if rest.starts_with(')') {
-                        Some(literal.replace("\\\"", "\""))
-                    } else {
-                        // Something after the string before `)`
-                        // (concatenation, a second argument) — not a
-                        // simple single-literal call.
-                        None
-                    });
-                    break;
-                }
-                _ => {}
-            }
-        }
-        results.push(found.unwrap_or(None));
-    }
-    results
-}
-
 /// Lexically resolves `.`/`..` components without touching the filesystem
 /// (the target may not exist, e.g. an `include!` path under an excluded
 /// directory this walk never visits).
@@ -627,6 +574,55 @@ mod tests {
         )
         .expect("write");
         assert!(escape_risk(&root).is_none());
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-RUST-LITERAL-NOT-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Rust文字列literal内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
+    #[test]
+    fn include_spelling_inside_a_string_literal_is_not_escape_risk() {
+        let root = temp_dir("include-spelling-literal");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(
+            root.join("src/lib.rs"),
+            r##"fn f() { let _ = "include_str!(concat!(\"../outside\"))"; }"##,
+        )
+        .expect("write lib.rs");
+        assert!(escape_risk(&root).is_none());
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-COMMENT-NOT-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent コメント内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
+    #[test]
+    fn include_spelling_inside_a_comment_is_not_escape_risk() {
+        let root = temp_dir("include-spelling-comment");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(
+            root.join("src/lib.rs"),
+            "// include_str!(concat!(\"../outside\"))\nfn f() {}\n",
+        )
+        .expect("write lib.rs");
+        assert!(escape_risk(&root).is_none());
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-PARSE-ERROR-FORCES-ESCAPE-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent 構文解析不能なRust sourceが理由付きescape_riskになることを確認する
+    #[test]
+    fn an_unparseable_rust_file_is_escape_risk_with_a_reason() {
+        let root = temp_dir("unparseable-rust");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(root.join("src/lib.rs"), "fn broken( {\n").expect("write lib.rs");
+        let risk = escape_risk(&root).expect("parse error is escape risk");
+        assert!(risk.contains("src\\lib.rs") || risk.contains("src/lib.rs"));
+        assert!(risk.contains("cannot be parsed as Rust"));
     }
 
     /// @vtest.id TEST-EXEC-STATE-OUT-OF-SCOPE-INCLUDE-FORCES-INCOMPLETE
