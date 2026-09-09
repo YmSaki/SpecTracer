@@ -385,6 +385,76 @@ impl<'a> Scanner<'a> {
                     module,
                     path,
                 )?,
+                Item::Struct(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Enum(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Type(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Trait(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Const(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Static(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Union(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
                 Item::Mod(item_mod) => {
                     if let Some((_, nested)) = &item_mod.content {
                         let nested_module = if module.is_empty() {
@@ -408,6 +478,48 @@ impl<'a> Scanner<'a> {
                 _ => {}
             }
         }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_non_function_source(
+        &mut self,
+        attrs: &[Attribute],
+        name: String,
+        span: proc_macro2::Span,
+        relative: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) -> Result<(), DiscoveryError> {
+        let item_path = if module.is_empty() {
+            name
+        } else {
+            format!("{module}::{name}")
+        };
+        let location = make_location(relative, &item_path, span, source, line_offsets);
+        let Some(content) = source_slice(source, &location) else {
+            return Err(DiscoveryError {
+                path: path.to_owned(),
+                message: format!("source item `{item_path}` source range is out of bounds"),
+            });
+        };
+        let outcome = parse_source_target_annotations(attrs);
+        for (code, message) in outcome.diagnostics {
+            self.diagnostics
+                .push(Diagnostic::warning(code, message).with_location(location.clone()));
+        }
+        self.sources.push(SourceDraft {
+            locator: RustLocator {
+                path: relative.to_owned(),
+                item_path,
+            }
+            .to_locator(),
+            src_id: outcome.src_id,
+            location,
+            construct_text: content.to_owned(),
+        });
         Ok(())
     }
 
