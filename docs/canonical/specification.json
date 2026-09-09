@@ -27482,7 +27482,7 @@
         {
           "id": "DS-616",
           "statement": "`rust-cargo`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
-          "description": "assert!/assert_eq!/assert_ne!/panic! を含む標準マクロおよびconfigのassertion_macros列挙マクロ、#[should_panic]属性、.unwrap()/.expect(..)/?演算子（Result/Optionの成立検証として扱う）、Test関数がResultを返しErrを返しうる構造、の4分類の総称。",
+          "description": "assert!/assert_eq!/assert_ne!/panic! を含む標準マクロおよびconfigのassertion_macros列挙マクロ、#[should_panic]属性、.unwrap()/.expect(..)/?演算子（Result/Optionの成立検証として扱う）および.expect_err(..)/.unwrap_err()（ResultがErrであることの検証として扱う）、Test関数がResultを返しErrを返しうる構造、の4分類の総称。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -27521,8 +27521,13 @@
         },
         {
           "id": "DS-619",
-          "statement": "`rust-cargo`のassert相当の構文は`.unwrap()` / `.expect(..)` / `?`演算子（Result / Optionの成立検証として扱う）を含む。",
+          "statement": "`rust-cargo`のassert相当の構文は`.unwrap()` / `.expect(..)` / `?`演算子（Result / Optionの成立検証として扱う）、および`.expect_err(..)` / `.unwrap_err()`（ResultがErrであることの検証として扱う）を含む。",
           "derives_from": [],
+          "cites": [
+            "REQ-073",
+            "SPEC-066",
+            "SPEC-079"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
