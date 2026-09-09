@@ -3095,6 +3095,10 @@ fn comma_separated() {}
     }
 
     /// 本冊 §4.2「`case` と `related` はキー自体を複数行書ける」。
+    /// @vtest.id TEST-SCAN-CASE-RELATED-REPEATED-LINES
+    /// @vtest.covers VO-SCAN-CASE-RELATED-REPEATED-KEY-LINES
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies @vtest.case and @vtest.related accept repeated key lines, each contributing one value, in declaration order
     #[test]
     fn case_and_related_allow_repeated_annotation_lines() {
         let root = fixture();
@@ -3135,6 +3139,10 @@ fn repeated() {}
     /// 本冊 §4.2「表面1で、`@vtest.` で始まるが test-key を持たない行は
     /// エラー E-SCAN-006... 未知キーに加え、source-target-key（`src-id`）の
     /// 誤配置も含む」。
+    /// @vtest.id TEST-SCAN-SRC-ID-ON-TEST-CONSTRUCT-REJECTED
+    /// @vtest.covers VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a src-id (source-target-key) declared on a Test construct is rejected as E-SCAN-006 and the Test does not materialize
     #[test]
     fn src_id_annotation_on_a_test_construct_is_rejected_as_an_unknown_key() {
         let root = fixture();
@@ -3167,6 +3175,10 @@ fn misplaced() {}
 
     /// 本冊 §4.2「表面2で、`@vtest.` で始まるが source-target-key を
     /// 持たない行（test-key を含む）は警告 W-SCAN-105 とする」。
+    /// @vtest.id TEST-SCAN-NON-TEST-ITEM-TEST-KEY-WARNS
+    /// @vtest.covers VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-Test item's doc comment carrying a test-key (@vtest.id) produces only a W-SCAN-105 warning, no error
     #[test]
     fn non_test_item_with_a_test_key_annotation_only_warns() {
         let root = fixture();
@@ -3197,6 +3209,10 @@ fn misplaced() {}
     /// 本冊 §4.2「`src-id` は表面2でも反復不可であり...このときいずれの
     /// 宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う
     /// （どちらかを推測で選ばない）」。
+    /// @vtest.id TEST-SCAN-DUPLICATE-SRC-ID-NEITHER-VALUE-ADOPTED
+    /// @vtest.covers VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a repeated @vtest.src-id on one Source Target is rejected as E-SCAN-005 and neither declared value is adopted (src_id is None)
     #[test]
     fn duplicate_src_id_on_a_source_target_is_rejected_and_neither_value_is_adopted() {
         let root = fixture();
@@ -3226,6 +3242,10 @@ fn misplaced() {}
 
     /// 表面2の正常経路: 反復のない単一の `@vtest.src-id` は認識され、
     /// 診断を生じない。
+    /// @vtest.id TEST-SCAN-NON-TEST-ITEM-DECLARES-PERMANENT-SRC-ID
+    /// @vtest.covers VO-SCAN-SRC-ID-DECLARED-ON-IMPLEMENTATION
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a single, non-repeated @vtest.src-id on an implementation function is recognized as that Source Target's src_id with no diagnostic
     #[test]
     fn non_test_item_declares_a_permanent_src_id() {
         let root = fixture();
@@ -3259,6 +3279,10 @@ fn misplaced() {}
     /// 曖昧参照として受理しない」。2件の異なるSource Targetが同じ恒久SRC ID
     /// を宣言した場合はE-SCAN-011とし（本冊:877・901）、どのTestからも
     /// 参照されていなくても索引構築時点で検出する。
+    /// @vtest.id TEST-SCAN-COLLIDING-PERMANENT-SRC-ID-REJECTED
+    /// @vtest.covers VO-SCAN-COLLIDING-PERMANENT-SRC-ID-E-SCAN-011
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two Source Targets declaring the same permanent src-id produce E-SCAN-011 naming the colliding id and pointing at a declaring Source Target
     #[test]
     fn colliding_permanent_src_id_across_two_source_targets_is_rejected() {
         let root = fixture();
@@ -3301,6 +3325,10 @@ fn misplaced() {}
     /// canonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005と
     /// する」。locator形式の宣言と、同じSource Targetを指すSRC ID形式の
     /// 宣言は綴りが異なるが、解決後は同一canonical Source Targetになる。
+    /// @vtest.id TEST-SCAN-LOCATOR-AND-SRC-ID-ALIAS-COLLIDE
+    /// @vtest.covers VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a locator-form target declaration and a src-id-form declaration resolving to the same canonical Source Target under different spellings are rejected as E-SCAN-005
     #[test]
     fn locator_and_src_id_target_declarations_resolving_to_the_same_source_target_collide() {
         let root = fixture();
@@ -3352,6 +3380,10 @@ fn aliased_target() {}
     /// `TargetRef::Locator.value` として運ぶだけであり（捏造なし）、core の
     /// `resolve_targets` が実在するSource Targetとの完全一致を求める通常の
     /// 「0件ヒット」経路として E-SCAN-004 を発行することを断言する。
+    /// @vtest.id TEST-SCAN-UNPARSEABLE-TARGET-NOT-SELF-RESOLVED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an unparseable @vtest.target value is carried verbatim as an opaque locator (not fabricated or self-referenced) and reported as E-SCAN-004
     #[test]
     fn unparseable_target_locator_is_not_silently_resolved_to_the_test_itself() {
         let root = fixture();
@@ -3404,6 +3436,10 @@ fn declares_unparseable_target() {}
 
     /// 本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
     /// 無視する」。
+    /// @vtest.id TEST-SCAN-FREE-TEXT-LINES-IGNORED
+    /// @vtest.covers VO-SCAN-FREE-TEXT-LINES-IGNORED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies doc comment lines not starting with @vtest. are ignored as free-form prose interleaved with declarations
     #[test]
     fn free_text_lines_in_a_doc_comment_are_ignored() {
         let root = fixture();
@@ -3440,6 +3476,10 @@ fn free_text() {}
     /// `TestEntity` として具体化される。その `target_binding` を
     /// `NO_EVIDENCE`（DS-1664）にする判定は verify 側の責務であり、
     /// scan/adapter 層の観測範囲ではない。
+    /// @vtest.id TEST-SCAN-MISSING-TARGET-ANNOTATION-ACCEPTED
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test declaring zero @vtest.target lines materializes as a TestEntity (not E-SCAN-007) once core-neutral required metadata is present
     #[test]
     fn missing_target_annotation_is_accepted() {
         let root = fixture();

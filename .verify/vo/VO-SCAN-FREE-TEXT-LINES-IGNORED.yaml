@@ -1,0 +1,11 @@
+id: VO-SCAN-FREE-TEXT-LINES-IGNORED
+parent: null
+derives_from:
+  - doc: DS-504
+claim: doc comment内の@vtest.を含まない行は自由記述として無視する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
