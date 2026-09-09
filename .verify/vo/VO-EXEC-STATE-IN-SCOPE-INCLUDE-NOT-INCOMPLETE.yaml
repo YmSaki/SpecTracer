@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+parent: null
+derives_from:
+  - doc: DES-212
+claim: 導出。DES-212は「除外領域を…読み込む可能性を排除できない場合、snapshotを完全と報告しない」と定める。逆に、`include_str!` 等の引数がmanifestの含まれる領域内（除外されていない領域内）へ静的に解決できる場合は、除外領域を読み込む可能性を排除できているため、その一致だけを理由に不完全とはしない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

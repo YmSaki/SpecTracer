@@ -1,0 +1,13 @@
+id: VO-STORE-CONFIG-V1-UPCONVERTS-RUST-CARGO
+parent: null
+derives_from:
+  - doc: DES-109
+claim: >-
+  `config.yaml` readerはversion 1を単一の `rust-cargo` adapter設定としてin-memory変換して
+  読み取るが、読み取りだけで正典を書き換えない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

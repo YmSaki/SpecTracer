@@ -1,0 +1,16 @@
+id: VO-STORE-READ-ENTITY-IDS-DOC-VO-SETS
+parent: null
+derives_from:
+  - doc: BD-323
+  - doc: BD-139
+claim: >-
+  導出。BD-323「`.verify/doc/` は文書ごとに1つの JSON ファイルとして上流文書（正典）を格納する」と
+  BD-139「`.verify/vo/` は `VO-<NAME>.yaml` 形式でVOレコード（正典）を格納する」を合わせると、
+  `.verify/doc/` と `.verify/vo/` に登録された文書ID・VO IDの集合を読み取る操作は、初期化直後は
+  両方とも空集合を返し、レコードを書き込めばその文書ID・VO IDを反映しなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

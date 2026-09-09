@@ -1,0 +1,13 @@
+id: VO-EXEC-STATE-COMPLETE-WHEN-INPUTS-RESOLVABLE
+parent: null
+derives_from:
+  - doc: DES-097
+  - doc: DES-184
+  - doc: DES-209
+claim: 導出。DES-097はExecution State subject hashが束縛するfield集合（adapter ID・schema・HEAD revision・runner kind・invocation・toolchain identity・manifest等）を定め、DES-184/DES-209は「hash fieldがnullとなるのはcomplete:falseの場合に限る」と定める。したがって全fieldが解決可能でDES-212のescape riskも無い場合、reconstructionはcomplete:trueかつhash Someを報告する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

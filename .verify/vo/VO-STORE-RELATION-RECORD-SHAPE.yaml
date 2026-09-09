@@ -1,0 +1,11 @@
+id: VO-STORE-RELATION-RECORD-SHAPE
+parent: null
+derives_from:
+  - doc: DES-123
+claim: 導出。Relationレコードの`type`フィールドの値域は`depends-on` / `supersedes` / `regression-for` / `derived-from` / `same-partition` / `complements` / `conflicts-with`である（DES-123）。同条の例示は`type` / `from` / `to` / `created`を必須項目として示しており（`note`のみ任意）、`type`が値域外の値、または`from` / `to` / `created`が空である記録は不正な形として拒否される。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

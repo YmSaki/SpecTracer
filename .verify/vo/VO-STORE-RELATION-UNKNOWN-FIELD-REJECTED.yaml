@@ -1,0 +1,11 @@
+id: VO-STORE-RELATION-UNKNOWN-FIELD-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1676
+claim: 導出。E-SCAN-010はerrorであり、レコードのid / ファイル名 / schema不一致（宣言されていない余剰fieldを含む）を意味する（DS-1676）。RelationはE-SCAN-010の対象となる`.verify/`配下のレコードであるため、宣言されていない余剰フィールド（非文字列キーを含む）を持つRelationレコードはfail-closedで拒否しなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

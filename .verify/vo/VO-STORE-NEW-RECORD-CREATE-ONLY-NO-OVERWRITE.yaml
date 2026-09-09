@@ -1,0 +1,11 @@
+id: VO-STORE-NEW-RECORD-CREATE-ONLY-NO-OVERWRITE
+parent: null
+derives_from:
+  - doc: BD-232
+claim: 導出。新規レコード追加（rel / decisions / approvals / evidence）はULIDファイル名の新規作成のみであり、並列生成は衝突しない（BD-232）。「新規作成のみ」であるということは、同一パスへの2回目の書込みは新規作成ではないため、既存ファイルの内容を書き換えて事実を置き換えてはならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

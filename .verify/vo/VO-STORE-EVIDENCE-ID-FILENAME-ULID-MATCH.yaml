@@ -1,0 +1,12 @@
+id: VO-STORE-EVIDENCE-ID-FILENAME-ULID-MATCH
+parent: null
+derives_from:
+  - doc: DS-1657
+  - doc: DES-032
+claim: 導出。上流文書のレコードを除き、`id`とファイル名（拡張子除く）は一致しなければならない（DS-1657）。EvidenceはDocumentノードを除く通常のレコードであり、かつそのIDはbare ULIDとする（DES-032）。よってEvidenceレコードは、`id`がファイル名と一致し、かつ正しいULID形式であることの両方を満たさなければ読み取り時に拒否される。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

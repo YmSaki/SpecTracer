@@ -1,0 +1,13 @@
+id: VO-STORE-CONFIG-GATE-APPROVAL-ROLE-EMPTY-OR-DUPLICATE-REJECTED
+parent: null
+derives_from:
+  - doc: DS-373
+claim: >-
+  `require.approvals` を指定する場合は文字列ロール名のlistとし、空文字列・重複ロール名は
+  E-CONFIG-001（終了コード2）とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

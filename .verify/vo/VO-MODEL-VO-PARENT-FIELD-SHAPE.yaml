@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-PARENT-FIELD-SHAPE
+parent: null
+derives_from:
+  - doc: DES-117
+claim: VOレコードの`parent` fieldはVO IDまたはnull（階層化）である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

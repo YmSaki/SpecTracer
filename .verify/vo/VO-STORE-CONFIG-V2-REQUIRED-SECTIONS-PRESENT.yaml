@@ -1,0 +1,17 @@
+id: VO-STORE-CONFIG-V2-REQUIRED-SECTIONS-PRESENT
+parent: null
+derives_from:
+  - doc: BD-154
+  - doc: DS-1662
+claim: >-
+  導出。BD-154「`config.yaml` writerの正規形はversion 2とし、adapterごとにroot・scan・run設定を
+  namespace化する」が定める version 2 の形は `project` / `adapters` / `verify` の各セクションを
+  前提としており、DS-1662が config field 型が現在の config invariant に違反する場合を
+  `E-CONFIG-001` とすることと合わせると、version 2 config でこれらのセクションのいずれかが
+  欠けている場合は `E-CONFIG-001` として fail closed でなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

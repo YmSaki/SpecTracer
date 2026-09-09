@@ -916,6 +916,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-ROUND-TRIP-DISK
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file,read_document_file
+    /// @vtest.intent Writing a document file and reading it back yields the same DocumentFile.
     #[test]
     fn document_file_round_trips_through_disk() {
         let root = std::env::temp_dir().join(format!(
@@ -929,6 +933,10 @@ mod tests {
         assert_eq!(read_document_file(&layout, "requirements").unwrap(), file);
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-NO-IDENTITY-ON-DISK
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file,read_document_file
+    /// @vtest.intent A document file's name, not any field inside it, is its identity — an arbitrary file name round-trips.
     #[test]
     fn document_file_has_no_identifying_field_on_disk() {
         // BD-330/DES-585: the file's *name* is the identity; a name unlike
@@ -947,6 +955,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-SCHEMA-VERSION
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An unrecognized schema_version fails closed as E-SCAN-010.
     #[test]
     fn document_file_rejects_unrecognized_schema_version() {
         let mut file = minimal_document_file();
@@ -962,6 +974,10 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-ID
+    /// @vtest.covers VO-MODEL-DOCUMENT-LAYER-ID-PREFIX
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent A node id that does not conform to its layer's prefix pattern fails closed.
     #[test]
     fn document_file_rejects_malformed_node_id() {
         let mut file = minimal_document_file();
@@ -969,6 +985,10 @@ mod tests {
         document_file_to_json(&file).expect_err("a malformed id must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-WRONG-LAYER-ARRAY
+    /// @vtest.covers VO-MODEL-DOCUMENT-LAYER-ARRAY-PREFIX-AGREEMENT
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent A node whose id prefix disagrees with the top-level array it is placed in fails closed (DS-1658).
     #[test]
     fn document_file_rejects_node_in_wrong_layer_array() {
         let mut file = minimal_document_file();
@@ -979,6 +999,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-STATEMENT
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty statement fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_empty_statement() {
         let mut file = minimal_document_file();
@@ -986,6 +1010,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty statement must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SOURCE-DOC
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty source.doc fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_empty_source_doc() {
         let mut file = minimal_document_file();
@@ -993,6 +1021,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty source.doc must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-SOURCE-LINES-BELOW-ONE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent A source.lines entry of 0 fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_source_lines_below_one() {
         let mut file = minimal_document_file();
@@ -1000,6 +1032,10 @@ mod tests {
         document_file_to_json(&file).expect_err("a source.lines entry of 0 must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SOURCE-HEADING
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty source.heading fails closed as a schema mismatch.
     /// `validate_node_source`'s `source.heading` check
     /// (specification.schema.json `$defs/source`, `minLength: 1`) — the
     /// module previously implemented this but had no test exercising it.
@@ -1010,6 +1046,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty source.heading must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-CITES-ENTRY
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty cites[] entry fails closed as a schema mismatch.
     /// `validate_sentence_node`'s `cites` entry check (schema `minLength: 1`
     /// on each `cites[]` string) — implemented but previously untested.
     #[test]
@@ -1019,6 +1059,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty cites entry must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SECTION-TITLE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty section title fails closed as a schema mismatch.
     /// `validate_section_node`'s `title` check (schema `$defs/section`,
     /// `minLength: 1`) — this path is unreachable through `minimal_document_file`
     /// alone (its `require`/`spec`/etc. arrays are always empty), so this
@@ -1038,6 +1082,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty section title must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-NESTED-WRONG-LAYER
+    /// @vtest.covers VO-MODEL-DOCUMENT-LAYER-ARRAY-PREFIX-AGREEMENT
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.intent DS-1658's layer/prefix agreement also fires on a node nested two levels deep under sections[]/items[].
     /// DS-1658 layer/prefix agreement, checked on a node nested two levels
     /// deep (`require[].sections[].items[]`) — `validate_section_node`
     /// recurses into both `sections[]` and `items[]`, and this is the only
@@ -1076,6 +1124,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-DUPLICATE-DERIVES-FROM
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent A duplicated derives_from entry fails closed (schema uniqueItems).
     #[test]
     fn document_file_rejects_duplicate_derives_from() {
         let mut file = minimal_document_file();
@@ -1085,6 +1137,10 @@ mod tests {
             .expect_err("a duplicated derives_from entry must fail closed (schema uniqueItems)");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-SENTENCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent A derives_from entry not matching $defs/id fails closed as E-SCAN-010 on a sentence node.
     /// specification.schema.json:52 (`derivedItem.derives_from`): each entry
     /// is `{ "$ref": "#/$defs/id" }`, the same pattern checked on a node's
     /// own `id` — a bogus string must fail closed on a sentence node's
@@ -1104,6 +1160,10 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-STRING-DERIVES-FROM
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
+    /// @vtest.intent An empty-string derives_from entry fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_empty_string_derives_from_entry() {
         let mut file = minimal_document_file();
@@ -1111,6 +1171,10 @@ mod tests {
         document_file_to_json(&file).expect_err("an empty derives_from entry must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-SECTION
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.intent A section-level derives_from entry not matching $defs/id fails closed as E-SCAN-010.
     /// specification.schema.json:71 (`section.derives_from`) is the same
     /// `$defs/id`-constrained array as the sentence-node case above, checked
     /// on `SectionNode::derives_from` (`Option<Vec<DocumentId>>`) instead.
@@ -1131,6 +1195,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-NESTED-ITEM
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.intent A malformed derives_from entry on a nested items[] sentence also fails closed.
     /// The same check must also fire on a sentence node nested inside a
     /// section's `items[]`, not only on a top-level `request[]` entry —
     /// `validate_section_node` recurses into both `sections[]` and
@@ -1158,6 +1226,10 @@ mod tests {
             .expect_err("a nested item's malformed derives_from entry must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-ACCEPTS-CROSS-LAYER-DERIVES-FROM
+    /// @vtest.covers VO-MODEL-DOCUMENT-DERIVES-FROM-CROSS-LAYER-ALLOWED
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json,validate_section_node
+    /// @vtest.intent A derives_from entry pointing at a node in a different layer than the node that holds it is accepted.
     /// Positive case locking in the scoping decision above: a `derives_from`
     /// entry pointing at a node in a *different* layer than the node that
     /// holds it is accepted here — DS-1658's layer/prefix agreement binds
@@ -1189,6 +1261,10 @@ mod tests {
             .expect("a derives_from entry in a different layer than its own node must be accepted");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-JSON-REJECTS-NULL-DESCRIPTION
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent An explicit JSON null on an optional field fails closed as E-SCAN-010.
     #[test]
     fn document_file_json_rejects_explicit_null_description() {
         let json = r#"{
@@ -1213,6 +1289,10 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-JSON-ACCEPTS-ABSENT-DESCRIPTION
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent An absent optional description field (as opposed to an explicit null) is accepted.
     #[test]
     fn document_file_json_accepts_absent_description() {
         let json = r#"{
@@ -1228,6 +1308,10 @@ mod tests {
         document_file_from_json(json).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-TOP-LEVEL-FIXTURE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent An unknown top-level field fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_unknown_top_level_field_fixture() {
         let text = include_str!("../tests/fixtures/document_unknown_field_top_level.json");
@@ -1236,18 +1320,30 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-SECTION-FIXTURE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent An unknown section field fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_unknown_section_field_fixture() {
         let text = include_str!("../tests/fixtures/document_unknown_field_section.json");
         document_file_from_json(text).expect_err("an unknown section field must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-SENTENCE-FIXTURE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent An unknown sentence field fails closed as a schema mismatch.
     #[test]
     fn document_file_rejects_unknown_sentence_field_fixture() {
         let text = include_str!("../tests/fixtures/document_unknown_field_sentence.json");
         document_file_from_json(text).expect_err("an unknown sentence field must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-ANCHOR-NOTE-FIXTURE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
+    /// @vtest.intent A document derives_from entry shaped as {doc, anchor} (VO-only shape, DS-1638) fails closed.
     #[test]
     fn document_file_rejects_derives_from_anchor_note_fixture() {
         let text = include_str!("../tests/fixtures/document_derives_from_anchor_rejected.json");
@@ -1263,6 +1359,10 @@ mod tests {
     /// store is expected to accept and preserve. Reads the fixture directly
     /// from `vtest-model`'s own `tests/fixtures/` rather than copying it, so
     /// there is exactly one copy of this fixture's content to keep in sync.
+    /// @vtest.id TEST-STORE-CANONICAL-DOC-SAMPLE-FIXTURE-ROUND-TRIP
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json,document_file_to_json,write_document_file,read_document_file
+    /// @vtest.intent PR #20's populated sample document round-trips through this crate's reader/writer, in memory and through disk.
     #[test]
     fn document_sample_fixture_round_trips_through_the_store_reader_and_writer() {
         let text = include_str!("../../vtest-model/tests/fixtures/document_sample.json");
@@ -1301,6 +1401,10 @@ mod tests {
     /// Only runs when `VTEST_CANONICAL_BUNDLE` names the canonical
     /// `specification.json` — not run by default, since it depends on a
     /// file outside this crate's fixtures.
+    /// @vtest.id TEST-STORE-CANONICAL-BUNDLE-ROUND-TRIP
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json,document_file_to_json
+    /// @vtest.intent The real canonical specification.json round-trips through this crate's reader/writer with matching node counts.
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
     fn canonical_bundle_round_trips_through_the_store_reader() {
@@ -1469,6 +1573,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-ROUND-TRIP-YAML
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.intent A VO record round-trips through canonical YAML with no diagnostics.
     #[test]
     fn vo_record_round_trips_through_canonical_yaml() {
         let record = sample_vo();
@@ -1478,6 +1586,10 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-OPTIONAL-FIELDS-ABSENT-ROUND-TRIP
+    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.intent A VO with every optional field absent (parent, dimensions, coverage_policy, combinations, representative_cases) round-trips.
     /// `derives_from` itself is mandatory (SPEC-015); this exercises every
     /// *other* optional field being absent instead.
     #[test]
@@ -1505,6 +1617,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-EMPTY-DERIVES-FROM-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml,write_vo_record
+    /// @vtest.intent A VO with zero derives_from entries fails closed on both read and write (SPEC-015 requires >= 1).
     #[test]
     fn vo_record_with_empty_derives_from_is_rejected_on_read_and_write() {
         let mut record = sample_vo();
@@ -1524,6 +1640,10 @@ mod tests {
             .expect_err("the writer must refuse to persist a VO it could not itself read back");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-COMBINATION-DIMENSION-REJECTED-ON-WRITE
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record,require_no_duplicate_combination_dimension_names
+    /// @vtest.intent A combinations[] entry repeating a dimension name is rejected cleanly by the writer, not by a panic inside vo_record_to_yaml.
     /// DS-422/DS-902 (E-SCAN-017 condition 6, 詳細設計 v0.1 本冊:283): a
     /// `combinations[]` entry declaring the same dimension twice must not
     /// reach `vo_record_to_yaml`'s `to_string(record).expect(...)` and
@@ -1553,6 +1673,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-COMBINATION-DIMENSION-READ-INTACT
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A combinations[] entry repeating a dimension name is read successfully and the duplicate survives losslessly for the scan layer's E-SCAN-017 check.
     /// DS-422/DS-902 (E-SCAN-017 condition 6): the record layer must hand a
     /// `combinations[]` entry with a repeated dimension name to the scan
     /// layer intact — reading it must succeed, and the duplicate must
@@ -1590,6 +1714,10 @@ updated: 2026-08-08
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-TOP-LEVEL-KEY-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A duplicate top-level YAML key (two claim: entries) outside combinations[] fails closed.
     /// The record layer's own protections stay intact for every *other*
     /// field once the primary parse bypasses `yaml_serde::Value`: a
     /// duplicate top-level key (here, two `claim:` entries) is still
@@ -1615,6 +1743,10 @@ updated: 2026-08-08
             .expect_err("a duplicate top-level key outside combinations[] must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-KEY-IN-DERIVES-FROM-ENTRY-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A duplicate key inside a single derives_from[] entry fails closed.
     /// Same protection, nested one level down: a duplicate key inside a
     /// single `derives_from[]` entry is rejected by `DerivesFrom`'s own
     /// derived `Deserialize`.
@@ -1638,6 +1770,10 @@ updated: 2026-08-08
             .expect_err("a duplicate key inside one derives_from[] entry must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-DUPLICATE-KEY-IN-DIMENSIONS-ENTRY-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A duplicate key inside one dimensions[] entry fails closed — combinations[] is the only nested shape that tolerates a repeat.
     /// Same protection, on the other nested shape `vtest_model::vo::
     /// CombinationEntry`'s doc comment names: a duplicate key inside one
     /// `dimensions[]` entry is rejected by `Dimension`'s own derived
@@ -1665,6 +1801,10 @@ updated: 2026-08-08
             .expect_err("a duplicate key inside one dimensions[] entry must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-COMBINATIONS-DUPLICATE-WITH-UNKNOWN-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent An unrelated unknown top-level field still fails closed even alongside a tolerated combinations[] duplicate.
     /// The unknown-field scan (DS-1645) is not skipped merely because a
     /// `combinations[]` entry also has a tolerated duplicate: an unrelated
     /// unknown top-level field must still fail closed, proving `LenientValue`
@@ -1696,6 +1836,10 @@ nickname: quick-vo
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-PARSES-DES-117-EXAMPLE
+    /// @vtest.covers VO-MODEL-VO-PARENT-FIELD-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent DES-117's own literal VO example, including its parent field as a VO id, parses and round-trips.
     /// DES-117's own example, verbatim (including its inline comments), fed
     /// straight to the reader.
     #[test]
@@ -1733,6 +1877,10 @@ updated: 2026-08-08
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-PARSES-DES-121-EXAMPLE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent DES-121's own example parses combinations[] entries as dimension-name-to-partition-value maps, not positional lists.
     /// DES-121's own `description`, verbatim: each `combinations[]` entry is
     /// a dimension-name → partition-value flow-mapping, not a positional
     /// list of bare strings.
@@ -1771,6 +1919,10 @@ updated: 2026-08-08
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-STATUS-VALUE-IGNORED-PRESENCE-WARNS
+    /// @vtest.covers VO-MODEL-VO-STATUS-COMPAT-FIELD
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A status field is accepted and its value ignored, but its mere presence emits a W-STORE-001 diagnostic.
     /// DS-405: the reader accepts `status` (does not reject the record) but
     /// ignores its *value* and instead notifies W-STORE-001 on the field's
     /// mere presence — this checks both halves.
@@ -1785,6 +1937,10 @@ updated: 2026-08-08
         assert_eq!(diagnostics[0].code, "W-STORE-001");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-NO-STATUS-FIELD-NO-DIAGNOSTICS
+    /// @vtest.covers VO-MODEL-VO-STATUS-COMPAT-FIELD
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml,vo_record_to_yaml
+    /// @vtest.intent A record with no status field produces no diagnostics.
     #[test]
     fn vo_record_without_status_field_reports_no_diagnostics() {
         let record = sample_vo();
@@ -1794,6 +1950,10 @@ updated: 2026-08-08
         assert!(diagnostics.is_empty());
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-STATUS-PLUS-UNKNOWN-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A genuinely unknown field fails closed even when the legitimate status read-compat field is also present.
     /// DS-1645: a genuinely unknown field fails closed even when `status`
     /// (a distinct, legitimate read-compat field per DS-405) is also
     /// present — the two do not get to coexist as two warnings any more.
@@ -1807,6 +1967,10 @@ updated: 2026-08-08
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-UNKNOWN-TOP-LEVEL-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent An unknown top-level field on a VO record fails closed.
     /// DS-1645 (E-SCAN-010): an unknown top-level field is now rejected,
     /// not merely warned about (this replaces the retired DS-376 behavior —
     /// see `docs/canonical/relations/retired-ids.json`).
@@ -1820,6 +1984,10 @@ updated: 2026-08-08
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-NON-STRING-TOP-LEVEL-KEY-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A non-string top-level YAML key fails closed via one of two independent backstops.
     /// Unlike `ApprovalRecord`/`read_evidence` (`records.rs`), a VO record's
     /// unknown-field scan is always followed by `yaml_serde::from_value::<
     /// VoRecord>` (below), which independently rejects a non-string mapping
@@ -1838,6 +2006,10 @@ updated: 2026-08-08
             .expect_err("a non-string top-level key must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-UNKNOWN-NESTED-DERIVES-FROM-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent An unknown nested field inside a derives_from[] entry fails closed.
     #[test]
     fn vo_record_with_unknown_nested_derives_from_field_is_rejected() {
         let yaml = "\
@@ -1858,6 +2030,10 @@ updated: 2026-08-08
             .expect_err("an unknown nested derives_from field must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-UNKNOWN-NESTED-DIMENSIONS-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent An unknown nested field inside a dimensions[] entry fails closed.
     #[test]
     fn vo_record_with_unknown_nested_dimensions_field_is_rejected() {
         let yaml = "\
@@ -1880,6 +2056,10 @@ updated: 2026-08-08
             .expect_err("an unknown nested dimensions field must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-ID-DISAGREES-WITH-FILE-NAME-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent A VO id that disagrees with the file name it was read from fails closed as E-SCAN-010.
     #[test]
     fn vo_record_with_id_disagreeing_with_file_name_is_rejected() {
         let yaml = vo_record_to_yaml(&sample_vo());
@@ -1888,6 +2068,10 @@ updated: 2026-08-08
         assert!(error.to_string().contains("does not match file name"));
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-MISSING-REQUIRED-FIELD-REJECTED
+    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent Removing any of id, claim, created, or updated (mandatory VO record fields) fails closed.
     #[test]
     fn vo_record_missing_a_required_field_is_rejected() {
         let yaml = vo_record_to_yaml(&sample_vo());
@@ -1904,6 +2088,10 @@ updated: 2026-08-08
         }
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-UNRECOGNIZED-COVERAGE-POLICY-REJECTED
+    /// @vtest.covers VO-MODEL-VO-COVERAGE-POLICY-VALUES
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
+    /// @vtest.intent An unrecognized coverage_policy value fails closed, not silently becoming None.
     #[test]
     fn vo_record_with_unrecognized_coverage_policy_is_rejected() {
         let yaml = vo_record_to_yaml(&sample_vo())
@@ -1913,6 +2101,10 @@ updated: 2026-08-08
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-READ-WRITE-ROUND-TRIP-DISK
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record,read_vo_record
+    /// @vtest.intent Writing a VO record to disk and reading it back yields the same record.
     #[test]
     fn vo_record_read_write_round_trips_through_disk() {
         let root = std::env::temp_dir().join(format!(
@@ -1929,6 +2121,10 @@ updated: 2026-08-08
         );
     }
 
+    /// @vtest.id TEST-STORE-CANONICAL-VO-COMBINATIONS-ROUND-TRIP-DIMENSION-KEYED-MAPS
+    /// @vtest.covers VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
+    /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml,vo_record_from_yaml
+    /// @vtest.intent Multiple dimensions with a combinations[] entry round-trip as dimension-keyed maps.
     #[test]
     fn vo_record_combinations_round_trip_as_dimension_keyed_maps() {
         let mut record = sample_vo();

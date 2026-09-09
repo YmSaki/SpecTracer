@@ -421,6 +421,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-EXEC-STATE-COMPLETE-RECONSTRUCTION
+    /// @vtest.covers VO-EXEC-STATE-COMPLETE-WHEN-INPUTS-RESOLVABLE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies a repository with no escape risk and a readable manifest reconstructs to complete:true with a hash present.
     #[test]
     fn a_repository_with_no_escape_risk_and_a_readable_manifest_reconstructs_complete() {
         let root = temp_dir("complete");
@@ -433,6 +437,10 @@ mod tests {
         assert!(state.hash.is_some());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-DETERMINISTIC-HASH
+    /// @vtest.covers VO-EXEC-STATE-HASH-DETERMINISTIC-FOR-IDENTICAL-INPUTS
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies two reconstructions of the identical environment produce the identical hash.
     #[test]
     fn a_repository_reconstructs_the_identical_hash_across_two_calls() {
         let root = temp_dir("deterministic");
@@ -444,6 +452,10 @@ mod tests {
         assert!(first.complete && second.complete);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-MANIFEST-CHANGE-CHANGES-HASH
+    /// @vtest.covers VO-EXEC-STATE-MANIFEST-BYTES-BOUND-TO-HASH
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies rewriting a manifest file's bytes changes the reconstructed hash.
     #[test]
     fn changing_a_manifest_file_changes_the_hash() {
         let root = temp_dir("file-change");
@@ -465,6 +477,10 @@ mod tests {
     /// `target` (e.g. `src/target/mod.rs`) must still be bound into the
     /// manifest. A prior version of the exclusion matched by bare
     /// directory name at any depth and would have silently dropped it.
+    /// @vtest.id TEST-EXEC-STATE-NESTED-TARGET-DIR-NOT-EXCLUDED
+    /// @vtest.covers VO-EXEC-STATE-NESTED-TARGET-DIR-NOT-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::walk
+    /// @vtest.intent Verifies a nested directory literally named `target` (e.g. `src/target`) is not excluded from the manifest.
     #[test]
     fn a_nested_directory_literally_named_target_is_not_excluded() {
         let root = temp_dir("nested-target-dir");
@@ -493,6 +509,10 @@ mod tests {
     /// DS-819 relies on this via the Test subject hash separately, but
     /// DES-097 additionally binds HEAD revision into the Execution State
     /// subject itself; a changed revision must change this hash too.
+    /// @vtest.id TEST-EXEC-STATE-HEAD-REVISION-CHANGE-CHANGES-HASH
+    /// @vtest.covers VO-EXEC-STATE-HEAD-REVISION-BOUND-TO-HASH
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies changing the HEAD revision input changes the reconstructed hash.
     #[test]
     fn changing_head_revision_changes_the_hash() {
         let root = temp_dir("revision-change");
@@ -503,6 +523,10 @@ mod tests {
         assert_ne!(before.hash, after.hash);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies an absent HEAD commit input yields complete:false and hash:None rather than a fabricated hash.
     #[test]
     fn an_absent_head_commit_is_incomplete_not_a_fabricated_hash() {
         let root = temp_dir("no-head");
@@ -522,6 +546,10 @@ mod tests {
         assert!(state.hash.is_none());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-BUILD-SCRIPT-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a `build.rs` in the tree makes the escape risk unprovable and forces an incomplete reconstruction.
     /// DES-212: a `build.rs` in the tree makes the escape risk
     /// unprovable, so the reconstruction must not report `complete: true`.
     #[test]
@@ -535,6 +563,10 @@ mod tests {
         assert!(!state.complete);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies an `include_str!` literal resolving inside the manifest's included area does not force incompleteness.
     /// A literal `include_str!` that stays inside the manifest's own
     /// included area (not an excluded directory) does not itself force
     /// incompleteness — this is the shape this repository's own
@@ -558,6 +590,10 @@ mod tests {
         assert!(escape_risk(&root).is_none());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-OUT-OF-SCOPE-INCLUDE-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies an `include_str!` literal resolving outside the manifest's included area forces incompleteness.
     /// An `include_str!` that resolves outside the manifest's included area
     /// (here, above the workspace root entirely) cannot be ruled out and
     /// must force incompleteness (DES-212).
@@ -580,6 +616,10 @@ mod tests {
     /// first would be. A prior version of this check only inspected the
     /// first occurrence (`find_macro_literal_argument`, singular) and
     /// would have missed this.
+    /// @vtest.id TEST-EXEC-STATE-SECOND-INCLUDE-OCCURRENCE-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a second `include_str!` occurrence in a file resolving out of scope forces incompleteness, not only the first occurrence.
     #[test]
     fn a_second_include_str_occurrence_pointing_out_of_scope_forces_incompleteness() {
         let root = temp_dir("include-second-out-of-scope").join("nested");
@@ -602,6 +642,10 @@ mod tests {
         assert!(escape_risk(&root).is_some());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-NON-LITERAL-INCLUDE-ARG-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a non-literal `include_str!` argument, which cannot be statically resolved, forces incompleteness.
     #[test]
     fn a_non_literal_include_argument_forces_incompleteness() {
         let root = temp_dir("include-dynamic");

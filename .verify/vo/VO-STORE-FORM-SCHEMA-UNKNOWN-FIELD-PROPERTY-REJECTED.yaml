@@ -1,0 +1,11 @@
+id: VO-STORE-FORM-SCHEMA-UNKNOWN-FIELD-PROPERTY-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1550
+claim: Form Schemaの必須値と未知fieldを常に検証する（DS-1550）。field定義に `name`/`question`/`type`/`required`/`options`/`validate` 以外の未知キーが現れた場合、Form Schemaの解析は拒否する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

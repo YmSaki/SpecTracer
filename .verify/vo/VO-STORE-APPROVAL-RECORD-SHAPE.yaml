@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-RECORD-SHAPE
+parent: null
+derives_from:
+  - doc: DS-052
+claim: 導出。ツールはID形式を強制せず一意性のみを強制する（DS-052）ため、承認レコードの`subject`フィールドをrecord層で読み取る際、`VO-`接頭辞や大文字英数字といった形式・接頭辞を検査してはならない。形式チェックはscan層の一意性検査の責務であり、record層の読み取りには含まれない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -1,0 +1,12 @@
+id: VO-EXEC-STATE-HASH-DETERMINISTIC-FOR-IDENTICAL-INPUTS
+parent: null
+derives_from:
+  - doc: DES-097
+  - doc: DES-099
+claim: 導出。DES-097はExecution State subject hashが束縛する固定field集合を定め、DES-099はmanifest entry集合を正規化identity順にencodeすると定める。束縛対象と順序が共に固定されているため、同一環境に対する二回の reconstruction は同一のhashを返す。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

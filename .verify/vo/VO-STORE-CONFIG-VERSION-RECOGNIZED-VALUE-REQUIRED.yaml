@@ -1,0 +1,16 @@
+id: VO-STORE-CONFIG-VERSION-RECOGNIZED-VALUE-REQUIRED
+parent: null
+derives_from:
+  - doc: DS-1662
+  - doc: DS-1572
+claim: >-
+  導出。DS-1662は `E-CONFIG-001` の条件として config version を挙げ、DS-1572は
+  「config readerはversion 1とversion 2を受理し」と受理範囲を1・2の二値に限定している。
+  したがって `version` が1でも2でもない値（3、0など未知の整数、あるいは文字列・小数・配列など
+  整数でない型）は `E-CONFIG-001` として fail closed でなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

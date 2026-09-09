@@ -1,0 +1,17 @@
+id: VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1662
+claim: >-
+  導出。DS-1662は `E-CONFIG-001` の条件として「config field型…が現在のconfig invariantに
+  違反すること」を挙げている。宣言された version（1または2）のスキーマに存在しないトップレベル
+  キー、あるいはネストしたセクション内の未知キー（version 1 の config に version 2 専用の
+  `gates` を書く、`project` に `foo` を書く、`gates[].require` に `approval` を書くなど）は、
+  そのフィールドが宣言バージョンのconfig invariantに違反する型不一致であり、`E-CONFIG-001` と
+  して fail closed でなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

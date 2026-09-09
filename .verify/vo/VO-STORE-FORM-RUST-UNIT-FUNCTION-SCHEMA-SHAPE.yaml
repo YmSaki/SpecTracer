@@ -1,0 +1,11 @@
+id: VO-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE
+parent: null
+derives_from:
+  - doc: DS-1232
+claim: 組込 Form Schema `rust-unit-function` は `target`/`covers`/`behavior`/`test_kind`/`input`/`expect`/`fn_name`/`file` の8 fieldを持ち、templateは `/// @vtest.target {target}` 行を含む（詳細設計 別紙A §14.1 DS-1232 記載のYAML）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
