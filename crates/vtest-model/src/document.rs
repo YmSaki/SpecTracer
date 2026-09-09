@@ -215,6 +215,10 @@ pub struct DocumentFile {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-MODEL-VO-DERIVES-FROM-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-SHAPE
+    /// @vtest.target crates/vtest-model/src/document.rs::DerivesFrom
+    /// @vtest.intent verifies DerivesFrom serializes doc/anchor/note, omitting anchor and/or note when absent (DS-1638)
     #[test]
     fn derives_from_serializes_correctly() {
         let derives_from = DerivesFrom {
@@ -488,6 +492,10 @@ mod tests {
         assert!(serde_json::from_str::<SentenceNode>(json).is_err());
     }
 
+    /// @vtest.id TEST-MODEL-DOCUMENT-LAYER-FROM-ID-PREFIX
+    /// @vtest.covers VO-MODEL-DOCUMENT-LAYER-ID-PREFIX
+    /// @vtest.target crates/vtest-model/src/document.rs::Layer::from_id_prefix
+    /// @vtest.intent verifies each layer's id prefix maps to its Layer variant, and an unrecognized prefix maps to None (BD-318)
     #[test]
     fn layer_from_id_prefix_matches_bd_318() {
         assert_eq!(Layer::from_id_prefix("ROOT-001"), Some(Layer::Root));
@@ -558,6 +566,10 @@ mod tests {
         assert_eq!(round_tripped, original);
     }
 
+    /// @vtest.id TEST-MODEL-DOCUMENT-FILE-REJECTS-UNKNOWN-FIELD-FIXTURES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
+    /// @vtest.intent verifies fixtures with an unknown field at the top level, in a section node, and in a sentence node are all rejected (DS-1676)
     #[test]
     fn document_file_rejects_unknown_field_fixtures() {
         let top_level = include_str!("../tests/fixtures/document_unknown_field_top_level.json");
@@ -576,6 +588,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-MODEL-DOCUMENT-FILE-REJECTS-ANCHOR-NOTE-DERIVES-FROM-FIXTURE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
+    /// @vtest.intent verifies a fixture file whose node derives_from carries an anchor/note (VO-only shape) is rejected (DS-1594, DS-1595)
     #[test]
     fn document_file_rejects_anchor_note_derives_from_fixture() {
         let text = include_str!("../tests/fixtures/document_derives_from_anchor_rejected.json");
@@ -585,6 +601,10 @@ mod tests {
     /// Real-bundle round trip: only runs when `VTEST_CANONICAL_BUNDLE` names
     /// the canonical `specification.json`. Not run by default because it
     /// depends on a file outside this crate's fixtures.
+    /// @vtest.id TEST-MODEL-DOCUMENT-FILE-CANONICAL-BUNDLE-ROUND-TRIPS
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
+    /// @vtest.intent verifies the real canonical specification.json parses as DocumentFile and re-serializes to a structurally identical JSON value (DES-586)
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
     fn canonical_bundle_round_trips_and_matches_node_counts() {

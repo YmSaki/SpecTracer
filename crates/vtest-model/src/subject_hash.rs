@@ -1534,6 +1534,10 @@ mod tests {
     /// canonical `specification.json`. Not run by default (see
     /// `document.rs`'s analogous `#[ignore]`d round-trip test for the same
     /// convention).
+    /// @vtest.id TEST-MODEL-DOCUMENT-NODE-SUBJECT-HASH-CANONICAL-BUNDLE-NO-PANIC
+    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+    /// @vtest.target crates/vtest-model/src/subject_hash.rs::section_node_subject_hash
+    /// @vtest.intent verifies every node subject hash in the real canonical specification.json computes without panicking (DES-572, DES-587)
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
     fn canonical_bundle_document_node_subject_hashes_compute_without_panicking() {

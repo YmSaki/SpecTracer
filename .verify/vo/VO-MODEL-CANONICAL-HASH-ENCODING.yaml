@@ -1,0 +1,14 @@
+id: VO-MODEL-CANONICAL-HASH-ENCODING
+parent: null
+derives_from:
+  - doc: DES-596
+  - doc: DES-597
+  - doc: DES-598
+  - doc: DES-599
+claim: canonical subject hash inputは、先頭のdomain separator・各fieldのfield-name・値種別を区別する1byte kind tag・固定幅64bit big-endian長さ前置を用いてencodeし、単純な文字列連結を行わない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

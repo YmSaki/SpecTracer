@@ -1,0 +1,14 @@
+id: VO-MODEL-VO-RECORD-SHAPE
+parent: null
+derives_from:
+  - doc: DS-391
+  - doc: DS-394
+  - doc: DS-395
+  - doc: DS-396
+claim: VOレコードはid/parent/derives_from/claim/dimensions/coverage_policy/combinations/representative_cases/created/updatedからなる。derives_fromは1件以上のdocumentへの直結を表す。dimensionsとrepresentative_casesは任意fieldである。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

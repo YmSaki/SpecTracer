@@ -1,0 +1,11 @@
+id: VO-MODEL-JSON-ENVELOPE-SHAPE
+parent: null
+derives_from:
+  - doc: BD-260
+claim: 導出。CLIとMCPは共通のJSON envelopeを用いる（BD-260「CLIとMCPは同じcore処理、adapter registry、JSON envelope、診断codeを使用する」）。本crateのJsonEnvelope<T>はその共有envelopeの型であり、ok/data/diagnosticsの3 fieldをトップレベルに持つ。フィールド構成そのものの逐語規定は本crateスコープ外（別紙Aのインターフェース詳細）にあるため、ここではBD-260の共有概念を根拠とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

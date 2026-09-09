@@ -1,0 +1,13 @@
+id: VO-MODEL-DOCUMENT-FILE-SHAPE
+parent: null
+derives_from:
+  - doc: BD-330
+  - doc: DES-585
+  - doc: DES-586
+claim: 上流文書ファイルは、当該文書を識別するfieldを持たない（BD-330, DES-585）。ファイルはschema_versionと7層すべてのトップレベル配列を持ち、当該文書が属さない層の配列は空とする（DES-586）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

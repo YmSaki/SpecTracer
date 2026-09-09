@@ -64,6 +64,10 @@ pub struct VerificationResult {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-MODEL-VERIFICATION-STATE-VALUES
+    /// @vtest.covers VO-MODEL-VERIFICATION-STATE-VALUES
+    /// @vtest.target crates/vtest-model/src/verification.rs::VerificationState
+    /// @vtest.intent verifies the five verification states serialize to PASS/FAIL/MISMATCH/NO_EVIDENCE/UNKNOWN (REQ-085)
     #[test]
     fn verification_state_serializes_correctly() {
         assert_eq!(
@@ -90,6 +94,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-DIAGNOSTIC-LABEL-VALUES
+    /// @vtest.covers VO-MODEL-DIAGNOSTIC-LABEL-VALUES
+    /// @vtest.target crates/vtest-model/src/verification.rs::DiagnosticLabel
+    /// @vtest.intent verifies the four diagnostic labels serialize to MISSING/NOT_CHECKED/NOT_EXECUTED/STALE (DS-847)
     #[test]
     fn diagnostic_label_serializes_correctly() {
         assert_eq!(
@@ -111,6 +119,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-VERIFICATION-CHECK-VALUES
+    /// @vtest.covers VO-MODEL-VERIFICATION-CHECK-VALUES
+    /// @vtest.target crates/vtest-model/src/verification.rs::VerificationCheck
+    /// @vtest.intent verifies the four verification checks serialize to chain_integrity/orphan_detection/target_binding/oracle_presence (REQ-034)
     #[test]
     fn verification_check_serializes_correctly() {
         assert_eq!(
@@ -131,6 +143,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MODEL-VERIFICATION-RESULT-SHAPE
+    /// @vtest.covers VO-MODEL-VERIFICATION-RESULT-SHAPE
+    /// @vtest.target crates/vtest-model/src/verification.rs::VerificationResult
+    /// @vtest.intent verifies VerificationResult carries check/state/diagnostic_labels as distinct fields, with diagnostic_labels omitted when empty
     #[test]
     fn verification_result_serializes_correctly() {
         let result = VerificationResult {

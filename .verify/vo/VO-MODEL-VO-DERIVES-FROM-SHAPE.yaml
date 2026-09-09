@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-DERIVES-FROM-SHAPE
+parent: null
+derives_from:
+  - doc: DS-1638
+claim: VOレコードのderives_from entryは、任意のanchor（参照先ノード内の該当箇所を指す不透明な文字列）と任意のnoteを持つ。これは上流文書ノード自身のderives_from（裸のid列、DS-1594/DS-1595）とは異なる、VO専用の形状である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

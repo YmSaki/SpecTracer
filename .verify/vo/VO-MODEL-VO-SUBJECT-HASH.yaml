@@ -1,0 +1,15 @@
+id: VO-MODEL-VO-SUBJECT-HASH
+parent: null
+derives_from:
+  - doc: DES-093
+  - doc: DES-094
+  - doc: DES-096
+  - doc: DES-590
+  - doc: DES-122
+claim: VO subject hashはdomain vtest:record-subject:v1を用い、readerが具体化したcanonical VO recordをfield規則に従ってencodeする。derives_from（参照先ノードid集合）とparent、combinationsを束縛し、読取り互換fieldのstatusとcoversの増減は含めない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

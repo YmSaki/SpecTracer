@@ -121,6 +121,10 @@ mod tests {
     /// 正規化（`RustLocator`）は `vtest-adapter-rust` 側へ移った
     /// （`pr3-decisions.md` Owner裁定2「rust-cargo が Rust locator の解析
     /// を所有する」）。
+    /// @vtest.id TEST-MODEL-LOCATOR-OPAQUE-VALUE-EQUALITY
+    /// @vtest.covers VO-MODEL-LOCATOR-OPAQUE-VALUE-EQUALITY
+    /// @vtest.target crates/vtest-model/src/source.rs::Locator
+    /// @vtest.intent verifies Locator equality compares adapter and opaque value only, without decomposing value's internal syntax (DES-217)
     #[test]
     fn locators_compare_by_adapter_and_opaque_value_only() {
         let left = Locator {
