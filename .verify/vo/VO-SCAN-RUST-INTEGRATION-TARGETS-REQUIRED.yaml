@@ -1,0 +1,11 @@
+id: VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
+parent: null
+derives_from:
+  - doc: DS-1247
+claim: 組込Form `rust-integration` は空listと重複targetをE-OP-001で拒否する（DS-1247）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

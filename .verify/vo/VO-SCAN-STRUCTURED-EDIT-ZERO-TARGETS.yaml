@@ -1,0 +1,11 @@
+id: VO-SCAN-STRUCTURED-EDIT-ZERO-TARGETS
+parent: null
+derives_from:
+  - doc: DS-1673
+claim: 1つのTestは0件以上のSource Targetを持つ（DS-1673、ROOT-049）。Structured Edit の `validate_desired_test` は、宣言済みtargetが0件のDesiredTestを`targets`未宣言を理由に拒否しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
