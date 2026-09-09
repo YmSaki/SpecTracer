@@ -37,6 +37,7 @@ use std::{
     process::Command,
 };
 
+use syn::{visit::Visit, Expr, Lit, Macro};
 use vtest_model::{
     encode_nested_fields, AdapterId, ExecutionState, FieldValue, SubjectDomain, SubjectHashInput,
 };
@@ -84,7 +85,7 @@ pub fn reconstruct_execution_state(
     let Some(toolchain) = toolchain_identity() else {
         return incomplete(inputs.schema);
     };
-    if let Some(_reason) = escape_risk(root) {
+    if escape_risk(root).is_some() {
         // DES-212: "除外領域を…読み込む可能性を排除できない場合、snapshotを
         // 完全と報告しない。" The specific reason is not surfaced onto the
         // record itself — DES-209/184 give the record only a boolean
@@ -151,38 +152,75 @@ pub fn escape_risk(root: &Path) -> Option<String> {
             ));
             return;
         }
-        for macro_name in ["include!", "include_str!", "include_bytes!"] {
+        let syntax = match syn::parse_file(text) {
+            Ok(file) => file,
+            Err(error) => {
+                risk = Some(format!(
+                    "{} cannot be parsed as Rust: {error} (DES-212)",
+                    path.display()
+                ));
+                return;
+            }
+        };
+        let mut calls = IncludeCalls::default();
+        calls.visit_file(&syntax);
+        for (macro_name, argument) in calls.calls {
             // DS-212's escape check must rule out *every* occurrence of
             // each macro in the file, not only the first — a second or
             // later call whose argument resolves outside the manifest's
             // included area is exactly as much an escape risk as a first
             // one would have been. A prior version of this loop checked
             // only the first occurrence, disclosed and corrected here.
-            for argument in find_macro_literal_arguments(text, macro_name) {
-                let Some(literal) = argument else {
-                    risk = Some(format!(
-                        "{path} calls {macro_name} with a non-literal argument, which cannot \
+            let Some(literal) = argument else {
+                risk = Some(format!(
+                    "{path} calls {macro_name} with a non-literal argument, which cannot \
                          be statically resolved (DES-212)",
-                        path = path.display()
-                    ));
-                    return;
-                };
-                let Some(parent) = path.parent() else {
-                    continue;
-                };
-                let resolved = normalize_lexically(&parent.join(&literal));
-                if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
-                    risk = Some(format!(
-                        "{path} resolves {macro_name}({literal:?}) outside the manifest's \
+                    path = path.display()
+                ));
+                return;
+            };
+            let Some(parent) = path.parent() else {
+                continue;
+            };
+            let resolved = normalize_lexically(&parent.join(&literal));
+            if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
+                risk = Some(format!(
+                    "{path} resolves {macro_name}({literal:?}) outside the manifest's \
                          included area (DES-212)",
-                        path = path.display()
-                    ));
-                    return;
-                }
+                    path = path.display()
+                ));
+                return;
             }
         }
     });
     risk
+}
+
+#[derive(Default)]
+struct IncludeCalls {
+    calls: Vec<(String, Option<String>)>,
+}
+
+impl<'ast> Visit<'ast> for IncludeCalls {
+    fn visit_macro(&mut self, node: &'ast Macro) {
+        let Some(name) = node.path.segments.last().map(|s| s.ident.to_string()) else {
+            return;
+        };
+        if matches!(name.as_str(), "include" | "include_str" | "include_bytes") {
+            let argument =
+                syn::parse2::<Expr>(node.tokens.clone())
+                    .ok()
+                    .and_then(|expr| match expr {
+                        Expr::Lit(expr) => match expr.lit {
+                            Lit::Str(lit) => Some(lit.value()),
+                            _ => None,
+                        },
+                        _ => None,
+                    });
+            self.calls.push((format!("{name}!"), argument));
+        }
+        syn::visit::visit_macro(self, node);
+    }
 }
 
 fn incomplete(schema: &str) -> ExecutionState {
@@ -315,7 +353,8 @@ fn walk(root: &Path, dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>
 /// see the caller). Each element is `Some(literal)` for a simple `"..."`
 /// string literal argument, or `None` when that call's argument is not a
 /// simple literal (concatenation, `env!`, a path expression, etc.).
-fn find_macro_literal_arguments(text: &str, macro_name: &str) -> Vec<Option<String>> {
+#[allow(dead_code)]
+fn old_find_macro_literal_arguments(text: &str, macro_name: &str) -> Vec<Option<String>> {
     let mut results = Vec::new();
     let mut search_from = 0;
     while let Some(relative) = text[search_from..].find(macro_name) {
