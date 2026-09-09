@@ -1682,6 +1682,21 @@ mod tests {
     }
 
     #[test]
+    fn rust_locator_accepts_non_function_rust_item_paths() {
+        for item in ["Struct", "Enum", "Trait", "VALUE"] {
+            let value = format!("src/lib.rs::{item}");
+            let locator = RustLocator::parse(&value).expect("valid Rust item locator");
+            assert_eq!(locator.item_path, item);
+        }
+        assert_eq!(
+            RustLocator::parse("src/lib.rs::Type::method")
+                .expect("valid impl function locator")
+                .item_path,
+            "Type::method"
+        );
+    }
+
+    #[test]
     fn rust_locator_rejects_values_without_an_rs_path() {
         assert!(RustLocator::parse("not-a-path::item").is_none());
         assert!(RustLocator::parse("src/lib.rs").is_none());

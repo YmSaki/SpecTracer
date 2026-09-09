@@ -48,7 +48,13 @@ fn temp_root(name: &str) -> PathBuf {
 fn git(root: &Path, args: &[&str]) {
     let status = Command::new("git")
         .current_dir(root)
-        .args(args)
+        .args(
+            [
+                &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"],
+                args,
+            ]
+            .concat(),
+        )
         .status()
         .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
     assert!(status.success(), "git {args:?} failed");
