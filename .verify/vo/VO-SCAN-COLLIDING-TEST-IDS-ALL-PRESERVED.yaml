@@ -1,0 +1,12 @@
+id: VO-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+parent: null
+derives_from:
+  - doc: REQ-199
+  - doc: DS-536
+claim: Mは解決不能なcoversを持つentityや他のentityとTest IDが衝突するentityも含む集合であり、Test ID衝突（E-SCAN-002）は当該IDを宣言する全constructへ対称に発行される。衝突した2件目以降を先勝ちで捨ててはならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

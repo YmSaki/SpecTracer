@@ -1,0 +1,11 @@
+id: VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+parent: null
+derives_from:
+  - doc: DS-539
+claim: E-SCAN-005はerrorであり、adapter所有の宣言で重複不可fieldが重複、または綴りの異なる複数のtarget宣言が同一canonical Source Targetへ解決することを意味する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

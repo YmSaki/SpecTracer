@@ -2567,6 +2567,10 @@ fn parses_integration() { exercise(); }
             .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
+    /// @vtest.id TEST-SCAN-AMBIGUOUS-TARGET-LOCATOR-NOT-RESOLVED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an ambiguous source locator (two cfg-gated definitions of the same symbol) is reported as unresolved (E-SCAN-004) with the declared value in the message
     #[test]
     fn ambiguous_target_locator_is_not_resolved() {
         let root = fixture();
@@ -2609,6 +2613,10 @@ fn ambiguous() {}
         }));
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-UNREGISTERED-TESTS
+    /// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an undecorated #[test] function produces a W-SCAN-101 diagnostic
     #[test]
     fn reports_unregistered_tests() {
         let root = fixture();
@@ -2626,6 +2634,10 @@ fn ambiguous() {}
     /// だけを返し、`vtest_adapter_api::MissingTestConstruct` に相当する
     /// 型が無かったため、この construct はモデルへ一切現れなかった
     /// （`result.tests` にも `result.discovered` にも痕跡が残らなかった）。
+    /// @vtest.id TEST-SCAN-UNDECORATED-FN-APPEARS-IN-DISCOVERED-AS-MISSING
+    /// @vtest.covers VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an undecorated #[test] function appears in ScanResult.discovered as ManagedTestLink::Missing rather than being dropped, and is absent from result.tests
     #[test]
     fn undecorated_test_functions_appear_in_discovered_as_missing() {
         let root = fixture();
@@ -2653,6 +2665,10 @@ fn ambiguous() {}
     /// `annotation.covers` 分岐）で、同じ `push_missing_test` 呼び出しが
     /// 通ることを別途断言する — 既存の診断（E-SCAN-007 の発行条件・
     /// メッセージ）が変わっていないことも同じテストで確認する。
+    /// @vtest.id TEST-SCAN-MISSING-COVERS-APPEARS-IN-DISCOVERED-AS-MISSING
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct declaring @vtest.id but no @vtest.covers is rejected as E-SCAN-007 and still appears in discovered as Missing, not silently dropped
     #[test]
     fn test_construct_missing_required_covers_appears_in_discovered_as_missing() {
         let root = fixture();
@@ -2703,6 +2719,10 @@ fn missing_covers() {}
     /// `collision_second`（後発）が `result.tests` から消え、その
     /// `@vtest.covers VO-MISSING`（存在しない VO）も検証されないまま
     /// 素通りしていた。
+    /// @vtest.id TEST-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.covers VO-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies both constructs declaring a colliding Test ID are preserved as separate TestEntity records, reported symmetrically as E-SCAN-002, and reach downstream VO-reference checks, rather than the first-wins construct dropping the second
     #[test]
     fn colliding_test_ids_are_all_preserved_and_reach_downstream_checks() {
         let root = fixture();
@@ -2811,6 +2831,10 @@ fn collision_second() {}
         }
     }
 
+    /// @vtest.id TEST-SCAN-REJECTS-UNKNOWN-AND-DUPLICATE-ANNOTATION-KEYS
+    /// @vtest.covers VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006, VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an unrecognized annotation key produces E-SCAN-006 and a duplicated single-valued key (@vtest.id twice) produces E-SCAN-005
     #[test]
     fn rejects_unknown_and_duplicate_annotation_keys() {
         let root = fixture();
@@ -2840,6 +2864,10 @@ fn duplicate_key() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-006"));
     }
 
+    /// @vtest.id TEST-SCAN-REJECTS-MISSING-REQUIRED-ANNOTATION
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct missing the required @vtest.intent annotation is rejected as E-SCAN-007
     #[test]
     fn rejects_missing_required_annotation() {
         let root = fixture();
@@ -2871,6 +2899,10 @@ fn missing_intent() {}
     /// work, for a lib test (`src/`, not a Cargo integration test) and for
     /// a Cargo integration test (`tests/`) alike, with `@vtest.kind` values
     /// chosen to also show the decision is not kind-dependent.
+    /// @vtest.id TEST-SCAN-N-TARGETS-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test may declare 1, 2, or 3 distinct targets for a lib test and a Cargo integration test alike, regardless of @vtest.kind, with no E-SCAN-005
     #[test]
     fn tests_declare_any_number_of_targets_regardless_of_kind_or_physical_location() {
         let root = fixture();
@@ -2979,6 +3011,10 @@ fn combines() {}
     /// `@vtest.kind` is `unit-normal` (the value the built-in §14.1/§14.3
     /// Form actually outputs) to also show the rejection is not
     /// kind-dependent.
+    /// @vtest.id TEST-SCAN-DUPLICATE-TARGET-VALUE-REJECTED
+    /// @vtest.covers VO-SCAN-DUPLICATE-TARGETREF-WITHIN-MULTIPLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a literal duplicate target declaration within a Test's declared targets is rejected as E-SCAN-005, regardless of @vtest.kind
     #[test]
     fn integration_test_duplicate_target_value_is_rejected() {
         let root = fixture();
@@ -3012,6 +3048,10 @@ fn same_target_twice() {}
 
     /// 本冊 §4.2「1行1キー。`covers` と `related` の値はカンマ区切りで
     /// 複数指定できる」。
+    /// @vtest.id TEST-SCAN-COVERS-RELATED-COMMA-SEPARATED
+    /// @vtest.covers VO-SCAN-COVERS-RELATED-COMMA-SEPARATED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies @vtest.covers and @vtest.related accept a comma-separated list of multiple values
     #[test]
     fn covers_and_related_accept_comma_separated_values() {
         let root = fixture();

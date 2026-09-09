@@ -1,0 +1,11 @@
+id: VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+parent: null
+derives_from:
+  - doc: DS-1673
+claim: 1つのTestは0件以上のSource Targetを持ち、各target参照を個別に保持する。上限は無く、@vtest.kindや物理的な位置（lib/bin/integration）によってこの上限・許容件数は条件付けられない（ROOT-049）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
