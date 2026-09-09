@@ -1884,6 +1884,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         root
     }
 
+    /// @vtest.id TEST-SCAN-EXTRACTS-ANNOTATED-TEST-AND-SOURCE
+    /// @vtest.covers VO-SCAN-RUST-CARGO-EXECUTION-COORDINATES
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project extracts an annotated Test construct with correct id, execution.selector, project, and suite.kind/name
     #[test]
     fn extracts_annotated_test_and_source() {
         let root = fixture();
@@ -1921,6 +1925,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// `fixture()`（Test・VO・doc を含む現実的な構成）を通した確認は
     /// `source_target_hash_differs_for_identical_construct_text_at_different_locations`
     /// が別に持つ。両方に価値があるため両方残す。
+    /// @vtest.id TEST-SCAN-SOURCE-TARGET-HASH-BINDS-LOCATION-DUP-CONTENT
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two Source Targets with byte-identical construct bytes at different canonical Locators get different content hashes
     #[test]
     fn source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes() {
         // See `fixture()`'s doc comment: a nanosecond-timestamp suffix
@@ -1989,6 +1997,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// through a real `@vtest.covers` source edit end-to-end. This test is
     /// kept alongside it because it isolates the `materialize_tests` wiring
     /// itself (independent of adapter discovery) with no other moving parts.
+    /// @vtest.id TEST-SCAN-MATERIALIZE-TESTS-HASH-CHANGES-ON-COVERS-EDIT
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_tests
+    /// @vtest.intent verifies materialize_tests' content_hash changes when only the covers metadata differs, construct bytes held identical
     #[test]
     fn materialize_tests_content_hash_changes_when_only_covers_metadata_changes() {
         let construct_text = "fn adds() { assert_eq!(2, add(1, 1)); }".to_owned();
@@ -2071,6 +2083,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// 対し、この版は`scan_project`を通してadapter discoveryから通し、
     /// 「metadataだけ変えてconstructは不変」という状態が実ファイル編集
     /// からも作れることそのものを確認する。
+    /// @vtest.id TEST-SCAN-PROJECT-HASH-CHANGES-ON-COVERS-SOURCE-EDIT
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project's TestEntity.content_hash changes end-to-end when a real @vtest.covers source edit changes only metadata, not construct bytes
     #[test]
     fn scan_project_content_hash_changes_when_only_covers_metadata_changes_via_source_edit() {
         let root = fixture();
@@ -2190,6 +2206,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// によるモジュール分割）を通した確認版。最小構成での確認は
     /// `source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes`
     /// が別に持つ。両方に価値があるため両方残す。
+    /// @vtest.id TEST-SCAN-SOURCE-TARGET-HASH-DIFFERS-BY-LOCATION
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies, through a realistic multi-module fixture, that identical construct bytes at different canonical Locators hash differently
     #[test]
     fn source_target_hash_differs_for_identical_construct_text_at_different_locations() {
         let root = fixture();
@@ -2229,6 +2249,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// `ScanError::UnknownAdapterId`（`.code() == Some("E-CONFIG-001")`）を
     /// 返すこと、かつそのメッセージが未登録だった ID と登録済み ID 一覧の
     /// 両方を含むことを確認する。
+    /// @vtest.id TEST-SCAN-UNKNOWN-ADAPTER-ID-REJECTED
+    /// @vtest.covers VO-SCAN-UNKNOWN-ADAPTER-ID-REJECTED-E-CONFIG-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project rejects an unregistered adapter id with fail-closed ScanError::UnknownAdapterId (E-CONFIG-001) naming both ids
     #[test]
     fn unknown_adapter_id_is_rejected_fail_closed() {
         let root = fixture();
@@ -2268,6 +2292,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// 変換経路を単体で断言してロックインする（filesystem 権限操作に頼らず
     /// 決定論的に検証するため、`scan_project`の全体経路ではなく`From`
     /// 変換自体を対象にする）。
+    /// @vtest.id TEST-SCAN-DISCOVERY-ERROR-CARRIES-E-ADAPTER-002
+    /// @vtest.covers VO-SCAN-DISCOVERY-FAILURE-E-ADAPTER-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::ScanError
+    /// @vtest.intent verifies vtest_adapter_api::DiscoveryError converts into ScanError carrying code E-ADAPTER-002
     #[test]
     fn discovery_error_conversion_carries_e_adapter_002() {
         let error: ScanError = vtest_adapter_api::DiscoveryError {
@@ -2282,6 +2310,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-MISSING-CARGO-METADATA-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies invalid or missing Cargo.toml leaves target resolution unresolved (E-SCAN-004, suite None) instead of silently succeeding
     #[test]
     fn missing_or_invalid_cargo_metadata_is_fail_closed() {
         let root = fixture();
@@ -2314,6 +2346,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// empty list, and not `default_for`'s concrete `src`/`tests`/`crates`
     /// literal (that is one adapter's chosen default value, not DS-349's
     /// stated default).
+    /// @vtest.id TEST-SCAN-RESOLVE-INCLUDES-NONE-TARGETS-WHOLE-ROOT
+    /// @vtest.covers VO-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-ROOT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::resolve_adapter_includes
+    /// @vtest.intent verifies an omitted scan.include resolves to the adapter root itself (empty relative path), not an empty include list
     #[test]
     fn resolve_adapter_includes_none_targets_the_whole_adapter_root() {
         let mut adapter = ProjectConfig::default_for("fixture")
@@ -2333,6 +2369,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-WORKSPACE
+    /// @vtest.covers VO-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-ROOT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project discovers a Test construct outside the adapter's default include literal when scan.include is omitted
     #[test]
     fn omitted_scan_include_scans_the_whole_workspace() {
         let root = fixture();
@@ -2371,6 +2411,10 @@ fn outside_default() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-RESOLVES-WORKSPACE-PACKAGES-AND-SUITES
+    /// @vtest.covers VO-SCAN-RUST-CARGO-EXECUTION-COORDINATES
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project resolves per-workspace-package project name and lib/bin/integration suite.kind/name/selector across module filters
     #[test]
     fn resolves_workspace_packages_targets_and_external_module_filters() {
         let root = fixture();
@@ -2497,6 +2541,10 @@ fn parses_integration() { exercise(); }
         assert_eq!(binary.execution.selector, "checks_binary");
     }
 
+    /// @vtest.id TEST-SCAN-IGNORED-RUST-FILES-NOT-SCANNED
+    /// @vtest.covers VO-SCAN-RUST-DISCOVERY-RESPECTS-GITIGNORE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .gitignore/.ignore-excluded Rust file is not scanned and produces no E-SCAN-001 for it
     #[test]
     fn ignored_rust_files_are_not_scanned() {
         let root = fixture();

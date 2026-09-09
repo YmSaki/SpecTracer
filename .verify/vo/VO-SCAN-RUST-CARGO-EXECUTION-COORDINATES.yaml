@@ -1,0 +1,13 @@
+id: VO-SCAN-RUST-CARGO-EXECUTION-COORDINATES
+parent: null
+derives_from:
+  - doc: DES-434
+  - doc: DES-435
+  - doc: DES-436
+claim: rust-cargo adapterはTestEntity.executionのsuite.kindをlib/bin/integrationとして、suite.nameをbin名またはintegration test target名（libでは省略）として、selectorをtest targetのrootからのmodule path＋function名として解釈する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00
