@@ -2744,7 +2744,16 @@ mod tests {
             .expect("git add");
         std::process::Command::new("git")
             .current_dir(&root)
-            .args(["commit", "-q", "-m", "fixture commit"])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "gpg.format=openpgp",
+                "commit",
+                "-q",
+                "-m",
+                "fixture commit",
+            ])
             .status()
             .expect("git commit");
         let head_commit = String::from_utf8(

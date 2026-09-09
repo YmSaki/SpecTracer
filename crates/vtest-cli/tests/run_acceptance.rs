@@ -42,10 +42,29 @@ fn temp_root(name: &str) -> PathBuf {
 fn git(root: &Path, args: &[&str]) {
     let status = ProcessCommand::new("git")
         .current_dir(root)
-        .args(args)
+        .args(
+            [
+                &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"][..],
+                args,
+            ]
+            .concat(),
+        )
         .status()
         .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
     assert!(status.success(), "git {args:?} failed");
+}
+
+fn clear_outer_coverage_environment() {
+    for variable in [
+        "LLVM_PROFILE_FILE",
+        "CARGO_LLVM_COV",
+        "CARGO_LLVM_COV_TARGET_DIR",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_INCREMENTAL",
+    ] {
+        std::env::remove_var(variable);
+    }
 }
 
 fn source(id: &str) -> NodeSource {
@@ -192,6 +211,7 @@ fn cli(root: &Path, command: Command) -> Cli {
 /// @vtest.intent vtest run outside any project is an operation rejection (exit 2), not a silent success
 #[test]
 fn run_outside_a_project_is_an_operation_rejection() {
+    clear_outer_coverage_environment();
     let root = temp_root("no-project");
     let exit = run(cli(
         &root,
@@ -215,6 +235,7 @@ fn run_outside_a_project_is_an_operation_rejection() {
 /// @vtest.intent an explicit --test id the scan never discovered is rejected with a usage error, not silently ignored
 #[test]
 fn an_unknown_test_id_is_a_usage_error() {
+    clear_outer_coverage_environment();
     let root = temp_root("unknown-test-id");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -237,6 +258,7 @@ fn an_unknown_test_id_is_a_usage_error() {
 /// @vtest.intent running the fixture's real Test by --test id executes it and writes one Evidence record, exiting 0
 #[test]
 fn running_a_real_test_writes_evidence_and_exits_ok() {
+    clear_outer_coverage_environment();
     let root = temp_root("real-test");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -269,6 +291,7 @@ fn running_a_real_test_writes_evidence_and_exits_ok() {
 /// @vtest.intent --vo selects every Test whose covers intersects the VO subtree rooted at the given id
 #[test]
 fn vo_axis_selects_tests_covering_the_named_vo() {
+    clear_outer_coverage_environment();
     let root = temp_root("vo-axis");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -299,6 +322,7 @@ fn vo_axis_selects_tests_covering_the_named_vo() {
 /// @vtest.intent an unresolved --vo id is a usage rejection, the same "don't silently narrow to nothing" rule an unknown --test id follows
 #[test]
 fn an_unknown_vo_id_is_a_usage_error() {
+    clear_outer_coverage_environment();
     let root = temp_root("unknown-vo-id");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -328,6 +352,7 @@ fn an_unknown_vo_id_is_a_usage_error() {
 /// @vtest.intent 実行済みTestの結果行が無い場合に検証失敗の終了コード1となることを確認する
 #[test]
 fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() {
+    clear_outer_coverage_environment();
     let root = temp_root("broken-test");
     build_broken_fixture_project(&root);
     let exit = run(cli(
@@ -355,6 +380,7 @@ fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() 
 /// @vtest.intent --all runs every Test the scan materialized
 #[test]
 fn all_axis_runs_every_discovered_test() {
+    clear_outer_coverage_environment();
     let root = temp_root("all-axis");
     build_fixture_project(&root);
     let exit = run(cli(

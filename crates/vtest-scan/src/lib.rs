@@ -1850,6 +1850,7 @@ mod tests {
         let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let root =
             std::env::temp_dir().join(format!("vtest-scan-{}-{sequence}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
         fs::write(

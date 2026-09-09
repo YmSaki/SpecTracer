@@ -1562,7 +1562,13 @@ mod tests {
             let git = |args: &[&str]| {
                 let status = ProcessCommand::new("git")
                     .current_dir(root)
-                    .args(args)
+                    .args(
+                        [
+                            &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"][..],
+                            args,
+                        ]
+                        .concat(),
+                    )
                     .status()
                     .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
                 assert!(status.success(), "git {args:?} failed");

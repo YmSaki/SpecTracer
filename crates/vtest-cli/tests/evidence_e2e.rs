@@ -60,6 +60,21 @@ fn git(root: &Path, args: &[&str]) {
     assert!(status.success(), "git {args:?} failed");
 }
 
+fn clear_outer_coverage_environment() {
+    for variable in [
+        "LLVM_PROFILE_FILE",
+        "CARGO_LLVM_COV",
+        "CARGO_LLVM_COV_TARGET_DIR",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_INCREMENTAL",
+    ] {
+        // These tests invoke the runner in-process; isolate only the test
+        // process from the outer cargo llvm-cov environment.
+        std::env::remove_var(variable);
+    }
+}
+
 fn source(id: &str) -> NodeSource {
     NodeSource {
         doc: format!("{id}.md"),
@@ -191,6 +206,7 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(root);
+    clear_outer_coverage_environment();
     run_tests(root, &layout, &[runnable], false).expect("run_tests executes without I/O errors");
 
     let scan_after = scan_project(root).expect("re-scan after execution");
@@ -236,6 +252,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
     let exec_result = run_tests(&root, &layout, &[runnable], false)
         .expect("run_tests executes without I/O errors");
     assert!(
@@ -312,6 +329,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
     run_tests(&root, &layout, &[runnable], false).expect("run_tests");
 
     // Change the declaration (the Test subject hash's own bound `intent`
