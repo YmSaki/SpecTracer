@@ -867,6 +867,10 @@ mod tests {
         assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-TEXT-LITERAL-IS-NOT-VERIFICATION-SYNTAX
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::analyze
+    /// @vtest.intent 文字列literal内のtarget呼出しとunwrap表記を実行call・検証構文として数えないことを確認する
     #[test]
     fn text_literal_target_and_unwrap_are_not_verification_syntax() {
         let text = "#[test]\nfn mentions_only() {\n    let _ = \"parse(input).unwrap()\";\n}\n";

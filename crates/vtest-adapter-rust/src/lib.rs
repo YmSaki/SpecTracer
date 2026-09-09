@@ -1685,7 +1685,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-DISCOVERS-NON-FUNCTION-SOURCES
-    /// @vtest.covers VO-ADAPTER-RUST-SOURCE-DISCOVERY
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
     /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoAdapter::discover
     /// @vtest.intent 非関数Rust itemと通常/impl fnがすべてSourceDraft locatorへ索引化されることを確認する
     #[test]
