@@ -1594,7 +1594,6 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-VO-RECORD-HAS-NO-STATUS-OR-COVERS-FIELD
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
-    /// @vtest.target crates/vtest-model/src/subject_hash.rs::vo_subject_hash
     /// @vtest.intent verifies the canonical VoRecord this function reads structurally excludes `status`/`covers` (DES-094 "VOの読取り互換field `status` を正典ではないため含めない"; DES-096 "`covers` の増減をTest側subjectで捕捉するため含めない"; DS-405 confirms `status` is a read-compat-only field the canonical writer never persists)
     #[test]
     fn vo_record_json_shape_has_no_status_or_covers_key() {

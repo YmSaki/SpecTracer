@@ -41,6 +41,7 @@
 //!   report `Fail` — never the reverse — so this narrowing cannot manufacture
 //!   a false `Fail`.
 
+use syn::spanned::Spanned;
 use vtest_model::{Diagnostic, Locator};
 
 /// One DA rule's verdict, before DS-606/607/608 composes the five into one
@@ -666,33 +667,61 @@ fn find_assert_spans(text: &str, macros: &[&str]) -> Vec<(usize, usize)> {
 }
 
 fn find_macro_call_spans(text: &str, macro_name: &str) -> Vec<(usize, usize)> {
-    let mut spans = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(macro_name) {
-        let macro_start = search_from + relative;
-        let after = &text[macro_start + macro_name.len()..];
-        let trimmed = after.trim_start();
-        let skip = after.len() - trimmed.len();
-        let open_pos = macro_start + macro_name.len() + skip;
-        if let Some(open_char) = text[open_pos..].chars().next() {
-            let close_char = match open_char {
-                '(' => ')',
-                '[' => ']',
-                '{' => '}',
-                _ => {
-                    search_from = macro_start + macro_name.len();
-                    continue;
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = MacroVisitor {
+        text,
+        macro_name,
+        spans: Vec::new(),
+    };
+    syn::visit::Visit::visit_item_fn(&mut visitor, &function);
+    visitor.spans
+}
+
+struct MacroVisitor<'a> {
+    text: &'a str,
+    macro_name: &'a str,
+    spans: Vec<(usize, usize)>,
+}
+
+impl<'ast> syn::visit::Visit<'ast> for MacroVisitor<'_> {
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if node
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| format!("{}!", segment.ident) == self.macro_name)
+        {
+            let start = span_offset(node.span().start(), self.text);
+            let end = span_offset(node.span().end(), self.text);
+            let invocation = &self.text[start..end];
+            if let Some(open) = invocation.find(['(', '[', '{']) {
+                if let Some(close) = find_matching_close(
+                    invocation,
+                    open,
+                    invocation.as_bytes()[open] as char,
+                    match invocation.as_bytes()[open] as char {
+                        '(' => ')',
+                        '[' => ']',
+                        '{' => '}',
+                        _ => return,
+                    },
+                ) {
+                    self.spans.push((start + open + 1, start + close));
                 }
-            };
-            if let Some(close_pos) = find_matching_close(text, open_pos, open_char, close_char) {
-                spans.push((open_pos + 1, close_pos));
-                search_from = close_pos + 1;
-                continue;
             }
         }
-        search_from = macro_start + macro_name.len();
+        syn::visit::visit_macro(self, node);
     }
-    spans
+}
+
+fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
+    text.lines()
+        .take(location.line.saturating_sub(1))
+        .map(|line| line.len() + 1)
+        .sum::<usize>()
+        + location.column
 }
 
 fn find_matching_close(text: &str, open_pos: usize, open: char, close: char) -> Option<usize> {
@@ -935,6 +964,23 @@ mod tests {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(1, 1);\n}\n";
         let analysis = analyze(text, &[], &[]);
         assert!(matches!(analysis.da_001, DaVerdict::Fail(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-LITERAL-FIXTURE-IS-NOT-CODE
+    /// @vtest.covers VO-ORACLE-DA-004-SELF-COMPARISON
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::analyze
+    /// @vtest.intent fixture source embedded in a string literal is not analyzed as executable Rust
+    #[test]
+    fn assert_macros_inside_fixture_strings_are_ignored() {
+        let text = r##"#[test]
+fn real_check() {
+    let fixture = "assert_eq!(1, 1);";
+    assert!(fixture.len() > 0);
+}
+"##;
+        let analysis = analyze(text, &[], &[]);
+        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_004, DaVerdict::NoViolation));
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-CALL-RESULT-PASSES
