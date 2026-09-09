@@ -6659,28 +6659,7 @@
         "DS-S021",
         "DS-S088"
       ],
-      "items": [
-        {
-          "id": "BD-298",
-          "statement": "根指定の追加・削除は `vtest doc` コマンドの引数で管理する。",
-          "derives_from": [
-            "SPEC-212",
-            "SPEC-213",
-            "SPEC-214"
-          ],
-          "cites": [
-            "基本仕様 §26.1"
-          ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
-            "heading": "18.3.2 orphan_detection（文書層の孤児検出）",
-            "lines": [
-              122,
-              122
-            ]
-          }
-        }
-      ]
+      "items": []
     },
     {
       "id": "BD-S095",
