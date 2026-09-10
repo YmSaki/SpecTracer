@@ -451,13 +451,20 @@ fn target_call_has_assert_method_chain(text: &str, call_start: usize, symbol: &s
 }
 
 fn call_close_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
-    let after = &text[call_start + symbol.len()..];
-    let trimmed = after.trim_start();
-    let open = call_start + symbol.len() + after.len() - trimmed.len();
-    if !text[open..].starts_with('(') {
-        return None;
-    }
+    let open = call_open_position(text, call_start, symbol)?;
     find_matching_close(text, open, '(', ')')
+}
+
+/// Finds the argument-list opener for a call whose AST span starts at the
+/// beginning of its callee path. `find_call_sites` deliberately records the
+/// `ExprCall` function span, so a qualified call such as `Type::from_yaml`
+/// starts before the bare target symbol. Trim the callee path before matching
+/// its final segment, then use the same opener for all call-site consumers.
+fn call_open_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
+    let after = &text[call_start..];
+    let open_offset = after.find('(')?;
+    let callee = after[..open_offset].trim_end();
+    callee.ends_with(symbol).then_some(call_start + open_offset)
 }
 
 /// Calls in a loop are outside this bounded analysis: iteration and control
@@ -495,13 +502,7 @@ fn target_call_is_passed_to_other_function(text: &str, call_start: usize, symbol
 /// Returns the argument-list text (inside the parens) of a call to `symbol`
 /// whose name starts at byte offset `call_start` in `text`.
 fn call_argument_list<'a>(text: &'a str, call_start: usize, symbol: &str) -> Option<&'a str> {
-    let after = &text[call_start + symbol.len()..];
-    let trimmed = after.trim_start();
-    let skip = after.len() - trimmed.len();
-    let open_pos = call_start + symbol.len() + skip;
-    if !text[open_pos..].starts_with('(') {
-        return None;
-    }
+    let open_pos = call_open_position(text, call_start, symbol)?;
     let close_pos = find_matching_close(text, open_pos, '(', ')')?;
     Some(&text[open_pos + 1..close_pos])
 }
@@ -973,6 +974,19 @@ mod tests {
     fn a_direct_expect_err_call_passes_da_003_and_da_006() {
         let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-PATH-QUALIFIED-EXPECT-ERR-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent パス付きtarget呼出しへexpect_errを連鎖した場合にDA-003が違反なしになることを確認する
+    #[test]
+    fn a_path_qualified_expect_err_call_passes_da_003_and_da_006() {
+        let text =
+            "#[test]\nfn rejects() {\n    Type::from_yaml(input).expect_err(\"invalid\");\n}\n";
+        let analysis = analyze(text, &["from_yaml".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
     }

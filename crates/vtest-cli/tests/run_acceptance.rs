@@ -60,6 +60,7 @@ fn clear_outer_coverage_environment() {
     // `vtest run --all` currently executes one test per process, so that
     // sharing is not observable in that command path.
     for variable in [
+        "RUSTC_WRAPPER",
         "LLVM_PROFILE_FILE",
         "CARGO_LLVM_COV",
         "CARGO_LLVM_COV_TARGET_DIR",

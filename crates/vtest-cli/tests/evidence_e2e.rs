@@ -62,6 +62,7 @@ fn git(root: &Path, args: &[&str]) {
 
 fn clear_outer_coverage_environment() {
     for variable in [
+        "RUSTC_WRAPPER",
         "LLVM_PROFILE_FILE",
         "CARGO_LLVM_COV",
         "CARGO_LLVM_COV_TARGET_DIR",
