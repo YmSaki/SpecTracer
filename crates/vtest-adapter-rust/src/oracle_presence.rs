@@ -107,15 +107,15 @@ pub fn analyze(
     let has_should_panic = syntax
         .as_ref()
         .is_some_and(RustFunctionSyntax::has_should_panic);
-    let has_unwrap_or_expect_or_try = syntax
+    let has_assert_equivalent_method_or_try = syntax
         .as_ref()
-        .is_some_and(RustFunctionSyntax::has_unwrap_or_expect_or_try);
+        .is_some_and(RustFunctionSyntax::has_assert_equivalent_method_or_try);
     let has_result_return = syntax
         .as_ref()
         .is_some_and(RustFunctionSyntax::returns_result);
     let has_verification_syntax = !assert_spans.is_empty()
         || has_should_panic
-        || has_unwrap_or_expect_or_try
+        || has_assert_equivalent_method_or_try
         || has_result_return;
 
     OraclePresenceAnalysis {
@@ -439,9 +439,15 @@ fn target_call_has_assert_method_chain(text: &str, call_start: usize, symbol: &s
         return false;
     };
     let suffix = text[close + 1..].trim_start();
-    [".expect(", ".unwrap()", "?"]
-        .iter()
-        .any(|token| suffix.starts_with(token))
+    [
+        ".expect(",
+        ".unwrap()",
+        ".expect_err(",
+        ".unwrap_err()",
+        "?",
+    ]
+    .iter()
+    .any(|token| suffix.starts_with(token))
 }
 
 fn call_close_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
@@ -643,7 +649,7 @@ impl RustFunctionSyntax {
             .any(|attr| attr.path().is_ident("should_panic"))
     }
 
-    fn has_unwrap_or_expect_or_try(&self) -> bool {
+    fn has_assert_equivalent_method_or_try(&self) -> bool {
         let mut visitor = VerificationSyntaxVisitor {
             has_verifier: false,
         };
@@ -672,7 +678,10 @@ struct VerificationSyntaxVisitor {
 
 impl<'ast> Visit<'ast> for VerificationSyntaxVisitor {
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        if matches!(node.method.to_string().as_str(), "unwrap" | "expect") {
+        if matches!(
+            node.method.to_string().as_str(),
+            "unwrap" | "expect" | "unwrap_err" | "expect_err"
+        ) {
             self.has_verifier = true;
         }
         syn::visit::visit_expr_method_call(self, node);
@@ -697,7 +706,7 @@ fn da_006_no_verification_syntax(has_verification_syntax: bool) -> DaVerdict {
         // delegation-identification logic exists to name one.
         DaVerdict::Fail(
             "no assert-equivalent construct (standard macro, #[should_panic], \
-             .unwrap()/.expect()/?, or a Result-returning signature) is present, \
+             .unwrap()/.expect()/.expect_err()/.unwrap_err()/?, or a Result-returning signature) is present, \
              and no §7.2.1 delegation target is identified (DS-626)",
         )
     }
@@ -956,13 +965,25 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-ERR-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
+    #[test]
+    fn a_direct_expect_err_call_passes_da_003_and_da_006() {
+        let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
     /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
-    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
     #[test]
     fn a_direct_expect_call_passes_da_003_and_da_006() {
-        let text = "#[test]\nfn rejects() {\n    parse(input).expect(\"valid\");\n}\n";
+        let text = "#[test]\nfn accepts() {\n    parse(input).expect(\"valid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
