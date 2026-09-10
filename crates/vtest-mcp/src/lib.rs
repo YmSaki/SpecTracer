@@ -1750,7 +1750,7 @@ mod tests {
     /// + `--update` combination had coverage).
     ///
     /// @vtest.id TEST-MCP-DOC-UPSERT-REJECTS-ROOT-WITH-UPDATE
-    /// @vtest.covers VO-DOC-UPSERT-ROOT-FIXED-AT-REGISTRATION
+    /// @vtest.covers VO-DOC-ROOT-FIXED-AFTER-REGISTRATION, VO-DOC-ROOT-DESIGNATION-AT-ADD
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
     /// @vtest.intent MCP `doc_upsert` rejects `root` combined with `update: true` (E-OP-001), since root designation is fixed at initial registration.
     #[test]

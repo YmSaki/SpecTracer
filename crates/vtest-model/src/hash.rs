@@ -336,7 +336,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CONTENT-HASH-FROM-CANONICAL-BYTES-IS-EXACT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::ContentHash::from_canonical_bytes
     /// @vtest.intent verifies from_canonical_bytes hashes raw bytes directly, unlike from_text/from_bytes which normalize
     #[test]
@@ -348,7 +348,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-DOMAIN-SEPARATION
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies each of the five §1.3 domains yields a distinct hash for identical field content (本冊:87-91)
     #[test]
@@ -383,7 +383,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-NULL-EMPTY-DISTINCT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies null, empty string, and empty list encode to three pairwise distinct hashes (本冊:85 "null、空文字、空listは異なる値としてencodeする")
     #[test]
@@ -403,7 +403,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-FIELD-KIND-TAGS-ARE-PAIRWISE-DISTINCT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
     /// @vtest.intent verifies Null/Scalar/Ordered/Set/Map each occupy a distinct tag byte, so a field's kind is bound alongside its content — 本冊:85 requires cases (順序に意味がある, Ordered) and covers/targets/related (集合として扱う, Set) to follow different ordering rules, which a shared tag would silently erase for same-content lists
     #[test]
@@ -452,7 +452,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-LENGTH-PREFIX-PREVENTS-COLLISION
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies length-prefixed field encoding avoids the classic concatenation collision (本冊:85 "単純な文字列連結を行わない")
     #[test]
@@ -471,7 +471,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-MAP-KEY-ORDER-INDEPENDENT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies map fields hash the same regardless of construction/insertion order (本冊:85 "mapはkey昇順")
     #[test]
@@ -494,7 +494,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-SET-FIELD-ORDER-INDEPENDENT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies set-typed fields (covers/targets/related) hash the same regardless of declared order (本冊:85)
     #[test]
@@ -517,7 +517,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-SET-FIELD-DEDUPLICATES
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies a set-typed field with a repeated element hashes the same as the deduplicated set (本冊:85 "集合として扱うcovers・targets・related" — a set containing an element twice is the same set as containing it once)
     #[test]
@@ -543,7 +543,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-ORDERED-FIELD-ORDER-DEPENDENT
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies order-significant fields (cases) change hash when declaration order changes (本冊:85 "順序に意味があるcasesは宣言順とする")
     #[test]
@@ -562,7 +562,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-TEXT-FRAGMENT-NORMALIZES-LINE-ENDINGS
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::FieldValue::text_fragment
     /// @vtest.intent verifies text_fragment fields unify CRLF/CR to LF and strip trailing per-line whitespace (本冊:83)
     #[test]
@@ -577,7 +577,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-TEXT-FRAGMENT-PRESERVES-LEADING-SPACE-AND-TRAILING-NEWLINE
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::FieldValue::text_fragment
     /// @vtest.intent verifies text_fragment fields preserve leading whitespace and trailing-newline presence (本冊:83 "これ以外の空白は正規化しない")
     #[test]
@@ -600,7 +600,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-EXACT-BYTES-SKIPS-NORMALIZATION
-    /// @vtest.covers VO-MODEL-CANONICAL-HASH-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
     /// @vtest.target crates/vtest-model/src/hash.rs::FieldValue::exact_bytes
     /// @vtest.intent verifies exact_bytes fields are byte-exact and do not apply line-ending/trailing-space normalization
     #[test]

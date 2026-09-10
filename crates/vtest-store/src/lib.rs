@@ -892,7 +892,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-READ-ENTITY-IDS-FRESH-PROJECT
-    /// @vtest.covers VO-STORE-READ-ENTITY-IDS-DOC-VO-SETS
+    /// @vtest.covers VO-STORE-READ-DOCUMENT-ID-SET, VO-STORE-READ-VO-ID-SET
     /// @vtest.target crates/vtest-store/src/lib.rs::read_entity_ids
     /// @vtest.intent read_entity_ids returns empty document and VO id sets for a freshly initialized project
     #[test]
@@ -906,7 +906,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-READ-ENTITY-IDS-POPULATED
-    /// @vtest.covers VO-STORE-READ-ENTITY-IDS-DOC-VO-SETS
+    /// @vtest.covers VO-STORE-READ-DOCUMENT-ID-SET, VO-STORE-READ-VO-ID-SET
     /// @vtest.target crates/vtest-store/src/lib.rs::read_entity_ids
     /// @vtest.intent read_entity_ids reflects a registered document id and VO id after they are written
     #[test]

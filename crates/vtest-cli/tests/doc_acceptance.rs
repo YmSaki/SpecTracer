@@ -269,7 +269,7 @@ fn derives_from_writes_onto_every_top_level_node() {
 /// so this uses two request-layer nodes, each pre-populated with a
 /// different existing value the new `--derives-from` call must overwrite.
 /// @vtest.id TEST-DOC-DERIVES-FROM-REPLACE-UNIFORM
-/// @vtest.covers VO-DOC-DERIVES-FROM-REPLACE-UNIFORM
+/// @vtest.covers VO-DOC-DERIVES-FROM-REPLACES-EXISTING, VO-DOC-DERIVES-FROM-APPLIES-ALL-TOP-LEVEL-NODES
 /// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
 /// @vtest.intent --derives-from replaces each top-level node's existing derives_from and applies uniformly across multiple nodes
 #[test]
@@ -760,7 +760,7 @@ fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
 /// -ignored change (the retired DS-1014 was the only ground for allowing
 /// `--update` to also change root designation).
 /// @vtest.id TEST-DOC-ROOT-FLAG-WITH-UPDATE
-/// @vtest.covers VO-DOC-UPSERT-ROOT-FIXED-AT-REGISTRATION
+/// @vtest.covers VO-DOC-ROOT-FIXED-AFTER-REGISTRATION, VO-DOC-ROOT-DESIGNATION-AT-ADD
 /// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
 /// @vtest.intent --root or --no-root combined with --update is a usage rejection, since root designation is fixed at initial registration only
 #[test]
@@ -908,7 +908,7 @@ fn list_roots_lists_the_current_root_set() {
 /// mistake) -- so every expected value here is hand-derived from the
 /// fixture's own construction, independent of the function under test.
 /// @vtest.id TEST-DOC-LIST-FRESHNESS-VALUES
-/// @vtest.covers VO-DOC-LIST-FRESHNESS-VALUES
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-VALUES, VO-DOC-LIST-GET-DOCUMENT-FRESHNESS
 /// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
 /// @vtest.intent doc list's freshness field carries hand-derived expected per-node values, not merely internal self-consistency
 #[test]

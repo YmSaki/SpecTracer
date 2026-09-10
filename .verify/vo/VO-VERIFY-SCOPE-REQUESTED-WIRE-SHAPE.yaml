@@ -2,7 +2,7 @@ id: VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
 parent: null
 derives_from:
   - doc: DES-548
-claim: verify/reportのJSONは最上位scopeにrequested.items（--items省略時は4検査全件）・requested.entities（エンティティ軸無指定は空list）・unverified_outside_scope（検査軸4件未満またはエンティティ軸指定ありでtrue）を持つ
+claim: 'verifyのJSONはscope.requestedに省略時の固定4検査と空のentitiesを返し、entity限定時はunverified_outside_scopeをtrueにする'
 dimensions: []
 coverage_policy: null
 combinations: []

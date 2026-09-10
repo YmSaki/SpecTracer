@@ -2,7 +2,7 @@ id: VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
 parent: null
 derives_from:
   - doc: DS-1676
-claim: E-SCAN-010はerrorであり、レコードのid/ファイル名/schema不一致（宣言されていない余剰fieldを含む）、または互換正規化後のlogical record ID重複を意味する。record層診断はどのadapterにも属さないためSourceLocationを持たない。
+claim: '互換正規化後のlogical record ID重複または上流文書ノードidの重複はE-SCAN-010 errorである'
 dimensions: []
 coverage_policy: null
 combinations: []

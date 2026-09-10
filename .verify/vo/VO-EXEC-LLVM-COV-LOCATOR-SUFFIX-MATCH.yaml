@@ -1,0 +1,11 @@
+id: VO-EXEC-LLVM-COV-LOCATOR-SUFFIX-MATCH
+parent: null
+derives_from:
+  - doc: DES-457
+claim: '一致条件は、demangle済み関数名の末尾がlocatorのitem-pathと一致し、かつfilenamesのいずれかの末尾がlocatorのpathと一致することである。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-10T12:00:00+09:00

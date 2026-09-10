@@ -2,7 +2,7 @@ id: VO-EXEC-STATE-NESTED-TARGET-DIR-NOT-EXCLUDED
 parent: null
 derives_from:
   - doc: DES-211
-claim: '導出。DES-211は「`.git/`、`.verify/` のcanonical record / cache、Cargo target directory等の生成物は実行入力から除外する」と定めるが、これはworkspace root直下の生成物ディレクトリを指しており、任意の深さで同名のディレクトリを指す規定ではない。したがってroot直下でない、同名（例: `src/target`）のディレクトリはmanifestから除外されない。'
+claim: '.git/、.verify/のcanonical record/cache、Cargo target directory等の生成物は実行入力から除外する'
 dimensions: []
 coverage_policy: null
 combinations: []

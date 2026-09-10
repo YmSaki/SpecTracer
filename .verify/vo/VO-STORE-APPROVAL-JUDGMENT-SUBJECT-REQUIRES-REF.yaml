@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-JUDGMENT-SUBJECT-REQUIRES-REF
 parent: null
 derives_from:
   - doc: DES-150
-claim: '導出。承認対象種別`judgment`は、レコード上`judgment_ref`に判断記録ULIDを置き、`subject`には当該判断記録の`subject`（VO IDまたはdocument ID）を置く（DES-150）。この対応関係が構造上の要件であるため、`subject_type: judgment`でありながら`judgment_ref`を欠く承認レコードは不完全な形として拒否されなければならない。'
+claim: '承認対象種別judgmentはjudgment_refに判断記録ULIDを置き、subjectに当該判断記録のsubjectを置く'
 dimensions: []
 coverage_policy: null
 combinations: []

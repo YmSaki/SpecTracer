@@ -2552,7 +2552,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-EVIDENCE-ID-FILENAME-ULID-INVARIANTS
-    /// @vtest.covers VO-STORE-EVIDENCE-ID-FILENAME-ULID-MATCH
+    /// @vtest.covers VO-STORE-EVIDENCE-ID-FILENAME-MATCH, VO-STORE-EVIDENCE-ID-BARE-ULID
     /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
     /// @vtest.intent verifies read_evidence enforces id/file-name match and bare-ULID form (DS-1657, DES-032)
     /// DS-1657 ("上流文書のレコードを除き、`id` とファイル名は一致しなければ

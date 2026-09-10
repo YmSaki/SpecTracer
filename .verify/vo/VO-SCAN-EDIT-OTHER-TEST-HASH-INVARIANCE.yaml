@@ -2,7 +2,7 @@ id: VO-SCAN-EDIT-OTHER-TEST-HASH-INVARIANCE
 parent: null
 derives_from:
   - doc: DES-530
-claim: 置換範囲が単一のテスト関数の拡張rangeに限られることを、適用前（範囲計算）と適用後（他Testのハッシュ不変確認）の二重で検査する（DES-530）。導出。`verify_other_test_hashes`のこの不変確認は、Test IDが衝突しているグループについても衝突する各constructのhashを個別に保持したまま比較しなければならない — 集約時に1件へ縮約すると、衝突グループ内の対象外constructの変化を見逃し、「他のTestへ影響しない」（DES-531）の検査が抜け穴を持つため。
+claim: '置換範囲が単一Test関数の拡張rangeに限られることを、適用前の範囲計算と適用後の他Testのhash不変確認で検査する'
 dimensions: []
 coverage_policy: null
 combinations: []

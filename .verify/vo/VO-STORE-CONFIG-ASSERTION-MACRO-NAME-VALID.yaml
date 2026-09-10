@@ -4,7 +4,7 @@ derives_from:
   - doc: DS-350
 claim: >-
   導出。DS-350「`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert
-  相当として扱うマクロ名を指定する」における「マクロ名」は構文的に妥当なRust識別子またはRust
+  相当として扱うマクロ名を指定する」における「マクロ名」は構文上のRust識別子またはRust
   パスでなければならず、`assert-valid` のようなRust識別子・パスとして不正な文字列は
   `assertion_macros` のマクロ名として拒否されなければならない。
 dimensions: []

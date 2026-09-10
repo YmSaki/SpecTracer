@@ -2,7 +2,7 @@ id: VO-SCAN-CASE-RELATED-REPEATED-KEY-LINES
 parent: null
 derives_from:
   - doc: DS-1618
-claim: case・related・targetはキー自体を複数行書ける。
+claim: 'caseとrelatedはキー自体を複数行書ける'
 dimensions: []
 coverage_policy: null
 combinations: []

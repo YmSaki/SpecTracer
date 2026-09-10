@@ -2,7 +2,7 @@ id: VO-RUN-MISSING-RESULT-LINE-FAILS
 parent: null
 derives_from:
   - doc: DS-749
-claim: 要求したTestの結果行が得られない実行はE-EXEC-002で失敗しEvidenceを記録しない
+claim: '要求したフィルタの結果行が得られないTest実行は失敗とする'
 dimensions: []
 coverage_policy: null
 combinations: []

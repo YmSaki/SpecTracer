@@ -3,7 +3,7 @@ parent: null
 derives_from:
   - doc: DES-097
   - doc: DES-099
-claim: 導出。DES-097はExecution State subject hashが束縛する固定field集合を定め、DES-099はmanifest entry集合を正規化identity順にencodeすると定める。束縛対象と順序が共に固定されているため、同一環境に対する二回の reconstruction は同一のhashを返す。
+claim: 'Execution State subject hashは列挙された入力と正規化identity順のmanifest entry集合を束縛する'
 dimensions: []
 coverage_policy: null
 combinations: []

@@ -275,7 +275,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-ROOT-NODE-NO-DERIVES-FROM
-    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE, VO-MODEL-DOCUMENT-DERIVES-FROM-PRESENCE, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE, VO-MODEL-DOCUMENT-NODE-REQUIRED-FIELDS
     /// @vtest.target crates/vtest-model/src/document.rs::RootNode
     /// @vtest.intent verifies the root layer's node carries no derives_from field
     #[test]
@@ -297,7 +297,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-SENTENCE-DERIVES-FROM-REQUIRED
-    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE, VO-MODEL-DOCUMENT-DERIVES-FROM-PRESENCE, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE, VO-MODEL-DOCUMENT-NODE-REQUIRED-FIELDS
     /// @vtest.target crates/vtest-model/src/document.rs::SentenceNode
     /// @vtest.intent verifies a sentence node's derives_from is present (possibly empty) and holds bare ids
     #[test]
@@ -322,7 +322,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-SECTION-DERIVES-FROM-OPTIONAL
-    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE, VO-MODEL-DOCUMENT-DERIVES-FROM-PRESENCE, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE, VO-MODEL-DOCUMENT-NODE-REQUIRED-FIELDS
     /// @vtest.target crates/vtest-model/src/document.rs::SectionNode
     /// @vtest.intent verifies a section node may omit derives_from and may nest sections and items
     #[test]
@@ -390,7 +390,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-SENTENCE-CITES-KEY-OPTIONAL
-    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE, VO-MODEL-DOCUMENT-DERIVES-FROM-PRESENCE, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE, VO-MODEL-DOCUMENT-NODE-REQUIRED-FIELDS
     /// @vtest.target crates/vtest-model/src/document.rs::SentenceNode
     /// @vtest.intent verifies a sentence node's cites key preserves the author's absent/empty choice, mirroring SectionNode::derives_from
     #[test]
@@ -430,7 +430,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-SECTION-CHILDREN-KEYS-OPTIONAL
-    /// @vtest.covers VO-MODEL-DOCUMENT-NODE-SHAPES
+    /// @vtest.covers VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE, VO-MODEL-DOCUMENT-DERIVES-FROM-PRESENCE, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE, VO-MODEL-DOCUMENT-NODE-REQUIRED-FIELDS
     /// @vtest.target crates/vtest-model/src/document.rs::SectionNode
     /// @vtest.intent verifies a section node's sections/items keys preserve the author's absent/empty choice, mirroring SectionNode::derives_from
     #[test]
@@ -462,7 +462,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-NODE-REJECTS-UNKNOWN-FIELD
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-model/src/document.rs::SentenceNode
     /// @vtest.intent verifies an undeclared field on a sentence node is rejected (DS-1645)
     #[test]
@@ -478,7 +478,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-NODE-DERIVES-FROM-REJECTS-ANCHOR-NOTE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-model/src/document.rs::SentenceNode
     /// @vtest.intent verifies a document node's derives_from entry cannot carry anchor/note (DS-1594, DS-1595) — that shape is VO-only (DS-1638)
     #[test]
@@ -511,7 +511,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-NO-IDENTIFYING-FIELD
-    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILENAME-HUMAN-IDENTIFIER, VO-MODEL-DOCUMENT-FILE-NO-DOCUMENT-ID-FIELD, VO-MODEL-DOCUMENT-FILE-SEVEN-LAYER-ARRAYS
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies the document file shape has no field identifying which document it is (BD-330, DES-585)
     #[test]
@@ -539,7 +539,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-REJECTS-UNKNOWN-TOP-LEVEL-FIELD
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies an undeclared top-level field on a document file is rejected (DS-1645)
     #[test]
@@ -554,7 +554,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-ROUND-TRIPS-FROM-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILENAME-HUMAN-IDENTIFIER, VO-MODEL-DOCUMENT-FILE-NO-DOCUMENT-ID-FIELD, VO-MODEL-DOCUMENT-FILE-SEVEN-LAYER-ARRAYS
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies a small representative fixture parses, then re-serializes to a structurally identical JSON value
     #[test]
@@ -567,7 +567,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-REJECTS-UNKNOWN-FIELD-FIXTURES
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies fixtures with an unknown field at the top level, in a section node, and in a sentence node are all rejected (DS-1676)
     #[test]
@@ -589,7 +589,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-REJECTS-ANCHOR-NOTE-DERIVES-FROM-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies a fixture file whose node derives_from carries an anchor/note (VO-only shape) is rejected (DS-1594, DS-1595)
     #[test]
@@ -602,7 +602,7 @@ mod tests {
     /// the canonical `specification.json`. Not run by default because it
     /// depends on a file outside this crate's fixtures.
     /// @vtest.id TEST-MODEL-DOCUMENT-FILE-CANONICAL-BUNDLE-ROUND-TRIPS
-    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILENAME-HUMAN-IDENTIFIER, VO-MODEL-DOCUMENT-FILE-NO-DOCUMENT-ID-FIELD, VO-MODEL-DOCUMENT-FILE-SEVEN-LAYER-ARRAYS
     /// @vtest.target crates/vtest-model/src/document.rs::DocumentFile
     /// @vtest.intent verifies the real canonical specification.json parses as DocumentFile and re-serializes to a structurally identical JSON value (DES-586)
     #[test]

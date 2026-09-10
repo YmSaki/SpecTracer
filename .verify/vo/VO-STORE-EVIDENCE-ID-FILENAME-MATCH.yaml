@@ -1,0 +1,11 @@
+id: VO-STORE-EVIDENCE-ID-FILENAME-MATCH
+parent: null
+derives_from:
+  - doc: DS-1657
+claim: '上流文書のレコードを除き、`id` とファイル名（拡張子除く）は一致しなければならない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

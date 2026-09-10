@@ -2,7 +2,7 @@ id: VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
 parent: null
 derives_from:
   - doc: REQ-094
-claim: 導出。発見されたTestに管理宣言が無い場合、状態はMISMATCH・診断ラベルはMISSINGとなる（REQ-094）。この判定は、当該Test constructがScanResult.discovered（発見集合D）に存在として現れ続けることを前提とする。scanが観測したconstructを黙って消してしまえば、後段のchain_integrity判定がその事実自体を評価する材料を持たなくなるため、discoveredへの現れは判定成立の必要条件として導出する。
+claim: '発見されたTestに管理宣言が無い場合、状態はMISMATCH、診断ラベルはMISSINGとなる'
 dimensions: []
 coverage_policy: null
 combinations: []

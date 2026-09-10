@@ -1,0 +1,11 @@
+id: VO-STORE-READ-DOCUMENT-ID-SET
+parent: null
+derives_from:
+  - doc: BD-323
+claim: '`.verify/doc/` は文書ごとに1つの JSON ファイルとして上流文書（正典）を格納する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

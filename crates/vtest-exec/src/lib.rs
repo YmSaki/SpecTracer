@@ -614,7 +614,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-EXEC-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM
-    /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTION-MATCH-AND-SUM
+    /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTIONS-LOOKUP, VO-EXEC-LLVM-COV-LOCATOR-SUFFIX-MATCH, VO-EXEC-LLVM-COV-GENERIC-COUNTS-SUM
     /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
     /// @vtest.intent llvm-cov export JSONからlocatorに一致する関数（複数ジェネリックインスタンス含む）のcountを合算し、一致しないtargetはNoneを返すことを検証する
     #[test]

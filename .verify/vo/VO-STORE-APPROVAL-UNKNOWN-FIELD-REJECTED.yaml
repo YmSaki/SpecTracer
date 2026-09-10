@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
 parent: null
 derives_from:
   - doc: DS-1676
-claim: 導出。E-SCAN-010はerrorであり、レコードのid / ファイル名 / schema不一致（宣言されていない余剰fieldを含む）を意味する（DS-1676）。承認レコードは`.verify/`配下のレコードであるため、トップレベルまたはネストした`approver`内に宣言されていない余剰フィールド（非文字列キーを含む）を持つ承認レコードはfail-closedで拒否しなければならない。
+claim: '承認レコードの宣言されていない余剰fieldはschema不一致としてE-SCAN-010である'
 dimensions: []
 coverage_policy: null
 combinations: []

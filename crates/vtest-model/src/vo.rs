@@ -296,7 +296,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-VO-COVERAGE-POLICY-VALUES
-    /// @vtest.covers VO-MODEL-VO-COVERAGE-POLICY-VALUES
+    /// @vtest.covers VO-MODEL-VO-COVERAGE-POLICY-INDEPENDENT-AXES, VO-MODEL-VO-COVERAGE-POLICY-FULL-PRODUCT, VO-MODEL-VO-COVERAGE-POLICY-EXPLICIT
     /// @vtest.target crates/vtest-model/src/vo.rs::CoveragePolicy
     /// @vtest.intent verifies the three coverage_policy values serialize to independent-axes/full-product/explicit (DS-407, DS-408, DS-409)
     #[test]
@@ -316,7 +316,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-VO-RECORD-SHAPE
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-model/src/vo.rs::VoRecord
     /// @vtest.intent verifies VoRecord serializes its canonical field set (DS-391, DS-394, DS-396)
     #[test]
@@ -341,7 +341,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-VO-RECORD-SERIALIZES-WITHOUT-PARENT
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-model/src/vo.rs::VoRecord
     /// @vtest.intent verifies VoRecord's optional parent field serializes as null when absent
     #[test]
@@ -366,7 +366,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-MODEL-VO-RECORD-CARRIES-REPRESENTATIVE-CASES
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-model/src/vo.rs::VoRecord
     /// @vtest.intent verifies VoRecord's optional representative_cases field round-trips (DS-395)
     #[test]
@@ -392,7 +392,7 @@ mod tests {
     /// from dimension name to partition value, not positional value lists.
     ///
     /// @vtest.id TEST-MODEL-VO-COMBINATIONS-ARE-DIMENSION-KEYED-MAPS
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
     /// @vtest.intent verifies a combinations entry serializes as a dimension-name-keyed map (DS-414)
     #[test]
@@ -442,7 +442,7 @@ mod tests {
     /// dimension name losslessly, in declaration order, rather than
     /// collapsing or rejecting it (see the type's own doc comment).
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-PRESERVES-DUPLICATE-DIMENSION-NAME
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
     /// @vtest.intent verifies deserialize keeps a repeated dimension name losslessly, in declaration order, for the scan-layer E-SCAN-017 judgment
     #[test]
@@ -461,7 +461,7 @@ mod tests {
     /// A well-formed entry (no repeated dimension name) has no duplicates
     /// to report and round-trips normally.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-WITHOUT-DUPLICATE-REPORTS-NONE
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
     /// @vtest.intent verifies a well-formed entry (each dimension declared exactly once) reports no duplicates and resolves values by name (DS-414)
     #[test]
@@ -481,7 +481,7 @@ mod tests {
     /// compare equal, matching the order-independence a `BTreeMap`-backed
     /// entry got for free from the map's own `Eq`/`Ord`.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-EQUALITY-ORDER-INDEPENDENT
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
     /// @vtest.intent verifies two entries with the same pairs in different declaration order compare equal (DS-412)
     #[test]
@@ -504,7 +504,7 @@ mod tests {
     /// losslessly), but must refuse to re-emit it as YAML/JSON with a
     /// repeated mapping key.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-DUPLICATE-REFUSES-TO-SERIALIZE
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
     /// @vtest.intent verifies an entry still holding a duplicate dimension name refuses to serialize, failing closed rather than emitting a repeated mapping key (DS-414)
     #[test]

@@ -1,0 +1,11 @@
+id: VO-EXEC-LLVM-COV-GENERIC-COUNTS-SUM
+parent: null
+derives_from:
+  - doc: DES-458
+claim: 'ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-10T12:00:00+09:00

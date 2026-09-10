@@ -3,7 +3,7 @@ parent: null
 derives_from:
   - doc: DES-098
   - doc: DES-097
-claim: 導出。DES-098はmanifest entryがbyte-exact file bytesからなると定め、DES-097はそのmanifestをExecution State subject hashへ束縛すると定める。したがってmanifest内fileのbyte内容を変更するとhashが変化する。
+claim: 'Execution State subject hashはbyte-exact file bytesを含む完全なmanifestを束縛する'
 dimensions: []
 coverage_policy: null
 combinations: []

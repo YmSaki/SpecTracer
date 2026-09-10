@@ -2,7 +2,7 @@ id: VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
 parent: null
 derives_from:
   - doc: DES-552
-claim: ゲートの条件充足・不足の両方がfixtureで確認できる
+claim: 'ゲート条件を充足するfixtureで条件充足を確認する'
 dimensions: []
 coverage_policy: null
 combinations: []

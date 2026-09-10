@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-APPROVER-TRACEABLE
 parent: null
 derives_from:
   - doc: REQ-245
-claim: 承認記録は「誰が（approver）」「何を（subject または judgment reference）」「どの承認状態か（approved state）」を必須項目として追跡可能とする。
+claim: '承認記録はapproverを必須項目として追跡可能とする'
 dimensions: []
 coverage_policy: null
 combinations: []

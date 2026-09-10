@@ -216,7 +216,7 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
 /// The completion criterion for this Evidence slice: a fixture on which
 /// `vtest verify` reaches `ok: true` with all four canonical checks `PASS`.
 /// @vtest.id TEST-E2E-FULL-PASS
-/// @vtest.covers VO-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+/// @vtest.covers VO-VERIFY-EVIDENCE-RUNNER-FAIL, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
 /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
 /// @vtest.intent a covered Test with a git-committed environment and valid Evidence reaches ok:true with all four checks PASS
 #[test]

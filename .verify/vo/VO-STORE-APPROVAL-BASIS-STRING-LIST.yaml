@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-BASIS-STRING-LIST
 parent: null
 derives_from:
   - doc: DS-1055
-claim: 導出。`--basis`は根拠参照（任意）である（DS-1055）。承認レコードの`basis`フィールドも根拠であり任意とする（別紙A 3.5）。いずれも`{kind, ref}`のような構造化されたペアの値域を定めていないため、`basis[]`は自由形式の参照文字列からなるbareなリストであり、マッピング（object）を要素に持つエントリは値の型不一致として拒否される。
+claim: 'approval createの--basisは任意の根拠参照である'
 dimensions: []
 coverage_policy: null
 combinations: []

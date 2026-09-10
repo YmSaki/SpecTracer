@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-SUBJECT-TYPE-DOMAIN
 parent: null
 derives_from:
   - doc: DS-1196
-claim: '導出。`approval_create`は`subject: { type: vo | document | judgment, id }`を入力とする（DS-1196）。`type`の値域はvo / document / judgmentの3値に限られるため、これ以外の値（例: test）を持つ承認レコードは値域外として拒否される。'
+claim: 'approval_createのsubject.typeはvo・document・judgmentのいずれかである'
 dimensions: []
 coverage_policy: null
 combinations: []

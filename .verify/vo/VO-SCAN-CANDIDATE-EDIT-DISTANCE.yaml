@@ -2,7 +2,7 @@ id: VO-SCAN-CANDIDATE-EDIT-DISTANCE
 parent: null
 derives_from:
   - doc: DES-405
-claim: 導出。`rust-cargo` adapterは、編集距離2以内の近似名の順で候補を構築する（DES-405、別紙A §6.3「候補提示」）。本crateの`edit_distance`はこの近似名判定が使う編集距離アルゴリズムの共有実装であり、DES-405の「編集距離2以内」という具体的な距離契約を計算する。DES-405自体はrust-cargo adapterの記号解決候補に対する規範だが、同じ`edit_distance`関数はcore側のTest ID/VO ID候補提示（`test_id_candidates`/`id_candidates`）でも再利用されており、この距離計算そのものの正しさはどちらの呼び出し文脈でも同一の前提となる。
+claim: 'rust-cargo adapterは編集距離2以内の近似名の順で候補を構築する'
 dimensions: []
 coverage_policy: null
 combinations: []

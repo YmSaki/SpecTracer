@@ -1,0 +1,11 @@
+id: VO-SCAN-VO-PARENT-INTEGRITY-E-SCAN-008
+parent: null
+derives_from:
+  - doc: DS-542
+claim: 'E-SCAN-008はerrorであり、VOのparent不在または循環を意味する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

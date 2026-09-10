@@ -2,7 +2,7 @@ id: VO-MODEL-VO-RECORD-SCHEMA-CONFORMANCE
 parent: null
 derives_from:
   - doc: DS-1676
-claim: 導出。DS-1676はE-SCAN-010がレコードのid / ファイル名 / schema不一致（宣言されていない余剰fieldを含む）を意味すると定める。この規範はVOレコードにも及ぶ：VOレコードのidとファイル名の不一致、トップレベルまたは`derives_from[]`/`dimensions[]`entry内の未知field、YAML上の重複key（トップレベル・入れ子のいずれも構文として不正でschema不一致に含まれる）、非文字列keyは、いずれも読み取りをfail closedとする。`combinations[]`entry内のdimension名重複はこの規範の例外（DS-422が別途扱う）であり、それ以外の未知fieldは`combinations[]`の許容とは独立に依然としてfail closedとなる。
+claim: 'VOレコードのid・ファイル名・schemaの不一致（宣言されていない余剰fieldを含む）はE-SCAN-010である'
 dimensions: []
 coverage_policy: null
 combinations: []

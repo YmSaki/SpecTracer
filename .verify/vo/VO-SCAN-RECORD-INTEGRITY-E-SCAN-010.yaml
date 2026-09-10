@@ -1,0 +1,11 @@
+id: VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
+parent: null
+derives_from:
+  - doc: DS-1676
+claim: 'E-SCAN-010はerrorであり、レコードのid / ファイル名 / schema不一致（宣言されていない余剰 field を含む）、互換正規化後のlogical record ID重複、または上流文書ノードの `id` が 2 箇所以上に現れること（同一ファイル内・ファイル間を問わない）を意味する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

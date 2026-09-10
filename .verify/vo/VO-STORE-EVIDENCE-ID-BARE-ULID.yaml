@@ -1,0 +1,11 @@
+id: VO-STORE-EVIDENCE-ID-BARE-ULID
+parent: null
+derives_from:
+  - doc: DES-032
+claim: '判断・承認・EvidenceのIDはbare ULIDとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

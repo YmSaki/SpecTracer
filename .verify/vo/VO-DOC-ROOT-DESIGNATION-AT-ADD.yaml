@@ -1,0 +1,11 @@
+id: VO-DOC-ROOT-DESIGNATION-AT-ADD
+parent: null
+derives_from:
+  - doc: BD-331
+claim: '根指定は `vtest doc add` コマンドの引数（`--root`/`--no-root`）で新規登録時にのみ定まり、当該 document ノードの登録先層配列（`root` 層か否か）に反映される。登録後は変更しない。`config.yaml` に根集合を持たない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

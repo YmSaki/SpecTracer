@@ -2,7 +2,7 @@ id: VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
 parent: null
 derives_from:
   - doc: DS-619
-claim: target呼出しに直接連結した`.expect(..)`はDS-619のassert相当構文そのものであり、target呼出結果がそのassert相当に到達したものとして扱う
+claim: 'rust-cargoでは.expect(..)・.expect_err(..)・.unwrap_err()をassert相当の構文として扱う'
 dimensions: []
 coverage_policy: null
 combinations: []

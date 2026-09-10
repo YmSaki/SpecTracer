@@ -2,7 +2,7 @@ id: VO-SCAN-DISCOVERY-FAILURE-E-ADAPTER-002
 parent: null
 derives_from:
   - doc: DS-922
-claim: E-ADAPTER-002はerrorであり、adapterのdiscoveryまたはrunnerが確定的に失敗（Evidenceなし）することを意味する。
+claim: 'adapter discoveryの確定的失敗はE-ADAPTER-002 errorである'
 dimensions: []
 coverage_policy: null
 combinations: []

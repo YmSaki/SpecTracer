@@ -2,7 +2,7 @@ id: VO-ACCEPTANCE-FIXTURE-DOES-NOT-RELAX-INVARIANTS
 parent: null
 derives_from:
   - doc: DES-534
-claim: canonical record・承認記録・判断記録・Evidence・内容hashの不変条件は、受入テストのfixtureであっても緩和されない
+claim: '承認記録のapproved_state値域は受入テストfixtureの都合で緩和しない'
 dimensions: []
 coverage_policy: null
 combinations: []

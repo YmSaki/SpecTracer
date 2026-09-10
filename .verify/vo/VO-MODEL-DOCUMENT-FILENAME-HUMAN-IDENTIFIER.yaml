@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-FILENAME-HUMAN-IDENTIFIER
+parent: null
+derives_from:
+  - doc: BD-330
+claim: '上流文書のファイル名（拡張子を除く）は当該文書を指す名前として利用者（人間または AI）が命名するものとし、機械生成の識別子（ULID）としない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

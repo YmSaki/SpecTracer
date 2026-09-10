@@ -129,7 +129,7 @@ fn combining_entity_selectors_is_a_usage_error() {
 /// 検証…がE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。A rejected
 /// configuration is an operation rejection, not an internal error (exit 3).
 /// @vtest.id TEST-SCAN-DOCTOR-REJECTED-CONFIG
-/// @vtest.covers VO-SCAN-DOCTOR-REJECTED-CONFIG-EXIT-TWO
+/// @vtest.covers VO-SCAN-REJECTED-CONFIG-EXIT-TWO, VO-SCAN-LEGACY-TWELVE-FIELDS-E-CONFIG-001
 /// @vtest.target crates/vtest-cli/src/lib.rs::run
 /// @vtest.intent a config carrying the retired 12-item enumeration is rejected with exit 2 for both scan and doctor
 #[test]
@@ -192,7 +192,7 @@ fn a_subset_full_scope_is_rejected_not_honoured_as_a_selection() {
 /// This is the single most important negative case in this file — an empty
 /// repository is exactly the input a false PASS would sail through.
 /// @vtest.id TEST-VERIFY-EMPTY-PROJECT-NOT-OK
-/// @vtest.covers VO-VERIFY-EMPTY-REPOSITORY-NOT-OK
+/// @vtest.covers VO-VERIFY-NO-RESULT-NOT-PASS, VO-VERIFY-INCOMPLETE-NOT-OVERALL-OK, VO-VERIFY-FOUR-CHECKS-ONLY
 /// @vtest.target crates/vtest-cli/src/lib.rs::run
 /// @vtest.intent an empty freshly-initialised project must evaluate and come out NG, never a complete-verification OK
 #[test]

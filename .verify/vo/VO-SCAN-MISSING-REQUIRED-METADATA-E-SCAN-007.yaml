@@ -2,7 +2,7 @@ id: VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
 parent: null
 derives_from:
   - doc: DS-1666
-claim: 'E-SCAN-007はerrorであり、必須metadata（core中立: id / covers ≥ 1 / intent、および当該adapterが必須とする追加metadata）の欠落を意味する。'
+claim: 'core中立の必須metadataであるid・1件以上のcovers・intentの欠落はE-SCAN-007 errorである'
 dimensions: []
 coverage_policy: null
 combinations: []

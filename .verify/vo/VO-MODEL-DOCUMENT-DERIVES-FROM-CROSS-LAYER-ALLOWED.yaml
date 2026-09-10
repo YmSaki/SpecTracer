@@ -4,7 +4,7 @@ derives_from:
   - doc: DS-1658
   - doc: DS-1594
   - doc: DS-1595
-claim: 導出。DS-1658が課す層接頭辞一致は「トップレベル配列に置かれたノード自身のid」にのみ及び、そのノードが`derives_from`に挙げる先のidには及ばない。ノードのderives_fromは裸のid列であり（DS-1594/DS-1595）、参照先が別層のノードであっても`document_file_to_json`は受理しなければならない — 正典specification.json自身、detailed_specノードがspec層ノードから導出する形で全篇に渡りこの形を取っている。
+claim: '上流文書ノードのderives_fromは上流ノードidの裸の並びであり、entryごとのanchorとnoteを持たない'
 dimensions: []
 coverage_policy: null
 combinations: []

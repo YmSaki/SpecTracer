@@ -2,7 +2,7 @@ id: VO-APPROVAL-EFFECTIVE-STATE-FROM-APPROVED-STATE
 parent: null
 derives_from:
   - doc: DES-546
-claim: 実効承認の導出はapproved_stateフィールドのみを参照し、承認主体の種別（human/agent）や取り下げの有無によって別経路を持たない
+claim: 'withdrawal前後の実効承認はapproved_stateを参照して導出する'
 dimensions: []
 coverage_policy: null
 combinations: []

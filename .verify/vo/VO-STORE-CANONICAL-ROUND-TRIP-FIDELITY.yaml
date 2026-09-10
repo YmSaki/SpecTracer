@@ -2,7 +2,7 @@ id: VO-STORE-CANONICAL-ROUND-TRIP-FIDELITY
 parent: null
 derives_from:
   - doc: BD-115
-claim: 導出。BD-115は`vtest-store`がForm Schemaの中立parserとcanonical保存だけを提供すると定める。保存を提供するとは、書き込んだレコードを読み戻したとき同一のレコードが得られることを含意する。document・VOいずれのレコードも、書き込み直後の読み戻しは書き込んだ値と一致しなければならない。
+claim: 'vtest-storeはForm Schemaの中立parserとcanonical保存だけを提供する'
 dimensions: []
 coverage_policy: null
 combinations: []

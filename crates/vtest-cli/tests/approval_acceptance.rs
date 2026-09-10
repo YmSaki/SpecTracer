@@ -363,7 +363,7 @@ fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
 /// `.verify/doc/*.json` node ids (not the VO domain `--subject-type vo`
 /// exercises everywhere else in this file) and writes a record.
 /// @vtest.id TEST-APPROVAL-RESOLVED-DOCUMENT-SUBJECT
-/// @vtest.covers VO-APPROVAL-DOCUMENT-SUBJECT-TYPE
+/// @vtest.covers VO-APPROVAL-DOCUMENT-SUBJECT-ID, VO-APPROVAL-DOCUMENT-DEPENDENCY-CLOSURE
 /// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
 /// @vtest.intent --subject-type document resolves against .verify/doc/*.json node ids and writes a record
 #[test]

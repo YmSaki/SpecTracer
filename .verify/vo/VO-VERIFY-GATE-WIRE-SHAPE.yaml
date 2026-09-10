@@ -2,7 +2,7 @@ id: VO-VERIFY-GATE-WIRE-SHAPE
 parent: null
 derives_from:
   - doc: DES-554
-claim: --gateを指定したverify/reportのJSONはdata.gateにname・verification.{required,actual,satisfied}・approvals[].{role,satisfied,missing_subjects}・satisfiedを返す
+claim: '--gate指定時のJSONはdata.gateにverificationのrequired・actual・satisfiedとapprovalsのrole・satisfied・missing_subjectsを返す'
 dimensions: []
 coverage_policy: null
 combinations: []

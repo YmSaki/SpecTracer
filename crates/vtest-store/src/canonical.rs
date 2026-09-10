@@ -935,7 +935,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-NO-IDENTITY-ON-DISK
-    /// @vtest.covers VO-MODEL-DOCUMENT-FILE-SHAPE
+    /// @vtest.covers VO-MODEL-DOCUMENT-FILENAME-HUMAN-IDENTIFIER, VO-MODEL-DOCUMENT-FILE-NO-DOCUMENT-ID-FIELD, VO-MODEL-DOCUMENT-FILE-SEVEN-LAYER-ARRAYS
     /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file
     /// @vtest.target crates/vtest-store/src/canonical.rs::read_document_file
     /// @vtest.intent A document file's name, not any field inside it, is its identity — an arbitrary file name round-trips.
@@ -958,7 +958,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-SCHEMA-VERSION
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An unrecognized schema_version fails closed as E-SCAN-010.
     #[test]
@@ -1002,7 +1002,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-STATEMENT
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty statement fails closed as a schema mismatch.
     #[test]
@@ -1013,7 +1013,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SOURCE-DOC
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty source.doc fails closed as a schema mismatch.
     #[test]
@@ -1024,7 +1024,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-SOURCE-LINES-BELOW-ONE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent A source.lines entry of 0 fails closed as a schema mismatch.
     #[test]
@@ -1035,7 +1035,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SOURCE-HEADING
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty source.heading fails closed as a schema mismatch.
     /// `validate_node_source`'s `source.heading` check
@@ -1049,7 +1049,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-CITES-ENTRY
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty cites[] entry fails closed as a schema mismatch.
     /// `validate_sentence_node`'s `cites` entry check (schema `minLength: 1`
@@ -1062,7 +1062,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-SECTION-TITLE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty section title fails closed as a schema mismatch.
     /// `validate_section_node`'s `title` check (schema `$defs/section`,
@@ -1128,7 +1128,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-DUPLICATE-DERIVES-FROM
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent A duplicated derives_from entry fails closed (schema uniqueItems).
     #[test]
@@ -1141,7 +1141,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-SENTENCE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent A derives_from entry not matching $defs/id fails closed as E-SCAN-010 on a sentence node.
     /// specification.schema.json:52 (`derivedItem.derives_from`): each entry
@@ -1164,7 +1164,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-EMPTY-STRING-DERIVES-FROM
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.intent An empty-string derives_from entry fails closed as a schema mismatch.
     #[test]
@@ -1175,7 +1175,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-SECTION
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent A section-level derives_from entry not matching $defs/id fails closed as E-SCAN-010.
@@ -1200,7 +1200,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-MALFORMED-DERIVES-FROM-NESTED-ITEM
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_to_json
     /// @vtest.target crates/vtest-store/src/canonical.rs::validate_section_node
     /// @vtest.intent A malformed derives_from entry on a nested items[] sentence also fails closed.
@@ -1268,7 +1268,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-JSON-REJECTS-NULL-DESCRIPTION
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent An explicit JSON null on an optional field fails closed as E-SCAN-010.
     #[test]
@@ -1296,7 +1296,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-JSON-ACCEPTS-ABSENT-DESCRIPTION
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent An absent optional description field (as opposed to an explicit null) is accepted.
     #[test]
@@ -1315,7 +1315,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-TOP-LEVEL-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent An unknown top-level field fails closed as a schema mismatch.
     #[test]
@@ -1327,7 +1327,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-SECTION-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent An unknown section field fails closed as a schema mismatch.
     #[test]
@@ -1337,7 +1337,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-UNKNOWN-SENTENCE-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent An unknown sentence field fails closed as a schema mismatch.
     #[test]
@@ -1347,7 +1347,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-DOC-REJECTS-ANCHOR-NOTE-FIXTURE
-    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-CONFORMANCE
+    /// @vtest.covers VO-MODEL-DOCUMENT-SCHEMA-MISMATCH-E-SCAN-010, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-ANCHOR, VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
     /// @vtest.target crates/vtest-store/src/canonical.rs::document_file_from_json
     /// @vtest.intent A document derives_from entry shaped as {doc, anchor} (VO-only shape, DS-1638) fails closed.
     #[test]
@@ -1598,7 +1598,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-OPTIONAL-FIELDS-ABSENT-ROUND-TRIP
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_to_yaml
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent A VO with every optional field absent (parent, dimensions, coverage_policy, combinations, representative_cases) round-trips.
@@ -1630,7 +1630,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-EMPTY-DERIVES-FROM-REJECTED
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record
     /// @vtest.intent A VO with zero derives_from entries fails closed on both read and write (SPEC-015 requires >= 1).
@@ -1892,7 +1892,7 @@ updated: 2026-08-08
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-PARSES-DES-121-EXAMPLE
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent DES-121's own example parses combinations[] entries as dimension-name-to-partition-value maps, not positional lists.
     /// DES-121's own `description`, verbatim: each `combinations[]` entry is
@@ -2084,7 +2084,7 @@ updated: 2026-08-08
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-MISSING-REQUIRED-FIELD-REJECTED
-    /// @vtest.covers VO-MODEL-VO-RECORD-SHAPE
+    /// @vtest.covers VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK, VO-MODEL-VO-DIMENSIONS-OPTIONAL, VO-MODEL-VO-REPRESENTATIVE-CASES-OPTIONAL, VO-MODEL-VO-DERIVES-FROM-REQUIRED
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent Removing any of id, claim, created, or updated (mandatory VO record fields) fails closed.
     #[test]
@@ -2104,7 +2104,7 @@ updated: 2026-08-08
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-UNRECOGNIZED-COVERAGE-POLICY-REJECTED
-    /// @vtest.covers VO-MODEL-VO-COVERAGE-POLICY-VALUES
+    /// @vtest.covers VO-MODEL-VO-COVERAGE-POLICY-INDEPENDENT-AXES, VO-MODEL-VO-COVERAGE-POLICY-FULL-PRODUCT, VO-MODEL-VO-COVERAGE-POLICY-EXPLICIT
     /// @vtest.target crates/vtest-store/src/canonical.rs::vo_record_from_yaml
     /// @vtest.intent An unrecognized coverage_policy value fails closed, not silently becoming None.
     #[test]

@@ -2,7 +2,7 @@ id: VO-SCAN-COLLIDING-PERMANENT-SRC-ID-E-SCAN-011
 parent: null
 derives_from:
   - doc: DS-545
-claim: E-SCAN-011はerrorであり、恒久SRC IDが複数adapterまたは複数Source Targetで衝突することを意味する。
+claim: '恒久SRC IDが複数Source Targetで衝突する場合はE-SCAN-011 errorである'
 dimensions: []
 coverage_policy: null
 combinations: []

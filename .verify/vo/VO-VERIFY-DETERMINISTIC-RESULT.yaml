@@ -2,7 +2,7 @@ id: VO-VERIFY-DETERMINISTIC-RESULT
 parent: null
 derives_from:
   - doc: DS-789
-claim: 同一の評価入力に対する検証結果（状態・診断ラベル・診断コード集合・集約結果・pending内容・終了コード）は決定的で同一である
+claim: '同一の評価入力に対する検証状態・診断ラベル・診断コード集合・集約結果・pending sectionは同一である'
 dimensions: []
 coverage_policy: null
 combinations: []

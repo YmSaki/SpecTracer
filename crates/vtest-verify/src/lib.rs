@@ -1955,7 +1955,7 @@ mod tests {
     /// (no Evidence reader, no DA static analysis), which the two tests
     /// below assert explicitly rather than leave implied.
     /// @vtest.id TEST-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
-    /// @vtest.covers VO-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
+    /// @vtest.covers VO-VERIFY-COMPLETE-BIDIRECTIONAL-CHAIN, VO-VERIFY-ORPHAN-DETECTION-ROOT-REACHABILITY
     /// @vtest.intent A complete, bidirectional declaration chain passes both chain_integrity and orphan_detection.
     #[test]
     fn a_complete_declaration_chain_passes_both_structural_checks() {
@@ -2121,7 +2121,7 @@ mod tests {
     /// distinguishes the two causes — which is exactly why REQ-092 keeps the
     /// label in a separate field.
     /// @vtest.id TEST-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
-    /// @vtest.covers VO-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-NO-TARGET-NOT-CHECKED, VO-VERIFY-ABSENT-EVIDENCE-NOT-EXECUTED
     /// @vtest.intent target_binding is NO_EVIDENCE in both the no-target and the no-Evidence cases, distinguished only by diagnostic label.
     #[test]
     fn target_binding_distinguishes_its_two_causes_by_diagnostic_label() {
@@ -2375,7 +2375,7 @@ mod tests {
     /// DS-871: `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`, and all-`PASS`
     /// yields `PASS`.
     /// @vtest.id TEST-VERIFY-REPRESENTATIVE-STATE-PRIORITY
-    /// @vtest.covers VO-VERIFY-REPRESENTATIVE-STATE-PRIORITY
+    /// @vtest.covers VO-VERIFY-REPRESENTATIVE-STATE-ORDER, VO-VERIFY-PARENT-NONPASS-WHEN-CHILD-NONPASS
     /// @vtest.intent Representative-state selection follows FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN, and any non-PASS child makes the parent non-PASS.
     #[test]
     fn representative_selection_follows_the_canonical_priority() {
@@ -2410,7 +2410,7 @@ mod tests {
     /// exists to stop. DS-252「`vtest verify` は正典または検証事実の欠落を
     /// 対応する非 `PASS` 値として表示する」、DS-253。
     /// @vtest.id TEST-VERIFY-EMPTY-REPOSITORY-NOT-OK
-    /// @vtest.covers VO-VERIFY-EMPTY-REPOSITORY-NOT-OK
+    /// @vtest.covers VO-VERIFY-NO-RESULT-NOT-PASS, VO-VERIFY-INCOMPLETE-NOT-OVERALL-OK, VO-VERIFY-FOUR-CHECKS-ONLY
     /// @vtest.intent A repository with no VO and no Test never reports complete-verification OK.
     #[test]
     fn an_empty_repository_is_not_a_complete_verification_ok() {
@@ -2812,7 +2812,7 @@ mod tests {
     /// DS-830/831/832, isolated from the (currently unreachable — see
     /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
     /// @vtest.id TEST-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
-    /// @vtest.covers VO-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-RUNNER-FAIL, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
     /// @vtest.intent Given valid Evidence, target_binding's dynamic result follows runner FAIL/PASS and target_coverage per DS-830/831/832.
     #[test]
     fn dynamic_result_from_evidence_covers_ds_830_831_832() {

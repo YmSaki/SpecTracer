@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+parent: null
+derives_from:
+  - doc: DS-832
+claim: '有効なEvidenceが得られたとき、`result: PASS`だが到達未充足のtargetがある場合、当該targetの`target_coverage`に従い、count 0は`FAIL`（診断NOT_EXECUTED）、計測不能・未計測（`checked: false`）は`NO_EVIDENCE`（診断NOT_CHECKED）、関数不見当は`UNKNOWN`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

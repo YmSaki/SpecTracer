@@ -1,0 +1,11 @@
+id: VO-VERIFY-PARENT-NONPASS-WHEN-CHILD-NONPASS
+parent: null
+derives_from:
+  - doc: DS-1511
+claim: '集約は fail-closed とし、子に 1 つでも非 `PASS` があれば親は非 `PASS`。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

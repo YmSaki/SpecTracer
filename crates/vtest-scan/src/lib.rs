@@ -1886,7 +1886,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
     }
 
     /// @vtest.id TEST-SCAN-EXTRACTS-ANNOTATED-TEST-AND-SOURCE
-    /// @vtest.covers VO-SCAN-RUST-CARGO-EXECUTION-COORDINATES
+    /// @vtest.covers VO-SCAN-RUST-CARGO-SUITE-KIND, VO-SCAN-RUST-CARGO-SUITE-NAME, VO-SCAN-RUST-CARGO-SELECTOR
     /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
     /// @vtest.intent verifies scan_project extracts an annotated Test construct with correct id, execution.selector, project, and suite.kind/name
     #[test]
@@ -2413,7 +2413,7 @@ fn outside_default() {}
     }
 
     /// @vtest.id TEST-SCAN-RESOLVES-WORKSPACE-PACKAGES-AND-SUITES
-    /// @vtest.covers VO-SCAN-RUST-CARGO-EXECUTION-COORDINATES
+    /// @vtest.covers VO-SCAN-RUST-CARGO-SUITE-KIND, VO-SCAN-RUST-CARGO-SUITE-NAME, VO-SCAN-RUST-CARGO-SELECTOR
     /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
     /// @vtest.intent verifies scan_project resolves per-workspace-package project name and lib/bin/integration suite.kind/name/selector across module filters
     #[test]
@@ -4045,7 +4045,7 @@ fn lib_test() {}
     }
 
     /// @vtest.id TEST-SCAN-REPORTS-VO-AND-RELATION-INTEGRITY-DIAGNOSTICS
-    /// @vtest.covers VO-SCAN-VO-RELATION-RECORD-INTEGRITY-DIAGNOSTICS
+    /// @vtest.covers VO-SCAN-VO-PARENT-INTEGRITY-E-SCAN-008, VO-SCAN-RELATION-ENDPOINT-INTEGRITY-E-SCAN-009, VO-SCAN-RECORD-INTEGRITY-E-SCAN-010, VO-SCAN-ORPHAN-VO-W-SCAN-102, VO-SCAN-NONLEAF-DIRECT-COVERS-W-SCAN-103, VO-SCAN-VO-STATUS-COMPAT-W-STORE-001
     /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
     /// @vtest.intent verifies scan_project reports E-SCAN-008/009/010, W-SCAN-102/103, and W-STORE-001 for the respective malformed VO/relation/approval fixtures, each diagnostic identifying its source via location or an embedded record path
     #[test]
@@ -5439,7 +5439,7 @@ fn collision_second() {}
     /// above could all be trivially satisfied by an
     /// `invalid_vo_combinations` that always returns `Some(..)`.
     /// @vtest.id TEST-SCAN-E-SCAN-017-WELL-FORMED-REPORTS-NONE
-    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-ENTRY-SHAPE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
     /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
     /// @vtest.intent verifies a well-formed explicit-policy VO, using 本冊 §3.2.1's own literal flow-style example, raises no E-SCAN-017 — the positive control for the condition 1-7 negative tests
     #[test]

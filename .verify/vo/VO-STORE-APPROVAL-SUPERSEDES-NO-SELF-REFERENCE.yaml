@@ -2,7 +2,7 @@ id: VO-STORE-APPROVAL-SUPERSEDES-NO-SELF-REFERENCE
 parent: null
 derives_from:
   - doc: DS-462
-claim: 参照先を解決できない、対象が一致しない、または自己参照する`supersedes` entryを含むレコードは、書込み時にE-APPROVAL-002として拒否する。
+claim: '自己参照するsupersedes entryを含む承認レコードは書込み時にE-APPROVAL-002として拒否する'
 dimensions: []
 coverage_policy: null
 combinations: []
