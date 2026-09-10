@@ -2,14 +2,10 @@ id: VO-STORE-CONFIG-EXPLICIT-EMPTY-NOT-BACKFILLED
 parent: null
 derives_from:
   - doc: DS-1109
-claim: >-
-  導出。DS-1109「`verify.full_scope` の in-memory の項目補完は行わない」が述べる
-  「in-memoryの項目補完を行わない」原則は `full_scope` に固有ではなく、明示的に空として宣言された
-  config フィールド一般に及ぶ。したがって version 2 config で `adapters: []` と明示された場合、
-  reader はこれをデフォルトadapterで補完せず、空の adapter リストとして解釈しなければならない。
+claim: '`verify.full_scope` の in-memory の項目補完は行わない。'
 dimensions: []
 coverage_policy: null
 combinations: []
 representative_cases: []
 created: 2026-09-09T00:00:00+09:00
-updated: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T20:00:23+09:00
