@@ -1,0 +1,12 @@
+id: VO-VERIFY-STATE-LABEL-SEPARATE-FIELDS
+parent: null
+derives_from:
+  - doc: REQ-092
+  - doc: SPEC-373
+claim: 検証状態と診断ラベルはシリアライズ上も別フィールドであり、ラベルが状態の位置に現れない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

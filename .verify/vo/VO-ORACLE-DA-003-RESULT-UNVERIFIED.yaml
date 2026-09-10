@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-RESULT-UNVERIFIED
+parent: null
+derives_from:
+  - doc: DS-623
+claim: DA-003は、target呼出結果がassert相当に到達せずかつ#[should_panic]がないことをFAIL条件とし、結果がassert相当に到達する場合またはshould_panicがある場合は違反なしとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

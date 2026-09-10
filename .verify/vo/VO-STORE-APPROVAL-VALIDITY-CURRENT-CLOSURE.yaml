@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-VALIDITY-CURRENT-CLOSURE
+parent: null
+derives_from:
+  - doc: DS-1467
+claim: 承認recordは対象指定・subject_hash・dependenciesのentityとhashが現在値へ完全一致する場合だけ有効である
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

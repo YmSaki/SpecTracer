@@ -1,0 +1,13 @@
+id: VO-STORE-CONFIG-COVERAGE-MODE-ENUM
+parent: null
+derives_from:
+  - doc: DS-351
+claim: >-
+  `config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、
+  値は `llvm-cov` または `off` である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

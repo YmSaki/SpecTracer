@@ -39,7 +39,7 @@ use std::{
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetCoverage, TargetCoverageResult, TestId, TestResult, VoId,
+    TargetCoverage, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -307,7 +307,10 @@ const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
 
 /// Known keys for an Evidence record's nested `target_coverage` mapping,
 /// matching `TargetCoverage`'s own fields (DES-183: no `diagnostic` key).
-const EVIDENCE_TARGET_COVERAGE_KEYS: &[&str] = &["checked", "method", "result", "count"];
+const EVIDENCE_TARGET_COVERAGE_KEYS: &[&str] = &["checked", "method", "result", "targets", "count"];
+
+/// Known keys for each entry in `target_coverage.targets` (DES-188/189).
+const EVIDENCE_TARGET_COVERAGE_TARGET_KEYS: &[&str] = &["target", "result", "count"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -993,8 +996,64 @@ fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
             EVIDENCE_TARGET_COVERAGE_KEYS,
             "target_coverage.",
         )?;
+        if let Some(targets) = target_coverage
+            .get("targets")
+            .and_then(yaml_serde::Value::as_sequence)
+        {
+            for (index, target) in targets.iter().enumerate() {
+                crate::canonical::reject_unknown_fields(
+                    target,
+                    EVIDENCE_TARGET_COVERAGE_TARGET_KEYS,
+                    &format!("target_coverage.targets[{index}]."),
+                )?;
+            }
+        }
     }
     Ok(())
+}
+
+fn read_target_coverage(text: &str) -> Result<TargetCoverage, StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid Evidence record: {error}")))?;
+    let Some(value) = value.get("target_coverage") else {
+        return Ok(TargetCoverage {
+            checked: false,
+            method: None,
+            result: None,
+            targets: Vec::new(),
+            count: None,
+        });
+    };
+    let mut coverage: TargetCoverage = yaml_serde::from_value(value.clone()).map_err(|error| {
+        StoreError::InvalidConfig(format!("invalid Evidence target_coverage: {error}"))
+    })?;
+
+    if coverage.checked {
+        if coverage.result.is_none() {
+            return Err(StoreError::InvalidConfig(
+                "checked Evidence target_coverage is missing result".to_owned(),
+            ));
+        }
+    } else {
+        match coverage.result {
+            None | Some(vtest_model::TargetCoverageResult::Unknown) => {}
+            Some(vtest_model::TargetCoverageResult::Pass)
+            | Some(vtest_model::TargetCoverageResult::Fail) => {
+                return Err(StoreError::InvalidConfig(
+                    "unchecked Evidence target_coverage result must be null".to_owned(),
+                ))
+            }
+        }
+        // Compatibility normalization for the predecessor writer, which
+        // encoded unchecked coverage as `result: UNKNOWN` (and could retain
+        // the measurement method). The current canonical shape has no
+        // measurement result, method, count, or per-target entries here.
+        coverage.method = None;
+        coverage.result = None;
+        coverage.targets.clear();
+        coverage.count = None;
+    }
+    Ok(coverage)
 }
 
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
@@ -1065,17 +1124,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             ))
         }
     };
-    // DES-187/188: `target_coverage.result` is a restricted 3-value domain
-    // (PASS/FAIL/UNKNOWN). Any other wire value — including predecessor
-    // diagnostic-only values (NOT_CHECKED/NOT_EXECUTED/STALE/MISSING/
-    // MISMATCH/NO_EVIDENCE) once carried in this field before DS-832 moved
-    // diagnostic-label derivation downstream into vtest-verify — normalizes
-    // to `Unknown` rather than reconstructing a diagnostic label here.
-    let target_result = match nested_scalar(&text, "target_coverage", "result").as_deref() {
-        Some("PASS") => TargetCoverageResult::Pass,
-        Some("FAIL") => TargetCoverageResult::Fail,
-        _ => TargetCoverageResult::Unknown,
-    };
+    let target_coverage = read_target_coverage(&text)?;
     // DES-097/184: `execution_state.hash` is only meaningful once `complete`
     // is `true`. An absent `execution_state` mapping (a predecessor-shape
     // record written before this field existed) is read as an explicitly
@@ -1117,16 +1166,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(-1),
         },
-        target_coverage: TargetCoverage {
-            checked: nested_scalar(&text, "target_coverage", "checked")
-                .is_some_and(|value| value == "true"),
-            method: nested_scalar(&text, "target_coverage", "method")
-                .filter(|value| value != "null"),
-            result: target_result,
-            count: nested_scalar(&text, "target_coverage", "count")
-                .filter(|value| value != "null")
-                .and_then(|value| value.parse().ok()),
-        },
+        target_coverage,
         log_ref: scalar(&text, "log_ref").unwrap_or_default(),
     })
 }
@@ -2094,6 +2134,10 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-STORE-RECORD-ID-BARE-ULID
+    /// @vtest.covers VO-STORE-RECORD-ID-BARE-ULID
+    /// @vtest.target crates/vtest-store/src/records.rs::new_record_id
+    /// @vtest.intent verifies new_record_id generates unique, valid bare ULIDs (DES-032)
     #[test]
     fn generated_record_ids_are_valid_and_unique() {
         let ids = (0..4096).map(|_| new_record_id()).collect::<BTreeSet<_>>();
@@ -2101,6 +2145,10 @@ mod tests {
         assert!(ids.iter().all(|id| is_valid_ulid(id)));
     }
 
+    /// @vtest.id TEST-STORE-APPEND-ONLY-NO-OVERWRITE
+    /// @vtest.covers VO-STORE-NEW-RECORD-CREATE-ONLY-NO-OVERWRITE
+    /// @vtest.target crates/vtest-store/src/records.rs::write_new_record
+    /// @vtest.intent verifies write_new_record refuses to replace an existing fact at the same path (BD-232)
     #[test]
     fn append_only_write_never_replaces_an_existing_fact() {
         let root = temporary_directory("append-only");
@@ -2112,6 +2160,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-APPEND-ONLY-PUBLISH-COMPLETE
+    /// @vtest.covers VO-STORE-ATOMIC-PUBLISH-COMPLETE-CONTENT
+    /// @vtest.target crates/vtest-store/src/records.rs::write_new_record
+    /// @vtest.intent verifies write_new_record publishes the complete content atomically, with no partial file (DES-474)
     #[test]
     fn append_only_write_publishes_complete_content() {
         let root = temporary_directory("append-only-complete");
@@ -2127,6 +2179,10 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// @vtest.id TEST-STORE-ATOMIC-WRITE-ENTITY-REPLACE
+    /// @vtest.covers VO-STORE-ATOMIC-PUBLISH-COMPLETE-CONTENT
+    /// @vtest.target crates/vtest-store/src/records.rs::write_atomic
+    /// @vtest.intent verifies write_atomic replaces an entity file with complete new content, no partial state (DES-474)
     #[test]
     fn atomic_write_replaces_the_complete_entity_file() {
         let root = temporary_directory("atomic");
@@ -2161,6 +2217,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-APPROVER-TRACEABLE
+    /// @vtest.covers VO-STORE-APPROVAL-APPROVER-TRACEABLE
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies approval round-trips and rejects a record whose approver fields are stripped (REQ-245)
     #[test]
     fn approval_round_trip_requires_a_traceable_approver() {
         let id = new_record_id();
@@ -2206,6 +2266,10 @@ mod tests {
     /// restriction" while a machine reads "approved unconditionally", the
     /// exact false-open path DES-586's own reasoning warns against for the
     /// document model's equivalent case.
+    /// @vtest.id TEST-STORE-APPROVAL-UNKNOWN-TOP-LEVEL-FIELD
+    /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies an unrecognized top-level approval field fails closed (E-SCAN-010 / DS-1676)
     #[test]
     fn approval_with_unknown_top_level_field_is_rejected() {
         let id = new_record_id();
@@ -2217,6 +2281,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-UNKNOWN-NESTED-APPROVER-FIELD
+    /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies an unrecognized nested approver field fails closed (E-SCAN-010 / DS-1676)
     #[test]
     fn approval_with_unknown_nested_approver_field_is_rejected() {
         let id = new_record_id();
@@ -2229,6 +2297,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-BASIS-NON-STRING-ENTRY-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-BASIS-STRING-LIST
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies a basis[] entry that is a mapping, not a bare string, is rejected (DS-1055)
     /// DS-1055/1196: `basis[]` is a bare list of free-form reference
     /// strings ("根拠参照", no `{kind, ref}` pair or `kind` value domain —
     /// team-lead ruling 2026-09-10). A `basis[]` entry that is a mapping
@@ -2249,6 +2321,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-BASIS-BARE-STRING-LIST
+    /// @vtest.covers VO-STORE-APPROVAL-BASIS-STRING-LIST
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::to_yaml
+    /// @vtest.intent verifies a plain basis[] of free-form reference strings round-trips (DS-1055)
     /// DS-1055/1196: a plain `basis[]` of free-form reference strings
     /// round-trips.
     #[test]
@@ -2260,6 +2336,10 @@ mod tests {
         assert_eq!(read.basis, vec!["some free-form reference".to_owned()]);
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-NON-STRING-TOP-LEVEL-KEY-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies a non-string top-level key fails closed rather than being silently skipped (E-SCAN-010 / DS-1676)
     /// DS-1645: `reject_unknown_fields` used to silently skip any mapping
     /// key that was not a YAML string (`key.as_str()` returning `None`),
     /// relying on a `from_value` deserialize elsewhere to reject the type
@@ -2280,6 +2360,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-NON-STRING-NESTED-APPROVER-KEY-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::from_yaml
+    /// @vtest.intent verifies a non-string nested approver key fails closed (E-SCAN-010 / DS-1676)
     /// Same gap as above, on the nested `approver` mapping.
     #[test]
     fn approval_with_non_string_nested_approver_key_is_rejected() {
@@ -2293,6 +2377,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-JUDGMENT-SUBJECT-REQUIRES-REF
+    /// @vtest.covers VO-STORE-APPROVAL-JUDGMENT-SUBJECT-REQUIRES-REF
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::to_yaml
+    /// @vtest.intent verifies subject_type judgment without judgment_ref is rejected (DES-150)
     #[test]
     fn approval_subject_type_judgment_requires_judgment_ref() {
         let id = new_record_id();
@@ -2303,6 +2391,10 @@ mod tests {
         assert!(record.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-OUT-OF-DOMAIN-SUBJECT-TYPE-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-SUBJECT-TYPE-DOMAIN
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::to_yaml
+    /// @vtest.intent verifies a subject_type outside {vo, document, judgment} is rejected (DS-1196)
     #[test]
     fn approval_out_of_domain_subject_type_is_rejected() {
         let id = new_record_id();
@@ -2311,6 +2403,10 @@ mod tests {
         assert!(record.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-OUT-OF-DOMAIN-STATE-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-STATE-DOMAIN
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::to_yaml
+    /// @vtest.intent verifies an approved_state outside {approved, rejected, withdrawn} is rejected (DS-458)
     #[test]
     fn approval_out_of_domain_approved_state_is_rejected() {
         let id = new_record_id();
@@ -2319,6 +2415,10 @@ mod tests {
         assert!(record.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-APPROVAL-SELF-REFERENCING-SUPERSEDES-REJECTED
+    /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-NO-SELF-REFERENCE
+    /// @vtest.target crates/vtest-store/src/records.rs::ApprovalRecord::to_yaml
+    /// @vtest.intent verifies a supersedes entry referencing the record's own id is rejected (DS-462)
     #[test]
     fn approval_self_referencing_supersedes_is_rejected() {
         let id = new_record_id();
@@ -2491,6 +2591,10 @@ mod tests {
         assert!(static_with_bundle.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-EVIDENCE-ID-FILENAME-ULID-INVARIANTS
+    /// @vtest.covers VO-STORE-EVIDENCE-ID-FILENAME-MATCH, VO-STORE-EVIDENCE-ID-BARE-ULID
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies read_evidence enforces id/file-name match and bare-ULID form (DS-1657, DES-032)
     /// DS-1657 ("上流文書のレコードを除き、`id` とファイル名は一致しなければ
     /// ならない") and DES-032 ("判断・承認・EvidenceのIDはbare ULIDとする")
     /// both apply to Evidence the same as any other record type;
@@ -2539,6 +2643,55 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-EVIDENCE-UNCHECKED-COVERAGE-LEGACY-UNKNOWN-NORMALIZED
+    /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies the predecessor checked:false/result:UNKNOWN wire shape is normalized to the canonical null/null/empty-list shape
+    #[test]
+    fn read_evidence_normalizes_legacy_unchecked_coverage() {
+        let root = temporary_directory("read-evidence-legacy-unchecked-coverage");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {test_hash}\n  target_fn: {target_hash}\ntarget_coverage:\n  checked: false\n  method: llvm-cov\n  result: UNKNOWN\n  targets: []\n  count: 0\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            test_hash = ContentHash::from_text("test body\n"),
+            target_hash = ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, yaml).unwrap();
+
+        let record = read_evidence(&path).expect("legacy unchecked Evidence must remain readable");
+        assert!(!record.target_coverage.checked);
+        assert_eq!(record.target_coverage.method, None);
+        assert_eq!(record.target_coverage.result, None);
+        assert!(record.target_coverage.targets.is_empty());
+        assert_eq!(record.target_coverage.count, None);
+    }
+
+    /// @vtest.id TEST-STORE-EVIDENCE-CHECKED-COVERAGE-RESULT-DOMAIN-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies checked:true target coverage rejects a result outside PASS/FAIL/UNKNOWN instead of coercing it to UNKNOWN
+    #[test]
+    fn read_evidence_rejects_checked_coverage_result_outside_domain() {
+        let root = temporary_directory("read-evidence-invalid-coverage-result");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {test_hash}\n  target_fn: {target_hash}\ntarget_coverage:\n  checked: true\n  method: llvm-cov\n  result: BOGUS\n  targets: []\n  count: 1\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            test_hash = ContentHash::from_text("test body\n"),
+            target_hash = ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, yaml).unwrap();
+
+        let error = read_evidence(&path)
+            .expect_err("checked coverage with an out-of-domain result must fail closed");
+        assert!(error.to_string().contains("target_coverage"));
+    }
+
+    /// @vtest.id TEST-STORE-EVIDENCE-UNKNOWN-TOP-LEVEL-FIELD-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies an unrecognized top-level Evidence field fails closed (E-SCAN-010 / DS-1676)
     /// DS-1645/E-SCAN-010: an Evidence record carrying a field this reader
     /// does not recognize must fail closed rather than being silently
     /// discarded — the same rule already applied to Document/VO/Relation,
@@ -2561,6 +2714,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-EVIDENCE-UNKNOWN-NESTED-HASHES-FIELD-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies an unrecognized nested hashes field fails closed (E-SCAN-010 / DS-1676)
     #[test]
     fn read_evidence_rejects_unknown_nested_hashes_field() {
         let root = temporary_directory("read-evidence-unknown-hashes");
@@ -2577,6 +2734,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-EVIDENCE-NON-STRING-TOP-LEVEL-KEY-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies a non-string top-level key fails closed rather than being silently skipped (E-SCAN-010 / DS-1676)
     /// DS-1645: same non-string-key gap as `ApprovalRecord::from_yaml` (see
     /// `approval_with_non_string_top_level_key_is_rejected`) — `read_evidence`
     /// also never builds a typed struct from the `Value` this scan runs
@@ -2598,6 +2759,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-EVIDENCE-NON-STRING-NESTED-HASHES-KEY-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies a non-string nested hashes key fails closed (E-SCAN-010 / DS-1676)
     #[test]
     fn read_evidence_rejects_non_string_nested_hashes_key() {
         let root = temporary_directory("read-evidence-non-string-nested-key");
@@ -2614,6 +2779,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-RELATION-ROUND-TRIP-VALID-RECORD
+    /// @vtest.covers VO-STORE-RELATION-RECORD-SHAPE
+    /// @vtest.target crates/vtest-store/src/records.rs::RelationRecord::from_yaml
+    /// @vtest.intent verifies Relation round-trips and rejects an out-of-domain type or empty from/to/created (DES-123)
     #[test]
     fn relation_round_trip_requires_a_valid_immutable_record() {
         let id = new_record_id();
@@ -2665,6 +2834,10 @@ mod tests {
         assert!(invalid.to_yaml().is_err());
     }
 
+    /// @vtest.id TEST-STORE-WRITE-RELATION-REL-PREFIXED-ID
+    /// @vtest.covers VO-STORE-RELATION-WRITER-REL-PREFIXED-ID
+    /// @vtest.target crates/vtest-store/src/records.rs::write_relation
+    /// @vtest.intent verifies write_relation always generates an id starting with REL- (DES-124)
     #[test]
     fn write_relation_always_generates_a_rel_prefixed_id() {
         let root = temporary_directory("write-relation");
@@ -2690,6 +2863,10 @@ mod tests {
         assert_eq!(read_relation(&path).unwrap().0, record);
     }
 
+    /// @vtest.id TEST-STORE-RELATION-UNKNOWN-TOP-LEVEL-FIELD-REJECTED
+    /// @vtest.covers VO-STORE-RELATION-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::RelationRecord::from_yaml
+    /// @vtest.intent verifies an unknown top-level Relation field fails closed (E-SCAN-010 / DS-1676)
     /// DS-1645/E-SCAN-010: an unknown field is rejected, not merely warned
     /// about — this replaces the retired DS-376 "warn and continue"
     /// behavior (`docs/canonical/relations/retired-ids.json`), exercised
@@ -2713,6 +2890,10 @@ mod tests {
         assert!(matches!(error, StoreError::SchemaMismatch { .. }));
     }
 
+    /// @vtest.id TEST-STORE-RELATION-NON-STRING-TOP-LEVEL-KEY-REJECTED
+    /// @vtest.covers VO-STORE-RELATION-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::RelationRecord::from_yaml
+    /// @vtest.intent verifies a non-string top-level Relation key fails closed (E-SCAN-010 / DS-1676)
     /// Unlike `ApprovalRecord`/`read_evidence` above, `RelationRecord` is
     /// always backstopped by both `#[serde(deny_unknown_fields)]` and a
     /// `yaml_serde::from_value` pass after `reject_unknown_fields` runs —

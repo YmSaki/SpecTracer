@@ -63,6 +63,10 @@ fn write_gate_config(root: &std::path::Path, approvals: Vec<String>) -> vtest_st
 /// axis DES-551/554 name specifically (0/1 keyed to gate satisfaction, not
 /// to the aggregate verification state — DS-931/932/933), and asserts the
 /// literal `data.gate.verification.{required,actual,satisfied}` shape.
+/// @vtest.id TEST-ACCEPTANCE-18-3-9-UNSATISFIED-GATE
+/// @vtest.covers VO-VERIFY-GATE-WIRE-SHAPE
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent an unsatisfied gate reports data.gate.verification.{required,actual,satisfied} literally
 #[test]
 fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
     let root = temp_root("gate-unsatisfied");
@@ -96,6 +100,10 @@ fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
 /// crash. Every other test in this file only exercises the unsatisfied
 /// side, which cannot by itself distinguish "correctly computes
 /// satisfaction" from "always reports false".
+/// @vtest.id TEST-ACCEPTANCE-18-3-9-SATISFIED-GATE
+/// @vtest.covers VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent a gate whose verification and approvals conditions are actually met reports satisfied end to end
 #[test]
 fn a_gate_whose_conditions_are_actually_met_reports_satisfied() {
     let root = temp_root("gate-satisfied");
@@ -142,6 +150,10 @@ fn a_gate_whose_conditions_are_actually_met_reports_satisfied() {
 /// DES-554's `approvals[].{role, satisfied, missing_subjects}` half: a
 /// required role that this slice cannot evaluate is reported by name, not
 /// merely folded into an aggregate "approvals unsatisfied" boolean.
+/// @vtest.id TEST-ACCEPTANCE-18-3-9-APPROVAL-ROLE-BY-NAME
+/// @vtest.covers VO-VERIFY-GATE-WIRE-SHAPE
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent a required approval role appears in data.gate.approvals by name, not folded into an aggregate boolean
 #[test]
 fn a_required_approval_role_appears_in_approvals_by_name() {
     let root = temp_root("gate-role");
@@ -178,6 +190,10 @@ fn a_required_approval_role_appears_in_approvals_by_name() {
 /// which entity a role must approve), so no fixture can currently exhibit
 /// an order/inclusion-based *false positive* on that axis to guard
 /// against.
+/// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-EXACT-STATE-MATCH
+/// @vtest.covers VO-VERIFY-GATE-STATE-EXACT-MATCH-NOT-ORDERING
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+/// @vtest.intent a gate requiring FAIL is not satisfied by the distinct MISMATCH state despite both being non-PASS
 #[test]
 fn a_gate_requiring_fail_is_not_satisfied_by_the_distinct_mismatch_state() {
     use vtest_model::{

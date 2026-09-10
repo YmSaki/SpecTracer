@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
+parent: null
+derives_from:
+  - doc: DS-619
+claim: 'rust-cargoでは.expect(..)・.expect_err(..)・.unwrap_err()をassert相当の構文として扱う'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

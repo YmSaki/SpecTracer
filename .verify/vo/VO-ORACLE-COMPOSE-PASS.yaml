@@ -1,0 +1,11 @@
+id: VO-ORACLE-COMPOSE-PASS
+parent: null
+derives_from:
+  - doc: DS-606
+claim: oracle_presenceは、DA-001・DA-003・DA-004・DA-005・DA-006の全ルールが違反なしのときPASS（is_fail=false, is_unknown=false）とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

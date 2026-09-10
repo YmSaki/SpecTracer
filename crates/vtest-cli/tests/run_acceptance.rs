@@ -42,10 +42,34 @@ fn temp_root(name: &str) -> PathBuf {
 fn git(root: &Path, args: &[&str]) {
     let status = ProcessCommand::new("git")
         .current_dir(root)
-        .args(args)
+        .args(
+            [
+                &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"][..],
+                args,
+            ]
+            .concat(),
+        )
         .status()
         .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
     assert!(status.success(), "git {args:?} failed");
+}
+
+fn clear_outer_coverage_environment() {
+    // These removals mutate the process-wide environment. Tests in this
+    // binary therefore share the cleared state if they run concurrently;
+    // `vtest run --all` currently executes one test per process, so that
+    // sharing is not observable in that command path.
+    for variable in [
+        "RUSTC_WRAPPER",
+        "LLVM_PROFILE_FILE",
+        "CARGO_LLVM_COV",
+        "CARGO_LLVM_COV_TARGET_DIR",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_INCREMENTAL",
+    ] {
+        std::env::remove_var(variable);
+    }
 }
 
 fn source(id: &str) -> NodeSource {
@@ -186,8 +210,13 @@ fn cli(root: &Path, command: Command) -> Cli {
 
 /// `vtest run` outside any project is an operation rejection (exit 2), not a
 /// silent "nothing to run" success — mirrors `verify`'s own contract.
+/// @vtest.id TEST-RUN-OUTSIDE-PROJECT
+/// @vtest.covers VO-RUN-OUTSIDE-PROJECT-REJECTION
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent vtest run outside any project is an operation rejection (exit 2), not a silent success
 #[test]
 fn run_outside_a_project_is_an_operation_rejection() {
+    clear_outer_coverage_environment();
     let root = temp_root("no-project");
     let exit = run(cli(
         &root,
@@ -205,8 +234,13 @@ fn run_outside_a_project_is_an_operation_rejection() {
 /// (E-OP-001, exit 2) rather than silently ignored — the same "don't narrow
 /// the requested scope without disclosure" rule `verify --items` applies to
 /// unknown check names.
+/// @vtest.id TEST-RUN-UNKNOWN-TEST-ID
+/// @vtest.covers VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an explicit --test id the scan never discovered is rejected with a usage error, not silently ignored
 #[test]
 fn an_unknown_test_id_is_a_usage_error() {
+    clear_outer_coverage_environment();
     let root = temp_root("unknown-test-id");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -223,8 +257,13 @@ fn an_unknown_test_id_is_a_usage_error() {
 
 /// Running the fixture's real Test executes it and writes one Evidence
 /// record; exit 0 when execution reports no error diagnostics.
+/// @vtest.id TEST-RUN-REAL-TEST-EVIDENCE
+/// @vtest.covers VO-RUN-SELECTOR-EXPANDS-TO-TEST-SET
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent running the fixture's real Test by --test id executes it and writes one Evidence record, exiting 0
 #[test]
 fn running_a_real_test_writes_evidence_and_exits_ok() {
+    clear_outer_coverage_environment();
     let root = temp_root("real-test");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -251,8 +290,13 @@ fn running_a_real_test_writes_evidence_and_exits_ok() {
 /// VO subtree rooted at the given id — here the fixture's single VO with a
 /// single covering Test, so the effect is the same as naming that Test
 /// directly, but reached through the VO axis.
+/// @vtest.id TEST-RUN-VO-AXIS-SELECTS-TESTS
+/// @vtest.covers VO-RUN-SELECTOR-EXPANDS-TO-TEST-SET
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent --vo selects every Test whose covers intersects the VO subtree rooted at the given id
 #[test]
 fn vo_axis_selects_tests_covering_the_named_vo() {
+    clear_outer_coverage_environment();
     let root = temp_root("vo-axis");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -277,8 +321,13 @@ fn vo_axis_selects_tests_covering_the_named_vo() {
 
 /// DS-744: an unresolved `--vo` id is a usage rejection (E-OP-001), the same
 /// "don't silently narrow to nothing" rule an unknown `--test` id follows.
+/// @vtest.id TEST-RUN-UNKNOWN-VO-ID
+/// @vtest.covers VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an unresolved --vo id is a usage rejection, the same "don't silently narrow to nothing" rule an unknown --test id follows
 #[test]
 fn an_unknown_vo_id_is_a_usage_error() {
+    clear_outer_coverage_environment();
     let root = temp_root("unknown-vo-id");
     build_fixture_project(&root);
     let exit = run(cli(
@@ -302,8 +351,13 @@ fn an_unknown_vo_id_is_a_usage_error() {
 /// line -- distinct from `UnknownTestId`, which never reaches execution at
 /// all) must exit 1, matching `running_a_real_test_writes_evidence_and_exits_ok`'s
 /// exit-0 control case on the same fixture shape.
+/// @vtest.id TEST-RUN-NO-RESULT-LINE-VERIFICATION-FAILED
+/// @vtest.covers VO-RUN-MISSING-RESULT-LINE-FAILS
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent 実行済みTestの結果行が無い場合に検証失敗の終了コード1となることを確認する
 #[test]
 fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() {
+    clear_outer_coverage_environment();
     let root = temp_root("broken-test");
     build_broken_fixture_project(&root);
     let exit = run(cli(
@@ -325,8 +379,13 @@ fn a_test_that_executes_but_produces_no_result_line_exits_verification_failed() 
 
 /// DS-744 axis 3/3: `--all` runs every Test the scan materialized, named
 /// explicitly rather than relying on the empty-`--test`-list default.
+/// @vtest.id TEST-RUN-ALL-AXIS
+/// @vtest.covers VO-RUN-SELECTOR-EXPANDS-TO-TEST-SET
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent --all runs every Test the scan materialized
 #[test]
 fn all_axis_runs_every_discovered_test() {
+    clear_outer_coverage_environment();
     let root = temp_root("all-axis");
     build_fixture_project(&root);
     let exit = run(cli(

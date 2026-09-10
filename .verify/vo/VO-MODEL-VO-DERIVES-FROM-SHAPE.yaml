@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-DERIVES-FROM-SHAPE
+parent: null
+derives_from:
+  - doc: DS-1638
+claim: 'VOのderives_from entryは任意のanchorと任意のnoteを持つ'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

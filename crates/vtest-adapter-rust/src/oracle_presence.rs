@@ -41,6 +41,7 @@
 //!   report `Fail` — never the reverse — so this narrowing cannot manufacture
 //!   a false `Fail`.
 
+use syn::{spanned::Spanned, visit::Visit};
 use vtest_model::{Diagnostic, Locator};
 
 /// One DA rule's verdict, before DS-606/607/608 composes the five into one
@@ -102,14 +103,19 @@ pub fn analyze(
         .chain(extra_assertion_macros.iter().map(String::as_str))
         .collect();
     let assert_spans = find_assert_spans(construct_text, &macros);
-    let has_should_panic = construct_text.contains("#[should_panic");
-    let has_unwrap_or_expect_or_try = construct_text.contains(".unwrap()")
-        || construct_text.contains(".expect(")
-        || contains_try_operator(construct_text);
-    let has_result_return = signature_returns_result(construct_text);
+    let syntax = RustFunctionSyntax::parse(construct_text);
+    let has_should_panic = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::has_should_panic);
+    let has_assert_equivalent_method_or_try = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::has_assert_equivalent_method_or_try);
+    let has_result_return = syntax
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::returns_result);
     let has_verification_syntax = !assert_spans.is_empty()
         || has_should_panic
-        || has_unwrap_or_expect_or_try
+        || has_assert_equivalent_method_or_try
         || has_result_return;
 
     OraclePresenceAnalysis {
@@ -388,6 +394,12 @@ fn target_call_result_is_verified(
         {
             return TargetCallVerification::Verified;
         }
+        if call_is_inside_loop(text, call_start) {
+            return TargetCallVerification::Ambiguous;
+        }
+        if target_call_has_assert_method_chain(text, call_start, symbol) {
+            return TargetCallVerification::Verified;
+        }
     }
     // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
@@ -410,68 +422,161 @@ fn target_call_result_is_verified(
     }) {
         return TargetCallVerification::Ambiguous;
     }
+    if call_sites
+        .iter()
+        .any(|&start| target_call_is_passed_to_other_function(text, start, symbol))
+    {
+        return TargetCallVerification::Ambiguous;
+    }
     TargetCallVerification::Unverified
+}
+
+/// A target result consumed by one of DS-626's assertion-equivalent methods is
+/// verified even when it is not wrapped in an assert macro. This is deliberately
+/// limited to the method chain immediately following the target call.
+fn target_call_has_assert_method_chain(text: &str, call_start: usize, symbol: &str) -> bool {
+    let Some(close) = call_close_position(text, call_start, symbol) else {
+        return false;
+    };
+    let suffix = text[close + 1..].trim_start();
+    [
+        ".expect(",
+        ".unwrap()",
+        ".expect_err(",
+        ".unwrap_err()",
+        "?",
+    ]
+    .iter()
+    .any(|token| suffix.starts_with(token))
+}
+
+fn call_close_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
+    let open = call_open_position(text, call_start, symbol)?;
+    find_matching_close(text, open, '(', ')')
+}
+
+/// Finds the argument-list opener for a call whose AST span starts at the
+/// beginning of its callee path. `find_call_sites` deliberately records the
+/// `ExprCall` function span, so a qualified call such as `Type::from_yaml`
+/// starts before the bare target symbol. Trim the callee path before matching
+/// its final segment, then use the same opener for all call-site consumers.
+fn call_open_position(text: &str, call_start: usize, symbol: &str) -> Option<usize> {
+    let after = &text[call_start..];
+    let open_offset = after.find('(')?;
+    let callee = after[..open_offset].trim_end();
+    callee.ends_with(symbol).then_some(call_start + open_offset)
+}
+
+/// Calls in a loop are outside this bounded analysis: iteration and control
+/// flow can determine whether every result reaches a verifier.
+fn call_is_inside_loop(text: &str, call_start: usize) -> bool {
+    let prefix = &text[..call_start];
+    let loop_start = ["loop", "for ", "while "]
+        .iter()
+        .filter_map(|keyword| prefix.rfind(keyword))
+        .max();
+    let Some(loop_start) = loop_start else {
+        return false;
+    };
+    let Some(open) = text[loop_start..]
+        .find('{')
+        .map(|offset| loop_start + offset)
+    else {
+        return false;
+    };
+    find_matching_close(text, open, '{', '}').is_some_and(|close| call_start < close)
+}
+
+/// Passing a target result to an ordinary function is a delegation/data-flow
+/// shape this adapter cannot resolve, so DS-1680 requires UNKNOWN.
+fn target_call_is_passed_to_other_function(text: &str, call_start: usize, symbol: &str) -> bool {
+    let Some(close) = call_close_position(text, call_start, symbol) else {
+        return false;
+    };
+    let before = text[..call_start].trim_end();
+    before.ends_with('(')
+        || before.ends_with(',')
+        || text[close + 1..].trim_start().starts_with(",")
 }
 
 /// Returns the argument-list text (inside the parens) of a call to `symbol`
 /// whose name starts at byte offset `call_start` in `text`.
 fn call_argument_list<'a>(text: &'a str, call_start: usize, symbol: &str) -> Option<&'a str> {
-    let after = &text[call_start + symbol.len()..];
-    let trimmed = after.trim_start();
-    let skip = after.len() - trimmed.len();
-    let open_pos = call_start + symbol.len() + skip;
-    if !text[open_pos..].starts_with('(') {
-        return None;
-    }
+    let open_pos = call_open_position(text, call_start, symbol)?;
     let close_pos = find_matching_close(text, open_pos, '(', ')')?;
     Some(&text[open_pos + 1..close_pos])
 }
 
 fn find_call_sites(text: &str, symbol: &str) -> Vec<usize> {
-    let mut sites = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(symbol) {
-        let start = search_from + relative;
-        let before_ok = start == 0
-            || !text[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_' || c == ':');
-        let after = &text[start + symbol.len()..];
-        let after_ok = after.trim_start().starts_with('(');
-        if before_ok && after_ok {
-            sites.push(start);
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = CallSiteVisitor {
+        text,
+        symbol,
+        sites: Vec::new(),
+    };
+    visitor.visit_item_fn(&function);
+    visitor.sites
+}
+
+struct CallSiteVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    sites: Vec<usize>,
+}
+
+impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(path) = node.func.as_ref() {
+            if path
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == self.symbol)
+            {
+                self.sites
+                    .push(span_offset(node.func.span().start(), self.text));
+            }
         }
-        search_from = start + symbol.len();
+        syn::visit::visit_expr_call(self, node);
     }
-    sites
 }
 
 fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<String> {
-    let mut bindings = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find("let ") {
-        let let_start = search_from + relative;
-        let after_let = &text[let_start + 4..];
-        let Some(name_end) = after_let.find(|c: char| !c.is_alphanumeric() && c != '_') else {
-            search_from = let_start + 4;
-            continue;
-        };
-        let name = after_let[..name_end].trim();
-        let Some(semicolon_relative) = after_let.find(';') else {
-            search_from = let_start + 4;
-            continue;
-        };
-        let statement = &after_let[..semicolon_relative];
-        if !name.is_empty()
-            && statement.contains(symbol)
-            && !find_call_sites(statement, symbol).is_empty()
-        {
-            bindings.push(name.to_owned());
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = LetBindingVisitor {
+        text,
+        symbol,
+        bindings: Vec::new(),
+    };
+    visitor.visit_item_fn(&function);
+    visitor.bindings
+}
+
+struct LetBindingVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    bindings: Vec<String>,
+}
+
+impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        if let (syn::Pat::Ident(pattern), Some(init)) = (&node.pat, &node.init) {
+            let mut calls = CallSiteVisitor {
+                text: self.text,
+                symbol: self.symbol,
+                sites: Vec::new(),
+            };
+            calls.visit_expr(init.expr.as_ref());
+            if !calls.sites.is_empty() {
+                self.bindings.push(pattern.ident.to_string());
+            }
         }
-        search_from = let_start + 4 + semicolon_relative;
+        syn::visit::visit_local(self, node);
     }
-    bindings
 }
 
 // ---------------------------------------------------------------------------
@@ -519,39 +624,73 @@ fn split_top_level_comma(arguments: &str) -> Option<(&str, &str)> {
 // ---------------------------------------------------------------------------
 
 fn da_005_empty_test(text: &str) -> DaVerdict {
-    let Some(body_start) = text.find('{') else {
-        return DaVerdict::NoViolation;
-    };
-    let Some(body_end) = text.rfind('}') else {
-        return DaVerdict::NoViolation;
-    };
-    if body_end <= body_start {
-        return DaVerdict::NoViolation;
-    }
-    let body = &text[body_start + 1..body_end];
-    let stripped = strip_comments(body);
-    if stripped.trim().is_empty() {
+    if syn::parse_str::<syn::ItemFn>(text)
+        .ok()
+        .is_some_and(|function| function.block.stmts.is_empty())
+    {
         DaVerdict::Fail("the Test function body has no statements (DS-625)")
     } else {
         DaVerdict::NoViolation
     }
 }
 
-fn strip_comments(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '/' && chars.peek() == Some(&'/') {
-            for next in chars.by_ref() {
-                if next == '\n' {
-                    break;
-                }
-            }
-            continue;
-        }
-        out.push(ch);
+struct RustFunctionSyntax {
+    function: syn::ItemFn,
+}
+
+impl RustFunctionSyntax {
+    fn parse(text: &str) -> Option<Self> {
+        syn::parse_str(text).ok().map(|function| Self { function })
     }
-    out
+
+    fn has_should_panic(&self) -> bool {
+        self.function
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("should_panic"))
+    }
+
+    fn has_assert_equivalent_method_or_try(&self) -> bool {
+        let mut visitor = VerificationSyntaxVisitor {
+            has_verifier: false,
+        };
+        visitor.visit_item_fn(&self.function);
+        visitor.has_verifier
+    }
+
+    fn returns_result(&self) -> bool {
+        match &self.function.sig.output {
+            syn::ReturnType::Type(_, ty) => match ty.as_ref() {
+                syn::Type::Path(path) => path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "Result"),
+                _ => false,
+            },
+            syn::ReturnType::Default => false,
+        }
+    }
+}
+
+struct VerificationSyntaxVisitor {
+    has_verifier: bool,
+}
+
+impl<'ast> Visit<'ast> for VerificationSyntaxVisitor {
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        if matches!(
+            node.method.to_string().as_str(),
+            "unwrap" | "expect" | "unwrap_err" | "expect_err"
+        ) {
+            self.has_verifier = true;
+        }
+        syn::visit::visit_expr_method_call(self, node);
+    }
+
+    fn visit_expr_try(&mut self, _node: &'ast syn::ExprTry) {
+        self.has_verifier = true;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -568,7 +707,7 @@ fn da_006_no_verification_syntax(has_verification_syntax: bool) -> DaVerdict {
         // delegation-identification logic exists to name one.
         DaVerdict::Fail(
             "no assert-equivalent construct (standard macro, #[should_panic], \
-             .unwrap()/.expect()/?, or a Result-returning signature) is present, \
+             .unwrap()/.expect()/.expect_err()/.unwrap_err()/?, or a Result-returning signature) is present, \
              and no §7.2.1 delegation target is identified (DS-626)",
         )
     }
@@ -591,33 +730,61 @@ fn find_assert_spans(text: &str, macros: &[&str]) -> Vec<(usize, usize)> {
 }
 
 fn find_macro_call_spans(text: &str, macro_name: &str) -> Vec<(usize, usize)> {
-    let mut spans = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(macro_name) {
-        let macro_start = search_from + relative;
-        let after = &text[macro_start + macro_name.len()..];
-        let trimmed = after.trim_start();
-        let skip = after.len() - trimmed.len();
-        let open_pos = macro_start + macro_name.len() + skip;
-        if let Some(open_char) = text[open_pos..].chars().next() {
-            let close_char = match open_char {
-                '(' => ')',
-                '[' => ']',
-                '{' => '}',
-                _ => {
-                    search_from = macro_start + macro_name.len();
-                    continue;
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut visitor = MacroVisitor {
+        text,
+        macro_name,
+        spans: Vec::new(),
+    };
+    syn::visit::Visit::visit_item_fn(&mut visitor, &function);
+    visitor.spans
+}
+
+struct MacroVisitor<'a> {
+    text: &'a str,
+    macro_name: &'a str,
+    spans: Vec<(usize, usize)>,
+}
+
+impl<'ast> syn::visit::Visit<'ast> for MacroVisitor<'_> {
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if node
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| format!("{}!", segment.ident) == self.macro_name)
+        {
+            let start = span_offset(node.span().start(), self.text);
+            let end = span_offset(node.span().end(), self.text);
+            let invocation = &self.text[start..end];
+            if let Some(open) = invocation.find(['(', '[', '{']) {
+                if let Some(close) = find_matching_close(
+                    invocation,
+                    open,
+                    invocation.as_bytes()[open] as char,
+                    match invocation.as_bytes()[open] as char {
+                        '(' => ')',
+                        '[' => ']',
+                        '{' => '}',
+                        _ => return,
+                    },
+                ) {
+                    self.spans.push((start + open + 1, start + close));
                 }
-            };
-            if let Some(close_pos) = find_matching_close(text, open_pos, open_char, close_char) {
-                spans.push((open_pos + 1, close_pos));
-                search_from = close_pos + 1;
-                continue;
             }
         }
-        search_from = macro_start + macro_name.len();
+        syn::visit::visit_macro(self, node);
     }
-    spans
+}
+
+fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
+    text.lines()
+        .take(location.line.saturating_sub(1))
+        .map(|line| line.len() + 1)
+        .sum::<usize>()
+        + location.column
 }
 
 fn find_matching_close(text: &str, open_pos: usize, open: char, close: char) -> Option<usize> {
@@ -638,25 +805,6 @@ fn find_matching_close(text: &str, open_pos: usize, open: char, close: char) -> 
         }
     }
     None
-}
-
-fn contains_try_operator(text: &str) -> bool {
-    // A bare `?` right after an expression (not inside a string/char
-    // literal, and not `?` used inside a type like `Option<T>?` generics —
-    // Rust does not use `?` in type position, so this simple scan is
-    // sound for the try operator specifically). Comments/strings are not
-    // stripped first, which can over-count a `?` appearing inside a
-    // string literal as a try-operator use; that only widens
-    // `has_verification_syntax`, which per this module's doc comment can
-    // only move DA-006 toward `NoViolation`, never fabricate a `Fail`.
-    text.contains('?')
-}
-
-fn signature_returns_result(text: &str) -> bool {
-    let Some(body_start) = text.find('{') else {
-        return false;
-    };
-    text[..body_start].contains("-> Result")
 }
 
 /// Diagnostic code this capability's caller uses when it cannot run this
@@ -680,6 +828,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
+    /// @vtest.covers VO-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::target_symbol
+    /// @vtest.intent target候補名としてitem-pathの末尾segmentを抽出することを確認する
     #[test]
     fn target_symbol_takes_the_final_segment() {
         assert_eq!(
@@ -688,6 +840,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-COMPOSE-ALL-NO-VIOLATION-PASSES
+    /// @vtest.covers VO-ORACLE-COMPOSE-PASS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::compose
+    /// @vtest.intent DA-001/003/004/005/006の全ルールが違反なしのときcomposeがFAILでもUNKNOWNでもないことを確認する
     #[test]
     fn a_direct_assert_eq_call_passes_all_five_rules() {
         let text = "#[test]\nfn it_doubles() {\n    assert_eq!(double(2), 4);\n}\n";
@@ -697,6 +853,10 @@ mod tests {
         assert!(!is_unknown, "{basis:?}");
     }
 
+    /// @vtest.id TEST-ORACLE-DA-005-EMPTY-BODY-FAILS
+    /// @vtest.covers VO-ORACLE-DA-005-EMPTY-TEST
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_005_empty_test
+    /// @vtest.intent 文を含まない関数本体がDA-005のFAILになることを確認する
     #[test]
     fn an_empty_test_fails_da_005() {
         let text = "#[test]\nfn empty() {\n}\n";
@@ -706,6 +866,10 @@ mod tests {
         assert!(is_fail);
     }
 
+    /// @vtest.id TEST-ORACLE-DA-006-NO-ASSERT-FAILS
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent 検証構文が1つも無い関数本体がDA-006のFAILになることを確認する
     #[test]
     fn no_verification_syntax_fails_da_006() {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
@@ -713,6 +877,22 @@ mod tests {
         assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-TEXT-LITERAL-IS-NOT-VERIFICATION-SYNTAX
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::analyze
+    /// @vtest.intent 文字列literal内のtarget呼出しとunwrap表記を実行call・検証構文として数えないことを確認する
+    #[test]
+    fn text_literal_target_and_unwrap_are_not_verification_syntax() {
+        let text = "#[test]\nfn mentions_only() {\n    let _ = \"parse(input).unwrap()\";\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-006-SHOULD-PANIC-PASSES
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent #[should_panic]属性が検証構文として認められDA-006が違反なしになることを確認する
     #[test]
     fn a_should_panic_test_with_no_target_call_passes_da_006_via_the_attribute() {
         let text = "#[should_panic]\n#[test]\nfn panics() {\n    panic!(\"boom\");\n}\n";
@@ -724,6 +904,10 @@ mod tests {
     /// assert-equivalent construct exists anywhere in the function, so no
     /// path — tracked or not — could carry the call's result to one. This
     /// is the one case this capability can prove structurally.
+    /// @vtest.id TEST-ORACLE-DA-003-NO-ASSERT-ANYWHERE-FAILS
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果を検証するassert相当が関数内に一つも無い場合にDA-003がFAILになることを確認する
     #[test]
     fn a_target_call_with_no_assert_construct_anywhere_fails_da_003() {
         let text = "#[test]\nfn calls_but_asserts_nothing() {\n    double(2);\n}\n";
@@ -741,6 +925,10 @@ mod tests {
     /// bounded dataflow tracking (direct-in-assert or one `let` binding)
     /// cannot trace the call's result into it. That is an analysis limit,
     /// not proof of non-verification — `Unknown`, not `Fail`.
+    /// @vtest.id TEST-ORACLE-DA-003-UNTRACEABLE-CALL-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assertが存在するがtarget呼出結果をそこへ追跡できない場合、DA-003がFAILではなくUNKNOWNになることを確認する
     #[test]
     fn a_target_call_untraceable_into_an_unrelated_assert_is_unknown_not_fail() {
         let text = "#[test]\nfn calls_but_ignores_result() {\n    double(2);\n    assert!(true == false || true);\n}\n";
@@ -752,6 +940,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-SHOULD-PANIC-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent #[should_panic]があるときassertが無くてもDA-003が違反なしになることを確認する
     #[test]
     fn a_should_panic_target_call_passes_da_003_without_an_assert() {
         let text = "#[should_panic]\n#[test]\nfn panics_on_call() {\n    divide(1, 0);\n}\n";
@@ -759,6 +951,10 @@ mod tests {
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-LET-BOUND-CALL-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果がlet束縛経由でassertへ到達する場合にDA-003が違反なしになることを確認する
     #[test]
     fn a_let_bound_call_used_in_an_assert_passes_da_003() {
         let text = "#[test]\nfn binds_then_asserts() {\n    let result = double(2);\n    assert_eq!(result, 4);\n}\n";
@@ -770,6 +966,69 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-ERR-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
+    #[test]
+    fn a_direct_expect_err_call_passes_da_003_and_da_006() {
+        let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-PATH-QUALIFIED-EXPECT-ERR-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent パス付きtarget呼出しへexpect_errを連鎖した場合にDA-003が違反なしになることを確認する
+    #[test]
+    fn a_path_qualified_expect_err_call_passes_da_003_and_da_006() {
+        let text =
+            "#[test]\nfn rejects() {\n    Type::from_yaml(input).expect_err(\"invalid\");\n}\n";
+        let analysis = analyze(text, &["from_yaml".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD,VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出結果へ直接expectを連鎖した場合に到達と判定することを確認する
+    #[test]
+    fn a_direct_expect_call_passes_da_003_and_da_006() {
+        let text = "#[test]\nfn accepts() {\n    parse(input).expect(\"valid\");\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent loop内のtarget呼出はbounded解析でUNKNOWNに退避することを確認する
+    #[test]
+    fn a_target_call_inside_a_loop_is_unknown() {
+        let text = "#[test]\nfn repeated() {\n    for item in inputs {\n        parse(item);\n    }\n    assert!(true);\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-DELEGATED-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target結果を別関数へ渡す形は委譲先を追跡せずUNKNOWNにすることを確認する
+    #[test]
+    fn a_target_call_passed_to_another_function_is_unknown() {
+        let text = "#[test]\nfn delegated() {\n    check(parse(input));\n}\n";
+        let analysis = analyze(text, &["parse".to_owned()], &[]);
+        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
+    /// @vtest.covers VO-ORACLE-DA-004-SELF-COMPARISON
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_004_self_comparison
+    /// @vtest.intent assert_eq!の両引数がトークン列として同一のときDA-004がFAILになることを確認する
     #[test]
     fn identical_assert_eq_arguments_fail_da_004() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(compute(), compute());\n}\n";
@@ -777,6 +1036,10 @@ mod tests {
         assert!(matches!(analysis.da_004, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-001-ALL-LITERAL-FAILS
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent assertの引数がすべてリテラルのときDA-001がFAILになることを確認する
     #[test]
     fn an_all_literal_assert_fails_da_001() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(1, 1);\n}\n";
@@ -784,6 +1047,27 @@ mod tests {
         assert!(matches!(analysis.da_001, DaVerdict::Fail(_)));
     }
 
+    /// @vtest.id TEST-ORACLE-LITERAL-FIXTURE-IS-NOT-CODE
+    /// @vtest.covers VO-ORACLE-DA-004-SELF-COMPARISON
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::analyze
+    /// @vtest.intent fixture source embedded in a string literal is not analyzed as executable Rust
+    #[test]
+    fn assert_macros_inside_fixture_strings_are_ignored() {
+        let text = r##"#[test]
+fn real_check() {
+    let fixture = "assert_eq!(1, 1);";
+    assert!(fixture.len() > 0);
+}
+"##;
+        let analysis = analyze(text, &[], &[]);
+        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
+        assert!(matches!(analysis.da_004, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-001-CALL-RESULT-PASSES
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent assertが識別子（関数呼出結果）を参照するときDA-001が違反なしになることを確認する
     #[test]
     fn an_assert_referencing_a_call_result_does_not_fail_da_001() {
         let text = "#[test]\nfn real_check() {\n    assert_eq!(double(2), 4);\n}\n";
@@ -791,6 +1075,10 @@ mod tests {
         assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
     }
 
+    /// @vtest.id TEST-ORACLE-DA-006-RESULT-RETURNING-SIGNATURE-PASSES
+    /// @vtest.covers VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent Resultを返すTest関数シグネチャが検証構文として認められDA-006が違反なしになることを確認する
     #[test]
     fn a_result_returning_test_signature_counts_as_verification_syntax() {
         let text =

@@ -1,0 +1,11 @@
+id: VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR
+parent: null
+derives_from:
+  - doc: DES-596
+claim: 'hash inputの先頭にはdomain separatorを置き、他のfieldと同じ長さ付き規則（UTF-8 byte length、byte列の順）でencodeする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

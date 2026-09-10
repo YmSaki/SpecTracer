@@ -1,0 +1,13 @@
+id: VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+parent: null
+derives_from:
+  - doc: DES-083
+  - doc: DES-085
+  - doc: DES-090
+claim: Source Target hashはdomain vtest:target-subject:v1を用い、canonical Target Reference（常にTargetRef::Locator）とadapterが返すimplementation construct bytesを、当該Source Target自身のcanonical Locatorから一度だけ計算し、参照側Testの綴りからは計算しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

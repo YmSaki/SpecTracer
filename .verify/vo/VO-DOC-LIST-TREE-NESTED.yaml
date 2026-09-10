@@ -1,0 +1,11 @@
+id: VO-DOC-LIST-TREE-NESTED
+parent: null
+derives_from:
+  - doc: DS-1015
+claim: doc list --treeはderives_fromの文書鎖を木として表示する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

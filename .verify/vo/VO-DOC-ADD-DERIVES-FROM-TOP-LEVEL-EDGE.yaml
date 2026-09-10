@@ -1,0 +1,12 @@
+id: VO-DOC-ADD-DERIVES-FROM-TOP-LEVEL-EDGE
+parent: null
+derives_from:
+  - doc: DS-1003
+  - doc: DS-1681
+claim: doc登録の--derives-fromは、登録するdocumentのトップレベルノードが持つ上流ノードidへの辺として書き込まれる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

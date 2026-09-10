@@ -1,0 +1,11 @@
+id: VO-VERIFY-NO-TARGET-NOT-CHECKED
+parent: null
+derives_from:
+  - doc: DS-1664
+claim: 'targetを持たないTestの`target_binding`は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

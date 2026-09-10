@@ -1,0 +1,14 @@
+id: VO-STORE-INIT-PROJECT-CANONICAL-LAYOUT
+parent: null
+derives_from:
+  - doc: DS-985
+claim: >-
+  `vtest init` の生成物には `doc/` / `vo/` / `rel/` / `forms/` / `decisions/` /
+  `approvals/` / `evidence/` / `cache/` と `.verify/.gitignore`、組込 Form
+  Schema（§14）を含む。旧 `spec/` / `req/` / `audits/` は生成しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

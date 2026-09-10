@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-SUPERSEDES-NO-SELF-REFERENCE
+parent: null
+derives_from:
+  - doc: DS-462
+claim: '自己参照するsupersedes entryを含む承認レコードは書込み時にE-APPROVAL-002として拒否する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

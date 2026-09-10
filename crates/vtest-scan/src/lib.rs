@@ -1850,6 +1850,7 @@ mod tests {
         let sequence = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let root =
             std::env::temp_dir().join(format!("vtest-scan-{}-{sequence}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("tests")).unwrap();
         fs::write(
@@ -1884,6 +1885,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         root
     }
 
+    /// @vtest.id TEST-SCAN-EXTRACTS-ANNOTATED-TEST-AND-SOURCE
+    /// @vtest.covers VO-SCAN-RUST-CARGO-SUITE-KIND, VO-SCAN-RUST-CARGO-SUITE-NAME, VO-SCAN-RUST-CARGO-SELECTOR
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project extracts an annotated Test construct with correct id, execution.selector, project, and suite.kind/name
     #[test]
     fn extracts_annotated_test_and_source() {
         let root = fixture();
@@ -1921,6 +1926,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// `fixture()`（Test・VO・doc を含む現実的な構成）を通した確認は
     /// `source_target_hash_differs_for_identical_construct_text_at_different_locations`
     /// が別に持つ。両方に価値があるため両方残す。
+    /// @vtest.id TEST-SCAN-SOURCE-TARGET-HASH-BINDS-LOCATION-DUP-CONTENT
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two Source Targets with byte-identical construct bytes at different canonical Locators get different content hashes
     #[test]
     fn source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes() {
         // See `fixture()`'s doc comment: a nanosecond-timestamp suffix
@@ -1989,6 +1998,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// through a real `@vtest.covers` source edit end-to-end. This test is
     /// kept alongside it because it isolates the `materialize_tests` wiring
     /// itself (independent of adapter discovery) with no other moving parts.
+    /// @vtest.id TEST-SCAN-MATERIALIZE-TESTS-HASH-CHANGES-ON-COVERS-EDIT
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::materialize_tests
+    /// @vtest.intent verifies materialize_tests' content_hash changes when only the covers metadata differs, construct bytes held identical
     #[test]
     fn materialize_tests_content_hash_changes_when_only_covers_metadata_changes() {
         let construct_text = "fn adds() { assert_eq!(2, add(1, 1)); }".to_owned();
@@ -2071,6 +2084,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// 対し、この版は`scan_project`を通してadapter discoveryから通し、
     /// 「metadataだけ変えてconstructは不変」という状態が実ファイル編集
     /// からも作れることそのものを確認する。
+    /// @vtest.id TEST-SCAN-PROJECT-HASH-CHANGES-ON-COVERS-SOURCE-EDIT
+    /// @vtest.covers VO-MODEL-TEST-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project's TestEntity.content_hash changes end-to-end when a real @vtest.covers source edit changes only metadata, not construct bytes
     #[test]
     fn scan_project_content_hash_changes_when_only_covers_metadata_changes_via_source_edit() {
         let root = fixture();
@@ -2190,6 +2207,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// によるモジュール分割）を通した確認版。最小構成での確認は
     /// `source_targets_with_identical_construct_bytes_at_different_locations_get_different_hashes`
     /// が別に持つ。両方に価値があるため両方残す。
+    /// @vtest.id TEST-SCAN-SOURCE-TARGET-HASH-DIFFERS-BY-LOCATION
+    /// @vtest.covers VO-MODEL-SOURCE-TARGET-SUBJECT-HASH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies, through a realistic multi-module fixture, that identical construct bytes at different canonical Locators hash differently
     #[test]
     fn source_target_hash_differs_for_identical_construct_text_at_different_locations() {
         let root = fixture();
@@ -2229,6 +2250,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// `ScanError::UnknownAdapterId`（`.code() == Some("E-CONFIG-001")`）を
     /// 返すこと、かつそのメッセージが未登録だった ID と登録済み ID 一覧の
     /// 両方を含むことを確認する。
+    /// @vtest.id TEST-SCAN-UNKNOWN-ADAPTER-ID-REJECTED
+    /// @vtest.covers VO-SCAN-UNKNOWN-ADAPTER-ID-REJECTED-E-CONFIG-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project rejects an unregistered adapter id with fail-closed ScanError::UnknownAdapterId (E-CONFIG-001) naming both ids
     #[test]
     fn unknown_adapter_id_is_rejected_fail_closed() {
         let root = fixture();
@@ -2268,6 +2293,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// 変換経路を単体で断言してロックインする（filesystem 権限操作に頼らず
     /// 決定論的に検証するため、`scan_project`の全体経路ではなく`From`
     /// 変換自体を対象にする）。
+    /// @vtest.id TEST-SCAN-DISCOVERY-ERROR-CARRIES-E-ADAPTER-002
+    /// @vtest.covers VO-SCAN-DISCOVERY-FAILURE-E-ADAPTER-002
+    /// @vtest.target crates/vtest-scan/src/lib.rs::ScanError
+    /// @vtest.intent verifies vtest_adapter_api::DiscoveryError converts into ScanError carrying code E-ADAPTER-002
     #[test]
     fn discovery_error_conversion_carries_e_adapter_002() {
         let error: ScanError = vtest_adapter_api::DiscoveryError {
@@ -2282,6 +2311,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-MISSING-CARGO-METADATA-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies invalid or missing Cargo.toml leaves target resolution unresolved (E-SCAN-004, suite None) instead of silently succeeding
     #[test]
     fn missing_or_invalid_cargo_metadata_is_fail_closed() {
         let root = fixture();
@@ -2314,6 +2347,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// empty list, and not `default_for`'s concrete `src`/`tests`/`crates`
     /// literal (that is one adapter's chosen default value, not DS-349's
     /// stated default).
+    /// @vtest.id TEST-SCAN-RESOLVE-INCLUDES-NONE-TARGETS-WHOLE-ROOT
+    /// @vtest.covers VO-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-ROOT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::resolve_adapter_includes
+    /// @vtest.intent verifies an omitted scan.include resolves to the adapter root itself (empty relative path), not an empty include list
     #[test]
     fn resolve_adapter_includes_none_targets_the_whole_adapter_root() {
         let mut adapter = ProjectConfig::default_for("fixture")
@@ -2333,6 +2370,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
         );
     }
 
+    /// @vtest.id TEST-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-WORKSPACE
+    /// @vtest.covers VO-SCAN-OMITTED-INCLUDE-SCANS-WHOLE-ROOT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project discovers a Test construct outside the adapter's default include literal when scan.include is omitted
     #[test]
     fn omitted_scan_include_scans_the_whole_workspace() {
         let root = fixture();
@@ -2371,6 +2412,10 @@ fn outside_default() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-RESOLVES-WORKSPACE-PACKAGES-AND-SUITES
+    /// @vtest.covers VO-SCAN-RUST-CARGO-SUITE-KIND, VO-SCAN-RUST-CARGO-SUITE-NAME, VO-SCAN-RUST-CARGO-SELECTOR
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project resolves per-workspace-package project name and lib/bin/integration suite.kind/name/selector across module filters
     #[test]
     fn resolves_workspace_packages_targets_and_external_module_filters() {
         let root = fixture();
@@ -2497,6 +2542,10 @@ fn parses_integration() { exercise(); }
         assert_eq!(binary.execution.selector, "checks_binary");
     }
 
+    /// @vtest.id TEST-SCAN-IGNORED-RUST-FILES-NOT-SCANNED
+    /// @vtest.covers VO-SCAN-RUST-DISCOVERY-RESPECTS-GITIGNORE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .gitignore/.ignore-excluded Rust file is not scanned and produces no E-SCAN-001 for it
     #[test]
     fn ignored_rust_files_are_not_scanned() {
         let root = fixture();
@@ -2519,6 +2568,10 @@ fn parses_integration() { exercise(); }
             .any(|source| source.location.path.as_str() == "src/kept.rs"));
     }
 
+    /// @vtest.id TEST-SCAN-AMBIGUOUS-TARGET-LOCATOR-NOT-RESOLVED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an ambiguous source locator (two cfg-gated definitions of the same symbol) is reported as unresolved (E-SCAN-004) with the declared value in the message
     #[test]
     fn ambiguous_target_locator_is_not_resolved() {
         let root = fixture();
@@ -2561,6 +2614,10 @@ fn ambiguous() {}
         }));
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-UNREGISTERED-TESTS
+    /// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an undecorated #[test] function produces a W-SCAN-101 diagnostic
     #[test]
     fn reports_unregistered_tests() {
         let root = fixture();
@@ -2578,6 +2635,10 @@ fn ambiguous() {}
     /// だけを返し、`vtest_adapter_api::MissingTestConstruct` に相当する
     /// 型が無かったため、この construct はモデルへ一切現れなかった
     /// （`result.tests` にも `result.discovered` にも痕跡が残らなかった）。
+    /// @vtest.id TEST-SCAN-UNDECORATED-FN-APPEARS-IN-DISCOVERED-AS-MISSING
+    /// @vtest.covers VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an undecorated #[test] function appears in ScanResult.discovered as ManagedTestLink::Missing rather than being dropped, and is absent from result.tests
     #[test]
     fn undecorated_test_functions_appear_in_discovered_as_missing() {
         let root = fixture();
@@ -2605,6 +2666,10 @@ fn ambiguous() {}
     /// `annotation.covers` 分岐）で、同じ `push_missing_test` 呼び出しが
     /// 通ることを別途断言する — 既存の診断（E-SCAN-007 の発行条件・
     /// メッセージ）が変わっていないことも同じテストで確認する。
+    /// @vtest.id TEST-SCAN-MISSING-COVERS-APPEARS-IN-DISCOVERED-AS-MISSING
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct declaring @vtest.id but no @vtest.covers is rejected as E-SCAN-007 and still appears in discovered as Missing, not silently dropped
     #[test]
     fn test_construct_missing_required_covers_appears_in_discovered_as_missing() {
         let root = fixture();
@@ -2655,6 +2720,10 @@ fn missing_covers() {}
     /// `collision_second`（後発）が `result.tests` から消え、その
     /// `@vtest.covers VO-MISSING`（存在しない VO）も検証されないまま
     /// 素通りしていた。
+    /// @vtest.id TEST-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.covers VO-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies both constructs declaring a colliding Test ID are preserved as separate TestEntity records, reported symmetrically as E-SCAN-002, and reach downstream VO-reference checks, rather than the first-wins construct dropping the second
     #[test]
     fn colliding_test_ids_are_all_preserved_and_reach_downstream_checks() {
         let root = fixture();
@@ -2763,6 +2832,10 @@ fn collision_second() {}
         }
     }
 
+    /// @vtest.id TEST-SCAN-REJECTS-UNKNOWN-AND-DUPLICATE-ANNOTATION-KEYS
+    /// @vtest.covers VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006, VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an unrecognized annotation key produces E-SCAN-006 and a duplicated single-valued key (@vtest.id twice) produces E-SCAN-005
     #[test]
     fn rejects_unknown_and_duplicate_annotation_keys() {
         let root = fixture();
@@ -2792,6 +2865,10 @@ fn duplicate_key() {}
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-006"));
     }
 
+    /// @vtest.id TEST-SCAN-REJECTS-MISSING-REQUIRED-ANNOTATION
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct missing the required @vtest.intent annotation is rejected as E-SCAN-007
     #[test]
     fn rejects_missing_required_annotation() {
         let root = fixture();
@@ -2823,6 +2900,10 @@ fn missing_intent() {}
     /// work, for a lib test (`src/`, not a Cargo integration test) and for
     /// a Cargo integration test (`tests/`) alike, with `@vtest.kind` values
     /// chosen to also show the decision is not kind-dependent.
+    /// @vtest.id TEST-SCAN-N-TARGETS-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test may declare 1, 2, or 3 distinct targets for a lib test and a Cargo integration test alike, regardless of @vtest.kind, with no E-SCAN-005
     #[test]
     fn tests_declare_any_number_of_targets_regardless_of_kind_or_physical_location() {
         let root = fixture();
@@ -2931,6 +3012,10 @@ fn combines() {}
     /// `@vtest.kind` is `unit-normal` (the value the built-in §14.1/§14.3
     /// Form actually outputs) to also show the rejection is not
     /// kind-dependent.
+    /// @vtest.id TEST-SCAN-DUPLICATE-TARGET-VALUE-REJECTED
+    /// @vtest.covers VO-SCAN-DUPLICATE-TARGETREF-WITHIN-MULTIPLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a literal duplicate target declaration within a Test's declared targets is rejected as E-SCAN-005, regardless of @vtest.kind
     #[test]
     fn integration_test_duplicate_target_value_is_rejected() {
         let root = fixture();
@@ -2964,6 +3049,10 @@ fn same_target_twice() {}
 
     /// 本冊 §4.2「1行1キー。`covers` と `related` の値はカンマ区切りで
     /// 複数指定できる」。
+    /// @vtest.id TEST-SCAN-COVERS-RELATED-COMMA-SEPARATED
+    /// @vtest.covers VO-SCAN-COVERS-RELATED-COMMA-SEPARATED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies @vtest.covers and @vtest.related accept a comma-separated list of multiple values
     #[test]
     fn covers_and_related_accept_comma_separated_values() {
         let root = fixture();
@@ -3007,6 +3096,10 @@ fn comma_separated() {}
     }
 
     /// 本冊 §4.2「`case` と `related` はキー自体を複数行書ける」。
+    /// @vtest.id TEST-SCAN-CASE-RELATED-REPEATED-LINES
+    /// @vtest.covers VO-SCAN-CASE-RELATED-REPEATED-KEY-LINES
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies @vtest.case and @vtest.related accept repeated key lines, each contributing one value, in declaration order
     #[test]
     fn case_and_related_allow_repeated_annotation_lines() {
         let root = fixture();
@@ -3047,6 +3140,10 @@ fn repeated() {}
     /// 本冊 §4.2「表面1で、`@vtest.` で始まるが test-key を持たない行は
     /// エラー E-SCAN-006... 未知キーに加え、source-target-key（`src-id`）の
     /// 誤配置も含む」。
+    /// @vtest.id TEST-SCAN-SRC-ID-ON-TEST-CONSTRUCT-REJECTED
+    /// @vtest.covers VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a src-id (source-target-key) declared on a Test construct is rejected as E-SCAN-006 and the Test does not materialize
     #[test]
     fn src_id_annotation_on_a_test_construct_is_rejected_as_an_unknown_key() {
         let root = fixture();
@@ -3079,6 +3176,10 @@ fn misplaced() {}
 
     /// 本冊 §4.2「表面2で、`@vtest.` で始まるが source-target-key を
     /// 持たない行（test-key を含む）は警告 W-SCAN-105 とする」。
+    /// @vtest.id TEST-SCAN-NON-TEST-ITEM-TEST-KEY-WARNS
+    /// @vtest.covers VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-Test item's doc comment carrying a test-key (@vtest.id) produces only a W-SCAN-105 warning, no error
     #[test]
     fn non_test_item_with_a_test_key_annotation_only_warns() {
         let root = fixture();
@@ -3109,6 +3210,10 @@ fn misplaced() {}
     /// 本冊 §4.2「`src-id` は表面2でも反復不可であり...このときいずれの
     /// 宣言値も採用せず、当該Source TargetのSRC IDは無しとして扱う
     /// （どちらかを推測で選ばない）」。
+    /// @vtest.id TEST-SCAN-DUPLICATE-SRC-ID-NEITHER-VALUE-ADOPTED
+    /// @vtest.covers VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a repeated @vtest.src-id on one Source Target is rejected as E-SCAN-005 and neither declared value is adopted (src_id is None)
     #[test]
     fn duplicate_src_id_on_a_source_target_is_rejected_and_neither_value_is_adopted() {
         let root = fixture();
@@ -3138,6 +3243,10 @@ fn misplaced() {}
 
     /// 表面2の正常経路: 反復のない単一の `@vtest.src-id` は認識され、
     /// 診断を生じない。
+    /// @vtest.id TEST-SCAN-NON-TEST-ITEM-DECLARES-PERMANENT-SRC-ID
+    /// @vtest.covers VO-SCAN-SRC-ID-DECLARED-ON-IMPLEMENTATION
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a single, non-repeated @vtest.src-id on an implementation function is recognized as that Source Target's src_id with no diagnostic
     #[test]
     fn non_test_item_declares_a_permanent_src_id() {
         let root = fixture();
@@ -3171,6 +3280,10 @@ fn misplaced() {}
     /// 曖昧参照として受理しない」。2件の異なるSource Targetが同じ恒久SRC ID
     /// を宣言した場合はE-SCAN-011とし（本冊:877・901）、どのTestからも
     /// 参照されていなくても索引構築時点で検出する。
+    /// @vtest.id TEST-SCAN-COLLIDING-PERMANENT-SRC-ID-REJECTED
+    /// @vtest.covers VO-SCAN-COLLIDING-PERMANENT-SRC-ID-E-SCAN-011
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two Source Targets declaring the same permanent src-id produce E-SCAN-011 naming the colliding id and pointing at a declaring Source Target
     #[test]
     fn colliding_permanent_src_id_across_two_source_targets_is_rejected() {
         let root = fixture();
@@ -3213,6 +3326,10 @@ fn misplaced() {}
     /// canonical Source Targetへ解決する場合は重複targetとしてE-SCAN-005と
     /// する」。locator形式の宣言と、同じSource Targetを指すSRC ID形式の
     /// 宣言は綴りが異なるが、解決後は同一canonical Source Targetになる。
+    /// @vtest.id TEST-SCAN-LOCATOR-AND-SRC-ID-ALIAS-COLLIDE
+    /// @vtest.covers VO-SCAN-DUPLICATE-KEY-E-SCAN-005
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a locator-form target declaration and a src-id-form declaration resolving to the same canonical Source Target under different spellings are rejected as E-SCAN-005
     #[test]
     fn locator_and_src_id_target_declarations_resolving_to_the_same_source_target_collide() {
         let root = fixture();
@@ -3264,6 +3381,10 @@ fn aliased_target() {}
     /// `TargetRef::Locator.value` として運ぶだけであり（捏造なし）、core の
     /// `resolve_targets` が実在するSource Targetとの完全一致を求める通常の
     /// 「0件ヒット」経路として E-SCAN-004 を発行することを断言する。
+    /// @vtest.id TEST-SCAN-UNPARSEABLE-TARGET-NOT-SELF-RESOLVED
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an unparseable @vtest.target value is carried verbatim as an opaque locator (not fabricated or self-referenced) and reported as E-SCAN-004
     #[test]
     fn unparseable_target_locator_is_not_silently_resolved_to_the_test_itself() {
         let root = fixture();
@@ -3316,6 +3437,10 @@ fn declares_unparseable_target() {}
 
     /// 本冊 §4.2「doc comment 内の `@vtest.` を含まない行は自由記述として
     /// 無視する」。
+    /// @vtest.id TEST-SCAN-FREE-TEXT-LINES-IGNORED
+    /// @vtest.covers VO-SCAN-FREE-TEXT-LINES-IGNORED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies doc comment lines not starting with @vtest. are ignored as free-form prose interleaved with declarations
     #[test]
     fn free_text_lines_in_a_doc_comment_are_ignored() {
         let root = fixture();
@@ -3352,6 +3477,10 @@ fn free_text() {}
     /// `TestEntity` として具体化される。その `target_binding` を
     /// `NO_EVIDENCE`（DS-1664）にする判定は verify 側の責務であり、
     /// scan/adapter 層の観測範囲ではない。
+    /// @vtest.id TEST-SCAN-MISSING-TARGET-ANNOTATION-ACCEPTED
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test declaring zero @vtest.target lines materializes as a TestEntity (not E-SCAN-007) once core-neutral required metadata is present
     #[test]
     fn missing_target_annotation_is_accepted() {
         let root = fixture();
@@ -3393,6 +3522,10 @@ fn no_target() {}
     /// adapterはE-SCAN-007で早期returnせず、core側のtarget解決へ素通し
     /// する。空文字列はどのSource Targetロケータとも一致しないため、
     /// core の「0件ヒット」経路がE-SCAN-004を発行する。
+    /// @vtest.id TEST-SCAN-EMPTY-TARGET-VALUE-RESOLVES-TO-E-SCAN-004
+    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an empty @vtest.target value is treated as a declared-but-unresolvable target (E-SCAN-004), not a missing declaration (E-SCAN-007)
     #[test]
     fn empty_string_target_value_resolves_through_core_to_e_scan_004_not_e_scan_007() {
         let root = fixture();
@@ -3443,6 +3576,10 @@ fn empty_target() {}
 
     /// 本冊 §4.4 / §11.1.1: core が中立に要求する必須 metadata（`id` /
     /// `covers ≥ 1`）の欠落も E-SCAN-007 になる。
+    /// @vtest.id TEST-SCAN-MISSING-ID-AND-COVERS-REJECTED
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test construct missing @vtest.id, and one missing @vtest.covers, are each rejected as E-SCAN-007
     #[test]
     fn missing_id_and_covers_annotations_are_rejected() {
         let root = fixture();
@@ -3485,6 +3622,10 @@ fn no_covers() {}
     /// 非空文字列（`,`）だが、カンマ区切りで分割すると VO ID が1件も
     /// 残らない — 旧挙動は E-SCAN-007 を出しつつ `covers: []` の
     /// `TestEntity` を管理対象集合へ混入させていた（fail-open）。
+    /// @vtest.id TEST-SCAN-COVERS-ZERO-VO-IDS-REJECTED
+    /// @vtest.covers VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-empty @vtest.covers value that splits to zero VO ids is rejected as E-SCAN-007 and produces no TestEntity
     #[test]
     fn covers_that_reduces_to_zero_vo_ids_is_rejected_and_produces_no_test_entity() {
         let root = fixture();
@@ -3526,6 +3667,10 @@ fn empty_covers() {}
     /// `covers` に `VO-` 接頭辞を持たない ID を指定しても、その ID が実在
     /// する VO を参照していれば拒否されない
     /// （PM 裁定・pr3-decisions.md 裁定7）。
+    /// @vtest.id TEST-SCAN-EDIT-COVERS-NO-VO-PREFIX-ENFORCED
+    /// @vtest.covers VO-SCAN-ID-FORMAT-NOT-ENFORCED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent verifies edit_test accepts a covers value referencing a real VO whose id lacks a VO- prefix
     #[test]
     fn edit_test_covers_does_not_enforce_a_vo_id_prefix() {
         let root = fixture();
@@ -3546,6 +3691,10 @@ fn empty_covers() {}
     /// Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択しては
     /// ならない」: Test ID が衝突している状態で `edit_test` を呼んでも、
     /// 衝突した construct のどれかを黙って編集対象に選ばない。
+    /// @vtest.id TEST-SCAN-EDIT-REJECTS-COLLIDING-TEST-ID
+    /// @vtest.covers VO-SCAN-EDIT-COLLIDING-TEST-ID-NO-REPRESENTATIVE
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent verifies edit_test fails closed with E-OP-002 (naming the collision count) rather than silently picking one of the colliding constructs to edit
     #[test]
     fn edit_test_rejects_a_colliding_test_id() {
         let root = fixture();
@@ -3590,6 +3739,10 @@ fn edit_collision_second() {}
     /// integration test（`fixture()`のTEST-ADDが置かれる`tests/calc.rs`）
     /// についても成り立つことを確認する — `kind`を`integration`を含まない
     /// 値へ`--set`しても複数targetへの編集が通る。
+    /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-CARGO-INTEGRATION-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent verifies edit_test allows a Cargo integration test to declare multiple targets even when @vtest.kind is set to a value not starting with integration
     #[test]
     fn edit_test_allows_multiple_targets_for_a_cargo_integration_test_regardless_of_kind_string() {
         let root = fixture();
@@ -3625,6 +3778,10 @@ fn edit_collision_second() {}
     /// これを `current.test_target` で拒否していた（Owner裁定3、PR #26
     /// review round 5）— 正本監査が上位の根拠を見つけられず撤去した後の
     /// 挙動をロックインする回帰テスト。
+    /// @vtest.id TEST-SCAN-EDIT-MULTI-TARGET-LIB-KIND-INDEPENDENT
+    /// @vtest.covers VO-SCAN-N-TARGETS-UNBOUNDED-KIND-INDEPENDENT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent verifies edit_test allows a lib test (not a Cargo integration test) to declare multiple targets, with no execution-form condition on cardinality
     #[test]
     fn edit_test_allows_multiple_targets_for_a_lib_test_regardless_of_kind_string() {
         let root = fixture();
@@ -3713,6 +3870,10 @@ fn lib_test() {}
     /// `rust-integration` built-in Formで編集しても、生成される
     /// `@vtest.kind`は`rust-unit-function`と同じ`unit-{test_kind}`で
     /// なければならない（別紙A §14.1/§14.3）。
+    /// @vtest.id TEST-SCAN-RUST-INTEGRATION-ANSWERS-UNIT-KIND-PREFIX
+    /// @vtest.covers VO-SCAN-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent rust-integration Formでもunit-{test_kind}を生成しintegration prefixを生成しないことを確認する
     #[test]
     fn edit_test_with_rust_integration_answers_generates_the_unit_prefix() {
         let root = fixture();
@@ -3781,6 +3942,10 @@ fn lib_test() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-RELATION-ID-ALIASES-CANNOT-DUPLICATE-ULID
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two relation records whose ids are the same ULID payload under bare and REL-prefixed spellings collide as a logical id duplicate (E-SCAN-010), with no adapter-attributed location, and the message names both ids and the file
     #[test]
     fn relation_id_aliases_cannot_duplicate_one_ulid_payload() {
         let root = fixture();
@@ -3830,6 +3995,10 @@ fn lib_test() {}
     /// this fix, `known_ids` held the file name and not the node id, so both
     /// directions were backwards (the file name resolved, the real node id
     /// did not).
+    /// @vtest.id TEST-SCAN-RELATION-ENDPOINTS-RESOLVE-BY-NODE-ID-NOT-FILENAME
+    /// @vtest.covers VO-SCAN-RELATION-ENDPOINTS-RESOLVE-BY-NODE-ID
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a relation naming a real upstream document node id resolves, and one naming the document file's name (not a declared node id) does not
     #[test]
     fn relation_endpoints_resolve_against_document_node_ids_not_file_names() {
         let root = fixture();
@@ -3875,6 +4044,10 @@ fn lib_test() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-VO-AND-RELATION-INTEGRITY-DIAGNOSTICS
+    /// @vtest.covers VO-SCAN-VO-PARENT-INTEGRITY-E-SCAN-008, VO-SCAN-RELATION-ENDPOINT-INTEGRITY-E-SCAN-009, VO-SCAN-RECORD-INTEGRITY-E-SCAN-010, VO-SCAN-ORPHAN-VO-W-SCAN-102, VO-SCAN-NONLEAF-DIRECT-COVERS-W-SCAN-103, VO-SCAN-VO-STATUS-COMPAT-W-STORE-001
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project reports E-SCAN-008/009/010, W-SCAN-102/103, and W-STORE-001 for the respective malformed VO/relation/approval fixtures, each diagnostic identifying its source via location or an embedded record path
     #[test]
     fn reports_vo_and_relation_integrity_diagnostics() {
         // 詳細設計 v0.1 §2.1 replaced the predecessor REQ/SPEC layers with
@@ -4011,6 +4184,10 @@ fn covers_parent() {}
     // 区別する。ディレクトリを通常ファイルへ差し替えることで、権限エラー
     // と同じ `io::ErrorKind` 非 `NotFound` 経路を移植性のある形で再現する。
 
+    /// @vtest.id TEST-SCAN-MISSING-RELATION-DIR-IS-NO-RELATIONS
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a missing .verify/rel directory is treated as zero relations, producing no relation diagnostics, rather than aborting the scan
     #[test]
     fn missing_relation_dir_is_treated_as_no_relations() {
         let root = fixture();
@@ -4025,6 +4202,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-UNREADABLE-RELATION-DIR-ABORTS-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .verify/rel path that exists but cannot be read as a directory aborts scan_project with ScanError::Io rather than being treated as empty
     #[test]
     fn unreadable_relation_dir_aborts_scan_fail_closed() {
         let root = fixture();
@@ -4039,6 +4220,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-MISSING-APPROVALS-DIR-IS-NO-APPROVALS
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a missing .verify/approvals directory is treated as zero approvals, producing no approval diagnostics
     #[test]
     fn missing_approvals_dir_is_treated_as_no_approvals() {
         let root = fixture();
@@ -4055,6 +4240,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-UNREADABLE-APPROVALS-DIR-ABORTS-FAIL-CLOSED
+    /// @vtest.covers VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a .verify/approvals path that exists but cannot be read as a directory aborts scan_project with ScanError::Io rather than being treated as empty
     #[test]
     fn unreadable_approvals_dir_aborts_scan_fail_closed() {
         let root = fixture();
@@ -4086,6 +4275,10 @@ fn covers_parent() {}
     /// `fixture()` by `write_doc_test_fixture`), so this branch had no test
     /// making it fire — this locks it in, mirroring the document-side
     /// dangling-reference test immediately below.
+    /// @vtest.id TEST-SCAN-REPORTS-VO-DERIVES-FROM-DANGLING-REFERENCE
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a VO's derives_from entry naming a non-existent document node produces E-SCAN-012 naming both the VO and the missing node
     #[test]
     fn reports_vo_derives_from_dangling_reference() {
         let root = fixture();
@@ -4109,6 +4302,10 @@ fn covers_parent() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-DERIVES-FROM-DANGLING-REFERENCE
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an upstream document node's derives_from entry naming a non-existent document node produces E-SCAN-012, without also firing E-SCAN-016 (the node itself is not orphaned by a dangling edge)
     #[test]
     fn reports_document_derives_from_dangling_reference() {
         let root = fixture();
@@ -4163,6 +4360,10 @@ fn covers_parent() {}
     /// `derives_from` edge naming that id must not resolve — DS-1677: "当該
     /// idを参照するderives_fromはいずれの候補も解決先として選ばず". Two
     /// documents each declare `R-908` and a third node cites it.
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-NODE-ID-COLLISION-ACROSS-FILES
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies the same document node id defined in two different document files is reported as E-SCAN-010, and a derives_from edge naming that id resolves to no candidate (E-SCAN-012) rather than picking one
     #[test]
     fn reports_document_node_id_collision_across_files() {
         let root = fixture();
@@ -4243,6 +4444,10 @@ fn covers_parent() {}
 
     /// Same as above but the collision is within one document file — DS-1677
     /// draws no distinction ("同一ファイル内・ファイル間を問わない").
+    /// @vtest.id TEST-SCAN-REPORTS-DOCUMENT-NODE-ID-COLLISION-WITHIN-FILE
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies the same document node id defined twice within one document file is reported as E-SCAN-010, matching the across-files case
     #[test]
     fn reports_document_node_id_collision_within_one_file() {
         let root = fixture();
@@ -4291,6 +4496,10 @@ fn covers_parent() {}
     /// not both fire for the same collision. Reuses the same colliding-Test-
     /// ID fixture as `colliding_test_ids_are_all_preserved_and_reach_
     /// downstream_checks` above.
+    /// @vtest.id TEST-SCAN-TEST-ID-COLLISION-STAYS-E-SCAN-002
+    /// @vtest.covers VO-SCAN-COLLIDING-TEST-IDS-ALL-PRESERVED
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a Test ID collision is reported as E-SCAN-002 and never also as E-SCAN-010, since the two codes partition by id kind
     #[test]
     fn test_id_collision_stays_e_scan_002_not_e_scan_010() {
         let root = fixture();
@@ -4338,6 +4547,10 @@ fn collision_second() {}
     /// A corpus with no colliding ids at all must report zero E-SCAN-010
     /// diagnostics for document nodes — two distinct ids across two files,
     /// each referencing the other with no dangling or colliding entry.
+    /// @vtest.id TEST-SCAN-NO-DOCUMENT-NODE-COLLISION-REPORTS-NONE
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a corpus with two distinct document node ids and no dangling/colliding entry reports zero E-SCAN-010 diagnostics
     #[test]
     fn no_document_node_collision_reports_no_e_scan_010() {
         let root = fixture();
@@ -4398,6 +4611,10 @@ fn collision_second() {}
     /// proves the abort does not silently swallow every diagnostic
     /// `record_diagnostics` would otherwise produce: a second, well-formed
     /// document with an orphaned node must still report its own E-SCAN-016.
+    /// @vtest.id TEST-SCAN-MALFORMED-DOCUMENT-FILE-E-SCAN-010-CONTINUES
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010, VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a document file that fails schema parsing is reported as E-SCAN-010 with the file skipped, and the scan still evaluates the remaining well-formed document (reporting its own E-SCAN-016), rather than aborting with a code-less error
     #[test]
     fn malformed_document_file_reports_e_scan_010_and_scan_continues() {
         let root = fixture();
@@ -4450,6 +4667,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REPORTS-ORPHAN-NODE-NO-EFFECTIVE-UPSTREAM
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a request-layer sentence with an empty derives_from and no ancestor section is reported as E-SCAN-016, and not also as E-SCAN-012
     #[test]
     fn reports_orphan_node_with_no_effective_upstream() {
         let root = fixture();
@@ -4496,6 +4717,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-SENTENCE-EMPTY-DERIVES-FROM-RESCUED-BY-ANCESTOR
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a sentence with an empty derives_from is not orphaned when its containing section already carries an edge (effective upstream = own edges union ancestor edges)
     #[test]
     fn sentence_with_empty_derives_from_is_rescued_by_ancestor_section_edge() {
         // DS-1647: 実効的な上流 = 自分の辺 ∪ 先祖の辺. A sentence whose own
@@ -4548,6 +4773,10 @@ fn collision_second() {}
     /// `derives_from`. A top-level `require`-layer section with no edge and
     /// no ancestor (unlike a `request`-layer sentence, which cannot even
     /// have a section ancestor) must still report E-SCAN-016 for itself.
+    /// @vtest.id TEST-SCAN-REPORTS-ORPHANED-SECTION-NO-OWN-OR-ANCESTOR-EDGE
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a top-level section with neither its own derives_from edge nor an ancestor one reports E-SCAN-016 for itself
     #[test]
     fn reports_orphaned_section_node_with_no_own_or_ancestor_edge() {
         let root = fixture();
@@ -4589,6 +4818,10 @@ fn collision_second() {}
     /// E-SCAN-012, and — since it still counts as "having an edge" for
     /// orphan_detection purposes, resolving or not — must not also report
     /// E-SCAN-016 for that same section.
+    /// @vtest.id TEST-SCAN-REPORTS-DANGLING-DERIVES-FROM-ON-SECTION-NOT-ORPHAN
+    /// @vtest.covers VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012, VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a SectionNode's own dangling derives_from entry reports E-SCAN-012, and the section — since it still carries an edge, dangling or not — is not also reported as orphaned (E-SCAN-016)
     #[test]
     fn reports_dangling_derives_from_on_section_node_without_orphan() {
         let root = fixture();
@@ -4640,6 +4873,10 @@ fn collision_second() {}
     /// section has none of its own, and that child's own sentence item also
     /// has none — both the child section and the sentence must be rescued by
     /// the outer section's edge propagating two levels down.
+    /// @vtest.id TEST-SCAN-ORPHAN-RESCUE-PROPAGATES-NESTED-DEPTH-TWO
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an outer section's derives_from edge rescues both a nested child section with no edge of its own and that child's own sentence item, two levels down
     #[test]
     fn orphan_rescue_propagates_through_nested_sections_at_depth_two() {
         let root = fixture();
@@ -4691,6 +4928,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-REFERENCED-NODE-IS-STILL-ORPHAN
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a node with an empty derives_from stays orphan even when another node's derives_from cites it — an incoming reference is not part of effective upstream (own edges union ancestor edges only)
     #[test]
     fn node_referenced_by_another_nodes_derives_from_is_still_orphan() {
         // DS-1647 drops the predecessor document model's "referenced by
@@ -4742,6 +4983,10 @@ fn collision_second() {}
         );
     }
 
+    /// @vtest.id TEST-SCAN-WELL-FORMED-DOCUMENTS-NO-DOCUMENT-LAYER-DIAGNOSTICS
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016, VO-SCAN-DERIVES-FROM-DANGLING-E-SCAN-012
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a well-formed document tree, including a non-root node whose derives_from resolves, reports neither E-SCAN-012 nor E-SCAN-016
     #[test]
     fn well_formed_documents_report_no_document_layer_diagnostics() {
         // fixture() already registers DOC-TEST's ROOT-001 (root layer,
@@ -4800,6 +5045,10 @@ fn collision_second() {}
     /// The `.gitkeep` that `init_project` writes into the same directory must
     /// NOT be reported: it is part of the layout this tool creates, so a
     /// freshly initialised project stays clean.
+    /// @vtest.id TEST-SCAN-STRAY-DOC-FILE-REPORTED-NOT-SKIPPED
+    /// @vtest.covers VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a stray unrecognized file placed in .verify/doc/ is reported once as E-SCAN-010 rather than silently filtered, while the layout's own .gitkeep is not reported
     #[test]
     fn a_stray_file_in_the_doc_directory_is_reported_not_silently_skipped() {
         let root = std::env::temp_dir().join(format!("vtest-scan-doc-stray-{}", new_record_id()));
@@ -4840,6 +5089,10 @@ fn collision_second() {}
     }
 
     /// grows on its own branch).
+    /// @vtest.id TEST-SCAN-CANONICAL-BUNDLE-ORPHAN-COUNT
+    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// @vtest.target crates/vtest-scan/src/lib.rs::validate_document_nodes
+    /// @vtest.intent reports (without asserting) the E-SCAN-016 orphan count against the real canonical specification.json bundle, and asserts the bundle itself parses without E-SCAN-010
     #[test]
     #[ignore = "requires VTEST_CANONICAL_BUNDLE env var pointing at the canonical specification.json"]
     fn canonical_bundle_orphan_count() {
@@ -4907,6 +5160,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 1a: `explicit` かつ `combinations` 欠落
     /// (missing key entirely, not `null` or `[]` — those are 1b/1c below).
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1A-MISSING-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with the combinations key entirely absent reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1a_missing_combinations_under_explicit_policy() {
         let root = fixture();
@@ -4926,6 +5183,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 1b: `explicit` かつ `combinations` が `null`.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1B-NULL-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with combinations: null reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1b_null_combinations_under_explicit_policy() {
         let root = fixture();
@@ -4945,6 +5206,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 1c: `explicit` かつ `combinations` が空 list.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-1C-EMPTY-COMBINATIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-MISSING-NULL-EMPTY-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with combinations: [] reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_1c_empty_combinations_under_explicit_policy() {
         let root = fixture();
@@ -4964,6 +5229,10 @@ fn collision_second() {}
     }
 
     /// 別紙C:97-104 condition 2: `explicit` かつ `dimensions` が空.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-2-EMPTY-DIMENSIONS
+    /// @vtest.covers VO-SCAN-E-SCAN-017-EMPTY-DIMENSIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies an explicit-policy VO with an empty dimensions list reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_2_empty_dimensions_under_explicit_policy() {
         let root = fixture();
@@ -4984,6 +5253,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 3: `combinations` が空でないのに
     /// `coverage_policy` が `explicit` 以外（ここでは `independent-axes`）.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-3-NONEXPLICIT-POLICY
+    /// @vtest.covers VO-SCAN-E-SCAN-017-NONEXPLICIT-POLICY-WITH-COMBINATIONS
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a non-empty combinations list under a non-explicit coverage_policy (independent-axes) reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_3_nonempty_combinations_under_non_explicit_policy() {
         let root = fixture();
@@ -5006,6 +5279,10 @@ fn collision_second() {}
     /// dimensions are declared (`d1`/`d2`) so the entry's length matches
     /// `dimensions.len()` and this exercises the undeclared-name check
     /// specifically, not the length-mismatch branch condition 6 exercises.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-4-UNDECLARED-DIMENSION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-UNDECLARED-DIMENSION-NAME
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry naming a dimension not declared in dimensions[] reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_4_entry_references_an_undeclared_dimension() {
         let root = fixture();
@@ -5026,6 +5303,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 5: entry の partition 値が当該 dimension の
     /// `partitions` に無い.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-5-UNDECLARED-PARTITION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-UNDECLARED-PARTITION-VALUE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry using a partition value not listed for its dimension reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_5_entry_uses_an_undeclared_partition_value() {
         let root = fixture();
@@ -5046,6 +5327,10 @@ fn collision_second() {}
 
     /// 別紙C:97-104 condition 6 (first half): entry が宣言済み dimension を
     /// 欠く（ここでは `d2` を欠いた1件だけの entry）.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-6-MISSING-DECLARED-DIMENSION
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry that omits one of the declared dimensions reports E-SCAN-017
     #[test]
     fn e_scan_017_condition_6_entry_is_missing_a_declared_dimension() {
         let root = fixture();
@@ -5078,6 +5363,10 @@ fn collision_second() {}
     /// 断言する。record層側の正確な挙動は`vtest_store::canonical::
     /// vo_record_combination_entry_with_a_duplicate_dimension_key_reaches_
     /// scan_as_e_scan_017`が固定する。
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-6-DUPLICATE-DIMENSION-KEY
+    /// @vtest.covers VO-SCAN-E-SCAN-017-ENTRY-SHAPE-MISMATCH
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a combinations entry that declares the same dimension name twice reports E-SCAN-017 at the scan layer without the record layer rejecting the VO as E-SCAN-010
     #[test]
     fn e_scan_017_condition_6_duplicate_dimension_key_in_one_entry_is_rejected() {
         let root = fixture();
@@ -5115,6 +5404,10 @@ fn collision_second() {}
     /// (`canonical_pairs`, `vtest-model/src/vo.rs`) instead of the
     /// declaration-order `Vec` it stores — so no special-casing is needed
     /// here to catch this as a duplicate.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-CONDITION-7-DUPLICATE-TUPLE
+    /// @vtest.covers VO-SCAN-E-SCAN-017-DUPLICATE-TUPLE
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies two combinations entries resolving to the same (dimension, partition) tuple, regardless of key declaration order, report E-SCAN-017 as a duplicate
     #[test]
     fn e_scan_017_condition_7_duplicate_tuple() {
         let root = fixture();
@@ -5145,6 +5438,10 @@ fn collision_second() {}
     /// かった) must not raise E-SCAN-017. Without this, the eight tests
     /// above could all be trivially satisfied by an
     /// `invalid_vo_combinations` that always returns `Some(..)`.
+    /// @vtest.id TEST-SCAN-E-SCAN-017-WELL-FORMED-REPORTS-NONE
+    /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a well-formed explicit-policy VO, using 本冊 §3.2.1's own literal flow-style example, raises no E-SCAN-017 — the positive control for the condition 1-7 negative tests
     #[test]
     fn e_scan_017_well_formed_explicit_combinations_report_no_diagnostic() {
         let root = fixture();

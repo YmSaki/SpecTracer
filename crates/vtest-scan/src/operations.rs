@@ -994,9 +994,9 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
                 result: record.result,
                 target_coverage: if record.target_coverage.checked {
                     match record.target_coverage.result {
-                        TargetCoverageResult::Pass => VerificationState::Pass,
-                        TargetCoverageResult::Fail => VerificationState::Fail,
-                        TargetCoverageResult::Unknown => VerificationState::Unknown,
+                        Some(TargetCoverageResult::Pass) => VerificationState::Pass,
+                        Some(TargetCoverageResult::Fail) => VerificationState::Fail,
+                        Some(TargetCoverageResult::Unknown) | None => VerificationState::Unknown,
                     }
                 } else {
                     VerificationState::NoEvidence
@@ -1831,6 +1831,10 @@ fn edit_distance(left: &str, right: &str) -> usize {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-SCAN-CANDIDATE-EDIT-DISTANCE
+    /// @vtest.covers VO-SCAN-CANDIDATE-EDIT-DISTANCE
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_distance
+    /// @vtest.intent verifies edit_distance computes the Levenshtein distance used to build near-miss candidates (DES-405)
     #[test]
     fn edit_distance_handles_transcription_errors() {
         assert_eq!(edit_distance("parse", "prase"), 2);
@@ -1896,6 +1900,10 @@ mod tests {
     /// `verify_other_test_hashes` はこれを検出できなければならない —
     /// 単純な `.find()`（衝突時は先に見つかった1件だけを比較する）ではこの
     /// 変化を見逃す。
+    /// @vtest.id TEST-SCAN-EDIT-HASH-COLLISION-PRESERVED
+    /// @vtest.covers VO-SCAN-EDIT-OTHER-TEST-HASH-INVARIANCE
+    /// @vtest.target crates/vtest-scan/src/operations.rs::test_hashes
+    /// @vtest.intent verifies test_hashes keeps every colliding construct's hash separately so verify_other_test_hashes can still detect a change hidden inside a collision group (DES-530)
     #[test]
     fn test_hashes_preserves_colliding_ids_and_catches_a_change_outside_the_edit_boundary() {
         let before = sample_scan(vec![
@@ -1929,6 +1937,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-SCAN-EDIT-HASH-COLLISION-UNCHANGED-ACCEPTED
+    /// @vtest.covers VO-SCAN-EDIT-OTHER-TEST-HASH-INVARIANCE
+    /// @vtest.target crates/vtest-scan/src/operations.rs::verify_other_test_hashes
+    /// @vtest.intent verifies verify_other_test_hashes accepts an unchanged colliding Test ID group (DES-530)
     #[test]
     fn verify_other_test_hashes_accepts_an_unchanged_colliding_group() {
         let before = sample_scan(vec![
@@ -1999,6 +2011,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// 含まないため、位置だけがずれてもhashは変化しない —
     /// hash比較だけでは検出できない。位置そのものを再パース結果から
     /// 取ることが必須である、というのがこのテストの主張。
+    /// @vtest.id TEST-SCAN-RESCAN-RELOCATES-AFTER-LEADING-EDIT
+    /// @vtest.covers VO-SCAN-EDIT-POSITION-RECONFIRMED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::rescan_current_test
+    /// @vtest.intent verifies rescan_current_test reports the current byte_range after a leading insertion shifts offsets, rather than the stale scanned position (DES-495)
     #[test]
     fn rescan_current_test_relocates_to_the_current_position_after_a_leading_edit() {
         let root = rescan_fixture(RESCAN_FIXTURE_TEST);
@@ -2061,6 +2077,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// 側ロックイン: 対象constructが再パース時点で見つからなければ`None`を
     /// 返し、`edit_test`はこれをE-OP-002として扱う（適用前、ファイル書き込み
     /// 前）。
+    /// @vtest.id TEST-SCAN-RESCAN-RETURNS-NONE-WHEN-GONE
+    /// @vtest.covers VO-SCAN-EDIT-RECONFIRM-NOT-FOUND-E-OP-002
+    /// @vtest.target crates/vtest-scan/src/operations.rs::rescan_current_test
+    /// @vtest.intent verifies rescan_current_test returns None when the target construct can no longer be relocated, so the caller rejects with E-OP-002 (DS-1253)
     #[test]
     fn rescan_current_test_returns_none_when_the_construct_can_no_longer_be_relocated() {
         let root = rescan_fixture(RESCAN_FIXTURE_TEST);
@@ -2091,6 +2111,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// 変更対象ではないが、「ファイルがscan後にずれていれば適用前に
     /// E-OP-002で止まる」という契約を`edit_test`の外部から観測できる形で
     /// 確認する。
+    /// @vtest.id TEST-SCAN-EDIT-TEST-REJECTS-E-OP-002-BEFORE-WRITE
+    /// @vtest.covers VO-SCAN-EDIT-RECONFIRM-NOT-FOUND-E-OP-002
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent verifies edit_test rejects with E-OP-002 and does not touch the file when the target Test no longer exists at reconfirmation time (DS-1253)
     #[test]
     fn edit_test_rejects_with_e_op_002_before_writing_when_the_target_is_gone() {
         let root = rescan_fixture(RESCAN_FIXTURE_TEST);
@@ -2129,6 +2153,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     // 強制せず一意性のみを強制する」。`vo-ref` / `vo-ref-list` / `test-ref`
     // は接頭辞書式を拒否理由にしない(PM 裁定・pr3-decisions.md 裁定7)。
 
+    /// @vtest.id TEST-SCAN-VO-REF-FIELD-NO-PREFIX-ENFORCED
+    /// @vtest.covers VO-SCAN-ID-PREFIX-NOT-ENFORCED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent verifies a vo-ref field accepts a scalar value regardless of ID prefix (DS-052)
     #[test]
     fn vo_ref_field_does_not_enforce_an_id_prefix() {
         let field = field("covers", "vo-ref");
@@ -2136,6 +2164,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
         assert!(validate_value_shape(&field, &value).is_ok());
     }
 
+    /// @vtest.id TEST-SCAN-VO-REF-LIST-FIELD-NO-PREFIX-ENFORCED
+    /// @vtest.covers VO-SCAN-ID-PREFIX-NOT-ENFORCED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent verifies a vo-ref-list field accepts values regardless of ID prefix (DS-052)
     #[test]
     fn vo_ref_list_field_does_not_enforce_an_id_prefix() {
         let field = field("covers", "vo-ref-list");
@@ -2143,6 +2175,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
         assert!(validate_value_shape(&field, &value).is_ok());
     }
 
+    /// @vtest.id TEST-SCAN-TEST-REF-FIELD-NO-PREFIX-ENFORCED
+    /// @vtest.covers VO-SCAN-ID-PREFIX-NOT-ENFORCED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent verifies a test-ref field accepts a scalar value regardless of ID prefix (DS-052)
     #[test]
     fn test_ref_field_does_not_enforce_an_id_prefix() {
         let field = field("related", "test-ref");
@@ -2193,6 +2229,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// `desired.targets.is_empty()` → E-OP-001）を撤去した。この test は
     /// その回帰を固定する: target を0件持つ `DesiredTest` を編集しても
     /// E-OP-001 にならないこと。
+    /// @vtest.id TEST-SCAN-VALIDATE-DESIRED-TEST-ZERO-TARGETS
+    /// @vtest.covers VO-SCAN-STRUCTURED-EDIT-ZERO-TARGETS
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_desired_test
+    /// @vtest.intent verifies validate_desired_test accepts a DesiredTest with zero declared targets (DS-1673)
     #[test]
     fn validate_desired_test_accepts_zero_targets() {
         let root = temp_root("zero-targets");
@@ -2220,6 +2260,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// list answer への空 list を拒否する。Structured Edit 側で target
     /// 0件を許すようになったこと（上のtest）が、`rust-integration` Form の
     /// `targets`（`required: true`）まで弱めていないことを固定する。
+    /// @vtest.id TEST-SCAN-RUST-INTEGRATION-FORM-REJECTS-EMPTY-TARGETS
+    /// @vtest.covers VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
+    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_INTEGRATION_FORM
+    /// @vtest.intent verifies the rust-integration Form rejects an empty targets list with E-OP-001 (DS-1247)
     #[test]
     fn rust_integration_form_rejects_an_empty_targets_list() {
         let root = temp_root("empty-targets-form");

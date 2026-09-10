@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-SECTION-TITLE-SHAPE
+parent: null
+derives_from:
+  - doc: DS-1592
+claim: '節ノードは必須 field `title` を持ち、文ノードは `title` を持たない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

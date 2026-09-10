@@ -1,0 +1,12 @@
+id: VO-APPROVAL-EFFECTIVE-STATE-FROM-VALID-RECORD-SET
+parent: null
+derives_from:
+  - doc: DS-1466
+  - doc: DS-1467
+claim: approved_stateが値域内・対象指定一致・subject_hashが現在の内容ハッシュと一致・dependenciesが現在の上流依存closureと完全一致する有効承認レコード集合について、supersedesされたものを除いた実効集合が全件approvedならshowはapprovedを報告する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -48,16 +48,37 @@ pub enum TargetCoverageResult {
     Unknown,
 }
 
+/// Per-target coverage observation stored inside `TargetCoverage::targets`.
+///
+/// The target value is the canonical adapter-owned locator string from the
+/// Evidence wire shape. Its result remains the restricted DES-187/DES-188
+/// three-value domain; `UNKNOWN` is represented by a null count.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TargetCoverageTarget {
+    pub target: String,
+    pub result: TargetCoverageResult,
+    #[serde(default)]
+    pub count: Option<u64>,
+}
+
 /// Records how a verification target was observed during test execution.
 ///
-/// `result` is the restricted `TargetCoverageResult` this measurement
-/// produced. Diagnostic labels are not stored here; they are derived
-/// downstream from `checked`/`count`/`result` (DS-832).
+/// When `checked` is false, `method` and `result` are null and `targets` is
+/// empty. A legacy `checked: false` record carrying `result: UNKNOWN` is
+/// normalized to that shape by the Evidence reader. When `checked` is true,
+/// `result` is the restricted `TargetCoverageResult` domain. Diagnostic
+/// labels are not stored here; they are derived downstream from
+/// `checked`/`count`/`result` (DS-832).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TargetCoverage {
     pub checked: bool,
+    #[serde(default)]
     pub method: Option<String>,
-    pub result: TargetCoverageResult,
+    #[serde(default)]
+    pub result: Option<TargetCoverageResult>,
+    #[serde(default)]
+    pub targets: Vec<TargetCoverageTarget>,
+    #[serde(default)]
     pub count: Option<u64>,
 }
 

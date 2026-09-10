@@ -388,6 +388,10 @@ mod tests {
 
     /// DS-1480: `document_dependencies` follows `derives_from` recursively
     /// (R-001 -> ROOT-001, transitively), excluding the subject itself.
+    /// @vtest.id TEST-STORE-DOCUMENT-DEPENDENCIES-RECURSIVE-CLOSURE
+    /// @vtest.covers VO-STORE-DOCUMENT-DEPENDENCIES-RECURSIVE-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::document_dependencies
+    /// @vtest.intent document nodeの上流依存をsubject自身を除いて再帰的に閉じることを確認する
     #[test]
     fn document_dependencies_follows_derives_from_recursively() {
         let index = index_with(&[
@@ -405,6 +409,10 @@ mod tests {
     }
 
     /// DS-1480: a subject with no `derives_from` edges has an empty closure.
+    /// @vtest.id TEST-STORE-DOCUMENT-DEPENDENCIES-LEAF-EMPTY
+    /// @vtest.covers VO-STORE-DOCUMENT-DEPENDENCIES-RECURSIVE-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::document_dependencies
+    /// @vtest.intent 上流辺を持たないdocument nodeの依存closureが空であることを確認する
     #[test]
     fn document_dependencies_of_a_leaf_node_is_empty() {
         let index = index_with(&[("ROOT-001", "root", &[])]);
@@ -433,6 +441,10 @@ mod tests {
     /// DS-1487: `vo_dependencies` includes the parent-VO chain and, for the
     /// subject VO and every ancestor VO, the document closure each one's
     /// own `derives_from` reaches.
+    /// @vtest.id TEST-STORE-VO-DEPENDENCIES-PARENT-AND-DOCUMENT-CLOSURE
+    /// @vtest.covers VO-STORE-VO-DEPENDENCIES-PARENT-AND-DOCUMENT-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::vo_dependencies
+    /// @vtest.intent VO依存closureが再帰parent VOと各VOのdocument上流closureを含むことを確認する
     #[test]
     fn vo_dependencies_includes_parent_chain_and_document_closure() {
         let doc_index = index_with(&[("ROOT-001", "root", &[]), ("R-001", "req", &["ROOT-001"])]);
@@ -487,6 +499,10 @@ mod tests {
     /// effective set entirely (not merely "not approved"), so a subject
     /// with only such a record reads as `Draft`, identically to having no
     /// record at all.
+    /// @vtest.id TEST-STORE-APPROVAL-STALE-SUBJECT-HASH-DRAFT
+    /// @vtest.covers VO-STORE-APPROVAL-VALIDITY-CURRENT-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent subject_hashが現在値と不一致の承認recordを実効集合へ寄与させないことを確認する
     #[test]
     fn effective_state_drops_a_record_with_a_stale_subject_hash() {
         let record = approval_record(
@@ -507,6 +523,10 @@ mod tests {
     /// `subject_type` or a different `subject` id) must never count toward
     /// this subject's effective state, even if its `subject_hash` and
     /// `dependencies` happen to be otherwise well-formed.
+    /// @vtest.id TEST-STORE-APPROVAL-DIFFERENT-SUBJECT-IGNORED
+    /// @vtest.covers VO-STORE-APPROVAL-VALIDITY-CURRENT-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent subject typeまたはIDが対象と異なる承認recordを実効集合へ寄与させないことを確認する
     #[test]
     fn effective_state_ignores_a_record_for_a_different_subject() {
         let wrong_type = approval_record(
@@ -542,6 +562,10 @@ mod tests {
     /// closure (a missing or an extra entity) is invalid, distinctly from
     /// the already-covered case of a matching entity with a differing
     /// hash.
+    /// @vtest.id TEST-STORE-APPROVAL-DEPENDENCY-ENTITY-SET-MISMATCH-DRAFT
+    /// @vtest.covers VO-STORE-APPROVAL-VALIDITY-CURRENT-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent dependenciesのentity集合が現在closureと完全一致しない承認を無効にすることを確認する
     #[test]
     fn effective_state_drops_a_record_whose_dependency_entity_set_differs() {
         let record = approval_record(
@@ -578,6 +602,10 @@ mod tests {
     /// current dependency closure (entity or hash) is invalid for the same
     /// reason -- currentness is bound to both axes, not just the subject's
     /// own hash.
+    /// @vtest.id TEST-STORE-APPROVAL-STALE-DEPENDENCY-HASH-DRAFT
+    /// @vtest.covers VO-STORE-APPROVAL-VALIDITY-CURRENT-CLOSURE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent dependency hashが現在closureと一致しない承認を無効にすることを確認する
     #[test]
     fn effective_state_drops_a_record_with_a_stale_dependency_closure() {
         let record = approval_record(
@@ -603,6 +631,10 @@ mod tests {
 
     /// A single current, valid, unsuperseded `approved` record reads as
     /// `Approved`.
+    /// @vtest.id TEST-STORE-APPROVAL-ONE-CURRENT-APPROVED-RECORD
+    /// @vtest.covers VO-STORE-APPROVAL-EFFECTIVE-SET-STATE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent currentかつ有効でsupersedeされていないapproved recordが実効approvedを導くことを確認する
     #[test]
     fn effective_state_is_approved_for_one_current_valid_approved_record() {
         let record = approval_record(
@@ -621,6 +653,10 @@ mod tests {
     /// DS-1466: a valid record named by another valid record's
     /// `supersedes` drops out of the effective set -- an `approved` record
     /// superseded by a `withdrawn` one reads as `Draft`, not `Approved`.
+    /// @vtest.id TEST-STORE-APPROVAL-SUPERSEDED-RECORD-EXCLUDED
+    /// @vtest.covers VO-STORE-APPROVAL-EFFECTIVE-SET-STATE
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval_state
+    /// @vtest.intent withdrawn recordにsupersedeされたapproved recordを除いた実効状態がdraftになることを確認する
     #[test]
     fn effective_state_excludes_a_superseded_record() {
         let approved = approval_record(

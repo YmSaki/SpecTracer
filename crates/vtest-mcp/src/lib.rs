@@ -1091,6 +1091,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-MCP-VERIFY-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `verify` tool returns the same envelope (data/diagnostics) as the CLI verify operation for the same input.
     #[test]
     fn mcp_verify_tool_matches_the_cli_verify_operation() {
         let root = temp_root("verify-equivalence");
@@ -1117,6 +1121,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `scan` tool returns the same envelope as `ops::scan::execute`, which the CLI `run_scan` wrapper also calls.
     #[test]
     fn mcp_scan_tool_matches_the_cli_scan_operation() {
         let root = temp_root("scan-equivalence");
@@ -1204,6 +1212,11 @@ mod tests {
     /// freshly created record's `id`/`approved_at` are non-deterministic
     /// (ULID + timestamp) and would never compare equal across two
     /// independently invoked creations.
+    ///
+    /// @vtest.id TEST-MCP-APPROVAL-GET-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `approval_get` returns the same envelope as `ops::approval::show`, which the CLI `approval show` wrapper also calls.
     #[test]
     fn mcp_approval_get_tool_matches_the_ops_approval_show_operation() {
         let root = temp_root("approval-equivalence");
@@ -1266,6 +1279,10 @@ mod tests {
     /// DS-1563 equivalence for the Document registry: `doc_show` (MCP) vs
     /// `ops::doc::show` (the shared function the CLI `doc show` wrapper also
     /// calls).
+    /// @vtest.id TEST-MCP-DOC-GET-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `doc_get` returns the same envelope as `ops::doc::show`, which the CLI `doc show` wrapper also calls (also exercises DS-1194 tree/roots population).
     #[test]
     fn mcp_doc_get_tool_matches_the_ops_doc_show_operation() {
         let root = temp_root("doc-equivalence");
@@ -1343,6 +1360,11 @@ mod tests {
     /// record with a fresh ULID `id`/`approved_at`, so this compares every
     /// *other* field rather than expecting the two records to be
     /// byte-identical).
+    ///
+    /// @vtest.id TEST-MCP-APPROVAL-CREATE-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `approval_create` produces the same record shape as `ops::approval::create`, which the CLI `approval create` wrapper also calls.
     #[test]
     fn mcp_approval_create_tool_matches_the_ops_approval_create_operation() {
         let direct_root = temp_root("approval-create-equivalence-direct");
@@ -1395,6 +1417,11 @@ mod tests {
     /// DS-1563 equivalence for `approval_withdraw`: MCP and `ops::approval::
     /// withdraw` (the same function the CLI's `approval withdraw` wrapper
     /// calls), each targeting its own fixture's real prior `create`.
+    ///
+    /// @vtest.id TEST-MCP-APPROVAL-WITHDRAW-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `approval_withdraw` produces the same result as `ops::approval::withdraw`, which the CLI `approval withdraw` wrapper also calls.
     #[test]
     fn mcp_approval_withdraw_tool_matches_the_ops_approval_withdraw_operation() {
         let direct_root = temp_root("approval-withdraw-equivalence-direct");
@@ -1494,6 +1521,11 @@ mod tests {
     /// function the CLI's `run` wrapper calls), each executing its own real
     /// fixture Test via `--fast`. Compares everything but `evidence_ids`
     /// (fresh ULIDs per invocation).
+    ///
+    /// @vtest.id TEST-MCP-RUN-TESTS-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `run_tests` produces the same result as `ops::run::run`, which the CLI `run` wrapper also calls.
     #[test]
     fn mcp_run_tests_tool_matches_the_ops_run_operation() {
         fn build_fixture_project(root: &Path) {
@@ -1530,7 +1562,13 @@ mod tests {
             let git = |args: &[&str]| {
                 let status = ProcessCommand::new("git")
                     .current_dir(root)
-                    .args(args)
+                    .args(
+                        [
+                            &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"][..],
+                            args,
+                        ]
+                        .concat(),
+                    )
                     .status()
                     .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
                 assert!(status.success(), "git {args:?} failed");
@@ -1643,6 +1681,11 @@ mod tests {
     /// DS-1563 equivalence for `doc_add`: MCP and `ops::doc::add` (the same
     /// function the CLI's `doc add` wrapper calls), each registering its own
     /// fixture's node-tree file under the same id.
+    ///
+    /// @vtest.id TEST-MCP-DOC-UPSERT-MATCHES-CLI-ADD
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `doc_upsert` (initial registration) produces the same result as `ops::doc::add`, which the CLI `doc add` wrapper also calls.
     #[test]
     fn mcp_doc_upsert_tool_matches_the_ops_doc_add_operation() {
         let direct_root = temp_root("doc-add-equivalence-direct");
@@ -1705,6 +1748,11 @@ mod tests {
     /// designation is fixed at initial registration only. Previously
     /// untested on the MCP side (only the CLI's own `--root`/`--no-root`
     /// + `--update` combination had coverage).
+    ///
+    /// @vtest.id TEST-MCP-DOC-UPSERT-REJECTS-ROOT-WITH-UPDATE
+    /// @vtest.covers VO-DOC-ROOT-FIXED-AFTER-REGISTRATION, VO-DOC-ROOT-DESIGNATION-AT-ADD
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `doc_upsert` rejects `root` combined with `update: true` (E-OP-001), since root designation is fixed at initial registration.
     #[test]
     fn mcp_doc_upsert_tool_rejects_root_combined_with_update() {
         let root = temp_root("doc-upsert-root-update-reject");
@@ -1769,6 +1817,11 @@ mod tests {
     /// DS-1003/1681 equivalence: MCP `doc_add`'s `derives_from` argument
     /// writes onto the registered document's top-level node the same way
     /// the CLI's `--derives-from` flag (via `ops::doc::add`) does.
+    ///
+    /// @vtest.id TEST-MCP-DOC-UPSERT-DERIVES-FROM-TOP-LEVEL
+    /// @vtest.covers VO-DOC-ADD-DERIVES-FROM-TOP-LEVEL-EDGE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `doc_upsert`'s `derives_from` argument writes the edge onto the registered document's top-level node, matching `ops::doc::add`'s `--derives-from` behavior.
     #[test]
     fn mcp_doc_upsert_tool_applies_derives_from_like_ops_doc_add() {
         let direct_root = temp_root("doc-add-derives-from-direct");
@@ -1842,6 +1895,11 @@ mod tests {
     /// DS-1563 equivalence for `doc_list`: MCP and `ops::doc::list` (the
     /// same function the CLI's `doc list` wrapper calls), on the same
     /// on-disk registry records.
+    ///
+    /// @vtest.id TEST-MCP-DOC-LIST-MATCHES-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `doc_list` returns the same envelope as `ops::doc::list`, which the CLI `doc list` wrapper also calls, across the default/tree/roots (DS-1194) shapes.
     #[test]
     fn mcp_doc_list_tool_matches_the_ops_doc_list_operation() {
         let root = temp_root("doc-list-equivalence");

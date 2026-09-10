@@ -48,10 +48,32 @@ fn temp_root(name: &str) -> PathBuf {
 fn git(root: &Path, args: &[&str]) {
     let status = Command::new("git")
         .current_dir(root)
-        .args(args)
+        .args(
+            [
+                &["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"],
+                args,
+            ]
+            .concat(),
+        )
         .status()
         .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
     assert!(status.success(), "git {args:?} failed");
+}
+
+fn clear_outer_coverage_environment() {
+    for variable in [
+        "RUSTC_WRAPPER",
+        "LLVM_PROFILE_FILE",
+        "CARGO_LLVM_COV",
+        "CARGO_LLVM_COV_TARGET_DIR",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_INCREMENTAL",
+    ] {
+        // These tests invoke the runner in-process; isolate only the test
+        // process from the outer cargo llvm-cov environment.
+        std::env::remove_var(variable);
+    }
 }
 
 fn source(id: &str) -> NodeSource {
@@ -185,6 +207,7 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(root);
+    clear_outer_coverage_environment();
     run_tests(root, &layout, &[runnable], false).expect("run_tests executes without I/O errors");
 
     let scan_after = scan_project(root).expect("re-scan after execution");
@@ -193,6 +216,10 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
 
 /// The completion criterion for this Evidence slice: a fixture on which
 /// `vtest verify` reaches `ok: true` with all four canonical checks `PASS`.
+/// @vtest.id TEST-E2E-FULL-PASS
+/// @vtest.covers VO-VERIFY-EVIDENCE-RUNNER-FAIL, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent a covered Test with a git-committed environment and valid Evidence reaches ok:true with all four checks PASS
 #[test]
 fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
     let root = temp_root("full-pass");
@@ -226,6 +253,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
     let exec_result = run_tests(&root, &layout, &[runnable], false)
         .expect("run_tests executes without I/O errors");
     assert!(
@@ -271,6 +299,10 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
 /// `@vtest.intent` changed after the record was written) must not be
 /// reused as `PASS` (DS-819/833) — `target_binding` falls to `NO_EVIDENCE`
 /// (`STALE`), so overall `ok` stays `false`.
+/// @vtest.id TEST-E2E-STALE-SUBJECT-HASH
+/// @vtest.covers VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent an Evidence record whose recorded test_subject hash no longer matches must not be reused as PASS; target_binding falls to NO_EVIDENCE (STALE)
 #[test]
 fn a_stale_test_subject_hash_never_reaches_pass() {
     let root = temp_root("stale-subject-hash");
@@ -298,6 +330,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
         target_locator: Some(target_locator),
     };
     let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
     run_tests(&root, &layout, &[runnable], false).expect("run_tests");
 
     // Change the declaration (the Test subject hash's own bound `intent`
@@ -351,6 +384,10 @@ fn only_check_state(
 /// `NO_EVIDENCE` (DS-825) while `chain_integrity`/`orphan_detection` (a
 /// complete DOC->VO->Test chain) and `oracle_presence` (a real
 /// `assert_eq!` over the target's call, needing no Evidence) all `PASS`.
+/// @vtest.id TEST-E2E-ONLY-TARGET-BINDING-BREAKS
+/// @vtest.covers VO-VERIFY-NO-EVIDENCE-NOT-EXECUTED
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent with no vtest-exec run, target_binding alone falls to NO_EVIDENCE while chain_integrity/orphan_detection/oracle_presence all PASS
 #[test]
 fn only_target_binding_breaks_when_no_evidence_exists() {
     let root = temp_root("only-target-binding-breaks");
@@ -387,6 +424,10 @@ fn only_target_binding_breaks_when_no_evidence_exists() {
 /// (DS-624, self comparison) `FAIL`s even though the call is genuinely
 /// executed and its result genuinely reaches an assert, so `target_binding`
 /// still reaches `PASS` via DS-831 and the structural checks stay `PASS`.
+/// @vtest.id TEST-E2E-ONLY-ORACLE-PRESENCE-BREAKS
+/// @vtest.covers VO-ORACLE-DA-004-SELF-COMPARISON
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent a self-comparison assert_eq!(double(2), double(2)) fails DA-004 oracle_presence even though target_binding still reaches PASS
 #[test]
 fn only_oracle_presence_breaks_on_a_self_comparison_assertion() {
     let root = temp_root("only-oracle-presence-breaks");

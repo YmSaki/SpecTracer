@@ -1,0 +1,11 @@
+id: VO-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
+parent: null
+derives_from:
+  - doc: DES-404
+claim: rust-cargo adapterは候補構築にitem-pathの末尾segment一致を用いる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

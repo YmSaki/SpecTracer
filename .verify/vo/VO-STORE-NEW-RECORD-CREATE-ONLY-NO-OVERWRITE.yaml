@@ -1,0 +1,11 @@
+id: VO-STORE-NEW-RECORD-CREATE-ONLY-NO-OVERWRITE
+parent: null
+derives_from:
+  - doc: BD-232
+claim: '新規rel・decisions・approvals・evidenceレコードはULIDファイル名で新規作成のみとする'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

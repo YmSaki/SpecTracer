@@ -1,0 +1,11 @@
+id: VO-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
+parent: null
+derives_from:
+  - doc: DS-1017
+claim: doc showは各トップレベルノードのidをsubjectとする実効承認状態と、documentのnode subject hashと承認・判断記録のdependency entry hashとの一致による鮮度を表示する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

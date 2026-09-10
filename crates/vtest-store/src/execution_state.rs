@@ -37,6 +37,7 @@ use std::{
     process::Command,
 };
 
+use syn::{visit::Visit, Expr, Lit, Macro};
 use vtest_model::{
     encode_nested_fields, AdapterId, ExecutionState, FieldValue, SubjectDomain, SubjectHashInput,
 };
@@ -84,7 +85,7 @@ pub fn reconstruct_execution_state(
     let Some(toolchain) = toolchain_identity() else {
         return incomplete(inputs.schema);
     };
-    if let Some(_reason) = escape_risk(root) {
+    if escape_risk(root).is_some() {
         // DES-212: "除外領域を…読み込む可能性を排除できない場合、snapshotを
         // 完全と報告しない。" The specific reason is not surfaced onto the
         // record itself — DES-209/184 give the record only a boolean
@@ -151,38 +152,75 @@ pub fn escape_risk(root: &Path) -> Option<String> {
             ));
             return;
         }
-        for macro_name in ["include!", "include_str!", "include_bytes!"] {
+        let syntax = match syn::parse_file(text) {
+            Ok(file) => file,
+            Err(error) => {
+                risk = Some(format!(
+                    "{} cannot be parsed as Rust: {error} (DES-212)",
+                    path.display()
+                ));
+                return;
+            }
+        };
+        let mut calls = IncludeCalls::default();
+        calls.visit_file(&syntax);
+        for (macro_name, argument) in calls.calls {
             // DS-212's escape check must rule out *every* occurrence of
             // each macro in the file, not only the first — a second or
             // later call whose argument resolves outside the manifest's
             // included area is exactly as much an escape risk as a first
             // one would have been. A prior version of this loop checked
             // only the first occurrence, disclosed and corrected here.
-            for argument in find_macro_literal_arguments(text, macro_name) {
-                let Some(literal) = argument else {
-                    risk = Some(format!(
-                        "{path} calls {macro_name} with a non-literal argument, which cannot \
+            let Some(literal) = argument else {
+                risk = Some(format!(
+                    "{path} calls {macro_name} with a non-literal argument, which cannot \
                          be statically resolved (DES-212)",
-                        path = path.display()
-                    ));
-                    return;
-                };
-                let Some(parent) = path.parent() else {
-                    continue;
-                };
-                let resolved = normalize_lexically(&parent.join(&literal));
-                if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
-                    risk = Some(format!(
-                        "{path} resolves {macro_name}({literal:?}) outside the manifest's \
+                    path = path.display()
+                ));
+                return;
+            };
+            let Some(parent) = path.parent() else {
+                continue;
+            };
+            let resolved = normalize_lexically(&parent.join(&literal));
+            if !path_is_under(&resolved, root) || path_is_excluded(&resolved, root) {
+                risk = Some(format!(
+                    "{path} resolves {macro_name}({literal:?}) outside the manifest's \
                          included area (DES-212)",
-                        path = path.display()
-                    ));
-                    return;
-                }
+                    path = path.display()
+                ));
+                return;
             }
         }
     });
     risk
+}
+
+#[derive(Default)]
+struct IncludeCalls {
+    calls: Vec<(String, Option<String>)>,
+}
+
+impl<'ast> Visit<'ast> for IncludeCalls {
+    fn visit_macro(&mut self, node: &'ast Macro) {
+        let Some(name) = node.path.segments.last().map(|s| s.ident.to_string()) else {
+            return;
+        };
+        if matches!(name.as_str(), "include" | "include_str" | "include_bytes") {
+            let argument =
+                syn::parse2::<Expr>(node.tokens.clone())
+                    .ok()
+                    .and_then(|expr| match expr {
+                        Expr::Lit(expr) => match expr.lit {
+                            Lit::Str(lit) => Some(lit.value()),
+                            _ => None,
+                        },
+                        _ => None,
+                    });
+            self.calls.push((format!("{name}!"), argument));
+        }
+        syn::visit::visit_macro(self, node);
+    }
 }
 
 fn incomplete(schema: &str) -> ExecutionState {
@@ -310,58 +348,6 @@ fn walk(root: &Path, dir: &Path, visit_file: &mut dyn FnMut(&Path) -> Option<()>
 /// (concatenation, `env!`, a path expression, etc. — DES-212 cannot rule
 /// out an excluded-area read through those), `None` when `macro_name` does
 /// not appear at all.
-/// Finds *every* call to `macro_name` in `text` and extracts each one's
-/// argument (DS-212 must rule out every occurrence, not only the first —
-/// see the caller). Each element is `Some(literal)` for a simple `"..."`
-/// string literal argument, or `None` when that call's argument is not a
-/// simple literal (concatenation, `env!`, a path expression, etc.).
-fn find_macro_literal_arguments(text: &str, macro_name: &str) -> Vec<Option<String>> {
-    let mut results = Vec::new();
-    let mut search_from = 0;
-    while let Some(relative) = text[search_from..].find(macro_name) {
-        let start = search_from + relative;
-        search_from = start + macro_name.len();
-        let after = &text[search_from..];
-        let trimmed = after.trim_start();
-        let Some(inner) = trimmed.strip_prefix('(') else {
-            continue;
-        };
-        let inner = inner.trim_start();
-        if !inner.starts_with('"') {
-            results.push(None);
-            continue;
-        }
-        let mut chars = inner[1..].char_indices();
-        let mut escaped = false;
-        let mut found = None;
-        for (index, ch) in &mut chars {
-            if escaped {
-                escaped = false;
-                continue;
-            }
-            match ch {
-                '\\' => escaped = true,
-                '"' => {
-                    let literal = &inner[1..1 + index];
-                    let rest = inner[1 + index + 1..].trim_start();
-                    found = Some(if rest.starts_with(')') {
-                        Some(literal.replace("\\\"", "\""))
-                    } else {
-                        // Something after the string before `)`
-                        // (concatenation, a second argument) — not a
-                        // simple single-literal call.
-                        None
-                    });
-                    break;
-                }
-                _ => {}
-            }
-        }
-        results.push(found.unwrap_or(None));
-    }
-    results
-}
-
 /// Lexically resolves `.`/`..` components without touching the filesystem
 /// (the target may not exist, e.g. an `include!` path under an excluded
 /// directory this walk never visits).
@@ -421,6 +407,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-EXEC-STATE-COMPLETE-RECONSTRUCTION
+    /// @vtest.covers VO-EXEC-STATE-COMPLETE-WHEN-INPUTS-RESOLVABLE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies a repository with no escape risk and a readable manifest reconstructs to complete:true with a hash present.
     #[test]
     fn a_repository_with_no_escape_risk_and_a_readable_manifest_reconstructs_complete() {
         let root = temp_dir("complete");
@@ -433,6 +423,10 @@ mod tests {
         assert!(state.hash.is_some());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-DETERMINISTIC-HASH
+    /// @vtest.covers VO-EXEC-STATE-HASH-DETERMINISTIC-FOR-IDENTICAL-INPUTS
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies two reconstructions of the identical environment produce the identical hash.
     #[test]
     fn a_repository_reconstructs_the_identical_hash_across_two_calls() {
         let root = temp_dir("deterministic");
@@ -444,6 +438,10 @@ mod tests {
         assert!(first.complete && second.complete);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-MANIFEST-CHANGE-CHANGES-HASH
+    /// @vtest.covers VO-EXEC-STATE-MANIFEST-BYTES-BOUND-TO-HASH
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies rewriting a manifest file's bytes changes the reconstructed hash.
     #[test]
     fn changing_a_manifest_file_changes_the_hash() {
         let root = temp_dir("file-change");
@@ -465,6 +463,10 @@ mod tests {
     /// `target` (e.g. `src/target/mod.rs`) must still be bound into the
     /// manifest. A prior version of the exclusion matched by bare
     /// directory name at any depth and would have silently dropped it.
+    /// @vtest.id TEST-EXEC-STATE-NESTED-TARGET-DIR-NOT-EXCLUDED
+    /// @vtest.covers VO-EXEC-STATE-NESTED-TARGET-DIR-NOT-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::walk
+    /// @vtest.intent Verifies a nested directory literally named `target` (e.g. `src/target`) is not excluded from the manifest.
     #[test]
     fn a_nested_directory_literally_named_target_is_not_excluded() {
         let root = temp_dir("nested-target-dir");
@@ -493,6 +495,10 @@ mod tests {
     /// DS-819 relies on this via the Test subject hash separately, but
     /// DES-097 additionally binds HEAD revision into the Execution State
     /// subject itself; a changed revision must change this hash too.
+    /// @vtest.id TEST-EXEC-STATE-HEAD-REVISION-CHANGE-CHANGES-HASH
+    /// @vtest.covers VO-EXEC-STATE-HEAD-REVISION-BOUND-TO-HASH
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies changing the HEAD revision input changes the reconstructed hash.
     #[test]
     fn changing_head_revision_changes_the_hash() {
         let root = temp_dir("revision-change");
@@ -503,6 +509,10 @@ mod tests {
         assert_ne!(before.hash, after.hash);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::reconstruct_execution_state
+    /// @vtest.intent Verifies an absent HEAD commit input yields complete:false and hash:None rather than a fabricated hash.
     #[test]
     fn an_absent_head_commit_is_incomplete_not_a_fabricated_hash() {
         let root = temp_dir("no-head");
@@ -522,6 +532,10 @@ mod tests {
         assert!(state.hash.is_none());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-BUILD-SCRIPT-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a `build.rs` in the tree makes the escape risk unprovable and forces an incomplete reconstruction.
     /// DES-212: a `build.rs` in the tree makes the escape risk
     /// unprovable, so the reconstruction must not report `complete: true`.
     #[test]
@@ -535,6 +549,10 @@ mod tests {
         assert!(!state.complete);
     }
 
+    /// @vtest.id TEST-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies an `include_str!` literal resolving inside the manifest's included area does not force incompleteness.
     /// A literal `include_str!` that stays inside the manifest's own
     /// included area (not an excluded directory) does not itself force
     /// incompleteness — this is the shape this repository's own
@@ -558,6 +576,59 @@ mod tests {
         assert!(escape_risk(&root).is_none());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-RUST-LITERAL-NOT-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Rust文字列literal内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
+    #[test]
+    fn include_spelling_inside_a_string_literal_is_not_escape_risk() {
+        let root = temp_dir("include-spelling-literal");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(
+            root.join("src/lib.rs"),
+            r##"fn f() { let _ = "include_str!(concat!(\"../outside\"))"; }"##,
+        )
+        .expect("write lib.rs");
+        assert!(escape_risk(&root).is_none());
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-COMMENT-NOT-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent コメント内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
+    #[test]
+    fn include_spelling_inside_a_comment_is_not_escape_risk() {
+        let root = temp_dir("include-spelling-comment");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(
+            root.join("src/lib.rs"),
+            "// include_str!(concat!(\"../outside\"))\nfn f() {}\n",
+        )
+        .expect("write lib.rs");
+        assert!(escape_risk(&root).is_none());
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-PARSE-ERROR-FORCES-ESCAPE-RISK
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent 構文解析不能なRust sourceが理由付きescape_riskになることを確認する
+    #[test]
+    fn an_unparseable_rust_file_is_escape_risk_with_a_reason() {
+        let root = temp_dir("unparseable-rust");
+        fs::create_dir_all(root.join("src")).expect("mkdir src");
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+        fs::write(root.join("src/lib.rs"), "fn broken( {\n").expect("write lib.rs");
+        let risk = escape_risk(&root).expect("parse error is escape risk");
+        assert!(risk.contains("src\\lib.rs") || risk.contains("src/lib.rs"));
+        assert!(risk.contains("cannot be parsed as Rust"));
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-OUT-OF-SCOPE-INCLUDE-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies an `include_str!` literal resolving outside the manifest's included area forces incompleteness.
     /// An `include_str!` that resolves outside the manifest's included area
     /// (here, above the workspace root entirely) cannot be ruled out and
     /// must force incompleteness (DES-212).
@@ -580,6 +651,10 @@ mod tests {
     /// first would be. A prior version of this check only inspected the
     /// first occurrence (`find_macro_literal_argument`, singular) and
     /// would have missed this.
+    /// @vtest.id TEST-EXEC-STATE-SECOND-INCLUDE-OCCURRENCE-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a second `include_str!` occurrence in a file resolving out of scope forces incompleteness, not only the first occurrence.
     #[test]
     fn a_second_include_str_occurrence_pointing_out_of_scope_forces_incompleteness() {
         let root = temp_dir("include-second-out-of-scope").join("nested");
@@ -602,6 +677,10 @@ mod tests {
         assert!(escape_risk(&root).is_some());
     }
 
+    /// @vtest.id TEST-EXEC-STATE-NON-LITERAL-INCLUDE-ARG-FORCES-INCOMPLETE
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-store/src/execution_state.rs::escape_risk
+    /// @vtest.intent Verifies a non-literal `include_str!` argument, which cannot be statically resolved, forces incompleteness.
     #[test]
     fn a_non_literal_include_argument_forces_incompleteness() {
         let root = temp_dir("include-dynamic");

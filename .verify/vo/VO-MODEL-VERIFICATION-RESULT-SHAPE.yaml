@@ -1,0 +1,11 @@
+id: VO-MODEL-VERIFICATION-RESULT-SHAPE
+parent: null
+derives_from:
+  - doc: DS-078
+claim: 検証結果は状態と診断ラベルを常に別軸として扱い、混同しない。VerificationResultはcheck・state・diagnostic_labelsを個別のfieldとして持つ。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

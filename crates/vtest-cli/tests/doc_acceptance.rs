@@ -85,6 +85,10 @@ fn update_command(id: &str, path: &str) -> Command {
     })
 }
 
+/// @vtest.id TEST-DOC-ADD-REGISTERS
+/// @vtest.covers VO-DOC-ADD-REGISTERS-NODE-TREE
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent doc add registers a --path node-tree file as one document and writes .verify/doc/<id>.json
 #[test]
 fn add_registers_a_document_and_exits_ok() {
     let root = temp_root("add-ok");
@@ -99,6 +103,10 @@ fn add_registers_a_document_and_exits_ok() {
 }
 
 /// A second `add` for the same id without `--update` is a usage rejection.
+/// @vtest.id TEST-DOC-ADD-DUPLICATE-ID
+/// @vtest.covers VO-DOC-ADD-UPDATE-PARTITION
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent a second add for the same id without --update is a usage rejection
 #[test]
 fn add_of_an_existing_id_without_update_is_a_usage_error() {
     let root = temp_root("add-duplicate");
@@ -110,6 +118,10 @@ fn add_of_an_existing_id_without_update_is_a_usage_error() {
 }
 
 /// `--update` on an id that was never registered is a usage rejection.
+/// @vtest.id TEST-DOC-UPDATE-UNREGISTERED-ID
+/// @vtest.covers VO-DOC-ADD-UPDATE-PARTITION
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --update on an id that was never registered is a usage rejection
 #[test]
 fn update_of_an_unregistered_id_is_a_usage_error() {
     let root = temp_root("update-unregistered");
@@ -123,6 +135,10 @@ fn update_of_an_unregistered_id_is_a_usage_error() {
 
 /// DS-1684: `--update` re-reads the current node-tree file, so `doc show`'s
 /// content_hash (computed live, DES-595) reflects the new content.
+/// @vtest.id TEST-DOC-UPDATE-RECOMPUTES-HASH
+/// @vtest.covers VO-DOC-UPDATE-RECOMPUTES-HASH
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --update re-reads the current node-tree file so doc show's content reflects the new content
 #[test]
 fn update_recomputes_content_hash_from_the_current_file() {
     let root = temp_root("update-rehash");
@@ -145,6 +161,10 @@ fn update_recomputes_content_hash_from_the_current_file() {
 
 /// A `--path` that does not resolve to a valid node-tree JSON file is
 /// rejected (an internal store-layer error, not a silently-written record).
+/// @vtest.id TEST-DOC-ADD-INVALID-NODE-TREE
+/// @vtest.covers VO-DOC-ADD-REGISTERS-NODE-TREE
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent a --path that does not resolve to a valid node-tree JSON file is rejected and writes no record
 #[test]
 fn add_with_an_invalid_node_tree_file_does_not_write_a_record() {
     let root = temp_root("invalid-node-tree");
@@ -174,6 +194,10 @@ fn show_of_an_unregistered_id_is_a_usage_error() {
 }
 
 /// `list` after two registrations succeeds and exits 0.
+/// @vtest.id TEST-DOC-LIST-AFTER-REGISTRATIONS
+/// @vtest.covers VO-DOC-LIST-OUTPUTS-DOCUMENT-RECORDS
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.intent doc list after two registrations succeeds and exits 0
 #[test]
 fn list_after_registrations_exits_ok() {
     let root = temp_root("list-ok");
@@ -201,6 +225,10 @@ fn list_after_registrations_exits_ok() {
 /// node's own `derives_from` (here, the fixture's single `request[0]`
 /// sentence node) — DS-1685's "置換（追記ではない）" and DS-1686's "一律
 /// 適用" (PR #49, `24c3cbe`).
+/// @vtest.id TEST-DOC-DERIVES-FROM-TOP-LEVEL
+/// @vtest.covers VO-DOC-ADD-DERIVES-FROM-TOP-LEVEL-EDGE
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --derives-from writes onto every top-level node's own derives_from
 #[test]
 fn derives_from_writes_onto_every_top_level_node() {
     let root = temp_root("derives-from");
@@ -240,6 +268,10 @@ fn derives_from_writes_onto_every_top_level_node() {
 /// distinguish "wrote onto every node" from "wrote onto the only node",
 /// so this uses two request-layer nodes, each pre-populated with a
 /// different existing value the new `--derives-from` call must overwrite.
+/// @vtest.id TEST-DOC-DERIVES-FROM-REPLACE-UNIFORM
+/// @vtest.covers VO-DOC-DERIVES-FROM-REPLACES-EXISTING, VO-DOC-DERIVES-FROM-APPLIES-ALL-TOP-LEVEL-NODES
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --derives-from replaces each top-level node's existing derives_from and applies uniformly across multiple nodes
 #[test]
 fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
     let root = temp_root("derives-from-replace-uniform");
@@ -285,6 +317,10 @@ fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
 /// the document's only content is in the `root` layer (RootNode has no
 /// `derives_from` field, DS-1592/1593) — this is a usage rejection, not a
 /// silent no-op (PR #49, `24c3cbe`).
+/// @vtest.id TEST-DOC-DERIVES-FROM-ROOT-ONLY
+/// @vtest.covers VO-DOC-DERIVES-FROM-ROOT-ONLY-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --derives-from on a document whose content is entirely root[] is a usage rejection, since RootNode has no derives_from field
 #[test]
 fn derives_from_on_a_root_only_document_is_a_usage_error() {
     let root = temp_root("derives-from-root-only");
@@ -311,6 +347,10 @@ fn derives_from_on_a_root_only_document_is_a_usage_error() {
 /// `ops::doc::AddArgs::derives_from`'s doc comment), so this calls
 /// `ops::doc::add` directly, the same function both the CLI and MCP
 /// dispatch to.
+/// @vtest.id TEST-DOC-DERIVES-FROM-NONE-VS-EMPTY
+/// @vtest.covers VO-DOC-DERIVES-FROM-NONE-VS-EMPTY
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent derives_from: None leaves an existing derives_from untouched on --update, while Some(empty) clears it
 #[test]
 fn derives_from_none_vs_some_empty_are_distinct_on_update() {
     let root = temp_root("derives-from-none-vs-empty");
@@ -390,6 +430,10 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
 /// Approval's `document` subject_type binds per node, DS-1051). A
 /// document with no Approval record for any of its nodes reads `draft`
 /// for every one, and `None` (no comparison target) for freshness.
+/// @vtest.id TEST-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.intent doc show reports freshness None and approval_states draft for a node with no Approval record
 #[test]
 fn show_reports_freshness_and_per_node_approval_states() {
     let root = temp_root("show-freshness-approval-states");
@@ -422,6 +466,10 @@ fn show_reports_freshness_and_per_node_approval_states() {
 /// so approving that VO records ROOT-001 as a dependency entry (via the
 /// document ancestor closure, DS-1487) without ROOT-001 ever being an
 /// approval *subject* itself.
+/// @vtest.id TEST-DOC-SHOW-FRESHNESS-FRESH
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-FRESH
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.intent a node id listed with a matching hash in an approval's dependency closure reads freshness Some(true)
 #[test]
 fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
     use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};
@@ -493,6 +541,10 @@ fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
 /// with ROOT-001's own `statement` changed and re-registered (`--update`)
 /// *after* the approval was written, so the approval's dependency entry
 /// is now stale relative to the node it names.
+/// @vtest.id TEST-DOC-SHOW-FRESHNESS-STALE
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-STALE
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.intent a node whose current subject hash no longer matches an approval's recorded dependency hash reads freshness Some(false)
 #[test]
 fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
     use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};
@@ -576,6 +628,10 @@ fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
 /// `collect_all_ids`, meant for a different purpose -- resolving
 /// arbitrary `derives_from` targets anywhere in the corpus -- and picked
 /// up nested `items`/`sections` children too).
+/// @vtest.id TEST-DOC-SHOW-EXCLUDES-SECTION-ITEMS
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.intent approval_states and freshness contain exactly the document's top-level node ids, not nested section item children
 #[test]
 fn show_states_and_freshness_exclude_section_item_children() {
     let root = temp_root("show-top-level-only");
@@ -612,6 +668,10 @@ fn show_states_and_freshness_exclude_section_item_children() {
 /// content is entirely `root[]` (already `ROOT-`-prefixed, matching
 /// DS-1658's id-prefix-to-layer rule) — it validates placement, it does
 /// not convert a non-root node into one.
+/// @vtest.id TEST-DOC-ROOT-FLAG-ACCEPTS-ALL-ROOT
+/// @vtest.covers VO-DOC-ROOT-FLAG-LAYER-VALIDATION
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --root succeeds when the source file's top-level content is entirely root[]
 #[test]
 fn root_flag_accepts_a_source_file_that_is_already_all_root() {
     let root = temp_root("root-flag-accept");
@@ -639,6 +699,10 @@ fn root_flag_accepts_a_source_file_that_is_already_all_root() {
 /// top-level content is a non-root layer (`request` here) — DS-1658 ties
 /// the node's `R-…` id prefix to the `request` layer, so `--root` cannot
 /// move it into `root[]` without fabricating it a `ROOT-…` id.
+/// @vtest.id TEST-DOC-ROOT-FLAG-NON-ROOT-LAYER
+/// @vtest.covers VO-DOC-ROOT-FLAG-LAYER-VALIDATION
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --root is rejected against a source file whose top-level content is a non-root layer
 #[test]
 fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
     let root = temp_root("root-flag-non-root-layer");
@@ -668,6 +732,10 @@ fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
 /// root[] is empty" behavior was folded away by the `Option<bool>` ->
 /// `bool` correction, since DS-1195 gives `root` no third state to carry
 /// that assertion).
+/// @vtest.id TEST-DOC-NO-ROOT-FLAG-NOOP
+/// @vtest.covers VO-DOC-NO-ROOT-FLAG-NOOP
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --no-root against a source file whose root[] is non-empty succeeds identically to omitting both flags
 #[test]
 fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
     let root = temp_root("no-root-flag-noop");
@@ -691,6 +759,10 @@ fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
 /// `--update` is a usage rejection, not a silently-applied or silently
 /// -ignored change (the retired DS-1014 was the only ground for allowing
 /// `--update` to also change root designation).
+/// @vtest.id TEST-DOC-ROOT-FLAG-WITH-UPDATE
+/// @vtest.covers VO-DOC-ROOT-FIXED-AFTER-REGISTRATION, VO-DOC-ROOT-DESIGNATION-AT-ADD
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.intent --root or --no-root combined with --update is a usage rejection, since root designation is fixed at initial registration only
 #[test]
 fn root_flag_combined_with_update_is_a_usage_error() {
     let root = temp_root("root-flag-with-update");
@@ -738,6 +810,10 @@ fn root_flag_combined_with_update_is_a_usage_error() {
 /// DS-1015: `doc list --tree` renders the `derives_from` chain as a nested
 /// tree (a document with no `derives_from` edges at depth 0, its dependents
 /// indented beneath it), not a flat `id -> [parents]` listing.
+/// @vtest.id TEST-DOC-LIST-TREE-NESTED
+/// @vtest.covers VO-DOC-LIST-TREE-NESTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::render_doc_tree
+/// @vtest.intent doc list --tree renders the derives_from chain as a nested tree, not a flat listing
 #[test]
 fn list_tree_renders_a_nested_derives_from_tree() {
     let root = temp_root("list-tree");
@@ -782,6 +858,10 @@ fn list_tree_renders_a_nested_derives_from_tree() {
 /// not silently vanish from `--tree`'s output -- it must still appear
 /// somewhere, rather than being dropped because it was never reached by a
 /// walk starting from an actual root.
+/// @vtest.id TEST-DOC-LIST-TREE-RETAINS-CYCLE
+/// @vtest.covers VO-DOC-LIST-TREE-NESTED
+/// @vtest.target crates/vtest-cli/src/lib.rs::render_doc_tree
+/// @vtest.intent derives_from循環内のdocumentもdoc list --treeの表示から脱落しないことを確認する
 #[test]
 fn list_tree_does_not_drop_a_document_reachable_only_through_a_cycle() {
     use std::collections::BTreeMap;
@@ -797,6 +877,10 @@ fn list_tree_does_not_drop_a_document_reachable_only_through_a_cycle() {
 
 /// DS-1016: `doc list --roots` lists the current `root[]`-layer document
 /// set.
+/// @vtest.id TEST-DOC-LIST-ROOTS
+/// @vtest.covers VO-DOC-LIST-ROOTS
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.intent doc list --roots lists the current root[]-layer document set
 #[test]
 fn list_roots_lists_the_current_root_set() {
     let root = temp_root("list-roots");
@@ -823,6 +907,10 @@ fn list_roots_lists_the_current_root_set() {
 /// shares with `doc show` would pass even if both sides made the same
 /// mistake) -- so every expected value here is hand-derived from the
 /// fixture's own construction, independent of the function under test.
+/// @vtest.id TEST-DOC-LIST-FRESHNESS-VALUES
+/// @vtest.covers VO-DOC-SHOW-FRESHNESS-VALUES, VO-DOC-LIST-GET-DOCUMENT-FRESHNESS
+/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.intent doc list's freshness field carries hand-derived expected per-node values, not merely internal self-consistency
 #[test]
 fn list_reports_the_expected_freshness_values_per_document() {
     use vtest_model::{DerivesFrom, DocumentId, VoId, VoRecord};

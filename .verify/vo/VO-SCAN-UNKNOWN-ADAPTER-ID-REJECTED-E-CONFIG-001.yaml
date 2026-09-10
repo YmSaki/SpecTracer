@@ -1,0 +1,13 @@
+id: VO-SCAN-UNKNOWN-ADAPTER-ID-REJECTED-E-CONFIG-001
+parent: null
+derives_from:
+  - doc: DS-352
+  - doc: DS-1292
+  - doc: DS-1663
+claim: config.yamlのadaptersが指すadapter IDをregistryで解決できない場合はusage error（E-CONFIG-001）とし、adapter discoveryの失敗をTest 0件の正常scanとして扱わない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

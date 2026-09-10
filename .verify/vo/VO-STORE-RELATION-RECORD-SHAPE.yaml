@@ -1,0 +1,11 @@
+id: VO-STORE-RELATION-RECORD-SHAPE
+parent: null
+derives_from:
+  - doc: DES-123
+claim: 'Relationレコードのtypeはdepends-on・supersedes・regression-for・derived-from・same-partition・complements・conflicts-withのいずれかである'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

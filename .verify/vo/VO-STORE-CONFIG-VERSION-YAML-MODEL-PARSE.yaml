@@ -1,0 +1,14 @@
+id: VO-STORE-CONFIG-VERSION-YAML-MODEL-PARSE
+parent: null
+derives_from:
+  - doc: DS-1572
+claim: >-
+  導出。DS-1572「config readerはversion 1とversion 2を受理し」は受理される config が正しい
+  YAMLとして書かれていることを前提としており、`version:` 行に続くインラインコメントのような
+  通常のYAML構文は、readerがYAMLモデルを通して読む限り version 値の受理を妨げてはならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+parent: null
+derives_from:
+  - doc: DS-1680
+claim: assert相当が関数内に存在するがtarget呼出結果がその中へ到達することを静的解析の追跡限界により確定できない場合、不成立の証明も照合装置の存在の確認もいずれも決定論的に言えないためUNKNOWNとし、違反なしと推測しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

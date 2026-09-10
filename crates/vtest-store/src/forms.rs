@@ -544,6 +544,10 @@ fn safe_form_kind(kind: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// @vtest.id TEST-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE-001
+    /// @vtest.covers VO-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE
+    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_UNIT_FUNCTION_FORM
+    /// @vtest.intent 組込Form `rust-unit-function` がkind/8 field/`@vtest.target {target}` templateを持つことを検証する。
     #[test]
     fn built_in_unit_form_parses() {
         let form = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
@@ -552,6 +556,10 @@ mod tests {
         assert!(form.template.contains("@vtest.target {target}"));
     }
 
+    /// @vtest.id TEST-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT-001
+    /// @vtest.covers VO-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_INTEGRATION_FORM
+    /// @vtest.intent `rust-integration`のtemplateが`@vtest.kind`行で`rust-unit-function`と一致し`integration-`を生成しないことを検証する。
     /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」（`target`→
     /// `targets`必須化と`file`のrequired化の2点のみ）。`rust-integration`の
     /// templateが出力する`@vtest.kind`行は`rust-unit-function`と同一の
@@ -577,6 +585,10 @@ mod tests {
         assert!(!integration.template.contains("@vtest.kind integration-"));
     }
 
+    /// @vtest.id TEST-STORE-FORM-ANSWERS-BLOCK-LIST-SYNTAX-001
+    /// @vtest.covers VO-STORE-FORM-ANSWERS-BLOCK-LIST-SYNTAX
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_answers
+    /// @vtest.intent 回答ファイルのlist型field（covers）がYAMLブロック形式（`- item`）で正しくFormValue::Listへ解釈されることを検証する。
     #[test]
     fn answers_support_inline_and_block_lists() {
         let parsed = parse_form_answers(
@@ -590,6 +602,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-FORM-SCHEMA-UNKNOWN-FIELD-PROPERTY-REJECTED-001
+    /// @vtest.covers VO-STORE-FORM-SCHEMA-UNKNOWN-FIELD-PROPERTY-REJECTED
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_schema
+    /// @vtest.intent Form Schemaのfield定義に未知のプロパティキーが含まれる場合に解析が拒否されることを検証する。
     #[test]
     fn unknown_form_field_property_is_rejected() {
         let invalid = RUST_UNIT_FUNCTION_FORM.replace(

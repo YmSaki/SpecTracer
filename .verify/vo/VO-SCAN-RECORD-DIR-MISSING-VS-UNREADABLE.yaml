@@ -1,0 +1,11 @@
+id: VO-SCAN-RECORD-DIR-MISSING-VS-UNREADABLE
+parent: null
+derives_from:
+  - doc: REQ-135
+claim: '確認不能であることだけを根拠に違反を推定せず、成立確認済みとしても扱わない'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -2837,8 +2837,13 @@
         },
         {
           "id": "DS-1003",
-          "statement": "`--derives-from` は上流 document への導出リンク（0件可＝根候補）である。",
+          "statement": "`--derives-from` は、登録する document のトップレベルノードが持つ上流ノード id への辺（0件可＝根候補）であり、`document` という単位そのものに対する導出リンクではない。",
           "derives_from": [],
+          "cites": [
+            "本冊 §3.1",
+            "DS-1594",
+            "DS-1595"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
@@ -2884,7 +2889,7 @@
         },
         {
           "id": "DS-1683",
-          "statement": "`--root` は当該 document のトップレベルノードを `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、`config.yaml` に根集合（`doc.roots`）を持たない。",
+          "statement": "`--root` は当該 document のトップレベルノードを新規登録時に `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、登録後は変更しない。`config.yaml` に根集合（`doc.roots`）を持たない。",
           "derives_from": [
             "REQ-060",
             "REQ-061",
@@ -2921,25 +2926,66 @@
           }
         },
         {
+          "id": "DS-1685",
+          "statement": "`--derives-from` は、対象トップレベルノードの既存 `derives_from` を指定した id 並びで置き換える。追記（既存へ加える）ではない。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。DS-1003は「登録する document のトップレベルノードが持つ上流ノード id への辺」とだけ述べ、既存値との関係（置換か追記か）を明文で決めていない。`doc add` は新規登録の入口コマンドであり、DS-1684の `--update` が別途「現ファイルで再読み込みして再計算する」という更新経路を持つことから、`--derives-from` 自身は都度の指定値をそのままトップレベルノードの辺として確定する（既存値と合成しない）と読むのが、2つのコマンド引数へ異なる責務を持たせるDS-1681〜DS-1684の書き分けと整合する。",
+          "cites": [
+            "DS-1003"
+          ]
+        },
+        {
+          "id": "DS-1686",
+          "statement": "`--derives-from` を指定した場合、登録する document が持つ `request`/`require`/`spec`/`detailed_spec`/`basic_design`/`design` いずれかの層のトップレベルノードすべてへ、同一の id 並びを一律に適用する。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。DS-1003は「トップレベルノードが持つ上流ノード id への辺」と述べるのみで、複数のトップレベルノードが存在する document へ`--derives-from`をノードごとに書き分ける手段を規定していない。`--derives-from`はコマンド全体で1つの値であり、DS-1593「文ノードのderives_fromは必須fieldで0件を許容し、節ノードのderives_fromは任意field」が対象をノード単位ではなく文書全体の単位で扱っていることから、指定された id 並びは当該documentの対象トップレベルノード全体へ一律に適用される。",
+          "cites": [
+            "DS-1003",
+            "DS-1593"
+          ]
+        },
+        {
+          "id": "DS-1687",
+          "statement": "`--derives-from` を指定した document のトップレベルノードが `root` 層のみで構成される場合、`root` 層ノードは `derives_from` field を持たない（DS-1592・DS-1593）ため辺を付ける対象が存在せず、登録を拒否する。",
+          "derives_from": [],
+          "cites": [
+            "DS-1592",
+            "DS-1593",
+            "DS-1003"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
+            "heading": "12.2 `vtest doc add / list / show`",
+            "lines": [
+              107,
+              111
+            ]
+          },
+          "description": "導出。AGENTS.mdの積不変条件「欠測・不整合な入力を黙って通さない（fail-closed）」に従う。`--derives-from`が指定されたのに束縛できる対象が1つも無い状態を無視して登録を成立させると、指定した意図が黙って捨てられる。DS-1592・DS-1593は`root`層ノード（RootNode）が`derives_from` fieldそのものを持たないと定めており、対象トップレベルノードが全て`root`層であるdocumentへ`--derives-from`を指定することは、束縛先が構造的に存在しない指定である。"
+        },
+        {
           "id": "DS-1013",
           "statement": "`--update` は document subject hash が変化するため、当該 document を依存 closure に含む判断記録・承認が失効する旨を出力する。",
           "derives_from": [],
           "cites": [
             "本冊 §3.5・§8.5・§11.4"
           ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "12.2 `vtest doc add / list / show`",
-            "lines": [
-              112,
-              112
-            ]
-          }
-        },
-        {
-          "id": "DS-1014",
-          "statement": "`--update` は `--root` / `--no-root` を併せて根指定も更新できる。",
-          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "12.2 `vtest doc add / list / show`",
@@ -2977,7 +3023,7 @@
         },
         {
           "id": "DS-1017",
-          "statement": "`doc show` は DOC の path・content_hash・derives_from・根指定・鮮度（content_hash と実ファイルの一致）・実効承認状態を表示する。",
+          "statement": "`doc show` は DOC の path・content_hash・derives_from・根指定・鮮度（当該 document subject hash〔DES-572〕と、当該 document を dependency に含む承認・判断記録が保存した dependency entry の hash との一致。DS-862・DS-1601・DS-1605）・ノードごとの実効承認状態（各トップレベルノードの id を subject とする実効承認、DS-1466）を表示する。",
           "derives_from": [],
           "cites": [
             "本冊 §3.5"

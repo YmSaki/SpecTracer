@@ -1,0 +1,11 @@
+id: VO-SCAN-ID-PREFIX-NOT-ENFORCED
+parent: null
+derives_from:
+  - doc: DS-052
+claim: ツールはID形式（推奨接頭辞 `TEST-`/`VO-` 等）を強制せず一意性のみを強制する（DS-052）。Structured Edit/Create のForm field 検証（vo-ref / vo-ref-list / test-ref 型）は、参照するID値の接頭辞書式を拒否理由にしない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

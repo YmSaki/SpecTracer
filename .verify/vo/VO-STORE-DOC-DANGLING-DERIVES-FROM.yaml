@@ -1,0 +1,11 @@
+id: VO-STORE-DOC-DANGLING-DERIVES-FROM
+parent: null
+derives_from:
+  - doc: DS-1018
+claim: documentのderives_from参照先nodeが存在しない場合は文書鎖のリンク切れとして検出する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

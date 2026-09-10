@@ -448,6 +448,11 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-DOC-WRITE-READ-VIEW-FIELDS
+    /// @vtest.covers VO-STORE-DOC-VIEW-IDENTITY-ROOT-DERIVES
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::write_doc
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::read_doc_view
+    /// @vtest.intent 登録documentのid・root指定・derives_fromを読取りviewへ復元することを確認する
     #[test]
     fn write_then_read_round_trips_and_derives_root_and_derives_from() {
         let layout = temp_layout("write-read");
@@ -461,6 +466,10 @@ mod tests {
         assert_eq!(view.derives_from, vec!["ROOT-001".to_owned()]);
     }
 
+    /// @vtest.id TEST-STORE-DOC-NO-ROOT-LAYER-NOT-ROOT
+    /// @vtest.covers VO-STORE-DOC-ROOT-MEMBERSHIP-FROM-LAYER
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::read_doc_view
+    /// @vtest.intent root層nodeを持たないdocumentをroot指定として扱わないことを確認する
     #[test]
     fn a_document_with_no_root_nodes_is_not_a_root() {
         let layout = temp_layout("no-root");
@@ -471,6 +480,10 @@ mod tests {
         assert!(!view.is_root);
     }
 
+    /// @vtest.id TEST-STORE-DOC-EXISTS-AFTER-REGISTRATION
+    /// @vtest.covers VO-DOC-ADD-REGISTERS-NODE-TREE
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::doc_exists
+    /// @vtest.intent document JSON登録前後でdocumentの存在判定が反映されることを確認する
     #[test]
     fn doc_exists_reflects_the_written_file() {
         let layout = temp_layout("exists");
@@ -479,6 +492,10 @@ mod tests {
         assert!(doc_exists(&layout, "DOC-BASIC-001"));
     }
 
+    /// @vtest.id TEST-STORE-DOC-UNRESOLVED-DERIVES-FROM-DANGLING
+    /// @vtest.covers VO-STORE-DOC-DANGLING-DERIVES-FROM
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::unresolved_derives_from
+    /// @vtest.intent 存在しない上流nodeへのderives_fromを文書鎖リンク切れとして列挙することを確認する
     #[test]
     fn unresolved_derives_from_reports_a_dangling_node_reference() {
         let layout = temp_layout("unresolved");

@@ -1,0 +1,11 @@
+id: VO-VERIFY-OUTSIDE-PROJECT-OPERATION-REJECTION
+parent: null
+derives_from:
+  - doc: DS-929
+claim: プロジェクト外でのverify実行は操作拒否として終了コード2を返し、検証結果を生成しない（PASSにはならない）
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

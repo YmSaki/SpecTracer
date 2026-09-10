@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-LAYER-ARRAY-PREFIX-AGREEMENT
+parent: null
+derives_from:
+  - doc: DS-1658
+claim: 層名のトップレベル配列に置かれたノードの`id`は当該層の接頭辞を持たなければならず、一致しないノードを含むファイルは受理しない。この一致は`require`/`spec`等の配列に直接置かれたノードだけでなく、`sections[]`・`items[]`として何段ネストされたノードにも及ぶ。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

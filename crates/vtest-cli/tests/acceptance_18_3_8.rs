@@ -38,6 +38,10 @@ fn temp_root(name: &str) -> PathBuf {
 /// DES-548's "`--items` 省略時は固定4検査を4件すべて列挙" and
 /// "エンティティ軸無指定は空 list" halves, asserted against the literal
 /// `scope.requested.items` / `scope.requested.entities` field names.
+/// @vtest.id TEST-ACCEPTANCE-18-3-8-OMITTED-ITEMS
+/// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent omitting --items and the entity axis lists all four checks and an empty entities list in scope.requested
 #[test]
 fn omitted_items_and_entity_report_the_full_axis_in_scope_requested() {
     let root = temp_root("omitted-items");
@@ -73,6 +77,10 @@ fn omitted_items_and_entity_report_the_full_axis_in_scope_requested() {
 /// DES-548's "エンティティ軸指定ありで `true`" half: a `--vo` scope
 /// populates `scope.requested.entities` with exactly that entity's id and
 /// sets `scope.unverified_outside_scope`.
+/// @vtest.id TEST-ACCEPTANCE-18-3-8-ENTITY-SCOPE
+/// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent an entity-limited scope populates scope.requested.entities and sets unverified_outside_scope
 #[test]
 fn an_entity_scope_populates_requested_entities_and_marks_outside_scope_unverified() {
     let root = temp_root("entity-scope");

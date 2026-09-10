@@ -1,0 +1,11 @@
+id: VO-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+parent: null
+derives_from:
+  - doc: DES-222
+claim: rust-cargo adapterはlocator値をadapterがrust-cargoのTargetRef::Locatorへ正規化する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

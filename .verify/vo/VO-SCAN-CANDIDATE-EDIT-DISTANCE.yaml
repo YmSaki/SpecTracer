@@ -1,0 +1,11 @@
+id: VO-SCAN-CANDIDATE-EDIT-DISTANCE
+parent: null
+derives_from:
+  - doc: DES-405
+claim: 'rust-cargo adapterは編集距離2以内の近似名の順で候補を構築する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

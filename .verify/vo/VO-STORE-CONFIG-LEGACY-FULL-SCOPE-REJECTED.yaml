@@ -1,0 +1,13 @@
+id: VO-STORE-CONFIG-LEGACY-FULL-SCOPE-REJECTED
+parent: null
+derives_from:
+  - doc: DS-358
+claim: >-
+  旧12項目の列挙（`spec_coverage` / `test_existence` 等）は現行invariantに違反するため、version
+  を問わずE-CONFIG-001とし、in-memory補完で受理しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

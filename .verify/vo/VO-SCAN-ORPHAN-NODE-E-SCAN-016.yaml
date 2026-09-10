@@ -1,0 +1,11 @@
+id: VO-SCAN-ORPHAN-NODE-E-SCAN-016
+parent: null
+derives_from:
+  - doc: DS-1650
+claim: E-SCAN-016はerrorであり、孤児ノード（root層のノードを除き、実効的な上流（自分の辺∪先祖の辺）を持たない）を意味する（§5.6）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

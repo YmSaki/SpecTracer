@@ -1,0 +1,11 @@
+id: VO-MODEL-JSON-ENVELOPE-SHAPE
+parent: null
+derives_from:
+  - doc: BD-260
+claim: 'CLIとMCPは同じJSON envelopeを使用する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+parent: null
+derives_from:
+  - doc: REQ-295
+claim: entity scope で限定しても chain_integrity / orphan_detection は宣言鎖全体に対する検査のままである
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

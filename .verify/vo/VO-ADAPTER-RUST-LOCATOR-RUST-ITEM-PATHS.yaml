@@ -1,0 +1,11 @@
+id: VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+parent: null
+derives_from:
+  - doc: DS-510
+claim: rust-cargo locatorのitem-pathは `::` 区切りのRust item pathでありimpl内関数は `型名::関数名` とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

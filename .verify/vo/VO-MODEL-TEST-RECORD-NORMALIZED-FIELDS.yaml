@@ -1,0 +1,12 @@
+id: VO-MODEL-TEST-RECORD-NORMALIZED-FIELDS
+parent: null
+derives_from:
+  - doc: DES-215
+  - doc: DES-080
+claim: SourceDiscoveryAdapterは、adapter所有のsource declarationをid/covers[]/targets[]/intent/input?/expect?/kind?/cases[]/related[]の論理fieldへ正規化する。canonical metadataはこの9 fieldからなる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

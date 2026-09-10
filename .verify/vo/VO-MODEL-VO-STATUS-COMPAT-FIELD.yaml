@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-STATUS-COMPAT-FIELD
+parent: null
+derives_from:
+  - doc: DS-405
+claim: readerは読取り互換fieldとして`status`を受理するが、実効判定とVO subject hashでは無視し、存在自体をW-STORE-001として通知する。`status`が存在しない場合は診断を出さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

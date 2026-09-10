@@ -1,0 +1,11 @@
+id: VO-EXEC-LLVM-COV-FUNCTIONS-LOOKUP
+parent: null
+derives_from:
+  - doc: DES-456
+claim: '出力JSON（llvm-cov export形式）の`data[].functions[]`から、Testが宣言する各対象関数を検索する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-10T12:00:00+09:00

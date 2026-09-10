@@ -169,6 +169,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-MODEL-TEST-RECORD-NORMALIZED-FIELDS
+    /// @vtest.covers VO-MODEL-TEST-RECORD-NORMALIZED-FIELDS
+    /// @vtest.target crates/vtest-model/src/test.rs::TestRecord
+    /// @vtest.intent verifies TestRecord serializes exactly the nine normalized logical fields (DES-080, DES-215)
     #[test]
     fn test_record_carries_the_normalized_logical_fields() {
         let value = serde_json::to_value(populated_record()).unwrap();
@@ -183,6 +187,10 @@ mod tests {
         assert_eq!(keys, expected);
     }
 
+    /// @vtest.id TEST-MODEL-TEST-RECORD-ROUND-TRIPS-WITHOUT-OPTIONAL-FIELDS
+    /// @vtest.covers VO-MODEL-TEST-RECORD-NORMALIZED-FIELDS
+    /// @vtest.target crates/vtest-model/src/test.rs::TestRecord
+    /// @vtest.intent verifies TestRecord round-trips when its optional fields (input/expect/kind) are None (DES-080)
     #[test]
     fn test_record_round_trips_without_the_optional_fields() {
         let record = TestRecord {
@@ -196,6 +204,10 @@ mod tests {
         assert_eq!(serde_json::from_str::<TestRecord>(&json).unwrap(), record);
     }
 
+    /// @vtest.id TEST-MODEL-TEST-RECORD-ROUND-TRIPS-WITH-EMPTY-LISTS
+    /// @vtest.covers VO-MODEL-TEST-RECORD-NORMALIZED-FIELDS
+    /// @vtest.target crates/vtest-model/src/test.rs::TestRecord
+    /// @vtest.intent verifies TestRecord round-trips when its list fields (covers/targets/cases/related) are empty (DES-080)
     #[test]
     fn test_record_round_trips_with_empty_lists() {
         let record = TestRecord {

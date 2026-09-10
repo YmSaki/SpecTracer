@@ -1044,13 +1044,13 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
         );
     }
     match coverage.result {
-        vtest_model::TargetCoverageResult::Pass => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Pass) => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
             vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
         ),
-        vtest_model::TargetCoverageResult::Fail => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Fail) => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Fail,
             vec![DiagnosticLabel::NotExecuted],
@@ -1058,7 +1058,7 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
         ),
         // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
         // measurement could not identify the declared target function.
-        vtest_model::TargetCoverageResult::Unknown => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Unknown) | None => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Unknown,
             Vec::new(),
@@ -1346,7 +1346,7 @@ fn build_tree(
 ) -> Vec<TreeNode> {
     let resolution = target_resolution_diagnostics(scan);
     let mut roots = Vec::new();
-    let mut placed_vos = BTreeSet::new();
+    let mut built_roots = BTreeSet::new();
 
     // DOC 層: VO の derives_from が指す上流ノード id（DS-1660）。
     for doc in &selection.docs {
@@ -1361,6 +1361,7 @@ fn build_tree(
                         .any(|entry| entry.doc.as_str() == doc)
             })
             .map(|(id, _)| {
+                built_roots.insert(id.clone());
                 build_vo_node(
                     id,
                     vos,
@@ -1368,7 +1369,7 @@ fn build_tree(
                     selection,
                     selected_checks,
                     &resolution,
-                    &mut placed_vos,
+                    &mut BTreeSet::new(),
                     evidence,
                 )
             })
@@ -1379,10 +1380,13 @@ fn build_tree(
     // 上流ノードへ結び付かない VO も部分木から消さない。消すと、限定 report が
     // 「見えないから PASS」を生む。
     for id in &selection.vos {
-        if placed_vos.contains(id) {
+        if built_roots.contains(id) {
             continue;
         }
-        if vos.get(id).is_some_and(|record| record.parent.is_some()) {
+        if vos
+            .get(id)
+            .is_some_and(|record| record.parent.is_some() && !vo_parent_cycle_root(vos, id))
+        {
             continue;
         }
         roots.push(build_vo_node(
@@ -1392,7 +1396,7 @@ fn build_tree(
             selection,
             selected_checks,
             &resolution,
-            &mut placed_vos,
+            &mut BTreeSet::new(),
             evidence,
         ));
     }
@@ -1429,20 +1433,22 @@ fn build_vo_node(
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
-    placed: &mut BTreeSet<String>,
+    visiting: &mut BTreeSet<String>,
     evidence: &EvidenceContext,
 ) -> TreeNode {
-    if !placed.insert(id.to_owned()) {
-        // 循環・重複配置。値を発明せず、未検査として保持する。
+    if !visiting.insert(id.to_owned()) {
+        // DS-302 / DS-542 / DS-562: a parent cycle is E-SCAN-008 and
+        // therefore chain_integrity MISMATCH. Shared DOC ancestry is not a
+        // cycle: each DOC gets a projection of the same evaluation.
         return TreeNode {
             kind: NodeKind::Vo,
             id: id.to_owned(),
-            state: VerificationState::NoEvidence,
+            state: VerificationState::Mismatch,
             checks: vec![CheckOutcome::new(
                 VerificationCheck::ChainIntegrity,
-                VerificationState::NoEvidence,
-                vec![DiagnosticLabel::NotChecked],
-                vec!["VO already placed in the tree (cycle or shared parent)".to_owned()],
+                VerificationState::Mismatch,
+                Vec::new(),
+                vec!["[E-SCAN-008] VO parent cycle".to_owned()],
             )],
             children: Vec::new(),
         };
@@ -1464,7 +1470,7 @@ fn build_vo_node(
                 selection,
                 selected_checks,
                 resolution,
-                placed,
+                visiting,
                 evidence,
             )
         })
@@ -1478,7 +1484,29 @@ fn build_vo_node(
             })
             .map(|test| test_node(test, selected_checks, resolution, scan, evidence)),
     );
+    visiting.remove(id);
     node_from_children(NodeKind::Vo, id, Vec::new(), children)
+}
+
+fn vo_parent_cycle_root(vos: &BTreeMap<String, VoRecord>, start: &str) -> bool {
+    let mut seen = BTreeMap::new();
+    let mut current = start;
+    let mut order = Vec::new();
+    while let Some(record) = vos.get(current) {
+        let Some(parent) = record.parent.as_ref().map(|parent| parent.as_str()) else {
+            return false;
+        };
+        if let Some(&cycle_start) = seen.get(current) {
+            return order[cycle_start..]
+                .iter()
+                .min()
+                .is_some_and(|root| *root == start);
+        }
+        seen.insert(current.to_owned(), order.len());
+        order.push(current);
+        current = parent;
+    }
+    false
 }
 
 fn test_node(
@@ -1796,12 +1824,119 @@ mod tests {
             .collect()
     }
 
+    fn vo_nodes<'a>(nodes: &'a [TreeNode], id: &str, found: &mut Vec<&'a TreeNode>) {
+        for node in nodes {
+            if node.kind == NodeKind::Vo && node.id == id {
+                found.push(node);
+            }
+            vo_nodes(&node.children, id, found);
+        }
+    }
+
+    fn tree_contains_basis(nodes: &[TreeNode], text: &str) -> bool {
+        nodes.iter().any(|node| {
+            node.checks
+                .iter()
+                .any(|check| check.basis.iter().any(|basis| basis.contains(text)))
+                || tree_contains_basis(&node.children, text)
+        })
+    }
+
+    /// DS-1021 / DS-843: a VO derived from two DOCs is projected identically
+    /// into both DOC subtrees. Evaluation-call counting is not exposed by the
+    /// current API, so identical check/state/basis and no duplicated non-PASS
+    /// outcome are the observable substitute.
+    /// @vtest.id TEST-VERIFY-SHARED-VO-PROJECTED-IDENTICALLY
+    /// @vtest.covers VO-VERIFY-DOC-AGGREGATES-DOWNSTREAM-VO-SUBTREE
+    /// @vtest.intent 複数documentから導出される同一VOを各DOC部分木へ同一状態で投影し、各部分木でfail-closedに集約することを確認する
+    #[test]
+    fn shared_vo_is_projected_identically_under_both_documents() {
+        let root = temp_root("shared-vo-projection");
+        let layout = init_project(&root, "fixture").expect("init");
+        let mut second_document = document_file();
+        second_document.request[0].id = DocumentId::new("R-002");
+        write_document_file(&layout, "doc-a", &document_file()).expect("doc a");
+        write_document_file(&layout, "doc-b", &second_document).expect("doc b");
+        let mut shared = vo("VO-SHARED", None);
+        shared.derives_from.push(DerivesFrom {
+            doc: DocumentId::new("R-002"),
+            anchor: Some("second-document".to_owned()),
+            note: None,
+        });
+        write_vo_record(&layout, &shared).expect("shared VO");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+
+        let mut nodes = Vec::new();
+        vo_nodes(&outcome.tree, "VO-SHARED", &mut nodes);
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[0].state, nodes[1].state);
+        assert_eq!(nodes[0].checks.len(), nodes[1].checks.len());
+        for (left, right) in nodes[0].checks.iter().zip(&nodes[1].checks) {
+            assert_eq!(left.check, right.check);
+            assert_eq!(left.state, right.state);
+            assert_eq!(left.labels, right.labels);
+            assert_eq!(left.basis, right.basis);
+        }
+        assert_eq!(
+            nodes
+                .iter()
+                .flat_map(|node| node.checks.iter())
+                .filter(|check| check.state != VerificationState::Pass)
+                .count(),
+            2
+        );
+    }
+
+    /// DS-302 / DS-562: a VO parent cycle is chain_integrity MISMATCH with
+    /// the E-SCAN-008 mapping visible in the affected tree node.
+    /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-MISMATCH
+    /// @vtest.covers VO-VERIFY-E-SCAN-008-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent VO parent循環をE-SCAN-008のbasis付きchain_integrity MISMATCHへ写像することを確認する
+    #[test]
+    fn vo_parent_cycle_is_chain_integrity_mismatch_with_e_scan_008_basis() {
+        let root = temp_root("vo-parent-cycle-state");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-CYCLE-A", Some("VO-CYCLE-B"))).expect("vo a");
+        write_vo_record(&layout, &vo("VO-CYCLE-B", Some("VO-CYCLE-A"))).expect("vo b");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+        let mut nodes = Vec::new();
+        vo_nodes(&outcome.tree, "VO-CYCLE-A", &mut nodes);
+        assert!(nodes.iter().any(|node| {
+            node.state == VerificationState::Mismatch
+                || node
+                    .children
+                    .iter()
+                    .any(|child| child.state == VerificationState::Mismatch)
+        }));
+        assert!(tree_contains_basis(&outcome.tree, "E-SCAN-008"));
+    }
+
+    /// DS-302 / DS-562: the same cyclic fixture terminates rather than
+    /// recursing forever; reaching this assertion is the termination proof.
+    /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-TERMINATES
+    /// @vtest.covers VO-VERIFY-VO-PARENT-CYCLE-IS-MISMATCH
+    /// @vtest.intent VO parent循環の検証が停止し、MISMATCHを表現できる結果木を返すことを確認する
+    #[test]
+    fn verify_terminates_for_vo_parent_cycle_fixture() {
+        let root = temp_root("vo-parent-cycle-termination");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        write_vo_record(&layout, &vo("VO-CYCLE-A", Some("VO-CYCLE-B"))).expect("vo a");
+        write_vo_record(&layout, &vo("VO-CYCLE-B", Some("VO-CYCLE-A"))).expect("vo b");
+        let outcome = outcome_for(&root, &scan_result(Vec::new(), Vec::new()));
+        assert!(!outcome.tree.is_empty());
+    }
+
     // -----------------------------------------------------------------
     // The two checks that can reach PASS in this slice
     // -----------------------------------------------------------------
 
     /// SPEC-053 / REQ-085: exactly four checks, and each lands in one of the
     /// five states. Nothing else appears in a result.
+    /// @vtest.id TEST-VERIFY-EXACTLY-FOUR-CHECKS
+    /// @vtest.covers VO-VERIFY-EXACTLY-FOUR-CHECKS
+    /// @vtest.intent A verification result contains exactly the four canonical checks and nothing else.
     #[test]
     fn a_result_holds_exactly_the_four_canonical_checks() {
         let (root, scan) = complete_project("four-checks");
@@ -1819,6 +1954,9 @@ mod tests {
     /// `target_binding` and `oracle_presence` cannot reach `PASS` here
     /// (no Evidence reader, no DA static analysis), which the two tests
     /// below assert explicitly rather than leave implied.
+    /// @vtest.id TEST-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
+    /// @vtest.covers VO-VERIFY-COMPLETE-BIDIRECTIONAL-CHAIN, VO-VERIFY-ORPHAN-DETECTION-ROOT-REACHABILITY
+    /// @vtest.intent A complete, bidirectional declaration chain passes both chain_integrity and orphan_detection.
     #[test]
     fn a_complete_declaration_chain_passes_both_structural_checks() {
         let (root, scan) = complete_project("complete");
@@ -1840,6 +1978,9 @@ mod tests {
     /// DS-561: E-SCAN-002 (Test ID collision) → `chain_integrity = MISMATCH`.
     /// `orphan_detection` is untouched: the two checks answer different
     /// questions (SPEC-054) and must not damage each other.
+    /// @vtest.id TEST-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent E-SCAN-002 (Test ID collision) makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_id_collision() {
         let (root, mut scan) = complete_project("collision");
@@ -1860,6 +2001,9 @@ mod tests {
 
     /// DS-812: a Test declaring no `covers` is a management-declaration
     /// inconsistency, `chain_integrity = MISMATCH`.
+    /// @vtest.id TEST-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent A Test declaring no covers makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_without_covers() {
         let root = temp_root("no-covers");
@@ -1889,6 +2033,9 @@ mod tests {
     /// REQ-056 / ROOT-034: the retired `test_existence` was folded into
     /// `chain_integrity`, so a leaf VO with no covering Test must be caught
     /// here or nowhere.
+    /// @vtest.id TEST-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.covers VO-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.intent A leaf VO with no covering Test makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_leaf_vo_with_no_covering_test() {
         let root = temp_root("uncovered-leaf");
@@ -1912,6 +2059,9 @@ mod tests {
     /// declaration is `MISMATCH` + diagnostic `MISSING`. It is read from
     /// `discovered`, not from error diagnostics, because an unregistered
     /// `#[test]` may only be reported as a warning.
+    /// @vtest.id TEST-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+    /// @vtest.covers VO-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+    /// @vtest.intent An unmanaged discovered Test is chain_integrity MISMATCH with diagnostic label MISSING.
     #[test]
     fn an_unmanaged_discovered_test_is_mismatch_with_the_missing_label() {
         let (root, mut scan) = complete_project("unmanaged");
@@ -1940,6 +2090,9 @@ mod tests {
 
     /// DS-1647 / DS-1650 / DS-1651: E-SCAN-016 → `orphan_detection =
     /// MISMATCH`, and it must not spill into `chain_integrity`.
+    /// @vtest.id TEST-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+    /// @vtest.covers VO-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+    /// @vtest.intent An orphaned document node makes orphan_detection MISMATCH without affecting chain_integrity.
     #[test]
     fn only_orphan_detection_breaks_on_an_orphaned_document_node() {
         let (root, mut scan) = complete_project("orphan");
@@ -1967,6 +2120,9 @@ mod tests {
     /// `NOT_EXECUTED`. The state is the same; the diagnostic label is what
     /// distinguishes the two causes — which is exactly why REQ-092 keeps the
     /// label in a separate field.
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-NO-TARGET-NOT-CHECKED, VO-VERIFY-ABSENT-EVIDENCE-NOT-EXECUTED
+    /// @vtest.intent target_binding is NO_EVIDENCE in both the no-target and the no-Evidence cases, distinguished only by diagnostic label.
     #[test]
     fn target_binding_distinguishes_its_two_causes_by_diagnostic_label() {
         let (root, scan) = complete_project("tb-executed");
@@ -2000,6 +2156,9 @@ mod tests {
     ///
     /// This supersedes the retired DS-756, which had held the same event at
     /// `NO_EVIDENCE` / `NOT_EXECUTED`.
+    /// @vtest.id TEST-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+    /// @vtest.covers VO-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+    /// @vtest.intent An unresolvable declared target is target_binding MISMATCH, never folded to NO_EVIDENCE.
     #[test]
     fn an_unresolvable_target_is_mismatch_not_no_evidence() {
         let (root, mut scan) = complete_project("unresolvable-target");
@@ -2041,6 +2200,9 @@ mod tests {
     /// Disclosure: `vtest-scan` does not currently produce `Multiple` from any
     /// live scan — `rust-cargo` emits at most one draft per function item — so
     /// this mapping is exercised only by this constructed fixture.
+    /// @vtest.id TEST-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
+    /// @vtest.covers VO-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
+    /// @vtest.intent ManagedTestLink::Multiple maps to chain_integrity MISMATCH without collateral damage to the other three checks.
     #[test]
     fn a_multiple_management_declaration_is_chain_integrity_mismatch() {
         let (root, mut scan) = complete_project("multiple-link");
@@ -2079,6 +2241,9 @@ mod tests {
     /// disk, and the run still evaluates all four checks. If the config were
     /// ever consulted for item selection, three checks would come back
     /// NOT_CHECKED instead.
+    /// @vtest.id TEST-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+    /// @vtest.covers VO-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+    /// @vtest.intent A config.yaml verify.full_scope subset never narrows which checks run or converts the run into a limited scope.
     #[test]
     fn a_config_full_scope_subset_never_narrows_the_checks_that_run() {
         let (root, scan) = complete_project("config-not-a-knob");
@@ -2114,6 +2279,9 @@ mod tests {
     /// (`UNKNOWN` is not an error fallback): with no DA analysis available,
     /// `oracle_presence` is held as `NO_EVIDENCE` + `NOT_CHECKED` — never
     /// `PASS`, never `UNKNOWN`.
+    /// @vtest.id TEST-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+    /// @vtest.covers VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+    /// @vtest.intent With no DA static analysis available, oracle_presence is NO_EVIDENCE(NOT_CHECKED), never PASS, never UNKNOWN.
     #[test]
     fn oracle_presence_is_never_pass_and_never_unknown_without_da_analysis() {
         let (root, scan) = complete_project("oracle");
@@ -2135,6 +2303,9 @@ mod tests {
     /// DS-840 / DS-1110: a check outside the requested item scope is retained
     /// as `NO_EVIDENCE` + `NOT_CHECKED`; it is never converted to `PASS` and
     /// never silently dropped from the result.
+    /// @vtest.id TEST-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+    /// @vtest.intent A check outside the requested --items scope stays NO_EVIDENCE(NOT_CHECKED) and never becomes PASS.
     #[test]
     fn a_check_outside_the_item_scope_is_no_evidence_not_checked() {
         let (root, scan) = complete_project("item-scope");
@@ -2169,6 +2340,9 @@ mod tests {
 
     /// REQ-295: the structural checks are checks over the whole declaration
     /// chain, so limiting the entity axis must not shrink them into a PASS.
+    /// @vtest.id TEST-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+    /// @vtest.covers VO-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+    /// @vtest.intent Limiting the entity axis must not shrink chain_integrity/orphan_detection into a whole-chain-hiding PASS.
     #[test]
     fn an_entity_scope_does_not_shrink_the_structural_checks() {
         let root = temp_root("entity-scope");
@@ -2200,6 +2374,9 @@ mod tests {
 
     /// DS-871: `FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`, and all-`PASS`
     /// yields `PASS`.
+    /// @vtest.id TEST-VERIFY-REPRESENTATIVE-STATE-PRIORITY
+    /// @vtest.covers VO-VERIFY-REPRESENTATIVE-STATE-ORDER, VO-VERIFY-PARENT-NONPASS-WHEN-CHILD-NONPASS
+    /// @vtest.intent Representative-state selection follows FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN, and any non-PASS child makes the parent non-PASS.
     #[test]
     fn representative_selection_follows_the_canonical_priority() {
         use VerificationState::{Fail, Mismatch, NoEvidence, Pass, Unknown};
@@ -2215,6 +2392,9 @@ mod tests {
 
     /// An aggregation point with no child and no evaluated check must not
     /// fold to `PASS` — that is the precise shape of a false PASS.
+    /// @vtest.id TEST-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+    /// @vtest.covers VO-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+    /// @vtest.intent An aggregation point with no child and no evaluated check does not fold to PASS.
     #[test]
     fn an_empty_aggregation_point_is_not_pass() {
         let node = node_from_children(NodeKind::Vo, "VO-EMPTY", Vec::new(), Vec::new());
@@ -2229,6 +2409,9 @@ mod tests {
     /// report complete-verification OK — the exact false PASS this tool
     /// exists to stop. DS-252「`vtest verify` は正典または検証事実の欠落を
     /// 対応する非 `PASS` 値として表示する」、DS-253。
+    /// @vtest.id TEST-VERIFY-EMPTY-REPOSITORY-NOT-OK
+    /// @vtest.covers VO-VERIFY-NO-RESULT-NOT-PASS, VO-VERIFY-INCOMPLETE-NOT-OVERALL-OK, VO-VERIFY-FOUR-CHECKS-ONLY
+    /// @vtest.intent A repository with no VO and no Test never reports complete-verification OK.
     #[test]
     fn an_empty_repository_is_not_a_complete_verification_ok() {
         let root = temp_root("empty-repo");
@@ -2253,6 +2436,9 @@ mod tests {
     }
 
     /// DS-789: identical evaluation inputs must produce an identical result.
+    /// @vtest.id TEST-VERIFY-DETERMINISTIC-RESULT
+    /// @vtest.covers VO-VERIFY-DETERMINISTIC-RESULT
+    /// @vtest.intent Identical evaluation inputs produce an identical serialised verification result.
     #[test]
     fn verification_is_deterministic() {
         let (root, scan) = complete_project("determinism");
@@ -2263,6 +2449,9 @@ mod tests {
 
     /// REQ-092 / SPEC-373: state and diagnostic label are separate fields.
     /// A label must never be serialised in the state position.
+    /// @vtest.id TEST-VERIFY-STATE-LABEL-SEPARATE-FIELDS
+    /// @vtest.covers VO-VERIFY-STATE-LABEL-SEPARATE-FIELDS
+    /// @vtest.intent State and diagnostic label are serialised into separate fields; a label never appears in the state position.
     #[test]
     fn state_and_diagnostic_label_are_separate_fields() {
         let outcome = CheckOutcome::new(
@@ -2309,7 +2498,8 @@ mod tests {
             target_coverage: vtest_model::TargetCoverage {
                 checked: false,
                 method: None,
-                result: vtest_model::TargetCoverageResult::Unknown,
+                result: None,
+                targets: Vec::new(),
                 count: None,
             },
             log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
@@ -2325,7 +2515,7 @@ mod tests {
              execution_state:\n  schema: '{schema}'\n  complete: {complete}\n  hash: null\n\
              hashes:\n  test_fn: '{test_fn}'\n  target_fn: '{target_fn}'\n  target_fns:\n    - '{target_fn}'\n\
              runner:\n  kind: 'cargo-test'\n  command: 'cargo test'\n  exit_code: 0\n\
-             target_coverage:\n  checked: false\n  method: null\n  result: UNKNOWN\n  count: null\n\
+             target_coverage:\n  checked: false\n  method: null\n  result: null\n  targets: []\n  count: null\n\
              log_ref: '{log_ref}'\n",
             id = record.id,
             test_id = record.test_id.as_str(),
@@ -2351,6 +2541,9 @@ mod tests {
     /// `tb-executed` case, which has no Evidence on disk). This test instead
     /// covers DS-1628/DS-819/DS-820: an Evidence record that *exists* but
     /// fails validity is `NO_EVIDENCE` / `STALE`, never reused as `PASS`.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+    /// @vtest.intent An Evidence record whose adapter mismatches the current Test's adapter is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_a_mismatched_adapter_is_no_evidence_stale() {
         let root = temp_root("tb-stale-adapter");
@@ -2379,6 +2572,9 @@ mod tests {
     /// also `NO_EVIDENCE` / `STALE`, never reused as `PASS`. `scan_result`'s
     /// test fixtures always leave `sources` empty, so the target set can
     /// never resolve to a match; this exercises that path directly.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+    /// @vtest.intent An Evidence record whose target set no longer resolves to the current canonical set is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_an_unresolvable_target_set_is_no_evidence_stale() {
         let root = temp_root("tb-stale-targets");
@@ -2417,6 +2613,9 @@ mod tests {
     /// `sources` empty). It instead calls `evidence_validity_failure`
     /// directly with a `scan` that *does* resolve the declared target, to
     /// isolate the DS-822 branch specifically.
+    /// @vtest.id TEST-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN, VO-EXEC-STATE-INCOMPLETE-NOT-VALID-PASS-EVIDENCE
+    /// @vtest.intent An Evidence record with execution_state.complete false is UNKNOWN, never STALE and never PASS.
     #[test]
     fn incomplete_execution_state_is_unknown_not_stale_or_pass() {
         let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
@@ -2460,6 +2659,9 @@ mod tests {
     /// `true` but this crate's own current-side reconstruction cannot
     /// confirm it (e.g. HEAD is unknown) — not just when the record itself
     /// says `complete: false`.
+    /// @vtest.id TEST-VERIFY-CURRENT-RECONSTRUCTION-FAILURE-UNKNOWN
+    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.intent Even a recorded complete=true Execution State is UNKNOWN when this crate's own current-side reconstruction cannot confirm it.
     #[test]
     fn a_recorded_complete_state_still_falls_to_unknown_if_current_reconstruction_fails() {
         let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
@@ -2513,6 +2715,9 @@ mod tests {
     /// some real hash) — then the record's own `execution_state.hash` is
     /// deliberately a different value, exercising the STALE hash-mismatch
     /// branch specifically.
+    /// @vtest.id TEST-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.intent A present but mismatched execution_state.hash is NO_EVIDENCE(STALE), isolated from the DS-822 UNKNOWN branch.
     #[test]
     fn a_present_but_mismatched_execution_state_hash_is_no_evidence_stale() {
         let root = temp_root("tb-execution-state-hash-mismatch");
@@ -2540,7 +2745,16 @@ mod tests {
             .expect("git add");
         std::process::Command::new("git")
             .current_dir(&root)
-            .args(["commit", "-q", "-m", "fixture commit"])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "gpg.format=openpgp",
+                "commit",
+                "-q",
+                "-m",
+                "fixture commit",
+            ])
             .status()
             .expect("git commit");
         let head_commit = String::from_utf8(
@@ -2598,6 +2812,9 @@ mod tests {
 
     /// DS-830/831/832, isolated from the (currently unreachable — see
     /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
+    /// @vtest.id TEST-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-RUNNER-FAIL, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.intent Given valid Evidence, target_binding's dynamic result follows runner FAIL/PASS and target_coverage per DS-830/831/832.
     #[test]
     fn dynamic_result_from_evidence_covers_ds_830_831_832() {
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
@@ -2618,14 +2835,14 @@ mod tests {
 
         // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
         record.target_coverage.checked = true;
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Fail;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Fail);
         record.target_coverage.count = Some(0);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
         // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Unknown;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Unknown);
         record.target_coverage.count = None;
         assert_eq!(
             dynamic_result_from_evidence(&record).state,
@@ -2633,7 +2850,7 @@ mod tests {
         );
 
         // DS-831: measured and reached -> PASS.
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Pass;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Pass);
         record.target_coverage.count = Some(3);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);

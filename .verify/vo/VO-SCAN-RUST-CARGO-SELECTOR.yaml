@@ -1,0 +1,11 @@
+id: VO-SCAN-RUST-CARGO-SELECTOR
+parent: null
+derives_from:
+  - doc: DES-436
+claim: '`rust-cargo` adapterは`TestEntity.execution`の`selector`をtest targetのrootからのmodule path＋function名（例：`parser::tests::rejects_invalid_utf8`）として解釈する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

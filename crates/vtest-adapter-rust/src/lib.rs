@@ -385,6 +385,76 @@ impl<'a> Scanner<'a> {
                     module,
                     path,
                 )?,
+                Item::Struct(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Enum(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Type(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Trait(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Const(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Static(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
+                Item::Union(item) => self.collect_non_function_source(
+                    &item.attrs,
+                    item.ident.to_string(),
+                    item.span(),
+                    relative,
+                    source,
+                    line_offsets,
+                    module,
+                    path,
+                )?,
                 Item::Mod(item_mod) => {
                     if let Some((_, nested)) = &item_mod.content {
                         let nested_module = if module.is_empty() {
@@ -408,6 +478,48 @@ impl<'a> Scanner<'a> {
                 _ => {}
             }
         }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_non_function_source(
+        &mut self,
+        attrs: &[Attribute],
+        name: String,
+        span: proc_macro2::Span,
+        relative: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) -> Result<(), DiscoveryError> {
+        let item_path = if module.is_empty() {
+            name
+        } else {
+            format!("{module}::{name}")
+        };
+        let location = make_location(relative, &item_path, span, source, line_offsets);
+        let Some(content) = source_slice(source, &location) else {
+            return Err(DiscoveryError {
+                path: path.to_owned(),
+                message: format!("source item `{item_path}` source range is out of bounds"),
+            });
+        };
+        let outcome = parse_source_target_annotations(attrs);
+        for (code, message) in outcome.diagnostics {
+            self.diagnostics
+                .push(Diagnostic::warning(code, message).with_location(location.clone()));
+        }
+        self.sources.push(SourceDraft {
+            locator: RustLocator {
+                path: relative.to_owned(),
+                item_path,
+            }
+            .to_locator(),
+            src_id: outcome.src_id,
+            location,
+            construct_text: content.to_owned(),
+        });
         Ok(())
     }
 
@@ -1517,8 +1629,18 @@ fn record_location(root: &Path, path: &Path, entity: &str) -> SourceLocation {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use vtest_adapter_api::AdapterRegistry;
+    use vtest_adapter_api::AdapterScanConfig;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("vtest-adapter-rust-{name}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
 
     /// `AdapterRegistry` は `vtest-adapter-api` が所有する契約だが、
     /// registry の「登録済み ID は解決でき、未登録 ID は解決できない」動作
@@ -1532,24 +1654,103 @@ mod tests {
         registry
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-RESOLVES-REGISTERED-ID
+    /// @vtest.covers VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent 登録済みadapter IDがregistryからIDで解決できることを確認する
     #[test]
     fn registered_adapter_id_resolves() {
         let registry = registry_with_rust_cargo();
         assert!(registry.get("rust-cargo").is_some());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-REJECTS-UNREGISTERED-ID
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-UNREGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent 未登録のadapter IDに対する解決要求がNoneを返し拒否されることを確認する
     #[test]
     fn unregistered_adapter_id_does_not_resolve() {
         let registry = registry_with_rust_cargo();
         assert!(registry.get("unknown-lang").is_none());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-IDS-LISTS-REGISTERED
+    /// @vtest.covers VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::registry_with_rust_cargo
+    /// @vtest.intent registryが登録済みadapter ID全体を列挙できることを確認する
     #[test]
     fn ids_lists_every_registered_adapter() {
         let registry = registry_with_rust_cargo();
         assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["rust-cargo"]);
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-DISCOVERS-NON-FUNCTION-SOURCES
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoAdapter::discover
+    /// @vtest.intent 非関数Rust itemと通常/impl fnがすべてSourceDraft locatorへ索引化されることを確認する
+    #[test]
+    fn discovery_indexes_non_function_items_and_functions_with_module_paths() {
+        let root = temp_dir("non-function-sources");
+        fs::create_dir_all(root.join("src")).expect("create src");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write manifest");
+        fs::write(
+            root.join("src/lib.rs"),
+            r#"
+struct StructItem;
+enum EnumItem { Variant }
+trait TraitItem {}
+const CONST_ITEM: usize = 1;
+static STATIC_ITEM: usize = 1;
+union UnionItem { value: usize }
+fn free_fn() {}
+struct ImplType;
+impl ImplType { fn impl_fn(&self) {} }
+mod nested { struct NestedStruct; fn nested_fn() {} }
+"#,
+        )
+        .expect("write fixture");
+
+        let outcome = RustCargoAdapter::new()
+            .discover(
+                &root,
+                "fixture",
+                &AdapterScanConfig {
+                    include_paths: vec![PathBuf::from("src")],
+                },
+            )
+            .expect("discovery succeeds");
+        let mut locators: Vec<_> = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect();
+        locators.sort_unstable();
+        assert_eq!(
+            locators,
+            vec![
+                "src/lib.rs::CONST_ITEM",
+                "src/lib.rs::EnumItem",
+                "src/lib.rs::ImplType",
+                "src/lib.rs::ImplType::impl_fn",
+                "src/lib.rs::STATIC_ITEM",
+                "src/lib.rs::StructItem",
+                "src/lib.rs::TraitItem",
+                "src/lib.rs::UnionItem",
+                "src/lib.rs::free_fn",
+                "src/lib.rs::nested::NestedStruct",
+                "src/lib.rs::nested::nested_fn",
+            ]
+        );
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent .rsで終わる最初の区切りでpathとitem-pathを分離することを確認する
     #[test]
     fn rust_locator_splits_at_the_first_separator() {
         let locator = RustLocator::parse("src/lib.rs::module::function").expect("valid locator");
@@ -1557,12 +1758,39 @@ mod tests {
         assert_eq!(locator.item_path, "module::function");
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent Rust item pathが関数名以外やimpl methodでも受理されることを確認する
+    #[test]
+    fn rust_locator_accepts_non_function_rust_item_paths() {
+        for item in ["Struct", "Enum", "Trait", "VALUE"] {
+            let value = format!("src/lib.rs::{item}");
+            let locator = RustLocator::parse(&value).expect("valid Rust item locator");
+            assert_eq!(locator.item_path, item);
+        }
+        assert_eq!(
+            RustLocator::parse("src/lib.rs::Type::method")
+                .expect("valid impl function locator")
+                .item_path,
+            "Type::method"
+        );
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-REQUIRES-RS-PATH
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustLocator::parse
+    /// @vtest.intent .rs pathと後続item-pathへ分離できない値をlocatorとして受理しないことを確認する
     #[test]
     fn rust_locator_rejects_values_without_an_rs_path() {
         assert!(RustLocator::parse("not-a-path::item").is_none());
         assert!(RustLocator::parse("src/lib.rs").is_none());
     }
 
+    /// @vtest.id TEST-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.covers VO-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::locator_from_declared_value
+    /// @vtest.intent parse可能な宣言locatorをrust-cargoのTargetRefへ正規化することを確認する
     #[test]
     fn locator_from_declared_value_normalizes_a_parseable_value() {
         let locator = locator_from_declared_value(r"src\lib.rs::module::function");

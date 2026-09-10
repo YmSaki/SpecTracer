@@ -1,0 +1,11 @@
+id: VO-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+parent: null
+derives_from:
+  - doc: DS-812
+claim: covers を持たない Test は chain_integrity = MISMATCH であり、orphan_detection には影響しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

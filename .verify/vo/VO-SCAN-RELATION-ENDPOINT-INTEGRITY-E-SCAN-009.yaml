@@ -1,0 +1,11 @@
+id: VO-SCAN-RELATION-ENDPOINT-INTEGRITY-E-SCAN-009
+parent: null
+derives_from:
+  - doc: DS-429
+claim: '`from` / `to` の存在はスキャン時に検査し、不在はE-SCAN-009、`chain_integrity` の `MISMATCH` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

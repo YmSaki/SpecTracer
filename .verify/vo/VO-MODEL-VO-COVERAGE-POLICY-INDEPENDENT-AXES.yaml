@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-COVERAGE-POLICY-INDEPENDENT-AXES
+parent: null
+derives_from:
+  - doc: DS-407
+claim: '`independent-axes` はpartitionごとに1子VOを生成する（上例では2+4=6件）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

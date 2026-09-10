@@ -1,0 +1,12 @@
+id: VO-SCAN-RELATION-ENDPOINTS-RESOLVE-BY-NODE-ID
+parent: null
+derives_from:
+  - doc: DS-425
+  - doc: DS-429
+claim: Relationレコードのfrom/toは任意のエンティティID（上流文書ノードidを含む）であり、その存在はスキャン時に上流文書ノードidのインデックスに対して検査する。ファイル名に対しては検査しない。不在はE-SCAN-009・chain_integrity MISMATCHとする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

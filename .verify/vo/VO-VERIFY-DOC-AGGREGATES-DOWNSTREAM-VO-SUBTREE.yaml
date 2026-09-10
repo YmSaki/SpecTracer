@@ -1,0 +1,11 @@
+id: VO-VERIFY-DOC-AGGREGATES-DOWNSTREAM-VO-SUBTREE
+parent: null
+derives_from:
+  - doc: DS-843
+claim: aggregateは各DOCについて、そのDOCから導出される下流VO部分木をfail-closedに合成する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

@@ -10,7 +10,7 @@ use serde::Serialize;
 use thiserror::Error;
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
-    TargetCoverage, TargetCoverageResult, TestEntity, TestResult,
+    TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
 };
 use vtest_store::{
     execution_state::{reconstruct_execution_state, ExecutionStateInputs},
@@ -122,7 +122,8 @@ pub fn run_tests(
                     TargetCoverage {
                         checked: false,
                         method: None,
-                        result: TargetCoverageResult::Unknown,
+                        result: None,
+                        targets: Vec::new(),
                         count: None,
                     }
                 } else if let Some(coverage_path) = &coverage_path {
@@ -387,16 +388,16 @@ fn cargo_llvm_cov_available(root: &Path) -> bool {
 
 fn target_coverage_from_coverage(coverage_path: &Path, target: Option<&Locator>) -> TargetCoverage {
     let Some(target) = target else {
-        return unknown_target_coverage();
+        return unknown_target_coverage(None);
     };
     let output = match fs::read_to_string(coverage_path) {
         Ok(output) => output,
-        Err(_) => return unknown_target_coverage(),
+        Err(_) => return unknown_target_coverage(Some(target)),
     };
     let Some(count) = llvm_cov_function_count(&output, target) else {
-        return unknown_target_coverage();
+        return unknown_target_coverage(Some(target));
     };
-    measured_target_coverage(count)
+    measured_target_coverage(Some(target), count)
 }
 
 /// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
@@ -497,21 +498,32 @@ fn path_suffix_matches(candidate: &str, expected: &str) -> bool {
 fn not_checked_target_coverage() -> TargetCoverage {
     TargetCoverage {
         checked: false,
-        method: Some("llvm-cov".to_owned()),
-        result: TargetCoverageResult::Unknown,
+        method: None,
+        result: None,
+        targets: Vec::new(),
         count: None,
     }
 }
 
-fn measured_target_coverage(count: u64) -> TargetCoverage {
+fn measured_target_coverage(target: Option<&Locator>, count: u64) -> TargetCoverage {
+    let result = if count > 0 {
+        TargetCoverageResult::Pass
+    } else {
+        TargetCoverageResult::Fail
+    };
     TargetCoverage {
         checked: true,
         method: Some("llvm-cov".to_owned()),
-        result: if count > 0 {
-            TargetCoverageResult::Pass
-        } else {
-            TargetCoverageResult::Fail
-        },
+        result: Some(result),
+        targets: target
+            .map(|target| {
+                vec![TargetCoverageTarget {
+                    target: canonical_locator(target),
+                    result,
+                    count: Some(count),
+                }]
+            })
+            .unwrap_or_default(),
         count: Some(count),
     }
 }
@@ -526,19 +538,32 @@ fn unavailable_target_coverage() -> (TargetCoverage, Diagnostic) {
     )
 }
 
-fn unknown_target_coverage() -> TargetCoverage {
+fn unknown_target_coverage(target: Option<&Locator>) -> TargetCoverage {
     TargetCoverage {
         checked: true,
         method: Some("llvm-cov".to_owned()),
-        result: TargetCoverageResult::Unknown,
+        result: Some(TargetCoverageResult::Unknown),
+        targets: target
+            .map(|target| {
+                vec![TargetCoverageTarget {
+                    target: canonical_locator(target),
+                    result: TargetCoverageResult::Unknown,
+                    count: None,
+                }]
+            })
+            .unwrap_or_default(),
         count: None,
     }
+}
+
+fn canonical_locator(locator: &Locator) -> String {
+    format!("{}::{}", locator.adapter, locator.value)
 }
 
 fn evidence_yaml(record: &EvidenceRecord) -> String {
     let target = &record.target_coverage;
     format!(
-        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_coverage:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n  count: {count}\nlog_ref: {log_ref}\n",
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_coverage:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n{targets}  count: {count}\nlog_ref: {log_ref}\n",
         id = yaml_scalar(&record.id),
         test_id = yaml_scalar(record.test_id.as_str()),
         adapter = yaml_scalar(record.adapter.as_str()),
@@ -566,14 +591,42 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
         exit_code = record.runner.exit_code,
         checked = target.checked,
         method = target.method.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
-        target_result = yaml_scalar(match target.result {
-            TargetCoverageResult::Pass => "PASS",
-            TargetCoverageResult::Fail => "FAIL",
-            TargetCoverageResult::Unknown => "UNKNOWN",
-        }),
+        target_result = target
+            .result
+            .map(target_coverage_result_name)
+            .map(yaml_scalar)
+            .unwrap_or_else(|| "null".to_owned()),
+        targets = target_coverage_targets_yaml(&target.targets),
         count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
         log_ref = yaml_scalar(&record.log_ref),
     )
+}
+
+fn target_coverage_result_name(result: TargetCoverageResult) -> &'static str {
+    match result {
+        TargetCoverageResult::Pass => "PASS",
+        TargetCoverageResult::Fail => "FAIL",
+        TargetCoverageResult::Unknown => "UNKNOWN",
+    }
+}
+
+fn target_coverage_targets_yaml(targets: &[TargetCoverageTarget]) -> String {
+    if targets.is_empty() {
+        return "  targets: []\n".to_owned();
+    }
+    let mut yaml = String::from("  targets:\n");
+    for target in targets {
+        yaml.push_str(&format!(
+            "    - target: {}\n      result: {}\n      count: {}\n",
+            yaml_scalar(&target.target),
+            yaml_scalar(target_coverage_result_name(target.result)),
+            target
+                .count
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+        ));
+    }
+    yaml
 }
 
 fn yaml_scalar(value: &str) -> String {
@@ -592,6 +645,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-EXEC-PARSE-RESULT-PASS-FAIL-IGNORED
+    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+    /// @vtest.target crates/vtest-exec/src/lib.rs::parse_result
+    /// @vtest.intent rust-cargoランナー出力の`ok`/`FAILED`/`ignored`行を対象selectorに限定してPASS/FAIL/Ignoredへ正しく解釈することを検証する
     #[test]
     fn parser_distinguishes_pass_fail_and_ignored() {
         assert_eq!(
@@ -609,6 +666,10 @@ mod tests {
         assert_eq!(parse_result("test y ... ok", "x"), None);
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM
+    /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTIONS-LOOKUP, VO-EXEC-LLVM-COV-LOCATOR-SUFFIX-MATCH, VO-EXEC-LLVM-COV-GENERIC-COUNTS-SUM
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
+    /// @vtest.intent llvm-cov export JSONからlocatorに一致する関数（複数ジェネリックインスタンス含む）のcountを合算し、一致しないtargetはNoneを返すことを検証する
     #[test]
     fn llvm_cov_parser_extracts_target_function_count() {
         let target = rust_locator("src/lib.rs", "add");
@@ -639,6 +700,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &absent), None);
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-ZERO-COUNT-NOT-CONFUSED-WITH-UNKNOWN
+    /// @vtest.covers VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
+    /// @vtest.intent 対象関数が発見されcountが0のときSome(0)を返し、対象関数自体が見つからない場合のNoneと区別されることを検証する
     #[test]
     fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
         let target = rust_locator("src/lib.rs", "add");
@@ -654,6 +719,10 @@ mod tests {
         assert_eq!(llvm_cov_function_count(output, &target), Some(0));
     }
 
+    /// @vtest.id TEST-EXEC-LLVM-COV-DEMANGLE-RUST-V0-NAME-MATCH
+    /// @vtest.covers VO-EXEC-LLVM-COV-DEMANGLE-MATCH
+    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_name_matches
+    /// @vtest.intent Rust v0 mangled関数名をdemangleした末尾がlocatorのitem-pathと一致するときだけ真を返すことを検証する
     #[test]
     fn llvm_cov_parser_demangles_rust_v0_symbols() {
         assert!(llvm_name_matches(
@@ -666,25 +735,43 @@ mod tests {
         ));
     }
 
+    /// @vtest.id TEST-EXEC-UNAVAILABLE-COVERAGE-NOT-CHECKED
+    /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+    /// @vtest.target crates/vtest-exec/src/lib.rs::unavailable_target_coverage
+    /// @vtest.intent カバレッジツールが利用不能なとき、target_coverageがchecked:false・method:null・result:null・targets:[]となり、診断W-EXEC-101が出ることを検証する
     #[test]
     fn unavailable_coverage_is_not_checked_and_never_passes() {
         let (target_coverage, diagnostic) = unavailable_target_coverage();
         assert!(!target_coverage.checked);
-        assert_eq!(target_coverage.result, TargetCoverageResult::Unknown);
+        assert_eq!(target_coverage.method, None);
+        assert_eq!(target_coverage.result, None);
+        assert!(target_coverage.targets.is_empty());
         assert_eq!(target_coverage.count, None);
         assert_eq!(diagnostic.code, "W-EXEC-101");
+
+        let serialized = serde_json::to_value(&target_coverage).expect("serialize coverage");
+        assert_eq!(serialized["method"], serde_json::Value::Null);
+        assert_eq!(serialized["result"], serde_json::Value::Null);
+        assert_eq!(serialized["targets"], serde_json::json!([]));
+        let round_tripped: TargetCoverage =
+            serde_json::from_value(serialized).expect("deserialize coverage");
+        assert_eq!(round_tripped, target_coverage);
     }
 
+    /// @vtest.id TEST-EXEC-MEASURED-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-exec/src/lib.rs::measured_target_coverage
+    /// @vtest.intent 計測countが正のときresult:PASS、countが0のときresult:FAILとなることを検証する
     #[test]
     fn measured_target_coverage_requires_a_positive_count() {
-        let called = measured_target_coverage(1);
+        let called = measured_target_coverage(None, 1);
         assert!(called.checked);
-        assert_eq!(called.result, TargetCoverageResult::Pass);
+        assert_eq!(called.result, Some(TargetCoverageResult::Pass));
         assert_eq!(called.count, Some(1));
 
-        let not_called = measured_target_coverage(0);
+        let not_called = measured_target_coverage(None, 0);
         assert!(not_called.checked);
-        assert_eq!(not_called.result, TargetCoverageResult::Fail);
+        assert_eq!(not_called.result, Some(TargetCoverageResult::Fail));
         assert_eq!(not_called.count, Some(0));
     }
 }

@@ -1,0 +1,11 @@
+id: VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
+parent: null
+derives_from:
+  - doc: DES-548
+claim: 'verifyのJSONはscope.requestedに省略時の固定4検査と空のentitiesを返し、entity限定時はunverified_outside_scopeをtrueにする'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

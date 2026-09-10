@@ -1,0 +1,11 @@
+id: VO-VERIFY-EXACTLY-FOUR-CHECKS
+parent: null
+derives_from:
+  - doc: SPEC-053
+claim: 検証結果は chain_integrity / orphan_detection / target_binding / oracle_presence の4検査のみを含む
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

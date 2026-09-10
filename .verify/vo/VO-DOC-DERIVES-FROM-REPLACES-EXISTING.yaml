@@ -1,0 +1,11 @@
+id: VO-DOC-DERIVES-FROM-REPLACES-EXISTING
+parent: null
+derives_from:
+  - doc: DS-1685
+claim: '`--derives-from` は、対象トップレベルノードの既存 `derives_from` を指定した id 並びで置き換える。追記（既存へ加える）ではない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

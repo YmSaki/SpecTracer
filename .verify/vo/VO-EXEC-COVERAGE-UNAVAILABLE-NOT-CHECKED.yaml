@@ -1,0 +1,11 @@
+id: VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+parent: null
+derives_from:
+  - doc: DS-473
+claim: '`target_coverage.checked: false` では `method` と `result` をnull、`targets` を空listとし、`target_binding` の動的計測を `NO_EVIDENCE`（診断 `NOT_CHECKED`）として扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-10T20:00:23+09:00

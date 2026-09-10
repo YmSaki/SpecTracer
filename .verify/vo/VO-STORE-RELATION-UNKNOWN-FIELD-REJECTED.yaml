@@ -1,0 +1,11 @@
+id: VO-STORE-RELATION-UNKNOWN-FIELD-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1676
+claim: 'Relationレコードの宣言されていない余剰fieldはschema不一致としてE-SCAN-010である'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+parent: null
+derives_from:
+  - doc: REQ-056
+claim: leaf VO から Test への方向が成立しない場合 chain_integrity = MISMATCH であり、orphan_detection には影響しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

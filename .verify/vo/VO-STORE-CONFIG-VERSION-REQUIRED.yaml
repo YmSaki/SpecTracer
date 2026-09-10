@@ -1,0 +1,17 @@
+id: VO-STORE-CONFIG-VERSION-REQUIRED
+parent: null
+derives_from:
+  - doc: DS-1572
+  - doc: DS-1662
+claim: >-
+  導出。DS-1572「config readerはversion 1とversion 2を受理し、読み取りだけでconfigを書き換えない」は
+  *宣言された* version 1 または 2 のみを受理範囲として述べており、version 未宣言の第三の場合を
+  述べていない。DS-1662が `E-CONFIG-001` の条件として config version を挙げていることと合わせ、
+  `version` キーを欠く config は version を1と推測して受理してはならず、`E-CONFIG-001` として
+  fail closed でなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

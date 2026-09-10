@@ -853,6 +853,10 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-STORE-INIT-PROJECT-CANONICAL-LAYOUT
+    /// @vtest.covers VO-STORE-INIT-PROJECT-CANONICAL-LAYOUT
+    /// @vtest.target crates/vtest-store/src/lib.rs::init_project
+    /// @vtest.intent init_project creates exactly the canonical v0.1 directory layout and does not create the retired spec/req/audits directories
     #[test]
     fn init_project_creates_the_canonical_v01_layout() {
         let root = temporary_directory("init");
@@ -887,6 +891,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-READ-ENTITY-IDS-FRESH-PROJECT
+    /// @vtest.covers VO-STORE-READ-DOCUMENT-ID-SET, VO-STORE-READ-VO-ID-SET
+    /// @vtest.target crates/vtest-store/src/lib.rs::read_entity_ids
+    /// @vtest.intent read_entity_ids returns empty document and VO id sets for a freshly initialized project
     #[test]
     fn read_entity_ids_succeeds_against_a_freshly_initialized_canonical_project() {
         let root = temporary_directory("read-entity-ids");
@@ -897,6 +905,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-READ-ENTITY-IDS-POPULATED
+    /// @vtest.covers VO-STORE-READ-DOCUMENT-ID-SET, VO-STORE-READ-VO-ID-SET
+    /// @vtest.target crates/vtest-store/src/lib.rs::read_entity_ids
+    /// @vtest.intent read_entity_ids reflects a registered document id and VO id after they are written
     #[test]
     fn read_entity_ids_reflects_registered_documents_and_vos() {
         let root = temporary_directory("read-entity-ids-populated");
@@ -952,6 +964,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-DEFAULT-CONFIG-V2-ROUND-TRIP
+    /// @vtest.covers VO-STORE-CONFIG-V2-NAMESPACED-FORM
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::default_for
+    /// @vtest.intent the default v2 config round-trips through to_yaml/from_yaml and carries the namespaced adapter shape
     #[test]
     fn default_config_round_trips_through_canonical_v2_yaml() {
         let expected = ProjectConfig::default_for("calc");
@@ -974,6 +990,10 @@ mod tests {
     /// layer membership itself the orphan-detection root, with no config
     /// exclusion mechanism).
     ///
+    /// @vtest.id TEST-STORE-BD154-EXAMPLE-CONFIG-UNRESOLVED-APPROVAL-ROLES
+    /// @vtest.covers VO-STORE-CONFIG-APPROVAL-ROLE-UNRESOLVED-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent BD-154's own literal example config, fed verbatim without an approval_roles section, must fail closed because its gates reference unresolved roles
     /// BD-154's own text ends without an `approval_roles:` section even
     /// though its `gates` reference the `reviewer`/`owner` roles — DS-1162/
     /// DS-1662 make an unresolved `gates.require.approvals` role a fail-
@@ -1015,6 +1035,10 @@ mod tests {
         assert!(error.to_string().contains("approval role"));
     }
 
+    /// @vtest.id TEST-STORE-BD154-EXAMPLE-CONFIG-PARSES-WITH-ROLES-FILLED
+    /// @vtest.covers VO-STORE-CONFIG-V2-NAMESPACED-FORM
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent BD-154's version-2 example config, with its disclosed approval_roles gap filled, parses into the expected namespaced structure and round-trips through the writer
     /// The structural (non-role) shape of BD-154's example does parse: this
     /// isolates that from the unresolved-role gap the test above discloses,
     /// by supplying the `approval_roles:` DS-1160 itself shows as the
@@ -1089,6 +1113,10 @@ mod tests {
         assert_eq!(rewritten, config);
     }
 
+    /// @vtest.id TEST-STORE-V1-UPCONVERTS-TO-RUST-CARGO-ADAPTER
+    /// @vtest.covers VO-STORE-CONFIG-V1-UPCONVERTS-RUST-CARGO
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a version 1 config is read in-memory as a single `rust-cargo` adapter without rewriting the canonical file
     #[test]
     fn version_1_config_upconverts_to_a_single_rust_cargo_adapter() {
         let parsed = ProjectConfig::from_yaml(
@@ -1107,6 +1135,10 @@ mod tests {
         assert!(parsed.gates.is_empty());
     }
 
+    /// @vtest.id TEST-STORE-V2-OMITTED-SCAN-INCLUDE
+    /// @vtest.covers VO-STORE-CONFIG-SCAN-INCLUDE-OMITTED-WHOLE-WORKSPACE
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an omitted v2 `scan.include` must parse to None, not a backfilled directory list
     /// DS-349: "省略時はワークスペース全体を対象とする" — an omitted v2
     /// `scan.include` must parse as `None`, not be backfilled with any
     /// concrete directory list this store crate invents on its own.
@@ -1117,6 +1149,10 @@ mod tests {
         assert_eq!(parsed.adapters[0].scan.include, None);
     }
 
+    /// @vtest.id TEST-STORE-V1-OMITTED-SCAN-INCLUDE
+    /// @vtest.covers VO-STORE-CONFIG-SCAN-INCLUDE-OMITTED-WHOLE-WORKSPACE
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an omitted v1 `scan.include` must parse to None, not a hardcoded directory list
     /// Same DS-349 omission, on the version 1 compatibility path — a prior
     /// version of this reader backfilled an omitted v1 `scan.include` with
     /// `["src", "tests", "crates"]`, a value under no canonical node and
@@ -1137,6 +1173,10 @@ mod tests {
     /// comment): guessing "1" for an absent version would be exactly the
     /// kind of silent-promotion DS-1662 forbids for every *stated*
     /// E-CONFIG-001 condition.
+    /// @vtest.id TEST-STORE-UNVERSIONED-CONFIG
+    /// @vtest.covers VO-STORE-CONFIG-VERSION-REQUIRED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a config with no `version` key must fail closed rather than default to version 1
     #[test]
     fn unversioned_config_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -1150,6 +1190,10 @@ mod tests {
     /// DS-1662 lists `config version` among the `E-CONFIG-001` conditions:
     /// an unrecognized version must fail closed, not be guessed at as
     /// whichever schema is "closest".
+    /// @vtest.id TEST-STORE-UNRECOGNIZED-CONFIG-VERSION
+    /// @vtest.covers VO-STORE-CONFIG-VERSION-RECOGNIZED-VALUE-REQUIRED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an integer `version` outside {1, 2} must fail closed
     #[test]
     fn unrecognized_config_version_is_rejected() {
         for text in [
@@ -1167,6 +1211,10 @@ mod tests {
     /// text scan — this must therefore judge these three shapes purely on
     /// YAML type, not on incidental text layout the old line-scanner was
     /// sensitive to.
+    /// @vtest.id TEST-STORE-NON-INTEGER-CONFIG-VERSION
+    /// @vtest.covers VO-STORE-CONFIG-VERSION-RECOGNIZED-VALUE-REQUIRED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a non-integer `version` value (string, float, sequence) must fail closed
     #[test]
     fn non_integer_config_version_is_rejected() {
         for text in [
@@ -1185,6 +1233,10 @@ mod tests {
     /// version` misread `2  # canonical` as the unparseable literal
     /// `2  # canonical` and rejected it; reading through the YAML model
     /// does not have that failure mode.
+    /// @vtest.id TEST-STORE-CONFIG-VERSION-TRAILING-COMMENT
+    /// @vtest.covers VO-STORE-CONFIG-VERSION-YAML-MODEL-PARSE
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a trailing inline YAML comment on the `version:` line must not prevent the version from being read
     #[test]
     fn config_version_with_a_trailing_comment_is_accepted() {
         let yaml = ProjectConfig::default_for("calc").to_yaml().replacen(
@@ -1227,6 +1279,10 @@ mod tests {
             .expect_err("a duplicate key inside approval_roles must fail closed");
     }
 
+    /// @vtest.id TEST-STORE-V2-MISSING-REQUIRED-SECTION
+    /// @vtest.covers VO-STORE-CONFIG-V2-REQUIRED-SECTIONS-PRESENT
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a v2 config missing `project`, `adapters`, or `verify` must fail closed
     #[test]
     fn v2_config_missing_a_required_section_is_rejected() {
         let full = ProjectConfig::default_for("calc").to_yaml();
@@ -1266,6 +1322,10 @@ mod tests {
         }
     }
 
+    /// @vtest.id TEST-STORE-V2-EXPLICITLY-EMPTY-ADAPTERS
+    /// @vtest.covers VO-STORE-CONFIG-EXPLICIT-EMPTY-NOT-BACKFILLED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an explicitly empty `adapters: []` must not be silently backfilled with a default adapter
     #[test]
     fn v2_config_with_explicitly_empty_adapters_parses_to_no_adapters() {
         let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
@@ -1276,6 +1336,10 @@ mod tests {
         );
     }
 
+    /// @vtest.id TEST-STORE-LEGACY-TWELVE-ITEM-FULL-SCOPE
+    /// @vtest.covers VO-STORE-CONFIG-LEGACY-FULL-SCOPE-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent the predecessor 12-item full_scope vocabulary must fail closed regardless of config version
     /// DS-358/DS-1494: the old 12-item full_scope enumeration ("旧12項目の
     /// 列挙…") violates the current fixed-4-checks invariant regardless of
     /// config version.
@@ -1289,6 +1353,10 @@ mod tests {
         assert!(error.to_string().contains("full_scope"));
     }
 
+    /// @vtest.id TEST-STORE-V1-FULL-SCOPE-ADJACENT-DUPLICATE
+    /// @vtest.covers VO-STORE-CONFIG-V1-FULL-SCOPE-DUPLICATE-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an adjacent-duplicate entry in a present v1 full_scope must fail closed, not be silently deduped
     /// DS-357: "version 1では、`verify.full_scope` のfield欠落を固定4検査
     /// として具体化し、重複または未知項目はE-CONFIG-001で拒否する";
     /// DS-1109: "in-memory の項目補完は行わない". A prior version of this
@@ -1305,6 +1373,10 @@ mod tests {
         assert!(error.to_string().contains("full_scope"));
     }
 
+    /// @vtest.id TEST-STORE-INVALID-ASSERTION-MACRO-PATH
+    /// @vtest.covers VO-STORE-CONFIG-ASSERTION-MACRO-NAME-VALID
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an assertion_macros entry that is not a valid Rust identifier or path must fail closed
     #[test]
     fn invalid_assertion_macro_path_is_rejected() {
         let error = ProjectConfig::from_yaml(
@@ -1315,6 +1387,10 @@ mod tests {
         assert!(error.to_string().contains("assertion_macros"));
     }
 
+    /// @vtest.id TEST-STORE-UNSUPPORTED-COVERAGE-MODE
+    /// @vtest.covers VO-STORE-CONFIG-COVERAGE-MODE-ENUM
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an unrecognized `run.coverage` value must fail closed
     #[test]
     fn unsupported_coverage_mode_is_rejected() {
         let error = ProjectConfig::from_yaml("version: 1\nrun:\n  coverage: guessed\n", "fallback")
@@ -1329,6 +1405,10 @@ mod tests {
     /// version-conditioned branch: a `version: 1` config carrying the
     /// v2-only `gates:` key is simply an invalid version-1 config,
     /// independent of any compatibility concern.
+    /// @vtest.id TEST-STORE-V1-V2-ONLY-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a stray v2-shaped `gates` key must fail closed under version 1
     #[test]
     fn v1_config_with_a_v2_only_key_is_rejected() {
         let yaml =
@@ -1338,6 +1418,10 @@ mod tests {
         assert!(error.to_string().contains("gates"));
     }
 
+    /// @vtest.id TEST-STORE-V2-V1-ONLY-TOP-LEVEL-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a stray v1-shaped top-level `scan` key must fail closed under version 2
     #[test]
     fn v2_config_with_a_v1_only_top_level_key_is_rejected() {
         let mut yaml = ProjectConfig::default_for("calc").to_yaml();
@@ -1347,6 +1431,10 @@ mod tests {
         assert!(error.to_string().contains("scan"));
     }
 
+    /// @vtest.id TEST-STORE-V2-MISSPELLED-TOP-LEVEL-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an unrecognized top-level config key must fail closed
     #[test]
     fn v2_config_with_a_misspelled_top_level_key_is_rejected() {
         let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngate: []\n";
@@ -1355,6 +1443,10 @@ mod tests {
         assert!(error.to_string().contains("gate"));
     }
 
+    /// @vtest.id TEST-STORE-V2-UNKNOWN-NESTED-PROJECT-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an unknown key nested inside `project` must fail closed
     #[test]
     fn v2_config_with_an_unknown_nested_project_key_is_rejected() {
         let yaml = "version: 2\nproject: {name: x, foo: y}\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\n";
@@ -1363,6 +1455,10 @@ mod tests {
         assert!(error.to_string().contains("foo"));
     }
 
+    /// @vtest.id TEST-STORE-V2-MISSPELLED-GATE-REQUIREMENT-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an unknown key nested inside `gates[].require` must fail closed
     #[test]
     fn v2_config_with_a_misspelled_nested_gate_requirement_key_is_rejected() {
         let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\ngates:\n  - name: release\n    require:\n      verification: PASS\n      approval: []\n";
@@ -1371,6 +1467,10 @@ mod tests {
         assert!(error.to_string().contains("approval"));
     }
 
+    /// @vtest.id TEST-STORE-V1-UNKNOWN-NESTED-SCAN-KEY
+    /// @vtest.covers VO-STORE-CONFIG-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent an unknown key nested inside v1 `scan` must fail closed
     #[test]
     fn v1_config_with_an_unknown_nested_scan_key_is_rejected() {
         let yaml = "version: 1\nscan:\n  include: [src]\n  foo: 1\n";
@@ -1379,6 +1479,10 @@ mod tests {
         assert!(error.to_string().contains("foo"));
     }
 
+    /// @vtest.id TEST-STORE-DUPLICATE-ADAPTER-ID
+    /// @vtest.covers VO-STORE-CONFIG-DUPLICATE-ADAPTER-ID-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent two adapters declaring the same adapter id must fail closed
     #[test]
     fn duplicate_adapter_id_is_rejected() {
         let mut config = ProjectConfig::default_for("calc");
@@ -1388,6 +1492,10 @@ mod tests {
         assert!(error.to_string().contains("adapter id"));
     }
 
+    /// @vtest.id TEST-STORE-GATE-UNRESOLVED-APPROVAL-ROLE
+    /// @vtest.covers VO-STORE-CONFIG-APPROVAL-ROLE-UNRESOLVED-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a gate referencing an approval role absent from `approval_roles` must fail closed
     #[test]
     fn gate_with_unresolved_approval_role_is_rejected() {
         let mut config = ProjectConfig::default_for("calc");
@@ -1403,6 +1511,10 @@ mod tests {
         assert!(error.to_string().contains("approval role"));
     }
 
+    /// @vtest.id TEST-STORE-GATE-DUPLICATE-APPROVAL-ROLE
+    /// @vtest.covers VO-STORE-CONFIG-GATE-APPROVAL-ROLE-EMPTY-OR-DUPLICATE-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a gate listing the same approval role twice in `require.approvals` must fail closed
     /// DS-373: "`require.approvals` を指定する場合は文字列ロール名の
     /// listとし、空文字列・重複ロール名はE-CONFIG-001とする".
     #[test]
@@ -1423,6 +1535,10 @@ mod tests {
         assert!(error.to_string().contains("duplicates approval role"));
     }
 
+    /// @vtest.id TEST-STORE-GATE-EMPTY-APPROVAL-ROLE-NAME
+    /// @vtest.covers VO-STORE-CONFIG-GATE-APPROVAL-ROLE-EMPTY-OR-DUPLICATE-REJECTED
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a gate with an empty-string approval role name must fail closed
     #[test]
     fn gate_with_empty_approval_role_name_is_rejected() {
         let mut config = ProjectConfig::default_for("calc");
@@ -1438,6 +1554,10 @@ mod tests {
         assert!(error.to_string().contains("empty approval role name"));
     }
 
+    /// @vtest.id TEST-STORE-GATE-VERIFICATION-STATE-ENUM
+    /// @vtest.covers VO-STORE-CONFIG-GATE-VERIFICATION-STATE-ENUM
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a gate requirement with `verification` outside the five documented states must fail closed
     #[test]
     fn gate_with_unrecognized_verification_state_is_rejected() {
         let mut config = ProjectConfig::default_for("calc");

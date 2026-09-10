@@ -1,0 +1,11 @@
+id: VO-VERIFY-UNDEFINED-GATE-NAME-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1116
+claim: config.gatesに同名の定義が無い--gate名はE-CONFIG-002・終了コード2で拒否され、検証を実行しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00
