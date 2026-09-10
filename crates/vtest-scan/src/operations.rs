@@ -994,9 +994,9 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
                 result: record.result,
                 target_coverage: if record.target_coverage.checked {
                     match record.target_coverage.result {
-                        TargetCoverageResult::Pass => VerificationState::Pass,
-                        TargetCoverageResult::Fail => VerificationState::Fail,
-                        TargetCoverageResult::Unknown => VerificationState::Unknown,
+                        Some(TargetCoverageResult::Pass) => VerificationState::Pass,
+                        Some(TargetCoverageResult::Fail) => VerificationState::Fail,
+                        Some(TargetCoverageResult::Unknown) | None => VerificationState::Unknown,
                     }
                 } else {
                     VerificationState::NoEvidence

@@ -1044,13 +1044,13 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
         );
     }
     match coverage.result {
-        vtest_model::TargetCoverageResult::Pass => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Pass) => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
             vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
         ),
-        vtest_model::TargetCoverageResult::Fail => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Fail) => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Fail,
             vec![DiagnosticLabel::NotExecuted],
@@ -1058,7 +1058,7 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
         ),
         // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
         // measurement could not identify the declared target function.
-        vtest_model::TargetCoverageResult::Unknown => CheckOutcome::new(
+        Some(vtest_model::TargetCoverageResult::Unknown) | None => CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Unknown,
             Vec::new(),
@@ -2498,7 +2498,8 @@ mod tests {
             target_coverage: vtest_model::TargetCoverage {
                 checked: false,
                 method: None,
-                result: vtest_model::TargetCoverageResult::Unknown,
+                result: None,
+                targets: Vec::new(),
                 count: None,
             },
             log_ref: "cache/logs/01ARZ3NDEKTSV4RRFFQ69G5FAV.log".to_owned(),
@@ -2514,7 +2515,7 @@ mod tests {
              execution_state:\n  schema: '{schema}'\n  complete: {complete}\n  hash: null\n\
              hashes:\n  test_fn: '{test_fn}'\n  target_fn: '{target_fn}'\n  target_fns:\n    - '{target_fn}'\n\
              runner:\n  kind: 'cargo-test'\n  command: 'cargo test'\n  exit_code: 0\n\
-             target_coverage:\n  checked: false\n  method: null\n  result: UNKNOWN\n  count: null\n\
+             target_coverage:\n  checked: false\n  method: null\n  result: null\n  targets: []\n  count: null\n\
              log_ref: '{log_ref}'\n",
             id = record.id,
             test_id = record.test_id.as_str(),
@@ -2834,14 +2835,14 @@ mod tests {
 
         // DS-832: measured count 0 -> FAIL (NOT_EXECUTED).
         record.target_coverage.checked = true;
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Fail;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Fail);
         record.target_coverage.count = Some(0);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
         // DS-832: function not found (aggregate UNKNOWN) -> UNKNOWN.
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Unknown;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Unknown);
         record.target_coverage.count = None;
         assert_eq!(
             dynamic_result_from_evidence(&record).state,
@@ -2849,7 +2850,7 @@ mod tests {
         );
 
         // DS-831: measured and reached -> PASS.
-        record.target_coverage.result = vtest_model::TargetCoverageResult::Pass;
+        record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Pass);
         record.target_coverage.count = Some(3);
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);

@@ -39,7 +39,7 @@ use std::{
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetCoverage, TargetCoverageResult, TestId, TestResult, VoId,
+    TargetCoverage, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -307,7 +307,10 @@ const EVIDENCE_RUNNER_KEYS: &[&str] = &["kind", "command", "exit_code"];
 
 /// Known keys for an Evidence record's nested `target_coverage` mapping,
 /// matching `TargetCoverage`'s own fields (DES-183: no `diagnostic` key).
-const EVIDENCE_TARGET_COVERAGE_KEYS: &[&str] = &["checked", "method", "result", "count"];
+const EVIDENCE_TARGET_COVERAGE_KEYS: &[&str] = &["checked", "method", "result", "targets", "count"];
+
+/// Known keys for each entry in `target_coverage.targets` (DES-188/189).
+const EVIDENCE_TARGET_COVERAGE_TARGET_KEYS: &[&str] = &["target", "result", "count"];
 
 impl SpecRecord {
     pub fn to_yaml(&self) -> String {
@@ -993,8 +996,64 @@ fn reject_unknown_evidence_fields(text: &str) -> Result<(), StoreError> {
             EVIDENCE_TARGET_COVERAGE_KEYS,
             "target_coverage.",
         )?;
+        if let Some(targets) = target_coverage
+            .get("targets")
+            .and_then(yaml_serde::Value::as_sequence)
+        {
+            for (index, target) in targets.iter().enumerate() {
+                crate::canonical::reject_unknown_fields(
+                    target,
+                    EVIDENCE_TARGET_COVERAGE_TARGET_KEYS,
+                    &format!("target_coverage.targets[{index}]."),
+                )?;
+            }
+        }
     }
     Ok(())
+}
+
+fn read_target_coverage(text: &str) -> Result<TargetCoverage, StoreError> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text)
+        .map_err(|error| StoreError::InvalidConfig(format!("invalid Evidence record: {error}")))?;
+    let Some(value) = value.get("target_coverage") else {
+        return Ok(TargetCoverage {
+            checked: false,
+            method: None,
+            result: None,
+            targets: Vec::new(),
+            count: None,
+        });
+    };
+    let mut coverage: TargetCoverage = yaml_serde::from_value(value.clone()).map_err(|error| {
+        StoreError::InvalidConfig(format!("invalid Evidence target_coverage: {error}"))
+    })?;
+
+    if coverage.checked {
+        if coverage.result.is_none() {
+            return Err(StoreError::InvalidConfig(
+                "checked Evidence target_coverage is missing result".to_owned(),
+            ));
+        }
+    } else {
+        match coverage.result {
+            None | Some(vtest_model::TargetCoverageResult::Unknown) => {}
+            Some(vtest_model::TargetCoverageResult::Pass)
+            | Some(vtest_model::TargetCoverageResult::Fail) => {
+                return Err(StoreError::InvalidConfig(
+                    "unchecked Evidence target_coverage result must be null".to_owned(),
+                ))
+            }
+        }
+        // Compatibility normalization for the predecessor writer, which
+        // encoded unchecked coverage as `result: UNKNOWN` (and could retain
+        // the measurement method). The current canonical shape has no
+        // measurement result, method, count, or per-target entries here.
+        coverage.method = None;
+        coverage.result = None;
+        coverage.targets.clear();
+        coverage.count = None;
+    }
+    Ok(coverage)
 }
 
 pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
@@ -1065,17 +1124,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
             ))
         }
     };
-    // DES-187/188: `target_coverage.result` is a restricted 3-value domain
-    // (PASS/FAIL/UNKNOWN). Any other wire value — including predecessor
-    // diagnostic-only values (NOT_CHECKED/NOT_EXECUTED/STALE/MISSING/
-    // MISMATCH/NO_EVIDENCE) once carried in this field before DS-832 moved
-    // diagnostic-label derivation downstream into vtest-verify — normalizes
-    // to `Unknown` rather than reconstructing a diagnostic label here.
-    let target_result = match nested_scalar(&text, "target_coverage", "result").as_deref() {
-        Some("PASS") => TargetCoverageResult::Pass,
-        Some("FAIL") => TargetCoverageResult::Fail,
-        _ => TargetCoverageResult::Unknown,
-    };
+    let target_coverage = read_target_coverage(&text)?;
     // DES-097/184: `execution_state.hash` is only meaningful once `complete`
     // is `true`. An absent `execution_state` mapping (a predecessor-shape
     // record written before this field existed) is read as an explicitly
@@ -1117,16 +1166,7 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(-1),
         },
-        target_coverage: TargetCoverage {
-            checked: nested_scalar(&text, "target_coverage", "checked")
-                .is_some_and(|value| value == "true"),
-            method: nested_scalar(&text, "target_coverage", "method")
-                .filter(|value| value != "null"),
-            result: target_result,
-            count: nested_scalar(&text, "target_coverage", "count")
-                .filter(|value| value != "null")
-                .and_then(|value| value.parse().ok()),
-        },
+        target_coverage,
         log_ref: scalar(&text, "log_ref").unwrap_or_default(),
     })
 }
@@ -2601,6 +2641,51 @@ mod tests {
             read_evidence(&matching_path).is_err(),
             "an Evidence record missing id entirely must fail closed, not fall back to the file name"
         );
+    }
+
+    /// @vtest.id TEST-STORE-EVIDENCE-UNCHECKED-COVERAGE-LEGACY-UNKNOWN-NORMALIZED
+    /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies the predecessor checked:false/result:UNKNOWN wire shape is normalized to the canonical null/null/empty-list shape
+    #[test]
+    fn read_evidence_normalizes_legacy_unchecked_coverage() {
+        let root = temporary_directory("read-evidence-legacy-unchecked-coverage");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {test_hash}\n  target_fn: {target_hash}\ntarget_coverage:\n  checked: false\n  method: llvm-cov\n  result: UNKNOWN\n  targets: []\n  count: 0\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            test_hash = ContentHash::from_text("test body\n"),
+            target_hash = ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, yaml).unwrap();
+
+        let record = read_evidence(&path).expect("legacy unchecked Evidence must remain readable");
+        assert!(!record.target_coverage.checked);
+        assert_eq!(record.target_coverage.method, None);
+        assert_eq!(record.target_coverage.result, None);
+        assert!(record.target_coverage.targets.is_empty());
+        assert_eq!(record.target_coverage.count, None);
+    }
+
+    /// @vtest.id TEST-STORE-EVIDENCE-CHECKED-COVERAGE-RESULT-DOMAIN-REJECTED
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::read_evidence
+    /// @vtest.intent verifies checked:true target coverage rejects a result outside PASS/FAIL/UNKNOWN instead of coercing it to UNKNOWN
+    #[test]
+    fn read_evidence_rejects_checked_coverage_result_outside_domain() {
+        let root = temporary_directory("read-evidence-invalid-coverage-result");
+        let id = new_record_id();
+        let path = root.join(format!("{id}.yaml"));
+        let yaml = format!(
+            "id: {id}\ntest_id: TEST-X\nresult: PASS\nexecuted_at: '2026-08-08T00:00:00Z'\nhashes:\n  test_fn: {test_hash}\n  target_fn: {target_hash}\ntarget_coverage:\n  checked: true\n  method: llvm-cov\n  result: BOGUS\n  targets: []\n  count: 1\nrunner:\n  kind: cargo\n  command: 'cargo test'\n  exit_code: 0\nlog_ref: ''\n",
+            test_hash = ContentHash::from_text("test body\n"),
+            target_hash = ContentHash::from_text("target body\n"),
+        );
+        fs::write(&path, yaml).unwrap();
+
+        let error = read_evidence(&path)
+            .expect_err("checked coverage with an out-of-domain result must fail closed");
+        assert!(error.to_string().contains("target_coverage"));
     }
 
     /// @vtest.id TEST-STORE-EVIDENCE-UNKNOWN-TOP-LEVEL-FIELD-REJECTED
