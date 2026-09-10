@@ -2613,7 +2613,7 @@ mod tests {
     /// directly with a `scan` that *does* resolve the declared target, to
     /// isolate the DS-822 branch specifically.
     /// @vtest.id TEST-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
-    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN, VO-EXEC-STATE-INCOMPLETE-NOT-VALID-PASS-EVIDENCE
     /// @vtest.intent An Evidence record with execution_state.complete false is UNKNOWN, never STALE and never PASS.
     #[test]
     fn incomplete_execution_state_is_unknown_not_stale_or_pass() {

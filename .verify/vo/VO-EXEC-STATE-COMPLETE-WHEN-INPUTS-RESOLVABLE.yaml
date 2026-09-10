@@ -1,13 +1,11 @@
 id: VO-EXEC-STATE-COMPLETE-WHEN-INPUTS-RESOLVABLE
 parent: null
 derives_from:
-  - doc: DES-097
   - doc: DES-184
-  - doc: DES-209
-claim: 'Evidenceレコードのexecution_state.hashはcomplete:falseの場合だけnullとする'
+claim: 'Evidenceレコードの `execution_state` の `hash` fieldは、`complete: false` の場合だけnullとする。'
 dimensions: []
 coverage_policy: null
 combinations: []
 representative_cases: []
 created: 2026-09-09T00:00:00+09:00
-updated: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

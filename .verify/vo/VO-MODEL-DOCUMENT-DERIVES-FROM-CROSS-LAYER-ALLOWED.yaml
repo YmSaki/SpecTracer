@@ -1,13 +1,11 @@
 id: VO-MODEL-DOCUMENT-DERIVES-FROM-CROSS-LAYER-ALLOWED
 parent: null
 derives_from:
-  - doc: DS-1658
-  - doc: DS-1594
-  - doc: DS-1595
-claim: '上流文書ノードのderives_fromは上流ノードidの裸の並びであり、entryごとのanchorとnoteを持たない'
+  - doc: SPEC-042
+claim: '層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクとして表現する。'
 dimensions: []
 coverage_policy: null
 combinations: []
 representative_cases: []
 created: 2026-09-09T00:00:00+09:00
-updated: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00
