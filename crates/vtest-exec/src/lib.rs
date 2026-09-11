@@ -488,6 +488,8 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
     )
 }
 
+/// `rust-cargo`固有（`cargo llvm-cov --version`を直接起動する）。PR Bで
+/// `CoverageAdapter`へ移す。改名だけでは言語中立にならない。
 fn coverage_tool_available(root: &Path) -> bool {
     Command::new("cargo")
         .current_dir(root)
@@ -582,7 +584,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-EXEC-EVIDENCE-BUILT-FROM-RUNNER
-    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+    /// @vtest.covers VO-EXEC-DOES-NOT-OWN-CARGO-COMMAND
     /// @vtest.target crates/vtest-exec/src/lib.rs::tests::evidence_is_built_from_runner_observation
     /// @vtest.intent adapterが返した固定結果からexecがEvidenceとrunner情報を組み立てることを検証する
     #[test]

@@ -37,15 +37,6 @@ use vtest_model::{
 
 pub mod oracle_presence;
 
-// TODO: Review fail-closed handling of `TestTarget::Unknown`. Execution
-// (`vtest-exec::cargo_command` 等) must not silently fall back to an
-// unscoped Cargo target when `ExecutionDescriptor.suite` is `None` — that
-// happens when this adapter cannot resolve a unique Cargo target root for a
-// file (`source_context` below returns `TestTarget::Unknown`). This TODO
-// moved here from `vtest_model::TestEntity` (旧 `test_target` field) when
-// `TestTarget` moved out of `vtest-model` into this crate — the underlying
-// concern (silent unscoped-target fallback) is unresolved either way.
-
 /// この adapter 内部だけが使う Cargo 実行形態の分類（本冊 §9.2 の
 /// `suite.kind`／`suite.name` を組み立てるための中間状態）。
 ///
@@ -129,10 +120,20 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             .ok_or(TestRunnerError::MissingSuite)?;
         let suite_args = cargo_suite_args(suite)?;
 
+        // The output path passed to `cargo llvm-cov` on the actual argv must
+        // be absolute (the process may not share this adapter's notion of
+        // `root` as its cwd assumption in every caller); the human-facing
+        // `command_line` string stays root-relative, matching the
+        // pre-capability-split display string.
+        let output_path = if coverage {
+            Some(coverage_output_path.ok_or(TestRunnerError::MissingCoverageOutputPath)?)
+        } else {
+            None
+        };
+
         let mut args = Vec::new();
         if coverage {
-            let output_path =
-                coverage_output_path.ok_or(TestRunnerError::MissingCoverageOutputPath)?;
+            let output_path = output_path.expect("coverage requires an output path");
             args.extend([
                 "llvm-cov".to_owned(),
                 "test".to_owned(),
@@ -143,7 +144,7 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             args.extend([
                 "--json".to_owned(),
                 "--output-path".to_owned(),
-                display_path(root, output_path),
+                output_path.to_string_lossy().into_owned(),
             ]);
         } else {
             args.extend(["test".to_owned(), "-p".to_owned(), project.to_owned()]);
@@ -155,8 +156,26 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             execution.selector.clone(),
         ]);
 
+        let display_args: Vec<String> = match output_path {
+            Some(output_path) => {
+                let absolute = output_path.to_string_lossy().into_owned();
+                let relative = display_path(root, output_path);
+                args.iter()
+                    .cloned()
+                    .map(|arg| {
+                        if arg == absolute {
+                            relative.clone()
+                        } else {
+                            arg
+                        }
+                    })
+                    .collect()
+            }
+            None => args.clone(),
+        };
+
         let command_line = std::iter::once("cargo".to_owned())
-            .chain(args.iter().cloned())
+            .chain(display_args)
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -1825,7 +1844,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-RUNNER-COMMANDS-SUITE-KINDS
-    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.covers VO-ADAPTER-RUST-RUNNER-OWNS-COMMAND-GENERATION
     /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_commands_select_each_suite_kind
     /// @vtest.intent rust-cargo runnerがlib、bin、integrationのsuite.kindを対応する引数へ変換し、selectorへ--exactを適用することを確認する
     #[test]
@@ -1856,7 +1875,7 @@ mod tests {
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-RUNNER-COMMANDS-COVERAGE
-    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.covers VO-ADAPTER-RUST-RUNNER-COVERAGE-COMMAND
     /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_command_selects_coverage_runner
     /// @vtest.intent coverage要求時にcargo llvm-cov commandとrunner kindが選択され、出力pathがcommandへ渡されることを確認する
     #[test]
@@ -1882,11 +1901,16 @@ mod tests {
                 "--lib",
                 "--json",
                 "--output-path",
-                ".verify/cov/result.json",
+                "workspace/.verify/cov/result.json",
                 "--",
                 "--exact",
                 "module::selected",
             ]
+        );
+        assert_eq!(
+            command.command_line,
+            "cargo llvm-cov test -p pkg --lib --json --output-path \
+             .verify/cov/result.json -- --exact module::selected"
         );
     }
 
@@ -1924,10 +1948,9 @@ mod tests {
         assert_eq!(parse("test another ... ok"), RunnerTestResult::Unknown);
     }
 
-    /// @vtest.id TEST-ADAPTER-RUST-RUNNER-REJECTS-UNKNOWN-SUITE
-    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
-    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_rejects_unknown_suite_kind
-    /// @vtest.intent 未知のsuite.kindをunscoped commandへfallbackせずadapterが拒否することを確認する
+    // 該当する正本規範なし（レビュー往復で確認、報告参照）。@vtest annotation
+    // を付けると @vtest.covers 欠落がE-SCAN-007（error）になるため、無印の
+    // #[test]（W-SCAN-101）のまま残す。
     #[test]
     fn runner_rejects_unknown_suite_kind() {
         let error = RustCargoTestRunner::new()
@@ -1944,6 +1967,64 @@ mod tests {
                 kind: "unknown".to_owned()
             }
         );
+    }
+
+    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    #[test]
+    fn runner_rejects_missing_project() {
+        let execution = ExecutionDescriptor {
+            adapter: AdapterId::new(ADAPTER_ID),
+            project: None,
+            suite: Some(TestSuite {
+                kind: "lib".to_owned(),
+                name: None,
+            }),
+            selector: "module::selected".to_owned(),
+        };
+        let error = RustCargoTestRunner::new()
+            .command(Path::new("workspace"), &execution, false, None)
+            .expect_err("missing project must be rejected");
+        assert_eq!(error, TestRunnerError::MissingProject);
+    }
+
+    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    #[test]
+    fn runner_rejects_missing_suite() {
+        let execution = ExecutionDescriptor {
+            adapter: AdapterId::new(ADAPTER_ID),
+            project: Some("pkg".to_owned()),
+            suite: None,
+            selector: "module::selected".to_owned(),
+        };
+        let error = RustCargoTestRunner::new()
+            .command(Path::new("workspace"), &execution, false, None)
+            .expect_err("missing suite must be rejected");
+        assert_eq!(error, TestRunnerError::MissingSuite);
+    }
+
+    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    #[test]
+    fn runner_rejects_missing_suite_name() {
+        for kind in ["bin", "integration"] {
+            let error = RustCargoTestRunner::new()
+                .command(Path::new("workspace"), &execution(kind, None), false, None)
+                .expect_err("missing suite name must be rejected");
+            assert_eq!(
+                error,
+                TestRunnerError::MissingSuiteName {
+                    kind: kind.to_owned()
+                }
+            );
+        }
+    }
+
+    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    #[test]
+    fn runner_rejects_missing_coverage_output_path() {
+        let error = RustCargoTestRunner::new()
+            .command(Path::new("workspace"), &execution("lib", None), true, None)
+            .expect_err("missing coverage output path must be rejected");
+        assert_eq!(error, TestRunnerError::MissingCoverageOutputPath);
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-IDS-LISTS-REGISTERED
