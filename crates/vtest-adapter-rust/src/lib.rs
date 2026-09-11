@@ -16,7 +16,7 @@
 //! adapter の責務ではなく（本冊:571）、`vtest-scan` 側に残る。
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs, io,
     path::{Path, PathBuf},
 };
@@ -26,8 +26,9 @@ use serde::Deserialize;
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use vtest_adapter_api::{
-    AdapterScanConfig, DiscoveryError, DiscoveryOutcome, MissingTestConstruct,
-    SourceDiscoveryAdapter, SourceDraft, TestDraft,
+    AdapterScanConfig, DiscoveryError, DiscoveryOutcome, MissingTestConstruct, RunnerCommand,
+    RunnerOutput, RunnerTestResult, SourceDiscoveryAdapter, SourceDraft, TestDraft,
+    TestRunnerAdapter, TestRunnerError,
 };
 use vtest_model::{
     AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
@@ -93,6 +94,140 @@ fn suite_for(target: &TestTarget) -> Option<TestSuite> {
 /// `adapters[].id`、`AdapterRegistry` のキー、`TargetRef::Locator.adapter`
 /// のいずれもこの文字列で揃える。
 pub const ADAPTER_ID: &str = "rust-cargo";
+
+/// The rust-cargo TestRunnerAdapter.  Command construction and libtest output
+/// interpretation live here; `vtest-exec` only launches the returned command
+/// and records its observation.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RustCargoTestRunner;
+
+impl RustCargoTestRunner {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl TestRunnerAdapter for RustCargoTestRunner {
+    fn id(&self) -> &'static str {
+        ADAPTER_ID
+    }
+
+    fn command(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        coverage: bool,
+        coverage_output_path: Option<&Path>,
+    ) -> Result<RunnerCommand, TestRunnerError> {
+        let project = execution
+            .project
+            .as_deref()
+            .ok_or(TestRunnerError::MissingProject)?;
+        let suite = execution
+            .suite
+            .as_ref()
+            .ok_or(TestRunnerError::MissingSuite)?;
+        let suite_args = cargo_suite_args(suite)?;
+
+        let mut args = Vec::new();
+        if coverage {
+            let output_path =
+                coverage_output_path.ok_or(TestRunnerError::MissingCoverageOutputPath)?;
+            args.extend([
+                "llvm-cov".to_owned(),
+                "test".to_owned(),
+                "-p".to_owned(),
+                project.to_owned(),
+            ]);
+            args.extend(suite_args.iter().cloned());
+            args.extend([
+                "--json".to_owned(),
+                "--output-path".to_owned(),
+                display_path(root, output_path),
+            ]);
+        } else {
+            args.extend(["test".to_owned(), "-p".to_owned(), project.to_owned()]);
+            args.extend(suite_args.iter().cloned());
+        }
+        args.extend([
+            "--".to_owned(),
+            "--exact".to_owned(),
+            execution.selector.clone(),
+        ]);
+
+        let command_line = std::iter::once("cargo".to_owned())
+            .chain(args.iter().cloned())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Ok(RunnerCommand {
+            program: "cargo".to_owned(),
+            args,
+            current_dir: root.to_owned(),
+            env: BTreeMap::new(),
+            runner_kind: if coverage {
+                "cargo-llvm-cov".to_owned()
+            } else {
+                "cargo-test".to_owned()
+            },
+            command_line,
+        })
+    }
+
+    fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult {
+        parse_cargo_result(output.stdout, &execution.selector)
+    }
+}
+
+fn cargo_suite_args(suite: &TestSuite) -> Result<Vec<String>, TestRunnerError> {
+    match suite.kind.as_str() {
+        "lib" => Ok(vec!["--lib".to_owned()]),
+        "bin" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--bin".to_owned(), name.to_owned()])
+            .ok_or_else(|| TestRunnerError::MissingSuiteName {
+                kind: suite.kind.clone(),
+            }),
+        "integration" => suite
+            .name
+            .as_deref()
+            .map(|name| vec!["--test".to_owned(), name.to_owned()])
+            .ok_or_else(|| TestRunnerError::MissingSuiteName {
+                kind: suite.kind.clone(),
+            }),
+        kind => Err(TestRunnerError::UnsupportedSuiteKind {
+            kind: kind.to_owned(),
+        }),
+    }
+}
+
+fn display_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn parse_cargo_result(output: &str, selector: &str) -> RunnerTestResult {
+    output
+        .lines()
+        .find_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("test ")?;
+            let (name, result) = rest.split_once(" ... ")?;
+            if name != selector && !name.ends_with(&format!("::{selector}")) {
+                return None;
+            }
+            match result {
+                "ok" => Some(RunnerTestResult::Pass),
+                "FAILED" => Some(RunnerTestResult::Fail),
+                "ignored" => Some(RunnerTestResult::Ignored),
+                _ => None,
+            }
+        })
+        .unwrap_or(RunnerTestResult::Unknown)
+}
 
 /// `rust-cargo` が所有する opaque locator value の内部構文
 /// （`<project-relative path>.rs::<item path>`）。この構文の定義・
@@ -1632,8 +1767,11 @@ mod tests {
     use std::fs;
 
     use super::*;
-    use vtest_adapter_api::AdapterRegistry;
-    use vtest_adapter_api::AdapterScanConfig;
+    use vtest_adapter_api::{
+        AdapterRegistry, AdapterScanConfig, RunnerOutput, RunnerTestResult, TestRunnerAdapter,
+        TestRunnerError,
+    };
+    use vtest_model::{AdapterId, ExecutionDescriptor, TestSuite};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("vtest-adapter-rust-{name}"));
@@ -1672,6 +1810,140 @@ mod tests {
     fn unregistered_adapter_id_does_not_resolve() {
         let registry = registry_with_rust_cargo();
         assert!(registry.get("unknown-lang").is_none());
+    }
+
+    fn execution(kind: &str, name: Option<&str>) -> ExecutionDescriptor {
+        ExecutionDescriptor {
+            adapter: AdapterId::new(ADAPTER_ID),
+            project: Some("pkg".to_owned()),
+            suite: Some(TestSuite {
+                kind: kind.to_owned(),
+                name: name.map(str::to_owned),
+            }),
+            selector: "module::selected".to_owned(),
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-RUNNER-COMMANDS-SUITE-KINDS
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_commands_select_each_suite_kind
+    /// @vtest.intent rust-cargo runnerがlib、bin、integrationのsuite.kindを対応する引数へ変換し、selectorへ--exactを適用することを確認する
+    #[test]
+    fn runner_commands_select_each_suite_kind() {
+        let runner = RustCargoTestRunner::new();
+        let cases = [
+            ("lib", None, vec!["--lib"]),
+            ("bin", Some("cli"), vec!["--bin", "cli"]),
+            ("integration", Some("api"), vec!["--test", "api"]),
+        ];
+
+        for (kind, name, suite_args) in cases {
+            let command = runner
+                .command(Path::new("workspace"), &execution(kind, name), false, None)
+                .expect("supported suite kind");
+            let expected = [
+                vec!["test", "-p", "pkg"],
+                suite_args,
+                vec!["--", "--exact", "module::selected"],
+            ]
+            .concat();
+            assert_eq!(command.program, "cargo");
+            assert_eq!(command.args, expected);
+            assert_eq!(command.runner_kind, "cargo-test");
+            assert_eq!(command.current_dir, Path::new("workspace"));
+            assert!(command.env.is_empty());
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-RUNNER-COMMANDS-COVERAGE
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_command_selects_coverage_runner
+    /// @vtest.intent coverage要求時にcargo llvm-cov commandとrunner kindが選択され、出力pathがcommandへ渡されることを確認する
+    #[test]
+    fn runner_command_selects_coverage_runner() {
+        let runner = RustCargoTestRunner::new();
+        let command = runner
+            .command(
+                Path::new("workspace"),
+                &execution("lib", None),
+                true,
+                Some(Path::new("workspace/.verify/cov/result.json")),
+            )
+            .expect("coverage command");
+
+        assert_eq!(command.runner_kind, "cargo-llvm-cov");
+        assert_eq!(
+            command.args,
+            vec![
+                "llvm-cov",
+                "test",
+                "-p",
+                "pkg",
+                "--lib",
+                "--json",
+                "--output-path",
+                ".verify/cov/result.json",
+                "--",
+                "--exact",
+                "module::selected",
+            ]
+        );
+    }
+
+    /// @vtest.id TEST-EXEC-PARSE-RESULT-PASS-FAIL-IGNORED
+    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_parser_distinguishes_results
+    /// @vtest.intent rust-cargo runnerがok、FAILED、ignoredと対象行なしをそれぞれ決定論的にparseすることを確認する
+    #[test]
+    fn runner_parser_distinguishes_results() {
+        let runner = RustCargoTestRunner::new();
+        let target = execution("lib", None);
+        let parse = |stdout| {
+            runner.parse(
+                &target,
+                RunnerOutput {
+                    stdout,
+                    stderr: "",
+                    exit_code: Some(0),
+                },
+            )
+        };
+
+        assert_eq!(
+            parse("test module::selected ... ok"),
+            RunnerTestResult::Pass
+        );
+        assert_eq!(
+            parse("test module::selected ... FAILED"),
+            RunnerTestResult::Fail
+        );
+        assert_eq!(
+            parse("test module::selected ... ignored"),
+            RunnerTestResult::Ignored
+        );
+        assert_eq!(parse("test another ... ok"), RunnerTestResult::Unknown);
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-RUNNER-REJECTS-UNKNOWN-SUITE
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-RUST-ITEM-PATHS
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::tests::runner_rejects_unknown_suite_kind
+    /// @vtest.intent 未知のsuite.kindをunscoped commandへfallbackせずadapterが拒否することを確認する
+    #[test]
+    fn runner_rejects_unknown_suite_kind() {
+        let error = RustCargoTestRunner::new()
+            .command(
+                Path::new("workspace"),
+                &execution("unknown", None),
+                false,
+                None,
+            )
+            .expect_err("unknown suite kinds must be rejected");
+        assert_eq!(
+            error,
+            TestRunnerError::UnsupportedSuiteKind {
+                kind: "unknown".to_owned()
+            }
+        );
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-REGISTRY-IDS-LISTS-REGISTERED

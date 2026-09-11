@@ -9,5 +9,7 @@ rustc-demangle.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+vtest-adapter-api = { path = "../vtest-adapter-api" }
+vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 vtest-model = { path = "../vtest-model" }
 vtest-store = { path = "../vtest-store" }
