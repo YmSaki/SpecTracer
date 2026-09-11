@@ -570,6 +570,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "vtest-adapter-api",
+ "vtest-adapter-rust",
  "vtest-model",
  "vtest-store",
 ]

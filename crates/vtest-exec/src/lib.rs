@@ -1,4 +1,4 @@
-//! Cargo test execution, target coverage attribution, and append-only Evidence recording.
+//! Test execution, target coverage attribution, and append-only Evidence recording.
 
 use std::{
     fs,
@@ -8,6 +8,8 @@ use std::{
 
 use serde::Serialize;
 use thiserror::Error;
+use vtest_adapter_api::{RunnerOutput, RunnerTestResult, TestRunnerAdapter};
+use vtest_adapter_rust::RustCargoTestRunner;
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
     TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
@@ -24,6 +26,8 @@ pub enum ExecutionError {
         path: PathBuf,
         source: std::io::Error,
     },
+    #[error("runner adapter error: {0}")]
+    Runner(#[from] vtest_adapter_api::TestRunnerError),
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +55,16 @@ pub fn run_tests(
     tests: &[RunnableTest],
     fast: bool,
 ) -> Result<ExecutionResult, ExecutionError> {
+    run_tests_with_runner(root, layout, tests, fast, &RustCargoTestRunner::new())
+}
+
+pub fn run_tests_with_runner(
+    root: &Path,
+    layout: &VerifyLayout,
+    tests: &[RunnableTest],
+    fast: bool,
+    runner: &dyn TestRunnerAdapter,
+) -> Result<ExecutionResult, ExecutionError> {
     let log_dir = layout.cache_dir().join("logs");
     fs::create_dir_all(&log_dir).map_err(|source| ExecutionError::Io {
         path: log_dir.clone(),
@@ -61,7 +75,7 @@ pub fn run_tests(
         source,
     })?;
     let revision = git_revision(root);
-    let llvm_cov_available = !fast && cargo_llvm_cov_available(root);
+    let llvm_cov_available = !fast && coverage_tool_available(root);
     let cov_dir = layout.cache_dir().join("cov");
     if llvm_cov_available {
         fs::create_dir_all(&cov_dir).map_err(|source| ExecutionError::Io {
@@ -74,43 +88,50 @@ pub fn run_tests(
     for test in tests {
         let record_id = new_record_id();
         let coverage_path = llvm_cov_available.then(|| cov_dir.join(format!("{record_id}.json")));
-        let (mut command, command_line, runner_kind) = if let Some(coverage_path) = &coverage_path {
-            (
-                cargo_llvm_cov_command(root, &test.entity, coverage_path),
-                llvm_cov_command_string(root, &test.entity, coverage_path),
-                "cargo-llvm-cov",
-            )
-        } else {
-            (
-                cargo_command(root, &test.entity),
-                command_string(&test.entity),
-                "cargo-test",
-            )
-        };
+        let command_spec = runner.command(
+            root,
+            &test.entity.execution,
+            coverage_path.is_some(),
+            coverage_path.as_deref(),
+        )?;
+        let mut command = Command::new(&command_spec.program);
+        command
+            .current_dir(&command_spec.current_dir)
+            .args(&command_spec.args);
+        for (key, value) in &command_spec.env {
+            command.env(key, value);
+        }
         let output = command.output().map_err(|source| ExecutionError::Io {
             path: root.to_owned(),
             source,
         })?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let raw_log = format!("$ {command_line}\n{}{}", stdout, stderr);
+        let raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
         let log_path = log_dir.join(format!("{record_id}.log"));
         fs::write(&log_path, raw_log).map_err(|source| ExecutionError::Io {
             path: log_path.clone(),
             source,
         })?;
-        let observation = parse_result(&stdout, &test.entity.execution.selector);
+        let observation = runner.parse(
+            &test.entity.execution,
+            RunnerOutput {
+                stdout: &stdout,
+                stderr: &stderr,
+                exit_code: output.status.code(),
+            },
+        );
         match observation {
-            Some(ObservedResult::Ignored) => {}
-            Some(ObservedResult::Pass) | Some(ObservedResult::Fail) => {
-                let observed_pass = matches!(observation, Some(ObservedResult::Pass));
+            RunnerTestResult::Ignored => {}
+            RunnerTestResult::Pass | RunnerTestResult::Fail => {
+                let observed_pass = matches!(observation, RunnerTestResult::Pass);
                 let process_pass = output.status.success();
                 if observed_pass != process_pass {
                     diagnostics.push(
                         Diagnostic::error(
                             "E-EXEC-003",
                             format!(
-                                "cargo exit status contradicts result for Test {}",
+                                "runner exit status contradicts result for Test {}",
                                 test.entity.id
                             ),
                         )
@@ -180,8 +201,8 @@ pub fn run_tests(
                             adapter: &adapter_id,
                             schema: "rust-cargo-execution-state-v1",
                             head_commit: revision.commit.as_deref(),
-                            runner_kind,
-                            invocation: &command_line,
+                            runner_kind: &command_spec.runner_kind,
+                            invocation: &command_spec.command_line,
                         },
                     ),
                     hashes: EvidenceHashes {
@@ -194,8 +215,8 @@ pub fn run_tests(
                         target_fns: test.target_hashes.clone(),
                     },
                     runner: RunnerInfo {
-                        kind: runner_kind.to_owned(),
-                        command: command_line.clone(),
+                        kind: command_spec.runner_kind.clone(),
+                        command: command_spec.command_line.clone(),
                         exit_code: output.status.code().unwrap_or(-1),
                     },
                     target_coverage,
@@ -210,7 +231,7 @@ pub fn run_tests(
                 })?;
                 evidence.push(record);
             }
-            None => {
+            RunnerTestResult::Unknown => {
                 let code = if !output.status.success() {
                     "E-EXEC-001"
                 } else {
@@ -232,133 +253,6 @@ pub fn run_tests(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ObservedResult {
-    Pass,
-    Fail,
-    Ignored,
-}
-
-fn parse_result(output: &str, filter: &str) -> Option<ObservedResult> {
-    output.lines().find_map(|line| {
-        let line = line.trim();
-        let rest = line.strip_prefix("test ")?;
-        let (name, result) = rest.split_once(" ... ")?;
-        if name != filter && !name.ends_with(&format!("::{filter}")) {
-            return None;
-        }
-        match result {
-            "ok" => Some(ObservedResult::Pass),
-            "FAILED" => Some(ObservedResult::Fail),
-            "ignored" => Some(ObservedResult::Ignored),
-            _ => None,
-        }
-    })
-}
-
-// TODO: Review fail-closed handling of an absent/unresolved suite. Execution
-// must not silently fall back to an unscoped Cargo target. This TODO moved
-// here from `vtest_model::TestEntity` (旧 `test_target: TestTarget` field,
-// `TestTarget::Unknown` arm) when `TestTarget` moved out of `vtest-model`
-// into `vtest-adapter-rust` — the underlying concern (this crate silently
-// omitting `--lib`/`--bin`/`--test` and running an unscoped `cargo test`)
-// is unresolved either way, and now also applies to `execution.project`
-// being absent (see `suite_args` below).
-
-/// 本冊 §9.2「`rust-cargo` adapterは`TestEntity.execution`を次のCargo実行
-/// 座標として解釈する」の、この crate 側での再現。
-///
-/// **注意（`validate_desired_test` と同型の、上流未報告の欠陥）**:
-/// 本冊:688「coreは `project`、`suite.kind`、`suite.name`、`selector` の
-/// 文字列を解釈しない」の「core」に `vtest-exec` が含まれるなら、この
-/// 関数（`suite.kind` の文字列 `"lib"`/`"bin"`/`"integration"` を読んで
-/// 分岐する）はその禁止の対象になる。本冊 §9.2 はこの解釈を
-/// `rust-cargo` `TestRunnerAdapter`（＝ `rust-cargo` adapter 自身）の
-/// 責務と書いているが、`vtest-exec` は workspace 構成上 adapter crate
-/// （`vtest-adapter-rust`）とは別 crate であり、この reshape 以前から
-/// 一貫してCargoコマンドを直接組み立ててきた（`cargo_command` 等、この
-/// 関数の前身）。`TestRunnerAdapter` の実装場所をこの crate から
-/// `vtest-adapter-rust` へ移すことはこの PR の範囲外（詳細設計に新しい
-/// trait／DTOが無く、`validate_desired_test` の除去理由と同じ形の
-/// 論点）。この関数は既存の振る舞い（旧 `TestTarget` enum による分岐）を
-/// 型が変わった後も等価に保つだけで、新しい解釈を追加しない。
-///
-/// `suite` が `None`（`kind` が `"lib"`/`"bin"`/`"integration"` のいずれ
-/// でもない、または `suite` 自体が無い）場合と、`kind` が `"bin"`/
-/// `"integration"` なのに `name` が無い場合は、どちらも旧
-/// `TestTarget::Unknown` と同じ「フラグを付けない」扱いにする（unscoped
-/// `cargo test` — 上のTODO参照）。
-fn suite_args(test: &TestEntity) -> Vec<String> {
-    let Some(suite) = test.execution.suite.as_ref() else {
-        return Vec::new();
-    };
-    match suite.kind.as_str() {
-        "lib" => vec!["--lib".to_owned()],
-        "bin" => suite
-            .name
-            .as_deref()
-            .map(|name| vec!["--bin".to_owned(), name.to_owned()])
-            .unwrap_or_default(),
-        "integration" => suite
-            .name
-            .as_deref()
-            .map(|name| vec!["--test".to_owned(), name.to_owned()])
-            .unwrap_or_default(),
-        _ => Vec::new(),
-    }
-}
-
-fn cargo_command(root: &Path, test: &TestEntity) -> Command {
-    let mut command = Command::new("cargo");
-    command
-        .current_dir(root)
-        .arg("test")
-        .arg("-p")
-        .arg(test.execution.project.as_deref().unwrap_or_default());
-    command.args(suite_args(test));
-    command.args(["--", "--exact", &test.execution.selector]);
-    command
-}
-
-fn cargo_llvm_cov_command(root: &Path, test: &TestEntity, output_path: &Path) -> Command {
-    let mut command = Command::new("cargo");
-    command
-        .current_dir(root)
-        .args(["llvm-cov", "test", "-p"])
-        .arg(test.execution.project.as_deref().unwrap_or_default());
-    command.args(suite_args(test));
-    command
-        .arg("--json")
-        .arg("--output-path")
-        .arg(output_path)
-        .args(["--", "--exact", &test.execution.selector]);
-    command
-}
-
-fn command_string(test: &TestEntity) -> String {
-    format!(
-        "cargo test -p {} {} -- --exact {}",
-        test.execution.project.as_deref().unwrap_or_default(),
-        suite_args(test).join(" "),
-        test.execution.selector
-    )
-}
-
-fn llvm_cov_command_string(root: &Path, test: &TestEntity, output_path: &Path) -> String {
-    let output_path = output_path
-        .strip_prefix(root)
-        .unwrap_or(output_path)
-        .to_string_lossy()
-        .replace('\\', "/");
-    format!(
-        "cargo llvm-cov test -p {} {} --json --output-path {} -- --exact {}",
-        test.execution.project.as_deref().unwrap_or_default(),
-        suite_args(test).join(" "),
-        output_path,
-        test.execution.selector
-    )
-}
-
 fn git_revision(root: &Path) -> Revision {
     let commit = Command::new("git")
         .current_dir(root)
@@ -376,14 +270,6 @@ fn git_revision(root: &Path) -> Revision {
         .filter(|output| output.status.success())
         .is_some_and(|output| !output.stdout.is_empty());
     Revision { commit, dirty }
-}
-
-fn cargo_llvm_cov_available(root: &Path) -> bool {
-    Command::new("cargo")
-        .current_dir(root)
-        .args(["llvm-cov", "--version"])
-        .output()
-        .is_ok_and(|output| output.status.success())
 }
 
 fn target_coverage_from_coverage(coverage_path: &Path, target: Option<&Locator>) -> TargetCoverage {
@@ -602,6 +488,16 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
     )
 }
 
+/// `rust-cargo`固有（`cargo llvm-cov --version`を直接起動する）。PR Bで
+/// `CoverageAdapter`へ移す。改名だけでは言語中立にならない。
+fn coverage_tool_available(root: &Path) -> bool {
+    Command::new("cargo")
+        .current_dir(root)
+        .args(["llvm-cov", "--version"])
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
 fn target_coverage_result_name(result: TargetCoverageResult) -> &'static str {
     match result {
         TargetCoverageResult::Pass => "PASS",
@@ -636,7 +532,11 @@ fn yaml_scalar(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vtest_model::AdapterId;
+    use std::collections::BTreeMap;
+    use vtest_adapter_api::{
+        RunnerCommand, RunnerOutput, RunnerTestResult, TestRunnerAdapter, TestRunnerError,
+    };
+    use vtest_model::{AdapterId, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange};
 
     fn rust_locator(path: &str, item_path: &str) -> Locator {
         Locator {
@@ -645,25 +545,100 @@ mod tests {
         }
     }
 
-    /// @vtest.id TEST-EXEC-PARSE-RESULT-PASS-FAIL-IGNORED
-    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
-    /// @vtest.target crates/vtest-exec/src/lib.rs::parse_result
-    /// @vtest.intent rust-cargoランナー出力の`ok`/`FAILED`/`ignored`行を対象selectorに限定してPASS/FAIL/Ignoredへ正しく解釈することを検証する
+    #[derive(Clone, Copy, Debug)]
+    struct FixedResultRunner;
+
+    impl TestRunnerAdapter for FixedResultRunner {
+        fn id(&self) -> &'static str {
+            "fake-runner"
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            _execution: &ExecutionDescriptor,
+            _coverage: bool,
+            _coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            let program = std::env::current_exe()
+                .expect("test executable")
+                .to_string_lossy()
+                .into_owned();
+            Ok(RunnerCommand {
+                command_line: format!("{program} --list"),
+                program,
+                args: vec!["--list".to_owned()],
+                current_dir: root.to_owned(),
+                env: BTreeMap::new(),
+                runner_kind: "fake-runner".to_owned(),
+            })
+        }
+
+        fn parse(
+            &self,
+            _execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            RunnerTestResult::Pass
+        }
+    }
+
+    // 候補 BD-114「`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが
+    // `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。」を
+    // 検討したが、`coverage_tool_available`（本ファイル下方）がexecに
+    // `cargo llvm-cov --version` を直接起動するコードを残しており、この
+    // commit自身がその旨をdoc commentで明記している。BD-114をclaimとする
+    // VOをこのテストで覆うと未解消の違反をPASSにするため、PR B
+    // （`coverage_tool_available`をCoverageAdapterへ移す時点）まで起こさ
+    // ない。無印の#[test]（W-SCAN-101）のまま残す。
     #[test]
-    fn parser_distinguishes_pass_fail_and_ignored() {
-        assert_eq!(
-            parse_result("test calc::x ... ok", "x"),
-            Some(ObservedResult::Pass)
-        );
-        assert_eq!(
-            parse_result("test x ... FAILED", "x"),
-            Some(ObservedResult::Fail)
-        );
-        assert_eq!(
-            parse_result("test x ... ignored", "x"),
-            Some(ObservedResult::Ignored)
-        );
-        assert_eq!(parse_result("test y ... ok", "x"), None);
+    fn evidence_is_built_from_runner_observation() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-runner-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create runner fixture root");
+        let entity = TestEntity {
+            id: vtest_model::TestId::new("TEST-EXEC-FAKE-RUNNER"),
+            covers: Vec::new(),
+            targets: Vec::new(),
+            intent: "fixed runner result".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: SourceLocation {
+                adapter: AdapterId::new("fake-runner"),
+                path: ProjectPath::new("fixture.test"),
+                locator: "fixed".to_owned(),
+                byte_range: SourceRange { start: 0, end: 1 },
+            },
+            content_hash: ContentHash::from_text("fixed runner result"),
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new("fake-runner"),
+                project: None,
+                suite: None,
+                selector: "fixed".to_owned(),
+            },
+        };
+        let result = run_tests_with_runner(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &[RunnableTest {
+                entity,
+                target_hashes: Vec::new(),
+                target_locator: None,
+            }],
+            true,
+            &FixedResultRunner,
+        )
+        .expect("fixed runner should produce evidence");
+
+        assert_eq!(result.evidence.len(), 1);
+        assert_eq!(result.evidence[0].adapter.as_str(), "fake-runner");
+        assert_eq!(result.evidence[0].runner.kind, "fake-runner");
+        assert_eq!(result.evidence[0].result, TestResult::Pass);
+        assert!(!result.evidence[0].target_coverage.checked);
+        assert!(result.diagnostics.is_empty());
+        fs::remove_dir_all(root).expect("remove runner fixture root");
     }
 
     /// @vtest.id TEST-EXEC-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM

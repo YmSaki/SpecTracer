@@ -35,7 +35,10 @@
 //! managed Test Entity 集合）を導く判定・`ManagedTestLink` そのものの
 //! 組み立ては core（`vtest-scan::materialize_tests`）が行う。
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use vtest_model::{
     Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetRef, TestId, VoId,
@@ -200,6 +203,85 @@ pub trait SourceDiscoveryAdapter {
         fallback_package: &str,
         config: &AdapterScanConfig,
     ) -> Result<DiscoveryOutcome, DiscoveryError>;
+}
+
+/// The command and identity selected by a [`TestRunnerAdapter`].  The process
+/// itself is intentionally not owned by the adapter: orchestration launches
+/// this language-neutral description and records the returned runner kind.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunnerCommand {
+    pub program: String,
+    pub args: Vec<String>,
+    pub current_dir: PathBuf,
+    pub env: BTreeMap<String, String>,
+    pub runner_kind: String,
+    pub command_line: String,
+}
+
+/// Raw process output passed back to a [`TestRunnerAdapter`] for parsing.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RunnerOutput<'a> {
+    pub stdout: &'a str,
+    pub stderr: &'a str,
+    pub exit_code: Option<i32>,
+}
+
+/// A runner's per-Test observation.  `Unknown` is deliberately distinct from
+/// a successful or failed execution so that orchestration can reject a
+/// missing or unparseable result without creating Evidence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RunnerTestResult {
+    Pass,
+    Fail,
+    Ignored,
+    Unknown,
+}
+
+/// Deterministic failures while interpreting an opaque execution descriptor.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TestRunnerError {
+    MissingProject,
+    MissingSuite,
+    MissingSuiteName { kind: String },
+    MissingCoverageOutputPath,
+    UnsupportedSuiteKind { kind: String },
+}
+
+impl std::fmt::Display for TestRunnerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingProject => write!(f, "execution project is missing"),
+            Self::MissingSuite => write!(f, "execution suite is missing"),
+            Self::MissingSuiteName { kind } => {
+                write!(f, "execution suite {kind:?} requires a name")
+            }
+            Self::MissingCoverageOutputPath => {
+                write!(f, "coverage execution requires an output path")
+            }
+            Self::UnsupportedSuiteKind { kind } => {
+                write!(f, "unsupported execution suite kind {kind:?}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TestRunnerError {}
+
+/// Language- and runner-specific interpretation of an opaque execution
+/// descriptor.  The core passes the descriptor's strings through unchanged;
+/// the selected adapter owns command construction and result parsing.
+pub trait TestRunnerAdapter {
+    fn id(&self) -> &'static str;
+
+    fn command(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        coverage: bool,
+        coverage_output_path: Option<&Path>,
+    ) -> Result<RunnerCommand, TestRunnerError>;
+
+    fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult;
 }
 
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig

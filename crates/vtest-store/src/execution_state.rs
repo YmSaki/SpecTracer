@@ -65,9 +65,9 @@ pub struct ExecutionStateInputs<'a> {
     pub head_commit: Option<&'a str>,
     pub runner_kind: &'a str,
     /// DES-097 "canonical invocation projection" — the already-normalized
-    /// command line string (`vtest-exec`'s own `command_string`/
-    /// `llvm_cov_command_string`, or `vtest-verify`'s equivalent
-    /// reconstruction from `Test.execution`).
+    /// command line string (the `command_line` a `TestRunnerAdapter::command`
+    /// implementation returns in its `RunnerCommand`, or `vtest-verify`'s
+    /// equivalent reconstruction from `Test.execution`).
     pub invocation: &'a str,
 }
 
