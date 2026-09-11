@@ -1948,9 +1948,16 @@ mod tests {
         assert_eq!(parse("test another ... ok"), RunnerTestResult::Unknown);
     }
 
-    // 該当する正本規範なし（レビュー往復で確認、報告参照）。@vtest annotation
-    // を付けると @vtest.covers 欠落がE-SCAN-007（error）になるため、無印の
-    // #[test]（W-SCAN-101）のまま残す。
+    // 候補 DS-042「欠落・矛盾時は入力を拒否する。」／DS-043「欠落・矛盾時は
+    // 推測で実行可能として扱わない。」（基本仕様§2.4、主語はwire互換
+    // reader）／DES-434「`rust-cargo` adapterは`TestEntity.execution`の
+    // `suite.kind`を`lib` / `bin` / `integration`として解釈する。」（詳細
+    // 設計§9.2、列挙の閉性は導けるが列挙外を拒否するとは明記していない）
+    // を検討したが、DS-042/043がこのrunner command生成（§9.2）まで及ぶか、
+    // DES-434の列挙からfail-closedな拒否を導けるかが正本上未確定のため、
+    // このテストにVOを起こさない。上流照会中。@vtest annotationを付けると
+    // @vtest.covers欠落がE-SCAN-007（error）になるため、無印の#[test]
+    // （W-SCAN-101）のまま残す。
     #[test]
     fn runner_rejects_unknown_suite_kind() {
         let error = RustCargoTestRunner::new()
@@ -1969,7 +1976,13 @@ mod tests {
         );
     }
 
-    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    // 候補 DS-042「欠落・矛盾時は入力を拒否する。」／DS-043「欠落・矛盾時は
+    // 推測で実行可能として扱わない。」（基本仕様§2.4、主語はwire互換
+    // reader）／DES-433「`rust-cargo` adapterは`TestEntity.execution`の
+    // `project`をcargo package名として解釈する。」（詳細設計§9.2、
+    // 解釈規約であり欠落時の拒否は明記していない）を検討したが、これらが
+    // §2.4のwire互換readerか§9.2のrunner command生成かのどちらの適用範囲
+    // かが正本上未確定のため、このテストにVOを起こさない。上流照会中。
     #[test]
     fn runner_rejects_missing_project() {
         let execution = ExecutionDescriptor {
@@ -1987,7 +2000,11 @@ mod tests {
         assert_eq!(error, TestRunnerError::MissingProject);
     }
 
-    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    // 候補 DS-042「欠落・矛盾時は入力を拒否する。」／DS-043「欠落・矛盾時は
+    // 推測で実行可能として扱わない。」（基本仕様§2.4、主語はwire互換
+    // reader）を検討したが、これが§2.4のwire互換readerか§9.2のrunner
+    // command生成かのどちらの適用範囲かが正本上未確定のため、このテストに
+    // VOを起こさない。上流照会中。
     #[test]
     fn runner_rejects_missing_suite() {
         let execution = ExecutionDescriptor {
@@ -2002,7 +2019,14 @@ mod tests {
         assert_eq!(error, TestRunnerError::MissingSuite);
     }
 
-    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    // 候補 DS-042「欠落・矛盾時は入力を拒否する。」／DS-043「欠落・矛盾時は
+    // 推測で実行可能として扱わない。」（基本仕様§2.4、主語はwire互換
+    // reader）／DES-435「`rust-cargo` adapterは`TestEntity.execution`の
+    // `suite.name`をbin名またはintegration test target名として解釈し、
+    // `lib`では省略する。」（詳細設計§9.2、bin/integrationでの省略不可は
+    // 導けるが欠落時の拒否は明記していない）を検討したが、これらが§2.4の
+    // wire互換readerか§9.2のrunner command生成かのどちらの適用範囲かが
+    // 正本上未確定のため、このテストにVOを起こさない。上流照会中。
     #[test]
     fn runner_rejects_missing_suite_name() {
         for kind in ["bin", "integration"] {
@@ -2018,7 +2042,11 @@ mod tests {
         }
     }
 
-    // 該当する正本規範なし（報告参照）。無印の #[test]（W-SCAN-101）のまま。
+    // 候補 DS-042「欠落・矛盾時は入力を拒否する。」／DS-043「欠落・矛盾時は
+    // 推測で実行可能として扱わない。」（基本仕様§2.4、主語はwire互換
+    // reader）を検討したが、これが§2.4のwire互換readerか§9.2のrunner
+    // command生成かのどちらの適用範囲かが正本上未確定のため、このテストに
+    // VOを起こさない。上流照会中。
     #[test]
     fn runner_rejects_missing_coverage_output_path() {
         let error = RustCargoTestRunner::new()

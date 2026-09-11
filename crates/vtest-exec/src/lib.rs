@@ -583,10 +583,14 @@ mod tests {
         }
     }
 
-    /// @vtest.id TEST-EXEC-EVIDENCE-BUILT-FROM-RUNNER
-    /// @vtest.covers VO-EXEC-DOES-NOT-OWN-CARGO-COMMAND
-    /// @vtest.target crates/vtest-exec/src/lib.rs::tests::evidence_is_built_from_runner_observation
-    /// @vtest.intent adapterが返した固定結果からexecがEvidenceとrunner情報を組み立てることを検証する
+    // 候補 BD-114「`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが
+    // `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。」を
+    // 検討したが、`coverage_tool_available`（本ファイル下方）がexecに
+    // `cargo llvm-cov --version` を直接起動するコードを残しており、この
+    // commit自身がその旨をdoc commentで明記している。BD-114をclaimとする
+    // VOをこのテストで覆うと未解消の違反をPASSにするため、PR B
+    // （`coverage_tool_available`をCoverageAdapterへ移す時点）まで起こさ
+    // ない。無印の#[test]（W-SCAN-101）のまま残す。
     #[test]
     fn evidence_is_built_from_runner_observation() {
         let root = std::env::temp_dir().join(format!("vtest-exec-runner-{}", new_record_id()));
