@@ -8,8 +8,10 @@ use std::{
 
 use serde::Serialize;
 use thiserror::Error;
-use vtest_adapter_api::{RunnerOutput, RunnerTestResult, TestRunnerAdapter};
-use vtest_adapter_rust::RustCargoTestRunner;
+use vtest_adapter_api::{
+    CoverageAdapter, CoverageTargetMeasurement, RunnerOutput, RunnerTestResult, TestRunnerAdapter,
+};
+use vtest_adapter_rust::{RustCargoCoverageAdapter, RustCargoTestRunner};
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
     TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
@@ -55,7 +57,14 @@ pub fn run_tests(
     tests: &[RunnableTest],
     fast: bool,
 ) -> Result<ExecutionResult, ExecutionError> {
-    run_tests_with_runner(root, layout, tests, fast, &RustCargoTestRunner::new())
+    run_tests_with_runner(
+        root,
+        layout,
+        tests,
+        fast,
+        &RustCargoTestRunner::new(),
+        &RustCargoCoverageAdapter::new(),
+    )
 }
 
 pub fn run_tests_with_runner(
@@ -64,6 +73,7 @@ pub fn run_tests_with_runner(
     tests: &[RunnableTest],
     fast: bool,
     runner: &dyn TestRunnerAdapter,
+    coverage: &dyn CoverageAdapter,
 ) -> Result<ExecutionResult, ExecutionError> {
     let log_dir = layout.cache_dir().join("logs");
     fs::create_dir_all(&log_dir).map_err(|source| ExecutionError::Io {
@@ -75,9 +85,17 @@ pub fn run_tests_with_runner(
         source,
     })?;
     let revision = git_revision(root);
-    let llvm_cov_available = !fast && coverage_tool_available(root);
+    // `coverage.availability` is only asked when `!fast`, matching the
+    // pre-split short-circuit: in fast mode target_coverage is always
+    // `checked: false` and the tool is never even probed.
+    let coverage_availability = if fast {
+        None
+    } else {
+        Some(coverage.availability(root))
+    };
+    let coverage_is_available = matches!(coverage_availability, Some(Ok(())));
     let cov_dir = layout.cache_dir().join("cov");
-    if llvm_cov_available {
+    if coverage_is_available {
         fs::create_dir_all(&cov_dir).map_err(|source| ExecutionError::Io {
             path: cov_dir.clone(),
             source,
@@ -87,7 +105,8 @@ pub fn run_tests_with_runner(
     let mut diagnostics = Vec::new();
     for test in tests {
         let record_id = new_record_id();
-        let coverage_path = llvm_cov_available.then(|| cov_dir.join(format!("{record_id}.json")));
+        let coverage_path =
+            coverage_is_available.then(|| cov_dir.join(format!("{record_id}.json")));
         let command_spec = runner.command(
             root,
             &test.entity.execution,
@@ -140,19 +159,26 @@ pub fn run_tests_with_runner(
                     continue;
                 }
                 let target_coverage = if fast {
-                    TargetCoverage {
-                        checked: false,
-                        method: None,
-                        result: None,
-                        targets: Vec::new(),
-                        count: None,
-                    }
+                    not_checked_target_coverage()
                 } else if let Some(coverage_path) = &coverage_path {
-                    target_coverage_from_coverage(coverage_path, test.target_locator.as_ref())
+                    let measurement = test.target_locator.as_ref().and_then(|target| {
+                        coverage
+                            .measure(coverage_path, std::slice::from_ref(target))
+                            .into_iter()
+                            .next()
+                    });
+                    target_coverage_from_measurement(coverage.method(), measurement)
                 } else {
-                    let (target_coverage, diagnostic) = unavailable_target_coverage();
-                    diagnostics.push(diagnostic.with_location(test.entity.location.clone()));
-                    target_coverage
+                    let reason = coverage_availability
+                        .as_ref()
+                        .and_then(|result| result.as_ref().err())
+                        .cloned()
+                        .unwrap_or_else(|| "coverage capability unavailable".to_owned());
+                    diagnostics.push(
+                        Diagnostic::warning("W-EXEC-101", reason)
+                            .with_location(test.entity.location.clone()),
+                    );
+                    not_checked_target_coverage()
                 };
                 // DES-213「Evidence writerは`adapter`を必須で記録し、保存前に
                 // Testの`ExecutionDescriptor.adapter`およびrunner kindとの
@@ -272,115 +298,6 @@ fn git_revision(root: &Path) -> Revision {
     Revision { commit, dirty }
 }
 
-fn target_coverage_from_coverage(coverage_path: &Path, target: Option<&Locator>) -> TargetCoverage {
-    let Some(target) = target else {
-        return unknown_target_coverage(None);
-    };
-    let output = match fs::read_to_string(coverage_path) {
-        Ok(output) => output,
-        Err(_) => return unknown_target_coverage(Some(target)),
-    };
-    let Some(count) = llvm_cov_function_count(&output, target) else {
-        return unknown_target_coverage(Some(target));
-    };
-    measured_target_coverage(Some(target), count)
-}
-
-/// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
-/// （`<path>.rs::<item_path>`）。この crate は adapter の内部構文を正式には
-/// 所有しないが（crate 冒頭コメント「`vtest-scan`、`vtest-audit`、
-/// `vtest-exec` はadapterを選択・委譲するorchestrationであり、rustc-demangle
-/// を直接所有しない」）、llvm-cov 出力との突き合わせに `path`/`item_path`
-/// の分解がすでに必要だった既存コードであり、PR3 の範囲（`TargetRef::
-/// Locator`のadapter-neutral化）はこの crate のRust結合自体の解消を含まな
-/// い。分解は最初の `::` で区切るだけで、`RustLocator::parse`の妥当性検査
-/// （`.rs`拡張子など）は行わない — この値は常にこの adapter 自身の
-/// scanner が構築したものであり、構文は保証されている。
-fn locator_parts(locator: &Locator) -> (&str, &str) {
-    locator
-        .value
-        .split_once("::")
-        .unwrap_or((locator.value.as_str(), ""))
-}
-
-fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
-    let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
-    let data = value.get("data")?.as_array()?;
-    let mut total = 0_u64;
-    let mut matched = false;
-    let (target_path, target_item_path) = locator_parts(target);
-    for item in data {
-        let Some(functions) = item.get("functions").and_then(serde_json::Value::as_array) else {
-            continue;
-        };
-        for function in functions {
-            let Some(name) = function.get("name").and_then(serde_json::Value::as_str) else {
-                continue;
-            };
-            if !llvm_name_matches(name, target_item_path)
-                || !llvm_filenames_match(function, target_path)
-            {
-                continue;
-            }
-            let function_count = function
-                .get("count")
-                .and_then(serde_json::Value::as_u64)
-                .or_else(|| {
-                    function
-                        .get("regions")
-                        .and_then(serde_json::Value::as_array)
-                        .map(|regions| {
-                            regions
-                                .iter()
-                                .filter_map(|region| region.as_array()?.get(4))
-                                .filter_map(serde_json::Value::as_u64)
-                                .max()
-                                .unwrap_or(0)
-                        })
-                })?;
-            matched = true;
-            total = total.saturating_add(function_count);
-        }
-    }
-    matched.then_some(total)
-}
-
-fn llvm_name_matches(name: &str, item_path: &str) -> bool {
-    let demangled = format!("{:#}", rustc_demangle::demangle(name));
-    if demangled == item_path || demangled.ends_with(&format!("::{item_path}")) {
-        return true;
-    }
-
-    let generic_path = format!("{item_path}::<");
-    demangled
-        .strip_prefix(&generic_path)
-        .or_else(|| {
-            demangled
-                .rsplit_once(&format!("::{generic_path}"))
-                .map(|(_, arguments)| arguments)
-        })
-        .is_some_and(|arguments| !arguments.is_empty() && arguments.ends_with('>'))
-}
-
-fn llvm_filenames_match(function: &serde_json::Value, target_path: &str) -> bool {
-    function
-        .get("filenames")
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|filenames| {
-            filenames.iter().any(|filename| {
-                filename
-                    .as_str()
-                    .is_some_and(|filename| path_suffix_matches(filename, target_path))
-            })
-        })
-}
-
-fn path_suffix_matches(candidate: &str, expected: &str) -> bool {
-    candidate
-        .replace('\\', "/")
-        .ends_with(&expected.replace('\\', "/"))
-}
-
 fn not_checked_target_coverage() -> TargetCoverage {
     TargetCoverage {
         checked: false,
@@ -391,54 +308,36 @@ fn not_checked_target_coverage() -> TargetCoverage {
     }
 }
 
-fn measured_target_coverage(target: Option<&Locator>, count: u64) -> TargetCoverage {
-    let result = if count > 0 {
-        TargetCoverageResult::Pass
-    } else {
-        TargetCoverageResult::Fail
+/// Maps a [`vtest_adapter_api::CoverageTargetMeasurement`] (already judged
+/// PASS/FAIL/UNKNOWN by the `CoverageAdapter`, DS-832) onto the Evidence
+/// wire's `target_coverage` shape (DES-187/DES-188). `None` means the Test
+/// declared no target locator at all — `checked: true` with an `UNKNOWN`
+/// result and no `targets` entries, the same shape the pre-split code used
+/// for "no target to measure" (distinct from `not_checked_target_coverage`,
+/// which is `checked: false` for "could not measure at all").
+fn target_coverage_from_measurement(
+    method: &str,
+    measurement: Option<CoverageTargetMeasurement>,
+) -> TargetCoverage {
+    let Some(measurement) = measurement else {
+        return TargetCoverage {
+            checked: true,
+            method: Some(method.to_owned()),
+            result: Some(TargetCoverageResult::Unknown),
+            targets: Vec::new(),
+            count: None,
+        };
     };
     TargetCoverage {
         checked: true,
-        method: Some("llvm-cov".to_owned()),
-        result: Some(result),
-        targets: target
-            .map(|target| {
-                vec![TargetCoverageTarget {
-                    target: canonical_locator(target),
-                    result,
-                    count: Some(count),
-                }]
-            })
-            .unwrap_or_default(),
-        count: Some(count),
-    }
-}
-
-fn unavailable_target_coverage() -> (TargetCoverage, Diagnostic) {
-    (
-        not_checked_target_coverage(),
-        Diagnostic::warning(
-            "W-EXEC-101",
-            "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED",
-        ),
-    )
-}
-
-fn unknown_target_coverage(target: Option<&Locator>) -> TargetCoverage {
-    TargetCoverage {
-        checked: true,
-        method: Some("llvm-cov".to_owned()),
-        result: Some(TargetCoverageResult::Unknown),
-        targets: target
-            .map(|target| {
-                vec![TargetCoverageTarget {
-                    target: canonical_locator(target),
-                    result: TargetCoverageResult::Unknown,
-                    count: None,
-                }]
-            })
-            .unwrap_or_default(),
-        count: None,
+        method: Some(method.to_owned()),
+        result: Some(measurement.result),
+        targets: vec![TargetCoverageTarget {
+            target: canonical_locator(&measurement.target),
+            result: measurement.result,
+            count: measurement.count,
+        }],
+        count: measurement.count,
     }
 }
 
@@ -486,16 +385,6 @@ fn evidence_yaml(record: &EvidenceRecord) -> String {
         count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
         log_ref = yaml_scalar(&record.log_ref),
     )
-}
-
-/// `rust-cargo`固有（`cargo llvm-cov --version`を直接起動する）。PR Bで
-/// `CoverageAdapter`へ移す。改名だけでは言語中立にならない。
-fn coverage_tool_available(root: &Path) -> bool {
-    Command::new("cargo")
-        .current_dir(root)
-        .args(["llvm-cov", "--version"])
-        .output()
-        .is_ok_and(|output| output.status.success())
 }
 
 fn target_coverage_result_name(result: TargetCoverageResult) -> &'static str {
@@ -583,14 +472,52 @@ mod tests {
         }
     }
 
-    // 候補 BD-114「`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが
-    // `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。」を
-    // 検討したが、`coverage_tool_available`（本ファイル下方）がexecに
-    // `cargo llvm-cov --version` を直接起動するコードを残しており、この
-    // commit自身がその旨をdoc commentで明記している。BD-114をclaimとする
-    // VOをこのテストで覆うと未解消の違反をPASSにするため、PR B
-    // （`coverage_tool_available`をCoverageAdapterへ移す時点）まで起こさ
-    // ない。無印の#[test]（W-SCAN-101）のまま残す。
+    #[derive(Clone, Debug)]
+    struct FakeCoverageAdapter {
+        method: &'static str,
+        availability: Result<(), String>,
+        result: TargetCoverageResult,
+        count: Option<u64>,
+    }
+
+    impl CoverageAdapter for FakeCoverageAdapter {
+        fn id(&self) -> &'static str {
+            "fake-coverage"
+        }
+
+        fn method(&self) -> &'static str {
+            self.method
+        }
+
+        fn availability(&self, _root: &Path) -> Result<(), String> {
+            self.availability.clone()
+        }
+
+        fn measure(
+            &self,
+            _coverage_output_path: &Path,
+            targets: &[Locator],
+        ) -> Vec<CoverageTargetMeasurement> {
+            targets
+                .iter()
+                .map(|target| CoverageTargetMeasurement {
+                    target: target.clone(),
+                    result: self.result,
+                    count: self.count,
+                })
+                .collect()
+        }
+    }
+
+    fn never_available_coverage(reason: &str) -> FakeCoverageAdapter {
+        FakeCoverageAdapter {
+            method: "fake-coverage",
+            availability: Err(reason.to_owned()),
+            result: TargetCoverageResult::Unknown,
+            count: None,
+        }
+    }
+
     #[test]
     fn evidence_is_built_from_runner_observation() {
         let root = std::env::temp_dir().join(format!("vtest-exec-runner-{}", new_record_id()));
@@ -629,6 +556,7 @@ mod tests {
             }],
             true,
             &FixedResultRunner,
+            &never_available_coverage("unused in fast mode"),
         )
         .expect("fixed runner should produce evidence");
 
@@ -641,112 +569,182 @@ mod tests {
         fs::remove_dir_all(root).expect("remove runner fixture root");
     }
 
-    /// @vtest.id TEST-EXEC-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM
-    /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTIONS-LOOKUP, VO-EXEC-LLVM-COV-LOCATOR-SUFFIX-MATCH, VO-EXEC-LLVM-COV-GENERIC-COUNTS-SUM
-    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
-    /// @vtest.intent llvm-cov export JSONからlocatorに一致する関数（複数ジェネリックインスタンス含む）のcountを合算し、一致しないtargetはNoneを返すことを検証する
-    #[test]
-    fn llvm_cov_parser_extracts_target_function_count() {
-        let target = rust_locator("src/lib.rs", "add");
-        let output = r#"{
-            "data": [{
-                "functions": [
-                    {
-                        "name": "calc::add::<i32>",
-                        "filenames": ["C:/workspace/calc/src/lib.rs"],
-                        "count": 2
-                    },
-                    {
-                        "name": "calc::add::<u64>",
-                        "filenames": ["C:/workspace/calc/src/lib.rs"],
-                        "regions": [[1, 0, 1, 10, 3]]
-                    },
-                    {
-                        "name": "other::add",
-                        "filenames": ["C:/workspace/calc/src/other.rs"],
-                        "count": 99
-                    }
-                ]
-            }]
-        }"#;
-        assert_eq!(llvm_cov_function_count(output, &target), Some(5));
-
-        let absent = rust_locator("src/lib.rs", "subtract");
-        assert_eq!(llvm_cov_function_count(output, &absent), None);
+    fn runnable_test_with_target(id: &str, target_locator: Option<Locator>) -> RunnableTest {
+        // round 2 レビュー指摘（開示要7、後半）: この fixture の
+        // execution.adapter / location.adapter は、`rust_locator` が組む
+        // target locator の adapter（"rust-cargo"）に合わせる。以前は
+        // "fake-runner" のままで、target_locator が Some のとき DES-213
+        // の不一致検査が毎回 W-EXEC-102 を発行していた（テストは
+        // diagnostics を assert しないので握り潰されていた）。
+        RunnableTest {
+            entity: TestEntity {
+                id: vtest_model::TestId::new(id),
+                covers: Vec::new(),
+                targets: Vec::new(),
+                intent: "coverage capability fixture".to_owned(),
+                input: None,
+                expect: None,
+                kind: None,
+                cases: Vec::new(),
+                related: Vec::new(),
+                location: SourceLocation {
+                    adapter: AdapterId::new("rust-cargo"),
+                    path: ProjectPath::new("fixture.test"),
+                    locator: "fixed".to_owned(),
+                    byte_range: SourceRange { start: 0, end: 1 },
+                },
+                content_hash: ContentHash::from_text(id),
+                execution: ExecutionDescriptor {
+                    adapter: AdapterId::new("rust-cargo"),
+                    project: None,
+                    suite: None,
+                    selector: "fixed".to_owned(),
+                },
+            },
+            target_hashes: Vec::new(),
+            target_locator,
+        }
     }
 
-    /// @vtest.id TEST-EXEC-LLVM-COV-ZERO-COUNT-NOT-CONFUSED-WITH-UNKNOWN
-    /// @vtest.covers VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN
-    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_cov_function_count
-    /// @vtest.intent 対象関数が発見されcountが0のときSome(0)を返し、対象関数自体が見つからない場合のNoneと区別されることを検証する
+    // このテストの claim のうち「CoverageAdapter が返す method 名と
+    // Target 別到達計測が target_coverage（method/result/targets/count）へ
+    // そのまま写ること」自体を正本で検索したが該当する VO が見当たらない。
+    // 候補: DES-352（adapter は DTO を返す責務を負う、という一般則の具体
+    // 化）だが、「exec が adapter の出力をそのまま転記する」という writer
+    // 側の配線自体を claim する条文は見つけられていない — 未確定。
+    //
+    // ただし count>0/count==0 の2ケースをそれぞれ checked:true と共に
+    // 観測する部分は `VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT`
+    // （DS-766/DS-767「計測されたtarget別countが正のときはchecked:true・
+    // result:PASSとし、countが0のときはchecked:true・result:FAILとする」）
+    // の claim をそのまま満たす。round 2 レビュー指摘（欠陥E-2）: この VO
+    // の唯一の観測者が `CoverageTargetMeasurement`（`checked` field を
+    // 持たない型）だけを assert する adapter-rust 側テストに変わっており、
+    // `checked:true` 側の観測者が消えていた。本テストを count==0 の
+    // ケースまで拡張し、covers を付けて観測者を復元する。
+    /// @vtest.id TEST-EXEC-TARGET-COVERAGE-BUILT-FROM-COVERAGE-ADAPTER-MEASUREMENT
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-exec/src/lib.rs::target_coverage_from_measurement
+    /// @vtest.intent CoverageAdapterが返すcount別到達計測が、checked:trueと共にPASS（count>0）/FAIL（count==0）としてtarget_coverageへ写ることを検証する
     #[test]
-    fn llvm_cov_zero_count_is_preserved_as_a_measured_failure() {
-        let target = rust_locator("src/lib.rs", "add");
-        let output = r#"{
-            "data": [{
-                "functions": [{
-                    "name": "calc::add",
-                    "filenames": ["src/lib.rs"],
-                    "count": 0
-                }]
-            }]
-        }"#;
-        assert_eq!(llvm_cov_function_count(output, &target), Some(0));
+    fn target_coverage_is_built_from_a_fake_coverage_adapter_measurement() {
+        for (count, expected_result) in [
+            (3_u64, TargetCoverageResult::Pass),
+            (0_u64, TargetCoverageResult::Fail),
+        ] {
+            let root = std::env::temp_dir()
+                .join(format!("vtest-exec-coverage-{count}-{}", new_record_id()));
+            fs::create_dir_all(&root).expect("create coverage fixture root");
+            let target = rust_locator("src/lib.rs", "add");
+            let test = runnable_test_with_target("TEST-EXEC-FAKE-COVERAGE", Some(target.clone()));
+            let coverage = FakeCoverageAdapter {
+                method: "fake-cov",
+                availability: Ok(()),
+                result: expected_result,
+                count: Some(count),
+            };
+            let result = run_tests_with_runner(
+                &root,
+                &vtest_store::VerifyLayout::new(&root),
+                &[test],
+                false,
+                &FixedResultRunner,
+                &coverage,
+            )
+            .expect("fake coverage adapter should produce evidence");
+
+            assert_eq!(result.evidence.len(), 1);
+            // DES-213 の adapter 整合検査を誘発しない fixture であること
+            // （round 2 開示要7）も、この場で確かめる。
+            assert!(result.diagnostics.is_empty());
+            let target_coverage = &result.evidence[0].target_coverage;
+            assert!(target_coverage.checked);
+            assert_eq!(target_coverage.method.as_deref(), Some("fake-cov"));
+            assert_eq!(target_coverage.result, Some(expected_result));
+            assert_eq!(target_coverage.count, Some(count));
+            assert_eq!(target_coverage.targets.len(), 1);
+            assert_eq!(
+                target_coverage.targets[0].target,
+                canonical_locator(&target)
+            );
+            assert_eq!(target_coverage.targets[0].result, expected_result);
+            assert_eq!(target_coverage.targets[0].count, Some(count));
+            fs::remove_dir_all(root).expect("remove coverage fixture root");
+        }
     }
 
-    /// @vtest.id TEST-EXEC-LLVM-COV-DEMANGLE-RUST-V0-NAME-MATCH
-    /// @vtest.covers VO-EXEC-LLVM-COV-DEMANGLE-MATCH
-    /// @vtest.target crates/vtest-exec/src/lib.rs::llvm_name_matches
-    /// @vtest.intent Rust v0 mangled関数名をdemangleした末尾がlocatorのitem-pathと一致するときだけ真を返すことを検証する
-    #[test]
-    fn llvm_cov_parser_demangles_rust_v0_symbols() {
-        assert!(llvm_name_matches(
-            "_RNvCs119z72hoDxF_12calc_fixture3add",
-            "add"
-        ));
-        assert!(!llvm_name_matches(
-            "_RNvCs119z72hoDxF_12calc_fixture8evaluate",
-            "add"
-        ));
-    }
-
-    /// @vtest.id TEST-EXEC-UNAVAILABLE-COVERAGE-NOT-CHECKED
+    /// @vtest.id TEST-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
     /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
-    /// @vtest.target crates/vtest-exec/src/lib.rs::unavailable_target_coverage
-    /// @vtest.intent カバレッジツールが利用不能なとき、target_coverageがchecked:false・method:null・result:null・targets:[]となり、診断W-EXEC-101が出ることを検証する
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent CoverageAdapter.availabilityがErrを返すとき、target_coverageがchecked:false・method:null・result:null・targets:[]となり、adapterが返した理由文言のままW-EXEC-101診断が出ることを検証する（DS-473）
     #[test]
-    fn unavailable_coverage_is_not_checked_and_never_passes() {
-        let (target_coverage, diagnostic) = unavailable_target_coverage();
+    fn coverage_unavailable_produces_not_checked_target_coverage_and_w_exec_101() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-nocoverage-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create coverage fixture root");
+        let test = runnable_test_with_target("TEST-EXEC-NO-COVERAGE", None);
+        let coverage = never_available_coverage("fake coverage tool is unavailable");
+        let result = run_tests_with_runner(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &[test],
+            false,
+            &FixedResultRunner,
+            &coverage,
+        )
+        .expect("unavailable coverage adapter should still produce evidence");
+
+        assert_eq!(result.evidence.len(), 1);
+        let target_coverage = &result.evidence[0].target_coverage;
         assert!(!target_coverage.checked);
         assert_eq!(target_coverage.method, None);
         assert_eq!(target_coverage.result, None);
         assert!(target_coverage.targets.is_empty());
         assert_eq!(target_coverage.count, None);
-        assert_eq!(diagnostic.code, "W-EXEC-101");
 
-        let serialized = serde_json::to_value(&target_coverage).expect("serialize coverage");
+        let serialized = serde_json::to_value(target_coverage).expect("serialize coverage");
         assert_eq!(serialized["method"], serde_json::Value::Null);
         assert_eq!(serialized["result"], serde_json::Value::Null);
         assert_eq!(serialized["targets"], serde_json::json!([]));
         let round_tripped: TargetCoverage =
             serde_json::from_value(serialized).expect("deserialize coverage");
-        assert_eq!(round_tripped, target_coverage);
+        assert_eq!(&round_tripped, target_coverage);
+
+        let diagnostic = result
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "W-EXEC-101")
+            .expect("W-EXEC-101 diagnostic");
+        assert_eq!(diagnostic.message, "fake coverage tool is unavailable");
+        fs::remove_dir_all(root).expect("remove coverage fixture root");
     }
 
-    /// @vtest.id TEST-EXEC-MEASURED-TARGET-COVERAGE-COUNT-JUDGEMENT
-    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
-    /// @vtest.target crates/vtest-exec/src/lib.rs::measured_target_coverage
-    /// @vtest.intent 計測countが正のときresult:PASS、countが0のときresult:FAILとなることを検証する
+    /// BD-114「`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが
+    /// `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。」の
+    /// うち `vtest-exec` に関する範囲だけを claim とする（`vtest-scan` /
+    /// `vtest-audit` / `syn` / `quote` はこの crate から観測できない）。
+    /// PR Bで `rustc-demangle` 依存と `cargo llvm-cov --version` の直接起動
+    /// を `vtest-adapter-rust::RustCargoCoverageAdapter` へ移したことを、
+    /// このテスト自身の文字列ではなく実ファイル（`Cargo.toml`・自身の
+    /// ソース）を読んで機械的に確認する。`needle` を分割して組み立てるのは、
+    /// `include_str!` がこのテスト関数自身のソースも読み込むため、探して
+    /// いるリテラルをそのまま埋め込むと自己一致してしまうのを避けるため。
+    /// @vtest.id TEST-EXEC-NO-DIRECT-DEMANGLE-DEPENDENCY-OR-CARGO-INVOCATION
+    /// @vtest.covers VO-EXEC-NO-RUSTC-DEMANGLE-OR-CARGO-COMMAND
+    /// @vtest.target crates/vtest-exec/src/lib.rs::tests::exec_does_not_depend_on_rustc_demangle_or_launch_cargo_directly
+    /// @vtest.intent vtest-execのCargo.tomlにrustc-demangle依存が無く、ソースにCargo commandの直接起動が無いことを検証する
     #[test]
-    fn measured_target_coverage_requires_a_positive_count() {
-        let called = measured_target_coverage(None, 1);
-        assert!(called.checked);
-        assert_eq!(called.result, Some(TargetCoverageResult::Pass));
-        assert_eq!(called.count, Some(1));
-
-        let not_called = measured_target_coverage(None, 0);
-        assert!(not_called.checked);
-        assert_eq!(not_called.result, Some(TargetCoverageResult::Fail));
-        assert_eq!(not_called.count, Some(0));
+    fn exec_does_not_depend_on_rustc_demangle_or_launch_cargo_directly() {
+        let manifest = include_str!("../Cargo.toml");
+        assert!(
+            !manifest.contains("rustc-demangle"),
+            "vtest-exec/Cargo.toml must not depend on rustc-demangle (BD-114)"
+        );
+        let source = include_str!("lib.rs");
+        let cargo_invocation = ["Command::new(", "\"cargo\")"].concat();
+        assert!(
+            !source.contains(&cargo_invocation),
+            "vtest-exec must not launch cargo directly (BD-114); command construction \
+             belongs to the TestRunnerAdapter/CoverageAdapter it calls"
+        );
     }
 }
