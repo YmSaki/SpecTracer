@@ -314,6 +314,17 @@ pub struct CoverageTargetMeasurement {
 /// BD-220「`rust-cargo` CoverageAdapterは`cargo-llvm-cov`を使用する」) —
 /// `vtest-exec` records them verbatim and does not hardcode a tool name or
 /// unavailability message itself.
+///
+/// The four method names and their argument/return shapes below are not
+/// specified anywhere in the four canonical spec files (same silence noted
+/// for `SourceDiscoveryAdapter` and `TestRunnerAdapter` above and in
+/// `TestRunnerAdapter`'s own doc comment) — DES-352 fixes only that a
+/// capability adapter returns hash-uncomputed DTOs for core to finalize.
+/// This trait's concrete shape (four methods named `id`/`method`/
+/// `availability`/`measure`, `availability` returning `Result<(), String>`,
+/// `measure` taking a target slice and returning a `Vec` in the same order)
+/// is this PR's derivation from that responsibility split, not a literal
+/// spec requirement.
 pub trait CoverageAdapter {
     fn id(&self) -> &'static str;
 

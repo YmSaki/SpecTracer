@@ -1,0 +1,11 @@
+id: VO-EXEC-COVERAGE-TARGET-NOT-LOCATED-IS-UNKNOWN
+parent: null
+derives_from:
+  - doc: DS-768
+claim: target別判定は、関数が見つからなければUNKNOWNとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T01:59:27+09:00
+updated: 2026-09-12T01:59:27+09:00

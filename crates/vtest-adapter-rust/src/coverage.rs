@@ -45,16 +45,7 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
     }
 
     fn availability(&self, root: &Path) -> Result<(), String> {
-        Command::new("cargo")
-            .current_dir(root)
-            .args(["llvm-cov", "--version"])
-            .output()
-            .ok()
-            .filter(|output| output.status.success())
-            .map(|_| ())
-            .ok_or_else(|| {
-                "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED".to_owned()
-            })
+        probe_availability("cargo", root)
     }
 
     fn measure(
@@ -93,6 +84,23 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
             })
             .collect()
     }
+}
+
+/// `availability`の実体。`cargo_binary`をtest側から差し替え可能にすることで
+/// （production側は常に`"cargo"`を渡し、挙動は変わらない）、レビュー指摘
+/// 「`if let Err`の内側でしかassertせず、cargo-llvm-covが入った環境では
+/// 何も検証しない」を、実環境のtool有無に依存しない決定論的なテストへ直す
+/// ための足場。存在しないbinary名を渡せば`Command::new(...).output()`は
+/// 環境を問わず必ず失敗するため、Err分岐を無条件に踏める。
+fn probe_availability(cargo_binary: &str, root: &Path) -> Result<(), String> {
+    Command::new(cargo_binary)
+        .current_dir(root)
+        .args(["llvm-cov", "--version"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|_| ())
+        .ok_or_else(|| "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED".to_owned())
 }
 
 /// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
@@ -315,19 +323,23 @@ mod tests {
         assert!(!llvm_name_matches("calc::subtract::<i32>", "add"));
     }
 
-    /// `VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT`（DS-766/DS-767「計測された
-    /// target別countが正のときはchecked:true・result:PASSとし、countが0の
-    /// ときはchecked:true・result:FAILとする」）を、旧
-    /// `measured_target_coverage_requires_a_positive_count`（`vtest-exec`、
-    /// PR Bで除去）から引き継いで観測する。対象関数が出力に見当たらない
-    /// 場合（UNKNOWN、DS-832）も同じ `measure` 呼び出しで検証するが、この
-    /// 3件目のケースをclaimとするVOは正本に見当たらない（候補:
-    /// DS-832、未確定 — count 0の`FAIL`とUNKNOWN一見当たらずの判定基準は
-    /// 明文だが、それをclaimとする独立VOは無い）。
+    /// count>0/==0の2ケースは`VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT`
+    /// （DS-766/DS-767「計測されたtarget別countが正のときはchecked:true・
+    /// result:PASSとし、countが0のときはchecked:true・result:FAILとする」）
+    /// を、旧`measured_target_coverage_requires_a_positive_count`
+    /// （`vtest-exec`、PR Bで除去）から引き継いで観測する。対象関数が出力に
+    /// 見当たらない3件目のケース（UNKNOWN）は、round 2レビュー指摘
+    /// （欠陥E-3）で見つかった見落としを修正し、`VO-EXEC-COVERAGE-
+    /// TARGET-NOT-LOCATED-IS-UNKNOWN`（DS-768「target別判定は、関数が
+    /// 見つからなければUNKNOWNとする」）で観測する。DS-768はこのcomment
+    /// が引くDS-766/DS-767の2項目先にあり、かつ本crateへ移設済みの
+    /// `VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN`の`derives_from`
+    /// に既に含まれている条文であり、「それをclaimとする独立VOは無い」と
+    /// 断定していた旧commentは誤りだった。
     /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-TARGET-NOT-LOCATED-IS-UNKNOWN
-    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT, VO-EXEC-COVERAGE-TARGET-NOT-LOCATED-IS-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::RustCargoCoverageAdapter::measure
-    /// @vtest.intent 到達（count>0でPASS）・未到達（count 0でFAIL）・対象関数が出力に見当たらない場合（UNKNOWN、DS-832）の3ケースをmeasureが正しく判定することを検証する
+    /// @vtest.intent 到達（count>0でPASS）・未到達（count 0でFAIL）・対象関数が出力に見当たらない場合（UNKNOWN、DS-768）の3ケースをmeasureが正しく判定することを検証する
     #[test]
     fn measure_distinguishes_reached_unreached_and_not_located() {
         let output = r#"{
@@ -356,31 +368,38 @@ mod tests {
         std::fs::remove_file(path).expect("remove coverage fixture");
     }
 
-    /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-AVAILABILITY-REASON-IS-ADAPTER-OWNED
-    /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
-    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::RustCargoCoverageAdapter::availability
-    /// @vtest.intent cargo-llvm-covが利用できない環境でavailabilityがErrを返し、その理由文言がこのadapter自身の文言であることを検証する
+    // round 2 レビュー指摘（欠陥E-1、2件）:
+    // (1) 旧テストはassertを`if let Err`の内側だけに置いており、
+    //     cargo-llvm-covが導入済みの環境（このリポジトリの作業ツリー自身が
+    //     そう — `.verify/cache/cov/`に実出力が50件超存在する）ではErr分岐
+    //     に一度も入らず、何も検証していなかった。存在しないbinary名を
+    //     `probe_availability`へ渡すことで、実行環境のtool有無に依存せず
+    //     Err分岐を無条件に踏み、`RustCargoCoverageAdapter::availability`が
+    //     最終的に委譲する同じロジック・同じ文言を決定論的に検証する
+    //     （productionコードは常に`"cargo"`を渡すので挙動は不変）。
+    // (2) このテストが観測するのはadapterが返すErr文字列そのものだけで、
+    //     `VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED`のclaim（checked:false・
+    //     method null・result null・targets空・NO_EVIDENCE）が挙げる
+    //     target_coverage側のfieldを1つも観測しない（そちらは
+    //     vtest-exec::tests::coverage_unavailable_produces_not_checked_
+    //     target_coverage_and_w_exec_101が観測する）。この文言自体を
+    //     claimとする正本条文も見当たらない — 候補: DS-760（L29657、
+    //     W-EXEC-101の発行のみを定め文言は定めない）・BD-220、未確定。
+    //     covers を持たない無印の #[test]（W-SCAN-101）のまま残す。
     #[test]
     fn availability_reports_the_adapters_own_unavailable_reason() {
         let missing_root = std::env::temp_dir().join(format!(
             "vtest-adapter-rust-coverage-missing-tool-{}",
             std::process::id()
         ));
-        // A directory with no cargo-llvm-cov subcommand installed reachably
-        // still runs `cargo llvm-cov --version` (cargo itself resolves from
-        // PATH regardless of cwd); on a machine without the llvm-cov
-        // subcommand this reliably fails. This crate's CI/dev environment is
-        // assumed to have cargo on PATH but is not assumed to have
-        // cargo-llvm-cov installed — if it does, this test is skipped rather
-        // than asserting a specific environment's tool availability.
         std::fs::create_dir_all(&missing_root).expect("create fixture root");
-        let adapter = RustCargoCoverageAdapter::new();
-        if let Err(reason) = adapter.availability(&missing_root) {
-            assert_eq!(
-                reason,
-                "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED"
-            );
-        }
+        let reason =
+            probe_availability("vtest-nonexistent-cargo-binary-for-testing", &missing_root)
+                .expect_err("a nonexistent binary must always fail to launch");
+        assert_eq!(
+            reason,
+            "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED"
+        );
         std::fs::remove_dir_all(&missing_root).expect("remove fixture root");
     }
 }

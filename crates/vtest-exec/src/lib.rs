@@ -570,6 +570,12 @@ mod tests {
     }
 
     fn runnable_test_with_target(id: &str, target_locator: Option<Locator>) -> RunnableTest {
+        // round 2 レビュー指摘（開示要7、後半）: この fixture の
+        // execution.adapter / location.adapter は、`rust_locator` が組む
+        // target locator の adapter（"rust-cargo"）に合わせる。以前は
+        // "fake-runner" のままで、target_locator が Some のとき DES-213
+        // の不一致検査が毎回 W-EXEC-102 を発行していた（テストは
+        // diagnostics を assert しないので握り潰されていた）。
         RunnableTest {
             entity: TestEntity {
                 id: vtest_model::TestId::new(id),
@@ -582,14 +588,14 @@ mod tests {
                 cases: Vec::new(),
                 related: Vec::new(),
                 location: SourceLocation {
-                    adapter: AdapterId::new("fake-runner"),
+                    adapter: AdapterId::new("rust-cargo"),
                     path: ProjectPath::new("fixture.test"),
                     locator: "fixed".to_owned(),
                     byte_range: SourceRange { start: 0, end: 1 },
                 },
                 content_hash: ContentHash::from_text(id),
                 execution: ExecutionDescriptor {
-                    adapter: AdapterId::new("fake-runner"),
+                    adapter: AdapterId::new("rust-cargo"),
                     project: None,
                     suite: None,
                     selector: "fixed".to_owned(),
@@ -600,52 +606,71 @@ mod tests {
         }
     }
 
-    // このテストの claim（CoverageAdapter が返す method 名と Target 別到達
-    // 計測が target_coverage（method/result/targets/count）へそのまま写る
-    // こと）を正本で検索したが該当する VO が見当たらない。候補: DES-352
-    // （adapter は DTO を返す責務を負う、という一般則の具体化）だが、
-    // 「exec が adapter の出力をそのまま転記する」という writer 側の配線
-    // 自体を claim する条文は見つけられていない — 未確定。covers を持たな
-    // い無印の #[test]（W-SCAN-101）のまま残す。
+    // このテストの claim のうち「CoverageAdapter が返す method 名と
+    // Target 別到達計測が target_coverage（method/result/targets/count）へ
+    // そのまま写ること」自体を正本で検索したが該当する VO が見当たらない。
+    // 候補: DES-352（adapter は DTO を返す責務を負う、という一般則の具体
+    // 化）だが、「exec が adapter の出力をそのまま転記する」という writer
+    // 側の配線自体を claim する条文は見つけられていない — 未確定。
+    //
+    // ただし count>0/count==0 の2ケースをそれぞれ checked:true と共に
+    // 観測する部分は `VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT`
+    // （DS-766/DS-767「計測されたtarget別countが正のときはchecked:true・
+    // result:PASSとし、countが0のときはchecked:true・result:FAILとする」）
+    // の claim をそのまま満たす。round 2 レビュー指摘（欠陥E-2）: この VO
+    // の唯一の観測者が `CoverageTargetMeasurement`（`checked` field を
+    // 持たない型）だけを assert する adapter-rust 側テストに変わっており、
+    // `checked:true` 側の観測者が消えていた。本テストを count==0 の
+    // ケースまで拡張し、covers を付けて観測者を復元する。
+    /// @vtest.id TEST-EXEC-TARGET-COVERAGE-BUILT-FROM-COVERAGE-ADAPTER-MEASUREMENT
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-exec/src/lib.rs::target_coverage_from_measurement
+    /// @vtest.intent CoverageAdapterが返すcount別到達計測が、checked:trueと共にPASS（count>0）/FAIL（count==0）としてtarget_coverageへ写ることを検証する
     #[test]
     fn target_coverage_is_built_from_a_fake_coverage_adapter_measurement() {
-        let root = std::env::temp_dir().join(format!("vtest-exec-coverage-{}", new_record_id()));
-        fs::create_dir_all(&root).expect("create coverage fixture root");
-        let target = rust_locator("src/lib.rs", "add");
-        let test = runnable_test_with_target("TEST-EXEC-FAKE-COVERAGE", Some(target.clone()));
-        let coverage = FakeCoverageAdapter {
-            method: "fake-cov",
-            availability: Ok(()),
-            result: TargetCoverageResult::Pass,
-            count: Some(3),
-        };
-        let result = run_tests_with_runner(
-            &root,
-            &vtest_store::VerifyLayout::new(&root),
-            &[test],
-            false,
-            &FixedResultRunner,
-            &coverage,
-        )
-        .expect("fake coverage adapter should produce evidence");
+        for (count, expected_result) in [
+            (3_u64, TargetCoverageResult::Pass),
+            (0_u64, TargetCoverageResult::Fail),
+        ] {
+            let root = std::env::temp_dir()
+                .join(format!("vtest-exec-coverage-{count}-{}", new_record_id()));
+            fs::create_dir_all(&root).expect("create coverage fixture root");
+            let target = rust_locator("src/lib.rs", "add");
+            let test = runnable_test_with_target("TEST-EXEC-FAKE-COVERAGE", Some(target.clone()));
+            let coverage = FakeCoverageAdapter {
+                method: "fake-cov",
+                availability: Ok(()),
+                result: expected_result,
+                count: Some(count),
+            };
+            let result = run_tests_with_runner(
+                &root,
+                &vtest_store::VerifyLayout::new(&root),
+                &[test],
+                false,
+                &FixedResultRunner,
+                &coverage,
+            )
+            .expect("fake coverage adapter should produce evidence");
 
-        assert_eq!(result.evidence.len(), 1);
-        let target_coverage = &result.evidence[0].target_coverage;
-        assert!(target_coverage.checked);
-        assert_eq!(target_coverage.method.as_deref(), Some("fake-cov"));
-        assert_eq!(target_coverage.result, Some(TargetCoverageResult::Pass));
-        assert_eq!(target_coverage.count, Some(3));
-        assert_eq!(target_coverage.targets.len(), 1);
-        assert_eq!(
-            target_coverage.targets[0].target,
-            canonical_locator(&target)
-        );
-        assert_eq!(
-            target_coverage.targets[0].result,
-            TargetCoverageResult::Pass
-        );
-        assert_eq!(target_coverage.targets[0].count, Some(3));
-        fs::remove_dir_all(root).expect("remove coverage fixture root");
+            assert_eq!(result.evidence.len(), 1);
+            // DES-213 の adapter 整合検査を誘発しない fixture であること
+            // （round 2 開示要7）も、この場で確かめる。
+            assert!(result.diagnostics.is_empty());
+            let target_coverage = &result.evidence[0].target_coverage;
+            assert!(target_coverage.checked);
+            assert_eq!(target_coverage.method.as_deref(), Some("fake-cov"));
+            assert_eq!(target_coverage.result, Some(expected_result));
+            assert_eq!(target_coverage.count, Some(count));
+            assert_eq!(target_coverage.targets.len(), 1);
+            assert_eq!(
+                target_coverage.targets[0].target,
+                canonical_locator(&target)
+            );
+            assert_eq!(target_coverage.targets[0].result, expected_result);
+            assert_eq!(target_coverage.targets[0].count, Some(count));
+            fs::remove_dir_all(root).expect("remove coverage fixture root");
+        }
     }
 
     /// @vtest.id TEST-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
