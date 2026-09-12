@@ -35,7 +35,10 @@ use vtest_model::{
     SrcId, TargetRef, TestId, TestSuite, VoId,
 };
 
+pub mod coverage;
 pub mod oracle_presence;
+
+pub use coverage::RustCargoCoverageAdapter;
 
 /// この adapter 内部だけが使う Cargo 実行形態の分類（本冊 §9.2 の
 /// `suite.kind`／`suite.name` を組み立てるための中間状態）。

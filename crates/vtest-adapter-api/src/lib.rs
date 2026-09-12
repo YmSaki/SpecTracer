@@ -41,7 +41,8 @@ use std::{
 };
 
 use vtest_model::{
-    Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetRef, TestId, VoId,
+    Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetCoverageResult,
+    TargetRef, TestId, VoId,
 };
 
 /// core が `config.yaml` の1 adapter エントリ（`AdapterConfig`）から解決した、
@@ -282,6 +283,64 @@ pub trait TestRunnerAdapter {
     ) -> Result<RunnerCommand, TestRunnerError>;
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult;
+}
+
+/// Per-target reachability measurement returned by [`CoverageAdapter::
+/// measure`].  `result`/`count` reuse `vtest_model::TargetCoverageResult`
+/// (the Evidence wire's own PASS/FAIL/UNKNOWN domain, DES-187/DES-188)
+/// directly rather than a parallel adapter-owned enum: `vtest-exec` writes
+/// these two fields into `EvidenceRecord.target_coverage` unchanged (本冊
+/// §0「基本仕様に無い義務・検査・状態…を新設しない」— inventing a second
+/// three-value domain only to convert it back at the call site would do
+/// exactly that). `target` is returned (not just re-used from the caller's
+/// input) so `vtest-exec` never has to zip its own target list back onto the
+/// adapter's per-target results by position.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoverageTargetMeasurement {
+    pub target: Locator,
+    pub result: TargetCoverageResult,
+    pub count: Option<u64>,
+}
+
+/// Language- and tool-specific coverage measurement (本冊 §5.2 `CoverageAdapter`,
+/// BD-197/BD-220/BD-222). The core (`vtest-exec`) launches the runner and
+/// hands this adapter the coverage output path it wrote to; the adapter owns
+/// parsing that output and matching it against each declared Target
+/// Reference's opaque `Locator.value` (BD-206「coreはopaque locatorの内部
+/// 構文は解釈しない」, REQ-154).
+///
+/// Method-name and availability-reason strings are the adapter's own wording
+/// (DS-760's `W-EXEC-101` diagnostic and `target_coverage.method`,
+/// BD-220「`rust-cargo` CoverageAdapterは`cargo-llvm-cov`を使用する」) —
+/// `vtest-exec` records them verbatim and does not hardcode a tool name or
+/// unavailability message itself.
+pub trait CoverageAdapter {
+    fn id(&self) -> &'static str;
+
+    /// The coverage method name this adapter's Evidence records in
+    /// `target_coverage.method` (currently always `"llvm-cov"` for
+    /// `rust-cargo`, BD-220).
+    fn method(&self) -> &'static str;
+
+    /// Whether this environment can measure coverage right now (e.g.
+    /// whether the required tool binary is installed and runs). `Err`
+    /// carries the adapter's own diagnostic text for why not; `vtest-exec`
+    /// reports it as `W-EXEC-101` and records `target_coverage` as
+    /// `checked: false` (DS-473/DS-760/DS-1581).
+    fn availability(&self, root: &Path) -> Result<(), String>;
+
+    /// Parses the coverage output written to `coverage_output_path` and
+    /// reports, for each of `targets` (in the same order), whether it was
+    /// reached. `result` is `Unknown` when the target function cannot be
+    /// located in the output (DS-832「関数不見当はUNKNOWNとする」) — this
+    /// covers both an unreadable/unparsable output file and a target the
+    /// output simply does not mention; `vtest-exec` does not need to
+    /// distinguish those cases further.
+    fn measure(
+        &self,
+        coverage_output_path: &Path,
+        targets: &[Locator],
+    ) -> Vec<CoverageTargetMeasurement>;
 }
 
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig

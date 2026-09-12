@@ -540,7 +540,9 @@ version = "0.1.0"
 dependencies = [
  "ignore",
  "proc-macro2",
+ "rustc-demangle",
  "serde",
+ "serde_json",
  "syn 2.0.119",
  "toml",
  "vtest-adapter-api",
@@ -566,7 +568,6 @@ dependencies = [
 name = "vtest-exec"
 version = "0.1.0"
 dependencies = [
- "rustc-demangle",
  "serde",
  "serde_json",
  "thiserror",
