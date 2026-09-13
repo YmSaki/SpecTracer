@@ -61,6 +61,21 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn clear_outer_coverage_environment() {
+    // `CARGO_TARGET_DIR` is included alongside the coverage/rustflags
+    // variables for a distinct, empirically confirmed reason: every fixture
+    // built here declares its own `[workspace]`, so `cargo test`/
+    // `cargo llvm-cov` inside it defaults to a fixture-root-local `target/`
+    // — but only while `CARGO_TARGET_DIR` is unset. `RustCargoTestRunner`
+    // sets no `env` overrides of its own, so an ambient `CARGO_TARGET_DIR`
+    // (a common local perf setup) is inherited unchanged into every
+    // fixture's inner cargo invocation. Several fixtures in this file share
+    // the same package name, integration test target name (`registered`),
+    // and version; under `cargo test`'s default parallel test threads their
+    // inner cargo invocations then race for the same physical target
+    // directory and Cargo's build-unit cache serves one fixture's
+    // already-built test binary to a concurrently running, differently
+    // sourced fixture. Clearing it here restores each fixture's intended
+    // per-root isolation.
     for variable in [
         "RUSTC_WRAPPER",
         "LLVM_PROFILE_FILE",
@@ -69,6 +84,7 @@ fn clear_outer_coverage_environment() {
         "RUSTFLAGS",
         "CARGO_ENCODED_RUSTFLAGS",
         "CARGO_INCREMENTAL",
+        "CARGO_TARGET_DIR",
     ] {
         // These tests invoke the runner in-process; isolate only the test
         // process from the outer cargo llvm-cov environment.
