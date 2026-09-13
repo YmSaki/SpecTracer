@@ -41,8 +41,8 @@ use std::{
 };
 
 use vtest_model::{
-    Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetCoverageResult,
-    TargetRef, TestId, VoId,
+    ContentHash, Diagnostic, ExecutionDescriptor, Locator, SourceLocation, SrcId,
+    TargetCoverageResult, TargetRef, TestEntity, TestId, VoId,
 };
 
 /// core が `config.yaml` の1 adapter エントリ（`AdapterConfig`）から解決した、
@@ -354,17 +354,174 @@ pub trait CoverageAdapter {
     ) -> Vec<CoverageTargetMeasurement>;
 }
 
+/// 本冊 §5.2「adapter capabilityは `SourceDiscoveryAdapter`、
+/// `TestWireCodec`、`StaticAnalysisAdapter`、`StructuredTestAdapter`、
+/// `TestRunnerAdapter`、`CoverageAdapter`に分割する」（BD-197）が列挙する
+/// 6 capability。`TestWireCodec` / `StructuredTestAdapter` は本 PR の
+/// 時点で対応する trait を持たない（trait 自体は PR E / G が追加する）ため
+/// `Adapter` に対応する `as_*` メソッドが無い — しかし `AdapterRegistry::
+/// register` はこの2つも「実装 `false` 固定」で検査対象に含める（レビュー
+/// round 2 項目 A-2）。トレイトが無いことは「宣言しても拒否されない」を
+/// 意味しない: 宣言すれば必ず `DeclaredWithoutImplementation`（実装が
+/// 存在し得ないため）で拒否される。
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum Capability {
+    SourceDiscovery,
+    TestWireCodec,
+    StaticAnalysis,
+    StructuredTest,
+    TestRunner,
+    Coverage,
+}
+
+impl Capability {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SourceDiscovery => "source_discovery",
+            Self::TestWireCodec => "test_wire_codec",
+            Self::StaticAnalysis => "static_analysis",
+            Self::StructuredTest => "structured_test",
+            Self::TestRunner => "test_runner",
+            Self::Coverage => "coverage",
+        }
+    }
+}
+
+impl std::fmt::Display for Capability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// DES-350「各adapterは一意なID、languages、capabilities、config namespace
+/// を宣言する」の自己宣言 DTO。`AdapterRegistry::register` はこの宣言と、
+/// 渡された `Adapter` の `as_*` 実装との対応（双方向）を検査する
+/// （DES-351/DS-1569/DS-1663）。
+#[derive(Clone, Debug)]
+pub struct AdapterDescriptor {
+    pub id: String,
+    pub languages: Vec<String>,
+    pub capabilities: Vec<Capability>,
+    pub config_namespace: String,
+}
+
+/// DES-408「`vtest-audit`は、Test、全Target Reference、各source range、
+/// content hash、および選択adapterの現在configを`StaticAnalysisAdapter`へ
+/// 渡す」の入力 DTO。
+///
+/// 「全Target Reference」は `test.targets` として運ぶ（`TestEntity` 自体が
+/// 保持する）。「各source range」はこの capability の唯一の実装
+/// （`vtest_adapter_rust::oracle_presence`）が実際に読むのが Test 自身の
+/// construct 範囲だけであるため、その construct bytes（`construct_text`）
+/// として運ぶ — 個々の target 自身の source range は、この解析が対象の
+/// *名前*（`Locator` の末尾 segment、`oracle_presence::target_symbol`）
+/// 以外を消費しない既存の開示済み限定（本 PR で変更しない）により、別途
+/// 引き回さない。「選択adapterの現在config」は config namespace の型
+/// （本 PR 範囲外）を新設せず、現在の唯一の消費対象（DS-617
+/// `assertion_macros`）だけをプレーンな `Vec<String>` として渡す。
+pub struct StaticAnalysisInput<'a> {
+    pub test: &'a TestEntity,
+    pub construct_text: &'a str,
+    pub content_hash: &'a ContentHash,
+    pub extra_assertion_macros: &'a [String],
+}
+
+/// DS-606/607/608 が合成する `oracle_presence` の3値判定。
+/// `CoverageAdapter::measure` が `CoverageTargetMeasurement` で
+/// `vtest_model::TargetCoverageResult`（coverage capability専用の意味を
+/// 持つ既存3値）を再利用したのと同じ理由で、ここでは意味の異なる
+/// capability 専用の3値ドメインを `RunnerTestResult` と同様に新設する
+/// （本冊 §0「基本仕様に無い義務・検査・状態を新設しない」は verify が
+/// 消費する `VerificationState`（5値）の話であり、adapter capability の
+/// 戻り値型はその対象ではない）。`basis` は DS-606/607/608 の根拠文字列
+/// （DA-001/003/004/005/006 のうちどれがどう判定したか）。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StaticAnalysisVerdict {
+    Pass(Vec<String>),
+    Fail(Vec<String>),
+    Unknown(Vec<String>),
+}
+
+/// 本冊 §5.2 `StaticAnalysisAdapter`（DES-408、`oracle_presence`の
+/// dispatch先）。
+pub trait StaticAnalysisAdapter {
+    fn id(&self) -> &'static str;
+
+    fn analyze(&self, input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict;
+}
+
+/// DES-350/351「各adapterは一意なID、languages、capabilities、config
+/// namespaceを宣言する」「registryは宣言と実装の不一致および重複IDを拒否
+/// する」の宣言側。1 adapter 実装がこの trait を実装し、`descriptor()` で
+/// 宣言する capability を返し、`as_*` で実際に実装している capability の
+/// trait object を返す。宣言したのに対応する `as_*` が `None`、または
+/// 宣言していないのに `as_*` が `Some` を返す組は `AdapterRegistry::
+/// register` が拒否する（下記）。
+pub trait Adapter {
+    fn descriptor(&self) -> AdapterDescriptor;
+
+    fn as_source_discovery(&self) -> Option<&dyn SourceDiscoveryAdapter> {
+        None
+    }
+
+    fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
+        None
+    }
+
+    fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+        None
+    }
+
+    fn as_coverage(&self) -> Option<&dyn CoverageAdapter> {
+        None
+    }
+}
+
+/// DS-1569/DES-351「registryはadapter IDの重複、宣言capabilityと実装の
+/// 不一致、未登録adapterを拒否する」のうち、登録時に判明する2条件
+/// （id重複・宣言と実装の不一致、双方向）。「未登録」は登録時ではなく
+/// 解決時（`AdapterRegistry::get`等が`None`を返す先）の呼び出し元の責務
+/// であり、この型の構成対象ではない。DS-1663はこれら3条件をまとめて
+/// `E-ADAPTER-001` と定めるが、コードの割り当ては `DiscoveryError` と同じ
+/// 方針でこの crate の関心事とせず、呼び出し元が割り当てる。
+#[derive(Debug, Eq, PartialEq)]
+pub enum AdapterRegistrationError {
+    DuplicateId { id: String },
+    DeclaredWithoutImplementation { id: String, capability: Capability },
+    ImplementedWithoutDeclaration { id: String, capability: Capability },
+}
+
+impl std::fmt::Display for AdapterRegistrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DuplicateId { id } => write!(f, "adapter id {id:?} is already registered"),
+            Self::DeclaredWithoutImplementation { id, capability } => write!(
+                f,
+                "adapter {id:?} declares capability `{capability}` but does not implement it"
+            ),
+            Self::ImplementedWithoutDeclaration { id, capability } => write!(
+                f,
+                "adapter {id:?} implements capability `{capability}` without declaring it"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for AdapterRegistrationError {}
+
+struct RegisteredAdapter {
+    descriptor: AdapterDescriptor,
+    adapter: Box<dyn Adapter>,
+}
+
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig
-/// の検証」・§6.1「coreはregistryで解決」）。PR3 時点では `rust-cargo` の
-/// みを登録する。未知 adapter ID の扱い（`config.yaml` の `adapters[].id` が
-/// registryで解決できない場合のコード）は正本監査で確定済み — DS-352/
-/// DS-1663（`vtest-scan::ScanError::UnknownAdapterId`のdoc comment参照）が
-/// E-CONFIG-001と定める（旧Issue #24はこの条件ではなく別の争点だった）。
-/// この registry 自体は「該当実装が無ければ `None`」を返すだけで、その先の
-/// 診断判断（コードの割り当て）は呼び出し元（`vtest-scan`）が行う。
+/// の検証」・§6.1「coreはregistryで解決」、BD-007「CLI・MCP・検証coreは
+/// adapter registryを介して能力を選択する」）。「該当実装が無ければ
+/// `None`」を返すだけで、その先の診断コード割り当ては呼び出し元が行う
+/// （`DiscoveryError`/`ScanError`と同じ方針）。
 #[derive(Default)]
 pub struct AdapterRegistry {
-    adapters: Vec<Box<dyn SourceDiscoveryAdapter>>,
+    adapters: Vec<RegisteredAdapter>,
 }
 
 impl AdapterRegistry {
@@ -372,66 +529,337 @@ impl AdapterRegistry {
         Self::default()
     }
 
-    pub fn register(&mut self, adapter: Box<dyn SourceDiscoveryAdapter>) {
-        self.adapters.push(adapter);
+    /// DES-351/DS-1569/DS-1663: id重複、または宣言capabilityと実装
+    /// （`as_*`）の不一致（双方向）があれば拒否する。
+    pub fn register(&mut self, adapter: Box<dyn Adapter>) -> Result<(), AdapterRegistrationError> {
+        let descriptor = adapter.descriptor();
+        if self
+            .adapters
+            .iter()
+            .any(|entry| entry.descriptor.id == descriptor.id)
+        {
+            return Err(AdapterRegistrationError::DuplicateId { id: descriptor.id });
+        }
+        // レビュー round 2 項目 A-2: BD-197 が列挙する6 capability すべてを
+        // 検査する。`TestWireCodec` / `StructuredTest` は対応する trait を
+        // まだ持たない（PR E / G が追加する）ため、`implemented` を常に
+        // `false` で固定する — この2つを宣言する adapter は
+        // `DeclaredWithoutImplementation` で拒否され（宣言したが実装が
+        // 無い、という事実がそのまま検査結果になる）、宣言しなければ
+        // どちらの分岐にも触れない。以前はこの2 capability が配列に無く、
+        // 宣言しても一切検査されなかった（fail-open。`VO-ADAPTER-REGISTRY-
+        // REJECTS-CAPABILITY-MISMATCH`のclaim「いずれも拒否する」が偽に
+        // なっていた原因）。
+        let checks: [(Capability, bool); 6] = [
+            (
+                Capability::SourceDiscovery,
+                adapter.as_source_discovery().is_some(),
+            ),
+            (Capability::TestWireCodec, false),
+            (
+                Capability::StaticAnalysis,
+                adapter.as_static_analysis().is_some(),
+            ),
+            (Capability::StructuredTest, false),
+            (Capability::TestRunner, adapter.as_test_runner().is_some()),
+            (Capability::Coverage, adapter.as_coverage().is_some()),
+        ];
+        for (capability, implemented) in checks {
+            let declared = descriptor.capabilities.contains(&capability);
+            if declared && !implemented {
+                return Err(AdapterRegistrationError::DeclaredWithoutImplementation {
+                    id: descriptor.id,
+                    capability,
+                });
+            }
+            if implemented && !declared {
+                return Err(AdapterRegistrationError::ImplementedWithoutDeclaration {
+                    id: descriptor.id,
+                    capability,
+                });
+            }
+        }
+        self.adapters.push(RegisteredAdapter {
+            descriptor,
+            adapter,
+        });
+        Ok(())
     }
 
-    pub fn get(&self, id: &str) -> Option<&dyn SourceDiscoveryAdapter> {
+    pub fn get(&self, id: &str) -> Option<&dyn Adapter> {
         self.adapters
             .iter()
-            .find(|adapter| adapter.id() == id)
-            .map(std::convert::AsRef::as_ref)
+            .find(|entry| entry.descriptor.id == id)
+            .map(|entry| entry.adapter.as_ref())
+    }
+
+    pub fn descriptor(&self, id: &str) -> Option<&AdapterDescriptor> {
+        self.adapters
+            .iter()
+            .find(|entry| entry.descriptor.id == id)
+            .map(|entry| &entry.descriptor)
+    }
+
+    pub fn source_discovery(&self, id: &str) -> Option<&dyn SourceDiscoveryAdapter> {
+        self.get(id).and_then(Adapter::as_source_discovery)
+    }
+
+    pub fn static_analysis(&self, id: &str) -> Option<&dyn StaticAnalysisAdapter> {
+        self.get(id).and_then(Adapter::as_static_analysis)
+    }
+
+    pub fn test_runner(&self, id: &str) -> Option<&dyn TestRunnerAdapter> {
+        self.get(id).and_then(Adapter::as_test_runner)
+    }
+
+    pub fn coverage(&self, id: &str) -> Option<&dyn CoverageAdapter> {
+        self.get(id).and_then(Adapter::as_coverage)
     }
 
     /// Registered adapter IDs, in registration order. Used by core to report
     /// the known-adapter list when it rejects a `config.yaml` adapter ID that
     /// `get` cannot resolve (fail-closed rejection of unregistered IDs). Which
     /// diagnostic code that rejection carries is settled, not this method's
-    /// concern to restate: DS-352/DS-1663 fix it as E-CONFIG-001 (see the
-    /// struct-level doc comment above), and `vtest-scan::ScanError::
-    /// UnknownAdapterId` implements it that way.
+    /// concern to restate: DS-352/DS-1663 fix it as E-CONFIG-001 (see
+    /// `vtest-scan::ScanError::UnknownAdapterId`'s doc comment).
     pub fn ids(&self) -> impl Iterator<Item = &str> {
-        self.adapters.iter().map(|adapter| adapter.id())
+        self.adapters
+            .iter()
+            .map(|entry| entry.descriptor.id.as_str())
     }
 }
 
-/// Non-discovery adapter capabilities a verification-time caller (core)
-/// needs to branch on: DS-614 "Static Analysis capabilityがない場合は
-/// `NO_EVIDENCE`（診断`NOT_CHECKED`）とする" for `oracle_presence`, and the
-/// analogous coverage-measurement capability `target_binding`'s dynamic
-/// branch (DS-831/832) depends on.
-///
-/// **Disclosed minimal substitute, not a registry**: `AdapterRegistry`
-/// above only carries the discovery capability (`SourceDiscoveryAdapter`),
-/// and no live registry instance reaches `vtest-verify` at verify time (it
-/// runs after discovery, in a separate process invocation, with no
-/// adapter objects constructed) — replumbing that is out of this change's
-/// scope. This is a static, id-keyed table instead: a stand-in a future
-/// change can replace with a real registry query without changing this
-/// function's call sites' shape. It still names the language-specific
-/// default (`"rust-cargo"` supports both) once, here, rather than letting
-/// core assume it inline at each call site — the boundary AGENTS.md's
-/// "core owns nothing language-specific" asks for, even without a live
-/// registry object to back it.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct AdapterCapabilities {
-    pub static_analysis: bool,
-    pub coverage: bool,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
 
-/// Looks up `adapter_id`'s capabilities in the static table above. An
-/// unrecognized id reports both capabilities absent (fail-closed: DS-614's
-/// "capabilityがない場合" is the safe default for anything not explicitly
-/// known to have it).
-pub fn capabilities_for(adapter_id: &str) -> AdapterCapabilities {
-    match adapter_id {
-        "rust-cargo" => AdapterCapabilities {
-            static_analysis: true,
-            coverage: true,
-        },
-        _ => AdapterCapabilities {
-            static_analysis: false,
-            coverage: false,
-        },
+    /// 宣言どおりの capability だけを実装する fake（正常系）。
+    #[derive(Default)]
+    struct HonestAdapter;
+
+    impl StaticAnalysisAdapter for HonestAdapter {
+        fn id(&self) -> &'static str {
+            "honest"
+        }
+        fn analyze(&self, _input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict {
+            StaticAnalysisVerdict::Pass(Vec::new())
+        }
+    }
+
+    impl Adapter for HonestAdapter {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "honest".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![Capability::StaticAnalysis],
+                config_namespace: "honest".to_owned(),
+            }
+        }
+        fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
+            Some(self)
+        }
+    }
+
+    /// DES-350/351/DS-1569「宣言capabilityと実装の不一致」片方向 —
+    /// 宣言したのに実装が無い（`as_static_analysis` が `None`）。
+    #[derive(Default)]
+    struct DeclaresWithoutImplementing;
+
+    impl Adapter for DeclaresWithoutImplementing {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "declares-without-implementing".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![Capability::StaticAnalysis],
+                config_namespace: "declares-without-implementing".to_owned(),
+            }
+        }
+        // `as_static_analysis` の既定実装（`None`）をそのまま使う — 宣言と
+        // 食い違う。
+    }
+
+    /// 不一致のもう片方向 — 実装しているのに宣言していない
+    /// （`as_test_runner` が `Some` だが descriptor に `TestRunner` が無い）。
+    #[derive(Default)]
+    struct ImplementsWithoutDeclaring;
+
+    impl TestRunnerAdapter for ImplementsWithoutDeclaring {
+        fn id(&self) -> &'static str {
+            "implements-without-declaring"
+        }
+        fn command(
+            &self,
+            _root: &Path,
+            _execution: &ExecutionDescriptor,
+            _coverage: bool,
+            _coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            unimplemented!("never invoked: registration is rejected before use")
+        }
+        fn parse(
+            &self,
+            _execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            unimplemented!("never invoked: registration is rejected before use")
+        }
+    }
+
+    impl Adapter for ImplementsWithoutDeclaring {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "implements-without-declaring".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: Vec::new(),
+                config_namespace: "implements-without-declaring".to_owned(),
+            }
+        }
+        fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+            Some(self)
+        }
+    }
+
+    // 正本を検索したが、「宣言と実装が一致する adapter を registry が
+    // *受理する*」ことだけを直接述べる条文は見当たらなかった — DES-351/
+    // DS-1569/DS-1663 はいずれも拒否条件（不一致・重複・未登録）だけを
+    // 定める。この受理側は拒否規則の論理的補集合であり嘘ではないが、
+    // 「該当規範なし」と断定するのも早計なため、`@vtest` は付けず
+    // 候補（DES-350: 宣言の存在、BD-007: registry経由の能力選択）を
+    // ここに記す未確定のまま残す。W-SCAN-101 が出る無印の #[test] とする。
+    #[test]
+    fn register_accepts_a_consistent_declaration_and_resolves_the_typed_accessor() {
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(HonestAdapter))
+            .expect("a consistent declaration must register");
+        assert!(registry.static_analysis("honest").is_some());
+        assert!(registry.test_runner("honest").is_none());
+        assert!(registry.coverage("honest").is_none());
+        assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["honest"]);
+    }
+
+    /// DES-351/DS-1569/DS-1663「registryはadapter IDの重複…を拒否する」。
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-DUPLICATE-ID
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-DUPLICATE-ID
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent verifies AdapterRegistry::register rejects a second adapter registered under an id already present
+    #[test]
+    fn register_rejects_a_duplicate_id() {
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(HonestAdapter))
+            .expect("first registration must succeed");
+        let error = registry
+            .register(Box::new(HonestAdapter))
+            .expect_err("a duplicate id must be rejected");
+        assert_eq!(
+            error,
+            AdapterRegistrationError::DuplicateId {
+                id: "honest".to_owned()
+            }
+        );
+    }
+
+    /// DES-351/DS-1569/DS-1663「宣言capabilityと実装の不一致」— 宣言した
+    /// のに実装が無い方向。
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-DECLARED-WITHOUT-IMPL
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent verifies AdapterRegistry::register rejects an adapter that declares a capability it does not implement
+    #[test]
+    fn register_rejects_a_declared_but_unimplemented_capability() {
+        let mut registry = AdapterRegistry::new();
+        let error = registry
+            .register(Box::new(DeclaresWithoutImplementing))
+            .expect_err("declaring StaticAnalysis without implementing it must be rejected");
+        assert_eq!(
+            error,
+            AdapterRegistrationError::DeclaredWithoutImplementation {
+                id: "declares-without-implementing".to_owned(),
+                capability: Capability::StaticAnalysis,
+            }
+        );
+    }
+
+    /// レビュー round 2 項目 A-2/E-1: `TestWireCodec`は対応するtraitを
+    /// まだ持たない（PR Eが追加する）が、`AdapterRegistry::register`は
+    /// これを宣言した adapter を `DeclaredWithoutImplementation` で拒否
+    /// しなければならない — 実装が存在し得ない以上、宣言すれば必ず
+    /// 不一致になる。以前は`checks`配列に`TestWireCodec`/`StructuredTest`
+    /// が無く、宣言しても一切検査されなかった（fail-open）。
+    #[derive(Default)]
+    struct DeclaresTestWireCodecWithoutImplementing;
+
+    impl Adapter for DeclaresTestWireCodecWithoutImplementing {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "declares-test-wire-codec".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![Capability::TestWireCodec],
+                config_namespace: "declares-test-wire-codec".to_owned(),
+            }
+        }
+        // `TestWireCodec` に対応する `as_*` メソッドは `Adapter` に存在
+        // しない（trait 自体が無い）ため、実装しようがない。
+    }
+
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-DECLARED-TEST-WIRE-CODEC-WITHOUT-IMPL
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent verifies AdapterRegistry::register rejects an adapter that declares the TestWireCodec capability, which has no implementing trait yet, as DeclaredWithoutImplementation rather than silently accepting it
+    #[test]
+    fn register_rejects_a_declared_test_wire_codec_capability_with_no_implementing_trait() {
+        let mut registry = AdapterRegistry::new();
+        let error = registry
+            .register(Box::new(DeclaresTestWireCodecWithoutImplementing))
+            .expect_err("declaring TestWireCodec must be rejected: no trait implements it yet");
+        assert_eq!(
+            error,
+            AdapterRegistrationError::DeclaredWithoutImplementation {
+                id: "declares-test-wire-codec".to_owned(),
+                capability: Capability::TestWireCodec,
+            }
+        );
+    }
+
+    /// 不一致のもう片方向 — 実装しているのに宣言していない。
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-IMPLEMENTED-WITHOUT-DECLARATION
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent verifies AdapterRegistry::register rejects an adapter that implements a capability it does not declare
+    #[test]
+    fn register_rejects_an_implemented_but_undeclared_capability() {
+        let mut registry = AdapterRegistry::new();
+        let error = registry
+            .register(Box::new(ImplementsWithoutDeclaring))
+            .expect_err("implementing TestRunner without declaring it must be rejected");
+        assert_eq!(
+            error,
+            AdapterRegistrationError::ImplementedWithoutDeclaration {
+                id: "implements-without-declaring".to_owned(),
+                capability: Capability::TestRunner,
+            }
+        );
+    }
+
+    /// 既存 VO `VO-ADAPTER-REGISTRY-REJECTS-UNREGISTERED`（DS-1569「registry
+    /// は未登録のadapter IDに対する解決要求を拒否する（解決結果を返さない）」、
+    /// 元は `vtest-adapter-rust::tests::unregistered_adapter_id_does_not_
+    /// resolve` が `.get()` だけを観測）を、本 PR が追加した5つの型付き
+    /// accessor 全体へ一般化して観測する。covers 先の VO・claim は移動して
+    /// いない — 同じ VO を追加の観測者として厚くする。
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-UNREGISTERED-ID-RESOLVES-NONE
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-UNREGISTERED
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::get
+    /// @vtest.intent verifies an unregistered adapter id resolves to None through every typed accessor, not a panic or a fabricated adapter
+    #[test]
+    fn unregistered_id_resolves_to_none_everywhere() {
+        let registry = AdapterRegistry::new();
+        assert!(registry.get("nothing-registered").is_none());
+        assert!(registry.source_discovery("nothing-registered").is_none());
+        assert!(registry.static_analysis("nothing-registered").is_none());
+        assert!(registry.test_runner("nothing-registered").is_none());
+        assert!(registry.coverage("nothing-registered").is_none());
     }
 }

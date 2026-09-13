@@ -9,6 +9,7 @@
 
 use std::path::Path;
 
+use vtest_adapter_api::AdapterRegistry;
 use vtest_model::{Diagnostic, ExitCode, VerificationCheck, VerificationState};
 use vtest_scan::{scan_project, ScanResult};
 use vtest_store::{load_config, GateConfig, ProjectConfig};
@@ -93,6 +94,7 @@ pub fn execute(
     test: Option<String>,
     gate: Option<&str>,
     summary: bool,
+    registry: &AdapterRegistry,
 ) -> Result<(ExitCode, VerifyData, Vec<Diagnostic>), VerifyOpError> {
     let entity = entity_scope(doc, vo, test).map_err(|message| VerifyOpError::Usage {
         code: "E-OP-001",
@@ -113,9 +115,9 @@ pub fn execute(
         message,
     })?;
 
-    let scan: ScanResult = scan_project(root).map_err(VerifyOpError::Scan)?;
+    let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
-    let outcome = verify_project(root, &scan, requested.as_deref(), entity);
+    let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
     let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
     let non_pass = outcome
         .all_outcomes()

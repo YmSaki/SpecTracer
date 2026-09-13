@@ -19,6 +19,10 @@ use vtest_cli::ops;
 use vtest_model::ExitCode;
 use vtest_store::init_project;
 
+fn registry() -> vtest_adapter_api::AdapterRegistry {
+    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+}
+
 fn temp_root(name: &str) -> PathBuf {
     // A nanosecond-timestamp suffix alone collides under parallel test
     // execution on Windows' coarser clock resolution -- see
@@ -47,7 +51,7 @@ fn omitted_items_and_entity_report_the_full_axis_in_scope_requested() {
     let root = temp_root("omitted-items");
     init_project(&root, "acceptance-18-3-8-fixture").expect("init .verify/ layout");
     let (exit, data, _diagnostics) =
-        ops::verify::execute(&root, &[], None, None, None, None, false)
+        ops::verify::execute(&root, &[], None, None, None, None, false, &registry())
             .expect("verify must run to completion on an empty (non-scan-error) project");
     assert_eq!(
         exit,
@@ -93,6 +97,7 @@ fn an_entity_scope_populates_requested_entities_and_marks_outside_scope_unverifi
         None,
         None,
         false,
+        &registry(),
     )
     .expect("verify must run to completion even when the named VO does not exist");
     assert_eq!(
