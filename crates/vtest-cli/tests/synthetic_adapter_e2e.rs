@@ -132,7 +132,10 @@ fn build_fixture(root: &std::path::Path) {
          @synthetic.covers VO-SYN-ONE\n\
          @synthetic.target opaque-target-one\n\
          @synthetic.intent a synthetic test construct outside any Rust syntax\n\
-         this construct body is plain text, not a Rust function\n",
+         this construct body is plain text, not a Rust function\n\
+         ---\n\
+         @synthetic.source opaque-target-one\n\
+         this Source Target's body is plain text, not a Rust function either\n",
     )
     .expect("write synthetic fixture file");
 }

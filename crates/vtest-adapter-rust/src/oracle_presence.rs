@@ -135,10 +135,6 @@ pub fn analyze(
     }
 }
 
-/// DS-606/607/608: compose the five DA verdicts into one `oracle_presence`
-/// outcome. Returns `(is_fail, is_unknown, basis)` — `vtest-verify` (core)
-/// maps that into `VerificationState`/`DiagnosticLabel`, since this crate
-/// does not construct core's verification types (core owns that vocabulary).
 /// `vtest_adapter_api::StaticAnalysisAdapter` 実装（DES-408、本冊 §5.2
 /// `StaticAnalysisAdapter`）。core（`vtest-verify`）はこの capability を
 /// registry 経由で解決し、`analyze` を呼ぶだけで Rust 構文を直接解釈しない
@@ -192,6 +188,10 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
     }
 }
 
+/// DS-606/607/608: compose the five DA verdicts into one `oracle_presence`
+/// outcome. Returns `(is_fail, is_unknown, basis)` — `vtest-verify` (core)
+/// maps that into `VerificationState`/`DiagnosticLabel`, since this crate
+/// does not construct core's verification types (core owns that vocabulary).
 pub fn compose(analysis: &OraclePresenceAnalysis) -> (bool, bool, Vec<String>) {
     let rules: [(&str, &DaVerdict); 5] = [
         ("DA-001", &analysis.da_001),

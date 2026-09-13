@@ -358,9 +358,12 @@ pub trait CoverageAdapter {
 /// `TestWireCodec`、`StaticAnalysisAdapter`、`StructuredTestAdapter`、
 /// `TestRunnerAdapter`、`CoverageAdapter`に分割する」（BD-197）が列挙する
 /// 6 capability。`TestWireCodec` / `StructuredTestAdapter` は本 PR の
-/// 時点で対応する trait を持たない — 宣言はできるが対応する `as_*` 検査
-/// (下記 `Adapter::register` の対象)は無い slot のまま残す（trait 自体は
-/// PR E / G が追加する）。
+/// 時点で対応する trait を持たない（trait 自体は PR E / G が追加する）ため
+/// `Adapter` に対応する `as_*` メソッドが無い — しかし `AdapterRegistry::
+/// register` はこの2つも「実装 `false` 固定」で検査対象に含める（レビュー
+/// round 2 項目 A-2）。トレイトが無いことは「宣言しても拒否されない」を
+/// 意味しない: 宣言すれば必ず `DeclaredWithoutImplementation`（実装が
+/// 存在し得ないため）で拒否される。
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Capability {
     SourceDiscovery,
@@ -537,15 +540,27 @@ impl AdapterRegistry {
         {
             return Err(AdapterRegistrationError::DuplicateId { id: descriptor.id });
         }
-        let checks: [(Capability, bool); 4] = [
+        // レビュー round 2 項目 A-2: BD-197 が列挙する6 capability すべてを
+        // 検査する。`TestWireCodec` / `StructuredTest` は対応する trait を
+        // まだ持たない（PR E / G が追加する）ため、`implemented` を常に
+        // `false` で固定する — この2つを宣言する adapter は
+        // `DeclaredWithoutImplementation` で拒否され（宣言したが実装が
+        // 無い、という事実がそのまま検査結果になる）、宣言しなければ
+        // どちらの分岐にも触れない。以前はこの2 capability が配列に無く、
+        // 宣言しても一切検査されなかった（fail-open。`VO-ADAPTER-REGISTRY-
+        // REJECTS-CAPABILITY-MISMATCH`のclaim「いずれも拒否する」が偽に
+        // なっていた原因）。
+        let checks: [(Capability, bool); 6] = [
             (
                 Capability::SourceDiscovery,
                 adapter.as_source_discovery().is_some(),
             ),
+            (Capability::TestWireCodec, false),
             (
                 Capability::StaticAnalysis,
                 adapter.as_static_analysis().is_some(),
             ),
+            (Capability::StructuredTest, false),
             (Capability::TestRunner, adapter.as_test_runner().is_some()),
             (Capability::Coverage, adapter.as_coverage().is_some()),
         ];
@@ -763,6 +778,47 @@ mod tests {
             AdapterRegistrationError::DeclaredWithoutImplementation {
                 id: "declares-without-implementing".to_owned(),
                 capability: Capability::StaticAnalysis,
+            }
+        );
+    }
+
+    /// レビュー round 2 項目 A-2/E-1: `TestWireCodec`は対応するtraitを
+    /// まだ持たない（PR Eが追加する）が、`AdapterRegistry::register`は
+    /// これを宣言した adapter を `DeclaredWithoutImplementation` で拒否
+    /// しなければならない — 実装が存在し得ない以上、宣言すれば必ず
+    /// 不一致になる。以前は`checks`配列に`TestWireCodec`/`StructuredTest`
+    /// が無く、宣言しても一切検査されなかった（fail-open）。
+    #[derive(Default)]
+    struct DeclaresTestWireCodecWithoutImplementing;
+
+    impl Adapter for DeclaresTestWireCodecWithoutImplementing {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "declares-test-wire-codec".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![Capability::TestWireCodec],
+                config_namespace: "declares-test-wire-codec".to_owned(),
+            }
+        }
+        // `TestWireCodec` に対応する `as_*` メソッドは `Adapter` に存在
+        // しない（trait 自体が無い）ため、実装しようがない。
+    }
+
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-DECLARED-TEST-WIRE-CODEC-WITHOUT-IMPL
+    /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent verifies AdapterRegistry::register rejects an adapter that declares the TestWireCodec capability, which has no implementing trait yet, as DeclaredWithoutImplementation rather than silently accepting it
+    #[test]
+    fn register_rejects_a_declared_test_wire_codec_capability_with_no_implementing_trait() {
+        let mut registry = AdapterRegistry::new();
+        let error = registry
+            .register(Box::new(DeclaresTestWireCodecWithoutImplementing))
+            .expect_err("declaring TestWireCodec must be rejected: no trait implements it yet");
+        assert_eq!(
+            error,
+            AdapterRegistrationError::DeclaredWithoutImplementation {
+                id: "declares-test-wire-codec".to_owned(),
+                capability: Capability::TestWireCodec,
             }
         );
     }

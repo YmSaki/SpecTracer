@@ -376,15 +376,31 @@ fn rescan_current_test(
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     // Defensive only: `current` (the caller's already-scanned entity) came
     // from a `scan_project` that already resolved `location.adapter` against
-    // this same registry (fail-closed E-ADAPTER-001 otherwise, per
-    // `ScanError::Adapter`), so this branch should be unreachable in
-    // practice. Kept fail-closed with the matching code rather than a panic
-    // or silent fallback.
-    let Some(adapter) = registry.source_discovery(location.adapter.as_str()) else {
+    // this same registry (fail-closed `ScanError::UnknownAdapterId`/
+    // `ScanError::MissingCapability` otherwise), so this branch should be
+    // unreachable in practice. Kept fail-closed with the matching codes
+    // rather than a panic or silent fallback — split the same way
+    // `scan_project` and `vtest_exec::run_tests` do: "not registered"
+    // (E-ADAPTER-001) and "registered but lacks the capability" (DS-1580,
+    // E-ADAPTER-004) are different facts about the adapter, so a registered
+    // adapter without Source Discovery must not be reported as unregistered
+    // (審査 round 2 項目 A-1、`ScanError::MissingCapability` の doc comment
+    // 参照)。
+    let Some(entry) = registry.get(location.adapter.as_str()) else {
         return Err(Diagnostic::error(
             "E-ADAPTER-001",
             format!(
                 "Test `{test_id}` adapter `{}` is not registered",
+                location.adapter.as_str()
+            ),
+        ));
+    };
+    let Some(adapter) = entry.as_source_discovery() else {
+        return Err(Diagnostic::error(
+            "E-ADAPTER-004",
+            format!(
+                "Test `{test_id}` adapter `{}` is registered but has no Source Discovery \
+                 capability (DS-1580)",
                 location.adapter.as_str()
             ),
         ));

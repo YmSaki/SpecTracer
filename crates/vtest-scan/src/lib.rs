@@ -76,6 +76,23 @@ pub enum ScanError {
     /// variantの構成自体はその要求を満たす）。
     #[error("[E-CONFIG-001] {message}")]
     UnknownAdapterId { message: String },
+    /// `config.yaml`'s `adapters[].id` names an adapter the registry knows
+    /// about (`AdapterRegistry::get` resolves it) but which does not declare
+    /// the Source Discovery capability (`AdapterRegistry::get(id).and_then
+    /// (Adapter::as_source_discovery)` is `None`). This is a distinct fact
+    /// from `UnknownAdapterId` above: the adapter *is* registered, so calling
+    /// it "未登録"/"unknown" would be false. DS-1580「明示操作に必須の
+    /// capabilityがなければE-ADAPTER-004となり、変更・判断記録・Evidenceを
+    /// 生成しない」— discovery is the explicit operation `scan_project`
+    /// performs, so a registered adapter lacking that capability is this
+    /// code, mirroring `vtest_exec::run_tests`'s identical split between
+    /// unregistered (E-ADAPTER-001) and registered-without-capability
+    /// (E-ADAPTER-004) for the Test Runner capability (審査 round 2 項目
+    /// A-1: 以前はこの2条件を`UnknownAdapterId`/E-CONFIG-001に一本化して
+    /// いたが、②は「未登録」ではなく「登録済みだが discovery capability
+    /// 無し」という別の事実であり、正本監査で誤りと確認して分離した)。
+    #[error("[E-ADAPTER-004] {message}")]
+    MissingCapability { message: String },
     #[error("config error: {0}")]
     Config(String),
 }
@@ -93,6 +110,7 @@ impl ScanError {
         match self {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
             Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
+            Self::MissingCapability { .. } => Some("E-ADAPTER-004"),
             Self::Store(_) | Self::Io { .. } | Self::Config(_) => None,
         }
     }
@@ -243,9 +261,9 @@ pub fn scan_project_with_config(
     let mut sorted_adapters = config.adapters.iter().collect::<Vec<_>>();
     sorted_adapters.sort_by(|left, right| left.id.cmp(&right.id));
     for adapter_config in sorted_adapters {
-        let Some(adapter) = registry.source_discovery(adapter_config.id.as_str()) else {
+        let Some(entry) = registry.get(adapter_config.id.as_str()) else {
             // 正本監査（診断コード全数照合、主題H）: 本条件（config.yaml の
-            // `adapters[].id` がregistryで解決できない）はDS-352の
+            // `adapters[].id` がregistryで解決できない＝未登録）はDS-352の
             // statementそのもの（「adapter IDの重複、同一adapter内の
             // root重複、未知adapter、無効なadapter設定はusage error
             // （E-CONFIG-001）とする」）で、そのdescriptionが「未知adapter」
@@ -268,6 +286,24 @@ pub fn scan_project_with_config(
                 message: format!(
                     "config.yaml declares adapter id `{}` which is not registered; \
                      registered adapter id(s): {known_list}",
+                    adapter_config.id
+                ),
+            });
+        };
+        // レビュー round 2 項目 A-1: `registry.source_discovery(id)` の
+        // `None` は「未登録」（上で既に排除済み）と「登録済みだが
+        // Source Discovery capability 無し」の2条件を1本にまとめてはなら
+        // ない — 後者は DS-1580「明示操作に必須のcapabilityがなければ
+        // E-ADAPTER-004となり、変更・判断記録・Evidenceを生成しない」の
+        // 対象であって、「未登録」（E-CONFIG-001/DS-1663）ではない。
+        // adapter は現に registry に存在するので、それを「未登録」と呼ぶの
+        // は事実として誤り。`vtest_exec::run_tests` が Test Runner
+        // capability について行う同型の分離をここでも行う。
+        let Some(adapter) = entry.as_source_discovery() else {
+            return Err(ScanError::MissingCapability {
+                message: format!(
+                    "config.yaml declares adapter id `{}` which is registered but has no \
+                     Source Discovery capability (DS-1580)",
                     adapter_config.id
                 ),
             });
@@ -2289,6 +2325,65 @@ fn adds() { assert_eq!(2, crate::missing()); }
         assert!(
             error.contains("rust-cargo"),
             "error should list the registered id(s): {error}"
+        );
+    }
+
+    /// registry には登録されている（未登録ではない）が、Source Discovery
+    /// capability を一切宣言・実装しない adapter。DS-1580「明示操作に
+    /// 必須のcapability欠落=E-ADAPTER-004」を、DS-1663の「未登録」
+    /// （E-CONFIG-001/`ScanError::UnknownAdapterId`）と区別して観測する
+    /// ための対照 fixture（レビュー round 2 項目 A-1、`vtest_exec::
+    /// run_tests`の`NoRunnerCapabilityAdapter`と同型）。
+    struct NoDiscoveryCapabilityAdapter;
+
+    impl vtest_adapter_api::Adapter for NoDiscoveryCapabilityAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "no-discovery".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: Vec::new(),
+                config_namespace: "no-discovery".to_owned(),
+            }
+        }
+        // Source Discovery すら宣言・実装しない — この adapter は
+        // 「登録済みだが discovery capability が無い」という一点だけを
+        // 表す。
+    }
+
+    /// レビュー round 2 項目 A-1: `registry.source_discovery(id)`が`None`
+    /// を返す2条件（未登録／登録済みだがcapability無し）を1本の
+    /// `ScanError::UnknownAdapterId`（E-CONFIG-001）にまとめていた欠陥の
+    /// 回帰テスト。config.yaml が指す adapter id が registry に実在する
+    /// （＝「未登録」ではない）が Source Discovery capability を持たない
+    /// 場合、`ScanError::MissingCapability`（E-ADAPTER-004、DS-1580）で
+    /// 拒否されることを確認する。
+    #[test]
+    fn registered_adapter_without_discovery_capability_is_rejected_as_missing_capability() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let mut config = load_config(&root).unwrap();
+        assert_eq!(config.adapters.len(), 1, "fixture registers one adapter");
+        config.adapters[0].id = "no-discovery".to_owned();
+        fs::write(layout.config(), config.to_yaml()).unwrap();
+
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(NoDiscoveryCapabilityAdapter))
+            .expect("no-discovery must register cleanly (declares nothing, implements nothing)");
+
+        let error = match scan_project(&root, &registry) {
+            Err(err @ ScanError::MissingCapability { .. }) => {
+                assert_eq!(err.code(), Some("E-ADAPTER-004"));
+                err.to_string()
+            }
+            other => panic!(
+                "expected ScanError::MissingCapability for a registered adapter with no Source \
+                 Discovery capability, got {other:?}"
+            ),
+        };
+        assert!(
+            error.contains("no-discovery"),
+            "error should name the capability-missing adapter id: {error}"
         );
     }
 

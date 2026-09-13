@@ -983,19 +983,52 @@ fn evaluate_target_binding(
         );
     }
 
-    // DS-925/DS-1581/DS-1582: adapter capability gate, added before the
-    // existing resolution/Evidence logic below (which this PR does not
-    // change — brief範囲外「verify の target_binding 判定ロジック」).
-    // registry を介した capability 解決（BD-007）— `Test.execution.adapter`
-    // が runner / coverage capability を宣言していなければ、その先の
-    // Evidence 判定に進む意味が無い（Evidence が観測できないため）。
+    // DS-1678: an unresolvable declared target is `MISMATCH`, and must NOT be
+    // folded to `NO_EVIDENCE` / `NOT_EXECUTED` on the grounds that no Evidence
+    // could be produced. This is evaluated BEFORE both the capability gate
+    // below and the Evidence-absence rule further down, because DS-1678 names
+    // that fallback as the specific error to avoid: no Evidence can exist for
+    // a target that does not resolve (DS-755 forbids generating it), so
+    // telling the reader to "create evidence" would direct them at work that
+    // cannot be done and would hide the break on the declaration side. A
+    // missing adapter capability does not excuse an unresolved target either
+    // — resolution is a scan-side/declaration-side fact, independent of which
+    // capabilities the adapter happens to have.
+    //
+    // Diagnostic labels: `MISSING` accompanies the target-absent case
+    // (E-SCAN-004) per DS-1678. For the ambiguous case (E-SCAN-011) the canon
+    // states no label and DS-1678 explicitly declines to forbid one
+    // (「E-SCAN-011 について診断ラベルを禁じてはいない（正典は沈黙しており、
+    // ここで禁止を新設しない）」), so none is invented here.
+    if resolution.is_unresolved() {
+        let mut labels = Vec::new();
+        if !resolution.missing.is_empty() {
+            labels.push(DiagnosticLabel::Missing);
+        }
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::Mismatch,
+            labels,
+            resolution.basis(),
+        );
+    }
+
+    // DS-925/DS-1581/DS-1582: adapter capability gate, evaluated AFTER the
+    // DS-1678 MISMATCH branch above (which this PR does not change —
+    // brief範囲外「verify の target_binding 判定ロジック」). registry を
+    // 介した capability 解決（BD-007）— `Test.execution.adapter` が
+    // runner / coverage capability を宣言していなければ、そこから先の
+    // Evidence 判定に進む意味が無い。理由は「capability 欠落」
+    // （DS-1582/DS-1581）であって、「Evidence が観測できない/存在し得
+    // ない」ではない — 後者は DS-1678 が MISMATCH を NO_EVIDENCE へ倒す
+    // 理由づけとして明示的に禁じているため、ここでは使わない。
     //
     // 両方欠落したときの優先順は正本沈黙（本 PR の brief）: DS-1582
     // （runner欠落=NOT_EXECUTED）とDS-1581（coverage欠落=NOT_CHECKED）の
-    // どちらを先に判定するかを正本は決めていない。「Evidenceが存在し
-    // 得ない → NOT_EXECUTED」を導出として採る — runner が無ければ
-    // そもそも実行され得ず、coverage 単体の欠落（実行はできるが計測
-    // できない）より強い欠落だと判断した。
+    // どちらを先に判定するかを正本は決めていない。runner 欠落を先に
+    // 判定するのを導出として採る — runner が無ければそもそも実行され
+    // 得ず、coverage 単体の欠落（実行はできるが計測できない）より強い
+    // 欠落だと判断した。
     let adapter_id = test.execution.adapter.as_str();
     if evidence.registry.test_runner(adapter_id).is_none() {
         return CheckOutcome::new(
@@ -1015,33 +1048,6 @@ fn evaluate_target_binding(
             vec![format!(
                 "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
             )],
-        );
-    }
-
-    // DS-1678: an unresolvable declared target is `MISMATCH`, and must NOT be
-    // folded to `NO_EVIDENCE` / `NOT_EXECUTED` on the grounds that no Evidence
-    // could be produced. This is evaluated BEFORE the Evidence-absence rule
-    // below, because DS-1678 names that fallback as the specific error to
-    // avoid: no Evidence can exist for a target that does not resolve
-    // (DS-755 forbids generating it), so telling the reader to "create
-    // evidence" would direct them at work that cannot be done and would hide
-    // the break on the declaration side.
-    //
-    // Diagnostic labels: `MISSING` accompanies the target-absent case
-    // (E-SCAN-004) per DS-1678. For the ambiguous case (E-SCAN-011) the canon
-    // states no label and DS-1678 explicitly declines to forbid one
-    // (「E-SCAN-011 について診断ラベルを禁じてはいない（正典は沈黙しており、
-    // ここで禁止を新設しない）」), so none is invented here.
-    if resolution.is_unresolved() {
-        let mut labels = Vec::new();
-        if !resolution.missing.is_empty() {
-            labels.push(DiagnosticLabel::Missing);
-        }
-        return CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Mismatch,
-            labels,
-            resolution.basis(),
         );
     }
 

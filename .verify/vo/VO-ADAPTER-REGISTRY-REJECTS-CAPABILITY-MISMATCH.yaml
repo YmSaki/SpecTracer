@@ -2,7 +2,6 @@ id: VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
 parent: null
 derives_from:
   - doc: DES-351
-  - doc: DS-1663
 claim: registryは、adapterが宣言したcapabilityを実装しない場合、または実装したcapabilityを宣言しない場合のいずれも、その登録を拒否する
 dimensions: []
 coverage_policy: null

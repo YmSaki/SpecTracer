@@ -2,7 +2,6 @@ id: VO-ADAPTER-REGISTRY-REJECTS-DUPLICATE-ID
 parent: null
 derives_from:
   - doc: DES-351
-  - doc: DS-1663
 claim: registryは既に同じIDで登録済みのadapterがある場合、2件目の登録を拒否する
 dimensions: []
 coverage_policy: null
