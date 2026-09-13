@@ -28,6 +28,10 @@ use vtest_scan::scan_project;
 use vtest_store::{init_project, write_document_file, write_vo_record};
 use vtest_verify::verify_project;
 
+fn registry() -> vtest_adapter_api::AdapterRegistry {
+    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+}
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn temp_root(name: &str) -> PathBuf {
@@ -180,7 +184,7 @@ fn build_fixture_project_with_test_body(root: &Path, test_body: &str) {
 /// returns the resulting `vtest-verify` outcome — the shared drive loop the
 /// PASS/non-PASS fixture tests in this file all use.
 fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
-    let scan = scan_project(root).expect("scan the fixture project");
+    let scan = scan_project(root, &registry()).expect("scan the fixture project");
     assert!(
         !scan.has_errors(),
         "scan reported errors: {:?}",
@@ -208,10 +212,11 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
     };
     let layout = vtest_store::VerifyLayout::new(root);
     clear_outer_coverage_environment();
-    run_tests(root, &layout, &[runnable], false).expect("run_tests executes without I/O errors");
+    run_tests(root, &layout, &[runnable], false, &registry())
+        .expect("run_tests executes without I/O errors");
 
-    let scan_after = scan_project(root).expect("re-scan after execution");
-    verify_project(root, &scan_after, None, None)
+    let scan_after = scan_project(root, &registry()).expect("re-scan after execution");
+    verify_project(root, &scan_after, None, None, &registry())
 }
 
 /// The completion criterion for this Evidence slice: a fixture on which
@@ -225,7 +230,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
     let root = temp_root("full-pass");
     build_fixture_project(&root);
 
-    let scan = scan_project(&root).expect("scan the fixture project");
+    let scan = scan_project(&root, &registry()).expect("scan the fixture project");
     assert!(
         !scan.has_errors(),
         "scan reported errors: {:?}",
@@ -254,7 +259,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
     };
     let layout = vtest_store::VerifyLayout::new(&root);
     clear_outer_coverage_environment();
-    let exec_result = run_tests(&root, &layout, &[runnable], false)
+    let exec_result = run_tests(&root, &layout, &[runnable], false, &registry())
         .expect("run_tests executes without I/O errors");
     assert!(
         !exec_result.has_errors(),
@@ -280,8 +285,8 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
     // which does not change anything `scan_project` reads, but re-scanning
     // documents that `verify_project` reads Evidence from disk independently
     // of the in-memory `scan` used to drive execution above.
-    let scan_after = scan_project(&root).expect("re-scan after execution");
-    let outcome = verify_project(&root, &scan_after, None, None);
+    let scan_after = scan_project(&root, &registry()).expect("re-scan after execution");
+    let outcome = verify_project(&root, &scan_after, None, None, &registry());
 
     assert_eq!(
         outcome.state,
@@ -308,7 +313,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
     let root = temp_root("stale-subject-hash");
     build_fixture_project(&root);
 
-    let scan = scan_project(&root).expect("scan the fixture project");
+    let scan = scan_project(&root, &registry()).expect("scan the fixture project");
     let entity = scan
         .tests
         .iter()
@@ -331,7 +336,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
     };
     let layout = vtest_store::VerifyLayout::new(&root);
     clear_outer_coverage_environment();
-    run_tests(&root, &layout, &[runnable], false).expect("run_tests");
+    run_tests(&root, &layout, &[runnable], false, &registry()).expect("run_tests");
 
     // Change the declaration (the Test subject hash's own bound `intent`
     // field, per `test_subject_hash`) without producing new Evidence —
@@ -347,8 +352,9 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
     )
     .expect("rewrite the declaration");
 
-    let scan_after = scan_project(&root).expect("re-scan after the declaration changed");
-    let outcome = verify_project(&root, &scan_after, None, None);
+    let scan_after =
+        scan_project(&root, &registry()).expect("re-scan after the declaration changed");
+    let outcome = verify_project(&root, &scan_after, None, None, &registry());
 
     assert_ne!(outcome.state, VerificationState::Pass);
     assert!(!outcome.ok);
@@ -392,9 +398,9 @@ fn only_check_state(
 fn only_target_binding_breaks_when_no_evidence_exists() {
     let root = temp_root("only-target-binding-breaks");
     build_fixture_project(&root);
-    let scan = scan_project(&root).expect("scan the fixture project");
+    let scan = scan_project(&root, &registry()).expect("scan the fixture project");
 
-    let outcome = verify_project(&root, &scan, None, None);
+    let outcome = verify_project(&root, &scan, None, None, &registry());
 
     assert_eq!(
         only_check_state(&outcome, vtest_model::VerificationCheck::ChainIntegrity),

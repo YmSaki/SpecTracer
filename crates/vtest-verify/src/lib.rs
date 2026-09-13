@@ -309,14 +309,32 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 /// a fixed `"rust-cargo"` constant here, which a multi-adapter repository
 /// would have compared every Test against regardless of what it actually
 /// declared.
-struct EvidenceContext {
+/// `registry`/`assertion_macros` は本 PR で追加した: BD-007「CLI・MCP・
+/// 検証coreはadapter registryを介して能力を選択する」に従い、
+/// `evaluate_target_binding`（runner/coverage capability の有無）と
+/// `evaluate_oracle_presence`（static_analysis capability の解決と
+/// DES-408のconfig入力）の両方がこの1つの registry を参照する。この
+/// crate（core）は自分で adapter を生成しないため、`registry` は呼び出し元
+/// （cli / mcp の composition root）から借用する — フィールドに借用を持つ
+/// ため `EvidenceContext` は `'a` を持つ。
+struct EvidenceContext<'a> {
     root: std::path::PathBuf,
     latest_by_test: BTreeMap<String, EvidenceRecord>,
     head_commit: Option<String>,
+    registry: &'a vtest_adapter_api::AdapterRegistry,
+    /// adapter id → DS-617 `assertion_macros`（`config.yaml` の
+    /// `adapters[].scan.assertion_macros`）。config namespace の型は
+    /// 新設せず（本 PR 範囲外）、`StaticAnalysisAdapter` の唯一の消費対象を
+    /// プレーンな `Vec<String>` として運ぶ。
+    assertion_macros: BTreeMap<String, Vec<String>>,
 }
 
-impl EvidenceContext {
-    fn load(root: &Path, layout: &VerifyLayout) -> Self {
+impl<'a> EvidenceContext<'a> {
+    fn load(
+        root: &Path,
+        layout: &VerifyLayout,
+        registry: &'a vtest_adapter_api::AdapterRegistry,
+    ) -> Self {
         let mut latest_by_test: BTreeMap<String, EvidenceRecord> = BTreeMap::new();
         if let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) {
             for entry in entries.flatten() {
@@ -339,10 +357,21 @@ impl EvidenceContext {
                 }
             }
         }
+        let assertion_macros = vtest_store::load_config(root)
+            .map(|config| {
+                config
+                    .adapters
+                    .into_iter()
+                    .map(|adapter| (adapter.id, adapter.scan.assertion_macros))
+                    .collect::<BTreeMap<_, _>>()
+            })
+            .unwrap_or_default();
         Self {
             root: root.to_owned(),
             latest_by_test,
             head_commit: git_head_commit(root),
+            registry,
+            assertion_macros,
         }
     }
 }
@@ -363,9 +392,10 @@ pub fn verify_project(
     scan: &ScanResult,
     requested_checks: Option<&[VerificationCheck]>,
     entity_scope: Option<EntityScope>,
+    registry: &vtest_adapter_api::AdapterRegistry,
 ) -> VerifyOutcome {
     let layout = VerifyLayout::new(root);
-    let evidence = EvidenceContext::load(root, &layout);
+    let evidence = EvidenceContext::load(root, &layout, registry);
     let selected: BTreeSet<VerificationCheck> = match requested_checks {
         None => ALL_CHECKS.into_iter().collect(),
         Some(checks) => checks.iter().copied().collect(),
@@ -799,7 +829,7 @@ fn evidence_validity_failure(
     test: &TestEntity,
     record: &EvidenceRecord,
     scan: &ScanResult,
-    evidence: &EvidenceContext,
+    evidence: &EvidenceContext<'_>,
 ) -> Option<CheckOutcome> {
     // DS-1628/DS-817: the Test's own declared `execution.adapter` is the
     // "current" adapter identity to compare against — not a fixed
@@ -940,7 +970,7 @@ fn evaluate_target_binding(
     test: &TestEntity,
     resolution: &TargetResolution,
     scan: &ScanResult,
-    evidence: &EvidenceContext,
+    evidence: &EvidenceContext<'_>,
 ) -> CheckOutcome {
     // DS-1664「targetを持たないTestの`target_binding`は`NO_EVIDENCE`
     // （診断`NOT_CHECKED`）とする」。
@@ -950,6 +980,41 @@ fn evaluate_target_binding(
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::NotChecked],
             vec!["Test declares no target (DS-1664)".to_owned()],
+        );
+    }
+
+    // DS-925/DS-1581/DS-1582: adapter capability gate, added before the
+    // existing resolution/Evidence logic below (which this PR does not
+    // change — brief範囲外「verify の target_binding 判定ロジック」).
+    // registry を介した capability 解決（BD-007）— `Test.execution.adapter`
+    // が runner / coverage capability を宣言していなければ、その先の
+    // Evidence 判定に進む意味が無い（Evidence が観測できないため）。
+    //
+    // 両方欠落したときの優先順は正本沈黙（本 PR の brief）: DS-1582
+    // （runner欠落=NOT_EXECUTED）とDS-1581（coverage欠落=NOT_CHECKED）の
+    // どちらを先に判定するかを正本は決めていない。「Evidenceが存在し
+    // 得ない → NOT_EXECUTED」を導出として採る — runner が無ければ
+    // そもそも実行され得ず、coverage 単体の欠落（実行はできるが計測
+    // できない）より強い欠落だと判断した。
+    let adapter_id = test.execution.adapter.as_str();
+    if evidence.registry.test_runner(adapter_id).is_none() {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotExecuted],
+            vec![format!(
+                "adapter {adapter_id:?} has no Test Runner capability (DS-925/DS-1582)"
+            )],
+        );
+    }
+    if evidence.registry.coverage(adapter_id).is_none() {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked],
+            vec![format!(
+                "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
+            )],
         );
     }
 
@@ -1070,59 +1135,31 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
 }
 
 /// DS-605「`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の
-/// 合成とする」— delegated to `vtest_adapter_rust::oracle_presence`, the
-/// `rust-cargo` adapter's own "Static Analysis capability" (DS-614). Core
-/// (this function) does not interpret Rust syntax itself: it reads the raw
-/// construct bytes by the byte range `vtest-scan` already located, hands
-/// them to the adapter capability, and only composes the returned verdicts
+/// 合成とする」— delegated to the registry-resolved `StaticAnalysisAdapter`
+/// capability (DES-408, DS-614「Static Analysis capabilityがない場合は
+/// `NO_EVIDENCE`（診断`NOT_CHECKED`）とする」). Core (this function) does
+/// not interpret Rust syntax itself: it reads the raw construct bytes by
+/// the byte range `vtest-scan` already located, resolves the Test's
+/// declared adapter via `evidence.registry` (BD-007「CLI・MCP・検証coreは
+/// adapter registryを介して能力を選択する」— replacing this PR's prior
+/// hardcoded `capabilities_for`/`"rust-cargo"` literal dispatch with a real
+/// registry query, closing the disclosed single-implementation dispatch
+/// gap that literal left), hands the bytes to the resolved capability, and
+/// only composes the returned [`vtest_adapter_api::StaticAnalysisVerdict`]
 /// into `VerificationState`/`DiagnosticLabel` (DS-606/607/608).
-///
-/// DS-614「Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断
-/// `NOT_CHECKED`）とする」: this slice's capability is unavailable exactly
-/// when the construct's source bytes cannot be read back (the file moved,
-/// or its byte range no longer resolves) — a real, if narrow, instance of
-/// "capability absent for this Test", not a blanket placeholder.
-fn evaluate_oracle_presence(test: &TestEntity, root: &Path) -> CheckOutcome {
-    // DS-614「Static Analysis capabilityがない場合は`NO_EVIDENCE`（診断
-    // `NOT_CHECKED`）とする」: branch on the Test's own declared
-    // `execution.adapter` via `vtest_adapter_api::capabilities_for`
-    // (core consults an adapter capability rather than assuming one, per
-    // AGENTS.md "core owns nothing language-specific") — not a fixed
-    // `"rust-cargo"` literal, corrected from a prior version of this
-    // function that always ran the rust-cargo analyzer regardless of the
-    // Test's declared adapter.
+fn evaluate_oracle_presence(test: &TestEntity, evidence: &EvidenceContext<'_>) -> CheckOutcome {
     let adapter_id = test.execution.adapter.as_str();
-    let capabilities = vtest_adapter_api::capabilities_for(adapter_id);
-    if !capabilities.static_analysis {
+    let Some(analyzer) = evidence.registry.static_analysis(adapter_id) else {
         return CheckOutcome::new(
             VerificationCheck::OraclePresence,
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::NotChecked],
             vec![format!(
-                "adapter {adapter_id:?} has no Static Analysis capability (DS-614)"
+                "adapter {adapter_id:?} has no Static Analysis capability (DS-614/DS-925)"
             )],
         );
-    }
-    // The capability table only ever reports `static_analysis: true` for
-    // `"rust-cargo"` today (`vtest_adapter_api::capabilities_for`'s doc
-    // comment), which is the only concrete analyzer this workspace
-    // implements (`vtest_adapter_rust::oracle_presence`). Dispatching to a
-    // *different* adapter's analyzer by id is not implemented — a real,
-    // disclosed dispatch gap this single-implementation state cannot yet
-    // expose, since no capability-true id other than "rust-cargo" exists
-    // to test it against.
-    if adapter_id != "rust-cargo" {
-        return CheckOutcome::new(
-            VerificationCheck::OraclePresence,
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked],
-            vec![format!(
-                "adapter {adapter_id:?} reports a Static Analysis capability, but no \
-                 concrete analyzer for it is wired into this crate (DS-614)"
-            )],
-        );
-    }
-    let Some(construct_text) = read_construct_text(root, &test.location) else {
+    };
+    let Some(construct_text) = read_construct_text(&evidence.root, &test.location) else {
         return CheckOutcome::new(
             VerificationCheck::OraclePresence,
             VerificationState::NoEvidence,
@@ -1134,53 +1171,39 @@ fn evaluate_oracle_presence(test: &TestEntity, root: &Path) -> CheckOutcome {
             ],
         );
     };
-    // DS-628-shaped disclosed narrowing (see `vtest_adapter_rust::oracle_presence`'s
-    // module doc): only `TargetRef::Locator` targets contribute a symbol
-    // name to DA-003. A `SrcId` target is silently excluded from DA-003's
-    // per-target check rather than treated as an unverified call — DA-003
-    // only evaluates calls it can name, so this narrows DA-003's coverage,
-    // it does not fabricate a violation.
-    let target_symbols: Vec<String> = test
-        .targets
-        .iter()
-        .filter_map(|target| match target {
-            TargetRef::Locator(locator) => {
-                Some(vtest_adapter_rust::oracle_presence::target_symbol(locator))
-            }
-            TargetRef::SrcId(_) => None,
-        })
-        .collect();
-    // DS-617's `assertion_macros` config projection is not read from
-    // `config.yaml` in this slice (disclosed): only the standard macro set
-    // is used. A project that only verifies through a configured custom
-    // macro would see DA-006 report `Fail` where a config-aware analysis
-    // would not.
-    let analysis =
-        vtest_adapter_rust::oracle_presence::analyze(&construct_text, &target_symbols, &[]);
-    let (is_fail, is_unknown, basis) = vtest_adapter_rust::oracle_presence::compose(&analysis);
+    let extra_assertion_macros = evidence
+        .assertion_macros
+        .get(adapter_id)
+        .cloned()
+        .unwrap_or_default();
+    let input = vtest_adapter_api::StaticAnalysisInput {
+        test,
+        construct_text: &construct_text,
+        content_hash: &test.content_hash,
+        extra_assertion_macros: &extra_assertion_macros,
+    };
     // DS-609「`oracle_presence`に動的な昇格経路は無い」: composed purely
-    // from the five static verdicts, nothing else can move this outcome.
-    if is_fail {
-        CheckOutcome::new(
+    // from the adapter's own static verdict, nothing else can move this
+    // outcome.
+    match analyzer.analyze(input) {
+        vtest_adapter_api::StaticAnalysisVerdict::Fail(basis) => CheckOutcome::new(
             VerificationCheck::OraclePresence,
             VerificationState::Fail,
             Vec::new(),
             basis,
-        )
-    } else if is_unknown {
-        CheckOutcome::new(
+        ),
+        vtest_adapter_api::StaticAnalysisVerdict::Unknown(basis) => CheckOutcome::new(
             VerificationCheck::OraclePresence,
             VerificationState::Unknown,
             Vec::new(),
             basis,
-        )
-    } else {
-        CheckOutcome::new(
+        ),
+        vtest_adapter_api::StaticAnalysisVerdict::Pass(basis) => CheckOutcome::new(
             VerificationCheck::OraclePresence,
             VerificationState::Pass,
             Vec::new(),
             basis,
-        )
+        ),
     }
 }
 
@@ -1342,7 +1365,7 @@ fn build_tree(
     scan: &ScanResult,
     selection: &EntitySelection,
     selected_checks: &BTreeSet<VerificationCheck>,
-    evidence: &EvidenceContext,
+    evidence: &EvidenceContext<'_>,
 ) -> Vec<TreeNode> {
     let resolution = target_resolution_diagnostics(scan);
     let mut roots = Vec::new();
@@ -1434,7 +1457,7 @@ fn build_vo_node(
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
     visiting: &mut BTreeSet<String>,
-    evidence: &EvidenceContext,
+    evidence: &EvidenceContext<'_>,
 ) -> TreeNode {
     if !visiting.insert(id.to_owned()) {
         // DS-302 / DS-542 / DS-562: a parent cycle is E-SCAN-008 and
@@ -1514,7 +1537,7 @@ fn test_node(
     selected_checks: &BTreeSet<VerificationCheck>,
     resolution: &BTreeMap<String, TargetResolution>,
     scan: &ScanResult,
-    evidence: &EvidenceContext,
+    evidence: &EvidenceContext<'_>,
 ) -> TreeNode {
     let empty = TargetResolution::default();
     let test_resolution = resolution.get(&test.location.locator).unwrap_or(&empty);
@@ -1528,7 +1551,7 @@ fn test_node(
                 VerificationCheck::TargetBinding => {
                     evaluate_target_binding(test, test_resolution, scan, evidence)
                 }
-                VerificationCheck::OraclePresence => evaluate_oracle_presence(test, &evidence.root),
+                VerificationCheck::OraclePresence => evaluate_oracle_presence(test, evidence),
                 _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
             }
         })
@@ -1654,6 +1677,145 @@ mod tests {
         SourceRange, TargetRef, TestId, VoId,
     };
     use vtest_store::{init_project, write_document_file, write_vo_record, VerifyLayout};
+
+    // -----------------------------------------------------------------
+    // Test-only fake adapter
+    // -----------------------------------------------------------------
+    //
+    // このテストモジュールは `vtest-adapter-rust`（本 PR で `[dependencies]`
+    // からも `[dev-dependencies]` からも外した — 完了条件「vtest-verify の
+    // Cargo.toml に vtest-adapter-rust が無い」）に依存しない。既存の
+    // fixture（`test_entity`）が宣言する adapter id `"rust-cargo"` に対して
+    // capability 解決が成立するよう、この crate 自身が
+    // `vtest_adapter_api::Adapter` を実装する最小限の fake を用意する。
+    //
+    // 実際の DA-001〜006 静的解析ロジックはこの fake では再現しない —
+    // このモジュール内で `oracle_presence` の状態を直接 assert する唯一の
+    // テスト（`oracle_presence_is_never_pass_and_never_unknown_without_da_
+    // analysis`）は、fixture が実ファイルを書かないため常に「construct
+    // bytes unreadable」経路（`analyze` 呼び出し前の NO_EVIDENCE）で止まる
+    // ことを確認済み。DA-001〜006 の判定ロジック自体は
+    // `vtest-adapter-rust::oracle_presence` 自身の unit test が検証する
+    // （本 PR で変更しない）。
+
+    #[derive(Default)]
+    struct FakeStaticAnalysisAdapter;
+
+    impl vtest_adapter_api::StaticAnalysisAdapter for FakeStaticAnalysisAdapter {
+        fn id(&self) -> &'static str {
+            "rust-cargo"
+        }
+
+        fn analyze(
+            &self,
+            input: vtest_adapter_api::StaticAnalysisInput<'_>,
+        ) -> vtest_adapter_api::StaticAnalysisVerdict {
+            let _ = input;
+            vtest_adapter_api::StaticAnalysisVerdict::Pass(vec!["fake adapter: no-op".to_owned()])
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeTestRunnerAdapter;
+
+    impl vtest_adapter_api::TestRunnerAdapter for FakeTestRunnerAdapter {
+        fn id(&self) -> &'static str {
+            "rust-cargo"
+        }
+
+        fn command(
+            &self,
+            _root: &Path,
+            _execution: &vtest_model::ExecutionDescriptor,
+            _coverage: bool,
+            _coverage_output_path: Option<&Path>,
+        ) -> Result<vtest_adapter_api::RunnerCommand, vtest_adapter_api::TestRunnerError> {
+            unimplemented!(
+                "this crate's tests only check capability presence, never invoke the runner"
+            )
+        }
+
+        fn parse(
+            &self,
+            _execution: &vtest_model::ExecutionDescriptor,
+            _output: vtest_adapter_api::RunnerOutput<'_>,
+        ) -> vtest_adapter_api::RunnerTestResult {
+            unimplemented!(
+                "this crate's tests only check capability presence, never invoke the runner"
+            )
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeCoverageAdapter;
+
+    impl vtest_adapter_api::CoverageAdapter for FakeCoverageAdapter {
+        fn id(&self) -> &'static str {
+            "rust-cargo"
+        }
+
+        fn method(&self) -> &'static str {
+            "fake"
+        }
+
+        fn availability(&self, _root: &Path) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn measure(
+            &self,
+            _coverage_output_path: &Path,
+            _targets: &[vtest_model::Locator],
+        ) -> Vec<vtest_adapter_api::CoverageTargetMeasurement> {
+            unimplemented!(
+                "this crate's tests only check capability presence, never invoke coverage"
+            )
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeAdapter {
+        static_analysis: FakeStaticAnalysisAdapter,
+        runner: FakeTestRunnerAdapter,
+        coverage: FakeCoverageAdapter,
+    }
+
+    impl vtest_adapter_api::Adapter for FakeAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities: vec![
+                    vtest_adapter_api::Capability::StaticAnalysis,
+                    vtest_adapter_api::Capability::TestRunner,
+                    vtest_adapter_api::Capability::Coverage,
+                ],
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+
+        fn as_static_analysis(&self) -> Option<&dyn vtest_adapter_api::StaticAnalysisAdapter> {
+            Some(&self.static_analysis)
+        }
+
+        fn as_test_runner(&self) -> Option<&dyn vtest_adapter_api::TestRunnerAdapter> {
+            Some(&self.runner)
+        }
+
+        fn as_coverage(&self) -> Option<&dyn vtest_adapter_api::CoverageAdapter> {
+            Some(&self.coverage)
+        }
+    }
+
+    /// この crate 自身は adapter を生成しない（composition root は
+    /// cli/mcp）ため、テストは自前で registry を組み立てる。
+    fn test_registry() -> vtest_adapter_api::AdapterRegistry {
+        let mut registry = vtest_adapter_api::AdapterRegistry::new();
+        registry
+            .register(Box::new(FakeAdapter::default()))
+            .expect("fake adapter must register cleanly in a fresh registry");
+        registry
+    }
 
     // -----------------------------------------------------------------
     // Fixture construction
@@ -1802,7 +1964,15 @@ mod tests {
     }
 
     fn outcome_for(root: &std::path::Path, scan: &ScanResult) -> VerifyOutcome {
-        verify_project(root, scan, None, None)
+        verify_project(root, scan, None, None, &test_registry())
+    }
+
+    fn outcome_for_with_registry(
+        root: &std::path::Path,
+        scan: &ScanResult,
+        registry: &vtest_adapter_api::AdapterRegistry,
+    ) -> VerifyOutcome {
+        verify_project(root, scan, None, None, registry)
     }
 
     fn state_of(outcome: &VerifyOutcome, check: VerificationCheck) -> VerificationState {
@@ -2254,7 +2424,7 @@ mod tests {
         )
         .expect("write a subset full_scope config");
 
-        let outcome = verify_project(&root, &scan, None, None);
+        let outcome = verify_project(&root, &scan, None, None, &test_registry());
         assert_eq!(
             outcome.scope.requested.items,
             ALL_CHECKS.to_vec(),
@@ -2297,6 +2467,126 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
+    // target_binding capability gate (DS-925/DS-1580/DS-1581/DS-1582)
+    // -----------------------------------------------------------------
+
+    /// `"rust-cargo"`（`test_entity`のfixtureが宣言する固定id）として、
+    /// runner/coverage capabilityの部分集合だけを宣言・実装するfake。
+    #[derive(Default)]
+    struct PartialCapabilityAdapter {
+        runner: FakeTestRunnerAdapter,
+        coverage: FakeCoverageAdapter,
+        declare_runner: bool,
+        declare_coverage: bool,
+    }
+
+    impl vtest_adapter_api::Adapter for PartialCapabilityAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            let mut capabilities = Vec::new();
+            if self.declare_runner {
+                capabilities.push(vtest_adapter_api::Capability::TestRunner);
+            }
+            if self.declare_coverage {
+                capabilities.push(vtest_adapter_api::Capability::Coverage);
+            }
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities,
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+        fn as_test_runner(&self) -> Option<&dyn vtest_adapter_api::TestRunnerAdapter> {
+            self.declare_runner
+                .then_some(&self.runner as &dyn vtest_adapter_api::TestRunnerAdapter)
+        }
+        fn as_coverage(&self) -> Option<&dyn vtest_adapter_api::CoverageAdapter> {
+            self.declare_coverage
+                .then_some(&self.coverage as &dyn vtest_adapter_api::CoverageAdapter)
+        }
+    }
+
+    fn partial_capability_registry(
+        declare_runner: bool,
+        declare_coverage: bool,
+    ) -> vtest_adapter_api::AdapterRegistry {
+        let mut registry = vtest_adapter_api::AdapterRegistry::new();
+        registry
+            .register(Box::new(PartialCapabilityAdapter {
+                declare_runner,
+                declare_coverage,
+                ..Default::default()
+            }))
+            .expect("partial-capability fake must register cleanly");
+        registry
+    }
+
+    /// DS-1581「検証時のstatic audit / coverage capability欠落は
+    /// `NO_EVIDENCE`（診断`NOT_CHECKED`）になる」— coverage 単体欠落
+    /// （runnerはある）の側。
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY-NOT-CHECKED
+    /// @vtest.covers VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
+    /// @vtest.intent An adapter that declares Test Runner but not Coverage capability makes target_binding NO_EVIDENCE(NOT_CHECKED).
+    #[test]
+    fn target_binding_is_no_evidence_not_checked_when_only_coverage_capability_is_missing() {
+        let (root, scan) = complete_project("target-binding-no-coverage");
+        let registry = partial_capability_registry(true, false);
+        let outcome = outcome_for_with_registry(&root, &scan, &registry);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            labels_of(&outcome, VerificationCheck::TargetBinding),
+            vec![DiagnosticLabel::NotChecked]
+        );
+    }
+
+    /// DS-1582「検証時のrunner欠落は`NO_EVIDENCE`（診断`NOT_EXECUTED`）に
+    /// なる」— runner 単体欠落（coverageはある）の側。
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-NO-RUNNER-CAPABILITY-NOT-EXECUTED
+    /// @vtest.covers VO-VERIFY-TARGET-BINDING-NO-RUNNER-CAPABILITY
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
+    /// @vtest.intent An adapter that declares Coverage but not Test Runner capability makes target_binding NO_EVIDENCE(NOT_EXECUTED).
+    #[test]
+    fn target_binding_is_no_evidence_not_executed_when_only_runner_capability_is_missing() {
+        let (root, scan) = complete_project("target-binding-no-runner");
+        let registry = partial_capability_registry(false, true);
+        let outcome = outcome_for_with_registry(&root, &scan, &registry);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            labels_of(&outcome, VerificationCheck::TargetBinding),
+            vec![DiagnosticLabel::NotExecuted]
+        );
+    }
+
+    /// 正本沈黙の導出（本PR）: runner・coverage の両方が欠落したときの
+    /// 優先順は正典に明文が無い。「Evidence が存在し得ない」ことを理由に
+    /// NOT_EXECUTED（DS-1582側）を採用する。
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING-PREFERS-NOT-EXECUTED
+    /// @vtest.covers VO-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
+    /// @vtest.intent When an adapter declares neither Test Runner nor Coverage capability, target_binding is NO_EVIDENCE(NOT_EXECUTED) (this PR's derivation for the canon's silent priority between DS-1581 and DS-1582).
+    #[test]
+    fn target_binding_prefers_not_executed_when_both_capabilities_are_missing() {
+        let (root, scan) = complete_project("target-binding-neither-capability");
+        let registry = partial_capability_registry(false, false);
+        let outcome = outcome_for_with_registry(&root, &scan, &registry);
+        assert_eq!(
+            state_of(&outcome, VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence
+        );
+        assert_eq!(
+            labels_of(&outcome, VerificationCheck::TargetBinding),
+            vec![DiagnosticLabel::NotExecuted]
+        );
+    }
+
+    // -----------------------------------------------------------------
     // Scope
     // -----------------------------------------------------------------
 
@@ -2314,6 +2604,7 @@ mod tests {
             &scan,
             Some(&[VerificationCheck::ChainIntegrity]),
             None,
+            &test_registry(),
         );
         assert!(outcome.scope.limited);
         assert!(outcome.scope.unverified_outside_scope);
@@ -2360,6 +2651,7 @@ mod tests {
             &scan,
             None,
             Some(EntityScope::Vo("VO-ONE".to_owned())),
+            &test_registry(),
         );
         assert_eq!(
             state_of(&outcome, VerificationCheck::ChainIntegrity),
@@ -2643,10 +2935,13 @@ mod tests {
         record.hashes.test_fn = test.content_hash.clone();
         record.hashes.target_fn = target_hash.clone();
         record.hashes.target_fns = vec![target_hash];
+        let registry = test_registry();
         let evidence = EvidenceContext {
             root: temp_root("tb-incomplete-execution-state"),
             latest_by_test: BTreeMap::new(),
             head_commit: Some("deadbeef".to_owned()),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
@@ -2691,6 +2986,7 @@ mod tests {
         record.hashes.target_fns = vec![target_hash];
         record.execution_state.complete = true;
         record.execution_state.hash = Some(ContentHash::from_text("anything"));
+        let registry = test_registry();
         let evidence = EvidenceContext {
             // A `root` that does not exist: the manifest walk itself fails,
             // so `reconstruct_execution_state` reports `complete: false`
@@ -2700,6 +2996,8 @@ mod tests {
             root: temp_root("tb-current-reconstruction-fails").join("does-not-exist"),
             latest_by_test: BTreeMap::new(),
             head_commit: Some("deadbeef".to_owned()),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
@@ -2798,10 +3096,13 @@ mod tests {
         // Deliberately not the hash a real reconstruction of `root` would
         // produce — the point of this test.
         record.execution_state.hash = Some(ContentHash::from_text("deliberately-mismatched"));
+        let registry = test_registry();
         let evidence = EvidenceContext {
             root: root.clone(),
             latest_by_test: BTreeMap::new(),
             head_commit: Some(head_commit),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)

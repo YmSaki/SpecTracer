@@ -20,7 +20,6 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
-use vtest_adapter_rust::RustCargoAdapter;
 use vtest_model::{
     source_target_subject_hash, test_subject_hash, AdapterId, ContentHash, CoveragePolicy,
     Diagnostic, DiscoveredTest, DocumentFile, ManagedTestLink, ScanSummary, SectionNode,
@@ -197,24 +196,23 @@ pub enum TestIdLookup<'a> {
     Collided(Vec<&'a TestEntity>),
 }
 
-pub fn scan_project(root: &Path) -> Result<ScanResult, ScanError> {
+/// `registry` は呼び出し元（cli / mcp の composition root）が組み立てた
+/// 登録済み adapter 一覧を渡す — この crate（core）は自分で adapter を
+/// 生成しない（BD-007「CLI・MCP・検証coreはadapter registryを介して能力を
+/// 選択する」、BD-102「core verifierを変更せずに別adapterを登録できる
+/// 境界を要求する」）。以前この関数は private な `adapter_registry()` で
+/// `rust-cargo` だけを固定登録していたが、それは registry を介さず core が
+/// 自分で唯一の adapter を選ぶ経路であり、BD-102 の境界（core を変えずに
+/// 別 adapter を足せること）を満たせなかった。
+pub fn scan_project(root: &Path, registry: &AdapterRegistry) -> Result<ScanResult, ScanError> {
     let config = load_config(root)?;
-    scan_project_with_config(root, &config)
-}
-
-/// registry に登録済みの adapter 一覧を返す（本冊 §5.1 手順1「registryと
-/// configの検証」）。v0.1 の唯一の production adapter は `rust-cargo`
-/// （基本仕様 §27「組込 production adapter は `rust-cargo` とし...`rust-cargo`
-/// 以外の production language adapter は v0.1 の提供範囲に含めない」）。
-fn adapter_registry() -> AdapterRegistry {
-    let mut registry = AdapterRegistry::new();
-    registry.register(Box::new(RustCargoAdapter::new()));
-    registry
+    scan_project_with_config(root, &config, registry)
 }
 
 pub fn scan_project_with_config(
     root: &Path,
     config: &ProjectConfig,
+    registry: &AdapterRegistry,
 ) -> Result<ScanResult, ScanError> {
     let entity_ids = read_entity_ids(root)?;
     let vo_ids = entity_ids[1].iter().cloned().collect::<BTreeSet<_>>();
@@ -224,7 +222,6 @@ pub fn scan_project_with_config(
     // includes` を使う（下記）。
     adapter_scan_includes(config).map_err(ScanError::Config)?;
 
-    let registry = adapter_registry();
     let fallback_package = config.project.name.clone();
     let mut files = 0usize;
     let mut test_drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)> = Vec::new();
@@ -246,7 +243,7 @@ pub fn scan_project_with_config(
     let mut sorted_adapters = config.adapters.iter().collect::<Vec<_>>();
     sorted_adapters.sort_by(|left, right| left.id.cmp(&right.id));
     for adapter_config in sorted_adapters {
-        let Some(adapter) = registry.get(adapter_config.id.as_str()) else {
+        let Some(adapter) = registry.source_discovery(adapter_config.id.as_str()) else {
             // 正本監査（診断コード全数照合、主題H）: 本条件（config.yaml の
             // `adapters[].id` がregistryで解決できない）はDS-352の
             // statementそのもの（「adapter IDの重複、同一adapter内の
@@ -1793,8 +1790,19 @@ fn validate_approval_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_adapter_rust::RustCargoAdapter;
     use vtest_model::{DocumentId, NodeSource, RootNode, SrcId, TestId, TestSuite, VoId};
     use vtest_store::{init_project, new_record_id, write_document_file, FormAnswers, FormValue};
+
+    /// この crate 自身は adapter を生成しない（composition root は cli/mcp）
+    /// ため、テストは自前で `rust-cargo` を1件だけ登録した registry を作る。
+    fn test_registry() -> AdapterRegistry {
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(RustCargoAdapter::new()))
+            .expect("rust-cargo must register cleanly in a fresh registry");
+        registry
+    }
 
     fn valid_vo(id: &str, parent: &str) -> String {
         format!(
@@ -1892,7 +1900,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
     #[test]
     fn extracts_annotated_test_and_source() {
         let root = fixture();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert_eq!(result.summary.tests, 1);
         assert_eq!(result.summary.sources, 2);
         assert!(
@@ -1953,7 +1961,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         fs::write(root.join("src/a.rs"), "pub fn helper() -> i32 { 42 }\n").unwrap();
         fs::write(root.join("src/b.rs"), "pub fn helper() -> i32 { 42 }\n").unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let helper_a = result
             .sources
             .iter()
@@ -2097,7 +2105,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         )
         .unwrap();
 
-        let before = scan_project(&root).unwrap();
+        let before = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !before.has_errors(),
             "diagnostics: {:?}",
@@ -2146,7 +2154,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         )
         .unwrap();
 
-        let after = scan_project(&root).unwrap();
+        let after = scan_project(&root, &test_registry()).unwrap();
         assert!(!after.has_errors(), "diagnostics: {:?}", after.diagnostics);
         let after_test = after
             .tests
@@ -2220,7 +2228,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         )
         .unwrap();
         fs::write(root.join("src/second.rs"), "pub fn helper() -> i32 { 0 }\n").unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let lib_helper = result
             .sources
             .iter()
@@ -2263,7 +2271,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         config.adapters[0].id = "unknown-lang".to_owned();
         fs::write(layout.config(), config.to_yaml()).unwrap();
 
-        let error = match scan_project(&root) {
+        let error = match scan_project(&root, &test_registry()) {
             Err(err @ ScanError::UnknownAdapterId { .. }) => {
                 assert_eq!(err.code(), Some("E-CONFIG-001"));
                 err.to_string()
@@ -2320,7 +2328,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
         let root = fixture();
         fs::write(root.join("Cargo.toml"), "[package\ninvalid = true\n").unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
@@ -2331,7 +2339,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
 
         let root = fixture();
         fs::remove_file(root.join("Cargo.toml")).unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic.location.as_ref().is_some_and(|location| {
@@ -2400,7 +2408,7 @@ fn outside_default() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result
                 .tests
@@ -2483,7 +2491,7 @@ fn parses_integration() { exercise(); }
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let module_test = result
             .tests
             .iter()
@@ -2554,7 +2562,7 @@ fn parses_integration() { exercise(); }
         fs::write(root.join("src/ignored.rs"), "this is not rust\n").unwrap();
         fs::write(root.join("src/kept.rs"), "pub fn kept() {}\n").unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(!result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-001" && diagnostic.message.contains("ignored.rs")
         }));
@@ -2598,7 +2606,7 @@ fn ambiguous() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-004"
                 && diagnostic
@@ -2622,7 +2630,7 @@ fn ambiguous() {}
     fn reports_unregistered_tests() {
         let root = fixture();
         fs::write(root.join("tests/unregistered.rs"), "#[test]\nfn x() {}\n").unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|d| d.code == "W-SCAN-101"));
     }
 
@@ -2643,7 +2651,7 @@ fn ambiguous() {}
     fn undecorated_test_functions_appear_in_discovered_as_missing() {
         let root = fixture();
         fs::write(root.join("tests/unregistered.rs"), "#[test]\nfn x() {}\n").unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
 
         let missing: Vec<&DiscoveredTest> = result
             .discovered
@@ -2684,7 +2692,7 @@ fn missing_covers() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
 
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-007"
@@ -2747,7 +2755,7 @@ fn collision_second() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
 
         // 1. 衝突した両方の construct が Test Entity として保持されている
         //    （先勝ちで2件目を落としていない）。
@@ -2860,7 +2868,7 @@ fn duplicate_key() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-005"));
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-006"));
     }
@@ -2883,7 +2891,7 @@ fn missing_intent() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|d| d.code == "E-SCAN-007"));
     }
 
@@ -2950,7 +2958,7 @@ fn combines() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
 
         let one = result
             .tests
@@ -3033,7 +3041,7 @@ fn same_target_twice() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-005"
                 && diagnostic
@@ -3074,7 +3082,7 @@ fn comma_separated() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.has_errors(),
             "diagnostics: {:?}",
@@ -3119,7 +3127,7 @@ fn repeated() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.has_errors(),
             "diagnostics: {:?}",
@@ -3160,7 +3168,7 @@ fn misplaced() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-006"
                 && diagnostic
@@ -3190,7 +3198,7 @@ fn misplaced() {}
              pub fn helper() -> i32 { 0 }\n",
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "W-SCAN-105"
                 && diagnostic
@@ -3225,7 +3233,7 @@ fn misplaced() {}
              pub fn helper() -> i32 { 0 }\n",
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-005"
                 && diagnostic
@@ -3257,7 +3265,7 @@ fn misplaced() {}
              pub fn helper() -> i32 { 0 }\n",
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let helper = result
             .sources
             .iter()
@@ -3296,7 +3304,7 @@ fn misplaced() {}
              pub fn helper_two() -> i32 { 1 }\n",
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         // レビュー round 2 項目【K-1】: コードだけでなく、衝突している
         // 恒久SRC ID自体（`SRC-SHARED`）と、診断が宣言側のSource Target
         // （2件のうち索引構築順で先に見つかったもの）を指していることを
@@ -3354,7 +3362,7 @@ fn aliased_target() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-005"
@@ -3400,7 +3408,7 @@ fn declares_unparseable_target() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let test = result
             .tests
             .iter()
@@ -3458,7 +3466,7 @@ fn free_text() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.has_errors(),
             "diagnostics: {:?}",
@@ -3495,7 +3503,7 @@ fn no_target() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-007"
@@ -3541,7 +3549,7 @@ fn empty_target() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let at_empty_target = |diagnostic: &&Diagnostic| {
             diagnostic
                 .location
@@ -3599,7 +3607,7 @@ fn no_covers() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(result.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-SCAN-007"
                 && diagnostic
@@ -3641,7 +3649,7 @@ fn empty_covers() {}
 "#,
         )
         .unwrap();
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-007"
@@ -3684,7 +3692,7 @@ fn empty_covers() {}
             "covers".to_owned(),
             FormValue::List(vec!["WIDGET-ADD".to_owned()]),
         );
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, true);
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true, &test_registry());
         assert!(result.is_ok(), "unexpected error: {:?}", result.err());
     }
 
@@ -3719,7 +3727,15 @@ fn edit_collision_second() {}
         .unwrap();
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
-        let result = edit_test(&root, "TEST-EDIT-COLLISION", None, &set, None, true);
+        let result = edit_test(
+            &root,
+            "TEST-EDIT-COLLISION",
+            None,
+            &set,
+            None,
+            true,
+            &test_registry(),
+        );
         let error = result.expect_err("edit of a colliding Test ID must fail closed");
         assert_eq!(error.code, "E-OP-002");
         assert!(
@@ -3763,7 +3779,7 @@ fn edit_collision_second() {}
             "kind".to_owned(),
             FormValue::Scalar("unit-normal".to_owned()),
         );
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, true);
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true, &test_registry());
         assert!(
             result.is_ok(),
             "a Cargo integration test must accept multiple targets even when `kind` does not \
@@ -3815,6 +3831,7 @@ fn lib_test() {}
             &set,
             None,
             true,
+            &test_registry(),
         );
         assert!(
             result.is_ok(),
@@ -3851,7 +3868,7 @@ fn lib_test() {}
             "test_kind".to_owned(),
             FormValue::Scalar("normal".to_owned()),
         );
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, true)
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, true, &test_registry())
             .expect("editing an integration test's targets and test_kind together must succeed");
         assert!(
             result.rendered.contains("@vtest.kind unit-normal"),
@@ -3926,6 +3943,7 @@ fn lib_test() {}
             &BTreeMap::new(),
             None,
             true,
+            &test_registry(),
         )
         .expect("editing via the rust-integration built-in Form must succeed");
         assert!(
@@ -3960,7 +3978,7 @@ fn lib_test() {}
             .unwrap();
         }
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let duplicates = result
             .diagnostics
             .iter()
@@ -4019,7 +4037,7 @@ fn lib_test() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let e_scan_009_messages = result
             .diagnostics
             .iter()
@@ -4123,7 +4141,7 @@ fn covers_parent() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let codes = result
             .diagnostics
             .iter()
@@ -4192,7 +4210,8 @@ fn covers_parent() {}
     fn missing_relation_dir_is_treated_as_no_relations() {
         let root = fixture();
         fs::remove_dir_all(root.join(".verify/rel")).unwrap();
-        let result = scan_project(&root).expect("a missing relation dir must not abort the scan");
+        let result = scan_project(&root, &test_registry())
+            .expect("a missing relation dir must not abort the scan");
         assert!(
             !result.diagnostics.iter().any(
                 |diagnostic| diagnostic.code == "E-SCAN-009" || diagnostic.code == "E-SCAN-010"
@@ -4212,8 +4231,8 @@ fn covers_parent() {}
         let relation_dir = root.join(".verify/rel");
         fs::remove_dir_all(&relation_dir).unwrap();
         fs::write(&relation_dir, b"not a directory").unwrap();
-        let error =
-            scan_project(&root).expect_err("an unreadable relation dir must abort the scan");
+        let error = scan_project(&root, &test_registry())
+            .expect_err("an unreadable relation dir must abort the scan");
         assert!(
             matches!(error, ScanError::Io { .. }),
             "expected ScanError::Io, got: {error:?}"
@@ -4228,7 +4247,8 @@ fn covers_parent() {}
     fn missing_approvals_dir_is_treated_as_no_approvals() {
         let root = fixture();
         fs::remove_dir_all(root.join(".verify/approvals")).unwrap();
-        let result = scan_project(&root).expect("a missing approvals dir must not abort the scan");
+        let result = scan_project(&root, &test_registry())
+            .expect("a missing approvals dir must not abort the scan");
         assert!(
             !result
                 .diagnostics
@@ -4250,8 +4270,8 @@ fn covers_parent() {}
         let approvals_dir = root.join(".verify/approvals");
         fs::remove_dir_all(&approvals_dir).unwrap();
         fs::write(&approvals_dir, b"not a directory").unwrap();
-        let error =
-            scan_project(&root).expect_err("an unreadable approvals dir must abort the scan");
+        let error = scan_project(&root, &test_registry())
+            .expect_err("an unreadable approvals dir must abort the scan");
         assert!(
             matches!(error, ScanError::Io { .. }),
             "expected ScanError::Io, got: {error:?}"
@@ -4290,7 +4310,7 @@ fn covers_parent() {}
         );
         fs::write(root.join(".verify/vo/VO-DANGLING.yaml"), vo_text).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-012"
@@ -4333,7 +4353,7 @@ fn covers_parent() {}
         };
         write_document_file(&layout, "DOC-DANGLING", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let dangling = result
             .diagnostics
             .iter()
@@ -4415,7 +4435,7 @@ fn covers_parent() {}
         write_document_file(&layout, "DOC-DUP-A", &file_a).unwrap();
         write_document_file(&layout, "DOC-DUP-B", &file_b).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let collisions = result
             .diagnostics
             .iter()
@@ -4481,7 +4501,7 @@ fn covers_parent() {}
         };
         write_document_file(&layout, "DOC-SAME-FILE-DUP", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-010" && diagnostic.message.contains("R-909")
@@ -4523,7 +4543,7 @@ fn collision_second() {}
         )
         .unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result
                 .diagnostics
@@ -4592,7 +4612,7 @@ fn collision_second() {}
         write_document_file(&layout, "DOC-NO-COLLISION-A", &file_a).unwrap();
         write_document_file(&layout, "DOC-NO-COLLISION-B", &file_b).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result
                 .diagnostics
@@ -4644,7 +4664,7 @@ fn collision_second() {}
         .unwrap();
         fs::write(layout.doc_dir().join("DOC-BROKEN.json"), "{ not valid json").unwrap();
 
-        let result = scan_project(&root).expect(
+        let result = scan_project(&root, &test_registry()).expect(
             "a malformed document file must not abort the whole scan with a code-less error",
         );
         assert!(
@@ -4698,7 +4718,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-ORPHAN", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let orphan = result
             .diagnostics
             .iter()
@@ -4755,7 +4775,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-ANCESTOR-RESCUE", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-016"
@@ -4801,7 +4821,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-ORPHAN-SECTION", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("REQ-S902")
@@ -4846,7 +4866,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-SECTION-DANGLING", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-012"
@@ -4916,7 +4936,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-NESTED-RESCUE", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-016"
@@ -4972,7 +4992,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-INCOMING-REF-ONLY", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             result.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("R-904")
@@ -5014,7 +5034,7 @@ fn collision_second() {}
         };
         write_document_file(&layout, "DOC-CHILD", &file).unwrap();
 
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         let document_layer_codes = ["E-SCAN-012", "E-SCAN-016"];
         assert!(
             !result
@@ -5071,7 +5091,7 @@ fn collision_second() {}
             "a stray file is not a document name"
         );
 
-        let result = scan_project(&root).expect("scan should complete");
+        let result = scan_project(&root, &test_registry()).expect("scan should complete");
         let reported = result
             .diagnostics
             .iter()
@@ -5174,7 +5194,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5197,7 +5217,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5220,7 +5240,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5243,7 +5263,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5267,7 +5287,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5293,7 +5313,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5317,7 +5337,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5341,7 +5361,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5377,7 +5397,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5418,7 +5438,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",
@@ -5456,7 +5476,7 @@ fn collision_second() {}
                 vo_add_header()
             ),
         );
-        let result = scan_project(&root).unwrap();
+        let result = scan_project(&root, &test_registry()).unwrap();
         assert!(
             !has_diagnostic_for_vo_add(&result, "E-SCAN-017"),
             "diagnostics: {:?}",

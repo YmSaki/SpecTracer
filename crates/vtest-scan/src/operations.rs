@@ -6,7 +6,7 @@ use std::{
 
 use serde::Serialize;
 use syn::spanned::Spanned;
-use vtest_adapter_api::AdapterScanConfig;
+use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetCoverageResult, TargetRef,
@@ -57,8 +57,9 @@ pub fn create_test(
     supplied: &FormAnswers,
     explicit_id: Option<&str>,
     dry_run: bool,
+    registry: &AdapterRegistry,
 ) -> Result<TestMutationResult, Diagnostic> {
-    let scan = crate::scan_project(root)
+    let scan = crate::scan_project(root, registry)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     let layout = VerifyLayout::new(root);
     let schema = load_form_schema(&layout, form_kind)
@@ -108,7 +109,7 @@ pub fn create_test(
     let before_hashes = test_hashes(&scan);
     write_atomic(&path, &prospective)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let verified = verify_create(root, &test_id, &answers, &before_hashes);
+    let verified = verify_create(root, &test_id, &answers, &before_hashes, registry);
     if let Err(diagnostic) = verified {
         rollback(&path, &original, diagnostic)?;
     }
@@ -155,6 +156,7 @@ pub fn parse_test_set_values(values: &[String]) -> Result<BTreeMap<String, FormV
     Ok(parsed)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn edit_test(
     root: &Path,
     test_id: &str,
@@ -162,6 +164,7 @@ pub fn edit_test(
     set: &BTreeMap<String, FormValue>,
     body: Option<&str>,
     dry_run: bool,
+    registry: &AdapterRegistry,
 ) -> Result<TestMutationResult, Diagnostic> {
     if supplied.is_some() && !set.is_empty() {
         return Err(Diagnostic::error(
@@ -175,7 +178,7 @@ pub fn edit_test(
             "test edit requires --answers, --set, or --body-file",
         ));
     }
-    let scan = crate::scan_project(root)
+    let scan = crate::scan_project(root, registry)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
     // `test_id` が衝突していれば、どれを編集対象にするかをここで黙って
@@ -224,7 +227,7 @@ pub fn edit_test(
     // （`scan`（呼び出し冒頭の全体スキャン）由来の位置は、この再
     // discovery までの間に対象ファイルより前方で行が挿入／削除されて
     // いれば古い — 使うと ずれた offset に対して置換することになる）。
-    let Some(rescanned) = rescan_current_test(root, &current.location, test_id)? else {
+    let Some(rescanned) = rescan_current_test(root, &current.location, test_id, registry)? else {
         return Err(Diagnostic::error(
             "E-OP-002",
             format!(
@@ -327,7 +330,7 @@ pub fn edit_test(
     }
     write_atomic(&path, &prospective)
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let verified = verify_edit(root, test_id, &desired, &before_hashes);
+    let verified = verify_edit(root, test_id, &desired, &before_hashes, registry);
     if let Err(diagnostic) = verified {
         rollback(&path, &original, diagnostic)?;
     }
@@ -367,17 +370,17 @@ fn rescan_current_test(
     root: &Path,
     location: &SourceLocation,
     test_id: &str,
+    registry: &AdapterRegistry,
 ) -> Result<Option<CurrentTestRescan>, Diagnostic> {
     let config =
         load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
-    let registry = crate::adapter_registry();
     // Defensive only: `current` (the caller's already-scanned entity) came
     // from a `scan_project` that already resolved `location.adapter` against
     // this same registry (fail-closed E-ADAPTER-001 otherwise, per
     // `ScanError::Adapter`), so this branch should be unreachable in
     // practice. Kept fail-closed with the matching code rather than a panic
     // or silent fallback.
-    let Some(adapter) = registry.get(location.adapter.as_str()) else {
+    let Some(adapter) = registry.source_discovery(location.adapter.as_str()) else {
         return Err(Diagnostic::error(
             "E-ADAPTER-001",
             format!(
@@ -809,8 +812,9 @@ fn verify_edit(
     test_id: &str,
     desired: &DesiredTest,
     before_hashes: &BTreeMap<String, Vec<ContentHash>>,
+    registry: &AdapterRegistry,
 ) -> Result<(), Diagnostic> {
-    let after = crate::scan_project(root).map_err(|error| {
+    let after = crate::scan_project(root, registry).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("edited test could not be rescanned: {error}"),
@@ -1323,8 +1327,9 @@ fn verify_create(
     test_id: &str,
     answers: &BTreeMap<String, FormValue>,
     before_hashes: &BTreeMap<String, Vec<ContentHash>>,
+    registry: &AdapterRegistry,
 ) -> Result<(), Diagnostic> {
-    let after = crate::scan_project(root).map_err(|error| {
+    let after = crate::scan_project(root, registry).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("created test could not be rescanned: {error}"),
@@ -1830,6 +1835,17 @@ fn edit_distance(left: &str, right: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_adapter_rust::RustCargoAdapter;
+
+    /// この crate 自身は adapter を生成しない（composition root は cli/mcp）
+    /// ため、テストは自前で `rust-cargo` を1件だけ登録した registry を作る。
+    fn test_registry() -> AdapterRegistry {
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(RustCargoAdapter::new()))
+            .expect("rust-cargo must register cleanly in a fresh registry");
+        registry
+    }
 
     /// @vtest.id TEST-SCAN-CANDIDATE-EDIT-DISTANCE
     /// @vtest.covers VO-SCAN-CANDIDATE-EDIT-DISTANCE
@@ -2021,7 +2037,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
 
         // "the scan this edit is based on" (別紙A:592) — mirrors
         // `edit_test`'s own internal `scan_project(root)` at its first line.
-        let scan = crate::scan_project(&root).unwrap();
+        let scan = crate::scan_project(&root, &test_registry()).unwrap();
         let current = scan
             .tests
             .iter()
@@ -2046,7 +2062,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
 
         // Position re-confirmation (別紙A §15.1), exactly as `edit_test`
         // calls it right before computing the replacement byte range.
-        let rescanned = rescan_current_test(&root, &current.location, "TEST-ADD")
+        let rescanned = rescan_current_test(&root, &current.location, "TEST-ADD", &test_registry())
             .unwrap()
             .expect("TEST-ADD must still be relocatable after a pure position shift");
 
@@ -2084,7 +2100,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     #[test]
     fn rescan_current_test_returns_none_when_the_construct_can_no_longer_be_relocated() {
         let root = rescan_fixture(RESCAN_FIXTURE_TEST);
-        let scan = crate::scan_project(&root).unwrap();
+        let scan = crate::scan_project(&root, &test_registry()).unwrap();
         let current = scan
             .tests
             .iter()
@@ -2097,7 +2113,8 @@ fn adds() { assert_eq!(2, 1 + 1); }
         // and the reconfirmation).
         fs::write(root.join("tests/calc.rs"), "// test removed\n").unwrap();
 
-        let rescanned = rescan_current_test(&root, &current.location, "TEST-ADD").unwrap();
+        let rescanned =
+            rescan_current_test(&root, &current.location, "TEST-ADD", &test_registry()).unwrap();
         assert!(
             rescanned.is_none(),
             "must report None so the caller (edit_test) rejects with E-OP-002 instead of \
@@ -2126,7 +2143,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
 
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, false);
+        let result = edit_test(&root, "TEST-ADD", None, &set, None, false, &test_registry());
 
         let error = result.expect_err("editing a Test ID that no longer exists must fail");
         assert_eq!(error.code, "E-OP-002");

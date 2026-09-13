@@ -309,7 +309,11 @@ fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
     {
         return None;
     }
-    let (_, scan) = ops::scan::execute(root);
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return Some(envelope),
+    };
+    let (_, scan) = ops::scan::execute(root, &registry);
     if scan.get("ok") == Some(&Value::Bool(true)) {
         state.last_scan = Some(current);
         None
@@ -585,7 +589,10 @@ fn optional_string_array(args: &Map<String, Value>, key: &str) -> Result<(), Val
 /// in-process — no subprocess, no second implementation of the operation.
 fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
     match name {
-        "scan" => ops::scan::execute(root).1,
+        "scan" => match resolve_registry() {
+            Ok(registry) => ops::scan::execute(root, &registry).1,
+            Err(envelope) => envelope,
+        },
         "run_tests" => run_tool(root, args),
         "verify" => verify_tool(root, args),
         "approval_create" => approval_create_tool(root, args),
@@ -940,7 +947,11 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     if let Err(error) = config {
         return failure_envelope("E-CONFIG-001", error.to_string());
     }
-    let scan = match vtest_scan::scan_project(root) {
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    let scan = match vtest_scan::scan_project(root, &registry) {
         Ok(scan) => scan,
         Err(error) => {
             let code = error.code().unwrap_or("E-CORE-001");
@@ -955,7 +966,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     } else {
         ops::run::RunTarget::Test(test_ids)
     };
-    match ops::run::run(root, &layout, &scan, &target, fast) {
+    match ops::run::run(root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = json!({
@@ -968,7 +979,16 @@ fn run_tool(root: &Path, args: &Value) -> Value {
         Err(
             error @ (ops::run::RunOpError::UnknownTestId(_) | ops::run::RunOpError::UnknownVoId(_)),
         ) => failure_envelope("E-OP-001", error.to_string()),
-        Err(error @ (ops::run::RunOpError::Execution(_) | ops::run::RunOpError::Store(_))) => {
+        Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
+            // DS-745/DS-923 (E-ADAPTER-003) — mirrors the CLI's `run_run`
+            // mapping (`vtest-cli/src/lib.rs`) so MCP and CLI report the
+            // same code for the same input (DS-1563).
+            match inner.code() {
+                Some(code) => failure_envelope(code, error.to_string()),
+                None => failure_envelope("E-CORE-001", error.to_string()),
+            }
+        }
+        Err(error @ ops::run::RunOpError::Store(_)) => {
             failure_envelope("E-CORE-001", error.to_string())
         }
     }
@@ -992,7 +1012,11 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
     let gate = string_arg(args, "gate");
     let summary = bool_arg(args, "summary");
 
-    match ops::verify::execute(root, &items, doc, vo, test, gate, summary) {
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    match ops::verify::execute(root, &items, doc, vo, test, gate, summary, &registry) {
         Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
         Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
@@ -1020,6 +1044,16 @@ fn string_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
 
 fn bool_arg(args: &Value, key: &str) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// composition root（`vtest_cli::adapters::builtin_registry`）を呼ぶ MCP側
+/// の入口。cli の `resolve_registry` と同じ理由（BD-007/BD-102、
+/// `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で adapter を生成しない）
+/// で、MCP tool 側もこの1箇所だけで registry を組み立てる。失敗
+/// （理論上は固定1件の登録なので到達しない）は E-ADAPTER-001 として返す。
+fn resolve_registry() -> Result<vtest_adapter_api::AdapterRegistry, Value> {
+    vtest_cli::adapters::builtin_registry()
+        .map_err(|error| failure_envelope("E-ADAPTER-001", error.to_string()))
 }
 
 fn failure_envelope(code: &str, message: impl Into<String>) -> Value {
@@ -1073,7 +1107,16 @@ mod tests {
     /// has no library entry point that hands back the envelope value, so
     /// the exit code is asserted to match separately below.)
     fn cli_verify_envelope(root: &Path) -> (ExitCode, Value) {
-        match vtest_cli::ops::verify::execute(root, &[], None, None, None, None, false) {
+        match vtest_cli::ops::verify::execute(
+            root,
+            &[],
+            None,
+            None,
+            None,
+            None,
+            false,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+        ) {
             Ok((exit, data, diagnostics)) => {
                 let ok = exit == ExitCode::Ok;
                 (
@@ -1136,7 +1179,10 @@ mod tests {
         });
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
 
-        let (_, cli_envelope) = ops::scan::execute(&root);
+        let (_, cli_envelope) = ops::scan::execute(
+            &root,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+        );
         let mcp_envelope = dispatch_tool(&root, "scan", &json!({}));
 
         assert_eq!(
@@ -1633,14 +1679,18 @@ mod tests {
         let direct_root = temp_root("run-equivalence-direct");
         build_fixture_project(&direct_root);
         let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
-        let direct_scan =
-            vtest_scan::scan_project(&direct_root).expect("direct fixture scan must succeed");
+        let direct_scan = vtest_scan::scan_project(
+            &direct_root,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+        )
+        .expect("direct fixture scan must succeed");
         let direct = ops::run::run(
             &direct_root,
             &direct_layout,
             &direct_scan,
             &ops::run::RunTarget::All,
             true,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
         )
         .expect("direct ops::run::run must succeed");
 

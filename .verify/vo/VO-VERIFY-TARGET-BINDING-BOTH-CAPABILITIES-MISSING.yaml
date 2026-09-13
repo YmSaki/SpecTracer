@@ -1,0 +1,17 @@
+id: VO-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING
+parent: null
+derives_from:
+  - doc: DS-1581
+  - doc: DS-1582
+claim: >-
+  導出（本PR）。DS-1581（coverage capability欠落=NO_EVIDENCE/NOT_CHECKED）と
+  DS-1582（runner capability欠落=NO_EVIDENCE/NOT_EXECUTED）の間で、両方の
+  capabilityが同時に欠落した場合の優先順を正典は定めない。「Evidenceが
+  存在し得ない」ことを理由にNOT_EXECUTED（DS-1582側）を優先する、という
+  この PR の判断をtarget_bindingの挙動として確認する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

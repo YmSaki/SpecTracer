@@ -42,7 +42,10 @@
 //!   a false `Fail`.
 
 use syn::{spanned::Spanned, visit::Visit};
-use vtest_model::{Diagnostic, Locator};
+use vtest_adapter_api::{StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict};
+use vtest_model::{Diagnostic, Locator, TargetRef};
+
+use crate::ADAPTER_ID;
 
 /// One DA rule's verdict, before DS-606/607/608 composes the five into one
 /// `oracle_presence` state.
@@ -136,6 +139,59 @@ pub fn analyze(
 /// outcome. Returns `(is_fail, is_unknown, basis)` — `vtest-verify` (core)
 /// maps that into `VerificationState`/`DiagnosticLabel`, since this crate
 /// does not construct core's verification types (core owns that vocabulary).
+/// `vtest_adapter_api::StaticAnalysisAdapter` 実装（DES-408、本冊 §5.2
+/// `StaticAnalysisAdapter`）。core（`vtest-verify`）はこの capability を
+/// registry 経由で解決し、`analyze` を呼ぶだけで Rust 構文を直接解釈しない
+/// （AGENTS.md「core owns nothing language-specific」）。関数本体は、
+/// 以前 `vtest-verify::evaluate_oracle_presence` が直接呼んでいた
+/// `analyze`/`compose`/`target_symbol` への委譲そのもの — 解析ロジック自体は
+/// この PR で変更しない（本 PR は capability trait を通した dispatch への
+/// 置き換えのみ）。
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RustCargoStaticAnalysisAdapter;
+
+impl RustCargoStaticAnalysisAdapter {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
+    fn id(&self) -> &'static str {
+        ADAPTER_ID
+    }
+
+    fn analyze(&self, input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict {
+        // DS-628-shaped disclosed narrowing（このmodule冒頭のdoc comment
+        // 参照）: `TargetRef::Locator` targetだけがDA-003へsymbol名を渡す。
+        // `SrcId` targetはDA-003の対象から静かに除外される（違反を捏造
+        // しない側への narrowing）。以前は `vtest-verify::
+        // evaluate_oracle_presence` がこのfilter_mapを行っていた。
+        let target_symbols: Vec<String> = input
+            .test
+            .targets
+            .iter()
+            .filter_map(|target| match target {
+                TargetRef::Locator(locator) => Some(target_symbol(locator)),
+                TargetRef::SrcId(_) => None,
+            })
+            .collect();
+        let analysis = analyze(
+            input.construct_text,
+            &target_symbols,
+            input.extra_assertion_macros,
+        );
+        let (is_fail, is_unknown, basis) = compose(&analysis);
+        if is_fail {
+            StaticAnalysisVerdict::Fail(basis)
+        } else if is_unknown {
+            StaticAnalysisVerdict::Unknown(basis)
+        } else {
+            StaticAnalysisVerdict::Pass(basis)
+        }
+    }
+}
+
 pub fn compose(analysis: &OraclePresenceAnalysis) -> (bool, bool, Vec<String>) {
     let rules: [(&str, &DaVerdict); 5] = [
         ("DA-001", &analysis.da_001),
