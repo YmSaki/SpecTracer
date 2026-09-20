@@ -14,8 +14,9 @@ requirements and specifications take precedence over this note.
 - `feature/nested-run-test-isolation` at `fda4847` is a separate, unverified
   follow-up on top of `develop`; it is newer by five seconds, but is not the
   latest feature implementation.
-- The remote feature heads already reachable from `develop` are historical
-  references. They need no merge or cherry-pick.
+- Nine remote feature/spec heads already reachable from `develop` were removed
+  on 2026-09-20. Their commits remain in `develop` history. The two unmerged
+  feature heads remain available.
 
 ## Scope
 
