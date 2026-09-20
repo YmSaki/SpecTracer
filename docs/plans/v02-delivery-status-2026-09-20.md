@@ -37,6 +37,13 @@ implications must be tested against the current branch before selecting a fix.
 Issue #32's latest discussion says its original multi-target question is no
 longer actionable; it should not drive speculative framework work.
 
+The `doctor` failure predates PR #56: both the earlier adapter-coverage head
+and `develop` emit 128 `E-SCAN-016` orphan-document errors and 18
+`W-SCAN-101` unannotated-test warnings. PR #56 currently adds two more
+`W-SCAN-101` warnings. The 128 canonical upstream links need evidence-backed
+owner decisions; the verifier must not reclassify them as passing just to make
+CI green.
+
 ## Work sequence
 
 1. Reproduce and repair PR #56's `doctor` failure. Run focused checks and the
