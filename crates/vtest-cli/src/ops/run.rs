@@ -21,6 +21,7 @@
 
 use std::path::Path;
 
+use vtest_adapter_api::AdapterRegistry;
 use vtest_exec::{run_tests, ExecutionError, ExecutionResult, RunnableTest};
 use vtest_model::{TargetRef, TestEntity, TestId};
 use vtest_scan::ScanResult;
@@ -141,11 +142,12 @@ pub fn run(
     scan: &ScanResult,
     target: &RunTarget,
     fast: bool,
+    registry: &AdapterRegistry,
 ) -> Result<ExecutionResult, RunOpError> {
     let entities = resolve_runnables(scan, layout, target)?;
     let runnables = entities
         .iter()
         .map(|entity| build_runnable(entity, scan))
         .collect::<Vec<_>>();
-    Ok(run_tests(root, layout, &runnables, fast)?)
+    Ok(run_tests(root, layout, &runnables, fast, registry)?)
 }

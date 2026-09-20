@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-cli = { path = "../vtest-cli" }
 vtest-exec = { path = "../vtest-exec" }
 vtest-model = { path = "../vtest-model" }

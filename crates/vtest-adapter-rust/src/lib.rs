@@ -26,9 +26,10 @@ use serde::Deserialize;
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta};
 use vtest_adapter_api::{
-    AdapterScanConfig, DiscoveryError, DiscoveryOutcome, MissingTestConstruct, RunnerCommand,
-    RunnerOutput, RunnerTestResult, SourceDiscoveryAdapter, SourceDraft, TestDraft,
-    TestRunnerAdapter, TestRunnerError,
+    Adapter, AdapterDescriptor, AdapterScanConfig, Capability, CoverageAdapter, DiscoveryError,
+    DiscoveryOutcome, MissingTestConstruct, RunnerCommand, RunnerOutput, RunnerTestResult,
+    SourceDiscoveryAdapter, SourceDraft, StaticAnalysisAdapter, TestDraft, TestRunnerAdapter,
+    TestRunnerError,
 };
 use vtest_model::{
     AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
@@ -39,6 +40,7 @@ pub mod coverage;
 pub mod oracle_presence;
 
 pub use coverage::RustCargoCoverageAdapter;
+pub use oracle_presence::RustCargoStaticAnalysisAdapter;
 
 /// この adapter 内部だけが使う Cargo 実行形態の分類（本冊 §9.2 の
 /// `suite.kind`／`suite.name` を組み立てるための中間状態）。
@@ -323,12 +325,63 @@ pub fn locator_from_declared_value(raw: &str) -> Locator {
 /// `config.yaml` の `adapters[].id` および `TargetRef::Locator.adapter` と
 /// 一致する（本冊 §4.3「`rust-cargo` adapterはこの値を`TargetRef::Locator {
 /// adapter: "rust-cargo", value: locator }`へ正規化する」）。
+///
+/// この構造体は同時に本 crate の `vtest_adapter_api::Adapter` 実装でもある
+/// （下記）。discovery capability は `self` 自身が実装するが、
+/// static_analysis / test_runner / coverage capability はそれぞれ独立した
+/// zero-sized 実装（`RustCargoStaticAnalysisAdapter` /
+/// `RustCargoTestRunner` / `RustCargoCoverageAdapter`）を field として保持し、
+/// `Adapter::as_*` から `&dyn` として貸し出す — DES-350/351 の「1 adapter が
+/// 複数 capability を宣言する」を、trait ごとに独立した小さな実装を保った
+/// まま満たすための構成であり、4 つの capability trait 自体は分離したまま
+/// 変えない。
 #[derive(Default)]
-pub struct RustCargoAdapter;
+pub struct RustCargoAdapter {
+    runner: RustCargoTestRunner,
+    coverage: RustCargoCoverageAdapter,
+    static_analysis: RustCargoStaticAnalysisAdapter,
+}
 
 impl RustCargoAdapter {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+}
+
+/// DES-350「各adapterは一意なID、languages、capabilities、config namespace
+/// を宣言する」。`config_namespace` は `config.yaml` の `adapters[].id` と
+/// 同じ文字列を使う — 本 PR は config namespace 自体の型を新設しない
+/// （範囲外）ため、既存の唯一の namespace キー（adapter id）をそのまま
+/// 転用する導出。
+impl Adapter for RustCargoAdapter {
+    fn descriptor(&self) -> AdapterDescriptor {
+        AdapterDescriptor {
+            id: ADAPTER_ID.to_owned(),
+            languages: vec!["rust".to_owned()],
+            capabilities: vec![
+                Capability::SourceDiscovery,
+                Capability::StaticAnalysis,
+                Capability::TestRunner,
+                Capability::Coverage,
+            ],
+            config_namespace: ADAPTER_ID.to_owned(),
+        }
+    }
+
+    fn as_source_discovery(&self) -> Option<&dyn SourceDiscoveryAdapter> {
+        Some(self)
+    }
+
+    fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
+        Some(&self.static_analysis)
+    }
+
+    fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+        Some(&self.runner)
+    }
+
+    fn as_coverage(&self) -> Option<&dyn CoverageAdapter> {
+        Some(&self.coverage)
     }
 }
 
@@ -1810,7 +1863,9 @@ mod tests {
     /// unknown_adapter_id_is_rejected_fail_closed`）。
     fn registry_with_rust_cargo() -> AdapterRegistry {
         let mut registry = AdapterRegistry::new();
-        registry.register(Box::new(RustCargoAdapter::new()));
+        registry
+            .register(Box::new(RustCargoAdapter::new()))
+            .expect("rust-cargo must register cleanly in a fresh registry");
         registry
     }
 

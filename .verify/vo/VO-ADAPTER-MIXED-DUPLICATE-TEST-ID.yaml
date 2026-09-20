@@ -1,0 +1,12 @@
+id: VO-ADAPTER-MIXED-DUPLICATE-TEST-ID
+parent: null
+derives_from:
+  - doc: DS-536
+claim: >-
+  異なるadapterが同じTest IDを発見したときはE-SCAN-002として検出する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-20T00:00:00Z
+updated: 2026-09-20T00:00:00Z

@@ -1,0 +1,17 @@
+id: VO-EXEC-RUN-TESTS-DESCRIPTOR-MISMATCH-E-ADAPTER-003
+parent: null
+derives_from:
+  - doc: DS-745
+  - doc: DS-923
+claim: >-
+  導出（本PR）。DS-923「E-ADAPTER-003はerrorであり、Testのexecution descriptorと
+  選択adapterが不一致であることである」を、registryで解決済みのadapterがTestの
+  execution descriptorの形（例: 必須fieldの欠落）を解釈できずTestRunnerErrorを
+  返す既存経路に充てる。run_testsはこの場合ExecutionError::Runnerとして伝播し、
+  そのcode()はE-ADAPTER-003を返す。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

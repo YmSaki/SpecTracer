@@ -20,6 +20,10 @@ use std::path::PathBuf;
 use vtest_cli::ops;
 use vtest_store::init_project;
 
+fn registry() -> vtest_adapter_api::AdapterRegistry {
+    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+}
+
 fn temp_root(name: &str) -> PathBuf {
     // A nanosecond-timestamp suffix alone collides under parallel test
     // execution on Windows' coarser clock resolution -- see
@@ -72,9 +76,17 @@ fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
     let root = temp_root("gate-unsatisfied");
     write_gate_config(&root, Vec::new());
 
-    let (exit, data, _diagnostics) =
-        ops::verify::execute(&root, &[], None, None, None, Some("release"), false)
-            .expect("verify must run to completion on an empty (non-scan-error) project");
+    let (exit, data, _diagnostics) = ops::verify::execute(
+        &root,
+        &[],
+        None,
+        None,
+        None,
+        Some("release"),
+        false,
+        &registry(),
+    )
+    .expect("verify must run to completion on an empty (non-scan-error) project");
     assert_eq!(
         exit,
         vtest_model::ExitCode::VerificationFailed,
@@ -119,9 +131,17 @@ fn a_gate_whose_conditions_are_actually_met_reports_satisfied() {
     });
     std::fs::write(layout.config(), config.to_yaml()).expect("write gate config");
 
-    let (exit, data, _diagnostics) =
-        ops::verify::execute(&root, &[], None, None, None, Some("release"), true)
-            .expect("verify must run to completion on an empty (non-scan-error) project");
+    let (exit, data, _diagnostics) = ops::verify::execute(
+        &root,
+        &[],
+        None,
+        None,
+        None,
+        Some("release"),
+        true,
+        &registry(),
+    )
+    .expect("verify must run to completion on an empty (non-scan-error) project");
     let gate = data.gate.expect("--gate must populate data.gate");
     assert_eq!(
         data.state, "NO_EVIDENCE",
@@ -159,9 +179,17 @@ fn a_required_approval_role_appears_in_approvals_by_name() {
     let root = temp_root("gate-role");
     write_gate_config(&root, vec!["reviewer".to_owned()]);
 
-    let (_exit, data, _diagnostics) =
-        ops::verify::execute(&root, &[], None, None, None, Some("release"), false)
-            .expect("verify must run to completion on an empty (non-scan-error) project");
+    let (_exit, data, _diagnostics) = ops::verify::execute(
+        &root,
+        &[],
+        None,
+        None,
+        None,
+        Some("release"),
+        false,
+        &registry(),
+    )
+    .expect("verify must run to completion on an empty (non-scan-error) project");
     let gate = data.gate.expect("--gate must populate data.gate");
     assert_eq!(gate.approvals.len(), 1);
     assert_eq!(gate.approvals[0].role, "reviewer");
@@ -267,9 +295,17 @@ fn a_gate_requiring_fail_is_not_satisfied_by_the_distinct_mismatch_state() {
     });
     std::fs::write(layout.config(), config.to_yaml()).expect("write gate config");
 
-    let (_exit, data, _diagnostics) =
-        ops::verify::execute(&root, &[], None, None, None, Some("release"), true)
-            .expect("verify must run to completion on an empty (non-scan-error) project");
+    let (_exit, data, _diagnostics) = ops::verify::execute(
+        &root,
+        &[],
+        None,
+        None,
+        None,
+        Some("release"),
+        true,
+        &registry(),
+    )
+    .expect("verify must run to completion on an empty (non-scan-error) project");
     let gate = data.gate.expect("--gate must populate data.gate");
     assert_eq!(
         data.state, "MISMATCH",

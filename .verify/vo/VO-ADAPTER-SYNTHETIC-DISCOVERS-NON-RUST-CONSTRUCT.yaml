@@ -1,0 +1,14 @@
+id: VO-ADAPTER-SYNTHETIC-DISCOVERS-NON-RUST-CONSTRUCT
+parent: null
+derives_from:
+  - doc: DS-1584
+claim: >-
+  synthetic adapterは、.rs以外の拡張子のsourceから、関数ではないTest construct、
+  doc commentではない形式のmetadata宣言、Rust item pathではない（`::`を含まない）
+  opaque locatorを持つTestを発見できる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

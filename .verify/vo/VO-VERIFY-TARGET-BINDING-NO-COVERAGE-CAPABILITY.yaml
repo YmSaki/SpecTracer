@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY
+parent: null
+derives_from:
+  - doc: DS-1581
+claim: 検証時のcoverage capability欠落（Test Runner capabilityはある）は、target_bindingを`NO_EVIDENCE`（診断`NOT_CHECKED`）にする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00
