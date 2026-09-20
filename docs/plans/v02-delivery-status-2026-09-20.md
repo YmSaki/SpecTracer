@@ -44,6 +44,10 @@ and `develop` emit 128 `E-SCAN-016` orphan-document errors and 18
 `W-SCAN-101` warnings. The 128 canonical upstream links need evidence-backed
 owner decisions; the verifier must not reclassify them as passing just to make
 CI green.
+The orphan errors are distributed across `.verify/doc/basic-spec.json` (88),
+`detailed-design.json` (26), `detailed-design-annex-a-interface.json` (9),
+and `requirements-definition.json` (5). The `doctor` output identifies every
+node; each upstream relationship needs a source-backed review.
 
 As of `21cb578`, `cargo fmt --all -- --check`, `cargo test --workspace`, and
 `cargo clippy --workspace --all-targets -- -D warnings` pass locally. The two
