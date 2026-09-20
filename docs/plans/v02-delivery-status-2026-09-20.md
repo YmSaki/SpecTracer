@@ -30,6 +30,13 @@ capability, and a synthetic adapter fixture. Some planned boundaries remain
 unfinished: `vtest-scan` still directly uses `syn` for Structured Test
 Operations, and the synthetic acceptance matrix in plan §9 is not yet complete.
 
+Two open issues affect the final contract: #35 documents canonical Rust
+Locator collisions between distinct constructs, and #33 requests an explicit
+runner-to-core DTO for Execution State hash input. Their behavior and normative
+implications must be tested against the current branch before selecting a fix.
+Issue #32's latest discussion says its original multi-target question is no
+longer actionable; it should not drive speculative framework work.
+
 ## Work sequence
 
 1. Reproduce and repair PR #56's `doctor` failure. Run focused checks and the
