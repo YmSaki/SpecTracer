@@ -12,11 +12,12 @@ requirements and specifications take precedence over this note.
   `develop`. Its last GitHub Actions run passed formatting, workspace tests,
   and clippy, but failed `vtest doctor`.
 - `feature/nested-run-test-isolation` at `fda4847` is a separate, unverified
-  follow-up on top of `develop`; it is newer by five seconds, but is not the
-  latest feature implementation.
+  follow-up on top of `develop`; it was newer by five seconds, but not the
+  latest feature implementation. Its patch was validated and integrated into
+  PR #56 as `21cb578`, then the redundant remote branch was removed.
 - Nine remote feature/spec heads already reachable from `develop` were removed
   on 2026-09-20. Their commits remain in `develop` history. The two unmerged
-  feature heads remain available.
+  feature heads were retained during integration; only PR #56 remains remote.
 
 ## Scope
 
@@ -43,6 +44,12 @@ and `develop` emit 128 `E-SCAN-016` orphan-document errors and 18
 `W-SCAN-101` warnings. The 128 canonical upstream links need evidence-backed
 owner decisions; the verifier must not reclassify them as passing just to make
 CI green.
+
+As of `21cb578`, `cargo fmt --all -- --check`, `cargo test --workspace`, and
+`cargo clippy --workspace --all-targets -- -D warnings` pass locally. The two
+new W7 mixed-adapter tests pass. `vtest doctor` still exits 1 with the same 128
+orphan errors and 20 warnings; the extra two warnings are from PR #56's
+untraced tests.
 
 ## Work sequence
 
