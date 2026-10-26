@@ -61,7 +61,7 @@ CLI も同じ状態になっている。`main`（v0.1.0-alpha.1）にあった `
 ## 6. 決定記録（Owner、2026-10-26）
 
 1. 要件文案（§4）を、そのまま正本に入れる。
-2. コマンド名は `vtest test export`（`--format md|json`）。別紙A §12.2 の `test show/list/query` と同じ系統にそろえる。
+2. コマンド名は `vtest export`（`--format md|json`）。当初案は `vtest test export` だったが、Owner の指示で短くした。`test show/list/query` は別紙A §12.2 のとおり `vtest test` の下に置く。
 3. 別紙A §12.2 の `test show/list/query` を、同じ版で実装に戻す。`export` と同じ読み取り処理を使うので、差分は小さい。
 
 ## 7. プロの利用観点と、そこから導く設計判断
