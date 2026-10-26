@@ -2,7 +2,7 @@ id: VO-VERIFY-ORPHAN-DETECTION-ROOT-REACHABILITY
 parent: null
 derives_from:
   - doc: DS-1651
-claim: '`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。'
+claim: '`orphan_detection`は評価地点を文ノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。'
 dimensions: []
 coverage_policy: null
 combinations: []
