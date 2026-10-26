@@ -66,7 +66,7 @@
 
 ## SPEC-S002 1. 用語定義
 
-*導出元: REQ-S001, REQ-S003, REQ-S013, REQ-S020, REQ-S025, REQ-S029, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
+*導出元: REQ-S001, REQ-S020, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
 
 ### SPEC-012
 
@@ -74,7 +74,7 @@ documentは要件定義書・基本仕様書・詳細設計書・API Schema・Pr
 
 ### SPEC-013
 
-derives_fromは上流documentから下流documentへの導出を表す。
+`derives_from` は上流ノードへの参照である。
 
 ### SPEC-014
 
@@ -116,7 +116,7 @@ Test Intentとは、Testが「何を検証するか」を実装コードを読�
 
 検証対象は実装constructに限定せず、外部から観測可能な契約・境界上の振る舞いも含む。
 
-*導出元: REQ-144, REQ-145, REQ-146, REQ-147, REQ-148*
+*導出元: REQ-144, REQ-145, REQ-146, REQ-336*
 
 *引用: 要件定義 §9.1*
 
@@ -168,17 +168,15 @@ Agent Form Engineeringとは、既知の作業手順・入力項目を持つ操�
 
 *引用: 要件定義 P-004*
 
-## SPEC-S003 2 全体像
+## SPEC-S004 2.1 正典の三層構造
 
-### SPEC-S004 2.1 正典の三層構造
-
-*導出元: P-003, REQ-S019, REQ-S035, REQ-S046*
+*導出元: P-003, REQ-S019, REQ-S035, REQ-S046, REQ-283*
 
 ### SPEC-032
 
 本システムの仕事は「宣言と実装が一致しているか」「事実が現在の宣言・実装に対して有効か」を照合することに限る。
 
-### SPEC-S005 2.2 宣言鎖と照合
+## SPEC-S005 2.2 宣言鎖と照合
 
 *導出元: REQ-S004, REQ-S005*
 
@@ -186,7 +184,7 @@ Agent Form Engineeringとは、既知の作業手順・入力項目を持つ操�
 
 要件定義 §3.2 の宣言鎖をそのまま採用する。
 
-*導出元: REQ-024, REQ-025, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033*
+*導出元: REQ-024, REQ-333, REQ-026, REQ-027, REQ-028, REQ-029, REQ-030, REQ-031, REQ-032, REQ-033*
 
 *引用: 要件定義 §3.2*
 
@@ -217,7 +215,7 @@ VOは1件以上の `document` からderives_fromで導出される。
 
 *引用: 要件定義 P-001*
 
-### SPEC-S006 2.3 導出できる関係は保存しない
+## SPEC-S006 2.3 導出できる関係は保存しない
 
 *導出元: P-003*
 
@@ -225,11 +223,9 @@ VOは1件以上の `document` からderives_fromで導出される。
 
 Test→VO（`covers`）、Test→SRC（`targets`）の関係はadapter所有のTest metadata宣言から決定論的に導出できる。
 
-## SPEC-S007 3 エンティティと ID 体系
+## SPEC-S008 3.1 エンティティ種別
 
-### SPEC-S008 3.1 エンティティ種別
-
-*導出元: REQ-S005, REQ-S025, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
+*導出元: REQ-S005, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
 
 ### SPEC-038
 
@@ -249,9 +245,9 @@ Source Targetは対象implementation constructである。
 
 ### SPEC-042
 
-文書層の段（要件→仕様→詳細設計…）はderives_fromリンクとして表現する。
+層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクとして表現する。
 
-### SPEC-S009 3.2 ID 規則と関係リンク
+## SPEC-S009 3.2 ID 規則と関係リンク
 
 *導出元: REQ-S007, REQ-S027, REQ-S058*
 
@@ -267,7 +263,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 *引用: 要件定義 §28*
 
-### SPEC-S010 3.3 Source Target の識別
+## SPEC-S010 3.3 Source Target の識別
 
 *導出元: R-3, REQ-S027*
 
@@ -275,9 +271,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 対象はTarget Referenceで識別する。
 
-## SPEC-S011 4 検証状態と診断ラベル
-
-### SPEC-S012 4.1 状態は 5 つ
+## SPEC-S012 4.1 状態は 5 つ
 
 *導出元: REQ-S014*
 
@@ -285,7 +279,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 状態の存在資格は「受け取った者の行動が変わるか」である。
 
-### SPEC-S013 4.2 診断ラベル
+## SPEC-S013 4.2 診断ラベル
 
 *導出元: REQ-S015, REQ-S058*
 
@@ -301,7 +295,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 *引用: 要件定義 §5.2、§28*
 
-### SPEC-S014 4.3 状態の割当
+## SPEC-S014 4.3 状態の割当
 
 *導出元: REQ-S016*
 
@@ -313,7 +307,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 *引用: 要件定義 §5.3*
 
-### SPEC-S015 4.4 UNKNOWN の検疫
+## SPEC-S015 4.4 UNKNOWN の検疫
 
 *導出元: REQ-S017*
 
@@ -321,7 +315,7 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 `UNKNOWN` はエラーではなく正常動作としての降参である。
 
-### SPEC-S016 4.5 検証状態と承認の分離
+## SPEC-S016 4.5 検証状態と承認の分離
 
 *導出元: REQ-S018*
 
@@ -343,13 +337,19 @@ DOC / VO / TESTのIDは利用者（人間またはAI）が命名する。
 
 検証は `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の4検査のみで行う。
 
+*導出元: REQ-034*
+
 ### SPEC-054
 
 各検査は一つの問いを持つ。
 
+*導出元: REQ-050*
+
 ### SPEC-055
 
 各検査は複数の証拠源で答えてよい。
+
+*導出元: REQ-050*
 
 ### SPEC-056
 
@@ -377,7 +377,7 @@ chain_integrityの問いは、宣言鎖のすべてのリンクが存在し、�
 
 ### SPEC-059
 
-orphan_detectionの問いは、親を持たない `document` ノードが存在するかである。
+orphan_detectionの問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。
 
 ### SPEC-060
 
@@ -407,13 +407,9 @@ target_binding検査は、その証拠が検証対象の実行を伴ったかを
 
 target_bindingは一つの問いに対し静的解析と動的計測の2つの証拠源を持つ。
 
-### SPEC-065
-
-他の実行形態における確認方法は、当該形態に適した方法として詳細設計で定める。
-
 ### SPEC-S021 5.4 oracle_presence — 照合装置の存在
 
-*導出元: REQ-S012, REQ-S021*
+*導出元: REQ-S012*
 
 ### SPEC-066
 
@@ -472,8 +468,6 @@ oracle_presenceの問いは、宣言された「何の時にどうなる」の�
 `target_binding`（§5.3）はランナーの `PASS` を前提に、その `PASS` が検証対象の実行を伴ったかを問う独立の照合である。
 
 ## SPEC-S023 8 Test の検証成立性
-
-*導出元: REQ-S021, REQ-S025*
 
 ### SPEC-S024 8.2 成立性の必要条件
 
@@ -534,8 +528,6 @@ code fragmentはRustによる例示である。
 
 ## SPEC-S026 9 検証対象と Source Target
 
-*導出元: REQ-S025*
-
 ### SPEC-S027 9.1 検証対象
 
 ### SPEC-082
@@ -550,7 +542,7 @@ code fragmentはRustによる例示である。
 
 外部から観測可能な契約・境界上の振る舞いも検証対象にできる。
 
-*導出元: REQ-144, REQ-145, REQ-146, REQ-147, REQ-148*
+*導出元: REQ-144, REQ-145, REQ-146, REQ-336*
 
 *引用: 要件定義 §9.1*
 
@@ -559,6 +551,14 @@ code fragmentはRustによる例示である。
 ### SPEC-085
 
 1つのTestは1件以上のSource Targetを宣言できる。
+
+### SPEC-465
+
+target の宣言は Test 成立性の必須条件ではない。
+
+> `REQ-336` の基本仕様面の写し。前身 `SPEC-301` は同旨を「検証対象をSource Targetとして宣言しない他の実行形態」に限って述べ、確認方法を下位仕様・後続版へ委譲していた。`ROOT-049` により実行形態の条件節と委譲がともに消え、無条件の規範だけが残る。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節（基本仕様 §9.1）の位置を指すだけであり、「そこから写した」ことを意味しない（`DS-1664` と同じ開示）。
+
+*導出元: REQ-336*
 
 ### SPEC-086
 
@@ -588,7 +588,7 @@ Source Targetとの関係を持つTestについて、Sourceから関連Testを�
 
 ## SPEC-S030 10. Verification Obligation
 
-*導出元: REQ-S029, REQ-S034*
+*導出元: REQ-S034*
 
 ### SPEC-092
 
@@ -1036,7 +1036,7 @@ document / VO、Test metadata宣言、判断記録、Evidenceの一部が欠け�
 
 ## SPEC-S049 19. トレーサビリティと役割別 projection
 
-*導出元: REQ-S007*
+*導出元: REQ-S007, REQ-282*
 
 ### SPEC-172
 
@@ -1141,8 +1141,6 @@ preset・UI・モード体系は詳細設計へ委譲する。
 *引用: 要件定義 §6、§26.1*
 
 ## SPEC-S052 22 完全検証・集約・報告
-
-*導出元: REQ-S053*
 
 ### SPEC-S053 22.1 完全検証 OK
 
@@ -1599,35 +1597,47 @@ HOWは本書で発明しない。
 
 本書は意味論とデータschema、および露出点だけを確定する。
 
-## SPEC-S068 2. データディレクトリと設定
+## SPEC-S069 2.2 `config.yaml`
 
-### SPEC-S069 2.2 `config.yaml`
+*導出元: P-002, REQ-S010, REQ-S014, REQ-S016, REQ-S048, REQ-S057, REQ-S058*
 
 ### SPEC-276
 
 統合したTest IDは全adapterでglobal uniquenessを検査する。
 
-## SPEC-S070 3. レコードファイルスキーマ
+*導出元: P-002, REQ-S010, REQ-S014, REQ-S016, REQ-S048, REQ-S057, REQ-S058*
 
-### SPEC-S071 3.1 document レコード（`.verify/doc/DOC-*.yaml`）
+## SPEC-S071 3.1 document ファイル（`.verify/doc/` の JSON）
+
+*導出元: R-5, REQ-S005, REQ-S007, REQ-S027, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
 
 ### SPEC-277
 
 `note` は付加・保存できる構造とする。
 
+*導出元: R-5, REQ-S005, REQ-S007, REQ-S027, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
+
 ### SPEC-278
 
 本システムは文書内容の意味的良否を検証しない。
 
+*導出元: R-5, REQ-S005, REQ-S007, REQ-S027, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
+
 *引用: 基本仕様 §29 OOS-001*
 
-### SPEC-S072 3.2 VO レコード（`.verify/vo/VO-*.yaml`）
+## SPEC-S072 3.2 VO レコード（`.verify/vo/VO-*.yaml`）
 
-#### SPEC-S073 3.2.1 dimensions と組合せの実体化
+*導出元: REQ-S007, REQ-S027, REQ-S034, REQ-S058*
+
+### SPEC-S073 3.2.1 dimensions と組合せの実体化
+
+*導出元: REQ-S007, REQ-S027, REQ-S034, REQ-S058*
 
 ### SPEC-279
 
 組合せ空間の定義が仕様に対して十分かは本システムの検査ではなく、`UNKNOWN` としてエスカレーションの領分である（§8）。
+
+*導出元: REQ-S007, REQ-S027, REQ-S034, REQ-S058*
 
 *引用: 基本仕様 §11, 基本仕様 §10*
 
@@ -1635,9 +1645,11 @@ HOWは本書で発明しない。
 
 `combinations` の値が仕様に対して十分な組合せ集合かは本システムの検査ではなく、エスカレーションの領分である。
 
+*導出元: REQ-S007, REQ-S027, REQ-S034, REQ-S058*
+
 *引用: 基本仕様 §10, 基本仕様 §11*
 
-### SPEC-S074 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
+## SPEC-S074 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
 
 *導出元: REQ-S035*
 
@@ -1657,7 +1669,7 @@ HOWは本書で発明しない。
 
 判断済みと承認済みは区別する（判断済み ≠ 承認済み）（§3.5）。
 
-### SPEC-S075 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）
+## SPEC-S075 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）
 
 *導出元: REQ-S046*
 
@@ -1673,15 +1685,19 @@ HOWは本書で発明しない。
 
 承認は特定のエンティティ型に従属しない独立の領域である。
 
-### SPEC-S076 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
+## SPEC-S076 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
+
+*導出元: REQ-S019, REQ-S020, REQ-S054*
 
 ### SPEC-286
 
 `target_coverage` は `target_binding` の動的計測（宣言対象の実行が生じたか）の結果であり、独立の検査項目ではない。
 
-## SPEC-S077 5. Discovery orchestration設計
+*導出元: REQ-S019, REQ-S020, REQ-S054*
 
-### SPEC-S078 5.2 エンティティモデル（vtest-model）
+## SPEC-S078 5.2 エンティティモデル（vtest-model）
+
+*導出元: REQ-S014*
 
 ### SPEC-287
 
@@ -1695,29 +1711,37 @@ HOWは本書で発明しない。
 
 検査は `ChainIntegrity` / `OrphanDetection` / `TargetBinding` / `OraclePresence` の4本のみである。
 
-*導出元: REQ-034, REQ-035, REQ-050, REQ-051, REQ-052, REQ-053, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
+*導出元: REQ-034, REQ-035, REQ-050, REQ-051, REQ-052, REQ-334, REQ-054, REQ-055, REQ-056, REQ-057, REQ-058, REQ-059, REQ-060, REQ-061, REQ-062, REQ-063, REQ-064, REQ-065, REQ-066, REQ-067, REQ-337, REQ-069, REQ-072, REQ-073, REQ-074, REQ-075, REQ-076, REQ-077, REQ-078, REQ-079, REQ-080, REQ-081, REQ-082, REQ-083, REQ-084*
 
 *引用: 基本仕様 §5, 要件定義 §3.3, 要件定義 §4*
 
-### SPEC-S079 5.3 検証グラフ
+## SPEC-S079 5.3 検証グラフ
+
+*導出元: REQ-S005, REQ-S007, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-282*
 
 ### SPEC-289
 
 関係型（`derives_from` / `covers` / `targets` / 外部Relation）は横断トレース可能とするが、単一へ潰さず、また意味論的に増殖もさせない。
 
-### SPEC-S080 5.4 整合性診断
+*導出元: REQ-S005, REQ-S007, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-282*
+
+## SPEC-S080 5.4 整合性診断
+
+*導出元: REQ-S036, REQ-S050*
 
 ### SPEC-290
 
 warningはレポートに常に表示する。
 
-### SPEC-S081 5.6 文書層 orphan_detection
+*導出元: REQ-S036, REQ-S050*
+
+## SPEC-S081 5.6 文書層 orphan_detection
 
 *導出元: REQ-S010*
 
 ### SPEC-291
 
-`orphan_detection` は文書層の孤児検出であり、親（上流document）を持たない `document` ノードが存在するかを問う。
+`orphan_detection` は文書層の孤児検出であり、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。
 
 *導出元: REQ-059, REQ-060, REQ-061, REQ-062, REQ-063*
 
@@ -1735,13 +1759,15 @@ warningはレポートに常に表示する。
 
 旧モデルのW-SCAN-102（孤立VO）はVO層の警告であり、文書層 `orphan_detection` とは別物として存置する。
 
-## SPEC-S082 6. Target Reference解決
+## SPEC-S083 6.1 adapter-neutral解決contract
 
-### SPEC-S083 6.1 adapter-neutral解決contract
+*導出元: R-3, REQ-S027*
 
 ### SPEC-294
 
 解決結果は「解決済み」「対象なし」「曖昧」の3状態を区別する。
+
+*導出元: R-3, REQ-S027*
 
 ## SPEC-S084 7. Static Analysis orchestrationと`rust-cargo`ルール
 
@@ -1765,35 +1791,39 @@ warningはレポートに常に表示する。
 
 ### SPEC-S085 7.2 `rust-cargo` ルール一覧
 
+*導出元: REQ-S012, REQ-S024*
+
 ### SPEC-299
 
 ルールごとの判定結果と根拠（該当スパン）は`vtest audit static`の出力および`cache/`の派生結果として提示する。
 
+*導出元: REQ-S012, REQ-S024*
+
 ### SPEC-S086 7.3 target 到達の静的証明と runtime 証明の関係（target_binding）
 
-### SPEC-300
+*導出元: REQ-S011, REQ-S020, REQ-S054*
 
-本節の到達要件は検証対象をSource Targetとして実現する形態に限定する（`rust-cargo`）。
+### SPEC-464
 
-> 基本仕様 §5.3「実装 construct（Source Target）を検証対象とする実行形態では…」
+本節の到達要件は、target を宣言した Test に限定する。
+
+> 前身 `SPEC-300` は「検証対象をSource Targetとして実現する形態に限定する（`rust-cargo`）」と、実行形態で限定していた。`ROOT-049` により条件を「target を宣言したか」に付け替えた。到達要件そのものは変えていない。
+
+*導出元: ROOT-049*
 
 *引用: 基本仕様 §5.3*
-
-### SPEC-301
-
-検証対象をSource Targetとして宣言しない他の実行形態（外部契約・境界上の振る舞い）の確認方法は、特定形態を他形態へ一律要求せず下位仕様・後続版へ委譲する。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072*
-
-*引用: 要件定義 §4.3, 基本仕様 §5.3・§8.3*
 
 ### SPEC-302
 
 本節の target 実行到達規則を普遍規則として適用しない。
 
+*導出元: REQ-S011, REQ-S020, REQ-S054*
+
 ### SPEC-303
 
 本節はprocess boundaryによってDA-002到達が恒久UNKNOWNになる問題だけを解消するものであり、boundary testを完全にoracle_presence PASS可能にするものではない。
+
+*導出元: REQ-S011, REQ-S020, REQ-S054*
 
 ## SPEC-S087 8. 判断記録プロトコル
 
@@ -1871,15 +1901,19 @@ warningはレポートに常に表示する。
 
 ## SPEC-S091 10. `rust-cargo` Target Binding 動的計測
 
+*導出元: REQ-S011, REQ-S019, REQ-S020, REQ-S054*
+
 ### SPEC-S092 10.3 実行モードの整理
+
+*導出元: REQ-S011, REQ-S019, REQ-S020, REQ-S054*
 
 ### SPEC-318
 
 `vtest run`は2モードを持つ。
 
-## SPEC-S093 11. 鮮度検証と集約
+*導出元: REQ-S011, REQ-S019, REQ-S020, REQ-S054*
 
-### SPEC-S094 11.1 検査の評価地点
+## SPEC-S094 11.1 検査の評価地点
 
 ### SPEC-319
 
@@ -1937,11 +1971,15 @@ warningはレポートに常に表示する。
 
 *引用: 基本仕様 §11, 要件定義 §12*
 
-#### SPEC-S095 11.1.1 `chain_integrity` の評価
+### SPEC-S095 11.1.1 `chain_integrity` の評価
+
+*導出元: REQ-S009, REQ-S036*
 
 ### SPEC-331
 
 `chain_integrity`は宣言鎖のすべてのリンクが存在し、ハッシュ照合が成立するかを問う。
+
+*導出元: REQ-S009, REQ-S036*
 
 *引用: 基本仕様 §5.1*
 
@@ -1949,9 +1987,11 @@ warningはレポートに常に表示する。
 
 すべてのTestを管理対象とすることと、当該Testを証拠として算入すること（§7 / §10のtarget_binding / oracle_presence）は別個の条件とする。
 
+*導出元: REQ-S009, REQ-S036*
+
 *引用: 基本仕様 §8.1*
 
-### SPEC-S096 11.3 集約アルゴリズム
+## SPEC-S096 11.3 集約アルゴリズム
 
 ### SPEC-333
 
@@ -1969,13 +2009,17 @@ warningはレポートに常に表示する。
 
 *引用: 基本仕様 §22.3*
 
-### SPEC-S097 11.4 document 鮮度
+## SPEC-S097 11.4 document 鮮度
+
+*導出元: REQ-S019*
 
 ### SPEC-336
 
 仕様文書の更新は`vtest doc add --update`による再登録で反映し、依存する判断・承認が失効することを利用者へ提示する。
 
-### SPEC-S098 11.5 フェーズゲート評価
+*導出元: REQ-S019*
+
+## SPEC-S098 11.5 フェーズゲート評価
 
 *導出元: REQ-S057*
 
@@ -2013,7 +2057,7 @@ warningはレポートに常に表示する。
 
 *引用: 別紙A, 基本仕様 §30*
 
-### SPEC-S099 11.6 役割別 projection
+## SPEC-S099 11.6 役割別 projection
 
 *導出元: REQ-S007*
 
@@ -2047,11 +2091,13 @@ warningはレポートに常に表示する。
 
 ### SPEC-348
 
-projectionが出力する`derives_from`エッジに当該entryの`anchor`を常に同伴させることにより「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
+projection が出力する `derives_from` エッジは到達先の上流ノード id（節または文）を伴い、「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアが構造化出力として取得でき、外部の発見者が未宣言の義務・網羅漏れを裁定する材料になる（基本仕様 §11.1）。
 
 *引用: 基本仕様 §11.1*
 
-### SPEC-S100 11.7 判断待ち情報の構造
+## SPEC-S100 11.7 判断待ち情報の構造
+
+*導出元: R-5, REQ-S040, REQ-S058*
 
 ### SPEC-349
 
@@ -2065,6 +2111,8 @@ projectionが出力する`derives_from`エッジに当該entryの`anchor`を常�
 
 UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事項を横断的に集約する（表示形式は別紙A、基本仕様 §30 item 19）。
 
+*導出元: R-5, REQ-S040, REQ-S058*
+
 *引用: 別紙A, 基本仕様 §30 item 19, 基本仕様 §30*
 
 ## SPEC-S101 16. 並列動作と整合性
@@ -2075,29 +2123,43 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 ### SPEC-S102 16.1 ロック不要の根拠
 
+*導出元: REQ-S050, REQ-S058*
+
 ### SPEC-352
 
 すべての判定は「その時点の正典の読み取り」に基づき、正典が変われば次回のscan / verifyが差分を反映する。
 
+*導出元: REQ-S050, REQ-S058*
+
 ### SPEC-S103 16.2 意味的衝突検出
+
+*導出元: REQ-S036, REQ-S050, REQ-S058*
 
 ### SPEC-353
 
 `vtest doctor`は、同じTest IDの重複、covers先VOの欠落、承認済VOの内容不一致など、version controlの構文的整合性だけでは判定できない論理的不整合を検出する。
 
-## SPEC-S104 17. 診断・終了コード体系
+*導出元: REQ-S036, REQ-S050, REQ-S058*
 
-### SPEC-S105 17.1 診断コード
+## SPEC-S105 17.1 診断コード
+
+*導出元: REQ-S015, REQ-S058*
 
 ### SPEC-354
 
 診断コードは§5.4のスキャン診断に加えて定義する。
 
-### SPEC-S106 17.2 終了コード
+*導出元: REQ-S015, REQ-S058*
+
+## SPEC-S106 17.2 終了コード
+
+*導出元: REQ-S017, REQ-S049, REQ-S058*
 
 ### SPEC-355
 
 要求scopeの総合OK / NGはJSONとtextの集約出力から読み取れる（別紙A §12.1・§12.3）。
+
+*導出元: REQ-S017, REQ-S049, REQ-S058*
 
 *引用: 別紙A §12.1・§12.3, 別紙A §12.1, 別紙A §12.3*
 
@@ -2105,9 +2167,13 @@ UNKNOWNだけでなく、検証出力全体にわたる未確定・要判断事�
 
 終了コードは診断severityだけでなく操作段階で決める。
 
+*導出元: REQ-S017, REQ-S049, REQ-S058*
+
 ### SPEC-357
 
 検証状態と内部エラーは終了コードで分離する。
+
+*導出元: REQ-S017, REQ-S049, REQ-S058*
 
 *引用: 基本仕様 §4.4、§26.1*
 
@@ -2169,9 +2235,7 @@ cargo-nextest対応は提供範囲外とする。
 
 本別紙は、上流（要件定義＝WHY、基本仕様＝WHAT、詳細設計本冊＝HOW 中核）に無い義務・検査・状態・文書種別・関係型を発明しない。
 
-## SPEC-S109 12. CLI 詳細仕様
-
-### SPEC-S110 12.1 共通仕様
+## SPEC-S110 12.1 共通仕様
 
 *導出元: REQ-S009*
 
@@ -2197,7 +2261,9 @@ cargo-nextest対応は提供範囲外とする。
 
 `NO_EVIDENCE` は状態であって診断ラベルではない。
 
-### SPEC-S111 12.2 `vtest init`
+## SPEC-S111 12.2 `vtest init`
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-374
 
@@ -2206,6 +2272,8 @@ cargo-nextest対応は提供範囲外とする。
 > ```text
 > vtest init [--name <project-name>]
 > ```
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 本冊 §2.1*
 
@@ -2217,17 +2285,23 @@ cargo-nextest対応は提供範囲外とする。
 > vtest scan
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §5*
 
 ### SPEC-376
 
 `vtest doctor` は `vtest scan` と同一処理の別名であり、自動化環境の整合性検査に使用する。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §16.2*
 
 ### SPEC-377
 
-`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、孤児 document（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。
+`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-378
 
@@ -2242,19 +2316,27 @@ cargo-nextest対応は提供範囲外とする。
 > vtest doc show DOC-BASIC-001
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §3.1, 基本仕様 §3.1・§3.2*
 
 ### SPEC-379
 
 `doc edit` は設けない。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-380
 
 正典編集は `add --update` で行う。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-381
 
 document の承認・却下・取消は `vtest approval` で行い、`doc` 側に承認操作を置かない。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-382
 
@@ -2271,15 +2353,21 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > vtest approval show --subject-type <vo|document|judgment> --subject-id <id>
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §3.5*
 
 ### SPEC-383
 
 エンティティ側の `vo approve` / `vo_approve` はこの経路への別名にすぎず、追加・相異する規則を持たない。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-384
 
 `withdraw <approval-id>` は `create --subject-type <当該レコードの対象種別> --subject-id <当該レコードの対象> --state withdrawn --supersedes <approval-id>` と同一のレコードを生成する短縮形であり、追加の意味論を持たない。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-385
 
@@ -2305,6 +2393,8 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 >   file: tests/parser_test.rs        # 省略時は target と同居する tests モジュール
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-386
 
 `vtest test edit` は desired state 方式である。
@@ -2313,6 +2403,8 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > vtest test edit TEST-X --answers desired.yaml [--dry-run]
 > vtest test edit TEST-X --set covers=VO-A,VO-B [--set intent="..."]...
 > ```
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 基本仕様 §15.1*
 
@@ -2323,6 +2415,8 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > ```text
 > vtest audit static [--test TEST-X | --all]
 > ```
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 本冊 §7*
 
@@ -2337,11 +2431,15 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > vtest audit submit --file result.json
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §8*
 
 ### SPEC-389
 
 本システムは宣言されていない義務・網羅漏れ・宣言と実装の意味のずれを自ら発見・裁定しない。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-390
 
@@ -2355,19 +2453,27 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 `audit bundle` は判断対象（`--test` / `--vo`）ごとに、判断に必要な情報一式（対象 VO と claim・Test Intent・テストコード全文・Test が宣言した cases 集合・対象実装全文・関連テスト・既知 partition・過去の判断・対象の内容ハッシュとリビジョン）を JSON として `cache/bundles/<ULID>.json` へ出力し、パスと `bundle_id` を返す。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §8.1*
 
 ### SPEC-392
 
 旧モデルの `spec-coverage`（SPEC 層依存）は復活させない。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-393
 
 判断記録は検査ゲートではなく、`UNKNOWN` に対する外部判断の追跡である。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-394
 
 判断記録（`.verify/decisions/` の actor / subject / decision / judgment_kind・理由 optional）と承認記録（`.verify/approvals/` の approver / subject または judgment_ref / approved_state、`vtest approval create` で生成）は別軸・別 entity である。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 本冊 §3.4, 本冊 §3.5*
 
@@ -2375,11 +2481,15 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 判断済み ≠ 承認済みである。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §8.5, 基本仕様 §17*
 
 ### SPEC-396
 
 判断は承認なしでも記録でき、正式採用は承認の別段階である。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-397
 
@@ -2388,6 +2498,8 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > ```text
 > vtest run (--test TEST-X | --vo VO-X | --all) [--fast]
 > ```
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 本冊 §9、§10*
 
@@ -2401,17 +2513,23 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 >              [--gate <name>] [--summary]
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 本冊 §11.3*
 
 ### SPEC-399
 
 検査は基本仕様 §5 の固定4検査（`chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence`）のみである。
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 *引用: 基本仕様 §5*
 
 ### SPEC-400
 
 旧モデルの12項目（`spec_coverage` / `vo_decomposition` / `vo_coverage` / `test_existence` / `static_audit` / `semantic_audit` / `impl_consistency` / `test_execution` / `runtime_result` / `target_execution` / `evidence_validity` / `test_traceability`）は検査として存在しない。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 *引用: 本冊 §11.1*
 
@@ -2426,9 +2544,13 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 >              [--direction up|down|both] [--format json]
 > ```
 
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
 ### SPEC-402
 
 `verify` が判定用、`report` が閲覧・提出用という役割分担とする。
+
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
 
 ### SPEC-403
 
@@ -2438,7 +2560,9 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 > vtest mcp
 > ```
 
-### SPEC-S112 12.3 フェーズゲート評価（`verify --gate` / `report --gate`）
+*導出元: P-002, P-003, P-004, REQ-S005, REQ-S007, REQ-S009, REQ-S010, REQ-S012, REQ-S016, REQ-S018, REQ-S019, REQ-S024, REQ-S026, REQ-S027, REQ-S034, REQ-S035, REQ-S036, REQ-S039, REQ-S040, REQ-S045, REQ-S046, REQ-S049, REQ-S050, REQ-S054, REQ-S057, REQ-S058, REQ-282*
+
+## SPEC-S112 12.3 フェーズゲート評価（`verify --gate` / `report --gate`）
 
 *導出元: REQ-S057*
 
@@ -2454,7 +2578,7 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 本システムの責務はゲート条件が現在満たされているかの評価・提示に限り、フェーズのライフサイクル管理・工程の自動遷移は責務外とする（「Release フェーズへ遷移させる」ではなく「Release gate の条件を現在満たしている」を提示する）。
 
-### SPEC-S113 12.4 判断待ち情報 section（`verify` / `report` JSON）
+## SPEC-S113 12.4 判断待ち情報 section（`verify` / `report` JSON）
 
 *導出元: REQ-S043*
 
@@ -2472,13 +2596,15 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 > `judgment_kind: case-coverage` の項目の生成条件、および判断競合の項目の生成条件は本冊 §11.7 に定める。
 
-## SPEC-S114 13. MCP ツール詳細仕様
+## SPEC-S115 13.2 ツール一覧
 
-### SPEC-S115 13.2 ツール一覧
+*導出元: P-003, REQ-S035, REQ-S046, REQ-S049, REQ-S058*
 
 ### SPEC-408
 
 `approval_create` は承認レコード生成の唯一の正典面である。
+
+*導出元: P-003, REQ-S035, REQ-S046, REQ-S049, REQ-S058*
 
 *引用: 本冊 §3.5*
 
@@ -2486,21 +2612,27 @@ document の承認・却下・取消は `vtest approval` で行い、`doc` 側�
 
 `approval_withdraw` は `approval_create` の `state: withdrawn` ＋ `supersedes: [approval_id]` と同一である。
 
+*導出元: P-003, REQ-S035, REQ-S046, REQ-S049, REQ-S058*
+
 ### SPEC-410
 
 `vo_approve` は `approval_create` に `subject: { type: vo, id }` を与えた場合の別名であり、独自の意味論を持たない。
 
-### SPEC-S116 13.3 エージェント向け利用フロー（参考）
+*導出元: P-003, REQ-S035, REQ-S046, REQ-S049, REQ-S058*
+
+## SPEC-S116 13.3 エージェント向け利用フロー（参考）
+
+*導出元: REQ-S035, REQ-S046, REQ-S047*
 
 ### SPEC-411
 
 完了確認は `verify` の4検査で行う。
 
-## SPEC-S117 15. Structured Test Operation adapter contract
+*導出元: REQ-S035, REQ-S046, REQ-S047*
 
-### SPEC-S118 15.4 `rust-cargo` 1 Test境界の保証
+## SPEC-S118 15.4 `rust-cargo` 1 Test境界の保証
 
-*導出元: REQ-S039*
+*導出元: REQ-S039, REQ-290*
 
 ### SPEC-412
 
@@ -2512,19 +2644,25 @@ helper・fixture・通常ソースコードの編集手段は提供しない。
 
 関数本体が helper を必要とする場合、helper の作成は通常のソース編集として利用者（人間・AI）が行う。
 
-## SPEC-S119 18. 受入契約
+## SPEC-S120 18.1 共通条件
 
-### SPEC-S120 18.1 共通条件
+*導出元: P-002, REQ-S016, REQ-S019, REQ-S050, REQ-S058*
 
 ### SPEC-414
 
 検証結果はfail-closedである。
 
-### SPEC-S121 18.2 共通fixture
+*導出元: P-002, REQ-S016, REQ-S019, REQ-S050, REQ-S058*
+
+## SPEC-S121 18.2 共通fixture
+
+*導出元: REQ-S005, REQ-S009, REQ-S010, REQ-S014, REQ-S015, REQ-S016, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
 
 ### SPEC-415
 
 状態は5つのみとする。
+
+*導出元: REQ-S005, REQ-S009, REQ-S010, REQ-S014, REQ-S015, REQ-S016, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
 
 *引用: 基本仕様 §4.1*
 
@@ -2532,11 +2670,15 @@ helper・fixture・通常ソースコードの編集手段は提供しない。
 
 診断ラベルは検証状態と別軸の原因説明である。
 
+*導出元: REQ-S005, REQ-S009, REQ-S010, REQ-S014, REQ-S015, REQ-S016, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
+
 *引用: 基本仕様 §4.2*
 
 ### SPEC-417
 
 診断ラベルは状態値ではない。
+
+*導出元: REQ-S005, REQ-S009, REQ-S010, REQ-S014, REQ-S015, REQ-S016, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
 
 *引用: 基本仕様 §4.2*
 
@@ -2544,31 +2686,39 @@ helper・fixture・通常ソースコードの編集手段は提供しない。
 
 synthetic adapterは配布対象のproduction language adapterではない。
 
-### SPEC-S122 18.3 機能別受入条件
+*導出元: REQ-S005, REQ-S009, REQ-S010, REQ-S014, REQ-S015, REQ-S016, REQ-S035, REQ-S036, REQ-S040, REQ-S046, REQ-S058*
 
-#### SPEC-S123 18.3.1 discovery・record・graph と chain_integrity
+## SPEC-S123 18.3.1 discovery・record・graph と chain_integrity
+
+*導出元: REQ-S007, REQ-S009, REQ-S018, REQ-S027, REQ-S036, REQ-S046, REQ-S050, REQ-S058*
 
 ### SPEC-419
 
 adapter所有のmetadata宣言、ID、target、VO参照、record schema、Relationの違反を対応診断codeで検出する。
 
+*導出元: REQ-S007, REQ-S009, REQ-S018, REQ-S027, REQ-S036, REQ-S046, REQ-S050, REQ-S058*
+
 ### SPEC-420
 
 診断ラベルを二重定義しない。
 
-### SPEC-421
+*導出元: REQ-S007, REQ-S009, REQ-S018, REQ-S027, REQ-S036, REQ-S046, REQ-S050, REQ-S058*
 
-document 種別を区別せず、要件定義・基本仕様・詳細設計・API Schema 等をすべて総称 document として同一に扱う。
+### SPEC-462
+
+上流文書は層ごとのトップレベル配列に分け、層ごとに id 接頭辞（`ROOT-` / `R-` / `REQ-`・`P-` / `SPEC-` / `DS-` / `BD-` / `DES-`）を持つ。
+
+*導出元: REQ-S007, REQ-S009, REQ-S018, REQ-S027, REQ-S036, REQ-S046, REQ-S050, REQ-S058*
 
 *引用: 本冊 §3.1*
 
-#### SPEC-S124 18.3.2 orphan_detection（文書層の孤児検出）
+## SPEC-S124 18.3.2 orphan_detection（文書層の孤児検出）
 
 *導出元: REQ-S010*
 
 ### SPEC-422
 
-`orphan_detection` は文書層のみを対象とし、親（上流 document）を持たない `document` ノードの有無を問う。
+`orphan_detection` は文書層のみを対象とし、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。
 
 *導出元: REQ-059, REQ-060, REQ-061, REQ-062, REQ-063*
 
@@ -2582,21 +2732,31 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 要件定義 R-2, 基本仕様 §29 OOS-005*
 
-#### SPEC-S125 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
+## SPEC-S125 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
+
+*導出元: P-003, REQ-S012, REQ-S024*
 
 ### SPEC-424
 
 確定違反だけをFAILとし、解析限界をUNKNOWNとして保持する。
 
+*導出元: P-003, REQ-S012, REQ-S024*
+
 ### SPEC-425
 
 信頼を宣言する専用の注釈・設定項目・レコードを新設せず、covers / 宣言targetのグラフだけで上記の各値が決まる。
 
-#### SPEC-S126 18.3.4 execution・Evidence（target_binding の証拠）
+*導出元: P-003, REQ-S012, REQ-S024*
+
+## SPEC-S126 18.3.4 execution・Evidence（target_binding の証拠）
+
+*導出元: REQ-S019, REQ-S054*
 
 ### SPEC-426
 
 旧モデルの`test_execution` / `runtime_result` / `target_execution`の3独立項目は撤去し、`target_binding`単一検査の証拠（Evidenceの存在・鮮度、`result`、`target_coverage`）へ吸収する。
+
+*導出元: REQ-S019, REQ-S054*
 
 *引用: 本冊 §11.1*
 
@@ -2604,15 +2764,21 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 鮮度喪失の独立検査（旧`evidence_validity`）は設けず、鮮度は基本仕様§6のハッシュ束縛により満たし、喪失を診断ラベル`STALE`として説明する。
 
+*導出元: REQ-S019, REQ-S054*
+
 *引用: 基本仕様 §6*
 
-#### SPEC-S127 18.3.5 target_binding 動的計測（per-target）
+## SPEC-S127 18.3.5 target_binding 動的計測（per-target）
+
+*導出元: REQ-S011, REQ-S019, REQ-S020, REQ-S054*
 
 ### SPEC-428
 
 `target_coverage` は `target_binding` の動的計測結果であり独立の検査項目ではない。
 
-#### SPEC-S128 18.3.6 判断記録プロトコル（非ゲート）
+*導出元: REQ-S011, REQ-S019, REQ-S020, REQ-S054*
+
+## SPEC-S128 18.3.6 判断記録プロトコル（非ゲート）
 
 *導出元: REQ-S035*
 
@@ -2656,15 +2822,21 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 変更そのものが `UNKNOWN` を生成するのではない。
 
-#### SPEC-S129 18.3.7 承認と判断記録の分離
+## SPEC-S129 18.3.7 承認と判断記録の分離
+
+*導出元: REQ-S018, REQ-S035, REQ-S046*
 
 ### SPEC-437
 
 判断済みと承認済みを区別する（判断済み ≠ 承認済み）。
 
+*導出元: REQ-S018, REQ-S035, REQ-S046*
+
 ### SPEC-438
 
 判断記録と承認記録は同一 entity であることを要求せず、別 entity でありうる。
+
+*導出元: REQ-S018, REQ-S035, REQ-S046*
 
 *引用: 本冊 §3.4・§3.5, 基本仕様 §11.3・§17*
 
@@ -2672,17 +2844,25 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 判断は承認なしでも記録でき、正式採用は承認の別段階である。
 
+*導出元: REQ-S018, REQ-S035, REQ-S046*
+
 ### SPEC-440
 
 承認は検証状態と独立の別軸である。
+
+*導出元: REQ-S018, REQ-S035, REQ-S046*
 
 ### SPEC-441
 
 方針は総称 document として登録した文書で表現し、専用のエンティティ型を設けない。
 
+*導出元: REQ-S018, REQ-S035, REQ-S046*
+
 ### SPEC-442
 
 承認権限（approval authority）・承認ロール・必要承認数・権限 schema はプロジェクト設定と別紙A へ委譲する。
+
+*導出元: REQ-S018, REQ-S035, REQ-S046*
 
 *引用: 基本仕様 §17・§30*
 
@@ -2690,23 +2870,33 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 承認 workflow の状態遷移と `approved_state` の値域は本冊 §3.5 に定める。
 
+*導出元: REQ-S018, REQ-S035, REQ-S046*
+
 *引用: 本冊 §3.5*
 
-#### SPEC-S130 18.3.8 verify・report と scope
+## SPEC-S130 18.3.8 verify・report と scope
+
+*導出元: P-002, REQ-S016*
 
 ### SPEC-444
 
 機能単位の集約は親 VO（子 VO を持つ VO）を単位とし、Feature を別エンティティ・別レコード・別 ID として設けない。
 
-### SPEC-445
+*導出元: P-002, REQ-S016*
 
-旧モデルの SPEC → REQ → VO → Test 構造は総称 document 化により DOC → VO → Test へ再導出する。
+### SPEC-463
+
+旧モデルの SPEC → REQ → VO → Test 構造は、7 層の木 → VO → Test へ再導出する。
+
+*導出元: P-002, REQ-S016*
 
 ### SPEC-446
 
 「どの上流条項がどの VO へ対応するか」の対応ペアの取得に新規 CLI コマンド・MCP ツールを用いない（既存の `report` projection と `test query` 逆引きだけで取得できる）。
 
-#### SPEC-S131 18.3.9 フェーズゲート評価
+*導出元: P-002, REQ-S016*
+
+## SPEC-S131 18.3.9 フェーズゲート評価
 
 *導出元: REQ-S057*
 
@@ -2744,7 +2934,7 @@ document 種別を区別せず、要件定義・基本仕様・詳細設計・AP
 
 *引用: 基本仕様 §30*
 
-### SPEC-S132 18.4 提供範囲外
+## SPEC-S132 18.4 提供範囲外
 
 *導出元: R-2, R-3*
 

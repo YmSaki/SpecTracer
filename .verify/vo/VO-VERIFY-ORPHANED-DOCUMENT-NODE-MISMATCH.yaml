@@ -2,7 +2,7 @@ id: VO-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
 parent: null
 derives_from:
   - doc: DS-1647
-claim: 実効的な上流を持たない文書ノードは orphan_detection = MISMATCH であり、chain_integrity には影響しない
+claim: root 層のノードと節ノードを除き、実効的な上流を持たない文ノードは orphan_detection = MISMATCH であり、chain_integrity には影響しない
 dimensions: []
 coverage_policy: null
 combinations: []

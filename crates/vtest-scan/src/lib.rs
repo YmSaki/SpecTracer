@@ -962,13 +962,15 @@ fn record_diagnostics(
 /// - E-SCAN-012 (DS-546/本冊:878): each node's own `derives_from` entries
 ///   must resolve to a node id that exists somewhere in the corpus (any
 ///   document — DS-546 does not confine resolution to the same file).
-/// - E-SCAN-016 (DS-1647/DS-1650, §5.6): every node except a `root`-layer
-///   one must have a non-empty *effective* upstream — its own `derives_from`
-///   edges, unioned with every ancestor section's edges within the same
-///   document file ("自分の辺 ∪ 先祖の辺"). DS-1646 confirms `root`-layer
-///   exclusion is structural (RootNode carries no `derives_from` field at
-///   all) and that there is no config-based exclusion to honor instead
-///   (`doc.roots` no longer exists — DS-1646: "設定による除外指定は
+/// - E-SCAN-016 (DS-1647/DS-1650, §5.6): every *sentence* node except a
+///   `root`-layer one must have a non-empty *effective* upstream — its own
+///   `derives_from` edges, unioned with every ancestor section's edges within
+///   the same document file ("自分の辺 ∪ 先祖の辺"). Section nodes are
+///   containers and are never orphans by themselves (DS-1688); they only
+///   pass "has an upstream" down to their descendants. DS-1646 confirms
+///   `root`-layer exclusion is structural (RootNode carries no `derives_from`
+///   field at all) and that there is no config-based exclusion to honor
+///   instead (`doc.roots` no longer exists — DS-1646: "設定による除外指定は
 ///   持たない").
 ///
 /// A whole document file failing to parse (`read_document_file`'s
@@ -1165,13 +1167,15 @@ fn document_node_record_path(layout: &VerifyLayout, name: &str) -> String {
     record_relative_path(&layout.root, &layout.doc_dir().join(format!("{name}.json")))
 }
 
-/// Walks one `SectionNode` and its descendants, checking both E-SCAN-012
-/// (this section's own `derives_from` entries resolve) and E-SCAN-016 (this
-/// section's *effective* upstream — own edges ∪ `ancestor_has_upstream` —
-/// is non-empty). `ancestor_has_upstream` carries whether any strict
-/// ancestor section already had a non-empty `derives_from` (DS-1647's
-/// "先祖の辺"); a section with its own edge also becomes an upstream-bearing
-/// ancestor for its own children.
+/// Walks one `SectionNode` and its descendants. The section itself is only
+/// checked for E-SCAN-012 (its own `derives_from` entries resolve): a
+/// section is a container with no normative content, so it is never reported
+/// as an orphan (E-SCAN-016, DS-1688) — giving it an edge would be inherited
+/// by every sentence below it, a correspondence no table states.
+/// `ancestor_has_upstream` carries whether any strict ancestor section
+/// already had a non-empty `derives_from` (DS-1647's "先祖の辺"); a section
+/// with its own edge also becomes an upstream-bearing ancestor for its own
+/// children, whose sentences are the nodes E-SCAN-016 is decided on.
 fn check_section_node(
     layout: &VerifyLayout,
     document: &str,
@@ -1195,16 +1199,6 @@ fn check_section_node(
         }
     }
     let has_upstream = ancestor_has_upstream || !own_edges.is_empty();
-    if !has_upstream {
-        diagnostics.push(Diagnostic::error(
-            "E-SCAN-016",
-            format!(
-                "document node {} is orphaned: no effective upstream (own or ancestor \
-                 derives_from edges) ({record_path})",
-                section.id.as_str()
-            ),
-        ));
-    }
 
     if let Some(items) = &section.items {
         for item in items {
@@ -4902,18 +4896,77 @@ fn collision_second() {}
         );
     }
 
-    /// `check_section_node`'s own E-SCAN-016 branch (a section with neither
-    /// its own edge nor an ancestor one) was never reached by any fixture in
-    /// this suite: every other `SectionNode` fixture carries its own
-    /// `derives_from`. A top-level `require`-layer section with no edge and
-    /// no ancestor (unlike a `request`-layer sentence, which cannot even
-    /// have a section ancestor) must still report E-SCAN-016 for itself.
-    /// @vtest.id TEST-SCAN-REPORTS-ORPHANED-SECTION-NO-OWN-OR-ANCESTOR-EDGE
-    /// @vtest.covers VO-SCAN-ORPHAN-NODE-E-SCAN-016
+    /// DS-1688: a section is a container with no normative content, so it is
+    /// never an orphan by itself. A section with neither an edge of its own
+    /// nor an ancestor edge — whether it holds a sentence that carries its
+    /// own edge or holds nothing at all — must not report E-SCAN-016; neither
+    /// may the sentence that has its own edge.
+    /// @vtest.id TEST-SCAN-SECTION-NODE-IS-NOT-AN-ORPHAN
+    /// @vtest.covers VO-SCAN-SECTION-NODE-NOT-ORPHAN
     /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
-    /// @vtest.intent verifies a top-level section with neither its own derives_from edge nor an ancestor one reports E-SCAN-016 for itself
+    /// @vtest.intent verifies a section with no derives_from edge and no ancestor edge is not reported as an orphan (E-SCAN-016), whether it is empty or holds a sentence with its own edge
     #[test]
-    fn reports_orphaned_section_node_with_no_own_or_ancestor_edge() {
+    fn section_node_without_any_edge_is_not_an_orphan_by_itself() {
+        let root = fixture();
+        let layout = VerifyLayout::new(&root);
+        let sentence = |id: &str, derives_from: Vec<DocumentId>| SentenceNode {
+            id: DocumentId::new(id),
+            statement: "a sentence".to_owned(),
+            description: None,
+            derives_from,
+            cites: None,
+            source: fixture_node_source(),
+        };
+        let section = |id: &str, items: Option<Vec<SentenceNode>>| SectionNode {
+            id: DocumentId::new(id),
+            title: "a section with no edge of its own and no ancestor".to_owned(),
+            description: None,
+            source: fixture_node_source(),
+            derives_from: None,
+            sections: None,
+            items,
+        };
+        let file = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: Vec::new(),
+            request: Vec::new(),
+            require: vec![
+                section(
+                    "REQ-S902",
+                    Some(vec![sentence("REQ-905", vec![DocumentId::new("ROOT-001")])]),
+                ),
+                section("REQ-S904", None),
+            ],
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "DOC-SECTION-CONTAINER", &file).unwrap();
+
+        let result = scan_project(&root, &test_registry()).unwrap();
+        assert!(
+            !result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == "E-SCAN-016"
+                    && ["REQ-S902", "REQ-S904", "REQ-905"]
+                        .iter()
+                        .any(|id| diagnostic.message.contains(id))
+            }),
+            "a section is a container, not an orphan; diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    /// DS-1688: the sentences below an edgeless section are still judged on
+    /// their own effective upstream. A sentence with no edge of its own under
+    /// a section that has none is the orphan — reported for the sentence, not
+    /// for the section.
+    /// @vtest.id TEST-SCAN-SENTENCE-UNDER-EDGELESS-SECTION-IS-ORPHANED
+    /// @vtest.covers VO-SCAN-SECTION-NODE-NOT-ORPHAN
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies a sentence with no derives_from edge under a section that has none is reported as an orphan (E-SCAN-016) for the sentence itself, and not for its section
+    #[test]
+    fn sentence_under_edgeless_section_without_own_edge_is_orphaned() {
         let root = fixture();
         let layout = VerifyLayout::new(&root);
         let file = DocumentFile {
@@ -4921,27 +4974,46 @@ fn collision_second() {}
             root: Vec::new(),
             request: Vec::new(),
             require: vec![SectionNode {
-                id: DocumentId::new("REQ-S902"),
+                id: DocumentId::new("REQ-S906"),
                 title: "a section with no edge of its own and no ancestor".to_owned(),
                 description: None,
                 source: fixture_node_source(),
                 derives_from: None,
                 sections: None,
-                items: None,
+                items: Some(vec![SentenceNode {
+                    id: DocumentId::new("REQ-907"),
+                    statement: "no upstream anywhere".to_owned(),
+                    description: None,
+                    derives_from: Vec::new(),
+                    cites: None,
+                    source: fixture_node_source(),
+                }]),
             }],
             spec: Vec::new(),
             detailed_spec: Vec::new(),
             basic_design: Vec::new(),
             design: Vec::new(),
         };
-        write_document_file(&layout, "DOC-ORPHAN-SECTION", &file).unwrap();
+        write_document_file(&layout, "DOC-SENTENCE-ORPHAN", &file).unwrap();
 
         let result = scan_project(&root, &test_registry()).unwrap();
+        let orphans = result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-SCAN-016")
+            .collect::<Vec<_>>();
         assert!(
-            result.diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == "E-SCAN-016" && diagnostic.message.contains("REQ-S902")
-            }),
-            "diagnostics: {:?}",
+            orphans
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("REQ-907")),
+            "the sentence must be reported; diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            !orphans
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("REQ-S906")),
+            "the section must not be reported; diagnostics: {:?}",
             result.diagnostics
         );
     }
