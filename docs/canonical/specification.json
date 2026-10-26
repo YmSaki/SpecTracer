@@ -1691,7 +1691,7 @@
           "items": [
             {
               "id": "REQ-059",
-              "statement": "`orphan_detection` の問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するか、である。",
+              "statement": "`orphan_detection` の問いは、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するか、である。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -3822,6 +3822,26 @@
               378
             ]
           }
+        },
+        {
+          "id": "REQ-338",
+          "statement": "決定論的な静的解析の結果を、外部の発見者による判断の記録として扱ってはならない。",
+          "derives_from": [
+            "ROOT-030"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 12. 発見・意味判定のエスカレーション",
+            "lines": [
+              370,
+              378
+            ]
+          },
+          "description": "導出。REQ-077・REQ-079 は静的解析の役割を不成立の証明に限るが、その結果を判断の記録として扱ってよいかは述べていない。判断は外部の発見者（エージェントまたは人間）が行い（ROOT-030）、静的解析の結果を判断の記録へ転用すると、証明できない場合は何も言わないという性質（REQ-079）が崩れる。Owner 裁定 2026-10-26（orphans-2026-10-26.md 問4 (a)）。",
+          "cites": [
+            "REQ-077",
+            "REQ-079"
+          ]
         }
       ]
     },
@@ -5514,7 +5534,9 @@
         {
           "id": "REQ-294",
           "statement": "本システムは、PM、実装、レビュー等の開発工程が利用する Verification Infrastructure として機能する。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -7313,7 +7335,7 @@
           "items": [
             {
               "id": "SPEC-059",
-              "statement": "orphan_detectionの問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
+              "statement": "orphan_detectionの問いは、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するかである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -7736,7 +7758,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S024",
@@ -7862,7 +7891,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S027",
@@ -10074,7 +10107,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S053",
@@ -12218,7 +12256,7 @@
       "items": [
         {
           "id": "SPEC-291",
-          "statement": "`orphan_detection` は文書層の孤児検出であり、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。",
+          "statement": "`orphan_detection` は文書層の孤児検出であり、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するかを問う。",
           "derives_from": [
             "REQ-059",
             "REQ-060",
@@ -12432,7 +12470,9 @@
         {
           "id": "SPEC-295",
           "statement": "静的解析は`oracle_presence`（照合装置の存在）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-077"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12445,7 +12485,9 @@
         {
           "id": "SPEC-296",
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-066"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12458,7 +12500,10 @@
         {
           "id": "SPEC-297",
           "statement": "`vtest audit static`は要求時に解析を起動し、結果をstdoutと`cache/`へ出力する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "基本仕様 §26.1"
           ],
@@ -12474,7 +12519,9 @@
         {
           "id": "SPEC-298",
           "statement": "`vtest audit static`は判断記録（§8）とは別機構であり、外部判断の記録には転用しない。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-338"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12823,7 +12870,12 @@
           1446
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S095",
@@ -13076,7 +13128,12 @@
           1518
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "items": [
         {
           "id": "SPEC-333",
@@ -13548,21 +13605,7 @@
           ]
         }
       ],
-      "items": [
-        {
-          "id": "SPEC-351",
-          "statement": "本冊の§12〜§15は別紙Aで定義する。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "16. 並列動作と整合性",
-            "lines": [
-              1588,
-              1588
-            ]
-          }
-        }
-      ]
+      "items": []
     },
     {
       "id": "SPEC-S105",
@@ -13802,7 +13845,12 @@
         {
           "id": "SPEC-365",
           "statement": "参照規則・診断コード・終了コードは本冊 §17 に従う。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S015",
+            "REQ-S017",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "本冊 §17"
           ],
@@ -13818,7 +13866,11 @@
         {
           "id": "SPEC-366",
           "statement": "本別紙は基本仕様 §26.1（CLI コマンド一覧）・§26.2（MCP ツール一覧）が確定したコマンド・ツールの引数と入出力 schema を具体化する HOW である。",
-          "derives_from": [],
+          "derives_from": [
+            "P-005",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "本冊 §0",
             "基本仕様 §26.1"
@@ -13835,23 +13887,12 @@
         {
           "id": "SPEC-367",
           "statement": "本別紙は新規コマンド・ツールを増やさない。",
-          "derives_from": [],
+          "derives_from": [
+            "P-005"
+          ],
           "cites": [
             "本冊 §0"
           ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1",
-            "lines": [
-              4,
-              4
-            ]
-          }
-        },
-        {
-          "id": "SPEC-368",
-          "statement": "本別紙は、上流（要件定義＝WHY、基本仕様＝WHAT、詳細設計本冊＝HOW 中核）に無い義務・検査・状態・文書種別・関係型を発明しない。",
-          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1",
@@ -14125,7 +14166,7 @@
         },
         {
           "id": "SPEC-377",
-          "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
+          "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードと節ノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児の文ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
           "derives_from": [
             "P-002",
             "P-003",
@@ -15831,7 +15872,7 @@
       "items": [
         {
           "id": "SPEC-422",
-          "statement": "`orphan_detection` は文書層のみを対象とし、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。",
+          "statement": "`orphan_detection` は文書層のみを対象とし、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードの有無を問う。",
           "derives_from": [
             "REQ-059",
             "REQ-060",
@@ -18741,7 +18782,7 @@
             },
             {
               "id": "DS-1653",
-              "statement": "孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）は `MISMATCH` とする（§4.3）。",
+              "statement": "孤児ノード（`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノード）は `MISMATCH` とする（§4.3）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -19342,7 +19383,30 @@
         {
           "id": "DS-103",
           "statement": "凍結要件が検査から明示的に排除した判断（仕様網羅・VO網羅・VO分解妥当性・意味一致・実装一致）は、本書でも検査に含めない。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-164",
+            "REQ-165",
+            "REQ-166",
+            "REQ-174",
+            "REQ-175",
+            "REQ-176",
+            "REQ-177",
+            "REQ-178",
+            "REQ-179",
+            "REQ-180",
+            "REQ-181",
+            "REQ-182",
+            "REQ-183",
+            "REQ-184",
+            "REQ-185",
+            "REQ-186",
+            "REQ-187",
+            "REQ-188",
+            "REQ-189",
+            "REQ-190",
+            "REQ-191",
+            "REQ-192"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -19496,7 +19560,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S027",
@@ -19802,7 +19873,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S031",
@@ -21665,7 +21740,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "DS-S053",
@@ -22085,7 +22165,7 @@
         },
         {
           "id": "DS-1654",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児の文ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -23452,7 +23532,7 @@
             },
             {
               "id": "DS-1649",
-              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
+              "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードは孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26093,7 +26173,7 @@
         },
         {
           "id": "DS-1650",
-          "statement": "E-SCAN-016はerrorであり、孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）を意味する（§5.6）。",
+          "statement": "E-SCAN-016はerrorであり、孤児ノード（`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノード）を意味する（§5.6）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -26431,8 +26511,30 @@
           }
         },
         {
+          "id": "DS-1688",
+          "statement": "節ノードは規範内容を持たない容器であり、自身と先祖に上流が無くても孤児としない。配下の文ノードは、自分の辺または先祖の辺を持たなければ孤児である。",
+          "derives_from": [
+            "REQ-059",
+            "SPEC-059",
+            "SPEC-291"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 5.6 文書層 orphan_detection",
+            "lines": [
+              942,
+              942
+            ]
+          },
+          "description": "導出。節ノードの subject hash は子ノードの hash だけを束縛し（DES-572）、節自体は規範内容を持たない。節に辺を足すと配下のすべての文へ継承されるため（実効的な上流 = 自分の辺 ∪ 先祖の辺）、表が述べていない対応を作ってしまう。上流を持つかどうかは、規範内容を持つ文ノードで判定する。Owner 裁定 2026-10-26（orphans-2026-10-26.md 問1 (b)）。",
+          "cites": [
+            "DES-572",
+            "DS-1647"
+          ]
+        },
+        {
           "id": "DS-1647",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
           "derives_from": [
             "REQ-059",
             "SPEC-059",
@@ -30285,7 +30387,7 @@
         },
         {
           "id": "DS-1651",
-          "statement": "`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
+          "statement": "`orphan_detection`は評価地点を文ノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -33750,7 +33852,7 @@
         },
         {
           "id": "DS-1655",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）も持たない文ノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
           "derives_from": [],
           "cites": [
             "本冊 §5.6"
@@ -38852,7 +38954,7 @@
       "items": [
         {
           "id": "DS-1648",
-          "statement": "孤児判定は、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
+          "statement": "孤児判定は、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
           "derives_from": [
             "REQ-059",
             "SPEC-059",
@@ -43365,7 +43467,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S015",
@@ -43408,7 +43517,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S017",
@@ -47819,7 +47932,9 @@
         {
           "id": "BD-256",
           "statement": "Structured Edit の構文解析・再生成・selector 解釈は対応 adapter が所有する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-259"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",
@@ -47849,26 +47964,16 @@
         {
           "id": "BD-258",
           "statement": "production adapter として提供するのは `rust-cargo` だけである。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",
             "lines": [
               579,
               579
-            ]
-          }
-        },
-        {
-          "id": "BD-259",
-          "statement": "§15.1〜§15.4 は `rust-cargo` StructuredTestAdapter の構文処理を定める。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "15. Structured Test Operation adapter contract",
-            "lines": [
-              580,
-              580
             ]
           }
         }
@@ -48241,7 +48346,7 @@
         },
         {
           "id": "BD-286",
-          "statement": "fixture は、文書鎖の状態として `root` 層以外で実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
+          "statement": "fixture は、文書鎖の状態として `root` 層以外の文ノードで実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",

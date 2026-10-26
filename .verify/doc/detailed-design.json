@@ -860,7 +860,7 @@
       "items": [
         {
           "id": "SPEC-291",
-          "statement": "`orphan_detection` は文書層の孤児検出であり、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかを問う。",
+          "statement": "`orphan_detection` は文書層の孤児検出であり、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するかを問う。",
           "derives_from": [
             "REQ-059",
             "REQ-060",
@@ -1074,7 +1074,9 @@
         {
           "id": "SPEC-295",
           "statement": "静的解析は`oracle_presence`（照合装置の存在）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-077"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -1087,7 +1089,9 @@
         {
           "id": "SPEC-296",
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-066"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -1100,7 +1104,10 @@
         {
           "id": "SPEC-297",
           "statement": "`vtest audit static`は要求時に解析を起動し、結果をstdoutと`cache/`へ出力する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "基本仕様 §26.1"
           ],
@@ -1116,7 +1123,9 @@
         {
           "id": "SPEC-298",
           "statement": "`vtest audit static`は判断記録（§8）とは別機構であり、外部判断の記録には転用しない。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-338"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -1465,7 +1474,12 @@
           1446
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S095",
@@ -1718,7 +1732,12 @@
           1518
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "items": [
         {
           "id": "SPEC-333",
@@ -2190,21 +2209,7 @@
           ]
         }
       ],
-      "items": [
-        {
-          "id": "SPEC-351",
-          "statement": "本冊の§12〜§15は別紙Aで定義する。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
-            "heading": "16. 並列動作と整合性",
-            "lines": [
-              1588,
-              1588
-            ]
-          }
-        }
-      ]
+      "items": []
     },
     {
       "id": "SPEC-S105",
@@ -3201,7 +3206,7 @@
             },
             {
               "id": "DS-1649",
-              "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードは孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
+              "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードは孤児として `orphan_detection` の `MISMATCH` とする（§5.6）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -5842,7 +5847,7 @@
         },
         {
           "id": "DS-1650",
-          "statement": "E-SCAN-016はerrorであり、孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）を意味する（§5.6）。",
+          "statement": "E-SCAN-016はerrorであり、孤児ノード（`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノード）を意味する（§5.6）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -6180,8 +6185,30 @@
           }
         },
         {
+          "id": "DS-1688",
+          "statement": "節ノードは規範内容を持たない容器であり、自身と先祖に上流が無くても孤児としない。配下の文ノードは、自分の辺または先祖の辺を持たなければ孤児である。",
+          "derives_from": [
+            "REQ-059",
+            "SPEC-059",
+            "SPEC-291"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 5.6 文書層 orphan_detection",
+            "lines": [
+              942,
+              942
+            ]
+          },
+          "description": "導出。節ノードの subject hash は子ノードの hash だけを束縛し（DES-572）、節自体は規範内容を持たない。節に辺を足すと配下のすべての文へ継承されるため（実効的な上流 = 自分の辺 ∪ 先祖の辺）、表が述べていない対応を作ってしまう。上流を持つかどうかは、規範内容を持つ文ノードで判定する。Owner 裁定 2026-10-26（orphans-2026-10-26.md 問1 (b)）。",
+          "cites": [
+            "DES-572",
+            "DS-1647"
+          ]
+        },
+        {
           "id": "DS-1647",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードを孤児とし、E-SCAN-016（`orphan_detection = MISMATCH`）とする。",
           "derives_from": [
             "REQ-059",
             "SPEC-059",
@@ -10034,7 +10061,7 @@
         },
         {
           "id": "DS-1651",
-          "statement": "`orphan_detection`は評価地点をノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
+          "statement": "`orphan_detection`は評価地点を文ノードとし、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが無ければ`PASS`、あれば`MISMATCH`とする（§5.6）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",

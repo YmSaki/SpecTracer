@@ -1198,7 +1198,7 @@
           "items": [
             {
               "id": "SPEC-059",
-              "statement": "orphan_detectionの問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
+              "statement": "orphan_detectionの問いは、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するかである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -1621,7 +1621,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S024",
@@ -1747,7 +1754,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S027",
@@ -3959,7 +3970,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S053",
@@ -7347,7 +7363,7 @@
             },
             {
               "id": "DS-1653",
-              "statement": "孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）は `MISMATCH` とする（§4.3）。",
+              "statement": "孤児ノード（`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノード）は `MISMATCH` とする（§4.3）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -7948,7 +7964,30 @@
         {
           "id": "DS-103",
           "statement": "凍結要件が検査から明示的に排除した判断（仕様網羅・VO網羅・VO分解妥当性・意味一致・実装一致）は、本書でも検査に含めない。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-164",
+            "REQ-165",
+            "REQ-166",
+            "REQ-174",
+            "REQ-175",
+            "REQ-176",
+            "REQ-177",
+            "REQ-178",
+            "REQ-179",
+            "REQ-180",
+            "REQ-181",
+            "REQ-182",
+            "REQ-183",
+            "REQ-184",
+            "REQ-185",
+            "REQ-186",
+            "REQ-187",
+            "REQ-188",
+            "REQ-189",
+            "REQ-190",
+            "REQ-191",
+            "REQ-192"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -8102,7 +8141,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S027",
@@ -8408,7 +8454,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S031",
@@ -10271,7 +10321,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "DS-S053",
@@ -10691,7 +10746,7 @@
         },
         {
           "id": "DS-1654",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児の文ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -12033,7 +12088,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S015",
@@ -12076,7 +12138,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S017",
