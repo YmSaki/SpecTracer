@@ -52,17 +52,15 @@ coreの検証契約は言語・test runnerに依存しない。
 
 ## BD-S002 1. 用語定義
 
-*導出元: REQ-S001, REQ-S003, REQ-S013, REQ-S020, REQ-S025, REQ-S029, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
+*導出元: REQ-S001, REQ-S020, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
 
 ### BD-009
 
 正典（source of truth）とは、ある事実を決定する唯一の記録である。
 
-## BD-S003 2 全体像
+## BD-S004 2.1 正典の三層構造
 
-### BD-S004 2.1 正典の三層構造
-
-*導出元: P-003, REQ-S019, REQ-S035, REQ-S046*
+*導出元: P-003, REQ-S019, REQ-S035, REQ-S046, REQ-283*
 
 ### BD-010
 
@@ -96,7 +94,7 @@ coreの検証契約は言語・test runnerに依存しない。
 
 source discovery、決定論的解析、Structured Test Operation、test runner起動、coverage計測はadapter capabilityとして提供する。
 
-### BD-S005 2.2 宣言鎖と照合
+## BD-S005 2.2 宣言鎖と照合
 
 *導出元: REQ-S004, REQ-S005*
 
@@ -104,7 +102,7 @@ source discovery、決定論的解析、Structured Test Operation、test runner�
 
 文書層の段数は総称的に扱い、リンクを追加してもスキーマが壊れないことを設計制約とする。
 
-### BD-S006 2.3 導出できる関係は保存しない
+## BD-S006 2.3 導出できる関係は保存しない
 
 *導出元: P-003*
 
@@ -116,15 +114,15 @@ source discovery、決定論的解析、Structured Test Operation、test runner�
 
 *引用: 要件定義 P-003*
 
-## BD-S007 3 エンティティと ID 体系
+## BD-S008 3.1 エンティティ種別
 
-### BD-S008 3.1 エンティティ種別
+*導出元: REQ-S005, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
 
-*導出元: REQ-S005, REQ-S025, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
+### BD-318
 
-### BD-019
+ノードの ID は層ごとの接頭辞（`ROOT-` / `R-` / `P-` / `REQ-` / `SPEC-` / `DS-` / `BD-` / `DES-`、節は `-S` を伴う）とし、正典は `.verify/doc/` に置く。
 
-documentのIDは `DOC-` とし、正典は `.verify/doc/` に置く。
+*導出元: SPEC-462*
 
 ### BD-020
 
@@ -154,7 +152,7 @@ RelationのIDは `REL-`（ULID）とし、正典は `.verify/rel/` に置く。
 
 Execution EvidenceのIDはULIDとし、正典は `.verify/evidence/` に置く。
 
-### BD-S009 3.3 Source Target の識別
+## BD-S009 3.3 Source Target の識別
 
 *導出元: R-3, REQ-S027*
 
@@ -178,17 +176,17 @@ Test→SRCの対応はadapter所有のTest metadata宣言から提供する。
 
 SRC→Testの逆引きはスキャン結果から提供する。
 
-## BD-S010 5 検査
-
-### BD-S011 5.2 orphan_detection — 文書層の孤児検出
+## BD-S011 5.2 orphan_detection — 文書層の孤児検出
 
 *導出元: REQ-S010*
 
-### BD-031
+### BD-328
 
-根の指定方式は `.verify/` 設定における明示的な根指定として保持する。
+根の指定方式は `root` 層への所属とし、設定による明示的な根指定を持たない。
 
-### BD-S012 5.5 決定論的に検出可能な不成立構造
+*導出元: REQ-060, REQ-061, SPEC-060*
+
+## BD-S012 5.5 決定論的に検出可能な不成立構造
 
 *導出元: REQ-S024*
 
@@ -218,8 +216,6 @@ adapterが最終内容ハッシュを自己確定してはならない。
 
 ## BD-S014 8 Test の検証成立性
 
-*導出元: REQ-S021, REQ-S025*
-
 ### BD-S015 8.3 決定論的に検出可能な不成立構造
 
 ### BD-037
@@ -227,8 +223,6 @@ adapterが最終内容ハッシュを自己確定してはならない。
 各adapterは対応する言語・runnerの構造に対して決定論的に判定できる範囲を提供する。
 
 ## BD-S016 9 検証対象と Source Target
-
-*導出元: REQ-S025*
 
 ### BD-S017 9.2 Source Target の識別
 
@@ -328,9 +322,11 @@ code fragmentの具体構文はadapterの言語・runnerに従う。
 
 `.verify/cache/` は派生情報（Git管理外）を格納する。
 
-### BD-055
+### BD-319
 
-ファイル形式はすべてYAMLとする。
+上流文書のファイル形式は JSON とし、その他のレコードのファイル形式はすべて YAML とする。
+
+*導出元: ROOT-048*
 
 ### BD-056
 
@@ -352,17 +348,23 @@ code fragmentの具体構文はadapterの言語・runnerに従う。
 
 全員が編集する中央共有台帳を持たない。
 
-### BD-059
+### BD-321
 
-document / VOは1エンティティ1ファイルとする。
+上流文書は1文書1ファイルとし、VOは1エンティティ1ファイルとする。
 
-### BD-060
+*導出元: ROOT-048*
 
-document / VOのファイル名をIDとする。
+### BD-322
 
-### BD-061
+上流文書のファイル名は当該文書を識別するものとし、VOのファイル名をVO IDとする。
 
-異なるエンティティへの並列変更は異なるファイルへの変更になる。
+*導出元: ROOT-048*
+
+### BD-326
+
+異なる上流文書および異なる VO への並列変更は異なるファイルへの変更になり、同一文書内の異なるノードへの並列変更は同一ファイルへの変更になる。
+
+*導出元: ROOT-048*
 
 ### BD-062
 
@@ -588,9 +590,7 @@ READMEに非関知宣言を一行入れる。
 
 新設機能は既存コマンド・ツールの引数と出力で露出する。
 
-## BD-S033 1. 実装構成
-
-### BD-S034 1.1 ワークスペース構成
+## BD-S034 1.1 ワークスペース構成
 
 *導出元: SPEC-S063, SPEC-S066, DS-S063*
 
@@ -650,7 +650,7 @@ READMEに非関知宣言を一行入れる。
 
 `adapter-rust → store` はForm Schemaとcanonical layoutの利用に限る。
 
-### BD-S035 1.2 主要依存クレート
+## BD-S035 1.2 主要依存クレート
 
 *導出元: SPEC-S063, DS-S063*
 
@@ -698,9 +698,9 @@ MCPには `rmcp`（公式 Rust MCP SDK）を使用し、stdio transportとする
 
 日時の扱いには `time` を使用し、RFC 3339形式とする。
 
-### BD-S036 1.3 内容ハッシュの定義
+## BD-S036 1.3 内容ハッシュの定義
 
-*導出元: SPEC-S002, SPEC-S007, SPEC-S026, SPEC-S027, SPEC-S051, DS-S002, DS-S008, DS-S025, DS-S030, DS-S031, DS-S050*
+*導出元: SPEC-S002, SPEC-S026, SPEC-S027, SPEC-S051, DS-S002, DS-S025, DS-S030, DS-S031, DS-S050*
 
 ### BD-131
 
@@ -726,9 +726,7 @@ coreはASTや言語固有構文からrangeを再計算しない。
 
 *引用: 基本仕様 P-003*
 
-## BD-S037 2. データディレクトリと設定
-
-### BD-S038 2.1 `.verify/` レイアウト
+## BD-S038 2.1 `.verify/` レイアウト
 
 *導出元: SPEC-S008, DS-S009*
 
@@ -742,9 +740,11 @@ coreはASTや言語固有構文からrangeを再計算しない。
 
 `.verify/` 直下に `config.yaml` を置く。
 
-### BD-138
+### BD-323
 
-`.verify/doc/` は `DOC-<NAME>.yaml` 形式で総称documentレコード（正典）を格納する。
+`.verify/doc/` は文書ごとに1つの JSON ファイルとして上流文書（正典）を格納する。
+
+*導出元: ROOT-048*
 
 ### BD-139
 
@@ -812,7 +812,15 @@ coreはASTや言語固有構文からrangeを再計算しない。
 
 *引用: 別紙A §14*
 
-### BD-S039 2.2 `config.yaml`
+### BD-330
+
+上流文書のファイル名（拡張子を除く）は当該文書を指す名前として利用者（人間または AI）が命名するものとし、機械生成の識別子（ULID）としない。
+
+> HOW として basic_design 層で確定した。上位は沈黙している: `root` / `request` / `require` / `spec` に上流文書のファイル名を定める条文は無く、同層の BD-322 も「当該文書を識別するもの」までしか言わない。4 検査はどれもファイル名を入力に取らず、`derives_from` の解決はノード id だけで閉じる（DS-1594・BD-165）ため、名前と機械生成識別子は嘘テストで判別しない。ROOT-048 の Owner 逐語が文書を名前（要求・要件・基本仕様・詳細仕様・基本設計・詳細設計）で数えていることに合わせた。BD-105 の「ULID ファイル名」は BD-S008 が ULID を割り当てている Relation（BD-023）・判断記録（BD-024）・承認記録（BD-025）・Execution Evidence（BD-026）を指しており、ノード（BD-318）と VO（BD-020、BD-139 は `VO-<NAME>.yaml`）には及ばない。上位層の SPEC-043 も命名の主体を利用者（人間または AI）に置いている。文字集合・接頭辞は定めない: DS-048〜DS-051 は「DOC / VO / TEST の ID」を対象とする条文であり、DES-585 の下で文書は識別子 field を持たないため掛からない（SPEC-043 の「DOC の ID」を現行モデルのノード id として読む点は DS-1637 が既に採っている）。
+
+*導出元: ROOT-048*
+
+## BD-S039 2.2 `config.yaml`
 
 *導出元: SPEC-S012, SPEC-S019, SPEC-S050, SPEC-S053, DS-S007, DS-S013, DS-S018, DS-S021, DS-S049, DS-S053*
 
@@ -831,8 +839,6 @@ coreはASTや言語固有構文からrangeを再計算しない。
 >       assertion_macros: []            # 追加で assert 相当として扱うマクロ名
 >     run:
 >       coverage: llvm-cov              # target_binding 動的計測方式: llvm-cov | off
-> doc:
->   roots: [DOC-REQ-ROOT]               # orphan_detection の除外根（§5.6、基本仕様 §5.2）
 > verify:
 >   full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]
 > gates:                                # フェーズゲート定義（§11.5、基本仕様 §20）
@@ -859,7 +865,7 @@ adapter固有設定の検証は登録adapterへ委譲する。
 
 Rust固有のmacro pathや `llvm-cov` 制約は `rust-cargo` adapterに限って適用する。
 
-### BD-S040 2.3 派生情報
+## BD-S040 2.3 派生情報
 
 *導出元: P-003, SPEC-S058, DS-S059*
 
@@ -877,19 +883,21 @@ Rust固有のmacro pathや `llvm-cov` 制約は `rust-cargo` adapterに限って
 
 ## BD-S041 3. レコードファイルスキーマ
 
-### BD-162
+### BD-320
 
-すべてのレコードはYAMLとする。
+上流文書のレコードは JSON とし、その他のレコードはすべて YAML とする。
 
-### BD-S042 3.1 document レコード（`.verify/doc/DOC-*.yaml`）
+*導出元: ROOT-048*
+
+### BD-S042 3.1 document ファイル（`.verify/doc/` の JSON）
 
 *導出元: SPEC-S008, SPEC-S009, SPEC-S044, DS-S009, DS-S010, DS-S045*
 
-### BD-163
+### BD-325
 
-上流文書はすべて単一の総称ノード型 `document` で表現する。
+上流文書は層ごとのトップレベル配列に分けたノードで表現し、ファイルの単位は文書とする。
 
-*導出元: SPEC-038, SPEC-039, SPEC-040, SPEC-041, SPEC-042, SPEC-277, SPEC-278*
+*導出元: ROOT-048, SPEC-038, SPEC-039, SPEC-040, SPEC-041, SPEC-042, SPEC-277, SPEC-278*
 
 *引用: 基本仕様 §3.1*
 
@@ -899,7 +907,7 @@ Rust固有のmacro pathや `llvm-cov` 制約は `rust-cargo` adapterに限って
 
 ### BD-165
 
-`derives_from` は上流documentへの唯一のリンク種別である。
+`derives_from` は上流ノードへの唯一のリンク種別である。
 
 *導出元: SPEC-043, SPEC-044, SPEC-279, SPEC-280*
 
@@ -907,15 +915,17 @@ Rust固有のmacro pathや `llvm-cov` 制約は `rust-cargo` adapterに限って
 
 ### BD-166
 
-文書層の段（要件→仕様→詳細設計…）は `derives_from` リンクで表現し、段を増やしても種別を増やさない。
+層の段（要求 → 要件定義 → 基本仕様 → 詳細仕様 → 基本設計 → 詳細設計）は `derives_from` リンクで表現し、段を増やしても種別を増やさない。
 
 ### BD-167
 
 リンクを追加してもスキーマは壊れない。
 
-### BD-168
+### BD-327
 
-仕様文書そのものは `.verify/` へ複製しない。
+上流文書の正典はノードそのものであり、md 形式の文書はノードからの一方向エクスポートである。
+
+*導出元: ROOT-039*
 
 ### BD-S043 3.2 VO レコード（`.verify/vo/VO-*.yaml`）
 
@@ -929,9 +939,11 @@ VOとdocumentの間に他のエンティティ層を置かない（§3.2）。
 
 *引用: 基本仕様 §1*
 
-### BD-170
+### BD-329
 
-VOは旧モデルの `requirements`（REQ参照）と `spec_refs`（SPEC + 節参照）は持たず、上流参照は `derives_from:[DOC-]` へ一本化する。
+VOは旧モデルの `requirements`（REQ参照）と `spec_refs`（SPEC + 節参照）は持たず、上流参照は `derives_from` へ一本化する。
+
+> `DOC-` の値域は H-1（BD-318）で死んでおり、上流参照先ノードの id 値域は層ごとの接頭辞である。値域の語を落としただけで、一本化という規範は変えていない。
 
 ### BD-171
 
@@ -1024,19 +1036,9 @@ graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのta
 
 *引用: 基本仕様 §2.3*
 
-## BD-S048 4. Test metadata宣言contract
+## BD-S049 4.1 adapter-neutralな正規化
 
-### BD-S049 4.1 adapter-neutralな正規化
-
-*導出元: REQ-S026, SPEC-S007, SPEC-S027, SPEC-S028, SPEC-S035, DS-S008, DS-S031, DS-S032, DS-S038*
-
-### BD-183
-
-検証対象を実装construct（Source Target）として実現するか、外部から観測可能な契約・境界上の振る舞いとして実現するかは実行形態が定める。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-079, SPEC-080, SPEC-081, SPEC-082, SPEC-083, SPEC-084*
-
-*引用: 基本仕様 §8.3, 基本仕様 §9.1, 要件定義 §4.3*
+*導出元: REQ-S026, SPEC-S027, SPEC-S028, SPEC-S035, DS-S031, DS-S032, DS-S038*
 
 ### BD-184
 
@@ -1045,14 +1047,6 @@ graphはadapter所有のTest metadata宣言からだけ構築し、Evidenceのta
 *導出元: SPEC-085, SPEC-086*
 
 *引用: 基本仕様 §9.2*
-
-### BD-185
-
-非sourceの境界形態（外部契約・境界上の振る舞い）の具体的表現・確認方法は特定形態を他形態へ一律要求せず、下位仕様・後続adapter・後続版へ委譲する（本versionでContract-Target類の新schemaは設けない）。
-
-*導出元: REQ-064, REQ-065, REQ-066, REQ-067, REQ-068, REQ-069, REQ-070, REQ-071, REQ-072, SPEC-061, SPEC-062, SPEC-063, SPEC-064, SPEC-065, SPEC-289*
-
-*引用: 要件定義 §4.3, 基本仕様 §5.3*
 
 ### BD-186
 
@@ -1066,7 +1060,7 @@ coreはadapterが返したTest Entity、Discovered Test observation、Source Loc
 
 coreはpath、module、symbol種別を分解しない。
 
-### BD-S050 4.4 宣言エラーの扱い
+## BD-S050 4.4 宣言エラーの扱い
 
 *導出元: SPEC-S018, SPEC-S028, SPEC-S035, DS-S020, DS-S032, DS-S038*
 
@@ -1078,11 +1072,9 @@ VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検
 
 VO解決・ID一意性・target解決はcoreが参照整合性検査で判定する（§5）。
 
-## BD-S051 5. Discovery orchestration設計
+## BD-S052 5.2 エンティティモデル（vtest-model）
 
-### BD-S052 5.2 エンティティモデル（vtest-model）
-
-*導出元: SPEC-S007, SPEC-S012, SPEC-S017, DS-S008, DS-S013, DS-S019*
+*導出元: SPEC-S012, SPEC-S017, DS-S013, DS-S019*
 
 ### BD-191
 
@@ -1112,7 +1104,7 @@ VO参照の解決とTest IDの大局的一意性はadapterではなくcoreが検
 
 adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAnalysisAdapter`、`StructuredTestAdapter`、`TestRunnerAdapter`、`CoverageAdapter` に分割する。
 
-### BD-S053 5.3 検証グラフ
+## BD-S053 5.3 検証グラフ
 
 *導出元: SPEC-S008, SPEC-S049, DS-S009, DS-S048*
 
@@ -1120,15 +1112,15 @@ adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAnalys
 
 インメモリのグラフを構築する。
 
-### BD-199
+### BD-313
 
-上流文書はすべてDOCノードとし、文書間・VO→文書は `derives_from` の一種で表現する（§19）。
+検証グラフでは、ノード間・VO → ノードの関係を `derives_from` の一種で表現する（§19）。
 
 *導出元: SPEC-038, SPEC-039, SPEC-040, SPEC-041, SPEC-042, SPEC-043, SPEC-044, SPEC-277, SPEC-278, SPEC-279, SPEC-280*
 
 *引用: 基本仕様 §3.1, 基本仕様 §3.2*
 
-### BD-S054 5.5 `rust-cargo` SourceDiscoveryAdapter
+## BD-S054 5.5 `rust-cargo` SourceDiscoveryAdapter
 
 *導出元: SPEC-S063, SPEC-S066, DS-S063*
 
@@ -1136,33 +1128,19 @@ adapter capabilityは `SourceDiscoveryAdapter`、`TestWireCodec`、`StaticAnalys
 
 `vtest-scan` はこれらのRust固有処理を実行しない。
 
-### BD-201
-
-各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とすることはadapter層に属し、core中立の `chain_integrity` 必須リンクではない（§4.1・§11.1.1）。
-
-### BD-S055 5.6 文書層 orphan_detection
+## BD-S055 5.6 文書層 orphan_detection
 
 *導出元: REQ-S010, SPEC-S019, DS-S021*
 
-### BD-202
+### BD-331
 
-根指定は `.verify/` 設定として保持する。
-
-*導出元: SPEC-059, SPEC-060, SPEC-287, SPEC-288*
-
-*引用: 基本仕様 §5.2*
-
-### BD-203
-
-根指定の追加・削除は `vtest doc` コマンドの引数で管理し `doc.roots` へ反映する。
+根指定は `vtest doc add` コマンドの引数（`--root`/`--no-root`）で新規登録時にのみ定まり、当該 document ノードの登録先層配列（`root` 層か否か）に反映される。登録後は変更しない。`config.yaml` に根集合を持たない。
 
 *導出元: SPEC-212, SPEC-213, SPEC-214*
 
-*引用: 基本仕様 §26.1, 別紙A*
+*引用: 基本仕様 §26.1, 別紙A §12.2 DS-1683*
 
-## BD-S056 6. Target Reference解決
-
-### BD-S057 6.1 adapter-neutral解決contract
+## BD-S057 6.1 adapter-neutral解決contract
 
 *導出元: SPEC-S010, SPEC-S028, DS-S011, DS-S032*
 
@@ -1284,9 +1262,7 @@ coverageは独立した`CoverageAdapter` capabilityとして扱う。
 
 coverage providerが境界越しの実行を宣言targetへ帰属させられるかはadapterのcoverage capabilityに属し、能力の有無で計測結果を捏造しない。
 
-## BD-S070 11. 鮮度検証と集約
-
-### BD-S071 11.3 集約アルゴリズム
+## BD-S071 11.3 集約アルゴリズム
 
 *導出元: SPEC-S052, DS-S052*
 
@@ -1302,7 +1278,7 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 機能単位の表示経路（起点指定と内訳の提示）は§11.6のprojectionで露出し、新規コマンド・ツール・出力エンティティを増やさない。
 
-### BD-S072 11.5 フェーズゲート評価
+## BD-S072 11.5 フェーズゲート評価
 
 *導出元: REQ-S057, SPEC-S050, DS-S049*
 
@@ -1316,7 +1292,7 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 *引用: 別紙A*
 
-### BD-S073 11.6 役割別 projection
+## BD-S073 11.6 役割別 projection
 
 *導出元: REQ-S007, SPEC-S049, SPEC-S054, DS-S048, DS-S054*
 
@@ -1330,7 +1306,7 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 「どの上流条項が、どの概念（VO）へ対応するか」の対応ペアの取得のために新規コマンド・ツールを設けない。
 
-### BD-S074 11.7 判断待ち情報の構造
+## BD-S074 11.7 判断待ち情報の構造
 
 *導出元: SPEC-S047, SPEC-S066*
 
@@ -1338,9 +1314,7 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 新規コマンド・ツールを増やさず、`vtest verify` / `vtest report`のJSON出力に判断待ちsectionを含めて露出する。
 
-## BD-S075 16. 並列動作と整合性
-
-### BD-S076 16.1 ロック不要の根拠
+## BD-S076 16.1 ロック不要の根拠
 
 *導出元: SPEC-S057, DS-S058*
 
@@ -1360,11 +1334,11 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 *引用: 基本仕様 §24.2*
 
-### BD-233
+### BD-324
 
-エンティティファイル編集（doc / vo）は1エンティティ1ファイルであり、異なるエンティティの並列編集は独立であり、同一エンティティの並列編集はGitのマージ衝突として顕在化する。
+エンティティファイル編集（doc / vo）は上流文書が1文書1ファイル、VOが1エンティティ1ファイルであり、異なるファイルの並列編集は独立であり、同一ファイルの並列編集はGitのマージ衝突として顕在化する。
 
-*導出元: SPEC-197, SPEC-198, SPEC-199*
+*導出元: ROOT-048, SPEC-197, SPEC-198, SPEC-199*
 
 *引用: 基本仕様 §24.2*
 
@@ -1392,9 +1366,7 @@ Featureを独立のエンティティ種別・レコードファイル・ID体�
 
 テストコード編集は通常のソース編集と同じ扱いで本規定の対象外とする。
 
-## BD-S077 12. CLI 詳細仕様
-
-### BD-S078 12.1 共通仕様
+## BD-S078 12.1 共通仕様
 
 *導出元: REQ-S009, SPEC-S012, SPEC-S013, SPEC-S055, SPEC-S078, SPEC-S096, SPEC-S106, DS-S013, DS-S014, DS-S018, DS-S055, DS-S079, DS-S085, DS-S118, DS-S128*
 
@@ -1406,9 +1378,9 @@ CLIの操作は登録済みadapter registryを通じて実装を選択する。
 
 targetsの必須件数は adapter が定める。
 
-### BD-S079 12.2 `vtest report`
+## BD-S079 12.2 `vtest report`
 
-*導出元: SPEC-S008, SPEC-S009, SPEC-S017, SPEC-S021, SPEC-S030, SPEC-S031, SPEC-S034, SPEC-S035, SPEC-S038, SPEC-S039, SPEC-S042, SPEC-S043, SPEC-S049, SPEC-S051, SPEC-S053, SPEC-S055, SPEC-S061, SPEC-S062, SPEC-S066, SPEC-S069, SPEC-S071, SPEC-S072, SPEC-S073, SPEC-S074, SPEC-S075, SPEC-S076, SPEC-S077, SPEC-S079, SPEC-S081, SPEC-S084, SPEC-S085, SPEC-S087, SPEC-S088, SPEC-S090, SPEC-S092, SPEC-S094, SPEC-S096, SPEC-S097, SPEC-S098, SPEC-S099, SPEC-S100, SPEC-S103, DS-S009, DS-S010, DS-S018, DS-S019, DS-S023, DS-S024, DS-S034, DS-S035, DS-S037, DS-S038, DS-S039, DS-S043, DS-S044, DS-S048, DS-S050, DS-S053, DS-S055, DS-S056, DS-S061, DS-S062, DS-S069, DS-S071, DS-S072, DS-S073, DS-S075, DS-S076, DS-S077, DS-S079, DS-S080, DS-S083, DS-S088, DS-S093, DS-S094, DS-S095, DS-S096, DS-S099, DS-S100, DS-S101, DS-S102, DS-S104, DS-S105, DS-S106, DS-S113, DS-S115, DS-S118, DS-S119, DS-S120, DS-S121, DS-S122, DS-S125*
+*導出元: SPEC-S008, SPEC-S009, SPEC-S017, SPEC-S021, SPEC-S030, SPEC-S031, SPEC-S034, SPEC-S035, SPEC-S038, SPEC-S039, SPEC-S042, SPEC-S043, SPEC-S049, SPEC-S051, SPEC-S053, SPEC-S055, SPEC-S061, SPEC-S062, SPEC-S066, SPEC-S069, SPEC-S071, SPEC-S072, SPEC-S073, SPEC-S074, SPEC-S075, SPEC-S076, SPEC-S079, SPEC-S081, SPEC-S084, SPEC-S085, SPEC-S087, SPEC-S088, SPEC-S090, SPEC-S092, SPEC-S094, SPEC-S096, SPEC-S097, SPEC-S098, SPEC-S099, SPEC-S100, SPEC-S103, DS-S009, DS-S010, DS-S018, DS-S019, DS-S023, DS-S024, DS-S034, DS-S035, DS-S037, DS-S038, DS-S039, DS-S043, DS-S044, DS-S048, DS-S050, DS-S053, DS-S055, DS-S056, DS-S061, DS-S062, DS-S069, DS-S071, DS-S072, DS-S073, DS-S075, DS-S076, DS-S077, DS-S079, DS-S080, DS-S088, DS-S093, DS-S095, DS-S096, DS-S099, DS-S100, DS-S101, DS-S102, DS-S104, DS-S105, DS-S106, DS-S113, DS-S115, DS-S118, DS-S119, DS-S120, DS-S121, DS-S122, DS-S125*
 
 ### BD-240
 
@@ -1420,7 +1392,7 @@ targetsの必須件数は adapter が定める。
 
 `report --from DOC-REQ-001 --direction down --format json` が返す対応ペア集合が要求該当箇所と対応概念のペアの構造化出力であり、この用途に新規コマンド・ツールを設けない。
 
-### BD-S080 12.4 判断待ち情報 section（`verify` / `report` JSON）
+## BD-S080 12.4 判断待ち情報 section（`verify` / `report` JSON）
 
 *導出元: REQ-S043, SPEC-S047, SPEC-S066, SPEC-S100, DS-S122*
 
@@ -1428,9 +1400,7 @@ targetsの必須件数は adapter が定める。
 
 新規コマンド・ツールを増やさず、既存出力の section として露出する。
 
-## BD-S081 13. MCP ツール詳細仕様
-
-### BD-S082 13.1 共通仕様
+## BD-S082 13.1 共通仕様
 
 *導出元: SPEC-S062, DS-S062*
 
@@ -1442,7 +1412,7 @@ transport は stdio である。
 
 `rmcp` で実装する。
 
-### BD-S083 13.3 エージェント向け利用フロー（参考）
+## BD-S083 13.3 エージェント向け利用フロー（参考）
 
 *導出元: SPEC-S031, SPEC-S059, SPEC-S087, DS-S035, DS-S099*
 
@@ -1450,9 +1420,7 @@ transport は stdio である。
 
 各操作は、CLIとMCPで同じadapter registryを解決する。
 
-## BD-S084 14. Form Schema 設計
-
-### BD-S085 14.2 検証器
+## BD-S085 14.2 検証器
 
 *導出元: SPEC-S041, SPEC-S078, SPEC-S083, DS-S042, DS-S085, DS-S090, DS-S093*
 
@@ -1460,7 +1428,7 @@ transport は stdio である。
 
 `adapter` はその Form を処理する Structured Test adapter ID である。
 
-### BD-S086 14.3 組込フォーム
+## BD-S086 14.3 組込フォーム
 
 *導出元: SPEC-S041, SPEC-S063, DS-S042, DS-S063, DS-S080, DS-S081*
 
@@ -1472,7 +1440,7 @@ transport は stdio である。
 
 `rust-unit-function`（§14.1）は組込 Form の1つである。
 
-### BD-S087 14.4 テスト種別ごとのフォーム拡張
+## BD-S087 14.4 テスト種別ごとのフォーム拡張
 
 *導出元: SPEC-S035, SPEC-S041, SPEC-S078, DS-S038, DS-S042, DS-S079, DS-S085*
 
@@ -1522,9 +1490,11 @@ user-defined Form も `kind` と owner `adapter` ID を宣言する通常の For
 
 Structured Edit の構文解析・再生成・selector 解釈は対応 adapter が所有する。
 
-### BD-257
+### BD-317
 
-orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が返す拡張範囲を単一置換として適用する。
+orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する。
+
+*導出元: REQ-260, SPEC-135, DS-225*
 
 ### BD-258
 
@@ -1534,9 +1504,7 @@ production adapter として提供するのは `rust-cargo` だけである。
 
 §15.1〜§15.4 は `rust-cargo` StructuredTestAdapter の構文処理を定める。
 
-## BD-S089 18. 受入契約
-
-### BD-S090 18.1 共通条件
+## BD-S090 18.1 共通条件
 
 *導出元: SPEC-S053, SPEC-S056, DS-S018, DS-S025, DS-S053, DS-S057*
 
@@ -1544,7 +1512,7 @@ production adapter として提供するのは `rust-cargo` だけである。
 
 CLIとMCPは同じcore処理、adapter registry、JSON envelope、診断codeを使用する。
 
-### BD-S091 18.2 共通fixture
+## BD-S091 18.2 共通fixture
 
 *導出元: SPEC-S008, SPEC-S012, SPEC-S013, SPEC-S014, SPEC-S019, SPEC-S035, SPEC-S081, SPEC-S086, DS-S009, DS-S013, DS-S014, DS-S015, DS-S021, DS-S038, DS-S082, DS-S088, DS-S098*
 
@@ -1579,14 +1547,6 @@ fixture は、annotation を持たない test function（W-SCAN-101、`chain_int
 ### BD-268
 
 fixture は、`covers` を宣言しない Test（`covers` 0）を表現できる。
-
-### BD-269
-
-fixture は、`rust-cargo` で `targets` を宣言しない Test（E-SCAN-007、`chain_integrity = MISMATCH`、診断`MISSING`）を表現できる。
-
-> `targets ≥ 1`は`rust-cargo` adapterの必須metadata。
-
-*引用: 本冊 §4.4・§5.5*
 
 ### BD-270
 
@@ -1648,21 +1608,13 @@ fixture は、呼出を静的に確認できない到達境界を越えて targe
 
 fixture は、他ファイル・他クレートへ呼び出すが戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。
 
-### BD-285
-
-fixture は、文書鎖の状態として `doc.roots` に列挙された根 document を表現できる。
-
 ### BD-286
 
-fixture は、文書鎖の状態として `derives_from` が空かつ根に列挙されない孤児 document（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。
+fixture は、文書鎖の状態として `root` 層以外で実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。
 
 ### BD-287
 
 fixture は、文書鎖の状態として `derives_from` の参照先が存在しない document / VO（E-SCAN-012、`chain_integrity = MISMATCH`）を表現できる。
-
-### BD-288
-
-fixture は、文書鎖の状態として `content_hash` と実ファイルが一致しない document（W-SCAN-104、`chain_integrity = MISMATCH`、診断 `STALE`）を表現できる。
 
 ### BD-289
 
@@ -1688,11 +1640,9 @@ adapter境界fixtureは、Rust parser、Cargo、llvm-covを使用しないin-pro
 
 synthetic fixtureは`.rs`以外のsource、関数ではないTest construct、doc commentではないmetadata宣言、Rust item pathではないopaque locatorを使用する。
 
-### BD-S092 18.3 機能別受入条件
+## BD-S093 18.3.1 discovery・record・graph と chain_integrity
 
-#### BD-S093 18.3.1 discovery・record・graph と chain_integrity
-
-*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S077, SPEC-S083, SPEC-S095, DS-S010, DS-S020, DS-S032, DS-S044, DS-S056, DS-S083, DS-S090, DS-S116*
+*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S083, SPEC-S095, DS-S010, DS-S020, DS-S032, DS-S044, DS-S056, DS-S090, DS-S116*
 
 ### BD-295
 
@@ -1706,19 +1656,11 @@ Target Reference解決はcoreの単一経路が所有する。
 
 discovery、静的解析、実行、Evidence writer、検証集約が独自にcandidate列を走査して1件を選ぶ経路を持たない。
 
-#### BD-S094 18.3.2 orphan_detection（文書層の孤児検出）
+## BD-S094 18.3.2 orphan_detection（文書層の孤児検出）
 
 *導出元: REQ-S010, SPEC-S019, SPEC-S081, DS-S021, DS-S088*
 
-### BD-298
-
-根指定の追加・削除は `vtest doc` コマンドの引数で管理する。
-
-*導出元: SPEC-212, SPEC-213, SPEC-214*
-
-*引用: 基本仕様 §26.1*
-
-#### BD-S095 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
+## BD-S095 18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）
 
 *導出元: SPEC-S021, SPEC-S025, SPEC-S085, SPEC-S086, DS-S023, DS-S024, DS-S029, DS-S095, DS-S096, DS-S098*
 
@@ -1734,7 +1676,7 @@ discovery、静的解析、実行、Evidence writer、検証集約が独自にca
 
 表示scopeと内部依存評価を分離する。
 
-#### BD-S096 18.3.6 判断記録プロトコル（非ゲート）
+## BD-S096 18.3.6 判断記録プロトコル（非ゲート）
 
 *導出元: REQ-S035, SPEC-S031, SPEC-S034, SPEC-S087, DS-S035, DS-S037, DS-S099*
 
@@ -1754,7 +1696,7 @@ discovery、静的解析、実行、Evidence writer、検証集約が独自にca
 
 deterministic 結果（§18.3.3 の静的解析）と agent / human の判断結果を区別して保存・表示する。
 
-#### BD-S097 18.3.7 承認と判断記録の分離
+## BD-S097 18.3.7 承認と判断記録の分離
 
 *導出元: SPEC-S016, SPEC-S034, SPEC-S043, SPEC-S074, SPEC-S075, DS-S017, DS-S037, DS-S044, DS-S075, DS-S076*
 
@@ -1780,7 +1722,7 @@ deterministic 結果（§18.3.3 の静的解析）と agent / human の判断結
 
 `vtest approval show` / `approval_get` は当該対象の承認レコード一覧と実効承認状態（`draft` / `approved`）を返す。
 
-#### BD-S098 18.3.8 verify・report と scope
+## BD-S098 18.3.8 verify・report と scope
 
 *導出元: SPEC-S017, SPEC-S053, SPEC-S054, SPEC-S055, SPEC-S069, SPEC-S094, SPEC-S096, DS-S018, DS-S019, DS-S053, DS-S054, DS-S055, DS-S069, DS-S115, DS-S118*
 
@@ -1792,7 +1734,7 @@ scope は 2 軸で限定できる。
 
 *引用: 基本仕様 §4.6, 要件定義 P-002*
 
-#### BD-S099 18.3.12 adapter contract
+## BD-S099 18.3.12 adapter contract
 
 *導出元: SPEC-S063, SPEC-S078, SPEC-S105, DS-S007, DS-S063, DS-S085, DS-S127*
 
