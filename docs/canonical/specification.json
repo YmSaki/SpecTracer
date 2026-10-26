@@ -5514,7 +5514,9 @@
         {
           "id": "REQ-294",
           "statement": "本システムは、PM、実装、レビュー等の開発工程が利用する Verification Infrastructure として機能する。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",
@@ -7736,7 +7738,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S024",
@@ -7862,7 +7871,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "SPEC-S027",
@@ -10074,7 +10087,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S053",
@@ -12432,7 +12450,9 @@
         {
           "id": "SPEC-295",
           "statement": "静的解析は`oracle_presence`（照合装置の存在）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-077"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12445,7 +12465,9 @@
         {
           "id": "SPEC-296",
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-066"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12823,7 +12845,12 @@
           1446
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S095",
@@ -13076,7 +13103,12 @@
           1518
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "items": [
         {
           "id": "SPEC-333",
@@ -19342,7 +19374,30 @@
         {
           "id": "DS-103",
           "statement": "凍結要件が検査から明示的に排除した判断（仕様網羅・VO網羅・VO分解妥当性・意味一致・実装一致）は、本書でも検査に含めない。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-164",
+            "REQ-165",
+            "REQ-166",
+            "REQ-174",
+            "REQ-175",
+            "REQ-176",
+            "REQ-177",
+            "REQ-178",
+            "REQ-179",
+            "REQ-180",
+            "REQ-181",
+            "REQ-182",
+            "REQ-183",
+            "REQ-184",
+            "REQ-185",
+            "REQ-186",
+            "REQ-187",
+            "REQ-188",
+            "REQ-189",
+            "REQ-190",
+            "REQ-191",
+            "REQ-192"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "5. 検査",
@@ -19496,7 +19551,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S027",
@@ -19802,7 +19864,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "DS-S031",
@@ -21665,7 +21731,12 @@
           573
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "DS-S053",
@@ -43365,7 +43436,14 @@
           293
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S022",
+        "REQ-S023",
+        "REQ-S024",
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S015",
@@ -43408,7 +43486,11 @@
           349
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S026",
+        "REQ-S027",
+        "REQ-S028"
+      ],
       "sections": [
         {
           "id": "BD-S017",
@@ -47819,7 +47901,9 @@
         {
           "id": "BD-256",
           "statement": "Structured Edit の構文解析・再生成・selector 解釈は対応 adapter が所有する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-259"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",
@@ -47849,7 +47933,10 @@
         {
           "id": "BD-258",
           "statement": "production adapter として提供するのは `rust-cargo` だけである。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",

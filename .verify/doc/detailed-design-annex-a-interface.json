@@ -7483,7 +7483,9 @@
         {
           "id": "BD-256",
           "statement": "Structured Edit の構文解析・再生成・selector 解釈は対応 adapter が所有する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-259"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",
@@ -7513,7 +7515,10 @@
         {
           "id": "BD-258",
           "statement": "production adapter として提供するのは `rust-cargo` だけである。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "15. Structured Test Operation adapter contract",

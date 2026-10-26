@@ -4832,7 +4832,9 @@
         {
           "id": "REQ-294",
           "statement": "本システムは、PM、実装、レビュー等の開発工程が利用する Verification Infrastructure として機能する。",
-          "derives_from": [],
+          "derives_from": [
+            "R-1"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 25. スコープ外",

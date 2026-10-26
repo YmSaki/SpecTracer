@@ -1074,7 +1074,9 @@
         {
           "id": "SPEC-295",
           "statement": "静的解析は`oracle_presence`（照合装置の存在）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-077"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -1087,7 +1089,9 @@
         {
           "id": "SPEC-296",
           "statement": "静的解析は`target_binding`の静的到達証明（DA-002）へ証拠を供給する。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-066"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -1465,7 +1469,12 @@
           1446
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "sections": [
         {
           "id": "SPEC-S095",
@@ -1718,7 +1727,12 @@
           1518
         ]
       },
-      "derives_from": [],
+      "derives_from": [
+        "REQ-S054",
+        "REQ-S055",
+        "REQ-S056",
+        "REQ-S057"
+      ],
       "items": [
         {
           "id": "SPEC-333",
