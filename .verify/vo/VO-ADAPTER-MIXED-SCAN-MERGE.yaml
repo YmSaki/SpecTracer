@@ -1,0 +1,12 @@
+id: VO-ADAPTER-MIXED-SCAN-MERGE
+parent: null
+derives_from:
+  - doc: DES-563
+claim: >-
+  Rustとsyntheticの発見結果はadapter ID、path、Test IDで決定論的に統合される。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-20T00:00:00Z
+updated: 2026-09-20T00:00:00Z

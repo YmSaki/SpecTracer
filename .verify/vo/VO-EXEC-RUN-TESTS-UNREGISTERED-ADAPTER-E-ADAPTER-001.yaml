@@ -1,0 +1,14 @@
+id: VO-EXEC-RUN-TESTS-UNREGISTERED-ADAPTER-E-ADAPTER-001
+parent: null
+derives_from:
+  - doc: DS-1663
+claim: >-
+  導出。run_testsは、Testが宣言するexecution.adapterがregistryに未登録の場合、
+  当該TestについてE-ADAPTER-001の診断を記録しEvidenceを生成しないが、同じバッチ内の
+  他のTestの実行は継続する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

@@ -8,6 +8,7 @@
 //! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
 //! `verify` を動かすために必要な範囲だけを先行して落としている。
 
+pub mod adapters;
 pub mod ops;
 
 use std::path::{Path, PathBuf};
@@ -310,7 +311,11 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    let (exit, envelope) = ops::scan::execute(&root);
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    let (exit, envelope) = ops::scan::execute(&root, &registry);
     emit_value(format, quiet, &envelope, |envelope| {
         let tests = envelope
             .get("data")
@@ -336,7 +341,11 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    let (exit, envelope) = ops::doctor::execute(&root);
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    let (exit, envelope) = ops::doctor::execute(&root, &registry);
     emit_value(format, quiet, &envelope, |envelope| {
         let project = envelope
             .get("data")
@@ -378,7 +387,11 @@ fn run_run(
     if let Err(error) = load_config(&root) {
         return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
     }
-    let scan = match scan_project(&root) {
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    let scan = match scan_project(&root, &registry) {
         Ok(scan) => scan,
         Err(error) => return scan_error_exit(&error, format, quiet),
     };
@@ -390,7 +403,7 @@ fn run_run(
     } else {
         ops::run::RunTarget::Test(test_ids)
     };
-    match ops::run::run(&root, &layout, &scan, &target, fast) {
+    match ops::run::run(&root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = serde_json::json!({
@@ -416,9 +429,20 @@ fn run_run(
             error @ ops::run::RunOpError::UnknownTestId(_)
             | error @ ops::run::RunOpError::UnknownVoId(_),
         ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
-        Err(error @ ops::run::RunOpError::Execution(_)) => {
-            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
-            ExitCode::Internal
+        Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
+            // DS-745/DS-923 (E-ADAPTER-003): a registered adapter whose
+            // runner cannot interpret the Test's execution descriptor is a
+            // usage-shaped rejection, not an internal failure — surfaced via
+            // `ExecutionError::code()` rather than the blanket E-CORE-001
+            // this branch used before this PR (Runner variant only; `Io`
+            // still has no assigned code and stays E-CORE-001/internal).
+            match inner.code() {
+                Some(code) => usage_failure(format, quiet, code, &error.to_string()),
+                None => {
+                    emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+                    ExitCode::Internal
+                }
+            }
         }
         Err(error @ ops::run::RunOpError::Store(_)) => {
             emit_failure(format, quiet, "E-CORE-001", &error.to_string());
@@ -1007,8 +1031,12 @@ fn run_verify(
         Ok(root) => root,
         Err(code) => return code,
     };
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
 
-    match ops::verify::execute(&root, items, doc, vo, test, gate, summary) {
+    match ops::verify::execute(&root, items, doc, vo, test, gate, summary, &registry) {
         Ok((exit, data, diagnostics)) => {
             // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート
             // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
@@ -1218,6 +1246,19 @@ fn absolute_path(path: &Path) -> PathBuf {
 
 /// Walk upwards looking for a `.verify/` directory, so the CLI works from a
 /// subdirectory of the project.
+/// composition root（`crate::adapters::builtin_registry`）を呼び、失敗
+/// （DES-351/DS-1569/DS-1663、理論上は固定1件の登録なので到達しない）を
+/// E-ADAPTER-001 の usage failure として報告する。すべての `run_*` 入口が
+/// これを1回だけ呼ぶ — `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で
+/// adapter を生成しない（BD-007/BD-102）。
+fn resolve_registry(
+    format: OutputFormat,
+    quiet: bool,
+) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
+    adapters::builtin_registry()
+        .map_err(|error| usage_failure(format, quiet, "E-ADAPTER-001", &error.to_string()))
+}
+
 fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
     let start = absolute_path(project);
     let mut current = start.as_path();

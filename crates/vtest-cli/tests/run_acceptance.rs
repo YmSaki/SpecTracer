@@ -59,6 +59,27 @@ fn clear_outer_coverage_environment() {
     // binary therefore share the cleared state if they run concurrently;
     // `vtest run --all` currently executes one test per process, so that
     // sharing is not observable in that command path.
+    //
+    // `CARGO_TARGET_DIR` is removed for a different, empirically confirmed
+    // reason: every fixture built by `build_fixture_project`/
+    // `build_broken_fixture_project` declares its own `[workspace]` so that
+    // `cargo test`/`cargo llvm-cov` inside it defaults to a
+    // fixture-root-local `target/` — but that isolation only holds while
+    // `CARGO_TARGET_DIR` is unset. When a caller's shell exports
+    // `CARGO_TARGET_DIR` (a common local perf setup), the vtest-exec/
+    // RustCargoTestRunner path inherits it unchanged (it sets no `env`
+    // overrides of its own) into every fixture's inner cargo invocation.
+    // Several fixtures in this file share the same package name, integration
+    // test target name (`registered`), and version; under `cargo test`'s
+    // default parallel test threads, their inner cargo invocations then
+    // race for the same physical target directory and Cargo's build-unit
+    // cache serves one fixture's already-built test binary to a concurrently
+    // running, differently-sourced fixture (observed: the syntactically
+    // broken fixture in
+    // `a_test_that_executes_but_produces_no_result_line_exits_verification_failed`
+    // ran the unrelated, passing `it_doubles` binary from a concurrently
+    // building fixture and exited `Ok` instead of failing to compile).
+    // Clearing it here restores each fixture's intended per-root isolation.
     for variable in [
         "RUSTC_WRAPPER",
         "LLVM_PROFILE_FILE",
@@ -67,6 +88,7 @@ fn clear_outer_coverage_environment() {
         "RUSTFLAGS",
         "CARGO_ENCODED_RUSTFLAGS",
         "CARGO_INCREMENTAL",
+        "CARGO_TARGET_DIR",
     ] {
         std::env::remove_var(variable);
     }
