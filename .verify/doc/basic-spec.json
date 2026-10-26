@@ -1198,7 +1198,7 @@
           "items": [
             {
               "id": "SPEC-059",
-              "statement": "orphan_detectionの問いは、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードが存在するかである。",
+              "statement": "orphan_detectionの問いは、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードが存在するかである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -7363,7 +7363,7 @@
             },
             {
               "id": "DS-1653",
-              "statement": "孤児ノード（`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない）は `MISMATCH` とする（§4.3）。",
+              "statement": "孤児ノード（`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノード）は `MISMATCH` とする（§4.3）。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -10746,7 +10746,7 @@
         },
         {
           "id": "DS-1654",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（`orphan_detection`）は `MISMATCH` とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児の文ノード（`orphan_detection`）は `MISMATCH` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",

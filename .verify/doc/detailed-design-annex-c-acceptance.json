@@ -290,7 +290,7 @@
       "items": [
         {
           "id": "SPEC-422",
-          "statement": "`orphan_detection` は文書層のみを対象とし、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードの有無を問う。",
+          "statement": "`orphan_detection` は文書層のみを対象とし、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードの有無を問う。",
           "derives_from": [
             "REQ-059",
             "REQ-060",
@@ -2333,7 +2333,7 @@
       "items": [
         {
           "id": "DS-1648",
-          "statement": "孤児判定は、`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たないノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
+          "statement": "孤児判定は、`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）を持たない文ノードを孤児とし、E-SCAN-016、`orphan_detection = MISMATCH` になる。",
           "derives_from": [
             "REQ-059",
             "SPEC-059",
@@ -6469,7 +6469,7 @@
         },
         {
           "id": "BD-286",
-          "statement": "fixture は、文書鎖の状態として `root` 層以外で実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
+          "statement": "fixture は、文書鎖の状態として `root` 層以外の文ノードで実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",

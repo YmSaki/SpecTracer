@@ -20,7 +20,12 @@
         {
           "id": "SPEC-365",
           "statement": "参照規則・診断コード・終了コードは本冊 §17 に従う。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-S015",
+            "REQ-S017",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "本冊 §17"
           ],
@@ -36,7 +41,11 @@
         {
           "id": "SPEC-366",
           "statement": "本別紙は基本仕様 §26.1（CLI コマンド一覧）・§26.2（MCP ツール一覧）が確定したコマンド・ツールの引数と入出力 schema を具体化する HOW である。",
-          "derives_from": [],
+          "derives_from": [
+            "P-005",
+            "REQ-S049",
+            "REQ-S058"
+          ],
           "cites": [
             "本冊 §0",
             "基本仕様 §26.1"
@@ -53,23 +62,12 @@
         {
           "id": "SPEC-367",
           "statement": "本別紙は新規コマンド・ツールを増やさない。",
-          "derives_from": [],
+          "derives_from": [
+            "P-005"
+          ],
           "cites": [
             "本冊 §0"
           ],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1",
-            "lines": [
-              4,
-              4
-            ]
-          }
-        },
-        {
-          "id": "SPEC-368",
-          "statement": "本別紙は、上流（要件定義＝WHY、基本仕様＝WHAT、詳細設計本冊＝HOW 中核）に無い義務・検査・状態・文書種別・関係型を発明しない。",
-          "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
             "heading": "AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1",
@@ -343,7 +341,7 @@
         },
         {
           "id": "SPEC-377",
-          "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
+          "statement": "`vtest doctor` は、同じTest IDの重複（E-SCAN-002）、covers先VOの欠落（E-SCAN-003）、文書鎖のリンク切れ（E-SCAN-012）、`root` 層のノードと節ノードを除き実効的な上流（自分の辺 ∪ 先祖の辺）を持たない孤児の文ノード（E-SCAN-016）、承認・判断・Evidenceのハッシュ束縛による失効（診断 `STALE`）など、version control の構文的整合性だけでは判定できない論理的不整合を検出する。",
           "derives_from": [
             "P-002",
             "P-003",
@@ -3068,7 +3066,7 @@
         },
         {
           "id": "DS-1655",
-          "statement": "`root` 層のノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）も持たないノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
+          "statement": "`root` 層のノードと節ノードを除き、実効的な上流（自分の辺 ∪ 先祖の辺）も持たない文ノードは孤児として `orphan_detection = MISMATCH`（E-SCAN-016）とする。",
           "derives_from": [],
           "cites": [
             "本冊 §5.6"
@@ -7525,19 +7523,6 @@
             "lines": [
               579,
               579
-            ]
-          }
-        },
-        {
-          "id": "BD-259",
-          "statement": "§15.1〜§15.4 は `rust-cargo` StructuredTestAdapter の構文処理を定める。",
-          "derives_from": [],
-          "source": {
-            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
-            "heading": "15. Structured Test Operation adapter contract",
-            "lines": [
-              580,
-              580
             ]
           }
         }
