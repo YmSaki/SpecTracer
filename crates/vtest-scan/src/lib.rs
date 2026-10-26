@@ -2373,6 +2373,10 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// （＝「未登録」ではない）が Source Discovery capability を持たない
     /// 場合、`ScanError::MissingCapability`（E-ADAPTER-004、DS-1580）で
     /// 拒否されることを確認する。
+    /// @vtest.id TEST-SCAN-MISSING-DISCOVERY-CAPABILITY-E-ADAPTER-004
+    /// @vtest.covers VO-SCAN-MISSING-DISCOVERY-CAPABILITY-E-ADAPTER-004
+    /// @vtest.target crates/vtest-scan/src/lib.rs::scan_project
+    /// @vtest.intent verifies scan_project rejects a configured adapter that is registered but lacks the Source Discovery capability with E-ADAPTER-004 naming the adapter id, returning no scan result
     #[test]
     fn registered_adapter_without_discovery_capability_is_rejected_as_missing_capability() {
         let root = fixture();
