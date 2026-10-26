@@ -4,19 +4,21 @@
 
 ## DES-S001 1. 用語定義
 
-*導出元: REQ-S001, REQ-S003, REQ-S013, REQ-S020, REQ-S025, REQ-S029, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
+*導出元: REQ-S001, REQ-S020, REQ-S035, REQ-S036, REQ-S037, REQ-S046*
 
-### DES-001
+### DES-567
 
-documentとは、ソースコードより上流に位置する成果物を表す単一の総称ノードである。
+ノードとは、ソースコードより上流に位置する成果物を、層ごとのトップレベル配列に分けて表す「文書 > 節 > 小節 > 文」の木の要素である。
 
-### DES-002
+### DES-568
 
-documentは `id + path + content_hash + 上流参照（derives_from）` を持つ。
+ノードは、文ノードが `id` / `statement` / `derives_from` / `source` を、節ノードが `id` / `title` / `source` を、根ノードが `id` / `statement` / `source` を必須 field として持つ。
 
-### DES-003
+### DES-588
 
-各derives_fromリンクは任意（optional）の説明文・導出理由を保持できる（§3.2）。
+ノードの各 `derives_from` リンクは説明文・導出理由を保持せず、上流ノードの id だけを持つ（§3.2）。VO レコードの `derives_from` entry の `note` は §3.2 に従う。
+
+> 無条件の否定文が上位層の `DS-1638`（VO の `derives_from` entry は任意の `anchor` と任意の `note` を持つ）と `BD-171`（対応ペアは `anchor` 付き `derives_from` エッジとして保持する）に反していた。`DS-1595`（detailed_spec）のスコープ語「ノードの」を転記して限定した。`anchor` について同型の処置を受けた `DES-583` と対になる条文であり、`note`・説明文の側だけが無条件のまま残っていた。「上流ノードの id だけを持つ」の値域は変えていない（`DS-1594` と一致する）。
 
 *導出元: REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044, REQ-045, REQ-046, REQ-047, REQ-048, REQ-049*
 
@@ -46,25 +48,23 @@ Execution Evidenceは結果・実行時リポジトリ状態・解決後のcanon
 
 承認記録はapprover / subject（またはjudgment reference）/ approved stateを必須とする。
 
-## DES-S002 2 全体像
+## DES-S003 2.1 正典の三層構造
 
-### DES-S003 2.1 正典の三層構造
-
-*導出元: P-003, REQ-S019, REQ-S035, REQ-S046*
+*導出元: P-003, REQ-S019, REQ-S035, REQ-S046, REQ-283*
 
 ### DES-009
 
 adapterが返す導出結果はregistryでmergeし、adapter ID・path・Test IDの順に正規化する。
 
-### DES-S004 2.2 宣言鎖と照合
+## DES-S004 2.2 宣言鎖と照合
 
 *導出元: REQ-S004, REQ-S005*
 
-### DES-010
+### DES-569
 
-上流文書はすべて単一の総称ノード型 `document` で表現する。
+上流文書は層ごとのトップレベル配列に分けたノードで表現する。
 
-### DES-S005 2.3 導出できる関係は保存しない
+## DES-S005 2.3 導出できる関係は保存しない
 
 *導出元: P-003*
 
@@ -72,7 +72,7 @@ adapterが返す導出結果はregistryでmergeし、adapter ID・path・Test ID
 
 Evidenceに含むtarget参照は、target別の実行事実と内容ハッシュを束縛する実行時snapshot keyである。
 
-### DES-S006 2.4 adapter 設定と wire 互換
+## DES-S006 2.4 adapter 設定と wire 互換
 
 *導出元: REQ-S048, REQ-S058*
 
@@ -120,23 +120,13 @@ Test JSONのwire compatibility layerは `rust-cargo` Testについてだけversi
 
 単数互換field `target` はtarget 1件のときだけ追加出力する。
 
-## DES-S007 3 エンティティと ID 体系
+## DES-S008 3.1 エンティティ種別
 
-### DES-S008 3.1 エンティティ種別
-
-*導出元: REQ-S005, REQ-S025, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
-
-### DES-023
-
-documentは総称の上流文書ノード（path＋content_hash＋derives_from）である。
+*導出元: REQ-S005, REQ-S035, REQ-S036, REQ-S040, REQ-S046*
 
 ### DES-024
 
 Relationは外部関係レコードであり、不変とする。
-
-### DES-025
-
-derives_fromの説明文もRelationに保持できる。
 
 ### DES-026
 
@@ -150,7 +140,7 @@ derives_fromの説明文もRelationに保持できる。
 
 Execution Evidenceは実行証拠レコードであり、追記型とする。
 
-### DES-S009 3.2 ID 規則と関係リンク
+## DES-S009 3.2 ID 規則と関係リンク
 
 *導出元: REQ-S007, REQ-S027, REQ-S058*
 
@@ -174,7 +164,7 @@ readerはversion 1互換入力としてbare ULIDを `REL-<ULID>` へin-memory正
 
 ULID payloadにより並列生成時のファイル名衝突を実用上排除する。
 
-### DES-S010 3.3 Source Target の識別
+## DES-S010 3.3 Source Target の識別
 
 *導出元: R-3, REQ-S027*
 
@@ -185,9 +175,7 @@ Target Referenceは、adapter IDとadapter所有のopaque locatorの組、また
 > <adapter-id>::<opaque-locator>
 > 例：rust-cargo::src/parser.rs::Parser::parse
 
-## DES-S011 5 検査
-
-### DES-S012 5.5 決定論的に検出可能な不成立構造
+## DES-S012 5.5 決定論的に検出可能な不成立構造
 
 *導出元: REQ-S024*
 
@@ -283,11 +271,11 @@ registryは重複・未知adapter・未対応capability・曖昧な対応を拒�
 
 *導出元: REQ-S045*
 
-### DES-051
+### DES-574
 
-取り込まれた上流成果物はcontent_hashとderives_fromを持つ。
+取り込まれた上流成果物は、規範内容から計算される subject hash と `derives_from` を持つ。
 
-*導出元: REQ-233, REQ-234, REQ-235*
+*導出元: REQ-233, REQ-335, REQ-235*
 
 *引用: 要件定義 §18*
 
@@ -365,9 +353,7 @@ record / エンティティファイルの書込みは原子的に公開する�
 
 MCPがCLIと異なるadapterを暗黙選択してはならない。
 
-## DES-S029 1. 実装構成
-
-### DES-S030 1.2 主要依存クレート
+## DES-S030 1.2 主要依存クレート
 
 *導出元: SPEC-S063, DS-S063, BD-S029*
 
@@ -375,9 +361,9 @@ MCPがCLIと異なるadapterを暗黙選択してはならない。
 
 Git 操作（HEAD の取得、dirty 判定）は `git` CLI の呼び出しで行う（`git rev-parse HEAD`、`git status --porcelain`）。
 
-### DES-S031 1.3 内容ハッシュの定義
+## DES-S031 1.3 内容ハッシュの定義
 
-*導出元: SPEC-S002, SPEC-S007, SPEC-S026, SPEC-S027, SPEC-S051, DS-S002, DS-S008, DS-S025, DS-S030, DS-S031, DS-S050, BD-S002, BD-S007, BD-S013, BD-S016*
+*導出元: SPEC-S002, SPEC-S026, SPEC-S027, SPEC-S051, DS-S002, DS-S025, DS-S030, DS-S031, DS-S050, BD-S002, BD-S013, BD-S016*
 
 ### DES-066
 
@@ -423,6 +409,38 @@ hash inputにおいて、順序に意味がある `cases` は宣言順でencode�
 
 hash inputにおいて、null、空文字、空listは異なる値としてencodeする。
 
+### DES-596
+
+hash inputの先頭にはdomain separatorを置き、他のfieldと同じ長さ付き規則（UTF-8 byte length、byte列の順）でencodeする。
+
+> 導出。DES-070は「hash inputはdomain separatorと長さ付きfieldから構成する」とだけ述べ、domain separator自身の位置と符号化規則をDES-071（field名・長さ・byte列の順）へ委ねているか明文で決めていない。domain separatorをhash inputの先頭かつ長さ付きで置くことは、DES-070の列挙順（domain separatorが先）と、DES-072「単純な文字列連結を行わない」（非長さ付きの生byte列を混ぜると連結衝突の余地が残る）から一意に導ける。新しい義務は増やしていない。
+
+*引用: DES-070, DES-071*
+
+### DES-597
+
+hash inputの各fieldにおいて、`field-name` 自体もUTF-8 byte lengthを前置してencodeする。field名を非長さ付きの生byte列として連結しない。
+
+> 導出。DES-071は「`field-name`、UTF-8 byte length、byte列の順」と書くが、この「UTF-8 byte length」がfield値のものか field-name自身のものかは字面だけでは両読みが残る。DES-072「単純な文字列連結を行わない」は、値だけでなくfield名も含めた入力全体に適用される制約であり、field名を非長さ付きで連結すると`field-name`+値の境界があいまいになり衝突を許すため、field名自体の長さ前置も要求される。
+
+*引用: DES-071, DES-072*
+
+### DES-598
+
+hash inputの各fieldは、値の種別（宣言の不在／scalar／順序を持つ列／集合として扱う列／map）を区別する1byteのkind tagを、長さとbyte列の前に置く。長さとbyte内容が同一でも種別が異なれば異なる値としてencodeする。
+
+> 導出。DES-076「null、空文字、空listは異なる値としてencodeする」およびDES-082「宣言の不在と空値の明示を異なる値としてencodeする」は結果（3者が異なる値になること）を定めるが、その手段を明文で指定していない。長さ付きbyte列だけでは、宣言の不在（0byte）と空文字（0byte）と空list（要素0件、要素の長さ前置和も0byte）が全て同じ0byte payloadになり区別できない。種別を先頭1byteのtagとして各fieldへ前置することが、DES-073（mapはkey昇順）・DES-074（集合はcovers等を正規化値昇順）・DES-075（順序に意味があるcasesは宣言順）がそれぞれ異なる符号化規則を持つ、という上位の書き分けとも整合する最小の手段である。
+
+*引用: DES-076, DES-082*
+
+### DES-599
+
+hash inputの長さ前置は固定幅64bit符号なし整数のbig-endianでencodeする。
+
+> 導出。DES-070・DES-071は「長さ付きfield」「UTF-8 byte length」を要求するが、長さの表現幅とエンディアンは明文で沈黙している。固定幅・固定エンディアンでなければ、同じ長さの値が実装間または将来のバージョン間で異なるbyte列にencodeされ得、DES-072「単純な文字列連結を行わない」が要求する決定論的な一意復元不能性（衝突回避）が実装依存になる。幅と符号順を確定させることは新しい義務の追加ではなく、DES-071が既に要求する「長さ付き」を実装可能な形へ一意化する記述である。
+
+*引用: DES-070, DES-071*
+
 ### DES-077
 
 Test subject hashはdomain `vtest:test-subject:v1` を用い、adapter ID、Test ID、全canonical metadata、Source Locationのadapter・project-relative path・opaque locator、ExecutionDescriptor、および正規化したTest construct bytesを束縛する。
@@ -451,9 +469,13 @@ Test subject hashは、宣言の不在と空値の明示を異なる値として
 
 Source Target hashはdomain `vtest:target-subject:v1` を用い、canonical Target Referenceとadapterが返すimplementation construct bytesを束縛する。
 
-### DES-084
+### DES-594
 
-construct bytesへの束縛は当該実現形態（`rust-cargo` 等のSource Target形態）に対する規則であり、Source Targetを宣言しない検証対象形態へは適用しない。
+construct bytesへの束縛は宣言された Source Target に対する規則であり、target を宣言しない Test へは適用しない。
+
+> 前身 `DES-084` は「当該実現形態（`rust-cargo` 等のSource Target形態）に対する規則であり、Source Targetを宣言しない検証対象形態へは適用しない」と、実行形態で条件付けていた。`ROOT-049` により条件を「target を宣言したか」に付け替えた。適用範囲の実質は変えていない。
+
+*導出元: ROOT-049*
 
 ### DES-085
 
@@ -479,13 +501,21 @@ canonical Target Referenceは常に `TargetRef::Locator`（adapter IDとadapter�
 
 Source Target hashはSource Target自身のcanonical Locatorから一度だけ計算し、当該Source Targetを参照するTest側の `TargetRef` 綴りからは計算しない。
 
-### DES-091
+### DES-572
 
-document subject hashはdomain `vtest:document-subject:v1` を用い、canonical document recordと参照先source（`path` の実ファイル）の正規化内容を束縛する。
+ノードの subject hash は domain `vtest:document-subject:v1` を用い、文ノードでは当該ノードの `id` と `statement` を、節ノードでは子ノードの subject hash を束縛し、`description` を束縛しない。
 
-### DES-092
+### DES-587
 
-document subject hashは、要件定義・基本仕様・詳細設計・API Schema等を種別で区別せず、すべて同一の総称document subjectとして計算する（§3.1）。
+節ノードの subject hash は、子を `items`（文ノードの列）と `sections`（下位節ノードの列）の 2 つの名前付き順序列として束縛し、各列を当該配列の宣言順で encode する。空の列も空 list として明示し、省略しない。
+
+> 導出（明文ではない）。上位は節ノードの子の順序を名指ししていない（root から detailed_spec まで「順序」「宣言順」「昇順」「並び」を全文検索し、節の子を名指しする条文は 0 件。2026-09-07 実測）。導出は 3 段。(1) ROOT-031・REQ-115・REQ-241・REQ-335 により、承認・判断記録は対象ノードの規範内容から計算した subject hash へ束縛され、規範内容が変われば失効しなければならない。(2) 正典には隣接する兄弟を指して意味が決まる文が実在する（BD-153「上記ディレクトリ」＝ BD-137〜BD-148、DS-951「上記例の固定順」、DS-1318「上記の各入力」、BD-231「上記のいずれか」、DS-1215「同上の入力」、DS-1166「上記解決規則」、DS-1518「上記の出力」、BD-014「上記から」、SPEC-425「上記の各値」の 9 件。2026-09-07 実測）。兄弟の並べ替えは各文ノードの `id` と `statement` を変えないため文ノードの subject hash では捕捉できず、現行の `DES-572` の下では節ノードの subject hash だけが捕捉地点になる。(3) ROOT-030 により、ある並べ替えが規範の意味を変えたかを判定する知能は vtest に載せない（発見者は外部）。したがって並べ替えを一律に束縛する fail-closed 以外に選べない。 却下した候補: 子の subject hash を集合として昇順に並べる案（DES-074 の類推）と、子の `id` 昇順に並べる案は、いずれも並べ替えで節の hash が変化しないため、BD-S038 で BD-153 を節の先頭へ動かす（「上記ディレクトリ」の指示対象が消える）変更に対して、当該節を上流依存 closure に含む承認が失効しない。`id` 昇順はさらに文書の並びとも一致しない（2 件以上の文を持つ 365 節のうち 45 節で `id` 番号順と配列順が不一致。2026-09-07 実測）。 順序の権威は文書ファイルの配列そのものであり `source.lines` ではない。`source` は移行期間限定 field であり subject hash に束縛されない。実測でも 365 節中 2 節（BD-S038・DES-S036）で配列順と `source.lines` 順が不一致であり、これは後から挿入したノードが元の見出し行を指しているために起きている。 `items` と `sections` を 1 本の列へ混ぜず 2 つの名前付き field として束縛するのは、DES-071（field は `field-name`・UTF-8 byte length・byte 列の順に encode する）に従えば列ごとに field 名が付き、両者の混合順を別途定義する必要がないため。両方を非空で持つ節は実在する（24 節。2026-09-07 実測）。空の列を空 list として明示するのは DES-076（null・空文字・空 list は異なる値）に従う。 開示: DS-1601・DS-1610・DS-1612 は「規範内容（`id` と `statement`）」と書いており、括弧を網羅的定義と読むと節ノードの並べ替えは規範内容の変更に当たらなくなる。これらは文ノードについての十分条件であって節ノードに触れていないため本文と矛盾しないが、節の子の並べ替えが規範内容の変更であるという不変条件は detailed_spec 層に無い。上流の穴として `reports/section-hash-order-2026-09-07.md` に報告する。
+
+*導出元: ROOT-030, REQ-115, REQ-241, REQ-335, DS-1659*
+
+### DES-575
+
+document subject hashは、層を区別せず、すべてのノードについて §1.3 の同一の規則で計算する（§3.1）。
 
 *導出元: SPEC-043, SPEC-044, SPEC-279, SPEC-280*
 
@@ -499,9 +529,11 @@ VO subject hashはdomain `vtest:record-subject:v1` を用い、readerが具体�
 
 VO subject hashは、VOの読取り互換field `status` を正典ではないため含めない。
 
-### DES-095
+### DES-590
 
-VO subject hashは `derives_from`（参照先document ID集合）と `parent` を束縛する。
+VO subject hashは `derives_from`（参照先ノード id 集合）と `parent` を束縛する。
+
+> 上位層の `DS-1661` と同旨の条文であり、「document ID 集合」は `DES-585` と `BD-318` のもとで指す先を失った値域である。束縛対象を `DS-1660` の定める値域（上流ノード id）へ改めた。束縛する field の組（`derives_from` と `parent`）は変えていない。
 
 ### DES-096
 
@@ -555,9 +587,7 @@ doc comment由来metadataはlogical metadataと `metadata_sources` として別�
 
 `rust-cargo` adapterはSource Targetには属性とdoc commentを含む関数item全体を返す。
 
-## DES-S032 2. データディレクトリと設定
-
-### DES-S033 2.2 `config.yaml`
+## DES-S033 2.2 `config.yaml`
 
 *導出元: SPEC-S012, SPEC-S019, SPEC-S050, SPEC-S053, DS-S007, DS-S013, DS-S018, DS-S021, DS-S049, DS-S053, BD-S011*
 
@@ -571,11 +601,7 @@ doc comment由来metadataはlogical metadataと `metadata_sources` として別�
 
 `gates` はフェーズゲートの進行条件定義を保持する（§11.5）。
 
-### DES-111
-
-`doc.roots` は orphan_detection の除外根をDOC IDの集合として保持する（§5.6）。
-
-### DES-S034 2.3 派生情報
+## DES-S034 2.3 派生情報
 
 *導出元: P-003, SPEC-S058, DS-S059, BD-S025*
 
@@ -583,43 +609,39 @@ doc comment由来metadataはlogical metadataと `metadata_sources` として別�
 
 MCPサーバは長時間動作するため、ツール呼び出しごとに対象ファイルのmtimeを確認し、変化があれば再スキャンする。
 
-## DES-S035 3. レコードファイルスキーマ
-
-### DES-S036 3.1 document レコード（`.verify/doc/DOC-*.yaml`）
+## DES-S036 3.1 document ファイル（`.verify/doc/` の JSON）
 
 *導出元: SPEC-S008, SPEC-S009, SPEC-S044, DS-S009, DS-S010, DS-S045, BD-S008*
 
-### DES-113
+### DES-573
 
-document レコードの `path` fieldはプロジェクト相対パスである。
+ノードは登録時の内容ハッシュを field として保持せず、subject hash を §1.3 に従って計算する。
 
-> id: DOC-BASIC-001
-> path: docs/basic-spec.md        # プロジェクト相対パス
-> content_hash: "sha256:..."      # 登録時の内容ハッシュ（§1.3 document subject）
-> title: 基本仕様書               # 任意の表示名
-> derives_from:                   # 上流 document への導出リンク（0件可＝根候補）
->   - doc: DOC-REQ-001
->     anchor: "§12.3"             # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
->     note: ""                    # 任意の導出理由（空可・非 MISMATCH。基本仕様 §3.4）
-> registered_at: 2026-08-08T00:00:00Z
+### DES-583
 
-### DES-114
-
-document レコードの `content_hash` fieldは登録時の内容ハッシュである（§1.3）。
-
-### DES-115
-
-`anchor` は `derives_from` entryのfieldであり、Test metadataには存在しない（§4.1）。
+ノードの `derives_from` は entry field を持たず、`anchor` はノードの `derives_from` にも Test metadata にも存在しない（§4.1）。VO レコードの `derives_from` entry の `anchor` は §3.2 に従う。
 
 *導出元: SPEC-123, SPEC-124, SPEC-369, SPEC-370, SPEC-371, SPEC-372, SPEC-373, SPEC-374, SPEC-375, SPEC-376, SPEC-377, SPEC-378, SPEC-379, SPEC-380, SPEC-381, SPEC-382, SPEC-383, SPEC-384, SPEC-385, SPEC-386, SPEC-387, SPEC-388, SPEC-389, SPEC-390, SPEC-391, SPEC-392, SPEC-393, SPEC-394, SPEC-395, SPEC-396, SPEC-397, SPEC-398, SPEC-399, SPEC-400, SPEC-401, SPEC-402, SPEC-403, SPEC-404, SPEC-405, SPEC-406, SPEC-407*
 
 *引用: 基本仕様 §12*
 
-### DES-116
+### DES-585
 
-`anchor` はcanonical document recordの一部であり、document subject hashの入力に含まれる（§1.3）。
+上流文書のファイルは、当該文書を識別する field を持たない。
 
-### DES-S037 3.2 VO レコード（`.verify/vo/VO-*.yaml`）
+> 導出である。導出の根拠: BD-322 は上流文書について「ファイル名は当該文書を識別するもの」とし、VO についてだけ「ファイル名を VO ID とする」と書き分けている。VO には ID があってファイル名がそれと一致し、文書には ID が無くファイル名が識別そのものである、という非対称がこの書き分けの内容である。識別子 field を別に置くと、field とファイル名の不一致、および複数ファイルでの同一 field 値という 2 通りの不整合が新たに生じるが、`derives_from` の参照先は上流ノード id だけであり（DS-1594・BD-165）、4 検査のいずれも文書の識別子を入力に取らないため、その field は鎖の切れ目を止める役に立たない。ファイル名を識別とする限り、同一ディレクトリに同じ識別を持つ文書は 2 件存在しえないため、重複を拒否する規則も要らない。文書ファイルの改名を禁じる規則も置かない: DS-1637（id を採番し直さない）の根拠は再採番が全ノードの `derives_from` を書き換えることにあるが、文書ファイル名を参照する辺は 1 本も無いため、その根拠は移らない。
+
+*導出元: BD-322*
+
+### DES-586
+
+上流文書のファイルは束（`specification.json`）と同じ schema に適合する JSON object とし、`schema_version` と 7 層すべてのトップレベル配列を持ち、当該文書が属さない層の配列は空とする。
+
+> HOW として design 層で確定した。上位は沈黙している: SPEC-149・REQ-309 が「文書の具体的入力フォーマットと登録方式」を明文で下位へ委譲しており、REQ-333・SPEC-462・BD-325 の「層ごとのトップレベル配列」は保存形式ではなくモデルの記述である（`reports/canonical-holes-2026-09-07.md` §2.3 の判定。BD-312 の上流に保存の規範が 1 件も無いため、保存形式と読むと下位が上位に無い規範を発明する形になる）。束と同じ形を選ぶ根拠 3 点: (1) ROOT-047「`specification.json` は `.verify/doc/` の文書モデルそのもの」と字面で一致し、束は文書ファイル群の同一層配列を連結したものになる。(2) schema が `additionalProperties: false` を持つため、宣言されていない余剰 field は schema 不一致として DS-1676（E-SCAN-010、error）で落ち、新しい診断コードを作らずに済む。(3) `schema_version` をファイルごとに持てば読み手は未知の版を推測せず拒否でき、版を 1 箇所へ集めると全ファイルの読取りがその 1 ファイルに依存して BD-058「全員が編集する中央共有台帳を持たない」に反する。層を宣言する専用 field は置かない: 層はノード id の接頭辞で機械的に定まり（BD-318・SPEC-462）、層名の key は束と同じモデル構造であって層の宣言 field ではない。key と id 接頭辞の一致は DS-1658 が持つ。 P-003「ある事実を別の情報から決定論的に導出できる場合、その事実を複数箇所へ独立して記録し、手動同期を要求する構造を避ける」との緊張を開示する: 層名の key と id 接頭辞はどちらも層を表すため字面では「複数箇所へ独立して記録」に当たる。ただしこの冗長は REQ-333（層ごとのトップレベル配列に分ける）と SPEC-462（層ごとのトップレベル配列に分け、層ごとに id 接頭辞を持つ）が上流で既に持っており、本文はその形を文書ファイルへ引き継いだだけで新しい冗長を作っていない。P-003 と REQ-333 は同じ require 層であるため層の権威では解けない。P-003 が避けよと言う「手動同期を要求する」構造に落ちないようにするのが DS-1658 であり、不一致は人が突き合わせて直す対象ではなく受理しない。 非空の層配列の本数は上限を設けない: 1 つの文書が複数の層のノードを持つ場合、その層の配列がいずれも非空になる。`ROOT-048` はファイルの単位を文書と定めるだけで、文書が 1 層に閉じるとは言っていない（`reports/doc-file-shape-2026-09-07.md` §9.5.1 の決着。上限を置く規範は `ROOT-048` の逐語に無い追加になるため置かない）。なお `request` 層と `require` 層のノードが同一の `source.doc` を持つことは、元 md が 1 本だった執筆時の事実であって本項の反例ではない。`ROOT-048` の列挙は要求と要件を別々に数えているため、`.verify/doc/` へ登録する際は 2 つの文書ファイルへ分ける（データの分割であって規範ではない。同報告 §9.5.1・§9.6.5）。文書ファイルの境界はどの権威も運ばない: 層はノード id の接頭辞で定まり（BD-318・DS-1658）、scope のエンティティ軸は DOC / VO / Test の部分木を選ぶのであってファイルを選ばず（DS-839・DS-1497・DS-1101）、subject hash は id と statement または子ノードのハッシュを束縛する（DES-572）。したがって層の異なるノードを同じファイルへ同居させても、層の権威を偽装する経路にはならない。
+
+*導出元: SPEC-149, BD-325*
+
+## DES-S037 3.2 VO レコード（`.verify/vo/VO-*.yaml`）
 
 *導出元: SPEC-S009, SPEC-S030, DS-S010, DS-S034*
 
@@ -629,8 +651,8 @@ VO レコードの `parent` fieldはVO IDまたはnull（階層化）である�
 
 > id: VO-PARSER-UTF8-003
 > parent: VO-PARSER-UTF8          # VO ID または null（階層化）
-> derives_from:                   # 1件以上の document への直結（基本仕様 §3.2）
->   - doc: DOC-BASIC-001
+> derives_from:                   # 1件以上の上流ノードへの直結（基本仕様 §3.2）
+>   - doc: SPEC-999               # 節ノードまたは文ノードの id（§3.2）
 >     anchor: "§8.2条項2"         # 任意の上流該当箇所（節番号等・空可・非 MISMATCH）
 >     note: ""                    # 任意（空可・非 MISMATCH）
 > claim: 不正な continuation byte を含む入力を与えた場合、ParseError::InvalidUtf8 を返す
@@ -640,6 +662,8 @@ VO レコードの `parent` fieldはVO IDまたはnull（階層化）である�
 > representative_cases: []        # 代表入力値（任意）
 > created: 2026-08-08
 > updated: 2026-08-08
+>
+> （`SPEC-999` は例示 id である。`specification.schema.json` の `$defs/id` と `BD-318` の層接頭辞規則に適合するが、正本に実在するノードではない。`DS-1643` の trace エッジ例と同じ値を使う。）
 
 ### DES-118
 
@@ -653,7 +677,7 @@ VO レコードの `combinations` fieldは `coverage_policy: explicit` のとき
 
 VOの `status` は承認レコードから導出する表示値であり、canonical writerはVO recordへ保存しない。
 
-#### DES-S038 3.2.1 dimensions と組合せの実体化
+### DES-S038 3.2.1 dimensions と組合せの実体化
 
 *導出元: SPEC-S030, DS-S034*
 
@@ -679,7 +703,7 @@ VOの `status` は承認レコードから導出する表示値であり、canon
 
 `combinations` はcanonical VO recordの一部であり、VO subject hashに束縛される（§1.3）。
 
-### DES-S039 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`）
+## DES-S039 3.3 Relation レコード（`.verify/rel/REL-<ULID>.yaml`）
 
 *導出元: SPEC-S006, SPEC-S009, DS-S006, DS-S010, BD-S006*
 
@@ -711,7 +735,7 @@ Relationは不変である。
 
 Relationの変更はファイル削除＋新規作成で表す。
 
-### DES-S040 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
+## DES-S040 3.4 判断記録レコード（`.verify/decisions/<ULID>.yaml`）
 
 *導出元: REQ-S035, SPEC-S034, DS-S037*
 
@@ -765,7 +789,7 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 `supersedes` は、この判断記録が明示に置き換える旧判断記録のULIDを名指しするlistである。
 
-### DES-S041 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）
+## DES-S041 3.5 承認レコード（`.verify/approvals/<ULID>.yaml`）
 
 *導出元: REQ-S046, SPEC-S016, SPEC-S043, SPEC-S066, DS-S017, DS-S044*
 
@@ -843,11 +867,11 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 ### DES-147
 
-承認対象種別 `vo` は、レコード上 `subject` にVO ID（`VO-*`）で表現し、上流依存closureは対象VOの再帰的なparent VO、対象VOと各parent VOが `derives_from` で参照するdocument、および各documentの再帰的な上位document（`derives_from` 先）である。
+承認対象種別 `vo` は、レコード上 `subject` にVO ID（`VO-*`）で表現し、上流依存closureは対象VOの再帰的なparent VO、対象VOと各parent VOが `derives_from` で参照するノード、および各ノードの実効的な上流（自分の辺 ∪ 先祖の辺）の再帰的閉包である。
 
 ### DES-148
 
-承認対象種別 `document` は、レコード上 `subject` にdocument ID（`DOC-*`）で表現し、上流依存closureは対象documentの再帰的な上位document（`derives_from` 先）である。
+承認対象種別 `document` は、レコード上 `subject` にノード ID で表現し、上流依存closureは対象ノードの実効的な上流（自分の辺 ∪ 先祖の辺）の再帰的閉包である。
 
 ### DES-149
 
@@ -889,9 +913,9 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 `approved_state` を参照せずに承認済みを導出してはならない。
 
-### DES-158
+### DES-576
 
-承認レコード a が A(X) に属するのは、`a.approved_state` が値域内であること、a の対象指定が X と一致すること（X が VO / document のとき `a.subject == X`、X が判断記録のとき `a.judgment_ref == X` の ULID）、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致すること、`a.dependencies` が `a.subject` の現在の上流依存closureと entity・hash とも完全一致すること、`a.dependencies` の各 document が登録 content_hash と実ファイルの一致を満たすこと（§11.4）、および X が判断記録のとき当該判断記録が §8.5 の有効判断でありかつ §8.5 の実効集合 E に属すること、をすべて満たす場合だけとする。
+承認レコード a が A(X) に属するのは、`a.approved_state` が値域内であること、a の対象指定が X と一致すること（X が VO / document のとき `a.subject == X`、X が判断記録のとき `a.judgment_ref == X` の ULID）、`a.subject_hash` が `a.subject` の現在の内容ハッシュと一致すること、`a.dependencies` が `a.subject` の現在の上流依存closureと entity・hash とも完全一致すること、`a.dependencies` の各 document ノードについて記録された束縛ハッシュが現在の subject hash と一致すること（§11.4）、および X が判断記録のとき当該判断記録が §8.5 の有効判断でありかつ §8.5 の実効集合 E に属すること、をすべて満たす場合だけとする。
 
 ### DES-159
 
@@ -909,9 +933,9 @@ Relationの変更はファイル削除＋新規作成で表す。
 
 承認レコードaがA(X)に属するには、`a.dependencies` が `a.subject` の現在の上流依存closureとentity・hashとも完全一致しなければならない。
 
-### DES-163
+### DES-577
 
-承認レコードaがA(X)に属するには、`a.dependencies` の各documentが登録content_hashと実ファイルの一致を満たさなければならない（§11.4）。
+承認レコードaがA(X)に属するには、`a.dependencies` の各 document ノードについて記録された束縛ハッシュが現在の subject hash と一致しなければならない（§11.4）。
 
 ### DES-164
 
@@ -977,15 +1001,15 @@ A’(X) の全レコードが `approved_state == approved` の場合、実効承
 
 `approved` から `draft` への遷移は、`subject` の内容ハッシュが変化することで起きる。
 
-### DES-181
+### DES-578
 
-`approved` から `draft` への遷移は、上流依存closureのentity構成またはいずれかのhashが変化する（document再登録・参照先source変更を含む）ことで起きる（§11.4）。
+`approved` から `draft` への遷移は、上流依存closureのentity構成またはいずれかのhashが変化する（document ノードの規範内容の変更を含む）ことで起きる（§11.4）。
 
 ### DES-182
 
 Xが判断記録のとき、`approved` から `draft` への遷移は、当該判断記録が §8.5 の有効判断または実効集合Eから外れることで起きる。
 
-### DES-S042 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
+## DES-S042 3.6 Evidence レコード（`.verify/evidence/<ULID>.yaml`）
 
 *導出元: SPEC-S022, SPEC-S051, DS-S025, DS-S050, BD-S013*
 
@@ -1151,11 +1175,9 @@ Evidence writerは `adapter` を必須で記録し、保存前にTestの `Execut
 
 Evidence readerは `adapter` の欠落を許容するが、現在のTestが `rust-cargo` で、互換runner kindと内容ハッシュからRust実行であることを一意に確認できる場合だけ互換Evidenceとして扱う。
 
-## DES-S043 4. Test metadata宣言contract
+## DES-S044 4.1 adapter-neutralな正規化
 
-### DES-S044 4.1 adapter-neutralな正規化
-
-*導出元: REQ-S026, SPEC-S007, SPEC-S027, SPEC-S028, SPEC-S035, DS-S008, DS-S031, DS-S032, DS-S038, BD-S007, BD-S017*
+*導出元: REQ-S026, SPEC-S027, SPEC-S028, SPEC-S035, DS-S031, DS-S032, DS-S038, BD-S017*
 
 ### DES-215
 
@@ -1171,7 +1193,7 @@ Evidence readerは `adapter` の欠落を許容するが、現在のTestが `rus
 
 locatorは `TargetRef::Locator { adapter, value }` とし、`value` はadapter所有のopaque文字列である。
 
-### DES-S045 4.2 `rust-cargo` annotation文法
+## DES-S045 4.2 `rust-cargo` annotation文法
 
 *導出元: SPEC-S035, SPEC-S066, DS-S038*
 
@@ -1187,7 +1209,7 @@ locatorは `TargetRef::Locator { adapter, value }` とし、`value` はadapter�
 
 したがって `@vtest.src-id` の付与・変更・削除はSource Target hashを変化させる。
 
-### DES-S046 4.3 `rust-cargo` locator構文
+## DES-S046 4.3 `rust-cargo` locator構文
 
 *導出元: SPEC-S028, SPEC-S066, DS-S032, BD-S017*
 
@@ -1199,7 +1221,7 @@ locatorは `TargetRef::Locator { adapter, value }` とし、`value` はadapter�
 
 `rust-cargo` adapterはlocator値を `TargetRef::Locator { adapter: "rust-cargo", value: locator }` へ正規化する。
 
-### DES-S047 4.4 宣言エラーの扱い
+## DES-S047 4.4 宣言エラーの扱い
 
 *導出元: SPEC-S018, SPEC-S028, SPEC-S035, DS-S020, DS-S032, DS-S038, BD-S017*
 
@@ -1210,10 +1232,6 @@ adapter固有のsource declarationを構文解析できない場合、adapterは
 ### DES-224
 
 source declarationを構文上完全なTest Entityへ正規化できる条件は、adapter中立coreが要求する必須metadata（構文上有効なTest ID・1件以上の `covers`・`intent`）に加え、当該adapterが必須とする追加metadataをTest Entityとして具体化できることをいう。
-
-### DES-225
-
-E-SCAN-007はadapterが報告する構文・必須metadata診断であり、`targets ≥ 1` は `rust-cargo` の必須metadataとしてこの経路で検出される（core中立の必須リンクへは加えない）（§11.1.1）。
 
 ### DES-226
 
@@ -1231,9 +1249,7 @@ E-SCAN-003が発生しても対応するTest Entityと `ManagedTestLink::One` �
 
 adapterはTest構文の違反（重複不可キーの重複、未知キー、必須キーの欠落）をE-SCAN-005 / E-SCAN-006 / E-SCAN-007で報告する（§5.4）。
 
-## DES-S048 5. Discovery orchestration設計
-
-### DES-S049 5.1 処理フロー
+## DES-S049 5.1 処理フロー
 
 *導出元: SPEC-S004, DS-S004, DS-S056, BD-S004, BD-S021*
 
@@ -1277,9 +1293,9 @@ adapterはTest構文の違反（重複不可キーの重複、未知キー、必
 
 処理フロー第8段は、グラフ構築と整合性検査である（§5.3・§5.4・§5.6）。
 
-### DES-S050 5.2 エンティティモデル（vtest-model）
+## DES-S050 5.2 エンティティモデル（vtest-model）
 
-*導出元: SPEC-S007, SPEC-S012, SPEC-S017, DS-S008, DS-S013, DS-S019, BD-S007, BD-S010*
+*導出元: SPEC-S012, SPEC-S017, DS-S013, DS-S019*
 
 ### DES-240
 
@@ -1293,9 +1309,13 @@ adapterはTest構文の違反（重複不可キーの重複、未知キー、必
 
 `TestEntity` の `targets` fieldは `Vec<TargetRef>` 型であり、各要素はadapter付きopaque locatorまたはSrcIdである。
 
-### DES-243
+### DES-591
 
-`TestEntity.targets` の件数はadapterが定める（`rust-cargo` は `targets ≥ 1` を必須とする）（§4.1・§4.4）。
+`TestEntity.targets` の件数はadapterが定める（§4.1・§4.4）。
+
+> 前身 `DES-582` は括弧内で「`rust-cargo` は検証対象をSource Targetとして実現する実行形態について `targets ≥ 1` を必須とする」と述べていた。`ROOT-049` によりこの必須は消滅したため括弧内を外した。件数を adapter が定めるという規範そのものは変えていない。
+
+*導出元: ROOT-049*
 
 ### DES-244
 
@@ -1469,9 +1489,13 @@ JSON readerは `execution` を優先し、互換field併存時はdescriptorと�
 
 不完全・矛盾時は入力を拒否し、空selectorまたはdummy値を生成しない。
 
-### DES-287
+### DES-593
 
-Test JSON writerは `TestEntity.targets` を1件以上のlistとして常に出力する。
+Test JSON writerは `TestEntity.targets` をlistとして常に出力する。
+
+> 前身 `DES-287` は「1件以上のlistとして」だった。`ROOT-049` により list は空になりうる（`DS-1674`）。常に出力するという規範は変えていない。
+
+*導出元: ROOT-049*
 
 ### DES-288
 
@@ -1701,9 +1725,11 @@ coreはrange・bytes対応を検証し、§1.3でhashを計算してから `Test
 
 `SourceDiscoveryAdapter` はadapterがTestとして認識した全Discovered Test draftを返す。
 
-### DES-345
+### DES-579
 
-`ManagedTestDraftLink::One` は、構文上有効なTest IDと必須metadata（core中立の `covers ≥ 1` / `intent`、および当該adapterが必須とする追加metadata。`rust-cargo` では `targets ≥ 1`）をdraftとして具体化できる場合に設定する（§4.1・§4.4）。
+`ManagedTestDraftLink::One` は、構文上有効なTest IDと必須metadata（core中立の `covers ≥ 1` / `intent`、および当該adapterが必須とする追加metadata）をdraftとして具体化できる場合に設定する（§4.1・§4.4）。
+
+*導出元: REQ-055*
 
 ### DES-346
 
@@ -1835,9 +1861,9 @@ matcherはsource bytes、schema field / validator集合等から決定論的に�
 
 ### DES-378
 
-document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のスキーマに対応するstructを定義する。
+ノード / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のスキーマに対応するstructを定義する。
 
-### DES-S051 5.3 検証グラフ
+## DES-S051 5.3 検証グラフ
 
 *導出元: SPEC-S008, SPEC-S049, DS-S009, DS-S048, BD-S008*
 
@@ -1847,11 +1873,13 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 
 ### DES-380
 
-検証グラフのエッジ `DOC → DOC` は `derives_from` であり、documentレコード由来である。
+検証グラフのノード間エッジは `derives_from` であり、仕様ノード由来である。
 
-### DES-381
+### DES-589
 
-検証グラフのエッジ `VO → DOC` は `derives_from` であり、VOレコード由来、1:N（1件以上）である。
+検証グラフのエッジ `VO → ノード` は `derives_from` であり、VOレコード由来、1:N（1件以上）である。
+
+> `DOC` は `BD-318`（canonical holes 2026-09-07 の H-1）で死んだ値域である。上位層の `BD-313`「検証グラフでは、ノード間・VO → ノードの関係を `derives_from` の一種で表現する」と、同層の `DES-380`（ノード間エッジ）に字面を揃えた。到達先の値域そのものは `DS-1660` が定める。カーディナリティは変えていない。`derives_from` は前身 `DES-381` と同じく空のままで、親節 `DES-S051` の辺を継承する。
 
 ### DES-382
 
@@ -1861,9 +1889,13 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 
 検証グラフのエッジ `TEST → VO` は `covers` であり、adapter所有のTest metadata宣言由来である。
 
-### DES-384
+### DES-592
 
-検証グラフのエッジ `TEST → SRC` は `targets` であり、検証対象をSource Targetとして実現する形態、1:N（`rust-cargo` では `targets ≥ 1`）である（§4.1）。
+検証グラフのエッジ `TEST → SRC` は `targets` であり、0:N である（§4.1）。
+
+> 前身 `DES-384` は「検証対象をSource Targetとして実現する実行形態、1:N（`rust-cargo` では当該形態について `targets ≥ 1`）」だった。`ROOT-049` により実行形態の限定が消え、下限が 0 になる（`DS-1673`）。エッジの種別と到達先は変えていない。
+
+*導出元: ROOT-049*
 
 ### DES-385
 
@@ -1877,25 +1909,21 @@ document / VO / Relation / 判断記録 / 承認記録 / Evidence も §3 のス
 
 旧モデルのSPEC / REQノードとREQ→SPEC / VO→REQエッジは持たない。
 
-### DES-S052 5.4 整合性診断
+## DES-S052 5.4 整合性診断
 
-*導出元: SPEC-S017, SPEC-S028, DS-S019, DS-S032, DS-S056, BD-S010, BD-S017, BD-S021*
+*導出元: SPEC-S017, SPEC-S028, DS-S019, DS-S032, DS-S056, BD-S017, BD-S021*
 
 ### DES-388
 
 E-SCAN-003が発生しても対応するTest Entityと `ManagedTestLink::One` を除去しない。
 
-### DES-S053 5.5 `rust-cargo` SourceDiscoveryAdapter
+## DES-S053 5.5 `rust-cargo` SourceDiscoveryAdapter
 
 *導出元: SPEC-S063, SPEC-S066, DS-S063, BD-S029*
 
 ### DES-389
 
 `rust-cargo` adapterは§5.1の `DiscoveryBatch` を構築する。
-
-### DES-390
-
-当該adapterは検証対象をSource Targetとして実現する形態であり、各管理対象Testに1件以上のSource Target（`targets ≥ 1`）を必須とする。
 
 ### DES-391
 
@@ -1921,9 +1949,7 @@ E-SCAN-003が発生しても対応するTest Entityと `ManagedTestLink::One` �
 
 `rust-cargo` discoveryの第7段はdraft生成であり、全Discovered Test draft、ManagedTestDraftLink、SourceTargetDraft、Source Location、construct / metadata source rangeとbytes、logical metadata、宣言された恒久SRC ID、ExecutionDescriptor、診断をhash未計算のDiscoveryBatchに格納する。
 
-## DES-S054 6. Target Reference解決
-
-### DES-S055 6.1 adapter-neutral解決contract
+## DES-S055 6.1 adapter-neutral解決contract
 
 *導出元: SPEC-S010, SPEC-S028, DS-S011, DS-S032, BD-S009, BD-S017*
 
@@ -1943,7 +1969,7 @@ coreは§1.3のSource Target hashを計算する。
 
 SRC ID参照は対応するadapterのSource Locationとsource rangeを使用する。
 
-### DES-S056 6.2 `rust-cargo` locator解決
+## DES-S056 6.2 `rust-cargo` locator解決
 
 *導出元: SPEC-S028, DS-S032, BD-S017*
 
@@ -1961,7 +1987,7 @@ SRC ID参照は対応するadapterのSource Locationとsource rangeを使用す�
 
 `rust-cargo`のlocator解決は、path内でitem-pathが一致するfn / impl fnが存在するかを確認する。
 
-### DES-S057 6.3 候補提示
+## DES-S057 6.3 候補提示
 
 *導出元: SPEC-S038, DS-S039, BD-S019*
 
@@ -1979,9 +2005,7 @@ SRC ID参照は対応するadapterのSource Locationとsource rangeを使用す�
 
 `rust-cargo` adapterのenum variant検証（`expect`の値が`ParseError::InvalidUtf8`形式の場合）は、スキャン済みASTからenum定義を検索する。
 
-## DES-S058 7. Static Analysis orchestrationと`rust-cargo`ルール
-
-### DES-S059 7.1 判定の原則
+## DES-S059 7.1 判定の原則
 
 *導出元: P-003, SPEC-S021, SPEC-S023, DS-S023, DS-S026, BD-S014*
 
@@ -2009,7 +2033,7 @@ target-scopedなDA-002 / DA-003の集合を全宣言targetと過不足なく1対
 
 coreはadapter ID、source location・現在bytesとの対応、決定論的encodingを検証し、§7.2の規則で集約する。
 
-### DES-S060 7.3 target 到達の静的証明と runtime 証明の関係（target_binding）
+## DES-S060 7.3 target 到達の静的証明と runtime 証明の関係（target_binding）
 
 *導出元: SPEC-S020, SPEC-S022, SPEC-S027, DS-S022, DS-S031*
 
@@ -2249,9 +2273,7 @@ subprocess内の実行を計測するには起動される実行体もinstrument
 
 coverage providerは当該境界越しの実行を宣言targetへ帰属させなければならない（例：起動される実行体も計測対象としてinstrumentし、子プロセスのprofileをmergeする）。
 
-## DES-S073 11. 鮮度検証と集約
-
-### DES-S074 11.3 集約アルゴリズム
+## DES-S074 11.3 集約アルゴリズム
 
 *導出元: SPEC-S052, DS-S052*
 
@@ -2271,7 +2293,7 @@ aggregateは、scanによりグラフ構築する（§5）。
 
 *引用: 基本仕様 §22.2*
 
-### DES-S075 11.6 役割別 projection
+## DES-S075 11.6 役割別 projection
 
 *導出元: REQ-S007, SPEC-S049, SPEC-S054, DS-S048, DS-S054*
 
@@ -2287,11 +2309,11 @@ Feature名・Feature IDの別fieldを出力に設けず、束ねの識別子は�
 
 逆引きインデックス（VO → Tests、SRC → Tests、DOC → VOs、DOC → DOCs）をprojectionの基盤とする（§5.3）。
 
-### DES-467
+### DES-584
 
-projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）には、当該entryの`anchor`（§3.1・§3.2）を常に同伴させる。
+projectionが出力する `derives_from` エッジのうち、ノード → ノードのエッジは `anchor` を同伴しない。ノード → VO のエッジは当該 entry の `anchor`（§3.2）を同伴させる。
 
-### DES-S076 11.7 判断待ち情報の構造
+## DES-S076 11.7 判断待ち情報の構造
 
 *導出元: SPEC-S047, SPEC-S066*
 
@@ -2319,9 +2341,7 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 `bundle_ref`は外部判断が必要な場合の判断バンドル（§8.1）への参照（任意）とする。
 
-## DES-S077 16. 並列動作と整合性
-
-### DES-S078 16.1 ロック不要の根拠
+## DES-S078 16.1 ロック不要の根拠
 
 *導出元: SPEC-S057, DS-S058, BD-S024*
 
@@ -2329,9 +2349,7 @@ projectionが出力する`derives_from`エッジ（DOC → DOC、DOC → VO）�
 
 原子的公開の対象は`.verify/`配下のrecord・エンティティファイル（新規レコード追加とエンティティファイル編集）であり、完全な内容が単一の操作で可視になる方式（同一ファイルシステム内へのtemp書込み＋rename等）で公開し、書きかけ状態・一時ファイル残渣を正典ディレクトリの読み手に観測させてはならない。
 
-## DES-S079 17. 診断・終了コード体系
-
-### DES-S080 17.1 診断コード
+## DES-S080 17.1 診断コード
 
 *導出元: SPEC-S013, SPEC-S066, DS-S014*
 
@@ -2361,9 +2379,7 @@ cargo workspace外の単一クレートプロジェクトでのパス解決の�
 
 レポートのツリー描画の細部（文字種、折返し）は、基本仕様と本詳細設計の観測可能な契約を変更しない範囲で実装が選択できる。
 
-## DES-S082 12. CLI 詳細仕様
-
-### DES-S083 12.1 共通仕様
+## DES-S083 12.1 共通仕様
 
 *導出元: REQ-S009, SPEC-S012, SPEC-S013, SPEC-S055, SPEC-S078, SPEC-S096, SPEC-S106, DS-S013, DS-S014, DS-S018, DS-S055, DS-S079, DS-S085, DS-S118, DS-S128, BD-S049, BD-S052, BD-S071*
 
@@ -2375,19 +2391,17 @@ cargo workspace外の単一クレートプロジェクトでのパス解決の�
 
 coreは `targets ≥ 1` を adapter 中立の必須件数にせず、型としては空 list を許容する。
 
-### DES-S084 12.2 `vtest doc add / list / show`
+## DES-S084 12.2 `vtest doc add / list / show`
 
-*導出元: SPEC-S008, SPEC-S009, SPEC-S017, SPEC-S021, SPEC-S030, SPEC-S031, SPEC-S034, SPEC-S035, SPEC-S038, SPEC-S039, SPEC-S042, SPEC-S043, SPEC-S049, SPEC-S051, SPEC-S053, SPEC-S055, SPEC-S061, SPEC-S062, SPEC-S066, SPEC-S069, SPEC-S071, SPEC-S072, SPEC-S073, SPEC-S074, SPEC-S075, SPEC-S076, SPEC-S077, SPEC-S079, SPEC-S081, SPEC-S084, SPEC-S085, SPEC-S087, SPEC-S088, SPEC-S090, SPEC-S092, SPEC-S094, SPEC-S096, SPEC-S097, SPEC-S098, SPEC-S099, SPEC-S100, SPEC-S103, DS-S009, DS-S010, DS-S018, DS-S019, DS-S023, DS-S024, DS-S034, DS-S035, DS-S037, DS-S038, DS-S039, DS-S043, DS-S044, DS-S048, DS-S050, DS-S053, DS-S055, DS-S056, DS-S061, DS-S062, DS-S069, DS-S071, DS-S072, DS-S073, DS-S075, DS-S076, DS-S077, DS-S079, DS-S080, DS-S083, DS-S088, DS-S093, DS-S094, DS-S095, DS-S096, DS-S099, DS-S100, DS-S101, DS-S102, DS-S104, DS-S105, DS-S106, DS-S113, DS-S115, DS-S118, DS-S119, DS-S120, DS-S121, DS-S122, DS-S125, BD-S008, BD-S010, BD-S012, BD-S019, BD-S021, BD-S027, BD-S028, BD-S038, BD-S039, BD-S042, BD-S043, BD-S044, BD-S046, BD-S047, BD-S049, BD-S051, BD-S053, BD-S055, BD-S058, BD-S059, BD-S060, BD-S061, BD-S062, BD-S063, BD-S064, BD-S065, BD-S071, BD-S072, BD-S073, BD-S074*
+*導出元: SPEC-S008, SPEC-S009, SPEC-S017, SPEC-S021, SPEC-S030, SPEC-S031, SPEC-S034, SPEC-S035, SPEC-S038, SPEC-S039, SPEC-S042, SPEC-S043, SPEC-S049, SPEC-S051, SPEC-S053, SPEC-S055, SPEC-S061, SPEC-S062, SPEC-S066, SPEC-S069, SPEC-S071, SPEC-S072, SPEC-S073, SPEC-S074, SPEC-S075, SPEC-S076, SPEC-S079, SPEC-S081, SPEC-S084, SPEC-S085, SPEC-S087, SPEC-S088, SPEC-S090, SPEC-S092, SPEC-S094, SPEC-S096, SPEC-S097, SPEC-S098, SPEC-S099, SPEC-S100, SPEC-S103, DS-S009, DS-S010, DS-S018, DS-S019, DS-S023, DS-S024, DS-S034, DS-S035, DS-S037, DS-S038, DS-S039, DS-S043, DS-S044, DS-S048, DS-S050, DS-S053, DS-S055, DS-S056, DS-S061, DS-S062, DS-S069, DS-S071, DS-S072, DS-S073, DS-S075, DS-S076, DS-S077, DS-S079, DS-S080, DS-S088, DS-S093, DS-S095, DS-S096, DS-S099, DS-S100, DS-S101, DS-S102, DS-S104, DS-S105, DS-S106, DS-S113, DS-S115, DS-S118, DS-S119, DS-S120, DS-S121, DS-S122, DS-S125, BD-S008, BD-S012, BD-S019, BD-S021, BD-S027, BD-S028, BD-S038, BD-S039, BD-S042, BD-S043, BD-S044, BD-S046, BD-S047, BD-S049, BD-S053, BD-S055, BD-S058, BD-S059, BD-S060, BD-S061, BD-S062, BD-S063, BD-S064, BD-S065, BD-S071, BD-S072, BD-S073, BD-S074*
 
-### DES-482
+### DES-595
 
-`doc add` は `--path` の対象ファイルの sha256 を計算して document subject へ束縛した DOC レコードを作成する。
+`doc add` は `--path` のノード木 JSON ファイルを 1 document として登録する（1 document = 1 JSON ファイル）。document subject hash は本冊 §1.3 のノード subject hash 定義（domain `vtest:document-subject:v1`、文ノードは `id`/`statement`、節ノードは子ノードの subject hash を束縛し `description` を束縛しない、DES-572）に従い、単一ファイルの sha256 をそのまま subject hash に用いない。
 
-*引用: 本冊 §1.3*
+*引用: 本冊 §1.3, DES-572*
 
-## DES-S085 13. MCP ツール詳細仕様
-
-### DES-S086 13.1 共通仕様
+## DES-S086 13.1 共通仕様
 
 *導出元: SPEC-S062, DS-S062, BD-S028*
 
@@ -2397,9 +2411,7 @@ coreは `targets ≥ 1` を adapter 中立の必須件数にせず、型とし�
 
 *引用: 本冊 §2.3*
 
-## DES-S087 14. Form Schema 設計
-
-### DES-S088 14.2 検証器
+## DES-S088 14.2 検証器
 
 *導出元: SPEC-S041, SPEC-S078, SPEC-S083, DS-S042, DS-S085, DS-S090, DS-S093, BD-S020, BD-S052, BD-S057*
 
@@ -2441,7 +2453,7 @@ matcher は schema 内容から決定論的に判定し、kind 名だけで Rust
 
 reader は互換解決だけで Form ファイルを書き換えない。
 
-### DES-S089 14.3 組込フォーム
+## DES-S089 14.3 組込フォーム
 
 *導出元: SPEC-S041, SPEC-S063, DS-S042, DS-S063, DS-S080, DS-S081, BD-S020, BD-S029*
 
@@ -2449,9 +2461,7 @@ reader は互換解決だけで Form ファイルを書き換えない。
 
 コアはフォームの kind を Rust 固有と推測せず、schema の `adapter`、registry が宣言する大局的に一意な kind ownership、登録済み capability を照合する。
 
-## DES-S090 15. Structured Test Operation adapter contract
-
-### DES-S091 15.1 `rust-cargo` 対象の特定
+## DES-S091 15.1 `rust-cargo` 対象の特定
 
 *導出元: SPEC-S040, DS-S041*
 
@@ -2469,7 +2479,7 @@ Test ID から編集対象を特定する。
 
 スキャン結果が古い可能性があるため、編集直前に対象ファイルのみ再パースし、Test ID の位置を再確認する。
 
-### DES-S092 15.2 `rust-cargo` 編集・挿入の適用
+## DES-S092 15.2 `rust-cargo` 編集・挿入の適用
 
 *導出元: SPEC-S039, SPEC-S040, DS-S041*
 
@@ -2504,6 +2514,8 @@ desired state（answers / set / body）から、あるべきアノテーショ�
 ### DES-503
 
 挿入後の再パース検証とロールバックは Edit と同一の規則で Create にも適用する。
+
+*導出元: REQ-217, SPEC-143*
 
 ### DES-504
 
@@ -2557,9 +2569,13 @@ Form 回答（§14）から、あるべきアノテーションブロックと�
 
 ロールバック後は、当該操作より前と同じソーステキストが観測できなければならない。
 
+*導出元: REQ-217, SPEC-143*
+
 ### DES-517
 
 部分適用された挿入内容を残さない。
+
+*導出元: REQ-217, SPEC-143*
 
 ### DES-518
 
@@ -2573,7 +2589,9 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 ロールバック後の再スキャンで、当該操作が無かった場合と同一のエンティティ集合・内容ハッシュが得られる。
 
-### DES-S093 15.3 `rust-cargo` annotation blockの再生成
+*導出元: REQ-217, SPEC-143*
+
+## DES-S093 15.3 `rust-cargo` annotation blockの再生成
 
 *導出元: SPEC-S040, DS-S041, DS-S080*
 
@@ -2617,9 +2635,9 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 `@vtest.src-id` は Test annotation block の再生成対象に含めない。
 
-### DES-S094 15.4 `rust-cargo` 1 Test境界の保証
+## DES-S094 15.4 `rust-cargo` 1 Test境界の保証
 
-*導出元: REQ-S039, SPEC-S040, DS-S041*
+*導出元: REQ-S039, REQ-290, SPEC-S040, DS-S041*
 
 ### DES-530
 
@@ -2633,9 +2651,7 @@ Create / Edit いずれも、E-OP-003 で中止した操作は Test ID の採番
 
 *引用: 要件定義 §16, 基本仕様 §15.3*
 
-## DES-S095 18. 受入契約
-
-### DES-S096 18.1 共通条件
+## DES-S096 18.1 共通条件
 
 *導出元: SPEC-S053, SPEC-S056, DS-S018, DS-S025, DS-S053, DS-S057, BD-S013, BD-S022*
 
@@ -2651,11 +2667,9 @@ Rust workspaceの受入テストは`cargo test --workspace`で実行できる。
 
 canonical record、承認記録、判断記録、Evidence、内容hashの不変条件をfixtureの都合で緩和しない。
 
-### DES-S097 18.3 機能別受入条件
+## DES-S098 18.3.1 discovery・record・graph と chain_integrity
 
-#### DES-S098 18.3.1 discovery・record・graph と chain_integrity
-
-*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S077, SPEC-S083, SPEC-S095, DS-S010, DS-S020, DS-S032, DS-S044, DS-S056, DS-S083, DS-S090, DS-S116, BD-S017, BD-S021, BD-S051, BD-S057*
+*導出元: SPEC-S009, SPEC-S018, SPEC-S028, SPEC-S043, SPEC-S083, SPEC-S095, DS-S010, DS-S020, DS-S032, DS-S044, DS-S056, DS-S090, DS-S116, BD-S017, BD-S021, BD-S057*
 
 ### DES-535
 
@@ -2693,7 +2707,7 @@ readerはファイル名とrecord IDが同じbare ULIDのversion 1互換Relation
 
 VO writerは`status`を保存せず、実効値をApprovalから導出する。
 
-#### DES-S099 18.3.4 execution・Evidence（target_binding の証拠）
+## DES-S099 18.3.4 execution・Evidence（target_binding の証拠）
 
 *導出元: SPEC-S051, SPEC-S076, DS-S025, DS-S050, DS-S051, DS-S077, DS-S105, DS-S117, BD-S013, BD-S047, BD-S064*
 
@@ -2701,7 +2715,7 @@ VO writerは`status`を保存せず、実効値をApprovalから導出する。
 
 Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target_construct`を出力する。
 
-#### DES-S100 18.3.5 target_binding 動的計測（per-target）
+## DES-S100 18.3.5 target_binding 動的計測（per-target）
 
 *導出元: SPEC-S020, SPEC-S051, SPEC-S086, DS-S022, DS-S050, DS-S098, DS-S112, BD-S069*
 
@@ -2711,7 +2725,7 @@ Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target
 
 *引用: 本冊 §3.6・§10*
 
-#### DES-S101 18.3.7 承認と判断記録の分離
+## DES-S101 18.3.7 承認と判断記録の分離
 
 *導出元: SPEC-S016, SPEC-S034, SPEC-S043, SPEC-S074, SPEC-S075, DS-S017, DS-S037, DS-S044, DS-S075, DS-S076, BD-S046*
 
@@ -2723,9 +2737,9 @@ Evidence writerは中立fieldの`hashes.test_subject`と`hashes.targets[].target
 
 承認主体は種別（`human` / `agent`）と識別子を記録する。
 
-#### DES-S102 18.3.8 verify・report と scope
+## DES-S102 18.3.8 verify・report と scope
 
-*導出元: SPEC-S017, SPEC-S053, SPEC-S054, SPEC-S055, SPEC-S069, SPEC-S094, SPEC-S096, DS-S018, DS-S019, DS-S053, DS-S054, DS-S055, DS-S069, DS-S115, DS-S118, BD-S010, BD-S039, BD-S071*
+*導出元: SPEC-S017, SPEC-S053, SPEC-S054, SPEC-S055, SPEC-S069, SPEC-S094, SPEC-S096, DS-S018, DS-S019, DS-S053, DS-S054, DS-S055, DS-S069, DS-S115, DS-S118, BD-S039, BD-S071*
 
 ### DES-548
 
@@ -2739,7 +2753,7 @@ text treeのancestor continuation、middle child、last childを一意なbranch�
 
 評価経路へそのような seam を導入する変更を行う場合は、正反対の判定を返す stub を注入しても 4 検査の結果が変化しないことを受入で確認する。
 
-#### DES-S103 18.3.9 フェーズゲート評価
+## DES-S103 18.3.9 フェーズゲート評価
 
 *導出元: REQ-S057, SPEC-S012, SPEC-S016, SPEC-S050, SPEC-S069, SPEC-S098, SPEC-S105, SPEC-S106, DS-S013, DS-S017, DS-S049, DS-S069, DS-S120, DS-S127, DS-S128, BD-S039, BD-S072*
 
@@ -2759,7 +2773,7 @@ text treeのancestor continuation、middle child、last childを一意なbranch�
 
 `--gate` を指定した `verify` / `report` の JSON は `data.gate` に `name`・`verification.{required, actual, satisfied}`・`approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す。
 
-#### DES-S104 18.3.10 Structured Test Operation / Create の挿入後検証とロールバック
+## DES-S104 18.3.10 Structured Test Operation / Create の挿入後検証とロールバック
 
 *導出元: SPEC-S038, SPEC-S078, DS-S039, DS-S085, BD-S019, BD-S052*
 
@@ -2771,7 +2785,7 @@ create は挿入後に対象ファイルを再パースし、構文妥当性・�
 
 *引用: 別紙A §15.2, 基本仕様 §15.1*
 
-#### DES-S105 18.3.12 adapter contract
+## DES-S105 18.3.12 adapter contract
 
 *導出元: SPEC-S063, SPEC-S078, SPEC-S105, DS-S007, DS-S063, DS-S085, DS-S127, BD-S029, BD-S052*
 
