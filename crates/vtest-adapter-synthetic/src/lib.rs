@@ -27,7 +27,11 @@
 //! declares a Source Target: a construct that is not a function (DS-1584's
 //! "関数ではないTest construct" — here applied symmetrically to the Source
 //! Target side, since this adapter has no function concept at all) whose
-//! `locator` is the block's own opaque, colon-free id.
+//! `locator` is the block's own opaque, colon-free id. An optional
+//! `@synthetic.src-id <SRC-ID>` line declares the Source Target's permanent
+//! SRC ID, so a fixture can express two adapters declaring the same
+//! permanent SRC ID (BD-279). `src-id` is not repeatable: a block declaring
+//! it more than once adopts none of the values rather than guessing one.
 
 use std::{
     fs,
@@ -39,7 +43,7 @@ use vtest_adapter_api::{
     SourceDiscoveryAdapter, SourceDraft, TestDraft,
 };
 use vtest_model::{
-    AdapterId, ExecutionDescriptor, Locator, SourceLocation, TargetRef, TestId, VoId,
+    AdapterId, ExecutionDescriptor, Locator, SourceLocation, SrcId, TargetRef, TestId, VoId,
 };
 
 /// The id this adapter registers under, and the `TargetRef::Locator.adapter`
@@ -279,12 +283,27 @@ fn parse_source_block(
     if locator_value.is_empty() {
         return;
     }
+    // BD-279: 複数 adapter が同じ恒久 SRC ID を宣言する状態を fixture で
+    // 表現するための宣言。rust-cargo の表面2と同様に反復不可とし、複数
+    // あればどの値も採用しない（推測で1件を選ばない）。衝突判定（E-SCAN-011）
+    // は core の SRC 索引が adapter 境界を越えて行う。
+    let declared = block
+        .lines()
+        .skip(1)
+        .filter_map(parse_annotation)
+        .filter(|(key, value)| *key == "src-id" && !value.is_empty())
+        .map(|(_, value)| value)
+        .collect::<Vec<_>>();
+    let src_id = match declared.as_slice() {
+        [single] => Some(SrcId::new(*single)),
+        _ => None,
+    };
     sources.push(SourceDraft {
         locator: Locator {
             adapter: AdapterId::new(ADAPTER_ID),
             value: locator_value.to_owned(),
         },
-        src_id: None,
+        src_id,
         location: SourceLocation {
             adapter: AdapterId::new(ADAPTER_ID),
             path: vtest_model::ProjectPath::new(relative),
@@ -342,6 +361,66 @@ mod tests {
             "the synthetic target locator must not use rust-cargo's `::` syntax"
         );
         assert!(!test.location.path.as_str().ends_with(".rs"));
+
+        std::fs::remove_dir_all(&root).expect("remove fixture root");
+    }
+
+    /// @vtest.id TEST-ADAPTER-SYNTHETIC-DECLARES-PERMANENT-SRC-ID
+    /// @vtest.covers VO-ADAPTER-SYNTHETIC-DECLARES-PERMANENT-SRC-ID
+    /// @vtest.target crates/vtest-adapter-synthetic/src/lib.rs::SyntheticAdapter::discover
+    /// @vtest.intent verifies a synthetic Source Target block declares exactly one permanent SRC ID through @synthetic.src-id, and a block repeating src-id adopts none of the values
+    #[test]
+    fn source_block_declares_a_single_permanent_src_id() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-synthetic-src-id-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create fixture root");
+        std::fs::write(
+            root.join("fixture.synthetic"),
+            "@synthetic.source declared-once\n\
+             @synthetic.src-id SRC-SYN-ONE\n\
+             body\n\
+             ---\n\
+             @synthetic.source declared-twice\n\
+             @synthetic.src-id SRC-SYN-A\n\
+             @synthetic.src-id SRC-SYN-B\n\
+             body\n\
+             ---\n\
+             @synthetic.source undeclared\n\
+             body\n",
+        )
+        .expect("write fixture");
+
+        let outcome = SyntheticAdapter::new()
+            .discover(
+                &root,
+                "fallback",
+                &AdapterScanConfig {
+                    include_paths: vec![PathBuf::from(".")],
+                },
+            )
+            .expect("discovery must succeed");
+
+        let src_ids = outcome
+            .sources
+            .iter()
+            .map(|source| {
+                (
+                    source.locator.value.as_str(),
+                    source.src_id.as_ref().map(|id| id.as_str()),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            src_ids,
+            vec![
+                ("declared-once", Some("SRC-SYN-ONE")),
+                ("declared-twice", None),
+                ("undeclared", None),
+            ]
+        );
 
         std::fs::remove_dir_all(&root).expect("remove fixture root");
     }
