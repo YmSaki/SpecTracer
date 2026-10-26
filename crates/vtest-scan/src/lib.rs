@@ -696,13 +696,29 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                             resolved_canonical.push((src_id.as_str().to_owned(), canonical));
                         }
                         TargetResolution::Ambiguous => {
-                            // 恒久SRC IDが衝突している。E-SCAN-011は索引
-                            // 構築時に既に発行済みであり、いずれのSource
+                            // 恒久SRC IDが衝突している。いずれのSource
                             // Targetも選択しない（本冊:901「E-SCAN-011が
                             // あるSRC ID参照は曖昧なため、関係するtarget
                             // 解決をMISMATCHとし、いずれのSource Targetも
                             // 選択しない」）。同じ衝突を二重にE-SCAN-004
-                            // として報告しない。
+                            // として報告しない。索引構築時のE-SCAN-011は
+                            // 宣言側Source Targetを指すため、参照側Testにも
+                            // E-SCAN-011を付け、verifyが当該Testの
+                            // `target_binding`をMISMATCHとして保持できる
+                            // ようにする（DS-1678: Evidenceが無いことを
+                            // 理由にNO_EVIDENCEへ倒さない）。
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-SCAN-011",
+                                    format!(
+                                        "test `{}` target `{}` is ambiguous: permanent SRC ID \
+                                         is declared by multiple Source Targets",
+                                        test.id,
+                                        src_id.as_str()
+                                    ),
+                                )
+                                .with_location(test.location.clone()),
+                            );
                         }
                         TargetResolution::NotFound => {
                             // 要確認C: 同上、SRC ID参照側にも同じ修正を

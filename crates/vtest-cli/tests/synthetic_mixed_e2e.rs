@@ -1,9 +1,9 @@
 //! Acceptance coverage for the v0.2 adapter boundary.
 //!
 //! W7 requires one scan to merge Rust and synthetic adapter output, while
-//! §9.1 requires a duplicate Test ID shared by adapters to be rejected.  These
-//! tests use the public registry and scan entry points so both cases exercise
-//! the same composition path as the CLI.
+//! §9.1 requires a duplicate Test ID or permanent SRC ID shared by adapters to
+//! be rejected.  These tests use the public registry, scan, and verify entry
+//! points so every case exercises the same composition path as the CLI.
 
 use std::{
     env, fs,
@@ -15,11 +15,12 @@ use vtest_adapter_api::AdapterRegistry;
 use vtest_adapter_rust::RustCargoAdapter;
 use vtest_adapter_synthetic::SyntheticAdapter;
 use vtest_model::{
-    DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, TestId, VoId,
-    VoRecord,
+    DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, TestId,
+    VerificationCheck, VerificationState, VoId, VoRecord,
 };
 use vtest_scan::{scan_project, TestIdLookup};
 use vtest_store::{init_project, write_document_file, write_vo_record};
+use vtest_verify::{verify_project, TreeNode};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -261,4 +262,142 @@ fn duplicate_test_id_across_adapters_is_rejected_symmetrically() {
         }
         other => panic!("expected a cross-adapter collision, got {other:?}"),
     }
+}
+
+fn find_node<'a>(nodes: &'a [TreeNode], id: &str) -> Option<&'a TreeNode> {
+    nodes.iter().find_map(|node| {
+        if node.id == id {
+            Some(node)
+        } else {
+            find_node(&node.children, id)
+        }
+    })
+}
+
+/// Rewrites the mixed fixture so `rust-cargo` and `synthetic` each declare a
+/// Source Target with the same permanent SRC ID, and the Rust Test refers to
+/// that SRC ID instead of a locator.
+fn declare_shared_src_id(root: &Path, src_id: &str) {
+    fs::write(
+        root.join("src/lib.rs"),
+        format!(
+            "pub fn implementation() -> bool {{ true }}\n\n\
+             /// @vtest.src-id {src_id}\n\
+             pub fn rust_shared() -> bool {{ true }}\n"
+        ),
+    )
+    .expect("write Rust Source Target declaring the shared SRC ID");
+    fs::write(
+        root.join("tests/rust_side.rs"),
+        format!(
+            "/// @vtest.id TEST-MIXED-RUST\n\
+             /// @vtest.covers VO-MIXED\n\
+             /// @vtest.target {src_id}\n\
+             /// @vtest.intent refers to a permanent SRC ID declared by two adapters\n\
+             #[test]\n\
+             fn rust_side() {{ assert!(mixed_fixture::rust_shared()); }}\n"
+        ),
+    )
+    .expect("write Rust Test referring to the shared SRC ID");
+    fs::write(
+        root.join("fixture.synthetic"),
+        format!(
+            "@synthetic.test\n\
+             @synthetic.id TEST-MIXED-SYNTHETIC\n\
+             @synthetic.covers VO-MIXED\n\
+             @synthetic.target synthetic-target\n\
+             @synthetic.intent exercises the synthetic side of the mixed fixture\n\
+             plain synthetic Test construct body\n\
+             ---\n\
+             @synthetic.source synthetic-target\n\
+             @synthetic.src-id {src_id}\n\
+             plain synthetic Source Target body\n"
+        ),
+    )
+    .expect("write synthetic Source Target declaring the shared SRC ID");
+}
+
+/// @vtest.id TEST-CLI-MIXED-DUPLICATE-SRC-ID-REJECTED
+/// @vtest.covers VO-ADAPTER-MIXED-DUPLICATE-SRC-ID-E-SCAN-011, VO-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+/// @vtest.target crates/vtest-scan/src/lib.rs::resolve_targets
+/// @vtest.intent verifies a permanent SRC ID declared by rust-cargo and synthetic is rejected with E-SCAN-011, is never reported as E-SCAN-004, selects no Source Target, and leaves the referring Test's target_binding MISMATCH without a label instead of PASS or NO_EVIDENCE
+#[test]
+fn duplicate_src_id_across_adapters_is_rejected_without_target_resolution() {
+    let root = temp_root("duplicate-src-id");
+    build_fixture(&root, "TEST-MIXED-RUST", "TEST-MIXED-SYNTHETIC");
+    declare_shared_src_id(&root, "SRC-MIXED-SHARED");
+    let registry = mixed_registry();
+
+    let scan = scan_project(&root, &registry).expect("SRC ID collisions are scan diagnostics");
+    let shared_declarations = scan
+        .sources
+        .iter()
+        .filter(|source| {
+            source
+                .src_id
+                .as_ref()
+                .is_some_and(|src_id| src_id.as_str() == "SRC-MIXED-SHARED")
+        })
+        .map(|source| source.locator.adapter.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        shared_declarations,
+        ["rust-cargo", "synthetic"],
+        "both adapters must contribute a Source Target declaring the shared SRC ID: {:#?}",
+        scan.sources
+    );
+    let collisions = scan
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "E-SCAN-011")
+        .collect::<Vec<_>>();
+    assert!(
+        !collisions.is_empty()
+            && collisions
+                .iter()
+                .all(|diagnostic| diagnostic.message.contains("SRC-MIXED-SHARED")),
+        "the cross-adapter collision must be E-SCAN-011 naming the SRC ID: {:?}",
+        scan.diagnostics
+    );
+    let rust_test_location = &scan
+        .tests
+        .iter()
+        .find(|test| test.id == TestId::new("TEST-MIXED-RUST"))
+        .expect("the Rust Test must stay observable")
+        .location;
+    assert!(
+        collisions
+            .iter()
+            .any(|diagnostic| diagnostic.location.as_deref() == Some(rust_test_location)),
+        "the referring Test must carry E-SCAN-011 so verify can keep its target \
+         unresolved: {:?}",
+        scan.diagnostics
+    );
+    assert!(
+        !scan
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SCAN-004"
+                && diagnostic.message.contains("SRC-MIXED-SHARED")),
+        "an ambiguous SRC ID must not be re-reported as a missing target: {:?}",
+        scan.diagnostics
+    );
+
+    let outcome = verify_project(&root, &scan, None, None, &registry);
+    let rust_test = find_node(&outcome.tree, "TEST-MIXED-RUST")
+        .unwrap_or_else(|| panic!("TEST-MIXED-RUST must be in the tree: {:#?}", outcome.tree));
+    let binding = rust_test
+        .checks
+        .iter()
+        .find(|check| check.check == VerificationCheck::TargetBinding)
+        .expect("TEST-MIXED-RUST must carry a target_binding outcome");
+    assert_eq!(
+        binding.state,
+        VerificationState::Mismatch,
+        "an ambiguous SRC ID target must be MISMATCH, never PASS or NO_EVIDENCE: {binding:?}"
+    );
+    assert!(
+        binding.labels.is_empty(),
+        "E-SCAN-011 carries no diagnostic label: {binding:?}"
+    );
 }
