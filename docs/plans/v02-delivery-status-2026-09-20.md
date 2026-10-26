@@ -55,6 +55,28 @@ new W7 mixed-adapter tests pass. `vtest doctor` still exits 1 with the same 128
 orphan errors and 20 warnings; the extra two warnings are from PR #56's
 untraced tests.
 
+As of the 2026-10-26 follow-up on `feature/adapter-registry`:
+
+- The synthetic adapter can declare a permanent SRC ID (`@synthetic.src-id`,
+  BD-279), so the plan §9.1 row "duplicate SRC ID across adapters" now has a
+  mixed-adapter acceptance test.
+- That test exposed a pre-existing conformance gap that also affects
+  Rust-only scans. A Test referring to a colliding permanent SRC ID got no
+  Test-located diagnostic, so `verify` reported its `target_binding` as
+  `NO_EVIDENCE` / `NOT_EXECUTED`. DS-1678 forbids that fallback. `vtest-scan`
+  now attaches E-SCAN-011 to the referring Test, which yields `MISMATCH`.
+  The result was non-passing before the fix, so this was not a false `PASS`.
+- PR #56's scan test for a missing discovery capability is now traced to
+  DS-1580. `register_accepts_a_consistent_declaration_and_resolves_the_typed_accessor`
+  stays unannotated on purpose, because no canonical rule states the
+  acceptance side. `doctor` therefore reports 128 `E-SCAN-016` and 19
+  `W-SCAN-101` (one from PR #56), and still exits 1 until the owner decides
+  the orphan links.
+- The local gate ran with `cargo-llvm-cov` installed, as in CI: fmt, 482
+  workspace tests, and clippy pass. Without `cargo-llvm-cov`, two
+  `evidence_e2e` tests fail on the unmodified head as well, because target
+  reachability is unmeasured.
+
 ## Work sequence
 
 1. Reproduce and repair PR #56's `doctor` failure. Run focused checks and the
