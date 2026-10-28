@@ -1143,6 +1143,31 @@
               16
             ]
           }
+        },
+        {
+          "id": "DS-1690",
+          "statement": "入力不正・操作拒否ではない内部エラーが発生した場合、CLIはerrorの診断コード`E-INTERNAL-001`と終了コード3を返し、MCPは`code: \"E-INTERNAL-001\"`を含むツールエラーを返す。内部エラー自体を検証状態として返さない。",
+          "description": "Issue #98 の受入条件。診断コードの意味は DS-1689、CLI の終了コードと優先順位は DS-322・DS-930・DS-938、診断と MCP ツールエラーの形は DS-942・DS-1191 に従う。",
+          "derives_from": [
+            "REQ-107",
+            "SPEC-357"
+          ],
+          "cites": [
+            "DS-1689",
+            "DS-322",
+            "DS-930",
+            "DS-938",
+            "DS-942",
+            "DS-1191"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/98",
+            "heading": "作業範囲",
+            "lines": [
+              14,
+              15
+            ]
+          }
         }
       ]
     },
