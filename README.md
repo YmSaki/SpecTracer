@@ -62,7 +62,7 @@ flowchart TD
     VERIFY -. checks .-> EVIDENCE
 ```
 
-**If a required link is missing, stale, ambiguous, mismatched, or not checked, SpecTracer does not call it OK.**
+**If a required link is missing, stale, ambiguous, mismatched, or not checked, SpecTracer returns a non-OK result and names the link.**
 
 ---
 
@@ -70,7 +70,7 @@ flowchart TD
 
 > **Turn “the tests are green” into “this specification is backed by current, inspectable evidence.”**
 
-SpecTracer is not another testing framework. It is a verification layer around your tests and development process.
+SpecTracer is a verification layer around your tests and development process; keep your testing framework for running tests.
 
 | Question | Test runner | Coverage tool | SpecTracer |
 |---|:---:|:---:|:---:|
@@ -107,8 +107,9 @@ verification states, canonical identities, and Evidence hash binding.
 
 Support is evidence-based: an ecosystem is supported only after its discovery,
 execution, freshness, and target-measurement behavior has reproducible acceptance
-coverage. Unsupported or unavailable analysis must remain `NOT_CHECKED` or
-`UNKNOWN`; it is never promoted to `PASS`.
+coverage. Return `NOT_CHECKED` or `UNKNOWN` for unsupported or unavailable
+analysis, because a promoted `PASS` would claim support that has no evidence; when
+support is added, promote the result only through reproducible acceptance coverage.
 
 ---
 
@@ -245,7 +246,7 @@ SpecTracer separates three kinds of truth:
 2. **Implementation** — the actual test and target code.
 3. **Evidence** — what was audited, executed, and observed.
 
-The system compares them; it does not silently rewrite one to match another.
+The system compares them and reports the difference, leaving both sides as written until a person or agent changes one.
 
 ```text
 Specification
@@ -285,7 +286,7 @@ SpecTracer keeps canonical records under `.verify/`:
 └── cache/           # derived data; safe to rebuild
 ```
 
-The design avoids a giant shared registry file. Independent entities live in independent files, which makes the format friendlier to parallel branches and parallel agents.
+The design keeps independent entities in independent files instead of one giant shared registry file, which makes the format friendlier to parallel branches and parallel agents.
 
 Derived indexes and graphs are rebuilt from canonical data rather than becoming a second source of truth.
 
@@ -316,7 +317,7 @@ The M9 MCP transport exposes the same core operations to AI agents instead of cr
 
 ## Project status
 
-> **Status below means acceptance evidence, not code presence.** Some later-milestone implementation may already exist, but it is intentionally not advertised as complete until its milestone flow passes.
+> **Status below means acceptance evidence, not code presence.** Some later-milestone implementation may already exist, but it is advertised as complete only after its milestone flow passes.
 
 | Milestone | Scope | Acceptance |
 |---|---|:---:|
@@ -351,19 +352,15 @@ The target end-to-end verification surface is eleven independent checks:
 10. `target_execution`
 11. `evidence_validity`
 
-The goal is not to make every check “green” by assumption. The goal is to make the provenance of every green result inspectable.
+The goal is to make the provenance of every green result inspectable, so a check turns green through evidence rather than assumption.
 
 ---
 
 ## A tool should be able to say “I don't know”
 
-One of SpecTracer's core design rules is that deterministic analysis must not pretend to understand more than it does.
+One of SpecTracer's core design rules is that deterministic analysis states only what it can prove and returns `UNKNOWN` beyond that.
 
-For example, if a test calls into code outside the deterministic analysis boundary, SpecTracer should not conclude:
-
-> “The target definitely was not called.”
-
-It should conclude:
+For example, if a test calls into code outside the deterministic analysis boundary, the claim “The target definitely was not called” overclaims, so SpecTracer concludes:
 
 > **`UNKNOWN` — the available deterministic evidence is insufficient.**
 
@@ -406,16 +403,15 @@ MCP stdio support is complete for the v0.1 user-facing scope and delegates to th
 
 ---
 
-## What SpecTracer is not
+## Where SpecTracer fits
 
-SpecTracer is **not**:
+SpecTracer works with the tools you already use:
 
-- a replacement for language test runners such as `cargo test`, `go test`,
-  `dotnet test`, or JavaScript/TypeScript test runners,
-- a replacement for code coverage,
-- a magical “AI says the code is correct” button,
-- a system that automatically edits the specification until the build becomes green,
-- or a reason to trust an untraceable PASS.
+- your language test runners such as `cargo test`, `go test`, `dotnet test`, or JavaScript/TypeScript test runners keep deciding pass and fail, and SpecTracer consumes their results as evidence,
+- your code coverage tooling keeps measuring, and SpecTracer uses the measurement as target-execution evidence,
+- semantic judgment comes from an external discoverer (an agent or a person), and SpecTracer records it bound to the current subject,
+- a mismatch between layers is reported as `MISMATCH` pointing upstream, and a person or agent fixes the declaration,
+- and every `PASS` carries evidence you can trace.
 
 It is infrastructure for making claims about software **explicit, bounded, and auditable**.
 
@@ -454,7 +450,7 @@ Contributions are welcome, especially around:
 - CI ergonomics,
 - and MCP integration.
 
-A useful contribution should make the verification contract stronger, not merely make more cases display `PASS`.
+A useful contribution makes the verification contract stronger. When a change increases `PASS` results, show the evidence that justifies each one, because more `PASS` without stronger evidence reintroduces the false green this tool exists to stop.
 
 Before declaring a milestone complete, add reproducible evidence to [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md).
 
