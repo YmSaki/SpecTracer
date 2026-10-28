@@ -75,6 +75,38 @@ Do not force-push `main`, `develop`, shared working branches, or published tags.
 Keep commits focused. Documentation-only changes should not modify generated
 `.verify/cache/` data or unrelated source files.
 
+### Specification changes
+
+The canonical specification is changed only on `spec/<topic>` branches.
+
+- **Spec paths:** `docs/canonical/**` (except `docs/canonical/export/`, which is
+  derived and carries no authority) and `.verify/doc/**` (the document records
+  the verifier reads). VO records, tests, and code are not spec paths.
+- **Only `spec/*` branches may change spec paths.** Every other branch leaves
+  them untouched.
+- **A `spec/*` branch changes no code and no tests** (`crates/`, `tests/`).
+  Implementation and tests that depend on a spec change start after that spec
+  PR is merged.
+- **Target `develop`, never `main`.** `main` receives specification changes only
+  through a release. A hotfix does not change the specification; if one needs
+  it, make the change through `spec/*` and ship it in the next release.
+- **Short-lived: one topic per branch, one spec PR open at a time.** IDs are
+  allocated at the end of each layer, so two open spec PRs allocate the same
+  numbers. If a second one is unavoidable, merge `develop` into it after the
+  first is merged and rerun the gate (`vtest doctor` reports duplicate ids as
+  `E-SCAN-010`).
+- **Other branches pick the change up by merging `develop`** (merge, not
+  rebase). They never touch spec paths, so the merge cannot conflict there.
+- **If implementation exposes a defect, gap, or contradiction in the
+  specification,** stop. Open an issue citing the clause IDs, fix it through a
+  `spec/*` PR, then merge `develop` into the working branch and continue. Do
+  not resolve it in code.
+- **Keep derived data in step:** a spec PR updates the `.verify/doc/`
+  projection together with `docs/canonical/specification.json`. Regenerating
+  `docs/canonical/export/` may happen in any PR.
+- **CI enforces the path rules** for pull requests into `develop`
+  (`.github/scripts/spec-guard.sh`, job `spec-guard`).
+
 ## Common development loop
 
 ```bash
@@ -114,6 +146,9 @@ The workflow marks pre-release tags accordingly and publishes Linux x86_64, macO
 x86_64, and Windows x86_64 archives with checksums.
 
 ## Documentation and specification changes
+
+Specification changes follow the branch and path rules in
+[Git Flow → Specification changes](#specification-changes).
 
 Read the relevant requirements, basic specification, and detailed design before
 changing behavior. If they disagree, report the exact sections instead of
