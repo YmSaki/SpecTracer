@@ -5,7 +5,7 @@ description: Review SpecTracer design or implementation changes against the curr
 
 # Architecture check
 
-Current canonical contracts govern this review. Produce findings and a handoff decision; do not redesign or edit unless separately requested.
+Current canonical contracts govern this review. Produce findings and a handoff decision; keep the review read-only, because findings are evidence for the next decision; when a redesign or edit is wanted, ask for it as a separate request.
 
 ## Fix the review contract first
 
@@ -27,9 +27,9 @@ Available axes are:
 7. compatibility normalization and invariant preservation;
 8. acceptance observability and next-phase handoff evidence.
 
-Select only applicable axes, but do not add, remove, or change them after review begins. If the axes prove insufficient, report an axis defect separately and leave the new concern unscored pending a separately declared review. Do not reject on an excluded axis. Report every material issue within a declared axis; finding count is not a reason to suppress findings.
+Select the applicable axes and keep them as declared after review begins, because a changed axis moves the standard after the result is seen. When the axes prove insufficient, report an axis defect separately and leave the new concern unscored pending a separately declared review. Reject only for issues inside a declared axis, and report every material issue within it; finding count is not a reason to suppress findings.
 
-A material canonical or safety violation discovered outside the declared axes must be reported as an out-of-scope blocker or trigger an explicit re-scope. Do not silently ignore it or return `READY` while it remains unresolved. Do not score it as an in-axis finding unless the review contract is explicitly re-scoped.
+Report a material canonical or safety violation discovered outside the declared axes as an out-of-scope blocker, or re-scope explicitly, because silence or a `READY` would hide it. While it is unresolved, return a decision other than `READY`. Score it as an in-axis finding only after the review contract is explicitly re-scoped.
 
 ## Authority
 
@@ -38,31 +38,31 @@ Read the applicable sections in this order:
 1. `docs/canonical/specification.json`（正本。層の順に root → request → require → spec → detailed_spec → basic_design → design。旧 md は `docs/archive/` に退役、規範として引用しない）
 6. `DEVELOPMENT.md` for process and Git policy only.
 
-An implementation schedule is non-normative. `DEVELOPMENT.md` is not a product-behavior authority. When normative levels disagree, preserve the higher product authority and cite exact sections. Do not choose implementation behavior as authority.
+Take an implementation schedule as process material and `DEVELOPMENT.md` as process and Git policy. When normative levels disagree, follow the higher product authority and cite exact sections. Take implementation behavior as evidence to check against the authority, because it records choices that may be wrong.
 
 ## Fixed model baseline
 
 - Checks are exactly `chain_integrity`, `orphan_detection`, `target_binding`, and `oracle_presence`.
 - States are exactly `PASS`, `FAIL`, `MISMATCH`, `NO_EVIDENCE`, and `UNKNOWN`.
-- `MISSING`, `NOT_EXECUTED`, `NOT_CHECKED`, and `STALE` are diagnostic labels, not verification states.
+- `MISSING`, `NOT_EXECUTED`, `NOT_CHECKED`, and `STALE` are diagnostic labels attached to a state.
 - Upstream artifacts are generic `document` nodes connected by `derives_from`.
 - Judgment, Approval, verification state, aggregate OK/NG, and gate satisfaction are separate concepts.
 - The canonical Approval CLI is `vtest approval create`, `vtest approval withdraw`, and `vtest approval show`; `vtest vo approve` is an alias only.
-- Limited scope never treats work outside the requested scope as `PASS`. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation.
-- Deterministic inability does not justify a guessed `PASS` or `FAIL`.
+- Limited scope returns `NO_EVIDENCE` with `NOT_CHECKED` for work outside the requested scope. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation.
+- When deterministic analysis cannot establish a result, report that limit (`UNKNOWN`) instead of a guessed `PASS` or `FAIL`.
 - Compatibility input is effective only after current normalization, identity, completeness, freshness, and aggregation invariants pass.
 
 ## Review method
 
 1. Inventory changed public behavior, persisted data, domain types, dependency edges, and compatibility paths. Trace each to canonical sections.
-2. Check ownership and dependency direction. Core types stay language-neutral; language and runner specifics stay behind adapter capabilities. Derived data never becomes a competing source of truth.
+2. Check ownership and dependency direction. Core types stay language-neutral; language and runner specifics stay behind adapter capabilities. Keep derived data derived from canonical records, so it cannot compete as a source of truth.
 3. Trace every result path from raw input through normalization, applicable check, state/diagnostic separation, aggregation, output, and exit behavior.
-4. Trace Evidence, Judgment, and Approval through creation, dependency change, invalidation or re-evaluation, compatibility read, and reporting. A readable historical record is not necessarily effective.
+4. Trace Evidence, Judgment, and Approval through creation, dependency change, invalidation or re-evaluation, compatibility read, and reporting. Treat a readable historical record as effective only after its binding to the current subject and closure is confirmed.
 5. Confirm every compatibility branch converges on the same canonical validation path. Reject candidate selection, default synthesis, partial closure, or older representations that bypass current invariants.
-6. Map changed guarantees to deterministic Annex C observations. A test name or green suite alone proves nothing unless its assertions establish the current contract.
-7. Treat implementation and tests as evidence, not authority. Acceptance evidence establishes current canonical conformance only when its assertions are explicitly mapped to current canonical clauses and observables. Historical or superseded acceptance evidence may support regression checks, but cannot by itself establish current conformance.
+6. Map changed guarantees to deterministic Annex C observations. Take a test or green suite as evidence for a guarantee when its assertions establish the current contract; a test name alone shows nothing.
+7. Treat implementation and tests as evidence to check against the authority. Acceptance evidence establishes current canonical conformance only when its assertions are explicitly mapped to current canonical clauses and observables. Use historical or superseded acceptance evidence for regression checks, and add current mapped evidence to establish current conformance.
 
-For each defect, give the smallest input or lifecycle event demonstrating it. Distinguish change-introduced defects from pre-existing canonical gaps without letting an in-axis baseline gap pass the handoff.
+For each defect, give the smallest input or lifecycle event demonstrating it. Distinguish change-introduced defects from pre-existing canonical gaps and count an in-axis baseline gap against the handoff.
 
 ## Output
 
@@ -74,4 +74,4 @@ End with exactly one review decision:
 - `NOT_READY`: a selected-axis responsibility is violated or lacks required evidence;
 - `INSUFFICIENT_EVIDENCE`: no violation is proven, but required handoff evidence is unavailable.
 
-This is an architecture-review decision, not a verification state or gate-satisfaction value. List excluded axes and untested paths. Do not claim global consistency.
+Keep this decision as an architecture-review decision, separate from verification states and gate-satisfaction values. List excluded axes and untested paths, and scope the claim to the reviewed axes, because consistency outside them was not examined.
