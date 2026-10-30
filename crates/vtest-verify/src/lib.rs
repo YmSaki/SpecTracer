@@ -27,9 +27,8 @@ use vtest_model::{
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
-    execution_state::{escape_risk, reconstruct_execution_state, ExecutionStateInputs},
-    read_document_file, read_document_names, read_evidence, read_record_ids, read_vo_record,
-    VerifyLayout,
+    execution_state::materialize_execution_state, read_document_file, read_document_names,
+    read_evidence, read_record_ids, read_vo_record, VerifyLayout,
 };
 
 /// 固定4検査。DS-1106「`--items` 省略時は常に固定4検査による完全検証を行う」、
@@ -907,17 +906,8 @@ fn evidence_validity_failure(
             vec!["Evidence carries no execution_state record at all (DS-821)".to_owned()],
         ));
     }
-    // DS-822: `execution_state.complete` must be `true`, AND the current
-    // Execution State subject must be fully reconstructible for comparison
-    // (`vtest_store::execution_state::reconstruct_execution_state` — the
-    // same function `vtest-exec` uses to write the record in the first
-    // place, so an unchanged environment reconstructs an identical hash).
-    // The recorded runner kind/invocation are reused rather than
-    // independently re-derived: any *declared* difference (a changed
-    // `execution.selector`, a changed target) already fails the DS-819
-    // subject-hash check above, so re-deriving them here would only ever
-    // reproduce the record's own values in the non-drift case this branch
-    // exists to confirm.
+    // DES-372: reconstruct via the currently selected adapter, not by
+    // interpreting Rust sources or trusting the stored display command.
     if !record.execution_state.complete {
         return Some(CheckOutcome::new(
             VerificationCheck::TargetBinding,
@@ -926,27 +916,43 @@ fn evidence_validity_failure(
             vec!["recorded execution_state.complete is not true (DS-822)".to_owned()],
         ));
     }
-    let current_state = reconstruct_execution_state(
-        &evidence.root,
-        ExecutionStateInputs {
-            adapter: current_adapter,
-            schema: &record.execution_state.schema,
-            head_commit: evidence.head_commit.as_deref(),
-            runner_kind: &record.runner.kind,
-            invocation: &record.runner.command,
-        },
-    );
-    if !current_state.complete {
-        let reason = escape_risk(&evidence.root)
-            .unwrap_or_else(|| "the current environment could not be fully snapshotted".to_owned());
+    let draft = evidence
+        .registry
+        .test_runner(current_adapter.as_str())
+        .and_then(|runner| {
+            runner.execution_state(
+                &evidence.root,
+                &test.execution,
+                evidence.head_commit.as_deref(),
+                &record.runner.kind,
+            )
+        });
+    let current_state = draft.as_ref().map(|draft| {
+        let mut checked = draft.clone();
+        checked.complete &= checked.head_revision == evidence.head_commit
+            && checked.runner_kind == record.runner.kind;
+        materialize_execution_state(current_adapter, &checked)
+    });
+    let Some(current_state) = current_state.filter(|state| state.complete) else {
         return Some(CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Unknown,
             Vec::new(),
-            vec![format!(
-                "current Execution State subject could not be reconstructed for \
-                 comparison (DS-822): {reason}"
-            )],
+            vec![
+                "current Execution State subject could not be reconstructed completely (DS-822)"
+                    .to_owned(),
+            ],
+        ));
+    };
+    if current_state.schema != record.execution_state.schema {
+        return Some(CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::Stale],
+            vec![
+                "recorded Execution State schema differs from the current adapter schema"
+                    .to_owned(),
+            ],
         ));
     }
 
@@ -1725,6 +1731,26 @@ mod tests {
     struct FakeTestRunnerAdapter;
 
     impl vtest_adapter_api::TestRunnerAdapter for FakeTestRunnerAdapter {
+        fn execution_state(
+            &self,
+            root: &Path,
+            _execution: &vtest_model::ExecutionDescriptor,
+            head: Option<&str>,
+            runner_kind: &str,
+        ) -> Option<vtest_model::ExecutionStateDraft> {
+            Some(vtest_model::ExecutionStateDraft {
+                schema_id: "rust-cargo-execution-state".into(),
+                schema_version: "1".into(),
+                complete: root.exists(),
+                head_revision: head.map(str::to_owned),
+                runner_kind: runner_kind.into(),
+                invocation: serde_json::Value::Null,
+                toolchain_identity: "fixture-toolchain".into(),
+                effective_config: serde_json::Value::Null,
+                inputs: vec![],
+            })
+        }
+
         fn id(&self) -> &'static str {
             "rust-cargo"
         }

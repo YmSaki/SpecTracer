@@ -272,6 +272,20 @@ impl std::error::Error for TestRunnerError {}
 /// descriptor.  The core passes the descriptor's strings through unchanged;
 /// the selected adapter owns command construction and result parsing.
 pub trait TestRunnerAdapter {
+    /// DES-352/369/372: collect the current, hash-uncomputed inputs without
+    /// running a test. `runner_kind` selects the same invocation mode at write
+    /// and freshness-check time. None reports an unavailable snapshot; core
+    /// must preserve incompleteness rather than use a language-specific fallback.
+    fn execution_state(
+        &self,
+        _root: &Path,
+        _execution: &ExecutionDescriptor,
+        _head_revision: Option<&str>,
+        _runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        None
+    }
+
     fn id(&self) -> &'static str;
 
     fn command(

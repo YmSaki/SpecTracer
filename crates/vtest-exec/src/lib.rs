@@ -17,8 +17,8 @@ use vtest_model::{
     TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
 };
 use vtest_store::{
-    execution_state::{reconstruct_execution_state, ExecutionStateInputs},
-    new_record_id, now_rfc3339, write_new_record, VerifyLayout,
+    execution_state::materialize_execution_state, new_record_id, now_rfc3339, write_new_record,
+    VerifyLayout,
 };
 
 #[derive(Debug, Error)]
@@ -241,6 +241,18 @@ pub fn run_tests_with_runner(
             coverage_path.is_some(),
             coverage_path.as_deref(),
         )?;
+        let before_draft = runner.execution_state(
+            root,
+            &test.entity.execution,
+            revision.commit.as_deref(),
+            &command_spec.runner_kind,
+        );
+        let before_state = before_draft.as_ref().map(|draft| {
+            let mut checked = draft.clone();
+            checked.complete &= checked.head_revision == revision.commit
+                && checked.runner_kind == command_spec.runner_kind;
+            materialize_execution_state(&test.entity.execution.adapter, &checked)
+        });
         let mut command = Command::new(&command_spec.program);
         command
             .current_dir(&command_spec.current_dir)
@@ -252,6 +264,39 @@ pub fn run_tests_with_runner(
             path: root.to_owned(),
             source,
         })?;
+        let after_revision = git_revision(root);
+        let after_draft = runner.execution_state(
+            root,
+            &test.entity.execution,
+            after_revision.commit.as_deref(),
+            &command_spec.runner_kind,
+        );
+        let after_state = after_draft.as_ref().map(|draft| {
+            let mut checked = draft.clone();
+            checked.complete &= checked.head_revision == after_revision.commit
+                && checked.runner_kind == command_spec.runner_kind;
+            materialize_execution_state(&test.entity.execution.adapter, &checked)
+        });
+        // DS-532 / DES-371: never bind a result to inputs captured only after
+        // execution. Even incomplete drafts may reveal an input change.
+        if before_draft != after_draft || before_state != after_state {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-004",
+                    format!(
+                        "Execution State changed while running Test {}",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            );
+            continue;
+        }
+        let execution_state = before_state.unwrap_or(vtest_model::ExecutionState {
+            schema: format!("{}-execution-state-unavailable", runner.id()),
+            complete: false,
+            hash: None,
+        });
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
@@ -344,21 +389,7 @@ pub fn run_tests_with_runner(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
-                    // DES-097/098/099/100/101/210/211/212: reconstructed by
-                    // the shared `vtest-store::execution_state` module (see
-                    // its module doc for the disclosed scope limits —
-                    // single-workspace-root topology, no adapter-config
-                    // projection input exists in this repository yet).
-                    execution_state: reconstruct_execution_state(
-                        root,
-                        ExecutionStateInputs {
-                            adapter: &adapter_id,
-                            schema: "rust-cargo-execution-state-v1",
-                            head_commit: revision.commit.as_deref(),
-                            runner_kind: &command_spec.runner_kind,
-                            invocation: &command_spec.command_line,
-                        },
-                    ),
+                    execution_state,
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
@@ -1094,5 +1125,121 @@ mod tests {
         ));
         assert_eq!(error.code(), Some("E-ADAPTER-003"));
         fs::remove_dir_all(root).expect("remove fixture root");
+    }
+    struct SnapshotRunner {
+        change: bool,
+        calls: std::sync::atomic::AtomicUsize,
+    }
+    impl TestRunnerAdapter for SnapshotRunner {
+        fn id(&self) -> &'static str {
+            "synthetic"
+        }
+        fn execution_state(
+            &self,
+            _root: &Path,
+            _execution: &ExecutionDescriptor,
+            head: Option<&str>,
+            runner_kind: &str,
+        ) -> Option<vtest_model::ExecutionStateDraft> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Some(vtest_model::ExecutionStateDraft {
+                schema_id: "synthetic-inputs".into(),
+                schema_version: "1".into(),
+                complete: true,
+                head_revision: head.map(str::to_owned),
+                runner_kind: runner_kind.into(),
+                invocation: serde_json::json!(["synthetic", "test"]),
+                toolchain_identity: "synthetic-toolchain".into(),
+                effective_config: serde_json::Value::Null,
+                inputs: vec![vtest_model::ExecutionInputDraft {
+                    root_identity: "workspace".into(),
+                    root_relative_path: "helper.input".into(),
+                    kind: "file".into(),
+                    bytes: vec![if self.change { call as u8 } else { 0 }],
+                }],
+            })
+        }
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            output: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            FixedResultRunner.command(root, execution, coverage, output)
+        }
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            FixedResultRunner.parse(execution, output)
+        }
+    }
+
+    /// DS-532 / DES-371: a changed input never produces Evidence; unchanged
+    /// synthetic inputs prove core needs neither Rust syntax nor rustc probes.
+    /// @vtest.id TEST-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent execution input change rejects evidence and stable inputs are recorded
+    #[test]
+    fn execution_input_change_rejects_evidence_and_stable_inputs_are_recorded() {
+        for change in [false, true] {
+            let root = std::env::temp_dir().join(format!("vtest-snapshot-{}", new_record_id()));
+            fs::create_dir_all(&root).unwrap();
+            assert!(Command::new("git")
+                .current_dir(&root)
+                .args(["init", "-q"])
+                .status()
+                .unwrap()
+                .success());
+            assert!(Command::new("git")
+                .current_dir(&root)
+                .args([
+                    "-c",
+                    "user.name=fixture",
+                    "-c",
+                    "user.email=fixture@example.com",
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "--allow-empty",
+                    "-qm",
+                    "fixture"
+                ])
+                .status()
+                .unwrap()
+                .success());
+            let runner = SnapshotRunner {
+                change,
+                calls: std::sync::atomic::AtomicUsize::new(0),
+            };
+            let test = runnable_test_with_target("TEST-SNAPSHOT", None);
+            let layout = VerifyLayout::new(&root);
+            let result = run_tests_with_runner(
+                &root,
+                &layout,
+                &[test],
+                true,
+                &runner,
+                &never_available_coverage("fast"),
+            )
+            .unwrap();
+            assert_eq!(runner.calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+            if change {
+                assert!(result.evidence.is_empty());
+                assert!(result.diagnostics.iter().any(|d| d.code == "E-EXEC-004"));
+                assert_eq!(fs::read_dir(layout.evidence_dir()).unwrap().count(), 0);
+            } else {
+                assert_eq!(result.evidence.len(), 1);
+                assert!(result.evidence[0].execution_state.complete);
+                assert_eq!(
+                    result.evidence[0].execution_state.schema,
+                    "synthetic-inputs-v1"
+                );
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

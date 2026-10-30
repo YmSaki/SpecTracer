@@ -15,6 +15,8 @@
 //! 一意性・`covers` の VO 参照解決・Target Reference 解決（§6.1）は
 //! adapter の責務ではなく（本冊:571）、`vtest-scan` 側に残る。
 
+pub mod execution_state;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs, io,
@@ -104,6 +106,44 @@ impl RustCargoTestRunner {
 }
 
 impl TestRunnerAdapter for RustCargoTestRunner {
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        let coverage = match runner_kind {
+            "cargo-test" => false,
+            "cargo-llvm-cov" => true,
+            _ => return None,
+        };
+        // A logical output marker keeps ephemeral coverage filenames and
+        // machine absolute paths out of the canonical invocation (DES-370).
+        let output = root.join(".verify/cache/cov/snapshot.json");
+        let command = self
+            .command(root, execution, coverage, Some(&output))
+            .ok()?;
+        let args: Vec<_> = command
+            .args
+            .iter()
+            .map(|arg| {
+                if arg.as_str() == output.to_string_lossy().as_ref() {
+                    "<coverage-output>".to_owned()
+                } else {
+                    arg.clone()
+                }
+            })
+            .collect();
+        let invocation = serde_json::json!({"program": command.program, "args": args, "working_root": "workspace-root", "env": command.env});
+        Some(execution_state::snapshot(
+            root,
+            head_revision,
+            runner_kind,
+            invocation,
+        ))
+    }
+
     fn id(&self) -> &'static str {
         ADAPTER_ID
     }

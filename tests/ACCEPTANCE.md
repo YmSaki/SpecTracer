@@ -122,3 +122,22 @@ specification/requirement/VO/approval/form/test/audit/run/verify/report flow,
 and exercises malformed JSON-RPC, unsupported methods, invalid arguments,
 candidate-bearing symbols, and rejected audit submissions. Rejected inputs
 are checked for `isError` envelopes and absence of unintended audit writes.
+
+## Issue #74: Execution State adapter boundary
+
+The following focused observations cover the Execution State collection/hash
+boundary. They do not certify unrelated historical milestone claims above.
+
+| Contract | Observation |
+|---|---|
+| DES-097–101, DES-352–366 | `vtest-store::execution_state` validates neutral DTOs, binds byte-exact inputs and projections, sorts manifest identities, and rejects duplicate or non-relative identities. |
+| DES-208–212 | `execution_state_adapter` covers readable manifests, local dependency bytes, unresolved/external inputs, build scripts, and include escape risks. Unsupported external roots and symbolic inputs remain incomplete. |
+| DES-370 | `canonical_invocation_is_relocation_independent_and_binds_selector_and_mode` compares snapshots from two physical roots and changes selector/runner mode. |
+| DS-1375, DES-371 | `execution_input_change_rejects_evidence_and_stable_inputs_are_recorded` verifies `E-EXEC-004` and zero Evidence writes on changed inputs, with a stable synthetic-runner control. |
+| DS-816–822, DES-372 | `evidence_e2e` exercises current Rust adapter snapshots through writer and verifier; verifier unit tests distinguish incomplete reconstruction from a stale hash. |
+
+The corrected hash encoding binds schema ID/version and canonical invocation /
+config projections separately. Previously recorded hashes may become STALE and
+need a fresh execution; the Evidence wire shape and snapshot schema name remain
+unchanged. Single-workspace-root collection remains a supported subset: external
+local path dependencies report incomplete snapshots rather than a complete hash.
