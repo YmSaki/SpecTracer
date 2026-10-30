@@ -195,6 +195,24 @@ pub fn run_tests(
     })
 }
 
+// DES-099 / DES-371: manifest order is not part of the execution subject.
+// Keep raw fields for incomplete snapshots: their missing hashes cannot expose
+// real changes. Tie-break duplicate identities without deduplicating them, so
+// malformed manifests still fail validation and retain every observed value.
+fn canonicalize_execution_manifest(
+    mut draft: vtest_model::ExecutionStateDraft,
+) -> vtest_model::ExecutionStateDraft {
+    draft.inputs.sort_by(|a, b| {
+        (&a.root_identity, &a.root_relative_path, &a.kind, &a.bytes).cmp(&(
+            &b.root_identity,
+            &b.root_relative_path,
+            &b.kind,
+            &b.bytes,
+        ))
+    });
+    draft
+}
+
 pub fn run_tests_with_runner(
     root: &Path,
     layout: &VerifyLayout,
@@ -241,12 +259,14 @@ pub fn run_tests_with_runner(
             coverage_path.is_some(),
             coverage_path.as_deref(),
         )?;
-        let before_draft = runner.execution_state(
-            root,
-            &test.entity.execution,
-            revision.commit.as_deref(),
-            &command_spec.runner_kind,
-        );
+        let before_draft = runner
+            .execution_state(
+                root,
+                &test.entity.execution,
+                revision.commit.as_deref(),
+                &command_spec.runner_kind,
+            )
+            .map(canonicalize_execution_manifest);
         let before_state = before_draft.as_ref().map(|draft| {
             let mut checked = draft.clone();
             checked.complete &= checked.head_revision == revision.commit
@@ -265,12 +285,14 @@ pub fn run_tests_with_runner(
             source,
         })?;
         let after_revision = git_revision(root);
-        let after_draft = runner.execution_state(
-            root,
-            &test.entity.execution,
-            after_revision.commit.as_deref(),
-            &command_spec.runner_kind,
-        );
+        let after_draft = runner
+            .execution_state(
+                root,
+                &test.entity.execution,
+                after_revision.commit.as_deref(),
+                &command_spec.runner_kind,
+            )
+            .map(canonicalize_execution_manifest);
         let after_state = after_draft.as_ref().map(|draft| {
             let mut checked = draft.clone();
             checked.complete &= checked.head_revision == after_revision.commit
@@ -1128,6 +1150,8 @@ mod tests {
     }
     struct SnapshotRunner {
         change: bool,
+        complete: bool,
+        reverse: bool,
         calls: std::sync::atomic::AtomicUsize,
     }
     impl TestRunnerAdapter for SnapshotRunner {
@@ -1142,10 +1166,10 @@ mod tests {
             runner_kind: &str,
         ) -> Option<vtest_model::ExecutionStateDraft> {
             let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Some(vtest_model::ExecutionStateDraft {
+            let mut draft = vtest_model::ExecutionStateDraft {
                 schema_id: "synthetic-inputs".into(),
                 schema_version: "1".into(),
-                complete: true,
+                complete: self.complete,
                 head_revision: head.map(str::to_owned),
                 runner_kind: runner_kind.into(),
                 invocation: serde_json::json!(["synthetic", "test"]),
@@ -1157,7 +1181,15 @@ mod tests {
                     kind: "file".into(),
                     bytes: vec![if self.change { call as u8 } else { 0 }],
                 }],
-            })
+            };
+            let mut second = draft.inputs[0].clone();
+            second.root_relative_path = "second.input".into();
+            second.bytes = vec![42];
+            draft.inputs.push(second);
+            if self.reverse && call > 0 {
+                draft.inputs.reverse();
+            }
+            Some(draft)
         }
         fn command(
             &self,
@@ -1177,15 +1209,25 @@ mod tests {
         }
     }
 
-    /// DS-532 / DES-371: a changed input never produces Evidence; unchanged
-    /// synthetic inputs prove core needs neither Rust syntax nor rustc probes.
+    /// DS-532 / DES-099 / DES-371: a changed input never produces Evidence;
+    /// reordered manifests are equivalent, including incomplete snapshots.
+    /// Synthetic inputs prove core needs neither Rust syntax nor rustc probes.
     /// @vtest.id TEST-EXEC-STATE-PREPOST-STABILITY
     /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
     /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
     /// @vtest.intent execution input change rejects evidence and stable inputs are recorded
     #[test]
     fn execution_input_change_rejects_evidence_and_stable_inputs_are_recorded() {
-        for change in [false, true] {
+        for (complete, reverse, change) in [
+            (true, false, false),
+            (true, false, true),
+            (true, true, false),
+            (true, true, true),
+            (false, false, false),
+            (false, false, true),
+            (false, true, false),
+            (false, true, true),
+        ] {
             let root = std::env::temp_dir().join(format!("vtest-snapshot-{}", new_record_id()));
             fs::create_dir_all(&root).unwrap();
             assert!(Command::new("git")
@@ -1213,6 +1255,8 @@ mod tests {
                 .success());
             let runner = SnapshotRunner {
                 change,
+                complete,
+                reverse,
                 calls: std::sync::atomic::AtomicUsize::new(0),
             };
             let test = runnable_test_with_target("TEST-SNAPSHOT", None);
@@ -1233,7 +1277,10 @@ mod tests {
                 assert_eq!(fs::read_dir(layout.evidence_dir()).unwrap().count(), 0);
             } else {
                 assert_eq!(result.evidence.len(), 1);
-                assert!(result.evidence[0].execution_state.complete);
+                assert_eq!(result.evidence[0].execution_state.complete, complete);
+                assert_eq!(result.evidence[0].execution_state.hash.is_some(), complete);
+                assert!(!result.diagnostics.iter().any(|d| d.code == "E-EXEC-004"));
+                assert_eq!(fs::read_dir(layout.evidence_dir()).unwrap().count(), 1);
                 assert_eq!(
                     result.evidence[0].execution_state.schema,
                     "synthetic-inputs-v1"
