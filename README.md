@@ -62,7 +62,7 @@ flowchart TD
     VERIFY -. checks .-> EVIDENCE
 ```
 
-**If a required link is missing, stale, ambiguous, mismatched, or not checked, SpecTracer returns a non-OK result and names the link.**
+**If a required link is missing, stale, ambiguous, mismatched, or not checked, SpecTracer returns a non-OK result.**
 
 ---
 

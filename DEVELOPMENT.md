@@ -74,10 +74,10 @@ tagged incorrectly, stop and resolve it explicitly with the decision recorded.
 
 ### Shared-history rules
 
-Update `main`, `develop`, shared working branches, and published tags by merge or
-fast-forward only, because a force-push rewrites history that others have built
-on. When a push is rejected as non-fast-forward, merge the remote branch into
-yours and push again.
+Update `main`, `develop`, and shared working branches by fast-forward or merge
+only, and keep published tags at their commits, because a force-push rewrites
+history that others have built on. When a push is rejected as non-fast-forward,
+merge the remote branch into yours and push again.
 Keep commits focused. Keep documentation-only changes to documentation files,
 because generated `.verify/cache/` data and unrelated sources make a diff hard to
 review; when a tool run changes `.verify/cache/`, leave that out of the commit.

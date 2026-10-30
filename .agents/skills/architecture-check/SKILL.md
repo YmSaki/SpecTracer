@@ -48,7 +48,7 @@ Take an implementation schedule as process material and `DEVELOPMENT.md` as proc
 - Upstream artifacts are generic `document` nodes connected by `derives_from`.
 - Judgment, Approval, verification state, aggregate OK/NG, and gate satisfaction are separate concepts.
 - The canonical Approval CLI is `vtest approval create`, `vtest approval withdraw`, and `vtest approval show`; `vtest vo approve` is an alias only.
-- Limited scope returns `NO_EVIDENCE` with `NOT_CHECKED` for work outside the requested scope. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation.
+- Limited scope keeps work outside the requested scope from counting as `PASS`. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation, outside the aggregate.
 - When deterministic analysis cannot establish a result, report that limit (`UNKNOWN`) instead of a guessed `PASS` or `FAIL`.
 - Compatibility input is effective only after current normalization, identity, completeness, freshness, and aggregation invariants pass.
 

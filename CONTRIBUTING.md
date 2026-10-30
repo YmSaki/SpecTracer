@@ -42,9 +42,11 @@ passing test hides an evidence gap that nobody has named.
 
 Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`.
 Rebuild `.verify/cache/` from canonical records, because a hand edit makes
-derived data disagree with its source; when a cache file looks wrong, fix the
-canonical record and rebuild. Keep CLI and MCP on the same core implementation
-and JSON result shape.
+derived data disagree with its source. When a cache file looks wrong, find the
+cause first: rebuild it when it is stale, fix the generating code when that is
+defective, and change a canonical record only after the canonical error is
+confirmed, through the procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
+and MCP on the same core implementation and JSON result shape.
 
 The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,
 but the verification model is language-independent. New language support should

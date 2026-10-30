@@ -38,7 +38,7 @@ Require current implementation plus current Annex C evidence for:
 - generic `document` records and `derives_from` links;
 - independent Judgment and Approval domains, neither changing verification state;
 - canonical Approval CLI commands `vtest approval create`, `vtest approval withdraw`, and `vtest approval show`, with `vtest vo approve` only an alias;
-- limited scope returning `NO_EVIDENCE` with `NOT_CHECKED` for work outside the requested scope; omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`, while entity scope outside the request remains explicitly unverified through the canonical scope representation;
+- limited scope keeping work outside the requested scope from counting as `PASS`: omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`, while entity scope outside the request remains explicitly unverified through the canonical scope representation, outside the aggregate;
 - gate satisfaction separate from verification state, including `--gate` exit and JSON semantics;
 - compatibility readers passing through current identity, completeness, freshness, scope, and aggregation invariants;
 - `UNKNOWN` when deterministic analysis cannot establish `PASS` or `FAIL`.
@@ -80,4 +80,4 @@ Report evidence per axis, exact failing commands or missing observables, and exc
 - `NOT_READY`: a canonical obligation, required gate, Git eligibility rule, or packaging contract is violated;
 - `INSUFFICIENT_EVIDENCE`: no violation is established, but required current conformance, platform, or artifact evidence is unavailable.
 
-Apply the standard of correct responsibility transfer; perfection is a different question. Infer `READY` from current evidence on every axis; historical or superseded acceptance evidence and a green repository gate alone leave the decision at `INSUFFICIENT_EVIDENCE`.
+Apply the standard of correct responsibility transfer; perfection is a different question. Infer `READY` from current evidence on every axis; historical or superseded acceptance evidence and a green repository gate alone leave the decision below `READY`.

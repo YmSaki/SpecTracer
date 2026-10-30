@@ -55,7 +55,7 @@ Keep state and diagnostic separate. Keep Judgment, Approval, aggregate OK/NG, an
 
 Acceptance evidence establishes current canonical conformance only when its assertions are explicitly mapped to current canonical clauses and observables. Use historical or superseded acceptance evidence for regression checks, and add current mapped evidence to establish current conformance. A green repository gate or `doctor` is supporting evidence only when its assertions match the mapped current contract.
 
-Name the omissions of a limited verification, and treat work outside the requested scope as `NO_EVIDENCE` with `NOT_CHECKED`. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation. Missing current conformance evidence leaves the handoff incomplete even when executed commands pass.
+Name the omissions of a limited verification, and keep work outside the requested scope from counting as `PASS`. Omitted checks represented in the aggregation tree remain `NO_EVIDENCE` with `NOT_CHECKED`. Entity scope outside the request remains explicitly unverified through the canonical scope representation, outside the aggregate. Missing current conformance evidence leaves the handoff incomplete even when executed commands pass.
 
 ## Report and decide
 
