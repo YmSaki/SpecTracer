@@ -11,10 +11,13 @@ public issue.
 ## Git Flow
 
 Branch roles, branch naming, tag naming, and merge destinations are defined
-canonically in [DEVELOPMENT.md](DEVELOPMENT.md). Contributors must follow that
-policy rather than defining or inferring a separate Git workflow here.
+canonically in [DEVELOPMENT.md](DEVELOPMENT.md). Follow that policy, because a
+second workflow definition here would diverge from it; when it does not cover
+your case, open an issue.
 
-Do not force-push shared branches. Keep pull requests focused and preserve the
+Update shared branches by merge or fast-forward, because a force-push rewrites
+history that others have built on; when a push is rejected, merge the remote
+branch and push again. Keep pull requests focused and preserve the
 canonical-record and fail-closed invariants described in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -31,14 +34,20 @@ Before opening a pull request:
    limitation explicitly.
 
 The pull request body should explain the problem, the chosen scope, the tests
-that provide evidence, and any specification or design review item. A passing
-test must not be used to hide missing or stale evidence.
+that provide evidence, and any specification or design review item. Name the
+missing or stale evidence beside every passing test that depends on it, because a
+passing test hides an evidence gap that nobody has named.
 
 ## Development boundaries
 
-Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`. Do
-not hand-edit `.verify/cache/`; rebuild derived data from canonical records. Keep
-CLI and MCP on the same core implementation and JSON result shape.
+Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`.
+Rebuild `.verify/cache/` from canonical records, because a hand edit makes
+derived data disagree with its source. When a cache file looks wrong, find the
+cause first: rebuild it when it is stale, fix the generating code when that is
+defective, and change a canonical record only after the canonical error is
+confirmed, using the operation that owns that record. For specification records,
+follow the specification-change procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
+and MCP on the same core implementation and JSON result shape.
 
 The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,
 but the verification model is language-independent. New language support should
@@ -47,8 +56,9 @@ follow the adapter separation plan in
 
 ## Releases
 
-Only maintainers create release tags. Contributors must not create, move, or
-replace published release tags.
+Create release tags as a maintainer; as a contributor, ask a maintainer to cut the
+release, because a published tag is an immutable reference to a released commit.
+When a published tag looks wrong, report it in an issue and leave it where it is.
 
 The canonical release branch roles, merge destinations, tag naming, and release
 workflow are defined in [DEVELOPMENT.md](DEVELOPMENT.md).
