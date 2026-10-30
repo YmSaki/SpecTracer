@@ -713,7 +713,7 @@ fn approval_error_envelope(error: &ops::approval::ApprovalOpError) -> Value {
             failure_envelope("E-APPROVAL-001", error.to_string())
         }
         ApprovalOpError::InvalidRequest(_) => failure_envelope("E-APPROVAL-002", error.to_string()),
-        ApprovalOpError::Store(_) => failure_envelope("E-CORE-001", error.to_string()),
+        ApprovalOpError::Store(error) => record_error_envelope(error),
     }
 }
 
@@ -915,10 +915,17 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
     })
 }
 
+fn record_error_envelope(error: &vtest_store::StoreError) -> Value {
+    failure_envelope(
+        error.record_read_code().unwrap_or("E-CORE-001"),
+        error.to_string(),
+    )
+}
+
 fn doc_error_envelope(error: &ops::doc::DocOpError) -> Value {
     match error {
         ops::doc::DocOpError::Usage(_) => failure_envelope("E-OP-001", error.to_string()),
-        ops::doc::DocOpError::Store(_) => failure_envelope("E-CORE-001", error.to_string()),
+        ops::doc::DocOpError::Store(error) => record_error_envelope(error),
     }
 }
 
@@ -988,9 +995,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
                 None => failure_envelope("E-CORE-001", error.to_string()),
             }
         }
-        Err(error @ ops::run::RunOpError::Store(_)) => {
-            failure_envelope("E-CORE-001", error.to_string())
-        }
+        Err(ops::run::RunOpError::Store(error)) => record_error_envelope(&error),
     }
 }
 
@@ -1096,6 +1101,49 @@ mod tests {
         ));
         std::fs::create_dir_all(&root).expect("create fixture root");
         root
+    }
+
+    /// @vtest.id TEST-MCP-RECORD-ERROR-CODES
+    /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent record rejection keeps E-SCAN-010 across the MCP doc, approval, and run tools
+    #[test]
+    fn malformed_records_preserve_schema_code_in_mcp() {
+        for (name, path, tool, args) in [
+            ("doc", ".verify/doc/bad.json", "doc_list", json!({})),
+            (
+                "approval",
+                ".verify/vo/VO-X.yaml",
+                "approval_get",
+                json!({"subject": {"type": "vo", "id": "VO-X"}}),
+            ),
+            (
+                "run",
+                ".verify/vo/VO-X.yaml",
+                "run_tests",
+                json!({"vo": "VO-X"}),
+            ),
+        ] {
+            let root = temp_root(name);
+            vtest_store::init_project(&root, "diagnostics").unwrap();
+            std::fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"diagnostics\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .unwrap();
+            std::fs::create_dir_all(root.join("src")).unwrap();
+            std::fs::write(root.join("src/lib.rs"), "pub fn target() {}\n").unwrap();
+            std::fs::write(root.join(path), "{\n").unwrap();
+            let envelope = dispatch_tool(&root, tool, &args);
+            assert_eq!(envelope["ok"], false);
+            assert!(envelope["data"].is_null());
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-SCAN-010",
+                "{envelope}"
+            );
+            assert_eq!(tool_result(envelope)["isError"], true);
+            std::fs::remove_dir_all(root).unwrap();
+        }
     }
 
     /// Runs the CLI's `run_verify` wrapper end to end (through
