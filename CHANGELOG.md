@@ -16,6 +16,10 @@ and uses semantic version tags for releases.
 
 ### Changed
 
+- Canonical record schema failures in CLI/MCP operations now report
+  `E-SCAN-010` (CLI exit 2); structured test operations preserve config
+  and adapter diagnostic codes instead of masking them as internal errors.
+
 - The README now documents prebuilt binary installation and the language-neutral
   verification boundary.
 - M9 MCP stdio operations use the same CLI/core JSON behavior while preserving
