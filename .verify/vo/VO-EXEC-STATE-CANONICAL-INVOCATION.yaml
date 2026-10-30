@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-CANONICAL-INVOCATION
+parent: null
+derives_from:
+  - doc: DES-370
+claim: '`invocation` はselector、working root、runner option等をmachine非依存に正規化し、絶対pathを含む表示用commandとは分離する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-30T00:00:00+09:00
+updated: 2026-10-30T00:00:00+09:00

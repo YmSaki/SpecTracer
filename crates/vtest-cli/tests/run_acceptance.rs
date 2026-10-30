@@ -169,6 +169,14 @@ fn build_fixture_project(root: &Path) {
     .expect("write src/lib.rs");
     fs::write(root.join("tests").join("registered.rs"), TEST_BODY).expect("write test file");
 
+    // Settle dependency inputs before the measured run (DES-371).
+    let status = ProcessCommand::new("cargo")
+        .current_dir(root)
+        .args(["generate-lockfile", "--offline"])
+        .status()
+        .expect("generate fixture lockfile");
+    assert!(status.success());
+
     git(root, &["init", "-q"]);
     git(root, &["config", "user.email", "vtest-fixture@example.com"]);
     git(root, &["config", "user.name", "vtest fixture"]);

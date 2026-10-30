@@ -185,6 +185,15 @@ fn build_fixture_project_with_test_body(root: &Path, test_body: &str) {
     fs::write(root.join("tests").join("registered.rs"), test_body)
         .expect("write tests/registered.rs");
 
+    // DES-371: dependency resolution must be settled before the measured
+    // execution; creating Cargo.lock during the run is an input change.
+    let status = Command::new("cargo")
+        .current_dir(root)
+        .args(["generate-lockfile", "--offline"])
+        .status()
+        .expect("generate fixture lockfile");
+    assert!(status.success());
+
     git(root, &["init", "-q"]);
     git(root, &["config", "user.email", "vtest-fixture@example.com"]);
     git(root, &["config", "user.name", "vtest fixture"]);
