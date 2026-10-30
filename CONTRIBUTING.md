@@ -45,7 +45,8 @@ Rebuild `.verify/cache/` from canonical records, because a hand edit makes
 derived data disagree with its source. When a cache file looks wrong, find the
 cause first: rebuild it when it is stale, fix the generating code when that is
 defective, and change a canonical record only after the canonical error is
-confirmed, through the procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
+confirmed, using the operation that owns that record. For specification records,
+follow the specification-change procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
 and MCP on the same core implementation and JSON result shape.
 
 The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,

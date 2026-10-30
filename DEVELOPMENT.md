@@ -92,8 +92,9 @@ Change the canonical specification on `spec/<topic>` branches.
 - **Change spec paths only on `spec/*` branches,** because spec changes need one
   reviewed path. When another branch needs a spec change, open a `spec/*` PR and
   merge `develop` afterwards.
-- **Keep a `spec/*` branch to spec paths** (`crates/` and `tests/` stay unchanged),
-  because the spec PR is reviewed on its own. Implementation and tests that
+- **Keep `crates/` and `tests/` unchanged on a `spec/*` branch,**
+  because the spec PR is reviewed separately from implementation. Include related
+  documentation, projections, and other supporting records when needed. Implementation and tests that
   depend on a spec change start after that spec PR is merged.
 - **Target `develop`.** `main` receives specification changes only through a
   release. A hotfix leaves the specification as it is; when a hotfix needs a
