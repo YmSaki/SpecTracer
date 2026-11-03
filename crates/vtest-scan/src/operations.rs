@@ -2371,6 +2371,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     // マッチアームより前に行っており、削除されたのは接頭辞検査（基本:130
     // により復活させてはならない）だけだった。この test は共通判定が
     // "vo-ref-list" を対象に含んでいることを固定する回帰テスト。
+    /// @vtest.id TEST-SCAN-VO-REF-LIST-REJECTS-SCALAR
+    /// @vtest.covers VO-SCAN-FORM-COVERS-VO-REF-LIST
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent a covers field typed vo-ref-list rejects a scalar value
     #[test]
     fn vo_ref_list_field_rejects_a_scalar() {
         let field = field("covers", "vo-ref-list");

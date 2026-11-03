@@ -2280,6 +2280,10 @@ mod nested { struct NestedStruct; fn nested_fn() {} }
     /// pr3-decisions.md Owner裁定2「架空locatorを作らない」: 構文解析できな
     /// い宣言値は、捏造した代替値ではなく宣言値そのものを opaque `value` と
     /// して運ぶ。
+    /// @vtest.id TEST-ADAPTER-RUST-DECLARED-LOCATOR-UNPARSEABLE-VERBATIM
+    /// @vtest.covers VO-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::locator_from_declared_value
+    /// @vtest.intent an unparseable declared value becomes a rust-cargo Locator carrying the declared value verbatim
     #[test]
     fn locator_from_declared_value_passes_through_an_unparseable_value_verbatim() {
         let locator = locator_from_declared_value("this is not a locator");

@@ -1,0 +1,11 @@
+id: VO-SCAN-FORM-COVERS-VO-REF-LIST
+parent: null
+derives_from:
+  - doc: DS-1250
+claim: 'すべての管理対象 Test に `covers ≥ 1` を一律要求するため、user-defined Form も `covers` を `required: true` の `vo-ref-list` として持つ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

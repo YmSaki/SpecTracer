@@ -699,6 +699,12 @@ mod tests {
         }
     }
 
+    /// DS-331: Evidence is built from whatever registered runner observed the
+    /// Test; nothing in the model is tied to rust-cargo.
+    /// @vtest.id TEST-EXEC-EVIDENCE-FROM-NEUTRAL-RUNNER
+    /// @vtest.covers VO-EXEC-EVIDENCE-MODEL-RUNNER-NEUTRAL
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent a non-Rust fake runner's observation becomes Evidence with that adapter and runner kind
     #[test]
     fn evidence_is_built_from_runner_observation() {
         let root = std::env::temp_dir().join(format!("vtest-exec-runner-{}", new_record_id()));
