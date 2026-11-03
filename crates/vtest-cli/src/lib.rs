@@ -55,6 +55,10 @@ pub enum Command {
     Scan,
     /// Validate configuration and adapter preconditions.
     Doctor,
+    /// Start the MCP server over stdio (SPEC-403, §13).
+    ///
+    /// Served by the `vtest` binary itself; see `src/main.rs`.
+    Mcp,
     /// Execute one or more Tests and record Evidence (DS-1101-1103).
     Run {
         /// DS-744 target axis 1/3: explicit Test ids.
@@ -256,6 +260,15 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
+        // The MCP server is linked into the `vtest` binary, not into this
+        // library (vtest-mcp depends on vtest-cli). A library caller that
+        // reaches this arm gets a usage error instead of a silent no-op.
+        Command::Mcp => usage_failure(
+            cli.format,
+            cli.quiet,
+            "E-OP-001",
+            "`vtest mcp` is served by the vtest binary, not by vtest_cli::run",
+        ),
         Command::Run {
             test,
             vo,
@@ -1263,6 +1276,12 @@ fn resolve_registry(
 ) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
     adapters::builtin_registry()
         .map_err(|error| usage_failure(format, quiet, "E-ADAPTER-001", &error.to_string()))
+}
+
+/// The project root (the nearest ancestor holding `.verify/`) for `cli`,
+/// reporting the same E-OP-001 usage failure the other subcommands do.
+pub fn project_root(cli: &Cli) -> Result<PathBuf, ExitCode> {
+    resolve_root(&cli.project, cli.format, cli.quiet)
 }
 
 fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
