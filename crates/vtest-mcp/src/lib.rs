@@ -1022,7 +1022,9 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
         Err(envelope) => return envelope,
     };
     match ops::verify::execute(root, &items, doc, vo, test, gate, summary, &registry) {
-        Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
+        Ok((exit, data, diagnostics)) => {
+            ops::verify::scoped_envelope(exit == ExitCode::Ok, &data, &diagnostics)
+        }
         Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
             let code = error.code().unwrap_or("E-CORE-001");
@@ -1169,7 +1171,7 @@ mod tests {
                 let ok = exit == ExitCode::Ok;
                 (
                     exit,
-                    json!({"ok": ok, "data": data, "diagnostics": diagnostics}),
+                    vtest_cli::ops::verify::scoped_envelope(ok, &data, &diagnostics),
                 )
             }
             Err(vtest_cli::ops::verify::VerifyOpError::Usage { code, message }) => {
@@ -1210,6 +1212,13 @@ mod tests {
             Some(&Value::Bool(cli_exit == ExitCode::Ok)),
             "MCP `ok` must agree with the CLI exit code's OK/NG meaning"
         );
+        // DS-943/1214: the MCP verify result carries the top-level scope.
+        assert_eq!(
+            mcp_envelope["scope"]["requested"]["entities"],
+            json!([]),
+            "{mcp_envelope}"
+        );
+        assert_eq!(mcp_envelope["scope"]["unverified_outside_scope"], false);
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

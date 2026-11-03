@@ -128,9 +128,40 @@ pub struct RequestedScope {
     pub items: Vec<VerificationCheck>,
     /// 0 or 1 entries — `EntityScope`'s own axis is exclusive (DS-1104), but
     /// DES-548 names this field in the plural and requires an empty list
-    /// when no entity axis was requested, so this always holds the current
-    /// entity's id as a one-element list rather than an `Option`.
-    pub entities: Vec<String>,
+    /// when no entity axis was requested (DS-953), so this always holds the
+    /// current entity as a one-element list rather than an `Option`. Each
+    /// entry is `{ "kind": "doc" | "vo" | "test", "id": ... }` (DS-952).
+    pub entities: Vec<RequestedEntity>,
+}
+
+/// DS-952: one requested entity of the entity axis.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RequestedEntity {
+    pub kind: EntityKind,
+    pub id: String,
+}
+
+/// DS-952: the `kind` domain of a requested entity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EntityKind {
+    Doc,
+    Vo,
+    Test,
+}
+
+impl From<&EntityScope> for RequestedEntity {
+    fn from(scope: &EntityScope) -> Self {
+        let kind = match scope {
+            EntityScope::Doc(_) => EntityKind::Doc,
+            EntityScope::Vo(_) => EntityKind::Vo,
+            EntityScope::Test(_) => EntityKind::Test,
+        };
+        Self {
+            kind,
+            id: scope.id().to_owned(),
+        }
+    }
 }
 
 /// One check's result at one evaluation point.
@@ -468,10 +499,7 @@ pub fn verify_project(
                     .into_iter()
                     .filter(|check| selected.contains(check))
                     .collect(),
-                entities: entity_scope
-                    .iter()
-                    .map(|entity| entity.id().to_owned())
-                    .collect(),
+                entities: entity_scope.iter().map(RequestedEntity::from).collect(),
             },
             limited,
             entity: entity_scope,

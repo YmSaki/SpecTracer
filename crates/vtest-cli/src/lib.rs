@@ -1048,7 +1048,23 @@ fn run_verify(
             // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
             // 常に別途出す。
             let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
-            emit(format, quiet, &envelope, render_verify_text);
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::scoped_envelope(
+                        envelope.ok,
+                        &envelope.data,
+                        &envelope.diagnostics,
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+            } else {
+                emit(format, quiet, &envelope, render_verify_text);
+            }
             exit
         }
         Err(ops::verify::VerifyOpError::Usage { code, message }) => {
