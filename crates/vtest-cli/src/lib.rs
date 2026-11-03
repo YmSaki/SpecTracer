@@ -114,6 +114,22 @@ pub enum Command {
     /// there is no separate persisted registry record.
     #[command(subcommand)]
     Doc(DocCommand),
+    /// Static audit (SPEC-297/SPEC-387): recomputed on request, written to
+    /// stdout and `.verify/cache/`, never a canonical record.
+    #[command(subcommand)]
+    Audit(AuditCommand),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCommand {
+    /// Rule-by-rule verdicts (FAIL / UNKNOWN / NO_VIOLATION) with evidence
+    /// spans; DA-002 / DA-003 are reported per target.
+    Static {
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "all")]
+        test: Option<String>,
+        #[arg(long)]
+        all: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -277,6 +293,9 @@ pub fn run(cli: Cli) -> ExitCode {
         } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
         Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
+        Command::Audit(AuditCommand::Static { test, all }) => {
+            run_audit_static(&cli.project, test.as_deref(), all, cli.format, cli.quiet)
+        }
         Command::Verify {
             items,
             doc,
@@ -623,6 +642,72 @@ fn approval_error_exit(
         }
         ApprovalOpError::Store(error) => record_error_exit(error, format, quiet),
     }
+}
+
+// ---------------------------------------------------------------------------
+// audit static
+// ---------------------------------------------------------------------------
+
+fn run_audit_static(
+    project: &Path,
+    test: Option<&str>,
+    all: bool,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    if let Err(error) = load_config(&root) {
+        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+    }
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    let scan = match scan_project(&root, &registry) {
+        Ok(scan) => scan,
+        Err(error) => return scan_error_exit(&error, format, quiet),
+    };
+    match ops::audit::audit_static(&root, &scan, &registry, test, all) {
+        Ok((data, diagnostics)) => {
+            let envelope = JsonEnvelope::new(true, &data, diagnostics);
+            emit(format, quiet, &envelope, |_| render_audit_static(&data));
+            ExitCode::Ok
+        }
+        Err(error @ ops::audit::AuditOpError::Usage(_)) => {
+            usage_failure(format, quiet, "E-OP-001", &error.to_string())
+        }
+        Err(error @ ops::audit::AuditOpError::Cache { .. }) => {
+            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+            ExitCode::Internal
+        }
+    }
+}
+
+fn render_audit_static(data: &ops::audit::StaticAuditData) -> String {
+    let mut out = String::new();
+    for test in &data.tests {
+        out.push_str(&format!("{} ({})\n", test.test, test.adapter));
+        if let Some(reason) = &test.not_analyzed {
+            out.push_str(&format!("  not analyzed: {reason}\n"));
+        }
+        for rule in &test.rules {
+            let target = rule
+                .target
+                .as_deref()
+                .map(|target| format!(" [{target}]"))
+                .unwrap_or_default();
+            out.push_str(&format!("  {}{target}: {}", rule.rule, rule.verdict));
+            if !rule.reason.is_empty() {
+                out.push_str(&format!(" - {}", rule.reason));
+            }
+            out.push('\n');
+        }
+    }
+    out.push_str(&format!("written to {}\n", data.cache));
+    out
 }
 
 // ---------------------------------------------------------------------------
