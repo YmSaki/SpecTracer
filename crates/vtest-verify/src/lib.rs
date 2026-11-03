@@ -1029,31 +1029,32 @@ fn evaluate_target_binding(
     // ない」ではない — 後者は DS-1678 が MISMATCH を NO_EVIDENCE へ倒す
     // 理由づけとして明示的に禁じているため、ここでは使わない。
     //
-    // 両方欠落したときの優先順は正本沈黙（本 PR の brief）: DS-1582
-    // （runner欠落=NOT_EXECUTED）とDS-1581（coverage欠落=NOT_CHECKED）の
-    // どちらを先に判定するかを正本は決めていない。runner 欠落を先に
-    // 判定するのを導出として採る — runner が無ければそもそも実行され
-    // 得ず、coverage 単体の欠落（実行はできるが計測できない）より強い
-    // 欠落だと判断した。
+    // 両方欠落した場合: DS-847「診断ラベルは順位に用いず併記する」。
+    // DS-1582（runner欠落=NOT_EXECUTED）と DS-1581（coverage欠落=
+    // NOT_CHECKED）はどちらも他方の欠落を除外条件にしていないので、両方に
+    // 当たれば両方のラベルを併記する（どちらかを優先しない）。状態はどちら
+    // でも `NO_EVIDENCE` で変わらない。
     let adapter_id = test.execution.adapter.as_str();
+    let mut labels = Vec::new();
+    let mut basis = Vec::new();
     if evidence.registry.test_runner(adapter_id).is_none() {
-        return CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotExecuted],
-            vec![format!(
-                "adapter {adapter_id:?} has no Test Runner capability (DS-925/DS-1582)"
-            )],
-        );
+        labels.push(DiagnosticLabel::NotExecuted);
+        basis.push(format!(
+            "adapter {adapter_id:?} has no Test Runner capability (DS-925/DS-1582)"
+        ));
     }
     if evidence.registry.coverage(adapter_id).is_none() {
+        labels.push(DiagnosticLabel::NotChecked);
+        basis.push(format!(
+            "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
+        ));
+    }
+    if !labels.is_empty() {
         return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked],
-            vec![format!(
-                "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
-            )],
+            labels,
+            basis,
         );
     }
 
@@ -2596,15 +2597,15 @@ mod tests {
         );
     }
 
-    /// 正本沈黙の導出（本PR）: runner・coverage の両方が欠落したときの
-    /// 優先順は正典に明文が無い。「Evidence が存在し得ない」ことを理由に
-    /// NOT_EXECUTED（DS-1582側）を採用する。
-    /// @vtest.id TEST-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING-PREFERS-NOT-EXECUTED
+    /// DS-847「診断ラベルは順位に用いず併記する」: runner・coverage の両方が
+    /// 欠落したら、DS-1582（NOT_EXECUTED）と DS-1581（NOT_CHECKED）の両方を
+    /// 併記する。状態は NO_EVIDENCE のまま。
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING-LISTS-BOTH-LABELS
     /// @vtest.covers VO-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
-    /// @vtest.intent When an adapter declares neither Test Runner nor Coverage capability, target_binding is NO_EVIDENCE(NOT_EXECUTED) (this PR's derivation for the canon's silent priority between DS-1581 and DS-1582).
+    /// @vtest.intent When an adapter declares neither Test Runner nor Coverage capability, target_binding is NO_EVIDENCE with both NOT_EXECUTED and NOT_CHECKED labels, neither ranked over the other.
     #[test]
-    fn target_binding_prefers_not_executed_when_both_capabilities_are_missing() {
+    fn target_binding_lists_both_labels_when_both_capabilities_are_missing() {
         let (root, scan) = complete_project("target-binding-neither-capability");
         let registry = partial_capability_registry(false, false);
         let outcome = outcome_for_with_registry(&root, &scan, &registry);
@@ -2614,7 +2615,7 @@ mod tests {
         );
         assert_eq!(
             labels_of(&outcome, VerificationCheck::TargetBinding),
-            vec![DiagnosticLabel::NotExecuted]
+            vec![DiagnosticLabel::NotExecuted, DiagnosticLabel::NotChecked]
         );
     }
 
