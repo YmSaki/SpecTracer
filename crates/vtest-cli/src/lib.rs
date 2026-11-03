@@ -444,10 +444,7 @@ fn run_run(
                 }
             }
         }
-        Err(error @ ops::run::RunOpError::Store(_)) => {
-            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
-            ExitCode::Internal
-        }
+        Err(ops::run::RunOpError::Store(error)) => record_error_exit(&error, format, quiet),
     }
 }
 
@@ -609,10 +606,7 @@ fn approval_error_exit(
         ApprovalOpError::InvalidRequest(_) => {
             usage_failure(format, quiet, "E-APPROVAL-002", &error.to_string())
         }
-        ApprovalOpError::Store(_) => {
-            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
-            ExitCode::Internal
-        }
+        ApprovalOpError::Store(error) => record_error_exit(error, format, quiet),
     }
 }
 
@@ -911,15 +905,27 @@ fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
     out
 }
 
+// DS-1676 / DS-929 / DS-930: invalid canonical records reject the
+// requested operation; filesystem failures are internal errors.
+fn record_error_exit(
+    error: &vtest_store::StoreError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    if let Some(code) = error.record_read_code() {
+        usage_failure(format, quiet, code, &error.to_string())
+    } else {
+        emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+        ExitCode::Internal
+    }
+}
+
 fn doc_error_exit(error: &ops::doc::DocOpError, format: OutputFormat, quiet: bool) -> ExitCode {
     match error {
         ops::doc::DocOpError::Usage(_) => {
             usage_failure(format, quiet, "E-OP-001", &error.to_string())
         }
-        ops::doc::DocOpError::Store(_) => {
-            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
-            ExitCode::Internal
-        }
+        ops::doc::DocOpError::Store(error) => record_error_exit(error, format, quiet),
     }
 }
 

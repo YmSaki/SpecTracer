@@ -93,13 +93,15 @@ pub enum ScanError {
     /// 無し」という別の事実であり、正本監査で誤りと確認して分離した)。
     #[error("[E-ADAPTER-004] {message}")]
     MissingCapability { message: String },
+    #[error("config load error: {0}")]
+    ConfigLoad(StoreError),
     #[error("config error: {0}")]
     Config(String),
 }
 
 impl ScanError {
     /// The §17.1 diagnostic code this error carries, when construction sites
-    /// have committed to one. `Store`/`Io`/`Config` do not name a diagnostic
+    /// have committed to one. `Io`/`Config` do not name a diagnostic
     /// code of their own at this variant's construction sites. `Config` in
     /// particular is `adapter_scan_includes`'s empty-`adapters[]` rejection —
     /// レビュー round 2 項目【F】で裁定済み: 仕様上このケースに割り当てられる
@@ -111,7 +113,9 @@ impl ScanError {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
             Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
             Self::MissingCapability { .. } => Some("E-ADAPTER-004"),
-            Self::Store(_) | Self::Io { .. } | Self::Config(_) => None,
+            Self::ConfigLoad(_) => Some("E-CONFIG-001"),
+            Self::Store(error) => error.record_read_code(),
+            Self::Io { .. } | Self::Config(_) => None,
         }
     }
 }
@@ -223,7 +227,7 @@ pub enum TestIdLookup<'a> {
 /// 自分で唯一の adapter を選ぶ経路であり、BD-102 の境界（core を変えずに
 /// 別 adapter を足せること）を満たせなかった。
 pub fn scan_project(root: &Path, registry: &AdapterRegistry) -> Result<ScanResult, ScanError> {
-    let config = load_config(root)?;
+    let config = load_config(root).map_err(ScanError::ConfigLoad)?;
     scan_project_with_config(root, &config, registry)
 }
 

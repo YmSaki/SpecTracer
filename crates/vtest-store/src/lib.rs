@@ -58,6 +58,20 @@ pub enum StoreError {
     },
 }
 
+impl StoreError {
+    /// DS-1676 / DS-476: classify failures while reading canonical records.
+    /// `InvalidConfig` is also used by legacy record readers for malformed
+    /// record fields. Call this only in a record context; config loading has
+    /// its own E-CONFIG-001 boundary. Filesystem failures remain internal.
+    pub fn record_read_code(&self) -> Option<&'static str> {
+        match self {
+            Self::SchemaMismatch { code, .. } => Some(code),
+            Self::InvalidConfig(_) => Some("E-SCAN-010"),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifyLayout {
     pub root: PathBuf,

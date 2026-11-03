@@ -59,8 +59,9 @@ pub fn create_test(
     dry_run: bool,
     registry: &AdapterRegistry,
 ) -> Result<TestMutationResult, Diagnostic> {
-    let scan = crate::scan_project(root, registry)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let scan = crate::scan_project(root, registry).map_err(|error| {
+        Diagnostic::error(error.code().unwrap_or("E-CORE-001"), error.to_string())
+    })?;
     let layout = VerifyLayout::new(root);
     let schema = load_form_schema(&layout, form_kind)
         .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
@@ -178,8 +179,9 @@ pub fn edit_test(
             "test edit requires --answers, --set, or --body-file",
         ));
     }
-    let scan = crate::scan_project(root, registry)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+    let scan = crate::scan_project(root, registry).map_err(|error| {
+        Diagnostic::error(error.code().unwrap_or("E-CORE-001"), error.to_string())
+    })?;
     // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
     // `test_id` が衝突していれば、どれを編集対象にするかをここで黙って
     // 選ばない。`tests_by_id` を経由し、`Collided` を明示的な失敗として
@@ -373,7 +375,7 @@ fn rescan_current_test(
     registry: &AdapterRegistry,
 ) -> Result<Option<CurrentTestRescan>, Diagnostic> {
     let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
     // Defensive only: `current` (the caller's already-scanned entity) came
     // from a `scan_project` that already resolved `location.adapter` against
     // this same registry (fail-closed `ScanError::UnknownAdapterId`/
@@ -1006,8 +1008,12 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
         .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
     for record_id in evidence_ids {
         let path = layout.evidence_dir().join(format!("{record_id}.yaml"));
-        let record = read_evidence(&path)
-            .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        let record = read_evidence(&path).map_err(|error| {
+            Diagnostic::error(
+                error.record_read_code().unwrap_or("E-CORE-001"),
+                error.to_string(),
+            )
+        })?;
         if record.test_id.as_str() == id {
             evidence.push(EvidenceState {
                 id: record.id,
@@ -1630,7 +1636,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
         ));
     }
     let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
     // レビュー round 2 項目【F】: `adapters: []` の拒否メッセージ自体には
     // 仕様上の対応コードが無い（本冊:158「無効なadapter設定」は非空
     // adapters list内の各entryの妥当性を指す並列項目であり、「listが
@@ -1675,7 +1681,7 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
         return Ok(());
     }
     let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
     // レビュー round 2 項目【F】: `validate_rust_file` と同じ理由（上記の
     // doc comment を参照）。ここは `enum-variant-exists` 候補検証の一部
     // であり、この関数の他の全ての拒否と同じくE-OP-001（本冊:1641、
@@ -1861,6 +1867,138 @@ mod tests {
             .register(Box::new(RustCargoAdapter::new()))
             .expect("rust-cargo must register cleanly in a fresh registry");
         registry
+    }
+
+    /// @vtest.id TEST-STRUCTURED-OP-SCAN-ERROR-CODE
+    /// @vtest.covers VO-STORE-CONFIG-VERSION-RECOGNIZED-VALUE-REQUIRED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::create_test
+    /// @vtest.intent create and edit preserve config rejection before touching source
+    #[test]
+    fn structured_operations_preserve_config_rejection() {
+        let root = temp_root("config-code");
+        fs::write(root.join(".verify/config.yaml"), "version: 999\n").unwrap();
+        let supplied = FormAnswers {
+            form: "rust-unit".to_owned(),
+            answers: BTreeMap::new(),
+        };
+        let registry = test_registry();
+        let create =
+            create_test(&root, "rust-unit", &supplied, None, false, &registry).unwrap_err();
+        let edit = edit_test(
+            &root,
+            "TEST-X",
+            None,
+            &BTreeMap::new(),
+            Some("{}"),
+            false,
+            &registry,
+        )
+        .unwrap_err();
+        assert_eq!(create.code, "E-CONFIG-001");
+        assert_eq!(edit.code, "E-CONFIG-001");
+        assert!(!root.join("src").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    struct RejectedDiscovery {
+        available: bool,
+    }
+
+    impl vtest_adapter_api::Adapter for RejectedDiscovery {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities: if self.available {
+                    vec![vtest_adapter_api::Capability::SourceDiscovery]
+                } else {
+                    vec![]
+                },
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+        fn as_source_discovery(&self) -> Option<&dyn vtest_adapter_api::SourceDiscoveryAdapter> {
+            if self.available {
+                Some(self)
+            } else {
+                None
+            }
+        }
+    }
+
+    impl vtest_adapter_api::SourceDiscoveryAdapter for RejectedDiscovery {
+        fn id(&self) -> &'static str {
+            "rust-cargo"
+        }
+        fn discover(
+            &self,
+            root: &Path,
+            _: &str,
+            _: &AdapterScanConfig,
+        ) -> Result<vtest_adapter_api::DiscoveryOutcome, vtest_adapter_api::DiscoveryError>
+        {
+            Err(vtest_adapter_api::DiscoveryError {
+                path: root.to_owned(),
+                message: "fixture discovery failure".to_owned(),
+            })
+        }
+    }
+
+    /// @vtest.id TEST-STRUCTURED-OP-ADAPTER-ERROR-CODE
+    /// @vtest.covers VO-SCAN-DISCOVERY-FAILURE-E-ADAPTER-002, VO-SCAN-MISSING-DISCOVERY-CAPABILITY-E-ADAPTER-004
+    /// @vtest.target crates/vtest-scan/src/operations.rs::create_test
+    /// @vtest.intent create and edit preserve a failed or unavailable discovery capability without writing source
+    #[test]
+    fn structured_operations_preserve_adapter_rejection() {
+        for (available, expected) in [(true, "E-ADAPTER-002"), (false, "E-ADAPTER-004")] {
+            let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+            let before = fs::read(root.join("tests/calc.rs")).unwrap();
+            let mut registry = AdapterRegistry::new();
+            registry
+                .register(Box::new(RejectedDiscovery { available }))
+                .unwrap();
+            let supplied = FormAnswers {
+                form: "rust-unit".to_owned(),
+                answers: BTreeMap::new(),
+            };
+            let create =
+                create_test(&root, "rust-unit", &supplied, None, false, &registry).unwrap_err();
+            let edit = edit_test(
+                &root,
+                "TEST-ADD",
+                None,
+                &BTreeMap::new(),
+                Some("{}"),
+                false,
+                &registry,
+            )
+            .unwrap_err();
+            assert_eq!(create.code, expected);
+            assert_eq!(edit.code, expected);
+            assert_eq!(fs::read(root.join("tests/calc.rs")).unwrap(), before);
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    /// @vtest.id TEST-SHOW-RECORD-ERROR-CODE
+    /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
+    /// @vtest.target crates/vtest-scan/src/operations.rs::show_test
+    /// @vtest.intent a malformed Evidence record is rejected with E-SCAN-010 instead of an internal error
+    #[test]
+    fn show_test_preserves_evidence_schema_rejection() {
+        let root = temp_root("evidence-code");
+        fs::create_dir_all(root.join(".verify/evidence")).unwrap();
+        fs::write(
+            root.join(".verify/evidence/01ARZ3NDEKTSV4RRFFQ69G5FAV.yaml"),
+            "{\n",
+        )
+        .unwrap();
+        let scan = sample_scan(vec![sample_test("TEST-X", "f", "hash")]);
+        assert_eq!(
+            show_test(&root, &scan, "TEST-X").unwrap_err().code,
+            "E-SCAN-010"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-SCAN-CANDIDATE-EDIT-DISTANCE
