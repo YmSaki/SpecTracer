@@ -216,6 +216,8 @@ adapterが最終内容ハッシュを自己確定してはならない。
 
 ## BD-S014 8 Test の検証成立性
 
+*導出元: REQ-S022, REQ-S023, REQ-S024, REQ-S026, REQ-S027, REQ-S028*
+
 ### BD-S015 8.3 決定論的に検出可能な不成立構造
 
 ### BD-037
@@ -223,6 +225,8 @@ adapterが最終内容ハッシュを自己確定してはならない。
 各adapterは対応する言語・runnerの構造に対して決定論的に判定できる範囲を提供する。
 
 ## BD-S016 9 検証対象と Source Target
+
+*導出元: REQ-S026, REQ-S027, REQ-S028*
 
 ### BD-S017 9.2 Source Target の識別
 
@@ -1490,6 +1494,8 @@ user-defined Form も `kind` と owner `adapter` ID を宣言する通常の For
 
 Structured Edit の構文解析・再生成・selector 解釈は対応 adapter が所有する。
 
+*導出元: REQ-259*
+
 ### BD-317
 
 orchestration は Test ID と adapter ID で対象を一意に選択し、adapter が特定した metadata 宣言範囲と Test construct 範囲へ適用する。
@@ -1500,9 +1506,7 @@ orchestration は Test ID と adapter ID で対象を一意に選択し、adapte
 
 production adapter として提供するのは `rust-cargo` だけである。
 
-### BD-259
-
-§15.1〜§15.4 は `rust-cargo` StructuredTestAdapter の構文処理を定める。
+*導出元: REQ-263, REQ-264*
 
 ## BD-S090 18.1 共通条件
 
@@ -1610,7 +1614,7 @@ fixture は、他ファイル・他クレートへ呼び出すが戻り値を Te
 
 ### BD-286
 
-fixture は、文書鎖の状態として `root` 層以外で実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。
+fixture は、文書鎖の状態として `root` 層以外の文ノードで実効的な上流（自分の辺 ∪ 先祖の辺）を持たず根にも列挙されない孤児ノード（E-SCAN-016、`orphan_detection = MISMATCH`）を表現できる。
 
 ### BD-287
 
