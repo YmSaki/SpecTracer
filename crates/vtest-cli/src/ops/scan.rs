@@ -7,11 +7,12 @@
 
 use std::path::Path;
 
+use vtest_adapter_api::AdapterRegistry;
 use vtest_model::ExitCode;
 use vtest_scan::scan_project;
 use vtest_store::load_config;
 
-pub fn execute(root: &Path) -> (ExitCode, serde_json::Value) {
+pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
     // config の拒否は操作拒否であって内部エラーではない。DS-935。
     if let Err(error) = load_config(root) {
         return (
@@ -19,7 +20,7 @@ pub fn execute(root: &Path) -> (ExitCode, serde_json::Value) {
             crate::config_failure_envelope(&error.to_string()),
         );
     }
-    match scan_project(root) {
+    match scan_project(root, registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = serde_json::json!({

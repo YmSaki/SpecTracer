@@ -7,6 +7,7 @@
 mod diagnostic;
 mod document;
 mod evidence;
+mod execution_state;
 mod hash;
 mod id;
 mod protocol;
@@ -19,6 +20,7 @@ mod vo;
 pub use diagnostic::*;
 pub use document::*;
 pub use evidence::*;
+pub use execution_state::*;
 pub use hash::*;
 pub use id::*;
 pub use protocol::*;

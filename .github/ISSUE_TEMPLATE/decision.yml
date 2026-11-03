@@ -1,0 +1,33 @@
+name: Owner 判断
+description: 製品の目的と一般常識から演繹できず、Owner の判断が要る問い。先に `judge` に聞く。
+labels: ["kind/decision", "needs-owner"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Owner に出すのは、`judge`（`.claude/agents/judge.md`）が「エスカレーション」を返した問いだけにする。`返信` または `却下` が返った問いは、その答えに従う。
+  - type: textarea
+    id: question
+    attributes:
+      label: 問い
+      description: 人間に聞く問いを 1 つ。どういう場合に、何をどうするか、何が問題かを書く。
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: 選択肢と帰結
+    validations:
+      required: true
+  - type: textarea
+    id: judge
+    attributes:
+      label: judge の返答
+      description: 判定・返答・理由を貼る。演繹の鎖が、どの前提で切れたかが分かるように。
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: 回答のあとの動き
+      description: 選択肢ごとに、次に起こす issue や作業を書く。

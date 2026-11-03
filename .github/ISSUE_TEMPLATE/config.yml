@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 脆弱性の報告（非公開）
+    url: https://github.com/YmSaki/SpecTracer/security/advisories/new
+    about: 脆弱性の詳細は、公開の issue ではなく、この非公開の窓口に送る。SECURITY.md に手順がある。

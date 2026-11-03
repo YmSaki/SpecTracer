@@ -2,6 +2,10 @@
 
 <!-- What changed, and why? Keep the scope narrow. -->
 
+Closes #<issue>
+
+Working rules: https://github.com/YmSaki/SpecTracer/issues/61
+
 ## Branch flow
 
 - [ ] Feature work targets `develop` (or `main` until `develop` exists).

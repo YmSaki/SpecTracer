@@ -1,0 +1,10 @@
+[package]
+name = "vtest-adapter-synthetic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+vtest-adapter-api = { path = "../vtest-adapter-api" }
+vtest-model = { path = "../vtest-model" }

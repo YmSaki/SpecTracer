@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-LOCAL-INPUT-COMPLETENESS
+parent: null
+derives_from:
+  - doc: DES-208
+claim: '`complete: true` は、選択Testのビルドと実行可能状態を変えうるrepository / local dependency入力、runner、toolchain、実行影響configをadapterが漏れなく列挙した場合だけ許可する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-30T00:00:00+09:00
+updated: 2026-10-30T00:00:00+09:00

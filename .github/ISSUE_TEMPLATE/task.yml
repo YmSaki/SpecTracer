@@ -1,0 +1,54 @@
+name: 作業（実装・テスト・文書・運用）
+description: 1 セッションで完了できる、1 つの作業。作業ルールは #61。
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        1 つの issue は、1 セッション・1 ブランチで完了させる。作業の種類（`kind/*`）、優先度（`priority/*`）、規模（`size/*`）のラベルを、作成後に付ける。仕様（正本）を変える作業は「仕様の変更」のフォームを使う。
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 目的
+      description: 何を達成するか。1〜3 文。
+    validations:
+      required: true
+  - type: textarea
+    id: basis
+    attributes:
+      label: 根拠（正本・文書・実測）
+      description: 条項 ID、ファイルと行、実測の結果を挙げる。根拠が正本の条項なら、条項 ID を書く。
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 作業範囲
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: 範囲外
+      description: 隣接するが、この issue ではやらないこと。やらない理由と、受け持つ issue があれば添える。
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      description: チェックリストにする。各項目を、コマンドかテストで確かめられる形で書く。
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: deps
+    attributes:
+      label: 依存
+      description: 先に済ませる issue があれば、番号を書き、GitHub の「Blocked by」にも設定する。無ければ「なし」と書く。
+    validations:
+      required: true
+  - type: input
+    id: branch
+    attributes:
+      label: ブランチ
+      description: develop から作り、develop へ PR を出す。名前は DEVELOPMENT.md に従う。
+      placeholder: feature/<topic>

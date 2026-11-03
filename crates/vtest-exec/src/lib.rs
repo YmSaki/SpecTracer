@@ -9,16 +9,16 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_adapter_api::{
-    CoverageAdapter, CoverageTargetMeasurement, RunnerOutput, RunnerTestResult, TestRunnerAdapter,
+    AdapterRegistry, CoverageAdapter, CoverageTargetMeasurement, RunnerOutput, RunnerTestResult,
+    TestRunnerAdapter,
 };
-use vtest_adapter_rust::{RustCargoCoverageAdapter, RustCargoTestRunner};
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
     TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
 };
 use vtest_store::{
-    execution_state::{reconstruct_execution_state, ExecutionStateInputs},
-    new_record_id, now_rfc3339, write_new_record, VerifyLayout,
+    execution_state::materialize_execution_state, new_record_id, now_rfc3339, write_new_record,
+    VerifyLayout,
 };
 
 #[derive(Debug, Error)]
@@ -28,8 +28,30 @@ pub enum ExecutionError {
         path: PathBuf,
         source: std::io::Error,
     },
+    /// DS-745/DS-923「`E-ADAPTER-003`はerrorであり、Testのexecution
+    /// descriptorと選択adapterが不一致であることである」。この variant は
+    /// 以前から存在した `TestRunnerAdapter::command` の
+    /// `vtest_adapter_api::TestRunnerError`（登録済み adapter が Test の
+    /// execution descriptor の形（project/suite欠落・unsupported kind等）
+    /// を解釈できない）をそのまま運ぶ — この PR は「未登録」
+    /// （E-ADAPTER-001）・「明示操作に必須のcapability欠落」
+    /// （E-ADAPTER-004、下記 `run_tests`）とは別の既存経路として、コードを
+    /// E-ADAPTER-003 と確定させた（導出: 正本はE-ADAPTER-003の該当箇所を
+    /// 「rust-cargoなのにrustのexecution形でない」の例でしか示さないため、
+    /// registry解決は成功したが記述子の形が合わない、というこの既存条件を
+    /// 充てた）。バッチ全体を中断する既存の挙動（`run_tests_with_runner`の
+    /// `?`）はこの PR で変えない。
     #[error("runner adapter error: {0}")]
     Runner(#[from] vtest_adapter_api::TestRunnerError),
+}
+
+impl ExecutionError {
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            Self::Runner(_) => Some("E-ADAPTER-003"),
+            Self::Io { .. } => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -51,20 +73,144 @@ impl ExecutionResult {
     }
 }
 
+/// `CoverageAdapter` capability が未提供の adapter（DS-1580「明示操作に
+/// 必須のcapability欠落=E-ADAPTER-004、変更・判断記録・Evidenceを生成
+/// しない」は runner capability の話であり、coverage 単体の欠落は明示
+/// 操作を拒否する理由にならない — DS-473/DS-760/DS-1581 の「capability
+/// unavailable」と同じ扱いを、生きた `CoverageAdapter` インスタンスが
+/// 存在しない場合にも与えるための stand-in）。`availability` が常に Err を
+/// 返すため、`run_tests_with_runner` は既存の「coverage 不可時」経路
+/// （`checked:false`・W-EXEC-101、`coverage_unavailable_produces_not_
+/// checked_target_coverage_and_w_exec_101` が観測する経路）をそのまま辿る
+/// — この stand-in を導入するために既存関数を変更しない。
+#[derive(Clone, Copy, Debug, Default)]
+struct NoCoverageCapability;
+
+impl CoverageAdapter for NoCoverageCapability {
+    fn id(&self) -> &'static str {
+        ""
+    }
+
+    fn method(&self) -> &'static str {
+        ""
+    }
+
+    fn availability(&self, _root: &Path) -> Result<(), String> {
+        Err("adapter declares no Coverage capability (DS-925/DS-1581)".to_owned())
+    }
+
+    fn measure(
+        &self,
+        _coverage_output_path: &Path,
+        _targets: &[Locator],
+    ) -> Vec<CoverageTargetMeasurement> {
+        Vec::new()
+    }
+}
+
+/// `registry` は呼び出し元（cli / mcp の composition root）が組み立てた
+/// 登録済み adapter 一覧を渡す — この crate（core）は自分で adapter を
+/// 生成しない（BD-007、BD-102）。以前この関数は `vtest_adapter_rust::
+/// RustCargoTestRunner`/`RustCargoCoverageAdapter` を直接構築していたが、
+/// それは registry を介さず core が唯一の adapter を選ぶ経路だった。
+///
+/// Test を宣言 `execution.adapter` ごとに束ね、束ねた adapter id ごとに
+/// registry へ解決する:
+/// - 未登録（DS-1663、E-ADAPTER-001）: 該当 Test 群は Evidence を作らず
+///   診断だけを記録し、次の束へ進む。
+/// - 登録済みだが Test Runner capability 無し（DS-1580、E-ADAPTER-004）:
+///   同様にスキップして続行する（brief「他の Test は実行される」）。
+/// - 実行可能: `run_tests_with_runner`（既存、変更しない）へ委譲する。
+///   Coverage capability が無ければ [`NoCoverageCapability`] を渡し、
+///   既存の「coverage 不可」経路をそのまま使う。
+///
+/// `run_tests_with_runner` 自体が返す `Err`（`TestRunnerError` 由来、
+/// E-ADAPTER-003）は、この関数もそのまま伝播しバッチ全体を中断する —
+/// 「既存の欠落入力の扱いは変えない」を守るため、この経路の abort-whole-
+/// batch 挙動は変更しない。
 pub fn run_tests(
     root: &Path,
     layout: &VerifyLayout,
     tests: &[RunnableTest],
     fast: bool,
+    registry: &AdapterRegistry,
 ) -> Result<ExecutionResult, ExecutionError> {
-    run_tests_with_runner(
-        root,
-        layout,
-        tests,
-        fast,
-        &RustCargoTestRunner::new(),
-        &RustCargoCoverageAdapter::new(),
-    )
+    let mut order: Vec<String> = Vec::new();
+    let mut buckets: std::collections::BTreeMap<String, Vec<RunnableTest>> =
+        std::collections::BTreeMap::new();
+    for test in tests {
+        let adapter_id = test.entity.execution.adapter.as_str().to_owned();
+        if !buckets.contains_key(&adapter_id) {
+            order.push(adapter_id.clone());
+        }
+        buckets.entry(adapter_id).or_default().push(test.clone());
+    }
+
+    let mut evidence = Vec::new();
+    let mut diagnostics = Vec::new();
+    for adapter_id in order {
+        let bucket = buckets.remove(&adapter_id).unwrap_or_default();
+        if registry.get(adapter_id.as_str()).is_none() {
+            for test in &bucket {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-ADAPTER-001",
+                        format!(
+                            "Test {} declares unregistered adapter {adapter_id:?}",
+                            test.entity.id
+                        ),
+                    )
+                    .with_location(test.entity.location.clone()),
+                );
+            }
+            continue;
+        }
+        let Some(runner) = registry.test_runner(adapter_id.as_str()) else {
+            for test in &bucket {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-ADAPTER-004",
+                        format!(
+                            "Test {} adapter {adapter_id:?} has no Test Runner capability \
+                             (DS-1580)",
+                            test.entity.id
+                        ),
+                    )
+                    .with_location(test.entity.location.clone()),
+                );
+            }
+            continue;
+        };
+        let no_coverage = NoCoverageCapability;
+        let coverage: &dyn CoverageAdapter = registry
+            .coverage(adapter_id.as_str())
+            .unwrap_or(&no_coverage);
+        let batch = run_tests_with_runner(root, layout, &bucket, fast, runner, coverage)?;
+        evidence.extend(batch.evidence);
+        diagnostics.extend(batch.diagnostics);
+    }
+    Ok(ExecutionResult {
+        evidence,
+        diagnostics,
+    })
+}
+
+// DES-099 / DES-371: manifest order is not part of the execution subject.
+// Keep raw fields for incomplete snapshots: their missing hashes cannot expose
+// real changes. Tie-break duplicate identities without deduplicating them, so
+// malformed manifests still fail validation and retain every observed value.
+fn canonicalize_execution_manifest(
+    mut draft: vtest_model::ExecutionStateDraft,
+) -> vtest_model::ExecutionStateDraft {
+    draft.inputs.sort_by(|a, b| {
+        (&a.root_identity, &a.root_relative_path, &a.kind, &a.bytes).cmp(&(
+            &b.root_identity,
+            &b.root_relative_path,
+            &b.kind,
+            &b.bytes,
+        ))
+    });
+    draft
 }
 
 pub fn run_tests_with_runner(
@@ -113,6 +259,20 @@ pub fn run_tests_with_runner(
             coverage_path.is_some(),
             coverage_path.as_deref(),
         )?;
+        let before_draft = runner
+            .execution_state(
+                root,
+                &test.entity.execution,
+                revision.commit.as_deref(),
+                &command_spec.runner_kind,
+            )
+            .map(canonicalize_execution_manifest);
+        let before_state = before_draft.as_ref().map(|draft| {
+            let mut checked = draft.clone();
+            checked.complete &= checked.head_revision == revision.commit
+                && checked.runner_kind == command_spec.runner_kind;
+            materialize_execution_state(&test.entity.execution.adapter, &checked)
+        });
         let mut command = Command::new(&command_spec.program);
         command
             .current_dir(&command_spec.current_dir)
@@ -124,6 +284,41 @@ pub fn run_tests_with_runner(
             path: root.to_owned(),
             source,
         })?;
+        let after_revision = git_revision(root);
+        let after_draft = runner
+            .execution_state(
+                root,
+                &test.entity.execution,
+                after_revision.commit.as_deref(),
+                &command_spec.runner_kind,
+            )
+            .map(canonicalize_execution_manifest);
+        let after_state = after_draft.as_ref().map(|draft| {
+            let mut checked = draft.clone();
+            checked.complete &= checked.head_revision == after_revision.commit
+                && checked.runner_kind == command_spec.runner_kind;
+            materialize_execution_state(&test.entity.execution.adapter, &checked)
+        });
+        // DS-532 / DES-371: never bind a result to inputs captured only after
+        // execution. Even incomplete drafts may reveal an input change.
+        if before_draft != after_draft || before_state != after_state {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-004",
+                    format!(
+                        "Execution State changed while running Test {}",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            );
+            continue;
+        }
+        let execution_state = before_state.unwrap_or(vtest_model::ExecutionState {
+            schema: format!("{}-execution-state-unavailable", runner.id()),
+            complete: false,
+            hash: None,
+        });
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
@@ -216,21 +411,7 @@ pub fn run_tests_with_runner(
                     },
                     executed_at: now_rfc3339(),
                     revision: revision.clone(),
-                    // DES-097/098/099/100/101/210/211/212: reconstructed by
-                    // the shared `vtest-store::execution_state` module (see
-                    // its module doc for the disclosed scope limits —
-                    // single-workspace-root topology, no adapter-config
-                    // projection input exists in this repository yet).
-                    execution_state: reconstruct_execution_state(
-                        root,
-                        ExecutionStateInputs {
-                            adapter: &adapter_id,
-                            schema: "rust-cargo-execution-state-v1",
-                            head_commit: revision.commit.as_deref(),
-                            runner_kind: &command_spec.runner_kind,
-                            invocation: &command_spec.command_line,
-                        },
-                    ),
+                    execution_state,
                     hashes: EvidenceHashes {
                         test_fn: test.entity.content_hash.clone(),
                         target_fn: test
@@ -746,5 +927,366 @@ mod tests {
             "vtest-exec must not launch cargo directly (BD-114); command construction \
              belongs to the TestRunnerAdapter/CoverageAdapter it calls"
         );
+    }
+
+    // -----------------------------------------------------------------
+    // Registry-based dispatch (`run_tests`): E-ADAPTER-001/003/004
+    // -----------------------------------------------------------------
+
+    fn runnable_test_with_adapter(id: &str, adapter_id: &str) -> RunnableTest {
+        RunnableTest {
+            entity: TestEntity {
+                id: vtest_model::TestId::new(id),
+                covers: Vec::new(),
+                targets: Vec::new(),
+                intent: "registry dispatch fixture".to_owned(),
+                input: None,
+                expect: None,
+                kind: None,
+                cases: Vec::new(),
+                related: Vec::new(),
+                location: SourceLocation {
+                    adapter: AdapterId::new(adapter_id),
+                    path: ProjectPath::new("fixture.test"),
+                    locator: id.to_owned(),
+                    byte_range: SourceRange { start: 0, end: 1 },
+                },
+                content_hash: ContentHash::from_text(id),
+                execution: ExecutionDescriptor {
+                    adapter: AdapterId::new(adapter_id),
+                    project: None,
+                    suite: None,
+                    selector: "fixed".to_owned(),
+                },
+            },
+            target_hashes: Vec::new(),
+            target_locator: None,
+        }
+    }
+
+    /// `fake-runner` capability を宣言・実装する registry fixture adapter。
+    struct RunnerOnlyAdapter;
+
+    impl vtest_adapter_api::Adapter for RunnerOnlyAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "fake-runner".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![vtest_adapter_api::Capability::TestRunner],
+                config_namespace: "fake-runner".to_owned(),
+            }
+        }
+        fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+            Some(&FixedResultRunner)
+        }
+    }
+
+    /// discovery capability だけを宣言する registry fixture adapter —
+    /// registry には登録されている（未登録ではない）が、runner capability
+    /// を一切持たない。DS-1580「明示操作に必須のcapability欠落=
+    /// E-ADAPTER-004」を、DS-1663の「未登録」（E-ADAPTER-001）と区別して
+    /// 観測するための対照 fixture。
+    struct NoRunnerCapabilityAdapter;
+
+    impl vtest_adapter_api::Adapter for NoRunnerCapabilityAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "no-runner".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: Vec::new(),
+                config_namespace: "no-runner".to_owned(),
+            }
+        }
+        // discovery すら宣言・実装しない — この adapter は「登録済みだが
+        // runner capability が無い」という一点だけを表す。
+    }
+
+    fn registry_with_runner_and_no_runner_adapters() -> AdapterRegistry {
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(RunnerOnlyAdapter))
+            .expect("fake-runner must register cleanly");
+        registry
+            .register(Box::new(NoRunnerCapabilityAdapter))
+            .expect("no-runner must register cleanly");
+        registry
+    }
+
+    /// DS-1663/E-ADAPTER-001（未登録）・DS-1580/E-ADAPTER-004（登録済み
+    /// だがrunner capability欠落）を、健全な Test と同じバッチの中で区別し、
+    /// いずれも「他の Test は実行される」ことを確認する（brief: E-ADAPTER-004
+    /// について明示。E-ADAPTER-001 も同じ理由で続行する、というこの PR の
+    /// 導出をあわせて観測する）。
+    /// @vtest.id TEST-EXEC-RUN-TESTS-SKIPS-UNREGISTERED-AND-CAPABILITY-MISSING-ADAPTERS
+    /// @vtest.covers VO-EXEC-RUN-TESTS-UNREGISTERED-ADAPTER-E-ADAPTER-001, VO-EXEC-RUN-TESTS-MISSING-RUNNER-CAPABILITY-E-ADAPTER-004
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests
+    /// @vtest.intent verifies run_tests reports E-ADAPTER-001 for a Test declaring an unregistered adapter and E-ADAPTER-004 for a Test whose registered adapter has no Test Runner capability, producing no Evidence for either, while a healthy Test in the same batch still executes and gets Evidence
+    #[test]
+    fn run_tests_skips_unregistered_and_capability_missing_adapters_but_runs_the_rest() {
+        let root =
+            std::env::temp_dir().join(format!("vtest-exec-run-tests-skip-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let registry = registry_with_runner_and_no_runner_adapters();
+        let tests = vec![
+            runnable_test_with_adapter("TEST-UNREGISTERED", "totally-unregistered-adapter"),
+            runnable_test_with_adapter("TEST-NO-RUNNER-CAPABILITY", "no-runner"),
+            runnable_test_with_adapter("TEST-HEALTHY", "fake-runner"),
+        ];
+        let result = run_tests(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &tests,
+            true,
+            &registry,
+        )
+        .expect("run_tests must not abort the whole batch for a skip-only condition");
+
+        assert_eq!(
+            result.evidence.len(),
+            1,
+            "only the healthy Test must produce Evidence"
+        );
+        assert_eq!(result.evidence[0].test_id.as_str(), "TEST-HEALTHY");
+
+        let has_code = |code: &str, test_id: &str| {
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == code && diagnostic.message.contains(test_id))
+        };
+        assert!(
+            has_code("E-ADAPTER-001", "TEST-UNREGISTERED"),
+            "an unregistered adapter must be reported as E-ADAPTER-001: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            has_code("E-ADAPTER-004", "TEST-NO-RUNNER-CAPABILITY"),
+            "a registered adapter with no Test Runner capability must be reported as \
+             E-ADAPTER-004: {:?}",
+            result.diagnostics
+        );
+        fs::remove_dir_all(root).expect("remove fixture root");
+    }
+
+    /// registered adapter の `TestRunnerAdapter::command` が、この Test の
+    /// execution descriptor を解釈できない（`TestRunnerError`）場合の
+    /// 経路。DS-745/DS-923「Testのexecution descriptorと選択adapterが
+    /// 不一致であることである」— この PR の導出（brief参照）は既存の
+    /// `TestRunnerError`→`ExecutionError::Runner` 経路をそのまま
+    /// E-ADAPTER-003 とコード付けし、バッチ全体を中断する既存の挙動は
+    /// 変えない。
+    struct DescriptorMismatchRunner;
+
+    impl TestRunnerAdapter for DescriptorMismatchRunner {
+        fn id(&self) -> &'static str {
+            "descriptor-mismatch"
+        }
+        fn command(
+            &self,
+            _root: &Path,
+            _execution: &ExecutionDescriptor,
+            _coverage: bool,
+            _coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            Err(TestRunnerError::MissingProject)
+        }
+        fn parse(
+            &self,
+            _execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            unimplemented!("command always fails before parse is reached")
+        }
+    }
+
+    struct DescriptorMismatchAdapter;
+
+    impl vtest_adapter_api::Adapter for DescriptorMismatchAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "descriptor-mismatch".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: vec![vtest_adapter_api::Capability::TestRunner],
+                config_namespace: "descriptor-mismatch".to_owned(),
+            }
+        }
+        fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+            Some(&DescriptorMismatchRunner)
+        }
+    }
+
+    /// @vtest.id TEST-EXEC-RUN-TESTS-DESCRIPTOR-MISMATCH-IS-E-ADAPTER-003
+    /// @vtest.covers VO-EXEC-RUN-TESTS-DESCRIPTOR-MISMATCH-E-ADAPTER-003
+    /// @vtest.target crates/vtest-exec/src/lib.rs::ExecutionError::code
+    /// @vtest.intent verifies a registered adapter whose runner cannot interpret the Test's execution descriptor surfaces as ExecutionError::Runner with code E-ADAPTER-003
+    #[test]
+    fn run_tests_reports_e_adapter_003_for_a_descriptor_the_runner_cannot_interpret() {
+        let root =
+            std::env::temp_dir().join(format!("vtest-exec-run-tests-mismatch-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(DescriptorMismatchAdapter))
+            .expect("descriptor-mismatch must register cleanly");
+        let tests = vec![runnable_test_with_adapter(
+            "TEST-MISMATCHED-DESCRIPTOR",
+            "descriptor-mismatch",
+        )];
+
+        let error = run_tests(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &tests,
+            true,
+            &registry,
+        )
+        .expect_err("a runner that cannot interpret the descriptor must abort the batch");
+        assert!(matches!(
+            error,
+            ExecutionError::Runner(TestRunnerError::MissingProject)
+        ));
+        assert_eq!(error.code(), Some("E-ADAPTER-003"));
+        fs::remove_dir_all(root).expect("remove fixture root");
+    }
+    struct SnapshotRunner {
+        change: bool,
+        complete: bool,
+        reverse: bool,
+        calls: std::sync::atomic::AtomicUsize,
+    }
+    impl TestRunnerAdapter for SnapshotRunner {
+        fn id(&self) -> &'static str {
+            "synthetic"
+        }
+        fn execution_state(
+            &self,
+            _root: &Path,
+            _execution: &ExecutionDescriptor,
+            head: Option<&str>,
+            runner_kind: &str,
+        ) -> Option<vtest_model::ExecutionStateDraft> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let mut draft = vtest_model::ExecutionStateDraft {
+                schema_id: "synthetic-inputs".into(),
+                schema_version: "1".into(),
+                complete: self.complete,
+                head_revision: head.map(str::to_owned),
+                runner_kind: runner_kind.into(),
+                invocation: serde_json::json!(["synthetic", "test"]),
+                toolchain_identity: "synthetic-toolchain".into(),
+                effective_config: serde_json::Value::Null,
+                inputs: vec![vtest_model::ExecutionInputDraft {
+                    root_identity: "workspace".into(),
+                    root_relative_path: "helper.input".into(),
+                    kind: "file".into(),
+                    bytes: vec![if self.change { call as u8 } else { 0 }],
+                }],
+            };
+            let mut second = draft.inputs[0].clone();
+            second.root_relative_path = "second.input".into();
+            second.bytes = vec![42];
+            draft.inputs.push(second);
+            if self.reverse && call > 0 {
+                draft.inputs.reverse();
+            }
+            Some(draft)
+        }
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            output: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            FixedResultRunner.command(root, execution, coverage, output)
+        }
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            FixedResultRunner.parse(execution, output)
+        }
+    }
+
+    /// DS-532 / DES-099 / DES-371: a changed input never produces Evidence;
+    /// reordered manifests are equivalent, including incomplete snapshots.
+    /// Synthetic inputs prove core needs neither Rust syntax nor rustc probes.
+    /// @vtest.id TEST-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent execution input change rejects evidence and stable inputs are recorded
+    #[test]
+    fn execution_input_change_rejects_evidence_and_stable_inputs_are_recorded() {
+        for (complete, reverse, change) in [
+            (true, false, false),
+            (true, false, true),
+            (true, true, false),
+            (true, true, true),
+            (false, false, false),
+            (false, false, true),
+            (false, true, false),
+            (false, true, true),
+        ] {
+            let root = std::env::temp_dir().join(format!("vtest-snapshot-{}", new_record_id()));
+            fs::create_dir_all(&root).unwrap();
+            assert!(Command::new("git")
+                .current_dir(&root)
+                .args(["init", "-q"])
+                .status()
+                .unwrap()
+                .success());
+            assert!(Command::new("git")
+                .current_dir(&root)
+                .args([
+                    "-c",
+                    "user.name=fixture",
+                    "-c",
+                    "user.email=fixture@example.com",
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "--allow-empty",
+                    "-qm",
+                    "fixture"
+                ])
+                .status()
+                .unwrap()
+                .success());
+            let runner = SnapshotRunner {
+                change,
+                complete,
+                reverse,
+                calls: std::sync::atomic::AtomicUsize::new(0),
+            };
+            let test = runnable_test_with_target("TEST-SNAPSHOT", None);
+            let layout = VerifyLayout::new(&root);
+            let result = run_tests_with_runner(
+                &root,
+                &layout,
+                &[test],
+                true,
+                &runner,
+                &never_available_coverage("fast"),
+            )
+            .unwrap();
+            assert_eq!(runner.calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+            if change {
+                assert!(result.evidence.is_empty());
+                assert!(result.diagnostics.iter().any(|d| d.code == "E-EXEC-004"));
+                assert_eq!(fs::read_dir(layout.evidence_dir()).unwrap().count(), 0);
+            } else {
+                assert_eq!(result.evidence.len(), 1);
+                assert_eq!(result.evidence[0].execution_state.complete, complete);
+                assert_eq!(result.evidence[0].execution_state.hash.is_some(), complete);
+                assert!(!result.diagnostics.iter().any(|d| d.code == "E-EXEC-004"));
+                assert_eq!(fs::read_dir(layout.evidence_dir()).unwrap().count(), 1);
+                assert_eq!(
+                    result.evidence[0].execution_state.schema,
+                    "synthetic-inputs-v1"
+                );
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

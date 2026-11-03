@@ -1,0 +1,12 @@
+id: VO-ADAPTER-MIXED-DUPLICATE-SRC-ID-E-SCAN-011
+parent: null
+derives_from:
+  - doc: DS-810
+claim: >-
+  rust-cargoとsyntheticが同じ恒久SRC IDを宣言する、adapter越えの衝突はE-SCAN-011とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-26T00:00:00Z
+updated: 2026-10-26T00:00:00Z

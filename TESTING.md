@@ -1,8 +1,8 @@
 # Testing guide
 
-SpecTracer tests whether a passing test is trustworthy; a green test command is
-not by itself proof that the verification graph is complete. Tests should keep
-missing, stale, unavailable, and ambiguous evidence non-passing.
+SpecTracer tests whether a passing test is trustworthy; treat a green test command
+as one input and confirm the completeness of the verification graph separately.
+Tests should keep missing, stale, unavailable, and ambiguous evidence non-passing.
 
 ## Required local gate
 
@@ -52,14 +52,15 @@ cargo test -p vtest-cli --tests --locked
 Not every 別紙C §18 node has a dedicated acceptance test yet: nodes covering
 product areas this slice's `crates/vtest-cli/src/ops/` does not implement
 (static audit, coverage measurement, Structured Test Operation create/edit)
-are tracked in `reports/closure-trace.md`'s gap table rather than given a
-test that would only assert the absence of a feature.
+are tracked in `reports/closure-trace.md`'s gap table, because a test that asserts
+the absence of a feature passes while the feature is missing. When such a feature
+is implemented, add its acceptance test and remove its gap-table row.
 
 ## Verification behavior to preserve
 
 - Every non-`PASS` state (`FAIL`, `MISMATCH`, `MISSING`, `NOT_CHECKED`,
   `NOT_EXECUTED`, `STALE`, or `UNKNOWN`) contributes to a non-passing result.
-- Stale approval, audit, and Evidence hashes cannot satisfy a current verify.
+- Stale approval, audit, and Evidence hashes leave a current verify non-passing.
 - Limited scopes keep out-of-scope items as `NOT_CHECKED` rather than converting
   them to `PASS`.
 - CLI and MCP must preserve the same core JSON envelope and result semantics.

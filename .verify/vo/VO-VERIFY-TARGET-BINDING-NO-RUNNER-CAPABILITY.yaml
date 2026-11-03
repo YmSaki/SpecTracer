@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-BINDING-NO-RUNNER-CAPABILITY
+parent: null
+derives_from:
+  - doc: DS-1582
+claim: 検証時のrunner capability欠落（Coverage capabilityはある）は、target_bindingを`NO_EVIDENCE`（診断`NOT_EXECUTED`）にする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

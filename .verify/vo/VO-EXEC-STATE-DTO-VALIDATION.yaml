@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-DTO-VALIDATION
+parent: null
+derives_from:
+  - doc: DES-101
+claim: 'adapterはhash未計算のmanifestと完全性を返し、coreが各entryとsubject全体を検証・hash化する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-30T00:00:00+09:00
+updated: 2026-10-30T00:00:00+09:00

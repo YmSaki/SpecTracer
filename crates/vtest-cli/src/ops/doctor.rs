@@ -3,11 +3,12 @@
 
 use std::path::Path;
 
+use vtest_adapter_api::AdapterRegistry;
 use vtest_model::ExitCode;
 use vtest_scan::scan_project;
 use vtest_store::load_config;
 
-pub fn execute(root: &Path) -> (ExitCode, serde_json::Value) {
+pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
     let config = match load_config(root) {
         Ok(config) => config,
         Err(error) => {
@@ -17,7 +18,7 @@ pub fn execute(root: &Path) -> (ExitCode, serde_json::Value) {
             )
         }
     };
-    match scan_project(root) {
+    match scan_project(root, registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
             let data = serde_json::json!({

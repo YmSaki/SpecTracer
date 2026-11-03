@@ -6,8 +6,8 @@ verification contract is intentionally language-independent.
 
 ## Dependency direction
 
-The implementation is layered so that entrypoints do not own canonical data or
-verification rules:
+The implementation is layered so that canonical data and verification rules live in
+the lower crates and entrypoints delegate to them:
 
 ```text
 vtest-cli / vtest-mcp
@@ -35,14 +35,16 @@ vtest-model
 
 Canonical records live under `.verify/`, one record per file where specified.
 Indexes, graphs, and aggregate results are derived by rebuilding from those
-records; `.verify/cache/` is never a source of truth. Relation records are
+records; treat `.verify/cache/` as rebuildable output, and when it disagrees with
+the records, rebuild it from them. Relation records are
 immutable and changes are represented by removing the old relation and adding a
 new one.
 
 Content hashes bind specifications, approvals, audits, and execution Evidence to
 the revision they describe. A changed subject invalidates prior proof. Missing,
-stale, unavailable, ambiguous, or otherwise non-`PASS` states remain non-passing
-and are never silently promoted.
+stale, unavailable, ambiguous, or otherwise non-`PASS` states remain non-passing;
+promote one only through new evidence bound to the current subject, because a
+silent promotion is a false `PASS`.
 
 ## Adapter boundary
 
@@ -60,8 +62,9 @@ contract and evidence rules.
 ## Interface parity
 
 CLI and MCP operations must be non-interactive and return the same JSON result
-shape. MCP is an adapter, not a second verification engine. Changes to a core
-operation must therefore update both interface paths and their parity tests.
+shape. Keep MCP an adapter that delegates to the core, because a second
+verification engine would give a second answer. When a core operation changes,
+update both interface paths and their parity tests.
 
 For the normative requirements and detailed design, see the documents under
 [`docs/`](docs/), especially the requirements, basic specification, detailed

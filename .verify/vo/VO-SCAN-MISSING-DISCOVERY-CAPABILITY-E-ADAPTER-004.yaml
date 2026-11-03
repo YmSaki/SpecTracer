@@ -1,0 +1,14 @@
+id: VO-SCAN-MISSING-DISCOVERY-CAPABILITY-E-ADAPTER-004
+parent: null
+derives_from:
+  - doc: DS-1580
+claim: >-
+  導出。scanは、configが指すadapterがregistryに登録済みだがSource Discovery
+  capabilityを実装しない場合、明示操作に必須のcapability欠落としてE-ADAPTER-004で
+  中止し、scan結果を返さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-26T00:00:00Z
+updated: 2026-10-26T00:00:00Z
