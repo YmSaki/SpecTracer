@@ -338,8 +338,8 @@ The canonical model was redefined in the v0.1 canonical specification
 (`docs/canonical/specification.json`): four checks and five states replace the
 earlier eleven-item surface. The M1–M9 rows in
 [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) record that retired surface; their
-`m1_acceptance.rs` … `m9_acceptance.rs` suites are no longer built
-(`autotests = false`) and are not evidence for the current model.
+`m1_acceptance.rs` … `m9_acceptance.rs` suites have been removed from the
+repository, so those rows are not evidence for the current model.
 
 Current state:
 
