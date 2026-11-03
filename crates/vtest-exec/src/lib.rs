@@ -972,7 +972,7 @@ mod tests {
             "fake-cov",
             std::slice::from_ref(&double),
             vec![CoverageTargetMeasurement {
-                target: double,
+                target: double.clone(),
                 result: TargetCoverageResult::Pass,
                 count: Some(2),
             }],
