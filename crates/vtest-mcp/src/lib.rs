@@ -966,12 +966,9 @@ fn run_tool(root: &Path, args: &Value) -> Value {
         }
     };
     let layout = vtest_store::VerifyLayout::new(root);
-    let target = if let Some(vo_id) = vo {
-        ops::run::RunTarget::Vo(vo_id)
-    } else if all {
-        ops::run::RunTarget::All
-    } else {
-        ops::run::RunTarget::Test(test_ids)
+    let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
+        Ok(target) => target,
+        Err(error) => return failure_envelope("E-OP-001", error.to_string()),
     };
     match ops::run::run(root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
@@ -984,7 +981,9 @@ fn run_tool(root: &Path, args: &Value) -> Value {
             success_envelope(!has_errors, data, &result.diagnostics)
         }
         Err(
-            error @ (ops::run::RunOpError::UnknownTestId(_) | ops::run::RunOpError::UnknownVoId(_)),
+            error @ (ops::run::RunOpError::UnknownTestId(_)
+            | ops::run::RunOpError::UnknownVoId(_)
+            | ops::run::RunOpError::ConflictingTargets(_)),
         ) => failure_envelope("E-OP-001", error.to_string()),
         Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
             // DS-745/DS-923 (E-ADAPTER-003) — mirrors the CLI's `run_run`
@@ -1210,6 +1209,70 @@ mod tests {
             Some(&Value::Bool(cli_exit == ExitCode::Ok)),
             "MCP `ok` must agree with the CLI exit code's OK/NG meaning"
         );
+    }
+
+    /// DS-744/DS-1563: `run_tests` rejects any combination of the
+    /// mutually exclusive `test` / `vo` / `all` target axes with E-OP-001
+    /// before launching anything, exactly as the CLI's clap
+    /// `conflicts_with` rules do, and still accepts each axis alone.
+    /// @vtest.id TEST-MCP-RUN-TESTS-EXCLUSIVE-AXES
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+    /// @vtest.target crates/vtest-cli/src/ops/run.rs::RunTarget::from_axes
+    /// @vtest.intent run_tests rejects test/vo/all combinations with E-OP-001 and writes no Evidence
+    #[test]
+    fn run_tests_rejects_combined_target_axes() {
+        let root = temp_root("run-tests-exclusive");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        for args in [
+            json!({"test": ["DOES-NOT-EXIST"], "all": true, "fast": true}),
+            json!({"test": ["DOES-NOT-EXIST"], "vo": "VO-X", "fast": true}),
+            json!({"vo": "VO-X", "all": true, "fast": true}),
+            json!({"test": ["DOES-NOT-EXIST"], "vo": "VO-X", "all": true, "fast": true}),
+        ] {
+            let result = tools_call_result(
+                &root,
+                &json!({"name": "run_tests", "arguments": args}),
+                &mut MtimeRescan::default(),
+            );
+            assert_eq!(result["isError"], true, "{args}: {result}");
+            assert_eq!(
+                result["structuredContent"]["diagnostics"][0]["code"], "E-OP-001",
+                "{args}: {result}"
+            );
+        }
+        let evidence_dir = root.join(".verify").join("evidence");
+        let written = std::fs::read_dir(&evidence_dir).map_or(0, |entries| {
+            entries
+                .flatten()
+                .filter(|entry| {
+                    entry.path().extension().and_then(|value| value.to_str()) == Some("yaml")
+                })
+                .count()
+        });
+        assert_eq!(written, 0, "a rejected run must not write Evidence");
+
+        let alone = tools_call_result(
+            &root,
+            &json!({"name": "run_tests", "arguments": {"all": true, "fast": true}}),
+            &mut MtimeRescan::default(),
+        );
+        assert_ne!(alone["isError"], true, "{alone}");
+        let unknown = tools_call_result(
+            &root,
+            &json!({"name": "run_tests", "arguments": {"test": ["DOES-NOT-EXIST"], "fast": true}}),
+            &mut MtimeRescan::default(),
+        );
+        assert_eq!(
+            unknown["structuredContent"]["diagnostics"][0]["code"], "E-OP-001",
+            "a lone unknown test id is still rejected, not ignored: {unknown}"
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

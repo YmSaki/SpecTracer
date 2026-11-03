@@ -396,12 +396,9 @@ fn run_run(
         Err(error) => return scan_error_exit(&error, format, quiet),
     };
     let layout = VerifyLayout::new(&root);
-    let target = if let Some(vo_id) = vo {
-        ops::run::RunTarget::Vo(vo_id)
-    } else if all {
-        ops::run::RunTarget::All
-    } else {
-        ops::run::RunTarget::Test(test_ids)
+    let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
+        Ok(target) => target,
+        Err(error) => return usage_failure(format, quiet, "E-OP-001", &error.to_string()),
     };
     match ops::run::run(&root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
@@ -427,7 +424,8 @@ fn run_run(
         }
         Err(
             error @ ops::run::RunOpError::UnknownTestId(_)
-            | error @ ops::run::RunOpError::UnknownVoId(_),
+            | error @ ops::run::RunOpError::UnknownVoId(_)
+            | error @ ops::run::RunOpError::ConflictingTargets(_),
         ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
         Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
             // DS-745/DS-923 (E-ADAPTER-003): a registered adapter whose
