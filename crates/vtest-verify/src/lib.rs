@@ -1078,14 +1078,98 @@ fn evaluate_target_binding(
     }
 
     // DS-830/831/832: the Evidence is valid.
-    dynamic_result_from_evidence(record)
+    dynamic_result_from_evidence(record, &canonical_target_locators(test, scan))
+}
+
+/// DS-1412: the resolved canonical Locator of every declared target, in the
+/// `<adapter>::<value>` spelling the Evidence writer records target entries
+/// under. Only called after `evidence_validity_failure` confirmed every
+/// declared target resolves.
+fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String> {
+    test.targets
+        .iter()
+        .filter_map(|target| match target {
+            TargetRef::Locator(locator) => scan
+                .sources
+                .iter()
+                .find(|source| &source.locator == locator)
+                .map(|source| format!("{}::{}", source.locator.adapter, source.locator.value)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// DS-1411/DS-1412/DES-188/DES-189/DS-1404/DS-1405: the per-target entries of
+/// a `checked: true` measurement, validated against the current canonical
+/// target set. Returns the entries to judge, or a reason the record cannot
+/// be used (DS-1679: such Evidence is not used as a result).
+fn validated_target_entries(
+    coverage: &vtest_model::TargetCoverage,
+    expected: &[String],
+    adapter: &str,
+) -> Result<Vec<vtest_model::TargetCoverageTarget>, String> {
+    use vtest_model::TargetCoverageResult as R;
+    let mut entries = coverage.targets.clone();
+    // DES-203: the singular compatibility form (aggregate result/count, no
+    // target entries) is read as one entry only for a `rust-cargo` Test that
+    // declares exactly one target.
+    if entries.is_empty() && expected.len() == 1 && adapter == "rust-cargo" {
+        let result = coverage.result.unwrap_or(R::Unknown);
+        entries.push(vtest_model::TargetCoverageTarget {
+            target: expected[0].clone(),
+            result,
+            count: if result == R::Unknown {
+                None
+            } else {
+                coverage.count
+            },
+        });
+    }
+    let mut seen = BTreeSet::new();
+    for entry in &entries {
+        if !seen.insert(entry.target.as_str()) {
+            return Err(format!(
+                "target_coverage lists target {} more than once (DS-1411)",
+                entry.target
+            ));
+        }
+        let consistent = match entry.result {
+            R::Pass => entry.count.is_some_and(|count| count > 0),
+            R::Fail => entry.count == Some(0),
+            R::Unknown => entry.count.is_none(),
+        };
+        if !consistent {
+            return Err(format!(
+                "target_coverage entry {} has result {:?} with count {:?}, which                  DS-1404/DS-1405/DES-189 do not allow",
+                entry.target, entry.result, entry.count
+            ));
+        }
+    }
+    let expected_set: BTreeSet<&str> = expected.iter().map(String::as_str).collect();
+    if seen != expected_set {
+        let missing: Vec<_> = expected_set.difference(&seen).copied().collect();
+        let extra: Vec<_> = seen.difference(&expected_set).copied().collect();
+        return Err(format!(
+            "target_coverage entries do not match the declared canonical targets              (missing: [{}], extra: [{}]) (DS-1411)",
+            missing.join(", "),
+            extra.join(", ")
+        ));
+    }
+    let all_pass = entries.iter().all(|entry| entry.result == R::Pass);
+    if all_pass != (coverage.result == Some(R::Pass)) {
+        return Err(format!(
+            "target_coverage aggregate result {:?} contradicts its per-target entries              (DES-187)",
+            coverage.result
+        ));
+    }
+    Ok(entries)
 }
 
 /// DS-830/831/832: judgment applied once an Evidence record is confirmed
 /// valid (DS-818). Kept as its own function so it is unit-testable without
 /// first achieving end-to-end validity (see `evaluate_target_binding`'s
 /// doc comment on why that path is not reachable yet in this crate).
-fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
+fn dynamic_result_from_evidence(record: &EvidenceRecord, expected: &[String]) -> CheckOutcome {
     // DS-830: the runner itself reported failure.
     if record.result == vtest_model::TestResult::Fail {
         return CheckOutcome::new(
@@ -1109,41 +1193,69 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
             vec!["target reachability was not measured (DS-832)".to_owned()],
         );
     }
-    // DS-832: a measured-but-zero count -> FAIL (NOT_EXECUTED), independent
-    // of the aggregate `result` value, since `count == 0` is the concrete
-    // observation that the declared target was never reached.
-    if coverage.count == Some(0) {
-        return CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Fail,
-            vec![DiagnosticLabel::NotExecuted],
-            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
-        );
+    // DS-1411/DS-1679: entries that are missing, duplicated, inconsistent, or
+    // not the current canonical target set make the record unusable as a
+    // result; `target_binding` is then NO_EVIDENCE (NOT_EXECUTED), never a
+    // PASS taken from the aggregate alone.
+    let entries = match validated_target_entries(coverage, expected, record.adapter.as_str()) {
+        Ok(entries) => entries,
+        Err(reason) => {
+            return CheckOutcome::new(
+                VerificationCheck::TargetBinding,
+                VerificationState::NoEvidence,
+                vec![DiagnosticLabel::NotExecuted],
+                vec![format!(
+                    "Evidence {} is not used: {reason} (E-SCAN-010, DS-1679)",
+                    record.id
+                )],
+            );
+        }
+    };
+    // DS-1410/DS-832: judged per target. A target with count 0 is FAIL
+    // (NOT_EXECUTED); a target the measurement could not identify is
+    // UNKNOWN; the Test is PASS only when every declared target is PASS.
+    let mut states = Vec::new();
+    let mut labels = Vec::new();
+    let mut basis = Vec::new();
+    for entry in &entries {
+        match entry.result {
+            vtest_model::TargetCoverageResult::Pass => {}
+            vtest_model::TargetCoverageResult::Fail => {
+                states.push(VerificationState::Fail);
+                if !labels.contains(&DiagnosticLabel::NotExecuted) {
+                    labels.push(DiagnosticLabel::NotExecuted);
+                }
+                basis.push(format!(
+                    "measured target coverage count is 0 for {} (DS-832)",
+                    entry.target
+                ));
+            }
+            vtest_model::TargetCoverageResult::Unknown => {
+                states.push(VerificationState::Unknown);
+                basis.push(format!(
+                    "measured coverage could not identify the declared target function {}                      (DS-832)",
+                    entry.target
+                ));
+            }
+        }
     }
-    match coverage.result {
-        Some(vtest_model::TargetCoverageResult::Pass) => CheckOutcome::new(
+    if states.is_empty() {
+        return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
-            vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
-        ),
-        Some(vtest_model::TargetCoverageResult::Fail) => CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Fail,
-            vec![DiagnosticLabel::NotExecuted],
-            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
-        ),
-        // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
-        // measurement could not identify the declared target function.
-        Some(vtest_model::TargetCoverageResult::Unknown) | None => CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Unknown,
-            Vec::new(),
-            vec!["measured coverage could not identify the declared target \
-                  function (DS-832)"
-                .to_owned()],
-        ),
+            vec![format!(
+                "all {} declared target(s) reached §7.3 coverage (DS-831)",
+                entries.len()
+            )],
+        );
     }
+    CheckOutcome::new(
+        VerificationCheck::TargetBinding,
+        representative(states),
+        labels,
+        basis,
+    )
 }
 
 /// DS-605「`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の
@@ -3151,18 +3263,20 @@ mod tests {
     #[test]
     fn dynamic_result_from_evidence_covers_ds_830_831_832() {
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        // The singular compatibility form (DES-203): aggregate only.
+        let one_target = vec!["rust-cargo::src/lib.rs::target0".to_owned()];
 
         // DS-830: runner FAIL.
         record.result = vtest_model::TestResult::Fail;
         assert_eq!(
-            dynamic_result_from_evidence(&record).state,
+            dynamic_result_from_evidence(&record, &one_target).state,
             VerificationState::Fail
         );
 
         // DS-832: runner PASS, coverage not measured -> NO_EVIDENCE (NOT_CHECKED).
         record.result = vtest_model::TestResult::Pass;
         record.target_coverage.checked = false;
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::NoEvidence);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
 
@@ -3170,7 +3284,7 @@ mod tests {
         record.target_coverage.checked = true;
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Fail);
         record.target_coverage.count = Some(0);
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
@@ -3178,15 +3292,178 @@ mod tests {
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Unknown);
         record.target_coverage.count = None;
         assert_eq!(
-            dynamic_result_from_evidence(&record).state,
+            dynamic_result_from_evidence(&record, &one_target).state,
             VerificationState::Unknown
         );
 
         // DS-831: measured and reached -> PASS.
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Pass);
         record.target_coverage.count = Some(3);
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());
+    }
+
+    fn coverage_entry(
+        target: &str,
+        result: vtest_model::TargetCoverageResult,
+        count: Option<u64>,
+    ) -> vtest_model::TargetCoverageTarget {
+        vtest_model::TargetCoverageTarget {
+            target: target.to_owned(),
+            result,
+            count,
+        }
+    }
+
+    fn measured(
+        aggregate: vtest_model::TargetCoverageResult,
+        entries: Vec<vtest_model::TargetCoverageTarget>,
+    ) -> EvidenceRecord {
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        record.target_coverage = vtest_model::TargetCoverage {
+            checked: true,
+            method: Some("llvm-cov".to_owned()),
+            result: Some(aggregate),
+            count: entries
+                .iter()
+                .map(|entry| entry.count)
+                .collect::<Option<Vec<_>>>()
+                .and_then(|counts| counts.into_iter().min()),
+            targets: entries,
+        };
+        record
+    }
+
+    /// @vtest.id TEST-VERIFY-PER-TARGET-COVERAGE-JUDGMENT
+    /// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
+    /// @vtest.intent 複数targetのEvidenceで全件到達ならPASS、1件未到達ならFAIL、1件計測不能ならUNKNOWN、entry順序を入れ替えても同じ結果になることを確認する
+    #[test]
+    fn target_binding_is_judged_per_declared_target() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let all_reached = measured(
+            R::Pass,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Pass, Some(1)),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&all_reached, &expected).state,
+            VerificationState::Pass
+        );
+        let reordered = measured(
+            R::Pass,
+            vec![
+                coverage_entry(&expected[1], R::Pass, Some(1)),
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&reordered, &expected).state,
+            VerificationState::Pass
+        );
+        let one_unreached = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&one_unreached, &expected);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+        let one_unlocated = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Unknown, None),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&one_unlocated, &expected).state,
+            VerificationState::Unknown
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-TARGET-COVERAGE-ENTRY-SET-VALIDATED
+    /// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::validated_target_entries
+    /// @vtest.intent target別entryの欠落・重複・余剰・aggregate矛盾・result/count矛盾のEvidenceをPASSに使わずNO_EVIDENCE(NOT_EXECUTED)とすることを確認する
+    #[test]
+    fn inconsistent_target_coverage_entries_are_not_used_as_pass() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let cases = [
+            ("no entries for two targets", measured(R::Pass, Vec::new())),
+            (
+                "one entry missing",
+                measured(
+                    R::Pass,
+                    vec![coverage_entry(&expected[0], R::Pass, Some(1))],
+                ),
+            ),
+            (
+                "duplicate entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+            (
+                "extra entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[1], R::Pass, Some(1)),
+                        coverage_entry("rust-cargo::src/lib.rs::other", R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+            (
+                "aggregate PASS over an unreached entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[1], R::Fail, Some(0)),
+                    ],
+                ),
+            ),
+            (
+                "PASS entry with count 0",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(0)),
+                        coverage_entry(&expected[1], R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+        ];
+        for (name, record) in cases {
+            let outcome = dynamic_result_from_evidence(&record, &expected);
+            assert_eq!(outcome.state, VerificationState::NoEvidence, "{name}");
+            assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted], "{name}");
+        }
+        // The singular compatibility form is accepted only for one target.
+        let mut singular = measured(R::Pass, Vec::new());
+        singular.target_coverage.count = Some(1);
+        assert_eq!(
+            dynamic_result_from_evidence(&singular, &expected[..1]).state,
+            VerificationState::Pass
+        );
     }
 }
