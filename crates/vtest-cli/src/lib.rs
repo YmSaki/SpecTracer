@@ -1143,6 +1143,12 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
                     "not satisfied"
                 }
             ));
+            if !approval.missing_subjects.is_empty() {
+                out.push_str(&format!(
+                    "    missing approval for: {}\n",
+                    approval.missing_subjects.join(", ")
+                ));
+            }
         }
     }
 

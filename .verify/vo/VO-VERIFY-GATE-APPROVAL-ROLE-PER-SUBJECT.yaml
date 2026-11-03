@@ -1,0 +1,11 @@
+id: VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT
+parent: null
+derives_from:
+  - doc: DS-1164
+claim: scope 内に複数の対象がある場合は各対象について当該ロールの有効承認を要求する（fail-closed）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00
