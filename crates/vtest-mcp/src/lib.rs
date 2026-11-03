@@ -746,7 +746,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
                     })).collect::<Vec<_>>(),
                     "effective_state": effective,
                 }),
-                &[],
+                &result.diagnostics,
             )
         }
         Err(error) => approval_error_envelope(&error),
