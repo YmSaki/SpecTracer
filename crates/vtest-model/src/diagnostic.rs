@@ -1,6 +1,13 @@
 use crate::SourceLocation;
 use serde::{Deserialize, Serialize};
 
+/// DS-1689/DS-1690: the single diagnostic code for an internal error — a
+/// failure of the tool itself (store I/O, serialization, a broken
+/// implementation invariant) that is neither invalid input nor an operation
+/// rejection. It always maps to exit code 3 and is never a verification
+/// state.
+pub const INTERNAL_ERROR_CODE: &str = "E-INTERNAL-001";
+
 /// Severity level of a diagnostic message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum DiagnosticSeverity {

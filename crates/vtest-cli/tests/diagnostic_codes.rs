@@ -82,9 +82,34 @@ fn document_io_failure_remains_internal() {
         &root,
         &["doc", "add", "--id", "bad", "--path", "source.json"],
         3,
-        "E-CORE-001",
+        "E-INTERNAL-001",
     );
     fs::remove_dir_all(root).unwrap();
+}
+
+/// #99: a `.verify/config.yaml` that cannot be read at all (here, it is a
+/// directory) is a tool failure (DS-930/DS-1689), not a rejected config
+/// (DS-929). Every config-loading entry point reports E-INTERNAL-001 with
+/// exit 3 and no partial result, instead of E-CONFIG-001 / exit 2.
+/// @vtest.id TEST-CLI-CONFIG-IO-INTERNAL
+/// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an unreadable config.yaml yields E-INTERNAL-001 and exit 3 through scan, doctor, verify and run
+#[test]
+fn unreadable_config_is_an_internal_error() {
+    for args in [
+        vec!["scan"],
+        vec!["doctor"],
+        vec!["verify"],
+        vec!["run", "--all"],
+    ] {
+        let root = fixture("config-io");
+        let config = root.join(".verify/config.yaml");
+        fs::remove_file(&config).unwrap();
+        fs::create_dir(&config).unwrap();
+        assert_failure(&root, &args, 3, "E-INTERNAL-001");
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 /// @vtest.id TEST-CLI-CONFIG-ERROR-CODE

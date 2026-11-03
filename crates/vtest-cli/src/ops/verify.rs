@@ -83,6 +83,8 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
+    /// The tool itself failed (DS-1689/DS-1690): E-INTERNAL-001, exit 3.
+    Internal(String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -105,9 +107,12 @@ pub fn execute(
         message,
     })?;
 
-    let config = load_config(root).map_err(|error| VerifyOpError::Usage {
-        code: "E-CONFIG-001",
-        message: error.to_string(),
+    let config = load_config(root).map_err(|error| match error.config_load_code() {
+        Some(code) => VerifyOpError::Usage {
+            code,
+            message: error.to_string(),
+        },
+        None => VerifyOpError::Internal(error.to_string()),
     })?;
 
     let gate_config = resolve_gate(&config, gate).map_err(|message| VerifyOpError::Usage {

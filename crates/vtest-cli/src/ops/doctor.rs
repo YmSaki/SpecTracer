@@ -11,12 +11,7 @@ use vtest_store::load_config;
 pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
     let config = match load_config(root) {
         Ok(config) => config,
-        Err(error) => {
-            return (
-                ExitCode::Usage,
-                crate::config_failure_envelope(&error.to_string()),
-            )
-        }
+        Err(error) => return crate::config_error_result(&error),
     };
     match scan_project(root, registry) {
         Ok(result) => {
