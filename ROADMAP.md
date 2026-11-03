@@ -6,14 +6,24 @@ item and an implementation detail differ.
 
 ## Current status
 
-- M1 through M9 are complete and recorded in `tests/ACCEPTANCE.md`.
-- The M9 MCP surface is accepted for the minimum ordinary stdio use case and
-  delegates to the existing CLI/core JSON behavior.
-- GitHub Actions now runs the main/develop CI gate and publishes tagged binary
+- The canonical v0.1 specification (`docs/canonical/specification.json`)
+  replaced the earlier eleven-item surface with four checks and five states.
+  The M1–M9 rows in `tests/ACCEPTANCE.md` record the retired surface and are
+  not evidence for the current model.
+- Implemented CLI commands: `init`, `scan`, `doctor`, `run`, `verify`
+  (including `--gate`), `approval`, and `doc`. Not provided yet: `vo`,
+  `audit`, `report`, and judgment records.
+- The MCP stdio server advertises nine tools that share the CLI's operation
+  layer; the `vtest mcp` launch subcommand and the remaining tools are open
+  work.
+- The adapter API, registry, Rust adapter, and synthetic adapter exist; the
+  v0.2 separation is in progress.
+- GitHub Actions runs the main/develop CI gate and publishes tagged binary
   releases. The first live release still requires a maintainer-created version
   tag.
-- The verification contract remains language- and test-runner-agnostic by design;
-  the v0.1 discovery and execution adapter is Rust/Cargo.
+- Progress is tracked with GitHub
+  [milestones](https://github.com/YmSaki/SpecTracer/milestones) and
+  [issues](https://github.com/YmSaki/SpecTracer/issues), not in this file.
 
 ## Next: v0.2 adapter separation
 

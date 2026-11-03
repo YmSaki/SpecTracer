@@ -1,5 +1,10 @@
 # v0.2 delivery status — 2026-09-20
 
+> **Superseded.** This note is a historical snapshot from 2026-09-20 and is no
+> longer updated. Current progress is tracked with GitHub
+> [milestones](https://github.com/YmSaki/SpecTracer/milestones) and
+> [issues](https://github.com/YmSaki/SpecTracer/issues).
+
 This is a working status note for the adapter-separation program. The canonical
 requirements and specifications take precedence over this note.
 

@@ -9,15 +9,15 @@
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
 [![CI](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
-![Status M9 verified](https://img.shields.io/badge/acceptance-M9%20verified-brightgreen)
-![MCP CLI parity](https://img.shields.io/badge/MCP--CLI%20parity-verified-brightgreen)
+![Status v0.2 in progress](https://img.shields.io/badge/status-v0.2%20in%20progress-orange)
 ![Fail Closed](https://img.shields.io/badge/design-fail--closed-purple)
 
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
 
 SpecTracer's verification model is language- and test-runner-agnostic by design.
-The current v0.1 implementation supports Rust and Cargo; adapters for TypeScript,
-JavaScript, Go, C#, and other ecosystems are future work.
+The current implementation ships one production adapter, Rust/Cargo
+(`vtest-adapter-rust`), behind a language-neutral adapter API; adapters for
+TypeScript, JavaScript, Go, C#, and other ecosystems are future work.
 
 **The current CLI binary is `vtest`.**
 
@@ -47,15 +47,13 @@ SpecTracer is built for that gap.
 
 ```mermaid
 flowchart TD
-    SPEC[Specification] --> REQ[Requirement]
-    REQ --> VO[Verification Obligation]
-    VO --> INTENT[Test Intent]
-    INTENT --> TEST[Test Implementation]
+    DOC[Document node] --> VO[Verification Obligation]
+    VO --> TEST[Test]
     TEST --> SRC[Target Implementation]
     SRC --> EVIDENCE[Execution Evidence]
 
     VERIFY{{vtest verify}}
-    VERIFY -. checks .-> SPEC
+    VERIFY -. checks .-> DOC
     VERIFY -. checks .-> VO
     VERIFY -. checks .-> TEST
     VERIFY -. checks .-> SRC
@@ -74,14 +72,15 @@ SpecTracer is a verification layer around your tests and development process; ke
 
 | Question | Test runner | Coverage tool | SpecTracer |
 |---|:---:|:---:|:---:|
-| Did the test process pass? | ✓ | — | ✓* |
-| What requirement is this test supposed to prove? | — | — | ✓ |
-| Did the declared target get called? | — | partial | ✓ |
-| Was the target result actually verified? | — | — | ✓ |
-| Is this audit/evidence still current after edits? | — | — | ✓* |
+| Did the test process pass? | ✓ | — | ✓ (Evidence) |
+| What specification node is this test supposed to prove? | — | — | ✓ |
+| Did the declared target get bound and measured? | — | partial | ✓ |
+| Does the test carry an oracle (assertion) at all? | — | — | ✓ |
+| Is this Evidence still current after edits? | — | — | ✓ |
 | Can incomplete verification silently become `OK`? | Possible | Possible | **No** (fail-closed) |
 
-`*` These capabilities are implemented and acceptance-tested through M9. The MCP server delegates to the same CLI/core JSON envelope and preserves fail-closed states; see [Project status](#project-status).
+See [Project status](#project-status) for what is implemented today and what is
+still tracked as open work.
 
 ---
 
@@ -93,17 +92,20 @@ ecosystem-specific machinery used to discover and execute tests.
 - **Language-independent contract:** specifications, requirements, Verification
   Obligations, Test identity and intent, approvals, audits, Evidence, content
   hashes, fail-closed states, aggregation, and reporting.
-- **Current v0.1 adapter:** Rust `#[test]` discovery, Rust symbol resolution,
-  Cargo test execution, and `cargo-llvm-cov` target measurement.
+- **Current adapter:** `vtest-adapter-rust` provides Rust `#[test]` discovery,
+  Rust symbol resolution (canonical Locators), Cargo test execution, and
+  `cargo-llvm-cov` target measurement. `vtest-adapter-synthetic` is a test-only
+  adapter that proves the core does not depend on Rust.
 - **Intended expansion:** TypeScript/JavaScript, Go, C#, and other languages and
-  test runners through explicit scanner, runner, and coverage adapters that
-  preserve the same verification contract.
+  test runners through explicit adapters that declare their capabilities
+  (source discovery, static analysis, test runner, coverage, ...). A missing
+  capability yields `NO_EVIDENCE` with a `NOT_EXECUTED` / `NOT_CHECKED`
+  diagnostic label, never `PASS`.
 
-The v0.1 implementation has not yet completed that adapter boundary:
-`TestEntity` still carries Cargo-oriented execution coordinates such as a test
-filter, package, and target kind. Supporting additional ecosystems therefore
-requires generalizing those coordinates while preserving the language-neutral
-verification states, canonical identities, and Evidence hash binding.
+The adapter separation (v0.2) is in progress: the neutral
+`ExecutionDescriptor`, config v2, the adapter registry, and the synthetic
+adapter exist, while some boundaries (for example Structured Test Operations
+still parsing Rust directly in `vtest-scan`) are tracked as open issues.
 
 Framework-neutral discovery adapters for other languages are documented in
 [`docs/adapters/`](docs/adapters/lexical.md). They trace `@vtest.` declarations
@@ -148,36 +150,40 @@ vtest init --name my-project
 
 This creates the canonical `.verify/` layout.
 
-### 3. Register a specification
+### 3. Register a specification document
+
+Specifications are registered as document node trees: one JSON file per
+document, whose nodes carry stable IDs and `derives_from` links to upstream
+nodes.
 
 ```bash
-vtest spec add \
-  --id SPEC-CALC \
-  --path docs/calculator.md \
-  --title "Calculator behavior"
+vtest doc add --id calculator --path docs/calculator.json
+vtest doc list --tree
 ```
 
-### 4. Add a requirement and a Verification Obligation
+### 4. Declare a Verification Obligation (VO)
 
-```bash
-vtest req add \
-  --id REQ-CALC-001 \
-  --summary "Addition returns the arithmetic sum" \
-  --spec SPEC-CALC \
-  --sections "§1"
+VOs are plain YAML records under `.verify/vo/`, one file per VO, deriving from
+one or more document nodes:
 
-vtest vo add \
-  --id VO-CALC-001 \
-  --claim "add(a, b) returns a + b" \
-  --req REQ-CALC-001 \
-  --spec SPEC-CALC \
-  --sections "§1"
+```yaml
+# .verify/vo/VO-CALC-001.yaml
+id: VO-CALC-001
+parent: null
+derives_from:
+  - doc: SPEC-001   # a node id from a registered document
+claim: add(a, b) returns a + b
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-01-01T00:00:00Z
+updated: 2026-01-01T00:00:00Z
 ```
+
+A `vtest vo` command family is not provided yet; it is tracked as an open issue.
 
 ### 5. Bind a test to the obligation and its target
-
-The example below uses the current v0.1 Rust adapter. The annotation model and
-verification chain are not intended to be Rust-specific.
 
 ```rust
 /// @vtest.id TEST-CALC-001
@@ -192,20 +198,28 @@ fn adds_two_numbers() {
 
 The annotation is not just documentation. It gives the test an identity, states what it claims to cover, identifies the intended source target, and records its human-readable intent.
 
-### 6. Scan and audit
+### 6. Scan, run, and verify
 
 ```bash
-vtest scan
-vtest audit static --all
-vtest verify --items static_audit --summary
+vtest doctor          # config and adapter preconditions
+vtest scan            # consistency diagnostics
+vtest run --all       # execute Tests and record Evidence
+vtest verify          # aggregate the four checks: OK / NG
 ```
 
-For automation:
+For automation, every command accepts `--format json` and returns the same
+`{ok, data, diagnostics}` envelope.
+
+### 7. Approve
 
 ```bash
-vtest --format json scan
-vtest --format json verify --items static_audit
+vtest approval create --subject-type vo --subject-id VO-CALC-001 \
+  --state approved --approver-kind human --approver-id alice
+vtest approval show --subject-type vo --subject-id VO-CALC-001
 ```
+
+An approval is bound to the subject's content hash and its upstream
+dependencies; editing either returns the effective state to `draft`.
 
 ---
 
@@ -213,29 +227,31 @@ vtest --format json verify --items static_audit
 
 SpecTracer treats “not proven” as different from “proven.”
 
-A verification item can be:
+`vtest verify` evaluates four checks: `chain_integrity`, `orphan_detection`,
+`target_binding`, and `oracle_presence`. Each check result has one of five
+states:
 
 ```text
 PASS
 FAIL
 MISMATCH
-MISSING
-NOT_CHECKED
-NOT_EXECUTED
-STALE
+NO_EVIDENCE
 UNKNOWN
 ```
+
+Diagnostic labels (`MISSING`, `NOT_EXECUTED`, `NOT_CHECKED`, `STALE`) explain
+*why* a result is not `PASS`; they are listed side by side and never ranked.
 
 For complete verification, **only `PASS` is OK**.
 
 That means:
 
 ```text
-old PASS + changed source      != PASS
-missing audit                 != PASS
-analysis cannot prove safety  != PASS
-out-of-scope check            != PASS
-partial graph                 != PASS
+old Evidence + changed source   -> NO_EVIDENCE (STALE)
+no Evidence                     -> NO_EVIDENCE (NOT_EXECUTED)
+missing adapter capability      -> NO_EVIDENCE (NOT_EXECUTED / NOT_CHECKED)
+out-of-scope check              -> NO_EVIDENCE (NOT_CHECKED)
+unresolvable target             -> MISMATCH (MISSING)
 ```
 
 This is intentional. SpecTracer is designed to preserve uncertainty instead of laundering it into confidence.
@@ -253,17 +269,13 @@ SpecTracer separates three kinds of truth:
 The system compares them and reports the difference, leaving both sides as written until a person or agent changes one.
 
 ```text
-Specification
-    ↓
-Requirement
-    ↓
-Verification Obligation
-    ↓
-Test Intent
-    ↓
-Test Implementation
-    ↓
-Target Implementation
+Document node (specification, design, ...)
+    ↓  derives_from
+Verification Obligation (VO)
+    ↓  @vtest.covers
+Test
+    ↓  @vtest.target
+Target implementation
     ↓
 Execution Evidence
 ```
@@ -278,15 +290,14 @@ SpecTracer keeps canonical records under `.verify/`:
 
 ```text
 .verify/
-├── config.yaml      # project configuration
-├── spec/            # specification references
-├── req/             # requirements
-├── vo/              # verification obligations
+├── config.yaml      # project configuration (version 2: adapters, gates, approval roles)
+├── doc/             # registered document node trees, one JSON file per document
+├── vo/              # Verification Obligations, one YAML file per VO
 ├── rel/             # explicit relations
 ├── forms/           # structured operation schemas
-├── approvals/       # append-only approvals
-├── audits/          # append-only audit records
-├── evidence/        # execution evidence
+├── decisions/       # judgment records (reserved; not implemented yet)
+├── approvals/       # append-only approval records
+├── evidence/        # append-only execution Evidence
 └── cache/           # derived data; safe to rebuild
 ```
 
@@ -315,46 +326,47 @@ The verification layer therefore favors:
 - **machine-readable JSON** for agent and CI integration,
 - **conservative UNKNOWN** over unjustified certainty.
 
-The M9 MCP transport exposes the same core operations to AI agents instead of creating a second behavior model. All 22 advertised tools, CLI/MCP parity, the complete reference flow, notification handling, freshness refresh, and fail-closed error cases are acceptance-tested. The implementation intentionally keeps the existing manual stdio transport; literal SDK-level `rmcp` interoperability remains a documented NOT_CHECKED detail.
+The MCP stdio server (`vtest-mcp`) exposes the same core operations to AI agents instead of creating a second behavior model: each tool calls the same shared operation as the CLI and returns the same envelope. It currently advertises nine tools: `scan`, `run_tests`, `verify`, `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`, `doc_list`, and `doc_get`. The remaining tools in the specification (for example `form_get`, `test_create`, and `report`) are not provided yet. Launching the server through a `vtest mcp` subcommand is tracked as an open issue; today `vtest-mcp` is a library crate without its own binary.
 
 ---
 
 ## Project status
 
-> **Status below means acceptance evidence, not code presence.** Some later-milestone implementation may already exist, but it is advertised as complete only after its milestone flow passes.
+> **Status below means evidence, not code presence.**
 
-| Milestone | Scope | Acceptance |
-|---|---|:---:|
-| S0 | Workspace, canonical layout, shared model | ✅ PASS |
-| M1 | Scan, registry, integrity diagnostics | ✅ PASS |
-| M2 | SPEC / REQ / VO / approval flows | ✅ PASS |
-| M3 | Deterministic static audit | ✅ PASS |
-| M4 | Test execution and Evidence freshness | ✅ PASS |
-| M5 | Agent-delegated semantic audit | ✅ PASS |
-| M6 | Full 11-item fail-closed verification/reporting | ✅ PASS |
-| M7 | Target execution verification via coverage | ✅ PASS |
-| M8 | Structured Test Operations | ✅ PASS |
-| M9 | MCP transport and full CLI parity | ✅ PASS |
+The canonical model was redefined in the v0.1 canonical specification
+(`docs/canonical/specification.json`): four checks and five states replace the
+earlier eleven-item surface. The M1–M9 rows in
+[`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) record that retired surface; their
+`m1_acceptance.rs` … `m9_acceptance.rs` suites are no longer built
+(`autotests = false`) and are not evidence for the current model.
 
-The acceptance ledger lives at [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md).
+Current state:
+
+| Area | State |
+|---|---|
+| `init`, `scan`, `doctor`, `run`, `verify`, `approval`, `doc` CLI | Implemented; acceptance tests under `crates/vtest-cli/tests/` |
+| Four checks / five states / fail-closed aggregation | Implemented (`vtest-verify`) |
+| Phase gates (`verify --gate`) | Implemented; approval-role evaluation is open work |
+| Adapter API, registry, Rust and synthetic adapters | Implemented; separation (v0.2) still in progress |
+| MCP stdio server | Nine tools; launch subcommand and remaining tools are open work |
+| `vo`, `audit`, `report`, judgment records | Not provided yet |
+
+Work is tracked with GitHub
+[milestones](https://github.com/YmSaki/SpecTracer/milestones) and
+[issues](https://github.com/YmSaki/SpecTracer/issues).
 
 ---
 
 ## Where SpecTracer is heading
 
-The target end-to-end verification surface is eleven independent checks:
+Next steps, in the order the open issues track them:
 
-1. `spec_coverage`
-2. `vo_decomposition`
-3. `vo_coverage`
-4. `test_existence`
-5. `static_audit`
-6. `semantic_audit`
-7. `impl_consistency`
-8. `test_execution`
-9. `runtime_result`
-10. `target_execution`
-11. `evidence_validity`
+1. finish the v0.2 adapter separation and its acceptance matrix;
+2. bring the CLI and MCP surfaces to the canonical command and tool lists
+   (`vo`, `audit`, `report`, `form_get`, `test_create`, `vtest mcp`);
+3. add judgment records and the semantic audit flow; and
+4. publish the first tagged release with documentation that matches it.
 
 The goal is to make the provenance of every green result inspectable, so a check turns green through evidence rather than assumption.
 
@@ -390,7 +402,7 @@ Exit codes are designed for automation:
 | `2` | usage/input error |
 | `3` | internal error |
 
-MCP stdio support is complete for the v0.1 user-facing scope and delegates to the same CLI behavior. Full tool-by-tool JSON parity, the complete reference flow, notification/error handling, and the transport error matrix are accepted. Literal `rmcp` SDK interoperability is not claimed.
+MCP tool results use the same envelope as the CLI JSON output; a tool error sets `isError` and carries the diagnostic `code`.
 
 ---
 
@@ -425,14 +437,16 @@ It is infrastructure for making claims about software **explicit, bounded, and a
 
 ```text
 crates/
-├── vtest-model    # shared entities, hashes, diagnostics, states
-├── vtest-store    # canonical record persistence
-├── vtest-scan     # Source scanning and structured operations (Rust adapter in v0.1)
-├── vtest-audit    # deterministic static audit
-├── vtest-exec     # test execution and evidence
-├── vtest-verify   # fail-closed aggregation
-├── vtest-cli      # CLI application layer
-└── vtest-mcp      # MCP adapter milestone
+├── vtest-model              # shared entities, hashes, diagnostics, states
+├── vtest-store              # canonical record persistence
+├── vtest-adapter-api        # adapter traits, capabilities, registry
+├── vtest-adapter-rust       # Rust/Cargo adapter
+├── vtest-adapter-synthetic  # test-only adapter proving language neutrality
+├── vtest-scan               # scan orchestration and structured test operations
+├── vtest-exec               # test execution and Evidence
+├── vtest-verify             # four checks and fail-closed aggregation
+├── vtest-cli                # CLI and shared operation layer
+└── vtest-mcp                # MCP stdio server
 
 docs/              # requirements, specifications, detailed design
 .verify/           # dogfooded verification metadata
