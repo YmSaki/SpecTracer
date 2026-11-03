@@ -1113,7 +1113,10 @@ fn run_verify(
             }
             exit
         }
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
+        // DS-1154: the CLI carries the defined gate names in `message`;
+        // `candidates` is the MCP §13.1 field and is not part of the CLI
+        // envelope.
+        Err(ops::verify::VerifyOpError::Usage { code, message, .. }) => {
             usage_failure(format, quiet, code, &message)
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),

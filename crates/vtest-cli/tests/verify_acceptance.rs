@@ -84,6 +84,69 @@ fn an_undefined_gate_name_is_rejected_before_verification_runs() {
     assert_eq!(run(cli(&root, command)), ExitCode::Usage);
 }
 
+/// DS-1154: the E-CONFIG-002 message names the requested gate and every
+/// defined gate; matching stays exact and case-sensitive (`Release` does not
+/// select `release`).
+/// @vtest.id TEST-VERIFY-UNDEFINED-GATE-LISTS-DEFINED
+/// @vtest.covers VO-VERIFY-UNDEFINED-GATE-CANDIDATES
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent an unknown gate name yields E-CONFIG-002 whose message lists the requested and all defined gate names, with no partial result
+#[test]
+fn an_undefined_gate_error_lists_the_defined_gate_names() {
+    let root = temp_root("unknown-gate-candidates");
+    let layout = vtest_store::init_project(&root, "gate-candidates").expect("init");
+    let mut config = vtest_store::load_config(&root).expect("load config");
+    for name in ["release", "beta"] {
+        config.gates.push(vtest_store::GateConfig {
+            name: name.to_owned(),
+            require: vtest_store::GateRequirement {
+                verification: "PASS".to_owned(),
+                approvals: Vec::new(),
+            },
+        });
+    }
+    std::fs::write(layout.config(), config.to_yaml()).expect("write config");
+
+    let command = Command::Verify {
+        items: Vec::new(),
+        doc: None,
+        vo: None,
+        test: None,
+        gate: Some("Release".to_owned()),
+        summary: false,
+    };
+    assert_eq!(run(cli(&root, command)), ExitCode::Usage);
+
+    let registry = vtest_cli::adapters::builtin_registry().expect("registry");
+    let Err(vtest_cli::ops::verify::VerifyOpError::Usage {
+        code,
+        message,
+        candidates,
+    }) = vtest_cli::ops::verify::execute(
+        &root,
+        &[],
+        None,
+        None,
+        None,
+        Some("Release"),
+        false,
+        &registry,
+    )
+    else {
+        panic!("an unknown gate must be a usage error with no verification result");
+    };
+    assert_eq!(code, "E-CONFIG-002");
+    assert!(message.contains("'Release'"), "{message}");
+    assert!(
+        message.contains("release") && message.contains("beta"),
+        "{message}"
+    );
+    assert_eq!(
+        candidates,
+        Some(vec!["release".to_owned(), "beta".to_owned()])
+    );
+}
+
 /// SPEC-400: the retired 12 items are not checks. Naming one is a usage
 /// error, not a silently narrowed scope.
 /// @vtest.id TEST-VERIFY-RETIRED-CHECK-NAME
