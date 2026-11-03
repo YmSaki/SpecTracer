@@ -23,7 +23,7 @@ use std::path::Path;
 
 use vtest_adapter_api::AdapterRegistry;
 use vtest_exec::{run_tests, ExecutionError, ExecutionResult, RunnableTest};
-use vtest_model::{TargetRef, TestEntity, TestId};
+use vtest_model::{Diagnostic, TargetRef, TestEntity, TestId};
 use vtest_scan::ScanResult;
 use vtest_store::{approval::read_all_vos, StoreError, VerifyLayout};
 use vtest_verify::vo_subtree_ids;
@@ -183,9 +183,62 @@ pub fn run(
     registry: &AdapterRegistry,
 ) -> Result<ExecutionResult, RunOpError> {
     let entities = resolve_runnables(scan, layout, target)?;
+    let mut unresolved = Vec::new();
     let runnables = entities
         .iter()
+        .filter(|entity| {
+            let failures = unresolved_targets(entity, scan);
+            let runnable = failures.is_empty();
+            unresolved.extend(failures);
+            runnable
+        })
         .map(|entity| build_runnable(entity, scan))
         .collect::<Vec<_>>();
-    Ok(run_tests(root, layout, &runnables, fast, registry)?)
+    let mut result = run_tests(root, layout, &runnables, fast, registry)?;
+    // The skipped Tests' diagnostics stay in the result, so the run is
+    // reported as failed rather than as a successful run of fewer Tests.
+    result.diagnostics.splice(0..0, unresolved);
+    Ok(result)
+}
+
+/// DS-1374/DS-1382/DS-1383: Evidence is generated only when every declared
+/// target resolves to exactly one Source Target. A Test with a target that
+/// resolves to none or to several is not executed, and one E-SCAN-004
+/// diagnostic per failing target is returned instead, so `run` never writes
+/// Evidence with a partial `hashes.targets` (#127).
+fn unresolved_targets(entity: &TestEntity, scan: &ScanResult) -> Vec<Diagnostic> {
+    entity
+        .targets
+        .iter()
+        .filter_map(|target| {
+            let (spelling, matches) = match target {
+                TargetRef::Locator(locator) => (
+                    locator.value.clone(),
+                    scan.sources
+                        .iter()
+                        .filter(|source| &source.locator == locator)
+                        .count(),
+                ),
+                TargetRef::SrcId(src_id) => (
+                    src_id.as_str().to_owned(),
+                    scan.sources
+                        .iter()
+                        .filter(|source| source.src_id.as_ref() == Some(src_id))
+                        .count(),
+                ),
+            };
+            (matches != 1).then(|| {
+                let reason = if matches == 0 { "no" } else { "more than one" };
+                Diagnostic::error(
+                    "E-SCAN-004",
+                    format!(
+                        "test `{}` target `{spelling}` resolves to {reason} Source Target; the \
+                         Test is not run and no Evidence is written",
+                        entity.id
+                    ),
+                )
+                .with_location(entity.location.clone())
+            })
+        })
+        .collect()
 }

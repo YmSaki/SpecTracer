@@ -755,3 +755,111 @@ fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
     }
     fs::remove_dir_all(&root).ok();
 }
+
+const RUN_TARGET_TEST_BODY: &str = "/// @vtest.id TEST-RUN-NONE\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.intent declares no target\n\
+     #[test]\n\
+     fn no_target() {\n    assert_eq!(vtest_e2e_fixture::double(1), 2);\n}\n\
+     /// @vtest.id TEST-RUN-ONE\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.intent declares one resolvable target\n\
+     #[test]\n\
+     fn one_target() {\n    assert_eq!(vtest_e2e_fixture::double(2), 4);\n}\n\
+     /// @vtest.id TEST-RUN-TWO\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target src/lib.rs::triple\n\
+     /// @vtest.intent declares two resolvable targets\n\
+     #[test]\n\
+     fn two_targets() {\n    assert_eq!(vtest_e2e_fixture::triple(vtest_e2e_fixture::double(1)), 6);\n}\n\
+     /// @vtest.id TEST-RUN-MISSING\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target src/lib.rs::missing\n\
+     /// @vtest.intent declares one unresolvable target\n\
+     #[test]\n\
+     fn missing_target() {\n    assert_eq!(vtest_e2e_fixture::double(3), 6);\n}\n";
+
+/// DS-1374/DS-1382 (#127): `vtest run` never writes Evidence for a Test
+/// with a declared target that resolves to no Source Target. That Test is
+/// skipped with E-SCAN-004 and the run reports errors, while Tests with
+/// zero, one or several resolvable targets still run and get Evidence.
+/// @vtest.id TEST-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
+/// @vtest.covers VO-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
+/// @vtest.target crates/vtest-cli/src/ops/run.rs::run
+/// @vtest.intent run skips a Test with an unresolved target with E-SCAN-004 and still runs the resolvable ones
+#[test]
+fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
+    let root = temp_root("run-unresolved-target");
+    build_fixture_project_with_test_body(&root, RUN_TARGET_TEST_BODY);
+    fs::write(
+        root.join("src").join("lib.rs"),
+        "pub fn double(x: i32) -> i32 { x * 2 }\npub fn triple(x: i32) -> i32 { x * 3 }\n",
+    )
+    .expect("add triple");
+    git(&root, &["add", "."]);
+    git(&root, &["commit", "-q", "-m", "add triple"]);
+
+    let scan = scan_project(&root, &registry()).expect("scan the fixture project");
+    let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
+    let result = vtest_cli::ops::run::run(
+        &root,
+        &layout,
+        &scan,
+        &vtest_cli::ops::run::RunTarget::All,
+        true,
+        &registry(),
+    )
+    .expect("run completes");
+
+    let run_ids: std::collections::BTreeSet<String> = result
+        .evidence
+        .iter()
+        .map(|record| record.test_id.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        run_ids,
+        ["TEST-RUN-NONE", "TEST-RUN-ONE", "TEST-RUN-TWO"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(result.has_errors());
+    let unresolved: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "E-SCAN-004")
+        .collect();
+    assert_eq!(unresolved.len(), 1, "{:?}", result.diagnostics);
+    assert!(unresolved[0].message.contains("TEST-RUN-MISSING"));
+    assert!(unresolved[0].message.contains("src/lib.rs::missing"));
+
+    let written = fs::read_dir(layout.evidence_dir())
+        .expect("evidence dir")
+        .flatten()
+        .filter_map(|entry| fs::read_to_string(entry.path()).ok())
+        .filter(|text| text.contains("TEST-RUN-MISSING"))
+        .count();
+    assert_eq!(
+        written, 0,
+        "no Evidence may be written for TEST-RUN-MISSING"
+    );
+
+    let exit = vtest_cli::run(vtest_cli::Cli {
+        project: root.clone(),
+        format: vtest_cli::OutputFormat::Json,
+        quiet: true,
+        command: vtest_cli::Command::Run {
+            test: vec!["TEST-RUN-MISSING".to_owned()],
+            vo: None,
+            all: false,
+            fast: true,
+        },
+    });
+    assert_eq!(exit, vtest_model::ExitCode::VerificationFailed);
+}
