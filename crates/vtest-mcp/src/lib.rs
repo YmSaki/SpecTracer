@@ -77,6 +77,8 @@ const TOOL_NAMES: &[&str] = &[
     "doc_list",
     "doc_get",
     "audit_static",
+    "audit_bundle",
+    "audit_submit",
 ];
 
 #[derive(Default)]
@@ -416,6 +418,36 @@ fn tool_input_schema(name: &str) -> Value {
             json!({"test": {"type": "string"}, "all": {"type": "boolean"}}),
             Vec::new(),
         ),
+        // DS-1210: one of `test` / `vo`, plus `kind`.
+        "audit_bundle" => (
+            json!({
+                "test": {"type": "string"},
+                "vo": {"type": "string"},
+                "kind": {"type": "string"}
+            }),
+            Vec::new(),
+        ),
+        // DS-1211: the arguments are the submission JSON itself (DES-430).
+        "audit_submit" => (
+            json!({
+                "bundle_id": {"type": "string"},
+                "subject": {"type": "string"},
+                "judgment_kind": {"type": "string"},
+                "decision": {"type": "string"},
+                "actor": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "id": {"type": "string"},
+                        "model": {"type": "string"}
+                    }
+                },
+                "supersedes": {"type": "array", "items": {"type": "string"}},
+                "reason": {"type": "array", "items": {"type": "object"}},
+                "exclusions": {"type": "array", "items": {"type": "string"}}
+            }),
+            vec!["bundle_id", "subject", "judgment_kind", "decision", "actor"],
+        ),
         "approval_withdraw" => (
             json!({
                 "approval_id": {"type": "string"},
@@ -492,6 +524,17 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "doc_list" => &["tree", "roots"],
         "doc_get" => &["id", "tree", "roots"],
         "audit_static" => &["test", "all"],
+        "audit_bundle" => &["test", "vo", "kind"],
+        "audit_submit" => &[
+            "bundle_id",
+            "subject",
+            "judgment_kind",
+            "decision",
+            "actor",
+            "supersedes",
+            "reason",
+            "exclusions",
+        ],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -540,6 +583,15 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "test")?;
             optional_bool(args, "all")
         }
+        "audit_bundle" => {
+            for key in ["test", "vo", "kind"] {
+                optional_nonempty_string(args, key)?;
+            }
+            Ok(())
+        }
+        // The submission's shape is checked by `ops::judgment::submit`
+        // itself, in DS-1089's order (E-AUDIT-001 before E-AUDIT-003).
+        "audit_submit" => Ok(()),
         _ => Ok(()),
     }
 }
@@ -612,6 +664,8 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "doc_list" => doc_list_tool(root, args),
         "doc_get" => doc_show_tool(root, args),
         "audit_static" => audit_static_tool(root, args),
+        "audit_bundle" => audit_bundle_tool(root, args),
+        "audit_submit" => audit_submit_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -644,6 +698,59 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
     ) {
         Ok((data, diagnostics)) => success_envelope(true, data, &diagnostics),
         Err(error) => failure_envelope(error.code(), error.to_string()),
+    }
+}
+
+fn scanned(
+    root: &Path,
+) -> Result<(vtest_scan::ScanResult, vtest_adapter_api::AdapterRegistry), Value> {
+    if let Err(error) = vtest_store::load_config(root) {
+        return Err(failure_envelope("E-CONFIG-001", error.to_string()));
+    }
+    let registry = resolve_registry()?;
+    let scan = vtest_scan::scan_project(root, &registry).map_err(|error| {
+        failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+    })?;
+    Ok((scan, registry))
+}
+
+fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
+    failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+}
+
+/// DS-1210: the same `ops::judgment::bundle` `vtest audit bundle` calls.
+fn audit_bundle_tool(root: &Path, args: &Value) -> Value {
+    let (scan, registry) = match scanned(root) {
+        Ok(found) => found,
+        Err(envelope) => return envelope,
+    };
+    let subject = match (string_arg(args, "test"), string_arg(args, "vo")) {
+        (Some(test), None) => ops::judgment::Subject::Test(test.to_owned()),
+        (None, Some(vo)) => ops::judgment::Subject::Vo(vo.to_owned()),
+        _ => {
+            return failure_envelope(
+                "E-OP-001",
+                "audit_bundle takes exactly one of `test` or `vo`",
+            )
+        }
+    };
+    match ops::judgment::bundle(root, &scan, &registry, &subject, string_arg(args, "kind")) {
+        Ok(body) => success_envelope(true, body, &[]),
+        Err(error) => judgment_failure(&error),
+    }
+}
+
+/// DS-1211/DS-1212: the same `ops::judgment::submit` `vtest audit submit`
+/// calls; acceptance returns the judgment record id and changes no
+/// verification state.
+fn audit_submit_tool(root: &Path, args: &Value) -> Value {
+    let (scan, _registry) = match scanned(root) {
+        Ok(found) => found,
+        Err(envelope) => return envelope,
+    };
+    match ops::judgment::submit(root, &scan, args) {
+        Ok(result) => success_envelope(true, result, &[]),
+        Err(error) => judgment_failure(&error),
     }
 }
 
@@ -1208,6 +1315,83 @@ mod tests {
 
         let missing = dispatch_tool(&root, "audit_static", &json!({}));
         assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
+    }
+
+    /// @vtest.id TEST-MCP-AUDIT-BUNDLE-SUBMIT
+    /// @vtest.covers VO-JUDGMENT-MCP-SUBMIT-RECORD-ID
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent the MCP audit_bundle / audit_submit tools share the CLI operation: the bundle carries judgment_kind and the accepted submission returns the judgment record id
+    #[test]
+    fn audit_bundle_and_submit_tools_return_a_judgment_record_id() {
+        let root = temp_root("audit-judgment");
+        vtest_store::init_project(&root, "audit-judgment").unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"audit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let document = vtest_model::DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![vtest_model::RootNode {
+                id: vtest_model::DocumentId::new("ROOT-001"),
+                statement: "root".to_owned(),
+                description: None,
+                source: vtest_model::NodeSource {
+                    doc: "root.md".to_owned(),
+                    heading: "root".to_owned(),
+                    lines: [1, 1],
+                },
+            }],
+            request: Vec::new(),
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        let layout = vtest_store::VerifyLayout::new(&root);
+        vtest_store::write_document_file(&layout, "judgment", &document).unwrap();
+        std::fs::write(
+            root.join(".verify/vo/VO-F.yaml"),
+            "id: VO-F\nparent: null\nderives_from:\n  - doc: ROOT-001\nclaim: f\ndimensions: []\n\
+             coverage_policy: null\ncombinations: []\nrepresentative_cases: []\n\
+             created: 2026-11-04T00:00:00Z\nupdated: 2026-11-04T00:00:00Z\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn f() -> i32 { 1 }\n/// @vtest.id TEST-F\n/// @vtest.covers VO-F\n\
+             /// @vtest.target src/lib.rs::f\n/// @vtest.intent f\n#[test]\nfn t() {}\n",
+        )
+        .unwrap();
+        let bundle = dispatch_tool(&root, "audit_bundle", &json!({"test": "TEST-F"}));
+        assert_eq!(bundle["ok"], true, "{bundle}");
+        assert_eq!(bundle["data"]["judgment_kind"], "test-semantic");
+
+        let accepted = dispatch_tool(
+            &root,
+            "audit_submit",
+            &json!({
+                "bundle_id": bundle["data"]["bundle_id"],
+                "subject": "TEST-F",
+                "judgment_kind": "test-semantic",
+                "decision": "deferred",
+                "actor": {"kind": "agent", "id": "reviewer"}
+            }),
+        );
+        assert_eq!(accepted["ok"], true, "{accepted}");
+        let id = accepted["data"]["decision_id"].as_str().unwrap();
+        assert!(root.join(format!(".verify/decisions/{id}.yaml")).is_file());
+
+        let missing = dispatch_tool(&root, "audit_bundle", &json!({}));
+        assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
+        let unknown = dispatch_tool(
+            &root,
+            "audit_submit",
+            &json!({"bundle_id": "01ZZZZZZZZZZZZZZZZZZZZZZZZ"}),
+        );
+        assert_eq!(unknown["diagnostics"][0]["code"], "E-AUDIT-001");
     }
 
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES

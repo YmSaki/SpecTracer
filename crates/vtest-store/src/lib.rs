@@ -13,6 +13,7 @@ use thiserror::Error;
 
 pub mod approval;
 pub mod canonical;
+pub mod decisions;
 pub mod doc_registry;
 pub mod execution_state;
 pub mod forms;

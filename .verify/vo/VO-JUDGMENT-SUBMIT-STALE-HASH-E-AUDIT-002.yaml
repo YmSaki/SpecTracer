@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
+parent: null
+derives_from:
+  - doc: DS-718
+claim: "`audit submit`は、バンドル記録時の各対象の内容ハッシュが、現在のハッシュと一致することを検証する（対象が変更されていれば判断は無効。E-AUDIT-002）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

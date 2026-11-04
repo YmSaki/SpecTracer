@@ -11,6 +11,7 @@ pub mod audit;
 pub mod doc;
 pub mod doctor;
 pub mod init;
+pub mod judgment;
 pub mod run;
 pub mod scan;
 pub mod verify;

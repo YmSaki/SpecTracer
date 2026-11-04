@@ -1,0 +1,314 @@
+//! Acceptance coverage for the judgment-record protocol: `vtest audit
+//! bundle` / `vtest audit submit` (本冊 §8, DS-692〜DS-724, DS-1084〜DS-1090).
+
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+use serde_json::{json, Value};
+use vtest_model::{
+    DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId, VoRecord,
+};
+use vtest_store::{write_document_file, write_vo_record, VerifyLayout};
+
+static NEXT: AtomicU64 = AtomicU64::new(0);
+
+const TESTS: &str = "/// @vtest.id TEST-GOOD\n\
+/// @vtest.covers VO-X\n\
+/// @vtest.target src/lib.rs::add\n\
+/// @vtest.intent adds\n\
+#[test]\n\
+fn good() {\n    assert_eq!(judge_fixture::add(2, 3), 5);\n}\n";
+
+fn fixture(name: &str) -> PathBuf {
+    let root = std::env::temp_dir().join(format!(
+        "vtest-judgment-{name}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    vtest_store::init_project(&root, "judgment").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"judge-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn add(a: i32, b: i32) -> i32 { a + b }\n",
+    )
+    .unwrap();
+    fs::write(root.join("tests/judge.rs"), TESTS).unwrap();
+
+    let layout = VerifyLayout::new(&root);
+    let source = |id: &str| NodeSource {
+        doc: format!("{id}.md"),
+        heading: "judgment".to_owned(),
+        lines: [1, 1],
+    };
+    let document = DocumentFile {
+        schema_version: "0.1".to_owned(),
+        root: vec![RootNode {
+            id: DocumentId::new("ROOT-001"),
+            statement: "judgment root".to_owned(),
+            description: None,
+            source: source("root"),
+        }],
+        request: vec![SentenceNode {
+            id: DocumentId::new("R-001"),
+            statement: "adding works".to_owned(),
+            description: None,
+            derives_from: vec![DocumentId::new("ROOT-001")],
+            cites: None,
+            source: source("request"),
+        }],
+        require: Vec::new(),
+        spec: Vec::new(),
+        detailed_spec: Vec::new(),
+        basic_design: Vec::new(),
+        design: Vec::new(),
+    };
+    write_document_file(&layout, "judgment", &document).unwrap();
+    write_vo_record(
+        &layout,
+        &VoRecord {
+            id: VoId::new("VO-X"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("R-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "add returns the sum".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-11-04T00:00:00Z".to_owned(),
+            updated: "2026-11-04T00:00:00Z".to_owned(),
+        },
+    )
+    .unwrap();
+    root
+}
+
+fn vtest(root: &Path, args: &[&str]) -> (i32, Value) {
+    let output = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .args(["--format", "json"])
+        .args(args)
+        .output()
+        .unwrap();
+    let envelope = serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|_| panic!("{}", String::from_utf8_lossy(&output.stdout)));
+    (output.status.code().unwrap_or(-1), envelope)
+}
+
+fn bundle(root: &Path) -> Value {
+    let (code, envelope) = vtest(root, &["audit", "bundle", "--test", "TEST-GOOD"]);
+    assert_eq!(code, 0, "{envelope}");
+    envelope["data"].clone()
+}
+
+fn submission(bundle: &Value) -> Value {
+    json!({
+        "bundle_id": bundle["bundle_id"],
+        "subject": "TEST-GOOD",
+        "judgment_kind": "test-semantic",
+        "decision": "accepted",
+        "actor": {"kind": "human", "id": "reviewer"}
+    })
+}
+
+fn submit(root: &Path, submission: &Value) -> (i32, Value) {
+    let path = root.join("result.json");
+    fs::write(&path, submission.to_string()).unwrap();
+    vtest(root, &["audit", "submit", "--file", path.to_str().unwrap()])
+}
+
+fn code_of(envelope: &Value) -> &str {
+    envelope["diagnostics"][0]["code"]
+        .as_str()
+        .unwrap_or_default()
+}
+
+fn decision_files(root: &Path) -> Vec<PathBuf> {
+    fs::read_dir(root.join(".verify/decisions"))
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().is_some_and(|ext| ext == "yaml"))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// @vtest.id TEST-JUDGMENT-SUBMIT-REASON-OPTIONAL
+/// @vtest.covers VO-JUDGMENT-SUBMIT-REASON-OPTIONAL, VO-JUDGMENT-BUNDLE-KIND-COPIED
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.intent a submission without reason or exclusions is accepted and written to .verify/decisions with the bundle's judgment_kind and hashes
+#[test]
+fn a_submission_without_a_reason_is_accepted_and_recorded() {
+    let root = fixture("reason");
+    let bundle = bundle(&root);
+    assert_eq!(bundle["judgment_kind"], "test-semantic");
+    assert!(root
+        .join(format!(
+            ".verify/cache/bundles/{}.json",
+            bundle["bundle_id"].as_str().unwrap()
+        ))
+        .is_file());
+
+    let (code, envelope) = submit(&root, &submission(&bundle));
+    assert_eq!(code, 0, "{envelope}");
+    assert_eq!(envelope["data"]["accepted"], true);
+    let id = envelope["data"]["decision_id"].as_str().unwrap();
+    let text = fs::read_to_string(root.join(format!(".verify/decisions/{id}.yaml"))).unwrap();
+    let record = vtest_store::decisions::DecisionRecord::from_yaml(&text, id).unwrap();
+    assert!(record.reason.is_empty());
+    assert_eq!(record.judgment_kind, "test-semantic");
+    assert_eq!(
+        serde_json::to_value(&record.subject_hash).unwrap(),
+        bundle["subject_hash"]
+    );
+    assert_eq!(
+        serde_json::to_value(&record.dependencies).unwrap(),
+        bundle["dependencies"]
+    );
+
+    // An explicit empty reason list is just as acceptable.
+    let mut explicit = submission(&bundle);
+    explicit["reason"] = json!([]);
+    explicit["exclusions"] = json!([]);
+    let (code, envelope) = submit(&root, &explicit);
+    assert_eq!(code, 0, "{envelope}");
+}
+
+/// @vtest.id TEST-JUDGMENT-SUBMIT-STALE-HASH
+/// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.intent changing the declared target after the bundle was recorded makes the submission fail with E-AUDIT-002 and writes no record
+#[test]
+fn a_target_changed_after_bundling_is_rejected_with_e_audit_002() {
+    let root = fixture("stale");
+    let bundle = bundle(&root);
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn add(a: i32, b: i32) -> i32 { b + a }\n",
+    )
+    .unwrap();
+    let (code, envelope) = submit(&root, &submission(&bundle));
+    assert_eq!(code, 2, "{envelope}");
+    assert_eq!(code_of(&envelope), "E-AUDIT-002");
+    assert!(decision_files(&root).is_empty());
+}
+
+/// @vtest.id TEST-JUDGMENT-SUBMIT-ORDERED-CHECKS
+/// @vtest.covers VO-JUDGMENT-SUBMIT-ORDERED-CHECKS, VO-JUDGMENT-SUBMIT-UNKNOWN-BUNDLE-E-AUDIT-001, VO-JUDGMENT-SUBMIT-SUPERSEDES-E-AUDIT-008
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.intent each DS-1089 check rejects with its own code: unknown bundle E-AUDIT-001, subject or kind mismatch E-AUDIT-003, bad decision E-AUDIT-004, bad supersedes E-AUDIT-008
+#[test]
+fn each_submission_check_rejects_with_its_own_code() {
+    let root = fixture("codes");
+    let bundle = bundle(&root);
+
+    let mut unknown = submission(&bundle);
+    unknown["bundle_id"] = json!("01ZZZZZZZZZZZZZZZZZZZZZZZZ");
+    // The bundle check runs first, even before the schema check.
+    unknown["decision"] = json!("maybe");
+    let (code, envelope) = submit(&root, &unknown);
+    assert_eq!((code, code_of(&envelope)), (2, "E-AUDIT-001"), "{envelope}");
+
+    let mut subject = submission(&bundle);
+    subject["subject"] = json!("TEST-OTHER");
+    let (_, envelope) = submit(&root, &subject);
+    assert_eq!(code_of(&envelope), "E-AUDIT-003", "{envelope}");
+
+    let mut kind = submission(&bundle);
+    kind["judgment_kind"] = json!("case-coverage");
+    let (_, envelope) = submit(&root, &kind);
+    assert_eq!(code_of(&envelope), "E-AUDIT-003", "{envelope}");
+
+    let mut missing_actor = submission(&bundle);
+    missing_actor.as_object_mut().unwrap().remove("actor");
+    let (_, envelope) = submit(&root, &missing_actor);
+    assert_eq!(code_of(&envelope), "E-AUDIT-003", "{envelope}");
+
+    let mut decision = submission(&bundle);
+    decision["decision"] = json!("maybe");
+    let (_, envelope) = submit(&root, &decision);
+    assert_eq!(code_of(&envelope), "E-AUDIT-004", "{envelope}");
+
+    let mut supersedes = submission(&bundle);
+    supersedes["supersedes"] = json!(["01ZZZZZZZZZZZZZZZZZZZZZZZZ"]);
+    let (_, envelope) = submit(&root, &supersedes);
+    assert_eq!(code_of(&envelope), "E-AUDIT-008", "{envelope}");
+    assert!(decision_files(&root).is_empty());
+
+    // A valid supersedes chain is accepted.
+    let (code, first) = submit(&root, &submission(&bundle));
+    assert_eq!(code, 0, "{first}");
+    let mut second = submission(&bundle);
+    second["supersedes"] = json!([first["data"]["decision_id"]]);
+    second["decision"] = json!("rejected");
+    let (code, envelope) = submit(&root, &second);
+    assert_eq!(code, 0, "{envelope}");
+    assert_eq!(decision_files(&root).len(), 2);
+}
+
+/// @vtest.id TEST-JUDGMENT-ACCEPTANCE-NO-STATE-CHANGE
+/// @vtest.covers VO-JUDGMENT-ACCEPTANCE-NO-STATE-CHANGE
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.intent verify reports the same states and exit code before and after a judgment is accepted
+#[test]
+fn an_accepted_judgment_does_not_change_verification_state() {
+    let root = fixture("state");
+    let (before_code, before) = vtest(&root, &["verify"]);
+    let bundle = bundle(&root);
+    let (code, envelope) = submit(&root, &submission(&bundle));
+    assert_eq!(code, 0, "{envelope}");
+    let (after_code, after) = vtest(&root, &["verify"]);
+    assert_eq!(before_code, after_code);
+    assert_eq!(before["data"], after["data"]);
+}
+
+/// @vtest.id TEST-JUDGMENT-BUNDLE-SELECTION
+/// @vtest.covers VO-JUDGMENT-BUNDLE-VO-REQUIRES-CASE-COVERAGE, VO-JUDGMENT-BUNDLE-UNRESOLVED-TARGET
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.intent --vo without --kind case-coverage is a usage error, and a Test whose declared target does not resolve gets no bundle
+#[test]
+fn bundle_rejects_bad_kind_combinations_and_unresolved_targets() {
+    let root = fixture("selection");
+    for args in [
+        vec!["audit", "bundle", "--vo", "VO-X"],
+        vec!["audit", "bundle", "--vo", "VO-X", "--kind", "test-semantic"],
+        vec!["audit", "bundle", "--test", "TEST-GOOD", "--kind", "nope"],
+    ] {
+        let (code, envelope) = vtest(&root, &args);
+        assert_eq!((code, code_of(&envelope)), (2, "E-OP-001"), "{args:?}");
+    }
+    let (code, envelope) = vtest(
+        &root,
+        &["audit", "bundle", "--vo", "VO-X", "--kind", "case-coverage"],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    assert_eq!(envelope["data"]["judgment_kind"], "case-coverage");
+
+    let bundles = || {
+        fs::read_dir(root.join(".verify/cache/bundles"))
+            .unwrap()
+            .count()
+    };
+    let before = bundles();
+    fs::write(root.join("src/lib.rs"), "pub fn other() {}\n").unwrap();
+    let (code, envelope) = vtest(&root, &["audit", "bundle", "--test", "TEST-GOOD"]);
+    assert_eq!((code, code_of(&envelope)), (2, "E-SCAN-004"), "{envelope}");
+    assert_eq!(bundles(), before, "no bundle is generated");
+}

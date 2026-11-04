@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-SUBMIT-ORDERED-CHECKS
+parent: null
+derives_from:
+  - doc: DS-1089
+claim: "`audit submit` は本冊 §8.4 の検証（bundle_id 存在＝E-AUDIT-001、subject 一致＝E-AUDIT-003、judgment_kind 一致・値域＝E-AUDIT-003、記録時ハッシュと現在ハッシュの一致＝E-AUDIT-002、decision が受理値＝E-AUDIT-004、supersedes の参照先が同一 subject・同一 judgment_kind の既存判断記録で自己参照でない＝E-AUDIT-008）を行い、受理時に判断記録 ID（`.verify/decisions/` の ULID）を出力する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

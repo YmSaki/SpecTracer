@@ -130,6 +130,24 @@ pub enum AuditCommand {
         #[arg(long)]
         all: bool,
     },
+    /// Judgment bundle (SPEC-391, DS-692): hands a subject the machine
+    /// cannot decide to an external judge, written to
+    /// `.verify/cache/bundles/<id>.json`.
+    Bundle {
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "vo")]
+        test: Option<String>,
+        #[arg(long = "vo", value_name = "VO_ID")]
+        vo: Option<String>,
+        /// test-semantic / impl-consistency / case-coverage.
+        #[arg(long = "kind")]
+        kind: Option<String>,
+    },
+    /// Judgment submission (SPEC-391, DS-715〜DS-723): checks the result
+    /// against its bundle and appends `.verify/decisions/<id>.yaml`.
+    Submit {
+        #[arg(long = "file", value_name = "PATH")]
+        file: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -295,6 +313,17 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
         Command::Audit(AuditCommand::Static { test, all }) => {
             run_audit_static(&cli.project, test.as_deref(), all, cli.format, cli.quiet)
+        }
+        Command::Audit(AuditCommand::Bundle { test, vo, kind }) => run_audit_bundle(
+            &cli.project,
+            test,
+            vo,
+            kind.as_deref(),
+            cli.format,
+            cli.quiet,
+        ),
+        Command::Audit(AuditCommand::Submit { file }) => {
+            run_audit_submit(&cli.project, &file, cli.format, cli.quiet)
         }
         Command::Verify {
             items,
@@ -680,6 +709,126 @@ fn run_audit_static(
             emit_failure(format, quiet, error.code(), &error.to_string());
             error.exit_code()
         }
+    }
+}
+
+fn judgment_error_exit(
+    error: &ops::judgment::JudgmentOpError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    use ops::judgment::JudgmentOpError;
+    match error {
+        JudgmentOpError::Store(error) => record_error_exit(error, format, quiet),
+        other => match other.code() {
+            Some(code) => usage_failure(format, quiet, code, &other.to_string()),
+            None => {
+                emit_failure(format, quiet, "E-CORE-001", &other.to_string());
+                ExitCode::Internal
+            }
+        },
+    }
+}
+
+fn scanned_project(
+    project: &Path,
+    format: OutputFormat,
+    quiet: bool,
+) -> Result<
+    (
+        PathBuf,
+        vtest_scan::ScanResult,
+        vtest_adapter_api::AdapterRegistry,
+    ),
+    ExitCode,
+> {
+    let root = resolve_root(project, format, quiet)?;
+    if let Err(error) = load_config(&root) {
+        return Err(usage_failure(
+            format,
+            quiet,
+            "E-CONFIG-001",
+            &error.to_string(),
+        ));
+    }
+    let registry = resolve_registry(format, quiet)?;
+    let scan =
+        scan_project(&root, &registry).map_err(|error| scan_error_exit(&error, format, quiet))?;
+    Ok((root, scan, registry))
+}
+
+fn run_audit_bundle(
+    project: &Path,
+    test: Option<String>,
+    vo: Option<String>,
+    kind: Option<&str>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let (root, scan, registry) = match scanned_project(project, format, quiet) {
+        Ok(found) => found,
+        Err(code) => return code,
+    };
+    let subject = match (test, vo) {
+        (Some(test), None) => ops::judgment::Subject::Test(test),
+        (None, Some(vo)) => ops::judgment::Subject::Vo(vo),
+        _ => {
+            return usage_failure(
+                format,
+                quiet,
+                "E-OP-001",
+                "audit bundle takes exactly one of --test <ID> or --vo <ID>",
+            )
+        }
+    };
+    match ops::judgment::bundle(&root, &scan, &registry, &subject, kind) {
+        Ok(body) => {
+            let envelope = JsonEnvelope::new(true, &body, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                format!(
+                    "bundle {} written to .verify/cache/bundles/{}.json\n",
+                    body["bundle_id"].as_str().unwrap_or_default(),
+                    body["bundle_id"].as_str().unwrap_or_default()
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => judgment_error_exit(&error, format, quiet),
+    }
+}
+
+fn run_audit_submit(project: &Path, file: &str, format: OutputFormat, quiet: bool) -> ExitCode {
+    let (root, scan, _registry) = match scanned_project(project, format, quiet) {
+        Ok(found) => found,
+        Err(code) => return code,
+    };
+    let path = absolute_path(Path::new(file));
+    let submission: serde_json::Value = match std::fs::read_to_string(&path)
+        .map_err(|error| error.to_string())
+        .and_then(|text| serde_json::from_str(&text).map_err(|error| error.to_string()))
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return usage_failure(
+                format,
+                quiet,
+                "E-AUDIT-003",
+                &format!("cannot read the submission {}: {error}", path.display()),
+            )
+        }
+    };
+    match ops::judgment::submit(&root, &scan, &submission) {
+        Ok(result) => {
+            let envelope = JsonEnvelope::new(true, &result, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                format!(
+                    "accepted: judgment record {} ({} {} {})\n",
+                    result.decision_id, result.subject, result.judgment_kind, result.decision
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => judgment_error_exit(&error, format, quiet),
     }
 }
 
