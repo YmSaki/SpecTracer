@@ -540,7 +540,7 @@ fn run_approval(
                     })).collect::<Vec<_>>(),
                     "effective_state": effective,
                 });
-                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                let envelope = JsonEnvelope::new(true, data, result.diagnostics.clone());
                 emit(format, quiet, &envelope, |envelope| {
                     format!(
                         "approval show: {} record(s), effective state {}\n",

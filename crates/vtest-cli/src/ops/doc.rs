@@ -200,7 +200,12 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
         let Some((hash, _)) = doc_index.get(node_id) else {
             continue;
         };
-        let dependencies = document_dependencies(&doc_index, node_id);
+        // DS-1058/1467: an unresolvable dependency closure cannot bind any
+        // approval, so the node stays draft.
+        let Ok(dependencies) = document_dependencies(&doc_index, node_id) else {
+            approval_states.insert(node_id.clone(), "draft".to_owned());
+            continue;
+        };
         let matching: Vec<_> = approvals
             .iter()
             .filter(|record| record.subject_type == "document" && &record.subject == node_id)
