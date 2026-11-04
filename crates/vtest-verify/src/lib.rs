@@ -488,19 +488,23 @@ impl EvidenceContext<'_> {
     }
 }
 
-/// The `test_id` a broken Evidence file declares, read line by line so a
-/// record that fails the schema can still be attributed to its Test. A file
-/// whose Test cannot be read is attributed to every Test (fail-closed).
+/// The `test_id` a broken Evidence file declares, so a record that fails the
+/// schema (an unknown field, an id that differs from its file name, ...) can
+/// still be attributed to its Test. The file is parsed as YAML and the value
+/// is used only when it is a string that is a well-formed Test ID; anything
+/// else — YAML that does not parse, a duplicated key, `test_id: null`, a
+/// number, an empty or whitespace-bearing string — returns `None`, which
+/// `invalid_latest` attributes to every Test (fail-closed). Reading the line
+/// textually would turn `test_id: null` into the Test ID `"null"`, which
+/// matches no real Test, and an older valid PASS would stand in again.
 fn declared_test_id(text: &str) -> Option<String> {
-    text.lines().find_map(|line| {
-        let value = line.strip_prefix("test_id:")?.trim();
-        let value = value
-            .strip_prefix('\'')
-            .and_then(|v| v.strip_suffix('\''))
-            .or_else(|| value.strip_prefix('"').and_then(|v| v.strip_suffix('"')))
-            .unwrap_or(value);
-        (!value.is_empty()).then(|| value.to_owned())
-    })
+    let value: yaml_serde::Value = yaml_serde::from_str(text).ok()?;
+    let declared = value.get("test_id")?.as_str()?;
+    let well_formed = !declared.is_empty()
+        && declared
+            .chars()
+            .all(|c| !c.is_whitespace() && !c.is_control());
+    well_formed.then(|| declared.to_owned())
 }
 
 fn git_head_commit(root: &Path) -> Option<String> {
@@ -3395,5 +3399,29 @@ mod tests {
             Some("TEST-ONE")
         );
         assert_eq!(declared_test_id("{{{ not yaml").as_deref(), None);
+        // PR #132 review: a value that is not a well-formed Test ID string
+        // cannot attribute the record, so it is attributed to every Test.
+        assert_eq!(declared_test_id("id: X\ntest_id: null\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ~\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 12\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ''\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 'A B'\n").as_deref(), None);
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: [TEST-ONE]\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("test_id: TEST-ONE\ntest_id: TEST-TWO\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: TEST-ONE\nunexpected: true\n").as_deref(),
+            Some("TEST-ONE")
+        );
+        let null_test = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            declared_test_id("id: X\ntest_id: null\nunexpected: true\n").as_deref(),
+        )]);
+        assert!(null_test.invalid_latest("TEST-ONE").is_some());
     }
 }

@@ -550,6 +550,24 @@ fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
             "id differs from the file name",
             failed.replace(later_id, "7ZZZZZZZZZZZZZZZZZZZZZZZZY"),
         ),
+        (
+            // PR #132 review: the broken record's Test cannot be told, so it
+            // may be this Test's latest; the older PASS must not stand in.
+            "unknown field and test_id: null",
+            format!(
+                "{}unexpected: true\n",
+                failed
+                    .lines()
+                    .map(|line| if line.starts_with("test_id:") {
+                        "test_id: null"
+                    } else {
+                        line
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    + "\n"
+            ),
+        ),
     ] {
         fs::write(&later, &broken).expect("write broken later Evidence");
         let scan = scan_project(&root, &registry()).expect("scan");
