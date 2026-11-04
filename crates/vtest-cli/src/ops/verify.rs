@@ -77,6 +77,10 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
+    /// A verification input could not be read because of a store I/O failure
+    /// (E-INTERNAL-001, exit code 3, DS-1689/DS-1690). No result is returned,
+    /// because a result computed without that input is not complete.
+    Internal { message: String },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -112,7 +116,17 @@ pub fn execute(
     let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
     let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
+    if let Some(internal) = outcome
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "E-INTERNAL-001")
+    {
+        return Err(VerifyOpError::Internal {
+            message: internal.message.clone(),
+        });
+    }
     let mut diagnostics = scan.diagnostics.clone();
+    diagnostics.extend(outcome.diagnostics.iter().cloned());
     let gate_evaluation = gate_config.map(|gate| {
         let (evaluation, gate_diagnostics) = evaluate_gate(root, &config, gate, &outcome);
         diagnostics.extend(gate_diagnostics);

@@ -549,12 +549,15 @@ fn a_schema_broken_withdrawal_fails_closed_instead_of_resurrecting_the_approval(
 }
 
 /// DS-556: an existing record whose `supersedes` no longer resolves is
-/// excluded from the effective set with W-STORE-005, so the subject is not
-/// approved; a well-formed re-approval of the same subject still is.
+/// excluded from the effective set with W-STORE-005, so a subject whose only
+/// approval is that record is not approved (#129). The broken record is not
+/// a standing veto (PR #133 review): a well-formed re-approval for the
+/// current hash recovers the subject without deleting history, and the
+/// W-STORE-005 for the broken record is still reported.
 /// @vtest.id TEST-APPROVAL-INVALID-SUPERSEDES-NOT-APPROVED
 /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
 /// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
-/// @vtest.intent an approval whose stored supersedes is unresolved reads as draft with W-STORE-005
+/// @vtest.intent an approval whose stored supersedes is unresolved reads as draft with W-STORE-005, and a normal re-approval recovers it
 #[test]
 fn an_approval_with_an_unresolved_stored_supersedes_is_not_approved() {
     let root = temp_root("invalid-supersedes");
@@ -568,31 +571,16 @@ fn an_approval_with_an_unresolved_stored_supersedes_is_not_approved() {
     );
     let first = approval_paths(&root)[0].clone();
     let first_id = record_id(&first);
+    let approved = effective(&root, "VO-APPROVAL-DOUBLE");
     assert_eq!(
-        run(cli(
-            &root,
-            create_command(
-                "VO-APPROVAL-DOUBLE",
-                ApprovedStateArg::Approved,
-                vec![first_id.clone()],
-            ),
-        )),
-        ExitCode::Ok
-    );
-    let reapproved = effective(&root, "VO-APPROVAL-DOUBLE");
-    assert_eq!(
-        reapproved.effective_state,
+        approved.effective_state,
         vtest_store::approval::EffectiveApprovalState::Approved
     );
-    assert!(reapproved.diagnostics.is_empty());
+    assert!(approved.diagnostics.is_empty());
 
-    let second = approval_paths(&root)
-        .into_iter()
-        .find(|path| record_id(path) != first_id)
-        .expect("second record exists");
-    let mut record = vtest_store::records::read_approval(&second).expect("read second record");
+    let mut record = vtest_store::records::read_approval(&first).expect("read first record");
     record.supersedes = vec!["01ZZZZZZZZZZZZZZZZZZZZZZZZ".to_owned()];
-    fs::write(&second, record.to_yaml().expect("serialize")).expect("rewrite supersedes");
+    fs::write(&first, record.to_yaml().expect("serialize")).expect("rewrite supersedes");
 
     let shown = effective(&root, "VO-APPROVAL-DOUBLE");
     assert_eq!(
@@ -606,6 +594,30 @@ fn an_approval_with_an_unresolved_stored_supersedes_is_not_approved() {
             .any(|diagnostic| diagnostic.code == "W-STORE-005"),
         "{:?}",
         shown.diagnostics
+    );
+
+    // Recovery without deleting the broken record: a normal re-approval.
+    assert_eq!(
+        run(cli(
+            &root,
+            create_command("VO-APPROVAL-DOUBLE", ApprovedStateArg::Approved, Vec::new()),
+        )),
+        ExitCode::Ok
+    );
+    assert_eq!(approval_record_count(&root), 2, "history is kept");
+    let recovered = effective(&root, "VO-APPROVAL-DOUBLE");
+    assert_eq!(
+        recovered.effective_state,
+        vtest_store::approval::EffectiveApprovalState::Approved
+    );
+    assert!(
+        recovered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-STORE-005"
+                && diagnostic.message.contains(&first_id)),
+        "{:?}",
+        recovered.diagnostics
     );
 }
 

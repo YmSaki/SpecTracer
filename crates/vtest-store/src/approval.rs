@@ -483,13 +483,13 @@ fn effective_set<'a>(
         .filter(|record| !superseded.contains(record.id.as_str()))
         .collect();
 
-    // Fail-closed: an ill-formed record (for example a withdrawal whose
-    // `supersedes` graph is broken) is excluded from the effective set
-    // (DS-556), but its exclusion must never resurrect an approval it was
-    // meant to supersede. While any record of the subject is ill-formed the
-    // approval history cannot be proven sound, so the subject stays draft.
-    let state = if !ill_formed.is_empty()
-        || effective.is_empty()
+    // DS-556/DS-463: an ill-formed record does not contribute to the
+    // effective set — neither as a member nor by removing the records it
+    // names — and is reported as W-STORE-005. It is not a standing veto:
+    // the state is decided by the effective set alone (DS-1466), so adding a
+    // well-formed record for the current hash (a re-approval, or a record
+    // that supersedes the ill-formed one) recovers without deleting history.
+    let state = if effective.is_empty()
         || effective
             .iter()
             .any(|record| record.approved_state != "approved")
@@ -927,8 +927,8 @@ mod tests {
 
     /// DS-556/DS-1474: an existing record whose `supersedes` is unresolved,
     /// names another subject's record, names itself, or forms a cycle never
-    /// contributes to the effective set and yields W-STORE-005. Its
-    /// exclusion never resurrects the approval it was meant to supersede.
+    /// contributes to the effective set and yields W-STORE-005, so a subject
+    /// whose only approvals are ill-formed is draft.
     /// @vtest.id TEST-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
     /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
     /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval
@@ -960,13 +960,6 @@ mod tests {
                     rec("01B", "VO-X", "approved", &["01A"]),
                 ],
             ),
-            (
-                "broken withdrawal",
-                vec![
-                    rec("01A", "VO-X", "approved", &[]),
-                    rec("01W", "VO-X", "withdrawn", &["01A", "01MISSING"]),
-                ],
-            ),
         ];
         for (name, records) in cases {
             let (state, codes) = state_and_codes(&records);
@@ -976,6 +969,52 @@ mod tests {
                 "{name}: {codes:?}"
             );
         }
+    }
+
+    /// PR #133 review: an ill-formed record is not a standing veto
+    /// (DS-556/DS-1466). It contributes nothing — neither as a member nor by
+    /// removing what it names — and keeps its W-STORE-005, but a well-formed
+    /// record for the current hash recovers the subject without deleting
+    /// history: a plain re-approval, or an approval that supersedes the
+    /// ill-formed record.
+    /// @vtest.id TEST-STORE-APPROVAL-ILL-FORMED-RECORD-RECOVERABLE
+    /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval
+    /// @vtest.intent 不正なsupersedesを持つrecordが残っていても、現在hashへの正常な再承認、または不正recordをsupersedesする承認を追加すればapprovedへ回復し、W-STORE-005は残ることを確認する
+    #[test]
+    fn an_ill_formed_record_does_not_block_a_well_formed_reapproval() {
+        let broken = rec("01A", "VO-X", "approved", &["01MISSING"]);
+        let (state, codes) = state_and_codes(std::slice::from_ref(&broken));
+        assert_eq!(state, EffectiveApprovalState::Draft);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        let reapproved = [broken.clone(), rec("01B", "VO-X", "approved", &[])];
+        let (state, codes) = state_and_codes(&reapproved);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        let superseding = [broken.clone(), rec("01B", "VO-X", "approved", &["01A"])];
+        let (state, codes) = state_and_codes(&superseding);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        // DS-556 literally: an ill-formed withdrawal removes nothing, so the
+        // approval it named stays in the effective set (reported, not
+        // vetoed). A well-formed withdrawal is what makes the subject draft.
+        let broken_withdrawal = [
+            rec("01A", "VO-X", "approved", &[]),
+            rec("01W", "VO-X", "withdrawn", &["01A", "01MISSING"]),
+        ];
+        let (state, codes) = state_and_codes(&broken_withdrawal);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+        let withdrawn_again = [
+            rec("01A", "VO-X", "approved", &[]),
+            rec("01W", "VO-X", "withdrawn", &["01A", "01MISSING"]),
+            rec("01X", "VO-X", "withdrawn", &["01A"]),
+        ];
+        let (state, _) = state_and_codes(&withdrawn_again);
+        assert_eq!(state, EffectiveApprovalState::Draft);
     }
 
     /// DS-1466/DS-1470: a well-formed re-approval chain (approve, withdraw,

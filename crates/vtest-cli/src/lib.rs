@@ -1055,6 +1055,10 @@ fn run_verify(
             usage_failure(format, quiet, code, &message)
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            emit_failure(format, quiet, "E-INTERNAL-001", &message);
+            ExitCode::Internal
+        }
     }
 }
 
