@@ -2099,20 +2099,22 @@ fn adds() { assert_eq!(2, crate::missing()); }
             execution: execution.clone(),
         };
 
-        let (before_tests, _, _) = materialize_tests(
+        let before_tests = materialize_tests(
             vec![(
                 AdapterId::new("rust-cargo"),
                 draft_with_covers(vec![vtest_model::VoId::new("VO-ADD")]),
             )],
             Vec::new(),
-        );
-        let (after_tests, _, _) = materialize_tests(
+        )
+        .0;
+        let after_tests = materialize_tests(
             vec![(
                 AdapterId::new("rust-cargo"),
                 draft_with_covers(vec![vtest_model::VoId::new("VO-ADD-2")]),
             )],
             Vec::new(),
-        );
+        )
+        .0;
 
         assert_eq!(before_tests.len(), 1);
         assert_eq!(after_tests.len(), 1);
@@ -3840,7 +3842,7 @@ fn edit_collision_second() {}
         .unwrap();
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
-        let result = edit_test(
+        let error = edit_test(
             &root,
             "TEST-EDIT-COLLISION",
             None,
@@ -3848,8 +3850,8 @@ fn edit_collision_second() {}
             None,
             true,
             &test_registry(),
-        );
-        let error = result.expect_err("edit of a colliding Test ID must fail closed");
+        )
+        .expect_err("edit of a colliding Test ID must fail closed");
         assert_eq!(error.code, "E-OP-002");
         assert!(
             error.message.contains("2 Test constructs"),

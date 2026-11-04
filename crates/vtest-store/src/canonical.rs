@@ -1592,9 +1592,10 @@ mod tests {
     fn vo_record_round_trips_through_canonical_yaml() {
         let record = sample_vo();
         let yaml = vo_record_to_yaml(&record);
-        let (parsed, diagnostics) = vo_record_from_yaml(&yaml, record.id.as_str()).unwrap();
-        assert_eq!(parsed, record);
-        assert!(diagnostics.is_empty());
+        assert_eq!(
+            vo_record_from_yaml(&yaml, record.id.as_str()).unwrap(),
+            (record.clone(), Vec::new())
+        );
     }
 
     /// @vtest.id TEST-STORE-CANONICAL-VO-OPTIONAL-FIELDS-ABSENT-ROUND-TRIP

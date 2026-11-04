@@ -400,10 +400,14 @@ mod tests {
             ("SPEC-001", "spec", &["R-001"]),
         ]);
         let deps = document_dependencies(&index, "SPEC-001");
-        let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
-        assert_eq!(entities, BTreeSet::from(["R-001", "ROOT-001"]));
+        assert_eq!(
+            deps.iter()
+                .map(|dep| dep.entity.as_str())
+                .collect::<BTreeSet<&str>>(),
+            BTreeSet::from(["R-001", "ROOT-001"])
+        );
         assert!(
-            !entities.contains("SPEC-001"),
+            !deps.iter().any(|dep| dep.entity.as_str() == "SPEC-001"),
             "the subject itself must not appear in its own dependency closure (DS-456)"
         );
     }
@@ -456,14 +460,15 @@ mod tests {
         );
 
         let deps = vo_dependencies(&vos, &doc_index, &VoId::new("VO-CHILD"));
-        let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
         assert_eq!(
-            entities,
+            deps.iter()
+                .map(|dep| dep.entity.as_str())
+                .collect::<BTreeSet<&str>>(),
             BTreeSet::from(["VO-PARENT", "R-001", "ROOT-001"]),
             "must include the parent VO and the document closure of both the subject and its \
              parent"
         );
-        assert!(!entities.contains("VO-CHILD"));
+        assert!(!deps.iter().any(|dep| dep.entity.as_str() == "VO-CHILD"));
     }
 
     fn approval_record(
