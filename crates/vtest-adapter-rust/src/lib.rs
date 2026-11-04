@@ -30,8 +30,8 @@ use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta}
 use vtest_adapter_api::{
     Adapter, AdapterDescriptor, AdapterScanConfig, Capability, CoverageAdapter, DiscoveryError,
     DiscoveryOutcome, MissingTestConstruct, RunnerCommand, RunnerOutput, RunnerTestResult,
-    SourceDiscoveryAdapter, SourceDraft, StaticAnalysisAdapter, TestDraft, TestRunnerAdapter,
-    TestRunnerError,
+    SourceDiscoveryAdapter, SourceDraft, StaticAnalysisAdapter, StructuredTestAdapter, TestDraft,
+    TestRunnerAdapter, TestRunnerError,
 };
 use vtest_model::{
     AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
@@ -40,6 +40,7 @@ use vtest_model::{
 
 pub mod coverage;
 pub mod oracle_presence;
+pub mod structured_test;
 pub mod wire_codec;
 
 pub use coverage::RustCargoCoverageAdapter;
@@ -407,6 +408,7 @@ impl Adapter for RustCargoAdapter {
                 Capability::SourceDiscovery,
                 Capability::TestWireCodec,
                 Capability::StaticAnalysis,
+                Capability::StructuredTest,
                 Capability::TestRunner,
                 Capability::Coverage,
             ],
@@ -424,6 +426,10 @@ impl Adapter for RustCargoAdapter {
 
     fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
         Some(&self.static_analysis)
+    }
+
+    fn as_structured_test(&self) -> Option<&dyn StructuredTestAdapter> {
+        Some(&structured_test::RustStructuredTest)
     }
 
     fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
