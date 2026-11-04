@@ -3353,6 +3353,8 @@ mod tests {
         let context = |current: Option<&str>| EvidenceContext {
             root: temp_root("tb-revision"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: current.map(str::to_owned),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3408,6 +3410,8 @@ mod tests {
         let evidence = EvidenceContext {
             root: temp_root("tb-execution-state-absent"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some(head.to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
