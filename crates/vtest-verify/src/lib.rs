@@ -3143,6 +3143,128 @@ mod tests {
         assert_eq!(outcome.labels, vec![DiagnosticLabel::Stale]);
     }
 
+    /// A Test plus a scan whose single target resolves, so that
+    /// `evidence_validity_failure` passes the DS-819 subject/target checks and
+    /// reaches the revision (DS-820) and Execution State (DS-821) checks.
+    fn evidence_fixture_past_subject_checks(
+        commit: Option<&str>,
+    ) -> (TestEntity, ScanResult, EvidenceRecord) {
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
+        let target_hash = ContentHash::from_text("TEST-ONE::target0");
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 1,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: vec![vtest_model::SourceFunction {
+                locator: vtest_model::Locator {
+                    adapter: AdapterId::new("rust-cargo"),
+                    value: "src/lib.rs::target0".to_owned(),
+                },
+                src_id: None,
+                location: location("SRC-target0"),
+                content_hash: target_hash.clone(),
+            }],
+            diagnostics: Vec::new(),
+        };
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", commit);
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fn = target_hash.clone();
+        record.hashes.target_fns = vec![target_hash];
+        (test, scan, record)
+    }
+
+    /// 計画 v0.2 §9.1「revision commit missing」「current HEAD differs from
+    /// Evidence」: the plan's `evidence_validity STALE` is now
+    /// `target_binding` NO_EVIDENCE(STALE) (DS-820; `evidence_validity` was
+    /// folded into hash binding, SPEC-325).
+    /// @vtest.id TEST-VERIFY-EVIDENCE-REVISION-ABSENT-OR-DIFFERENT-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-REVISION-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
+    /// @vtest.intent An Evidence record with no revision commit, or one that differs from the current HEAD, is NO_EVIDENCE(STALE) even when its subject and targets match.
+    /// @vtest.case revision commit missing
+    /// @vtest.case current HEAD differs from the recorded commit
+    /// @vtest.case current HEAD unknown
+    #[test]
+    fn evidence_with_an_absent_or_different_revision_is_no_evidence_stale() {
+        let registry = test_registry();
+        let head = "1111111111111111111111111111111111111111";
+        let context = |current: Option<&str>| EvidenceContext {
+            root: temp_root("tb-revision"),
+            latest_by_test: BTreeMap::new(),
+            head_commit: current.map(str::to_owned),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        // revision commit missing
+        let (test, scan, record) = evidence_fixture_past_subject_checks(None);
+        let missing = evidence_validity_failure(&test, &record, &scan, &context(Some(head)));
+        let missing = missing.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(missing.state, VerificationState::NoEvidence);
+        assert_eq!(missing.labels, vec![DiagnosticLabel::Stale]);
+        assert!(missing.basis.iter().any(|basis| basis.contains("DS-820")));
+
+        // current HEAD differs from the recorded commit
+        let (test, scan, record) =
+            evidence_fixture_past_subject_checks(Some("2222222222222222222222222222222222222222"));
+        let differs = evidence_validity_failure(&test, &record, &scan, &context(Some(head)));
+        let differs = differs.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(differs.state, VerificationState::NoEvidence);
+        assert_eq!(differs.labels, vec![DiagnosticLabel::Stale]);
+        assert!(differs.basis.iter().any(|basis| basis.contains("DS-820")));
+
+        // current HEAD unknown
+        let (test, scan, record) = evidence_fixture_past_subject_checks(Some(head));
+        let unknown_head = evidence_validity_failure(&test, &record, &scan, &context(None));
+        let unknown_head =
+            unknown_head.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(unknown_head.state, VerificationState::NoEvidence);
+        assert_eq!(unknown_head.labels, vec![DiagnosticLabel::Stale]);
+        assert!(unknown_head
+            .basis
+            .iter()
+            .any(|basis| basis.contains("DS-820")));
+    }
+
+    /// 計画 v0.2 §9.1「Evidence without Execution State subject」: the record
+    /// still reads, and DS-821's "record が欠落" branch makes it
+    /// NO_EVIDENCE(STALE), not the DS-822 UNKNOWN of an incomplete snapshot.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-EXECUTION-STATE-ABSENT-STALE
+    /// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
+    /// @vtest.intent An Evidence record that carries no execution_state block is NO_EVIDENCE(STALE), never UNKNOWN or PASS.
+    #[test]
+    fn evidence_without_an_execution_state_record_is_no_evidence_stale() {
+        let registry = test_registry();
+        let head = "1111111111111111111111111111111111111111";
+        let (test, scan, mut record) = evidence_fixture_past_subject_checks(Some(head));
+        // What `vtest-store::read_evidence` yields for an absent block.
+        record.execution_state = vtest_model::ExecutionState {
+            schema: String::new(),
+            complete: false,
+            hash: None,
+        };
+        let evidence = EvidenceContext {
+            root: temp_root("tb-execution-state-absent"),
+            latest_by_test: BTreeMap::new(),
+            head_commit: Some(head.to_owned()),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
+            .expect("Evidence without an Execution State record must not validate");
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::Stale]);
+        assert!(
+            outcome.basis.iter().any(|basis| basis.contains("DS-821")),
+            "the STALE must come from the absent-record branch: {:?}",
+            outcome.basis
+        );
+    }
+
     /// DS-830/831/832, isolated from the (currently unreachable — see
     /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
     /// @vtest.id TEST-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
