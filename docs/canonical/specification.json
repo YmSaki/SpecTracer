@@ -45138,7 +45138,7 @@
         },
         {
           "id": "BD-124",
-          "statement": "YAMLレコードファイルの処理には `serde_yaml` を使用する。",
+          "statement": "YAMLレコードファイルの処理にはSerde対応のYAMLパーサーを使用する。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
