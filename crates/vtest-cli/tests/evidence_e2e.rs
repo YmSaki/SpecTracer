@@ -65,6 +65,15 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn clear_outer_coverage_environment() {
+    // The Execution State binds the execution-affecting environment
+    // (DES-097/369), so a variable removed by one test while another test is
+    // between its pre- and post-run snapshots would read as an input change
+    // (E-EXEC-004). Clear once, before any test reaches its first run.
+    static CLEARED: std::sync::Once = std::sync::Once::new();
+    CLEARED.call_once(clear_outer_coverage_environment_now);
+}
+
+fn clear_outer_coverage_environment_now() {
     // `CARGO_TARGET_DIR` is included alongside the coverage/rustflags
     // variables for a distinct, empirically confirmed reason: every fixture
     // built here declares its own `[workspace]`, so `cargo test`/
