@@ -48,6 +48,38 @@ pub enum TargetCoverageResult {
     Unknown,
 }
 
+impl TargetCoverageResult {
+    /// DES-187/DS-1410: the fail-closed aggregate of per-target results.
+    /// `PASS` only when every entry is `PASS`; otherwise `FAIL` when any
+    /// entry is `FAIL`, else `UNKNOWN`. An empty list is `UNKNOWN` (nothing
+    /// was shown to be reached). The Evidence writer records this value and
+    /// the reader recomputes it to detect an aggregate that contradicts its
+    /// entries (DS-476).
+    pub fn aggregate<'a>(results: impl IntoIterator<Item = &'a TargetCoverageResult>) -> Self {
+        let mut any = false;
+        let mut all_pass = true;
+        let mut any_fail = false;
+        for result in results {
+            any = true;
+            match result {
+                Self::Pass => {}
+                Self::Fail => {
+                    all_pass = false;
+                    any_fail = true;
+                }
+                Self::Unknown => all_pass = false,
+            }
+        }
+        if any && all_pass {
+            Self::Pass
+        } else if any_fail {
+            Self::Fail
+        } else {
+            Self::Unknown
+        }
+    }
+}
+
 /// Per-target coverage observation stored inside `TargetCoverage::targets`.
 ///
 /// The target value is the canonical adapter-owned locator string from the

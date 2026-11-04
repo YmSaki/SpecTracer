@@ -155,7 +155,15 @@ pub fn execute(
         None => ExitCode::VerificationFailed,
     };
 
-    Ok((exit, data, scan.diagnostics.clone()))
+    // The scan's diagnostics, then those the checks raised (E-SCAN-010 for
+    // an Evidence record DS-476 excludes), so CLI and MCP report both.
+    let mut diagnostics = scan.diagnostics.clone();
+    for diagnostic in outcome.diagnostics() {
+        if !diagnostics.contains(&diagnostic) {
+            diagnostics.push(diagnostic);
+        }
+    }
+    Ok((exit, data, diagnostics))
 }
 
 fn entity_scope(

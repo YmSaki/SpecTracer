@@ -22,8 +22,9 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink, SectionNode,
-    SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState, VoRecord,
+    ContentHash, Diagnostic, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink,
+    SectionNode, SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState,
+    VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -145,6 +146,13 @@ pub struct CheckOutcome {
     pub labels: Vec<DiagnosticLabel>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub basis: Vec<String>,
+    /// Structured diagnostics this evaluation raised (for example
+    /// E-SCAN-010 for an Evidence record DS-476 excludes). They are not
+    /// part of the tree's JSON shape: [`VerifyOutcome::diagnostics`]
+    /// collects them so the shared verify operation returns them in the
+    /// envelope's `diagnostics`, next to the scan's.
+    #[serde(skip)]
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl CheckOutcome {
@@ -159,7 +167,13 @@ impl CheckOutcome {
             state,
             labels,
             basis,
+            diagnostics: Vec::new(),
         }
+    }
+
+    fn with_diagnostic(mut self, diagnostic: Diagnostic) -> Self {
+        self.diagnostics.push(diagnostic);
+        self
     }
 
     fn pass(check: VerificationCheck, basis: impl Into<String>) -> Self {
@@ -250,6 +264,21 @@ impl VerifyOutcome {
             walk(node, &mut sink);
         }
         sink
+    }
+
+    /// Every structured diagnostic the checks raised, in check order with
+    /// duplicates removed (the same Evidence record can be reached from more
+    /// than one VO).
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        let mut out: Vec<Diagnostic> = Vec::new();
+        for outcome in self.all_outcomes() {
+            for diagnostic in &outcome.diagnostics {
+                if !out.contains(diagnostic) {
+                    out.push(diagnostic.clone());
+                }
+            }
+        }
+        out
     }
 }
 
@@ -1140,7 +1169,8 @@ fn validated_target_entries(
         };
         if !consistent {
             return Err(format!(
-                "target_coverage entry {} has result {:?} with count {:?}, which                  DS-1404/DS-1405/DES-189 do not allow",
+                "target_coverage entry {} has result {:?} with count {:?}, which \
+             DS-1404/DS-1405/DES-189 do not allow",
                 entry.target, entry.result, entry.count
             ));
         }
@@ -1150,15 +1180,20 @@ fn validated_target_entries(
         let missing: Vec<_> = expected_set.difference(&seen).copied().collect();
         let extra: Vec<_> = seen.difference(&expected_set).copied().collect();
         return Err(format!(
-            "target_coverage entries do not match the declared canonical targets              (missing: [{}], extra: [{}]) (DS-1411)",
+            "target_coverage entries do not match the declared canonical targets \
+             (missing: [{}], extra: [{}]) (DS-1411)",
             missing.join(", "),
             extra.join(", ")
         ));
     }
-    let all_pass = entries.iter().all(|entry| entry.result == R::Pass);
-    if all_pass != (coverage.result == Some(R::Pass)) {
+    // DS-476/DES-187: the aggregate must equal the fail-closed aggregate of
+    // every entry, not merely agree on whether it is PASS — an aggregate of
+    // UNKNOWN over a FAIL entry is a contradiction too.
+    let aggregate = R::aggregate(entries.iter().map(|entry| &entry.result));
+    if coverage.result != Some(aggregate) {
         return Err(format!(
-            "target_coverage aggregate result {:?} contradicts its per-target entries              (DES-187)",
+            "target_coverage aggregate result {:?} contradicts its per-target entries, \
+             whose aggregate is {aggregate:?} (DS-476/DES-187)",
             coverage.result
         ));
     }
@@ -1200,15 +1235,14 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord, expected: &[String]) ->
     let entries = match validated_target_entries(coverage, expected, record.adapter.as_str()) {
         Ok(entries) => entries,
         Err(reason) => {
+            let message = format!("Evidence {} is not used: {reason}", record.id);
             return CheckOutcome::new(
                 VerificationCheck::TargetBinding,
                 VerificationState::NoEvidence,
                 vec![DiagnosticLabel::NotExecuted],
-                vec![format!(
-                    "Evidence {} is not used: {reason} (E-SCAN-010, DS-1679)",
-                    record.id
-                )],
-            );
+                vec![format!("{message} (E-SCAN-010, DS-1679)")],
+            )
+            .with_diagnostic(Diagnostic::error("E-SCAN-010", message));
         }
     };
     // DS-1410/DS-832: judged per target. A target with count 0 is FAIL
@@ -1233,7 +1267,8 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord, expected: &[String]) ->
             vtest_model::TargetCoverageResult::Unknown => {
                 states.push(VerificationState::Unknown);
                 basis.push(format!(
-                    "measured coverage could not identify the declared target function {}                      (DS-832)",
+                    "measured coverage could not identify the declared target function {} \
+             (DS-832)",
                     entry.target
                 ));
             }
@@ -3465,5 +3500,62 @@ mod tests {
             dynamic_result_from_evidence(&singular, &expected[..1]).state,
             VerificationState::Pass
         );
+    }
+
+    /// PR #131 review: an aggregate that is not PASS can still contradict its
+    /// entries. A FAIL entry (count 0) under an UNKNOWN aggregate, and an
+    /// all-PASS entry set under a FAIL aggregate, are both E-SCAN-010: the
+    /// Evidence is not used, and the structured diagnostic is carried on the
+    /// outcome so the verify operation can return it.
+    /// @vtest.id TEST-VERIFY-TARGET-COVERAGE-AGGREGATE-MISMATCH-E-SCAN-010
+    /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
+    /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
+    /// @vtest.intent aggregateがUNKNOWNでentryにFAIL、またはentryが全PASSでaggregateがFAILのEvidenceを、NO_EVIDENCE(NOT_EXECUTED)とし、構造化診断E-SCAN-010を返すことを確認する
+    #[test]
+    fn a_non_pass_aggregate_that_contradicts_its_entries_is_e_scan_010() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let unknown_over_fail = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&unknown_over_fail, &expected);
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+        assert_eq!(outcome.diagnostics.len(), 1);
+        assert_eq!(outcome.diagnostics[0].code, "E-SCAN-010");
+        assert_eq!(
+            outcome.diagnostics[0].severity,
+            vtest_model::DiagnosticSeverity::Error
+        );
+
+        let fail_over_all_pass = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Pass, Some(2)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&fail_over_all_pass, &expected);
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.diagnostics[0].code, "E-SCAN-010");
+
+        // The consistent form is still judged per target and raises nothing.
+        let consistent = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&consistent, &expected);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert!(outcome.diagnostics.is_empty());
     }
 }

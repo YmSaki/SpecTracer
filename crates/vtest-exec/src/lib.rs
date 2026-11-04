@@ -547,19 +547,7 @@ fn target_coverage_from_measurements(
             count: None,
         };
     }
-    let result = if entries
-        .iter()
-        .all(|entry| entry.result == TargetCoverageResult::Pass)
-    {
-        TargetCoverageResult::Pass
-    } else if entries
-        .iter()
-        .any(|entry| entry.result == TargetCoverageResult::Fail)
-    {
-        TargetCoverageResult::Fail
-    } else {
-        TargetCoverageResult::Unknown
-    };
+    let result = TargetCoverageResult::aggregate(entries.iter().map(|entry| &entry.result));
     let count = entries
         .iter()
         .map(|entry| entry.count)

@@ -498,17 +498,11 @@ fn only_oracle_presence_breaks_on_a_self_comparison_assertion() {
     fs::remove_dir_all(&root).ok();
 }
 
-/// Issue #122: a Test declaring two targets, only one of which the test
-/// body reaches, must not verify as `PASS` — every declared target is
-/// measured and recorded, and the unreached one keeps `target_binding`
-/// non-`PASS` (DS-831/DS-1410/DS-1411).
-/// @vtest.id TEST-E2E-MULTI-TARGET-UNREACHED-NOT-PASS
-/// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
-/// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
-/// @vtest.intent 2件のtargetを宣言し片方へ到達しないTestで、Evidenceが2件のtarget entryを持ち、verifyがPASSにならないことを確認する
-#[test]
-fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
-    let root = temp_root("multi-target");
+/// A fixture Test declaring two targets, only one of which the body
+/// reaches, run once through the real coverage runner. Returns the project
+/// root and the Evidence record the run wrote.
+fn run_multi_target_fixture(name: &str) -> (PathBuf, vtest_model::EvidenceRecord) {
+    let root = temp_root(name);
     build_fixture_project_with_test_body(
         &root,
         "/// @vtest.id TEST-E2E-DOUBLE\n\
@@ -558,7 +552,21 @@ fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
     clear_outer_coverage_environment();
     let result = run_tests(&root, &layout, &[runnable], false, &registry()).expect("run_tests");
     assert!(!result.has_errors(), "run errors: {:?}", result.diagnostics);
-    let coverage = &result.evidence[0].target_coverage;
+    (root, result.evidence[0].clone())
+}
+
+/// Issue #122: a Test declaring two targets, only one of which the test
+/// body reaches, must not verify as `PASS` — every declared target is
+/// measured and recorded, and the unreached one keeps `target_binding`
+/// non-`PASS` (DS-831/DS-1410/DS-1411).
+/// @vtest.id TEST-E2E-MULTI-TARGET-UNREACHED-NOT-PASS
+/// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+/// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+/// @vtest.intent 2件のtargetを宣言し片方へ到達しないTestで、Evidenceが2件のtarget entryを持ち、verifyがPASSにならないことを確認する
+#[test]
+fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
+    let (root, evidence) = run_multi_target_fixture("multi-target");
+    let coverage = &evidence.target_coverage;
     assert!(coverage.checked);
     assert_eq!(
         coverage.targets.len(),
@@ -579,5 +587,61 @@ fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
         serde_json::to_string_pretty(&outcome).unwrap_or_default()
     );
     assert!(!outcome.ok);
+    fs::remove_dir_all(&root).ok();
+}
+
+/// PR #131 review: Evidence whose aggregate `target_coverage.result`
+/// contradicts its per-target entries (an UNKNOWN aggregate over a FAIL
+/// entry) is E-SCAN-010 (DS-476). `vtest verify` does not use it — the
+/// Test's `target_binding` is NO_EVIDENCE (NOT_EXECUTED, DS-1679) — and the
+/// E-SCAN-010 diagnostic reaches the JSON envelope's `diagnostics`, not
+/// only a basis string.
+/// @vtest.id TEST-E2E-EVIDENCE-AGGREGATE-CONTRADICTION-DIAGNOSTIC
+/// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent aggregateをUNKNOWNへ書き換えたEvidenceで、vtest verifyのJSON envelopeのdiagnosticsにE-SCAN-010が入り、target_bindingがNO_EVIDENCE(NOT_EXECUTED)になることを確認する
+#[test]
+fn verify_reports_e_scan_010_for_an_aggregate_that_contradicts_its_entries() {
+    let (root, evidence) = run_multi_target_fixture("aggregate-contradiction");
+    assert_eq!(
+        evidence.target_coverage.result,
+        Some(vtest_model::TargetCoverageResult::Fail)
+    );
+    let path = vtest_store::VerifyLayout::new(&root)
+        .evidence_dir()
+        .join(format!("{}.yaml", evidence.id));
+    let text = fs::read_to_string(&path).expect("read Evidence");
+    // Only the aggregate line of the `target_coverage` block changes; the
+    // per-target entries stay as measured (one PASS, one FAIL with count 0).
+    let block = text
+        .find("\ntarget_coverage:\n")
+        .expect("target_coverage block");
+    let (head, tail) = text.split_at(block);
+    let rewritten = format!(
+        "{head}{}",
+        tail.replacen("\n  result: 'FAIL'\n", "\n  result: 'UNKNOWN'\n", 1)
+    );
+    assert_ne!(rewritten, text, "aggregate result line rewritten:\n{text}");
+    fs::write(&path, rewritten).expect("rewrite Evidence");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(&root)
+        .args(["--format", "json", "verify"])
+        .output()
+        .expect("run vtest verify");
+    assert_eq!(output.status.code(), Some(1));
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("JSON envelope");
+    let diagnostics = envelope["diagnostics"].as_array().expect("diagnostics");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-SCAN-010"
+                && diagnostic["severity"] == "error"),
+        "{envelope:#}"
+    );
+    let rendered = envelope.to_string();
+    assert!(rendered.contains("NOT_EXECUTED"), "{envelope:#}");
     fs::remove_dir_all(&root).ok();
 }
