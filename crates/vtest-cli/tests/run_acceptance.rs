@@ -55,6 +55,14 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn clear_outer_coverage_environment() {
+    // The Execution State binds the execution-affecting environment
+    // (DES-097/369); clear once so no test removes a variable while another
+    // is between its pre- and post-run snapshots (E-EXEC-004).
+    static CLEARED: std::sync::Once = std::sync::Once::new();
+    CLEARED.call_once(clear_outer_coverage_environment_now);
+}
+
+fn clear_outer_coverage_environment_now() {
     // These removals mutate the process-wide environment. Tests in this
     // binary therefore share the cleared state if they run concurrently;
     // `vtest run --all` currently executes one test per process, so that
