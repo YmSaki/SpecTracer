@@ -9,7 +9,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::Command,
 };
-use syn::{visit::Visit, Expr, Lit, Macro, Meta};
+use syn::{visit::Visit, Attribute, Expr, Lit, Macro, Meta};
 use vtest_model::{CanonicalProjection, ExecutionInputDraft, ExecutionStateDraft};
 /// DES-211: `.git/` and `.verify/` are excluded at the workspace root. The
 /// Cargo target directory is not a fixed name: it is resolved from the
@@ -540,17 +540,129 @@ fn source_escape_risk(
 /// scanned token by token as well. A macro called through a `macro_rules!`
 /// metavariable (`$m!(..)`, which may be handed `include_str`) cannot be
 /// resolved statically and is reported in `unresolvable` (DES-212).
+///
+/// A `path` attribute is found wherever rustc can apply it: directly
+/// (`#[path = ".."]`), inside `cfg_attr` at any nesting depth
+/// (`#[cfg_attr(unix, path = "..")]`), and in an attribute spelled out in
+/// macro tokens (`macro_rules! m { () => { #[path = ".."] mod x; } }`). A
+/// `path` value or a whole attribute that is a `macro_rules!` metavariable
+/// (`#[path = $p]`, `#[$a] mod x;`) cannot be resolved statically and is
+/// reported in `unresolvable`.
 #[derive(Default)]
 struct IncludeCalls {
     calls: Vec<(String, Option<String>)>,
     unresolvable: Option<String>,
+    /// Whether the macro tokens being scanned declare a file module
+    /// (`mod x;` or `mod $x;`). Only then can a metavariable attribute
+    /// (`#[$a]`) be a `path` that loads a file; the common
+    /// `$(#[$meta])* struct ..` doc pass-through cannot.
+    file_module_in_macro: bool,
+}
+
+/// Whether `tokens`, at any group depth, declare a module loaded from a file:
+/// `mod name;` or `mod $name;` (a `mod name { .. }` is inline and loads none).
+fn declares_file_module(tokens: TokenStream) -> bool {
+    let tokens: Vec<TokenTree> = tokens.into_iter().collect();
+    tokens.iter().enumerate().any(|(index, token)| match token {
+        TokenTree::Group(group) => declares_file_module(group.stream()),
+        TokenTree::Ident(ident) if ident == "mod" => {
+            let semicolon = |offset: usize| {
+                matches!(tokens.get(index + offset), Some(TokenTree::Punct(p)) if p.as_char() == ';')
+            };
+            match tokens.get(index + 1) {
+                Some(TokenTree::Ident(_)) => semicolon(2),
+                Some(TokenTree::Punct(p)) if p.as_char() == '$' => {
+                    matches!(tokens.get(index + 2), Some(TokenTree::Ident(_))) && semicolon(3)
+                }
+                _ => false,
+            }
+        }
+        _ => false,
+    })
 }
 
 impl IncludeCalls {
+    /// Records the module path an attribute's content (the tokens between
+    /// `#[` and `]`) can apply: `path = ".."` itself, or any `path` entry
+    /// inside a (possibly nested) `cfg_attr(predicate, attr, ..)`. The
+    /// `cfg` predicate is not evaluated: a configuration that selects the
+    /// path is possible, so its target counts as read.
+    fn scan_attribute(&mut self, tokens: &[TokenTree]) {
+        match tokens {
+            [TokenTree::Ident(ident), TokenTree::Punct(eq), value @ ..]
+                if ident == "path" && eq.as_char() == '=' =>
+            {
+                match value {
+                    [TokenTree::Punct(dollar), ..] if dollar.as_char() == '$' => {
+                        self.unresolvable.get_or_insert_with(|| {
+                            "a #[path] value is a macro_rules! metavariable, so the module \
+                             file it loads cannot be resolved"
+                                .to_owned()
+                        });
+                    }
+                    _ => {
+                        let argument = match value {
+                            [literal @ TokenTree::Literal(_)] => {
+                                syn::parse2::<syn::LitStr>(literal.clone().into())
+                                    .ok()
+                                    .map(|literal| literal.value())
+                            }
+                            _ => None,
+                        };
+                        self.calls.push(("#[path]".to_owned(), argument));
+                    }
+                }
+            }
+            [TokenTree::Ident(ident), TokenTree::Group(group)]
+                if ident == "cfg_attr" && group.delimiter() == Delimiter::Parenthesis =>
+            {
+                self.scan_cfg_attr(group.stream());
+            }
+            [TokenTree::Punct(dollar), ..]
+                if dollar.as_char() == '$' && self.file_module_in_macro =>
+            {
+                self.unresolvable.get_or_insert_with(|| {
+                    "an attribute is a macro_rules! metavariable (`#[$a]`), so whether it \
+                     sets a module path cannot be resolved"
+                        .to_owned()
+                });
+            }
+            _ => {}
+        }
+    }
+
+    /// `cfg_attr(predicate, attr1, attr2, ..)`: the first entry is the
+    /// predicate; every later entry is an attribute.
+    fn scan_cfg_attr(&mut self, body: TokenStream) {
+        let inner: Vec<TokenTree> = body.into_iter().collect();
+        for attribute in inner
+            .split(|token| matches!(token, TokenTree::Punct(p) if p.as_char() == ','))
+            .skip(1)
+        {
+            self.scan_attribute(attribute);
+        }
+    }
+
     fn scan_tokens(&mut self, tokens: TokenStream) {
         let tokens: Vec<TokenTree> = tokens.into_iter().collect();
         for (index, token) in tokens.iter().enumerate() {
             match token {
+                TokenTree::Punct(pound) if pound.as_char() == '#' => {
+                    // An attribute written in macro tokens: `#[..]` or `#![..]`.
+                    let group = match (tokens.get(index + 1), tokens.get(index + 2)) {
+                        (Some(TokenTree::Group(group)), _) => Some(group),
+                        (Some(TokenTree::Punct(bang)), Some(TokenTree::Group(group)))
+                            if bang.as_char() == '!' =>
+                        {
+                            Some(group)
+                        }
+                        _ => None,
+                    };
+                    if let Some(group) = group.filter(|g| g.delimiter() == Delimiter::Bracket) {
+                        let content: Vec<TokenTree> = group.stream().into_iter().collect();
+                        self.scan_attribute(&content);
+                    }
+                }
                 TokenTree::Group(group) => self.scan_tokens(group.stream()),
                 TokenTree::Ident(ident) => {
                     let name = ident.to_string();
@@ -623,7 +735,10 @@ impl<'ast> Visit<'ast> for IncludeCalls {
                     });
             self.calls.push((format!("{name}!"), argument));
         } else {
+            let outer = self.file_module_in_macro;
+            self.file_module_in_macro = outer || declares_file_module(node.tokens.clone());
             self.scan_tokens(node.tokens.clone());
+            self.file_module_in_macro = outer;
         }
         syn::visit::visit_macro(self, node);
     }
@@ -635,23 +750,29 @@ impl<'ast> Visit<'ast> for IncludeCalls {
         syn::visit::visit_meta(self, node);
     }
 
-    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
-        // `#[path = ".."] mod m;` loads a module file from that path.
-        for attr in &node.attrs {
-            if let Meta::NameValue(meta) = &attr.meta {
-                if meta.path.is_ident("path") {
-                    let argument = match &meta.value {
-                        Expr::Lit(expr) => match &expr.lit {
-                            Lit::Str(lit) => Some(lit.value()),
-                            _ => None,
-                        },
+    fn visit_attribute(&mut self, node: &'ast Attribute) {
+        // `#[path = ".."] mod m;` loads a module file from that path, and so
+        // does `#[cfg_attr(cfg, path = "..")] mod m;` when `cfg` holds. Every
+        // attribute is checked, not only those syn attaches to a `mod` item:
+        // a `path` that applies to nothing loads nothing, so reporting it
+        // only errs toward incompleteness.
+        match &node.meta {
+            Meta::NameValue(meta) if meta.path.is_ident("path") => {
+                let argument = match &meta.value {
+                    Expr::Lit(expr) => match &expr.lit {
+                        Lit::Str(lit) => Some(lit.value()),
                         _ => None,
-                    };
-                    self.calls.push(("#[path]".to_owned(), argument));
-                }
+                    },
+                    _ => None,
+                };
+                self.calls.push(("#[path]".to_owned(), argument));
             }
+            Meta::List(list) if list.path.is_ident("cfg_attr") => {
+                self.scan_cfg_attr(list.tokens.clone());
+            }
+            _ => {}
         }
-        syn::visit::visit_item_mod(self, node);
+        syn::visit::visit_attribute(self, node);
     }
 }
 

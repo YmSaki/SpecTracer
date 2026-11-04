@@ -621,6 +621,85 @@ fn include_calls_nested_in_macro_tokens_that_reach_an_excluded_area_force_incomp
     }
 }
 
+/// @vtest.id TEST-EXEC-STATE-CFG-ATTR-AND-MACRO-PATH-FORCES-INCOMPLETE
+/// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
+/// @vtest.intent cfg_attr内（入れ子・2番目以降の属性を含む）とmacro_rules!内の#[path]が除外領域を指すとき、およびmacro_rules!のmetavariableでpathを渡すときにescape riskとし、snapshotを不完全にすることを確認する
+#[test]
+fn path_attributes_in_cfg_attr_or_macro_tokens_force_incompleteness() {
+    for (name, lib) in [
+        (
+            "cfg-attr-path",
+            "#[cfg_attr(unix, path = \"../target/hidden.rs\")]\nmod hidden;\n",
+        ),
+        (
+            "cfg-attr-path-not-first",
+            "#[cfg_attr(all(), allow(dead_code), path = \"../target/hidden.rs\")]\nmod hidden;\n",
+        ),
+        (
+            "nested-cfg-attr-path",
+            "#[cfg_attr(all(), cfg_attr(unix, path = \"../target/hidden.rs\"))]\nmod hidden;\n",
+        ),
+        (
+            "cfg-attr-path-outside-root",
+            "#[cfg_attr(windows, path = \"../../outside.rs\")]\nmod hidden;\n",
+        ),
+        (
+            "macro-rules-path",
+            "macro_rules! m { () => { #[path = \"../target/hidden.rs\"] mod hidden; }; }\nm!();\n",
+        ),
+        (
+            "macro-rules-cfg-attr-path",
+            "macro_rules! m { () => { #[cfg_attr(all(), path = \"../target/hidden.rs\")] mod hidden; }; }\nm!();\n",
+        ),
+        (
+            "macro-rules-path-metavariable",
+            "macro_rules! m { ($p:literal) => { #[path = $p] mod hidden; }; }\nm!(\"../target/hidden.rs\");\n",
+        ),
+        (
+            "macro-rules-attribute-metavariable",
+            "macro_rules! m { ($a:meta) => { #[$a] mod hidden; }; }\nm!(path = \"../target/hidden.rs\");\n",
+        ),
+        (
+            "macro-rules-attribute-metavariable-named-mod",
+            "macro_rules! m { ($a:meta, $n:ident) => { #[$a] mod $n; }; }\nm!(path = \"../target/hidden.rs\", hidden);\n",
+        ),
+        (
+            "cfg-attr-path-non-literal",
+            "#[cfg_attr(all(), path = concat!(\"../target/\", \"hidden.rs\"))]\nmod hidden;\n",
+        ),
+    ] {
+        let root = source_root(name, lib);
+        assert!(escape_risk(&root).is_some(), "{name}: expected an escape risk for {lib}");
+        assert!(!snapshot_with(&root, &[]).complete, "{name}: incomplete");
+    }
+}
+
+/// @vtest.id TEST-EXEC-STATE-IN-SCOPE-CFG-ATTR-PATH-NOT-RISK
+/// @vtest.covers VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
+/// @vtest.intent 包含領域内を指すcfg_attr内の#[path]と、file moduleを宣言しないmacro_rules!の$(#[$meta])*はescape riskにしないことを確認する
+#[test]
+fn in_scope_cfg_attr_paths_and_doc_pass_through_attributes_are_not_escape_risk() {
+    for (name, lib) in [
+        (
+            "cfg-attr-path-in-scope",
+            "#[cfg_attr(all(), path = \"inner/hidden.rs\")]\nmod hidden;\n",
+        ),
+        (
+            "meta-pass-through",
+            "macro_rules! id { ($(#[$meta:meta])* $name:ident) => { $(#[$meta])* pub struct $name; }; }\nid!(#[derive(Debug)] Foo);\n",
+        ),
+        (
+            "meta-on-inline-mod",
+            "macro_rules! m { ($a:meta) => { #[$a] mod inline {} }; }\nm!(allow(dead_code));\n",
+        ),
+    ] {
+        let root = source_root(name, lib);
+        assert!(escape_risk(&root).is_none(), "{name}: {:?}", escape_risk(&root));
+    }
+}
+
 /// @vtest.id TEST-EXEC-STATE-NESTED-IN-SCOPE-INCLUDE-NOT-RISK
 /// @vtest.covers VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
 /// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in

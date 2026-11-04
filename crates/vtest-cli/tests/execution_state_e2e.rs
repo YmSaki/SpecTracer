@@ -311,6 +311,49 @@ fn a_nested_include_of_an_excluded_area_is_not_pass_after_it_changes() {
     fs::remove_dir_all(&root).ok();
 }
 
+/// @vtest.id TEST-E2E-EXEC-STATE-CFG-ATTR-PATH-CHANGE-NOT-PASS
+/// @vtest.covers VO-EXEC-STATE-REEVALUATION-REBUILDS-CURRENT-DTO, VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
+/// @vtest.intent cfg_attr内の#[path]で除外領域target/のmodule fileを読むcrateで、保存したEvidenceのsnapshotが不完全であり、そのfileの変更後にverifyがPASSを返さないことを確認する
+#[test]
+fn a_cfg_attr_path_module_in_an_excluded_area_is_not_pass_after_it_changes() {
+    let _guard = ENVIRONMENT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    clear_outer_environment();
+    let root = temp_root("cfg-attr-path");
+    build_fixture(
+        &root,
+        &Fixture {
+            manifest_extra: "",
+            lib: "#[cfg_attr(all(), path = \"../target/hidden.rs\")]\nmod hidden;\n\
+                  pub fn double(x: i32) -> i32 { x * hidden::FACTOR }\n",
+            test_extra: "",
+            files: &[("target/hidden.rs", "pub const FACTOR: i32 = 2;\n")],
+        },
+    );
+    assert!(
+        vtest_adapter_rust::execution_state::escape_risk(&root).is_some(),
+        "the cfg_attr path into target/ must be an escape risk"
+    );
+    let snapshot = vtest_adapter_rust::execution_state::snapshot(
+        &root,
+        None,
+        "cargo-test",
+        serde_json::json!("cargo test"),
+    );
+    assert!(
+        !snapshot.complete,
+        "the snapshot must not claim completeness"
+    );
+    assert_change_is_not_reused_as_pass(&root, |root| {
+        fs::write(
+            root.join("target/hidden.rs"),
+            "pub const FACTOR: i32 = 3;\n",
+        )
+        .unwrap();
+    });
+    fs::remove_dir_all(&root).ok();
+}
+
 /// @vtest.id TEST-E2E-EXEC-STATE-RENAMED-BUILD-SCRIPT-CHANGE-NOT-PASS
 /// @vtest.covers VO-EXEC-STATE-REEVALUATION-REBUILDS-CURRENT-DTO, VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
 /// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
