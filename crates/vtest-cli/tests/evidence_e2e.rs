@@ -506,3 +506,104 @@ fn only_oracle_presence_breaks_on_a_self_comparison_assertion() {
 
     fs::remove_dir_all(&root).ok();
 }
+
+/// Issue #123: a newer Evidence record that is not a valid record must not
+/// be skipped in favour of the older valid `PASS` (DS-1365/DS-1366/DS-1679).
+/// @vtest.id TEST-E2E-INVALID-LATEST-EVIDENCE-NO-FALLBACK
+/// @vtest.covers VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent 最新Evidenceが不正（未知field・id/ファイル名不一致）のとき古いPASS Evidenceへ戻らずNO_EVIDENCEとし、E-SCAN-010診断をverifyの結果に載せることを確認する
+#[test]
+fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
+    let root = temp_root("invalid-latest");
+    build_fixture_project(&root);
+    let outcome = run_and_verify(&root);
+    assert_eq!(
+        outcome.state,
+        VerificationState::Pass,
+        "control: valid PASS"
+    );
+
+    let evidence_dir = root.join(".verify").join("evidence");
+    let original = fs::read_dir(&evidence_dir)
+        .expect("evidence dir")
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.extension().and_then(|e| e.to_str()) == Some("yaml"))
+        .expect("one Evidence record");
+    let original_id = original
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .expect("ULID file name")
+        .to_owned();
+    let text = fs::read_to_string(&original).expect("read Evidence");
+    // A later record for the same Test with the same freshness binding.
+    let later_id = "7ZZZZZZZZZZZZZZZZZZZZZZZZZ";
+    let later = evidence_dir.join(format!("{later_id}.yaml"));
+    let failed = text
+        .replace(&original_id, later_id)
+        .replacen("result: PASS", "result: FAIL", 1)
+        .replacen("result: 'PASS'", "result: 'FAIL'", 1);
+    fs::write(&later, &failed).expect("write later Evidence");
+    let scan = scan_project(&root, &registry()).expect("scan");
+    let valid_latest = verify_project(&root, &scan, None, None, &registry());
+    assert_eq!(
+        only_check_state(&valid_latest, vtest_model::VerificationCheck::TargetBinding),
+        VerificationState::Fail,
+        "control: a valid later FAIL record is the latest"
+    );
+
+    for (name, broken) in [
+        ("unknown field", format!("{failed}unexpected: true\n")),
+        (
+            "id differs from the file name",
+            failed.replace(later_id, "7ZZZZZZZZZZZZZZZZZZZZZZZZY"),
+        ),
+        (
+            // PR #132 review: the broken record's Test cannot be told, so it
+            // may be this Test's latest; the older PASS must not stand in.
+            "unknown field and test_id: null",
+            format!(
+                "{}unexpected: true\n",
+                failed
+                    .lines()
+                    .map(|line| if line.starts_with("test_id:") {
+                        "test_id: null"
+                    } else {
+                        line
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    + "\n"
+            ),
+        ),
+    ] {
+        fs::write(&later, &broken).expect("write broken later Evidence");
+        let scan = scan_project(&root, &registry()).expect("scan");
+        let outcome = verify_project(&root, &scan, None, None, &registry());
+        assert_eq!(
+            only_check_state(&outcome, vtest_model::VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence,
+            "{name}: the older PASS must not stand in for the invalid latest record"
+        );
+        assert!(!outcome.ok, "{name}");
+        assert!(
+            outcome
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "{name}: {:?}",
+            outcome.diagnostics
+        );
+        let (_, _, diagnostics) =
+            vtest_cli::ops::verify::execute(&root, &[], None, None, None, None, false, &registry())
+                .unwrap_or_else(|_| panic!("{name}: verify operation"));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "{name}: the CLI/MCP envelope carries the diagnostic"
+        );
+    }
+    fs::remove_dir_all(&root).ok();
+}
