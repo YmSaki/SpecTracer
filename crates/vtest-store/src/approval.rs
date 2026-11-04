@@ -114,29 +114,63 @@ fn index_section_node(node: &SectionNode, index: &mut DocumentNodeIndex) {
     }
 }
 
+/// A dependency closure that cannot be resolved completely: a dangling VO
+/// `parent`, a VO `derives_from` or document `derives_from` that names no
+/// document node, or a cycle. DS-1058/DS-914/DS-1298: an Approval cannot be
+/// bound to such a closure (E-APPROVAL-001), and no effective `approved` is
+/// derived from it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnresolvedDependency(pub String);
+
+impl std::fmt::Display for UnresolvedDependency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// Follows `derives_from` edges from `start` (inclusive of `start` itself)
 /// to a fixed point, accumulating each visited node's current subject hash.
-/// A `derives_from` target absent from `index` (a dangling link) is skipped
-/// here without diagnosing it — that is E-SCAN-012's job, not this
-/// dependency-closure builder's.
+/// A `derives_from` target absent from `index` (a dangling link) or a cycle
+/// makes the closure unresolvable: a silently shrunk closure would let an
+/// Approval bind to, and stay current against, an incomplete upstream
+/// (DS-1058/DS-1298).
 fn collect_document_closure(
     index: &DocumentNodeIndex,
     start: &str,
     out: &mut BTreeMap<String, ContentHash>,
-) {
-    let mut stack = vec![start.to_owned()];
-    let mut seen = BTreeSet::new();
-    while let Some(id) = stack.pop() {
-        if !seen.insert(id.clone()) {
-            continue;
+) -> Result<(), UnresolvedDependency> {
+    fn visit(
+        index: &DocumentNodeIndex,
+        id: &str,
+        path: &mut Vec<String>,
+        done: &mut BTreeSet<String>,
+        out: &mut BTreeMap<String, ContentHash>,
+    ) -> Result<(), UnresolvedDependency> {
+        if done.contains(id) {
+            return Ok(());
         }
-        if let Some((hash, derives_from)) = index.get(&id) {
-            out.insert(id.clone(), hash.clone());
-            for parent in derives_from {
-                stack.push(parent.clone());
-            }
+        if path.iter().any(|entry| entry == id) {
+            return Err(UnresolvedDependency(format!(
+                "document derives_from cycle through '{id}' ({})",
+                path.join(" -> ")
+            )));
         }
+        let Some((hash, derives_from)) = index.get(id) else {
+            return Err(UnresolvedDependency(match path.last() {
+                Some(from) => format!("document node '{from}' derives from missing node '{id}'"),
+                None => format!("dependency names missing document node '{id}'"),
+            }));
+        };
+        out.insert(id.to_owned(), hash.clone());
+        path.push(id.to_owned());
+        for parent in derives_from {
+            visit(index, parent, path, done, out)?;
+        }
+        path.pop();
+        done.insert(id.to_owned());
+        Ok(())
     }
+    visit(index, start, &mut Vec::new(), &mut BTreeSet::new(), out)
 }
 
 /// DS-1480: a document subject's dependency closure is its own "実効的な
@@ -144,16 +178,33 @@ fn collect_document_closure(
 /// `derives_from`, recursively closed. The subject node itself is excluded
 /// (DS-456: bound separately via `subject_hash`, not duplicated into
 /// `dependencies`).
-pub fn document_dependencies(index: &DocumentNodeIndex, subject_id: &str) -> Vec<DependencyRecord> {
+pub fn document_dependencies(
+    index: &DocumentNodeIndex,
+    subject_id: &str,
+) -> Result<Vec<DependencyRecord>, UnresolvedDependency> {
     let mut out = BTreeMap::new();
-    if let Some((_, derives_from)) = index.get(subject_id) {
-        for parent in derives_from {
-            collect_document_closure(index, parent, &mut out);
+    let Some((_, derives_from)) = index.get(subject_id) else {
+        return Err(UnresolvedDependency(format!(
+            "no document node with id '{subject_id}' exists"
+        )));
+    };
+    for parent in derives_from {
+        if parent == subject_id {
+            return Err(UnresolvedDependency(format!(
+                "document node '{subject_id}' derives from itself"
+            )));
         }
+        collect_document_closure(index, parent, &mut out)?;
     }
-    out.into_iter()
+    if out.contains_key(subject_id) {
+        return Err(UnresolvedDependency(format!(
+            "document derives_from cycle through '{subject_id}'"
+        )));
+    }
+    Ok(out
+        .into_iter()
         .map(|(entity, hash)| DependencyRecord { entity, hash })
-        .collect()
+        .collect())
 }
 
 /// DS-1017 new (`233caec`/PR #50): "鮮度" — "当該 document subject hash
@@ -205,17 +256,25 @@ pub fn vo_dependencies(
     vos: &BTreeMap<String, VoRecord>,
     doc_index: &DocumentNodeIndex,
     subject: &VoId,
-) -> Vec<DependencyRecord> {
+) -> Result<Vec<DependencyRecord>, UnresolvedDependency> {
     let mut out = BTreeMap::new();
     let mut chain = Vec::new();
-    let mut seen_vo = BTreeSet::new();
+    let mut seen_vo = BTreeSet::from([subject.as_str().to_owned()]);
     let mut cursor = vos.get(subject.as_str()).and_then(|vo| vo.parent.clone());
     while let Some(parent_id) = cursor {
         if !seen_vo.insert(parent_id.as_str().to_owned()) {
-            break; // cycle guard; a parent cycle is a separate, already-diagnosed defect elsewhere
+            return Err(UnresolvedDependency(format!(
+                "VO parent chain of '{}' has a cycle through '{}'",
+                subject.as_str(),
+                parent_id.as_str()
+            )));
         }
         let Some(parent_vo) = vos.get(parent_id.as_str()) else {
-            break; // dangling parent reference; not this builder's diagnostic to raise
+            return Err(UnresolvedDependency(format!(
+                "VO parent '{}' in the chain of '{}' does not exist",
+                parent_id.as_str(),
+                subject.as_str()
+            )));
         };
         out.insert(parent_id.as_str().to_owned(), vo_subject_hash(parent_vo));
         chain.push(parent_id.clone());
@@ -231,12 +290,13 @@ pub fn vo_dependencies(
         }
     }
     for doc_id in doc_starts {
-        collect_document_closure(doc_index, &doc_id, &mut out);
+        collect_document_closure(doc_index, &doc_id, &mut out)?;
     }
 
-    out.into_iter()
+    Ok(out
+        .into_iter()
         .map(|(entity, hash)| DependencyRecord { entity, hash })
-        .collect()
+        .collect())
 }
 
 /// The 本冊 §3.5 / DS-1466 effective approval state: `draft` or `approved`.
@@ -253,9 +313,8 @@ pub enum EffectiveApprovalState {
 /// empty or any non-`approved` remains), DS-1466 (approved iff all remaining
 /// are `approved`). `records` should already be schema-valid
 /// (`ApprovalRecord::from_yaml` enforces `subject_type`/`approved_state`
-/// domain and shape at read time); this function only applies the
-/// *current-binding* half of validity (subject_hash + dependencies exact
-/// match against `current_hash`/`current_dependencies`).
+/// domain and shape at read time); see [`effective_approval`] for the
+/// `supersedes` graph rules and the diagnostics this drops.
 pub fn effective_approval_state(
     records: &[crate::records::ApprovalRecord],
     subject_type: &str,
@@ -263,6 +322,33 @@ pub fn effective_approval_state(
     current_hash: &ContentHash,
     current_dependencies: &[DependencyRecord],
 ) -> EffectiveApprovalState {
+    effective_approval(
+        records,
+        subject_type,
+        subject_id,
+        current_hash,
+        current_dependencies,
+    )
+    .0
+}
+
+/// [`effective_approval_state`] plus the W-STORE-005 warnings for records
+/// whose `supersedes` cannot contribute.
+///
+/// DS-556/DS-1474: a record whose `supersedes` names an id that is not a
+/// record of the same subject (missing, or another subject's record),
+/// names itself, or lies on a `supersedes` cycle does not contribute to the
+/// effective set — neither as a member nor by removing the records it
+/// names — and is reported as W-STORE-005. The graph is checked on every
+/// read, not only when a record is written, because a stored record can be
+/// edited or its target removed afterwards.
+pub fn effective_approval(
+    records: &[crate::records::ApprovalRecord],
+    subject_type: &str,
+    subject_id: &str,
+    current_hash: &ContentHash,
+    current_dependencies: &[DependencyRecord],
+) -> (EffectiveApprovalState, Vec<vtest_model::Diagnostic>) {
     let current_deps: BTreeSet<(String, String)> = current_dependencies
         .iter()
         .map(|dependency| {
@@ -272,26 +358,69 @@ pub fn effective_approval_state(
             )
         })
         .collect();
-
-    let valid: Vec<&crate::records::ApprovalRecord> = records
+    let subject_records: Vec<&crate::records::ApprovalRecord> = records
         .iter()
+        .filter(|record| record.subject_type == subject_type && record.subject == subject_id)
+        .collect();
+    let by_id: BTreeMap<&str, &crate::records::ApprovalRecord> = subject_records
+        .iter()
+        .map(|record| (record.id.as_str(), *record))
+        .collect();
+
+    let mut diagnostics = Vec::new();
+    let mut ill_formed: BTreeSet<&str> = BTreeSet::new();
+    for record in &subject_records {
+        for target in &record.supersedes {
+            let reason = if target == &record.id {
+                Some("names itself")
+            } else if !by_id.contains_key(target.as_str()) {
+                Some("names no Approval record of the same subject")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                ill_formed.insert(record.id.as_str());
+                diagnostics.push(vtest_model::Diagnostic::warning(
+                    "W-STORE-005",
+                    format!(
+                        "Approval {} supersedes '{target}', which {reason}; the record does \
+                         not contribute to the effective set (DS-556/DS-1474)",
+                        record.id
+                    ),
+                ));
+            }
+        }
+    }
+    for id in supersedes_cycle_members(&by_id) {
+        if ill_formed.insert(id) {
+            diagnostics.push(vtest_model::Diagnostic::warning(
+                "W-STORE-005",
+                format!(
+                    "Approval {id} is on a supersedes cycle; the record does not contribute \
+                     to the effective set (DS-556/DS-1474)"
+                ),
+            ));
+        }
+    }
+
+    let valid: Vec<&crate::records::ApprovalRecord> = subject_records
+        .iter()
+        .copied()
+        .filter(|record| !ill_formed.contains(record.id.as_str()))
         .filter(|record| {
-            record.subject_type == subject_type
-                && record.subject == subject_id
-                && &record.subject_hash == current_hash
-                && {
-                    let deps: BTreeSet<(String, String)> = record
-                        .dependencies
-                        .iter()
-                        .map(|dependency| {
-                            (
-                                dependency.entity.clone(),
-                                dependency.hash.as_str().to_owned(),
-                            )
-                        })
-                        .collect();
-                    deps == current_deps
-                }
+            &record.subject_hash == current_hash && {
+                let deps: BTreeSet<(String, String)> = record
+                    .dependencies
+                    .iter()
+                    .map(|dependency| {
+                        (
+                            dependency.entity.clone(),
+                            dependency.hash.as_str().to_owned(),
+                        )
+                    })
+                    .collect();
+                deps == current_deps
+            }
         })
         .collect();
 
@@ -304,16 +433,53 @@ pub fn effective_approval_state(
         .filter(|record| !superseded.contains(record.id.as_str()))
         .collect();
 
-    if effective.is_empty() {
-        return EffectiveApprovalState::Draft;
-    }
-    if effective
-        .iter()
-        .any(|record| record.approved_state != "approved")
+    // DS-556/DS-463: an ill-formed record does not contribute to the
+    // effective set — neither as a member nor by removing the records it
+    // names — and is reported as W-STORE-005. It is not a standing veto:
+    // the state is decided by the effective set alone (DS-1466), so adding a
+    // well-formed record for the current hash (a re-approval, or a record
+    // that supersedes the ill-formed one) recovers without deleting history.
+    let state = if effective.is_empty()
+        || effective
+            .iter()
+            .any(|record| record.approved_state != "approved")
     {
-        return EffectiveApprovalState::Draft;
+        EffectiveApprovalState::Draft
+    } else {
+        EffectiveApprovalState::Approved
+    };
+    (state, diagnostics)
+}
+
+/// Ids of records that lie on a `supersedes` cycle (following only edges
+/// to records of the same subject).
+fn supersedes_cycle_members<'a>(
+    by_id: &BTreeMap<&'a str, &'a crate::records::ApprovalRecord>,
+) -> BTreeSet<&'a str> {
+    let mut members = BTreeSet::new();
+    for &start in by_id.keys() {
+        // `start` is on a cycle when it is reachable from its own targets.
+        let mut stack: Vec<&str> = by_id[start]
+            .supersedes
+            .iter()
+            .map(String::as_str)
+            .filter(|target| *target != start)
+            .collect();
+        let mut seen = BTreeSet::new();
+        while let Some(id) = stack.pop() {
+            if id == start {
+                members.insert(start);
+                break;
+            }
+            if !seen.insert(id) {
+                continue;
+            }
+            if let Some(record) = by_id.get(id) {
+                stack.extend(record.supersedes.iter().map(String::as_str));
+            }
+        }
     }
-    EffectiveApprovalState::Approved
+    members
 }
 
 /// Reads every VO record under `.verify/vo/` into an id-keyed map, for
@@ -330,12 +496,11 @@ pub fn read_all_vos(layout: &VerifyLayout) -> Result<BTreeMap<String, VoRecord>,
     Ok(vos)
 }
 
-/// Reads every Approval record under `.verify/approvals/`. Records that fail
-/// to parse are skipped with their error appended to `diagnostics` rather
-/// than aborting — mirrors `validate_approval_status`'s existing E-SCAN-010
-/// reporting shape in `vtest-scan`, so this reader stays usable from a
-/// context (CLI `approval show`) that wants best-effort history even when one
-/// file on disk is malformed.
+/// Reads every Approval record under `.verify/approvals/`. The first record
+/// that cannot be read or fails the schema is returned as the error
+/// (fail-closed, E-SCAN-010 for a schema/id violation): skipping it would
+/// silently drop, for example, a `withdrawn` record from the effective set
+/// and bring back the `approved` it superseded (DS-1466/DS-1676).
 pub fn read_all_approvals(
     layout: &VerifyLayout,
 ) -> Result<Vec<crate::records::ApprovalRecord>, StoreError> {
@@ -345,21 +510,23 @@ pub fn read_all_approvals(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(source) => return Err(StoreError::Io { path: dir, source }),
     };
-    let mut records = Vec::new();
+    let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|source| StoreError::Io {
             path: dir.clone(),
             source,
         })?;
         let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
-            continue;
-        }
-        if let Ok(record) = crate::records::read_approval(&path) {
-            records.push(record);
+        if path.extension().and_then(|value| value.to_str()) == Some("yaml") {
+            paths.push(path);
         }
     }
-    Ok(records)
+    // A deterministic order makes the reported first error deterministic.
+    paths.sort();
+    paths
+        .iter()
+        .map(|path| crate::records::read_approval(path))
+        .collect()
 }
 
 #[cfg(test)]
@@ -399,7 +566,7 @@ mod tests {
             ("R-001", "req", &["ROOT-001"]),
             ("SPEC-001", "spec", &["R-001"]),
         ]);
-        let deps = document_dependencies(&index, "SPEC-001");
+        let deps = document_dependencies(&index, "SPEC-001").expect("closure resolves");
         let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
         assert_eq!(entities, BTreeSet::from(["R-001", "ROOT-001"]));
         assert!(
@@ -416,7 +583,9 @@ mod tests {
     #[test]
     fn document_dependencies_of_a_leaf_node_is_empty() {
         let index = index_with(&[("ROOT-001", "root", &[])]);
-        assert!(document_dependencies(&index, "ROOT-001").is_empty());
+        assert!(document_dependencies(&index, "ROOT-001")
+            .expect("closure resolves")
+            .is_empty());
     }
 
     fn vo(id: &str, parent: Option<&str>, doc_id: &str) -> VoRecord {
@@ -455,7 +624,8 @@ mod tests {
             vo("VO-CHILD", Some("VO-PARENT"), "R-001"),
         );
 
-        let deps = vo_dependencies(&vos, &doc_index, &VoId::new("VO-CHILD"));
+        let deps =
+            vo_dependencies(&vos, &doc_index, &VoId::new("VO-CHILD")).expect("closure resolves");
         let entities: BTreeSet<&str> = deps.iter().map(|dep| dep.entity.as_str()).collect();
         assert_eq!(
             entities,
@@ -680,5 +850,206 @@ mod tests {
         let state =
             effective_approval_state(&[approved, withdrawn], "vo", "VO-X", &hash("content"), &[]);
         assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+
+    fn rec(id: &str, subject: &str, state: &str, supersedes: &[&str]) -> ApprovalRecord {
+        approval_record(
+            id,
+            "vo",
+            subject,
+            hash("content"),
+            Vec::new(),
+            state,
+            supersedes.iter().map(|value| (*value).to_owned()).collect(),
+        )
+    }
+
+    fn state_and_codes(records: &[ApprovalRecord]) -> (EffectiveApprovalState, Vec<String>) {
+        let (state, diagnostics) = effective_approval(records, "vo", "VO-X", &hash("content"), &[]);
+        (
+            state,
+            diagnostics
+                .into_iter()
+                .map(|diagnostic| diagnostic.code)
+                .collect(),
+        )
+    }
+
+    /// DS-556/DS-1474: an existing record whose `supersedes` is unresolved,
+    /// names another subject's record, names itself, or forms a cycle never
+    /// contributes to the effective set and yields W-STORE-005, so a subject
+    /// whose only approvals are ill-formed is draft.
+    /// @vtest.id TEST-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
+    /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval
+    /// @vtest.intent ill-formed supersedes graphs are excluded with W-STORE-005 and never read as approved
+    #[test]
+    fn ill_formed_supersedes_graphs_are_excluded_with_a_warning() {
+        let cases: Vec<(&str, Vec<ApprovalRecord>)> = vec![
+            (
+                "unresolved",
+                vec![rec(
+                    "01A",
+                    "VO-X",
+                    "approved",
+                    &["01ZZZZZZZZZZZZZZZZZZZZZZZZ"],
+                )],
+            ),
+            (
+                "other subject",
+                vec![
+                    rec("01O", "VO-OTHER", "approved", &[]),
+                    rec("01A", "VO-X", "approved", &["01O"]),
+                ],
+            ),
+            ("self", vec![rec("01A", "VO-X", "approved", &["01A"])]),
+            (
+                "cycle",
+                vec![
+                    rec("01A", "VO-X", "approved", &["01B"]),
+                    rec("01B", "VO-X", "approved", &["01A"]),
+                ],
+            ),
+        ];
+        for (name, records) in cases {
+            let (state, codes) = state_and_codes(&records);
+            assert_eq!(state, EffectiveApprovalState::Draft, "{name}");
+            assert!(
+                !codes.is_empty() && codes.iter().all(|code| code == "W-STORE-005"),
+                "{name}: {codes:?}"
+            );
+        }
+    }
+
+    /// PR #133 review: an ill-formed record is not a standing veto
+    /// (DS-556/DS-1466). It contributes nothing — neither as a member nor by
+    /// removing what it names — and keeps its W-STORE-005, but a well-formed
+    /// record for the current hash recovers the subject without deleting
+    /// history: a plain re-approval, or an approval that supersedes the
+    /// ill-formed record.
+    /// @vtest.id TEST-STORE-APPROVAL-ILL-FORMED-RECORD-RECOVERABLE
+    /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval
+    /// @vtest.intent 不正なsupersedesを持つrecordが残っていても、現在hashへの正常な再承認、または不正recordをsupersedesする承認を追加すればapprovedへ回復し、W-STORE-005は残ることを確認する
+    #[test]
+    fn an_ill_formed_record_does_not_block_a_well_formed_reapproval() {
+        let broken = rec("01A", "VO-X", "approved", &["01MISSING"]);
+        let (state, codes) = state_and_codes(std::slice::from_ref(&broken));
+        assert_eq!(state, EffectiveApprovalState::Draft);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        let reapproved = [broken.clone(), rec("01B", "VO-X", "approved", &[])];
+        let (state, codes) = state_and_codes(&reapproved);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        let superseding = [broken.clone(), rec("01B", "VO-X", "approved", &["01A"])];
+        let (state, codes) = state_and_codes(&superseding);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+
+        // DS-556 literally: an ill-formed withdrawal removes nothing, so the
+        // approval it named stays in the effective set (reported, not
+        // vetoed). A well-formed withdrawal is what makes the subject draft.
+        let broken_withdrawal = [
+            rec("01A", "VO-X", "approved", &[]),
+            rec("01W", "VO-X", "withdrawn", &["01A", "01MISSING"]),
+        ];
+        let (state, codes) = state_and_codes(&broken_withdrawal);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
+        let withdrawn_again = [
+            rec("01A", "VO-X", "approved", &[]),
+            rec("01W", "VO-X", "withdrawn", &["01A", "01MISSING"]),
+            rec("01X", "VO-X", "withdrawn", &["01A"]),
+        ];
+        let (state, _) = state_and_codes(&withdrawn_again);
+        assert_eq!(state, EffectiveApprovalState::Draft);
+    }
+
+    /// DS-1466/DS-1470: a well-formed re-approval chain (approve, withdraw,
+    /// approve again superseding the withdrawal) is still approved and
+    /// produces no W-STORE-005.
+    /// @vtest.id TEST-STORE-APPROVAL-WELL-FORMED-REAPPROVAL
+    /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
+    /// @vtest.target crates/vtest-store/src/approval.rs::effective_approval
+    /// @vtest.intent a well-formed supersedes chain is not reported and re-approval reads as approved
+    #[test]
+    fn a_well_formed_reapproval_chain_is_approved_without_warnings() {
+        let records = [
+            rec("01A", "VO-X", "approved", &[]),
+            rec("01B", "VO-X", "withdrawn", &["01A"]),
+            rec("01C", "VO-X", "approved", &["01B"]),
+            rec("01O", "VO-OTHER", "approved", &["01MISSING"]),
+        ];
+        let (state, codes) = state_and_codes(&records);
+        assert_eq!(state, EffectiveApprovalState::Approved);
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    /// DS-1058: a document closure that reaches a missing node or a cycle
+    /// cannot be resolved completely and is an error, never a shrunken
+    /// closure.
+    /// @vtest.id TEST-STORE-DOCUMENT-DEPENDENCIES-UNRESOLVED
+    /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+    /// @vtest.target crates/vtest-store/src/approval.rs::document_dependencies
+    /// @vtest.intent missing upstream nodes and derives_from cycles make the document closure unresolved
+    #[test]
+    fn document_dependencies_rejects_missing_nodes_and_cycles() {
+        let missing = index_with(&[("SPEC-001", "spec", &["R-MISSING"])]);
+        assert!(document_dependencies(&missing, "SPEC-001").is_err());
+        let deep_missing = index_with(&[
+            ("R-001", "req", &["ROOT-MISSING"]),
+            ("SPEC-001", "spec", &["R-001"]),
+        ]);
+        assert!(document_dependencies(&deep_missing, "SPEC-001").is_err());
+        let cycle = index_with(&[("A-001", "a", &["B-001"]), ("B-001", "b", &["A-001"])]);
+        assert!(document_dependencies(&cycle, "A-001").is_err());
+        let self_cycle = index_with(&[("A-001", "a", &["A-001"])]);
+        assert!(document_dependencies(&self_cycle, "A-001").is_err());
+        assert!(document_dependencies(&missing, "NOPE").is_err());
+    }
+
+    /// DS-1058: a VO whose parent chain is dangling or cyclic, or whose
+    /// own or ancestor `derives_from` names a missing document, cannot be
+    /// resolved completely.
+    /// @vtest.id TEST-STORE-VO-DEPENDENCIES-UNRESOLVED
+    /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
+    /// @vtest.target crates/vtest-store/src/approval.rs::vo_dependencies
+    /// @vtest.intent dangling or cyclic parents and missing documents make the VO closure unresolved
+    #[test]
+    fn vo_dependencies_rejects_dangling_and_cyclic_references() {
+        let doc_index = index_with(&[("ROOT-001", "root", &[])]);
+        let child = VoId::new("VO-CHILD");
+
+        let mut dangling = BTreeMap::new();
+        dangling.insert(
+            "VO-CHILD".to_owned(),
+            vo("VO-CHILD", Some("VO-MISSING"), "ROOT-001"),
+        );
+        assert!(vo_dependencies(&dangling, &doc_index, &child).is_err());
+
+        let mut cyclic = BTreeMap::new();
+        cyclic.insert(
+            "VO-CHILD".to_owned(),
+            vo("VO-CHILD", Some("VO-PARENT"), "ROOT-001"),
+        );
+        cyclic.insert(
+            "VO-PARENT".to_owned(),
+            vo("VO-PARENT", Some("VO-CHILD"), "ROOT-001"),
+        );
+        assert!(vo_dependencies(&cyclic, &doc_index, &child).is_err());
+
+        let mut missing_doc = BTreeMap::new();
+        missing_doc.insert("VO-CHILD".to_owned(), vo("VO-CHILD", None, "DOC-MISSING"));
+        assert!(vo_dependencies(&missing_doc, &doc_index, &child).is_err());
+
+        let mut ancestor_missing_doc = BTreeMap::new();
+        ancestor_missing_doc.insert(
+            "VO-CHILD".to_owned(),
+            vo("VO-CHILD", Some("VO-PARENT"), "ROOT-001"),
+        );
+        ancestor_missing_doc.insert("VO-PARENT".to_owned(), vo("VO-PARENT", None, "DOC-MISSING"));
+        assert!(vo_dependencies(&ancestor_missing_doc, &doc_index, &child).is_err());
     }
 }
