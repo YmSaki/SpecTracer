@@ -69,7 +69,8 @@ pub fn encode_test_json(test: &TestEntity, registry: &AdapterRegistry) -> Value 
 /// DES-284/285, DS-974/1578/1579: reads a Test JSON object.
 ///
 /// - `execution` wins when present, and any compatibility fields must
-///   describe the same descriptor;
+///   describe the same descriptor; a present but invalid `execution`
+///   (`null`, a non-object, a missing or invalid `adapter`) is rejected;
 /// - without `execution`, exactly one codec's complete fields derive it;
 /// - the singular `target` must equal the only entry of `targets`;
 /// - a compatibility field no codec of the Test's adapter owns, or any
@@ -88,11 +89,21 @@ pub fn decode_test_json(
         .ids()
         .filter_map(|id| registry.test_wire_codec(id))
         .collect();
-    let declared_adapter = object
-        .get("execution")
-        .and_then(|execution| execution.get("adapter"))
-        .and_then(Value::as_str)
-        .map(str::to_owned);
+    // DS-1578 derives `execution` from compatibility fields only when the
+    // key is *absent*. A present `execution` is read strictly as an
+    // `ExecutionDescriptor` first: `null`, a non-object, or one without a
+    // valid `adapter` is rejected, never replaced by a compat-derived
+    // descriptor that would name a different execution coordinate.
+    let declared: Option<ExecutionDescriptor> = match object.get("execution") {
+        None => None,
+        Some(execution) => Some(
+            serde_json::from_value(execution.clone())
+                .map_err(|error| WireError(format!("invalid execution: {error}")))?,
+        ),
+    };
+    let declared_adapter = declared
+        .as_ref()
+        .map(|execution| execution.adapter.as_str().to_owned());
     let codec = match &declared_adapter {
         Some(adapter) => registry.test_wire_codec(adapter),
         None => {
@@ -129,10 +140,7 @@ pub fn decode_test_json(
     match (&declared_adapter, codec) {
         (Some(_), Some(codec)) if !compat.is_empty() => {
             let derived = codec.decode(&compat).map_err(WireError)?;
-            let execution: ExecutionDescriptor =
-                serde_json::from_value(object["execution"].clone())
-                    .map_err(|error| WireError(format!("invalid execution: {error}")))?;
-            if derived != execution {
+            if declared.as_ref() != Some(&derived) {
                 return Err(WireError(
                     "execution and the compatibility fields describe different descriptors"
                         .to_owned(),

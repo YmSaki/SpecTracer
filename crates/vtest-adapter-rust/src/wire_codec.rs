@@ -236,6 +236,48 @@ mod tests {
         assert!(decode_test_json(&none, &registry).is_err());
     }
 
+    /// PR #141 review: DS-1578's derivation applies only when `execution`
+    /// is absent. A present `execution` that is `null`, not an object, or
+    /// has no valid `adapter` is rejected, even with complete compat fields
+    /// next to it, instead of being replaced by the compat-derived
+    /// descriptor (which would silently select a different Test).
+    /// @vtest.id TEST-ADAPTER-RUST-WIRE-CODEC-REJECTS-INVALID-PRESENT-EXECUTION
+    /// @vtest.covers VO-ADAPTER-WIRE-CODEC-DERIVES-EXECUTION, VO-ADAPTER-WIRE-CODEC-REJECTS-CONTRADICTION
+    /// @vtest.target crates/vtest-adapter-api/src/wire.rs::decode_test_json
+    /// @vtest.intent executionキーが存在し不正（null・型不正・adapter欠落・adapter型不正）なら互換fieldが揃っていても拒否し、キー不存在のときだけ互換fieldから補完することを確認する
+    #[test]
+    fn a_present_but_invalid_execution_is_rejected_not_derived_from_compat_fields() {
+        let registry = registry();
+        let original = test("rust-cargo", integration(), 1);
+        let json = encode_test_json(&original, &registry);
+
+        // Absent: derived from the complete compat fields (DS-1578).
+        let mut absent = json.clone();
+        absent.as_object_mut().unwrap().remove("execution");
+        assert_eq!(decode_test_json(&absent, &registry), Ok(original.clone()));
+
+        // Present but invalid: rejected, never replaced by `module::wire`.
+        for (name, execution) in [
+            ("selector only", json!({"selector": "different-test"})),
+            ("null", Value::Null),
+            ("string", json!("rust-cargo")),
+            ("array", json!([])),
+            (
+                "adapter not a string",
+                json!({"adapter": 1, "project": "fixture", "selector": "module::wire"}),
+            ),
+            (
+                "adapter null",
+                json!({"adapter": null, "project": "fixture", "selector": "module::wire"}),
+            ),
+        ] {
+            let mut invalid = json.clone();
+            invalid["execution"] = execution;
+            let decoded = decode_test_json(&invalid, &registry);
+            assert!(decoded.is_err(), "{name}: {decoded:?}");
+        }
+    }
+
     /// DS-1579/DS-974/DS-1674: contradicting `execution` and compat fields,
     /// compat fields on a non-Rust Test, and a singular `target` that does
     /// not equal the only `targets` entry are all rejected.
