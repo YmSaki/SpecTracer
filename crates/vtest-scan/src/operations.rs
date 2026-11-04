@@ -12,8 +12,8 @@ use vtest_model::{
     TestEntity, TestRecord, TestResult, VerificationState, INTERNAL_ERROR_CODE,
 };
 use vtest_store::{
-    load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
-    FormAnswers, FormSchema, FormValue, VerifyLayout,
+    load_config, read_entity_ids, read_evidence, read_record_ids, write_atomic, FormAnswers,
+    FormSchema, FormValue, VerifyLayout,
 };
 
 use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
@@ -80,29 +80,6 @@ fn structured_test_for<'a>(
     })
 }
 
-/// The owner of a Form for `test create`. Form Schemas carry no `adapter`
-/// field yet, so DS-1548's rule for an adapter-less Form applies: exactly
-/// one registered Structured Test adapter owns it; none is E-ADAPTER-004,
-/// more than one is an ambiguous owner and is rejected.
-fn create_owner(registry: &AdapterRegistry) -> Result<&dyn StructuredTestAdapter, Diagnostic> {
-    match registry.structured_test_ids().as_slice() {
-        [one] => structured_test_for(registry, one),
-        [] => Err(Diagnostic::error(
-            "E-ADAPTER-004",
-            "no registered adapter has the Structured Test capability; nothing is created and \
-             no file is changed (DS-1555)",
-        )),
-        many => Err(Diagnostic::error(
-            "E-OP-001",
-            format!(
-                "the form owner is ambiguous: {} adapters provide Structured Test (DS-1548)",
-                many.join(", ")
-            ),
-        )
-        .with_candidates(many.iter().map(|id| (*id).to_owned()))),
-    }
-}
-
 pub fn create_test(
     root: &Path,
     form_kind: &str,
@@ -117,10 +94,10 @@ pub fn create_test(
             error.to_string(),
         )
     })?;
-    let syntax = create_owner(registry)?;
-    let layout = VerifyLayout::new(root);
-    let schema = load_form_schema(&layout, form_kind)
-        .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
+    // DS-1546: the Form's single owner adapter performs the operation.
+    let form = crate::forms::resolve_form(root, registry, form_kind)?;
+    let syntax = structured_test_for(registry, &form.adapter)?;
+    let schema = form.schema;
     let answers = validate_form_answers(root, &schema, supplied, &scan, syntax)?;
     let test_id = select_test_id(&scan, &answers, explicit_id)?;
     let file = destination_file(supplied)?;
@@ -269,9 +246,20 @@ pub fn edit_test(
     let syntax = structured_test_for(registry, current.location.adapter.as_str())?;
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
-        let layout = VerifyLayout::new(root);
-        let schema = load_form_schema(&layout, &supplied.form)
-            .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
+        let form = crate::forms::resolve_form(root, registry, &supplied.form)?;
+        // DS-1546: a Form owned by another adapter cannot describe this Test.
+        if form.adapter != current.location.adapter.as_str() {
+            return Err(Diagnostic::error(
+                "E-ADAPTER-001",
+                format!(
+                    "Form `{}` is owned by `{}`, but Test `{test_id}` belongs to `{}` (DS-1547)",
+                    supplied.form,
+                    form.adapter,
+                    current.location.adapter.as_str()
+                ),
+            ));
+        }
+        let schema = form.schema;
         let answers =
             validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id), syntax)?;
         desired.apply_complete_answers(&answers)?;
@@ -1960,14 +1948,14 @@ mod tests {
 
     /// @vtest.id TEST-STRUCTURED-OP-CAPABILITY-REQUIRED
     /// @vtest.covers VO-ADAPTER-STRUCTURED-TEST-CAPABILITY-REQUIRED
-    /// @vtest.target crates/vtest-scan/src/operations.rs::create_owner
+    /// @vtest.target crates/vtest-scan/src/operations.rs::structured_test_for
     /// @vtest.intent create/edit resolve their syntax only from an adapter that declares the Structured Test capability (DS-1555)
     #[test]
     fn structured_operations_require_structured_test_capability() {
         let empty = AdapterRegistry::new();
-        let error = create_owner(&empty)
+        let error = structured_test_for(&empty, "rust-cargo")
             .err()
-            .expect("no Structured Test adapter must be rejected");
+            .expect("an unregistered adapter has no Structured Test capability");
         assert_eq!(error.code, "E-ADAPTER-004");
 
         let registry = test_registry();
@@ -1976,7 +1964,8 @@ mod tests {
             .expect("an adapter without the capability must be rejected");
         assert_eq!(error.code, "E-ADAPTER-004");
 
-        let owner = create_owner(&registry).expect("rust-cargo owns Structured Test");
+        let owner =
+            structured_test_for(&registry, "rust-cargo").expect("rust-cargo owns Structured Test");
         assert!(owner.is_identifier("Widget"));
     }
 
@@ -2611,13 +2600,15 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// `targets`（`required: true`）まで弱めていないことを固定する。
     /// @vtest.id TEST-SCAN-RUST-INTEGRATION-FORM-REJECTS-EMPTY-TARGETS
     /// @vtest.covers VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
-    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_INTEGRATION_FORM
+    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_INTEGRATION_FORM
     /// @vtest.intent verifies the rust-integration Form rejects an empty targets list with E-OP-001 (DS-1247)
     #[test]
     fn rust_integration_form_rejects_an_empty_targets_list() {
         let root = temp_root("empty-targets-form");
-        let schema =
-            vtest_store::parse_form_schema(vtest_store::RUST_INTEGRATION_FORM).expect("parse form");
+        let schema = vtest_store::parse_form_schema(
+            vtest_adapter_rust::structured_test::RUST_INTEGRATION_FORM,
+        )
+        .expect("parse form");
         let mut answers = BTreeMap::new();
         answers.insert("targets".to_owned(), FormValue::List(Vec::new()));
         answers.insert(

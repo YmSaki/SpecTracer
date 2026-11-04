@@ -31,6 +31,7 @@ use vtest_store::{
     AdapterConfig, ProjectConfig, RelationRecord, StoreError, VerifyLayout,
 };
 
+pub mod forms;
 pub mod operations;
 pub use operations::*;
 

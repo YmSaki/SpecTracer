@@ -4,119 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StoreError, VerifyLayout};
 
-pub const RUST_UNIT_FUNCTION_FORM: &str = r#"kind: rust-unit-function
-title: Rust function unit test
-fields:
-  - name: target
-    question: Target source symbol?
-    type: symbol
-    required: true
-    validate: [symbol-exists]
-  - name: covers
-    question: Verification objectives?
-    type: vo-ref-list
-    required: true
-    validate: [vo-exists]
-  - name: behavior
-    question: Behavior under test?
-    type: string
-    required: true
-  - name: test_kind
-    question: Test kind?
-    type: enum
-    options: [normal, error, boundary, regression]
-    required: true
-  - name: input
-    question: Input conditions?
-    type: string
-    required: true
-  - name: expect
-    question: Expected result?
-    type: string
-    required: true
-    validate: [enum-variant-exists]
-  - name: fn_name
-    question: Test function name?
-    type: ident
-    required: true
-    validate: [unique-fn-name]
-  - name: file
-    question: Destination Rust file?
-    type: path
-    required: false
-    validate: [rust-file]
-template: |
-  /// @vtest.id {test_id}
-  /// @vtest.covers {covers}
-  /// @vtest.target {target}
-  /// @vtest.intent {behavior}
-  /// @vtest.input {input}
-  /// @vtest.expect {expect}
-  /// @vtest.kind unit-{test_kind}
-  #[test]
-  fn {fn_name}() {
-      todo!("implement test body")
-  }
-"#;
-
-pub const RUST_INTEGRATION_FORM: &str = r#"kind: rust-integration
-title: Rust integration test
-fields:
-  - name: targets
-    question: Target source symbols?
-    type: symbol-list
-    required: true
-    validate: [symbols-exist]
-  - name: covers
-    question: Verification objectives?
-    type: vo-ref-list
-    required: true
-    validate: [vo-exists]
-  - name: behavior
-    question: Behavior under test?
-    type: string
-    required: true
-  - name: test_kind
-    question: Test kind?
-    type: enum
-    options: [normal, error, boundary, regression]
-    required: true
-  - name: input
-    question: Input conditions?
-    type: string
-    required: true
-  - name: expect
-    question: Expected result?
-    type: string
-    required: true
-    validate: [enum-variant-exists]
-  - name: fn_name
-    question: Test function name?
-    type: ident
-    required: true
-    validate: [unique-fn-name]
-  - name: file
-    question: Destination Rust file?
-    type: path
-    required: true
-    validate: [rust-file]
-template: |
-  /// @vtest.id {test_id}
-  /// @vtest.covers {covers}
-  /// @vtest.target {targets}
-  /// @vtest.intent {behavior}
-  /// @vtest.input {input}
-  /// @vtest.expect {expect}
-  /// @vtest.kind unit-{test_kind}
-  #[test]
-  fn {fn_name}() {
-      todo!("implement test body")
-  }
-"#;
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FormSchema {
     pub kind: String,
+    /// DS-1545: the owner adapter ID. `None` for a read-compatible schema
+    /// that predates the field (DS-1548 resolves its owner).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<String>,
     pub title: String,
     pub fields: Vec<FormField>,
     pub template: String,
@@ -171,28 +65,34 @@ pub struct FormAnswers {
     pub answers: BTreeMap<String, FormValue>,
 }
 
-pub fn load_form_schema(layout: &VerifyLayout, kind: &str) -> Result<FormSchema, StoreError> {
+/// The text of the user-defined Form Schema `.verify/forms/<kind>.yaml`, or
+/// `None` when the repository defines no such file. Built-in Forms are not
+/// resolved here: they belong to the adapters that declare them (DES-373,
+/// DS-1549), and `vtest_scan::forms::resolve_form` merges both.
+pub fn read_form_schema_text(
+    layout: &VerifyLayout,
+    kind: &str,
+) -> Result<Option<String>, StoreError> {
     if !safe_form_kind(kind) {
         return Err(StoreError::InvalidForm(format!(
             "form kind contains unsafe characters: `{kind}`"
         )));
     }
     let path = layout.forms_dir().join(format!("{kind}.yaml"));
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => match kind {
-            "rust-unit-function" => RUST_UNIT_FUNCTION_FORM.to_owned(),
-            "rust-integration" => RUST_INTEGRATION_FORM.to_owned(),
-            _ => {
-                return Err(StoreError::Io {
-                    path,
-                    source: error,
-                })
-            }
-        },
-        Err(source) => return Err(StoreError::Io { path, source }),
-    };
-    parse_form_schema(&text)
+    match fs::read_to_string(&path) {
+        Ok(text) => Ok(Some(text)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(source) => Err(StoreError::Io { path, source }),
+    }
+}
+
+/// DS-1545: a Form `kind` is `[a-z0-9][a-z0-9-]*`.
+pub fn is_valid_form_kind(kind: &str) -> bool {
+    let mut bytes = kind.bytes();
+    bytes
+        .next()
+        .is_some_and(|first| first.is_ascii_lowercase() || first.is_ascii_digit())
+        && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
 
 pub fn read_form_answers(path: &Path) -> Result<FormAnswers, StoreError> {
@@ -205,6 +105,7 @@ pub fn read_form_answers(path: &Path) -> Result<FormAnswers, StoreError> {
 
 pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
     let mut kind = None;
+    let mut adapter = None;
     let mut title = None;
     let mut fields = Vec::new();
     let mut field = None::<FormField>;
@@ -244,6 +145,7 @@ pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
             let (key, value) = property(trimmed, "form schema")?;
             match key {
                 "kind" => kind = Some(parse_scalar(value, "form kind")?),
+                "adapter" => adapter = Some(parse_scalar(value, "form adapter")?),
                 "title" => title = Some(parse_scalar(value, "form title")?),
                 _ => {
                     return Err(StoreError::InvalidForm(format!(
@@ -298,6 +200,7 @@ pub fn parse_form_schema(text: &str) -> Result<FormSchema, StoreError> {
     }
     Ok(FormSchema {
         kind,
+        adapter,
         title,
         fields,
         template,
@@ -544,45 +447,22 @@ fn safe_form_kind(kind: &str) -> bool {
 mod tests {
     use super::*;
 
-    /// @vtest.id TEST-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE-001
-    /// @vtest.covers VO-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE
-    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_UNIT_FUNCTION_FORM
-    /// @vtest.intent 組込Form `rust-unit-function` がkind/8 field/`@vtest.target {target}` templateを持つことを検証する。
-    #[test]
-    fn built_in_unit_form_parses() {
-        let form = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
-        assert_eq!(form.kind, "rust-unit-function");
-        assert_eq!(form.fields.len(), 8);
-        assert!(form.template.contains("@vtest.target {target}"));
-    }
+    const SAMPLE_FORM: &str = "kind: sample\nadapter: sample-adapter\ntitle: Sample\nfields:\n  - name: target\n    question: Target?\n    type: symbol\n    required: true\n    validate: [symbol-exists]\ntemplate: |\n  body {target}\n";
 
-    /// @vtest.id TEST-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT-001
-    /// @vtest.covers VO-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
-    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_INTEGRATION_FORM
-    /// @vtest.intent `rust-integration`のtemplateが`@vtest.kind`行で`rust-unit-function`と一致し`integration-`を生成しないことを検証する。
-    /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」（`target`→
-    /// `targets`必須化と`file`のrequired化の2点のみ）。`rust-integration`の
-    /// templateが出力する`@vtest.kind`行は`rust-unit-function`と同一の
-    /// `unit-{test_kind}`でなければならず、`integration-{test_kind}`を
-    /// 生成してはならない（pr3-decisions.md Owner裁定3）。
+    /// @vtest.id TEST-STORE-FORM-SCHEMA-ADAPTER-FIELD
+    /// @vtest.covers VO-FORM-KIND-UNIQUE-OWNER-DECLARED
+    /// @vtest.target crates/vtest-store/src/forms.rs::parse_form_schema
+    /// @vtest.intent a Form Schema's top-level adapter field is read as its owner adapter ID, and a schema without it parses with no owner
     #[test]
-    fn built_in_integration_form_kind_line_matches_the_unit_form() {
-        let unit = parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
-        let integration = parse_form_schema(RUST_INTEGRATION_FORM).unwrap();
-        assert_eq!(integration.kind, "rust-integration");
-        let kind_line = |template: &str| {
-            template
-                .lines()
-                .find(|line| line.contains("@vtest.kind"))
-                .unwrap()
-                .trim()
-                .to_owned()
-        };
-        assert_eq!(kind_line(&unit.template), kind_line(&integration.template));
-        assert!(integration
-            .template
-            .contains("@vtest.kind unit-{test_kind}"));
-        assert!(!integration.template.contains("@vtest.kind integration-"));
+    fn form_schema_reads_the_owner_adapter_field() {
+        let parsed = parse_form_schema(SAMPLE_FORM).unwrap();
+        assert_eq!(parsed.adapter.as_deref(), Some("sample-adapter"));
+        let without =
+            parse_form_schema(&SAMPLE_FORM.replace("adapter: sample-adapter\n", "")).unwrap();
+        assert_eq!(without.adapter, None);
+        assert!(is_valid_form_kind("rust-unit-function"));
+        assert!(!is_valid_form_kind("Rust_unit"));
+        assert!(!is_valid_form_kind("-leading"));
     }
 
     /// @vtest.id TEST-STORE-FORM-ANSWERS-BLOCK-LIST-SYNTAX-001
@@ -608,7 +488,7 @@ mod tests {
     /// @vtest.intent Form Schemaのfield定義に未知のプロパティキーが含まれる場合に解析が拒否されることを検証する。
     #[test]
     fn unknown_form_field_property_is_rejected() {
-        let invalid = RUST_UNIT_FUNCTION_FORM.replace(
+        let invalid = SAMPLE_FORM.replace(
             "    required: true\n    validate: [symbol-exists]",
             "    required: true\n    surprise: yes\n    validate: [symbol-exists]",
         );
