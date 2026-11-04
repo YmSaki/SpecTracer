@@ -789,7 +789,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
                     })).collect::<Vec<_>>(),
                     "effective_state": effective,
                 }),
-                &[],
+                &result.diagnostics,
             )
         }
         Err(error) => approval_error_envelope(&error),
@@ -1071,6 +1071,9 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
             let code = error.code().unwrap_or("E-CORE-001");
             failure_envelope(code, error.to_string())
         }
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            failure_envelope("E-INTERNAL-001", message)
+        }
     }
 }
 
@@ -1113,6 +1116,9 @@ fn report_tool(root: &Path, args: &Value) -> Value {
         Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
             failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        }
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            failure_envelope("E-INTERNAL-001", message)
         }
     }
 }
@@ -1265,6 +1271,10 @@ mod tests {
                 let code = error.code().unwrap_or("E-CORE-001");
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
             }
+            Err(vtest_cli::ops::verify::VerifyOpError::Internal { message }) => (
+                ExitCode::Internal,
+                failure_envelope("E-INTERNAL-001", message),
+            ),
         }
     }
 
