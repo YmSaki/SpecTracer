@@ -746,7 +746,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
                     })).collect::<Vec<_>>(),
                     "effective_state": effective,
                 }),
-                &[],
+                &result.diagnostics,
             )
         }
         Err(error) => approval_error_envelope(&error),
@@ -1030,7 +1030,7 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
             let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             failure_envelope(code, error.to_string())
         }
-        Err(ops::verify::VerifyOpError::Internal(message)) => {
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
             failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message)
         }
     }
@@ -1211,7 +1211,7 @@ mod tests {
                 let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
             }
-            Err(vtest_cli::ops::verify::VerifyOpError::Internal(message)) => (
+            Err(vtest_cli::ops::verify::VerifyOpError::Internal { message }) => (
                 ExitCode::Internal,
                 failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message),
             ),

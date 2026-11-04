@@ -83,8 +83,11 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
-    /// The tool itself failed (DS-1689/DS-1690): E-INTERNAL-001, exit 3.
-    Internal(String),
+    /// The tool itself failed (E-INTERNAL-001, exit code 3, DS-1689/DS-1690):
+    /// a verification input or the configuration could not be read because
+    /// of an I/O failure. No result is returned, because a result computed
+    /// without that input is not complete.
+    Internal { message: String },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -112,7 +115,9 @@ pub fn execute(
             code,
             message: error.to_string(),
         },
-        None => VerifyOpError::Internal(error.to_string()),
+        None => VerifyOpError::Internal {
+            message: error.to_string(),
+        },
     })?;
 
     let gate_config = resolve_gate(&config, gate).map_err(|message| VerifyOpError::Usage {
@@ -123,6 +128,15 @@ pub fn execute(
     let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
     let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
+    if let Some(internal) = outcome
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == vtest_model::INTERNAL_ERROR_CODE)
+    {
+        return Err(VerifyOpError::Internal {
+            message: internal.message.clone(),
+        });
+    }
     let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
     let non_pass = outcome
         .all_outcomes()
@@ -160,7 +174,9 @@ pub fn execute(
         None => ExitCode::VerificationFailed,
     };
 
-    Ok((exit, data, scan.diagnostics.clone()))
+    let mut diagnostics = scan.diagnostics.clone();
+    diagnostics.extend(outcome.diagnostics.iter().cloned());
+    Ok((exit, data, diagnostics))
 }
 
 fn entity_scope(
