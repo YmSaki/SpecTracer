@@ -48,6 +48,10 @@ pub struct TestMutationResult {
     pub start_byte: usize,
     pub end_byte: usize,
     pub rendered: String,
+    /// The source text `rendered` replaces: empty for create (an insertion),
+    /// the Test's current item text for edit. Lets callers present a diff
+    /// (DS-1206 / DS-1207) without re-reading the file.
+    pub replaced: String,
 }
 
 /// DS-929/DS-930: a rejected config is E-CONFIG-001; an unreadable one is
@@ -154,6 +158,7 @@ pub fn create_test(
         start_byte,
         end_byte: prospective.len(),
         rendered,
+        replaced: String::new(),
     };
     if dry_run {
         return Ok(result);
@@ -375,6 +380,7 @@ pub fn edit_test(
         start_byte,
         end_byte: start_byte + rendered.len(),
         rendered,
+        replaced: current_slice.to_owned(),
     };
     if dry_run || !changed {
         return Ok(result);
