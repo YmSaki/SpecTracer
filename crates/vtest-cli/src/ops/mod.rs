@@ -10,6 +10,8 @@ pub mod approval;
 pub mod doc;
 pub mod doctor;
 pub mod init;
+pub mod pending;
+pub mod report;
 pub mod run;
 pub mod scan;
 pub mod verify;

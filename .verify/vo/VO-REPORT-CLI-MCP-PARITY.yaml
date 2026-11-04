@@ -1,0 +1,11 @@
+id: VO-REPORT-CLI-MCP-PARITY
+parent: null
+derives_from:
+  - doc: DS-1215
+claim: "`report` は `verify` と同上の入力に `from` / `view` / `depth` / `direction` を加えて受け取り（`items` 省略は固定4検査）、最上位 `scope`（§12.1）、根拠付き完全レポート、projection（親 VO 起点の機能単位の束ねを含む）、`pending` section を出力する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

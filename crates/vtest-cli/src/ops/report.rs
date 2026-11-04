@@ -1,0 +1,406 @@
+//! `vtest report` and MCP `report` (SPEC-401/SPEC-402, BD-082/BD-228/
+//! BD-230, DS-1133〜DS-1147, DS-1215, DS-1505, DS-1524).
+//!
+//! `report` runs the same aggregation as `verify` (the shared
+//! `ops::verify::evaluate`), so its state, result, tree, scope, gate and
+//! `pending` section are those of `verify` for the same input. It adds:
+//!
+//! - the full tree regardless of `--summary` (report is the reading /
+//!   submission output, verify the judging one, SPEC-402);
+//! - `evidence`: the latest Evidence record id per Test in the tree, the
+//!   reference behind each Test's execution-derived checks (SPEC-401);
+//! - `projection`: a local trace over the declaration graph from any node
+//!   (`--from` DOC / VO / TEST / SRC), up, down or both, to `--depth`
+//!   steps, filtered by a role preset (`--view`). Its `derives_from` edges
+//!   carry the entry's `anchor` / `note` when present and omit them
+//!   otherwise (DS-1144/DS-1524); `anchor` is transported as an opaque
+//!   string (DS-1146). A parent VO traced downward lists every child VO
+//!   and Test with its state, which is the feature-unit breakdown
+//!   (DS-1139/DS-1505); there is no Feature field (DS-1140).
+//!
+//! Role presets (DS-1136; the canon leaves the preset system to this
+//! layer, DS-1137) select node kinds: `pm` = documents and VOs, `tester` =
+//! VOs, Tests and targets, `coder` = targets, Tests, VOs and documents.
+
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::path::Path;
+
+use vtest_adapter_api::AdapterRegistry;
+use vtest_model::{Diagnostic, ExitCode, TargetRef, VoRecord};
+use vtest_scan::ScanResult;
+use vtest_store::VerifyLayout;
+use vtest_verify::{NodeKind, TreeNode};
+
+use super::verify::{state_name, VerifyData, VerifyOpError};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    Up,
+    Down,
+    Both,
+}
+
+impl Direction {
+    pub fn parse(value: &str) -> Result<Self, VerifyOpError> {
+        match value {
+            "up" => Ok(Self::Up),
+            "down" => Ok(Self::Down),
+            "both" => Ok(Self::Both),
+            other => Err(usage(format!(
+                "--direction must be up, down or both; got `{other}`"
+            ))),
+        }
+    }
+}
+
+pub const VIEWS: &[&str] = &["pm", "tester", "coder"];
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GraphKind {
+    Doc,
+    Vo,
+    Test,
+    Src,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ProjectionNode {
+    pub kind: GraphKind,
+    pub id: String,
+    /// The node's representative state in this run's tree; `null` for a
+    /// target or a node outside the requested entity scope.
+    pub state: Option<&'static str>,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, serde::Serialize)]
+pub struct ProjectionEdge {
+    pub from: String,
+    pub relation: &'static str,
+    pub to: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct Projection {
+    pub from: Option<String>,
+    pub direction: Direction,
+    pub depth: Option<usize>,
+    pub view: Option<String>,
+    pub nodes: Vec<ProjectionNode>,
+    pub edges: Vec<ProjectionEdge>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct EvidenceRef {
+    pub test: String,
+    pub evidence: String,
+    pub result: String,
+    pub executed_at: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct ReportData {
+    #[serde(flatten)]
+    pub verify: VerifyData,
+    pub evidence: Vec<EvidenceRef>,
+    pub projection: Projection,
+}
+
+/// The projection request: `from` / `view` / `depth` / `direction`.
+#[derive(Clone, Debug, Default)]
+pub struct ProjectionArgs {
+    pub from: Option<String>,
+    pub view: Option<String>,
+    pub depth: Option<usize>,
+    pub direction: Option<String>,
+}
+
+fn usage(message: String) -> VerifyOpError {
+    VerifyOpError::Usage {
+        code: "E-OP-001",
+        message,
+    }
+}
+
+struct Graph {
+    kinds: BTreeMap<String, GraphKind>,
+    /// (edge, upper node, lower node)
+    edges: Vec<(ProjectionEdge, String, String)>,
+}
+
+fn target_node(scan: &ScanResult, target: &TargetRef) -> Option<String> {
+    scan.sources
+        .iter()
+        .find(|source| match target {
+            TargetRef::Locator(locator) => &source.locator == locator,
+            TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
+        })
+        .map(|source| source.locator.value.clone())
+}
+
+fn build_graph(
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    vos: &BTreeMap<String, VoRecord>,
+) -> Graph {
+    let mut kinds = BTreeMap::new();
+    let mut edges = Vec::new();
+    let edge = |from: &str, relation, to: &str, upper: &str, lower: &str| {
+        (
+            ProjectionEdge {
+                from: from.to_owned(),
+                relation,
+                to: to.to_owned(),
+                anchor: None,
+                note: None,
+            },
+            upper.to_owned(),
+            lower.to_owned(),
+        )
+    };
+    if let Ok(index) = vtest_store::approval::build_document_node_index(layout) {
+        for (id, parents) in index.iter() {
+            kinds.insert(id.to_owned(), GraphKind::Doc);
+            for parent in parents {
+                edges.push(edge(id, "derives_from", parent, parent, id));
+            }
+        }
+    }
+    for (id, vo) in vos {
+        kinds.insert(id.clone(), GraphKind::Vo);
+        for entry in &vo.derives_from {
+            let doc = entry.doc.as_str();
+            let mut item = edge(id, "derives_from", doc, doc, id);
+            item.0.anchor = entry.anchor.clone();
+            item.0.note = entry.note.clone();
+            edges.push(item);
+        }
+        if let Some(parent) = &vo.parent {
+            edges.push(edge(id, "parent", parent.as_str(), parent.as_str(), id));
+        }
+    }
+    for source in &scan.sources {
+        kinds.insert(source.locator.value.clone(), GraphKind::Src);
+    }
+    for test in &scan.tests {
+        let id = test.id.as_str();
+        kinds.insert(id.to_owned(), GraphKind::Test);
+        for vo in &test.covers {
+            edges.push(edge(id, "covers", vo.as_str(), vo.as_str(), id));
+        }
+        for target in &test.targets {
+            if let Some(src) = target_node(scan, target) {
+                edges.push(edge(id, "targets", &src, id, &src));
+            }
+        }
+    }
+    Graph { kinds, edges }
+}
+
+fn view_kinds(view: Option<&str>) -> Result<BTreeSet<GraphKind>, VerifyOpError> {
+    use GraphKind::*;
+    Ok(match view {
+        None | Some("coder") => [Doc, Vo, Test, Src].into_iter().collect(),
+        Some("pm") => [Doc, Vo].into_iter().collect(),
+        Some("tester") => [Vo, Test, Src].into_iter().collect(),
+        Some(other) => {
+            return Err(usage(format!(
+                "--view must be one of {}; got `{other}`",
+                VIEWS.join(", ")
+            )))
+        }
+    })
+}
+
+fn states_in(nodes: &[TreeNode], out: &mut BTreeMap<(GraphKind, String), &'static str>) {
+    for node in nodes {
+        let kind = match node.kind {
+            NodeKind::Doc => GraphKind::Doc,
+            NodeKind::Vo => GraphKind::Vo,
+            NodeKind::Test => GraphKind::Test,
+        };
+        out.entry((kind, node.id.clone()))
+            .or_insert_with(|| state_name(node.state));
+        states_in(&node.children, out);
+    }
+}
+
+/// Builds the projection over the declaration graph (DES-466: VO → Tests,
+/// SRC → Tests, DOC → VOs, DOC → DOCs).
+pub fn project(
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    tree: &[TreeNode],
+    args: &ProjectionArgs,
+) -> Result<Projection, VerifyOpError> {
+    let direction = match args.direction.as_deref() {
+        Some(value) => Direction::parse(value)?,
+        None => Direction::Both,
+    };
+    let allowed = view_kinds(args.view.as_deref())?;
+    let vos = vtest_store::approval::read_all_vos(layout).unwrap_or_default();
+    let graph = build_graph(layout, scan, &vos);
+
+    let visited: BTreeSet<String> = match &args.from {
+        None => graph.kinds.keys().cloned().collect(),
+        Some(start) => {
+            if !graph.kinds.contains_key(start) {
+                return Err(usage(format!(
+                    "--from {start} names no DOC / VO / TEST / SRC node"
+                )));
+            }
+            let mut seen = BTreeSet::from([start.clone()]);
+            let mut queue = VecDeque::from([(start.clone(), 0usize)]);
+            while let Some((node, steps)) = queue.pop_front() {
+                if args.depth.is_some_and(|limit| steps >= limit) {
+                    continue;
+                }
+                for (_, upper, lower) in &graph.edges {
+                    let next = match direction {
+                        Direction::Down if upper == &node => lower,
+                        Direction::Up if lower == &node => upper,
+                        Direction::Both if upper == &node => lower,
+                        Direction::Both if lower == &node => upper,
+                        _ => continue,
+                    };
+                    if seen.insert(next.clone()) {
+                        queue.push_back((next.clone(), steps + 1));
+                    }
+                }
+            }
+            seen
+        }
+    };
+
+    let mut states = BTreeMap::new();
+    states_in(tree, &mut states);
+    let kept: BTreeSet<&String> = visited
+        .iter()
+        .filter(|id| {
+            graph
+                .kinds
+                .get(*id)
+                .is_some_and(|kind| allowed.contains(kind))
+        })
+        .collect();
+    let mut nodes: Vec<ProjectionNode> = kept
+        .iter()
+        .map(|id| {
+            let kind = graph.kinds[*id];
+            ProjectionNode {
+                kind,
+                id: (*id).clone(),
+                state: states.get(&(kind, (*id).clone())).copied(),
+            }
+        })
+        .collect();
+    nodes.sort_by(|left, right| (left.kind, &left.id).cmp(&(right.kind, &right.id)));
+    let mut edges: Vec<ProjectionEdge> = graph
+        .edges
+        .into_iter()
+        .filter(|(edge, _, _)| kept.contains(&edge.from) && kept.contains(&edge.to))
+        .map(|(edge, _, _)| edge)
+        .collect();
+    edges.sort();
+    edges.dedup();
+    Ok(Projection {
+        from: args.from.clone(),
+        direction,
+        depth: args.depth,
+        view: args.view.clone(),
+        nodes,
+        edges,
+    })
+}
+
+fn test_ids(nodes: &[TreeNode], out: &mut BTreeSet<String>) {
+    for node in nodes {
+        if node.kind == NodeKind::Test {
+            out.insert(node.id.clone());
+        }
+        test_ids(&node.children, out);
+    }
+}
+
+/// The latest Evidence record per Test in the tree (ULIDs sort by time,
+/// DES-032). An unreadable record is skipped here; `verify` already
+/// reports what it means for the Test's checks.
+fn evidence_refs(layout: &VerifyLayout, tree: &[TreeNode]) -> Vec<EvidenceRef> {
+    let mut wanted = BTreeSet::new();
+    test_ids(tree, &mut wanted);
+    let mut latest: BTreeMap<String, EvidenceRef> = BTreeMap::new();
+    let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) else {
+        return Vec::new();
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
+            continue;
+        }
+        let Ok(record) = vtest_store::records::read_evidence(&path) else {
+            continue;
+        };
+        let test = record.test_id.as_str().to_owned();
+        if !wanted.contains(&test) {
+            continue;
+        }
+        if latest
+            .get(&test)
+            .is_some_and(|existing| existing.evidence >= record.id)
+        {
+            continue;
+        }
+        let result = serde_json::to_value(record.result)
+            .ok()
+            .and_then(|value| value.as_str().map(str::to_owned))
+            .unwrap_or_default();
+        latest.insert(
+            test.clone(),
+            EvidenceRef {
+                test,
+                evidence: record.id,
+                result,
+                executed_at: record.executed_at,
+            },
+        );
+    }
+    latest.into_values().collect()
+}
+
+/// `vtest report` / MCP `report`.
+#[allow(clippy::too_many_arguments)]
+pub fn execute(
+    root: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    projection: &ProjectionArgs,
+    registry: &AdapterRegistry,
+) -> Result<(ExitCode, ReportData, Vec<Diagnostic>), VerifyOpError> {
+    // Validate the projection arguments before running anything, so a bad
+    // request returns no partial result.
+    if let Some(value) = projection.direction.as_deref() {
+        Direction::parse(value)?;
+    }
+    view_kinds(projection.view.as_deref())?;
+    let evaluated = super::verify::evaluate(root, items, doc, vo, test, gate, false, registry)?;
+    let layout = VerifyLayout::new(root);
+    let projection = project(&layout, &evaluated.scan, &evaluated.data.tree, projection)?;
+    let evidence = evidence_refs(&layout, &evaluated.data.tree);
+    Ok((
+        evaluated.exit,
+        ReportData {
+            verify: evaluated.data,
+            evidence,
+            projection,
+        },
+        evaluated.diagnostics,
+    ))
+}

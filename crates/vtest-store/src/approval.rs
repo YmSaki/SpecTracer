@@ -35,6 +35,13 @@ impl DocumentNodeIndex {
     pub fn get(&self, id: &str) -> Option<&(ContentHash, Vec<String>)> {
         self.0.get(id)
     }
+
+    /// Every node id with its `derives_from` targets, in id order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &[String])> {
+        self.0
+            .iter()
+            .map(|(id, (_, parents))| (id.as_str(), parents.as_slice()))
+    }
 }
 
 /// Builds the node index by reading every document file under `.verify/doc/`.
