@@ -1,0 +1,104 @@
+# Self-verification (#81): run vtest on this repository and publish the result.
+#
+# This job is NOT a merge gate. It is not a required check (#95 keeps `check`
+# and `spec-guard` as the required ones) while verification still reports
+# hundreds of non-PASS results.
+#
+# The job's result is still vtest's own exit code, so a verification NG
+# (exit 1) shows red, and so do an operation rejection (2) and an internal
+# error (3). Green must never mean "verification passed" unless it did (P1).
+# The exit code is never discarded (no `|| true`): each step records it and
+# the last step exits with it, after the summary and the artifact are kept.
+#
+# Evidence is generated here and kept only as a workflow artifact; it is never
+# committed (#80, 2026-10-28).
+name: Self-verify
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  self-verify:
+    name: self-verify (informational, not a merge gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Evidence binds the HEAD revision (DS-820).
+          fetch-depth: 1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+      - name: Build vtest
+        run: cargo build --locked -p vtest-cli
+      - name: vtest run --all
+        id: run
+        run: |
+          set +e
+          ./target/debug/vtest --format json run --all > vtest-run.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: vtest verify
+        id: verify
+        if: always()
+        run: |
+          set +e
+          ./target/debug/vtest --format json verify > vtest-verify.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: Summary
+        if: always()
+        env:
+          RUN_EXIT: ${{ steps.run.outputs.exit }}
+          VERIFY_EXIT: ${{ steps.verify.outputs.exit }}
+        run: |
+          state=$(jq -r '.data.state // "no result"' vtest-verify.json 2>/dev/null || echo "no result")
+          result=$(jq -r '.data.result // "no result"' vtest-verify.json 2>/dev/null || echo "no result")
+          non_pass=$(jq -r '.data.non_pass // "n/a"' vtest-verify.json 2>/dev/null || echo "n/a")
+          {
+            echo "## Self-verify (this job is not a merge gate)"
+            echo
+            echo "- verification state: \`${state}\` (result \`${result}\`, non-PASS ${non_pass})"
+            echo "- \`vtest verify\` exit code: ${VERIFY_EXIT:-not run}"
+            echo "- \`vtest run --all\` exit code: ${RUN_EXIT:-not run}"
+            echo
+            echo "The job's success or failure follows these exit codes. A green job means"
+            echo "\`vtest verify\` exited 0; it is the state above that says whether the"
+            echo "repository verifies."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-verify
+          path: |
+            vtest-run.json
+            vtest-verify.json
+            .verify/evidence/
+            .verify/cache/logs/
+          if-no-files-found: warn
+      - name: Exit with vtest's exit code
+        if: always()
+        env:
+          RUN_EXIT: ${{ steps.run.outputs.exit }}
+          VERIFY_EXIT: ${{ steps.verify.outputs.exit }}
+        run: |
+          # verify's exit code decides the job; a run that failed as an
+          # operation (non-zero) while verify still exited 0 is red too.
+          if [ "${VERIFY_EXIT:-3}" != "0" ]; then exit "${VERIFY_EXIT:-3}"; fi
+          if [ "${RUN_EXIT:-3}" != "0" ]; then exit "${RUN_EXIT:-3}"; fi
