@@ -131,6 +131,11 @@ impl VerifyLayout {
         self.verify_dir().join("approvals")
     }
 
+    /// The predecessor `.verify/audits/` location. Nothing reads or writes
+    /// it any more (issue #23, BD-150: no canonical directory holds
+    /// deterministic-analysis results). It stays only so tests can assert
+    /// that `init_project` never creates it (DS-985's generation list has
+    /// no `audits/`).
     pub fn audits_dir(&self) -> PathBuf {
         self.verify_dir().join("audits")
     }
