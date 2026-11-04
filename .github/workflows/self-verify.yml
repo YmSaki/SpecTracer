@@ -14,15 +14,13 @@
 # committed (#80, 2026-10-28).
 name: Self-verify
 
+# `vtest run --all` runs every Test under `cargo llvm-cov` one at a time.
+# Measured on a dev container on 2026-11-04: 30 of 481 Tests in 900 s
+# (about 30 s each), so a full run takes hours. That is too slow for every
+# push and pull request, so the job runs nightly on `develop` and on demand.
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
+  schedule:
+    - cron: "0 18 * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +34,9 @@ jobs:
   self-verify:
     name: self-verify (informational, not a merge gate)
     runs-on: ubuntu-latest
+    # GitHub-hosted jobs stop at 6 hours; stop a little earlier so the
+    # summary and artifact steps still run.
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +51,7 @@ jobs:
         run: cargo build --locked -p vtest-cli
       - name: vtest run --all
         id: run
+        timeout-minutes: 320
         run: |
           set +e
           ./target/debug/vtest --format json run --all > vtest-run.json
@@ -74,8 +76,8 @@ jobs:
             echo "## Self-verify (this job is not a merge gate)"
             echo
             echo "- verification state: \`${state}\` (result \`${result}\`, non-PASS ${non_pass})"
-            echo "- \`vtest verify\` exit code: ${VERIFY_EXIT:-not run}"
-            echo "- \`vtest run --all\` exit code: ${RUN_EXIT:-not run}"
+            echo "- \`vtest verify\` exit code: ${VERIFY_EXIT:-not recorded (step failed or timed out)}"
+            echo "- \`vtest run --all\` exit code: ${RUN_EXIT:-not recorded (step failed or timed out)}"
             echo
             echo "The job's success or failure follows these exit codes. A green job means"
             echo "\`vtest verify\` exited 0; it is the state above that says whether the"
