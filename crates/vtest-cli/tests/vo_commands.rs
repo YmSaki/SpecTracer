@@ -465,6 +465,110 @@ fn expand_never_generates_partially() {
     assert_eq!(vo_files(&root), before, "VO-X-POSITIVE must not be written");
 }
 
+/// Every file under `.verify/` and the project root, with its bytes, so a
+/// rejected command can be checked to have changed nothing anywhere.
+fn snapshot_tree(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    fn walk(dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
+        for entry in fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else {
+                out.push((path.clone(), fs::read(&path).unwrap()));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, &mut out);
+    out.sort();
+    out
+}
+
+/// PR #147 review: a VO id is its file name (BD-322), so an id with `..`,
+/// a separator or an absolute path must not reach `.verify/vo/{id}.yaml`.
+/// `vo add --id ../config` used to overwrite `.verify/config.yaml`.
+/// @vtest.id TEST-CLI-VO-ID-PATH-TRAVERSAL-REJECTED
+/// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+/// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
+/// @vtest.intent vo add/edit/expandで..・区切り文字・絶対パスを含むVO IDや子IDを E-OP-001 / exit 2 で拒否し、既存config・VO・外部ファイルの内容が一切変わらないことを確認する
+#[test]
+fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
+    let root = fixture("id-traversal");
+    let outside = root.with_extension("outside.yaml");
+    fs::write(&outside, "outside: untouched\n").unwrap();
+    add_basic(&root, "VO-KEEP", "R-001");
+    let (code, _) = vtest(
+        &root,
+        &[
+            "vo",
+            "add",
+            "--id",
+            "VO-AXIS",
+            "--claim",
+            "c",
+            "--derives-from",
+            "R-001",
+            "--dimension",
+            "where=../../escape,in",
+            "--policy",
+            "independent-axes",
+        ],
+    );
+    assert_eq!(code, 0);
+    let outside_name = outside.file_stem().unwrap().to_str().unwrap().to_owned();
+    let absolute = outside.with_extension("");
+    let before = snapshot_tree(&root);
+
+    let ids: Vec<String> = vec![
+        "../config".to_owned(),
+        // `.verify/vo/../../../<stem>.yaml` is the file next to the root.
+        format!("../../../{outside_name}"),
+        absolute.to_str().unwrap().to_owned(),
+        "VO-A/VO-B".to_owned(),
+        "VO-A\\VO-B".to_owned(),
+        ".hidden".to_owned(),
+        "..".to_owned(),
+    ];
+    for id in ids.iter().map(String::as_str) {
+        for args in [
+            vec![
+                "vo",
+                "add",
+                "--id",
+                id,
+                "--claim",
+                "overwrite",
+                "--derives-from",
+                "ROOT-001",
+            ],
+            vec!["vo", "edit", id, "--claim", "overwrite"],
+            vec!["vo", "expand", id],
+        ] {
+            let (code, envelope) = vtest(&root, &args);
+            assert_eq!(
+                (code, code_of(&envelope)),
+                (2, "E-OP-001"),
+                "{args:?}: {envelope}"
+            );
+        }
+    }
+    // A partition value that would put a child outside `.verify/vo/`.
+    let (code, envelope) = vtest(&root, &["vo", "expand", "VO-AXIS"]);
+    assert_eq!((code, code_of(&envelope)), (2, "E-OP-001"), "{envelope}");
+
+    assert_eq!(
+        snapshot_tree(&root),
+        before,
+        "nothing under the project changed"
+    );
+    assert_eq!(
+        fs::read_to_string(&outside).unwrap(),
+        "outside: untouched\n"
+    );
+    assert!(!root.parent().unwrap().join("escape.yaml").exists());
+    fs::remove_file(&outside).ok();
+}
+
 /// @vtest.id TEST-CLI-VO-APPROVE-IS-APPROVAL-CREATE
 /// @vtest.covers VO-CLI-VO-APPROVE-ALIAS
 /// @vtest.target crates/vtest-cli/src/lib.rs::run

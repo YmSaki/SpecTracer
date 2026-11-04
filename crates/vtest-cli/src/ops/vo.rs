@@ -302,8 +302,25 @@ fn validate_record(record: &VoRecord) -> Result<(), VoOpError> {
 
 fn require_id(id: Option<&str>) -> Result<&str, VoOpError> {
     match id {
-        Some(id) if !id.trim().is_empty() => Ok(id),
+        Some(id) if !id.trim().is_empty() => {
+            require_valid_id(id)?;
+            Ok(id)
+        }
         _ => Err(VoOpError::Usage("a VO id is required".to_owned())),
+    }
+}
+
+/// A VO id must name a file inside `.verify/vo/` (no `..`, separator or
+/// absolute path). The store rejects such an id too; checking it here
+/// reports it as a usage error (E-OP-001) before anything is read or
+/// written, for the CLI and MCP add/upsert/edit/expand alike.
+fn require_valid_id(id: &str) -> Result<(), VoOpError> {
+    if vtest_store::canonical::is_valid_vo_id(id) {
+        Ok(())
+    } else {
+        Err(VoOpError::Usage(
+            vtest_store::StoreError::InvalidVoId(id.to_owned()).to_string(),
+        ))
     }
 }
 
@@ -603,6 +620,7 @@ pub struct ExpandResult {
 /// any check fails, including when a child id already exists, so a run
 /// never generates part of the set (DS-416/DS-1044).
 pub fn expand(layout: &VerifyLayout, id: &str, dry_run: bool) -> Result<ExpandResult, VoOpError> {
+    require_valid_id(id)?;
     let vos = read_all_vos(layout)?;
     let Some(parent) = vos.get(id) else {
         return Err(VoOpError::Usage(format!("no VO with id '{id}' exists")));
@@ -677,6 +695,15 @@ pub fn expand(layout: &VerifyLayout, id: &str, dry_run: bool) -> Result<ExpandRe
             .collect::<Vec<_>>()
             .join("-");
         let child_id = format!("{id}-{suffix}");
+        // A partition value is part of the child id, so `../x` or `a/b`
+        // would name a file outside `.verify/vo/`. Checked for every child
+        // before any is written, so nothing is generated (DS-416).
+        if !vtest_store::canonical::is_valid_vo_id(&child_id) {
+            return Err(VoOpError::Usage(format!(
+                "expanding VO {id} yields the child id {child_id:?}, which cannot name a VO \
+                 record file; nothing was generated"
+            )));
+        }
         if !seen.insert(child_id.clone()) {
             return Err(VoOpError::Usage(format!(
                 "expanding VO {id} yields the child id {child_id} more than once (partition \

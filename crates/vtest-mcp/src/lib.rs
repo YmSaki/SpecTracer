@@ -1660,6 +1660,38 @@ mod tests {
         assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
     }
 
+    /// PR #147 review: the MCP vo_upsert/vo_expand share the CLI's id check,
+    /// so a traversal id is a tool error that writes nothing.
+    /// @vtest.id TEST-MCP-VO-ID-PATH-TRAVERSAL-REJECTED
+    /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCPのvo_upsert/vo_expandで..や区切り文字を含むVO IDをE-OP-001で拒否し、.verify/config.yamlを含め何も書き換えないことを確認する
+    #[test]
+    fn vo_tools_reject_ids_that_are_not_a_file_name() {
+        let root = vo_fixture("vo-id-traversal");
+        let config = root.join(".verify").join("config.yaml");
+        let before = std::fs::read(&config).unwrap();
+        for id in ["../config", "VO-A/VO-B", "..", "/tmp/vo"] {
+            let upsert = dispatch_tool(
+                &root,
+                "vo_upsert",
+                &json!({"id": id, "claim": "overwrite", "derives_from": [{"doc": "ROOT-001"}]}),
+            );
+            assert_eq!(
+                upsert["diagnostics"][0]["code"], "E-OP-001",
+                "{id}: {upsert}"
+            );
+            let expand = dispatch_tool(&root, "vo_expand", &json!({"id": id}));
+            assert_eq!(
+                expand["diagnostics"][0]["code"], "E-OP-001",
+                "{id}: {expand}"
+            );
+        }
+        assert_eq!(std::fs::read(&config).unwrap(), before, "config untouched");
+        let listed = dispatch_tool(&root, "vo_list", &json!({}));
+        assert_eq!(listed["data"]["vos"], json!([]), "{listed}");
+    }
+
     /// @vtest.id TEST-MCP-VO-APPROVE-ALIAS
     /// @vtest.covers VO-MCP-VO-APPROVE-ALIAS
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
