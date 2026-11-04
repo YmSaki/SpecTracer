@@ -233,6 +233,11 @@ pub struct VerifyOutcome {
     /// すべてPASSならOK、それ以外ならNGとする」。SPEC-333「利用者向け簡易出力は
     /// `OK` / `NG`の二値とする」。検証状態とは別軸の field である。
     pub ok: bool,
+    /// Diagnostics raised while reading verification inputs (an unusable
+    /// Evidence record: E-SCAN-010, or a store I/O failure: E-INTERNAL-001).
+    /// The CLI/MCP envelope carries them next to the scan diagnostics.
+    #[serde(skip)]
+    pub diagnostics: Vec<vtest_model::Diagnostic>,
 }
 
 impl VerifyOutcome {
@@ -319,6 +324,13 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 struct EvidenceContext<'a> {
     root: std::path::PathBuf,
     latest_by_test: BTreeMap<String, EvidenceRecord>,
+    /// Evidence records that could not be read or did not pass the schema
+    /// (E-SCAN-010), kept so a broken *latest* record is never skipped in
+    /// favour of an older valid one (DS-673/DS-674/DS-1365/DS-1366).
+    invalid: Vec<InvalidEvidence>,
+    /// Diagnostics for `invalid` (E-SCAN-010 for a schema/id violation,
+    /// E-INTERNAL-001 for a store I/O failure, DS-1676/DS-1689).
+    diagnostics: Vec<vtest_model::Diagnostic>,
     head_commit: Option<String>,
     registry: &'a vtest_adapter_api::AdapterRegistry,
     /// adapter id → DS-617 `assertion_macros`（`config.yaml` の
@@ -335,25 +347,88 @@ impl<'a> EvidenceContext<'a> {
         registry: &'a vtest_adapter_api::AdapterRegistry,
     ) -> Self {
         let mut latest_by_test: BTreeMap<String, EvidenceRecord> = BTreeMap::new();
-        if let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
-                    continue;
-                }
-                let Ok(record) = read_evidence(&path) else {
-                    continue;
-                };
-                let test_id = record.test_id.as_str().to_owned();
-                // Evidence record ids are ULIDs (DES-032), which sort
-                // lexicographically in creation-time order, so the greatest
-                // `id` string among a Test's records is the latest one.
-                match latest_by_test.get(&test_id) {
-                    Some(existing) if existing.id >= record.id => {}
-                    _ => {
-                        latest_by_test.insert(test_id, record);
+        let mut invalid = Vec::new();
+        let mut diagnostics = Vec::new();
+        let evidence_dir = layout.evidence_dir();
+        match std::fs::read_dir(&evidence_dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    let path = match entry {
+                        Ok(entry) => entry.path(),
+                        Err(error) => {
+                            // An unlistable entry may be any Test's latest record.
+                            invalid.push(InvalidEvidence {
+                                id: None,
+                                test_id: None,
+                                reason: format!("Evidence directory entry unreadable: {error}"),
+                            });
+                            diagnostics.push(vtest_model::Diagnostic::error(
+                                "E-INTERNAL-001",
+                                format!(
+                                    "Evidence directory {} could not be listed completely: {error}",
+                                    evidence_dir.display()
+                                ),
+                            ));
+                            continue;
+                        }
+                    };
+                    if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
+                        continue;
+                    }
+                    match read_evidence(&path) {
+                        Ok(record) => {
+                            let test_id = record.test_id.as_str().to_owned();
+                            // Evidence record ids are ULIDs (DES-032), which sort
+                            // lexicographically in creation-time order, so the
+                            // greatest `id` string among a Test's records is the
+                            // latest one.
+                            match latest_by_test.get(&test_id) {
+                                Some(existing) if existing.id >= record.id => {}
+                                _ => {
+                                    latest_by_test.insert(test_id, record);
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            let (code, reason) = match &error {
+                                vtest_store::StoreError::Io { .. } => {
+                                    ("E-INTERNAL-001", format!("could not be read: {error}"))
+                                }
+                                _ => ("E-SCAN-010", format!("is not a valid record: {error}")),
+                            };
+                            let id = path
+                                .file_stem()
+                                .and_then(|stem| stem.to_str())
+                                .map(str::to_owned);
+                            invalid.push(InvalidEvidence {
+                                id,
+                                test_id: std::fs::read_to_string(&path)
+                                    .ok()
+                                    .and_then(|text| declared_test_id(&text)),
+                                reason: format!("Evidence {} {reason}", path.display()),
+                            });
+                            diagnostics.push(vtest_model::Diagnostic::error(
+                                code,
+                                format!("Evidence {} {reason}", path.display()),
+                            ));
+                        }
                     }
                 }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                invalid.push(InvalidEvidence {
+                    id: None,
+                    test_id: None,
+                    reason: format!("Evidence directory unreadable: {error}"),
+                });
+                diagnostics.push(vtest_model::Diagnostic::error(
+                    "E-INTERNAL-001",
+                    format!(
+                        "Evidence directory {} could not be read: {error}",
+                        evidence_dir.display()
+                    ),
+                ));
             }
         }
         let assertion_macros = vtest_store::load_config(root)
@@ -368,11 +443,68 @@ impl<'a> EvidenceContext<'a> {
         Self {
             root: root.to_owned(),
             latest_by_test,
+            invalid,
+            diagnostics,
             head_commit: git_head_commit(root),
             registry,
             assertion_macros,
         }
     }
+}
+
+/// An Evidence record that could not be used (DS-1679). `id` is the file
+/// name's ULID; `None` (with `test_id: None`) means the record could not even
+/// be listed, so it may be any Test's latest record.
+#[derive(Clone, Debug)]
+struct InvalidEvidence {
+    id: Option<String>,
+    test_id: Option<String>,
+    reason: String,
+}
+
+impl EvidenceContext<'_> {
+    /// DS-673/DS-674/DS-1365: the latest Evidence of a Test is the newest
+    /// record *file*, valid or not. When an invalid record is newer than the
+    /// newest valid one (or its Test cannot be told and it may be), that
+    /// invalid record is the latest and no older valid record stands in.
+    fn invalid_latest(&self, test_id: &str) -> Option<&InvalidEvidence> {
+        let valid_id = self
+            .latest_by_test
+            .get(test_id)
+            .map(|record| record.id.as_str());
+        self.invalid
+            .iter()
+            .filter(|invalid| {
+                invalid
+                    .test_id
+                    .as_deref()
+                    .is_none_or(|declared| declared == test_id)
+            })
+            .filter(|invalid| match (&invalid.id, valid_id) {
+                (None, _) | (_, None) => true,
+                (Some(id), Some(valid)) => id.as_str() > valid,
+            })
+            .max_by(|a, b| a.id.cmp(&b.id))
+    }
+}
+
+/// The `test_id` a broken Evidence file declares, so a record that fails the
+/// schema (an unknown field, an id that differs from its file name, ...) can
+/// still be attributed to its Test. The file is parsed as YAML and the value
+/// is used only when it is a string that is a well-formed Test ID; anything
+/// else — YAML that does not parse, a duplicated key, `test_id: null`, a
+/// number, an empty or whitespace-bearing string — returns `None`, which
+/// `invalid_latest` attributes to every Test (fail-closed). Reading the line
+/// textually would turn `test_id: null` into the Test ID `"null"`, which
+/// matches no real Test, and an older valid PASS would stand in again.
+fn declared_test_id(text: &str) -> Option<String> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text).ok()?;
+    let declared = value.get("test_id")?.as_str()?;
+    let well_formed = !declared.is_empty()
+        && declared
+            .chars()
+            .all(|c| !c.is_whitespace() && !c.is_control());
+    well_formed.then(|| declared.to_owned())
 }
 
 fn git_head_commit(root: &Path) -> Option<String> {
@@ -482,6 +614,7 @@ pub fn verify_project(
         unevaluated,
         state,
         ok: state == VerificationState::Pass,
+        diagnostics: evidence.diagnostics.clone(),
     }
 }
 
@@ -1053,6 +1186,21 @@ fn evaluate_target_binding(
             vec![DiagnosticLabel::NotChecked],
             vec![format!(
                 "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
+            )],
+        );
+    }
+
+    // DS-1365/DS-1679: an invalid latest record is not replaced by an older
+    // valid one; the Test has no usable Evidence.
+    if let Some(invalid) = evidence.invalid_latest(test.id.as_str()) {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotExecuted],
+            vec![format!(
+                "the latest Evidence is not usable and older Evidence is not used in its \
+                 place (DS-1365/DS-1679): {}",
+                invalid.reason
             )],
         );
     }
@@ -2186,7 +2334,7 @@ mod tests {
     #[test]
     fn only_chain_integrity_breaks_on_a_test_id_collision() {
         let (root, mut scan) = complete_project("collision");
-        scan.diagnostics.push(Diagnostic::error(
+        scan.diagnostics.push(vtest_model::Diagnostic::error(
             "E-SCAN-002",
             "duplicate Test ID TEST-ONE",
         ));
@@ -2298,7 +2446,7 @@ mod tests {
     #[test]
     fn only_orphan_detection_breaks_on_an_orphaned_document_node() {
         let (root, mut scan) = complete_project("orphan");
-        scan.diagnostics.push(Diagnostic::error(
+        scan.diagnostics.push(vtest_model::Diagnostic::error(
             "E-SCAN-016",
             "document node SPEC-999 is orphaned",
         ));
@@ -2366,8 +2514,11 @@ mod tests {
         let (root, mut scan) = complete_project("unresolvable-target");
         let at = scan.tests[0].location.clone();
         scan.diagnostics.push(
-            Diagnostic::error("E-SCAN-004", "target `src/lib.rs::gone` cannot be resolved")
-                .with_location(at),
+            vtest_model::Diagnostic::error(
+                "E-SCAN-004",
+                "target `src/lib.rs::gone` cannot be resolved",
+            )
+            .with_location(at),
         );
         let outcome = outcome_for(&root, &scan);
         assert_eq!(
@@ -2384,7 +2535,8 @@ mod tests {
         let (root, mut scan) = complete_project("ambiguous-target");
         let at = scan.tests[0].location.clone();
         scan.diagnostics.push(
-            Diagnostic::error("E-SCAN-011", "target matches multiple candidates").with_location(at),
+            vtest_model::Diagnostic::error("E-SCAN-011", "target matches multiple candidates")
+                .with_location(at),
         );
         let outcome = outcome_for(&root, &scan);
         assert_eq!(
@@ -2971,6 +3123,8 @@ mod tests {
         let evidence = EvidenceContext {
             root: temp_root("tb-incomplete-execution-state"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3027,6 +3181,8 @@ mod tests {
             // DS-820 passes and does not mask this branch).
             root: temp_root("tb-current-reconstruction-fails").join("does-not-exist"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3132,6 +3288,8 @@ mod tests {
         let evidence = EvidenceContext {
             root: root.clone(),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some(head_commit),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3188,5 +3346,82 @@ mod tests {
         let outcome = dynamic_result_from_evidence(&record);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());
+    }
+
+    /// @vtest.id TEST-VERIFY-INVALID-LATEST-EVIDENCE-SELECTION
+    /// @vtest.covers VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::EvidenceContext::invalid_latest
+    /// @vtest.intent 有効な最新より新しい不正Evidence、Testを読めない不正Evidenceを最新として扱い、有効な最新より古い不正Evidenceは無視することを確認する
+    #[test]
+    fn an_invalid_record_newer_than_the_valid_latest_is_the_latest() {
+        let registry = test_registry();
+        let mut valid = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        valid.id = "01HZZZZZZZZZZZZZZZZZZZZZZZ".to_owned();
+        let context = |invalid: Vec<InvalidEvidence>| EvidenceContext {
+            root: std::path::PathBuf::new(),
+            latest_by_test: BTreeMap::from([("TEST-ONE".to_owned(), valid.clone())]),
+            invalid,
+            diagnostics: Vec::new(),
+            head_commit: None,
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        let broken = |id: Option<&str>, test: Option<&str>| InvalidEvidence {
+            id: id.map(str::to_owned),
+            test_id: test.map(str::to_owned),
+            reason: "broken".to_owned(),
+        };
+        let newer = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-ONE"),
+        )]);
+        assert!(newer.invalid_latest("TEST-ONE").is_some());
+        assert!(
+            newer.invalid_latest("TEST-TWO").is_none(),
+            "another Test's record"
+        );
+        let older = context(vec![broken(
+            Some("01AZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-ONE"),
+        )]);
+        assert!(older.invalid_latest("TEST-ONE").is_none());
+        let other = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-TWO"),
+        )]);
+        assert!(other.invalid_latest("TEST-ONE").is_none());
+        let unattributed = context(vec![broken(Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"), None)]);
+        assert!(unattributed.invalid_latest("TEST-ONE").is_some());
+        let unlisted = context(vec![broken(None, None)]);
+        assert!(unlisted.invalid_latest("TEST-ONE").is_some());
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: 'TEST-ONE'\n").as_deref(),
+            Some("TEST-ONE")
+        );
+        assert_eq!(declared_test_id("{{{ not yaml").as_deref(), None);
+        // PR #132 review: a value that is not a well-formed Test ID string
+        // cannot attribute the record, so it is attributed to every Test.
+        assert_eq!(declared_test_id("id: X\ntest_id: null\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ~\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 12\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ''\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 'A B'\n").as_deref(), None);
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: [TEST-ONE]\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("test_id: TEST-ONE\ntest_id: TEST-TWO\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: TEST-ONE\nunexpected: true\n").as_deref(),
+            Some("TEST-ONE")
+        );
+        let null_test = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            declared_test_id("id: X\ntest_id: null\nunexpected: true\n").as_deref(),
+        )]);
+        assert!(null_test.invalid_latest("TEST-ONE").is_some());
     }
 }

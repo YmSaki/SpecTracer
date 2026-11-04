@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-REEVALUATION-REBUILDS-CURRENT-DTO
+parent: null
+derives_from:
+  - doc: DES-372
+claim: '有効性再評価では同じschemaを持つ現在DTOを再構築し、保存hashと比較する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T00:00:00+09:00
+updated: 2026-11-04T00:00:00+09:00

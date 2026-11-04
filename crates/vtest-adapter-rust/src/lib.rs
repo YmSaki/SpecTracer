@@ -137,11 +137,15 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             })
             .collect();
         let invocation = serde_json::json!({"program": command.program, "args": args, "working_root": "workspace-root", "env": command.env});
-        Some(execution_state::snapshot(
+        // DES-369: bind the environment the command will actually inherit
+        // (the process environment overlaid with the command's own `env`).
+        let environment = execution_state::Environment::current().with_overlay(&command.env);
+        Some(execution_state::snapshot_in(
             root,
             head_revision,
             runner_kind,
             invocation,
+            environment,
         ))
     }
 

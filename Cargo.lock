@@ -646,6 +646,7 @@ dependencies = [
  "vtest-model",
  "vtest-scan",
  "vtest-store",
+ "yaml_serde",
 ]
 
 [[package]]
