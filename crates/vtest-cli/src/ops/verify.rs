@@ -83,6 +83,10 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
+    /// A verification input could not be read because of a store I/O failure
+    /// (E-INTERNAL-001, exit code 3, DS-1689/DS-1690). No result is returned,
+    /// because a result computed without that input is not complete.
+    Internal { message: String },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -118,6 +122,15 @@ pub fn execute(
     let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
     let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
+    if let Some(internal) = outcome
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "E-INTERNAL-001")
+    {
+        return Err(VerifyOpError::Internal {
+            message: internal.message.clone(),
+        });
+    }
     let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
     let non_pass = outcome
         .all_outcomes()
@@ -155,14 +168,8 @@ pub fn execute(
         None => ExitCode::VerificationFailed,
     };
 
-    // The scan's diagnostics, then those the checks raised (E-SCAN-010 for
-    // an Evidence record DS-476 excludes), so CLI and MCP report both.
     let mut diagnostics = scan.diagnostics.clone();
-    for diagnostic in outcome.diagnostics() {
-        if !diagnostics.contains(&diagnostic) {
-            diagnostics.push(diagnostic);
-        }
-    }
+    diagnostics.extend(outcome.diagnostics.iter().cloned());
     Ok((exit, data, diagnostics))
 }
 
