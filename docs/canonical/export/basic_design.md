@@ -676,7 +676,7 @@ CLIには `clap` 4.x（derive）を使用する。
 
 ### BD-124
 
-YAMLレコードファイルの処理には `serde_yaml` を使用する。
+YAMLレコードファイルの処理にはSerde対応のYAMLパーサーを使用する。
 
 ### BD-125
 
