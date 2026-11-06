@@ -12,9 +12,8 @@ pub fn execute(root: &Path, project_name: &str) -> (ExitCode, serde_json::Value)
             let data = serde_json::json!({ "project": root, "initialized": true });
             (ExitCode::Ok, crate::envelope_json(true, data, &[]))
         }
-        Err(error) => (
-            ExitCode::Usage,
-            crate::config_failure_envelope(&error.to_string()),
-        ),
+        // A rejected init (e.g. `.verify/` already exists) is E-CONFIG-001
+        // / exit 2; a filesystem failure writing the layout is internal.
+        Err(error) => crate::config_error_result(&error),
     }
 }

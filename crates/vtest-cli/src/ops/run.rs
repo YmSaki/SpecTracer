@@ -14,7 +14,7 @@
 //! 動的証拠を採らない). The base per-Test execution/Evidence-write behavior
 //! itself is `vtest-exec::run_tests`'s existing contract (unchanged here);
 //! this module only resolves which `TestEntity`s to hand it and how to
-//! build each `RunnableTest`'s `target_hashes`/`target_locator`, following
+//! build each `RunnableTest`'s `target_hashes`/`target_locators`, following
 //! the pattern `crates/vtest-cli/tests/evidence_e2e.rs` already exercises
 //! against the library entry points directly (that test file's own comment
 //! disclosed no `vtest run`/`vtest exec` CLI surface existed yet).
@@ -30,6 +30,11 @@ use vtest_verify::vo_subtree_ids;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunOpError {
+    /// DS-744/DS-1563: `test`, `vo` and `all` are mutually exclusive target
+    /// axes; a combination must be rejected (E-OP-001), never narrowed or
+    /// widened to one axis.
+    #[error("{0}")]
+    ConflictingTargets(String),
     #[error("no Test with id '{0}' was discovered by scan")]
     UnknownTestId(String),
     #[error("no VO with id '{0}' exists")]
@@ -48,6 +53,40 @@ pub enum RunTarget {
     Test(Vec<String>),
     Vo(String),
     All,
+}
+
+impl RunTarget {
+    /// Builds the single target axis from the raw `test` / `vo` / `all`
+    /// inputs shared by the CLI and MCP. More than one axis given is
+    /// `ConflictingTargets` (E-OP-001), so a request cannot silently drop
+    /// the Test ids it named or widen to every Test (DS-744/DS-1563).
+    pub fn from_axes(
+        test_ids: Vec<String>,
+        vo: Option<String>,
+        all: bool,
+    ) -> Result<Self, RunOpError> {
+        let mut given = Vec::new();
+        if !test_ids.is_empty() {
+            given.push("test");
+        }
+        if vo.is_some() {
+            given.push("vo");
+        }
+        if all {
+            given.push("all");
+        }
+        if given.len() > 1 {
+            return Err(RunOpError::ConflictingTargets(format!(
+                "run target axes are mutually exclusive; got {}",
+                given.join(" + ")
+            )));
+        }
+        Ok(match (vo, all) {
+            (Some(vo_id), _) => Self::Vo(vo_id),
+            (None, true) => Self::All,
+            (None, false) => Self::Test(test_ids),
+        })
+    }
 }
 
 /// Resolves the requested target to the `TestEntity` set to run.
@@ -106,14 +145,15 @@ pub fn resolve_runnables(
 
 /// Builds the `RunnableTest` for one `TestEntity`: resolves its declared
 /// `Locator` targets (if any) against the scan's discovered Source
-/// Functions to obtain their current content hashes. A Test with zero
-/// targets (DS-1673 permits this) yields empty `target_hashes` and
-/// `target_locator: None` — `run_tests` already handles that shape (see its
-/// `unavailable_target_coverage`/`unknown_target_coverage` fallbacks); this
+/// Functions to obtain their current content hashes and canonical
+/// Locators. Every resolved target is handed to the runner, so each one is
+/// measured and recorded (DS-831/DS-1411), not only the first. A Test with
+/// zero targets (DS-1673 permits this) yields empty `target_hashes` and
+/// `target_locators` — `run_tests` already handles that shape; this
 /// function does not itself decide what that implies for verification.
 fn build_runnable(entity: &TestEntity, scan: &ScanResult) -> RunnableTest {
     let mut target_hashes = Vec::new();
-    let mut target_locator = None;
+    let mut target_locators = Vec::new();
     for target in &entity.targets {
         let TargetRef::Locator(locator) = target else {
             continue;
@@ -124,15 +164,13 @@ fn build_runnable(entity: &TestEntity, scan: &ScanResult) -> RunnableTest {
             .find(|source| &source.locator == locator)
         {
             target_hashes.push(source_fn.content_hash.clone());
-            if target_locator.is_none() {
-                target_locator = Some(locator.clone());
-            }
+            target_locators.push(source_fn.locator.clone());
         }
     }
     RunnableTest {
         entity: entity.clone(),
         target_hashes,
-        target_locator,
+        target_locators,
     }
 }
 

@@ -356,6 +356,56 @@ pub fn effective_approval(
     current_hash: &ContentHash,
     current_dependencies: &[DependencyRecord],
 ) -> (EffectiveApprovalState, Vec<vtest_model::Diagnostic>) {
+    let (state, _, diagnostics) = effective_set(
+        records,
+        subject_type,
+        subject_id,
+        current_hash,
+        current_dependencies,
+    );
+    (state, diagnostics)
+}
+
+/// DS-1161: the approver ids of the records that make the subject
+/// effectively `approved`. Empty whenever the effective state is `draft`,
+/// so a stale, superseded, rejected or withdrawn record never lends its
+/// approver to a gate role.
+pub fn effective_approvers(
+    records: &[crate::records::ApprovalRecord],
+    subject_type: &str,
+    subject_id: &str,
+    current_hash: &ContentHash,
+    current_dependencies: &[DependencyRecord],
+) -> (BTreeSet<String>, Vec<vtest_model::Diagnostic>) {
+    let (state, effective, diagnostics) = effective_set(
+        records,
+        subject_type,
+        subject_id,
+        current_hash,
+        current_dependencies,
+    );
+    let approvers = if state == EffectiveApprovalState::Approved {
+        effective
+            .iter()
+            .map(|record| record.approver.id.clone())
+            .collect()
+    } else {
+        BTreeSet::new()
+    };
+    (approvers, diagnostics)
+}
+
+fn effective_set<'a>(
+    records: &'a [crate::records::ApprovalRecord],
+    subject_type: &str,
+    subject_id: &str,
+    current_hash: &ContentHash,
+    current_dependencies: &[DependencyRecord],
+) -> (
+    EffectiveApprovalState,
+    Vec<&'a crate::records::ApprovalRecord>,
+    Vec<vtest_model::Diagnostic>,
+) {
     let current_deps: BTreeSet<(String, String)> = current_dependencies
         .iter()
         .map(|dependency| {
@@ -455,7 +505,7 @@ pub fn effective_approval(
     } else {
         EffectiveApprovalState::Approved
     };
-    (state, diagnostics)
+    (state, effective.into_iter().copied().collect(), diagnostics)
 }
 
 /// Ids of records that lie on a `supersedes` cycle (following only edges

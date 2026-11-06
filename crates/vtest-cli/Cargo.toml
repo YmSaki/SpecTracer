@@ -23,3 +23,6 @@ vtest-adapter-synthetic = { path = "../vtest-adapter-synthetic" }
 [[bin]]
 name = "vtest"
 path = "src/main.rs"
+# The binary includes `vtest-mcp`'s module source (see src/main.rs); its
+# unit tests already run in the vtest-mcp package.
+test = false

@@ -55,6 +55,10 @@ pub enum Command {
     Scan,
     /// Validate configuration and adapter preconditions.
     Doctor,
+    /// Start the MCP server over stdio (SPEC-403, §13).
+    ///
+    /// Served by the `vtest` binary itself; see `src/main.rs`.
+    Mcp,
     /// Execute one or more Tests and record Evidence (DS-1101-1103).
     Run {
         /// DS-744 target axis 1/3: explicit Test ids.
@@ -284,6 +288,15 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
         Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
         Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
+        // The MCP server is linked into the `vtest` binary, not into this
+        // library (vtest-mcp depends on vtest-cli). A library caller that
+        // reaches this arm gets a usage error instead of a silent no-op.
+        Command::Mcp => usage_failure(
+            cli.format,
+            cli.quiet,
+            "E-OP-001",
+            "`vtest mcp` is served by the vtest binary, not by vtest_cli::run",
+        ),
         Command::Run {
             test,
             vo,
@@ -439,7 +452,7 @@ fn run_run(
         Err(code) => return code,
     };
     if let Err(error) = load_config(&root) {
-        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+        return config_error_exit(&error, format, quiet);
     }
     let registry = match resolve_registry(format, quiet) {
         Ok(registry) => registry,
@@ -450,12 +463,9 @@ fn run_run(
         Err(error) => return scan_error_exit(&error, format, quiet),
     };
     let layout = VerifyLayout::new(&root);
-    let target = if let Some(vo_id) = vo {
-        ops::run::RunTarget::Vo(vo_id)
-    } else if all {
-        ops::run::RunTarget::All
-    } else {
-        ops::run::RunTarget::Test(test_ids)
+    let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
+        Ok(target) => target,
+        Err(error) => return usage_failure(format, quiet, "E-OP-001", &error.to_string()),
     };
     match ops::run::run(&root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
@@ -481,19 +491,24 @@ fn run_run(
         }
         Err(
             error @ ops::run::RunOpError::UnknownTestId(_)
-            | error @ ops::run::RunOpError::UnknownVoId(_),
+            | error @ ops::run::RunOpError::UnknownVoId(_)
+            | error @ ops::run::RunOpError::ConflictingTargets(_),
         ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
         Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
             // DS-745/DS-923 (E-ADAPTER-003): a registered adapter whose
             // runner cannot interpret the Test's execution descriptor is a
             // usage-shaped rejection, not an internal failure — surfaced via
-            // `ExecutionError::code()` rather than the blanket E-CORE-001
-            // this branch used before this PR (Runner variant only; `Io`
-            // still has no assigned code and stays E-CORE-001/internal).
+            // `ExecutionError::code()`. `Io` has no assigned code and is an
+            // internal error (E-INTERNAL-001, exit 3 — DS-1689/DS-1690).
             match inner.code() {
                 Some(code) => usage_failure(format, quiet, code, &error.to_string()),
                 None => {
-                    emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+                    emit_failure(
+                        format,
+                        quiet,
+                        vtest_model::INTERNAL_ERROR_CODE,
+                        &error.to_string(),
+                    );
                     ExitCode::Internal
                 }
             }
@@ -503,7 +518,7 @@ fn run_run(
 }
 
 fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: bool) -> ExitCode {
-    let code = error.code().unwrap_or("E-CORE-001");
+    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
     let exit = if error.code().is_some() {
         ExitCode::Usage
     } else {
@@ -969,7 +984,12 @@ fn record_error_exit(
     if let Some(code) = error.record_read_code() {
         usage_failure(format, quiet, code, &error.to_string())
     } else {
-        emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+        emit_failure(
+            format,
+            quiet,
+            vtest_model::INTERNAL_ERROR_CODE,
+            &error.to_string(),
+        );
         ExitCode::Internal
     }
 }
@@ -998,23 +1018,49 @@ pub(crate) fn envelope_json<T: serde::Serialize>(
     diagnostics: &[Diagnostic],
 ) -> serde_json::Value {
     serde_json::to_value(JsonEnvelope::new(ok, data, diagnostics.to_vec()))
-        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": "E-CORE-001", "severity": "error", "message": error.to_string()}]}))
+        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": vtest_model::INTERNAL_ERROR_CODE, "severity": "error", "message": error.to_string()}]}))
 }
 
-/// The `E-CONFIG-001` config-load failure envelope shared by `init` /
-/// `scan` / `doctor`.
-pub(crate) fn config_failure_envelope(message: &str) -> serde_json::Value {
-    envelope_json(
+/// The config-load failure result shared by `scan` / `doctor` / `run`
+/// (CLI and MCP): a rejected config is E-CONFIG-001 with exit 2 (DS-929,
+/// DS-935); a config file that cannot be read at all is E-INTERNAL-001 with
+/// exit 3 (DS-930, DS-1689/DS-1690).
+pub fn config_error_result(error: &vtest_store::StoreError) -> (ExitCode, serde_json::Value) {
+    let (exit, code) = match error.config_load_code() {
+        Some(code) => (ExitCode::Usage, code),
+        None => (ExitCode::Internal, vtest_model::INTERNAL_ERROR_CODE),
+    };
+    let envelope = envelope_json(
         false,
         serde_json::Value::Null,
-        &[Diagnostic::error("E-CONFIG-001", message.to_owned())],
-    )
+        &[Diagnostic::error(code, error.to_string())],
+    );
+    (exit, envelope)
+}
+
+fn config_error_exit(
+    error: &vtest_store::StoreError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match error.config_load_code() {
+        Some(code) => usage_failure(format, quiet, code, &error.to_string()),
+        None => {
+            emit_failure(
+                format,
+                quiet,
+                vtest_model::INTERNAL_ERROR_CODE,
+                &error.to_string(),
+            );
+            ExitCode::Internal
+        }
+    }
 }
 
 /// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
 /// 検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。
 pub(crate) fn scan_error_result(error: &vtest_scan::ScanError) -> (ExitCode, serde_json::Value) {
-    let code = error.code().unwrap_or("E-CORE-001");
+    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
     let exit = if error.code().is_some() {
         ExitCode::Usage
     } else {
@@ -1102,7 +1148,23 @@ fn run_verify(
             // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
             // 常に別途出す。
             let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
-            emit(format, quiet, &envelope, render_verify_text);
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::scoped_envelope(
+                        envelope.ok,
+                        &envelope.data,
+                        &envelope.diagnostics,
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+            } else {
+                emit(format, quiet, &envelope, render_verify_text);
+            }
             exit
         }
         Err(ops::verify::VerifyOpError::Usage { code, message }) => {
@@ -1110,7 +1172,7 @@ fn run_verify(
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
         Err(ops::verify::VerifyOpError::Internal { message }) => {
-            emit_failure(format, quiet, "E-INTERNAL-001", &message);
+            emit_failure(format, quiet, vtest_model::INTERNAL_ERROR_CODE, &message);
             ExitCode::Internal
         }
     }
@@ -1321,6 +1383,12 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
                     "not satisfied"
                 }
             ));
+            if !approval.missing_subjects.is_empty() {
+                out.push_str(&format!(
+                    "    missing approval for: {}\n",
+                    approval.missing_subjects.join(", ")
+                ));
+            }
         }
     }
 
@@ -1442,6 +1510,12 @@ fn resolve_registry(
 ) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
     adapters::builtin_registry()
         .map_err(|error| usage_failure(format, quiet, "E-ADAPTER-001", &error.to_string()))
+}
+
+/// The project root (the nearest ancestor holding `.verify/`) for `cli`,
+/// reporting the same E-OP-001 usage failure the other subcommands do.
+pub fn project_root(cli: &Cli) -> Result<PathBuf, ExitCode> {
+    resolve_root(&cli.project, cli.format, cli.quiet)
 }
 
 fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {

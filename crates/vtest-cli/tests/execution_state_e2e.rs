@@ -208,7 +208,7 @@ fn run(root: &Path) -> ExecutionResult {
     let runnable = RunnableTest {
         entity,
         target_hashes: vec![source_fn.content_hash.clone()],
-        target_locator: Some(target_locator),
+        target_locators: vec![target_locator],
     };
     let layout = vtest_store::VerifyLayout::new(root);
     run_tests(root, &layout, &[runnable], false, &registry()).expect("run_tests")

@@ -101,7 +101,11 @@ pub enum ScanError {
 
 impl ScanError {
     /// The §17.1 diagnostic code this error carries, when construction sites
-    /// have committed to one. `Io`/`Config` do not name a diagnostic
+    /// have committed to one (`None` means an internal error, reported as
+    /// `E-INTERNAL-001`/exit 3 by callers — DS-1689/DS-1690). `ConfigLoad`
+    /// is E-CONFIG-001 unless the config file could not be read at all
+    /// (`StoreError::Io`), which is internal (DS-930), not a rejected
+    /// config (DS-929). `Io`/`Config` do not name a diagnostic
     /// code of their own at this variant's construction sites. `Config` in
     /// particular is `adapter_scan_includes`'s empty-`adapters[]` rejection —
     /// レビュー round 2 項目【F】で裁定済み: 仕様上このケースに割り当てられる
@@ -113,7 +117,7 @@ impl ScanError {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
             Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
             Self::MissingCapability { .. } => Some("E-ADAPTER-004"),
-            Self::ConfigLoad(_) => Some("E-CONFIG-001"),
+            Self::ConfigLoad(error) => error.config_load_code(),
             Self::Store(error) => error.record_read_code(),
             Self::Io { .. } | Self::Config(_) => None,
         }
@@ -3961,6 +3965,10 @@ fn lib_test() {}
     /// 生成修正と本コミットの判定基準修正を組み合わせた edit_test
     /// 経路全体で、複数targetを持つCargo integration testの編集が
     /// 通り、かつ生成される`@vtest.kind`が仕様どおりであることを確認する。
+    /// @vtest.id TEST-SCAN-EDIT-TEST-KIND-UNIT-PREFIX-MULTI-TARGET
+    /// @vtest.covers VO-SCAN-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent editing test_kind on a multi-target integration Test keeps the unit- kind prefix
     #[test]
     fn edit_test_set_test_kind_always_generates_the_unit_prefix_regardless_of_target_count() {
         let root = fixture();
