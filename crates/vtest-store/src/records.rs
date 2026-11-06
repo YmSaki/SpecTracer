@@ -2922,6 +2922,10 @@ mod tests {
     /// Guards `RELATION_KEYS` against drifting out of sync with
     /// `RelationRecord`'s actual fields: `note` is populated (`Some`), so
     /// its `skip_serializing_if` does not omit the key from the shape.
+    /// @vtest.id TEST-STORE-RELATION-KNOWN-KEYS-MATCH-SHAPE
+    /// @vtest.covers VO-STORE-RELATION-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::RelationRecord::from_yaml
+    /// @vtest.intent the known-key list used to reject undeclared Relation fields matches the record shape
     #[test]
     fn relation_known_keys_match_the_record_shape() {
         let record = RelationRecord {

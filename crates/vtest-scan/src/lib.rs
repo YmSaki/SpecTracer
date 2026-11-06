@@ -3961,6 +3961,10 @@ fn lib_test() {}
     /// 生成修正と本コミットの判定基準修正を組み合わせた edit_test
     /// 経路全体で、複数targetを持つCargo integration testの編集が
     /// 通り、かつ生成される`@vtest.kind`が仕様どおりであることを確認する。
+    /// @vtest.id TEST-SCAN-EDIT-TEST-KIND-UNIT-PREFIX-MULTI-TARGET
+    /// @vtest.covers VO-SCAN-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent editing test_kind on a multi-target integration Test keeps the unit- kind prefix
     #[test]
     fn edit_test_set_test_kind_always_generates_the_unit_prefix_regardless_of_target_count() {
         let root = fixture();

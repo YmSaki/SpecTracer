@@ -742,13 +742,13 @@ mod tests {
         }
     }
 
-    // 正本を検索したが、「宣言と実装が一致する adapter を registry が
-    // *受理する*」ことだけを直接述べる条文は見当たらなかった — DES-351/
-    // DS-1569/DS-1663 はいずれも拒否条件（不一致・重複・未登録）だけを
-    // 定める。この受理側は拒否規則の論理的補集合であり嘘ではないが、
-    // 「該当規範なし」と断定するのも早計なため、`@vtest` は付けず
-    // 候補（DES-350: 宣言の存在、BD-007: registry経由の能力選択）を
-    // ここに記す未確定のまま残す。W-SCAN-101 が出る無印の #[test] とする。
+    // DES-351/DS-1569/DS-1663 define only the rejection side. The accept
+    // side asserted here (resolve by id, list registered ids) is what
+    // VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED (REQ-261) claims (#78).
+    /// @vtest.id TEST-ADAPTER-API-REGISTRY-RESOLVES-CONSISTENT-DECLARATION
+    /// @vtest.covers VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+    /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
+    /// @vtest.intent a consistently declared adapter registers, resolves by id through its typed accessor and is listed
     #[test]
     fn register_accepts_a_consistent_declaration_and_resolves_the_typed_accessor() {
         let mut registry = AdapterRegistry::new();
