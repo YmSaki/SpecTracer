@@ -443,19 +443,19 @@ fn target_call_result_is_verified(
     if call_sites.is_empty() {
         return TargetCallVerification::NotCalled;
     }
-    for &call_start in &call_sites {
-        if assert_spans
+    // A call whose result is consumed by an assert-equivalent construct
+    // (directly, through DS-626's method chain, or through the single `let`
+    // binding below) verifies the target wherever it appears; the order of
+    // call sites in the function does not change that. Only when no call is
+    // verified this way does a call inside a loop make the outcome
+    // ambiguous.
+    if call_sites.iter().any(|&call_start| {
+        assert_spans
             .iter()
             .any(|&(start, end)| call_start >= start && call_start < end)
-        {
-            return TargetCallVerification::Verified;
-        }
-        if call_is_inside_loop(text, call_start) {
-            return TargetCallVerification::Ambiguous;
-        }
-        if target_call_has_assert_method_chain(text, call_start, symbol) {
-            return TargetCallVerification::Verified;
-        }
+            || target_call_has_assert_method_chain(text, call_start, symbol)
+    }) {
+        return TargetCallVerification::Verified;
     }
     // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
@@ -466,6 +466,14 @@ fn target_call_result_is_verified(
         }) {
             return TargetCallVerification::Verified;
         }
+    }
+    let loop_bodies = loop_body_spans(text);
+    if call_sites.iter().any(|&call_start| {
+        loop_bodies
+            .iter()
+            .any(|&(start, end)| call_start >= start && call_start < end)
+    }) {
+        return TargetCallVerification::Ambiguous;
     }
     // A mutable-reference or global-state argument to the call is this
     // capability's disclosed ambiguity escape (DS-623's own UNKNOWN
@@ -523,24 +531,54 @@ fn call_open_position(text: &str, call_start: usize, symbol: &str) -> Option<usi
     callee.ends_with(symbol).then_some(call_start + open_offset)
 }
 
-/// Calls in a loop are outside this bounded analysis: iteration and control
-/// flow can determine whether every result reaches a verifier.
-fn call_is_inside_loop(text: &str, call_start: usize) -> bool {
-    let prefix = &text[..call_start];
-    let loop_start = ["loop", "for ", "while "]
-        .iter()
-        .filter_map(|keyword| prefix.rfind(keyword))
-        .max();
-    let Some(loop_start) = loop_start else {
-        return false;
+/// Byte spans of every `for` / `while` / `loop` body in the function, found
+/// from the syntax tree (not by searching the text, which would also match
+/// the keywords inside string literals and identifiers such as
+/// `default_for`). Iteration and control flow can determine whether every
+/// result reaches a verifier, so a call inside one of these bodies is
+/// outside this bounded analysis.
+fn loop_body_spans(text: &str) -> Vec<(usize, usize)> {
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
     };
-    let Some(open) = text[loop_start..]
-        .find('{')
-        .map(|offset| loop_start + offset)
-    else {
-        return false;
+    let mut visitor = LoopBodyVisitor {
+        text,
+        spans: Vec::new(),
     };
-    find_matching_close(text, open, '{', '}').is_some_and(|close| call_start < close)
+    visitor.visit_item_fn(&function);
+    visitor.spans
+}
+
+struct LoopBodyVisitor<'a> {
+    text: &'a str,
+    spans: Vec<(usize, usize)>,
+}
+
+impl LoopBodyVisitor<'_> {
+    fn record(&mut self, body: &syn::Block) {
+        let span = body.brace_token.span.join();
+        self.spans.push((
+            span_offset(span.start(), self.text),
+            span_offset(span.end(), self.text),
+        ));
+    }
+}
+
+impl<'ast> Visit<'ast> for LoopBodyVisitor<'_> {
+    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
+        self.record(&node.body);
+        syn::visit::visit_expr_for_loop(self, node);
+    }
+
+    fn visit_expr_while(&mut self, node: &'ast syn::ExprWhile) {
+        self.record(&node.body);
+        syn::visit::visit_expr_while(self, node);
+    }
+
+    fn visit_expr_loop(&mut self, node: &'ast syn::ExprLoop) {
+        self.record(&node.body);
+        syn::visit::visit_expr_loop(self, node);
+    }
 }
 
 /// Passing a target result to an ordinary function is a delegation/data-flow
@@ -904,9 +942,9 @@ mod tests {
     fn a_direct_assert_eq_call_passes_all_five_rules() {
         let text = "#[test]\nfn it_doubles() {\n    assert_eq!(double(2), 4);\n}\n";
         let analysis = analyze(text, &["double".to_owned()], &[]);
-        let (is_fail, is_unknown, basis) = compose(&analysis);
-        assert!(!is_fail, "{basis:?}");
-        assert!(!is_unknown, "{basis:?}");
+        let composed = compose(&analysis);
+        assert!(!composed.0, "{:?}", composed.2);
+        assert!(!composed.1, "{:?}", composed.2);
     }
 
     /// @vtest.id TEST-ORACLE-DA-005-EMPTY-BODY-FAILS
@@ -1068,6 +1106,35 @@ mod tests {
         let text = "#[test]\nfn repeated() {\n    for item in inputs {\n        parse(item);\n    }\n    assert!(true);\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-WITH-ASSERT-CHAIN
+    /// @vtest.covers VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent a loop call whose result goes through an assert-equivalent method or a let binding that is asserted, or a later directly verified call, makes DA-003 no violation regardless of call order
+    #[test]
+    fn a_verified_call_is_no_violation_even_when_another_call_is_in_a_loop() {
+        for text in [
+            "#[test]\nfn chained() {\n    for item in inputs {\n        parse(item).expect(\"valid\");\n    }\n}\n",
+            "#[test]\nfn bound() {\n    for item in inputs {\n        let parsed = parse(item);\n        assert!(parsed.is_ok());\n    }\n}\n",
+            "#[test]\nfn later() {\n    for item in inputs {\n        let _ = parse(item);\n    }\n    parse(\"x\").unwrap();\n}\n",
+        ] {
+            let analysis = analyze(text, &["parse".to_owned()], &[]);
+            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{text}");
+        }
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-LOOP-KEYWORD-IN-STRING
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::loop_body_spans
+    /// @vtest.intent only real for / while / loop bodies count as loops; the keyword inside a string literal or an identifier such as default_for does not
+    #[test]
+    fn a_loop_keyword_in_a_string_or_identifier_is_not_a_loop() {
+        let text = "#[test]\nfn plain() {\n    let default_for = 1;\n    assert!(default_for == 1, \"for {}\", 1);\n    parse(input);\n}\n";
+        assert!(loop_body_spans(text).is_empty());
+        let looped =
+            "#[test]\nfn looped() {\n    for item in inputs {\n        parse(item);\n    }\n}\n";
+        assert_eq!(loop_body_spans(looped).len(), 1);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-DELEGATED-CALL-UNKNOWN
