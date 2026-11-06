@@ -312,3 +312,118 @@ fn bundle_rejects_bad_kind_combinations_and_unresolved_targets() {
     assert_eq!((code, code_of(&envelope)), (2, "E-SCAN-004"), "{envelope}");
     assert_eq!(bundles(), before, "no bundle is generated");
 }
+
+fn vo_bundle(root: &Path) -> Value {
+    let (code, envelope) = vtest(
+        root,
+        &["audit", "bundle", "--vo", "VO-X", "--kind", "case-coverage"],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    envelope["data"].clone()
+}
+
+fn vo_submission(bundle: &Value) -> Value {
+    json!({
+        "bundle_id": bundle["bundle_id"],
+        "subject": "VO-X",
+        "judgment_kind": "case-coverage",
+        "decision": "accepted",
+        "actor": {"kind": "human", "id": "reviewer"}
+    })
+}
+
+/// @vtest.id TEST-JUDGMENT-VO-SUBMIT-COVERING-TESTS-BOUND
+/// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.intent a VO bundle binds the covering Tests it hands the judge: changing, adding or removing a covering Test after bundling makes the submission fail with E-AUDIT-002, while an unchanged one is accepted
+#[test]
+fn a_vo_bundle_rejects_changed_added_or_removed_covering_tests() {
+    let other = "\n/// @vtest.id TEST-OTHER\n\
+/// @vtest.covers VO-X\n\
+/// @vtest.target src/lib.rs::add\n\
+/// @vtest.intent adds again\n\
+#[test]\n\
+fn other() {\n    assert_eq!(judge_fixture::add(1, 1), 2);\n}\n";
+    let edits: [(&str, String); 3] = [
+        (
+            "changed",
+            TESTS.replace("@vtest.intent adds", "@vtest.intent sums"),
+        ),
+        ("added", format!("{TESTS}{other}")),
+        ("removed", String::new()),
+    ];
+    for (name, replacement) in edits {
+        let root = fixture(&format!("vo-{name}"));
+        let bundle = vo_bundle(&root);
+        let bound: Vec<&str> = bundle["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|dep| dep["kind"] == "test")
+            .filter_map(|dep| dep["id"].as_str())
+            .collect();
+        assert_eq!(bound, ["TEST-GOOD"], "{name}: {bundle}");
+        fs::write(root.join("tests/judge.rs"), replacement).unwrap();
+        let (code, envelope) = submit(&root, &vo_submission(&bundle));
+        assert_eq!(code, 2, "{name}: {envelope}");
+        assert_eq!(code_of(&envelope), "E-AUDIT-002", "{name}");
+        assert!(decision_files(&root).is_empty(), "{name}");
+    }
+
+    let root = fixture("vo-unchanged");
+    let bundle = vo_bundle(&root);
+    let (code, envelope) = submit(&root, &vo_submission(&bundle));
+    assert_eq!(code, 0, "{envelope}");
+}
+
+/// @vtest.id TEST-JUDGMENT-IMPL-CONSISTENCY-BUNDLE-DOCUMENTS
+/// @vtest.covers VO-JUDGMENT-IMPL-CONSISTENCY-BUNDLE-DOCUMENTS
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.intent an impl-consistency bundle carries every upstream document node of the covered VO with its full content and the target source's full text; a test-semantic bundle carries neither
+#[test]
+fn an_impl_consistency_bundle_carries_documents_and_source_text() {
+    let root = fixture("impl");
+    let (code, envelope) = vtest(
+        &root,
+        &[
+            "audit",
+            "bundle",
+            "--test",
+            "TEST-GOOD",
+            "--kind",
+            "impl-consistency",
+        ],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    let bundle = &envelope["data"];
+    let documents = bundle["documents"].as_array().unwrap();
+    let ids: Vec<&str> = documents
+        .iter()
+        .filter_map(|doc| doc["id"].as_str())
+        .collect();
+    assert_eq!(ids, ["R-001", "ROOT-001"], "{bundle}");
+    let request = &documents[0];
+    assert_eq!(request["doc"], "judgment");
+    assert_eq!(request["node"]["statement"], "adding works");
+    assert_eq!(request["node"]["derives_from"], json!(["ROOT-001"]));
+    assert_eq!(request["node"]["source"]["doc"], "request.md");
+    assert_eq!(documents[1]["node"]["statement"], "judgment root");
+    assert_eq!(
+        bundle["targets"][0]["source_text"],
+        "pub fn add(a: i32, b: i32) -> i32 { a + b }\n"
+    );
+
+    let plain = bundle_of_kind(&root, "test-semantic");
+    assert_eq!(plain["documents"], json!([]));
+    assert!(plain["targets"][0].get("source_text").is_none());
+}
+
+fn bundle_of_kind(root: &Path, kind: &str) -> Value {
+    let (code, envelope) = vtest(
+        root,
+        &["audit", "bundle", "--test", "TEST-GOOD", "--kind", kind],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    envelope["data"].clone()
+}

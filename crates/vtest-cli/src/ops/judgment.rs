@@ -14,17 +14,15 @@
 //! and its `reason` / `exclusions` are optional: an empty reason is never a
 //! ground for rejection (DS-722/DS-723).
 //!
-//! Disclosed limits: `--include-failed` (SPEC-391's usage line) is not
-//! implemented, because the canon gives it no semantics beyond its name;
-//! `impl-consistency`'s full document subject set (DES-426) is carried as
-//! the dependency closure's document ids and hashes, not document text.
+//! Disclosed limit: `--include-failed` (SPEC-391's usage line) is not
+//! implemented, because the canon gives it no semantics beyond its name.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde_json::{json, Value};
 use vtest_adapter_api::AdapterRegistry;
-use vtest_model::{ContentHash, TargetRef, TestEntity, VoRecord};
+use vtest_model::{ContentHash, SectionNode, TargetRef, TestEntity, VoRecord};
 use vtest_scan::ScanResult;
 use vtest_store::{
     approval::{build_document_node_index, read_all_vos, DocumentNodeIndex},
@@ -32,6 +30,7 @@ use vtest_store::{
         read_all_decisions, write_decision, Actor, DecisionDependency, DecisionRecord, ReasonEntry,
         BASIS_KINDS, DECISION_VALUES, JUDGMENT_KINDS,
     },
+    doc_registry::read_all_docs,
     StoreError, VerifyLayout,
 };
 
@@ -256,6 +255,20 @@ pub fn current_binding(
             };
             vo_closure(&vos, &index, id, &mut deps)?;
             deps.remove(&("vo".to_owned(), id.clone()));
+            // The bundle hands every covering Test to the judge as judgment
+            // material (`related_tests`), so the binding carries that set
+            // and each member's material hash: adding, removing or changing
+            // a covering Test invalidates the bundle (DS-718).
+            for test in scan
+                .tests
+                .iter()
+                .filter(|test| test.covers.iter().any(|vo| vo.as_str() == id))
+            {
+                deps.insert(
+                    ("test".to_owned(), test.id.as_str().to_owned()),
+                    test_material_hash(test),
+                );
+            }
             vtest_model::vo_subject_hash(vo)
         }
     };
@@ -266,6 +279,71 @@ pub fn current_binding(
             .map(|((kind, id), hash)| DecisionDependency { kind, id, hash })
             .collect(),
     })
+}
+
+/// The hash of a covering Test's judgment material: its construct hash
+/// (code) together with the normalized fields the bundle shows the judge.
+fn test_material_hash(test: &TestEntity) -> ContentHash {
+    let material = json!({
+        "content_hash": test.content_hash,
+        "intent": test.intent,
+        "input": test.input,
+        "expect": test.expect,
+        "kind": test.kind,
+        "cases": test.cases,
+        "covers": test.covers.iter().map(|vo| vo.as_str()).collect::<Vec<_>>(),
+        "targets": test.targets.iter().map(target_label).collect::<Vec<_>>(),
+    });
+    ContentHash::from_text(&material.to_string())
+}
+
+/// Every document node's full content, keyed by node id. A section node is
+/// shown without its nested `sections` / `items` (each nested node is its
+/// own entry), so a closure lists exactly the nodes it depends on.
+fn document_node_texts(
+    layout: &VerifyLayout,
+) -> Result<BTreeMap<String, (String, Value)>, JudgmentOpError> {
+    fn section(doc: &str, node: &SectionNode, out: &mut BTreeMap<String, (String, Value)>) {
+        out.insert(
+            node.id.as_str().to_owned(),
+            (
+                doc.to_owned(),
+                json!({
+                    "title": node.title,
+                    "description": node.description,
+                    "derives_from": node.derives_from,
+                    "source": node.source,
+                }),
+            ),
+        );
+        for item in node.items.as_deref().unwrap_or(&[]) {
+            out.insert(item.id.as_str().to_owned(), (doc.to_owned(), json!(item)));
+        }
+        for child in node.sections.as_deref().unwrap_or(&[]) {
+            section(doc, child, out);
+        }
+    }
+    let mut out = BTreeMap::new();
+    for (doc, view) in read_all_docs(layout)? {
+        let file = &view.file;
+        for node in &file.root {
+            out.insert(node.id.as_str().to_owned(), (doc.clone(), json!(node)));
+        }
+        for node in &file.request {
+            out.insert(node.id.as_str().to_owned(), (doc.clone(), json!(node)));
+        }
+        for node in file
+            .require
+            .iter()
+            .chain(&file.spec)
+            .chain(&file.detailed_spec)
+            .chain(&file.basic_design)
+            .chain(&file.design)
+        {
+            section(&doc, node, &mut out);
+        }
+    }
+    Ok(out)
 }
 
 fn binding_json(binding: &Binding) -> (Value, Value) {
@@ -340,12 +418,20 @@ pub fn bundle(
             let mut targets = Vec::new();
             for target in &test.targets {
                 let source = resolve_target(scan, target)?;
-                targets.push(json!({
+                let mut entry = json!({
                     "ref": target_label(target),
                     "path": source.location.path.as_str(),
                     "code": source_text(root, &source.location),
                     "content_hash": source.content_hash,
-                }));
+                });
+                // DES-426: impl-consistency carries the source's full text.
+                if judgment_kind == "impl-consistency" {
+                    entry["source_text"] = json!(std::fs::read_to_string(
+                        root.join(source.location.path.as_str())
+                    )
+                    .ok());
+                }
+                targets.push(entry);
             }
             let static_analysis = match registry.static_analysis(test.execution.adapter.as_str()) {
                 Some(analyzer) => match source_text(root, &test.location) {
@@ -398,6 +484,29 @@ pub fn bundle(
         .filter(|record| record.subject == subject.id() && record.judgment_kind == judgment_kind)
         .collect();
 
+    // DES-426: impl-consistency carries the complete upstream document
+    // subject set (the same closure the binding holds, §3.5's rule) with
+    // each node's full content.
+    let documents: Value = if judgment_kind == "impl-consistency" {
+        let texts = document_node_texts(&layout)?;
+        Value::Array(
+            binding
+                .dependencies
+                .iter()
+                .filter(|dep| dep.kind == "document")
+                .map(|dep| {
+                    let (doc, node) = texts
+                        .get(&dep.id)
+                        .cloned()
+                        .unwrap_or((String::new(), Value::Null));
+                    json!({"id": dep.id, "doc": doc, "content_hash": dep.hash, "node": node})
+                })
+                .collect(),
+        )
+    } else {
+        Value::Array(Vec::new())
+    };
+
     let bundle_id = vtest_store::new_record_id();
     let (subject_hash, dependencies) = binding_json(&binding);
     let body = json!({
@@ -411,6 +520,7 @@ pub fn bundle(
         "vos": vo_values,
         "targets": targets,
         "related_tests": related_tests,
+        "documents": documents,
         "static_analysis": static_analysis,
         "prior_decisions": prior,
         "subject_hash": subject_hash,
