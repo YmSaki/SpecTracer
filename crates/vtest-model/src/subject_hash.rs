@@ -1592,6 +1592,7 @@ mod tests {
 
     // ---- VO subject hash ----
 
+    // No @vtest.target: this test checks the serde shape of the `VoRecord` type itself; no function is under test, so no target is declared (DS-1664 keeps target_binding NO_EVIDENCE / NOT_CHECKED; issue #82).
     /// @vtest.id TEST-MODEL-VO-RECORD-HAS-NO-STATUS-OR-COVERS-FIELD
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.intent verifies the canonical VoRecord this function reads structurally excludes `status`/`covers` (DES-094 "VOの読取り互換field `status` を正典ではないため含めない"; DES-096 "`covers` の増減をTest側subjectで捕捉するため含めない"; DS-405 confirms `status` is a read-compat-only field the canonical writer never persists)
