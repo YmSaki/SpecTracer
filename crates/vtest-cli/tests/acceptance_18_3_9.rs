@@ -8,12 +8,8 @@
 //! `verification_satisfied`/`approvals_satisfied`/`reasons` form with no
 //! per-role breakdown at all).
 //!
-//! `missing_subjects` is always an empty list in this slice's output
-//! (disclosed in `GateApproval`'s own doc comment and
-//! `reports/closure-trace.md`'s stopped_on list): nothing in `config.yaml`
-//! names which entity/entities a required role must approve, so there is no
-//! subject set to compute a "missing" list from. `satisfied` for a required
-//! role stays fail-closed (`false`).
+//! Approval roles are evaluated against the subjects of the requested
+//! entity scope (DS-1160〜1164): see `gate_roles_*` below.
 
 use std::path::PathBuf;
 
@@ -321,4 +317,255 @@ fn a_gate_requiring_fail_is_not_satisfied_by_the_distinct_mismatch_state() {
          non-PASS \"bad\" states"
     );
     assert!(!gate.satisfied);
+}
+
+mod gate_roles {
+    use super::*;
+    use vtest_model::{
+        DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId, VoRecord,
+    };
+    use vtest_store::{write_document_file, write_vo_record, VerifyLayout};
+
+    fn source(id: &str) -> NodeSource {
+        NodeSource {
+            doc: format!("{id}.md"),
+            heading: "acceptance".to_owned(),
+            lines: [1, 1],
+        }
+    }
+
+    fn vo(id: &str, doc: &str, claim: &str) -> VoRecord {
+        VoRecord {
+            id: VoId::new(id),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new(doc),
+                anchor: None,
+                note: None,
+            }],
+            claim: claim.to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-09-10T00:00:00Z".to_owned(),
+            updated: "2026-09-10T00:00:00Z".to_owned(),
+        }
+    }
+
+    /// Two VOs deriving from two different document nodes, so the
+    /// unscoped tree has two root subjects (R-001 and ROOT-001), and a
+    /// `reviewer` role listing `reviewer-agent-01`. The gate's
+    /// verification requirement is set to the state the fixture actually
+    /// reaches, so only the approval axis decides the gate.
+    fn project(name: &str) -> (PathBuf, VerifyLayout, String) {
+        let root = temp_root(name);
+        let layout = init_project(&root, "acceptance-18-3-9-roles").expect("init .verify/ layout");
+        let document = DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![RootNode {
+                id: DocumentId::new("ROOT-001"),
+                statement: "acceptance root".to_owned(),
+                description: None,
+                source: source("root"),
+            }],
+            request: vec![SentenceNode {
+                id: DocumentId::new("R-001"),
+                statement: "acceptance request".to_owned(),
+                description: None,
+                derives_from: vec![DocumentId::new("ROOT-001")],
+                cites: None,
+                source: source("request"),
+            }],
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        write_document_file(&layout, "acceptance", &document).expect("write document");
+        write_vo_record(&layout, &vo("VO-GATE-A", "R-001", "claim a")).expect("write VO");
+        write_vo_record(&layout, &vo("VO-GATE-B", "ROOT-001", "claim b")).expect("write VO");
+        let (_, data, _) =
+            ops::verify::execute(&root, &[], None, None, None, None, true, &registry())
+                .expect("verify runs");
+        let state = data.state.to_owned();
+        let mut config = vtest_store::load_config(&root).expect("load default config");
+        config
+            .approval_roles
+            .insert("reviewer".to_owned(), vec!["reviewer-agent-01".to_owned()]);
+        config.gates.push(vtest_store::GateConfig {
+            name: "release".to_owned(),
+            require: vtest_store::GateRequirement {
+                verification: state.clone(),
+                approvals: vec!["reviewer".to_owned()],
+            },
+        });
+        std::fs::write(layout.config(), config.to_yaml()).expect("write gate config");
+        (root, layout, state)
+    }
+
+    fn approve(layout: &VerifyLayout, subject_type: &str, id: &str, approver: &str, state: &str) {
+        ops::approval::create(
+            layout,
+            ops::approval::CreateArgs {
+                subject_type: subject_type.to_owned(),
+                subject_id: id.to_owned(),
+                approved_state: state.to_owned(),
+                approver_kind: "human".to_owned(),
+                approver_id: approver.to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+                supersedes: Vec::new(),
+            },
+        )
+        .expect("create approval");
+    }
+
+    fn gate(
+        root: &std::path::Path,
+        vo: Option<&str>,
+    ) -> (vtest_model::ExitCode, String, ops::verify::GateEvaluation) {
+        let (exit, data, _) = ops::verify::execute(
+            root,
+            &[],
+            None,
+            vo.map(str::to_owned),
+            None,
+            Some("release"),
+            true,
+            &registry(),
+        )
+        .expect("verify runs");
+        (
+            exit,
+            data.state.to_owned(),
+            data.gate.expect("--gate must populate data.gate"),
+        )
+    }
+
+    /// DS-1161/1163/1166/1168/1172/1174: an effective approval of the
+    /// scoped subject by a role member satisfies the role and the gate,
+    /// exits 0, and leaves the verification state unchanged.
+    /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-SATISFIED
+    /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT, VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.intent a current approval by a role member satisfies the role for the scoped VO without changing the verification state
+    #[test]
+    fn gate_roles_are_satisfied_by_a_current_approval_of_the_scoped_subject() {
+        let (root, layout, state) = project("role-satisfied");
+        let (exit, _, before) = gate(&root, Some("VO-GATE-A"));
+        assert_eq!(exit, vtest_model::ExitCode::VerificationFailed);
+        assert!(!before.approvals[0].satisfied);
+        assert_eq!(before.approvals[0].missing_subjects, vec!["VO-GATE-A"]);
+
+        approve(&layout, "vo", "VO-GATE-A", "reviewer-agent-01", "approved");
+        let (exit, after_state, after) = gate(&root, Some("VO-GATE-A"));
+        assert!(
+            after.approvals[0].satisfied,
+            "{:?}",
+            after.approvals[0].missing_subjects
+        );
+        assert!(after.approvals[0].missing_subjects.is_empty());
+        assert!(after.satisfied);
+        assert_eq!(exit, vtest_model::ExitCode::Ok);
+        assert_eq!(
+            after_state, state,
+            "approval must not rewrite the verification state"
+        );
+    }
+
+    /// DS-1161/1164: approvals that are not effective for the scoped
+    /// subject never satisfy the role: a non-member approver, another
+    /// subject's approval, a rejected or withdrawn approval, and a STALE
+    /// approval whose subject changed afterwards.
+    /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-NOT-SATISFIED
+    /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.intent non-member, other-subject, rejected, withdrawn and stale approvals leave the role unsatisfied
+    #[test]
+    fn gate_roles_ignore_approvals_that_are_not_effective_for_the_subject() {
+        let (root, layout, _) = project("role-non-member");
+        approve(&layout, "vo", "VO-GATE-A", "someone-else", "approved");
+        approve(&layout, "vo", "VO-GATE-B", "reviewer-agent-01", "approved");
+        let (_, _, evaluation) = gate(&root, Some("VO-GATE-A"));
+        assert!(
+            !evaluation.approvals[0].satisfied,
+            "non-member / other subject"
+        );
+        assert_eq!(evaluation.approvals[0].missing_subjects, vec!["VO-GATE-A"]);
+
+        let (root, layout, _) = project("role-rejected");
+        approve(&layout, "vo", "VO-GATE-A", "reviewer-agent-01", "rejected");
+        assert!(
+            !gate(&root, Some("VO-GATE-A")).2.approvals[0].satisfied,
+            "rejected"
+        );
+
+        let (root, layout, _) = project("role-withdrawn");
+        approve(&layout, "vo", "VO-GATE-A", "reviewer-agent-01", "approved");
+        let id = vtest_store::approval::read_all_approvals(&layout).expect("read")[0]
+            .id
+            .clone();
+        ops::approval::withdraw(
+            &layout,
+            ops::approval::WithdrawArgs {
+                approval_id: id,
+                approver_kind: "human".to_owned(),
+                approver_id: "reviewer-agent-01".to_owned(),
+                approver_model: None,
+                basis: Vec::new(),
+            },
+        )
+        .expect("withdraw");
+        assert!(
+            !gate(&root, Some("VO-GATE-A")).2.approvals[0].satisfied,
+            "withdrawn"
+        );
+
+        let (root, layout, _) = project("role-stale");
+        approve(&layout, "vo", "VO-GATE-A", "reviewer-agent-01", "approved");
+        assert!(gate(&root, Some("VO-GATE-A")).2.approvals[0].satisfied);
+        std::fs::remove_file(layout.vo_dir().join("VO-GATE-A.yaml")).expect("remove VO");
+        write_vo_record(&layout, &vo("VO-GATE-A", "R-001", "changed claim")).expect("edit VO");
+        let (_, _, stale) = gate(&root, Some("VO-GATE-A"));
+        assert!(!stale.approvals[0].satisfied, "stale");
+        assert!(!stale.satisfied);
+    }
+
+    /// DS-1163/1164: without an entity axis the subjects are the roots of
+    /// the evaluated tree, and every one of them needs the role's
+    /// approval; the ones without it are listed in `missing_subjects`.
+    /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-EVERY-ROOT
+    /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT
+    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.intent an unscoped gate requires the role on every root subject and lists the missing ones
+    #[test]
+    fn gate_roles_require_every_root_subject_when_unscoped() {
+        let (root, layout, _) = project("role-roots");
+        approve(
+            &layout,
+            "document",
+            "R-001",
+            "reviewer-agent-01",
+            "approved",
+        );
+        let (_, _, partial) = gate(&root, None);
+        assert!(!partial.approvals[0].satisfied);
+        assert_eq!(partial.approvals[0].missing_subjects, vec!["ROOT-001"]);
+
+        approve(
+            &layout,
+            "document",
+            "ROOT-001",
+            "reviewer-agent-01",
+            "approved",
+        );
+        let (_, _, full) = gate(&root, None);
+        assert!(
+            full.approvals[0].satisfied,
+            "{:?}",
+            full.approvals[0].missing_subjects
+        );
+    }
 }

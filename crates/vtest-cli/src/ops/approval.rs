@@ -57,7 +57,7 @@ pub struct CreateArgs {
 /// `UnresolvedSubject` (E-APPROVAL-001) when the subject does not currently
 /// exist, and `JudgmentSubjectTypeUnsupported` for `subject_type ==
 /// "judgment"`.
-fn resolve_subject(
+pub(crate) fn resolve_subject(
     layout: &VerifyLayout,
     subject_type: &str,
     subject_id: &str,
