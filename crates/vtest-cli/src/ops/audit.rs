@@ -21,6 +21,11 @@ pub enum AuditOpError {
     /// E-OP-001: neither or both of `--test` / `--all`, or an unknown Test.
     #[error("{0}")]
     Usage(String),
+    /// E-ADAPTER-004 (DS-528/DS-979/DS-1580): a selected Test's adapter has
+    /// no Static Analysis capability, which `audit static` requires. The
+    /// operation stops before analyzing anything and writes no cache.
+    #[error("{0}")]
+    MissingCapability(String),
     /// Writing the cache file failed: an internal error.
     #[error("cannot write the audit cache at {path}: {source}")]
     Cache {
@@ -28,6 +33,26 @@ pub enum AuditOpError {
         #[source]
         source: std::io::Error,
     },
+}
+
+impl AuditOpError {
+    /// The diagnostic code the CLI and MCP report for this rejection.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Usage(_) => "E-OP-001",
+            Self::MissingCapability(_) => "E-ADAPTER-004",
+            Self::Cache { .. } => "E-CORE-001",
+        }
+    }
+
+    /// The exit code: 2 for a rejected request (DS-979), 3 for a failure of
+    /// the tool itself.
+    pub fn exit_code(&self) -> vtest_model::ExitCode {
+        match self {
+            Self::Usage(_) | Self::MissingCapability(_) => vtest_model::ExitCode::Usage,
+            Self::Cache { .. } => vtest_model::ExitCode::Internal,
+        }
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -86,12 +111,41 @@ fn select<'a>(
     }
 }
 
+/// DS-528/DS-979/DS-1580: `audit static` is an explicit operation whose
+/// required capability is Static Analysis. Every selected Test's adapter is
+/// checked before any Test is analyzed, so a missing capability stops the
+/// whole operation (E-ADAPTER-004) instead of being reported per Test as
+/// `verify` does (W-ADAPTER-101, DS-925).
+fn require_static_analysis(
+    selected: &[&TestEntity],
+    registry: &AdapterRegistry,
+) -> Result<(), AuditOpError> {
+    let missing: std::collections::BTreeSet<&str> = selected
+        .iter()
+        .map(|test| test.execution.adapter.as_str())
+        .filter(|adapter| registry.static_analysis(adapter).is_none())
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let tests: Vec<&str> = selected
+        .iter()
+        .filter(|test| missing.contains(test.execution.adapter.as_str()))
+        .map(|test| test.id.as_str())
+        .collect();
+    Err(AuditOpError::MissingCapability(format!(
+        "audit static requires the Static Analysis capability, which adapter(s) {} do not \
+         provide (Tests: {}); nothing was analyzed or written",
+        missing.into_iter().collect::<Vec<_>>().join(", "),
+        tests.join(", ")
+    )))
+}
+
 fn audit_one(
     root: &Path,
     test: &TestEntity,
-    registry: &AdapterRegistry,
+    analyzer: &dyn vtest_adapter_api::StaticAnalysisAdapter,
     assertion_macros: &std::collections::BTreeMap<String, Vec<String>>,
-    diagnostics: &mut Vec<Diagnostic>,
 ) -> TestAudit {
     let adapter_id = test.execution.adapter.as_str();
     let mut audit = TestAudit {
@@ -99,18 +153,6 @@ fn audit_one(
         adapter: adapter_id.to_owned(),
         rules: Vec::new(),
         not_analyzed: None,
-    };
-    let Some(analyzer) = registry.static_analysis(adapter_id) else {
-        diagnostics.push(Diagnostic::warning(
-            "W-ADAPTER-101",
-            format!(
-                "adapter {adapter_id:?} has no Static Analysis capability; Test {} is not \
-                 analyzed (DS-925)",
-                audit.test
-            ),
-        ));
-        audit.not_analyzed = Some("adapter has no Static Analysis capability".to_owned());
-        return audit;
     };
     let Some(text) = vtest_verify::read_construct_text(root, &test.location) else {
         audit.not_analyzed = Some("the Test construct's source bytes could not be read".to_owned());
@@ -156,6 +198,7 @@ pub fn audit_static(
     all: bool,
 ) -> Result<(StaticAuditData, Vec<Diagnostic>), AuditOpError> {
     let selected = select(scan, test, all)?;
+    require_static_analysis(&selected, registry)?;
     let assertion_macros = vtest_store::load_config(root)
         .map(|config| {
             config
@@ -165,10 +208,15 @@ pub fn audit_static(
                 .collect()
         })
         .unwrap_or_default();
-    let mut diagnostics = Vec::new();
+    let diagnostics = Vec::new();
     let tests = selected
         .into_iter()
-        .map(|test| audit_one(root, test, registry, &assertion_macros, &mut diagnostics))
+        .map(|test| {
+            let analyzer = registry
+                .static_analysis(test.execution.adapter.as_str())
+                .expect("checked by require_static_analysis");
+            audit_one(root, test, analyzer, &assertion_macros)
+        })
         .collect();
     let layout = VerifyLayout::new(root);
     let cache_path = layout.cache_dir().join(CACHE_FILE);
