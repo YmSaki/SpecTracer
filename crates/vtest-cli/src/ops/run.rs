@@ -30,6 +30,11 @@ use vtest_verify::vo_subtree_ids;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunOpError {
+    /// DS-744/DS-1563: `test`, `vo` and `all` are mutually exclusive target
+    /// axes; a combination must be rejected (E-OP-001), never narrowed or
+    /// widened to one axis.
+    #[error("{0}")]
+    ConflictingTargets(String),
     #[error("no Test with id '{0}' was discovered by scan")]
     UnknownTestId(String),
     #[error("no VO with id '{0}' exists")]
@@ -48,6 +53,40 @@ pub enum RunTarget {
     Test(Vec<String>),
     Vo(String),
     All,
+}
+
+impl RunTarget {
+    /// Builds the single target axis from the raw `test` / `vo` / `all`
+    /// inputs shared by the CLI and MCP. More than one axis given is
+    /// `ConflictingTargets` (E-OP-001), so a request cannot silently drop
+    /// the Test ids it named or widen to every Test (DS-744/DS-1563).
+    pub fn from_axes(
+        test_ids: Vec<String>,
+        vo: Option<String>,
+        all: bool,
+    ) -> Result<Self, RunOpError> {
+        let mut given = Vec::new();
+        if !test_ids.is_empty() {
+            given.push("test");
+        }
+        if vo.is_some() {
+            given.push("vo");
+        }
+        if all {
+            given.push("all");
+        }
+        if given.len() > 1 {
+            return Err(RunOpError::ConflictingTargets(format!(
+                "run target axes are mutually exclusive; got {}",
+                given.join(" + ")
+            )));
+        }
+        Ok(match (vo, all) {
+            (Some(vo_id), _) => Self::Vo(vo_id),
+            (None, true) => Self::All,
+            (None, false) => Self::Test(test_ids),
+        })
+    }
 }
 
 /// Resolves the requested target to the `TestEntity` set to run.

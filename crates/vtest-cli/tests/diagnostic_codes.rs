@@ -98,3 +98,43 @@ fn invalid_config_is_a_usage_error() {
     assert_failure(&root, &["run", "--all"], 2, "E-CONFIG-001");
     fs::remove_dir_all(root).unwrap();
 }
+
+/// DS-744/DS-1563: the CLI rejects combined run target axes as a usage
+/// error, the same contract `RunTarget::from_axes` gives the MCP tool.
+/// @vtest.id TEST-CLI-RUN-EXCLUSIVE-AXES
+/// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+/// @vtest.target crates/vtest-cli/src/ops/run.rs::RunTarget::from_axes
+/// @vtest.intent the CLI rejects every run target-axis combination with exit 2 and from_axes accepts each axis alone
+#[test]
+fn run_rejects_combined_target_axes() {
+    let root = fixture("run-exclusive");
+    for args in [
+        vec!["run", "--fast", "--test", "T", "--all"],
+        vec!["run", "--fast", "--test", "T", "--vo", "V"],
+        vec!["run", "--fast", "--vo", "V", "--all"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_vtest"))
+            .arg("--project")
+            .arg(&root)
+            .args(&args)
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+    }
+    use vtest_cli::ops::run::RunTarget;
+    assert!(RunTarget::from_axes(vec!["T".into()], None, true).is_err());
+    assert!(RunTarget::from_axes(vec!["T".into()], Some("V".into()), false).is_err());
+    assert!(RunTarget::from_axes(Vec::new(), Some("V".into()), true).is_err());
+    assert!(matches!(
+        RunTarget::from_axes(vec!["T".into()], None, false),
+        Ok(RunTarget::Test(ids)) if ids == vec!["T".to_owned()]
+    ));
+    assert!(matches!(
+        RunTarget::from_axes(Vec::new(), Some("V".into()), false),
+        Ok(RunTarget::Vo(id)) if id == "V"
+    ));
+    assert!(matches!(
+        RunTarget::from_axes(Vec::new(), None, true),
+        Ok(RunTarget::All)
+    ));
+}
