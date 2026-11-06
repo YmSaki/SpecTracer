@@ -274,7 +274,7 @@ fn view_presets_select_node_kinds() {
     );
     let ids = node_ids(&coder["data"]["projection"]);
     for id in [
-        "src/lib.rs::add",
+        "rust-cargo::src/lib.rs::add",
         "TEST-A",
         "VO-CHILD",
         "VO-PARENT",
@@ -294,6 +294,159 @@ fn view_presets_select_node_kinds() {
         assert_eq!(code, 2, "{args:?}");
         assert_eq!(envelope["diagnostics"][0]["code"], "E-OP-001", "{args:?}");
     }
+}
+
+/// PR #150 review: a Source node is keyed by its canonical Locator *with*
+/// its adapter. Two adapters' Sources that share a locator value stay two
+/// nodes, each with its own `targets` edge, instead of one overwriting the
+/// other; a bare `--from` value that both share is rejected as ambiguous.
+/// @vtest.id TEST-REPORT-SRC-NODES-KEYED-BY-ADAPTER
+/// @vtest.covers VO-REPORT-SRC-NODE-IS-CANONICAL-LOCATOR
+/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.intent adapterだけが異なる同値Locatorの2 Sourceが別ノードとして残り、各Testからのtargets辺が独立に残ること、共有する素のlocator値の--fromは曖昧として拒否し、adapter付きidでは辿れることを確認する
+#[test]
+fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
+    let root = fixture("mixed-adapters");
+    let registry = vtest_cli::adapters::builtin_registry().unwrap();
+    let mut scan = vtest_scan::scan_project(&root, &registry).unwrap();
+    let rust = scan
+        .sources
+        .iter()
+        .find(|source| source.locator.value == "src/lib.rs::add")
+        .cloned()
+        .expect("rust-cargo Source for add");
+    let mut other = rust.clone();
+    other.locator.adapter = vtest_model::AdapterId::new("synthetic");
+    scan.sources.push(other.clone());
+    let mut test = scan
+        .tests
+        .iter()
+        .find(|test| test.id.as_str() == "TEST-B")
+        .cloned()
+        .unwrap();
+    test.id = vtest_model::TestId::new("TEST-SYNTHETIC");
+    test.targets = vec![vtest_model::TargetRef::Locator(other.locator.clone())];
+    scan.tests.push(test);
+
+    let layout = VerifyLayout::new(&root);
+    let args = |from: Option<&str>| vtest_cli::ops::report::ProjectionArgs {
+        from: from.map(str::to_owned),
+        view: None,
+        depth: from.map(|_| 1),
+        direction: None,
+    };
+    let projection = serde_json::to_value(
+        vtest_cli::ops::report::project(&layout, &scan, &[], &args(None)).unwrap(),
+    )
+    .unwrap();
+    let ids = node_ids(&projection);
+    for id in ["rust-cargo::src/lib.rs::add", "synthetic::src/lib.rs::add"] {
+        assert!(ids.contains(&id.to_owned()), "{id} missing from {ids:?}");
+    }
+    find_edge(
+        &projection,
+        "TEST-A",
+        "targets",
+        "rust-cargo::src/lib.rs::add",
+    );
+    find_edge(
+        &projection,
+        "TEST-SYNTHETIC",
+        "targets",
+        "synthetic::src/lib.rs::add",
+    );
+
+    let ambiguous =
+        vtest_cli::ops::report::project(&layout, &scan, &[], &args(Some("src/lib.rs::add")));
+    assert!(
+        ambiguous.is_err(),
+        "a value two adapters share is ambiguous"
+    );
+    let from_synthetic = serde_json::to_value(
+        vtest_cli::ops::report::project(
+            &layout,
+            &scan,
+            &[],
+            &args(Some("synthetic::src/lib.rs::add")),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let ids = node_ids(&from_synthetic);
+    assert!(ids.contains(&"TEST-SYNTHETIC".to_owned()), "{ids:?}");
+    assert!(!ids.contains(&"TEST-A".to_owned()), "{ids:?}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// PR #150 review: `report.evidence` shows the latest Evidence chosen by
+/// verify's rule (#132). A newer invalid record next to an older valid PASS
+/// is shown as invalid; the older PASS is never offered as the basis.
+/// @vtest.id TEST-REPORT-EVIDENCE-SAME-SELECTION-AS-VERIFY
+/// @vtest.covers VO-REPORT-SAME-AGGREGATION-AS-VERIFY
+/// @vtest.target crates/vtest-cli/src/ops/report.rs::execute
+/// @vtest.intent 新しい不正Evidenceと古い正常PASSがあるとき、reportのevidence参照が古いPASSへ戻らず不正な最新を示し、状態・diagnosticsもverifyと一致することを確認する
+#[test]
+fn report_evidence_does_not_fall_back_to_an_older_pass() {
+    let root = fixture("invalid-latest");
+    // Cargo would otherwise write Cargo.lock during the run, which changes
+    // the Execution State mid-run (E-EXEC-004).
+    let lock = Command::new("cargo")
+        .args(["generate-lockfile", "--offline"])
+        .current_dir(&root)
+        .status()
+        .unwrap();
+    assert!(lock.success());
+    let (code, run) = vtest(&root, &["run", "--test", "TEST-A", "--fast"]);
+    assert_eq!(code, 0, "{run}");
+    let (_, control) = vtest(&root, &["report"]);
+    let evidence = control["data"]["evidence"].as_array().unwrap();
+    let valid = evidence
+        .iter()
+        .find(|entry| entry["test"] == "TEST-A")
+        .unwrap_or_else(|| panic!("{control}"));
+    assert_eq!(valid["result"], "PASS", "{valid}");
+    let valid_id = valid["evidence"].as_str().unwrap().to_owned();
+
+    let dir = root.join(".verify").join("evidence");
+    let text = fs::read_to_string(dir.join(format!("{valid_id}.yaml"))).unwrap();
+    let later_id = "7ZZZZZZZZZZZZZZZZZZZZZZZZZ";
+    fs::write(
+        dir.join(format!("{later_id}.yaml")),
+        format!("{}unexpected: true\n", text.replace(&valid_id, later_id)),
+    )
+    .unwrap();
+
+    let (verify_code, verify) = vtest(&root, &["verify"]);
+    let (report_code, report) = vtest(&root, &["report"]);
+    assert_eq!(verify_code, report_code);
+    for key in ["state", "result", "tree"] {
+        assert_eq!(verify["data"][key], report["data"][key], "{key}");
+    }
+    assert_eq!(verify["diagnostics"], report["diagnostics"]);
+    assert!(
+        report["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-SCAN-010"),
+        "{report}"
+    );
+    let latest = report["data"]["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["test"] == "TEST-A")
+        .unwrap_or_else(|| panic!("{report}"))
+        .clone();
+    assert_eq!(latest["evidence"], later_id, "{latest}");
+    assert!(latest["result"].is_null(), "{latest}");
+    assert!(latest["invalid"].is_string(), "{latest}");
+    assert_ne!(
+        latest["evidence"],
+        valid_id.as_str(),
+        "no fall back to the older PASS"
+    );
+    fs::remove_dir_all(&root).ok();
 }
 
 /// @vtest.id TEST-PENDING-SECTION

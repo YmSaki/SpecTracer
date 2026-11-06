@@ -1160,10 +1160,21 @@ fn render_report_text(envelope: &JsonEnvelope<ops::report::ReportData>) -> Strin
     if !data.evidence.is_empty() {
         out.push_str("\nEvidence:\n");
         for evidence in &data.evidence {
-            out.push_str(&format!(
-                "  {} -> {} ({}, {})\n",
-                evidence.test, evidence.evidence, evidence.result, evidence.executed_at
-            ));
+            let line = match &evidence.invalid {
+                Some(reason) => format!(
+                    "  {} -> {} (invalid, not used: {reason})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>")
+                ),
+                None => format!(
+                    "  {} -> {} ({}, {})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>"),
+                    evidence.result.as_deref().unwrap_or("-"),
+                    evidence.executed_at.as_deref().unwrap_or("-")
+                ),
+            };
+            out.push_str(&line);
         }
     }
     let projection = &data.projection;

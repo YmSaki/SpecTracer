@@ -98,9 +98,17 @@ pub struct Projection {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct EvidenceRef {
     pub test: String,
-    pub evidence: String,
-    pub result: String,
-    pub executed_at: String,
+    /// The latest record's id; `null` for an invalid record whose file name
+    /// could not be read.
+    pub evidence: Option<String>,
+    /// The record's `result`; `null` when the latest record is invalid.
+    pub result: Option<String>,
+    pub executed_at: Option<String>,
+    /// Set when the latest record is not a valid Evidence record: `verify`
+    /// does not use it (E-SCAN-010 / E-INTERNAL-001), and no older valid
+    /// record is shown in its place (DS-1365/DS-1366).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invalid: Option<String>,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -133,6 +141,14 @@ struct Graph {
     edges: Vec<(ProjectionEdge, String, String)>,
 }
 
+/// A Source Target's node id: its canonical Locator *with* its adapter
+/// (`<adapter>::<value>`, the identity Evidence records, DS-589/DS-590), so
+/// two adapters' Sources that share a locator value stay two nodes with
+/// their own edges.
+fn src_node_id(locator: &vtest_model::Locator) -> String {
+    format!("{}::{}", locator.adapter, locator.value)
+}
+
 fn target_node(scan: &ScanResult, target: &TargetRef) -> Option<String> {
     scan.sources
         .iter()
@@ -140,7 +156,7 @@ fn target_node(scan: &ScanResult, target: &TargetRef) -> Option<String> {
             TargetRef::Locator(locator) => &source.locator == locator,
             TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
         })
-        .map(|source| source.locator.value.clone())
+        .map(|source| src_node_id(&source.locator))
 }
 
 fn build_graph(
@@ -185,7 +201,7 @@ fn build_graph(
         }
     }
     for source in &scan.sources {
-        kinds.insert(source.locator.value.clone(), GraphKind::Src);
+        kinds.insert(src_node_id(&source.locator), GraphKind::Src);
     }
     for test in &scan.tests {
         let id = test.id.as_str();
@@ -200,6 +216,35 @@ fn build_graph(
         }
     }
     Graph { kinds, edges }
+}
+
+/// `--from`'s node: a DOC / VO / TEST id or a SRC node id
+/// (`<adapter>::<value>`). A bare locator value is accepted when exactly one
+/// adapter's Source has it; when several do, it is ambiguous and rejected.
+fn resolve_start(
+    graph: &Graph,
+    scan: &ScanResult,
+    requested: &str,
+) -> Result<String, VerifyOpError> {
+    if graph.kinds.contains_key(requested) {
+        return Ok(requested.to_owned());
+    }
+    let matches: BTreeSet<String> = scan
+        .sources
+        .iter()
+        .filter(|source| source.locator.value == requested)
+        .map(|source| src_node_id(&source.locator))
+        .collect();
+    match matches.len() {
+        1 => Ok(matches.into_iter().next().expect("one match")),
+        0 => Err(usage(format!(
+            "--from {requested} names no DOC / VO / TEST / SRC node"
+        ))),
+        _ => Err(usage(format!(
+            "--from {requested} matches the Sources of more than one adapter; name one of {}",
+            matches.into_iter().collect::<Vec<_>>().join(", ")
+        ))),
+    }
 }
 
 fn view_kinds(view: Option<&str>) -> Result<BTreeSet<GraphKind>, VerifyOpError> {
@@ -248,14 +293,10 @@ pub fn project(
 
     let visited: BTreeSet<String> = match &args.from {
         None => graph.kinds.keys().cloned().collect(),
-        Some(start) => {
-            if !graph.kinds.contains_key(start) {
-                return Err(usage(format!(
-                    "--from {start} names no DOC / VO / TEST / SRC node"
-                )));
-            }
+        Some(requested) => {
+            let start = resolve_start(&graph, scan, requested)?;
             let mut seen = BTreeSet::from([start.clone()]);
-            let mut queue = VecDeque::from([(start.clone(), 0usize)]);
+            let mut queue = VecDeque::from([(start, 0usize)]);
             while let Some((node, steps)) = queue.pop_front() {
                 if args.depth.is_some_and(|limit| steps >= limit) {
                     continue;
@@ -327,49 +368,33 @@ fn test_ids(nodes: &[TreeNode], out: &mut BTreeSet<String>) {
     }
 }
 
-/// The latest Evidence record per Test in the tree (ULIDs sort by time,
-/// DES-032). An unreadable record is skipped here; `verify` already
-/// reports what it means for the Test's checks.
-fn evidence_refs(layout: &VerifyLayout, tree: &[TreeNode]) -> Vec<EvidenceRef> {
+/// The latest Evidence per Test in the tree, selected by the same rule
+/// `verify` uses ([`vtest_verify::latest_evidence`]): a newer invalid record
+/// is shown as invalid, never replaced by an older valid one.
+fn evidence_refs(root: &Path, registry: &AdapterRegistry, tree: &[TreeNode]) -> Vec<EvidenceRef> {
     let mut wanted = BTreeSet::new();
     test_ids(tree, &mut wanted);
-    let mut latest: BTreeMap<String, EvidenceRef> = BTreeMap::new();
-    let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) else {
-        return Vec::new();
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
-            continue;
-        }
-        let Ok(record) = vtest_store::records::read_evidence(&path) else {
-            continue;
-        };
-        let test = record.test_id.as_str().to_owned();
-        if !wanted.contains(&test) {
-            continue;
-        }
-        if latest
-            .get(&test)
-            .is_some_and(|existing| existing.evidence >= record.id)
-        {
-            continue;
-        }
-        let result = serde_json::to_value(record.result)
-            .ok()
-            .and_then(|value| value.as_str().map(str::to_owned))
-            .unwrap_or_default();
-        latest.insert(
-            test.clone(),
-            EvidenceRef {
+    vtest_verify::latest_evidence(root, registry, wanted.iter().map(String::as_str))
+        .into_iter()
+        .map(|(test, latest)| match latest {
+            vtest_verify::LatestEvidence::Valid(record) => EvidenceRef {
                 test,
-                evidence: record.id,
-                result,
-                executed_at: record.executed_at,
+                evidence: Some(record.id.clone()),
+                result: serde_json::to_value(record.result)
+                    .ok()
+                    .and_then(|value| value.as_str().map(str::to_owned)),
+                executed_at: Some(record.executed_at.clone()),
+                invalid: None,
             },
-        );
-    }
-    latest.into_values().collect()
+            vtest_verify::LatestEvidence::Invalid { id, reason } => EvidenceRef {
+                test,
+                evidence: id,
+                result: None,
+                executed_at: None,
+                invalid: Some(reason),
+            },
+        })
+        .collect()
 }
 
 /// `vtest report` / MCP `report`.
@@ -393,7 +418,7 @@ pub fn execute(
     let evaluated = super::verify::evaluate(root, items, doc, vo, test, gate, false, registry)?;
     let layout = VerifyLayout::new(root);
     let projection = project(&layout, &evaluated.scan, &evaluated.data.tree, projection)?;
-    let evidence = evidence_refs(&layout, &evaluated.data.tree);
+    let evidence = evidence_refs(root, registry, &evaluated.data.tree);
     Ok((
         evaluated.exit,
         ReportData {
