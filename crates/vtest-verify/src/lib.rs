@@ -1686,7 +1686,7 @@ fn build_tree(
             .iter()
             .filter(|(id, record)| {
                 selection.vos.contains(*id)
-                    && record.parent.is_none()
+                    && is_selection_root(record, selection)
                     && record
                         .derives_from
                         .iter()
@@ -1715,10 +1715,9 @@ fn build_tree(
         if built_roots.contains(id) {
             continue;
         }
-        if vos
-            .get(id)
-            .is_some_and(|record| record.parent.is_some() && !vo_parent_cycle_root(vos, id))
-        {
+        if vos.get(id).is_some_and(|record| {
+            !is_selection_root(record, selection) && !vo_parent_cycle_root(vos, id)
+        }) {
             continue;
         }
         roots.push(build_vo_node(
@@ -1755,6 +1754,16 @@ fn build_tree(
     }
 
     roots
+}
+
+/// DS-1104/DS-840: a selected VO whose parent is outside the selection
+/// (or absent) roots its own subtree. Otherwise a scope naming a child VO,
+/// or a Test covering one, would drop the VO and its Tests from the tree.
+fn is_selection_root(record: &VoRecord, selection: &EntitySelection) -> bool {
+    record
+        .parent
+        .as_ref()
+        .is_none_or(|parent| !selection.vos.contains(parent.as_str()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2991,6 +3000,97 @@ mod tests {
             VerificationState::Mismatch
         );
         assert!(outcome.scope.limited);
+    }
+
+    fn collect_ids(nodes: &[TreeNode], out: &mut BTreeSet<String>) {
+        for node in nodes {
+            out.insert(node.id.clone());
+            collect_ids(&node.children, out);
+        }
+    }
+
+    fn find_node<'a>(nodes: &'a [TreeNode], id: &str) -> Option<&'a TreeNode> {
+        nodes.iter().find_map(|node| {
+            if node.id == id {
+                Some(node)
+            } else {
+                find_node(&node.children, id)
+            }
+        })
+    }
+
+    /// DS-1104: `--vo` / `--test` select an entity subtree. A selected VO
+    /// whose parent is outside the selection roots that subtree, so the VO,
+    /// its descendants and their Tests stay in the tree, and nothing outside
+    /// the selection is mixed in.
+    /// @vtest.id TEST-VERIFY-ENTITY-SCOPE-SUBTREE-ROOT
+    /// @vtest.covers VO-VERIFY-ENTITY-SCOPE-SUBTREE-ROOT
+    /// @vtest.target crates/vtest-verify/src/lib.rs::build_tree
+    /// @vtest.intent scoping to a child VO, grandchild VO or leaf Test keeps exactly that subtree
+    #[test]
+    fn scoping_to_a_vo_with_a_parent_keeps_its_subtree() {
+        let root = temp_root("child-vo-scope");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        for (id, parent) in [
+            ("VO-PARENT", None),
+            ("VO-CHILD", Some("VO-PARENT")),
+            ("VO-GRAND", Some("VO-CHILD")),
+            ("VO-OTHER", None),
+        ] {
+            write_vo_record(&layout, &vo(id, parent)).expect("vo");
+        }
+        let scan = scan_result(
+            vec![
+                test_entity("TEST-PARENT", &["VO-PARENT"], 1),
+                test_entity("TEST-CHILD", &["VO-CHILD"], 1),
+                test_entity("TEST-GRAND", &["VO-GRAND"], 1),
+                test_entity("TEST-OTHER", &["VO-OTHER"], 1),
+            ],
+            Vec::new(),
+        );
+        let cases = [
+            (
+                EntityScope::Vo("VO-CHILD".to_owned()),
+                vec!["VO-CHILD", "VO-GRAND", "TEST-CHILD", "TEST-GRAND"],
+            ),
+            (
+                EntityScope::Vo("VO-GRAND".to_owned()),
+                vec!["VO-GRAND", "TEST-GRAND"],
+            ),
+            (
+                EntityScope::Test("TEST-GRAND".to_owned()),
+                vec!["VO-GRAND", "TEST-GRAND"],
+            ),
+        ];
+        for (scope, expected) in cases {
+            let outcome = verify_project(&root, &scan, None, Some(scope.clone()), &test_registry());
+            let mut ids = BTreeSet::new();
+            collect_ids(&outcome.tree, &mut ids);
+            for id in &expected {
+                assert!(ids.contains(*id), "{scope:?}: {id} missing from {ids:?}");
+            }
+            for id in ["VO-PARENT", "VO-OTHER", "TEST-PARENT", "TEST-OTHER"] {
+                assert!(!ids.contains(id), "{scope:?}: {id} leaked into {ids:?}");
+            }
+            let first = find_node(&outcome.tree, expected[0]).expect("scoped VO present");
+            let test_id = expected[expected.len() - 1];
+            assert!(
+                find_node(&first.children, test_id).is_some()
+                    || find_node(&outcome.tree, test_id).is_some(),
+                "{scope:?}: {test_id} missing"
+            );
+        }
+        let outcome = verify_project(
+            &root,
+            &scan,
+            None,
+            Some(EntityScope::Vo("VO-CHILD".to_owned())),
+            &test_registry(),
+        );
+        let child = find_node(&outcome.tree, "VO-CHILD").expect("VO-CHILD present");
+        assert!(find_node(&child.children, "VO-GRAND").is_some());
+        assert!(find_node(&child.children, "TEST-CHILD").is_some());
     }
 
     // -----------------------------------------------------------------
