@@ -13,12 +13,10 @@ use vtest_scan::scan_project;
 use vtest_store::load_config;
 
 pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
-    // config の拒否は操作拒否であって内部エラーではない。DS-935。
+    // config の拒否は操作拒否（E-CONFIG-001、DS-935）。読めない config は
+    // 内部エラー（E-INTERNAL-001、DS-930）。
     if let Err(error) = load_config(root) {
-        return (
-            ExitCode::Usage,
-            crate::config_failure_envelope(&error.to_string()),
-        );
+        return crate::config_error_result(&error);
     }
     match scan_project(root, registry) {
         Ok(result) => {

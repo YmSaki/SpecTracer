@@ -160,7 +160,7 @@ fn state_and_labels(
 /// @vtest.id TEST-CLI-SYNTHETIC-ADAPTER-SCAN-AND-VERIFY-WITHOUT-CORE-CHANGES
 /// @vtest.covers VO-ADAPTER-SYNTHETIC-SCAN-VERIFY-WITHOUT-CORE-CHANGES
 /// @vtest.target crates/vtest-adapter-synthetic/src/lib.rs::SyntheticAdapter
-/// @vtest.intent verifies a synthetic (non-.rs, non-function, non-doc-comment, colon-free-locator) adapter registers, scans one Test, and verifies through unmodified vtest-scan/vtest-verify, with oracle_presence NO_EVIDENCE(NOT_CHECKED), target_binding NO_EVIDENCE(NOT_EXECUTED), and chain_integrity/orphan_detection evaluated normally as PASS
+/// @vtest.intent verifies a synthetic (non-.rs, non-function, non-doc-comment, colon-free-locator) adapter registers, scans one Test, and verifies through unmodified vtest-scan/vtest-verify, with oracle_presence NO_EVIDENCE(NOT_CHECKED), target_binding NO_EVIDENCE(NOT_EXECUTED + NOT_CHECKED, DS-847), and chain_integrity/orphan_detection evaluated normally as PASS
 #[test]
 fn synthetic_adapter_scans_and_verifies_through_unmodified_core() {
     let root = temp_root("basic");
@@ -191,7 +191,12 @@ fn synthetic_adapter_scans_and_verifies_through_unmodified_core() {
     let (binding_state, binding_labels) =
         state_and_labels(&outcome, VerificationCheck::TargetBinding);
     assert_eq!(binding_state, VerificationState::NoEvidence);
-    assert_eq!(binding_labels, vec![DiagnosticLabel::NotExecuted]);
+    // The synthetic adapter declares neither runner nor coverage, so both
+    // capability labels are listed side by side (DS-847/DS-1581/DS-1582).
+    assert_eq!(
+        binding_labels,
+        vec![DiagnosticLabel::NotExecuted, DiagnosticLabel::NotChecked]
+    );
 
     // chain_integrity / orphan_detection are whole-chain structural checks
     // (not per-Test), and this fixture's declaration chain is complete

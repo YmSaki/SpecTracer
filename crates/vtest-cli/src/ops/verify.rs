@@ -9,12 +9,15 @@
 
 use std::path::Path;
 
+use std::collections::BTreeSet;
 use vtest_adapter_api::AdapterRegistry;
 use vtest_model::{Diagnostic, ExitCode, VerificationCheck, VerificationState};
 use vtest_scan::{scan_project, ScanResult};
 use vtest_store::{load_config, GateConfig, ProjectConfig};
+
 use vtest_verify::{
-    parse_check, verify_project, CheckOutcome, EntityScope, ScopeReport, TreeNode, VerifyOutcome,
+    parse_check, verify_project, CheckOutcome, EntityScope, NodeKind, ScopeReport, TreeNode,
+    VerifyOutcome,
 };
 
 /// Owned counterpart of the CLI's `VerifyData` — owned so it can be handed
@@ -54,22 +57,13 @@ pub struct GateVerification {
     pub satisfied: bool,
 }
 
-/// One required approval role's evaluation.
+/// One required approval role's evaluation (DS-1161/1163/1164/1171).
 ///
-/// `missing_subjects` is always empty in this slice: DES-554 requires this
-/// field, but nothing in `config.yaml`'s `gates[].require.approvals` (a
-/// bare role-name list, DS-372) or `approval_roles` (role name -> approver
-/// identity list, DS-373) names *which entity/entities* the gate's target
-/// scope requires that role to approve — resolving that needs an entity
-/// scope -> required-approval-subject mapping this slice's config schema
-/// does not carry. `satisfied` stays fail-closed (`false`) whenever a role
-/// is required, matching the existing rule that an unevaluable role must
-/// never read as satisfied. **Consequence**: with this slice's config
-/// schema, a gate whose `require.approvals` is non-empty can therefore
-/// never reach `GateEvaluation.satisfied == true`, regardless of how many
-/// approval records exist — the role is permanently unevaluable, not
-/// merely currently unsatisfied. See `reports/closure-trace.md`'s
-/// stopped_on list.
+/// `missing_subjects` lists every subject in the requested entity scope
+/// (the `--doc` / `--vo` / `--test` entity, or the evaluation tree's root
+/// entities when none is given) that has no effective approval by an
+/// approver of this role. `satisfied` is true only when the scope has at
+/// least one subject and none is missing (fail-closed).
 #[derive(Clone, serde::Serialize)]
 pub struct GateApproval {
     pub role: String,
@@ -83,6 +77,29 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
+    /// The tool itself failed (E-INTERNAL-001, exit code 3, DS-1689/DS-1690):
+    /// a verification input or the configuration could not be read because
+    /// of an I/O failure. No result is returned, because a result computed
+    /// without that input is not complete.
+    Internal { message: String },
+}
+
+/// DS-943/947/957/1114/1214: the `verify` JSON (CLI `--format json` and the
+/// MCP tool) carries the requested scope as a top-level `scope` field next
+/// to the common `ok` / `data` / `diagnostics` envelope, also on a complete
+/// verification. Both callers serialize through this one function so the
+/// CLI/MCP shapes cannot drift (DS-1563).
+pub fn scoped_envelope(
+    ok: bool,
+    data: &VerifyData,
+    diagnostics: &[Diagnostic],
+) -> serde_json::Value {
+    serde_json::json!({
+        "ok": ok,
+        "scope": data.scope,
+        "data": data,
+        "diagnostics": diagnostics,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -105,9 +122,14 @@ pub fn execute(
         message,
     })?;
 
-    let config = load_config(root).map_err(|error| VerifyOpError::Usage {
-        code: "E-CONFIG-001",
-        message: error.to_string(),
+    let config = load_config(root).map_err(|error| match error.config_load_code() {
+        Some(code) => VerifyOpError::Usage {
+            code,
+            message: error.to_string(),
+        },
+        None => VerifyOpError::Internal {
+            message: error.to_string(),
+        },
     })?;
 
     let gate_config = resolve_gate(&config, gate).map_err(|message| VerifyOpError::Usage {
@@ -118,7 +140,22 @@ pub fn execute(
     let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
     let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
-    let gate_evaluation = gate_config.map(|config| evaluate_gate(config, &outcome));
+    if let Some(internal) = outcome
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == vtest_model::INTERNAL_ERROR_CODE)
+    {
+        return Err(VerifyOpError::Internal {
+            message: internal.message.clone(),
+        });
+    }
+    let mut diagnostics = scan.diagnostics.clone();
+    diagnostics.extend(outcome.diagnostics.iter().cloned());
+    let gate_evaluation = gate_config.map(|gate| {
+        let (evaluation, gate_diagnostics) = evaluate_gate(root, &config, gate, &outcome);
+        diagnostics.extend(gate_diagnostics);
+        evaluation
+    });
     let non_pass = outcome
         .all_outcomes()
         .iter()
@@ -155,7 +192,7 @@ pub fn execute(
         None => ExitCode::VerificationFailed,
     };
 
-    Ok((exit, data, scan.diagnostics.clone()))
+    Ok((exit, data, diagnostics))
 }
 
 fn entity_scope(
@@ -219,36 +256,134 @@ fn resolve_gate<'a>(
         .ok_or_else(|| format!("no gate named '{name}' is defined in config.yaml"))
 }
 
-fn evaluate_gate(config: &GateConfig, outcome: &VerifyOutcome) -> GateEvaluation {
+fn evaluate_gate(
+    root: &Path,
+    project: &ProjectConfig,
+    config: &GateConfig,
+    outcome: &VerifyOutcome,
+) -> (GateEvaluation, Vec<Diagnostic>) {
     let actual = state_name(outcome.state);
     let verification_satisfied = config.require.verification == actual;
+    let (approvals, diagnostics) = if config.require.approvals.is_empty() {
+        (Vec::new(), Vec::new())
+    } else {
+        evaluate_approval_roles(root, project, config, outcome)
+    };
+    let approvals_satisfied = approvals.iter().all(|approval| approval.satisfied);
 
-    // DES-554's approvals[] is role-keyed. `missing_subjects` stays empty
-    // (see GateApproval's doc comment) and `satisfied` stays fail-closed
-    // (false) for every required role -- an unevaluable role must never
-    // read as satisfied.
-    let approvals: Vec<GateApproval> = config
+    (
+        GateEvaluation {
+            name: config.name.clone(),
+            verification: GateVerification {
+                required: config.require.verification.clone(),
+                actual: actual.to_owned(),
+                satisfied: verification_satisfied,
+            },
+            approvals,
+            satisfied: verification_satisfied && approvals_satisfied,
+        },
+        diagnostics,
+    )
+}
+
+/// DS-1163: the subjects a gate's approval roles are evaluated against —
+/// the entity named on the entity axis, or the root entities of the
+/// evaluated tree when the axis is omitted. Each is `(subject_type, id)`;
+/// a Test is not an approvable subject type, so it can never be satisfied.
+fn gate_subjects(outcome: &VerifyOutcome) -> Vec<(&'static str, String)> {
+    match &outcome.scope.entity {
+        Some(EntityScope::Doc(id)) => vec![("document", id.clone())],
+        Some(EntityScope::Vo(id)) => vec![("vo", id.clone())],
+        Some(EntityScope::Test(id)) => vec![("test", id.clone())],
+        None => outcome
+            .tree
+            .iter()
+            .map(|node| {
+                let kind = match node.kind {
+                    NodeKind::Doc => "document",
+                    NodeKind::Vo => "vo",
+                    NodeKind::Test => "test",
+                };
+                (kind, node.id.clone())
+            })
+            .collect(),
+    }
+}
+
+/// DS-1160〜1164/1171: a role is satisfied when every subject in the scope
+/// is effectively approved (current subject_hash and dependency closure,
+/// supersedes applied, DS-1466) by at least one approver the role lists.
+/// The approval axis never rewrites the verification state (DS-1168/1176).
+fn evaluate_approval_roles(
+    root: &Path,
+    project: &ProjectConfig,
+    config: &GateConfig,
+    outcome: &VerifyOutcome,
+) -> (Vec<GateApproval>, Vec<Diagnostic>) {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let subjects = gate_subjects(outcome);
+    let mut diagnostics = Vec::new();
+    // Approvers whose approval is currently effective, per subject; `None`
+    // when the subject cannot be approved or resolved at all.
+    let approvers: Vec<Option<BTreeSet<String>>> =
+        match vtest_store::approval::read_all_approvals(&layout) {
+            Ok(records) => subjects
+                .iter()
+                .map(|(subject_type, id)| {
+                    if *subject_type == "test" {
+                        return None;
+                    }
+                    let (hash, dependencies) =
+                        super::approval::resolve_subject(&layout, subject_type, id).ok()?;
+                    let (approvers, subject_diagnostics) =
+                        vtest_store::approval::effective_approvers(
+                            &records,
+                            subject_type,
+                            id,
+                            &hash,
+                            &dependencies,
+                        );
+                    diagnostics.extend(subject_diagnostics);
+                    Some(approvers)
+                })
+                .collect(),
+            Err(error) => {
+                // DS-1676: an unreadable approval set is never read as a
+                // smaller one; every role stays unsatisfied.
+                diagnostics.push(Diagnostic::error(
+                    error.record_read_code().unwrap_or("E-CORE-001"),
+                    format!("approval records cannot be read for gate evaluation: {error}"),
+                ));
+                vec![None; subjects.len()]
+            }
+        };
+
+    let approvals = config
         .require
         .approvals
         .iter()
-        .map(|role| GateApproval {
-            role: role.clone(),
-            satisfied: false,
-            missing_subjects: Vec::new(),
+        .map(|role| {
+            let members = project.approval_roles.get(role);
+            let missing_subjects: Vec<String> = subjects
+                .iter()
+                .zip(&approvers)
+                .filter(|(_, approvers)| {
+                    !approvers.as_ref().is_some_and(|approvers| {
+                        members.is_some_and(|members| {
+                            members.iter().any(|member| approvers.contains(member))
+                        })
+                    })
+                })
+                .map(|((_, id), _)| id.clone())
+                .collect();
+            GateApproval {
+                role: role.clone(),
+                satisfied: !subjects.is_empty() && missing_subjects.is_empty(),
+                missing_subjects,
+            }
         })
         .collect();
-    let approvals_satisfied = approvals.is_empty();
-
-    GateEvaluation {
-        name: config.name.clone(),
-        verification: GateVerification {
-            required: config.require.verification.clone(),
-            actual: actual.to_owned(),
-            satisfied: verification_satisfied,
-        },
-        approvals,
-        satisfied: verification_satisfied && approvals_satisfied,
-    }
+    (approvals, diagnostics)
 }
 
 pub fn state_name(state: VerificationState) -> &'static str {

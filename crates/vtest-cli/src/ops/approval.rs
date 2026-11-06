@@ -12,8 +12,8 @@
 
 use vtest_store::{
     approval::{
-        build_document_node_index, document_dependencies, effective_approval_state,
-        read_all_approvals, read_all_vos, vo_dependencies, EffectiveApprovalState,
+        build_document_node_index, document_dependencies, effective_approval, read_all_approvals,
+        read_all_vos, vo_dependencies, EffectiveApprovalState,
     },
     new_record_id,
     records::{ApprovalRecord, Approver, DependencyRecord},
@@ -57,7 +57,7 @@ pub struct CreateArgs {
 /// `UnresolvedSubject` (E-APPROVAL-001) when the subject does not currently
 /// exist, and `JudgmentSubjectTypeUnsupported` for `subject_type ==
 /// "judgment"`.
-fn resolve_subject(
+pub(crate) fn resolve_subject(
     layout: &VerifyLayout,
     subject_type: &str,
     subject_id: &str,
@@ -72,8 +72,12 @@ fn resolve_subject(
             };
             let hash = vtest_model::vo_subject_hash(record);
             let doc_index = build_document_node_index(layout)?;
+            // DS-1058: a dangling parent / derives_from or a cycle in the
+            // dependency closure means the subject cannot be resolved
+            // completely, so no approval can bind to it.
             let dependencies =
-                vo_dependencies(&vos, &doc_index, &vtest_model::VoId::new(subject_id));
+                vo_dependencies(&vos, &doc_index, &vtest_model::VoId::new(subject_id))
+                    .map_err(|error| ApprovalOpError::UnresolvedSubject(error.to_string()))?;
             Ok((hash, dependencies))
         }
         "document" => {
@@ -83,7 +87,8 @@ fn resolve_subject(
                     "no document node with id '{subject_id}' exists"
                 )));
             };
-            let dependencies = document_dependencies(&doc_index, subject_id);
+            let dependencies = document_dependencies(&doc_index, subject_id)
+                .map_err(|error| ApprovalOpError::UnresolvedSubject(error.to_string()))?;
             Ok((hash.clone(), dependencies))
         }
         "judgment" => Err(ApprovalOpError::JudgmentSubjectTypeUnsupported),
@@ -148,6 +153,10 @@ fn build_and_write(
     basis: Vec<String>,
     supersedes: Vec<String>,
 ) -> Result<ApprovalRecord, ApprovalOpError> {
+    // DS-1676: the existing approval set must be readable in full before a
+    // new record is added on top of it; an unreadable record is an error,
+    // never silently skipped.
+    read_all_approvals(layout)?;
     let (subject_hash, dependencies) = resolve_subject(layout, &subject_type, &subject_id)?;
     validate_supersedes(layout, &subject_type, &subject_id, &supersedes)?;
     let record = ApprovalRecord {
@@ -244,6 +253,9 @@ pub fn withdraw(
 pub struct ShowResult {
     pub records: Vec<ApprovalRecord>,
     pub effective_state: EffectiveApprovalState,
+    /// DS-556: W-STORE-005 for records excluded from the effective set
+    /// because their `supersedes` graph is invalid.
+    pub diagnostics: Vec<vtest_model::Diagnostic>,
 }
 
 /// DS-1057: returns the subject's full approval-record history plus its
@@ -263,16 +275,17 @@ pub fn show(
         .filter(|record| record.subject_type == subject_type && record.subject == subject_id)
         .collect();
 
-    let effective_state = match resolve_subject(layout, subject_type, subject_id) {
+    let (effective_state, diagnostics) = match resolve_subject(layout, subject_type, subject_id) {
         Ok((hash, dependencies)) => {
-            effective_approval_state(&matching, subject_type, subject_id, &hash, &dependencies)
+            effective_approval(&matching, subject_type, subject_id, &hash, &dependencies)
         }
-        Err(ApprovalOpError::UnresolvedSubject(_)) => EffectiveApprovalState::Draft,
+        Err(ApprovalOpError::UnresolvedSubject(_)) => (EffectiveApprovalState::Draft, Vec::new()),
         Err(other) => return Err(other),
     };
 
     Ok(ShowResult {
         records: matching,
         effective_state,
+        diagnostics,
     })
 }

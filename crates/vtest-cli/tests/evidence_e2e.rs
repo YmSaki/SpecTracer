@@ -65,6 +65,15 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn clear_outer_coverage_environment() {
+    // The Execution State binds the execution-affecting environment
+    // (DES-097/369), so a variable removed by one test while another test is
+    // between its pre- and post-run snapshots would read as an input change
+    // (E-EXEC-004). Clear once, before any test reaches its first run.
+    static CLEARED: std::sync::Once = std::sync::Once::new();
+    CLEARED.call_once(clear_outer_coverage_environment_now);
+}
+
+fn clear_outer_coverage_environment_now() {
     // `CARGO_TARGET_DIR` is included alongside the coverage/rustflags
     // variables for a distinct, empirically confirmed reason: every fixture
     // built here declares its own `[workspace]`, so `cargo test`/
@@ -233,7 +242,7 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
     let runnable = RunnableTest {
         entity: entity.clone(),
         target_hashes: vec![source_fn.content_hash.clone()],
-        target_locator: Some(target_locator),
+        target_locators: vec![target_locator],
     };
     let layout = vtest_store::VerifyLayout::new(root);
     clear_outer_coverage_environment();
@@ -280,7 +289,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
     let runnable = RunnableTest {
         entity: entity.clone(),
         target_hashes: vec![source_fn.content_hash.clone()],
-        target_locator: Some(target_locator),
+        target_locators: vec![target_locator],
     };
     let layout = vtest_store::VerifyLayout::new(&root);
     clear_outer_coverage_environment();
@@ -357,7 +366,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
     let runnable = RunnableTest {
         entity: entity.clone(),
         target_hashes: vec![source_fn.content_hash.clone()],
-        target_locator: Some(target_locator),
+        target_locators: vec![target_locator],
     };
     let layout = vtest_store::VerifyLayout::new(&root);
     clear_outer_coverage_environment();
@@ -495,5 +504,254 @@ fn only_oracle_presence_breaks_on_a_self_comparison_assertion() {
     assert_ne!(outcome.state, VerificationState::Pass);
     assert!(!outcome.ok);
 
+    fs::remove_dir_all(&root).ok();
+}
+
+/// A fixture Test declaring two targets, only one of which the body
+/// reaches, run once through the real coverage runner. Returns the project
+/// root and the Evidence record the run wrote.
+fn run_multi_target_fixture(name: &str) -> (PathBuf, vtest_model::EvidenceRecord) {
+    let root = temp_root(name);
+    build_fixture_project_with_test_body(
+        &root,
+        "/// @vtest.id TEST-E2E-DOUBLE\n\
+         /// @vtest.covers VO-E2E-DOUBLE\n\
+         /// @vtest.target src/lib.rs::double\n\
+         /// @vtest.target src/lib.rs::unused\n\
+         /// @vtest.intent doubles the input\n\
+         #[test]\n\
+         fn it_doubles() {\n    assert_eq!(vtest_e2e_fixture::double(2), 4);\n}\n",
+    );
+    fs::write(
+        root.join("src").join("lib.rs"),
+        "pub fn double(x: i32) -> i32 { x * 2 }\npub fn unused() -> i32 { 99 }\n",
+    )
+    .expect("rewrite src/lib.rs");
+    git(&root, &["commit", "-q", "-am", "add an unused target"]);
+
+    let scan = scan_project(&root, &registry()).expect("scan");
+    assert!(!scan.has_errors(), "scan errors: {:?}", scan.diagnostics);
+    let entity = scan
+        .tests
+        .iter()
+        .find(|test| test.id == TestId::new("TEST-E2E-DOUBLE"))
+        .cloned()
+        .expect("TEST-E2E-DOUBLE discovered");
+    let mut target_hashes = Vec::new();
+    let mut target_locators = Vec::new();
+    for target in &entity.targets {
+        let vtest_model::TargetRef::Locator(locator) = target else {
+            panic!("expected Locator targets");
+        };
+        let source = scan
+            .sources
+            .iter()
+            .find(|source| &source.locator == locator)
+            .expect("target resolved");
+        target_hashes.push(source.content_hash.clone());
+        target_locators.push(locator.clone());
+    }
+    assert_eq!(target_locators.len(), 2);
+    let runnable = RunnableTest {
+        entity,
+        target_hashes,
+        target_locators,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
+    let result = run_tests(&root, &layout, &[runnable], false, &registry()).expect("run_tests");
+    assert!(!result.has_errors(), "run errors: {:?}", result.diagnostics);
+    (root, result.evidence[0].clone())
+}
+
+/// Issue #122: a Test declaring two targets, only one of which the test
+/// body reaches, must not verify as `PASS` — every declared target is
+/// measured and recorded, and the unreached one keeps `target_binding`
+/// non-`PASS` (DS-831/DS-1410/DS-1411).
+/// @vtest.id TEST-E2E-MULTI-TARGET-UNREACHED-NOT-PASS
+/// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+/// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+/// @vtest.intent 2件のtargetを宣言し片方へ到達しないTestで、Evidenceが2件のtarget entryを持ち、verifyがPASSにならないことを確認する
+#[test]
+fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
+    let (root, evidence) = run_multi_target_fixture("multi-target");
+    let coverage = &evidence.target_coverage;
+    assert!(coverage.checked);
+    assert_eq!(
+        coverage.targets.len(),
+        2,
+        "every declared target is recorded"
+    );
+    assert_ne!(
+        coverage.result,
+        Some(vtest_model::TargetCoverageResult::Pass)
+    );
+
+    let scan_after = scan_project(&root, &registry()).expect("re-scan");
+    let outcome = verify_project(&root, &scan_after, None, None, &registry());
+    assert_eq!(
+        only_check_state(&outcome, vtest_model::VerificationCheck::TargetBinding),
+        VerificationState::Fail,
+        "{}",
+        serde_json::to_string_pretty(&outcome).unwrap_or_default()
+    );
+    assert!(!outcome.ok);
+    fs::remove_dir_all(&root).ok();
+}
+
+/// PR #131 review: Evidence whose aggregate `target_coverage.result`
+/// contradicts its per-target entries (an UNKNOWN aggregate over a FAIL
+/// entry) is E-SCAN-010 (DS-476). `vtest verify` does not use it — the
+/// Test's `target_binding` is NO_EVIDENCE (NOT_EXECUTED, DS-1679) — and the
+/// E-SCAN-010 diagnostic reaches the JSON envelope's `diagnostics`, not
+/// only a basis string.
+/// @vtest.id TEST-E2E-EVIDENCE-AGGREGATE-CONTRADICTION-DIAGNOSTIC
+/// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.intent aggregateをUNKNOWNへ書き換えたEvidenceで、vtest verifyのJSON envelopeのdiagnosticsにE-SCAN-010が入り、target_bindingがNO_EVIDENCE(NOT_EXECUTED)になることを確認する
+#[test]
+fn verify_reports_e_scan_010_for_an_aggregate_that_contradicts_its_entries() {
+    let (root, evidence) = run_multi_target_fixture("aggregate-contradiction");
+    assert_eq!(
+        evidence.target_coverage.result,
+        Some(vtest_model::TargetCoverageResult::Fail)
+    );
+    let path = vtest_store::VerifyLayout::new(&root)
+        .evidence_dir()
+        .join(format!("{}.yaml", evidence.id));
+    let text = fs::read_to_string(&path).expect("read Evidence");
+    // Only the aggregate line of the `target_coverage` block changes; the
+    // per-target entries stay as measured (one PASS, one FAIL with count 0).
+    let block = text
+        .find("\ntarget_coverage:\n")
+        .expect("target_coverage block");
+    let (head, tail) = text.split_at(block);
+    let rewritten = format!(
+        "{head}{}",
+        tail.replacen("\n  result: 'FAIL'\n", "\n  result: 'UNKNOWN'\n", 1)
+    );
+    assert_ne!(rewritten, text, "aggregate result line rewritten:\n{text}");
+    fs::write(&path, rewritten).expect("rewrite Evidence");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(&root)
+        .args(["--format", "json", "verify"])
+        .output()
+        .expect("run vtest verify");
+    assert_eq!(output.status.code(), Some(1));
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("JSON envelope");
+    let diagnostics = envelope["diagnostics"].as_array().expect("diagnostics");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-SCAN-010"
+                && diagnostic["severity"] == "error"),
+        "{envelope:#}"
+    );
+    let rendered = envelope.to_string();
+    assert!(rendered.contains("NOT_EXECUTED"), "{envelope:#}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// Issue #123: a newer Evidence record that is not a valid record must not
+/// be skipped in favour of the older valid `PASS` (DS-1365/DS-1366/DS-1679).
+/// @vtest.id TEST-E2E-INVALID-LATEST-EVIDENCE-NO-FALLBACK
+/// @vtest.covers VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+/// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
+/// @vtest.intent 最新Evidenceが不正（未知field・id/ファイル名不一致）のとき古いPASS Evidenceへ戻らずNO_EVIDENCEとし、E-SCAN-010診断をverifyの結果に載せることを確認する
+#[test]
+fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
+    let root = temp_root("invalid-latest");
+    build_fixture_project(&root);
+    let outcome = run_and_verify(&root);
+    assert_eq!(
+        outcome.state,
+        VerificationState::Pass,
+        "control: valid PASS"
+    );
+
+    let evidence_dir = root.join(".verify").join("evidence");
+    let original = fs::read_dir(&evidence_dir)
+        .expect("evidence dir")
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.extension().and_then(|e| e.to_str()) == Some("yaml"))
+        .expect("one Evidence record");
+    let original_id = original
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .expect("ULID file name")
+        .to_owned();
+    let text = fs::read_to_string(&original).expect("read Evidence");
+    // A later record for the same Test with the same freshness binding.
+    let later_id = "7ZZZZZZZZZZZZZZZZZZZZZZZZZ";
+    let later = evidence_dir.join(format!("{later_id}.yaml"));
+    let failed = text
+        .replace(&original_id, later_id)
+        .replacen("result: PASS", "result: FAIL", 1)
+        .replacen("result: 'PASS'", "result: 'FAIL'", 1);
+    fs::write(&later, &failed).expect("write later Evidence");
+    let scan = scan_project(&root, &registry()).expect("scan");
+    let valid_latest = verify_project(&root, &scan, None, None, &registry());
+    assert_eq!(
+        only_check_state(&valid_latest, vtest_model::VerificationCheck::TargetBinding),
+        VerificationState::Fail,
+        "control: a valid later FAIL record is the latest"
+    );
+
+    for (name, broken) in [
+        ("unknown field", format!("{failed}unexpected: true\n")),
+        (
+            "id differs from the file name",
+            failed.replace(later_id, "7ZZZZZZZZZZZZZZZZZZZZZZZZY"),
+        ),
+        (
+            // PR #132 review: the broken record's Test cannot be told, so it
+            // may be this Test's latest; the older PASS must not stand in.
+            "unknown field and test_id: null",
+            format!(
+                "{}unexpected: true\n",
+                failed
+                    .lines()
+                    .map(|line| if line.starts_with("test_id:") {
+                        "test_id: null"
+                    } else {
+                        line
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    + "\n"
+            ),
+        ),
+    ] {
+        fs::write(&later, &broken).expect("write broken later Evidence");
+        let scan = scan_project(&root, &registry()).expect("scan");
+        let outcome = verify_project(&root, &scan, None, None, &registry());
+        assert_eq!(
+            only_check_state(&outcome, vtest_model::VerificationCheck::TargetBinding),
+            VerificationState::NoEvidence,
+            "{name}: the older PASS must not stand in for the invalid latest record"
+        );
+        assert!(!outcome.ok, "{name}");
+        assert!(
+            outcome
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "{name}: {:?}",
+            outcome.diagnostics
+        );
+        let (_, _, diagnostics) =
+            vtest_cli::ops::verify::execute(&root, &[], None, None, None, None, false, &registry())
+                .unwrap_or_else(|_| panic!("{name}: verify operation"));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-SCAN-010"),
+            "{name}: the CLI/MCP envelope carries the diagnostic"
+        );
+    }
     fs::remove_dir_all(&root).ok();
 }
