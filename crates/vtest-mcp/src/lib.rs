@@ -775,12 +775,7 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
         bool_arg(args, "all"),
     ) {
         Ok((data, diagnostics)) => success_envelope(true, data, &diagnostics),
-        Err(error @ ops::audit::AuditOpError::Usage(_)) => {
-            failure_envelope("E-OP-001", error.to_string())
-        }
-        Err(error @ ops::audit::AuditOpError::Cache { .. }) => {
-            failure_envelope("E-CORE-001", error.to_string())
-        }
+        Err(error) => failure_envelope(error.code(), error.to_string()),
     }
 }
 

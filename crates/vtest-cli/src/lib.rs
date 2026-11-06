@@ -825,12 +825,9 @@ fn run_audit_static(
             emit(format, quiet, &envelope, |_| render_audit_static(&data));
             ExitCode::Ok
         }
-        Err(error @ ops::audit::AuditOpError::Usage(_)) => {
-            usage_failure(format, quiet, "E-OP-001", &error.to_string())
-        }
-        Err(error @ ops::audit::AuditOpError::Cache { .. }) => {
-            emit_failure(format, quiet, "E-CORE-001", &error.to_string());
-            ExitCode::Internal
+        Err(error) => {
+            emit_failure(format, quiet, error.code(), &error.to_string());
+            error.exit_code()
         }
     }
 }
