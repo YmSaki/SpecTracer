@@ -297,7 +297,7 @@ fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
         Ok(snapshot) => snapshot,
         Err(error) => {
             return Some(failure_envelope(
-                "E-CORE-001",
+                vtest_model::INTERNAL_ERROR_CODE,
                 format!("cannot inspect project mtimes: {error}"),
             ))
         }
@@ -917,7 +917,9 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
 
 fn record_error_envelope(error: &vtest_store::StoreError) -> Value {
     failure_envelope(
-        error.record_read_code().unwrap_or("E-CORE-001"),
+        error
+            .record_read_code()
+            .unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
         error.to_string(),
     )
 }
@@ -952,7 +954,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     // same `ops::run::run` the CLI calls the resolved scan and target.
     let config = vtest_store::load_config(root);
     if let Err(error) = config {
-        return failure_envelope("E-CONFIG-001", error.to_string());
+        return vtest_cli::config_error_result(&error).1;
     }
     let registry = match resolve_registry() {
         Ok(registry) => registry,
@@ -961,7 +963,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     let scan = match vtest_scan::scan_project(root, &registry) {
         Ok(scan) => scan,
         Err(error) => {
-            let code = error.code().unwrap_or("E-CORE-001");
+            let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             return failure_envelope(code, error.to_string());
         }
     };
@@ -991,7 +993,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
             // same code for the same input (DS-1563).
             match inner.code() {
                 Some(code) => failure_envelope(code, error.to_string()),
-                None => failure_envelope("E-CORE-001", error.to_string()),
+                None => failure_envelope(vtest_model::INTERNAL_ERROR_CODE, error.to_string()),
             }
         }
         Err(ops::run::RunOpError::Store(error)) => record_error_envelope(&error),
@@ -1026,11 +1028,11 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
         }
         Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
-            let code = error.code().unwrap_or("E-CORE-001");
+            let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             failure_envelope(code, error.to_string())
         }
         Err(ops::verify::VerifyOpError::Internal { message }) => {
-            failure_envelope("E-INTERNAL-001", message)
+            failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message)
         }
     }
 }
@@ -1107,6 +1109,33 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-MCP-CONFIG-IO-INTERNAL
+    /// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent an unreadable config.yaml is an E-INTERNAL-001 tool error with no data from the scan, verify and run_tests tools
+    #[test]
+    fn unreadable_config_is_an_internal_tool_error() {
+        for (tool, args) in [
+            ("scan", json!({})),
+            ("verify", json!({})),
+            ("run_tests", json!({"all": true})),
+        ] {
+            let root = temp_root(&format!("config-io-{tool}"));
+            vtest_store::init_project(&root, "config-io").unwrap();
+            let config = root.join(".verify/config.yaml");
+            std::fs::remove_file(&config).unwrap();
+            std::fs::create_dir(&config).unwrap();
+            let result = tool_result(dispatch_tool(&root, tool, &args));
+            assert_eq!(result["isError"], true, "{tool}");
+            let envelope = &result["structuredContent"];
+            assert_eq!(envelope["data"], Value::Null, "{tool}");
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-INTERNAL-001",
+                "{tool}: {envelope}"
+            );
+        }
+    }
+
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES
     /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
@@ -1180,12 +1209,12 @@ mod tests {
                 (ExitCode::Usage, failure_envelope(code, message))
             }
             Err(vtest_cli::ops::verify::VerifyOpError::Scan(error)) => {
-                let code = error.code().unwrap_or("E-CORE-001");
+                let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
             }
             Err(vtest_cli::ops::verify::VerifyOpError::Internal { message }) => (
                 ExitCode::Internal,
-                failure_envelope("E-INTERNAL-001", message),
+                failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message),
             ),
         }
     }

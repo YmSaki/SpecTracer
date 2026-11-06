@@ -878,8 +878,8 @@ impl<'a> Scanner<'a> {
         path: &Path,
     ) -> Result<(), DiscoveryError> {
         let location = make_location(relative, item_path, span, source, line_offsets);
-        // 詳細設計 v0.1 のどの診断コード表にも `E-CORE-001` は存在せず、コード
-        // 自体を実装が発明することは禁止（PM 裁定・pr3-decisions.md 裁定2）。
+        // adapter が自前の診断コードを発明することは禁止（PM 裁定・
+        // pr3-decisions.md 裁定2）。
         // byte range の out-of-bounds は「壊れた発見結果を診断として黙って
         // 通す」ことになり fail-open なので、診断を出さず discovery 全体の
         // 失敗（`DiscoveryError`。core はこれを `ScanError::Discovery` へ

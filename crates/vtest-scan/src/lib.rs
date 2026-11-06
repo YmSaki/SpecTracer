@@ -101,7 +101,11 @@ pub enum ScanError {
 
 impl ScanError {
     /// The §17.1 diagnostic code this error carries, when construction sites
-    /// have committed to one. `Io`/`Config` do not name a diagnostic
+    /// have committed to one (`None` means an internal error, reported as
+    /// `E-INTERNAL-001`/exit 3 by callers — DS-1689/DS-1690). `ConfigLoad`
+    /// is E-CONFIG-001 unless the config file could not be read at all
+    /// (`StoreError::Io`), which is internal (DS-930), not a rejected
+    /// config (DS-929). `Io`/`Config` do not name a diagnostic
     /// code of their own at this variant's construction sites. `Config` in
     /// particular is `adapter_scan_includes`'s empty-`adapters[]` rejection —
     /// レビュー round 2 項目【F】で裁定済み: 仕様上このケースに割り当てられる
@@ -113,7 +117,7 @@ impl ScanError {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
             Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
             Self::MissingCapability { .. } => Some("E-ADAPTER-004"),
-            Self::ConfigLoad(_) => Some("E-CONFIG-001"),
+            Self::ConfigLoad(error) => error.config_load_code(),
             Self::Store(error) => error.record_read_code(),
             Self::Io { .. } | Self::Config(_) => None,
         }

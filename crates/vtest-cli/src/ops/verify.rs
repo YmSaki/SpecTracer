@@ -77,9 +77,10 @@ pub enum VerifyOpError {
     Usage { code: &'static str, message: String },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
-    /// A verification input could not be read because of a store I/O failure
-    /// (E-INTERNAL-001, exit code 3, DS-1689/DS-1690). No result is returned,
-    /// because a result computed without that input is not complete.
+    /// The tool itself failed (E-INTERNAL-001, exit code 3, DS-1689/DS-1690):
+    /// a verification input or the configuration could not be read because
+    /// of an I/O failure. No result is returned, because a result computed
+    /// without that input is not complete.
     Internal { message: String },
 }
 
@@ -121,9 +122,14 @@ pub fn execute(
         message,
     })?;
 
-    let config = load_config(root).map_err(|error| VerifyOpError::Usage {
-        code: "E-CONFIG-001",
-        message: error.to_string(),
+    let config = load_config(root).map_err(|error| match error.config_load_code() {
+        Some(code) => VerifyOpError::Usage {
+            code,
+            message: error.to_string(),
+        },
+        None => VerifyOpError::Internal {
+            message: error.to_string(),
+        },
     })?;
 
     let gate_config = resolve_gate(&config, gate).map_err(|message| VerifyOpError::Usage {
@@ -137,7 +143,7 @@ pub fn execute(
     if let Some(internal) = outcome
         .diagnostics
         .iter()
-        .find(|diagnostic| diagnostic.code == "E-INTERNAL-001")
+        .find(|diagnostic| diagnostic.code == vtest_model::INTERNAL_ERROR_CODE)
     {
         return Err(VerifyOpError::Internal {
             message: internal.message.clone(),

@@ -398,7 +398,7 @@ fn run_run(
         Err(code) => return code,
     };
     if let Err(error) = load_config(&root) {
-        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+        return config_error_exit(&error, format, quiet);
     }
     let registry = match resolve_registry(format, quiet) {
         Ok(registry) => registry,
@@ -444,13 +444,17 @@ fn run_run(
             // DS-745/DS-923 (E-ADAPTER-003): a registered adapter whose
             // runner cannot interpret the Test's execution descriptor is a
             // usage-shaped rejection, not an internal failure — surfaced via
-            // `ExecutionError::code()` rather than the blanket E-CORE-001
-            // this branch used before this PR (Runner variant only; `Io`
-            // still has no assigned code and stays E-CORE-001/internal).
+            // `ExecutionError::code()`. `Io` has no assigned code and is an
+            // internal error (E-INTERNAL-001, exit 3 — DS-1689/DS-1690).
             match inner.code() {
                 Some(code) => usage_failure(format, quiet, code, &error.to_string()),
                 None => {
-                    emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+                    emit_failure(
+                        format,
+                        quiet,
+                        vtest_model::INTERNAL_ERROR_CODE,
+                        &error.to_string(),
+                    );
                     ExitCode::Internal
                 }
             }
@@ -460,7 +464,7 @@ fn run_run(
 }
 
 fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: bool) -> ExitCode {
-    let code = error.code().unwrap_or("E-CORE-001");
+    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
     let exit = if error.code().is_some() {
         ExitCode::Usage
     } else {
@@ -926,7 +930,12 @@ fn record_error_exit(
     if let Some(code) = error.record_read_code() {
         usage_failure(format, quiet, code, &error.to_string())
     } else {
-        emit_failure(format, quiet, "E-CORE-001", &error.to_string());
+        emit_failure(
+            format,
+            quiet,
+            vtest_model::INTERNAL_ERROR_CODE,
+            &error.to_string(),
+        );
         ExitCode::Internal
     }
 }
@@ -955,23 +964,49 @@ pub(crate) fn envelope_json<T: serde::Serialize>(
     diagnostics: &[Diagnostic],
 ) -> serde_json::Value {
     serde_json::to_value(JsonEnvelope::new(ok, data, diagnostics.to_vec()))
-        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": "E-CORE-001", "severity": "error", "message": error.to_string()}]}))
+        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": vtest_model::INTERNAL_ERROR_CODE, "severity": "error", "message": error.to_string()}]}))
 }
 
-/// The `E-CONFIG-001` config-load failure envelope shared by `init` /
-/// `scan` / `doctor`.
-pub(crate) fn config_failure_envelope(message: &str) -> serde_json::Value {
-    envelope_json(
+/// The config-load failure result shared by `scan` / `doctor` / `run`
+/// (CLI and MCP): a rejected config is E-CONFIG-001 with exit 2 (DS-929,
+/// DS-935); a config file that cannot be read at all is E-INTERNAL-001 with
+/// exit 3 (DS-930, DS-1689/DS-1690).
+pub fn config_error_result(error: &vtest_store::StoreError) -> (ExitCode, serde_json::Value) {
+    let (exit, code) = match error.config_load_code() {
+        Some(code) => (ExitCode::Usage, code),
+        None => (ExitCode::Internal, vtest_model::INTERNAL_ERROR_CODE),
+    };
+    let envelope = envelope_json(
         false,
         serde_json::Value::Null,
-        &[Diagnostic::error("E-CONFIG-001", message.to_owned())],
-    )
+        &[Diagnostic::error(code, error.to_string())],
+    );
+    (exit, envelope)
+}
+
+fn config_error_exit(
+    error: &vtest_store::StoreError,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match error.config_load_code() {
+        Some(code) => usage_failure(format, quiet, code, &error.to_string()),
+        None => {
+            emit_failure(
+                format,
+                quiet,
+                vtest_model::INTERNAL_ERROR_CODE,
+                &error.to_string(),
+            );
+            ExitCode::Internal
+        }
+    }
 }
 
 /// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
 /// 検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。
 pub(crate) fn scan_error_result(error: &vtest_scan::ScanError) -> (ExitCode, serde_json::Value) {
-    let code = error.code().unwrap_or("E-CORE-001");
+    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
     let exit = if error.code().is_some() {
         ExitCode::Usage
     } else {
@@ -1083,7 +1118,7 @@ fn run_verify(
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
         Err(ops::verify::VerifyOpError::Internal { message }) => {
-            emit_failure(format, quiet, "E-INTERNAL-001", &message);
+            emit_failure(format, quiet, vtest_model::INTERNAL_ERROR_CODE, &message);
             ExitCode::Internal
         }
     }
