@@ -88,7 +88,7 @@ fn result_envelope(
 
 fn failure(diagnostic: Diagnostic) -> (ExitCode, serde_json::Value) {
     // DS-929: operation rejections exit 2; only an internal failure exits 3.
-    let exit = if diagnostic.code == "E-CORE-001" {
+    let exit = if diagnostic.code == vtest_model::INTERNAL_ERROR_CODE {
         ExitCode::Internal
     } else {
         ExitCode::Usage
