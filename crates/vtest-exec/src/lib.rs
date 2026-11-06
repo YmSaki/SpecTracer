@@ -58,7 +58,9 @@ impl ExecutionError {
 pub struct RunnableTest {
     pub entity: TestEntity,
     pub target_hashes: Vec<ContentHash>,
-    pub target_locator: Option<Locator>,
+    /// Every declared target's resolved canonical Locator, in declaration
+    /// order (DS-831/DS-1411: each declared target is measured and recorded).
+    pub target_locators: Vec<Locator>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -356,13 +358,16 @@ pub fn run_tests_with_runner(
                 let target_coverage = if fast {
                     not_checked_target_coverage()
                 } else if let Some(coverage_path) = &coverage_path {
-                    let measurement = test.target_locator.as_ref().and_then(|target| {
-                        coverage
-                            .measure(coverage_path, std::slice::from_ref(target))
-                            .into_iter()
-                            .next()
-                    });
-                    target_coverage_from_measurement(coverage.method(), measurement)
+                    let measurements = if test.target_locators.is_empty() {
+                        Vec::new()
+                    } else {
+                        coverage.measure(coverage_path, &test.target_locators)
+                    };
+                    target_coverage_from_measurements(
+                        coverage.method(),
+                        &test.target_locators,
+                        measurements,
+                    )
                 } else {
                     let reason = coverage_availability
                         .as_ref()
@@ -385,7 +390,7 @@ pub fn run_tests_with_runner(
                 // check for — reported as a diagnostic rather than
                 // silently preferring one value over the other.
                 let adapter_id = test.entity.execution.adapter.clone();
-                if let Some(locator) = &test.target_locator {
+                for locator in &test.target_locators {
                     if locator.adapter != adapter_id {
                         diagnostics.push(
                             Diagnostic::warning(
@@ -489,18 +494,51 @@ fn not_checked_target_coverage() -> TargetCoverage {
     }
 }
 
-/// Maps a [`vtest_adapter_api::CoverageTargetMeasurement`] (already judged
-/// PASS/FAIL/UNKNOWN by the `CoverageAdapter`, DS-832) onto the Evidence
-/// wire's `target_coverage` shape (DES-187/DES-188). `None` means the Test
-/// declared no target locator at all — `checked: true` with an `UNKNOWN`
-/// result and no `targets` entries, the same shape the pre-split code used
-/// for "no target to measure" (distinct from `not_checked_target_coverage`,
-/// which is `checked: false` for "could not measure at all").
-fn target_coverage_from_measurement(
+/// Maps the [`vtest_adapter_api::CoverageTargetMeasurement`]s (already
+/// judged PASS/FAIL/UNKNOWN by the `CoverageAdapter`, DS-832/DS-1404/
+/// DS-1405) onto the Evidence wire's `target_coverage` shape (DES-187/
+/// DES-188): one entry per declared target, keyed by its resolved canonical
+/// Locator (DS-1412), in declaration order.
+///
+/// A declared target the adapter returned no measurement for is recorded as
+/// `UNKNOWN` with a null count (DES-189) rather than dropped, so a reader
+/// sees every declared target (DS-1411). The aggregate `result` is `PASS`
+/// only when every entry is `PASS` (DS-1410); otherwise it is `FAIL` when an
+/// entry is `FAIL`, else `UNKNOWN`. The aggregate `count` is the smallest
+/// per-target count (so a target that was never reached keeps it at 0), or
+/// null when any target is `UNKNOWN`.
+///
+/// No declared target at all is `checked: true` with an `UNKNOWN` result and
+/// no `targets` entries — the same shape the pre-split code used for "no
+/// target to measure" (distinct from `not_checked_target_coverage`, which is
+/// `checked: false` for "could not measure at all").
+fn target_coverage_from_measurements(
     method: &str,
-    measurement: Option<CoverageTargetMeasurement>,
+    targets: &[Locator],
+    measurements: Vec<CoverageTargetMeasurement>,
 ) -> TargetCoverage {
-    let Some(measurement) = measurement else {
+    let mut entries: Vec<TargetCoverageTarget> = Vec::new();
+    for target in targets {
+        let canonical = canonical_locator(target);
+        if entries.iter().any(|entry| entry.target == canonical) {
+            continue;
+        }
+        let measurement = measurements
+            .iter()
+            .find(|measurement| &measurement.target == target);
+        let (result, count) = match measurement {
+            Some(measurement) if measurement.result != TargetCoverageResult::Unknown => {
+                (measurement.result, measurement.count)
+            }
+            _ => (TargetCoverageResult::Unknown, None),
+        };
+        entries.push(TargetCoverageTarget {
+            target: canonical,
+            result,
+            count,
+        });
+    }
+    if entries.is_empty() {
         return TargetCoverage {
             checked: true,
             method: Some(method.to_owned()),
@@ -508,17 +546,19 @@ fn target_coverage_from_measurement(
             targets: Vec::new(),
             count: None,
         };
-    };
+    }
+    let result = TargetCoverageResult::aggregate(entries.iter().map(|entry| &entry.result));
+    let count = entries
+        .iter()
+        .map(|entry| entry.count)
+        .collect::<Option<Vec<u64>>>()
+        .and_then(|counts| counts.into_iter().min());
     TargetCoverage {
         checked: true,
         method: Some(method.to_owned()),
-        result: Some(measurement.result),
-        targets: vec![TargetCoverageTarget {
-            target: canonical_locator(&measurement.target),
-            result: measurement.result,
-            count: measurement.count,
-        }],
-        count: measurement.count,
+        result: Some(result),
+        targets: entries,
+        count,
     }
 }
 
@@ -733,7 +773,7 @@ mod tests {
             &[RunnableTest {
                 entity,
                 target_hashes: Vec::new(),
-                target_locator: None,
+                target_locators: Vec::new(),
             }],
             true,
             &FixedResultRunner,
@@ -783,7 +823,7 @@ mod tests {
                 },
             },
             target_hashes: Vec::new(),
-            target_locator,
+            target_locators: target_locator.into_iter().collect(),
         }
     }
 
@@ -805,7 +845,7 @@ mod tests {
     // ケースまで拡張し、covers を付けて観測者を復元する。
     /// @vtest.id TEST-EXEC-TARGET-COVERAGE-BUILT-FROM-COVERAGE-ADAPTER-MEASUREMENT
     /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
-    /// @vtest.target crates/vtest-exec/src/lib.rs::target_coverage_from_measurement
+    /// @vtest.target crates/vtest-exec/src/lib.rs::target_coverage_from_measurements
     /// @vtest.intent CoverageAdapterが返すcount別到達計測が、checked:trueと共にPASS（count>0）/FAIL（count==0）としてtarget_coverageへ写ることを検証する
     #[test]
     fn target_coverage_is_built_from_a_fake_coverage_adapter_measurement() {
@@ -852,6 +892,81 @@ mod tests {
             assert_eq!(target_coverage.targets[0].count, Some(count));
             fs::remove_dir_all(root).expect("remove coverage fixture root");
         }
+    }
+
+    /// @vtest.id TEST-EXEC-TARGET-COVERAGE-RECORDS-EVERY-DECLARED-TARGET
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-exec/src/lib.rs::target_coverage_from_measurements
+    /// @vtest.intent 複数targetを宣言したTestで全targetを計測・記録し、1件未到達ならaggregateをFAIL、計測結果の無いtargetはUNKNOWNのentryとして残すことを確認する
+    #[test]
+    fn target_coverage_records_an_entry_for_every_declared_target() {
+        let double = rust_locator("src/lib.rs", "double");
+        let unused = rust_locator("src/lib.rs", "unused");
+        let missing = rust_locator("src/lib.rs", "missing");
+        let measurements = vec![
+            CoverageTargetMeasurement {
+                target: unused.clone(),
+                result: TargetCoverageResult::Fail,
+                count: Some(0),
+            },
+            CoverageTargetMeasurement {
+                target: double.clone(),
+                result: TargetCoverageResult::Pass,
+                count: Some(2),
+            },
+        ];
+        let coverage = target_coverage_from_measurements(
+            "fake-cov",
+            &[double.clone(), unused.clone(), missing.clone()],
+            measurements.clone(),
+        );
+        assert!(coverage.checked);
+        let entries: Vec<_> = coverage
+            .targets
+            .iter()
+            .map(|entry| (entry.target.clone(), entry.result, entry.count))
+            .collect();
+        assert_eq!(
+            entries,
+            vec![
+                (
+                    canonical_locator(&double),
+                    TargetCoverageResult::Pass,
+                    Some(2)
+                ),
+                (
+                    canonical_locator(&unused),
+                    TargetCoverageResult::Fail,
+                    Some(0)
+                ),
+                (
+                    canonical_locator(&missing),
+                    TargetCoverageResult::Unknown,
+                    None
+                ),
+            ]
+        );
+        assert_eq!(coverage.result, Some(TargetCoverageResult::Fail));
+        assert_eq!(coverage.count, None);
+
+        let both = target_coverage_from_measurements(
+            "fake-cov",
+            &[double.clone(), unused.clone()],
+            measurements,
+        );
+        assert_eq!(both.result, Some(TargetCoverageResult::Fail));
+        assert_eq!(both.count, Some(0));
+        let reached = target_coverage_from_measurements(
+            "fake-cov",
+            std::slice::from_ref(&double),
+            vec![CoverageTargetMeasurement {
+                target: double.clone(),
+                result: TargetCoverageResult::Pass,
+                count: Some(2),
+            }],
+        );
+        assert_eq!(reached.result, Some(TargetCoverageResult::Pass));
+        assert_eq!(reached.count, Some(2));
     }
 
     /// @vtest.id TEST-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
@@ -960,7 +1075,7 @@ mod tests {
                 },
             },
             target_hashes: Vec::new(),
-            target_locator: None,
+            target_locators: Vec::new(),
         }
     }
 

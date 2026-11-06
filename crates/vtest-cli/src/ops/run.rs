@@ -14,7 +14,7 @@
 //! 動的証拠を採らない). The base per-Test execution/Evidence-write behavior
 //! itself is `vtest-exec::run_tests`'s existing contract (unchanged here);
 //! this module only resolves which `TestEntity`s to hand it and how to
-//! build each `RunnableTest`'s `target_hashes`/`target_locator`, following
+//! build each `RunnableTest`'s `target_hashes`/`target_locators`, following
 //! the pattern `crates/vtest-cli/tests/evidence_e2e.rs` already exercises
 //! against the library entry points directly (that test file's own comment
 //! disclosed no `vtest run`/`vtest exec` CLI surface existed yet).
@@ -106,14 +106,15 @@ pub fn resolve_runnables(
 
 /// Builds the `RunnableTest` for one `TestEntity`: resolves its declared
 /// `Locator` targets (if any) against the scan's discovered Source
-/// Functions to obtain their current content hashes. A Test with zero
-/// targets (DS-1673 permits this) yields empty `target_hashes` and
-/// `target_locator: None` — `run_tests` already handles that shape (see its
-/// `unavailable_target_coverage`/`unknown_target_coverage` fallbacks); this
+/// Functions to obtain their current content hashes and canonical
+/// Locators. Every resolved target is handed to the runner, so each one is
+/// measured and recorded (DS-831/DS-1411), not only the first. A Test with
+/// zero targets (DS-1673 permits this) yields empty `target_hashes` and
+/// `target_locators` — `run_tests` already handles that shape; this
 /// function does not itself decide what that implies for verification.
 fn build_runnable(entity: &TestEntity, scan: &ScanResult) -> RunnableTest {
     let mut target_hashes = Vec::new();
-    let mut target_locator = None;
+    let mut target_locators = Vec::new();
     for target in &entity.targets {
         let TargetRef::Locator(locator) = target else {
             continue;
@@ -124,15 +125,13 @@ fn build_runnable(entity: &TestEntity, scan: &ScanResult) -> RunnableTest {
             .find(|source| &source.locator == locator)
         {
             target_hashes.push(source_fn.content_hash.clone());
-            if target_locator.is_none() {
-                target_locator = Some(locator.clone());
-            }
+            target_locators.push(source_fn.locator.clone());
         }
     }
     RunnableTest {
         entity: entity.clone(),
         target_hashes,
-        target_locator,
+        target_locators,
     }
 }
 
