@@ -89,6 +89,24 @@ pub enum VerifyOpError {
     Internal { message: String },
 }
 
+/// DS-943/947/957/1114/1214: the `verify` JSON (CLI `--format json` and the
+/// MCP tool) carries the requested scope as a top-level `scope` field next
+/// to the common `ok` / `data` / `diagnostics` envelope, also on a complete
+/// verification. Both callers serialize through this one function so the
+/// CLI/MCP shapes cannot drift (DS-1563).
+pub fn scoped_envelope(
+    ok: bool,
+    data: &VerifyData,
+    diagnostics: &[Diagnostic],
+) -> serde_json::Value {
+    serde_json::json!({
+        "ok": ok,
+        "scope": data.scope,
+        "data": data,
+        "diagnostics": diagnostics,
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn execute(
     root: &Path,
