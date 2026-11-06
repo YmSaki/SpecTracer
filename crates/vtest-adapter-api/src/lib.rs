@@ -35,6 +35,10 @@
 //! managed Test Entity 集合）を導く判定・`ManagedTestLink` そのものの
 //! 組み立ては core（`vtest-scan::materialize_tests`）が行う。
 
+pub mod wire;
+
+pub use wire::{decode_test_json, encode_test_json, TestWireCodec, WireError, WireFields};
+
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -478,6 +482,10 @@ pub trait Adapter {
         None
     }
 
+    fn as_test_wire_codec(&self) -> Option<&dyn TestWireCodec> {
+        None
+    }
+
     fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
         None
     }
@@ -554,22 +562,18 @@ impl AdapterRegistry {
         {
             return Err(AdapterRegistrationError::DuplicateId { id: descriptor.id });
         }
-        // レビュー round 2 項目 A-2: BD-197 が列挙する6 capability すべてを
-        // 検査する。`TestWireCodec` / `StructuredTest` は対応する trait を
-        // まだ持たない（PR E / G が追加する）ため、`implemented` を常に
-        // `false` で固定する — この2つを宣言する adapter は
-        // `DeclaredWithoutImplementation` で拒否され（宣言したが実装が
-        // 無い、という事実がそのまま検査結果になる）、宣言しなければ
-        // どちらの分岐にも触れない。以前はこの2 capability が配列に無く、
-        // 宣言しても一切検査されなかった（fail-open。`VO-ADAPTER-REGISTRY-
-        // REJECTS-CAPABILITY-MISMATCH`のclaim「いずれも拒否する」が偽に
-        // なっていた原因）。
+        // BD-197 が列挙する6 capability すべてを宣言と実装の双方向で検査する。
+        // `StructuredTest` は対応する trait をまだ持たないため `implemented`
+        // を `false` で固定する（宣言すれば DeclaredWithoutImplementation）。
         let checks: [(Capability, bool); 6] = [
             (
                 Capability::SourceDiscovery,
                 adapter.as_source_discovery().is_some(),
             ),
-            (Capability::TestWireCodec, false),
+            (
+                Capability::TestWireCodec,
+                adapter.as_test_wire_codec().is_some(),
+            ),
             (
                 Capability::StaticAnalysis,
                 adapter.as_static_analysis().is_some(),
@@ -616,6 +620,10 @@ impl AdapterRegistry {
 
     pub fn source_discovery(&self, id: &str) -> Option<&dyn SourceDiscoveryAdapter> {
         self.get(id).and_then(Adapter::as_source_discovery)
+    }
+
+    pub fn test_wire_codec(&self, id: &str) -> Option<&dyn TestWireCodec> {
+        self.get(id).and_then(Adapter::as_test_wire_codec)
     }
 
     pub fn static_analysis(&self, id: &str) -> Option<&dyn StaticAnalysisAdapter> {
@@ -796,12 +804,8 @@ mod tests {
         );
     }
 
-    /// レビュー round 2 項目 A-2/E-1: `TestWireCodec`は対応するtraitを
-    /// まだ持たない（PR Eが追加する）が、`AdapterRegistry::register`は
-    /// これを宣言した adapter を `DeclaredWithoutImplementation` で拒否
-    /// しなければならない — 実装が存在し得ない以上、宣言すれば必ず
-    /// 不一致になる。以前は`checks`配列に`TestWireCodec`/`StructuredTest`
-    /// が無く、宣言しても一切検査されなかった（fail-open）。
+    /// BD-193/BD-197: declaring `TestWireCodec` without returning a codec
+    /// from `as_test_wire_codec` is a declaration/implementation mismatch.
     #[derive(Default)]
     struct DeclaresTestWireCodecWithoutImplementing;
 
@@ -814,27 +818,81 @@ mod tests {
                 config_namespace: "declares-test-wire-codec".to_owned(),
             }
         }
-        // `TestWireCodec` に対応する `as_*` メソッドは `Adapter` に存在
-        // しない（trait 自体が無い）ため、実装しようがない。
+    }
+
+    struct FakeCodec;
+
+    impl TestWireCodec for FakeCodec {
+        fn id(&self) -> &'static str {
+            "codec"
+        }
+        fn field_names(&self) -> &'static [&'static str] {
+            &["fake_selector"]
+        }
+        fn encode(&self, execution: &vtest_model::ExecutionDescriptor) -> WireFields {
+            let mut fields = WireFields::new();
+            fields.insert(
+                "fake_selector".to_owned(),
+                serde_json::Value::String(execution.selector.clone()),
+            );
+            fields
+        }
+        fn decode(&self, _fields: &WireFields) -> Result<vtest_model::ExecutionDescriptor, String> {
+            Err("fake codec does not derive descriptors".to_owned())
+        }
+    }
+
+    struct CodecAdapter {
+        declare: bool,
+    }
+
+    impl Adapter for CodecAdapter {
+        fn descriptor(&self) -> AdapterDescriptor {
+            AdapterDescriptor {
+                id: "codec".to_owned(),
+                languages: vec!["fake".to_owned()],
+                capabilities: if self.declare {
+                    vec![Capability::TestWireCodec]
+                } else {
+                    Vec::new()
+                },
+                config_namespace: "codec".to_owned(),
+            }
+        }
+        fn as_test_wire_codec(&self) -> Option<&dyn TestWireCodec> {
+            Some(&FakeCodec)
+        }
     }
 
     /// @vtest.id TEST-ADAPTER-API-REGISTRY-REJECTS-DECLARED-TEST-WIRE-CODEC-WITHOUT-IMPL
     /// @vtest.covers VO-ADAPTER-REGISTRY-REJECTS-CAPABILITY-MISMATCH
     /// @vtest.target crates/vtest-adapter-api/src/lib.rs::AdapterRegistry::register
-    /// @vtest.intent verifies AdapterRegistry::register rejects an adapter that declares the TestWireCodec capability, which has no implementing trait yet, as DeclaredWithoutImplementation rather than silently accepting it
+    /// @vtest.intent register checks TestWireCodec by its implementation: declared without a codec or a codec without the declaration is rejected, both together resolve
     #[test]
-    fn register_rejects_a_declared_test_wire_codec_capability_with_no_implementing_trait() {
+    fn register_checks_the_test_wire_codec_capability_against_its_implementation() {
         let mut registry = AdapterRegistry::new();
-        let error = registry
-            .register(Box::new(DeclaresTestWireCodecWithoutImplementing))
-            .expect_err("declaring TestWireCodec must be rejected: no trait implements it yet");
         assert_eq!(
-            error,
-            AdapterRegistrationError::DeclaredWithoutImplementation {
+            registry.register(Box::new(DeclaresTestWireCodecWithoutImplementing)),
+            Err(AdapterRegistrationError::DeclaredWithoutImplementation {
                 id: "declares-test-wire-codec".to_owned(),
                 capability: Capability::TestWireCodec,
-            }
+            })
         );
+        assert_eq!(
+            registry.register(Box::new(CodecAdapter { declare: false })),
+            Err(AdapterRegistrationError::ImplementedWithoutDeclaration {
+                id: "codec".to_owned(),
+                capability: Capability::TestWireCodec,
+            })
+        );
+        registry
+            .register(Box::new(CodecAdapter { declare: true }))
+            .expect("declared and implemented codec registers");
+        assert_eq!(
+            registry.test_wire_codec("codec").map(TestWireCodec::id),
+            Some("codec")
+        );
+        assert!(registry.test_wire_codec("missing").is_none());
     }
 
     /// 不一致のもう片方向 — 実装しているのに宣言していない。

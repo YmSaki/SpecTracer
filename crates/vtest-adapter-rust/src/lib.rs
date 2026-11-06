@@ -40,6 +40,7 @@ use vtest_model::{
 
 pub mod coverage;
 pub mod oracle_presence;
+pub mod wire_codec;
 
 pub use coverage::RustCargoCoverageAdapter;
 pub use oracle_presence::RustCargoStaticAnalysisAdapter;
@@ -404,6 +405,7 @@ impl Adapter for RustCargoAdapter {
             languages: vec!["rust".to_owned()],
             capabilities: vec![
                 Capability::SourceDiscovery,
+                Capability::TestWireCodec,
                 Capability::StaticAnalysis,
                 Capability::TestRunner,
                 Capability::Coverage,
@@ -414,6 +416,10 @@ impl Adapter for RustCargoAdapter {
 
     fn as_source_discovery(&self) -> Option<&dyn SourceDiscoveryAdapter> {
         Some(self)
+    }
+
+    fn as_test_wire_codec(&self) -> Option<&dyn vtest_adapter_api::TestWireCodec> {
+        Some(&wire_codec::RustCargoWireCodec)
     }
 
     fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
