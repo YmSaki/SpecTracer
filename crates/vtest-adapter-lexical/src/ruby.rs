@@ -437,27 +437,23 @@ impl Lexer<'_> {
             byte if is_word_char(*byte) => {
                 let length = after.bytes().take_while(|b| is_word_char(*b)).count();
                 let word = &after[..length];
-                // After a method name, `<<word` may be a shift (`a <<b`) if
-                // the name is a local variable, which a lexical reader cannot
-                // tell. There, the conventional upper-case label, or any
-                // label whose terminator line follows, opens a heredoc, so a
-                // heredoc's text is never read as code; after an operator,
-                // bracket, keyword, or line break any label does
-                // (`text = <<text`).
-                let after_name = tokens
+                // After a name, `<<word` is a shift if the name is a local
+                // variable (`a = []` before `a <<b`) and a heredoc otherwise
+                // (`assert_equal <<text, actual`), as Ruby's parser decides
+                // it; a heredoc then needs its terminator line.
+                let previous = tokens
                     .iter()
                     .rev()
                     .find(|t| t.kind != Kind::Comment)
-                    .is_some_and(|t| {
+                    .filter(|t| {
                         t.kind == Kind::Word
                             && !EXPRESSION_KEYWORDS.contains(&self.text(t))
                             && !self.source[t.end..i].contains('\n')
                     });
-                let explicit = indented
-                    || (self.expression_position(tokens, i)
-                        && (!after_name
-                            || word.bytes().all(|b| !b.is_ascii_lowercase())
-                            || self.has_terminator(i, word)));
+                if previous.is_some_and(|name| self.is_local(tokens, self.text(name))) {
+                    return None;
+                }
+                let explicit = indented || self.expression_position(tokens, i);
                 if !explicit {
                     return None;
                 }
@@ -469,15 +465,33 @@ impl Lexer<'_> {
         Some((end, Pending { label, indented }))
     }
 
-    /// Whether a line after the one holding `i` consists of `label` alone
-    /// (the terminator of a heredoc `<<label` opened at `i`).
-    fn has_terminator(&self, i: usize, label: &str) -> bool {
-        let Some(line_end) = self.source[i..].find('\n') else {
-            return false;
-        };
-        self.source[i + line_end + 1..]
-            .lines()
-            .any(|line| line.trim_end_matches('\r') == label)
+    /// Whether `name` is a local variable where the last of `tokens` is
+    /// read: an earlier token assigns it (`a = []`, `a ||= []`), or names
+    /// it as a block parameter (`|a|`, `|x, a|`), a method parameter
+    /// (`def m(a)`), or a `for` variable. Like Ruby's parser, this looks at
+    /// what comes before, but over the whole file rather than one scope.
+    fn is_local(&self, tokens: &[Tok], name: &str) -> bool {
+        let code: Vec<&Tok> = tokens.iter().filter(|t| t.kind != Kind::Comment).collect();
+        (0..code.len().saturating_sub(1)).any(|j| {
+            if code[j].kind != Kind::Word || self.text(code[j]) != name {
+                return false;
+            }
+            let next = code.get(j + 1).map(|t| (t.kind, self.text(t)));
+            let previous = j.checked_sub(1).map(|p| (code[p].kind, self.text(code[p])));
+            let assigned = matches!(next, Some((Kind::Op, op))
+                if op.ends_with('=') && !matches!(op, "==" | "===" | "!=" | ">=" | "<="));
+            let block_parameter = matches!(previous, Some((_, "|")))
+                || (matches!(previous, Some((_, ","))) && matches!(next, Some((_, "|" | ","))));
+            let line_start = self.source[..code[j].start]
+                .rfind('\n')
+                .map_or(0, |n| n + 1);
+            let method_parameter = matches!(previous, Some((_, "(" | ",")))
+                && self.source[line_start..code[j].start]
+                    .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .any(|word| word == "def");
+            let for_variable = matches!(previous, Some((Kind::Word, "for")));
+            assigned || block_parameter || method_parameter || for_variable
+        })
     }
 
     /// Skips the bodies of the pending heredocs, which start at `i`,
@@ -1151,7 +1165,12 @@ end
         assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
         assert!(outcome.tests.is_empty());
         assert!(outcome.sources.is_empty());
-        let shift = discover_text(&Ruby, "fixture.rb", "def f\n  a <<b\nend\n", "demo");
+        let shift = discover_text(
+            &Ruby,
+            "fixture.rb",
+            "def f\n  a = []\n  a <<b\nend\n",
+            "demo",
+        );
         assert_eq!(locators(&shift), vec!["fixture.rb::f"]);
 
         for tail in [
@@ -1202,7 +1221,7 @@ end
     /// @vtest.id TEST-ADAPTER-RUBY-ARGUMENT-LITERALS-ENCLOSING-ENDS-AND-OPERATOR-NAMES
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::statement_end
-    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
+    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code while `<<b` after a local variable is a shift that keeps the Tests after it, even with a later `b` line, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
     #[test]
     fn argument_literals_enclosing_ends_and_operator_names() {
         let declare = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent review\n";
@@ -1211,6 +1230,37 @@ end
         assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
         assert!(outcome.tests.is_empty());
         assert!(outcome.sources.is_empty());
+
+        // A local variable makes `<<b` a shift even with a later `b` line.
+        for (open, close) in [
+            ("a = []", ""),
+            ("a ||= []", ""),
+            ("items.each do |a|", "end"),
+            ("def m(x, a)", "end"),
+            ("for a in list", "end"),
+        ] {
+            let source = format!(
+                "{open}\n  x = a <<b\n{close}\n\n{declare}def test_f\n  assert true\nend\n\nb\n"
+            );
+            let outcome = discover_text(&Ruby, "fixture.rb", &source, "demo");
+            assert_eq!(
+                outcome.tests.len(),
+                1,
+                "{open:?}: {:?}",
+                outcome.diagnostics
+            );
+            assert!(outcome.tests[0].construct_text.starts_with("def test_f"));
+        }
+        // Without one it is a heredoc, which needs its terminator line.
+        let unterminated = discover_text(
+            &Ruby,
+            "fixture.rb",
+            &format!("x = a <<b\n{declare}def test_f\n  assert true\nend\n"),
+            "demo",
+        );
+        assert_eq!(unterminated.diagnostics.len(), 1);
+        assert_eq!(unterminated.diagnostics[0].code.as_str(), "E-SCAN-001");
+        assert!(unterminated.tests.is_empty());
 
         for source in [
             format!("{declare}def f\n  assert_equal %q!unterminated\n  tail\nend\n"),

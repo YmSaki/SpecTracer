@@ -23,10 +23,11 @@ rules shared by all framework-neutral adapters.
   opens, then at the end of its line unless the line ends with an operator
   or the next line starts with `.method`; the bodies of heredocs opened on
   that line (`<<~TEXT` ... `TEXT`) are part of it. `end` inside heredocs,
-  `%w[]` literals, interpolations, and regular expressions is text. After a
-  method name, `<<word` is a heredoc only with an upper-case label or when
-  a later line consists of the label alone (`a <<b` may be a shift);
-  elsewhere any label opens one (`text = <<text`).
+  `%w[]` literals, interpolations, and regular expressions is text. As in Ruby,
+  `name <<word` is a shift when `name` is a local variable (assigned, or a
+  block, method, or `for` parameter, anywhere earlier in the file), and a
+  heredoc otherwise (`assert_equal <<text, actual`), which then needs its
+  terminator line; elsewhere any label opens one (`text = <<text`).
 - **Limits**: a missing or extra `end`, an unterminated heredoc, string,
   percent literal, or regular expression (also as a method argument, such
   as `assert_match /x`, where a local variable would make the `/` a
