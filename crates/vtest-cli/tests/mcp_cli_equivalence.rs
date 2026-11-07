@@ -291,7 +291,12 @@ fn swift_bodyless_requirements_match_cli_and_mcp() {
             &["VO-X"],
         );
         let (scan, _) = project.scan_and_verify();
-        assert_eq!(scan.tests.len(), expected_tests, "{case}: {:?}", scan.diagnostics);
+        assert_eq!(
+            scan.tests.len(),
+            expected_tests,
+            "{case}: {:?}",
+            scan.diagnostics
+        );
         assert_eq!(
             scan.diagnostics
                 .iter()
