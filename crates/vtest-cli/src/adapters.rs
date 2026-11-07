@@ -28,6 +28,7 @@ use vtest_adapter_rust::RustCargoAdapter;
 pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     let mut registry = AdapterRegistry::new();
     registry.register(Box::new(RustCargoAdapter::new()))?;
+    registry.register(Box::new(vtest_adapter_lexical::java::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::swift::adapter()))?;
     Ok(registry)
 }
