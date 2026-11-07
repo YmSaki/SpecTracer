@@ -312,6 +312,21 @@ impl Reader<'_> {
         }
     }
 
+    /// The name declared by the declarator whose first top-level `(` is
+    /// at `paren`: the word before it, or, when that `(` groups a pointer
+    /// declarator (`int (*factory(void))(int)`), the name inside the group.
+    fn declarator_name(&self, start: usize, paren: usize) -> Option<usize> {
+        let inner = self.next_significant(paren + 1)?;
+        if self.tokens[inner].kind == Kind::Punct('*') {
+            let close = self.partner(paren);
+            let open = (inner..close).find(|&i| self.tokens[i].kind == Kind::Open('('))?;
+            return self.declarator_name(inner, open);
+        }
+        paren
+            .checked_sub(1)
+            .filter(|&n| n >= start && self.tokens[n].kind == Kind::Word)
+    }
+
     /// Every top-level function definition.
     fn functions(&self) -> Result<Vec<Function>, ExtractError> {
         let mut output = Vec::new();
@@ -325,8 +340,7 @@ impl Reader<'_> {
                 .declaration_end(index)
                 .map_err(|message| ExtractError::new(self.tokens[index].start, &message))?;
             if let (Some(_), Some(paren)) = (declaration.body, declaration.paren) {
-                let name = paren.checked_sub(1).filter(|&n| n >= index);
-                if let Some(name) = name.filter(|&n| self.tokens[n].kind == Kind::Word) {
+                if let Some(name) = self.declarator_name(index, paren) {
                     output.push(Function {
                         name: vec![self.text(name).to_owned()],
                         start: self.tokens[index].start,
@@ -491,5 +505,22 @@ END_TEST
             test("void f(void) { a(); b(); }"),
             test("void f(void) { a(); c(); }")
         );
+    }
+
+    /// @vtest.id TEST-ADAPTER-C-POINTER-RETURNING-FUNCTION-NAME
+    /// @vtest.covers VO-ADAPTER-C-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.target crates/vtest-adapter-lexical/src/c.rs::Reader::declarator_name
+    /// @vtest.intent verifies that a function returning a function pointer is named by the identifier inside its grouped declarator, not by its return type
+    #[test]
+    fn pointer_returning_function_is_named_by_its_declarator() {
+        let source = "int f(int x) { return x; }\nint (*factory(void))(int) { return &f; }\n";
+        let outcome = discover_text(&C, "fixture.c", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let locators = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(locators, vec!["fixture.c::f", "fixture.c::factory"]);
     }
 }
