@@ -586,3 +586,98 @@ fn a_vo_bundle_resolves_and_binds_covering_test_targets() {
         assert!(decision_files(&root).is_empty(), "{name}");
     }
 }
+
+/// Calls one tool through the real `vtest mcp` stdio transport and returns
+/// its envelope (`structuredContent`).
+fn mcp_call(root: &Path, name: &str, arguments: &Value) -> Value {
+    use std::io::{BufRead, BufReader, Write};
+    use std::process::Stdio;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        for request in [
+            json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments}
+            }),
+        ] {
+            writeln!(stdin, "{request}").unwrap();
+        }
+    }
+    let output = child.wait_with_output().unwrap();
+    let response: Value = BufReader::new(output.stdout.as_slice())
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(&line.unwrap()).unwrap())
+        .find(|response| response["id"] == 2)
+        .unwrap_or_else(|| panic!("{}", String::from_utf8_lossy(&output.stderr)));
+    response["result"]["structuredContent"].clone()
+}
+
+/// The envelope with the per-call fields (fresh ids, timestamps) removed.
+fn comparable(envelope: &Value) -> Value {
+    let mut envelope = envelope.clone();
+    if let Some(data) = envelope["data"].as_object_mut() {
+        for key in ["bundle_id", "generated_at", "decision_id"] {
+            data.remove(key);
+        }
+    }
+    envelope
+}
+
+const BROKEN: &str = "/// @vtest.id TEST-BROKEN\n\
+/// @vtest.covers VO-X\n\
+/// @vtest.target src/lib.rs::missing\n\
+/// @vtest.intent targets a function that does not exist\n\
+#[test]\n\
+fn broken() {}\n";
+
+/// @vtest.id TEST-JUDGMENT-MCP-TRANSPORT-SAME-AS-CLI
+/// @vtest.covers VO-JUDGMENT-MCP-SUBMIT-RECORD-ID, VO-JUDGMENT-SUBMIT-ORDERED-CHECKS
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent through the real vtest mcp stdio transport, audit_bundle and audit_submit give the same ok/data/diagnostics as the CLI: an unrelated Test's unresolved target does not stop a bundle or submission of a sound Test, and a target deleted after bundling is submit's E-AUDIT-002 in both, with no record written
+#[test]
+fn mcp_audit_bundle_and_submit_match_the_cli_over_stdio() {
+    let root = fixture("mcp-parity");
+    fs::write(root.join("tests/broken.rs"), BROKEN).unwrap();
+    let (code, _) = vtest(&root, &["scan"]);
+    assert_ne!(code, 0, "the fixture carries an unrelated scan error");
+
+    let (code, cli_bundle) = vtest(&root, &["audit", "bundle", "--test", "TEST-GOOD"]);
+    assert_eq!(code, 0, "{cli_bundle}");
+    let mcp_bundle = mcp_call(&root, "audit_bundle", &json!({"test": "TEST-GOOD"}));
+    assert_eq!(comparable(&mcp_bundle), comparable(&cli_bundle));
+
+    let (code, cli_submit) = submit(&root, &submission(&cli_bundle["data"]));
+    assert_eq!(code, 0, "{cli_submit}");
+    let mcp_submit = mcp_call(&root, "audit_submit", &submission(&mcp_bundle["data"]));
+    assert_eq!(comparable(&mcp_submit), comparable(&cli_submit));
+    assert_eq!(decision_files(&root).len(), 2);
+
+    let root = fixture("mcp-parity-stale");
+    let cli_bundle = bundle(&root);
+    let mcp_bundle = mcp_call(&root, "audit_bundle", &json!({"test": "TEST-GOOD"}));
+    assert_eq!(mcp_bundle["ok"], true, "{mcp_bundle}");
+    fs::write(root.join("src/lib.rs"), "pub fn other() {}\n").unwrap();
+    let (code, cli_submit) = submit(&root, &submission(&cli_bundle));
+    assert_eq!(
+        (code, code_of(&cli_submit)),
+        (2, "E-AUDIT-002"),
+        "{cli_submit}"
+    );
+    let mcp_submit = mcp_call(&root, "audit_submit", &submission(&mcp_bundle["data"]));
+    assert_eq!(code_of(&mcp_submit), "E-AUDIT-002", "{mcp_submit}");
+    assert_eq!(comparable(&mcp_submit)["ok"], cli_submit["ok"]);
+    assert!(decision_files(&root).is_empty());
+}

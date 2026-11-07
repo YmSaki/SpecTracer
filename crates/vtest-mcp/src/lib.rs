@@ -283,7 +283,7 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     // freshness check is needed before dispatch. It is kept only to expose
     // an explicit `scan` no-op fast path for a caller that wants a single
     // freshness probe without paying for a `verify`/`run`.
-    if name != "scan" {
+    if name != "scan" && !OPERATION_CHECKED_TOOLS.contains(&name) {
         if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
             return tool_result(scan);
         }
@@ -294,6 +294,14 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     }
     tool_result(envelope)
 }
+
+/// Tools whose shared operation scans the project itself and applies its
+/// own ordered checks, so the transport must not answer for it with the
+/// whole-project scan (DS-1563: same result as the CLI; DS-1089: submit's
+/// check order). An unrelated Test's scan error does not stop a bundle or
+/// a submission in the CLI, and a target deleted after bundling is
+/// submit's E-AUDIT-002, not the scan's E-SCAN-004 (#178).
+const OPERATION_CHECKED_TOOLS: &[&str] = &["audit_bundle", "audit_submit"];
 
 fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
     let current = match project_mtime_snapshot(root) {
