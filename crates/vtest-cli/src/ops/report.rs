@@ -149,14 +149,21 @@ fn src_node_id(locator: &vtest_model::Locator) -> String {
     format!("{}::{}", locator.adapter, locator.value)
 }
 
+/// The Source node a TargetRef resolves to, or `None` unless exactly one
+/// Source matches. A collision (e.g. a duplicated `@vtest.src-id`) leaves the
+/// reference unresolved (DS-520), so the projection draws no `targets` edge
+/// rather than picking whichever Source the scan listed first; the scan's own
+/// diagnostic (E-SCAN-011) still reports the collision.
 fn target_node(scan: &ScanResult, target: &TargetRef) -> Option<String> {
-    scan.sources
-        .iter()
-        .find(|source| match target {
-            TargetRef::Locator(locator) => &source.locator == locator,
-            TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
-        })
-        .map(|source| src_node_id(&source.locator))
+    let mut matches = scan.sources.iter().filter(|source| match target {
+        TargetRef::Locator(locator) => &source.locator == locator,
+        TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
+    });
+    let source = matches.next()?;
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(src_node_id(&source.locator))
 }
 
 fn build_graph(

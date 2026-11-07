@@ -378,6 +378,83 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
     fs::remove_dir_all(&root).ok();
 }
 
+/// PR #150 review: a permanent SRC ID that two Sources declare is a
+/// collision (E-SCAN-011), and the TargetRef naming it stays unresolved
+/// (DS-520). The projection draws no `targets` edge for it, whichever order
+/// the scan lists the colliding Sources in, and still shows both Sources.
+/// @vtest.id TEST-REPORT-SRC-ID-COLLISION-DRAWS-NO-TARGETS-EDGE
+/// @vtest.covers VO-REPORT-SRC-ID-COLLISION-LEAVES-TARGET-UNRESOLVED
+/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.intent 2つのSourceが同じ@vtest.src-idを宣言し、TestがそのSRC IDをtargetにしたとき、E-SCAN-011を保ったままprojectionが先頭Sourceへのtargets辺を作らず、Source順を入れ替えても投影が変わらないことを確認する
+#[test]
+fn a_duplicated_src_id_draws_no_targets_edge() {
+    let root = fixture("src-id-collision");
+    fs::write(
+        root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-X\n\
+         pub fn add(a: i32, b: i32) -> i32 { a + b }\n\
+         /// @vtest.src-id SRC-X\n\
+         pub fn sub(a: i32, b: i32, out: &mut i32) { *out = a - b; }\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/report.rs"),
+        TESTS.replace("@vtest.target src/lib.rs::add", "@vtest.target SRC-X"),
+    )
+    .unwrap();
+
+    let registry = vtest_cli::adapters::builtin_registry().unwrap();
+    let mut scan = vtest_scan::scan_project(&root, &registry).unwrap();
+    assert!(
+        scan.diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SCAN-011"),
+        "the collision keeps its diagnostic: {:?}",
+        scan.diagnostics
+    );
+    let layout = VerifyLayout::new(&root);
+    let args = vtest_cli::ops::report::ProjectionArgs {
+        from: None,
+        view: None,
+        depth: None,
+        direction: None,
+    };
+    let mut projected = || {
+        let projection = serde_json::to_value(
+            vtest_cli::ops::report::project(&layout, &scan, &[], &args).unwrap(),
+        )
+        .unwrap();
+        scan.sources.reverse();
+        projection
+    };
+    let first = projected();
+    let reversed = projected();
+    for projection in [&first, &reversed] {
+        let ids = node_ids(projection);
+        for id in ["rust-cargo::src/lib.rs::add", "rust-cargo::src/lib.rs::sub"] {
+            assert!(ids.contains(&id.to_owned()), "{id} missing from {ids:?}");
+        }
+        let edges = projection["edges"].as_array().unwrap();
+        assert!(
+            !edges
+                .iter()
+                .any(|edge| edge["from"] == "TEST-A" && edge["relation"] == "targets"),
+            "an unresolved SRC ID gives TEST-A no targets edge: {projection}"
+        );
+        find_edge(
+            projection,
+            "TEST-B",
+            "targets",
+            "rust-cargo::src/lib.rs::sub",
+        );
+    }
+    assert_eq!(
+        first, reversed,
+        "Source order does not change the projection"
+    );
+    fs::remove_dir_all(&root).ok();
+}
+
 /// PR #150 review: `report.evidence` shows the latest Evidence chosen by
 /// verify's rule (#132). A newer invalid record next to an older valid PASS
 /// is shown as invalid; the older PASS is never offered as the basis.
