@@ -65,6 +65,12 @@ impl LanguageProfile for Php {
             partners: &partners,
         };
         let mut functions = Vec::new();
+        if let Some(index) = reader.unclosed_alternative() {
+            return Err(ExtractError::new(
+                tokens[index].start,
+                "alternative syntax without its end keyword",
+            ));
+        }
         reader.statements(0, tokens.len(), &mut Vec::new(), &mut functions);
         Ok(FileItems {
             functions,
@@ -108,7 +114,11 @@ fn code_start(source: &str, i: usize) -> Option<usize> {
     while let Some(found) = source[from..].find("<?") {
         let at = from + found;
         let rest = &source[at + 2..];
-        if rest.len() >= 3 && rest[..3].eq_ignore_ascii_case("php") {
+        if rest
+            .as_bytes()
+            .get(..3)
+            .is_some_and(|tag| tag.eq_ignore_ascii_case(b"php"))
+        {
             return Some(at + 5);
         }
         if rest.starts_with('=') {
@@ -400,7 +410,9 @@ impl Reader<'_> {
                     continue;
                 }
                 Kind::Op if bodied && self.text(index) == ":" && self.opens_alternative(index) => {
-                    index = self.alternative_end(index, &keyword);
+                    index = self
+                        .alternative_end(index, &keyword)
+                        .unwrap_or(self.tokens.len());
                     continue;
                 }
                 Kind::Open(_) => index = self.partner(index),
@@ -422,27 +434,59 @@ impl Reader<'_> {
             })
     }
 
-    /// The `end...` word closing the alternative syntax opened at `colon`.
-    fn alternative_end(&self, colon: usize, keyword: &str) -> usize {
-        let closing = match keyword {
-            "if" => "endif",
-            "for" => "endfor",
-            "foreach" => "endforeach",
-            "while" => "endwhile",
-            "switch" => "endswitch",
-            "declare" => "enddeclare",
-            _ => return colon + 1,
+    /// One past the `end...` word closing the alternative syntax opened at
+    /// `colon` by `keyword`, or `None` when it is never closed. The same
+    /// keyword opening the alternative syntax again inside it
+    /// (`if (a): if (b): ... endif; ... endif;`) needs its own `end...`.
+    fn alternative_end(&self, colon: usize, keyword: &str) -> Option<usize> {
+        let Some(closing) = alternative_closing(keyword) else {
+            return Some(colon + 1);
         };
+        let mut depth = 0usize;
         let mut index = colon + 1;
         while index < self.tokens.len() {
             match self.tokens[index].kind {
                 Kind::Open(_) => index = self.partner(index),
-                Kind::Word if self.is(index, closing) => return index + 1,
+                Kind::Word
+                    if self.is(index, keyword) && self.alternative_colon(index).is_some() =>
+                {
+                    depth += 1;
+                }
+                Kind::Word if self.is(index, closing) => {
+                    if depth == 0 {
+                        return Some(index + 1);
+                    }
+                    depth -= 1;
+                }
                 _ => {}
             }
             index += 1;
         }
-        index
+        None
+    }
+
+    /// The `:` that opens the alternative syntax of the `if`, `for`, ...
+    /// at `keyword`: right after its parenthesized head.
+    fn alternative_colon(&self, keyword: usize) -> Option<usize> {
+        let open = self.next_significant(keyword + 1)?;
+        if self.kind(open) != Some(Kind::Open('(')) {
+            return None;
+        }
+        let colon = self.next_significant(self.partner(open) + 1)?;
+        self.is(colon, ":").then_some(colon)
+    }
+
+    /// The first alternative syntax (`if (...):`) in the file that is never
+    /// closed by its `end...` word.
+    fn unclosed_alternative(&self) -> Option<usize> {
+        (0..self.tokens.len()).find(|&index| {
+            self.kind(index) == Some(Kind::Word)
+                && alternative_closing(&self.text(index).to_ascii_lowercase()).is_some()
+                && self.alternative_colon(index).is_some_and(|colon| {
+                    self.alternative_end(colon, &self.text(index).to_ascii_lowercase())
+                        .is_none()
+                })
+        })
     }
 
     /// Collects the function definitions among the statements in
@@ -582,6 +626,19 @@ impl Reader<'_> {
         }
         output
     }
+}
+
+/// The word that closes the alternative syntax of `keyword`.
+fn alternative_closing(keyword: &str) -> Option<&'static str> {
+    Some(match keyword {
+        "if" => "endif",
+        "for" => "endfor",
+        "foreach" => "endforeach",
+        "while" => "endwhile",
+        "switch" => "endswitch",
+        "declare" => "enddeclare",
+        _ => return None,
+    })
 }
 
 /// The lines of a `//`, `#`, or `/* */` comment with the comment markers
@@ -768,5 +825,41 @@ class CalcTest extends TestCase
             locators(&outcome),
             vec!["fixture.php::A::a", "fixture.php::B::b"]
         );
+    }
+    /// @vtest.id TEST-ADAPTER-PHP-NESTED-ALTERNATIVE-SYNTAX-AND-TAGS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/php.rs::Reader::alternative_end
+    /// @vtest.intent verifies nested alternative syntax runs to the outer end keyword, so a change at the end of the outer block changes the Test construct, an unclosed one makes the file unreadable, and a non-ASCII character after <? does not panic
+    #[test]
+    fn nested_alternative_syntax_and_tags() {
+        let declare = "<?php\n// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for body in [
+            "if (true):\n    if (true): echo 0; endif;\n    echo 1;\nendif;\n",
+            "foreach ($a as $x):\n    foreach ($x as $y): echo 0; endforeach;\n    echo 1;\nendforeach;\n",
+            "while (true):\n    if (true): echo 0; else: echo 0; endif;\n    echo 1;\nENDWHILE;\n",
+        ] {
+            let one = format!("{declare}{body}");
+            let two = one.replace("echo 1", "echo 2");
+            let text = |source: &str| {
+                let outcome = discover_text(&Php, "src/t.php", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{body:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            assert!(text(&one).contains("echo 1;"), "{body:?}");
+            assert_ne!(text(&one), text(&two), "{body:?}");
+        }
+        for source in [
+            "<?php if (true): if (true): endif;\n",
+            "<?php foreach ($a as $b): echo 1;\n",
+        ] {
+            let outcome = discover_text(&Php, "src/u.php", source, "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{source:?}");
+        }
+        for source in ["<?éé", "<?é", "<html><?xml é ?>", "<?PHP function f() {}\n"] {
+            let _ = discover_text(&Php, "src/v.php", source, "demo");
+        }
+        let upper = discover_text(&Php, "src/w.php", "<?PHP function f() {}\n", "demo");
+        assert_eq!(upper.sources[0].locator.value, "src/w.php::f");
     }
 }
