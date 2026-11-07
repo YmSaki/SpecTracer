@@ -122,10 +122,10 @@ fn lex(source: &str) -> Result<Vec<Tok>, ExtractError> {
         }
         let at_line_start = std::mem::replace(&mut line_start, false);
         let kind = if at_line_start && bytes[i] == b'#' {
-            i = directive_end(source, i);
+            i = line_end(source, i);
             Kind::Directive
         } else if rest.starts_with("//") {
-            i += rest.find('\n').unwrap_or(rest.len());
+            i = line_end(source, i);
             Kind::Comment
         } else if let Some(body) = rest.strip_prefix("/*") {
             let close = body
@@ -200,7 +200,10 @@ fn raw_string_end(source: &str, start: usize) -> Option<Option<usize>> {
     )
 }
 
-fn directive_end(source: &str, start: usize) -> usize {
+/// The end of a preprocessor line or `//` comment starting at `start`:
+/// the first line break not preceded by `\`, because line splicing comes
+/// before comments and directives are recognized.
+fn line_end(source: &str, start: usize) -> usize {
     let bytes = source.as_bytes();
     let mut i = start;
     while i < bytes.len() {
@@ -308,7 +311,9 @@ impl Reader<'_> {
         let mut aggregate = false;
         let mut body = None;
         let mut paren = None;
-        let mut index = start;
+        // A `template <...>` prefix's default arguments (`T = int`) are
+        // not an initializer.
+        let mut index = self.skip_template(start, self.tokens.len());
         while index < self.tokens.len() {
             match self.tokens[index].kind {
                 Kind::Open('{') if !initialized && body.is_none() => {
@@ -698,6 +703,7 @@ enum Declares {
 /// The lines of a `//` or `/* */` comment with the comment markers removed.
 fn comment_lines(comment: &str) -> Vec<String> {
     if let Some(line) = comment.strip_prefix("//") {
+        let line = line.replace("\\\r\n", "").replace("\\\n", "");
         return vec![line.trim_start_matches(['/', '!']).to_owned()];
     }
     let inner = comment
@@ -850,5 +856,39 @@ TEST(CalcTest, Other) {}
                 ("fixture.cpp::C::f", Some("SRC-X")),
             ]
         );
+    }
+    /// @vtest.id TEST-ADAPTER-CPP-TEMPLATE-DEFAULTS-AND-LINE-SPLICES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/cpp.rs::Reader::declaration_end
+    /// @vtest.intent verifies default template arguments are not an initializer, so the function after them is found with its whole body, and a line comment continued with a backslash hides the code on its next line
+    #[test]
+    fn template_defaults_and_line_splices() {
+        let source = "template<typename T = int> T f() { return T{}; }\ntemplate<int N = 3, typename U = std::vector<int>> int g() { return N; }\ntemplate<typename T>\nstruct S { template<typename V = T> V h() { return V{}; } };\n// disabled \\\nint phantom() { return 1; }\nint real() { return 2; }\n";
+        let outcome = discover_text(&Cpp, "src/a.cpp", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec![
+                "src/a.cpp::f",
+                "src/a.cpp::g",
+                "src/a.cpp::S::h",
+                "src/a.cpp::real"
+            ]
+        );
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        let one = format!("{declare}template<typename T = int> T t() {{ return T{{1}}; }}\n");
+        let two = one.replace("T{1}", "T{2}");
+        let text = |source: &str| {
+            let outcome = discover_text(&Cpp, "src/t.cpp", source, "demo");
+            assert_eq!(outcome.tests.len(), 1, "{:?}", outcome.diagnostics);
+            outcome.tests[0].construct_text.clone()
+        };
+        assert!(text(&one).ends_with("return T{1}; }"));
+        assert_ne!(text(&one), text(&two));
     }
 }
